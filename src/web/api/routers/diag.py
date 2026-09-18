@@ -907,6 +907,14 @@ _LOG_FILES: dict[str, Path] = {
         runtime_logs_dir() / "losing_streak_alert_state.json",
     "losing_streak_observed_state":
         runtime_logs_dir() / "losing_streak_observed_state.json",
+    # MI-303. The latch that rate-limits the DECISION-CHANNEL page. Allowlisted
+    # in the SAME commit that shipped the writer, for the reason the
+    # `exit_loop_health` #8778 lesson records: a latch that suppresses an
+    # operator page and cannot itself be inspected is worse than no latch —
+    # "the latch is holding" and "the latch is wedged and nothing will ever
+    # page again" are otherwise indistinguishable from outside.
+    "decision_channel_alert_state":
+        runtime_logs_dir() / "decision_channel_alert_state.json",
     "starved_account_alert_state":
         runtime_logs_dir() / "starved_account_alert_state.json",
     "starved_account_observed_state":

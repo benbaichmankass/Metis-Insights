@@ -770,8 +770,26 @@ def main():
             # /api/diag/log_file?name=work_decision_sweep_receipt. This stays
             # for the operator tailing journalctl live.
             if (stats.get("prompted_choice") or stats.get("prompted_free_text")
+                    or stats.get("prompted_choice_shortened")
                     or stats.get("redelivered")):
                 logger.info("work-decision prompts: %s", stats)
+            # ⚠️ MI-303: THE RECEIPT NOW HAS A READER, AND THAT IS THE HALF
+            # THAT WAS MISSING. The sweep wrote a durable receipt on every run
+            # and NOTHING read it, so a channel delivering nothing on 47 of 47
+            # runs reported every health field good and four operator
+            # decisions reached nobody. `run_decision_channel_check` grades
+            # `sweep_outcome` and pages on a failing channel through
+            # outcomes.jsonl — Telegram and /api/bot/logs — rather than into
+            # the systemd journal, whose measured retention is ~30 minutes.
+            # Latched on the shared durable cooldown, so it cannot become the
+            # desensitised alarm it exists to replace.
+            try:
+                from src.runtime.decision_channel_alert import (
+                    run_decision_channel_check,
+                )
+                await asyncio.to_thread(run_decision_channel_check)
+            except Exception as exc:  # noqa: BLE001 — never kills the poller
+                logger.warning("decision-channel check failed: %s", exc)
 
         _wd_interval = prompt_interval_seconds()
         if _wd_interval > 0:
