@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01DabHd36V6iqcd9diSrCFfP",
+  "branch": "claude/mi302-backlog-drain",
+  "claimed_at": "2026-09-17T23:28:11Z",
+  "purpose": "MI-302 backlog drain: close 5 health-review-backlog.json rows + 1 skill-doc landing-table row"
+}

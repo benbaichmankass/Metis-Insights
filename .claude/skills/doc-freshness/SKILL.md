@@ -137,6 +137,20 @@ Then, scoped to what changed this session:
    | Live-VM action (deploy/mode-flip/restart) | if it changes a milestone's state | **required** | — | the system-action issue/audit |
    | Per-trade / strategy-perf finding | — | if part of a sprint | `performance-review-backlog.json` | `claude_strategy_scores.jsonl` |
    | ML experiment outcome | M14 row if it moves a sprint | if part of a sprint | `ml-review-backlog.json` | manifest/registry |
+   | Flipped an env knob / armed a gate this session | if it changes a milestone's state | — | — | **required**: record the LIVE VALUE + how it was verified (e.g. `get-env` against `/proc/<MainPID>/environ`, never the `.env` file) in CLAUDE.md's env-var table row for that knob |
+
+   The last row exists because a doc row that states NO live value for an
+   armed knob reads exactly like a doc row about a disarmed one — a silent
+   gap, not a wrong claim, and the two need different fixes.
+   `scripts/ci/check_canonical_doc_coherence.py::check_env_knob_live_values`
+   is the mechanical backstop for this, over the full population in
+   `scripts/ops/get_env.py::ALLOWED_KEYS`: it grades every knob `claimed` /
+   `silent` (documented, but the row states no live value) / `undocumented`
+   (no row at all) and prints the census every run so a coverage gap cannot
+   read as a clean pass. It ratchets on `claimed` rather than failing on
+   today's residue — do not write a value you have not verified live just to
+   raise the count; an un-verified "live value" line is the exact fabrication
+   the coverage figure exists to expose.
 
    The two surfaces that most often get skipped are **ROADMAP.md** (a decision
    lands in a sprint log or a research doc but the centralized record never
