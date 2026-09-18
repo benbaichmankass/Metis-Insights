@@ -7,6 +7,15 @@
 (22 selftests, 9 negative controls). Artifact:
 `docs/research/mi251-inverse-proxy-screen-2026-09-18.json`.
 
+⚠️ **THIS ITEM WAS ANSWERED ONCE BEFORE AND THIS DOCUMENT IS ITS SUCCESSOR, NOT
+ITS REPLACEMENT.** `docs/research/alpaca-inverse-etf-route-2026-09-10.md` (#11693)
+answered the same operator decision eight days earlier. **Its governing finding —
+that no inverse-translation mechanism exists anywhere in `src/` — still stands and
+is not re-derived here.** What this adds is the nine-candidate screen, the parent
+join, the roster history, and ceilings in place of a verdict list. ⚠️ **Their flow
+figures look 2× apart and must not be pooled or averaged — see §4.1**, which
+reconciles them (the 1000-row cap slid ~2 weeks between the two reads).
+
 ⚠️ **THIS SCREENS AND PROPOSES. IT WIRES NOTHING.** `config/` is untouched.
 Declaring an instrument on `alpaca_live` touches a **real-money** `symbols:`
 list and the CI-enforced `alpaca_portfolio` mirror equality, so any wiring is a
@@ -87,13 +96,22 @@ currently be spent on `SH`/`PSQ`, whose parent legs route to `alpaca_paper` and
 | candidates | the nine -1x tickers the 2026-08-25 runner sweep priced, plus `DDG` which it could not | **10** |
 | prices / stops | `yfinance-lane-proof` run 32828398224 (job 97741405818), **as of 2026-08-24** | 9 priced, 1 `fetch_failed` |
 | roster history | every commit to `config/accounts.yaml` since 2026-08-20 | **8** |
-| flow | `order_packages` tail via `/api/diag/journal`, **2026-06-02 → 2026-09-18** | **1000 rows** |
+| flow | `order_packages` tail via `/api/diag/journal`; min/max `2026-06-02 → 2026-09-18` but **995 of 1000 rows are 2026-08-01 or later** — read the mass, not the extremes | **1000 rows** |
 | legs | `config/strategies.yaml` | 55 |
 
 ⚠️ **The flow figure is a 1000-row TAIL, not the table.** `/api/diag/journal`
 hard-caps at 1000 rows `id DESC` whatever limit is asked, so this is the most
 recent slice and **not** the whole-history basis the 2026-08-25 note used
 (3,984–4,029 rows). The two are not comparable and are never pooled here.
+
+⚠️ **AND A CAPPED TAIL'S MIN/MAX IS NOT ITS WINDOW — quoting one overstates
+coverage by a factor of three here.** Measured over this very fetch: **1 row in
+2026-06, 4 in 2026-07, 456 in 2026-08, 539 in 2026-09.** So the honest span is
+**~2026-08-01 → 2026-09-18 (~7 weeks)**, not the 108 days the endpoints suggest;
+five outlier rows carry the whole first half. An earlier draft of this document
+published `2026-06-02 → 2026-09-18` as the window, which was the min and the max
+and was true of nothing else. Report the **mass**, not the extremes.
+Filed as `BL-20260918-A-CAPPED-TAILS-MIN-MAX-IS-PUBLISHED-AS-ITS-WINDOW-SO-TWO-MEMOS-OF-THE-SAME-ITEM-READ-AS-DISAGREEING-2X`.
 
 ⚠️ **Prices are 25 days old.** They are used to *illustrate* the ceilings, never
 as a current answer — see §3.
@@ -204,6 +222,49 @@ plumbing/expressibility question. Do not read the per-leg percentages as rates.
 leg's packages fleet-wide, which is the same basis the 2026-08-25 note used. A
 package is produced once and fanned out, so this counts the flow a proxy would
 have to express — not fills on this account.
+
+### 4.1 Reconciled against the PREVIOUS MI-251 memo, which this document must not be read beside without it
+
+**MI-251 was answered once already** — `docs/research/alpaca-inverse-etf-route-2026-09-10.md`
+(383 lines, `session_01Ek2KDXDeLAMrN4JH4aEXWf`, merged as #11693), against the
+same operator answer of 2026-09-10. ⚠️ **An earlier draft of this document did
+not cite it**, and citing only the 2026-08-25 affordability sweep as "the
+predecessor" was wrong: there is a closer one, under this item's own id.
+
+**Its headline flow figure and this one look like a 2× disagreement, and they are
+not one.** Over the same five legs:
+
+| | window as published | packages | short | short % |
+|---|---|---:|---:|---:|
+| 2026-09-10 memo | `2026-07-16 → 2026-09-10` | 34 | **19** | 55.9% |
+| this memo | `2026-06-02 → 2026-09-18` | 29 | **12** | 41.4% |
+
+**Neither is wrong, and the difference is the CAP SLIDING, not a measurement
+error.** Both read a 1000-row tail; in the 8 days between them the tail moved
+forward roughly two weeks, so the two populations are **largely non-overlapping**
+at their old end. Verified rather than asserted, on a fresh fetch of the same
+route (2026-09-18T22:38Z):
+
+- This document's figures **reproduce exactly** — 29 / 12, per-leg identical.
+- **The 2026-09-10 figures cannot be reproduced from today's tail, and that is
+  expected rather than a defect**: restricted to *its* published window today's
+  tail yields 22 / 7, because today's tail holds only **5 rows before
+  2026-08-01** and so no longer reaches most of that window. The missing rows are
+  not deleted — they have fallen off a cap that both memos were subject to.
+
+⚠️ **SO THE TWO MUST NEVER BE POOLED, AND NEITHER SUPERSEDES THE OTHER ON FLOW.**
+They measure different, largely disjoint periods under one filename convention.
+If a decision needs the flow figure, re-measure it; do not average these.
+
+**What this document adds that the 2026-09-10 memo did not do:** it screens
+**all nine** candidates rather than `TBF` alone; it performs the **parent join**
+(which of them serve a leg this account actually routes — the finding that
+governs); it recovers the **roster history** that inverts the 2026-08-25 build
+order; it emits **ceilings instead of a verdict list**; and it records the
+`risk_pct` 0.05 → 0.02 change. **What it does NOT add, and what remains the
+2026-09-10 memo's finding, is the governing one: there is no inverse-translation
+mechanism anywhere in `src/`** — that memo's grep-with-control stands, this
+document does not re-derive it, and it is still the reason nothing can be wired.
 
 ---
 
