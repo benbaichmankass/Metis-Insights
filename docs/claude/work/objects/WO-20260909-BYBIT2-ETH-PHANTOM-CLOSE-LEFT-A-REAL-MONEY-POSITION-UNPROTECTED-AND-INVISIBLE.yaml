@@ -4,10 +4,10 @@ parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
 title: >-
   REAL MONEY, UNPROTECTED, 5 DAYS: bybit_2 ETHUSDT 0.04 long is live on the venue with no TP/SL while journal trade 5471 records it CLOSED on `sl`, and two independent bot readers do not return it
 stage: EVIDENCE
-lifecycle: in_flight
+lifecycle: done
 owner: null
 opened_at: 2026-09-09
-closed_at: null
+closed_at: 2026-09-18
 review_trigger: >-
   P1. Operator-reported from the Bybit terminal. Re-read on any change to the
   Bybit position readers or the close-detection path.
@@ -129,3 +129,76 @@ findings:
     reconciler's flat test) changes what the reconciler considers open on a live
     order path — Tier-2/3. Proposed in the backlog rows' resolution_criteria, NOT
     applied. No order was placed, modified or cancelled on bybit_2 in this session.
+
+  resolution: >-
+    CLOSED 2026-09-18 by ops lane MI-315 (session dispatched to unstick this row,
+    which had sat `in_flight`/`owner: null` for 9 days despite ALREADY BEING
+    RESOLVED, same day, by its own investigating session). This is a manager
+    process failure, not a re-investigation: the object's `findings` block above
+    is a SNAPSHOT from PR #11545/#11548/#11552 (2026-09-09, before the
+    investigation's own §12-20) and was never updated when the premise it records
+    as `not_established` was subsequently REFUTED, hours later, in the SAME
+    session's evidence doc
+    (docs/claude/work/BYBIT2-ETH-PHANTOM-CLOSE-2026-09-09.md §18-20, PRs #11576 +
+    #11580, merged 2026-09-09). Nobody closed the object after the doc settled.
+
+    THE ANSWER, established 2026-09-09 and re-verified fresh today: there was
+    NEVER an unprotected window on trade 5471. §18 reads Bybit's own raw order
+    history for both of 5471's protective legs (route
+    `/api/diag/bybit_raw_order_history`, added by this investigation) — the
+    PartialStopLoss leg was created 0ms after the entry FILLED
+    (`created_time`/`updated_time` both `2026-09-04T14:04:13.938Z`), rested
+    3d23h32m, then FILLED at `2026-09-08T13:37:13.873Z` at `avg_price 2451.27`
+    — EXACTLY matching the journal's `exit_price` and the independently-sourced
+    `bybit_closed_pnl` record from a SECOND endpoint (`account_closed_pnl_for_trade`).
+    `cancel_type: UNKNOWN` on both legs means never cancelled, not a masked
+    cancellation. Two independent venue endpoints agree on when and at what
+    price the position closed; neither is our own monitor inferring a close.
+    `exit_reason='sl'` is corroborated, not merely consistent.
+
+    §19-20 then closed the remaining thread — why the operator's screenshot
+    showed an ETH row with no visible brackets. The manager's own
+    terminal-display hypothesis (does Bybit's UI read position-level fields,
+    which are `null` under `BYBIT_TPSL_MODE=partial`, and render a covered
+    position as bracketless?) was raised and REFUTED by the manager itself
+    26 minutes later: the screenshot's XRPUSDT row (independently confirmed
+    fully protected on both legs) DID show a leg-level TP value (1.5535), so the
+    terminal reads leg-level, not position-level — the opposite of what the
+    hypothesis needed. What actually explains the sighting: the operator's own
+    words at 2026-09-09T16:03Z, "i see the eth trade closed, longer ago than i
+    realized" — the ETH row in the screenshot was ALREADY CLOSED (per §18,
+    2026-09-08T13:37:13Z) and correctly showed no resting legs, because a closed
+    position has none. Nothing was naked at any point.
+
+    RE-VERIFIED FRESH 2026-09-18 (this session, direct HTTPS diag,
+    `served by https://ict-bot.duckdns.org`): `bybit_2` is CURRENTLY FLAT on
+    every configured symbol (BTC/ETH/XRP/ADA), both hedge books, via the
+    now-deployed fixed reader — `/api/diag/log_file?name=position_read_state_soak`
+    tail at 2026-09-18T06:5x:xxZ shows `rows_seen: 8, emitted: 0,
+    dropped_symbol_dedupe_count: 0, dropped_zero_size_count: 8,
+    could_not_look_count: 0` for bybit_2 across a full symbol-scoped sweep of all
+    four configured symbols (not just the settleCoin page) — genuinely zero, not
+    a masked/dropped book. Direct `/api/diag/exchange_positions` and
+    `/api/diag/bybit_open_orders` both confirm zero positions, zero resting
+    orders. No real-money exposure exists today, and the journal shows three
+    further ETHUSDT bybit_2 round-trips since (trades 5644, 5682, 5702, all
+    2026-09-10 through 09-13) executing and closing normally with no naked or
+    hedge-masking incident reported against this symbol/account in the interim.
+
+    WHAT THIS DOES NOT CLOSE, and is tracked separately, already filed, and (per
+    CLAUDE.md's current OI ledger) independently repaired: the symbol-dedupe
+    hedge-book-masking defect this investigation surfaced along the way
+    (`BL-20260909-ACCOUNT-OPEN-POSITIONS-DEDUPES-BYBIT-POSITIONS-BY-SYMBOL-SO-A-HEDGE-BOOK-IS-DROPPED-AND-THE-ORDER-STATUS-RECONCILER-CLOSES-A-LIVE-ROW`)
+    is a real, separately-filed class-level defect — fixed and deployed via
+    MI-283/#11903 on 2026-09-12 (`OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP`
+    in CLAUDE.md), which is its own open row and not reopened by closing this
+    one. Likewise `BL-20260909-A-BYBIT-POSITION-ROW-CANNOT-STATE-ITS-OWN-PROTECTION-UNDER-PARTIAL-MODE`
+    and the sibling-coverage class from §17 stand on their own evidence,
+    unaffected by this closure.
+
+    Lesson for the manager process, stated so it does not recur: an object
+    whose OWN evidence doc reaches a settled conclusion mid-investigation must
+    be closed (or have its `findings` block updated) by the SAME session that
+    reaches it, not left for a future re-establishment pass to discover 9 days
+    later. This row was carried on the WIP ceiling and in every daily brief as a
+    live P1 real-money risk for 9 days after it had already been fully resolved.
