@@ -1,6 +1,12 @@
 {
   "generated_at": "2026-09-18",
   "p1_structural": {
+    "gate_counts": {
+      "harness": 13,
+      "live": 13,
+      "min_ratio_required": 0.5,
+      "ratio": 1.0
+    },
     "harness_disjuncts": [
       "__PRICE__ <= S",
       "__PRICE__ >= R",
@@ -94,7 +100,7 @@
     },
     "shared_disjunct_count": 18,
     "state": "equivalent_modulo_order",
-    "verdict_note": "state is DERIVED from whether any residual disjunct is UNCLASSIFIED. A residual that is the harness's own loop bookkeeping or the live unit's argument validation is not an entry rule and is reported rather than counted."
+    "verdict_note": "`idiom_mismatch` means the two sides do not express gates the same way, so there is NOTHING TO COMPARE -- it is *we could not look*, never a divergence. Otherwise state is DERIVED from whether any residual disjunct is UNCLASSIFIED. A residual that is the harness's own loop bookkeeping or the live unit's argument validation is not an entry rule and is reported rather than counted."
   },
   "p2_behavioural": {
     "relaxed_all": {

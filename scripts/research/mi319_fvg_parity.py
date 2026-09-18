@@ -113,6 +113,29 @@ P1_IDENTICAL = "identical"
 P1_EQUIVALENT_REORDERED = "equivalent_modulo_order"
 P1_DIVERGENT = "divergent"
 P1_COULD_NOT_PARSE = "could_not_parse"          # we did not look
+P1_IDIOM_MISMATCH = "idiom_mismatch"            # we did not look, for a DIFFERENT reason
+
+#: The smallest `min/max` ratio of the two sides' gate counts at which a
+#: comparison still has a basis.
+#:
+#: ⚠️ CHOSEN, WITH ITS BASIS STATED, AND ITS n IS TWO. This probe compares gate
+#: SETS, so it is only meaningful when both sides express their gates in the same
+#: idiom — `if <test>: reject`. Measured over the two pairs available:
+#:   fvg   : 13 harness gates vs 13 live  -> ratio 1.00
+#:   scalp :  3 harness gates vs 11 live  -> ratio 0.27
+#: `backtest_ict_scalp.py::run_backtest` holds 17 `if` nodes and only FOUR
+#: `continue`s, i.e. its entry gating is not written as bare rejection gates at
+#: all, so 8 of the live side's 11 gates have nowhere to match and the residual is
+#: an artifact of the idiom rather than a divergence. 0.5 sits between the two
+#: measured cases.
+#:
+#: ⚠️ THE POLARITY IS DELIBERATE: a false `idiom_mismatch` costs a REFUSAL TO
+#: GRADE, which a reader can act on; a false `divergent` costs a WRONG VERDICT on
+#: whether a live unit matches the book it was validated against. This was found
+#: by pointing the probe at ict_scalp and getting a confident `divergent` for a
+#: pair it cannot see — the unprovenanced-diagnostic class this repo has a guard
+#: for, committed by the module that grades other people's claims.
+GATE_IDIOM_MIN_RATIO = 0.5
 
 P2_AGREE = "agree"
 P2_DISAGREE = "disagree"
@@ -315,7 +338,14 @@ def probe_structural(harness_path: Path = HARNESS_PATH,
                else "unclassified_divergence")
         residuals[key].append(d)
 
-    if not residuals["unclassified_divergence"]:
+    # ⚠️ THE IDIOM PRECONDITION IS TESTED BEFORE ANY VERDICT. Without it the
+    # probe reports `divergent` on a pair whose harness simply does not express
+    # gates as rejections — a negative with no denominator.
+    n_h, n_l = len(h), len(lv)
+    ratio = (min(n_h, n_l) / max(n_h, n_l)) if max(n_h, n_l) else 0.0
+    if max(n_h, n_l) == 0 or ratio < GATE_IDIOM_MIN_RATIO:
+        state = P1_IDIOM_MISMATCH
+    elif not residuals["unclassified_divergence"]:
         state = P1_IDENTICAL if h == lv else P1_EQUIVALENT_REORDERED
     else:
         state = P1_DIVERGENT
@@ -330,7 +360,13 @@ def probe_structural(harness_path: Path = HARNESS_PATH,
         "live_only_disjuncts": l_only,
         "residual_classification": residuals,
         "order_matches": h == lv,
-        "verdict_note": ("state is DERIVED from whether any residual disjunct is "
+        "gate_counts": {"harness": len(h), "live": len(lv),
+                        "ratio": round(ratio, 4),
+                        "min_ratio_required": GATE_IDIOM_MIN_RATIO},
+        "verdict_note": ("`idiom_mismatch` means the two sides do not express gates "
+                         "the same way, so there is NOTHING TO COMPARE -- it is *we "
+                         "could not look*, never a divergence. Otherwise "
+                         "state is DERIVED from whether any residual disjunct is "
                          "UNCLASSIFIED. A residual that is the harness's own loop "
                          "bookkeeping or the live unit's argument validation is not "
                          "an entry rule and is reported rather than counted."),
@@ -741,6 +777,26 @@ def _selftest() -> int:
         r3 = probe_structural(hp, lp)
         ck("NEG3: reordered grades equivalent_modulo_order",
            r3["state"] == P1_EQUIVALENT_REORDERED)
+        # NEG11 -- a pair whose harness does not express gates as rejections must
+        # REFUSE TO GRADE, never report `divergent`. This is the real ict_scalp
+        # case reduced: 1 harness gate against 4 live ones.
+        hp.write_text("def run_backtest():\n    while True:\n        if a < b:\n            continue\n")
+        lp.write_text("def order_package():\n    if a < b:\n        raise ValueError('1')\n"
+                      "    if c > d:\n        raise ValueError('2')\n"
+                      "    if e > f:\n        raise ValueError('3')\n"
+                      "    if g > h_:\n        raise ValueError('4')\n")
+        r11 = probe_structural(hp, lp)
+        ck("NEG11: an idiom mismatch refuses to grade, it does not report divergent",
+           r11["state"] == P1_IDIOM_MISMATCH)
+        ck("NEG11b: and it reports the counts that made it refuse",
+           r11["gate_counts"]["harness"] == 1 and r11["gate_counts"]["live"] == 4)
+        # NEG12 -- the precondition must not swallow a REAL divergence on a pair
+        # whose idiom matches: equal counts, one genuinely unexplained residual.
+        hp.write_text("def run_backtest():\n    while True:\n        if a < b:\n            continue\n        if zzz > 1:\n            continue\n")
+        lp.write_text("def order_package():\n    if a < b:\n        raise ValueError('1')\n    if qqq > 1:\n        raise ValueError('2')\n")
+        r12 = probe_structural(hp, lp)
+        ck("NEG12: a matched-idiom pair with a real residual still grades divergent",
+           r12["state"] == P1_DIVERGENT)
         # NEG7 -- a gate split across two ifs is NOT a divergence
         hp.write_text("def run_backtest():\n    while True:\n        if a < b:\n            continue\n        if c > d:\n            continue\n")
         lp.write_text("def order_package():\n    if a < b or c > d:\n        raise ValueError('x')\n")
@@ -798,6 +854,10 @@ def _selftest() -> int:
     ck("states: P3_COULD_NOT_MEASURE is not P3_CONVERGED",
        P3_COULD_NOT_MEASURE != P3_CONVERGED)
     ck("P3: tolerance is stated, not 1e-6", ADX_CONVERGED_TOL == 0.01)
+    ck("P1: the real fvg pair clears the idiom precondition",
+       probe_structural()["gate_counts"]["ratio"] >= GATE_IDIOM_MIN_RATIO)
+    ck("states: idiom_mismatch is neither divergent nor could_not_parse",
+       len({P1_IDIOM_MISMATCH, P1_DIVERGENT, P1_COULD_NOT_PARSE}) == 3)
     ck("states: all P2 tokens distinct",
        len({P2_AGREE, P2_DISAGREE, P2_NO_ACCEPTS, P2_COULD_NOT_RUN}) == 4)
 

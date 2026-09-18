@@ -80,6 +80,40 @@ Each residual is classified by the **names it references in the AST**, not by it
 | `len(candles_df) < needed` | `live_input_validation` | the harness validates its frame once before the loop; the live unit validates its argument on every call. |
 | `missing_cols` | `live_input_validation` | same — an OHLC-column check the harness performs at load. |
 
+### 2.1 What P1 refuses to grade, found by pointing it at the sibling leg
+
+MI-312 § 2 says *"both live units are documented **verbatim ports** of these harnesses
+(`fvg_range_15m.py:228`, `ict_scalp.py:736`)"*. **Half of that citation does not hold, and it is worth
+recording because the premise is load-bearing for seven `execution: live` legs.** `fvg_range_15m`
+makes the claim twice (lines 180 and 228). **`ict_scalp.order_package` makes no port claim at all** —
+read, not grepped-for-absence — and `ict_scalp.py:736` is the `stale_stop` **monitor** docstring
+claiming *exit-lever* parity for one lever. An entry-port claim was generalised from an exit-lever one.
+
+**So the obvious next step was to point P1 at the `ict_scalp` pair, and it returned a confident
+`divergent` for a pair it cannot see.** `backtest_ict_scalp.py::run_backtest` holds **17 `if` nodes
+and four `continue`s** — its entry gating is not written as bare rejection gates — so the probe found
+**3 harness gates against 11 live ones**, and 8 of the live side's gates had nowhere to match. That
+residual is an artifact of the idiom, not a divergence: **sub-class C, an unasserted denominator,
+committed by the module that exists to grade other people's claims.**
+
+P1 now tests an **idiom precondition first** and grades **`idiom_mismatch`** — *we could not look*,
+a third state distinct from both `divergent` and `could_not_parse` — when the two sides' gate counts
+are too unequal for a set comparison to mean anything. The ratio is reported beside every verdict:
+
+| pair | harness gates | live gates | ratio | verdict |
+|---|---:|---:|---:|---|
+| `fvg_range_15m` | 13 | 13 | **1.00** | graded |
+| `ict_scalp` | 3 | 11 | **0.27** | **`idiom_mismatch`** — refused |
+
+⚠️ **The 0.5 threshold is CHOSEN and its n is TWO**, which is stated in the code rather than implied.
+The polarity is what makes it safe: a false `idiom_mismatch` costs a **refusal a reader can act on**,
+a false `divergent` costs a **wrong verdict about whether a live unit matches the book it was
+validated against**.
+
+⚠️ **This says nothing about whether `ict_scalp` IS a port.** It is now **unmeasured** rather than
+wrongly measured, and measuring it needs a probe that can read that harness's idiom. That is the next
+unit, not this one's finding.
+
 **Verdict P1: `equivalent_modulo_order`.** The ordering differs — the live unit computes the target
 and its degenerate guard *before* confidence, the harness *after* — and that reorders nothing that
 matters, because neither gate's input depends on the other's output, so the accepted set is
@@ -246,7 +280,7 @@ reading.
 ## 8. Reproduce
 
 ```bash
-python3 scripts/research/mi319_fvg_parity.py --selftest   # 32 checks, 11 negative controls
+python3 scripts/research/mi319_fvg_parity.py --selftest   # 37 checks, 14 negative controls
 python3 scripts/research/mi319_fvg_parity.py --run        # writes the JSON artifact
 ```
 
