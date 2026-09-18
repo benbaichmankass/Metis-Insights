@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-18T06:36:37+00:00",
+  "generated_at": "2026-09-18T09:55:14+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
-      "rows": 79,
+      "rows": 80,
       "note": ""
     },
     "soaks": {
@@ -27,18 +27,18 @@
     },
     "probes": {
       "state": "read",
-      "rows": 9,
-      "note": "freshness=fresh age=20.5h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "rows": 8,
+      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 2,
+      "rows": 1,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
-      "rows": 0,
-      "note": "7 workflow(s) graded, 0 red · 0 graded at `main`'s tip · worst distance 1 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
+      "rows": 1,
+      "note": "8 workflow(s) graded, 1 red · 7 graded at `main`'s tip · worst distance 10 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
       "state": "read",
@@ -47,13 +47,13 @@
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 65,
+      "rows": 66,
       "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-18T06:36:33+00:00, age 0.0h"
+      "note": "digest 2026-09-18T06:36:33+00:00, age 3.3h"
     },
     "sunset": {
       "state": "read",
@@ -68,7 +68,7 @@
     "stuck_branches": {
       "state": "read",
       "rows": 1,
-      "note": "227 branch(es) standing"
+      "note": "246 branch(es) standing"
     },
     "settled_disposition_owed": {
       "state": "read",
@@ -78,7 +78,7 @@
     "spent_decision_edges": {
       "state": "read",
       "rows": 5,
-      "note": "188 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 5 on a `waiting` object"
+      "note": "189 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 5 on a `waiting` object"
     },
     "manager_queue_watch": {
       "state": "read",
@@ -87,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 201,
-    "loud": 154
+    "due": 202,
+    "loud": 155
   },
   "rows": [
     {
@@ -176,7 +176,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 376.7h ago, on the order of 376 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 380.0h ago, on the order of 379 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 15,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -239,7 +239,7 @@
       "source": "soaks",
       "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
       "title": "MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L",
-      "why_due": "soak READY — ✅ READY — 83 matching row(s) of 1000 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.",
+      "why_due": "soak READY — ✅ READY — 41 matching row(s) of 1000 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.",
       "age_days": 12,
       "loud": true,
       "link": ""
@@ -1352,6 +1352,15 @@
       "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12511"
     },
     {
+      "source": "unlanded_automation",
+      "id": "#12529",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12529"
+    },
+    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -1397,13 +1406,22 @@
       "link": ""
     },
     {
-      "source": "probes",
-      "id": "OI-20260913-THE-DEFAULT-BRANCH-RED-READER-IS-DEPLOYED-AND-HAS-NEVER-QUERIED-THE-ACTIONS-API",
-      "title": "The committed due-list envelope carries a `red_main_runs` entry whose state is `read` -- i.e. the source was CALLED and had a token. THE POSITIVE CONTROL IS THE SIBLING SOURCE `red_crons`, chosen beca",
-      "why_due": "probe FAILED — its declared observation did not hold",
-      "age_days": null,
+      "source": "open_items",
+      "id": "OI-20260918-THE-TARGET-GEOMETRY-PACKET-EXISTS-AND-ITS-THREE-DECISIONS-ARE-UNANSWERED",
+      "title": "MI-317 (PR #12526) delivered the per-leg target-geometry decision packet over ALL 55 legs in config/strategies.yaml: docs/research/per-leg-target-geometry-packet-2026-09-18.md and docs/research/mi317-",
+      "why_due": "loud row — must be reported on every session",
+      "age_days": 0,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "red_main_runs",
+      "id": "branch-protection-sync",
+      "title": "branch-protection-sync",
+      "why_due": "the latest push-to-main run of branch-protection-sync concluded 'failure' — the DEFAULT BRANCH is red, and until 2026-09-13 nothing read this. Graded at 3a6278612, `main`'s tip",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35330191976"
     },
     {
       "source": "red_crons",
@@ -1413,15 +1431,6 @@
       "age_days": null,
       "loud": true,
       "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35309791102"
-    },
-    {
-      "source": "red_crons",
-      "id": "replay-pregate-nightly",
-      "title": "replay-pregate-nightly",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35204197736"
     },
     {
       "source": "spent_decision_edges",
@@ -1471,8 +1480,8 @@
     {
       "source": "stuck_branches",
       "id": "stuck-branches-changed",
-      "title": "43 automation branch(es) newly stranded, 0 cleared",
-      "why_due": "automation/constraint-readout-34688895522-1, automation/constraint-readout-34755029388-1, automation/constraint-readout-34844017938-1, automation/constraint-readout-34964155425-1, automation/constraint-readout-35089998947-1…. A stranded automation branch is a producer whose output never landed; a red check on a base that has since been fixed will NEVER re-run on its own, so nothing recovers it without a push.",
+      "title": "19 automation branch(es) newly stranded, 0 cleared",
+      "why_due": "automation/data-commit-35184094134-1, automation/data-commit-35185407037-1, automation/error-feed-digest-35190585909-1, automation/reconcile-open-prs-35240633088-1, automation/reconcile-open-prs-35241174254-1…. A stranded automation branch is a producer whose output never landed; a red check on a base that has since been fixed will NEVER re-run on its own, so nothing recovers it without a push.",
       "age_days": null,
       "loud": true,
       "link": "docs/claude/STUCK-BRANCHES.json"
