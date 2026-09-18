@@ -1,0 +1,110 @@
+id: WO-20260918-DOES-THE-ICT-SCALP-HARNESS-FEED-THE-LIVE-DECISION-LIVE-INPUTS
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: backtest_ict_scalp.py CALLS the live order_package -- does it hand that
+  function the same window and the same config the live builder does?
+stage: EVIDENCE
+lifecycle: waiting
+owner: session_01Ex5Dx1TMYy46ncsp8eptpx
+opened_at: 2026-09-18
+why: >-
+  MI-321, the research lane's item after MI-320. MI-320 established that this harness
+  IMPORTS and CALLS the live order_package rather than reimplementing it, so its entry
+  decision is exact BY CONSTRUCTION -- which moves the question rather than answering it,
+  and MI-320's own memo says so. What can still differ is the INPUTS: the window (the
+  harness slides 50 bars, the live builder fetches 200 -- MI-319's declared-minimum
+  class) and the CONFIG (the harness reads one hardcoded YAML block while the fleet runs
+  eight legs, seven of them through a variant builder reading their own). Both classes
+  are already established as REAL by MI-312 and MI-319, which is what made this the
+  cheapest path to a KNOWN class rather than a speculative one.
+done_condition: >-
+  A stated verdict on each seam SEPARATELY with its population, derived from RUNNING the
+  live order_package rather than from reading it. A window verdict with no accepts in its
+  population does NOT satisfy it -- two probes that declined everything agree about
+  nothing.
+must_not:
+  - >-
+    Carry MI-319's 21.9% gate-disagreement figure to this unit. fvg_range_15m diverged at
+    its declared minimum because its ADX is a three-deep ewm recursion; ict_scalp's _add_atr
+    is a finite rolling mean. Quoting the number across units is the unprovenanced
+    generalisation MI-319's own decision request warns against -- measure instead.
+  - >-
+    Edit scripts/backtest_ict_scalp.py or any src/ file. Both are the SUBJECT, so no
+    verdict any other run produced can have been changed by this one.
+  - >-
+    Report a published backtest number as wrong. What is established is that the harness
+    CANNOT REPRODUCE the gated arm today; where any published figure for that leg actually
+    came from was NOT traced.
+  - >-
+    Grade a config key by one predicate over the harness alone. "Does this name reach a
+    control-flow decision" returns TRUE for vol_spec, which guards the regime-STAMPING
+    routine -- the asymmetry only appears when both sides are measured the same way and
+    joined.
+outcome: >-
+  MET. Evidence: docs/research/ict-scalp-seam-2026-09-18.md, instrument
+  scripts/research/mi321_ict_scalp_seam.py (26 selftests, 11 negative controls), artifact
+  docs/research/mi321-ict-scalp-seam-2026-09-18.json.
+  (1) THE WINDOW SEAM IS CLOSED, MEASURED NOT REASONED. The same live order_package was
+  called on every bar at both window lengths over 9,879 graded bars of
+  data/btc_1m_sample.csv: 46 accepts at 50 bars, 46 at 200, ZERO differing geometry and
+  ZERO one-sided accepts. The 46 is the load-bearing half -- a zero-accept population is
+  graded `no_accepts_in_population` and is NOT agreement.
+  (2) THE CONFIG SEAM IS OPEN ON EXACTLY ONE LEG. All 8 ict_scalp legs are execution:
+  live. The harness hardcodes the ict_scalp_5m block; 5 legs differ from it, and 4 of
+  those differ only in keys a CLI flag genuinely restores (timeframe, stale_exit_bars,
+  stale_exit_below_r). ict_scalp_xrp_5m does not: `off_cells` is `not_expressible` (the
+  live builder SKIPS an entry on it, the harness never does, and NO flag exists) and
+  `vol_spec` is `asymmetric_gate` (--vol-spec-json exists and reaches no skip, so a run
+  can be LABELLED with the spec while behaving as if it were unset).
+  (3) THE CONSEQUENCE IS NAMED BY THE LIVE BUILDER ITSELF: "XRP's pass was conditional on
+  this gate (ungated 2/4 folds fails; gated 4/4 passes)". So this harness can only produce
+  the arm that FAILED its own walk-forward, and nothing in its output says so.
+  INCIDENTAL: --strategy-name relabels every emitted row without rerouting the config
+  block, which is what makes (2) reachable by a caller who believes they targeted a
+  variant.
+  WHAT IS LEFT is a DECISION about how the harness should behave for a gated variant --
+  see blocked_on.
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260918-THE-ICT-SCALP-HARNESS-AND-THE-GATED-XRP-VARIANT
+    since: 2026-09-18
+blocked_on_basis: ASSESSED
+decision_requests:
+  - id: DEC-20260918-THE-ICT-SCALP-HARNESS-AND-THE-GATED-XRP-VARIANT
+    asked_by: session_01Ex5Dx1TMYy46ncsp8eptpx
+    question: >-
+      backtest_ict_scalp.py cannot express the off-cell suppression that ict_scalp_xrp_5m
+      (execution: live) runs under, and that leg's own evidence is conditional on the gate
+      (ungated 2/4 folds fails, gated 4/4 passes). The harness is currently outside the
+      Tier-1 landing surface, though MI-242 -- operator-approved 2026-09-10 and still
+      `ready` -- would add scripts/backtest_*.py to it. Which?
+    options:
+      - key: refuse_loudly
+        label: >-
+          Cheapest and safest: make the harness REFUSE, or warn at run time, when the leg
+          named by --strategy-name carries `off_cells` it cannot apply. Implements no
+          strategy logic and cannot change any existing run's numbers -- it only stops a
+          result being quoted as that leg's. Every other option leaves a silent mislabel
+          in the meantime.
+      - key: implement_the_suppression
+        label: >-
+          Port the off-cell suppression into the harness so the gated arm is reproducible.
+          The most useful outcome and the most work; it adds a real entry gate to a
+          research tool, so it needs its own controls -- and MI-320 records that a harness
+          expressing something the live unit cannot (and vice versa) is the recurring
+          shape here.
+      - key: reroute_the_config_block
+        label: >-
+          Make --strategy-name select the YAML block as well as the label, so the harness
+          reads the named leg's config. Fixes the mislabel at its root and is strictly
+          wider than `refuse_loudly` -- it changes what EVERY variant run reads, so any
+          existing caller relying on the ict_scalp_5m defaults changes behaviour silently.
+          Should not be taken without saying who those callers are, which is unmeasured.
+      - key: decline
+        label: >-
+          Leave it. The window seam is closed, only one of eight legs is affected, and
+          nobody has shown a published number that rests on the ungated arm. Legitimate,
+          and must be RECORDED as a decision rather than left looking like a repair about
+          to happen -- otherwise this row reads as work about to start, which is the
+          failure mode it exists to prevent.
