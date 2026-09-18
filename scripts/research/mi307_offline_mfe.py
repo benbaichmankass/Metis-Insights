@@ -91,7 +91,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _HERE = Path(__file__).resolve()
 REPO = _HERE.parents[2]
@@ -99,14 +99,18 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 sys.path.insert(0, str(_HERE.parent))
 
-import yaml  # noqa: E402
-
-from exit_capture import mfe_r_of  # noqa: E402  (the ONE MFE reader)
-from src.runtime.bracket_calibration import quantile  # noqa: E402 (the ONE quantile)
-from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT  # noqa: E402 (the ONE clamp)
-from m20_fleet_exit_sweep import (  # noqa: E402  (the ONE leg->harness resolver)
-    FAMILY_HARNESS, base_args, classify, harness_implements_flag, resolve_data,
+import yaml
+from exit_capture import mfe_r_of
+from m20_fleet_exit_sweep import (
+    FAMILY_HARNESS,
+    base_args,
+    classify,
+    harness_implements_flag,
+    resolve_data,
 )
+
+from src.runtime.bracket_calibration import quantile
+from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT
 
 DEFAULT_OUT = REPO / "docs" / "research" / "mi307-offline-mfe-2026-09-18.json"
 
@@ -122,12 +126,12 @@ REACH_GRID = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0]
 MIN_N_FOR_PROPOSAL = 30
 
 
-def load_legs() -> Dict[str, dict]:
+def load_legs() -> dict[str, dict]:
     raw = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())
     return raw.get("strategies", raw)
 
 
-def cap_r_of(row: Dict[str, Any]) -> Optional[float]:
+def cap_r_of(row: dict[str, Any]) -> float | None:
     """Per-trade venue-clamp ceiling in R, from the harness's OWN entry and stop.
 
     `cap_r = TP_VENUE_CAP_PCT * entry / risk` — the same expression
@@ -152,7 +156,7 @@ def cap_r_of(row: Dict[str, Any]) -> Optional[float]:
     return TP_VENUE_CAP_PCT * entry / risk
 
 
-def summarise_rows(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+def summarise_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Per-leg MFE summary. Every count carries its own denominator.
 
     `n_rows` is what the harness emitted; `n_mfe` is what carried a readable
@@ -161,11 +165,11 @@ def summarise_rows(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     second is a harness/reader shape mismatch that must never be reported as a
     thin sample (`exit_capture.mfe_r_of`'s own lesson).
     """
-    mfes: List[float] = []
-    win_mfes: List[float] = []
-    caps: List[float] = []
-    pairs: List[tuple] = []          # (mfe_r, cap_r) — both readable
-    mfe_pcts: List[float] = []       # MFE as a fraction of entry price
+    mfes: list[float] = []
+    win_mfes: list[float] = []
+    caps: list[float] = []
+    pairs: list[tuple] = []          # (mfe_r, cap_r) — both readable
+    mfe_pcts: list[float] = []       # MFE as a fraction of entry price
     tp_exits = 0
     rows_without_mfe = 0
     for r in rows:
@@ -199,7 +203,7 @@ def summarise_rows(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             pairs.append((m, c))
 
     n = len(mfes)
-    out: Dict[str, Any] = {
+    out: dict[str, Any] = {
         "n_rows": len(rows),
         "n_mfe": n,
         "rows_without_mfe": rows_without_mfe,
@@ -268,7 +272,7 @@ def summarise_rows(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     return out
 
 
-def run_leg(leg: str, cfg: dict, *, capped: bool) -> Dict[str, Any]:
+def run_leg(leg: str, cfg: dict, *, capped: bool) -> dict[str, Any]:
     """Run one leg's own harness with its OWN declared params.
 
     Returns a state dict. The four states are never collapsed:
@@ -331,14 +335,17 @@ def run_leg(leg: str, cfg: dict, *, capped: bool) -> Dict[str, Any]:
     if harness in (FAMILY_HARNESS["donchian"], FAMILY_HARNESS["pullback"]):
         cmd += ["--strategy-name", leg]
     try:
+        # check=False deliberately: a non-zero rc is a STATE this function
+        # reports (`harness_failed`), not an exception to propagate — a leg whose
+        # harness refuses must be named, not abort the sweep over the other 54.
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=1800,
-                           cwd=str(REPO))
+                           cwd=str(REPO), check=False)
     except subprocess.TimeoutExpired:
         return {**base_rec, "state": "harness_failed", "why": "timeout"}
     if p.returncode != 0:
         return {**base_rec, "state": "harness_failed",
                 "why": (p.stderr or "").strip()[-400:] or f"rc={p.returncode}"}
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     try:
         for line in Path(tmp).read_text().splitlines():
             if line.strip():
@@ -356,9 +363,9 @@ def run_leg(leg: str, cfg: dict, *, capped: bool) -> Dict[str, Any]:
     return rec
 
 
-def run_all(out_path: Path, *, only: Optional[List[str]] = None) -> int:
+def run_all(out_path: Path, *, only: list[str] | None = None) -> int:
     legs = load_legs()
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     for leg in sorted(legs):
         cfg = legs[leg]
         if not isinstance(cfg, dict):
@@ -485,7 +492,7 @@ def selftest() -> int:
     return 0 if ok else 1
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--run", action="store_true")
@@ -523,14 +530,14 @@ def report(path: Path) -> int:
           f"generated {payload['generated_at']}")
     print(f"{'leg':26} {'state':14} {'n':>5} {'p50':>6} {'p80':>6} {'p90':>6} "
           f"{'capR50':>7} {'tp_r':>5} {'intent':>10}")
-    for r in sorted(rows, key=lambda r: r["leg"]):
-        def f(k, p=2):
-            v = r.get(k)
+    for r in sorted(rows, key=lambda row: row["leg"]):
+        def f(k, p=2, _r=r):          # _r bound per iteration (ruff B023)
+            v = _r.get(k)
             return "   n/a" if v is None else f"{v:.{p}f}"
-        print(f"{r['leg']:26} {r['state']:14} {str(r.get('n_mfe') or ''):>5} "
+        print(f"{r['leg']:26} {r['state']:14} {r.get('n_mfe') or ''!s:>5} "
               f"{f('mfe_r_p50'):>6} {f('mfe_r_p80'):>6} {f('mfe_r_p90'):>6} "
-              f"{f('cap_r_p50'):>7} {str(r.get('tp_r_declared')):>5} "
-              f"{str(r.get('tp_intent_mode')):>10}")
+              f"{f('cap_r_p50'):>7} {r.get('tp_r_declared')!s:>5} "
+              f"{r.get('tp_intent_mode')!s:>10}")
     return 0
 
 def write_reference(src: Path, out: Path) -> int:
@@ -564,7 +571,7 @@ def write_reference(src: Path, out: Path) -> int:
     prior = json.loads(out.read_text()) if out.exists() else {"legs": []}
     # family_of is MI-155's, imported so the join key cannot drift.
     sys.path.insert(0, str(REPO / "scripts" / "research"))
-    from exit_location_fidelity import family_of  # noqa: E402
+    from exit_location_fidelity import family_of
 
     kept = {(l["symbol"], l["family"], l["timeframe"]): l
             for l in (prior.get("legs") or [])}
@@ -578,7 +585,7 @@ def write_reference(src: Path, out: Path) -> int:
     # arbitrary pick into the artifact and hide a 1.67x disagreement behind a
     # single number. So: the larger-n arm supplies the figures (more evidence,
     # stated rather than implied) and the collision TRAVELS WITH THE ROW.
-    grouped: Dict[tuple, List[Dict[str, Any]]] = {}
+    grouped: dict[tuple, list[dict[str, Any]]] = {}
     for r in payload["results"]:
         if r.get("capped") or r.get("state") != "ok" or not r.get("n_mfe_pct"):
             continue

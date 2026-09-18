@@ -22,7 +22,8 @@ does **not** support proposing a per-leg `tp_r`, and the reason is the finding: 
 has a per-leg take-profit on every leg, and it is set by `TP_VENUE_CAP_PCT = 0.099` — a single
 fleet-wide constant named for a Bybit boundary — not by any leg's evidence.** Expressed in each
 leg's own R that undeclared target ranges from **1.74R to 7.20R (a 4.1× spread nobody chose)**, and
-it is **not inert**: it ends **5.1% to 44.2%** of trades depending on the leg. Above it, a declared
+it is **not inert**: over the 19 measured legs (n = 112–1,004 trades each) it ends between **5.1%**
+(`trend_donchian`, n=409) and **44.2%** (`trend_donchian_ada_4h`, n=233) of trades. Above it, a declared
 `tp_r` changes nothing at all. So the actionable decision is not 19 per-leg numbers; it is the one
 number that is already acting, and whether a per-leg target should sit **below** it.
 
@@ -263,10 +264,24 @@ The work object requires this and it is the most consequential section.
 by **~2.5×** about crypto p90 MFE — backtest BTC **3.87%** (n=3,194) vs MI-148's live **9.70%**
 (n=63) — and § 5 makes that magnitude the reason condition 1 is an **abstain floor**.
 
-**That comparison is confounded by TIMEFRAME, and the confound is larger than the effect.**
+> ⚠️ **THE TIMEFRAME CONFOUND IS NOT THIS UNIT'S FINDING, AND CLAIMING IT WOULD BE WRONG.**
+> **MI-155 established it on 2026-09-07** and `docs/research/RESEARCH-CAPABILITY-INDEX.md:179`
+> already records the verdict in terms: *"measured inside the live crypto book alone p90 goes
+> 2.16% (1h) → 7.07% (2h) → 9.77% (4h), a 4.5× span on horizon with no harness involved. So the
+> ~2.5× is a **horizon-composition artifact**, not a fidelity failure — which removes it as
+> evidence of infidelity without establishing fidelity."* That reading stands and this unit
+> **confirms** it. Three things below are new, and they are the only things claimed here:
+>
+> 1. **a BACKTEST-side ladder** — MI-155's was live-only, so the confound had never been shown on
+>    the arm the ~2.5× was measured *from*, at identical params;
+> 2. **an independent reproduction of the memo's own 15m figure** (p90 4.32% vs its 3.87%), which
+>    is the positive control that the ladder is measuring the same thing;
+> 3. **the per-leg matched-timeframe comparison (§ 5.1)** — which MI-155 explicitly could **not**
+>    make, because `n_backtest = 0` on all 44 legs, and which only becomes possible because of the
+>    reference extension in § 7.3.
 
 The memo states its own backtest population plainly: **`trend_donchian` 15m only**. Its live arm is
-**"mixed symbols and strategies"**. Two measurements settle it:
+**"mixed symbols and strategies"**. Two measurements, one new and one confirming:
 
 **(a) A controlled backtest ladder — BTCUSDT `trend_donchian`, identical params (`donchian 20`,
 `atr_stop_mult 2.5`, `trail_mult 5.0`), only the bar changes:**
@@ -284,7 +299,8 @@ control for this section: the instrument agrees with the prior measurement *wher
 match*. The ladder then spans **4.2×** on timeframe alone, and **at 1h the same leg reads 9.38%,
 within 3% of MI-148's live 9.70%.**
 
-**(b) The live data shows the same ladder, so it is not a harness artefact.** Live
+**(b) CONFIRMING MI-155 — the live data shows the same ladder, so it is not a harness artefact.**
+Re-measured here at greater depth than MI-155's read (its max per-leg live n was 8; today's is 25). Live
 `position_telemetry`, n=202 gradeable, joined to each leg's declared timeframe:
 
 | timeframe | n | p50 | p80 | p90 |
