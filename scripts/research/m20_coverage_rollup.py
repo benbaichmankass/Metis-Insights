@@ -697,6 +697,15 @@ CORPUS_HARNESS_UNFIXED = "harness_never_modelled_the_tp"
 COLUMNS_WITH_A_SWEEP_PRODUCER = frozenset({
     "stale_stop", "giveback_stop", "trail_decay", "vol_trail",
     "trail_geometry",
+    # `bracket_geometry` joined 2026-09-13 (MI-278 U30) and is DELIBERATELY IN
+    # BOTH SETS — that is not a duplication to tidy away. The two facts the
+    # comment below distinguishes are BOTH true of this column now, for
+    # DIFFERENT legs: e35 produces it for donchian/pullback/squeeze (its own
+    # driver, next set down), and the fleet sweep produces it for `scalp`,
+    # which e35 excludes by design. Membership here changes NO grading — the
+    # `elif` consumer is already satisfied by the own-driver entry — it makes
+    # the declaration TRUE, which is what the calling test enforces.
+    "bracket_geometry",
 })
 # Declared rather than introspected, because regexing `cells_for`'s source for
 # lever literals is a probe adjacent to the question. Kept honest by a test
