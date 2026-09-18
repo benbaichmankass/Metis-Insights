@@ -1,0 +1,1 @@
+MI-314 U1 — constraint_readout.py's _one_line re-clip undid render_due_list's id-safe fix; MI-270 established resolved, mechanism traced.
