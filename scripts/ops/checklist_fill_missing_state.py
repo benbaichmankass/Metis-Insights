@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a one-off normalization a session runs by hand against
+# MANAGER-CHECKLIST.json (idempotent: a re-run finds nothing left to fill), not
+# a recurring pipeline step; not added to run_guards.py to avoid touching that
+# heavily-contended shared file
 """FILL A MISSING `state` FROM AN UNAMBIGUOUS `status` — MI-237.
 
 WHAT THIS IS NOT
@@ -45,7 +49,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -61,6 +64,14 @@ def _declared_vocabulary(doc: Dict[str, Any]) -> Tuple[str, ...]:
 
 
 def plan(doc: Dict[str, Any]) -> Tuple[List[str], List[str]]:
+    # collapsed-state: status_only — this script's ENTIRE job is the
+    # STATUS_BASIS_STATUS_ONLY case (state absent, status present); an item
+    # already carrying `state` (agree/disagree/state_only) is skipped by the
+    # `"state" in it` check above, unconditionally, with nothing left for this
+    # function to decide about it, and an item with neither field
+    # (undeclared) has no status to mirror. Reconciling agree/disagree pairs
+    # is `effective_state`'s job (invoked by check_manager_checklist_vocabulary.py),
+    # not this one-purpose normalization script's.
     """Pure. Returns (fillable_ids, skipped_offvocab_ids) — never mutates."""
     vocab = set(_declared_vocabulary(doc))
     items = doc.get("items")
