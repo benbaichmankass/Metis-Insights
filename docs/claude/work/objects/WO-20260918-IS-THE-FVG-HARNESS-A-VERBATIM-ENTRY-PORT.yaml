@@ -1,0 +1,106 @@
+id: WO-20260918-IS-THE-FVG-HARNESS-A-VERBATIM-ENTRY-PORT
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: grade the fvg_range_15m verbatim-port claim -- is its harness a port of
+  the live entry block, or a reimplementation?
+stage: EVIDENCE
+lifecycle: waiting
+owner: session_01Ex5Dx1TMYy46ncsp8eptpx
+opened_at: 2026-09-18
+why: >-
+  MI-319, the research lane's queued item after MI-318. TWO CONTRADICTORY CLAIMS, NEITHER
+  MEASURED: src/units/strategies/fvg_range_15m.py:228 says its logic "is a VERBATIM port
+  of scripts/backtest_fvg_range.py::run_backtest's per-bar entry block"; the MI-319
+  dispatch says the harness reimplements entry and computes its own target, so it is NOT
+  a verbatim port like scalp's. Every downstream reading of this leg -- MI-307's
+  not_capped_capable grading, MI-312's n=45 row, the exit-refinement matrix rows -- rests
+  on whichever is true, and nobody had looked.
+done_condition: >-
+  A stated verdict on each claim SEPARATELY, with its population, derived from the code
+  and from running both implementations over the same candles. Picking a side from prose
+  does NOT satisfy it: trend_harness_divergence.py already records that a docstring is a
+  claim and the AST is the fact.
+must_not:
+  - >-
+    Edit scripts/backtest_fvg_range.py. It is imported and read, never modified, so no
+    verdict any other run produced can have been changed by this one.
+  - >-
+    Pool the entry verdict with the target verdict. The docstring's claim is scoped to
+    the per-bar ENTRY block and the harness computes the target outside it, so one
+    verdict carrying to the other would let a true claim launder a false one.
+  - >-
+    Propose a tp_r or exit_style value. Target geometry is Tier-3 and is carried by
+    OI-20260918-THE-TARGET-GEOMETRY-PACKET-EXISTS-AND-ITS-THREE-DECISIONS-ARE-UNANSWERED.
+  - >-
+    Read a shipped-parameter clearance off a relaxed-parameter run. The shipped gates
+    admit zero trades on the available candles, which is no_accepts_in_population and is
+    NOT agreement.
+outcome: >-
+  MET. Evidence: docs/research/fvg-parity-2026-09-18.md, instrument
+  scripts/research/mi319_fvg_parity.py (32 selftests, 11 negative controls), artifact
+  docs/research/mi319-fvg-parity-2026-09-18.json.
+  (1) ENTRY -- the docstring HOLDS and the dispatch's "reimplements entry" is REFUTED.
+  Structurally: 18 shared rejection-disjuncts of 19 harness / 20 live, three residuals
+  each CLASSIFIED (one harness loop-bookkeeping `i < next_idx`, two live argument
+  validations), ZERO unclassified. Behaviourally, over 622 graded bars of BTCUSDT 15m
+  (data/btc_1m_sample.csv resampled, 673 bars, 2026-03-15 -> 2026-03-22): 14 of 14
+  accepts matched with entry/target/confidence identical and the stop to 4.3e-09, and
+  ZERO bars accepted by one side alone -- in BOTH window modes (full prefix, and the
+  250-bar tail the runtime actually fetches).
+  (2) TARGET -- the dispatch is CORRECT. The harness default is `mid`; the live unit
+  targets the opposite boundary (`far`). This corroborates MI-312's already-filed
+  BL-20260918-BASE-ARGS-CANNOT-PRODUCE-A-LIVE-PARITY-FVG-RUN-BECAUSE-THE-YAML-DECLARES-NO-EXIT-STYLE-AND-THE-HARNESS-DEFAULT-IS-THE-WRONG-TARGET
+  from the opposite direction, so no new row was filed for it.
+  (3) NEW, anticipated by neither claim: the unit DECLARES 51 candles sufficient
+  (`needed = max(range_lookback, atr_period, adx_period) + 3`) while its own ADX gate --
+  a three-deep ewm(adjust=False) recursion -- has not converged there. At W=51 the chop
+  verdict disagrees with the validated one on 136 of 622 bars (21.9%); at W=250, what
+  the builder passes, 0 of 423. The contract is wrong and nothing enforces the number
+  that makes it true. LATENT, not live: a grep across src/, scripts/ and tests/ finds
+  that builder as the sole importer of order_package. Structural exposure is a class of
+  at least two (fade_breakout_4h: 50 declared vs 200 fetched); hf_vwap_revert graded
+  could_not_grade, its builder limit not being a constant.
+  ⚠️ NOT ESTABLISHED, and each is stated in the memo rather than buried: the shipped
+  accept side (zero accepts on this population), the exit/monitor half of parity, other
+  symbols or spans, and ADX convergence against unbounded history.
+  WHAT IS LEFT is a DECISION, not a measurement -- see blocked_on.
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260918-FVG-DECLARED-CANDLE-MINIMUM
+    since: 2026-09-18
+blocked_on_basis: ASSESSED
+decision_requests:
+  - id: DEC-20260918-FVG-DECLARED-CANDLE-MINIMUM
+    asked_by: session_01Ex5Dx1TMYy46ncsp8eptpx
+    question: >-
+      fvg_range_15m declares 51 candles sufficient while its ADX gate needs ~250 to agree
+      with the validated harness (21.9% gate disagreement at the declared minimum, 0% at
+      250). The deployed builder passes 250, so nothing is wrong live today -- the
+      declaration is simply untrue, and the next caller to honour it gets a regime verdict
+      that disagrees with every backtest this leg was validated on. The fix is in src/
+      and therefore Tier-2. Which?
+    options:
+      - key: raise_needed_to_fetched
+        label: >-
+          Raise `needed` to the window the builder already passes (250). One line, makes
+          the declaration true, changes NO live behaviour because the live caller already
+          passes it. Cheapest honest fix.
+      - key: derive_from_convergence
+        label: >-
+          Derive the warm-up from the ADX recursion's own convergence rather than from
+          max(period...) + 3, and apply it to every unit sharing that _adx. Correct at the
+          class level; more code, and it changes fade_breakout_4h too (50 declared vs 200
+          fetched), so it is a wider Tier-2 change.
+      - key: fix_the_class_measure_first
+        label: >-
+          Measure fade_breakout_4h's and hf_vwap_revert's actual divergence before
+          touching either. MI-319 establishes their STRUCTURAL exposure only; quoting
+          fvg's 21.9% for them would be the unprovenanced generalisation this repo has a
+          guard class for.
+      - key: decline
+        label: >-
+          Leave it. The live path passes 250 and is correct, and the declared minimum is a
+          latent contract defect nobody is hitting. Legitimate, and must be RECORDED as a
+          decision rather than left looking like a fix about to land -- otherwise this row
+          reads as work about to start, which is the failure mode it exists to prevent.

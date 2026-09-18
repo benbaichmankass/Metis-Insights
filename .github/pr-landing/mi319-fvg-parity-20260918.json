@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 by path and by content. The diff adds one research instrument under scripts/research/, one memo plus its JSON artifact under docs/research/, one work object under docs/claude/work/objects/, one health-backlog row, and one row in each of the two document indexes. There is NO order path, NO strategy config, NO risk cap, NO src/, NO deploy/, NO .github/workflows/ and NO live-VM runtime file. scripts/backtest_fvg_range.py is imported and read by the instrument and is NOT edited, so no verdict any other run produced can have been changed by this one; config/ is untouched, so no tp_r, tp_at_r or exit_style moves. The one Tier-2 finding it makes (fvg_range_15m's declared candle minimum is insufficient for its own ADX gate) is FILED AND PROPOSED, not applied, and carries an operator decision request on its work object."
+}
