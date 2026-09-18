@@ -1,0 +1,1 @@
+PR #12537 -- record PR #12535's closure in OPEN-PRS.json (Tier-1, docs only)
