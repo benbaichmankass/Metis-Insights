@@ -1,0 +1,536 @@
+{
+  "unit": "MI-320",
+  "question": "Which pre-live harnesses RUN the live entry decision, which REIMPLEMENT it, and which only CLAIM to?",
+  "generated_at_utc": "2026-09-18T22:19:32Z",
+  "populations": {
+    "harnesses_scanned": 13,
+    "unit_modules_scanned": 16,
+    "legs": 55,
+    "legs_execution_live": 45
+  },
+  "a_provenance": {
+    "backtest_chop_scalp": {
+      "path": "scripts/backtest_chop_scalp.py",
+      "state": "no_corresponding_unit",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [],
+      "claimed_by_unit": null
+    },
+    "backtest_fade": {
+      "path": "scripts/backtest_fade.py",
+      "state": "reimplements",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": true,
+      "referenced_by_units": [
+        "fade_breakout_4h"
+      ],
+      "claimed_by_unit": "fade_breakout_4h"
+    },
+    "backtest_funding_carry": {
+      "path": "scripts/backtest_funding_carry.py",
+      "state": "no_corresponding_unit",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [],
+      "claimed_by_unit": null
+    },
+    "backtest_fvg_range": {
+      "path": "scripts/backtest_fvg_range.py",
+      "state": "reimplements",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": true,
+      "referenced_by_units": [
+        "fvg_range_15m"
+      ],
+      "claimed_by_unit": "fvg_range_15m"
+    },
+    "backtest_ict_scalp": {
+      "path": "scripts/backtest_ict_scalp.py",
+      "state": "imports_live_unit",
+      "static_import_modules": [
+        "src.units.strategies.ict_scalp"
+      ],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": true,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [
+        "ict_scalp"
+      ],
+      "claimed_by_unit": null
+    },
+    "backtest_orb": {
+      "path": "scripts/backtest_orb.py",
+      "state": "no_corresponding_unit",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [],
+      "claimed_by_unit": null
+    },
+    "backtest_pairs": {
+      "path": "scripts/backtest_pairs.py",
+      "state": "corresponds_but_unclaimed",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [
+        "pairs_engine"
+      ],
+      "claimed_by_unit": null
+    },
+    "backtest_pullback": {
+      "path": "scripts/backtest_pullback.py",
+      "state": "corresponds_but_unclaimed",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [
+        "htf_pullback_trend_2h"
+      ],
+      "claimed_by_unit": null
+    },
+    "backtest_squeeze": {
+      "path": "scripts/backtest_squeeze.py",
+      "state": "corresponds_but_unclaimed",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [
+        "squeeze_breakout_4h"
+      ],
+      "claimed_by_unit": null
+    },
+    "backtest_system": {
+      "path": "scripts/backtest_system.py",
+      "state": "imports_live_unit",
+      "static_import_modules": [],
+      "dynamic_import": true,
+      "defines_decision_locally": false,
+      "calls_decision_fn": true,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [
+        "hf_displacement_cont",
+        "hf_vwap_revert"
+      ],
+      "claimed_by_unit": null
+    },
+    "backtest_trend": {
+      "path": "scripts/backtest_trend.py",
+      "state": "reimplements",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": true,
+      "referenced_by_units": [
+        "trend_donchian"
+      ],
+      "claimed_by_unit": "trend_donchian"
+    },
+    "backtest_vol_target": {
+      "path": "scripts/backtest_vol_target.py",
+      "state": "no_corresponding_unit",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [],
+      "claimed_by_unit": null
+    },
+    "backtest_xsec_momentum": {
+      "path": "scripts/backtest_xsec_momentum.py",
+      "state": "no_corresponding_unit",
+      "static_import_modules": [],
+      "dynamic_import": false,
+      "defines_decision_locally": false,
+      "calls_decision_fn": false,
+      "corresponding_unit_exists": false,
+      "referenced_by_units": [],
+      "claimed_by_unit": null
+    }
+  },
+  "b_claims": {
+    "claims": {
+      "fade_breakout_4h": {
+        "claims": true,
+        "scope": "entry/exit",
+        "harness": "scripts/backtest_fade.py",
+        "says_verbatim": false,
+        "text": ", pending more live proof. This adapter ports the validated entry/exit logic from ``scripts/backtest_fade.py`` into the live ``order_package(cfg, candles_df) -> dict`` + ``monitor(cfg, candles_df, open_pkg)`` contract. The ``monitor()`` trailing-stop logic is identical to the tre"
+      },
+      "fvg_range_15m": {
+        "claims": true,
+        "scope": "entry",
+        "harness": "scripts/backtest_fvg_range.py",
+        "says_verbatim": true,
+        "text": "-complement-2026-05-30.md. This adapter ports the validated entry logic from scripts/backtest_fvg_range.py into the live ``order_package(cfg, candles_df) -> dict`` contract VERBATIM (live-parity, the discipline fade_breakout_4h / trend_donchian follow). The ``monitor()`` implemen"
+      },
+      "trend_donchian": {
+        "claims": true,
+        "scope": "entry/exit",
+        "harness": "scripts/backtest_trend.py",
+        "says_verbatim": false,
+        "text": "24) where ict_scalp loses. This adapter ports the validated entry/exit logic from ``scripts/backtest_trend.py`` into the live ``order_package(cfg, candles_df) -> dict`` + ``monitor(cfg, candles_df, open_pkg)`` contract (see ``src/units/strategies/_base.py``). Entry ----- On the m"
+      }
+    },
+    "positive_control_unit": "fvg_range_15m",
+    "positive_control_found": true
+  },
+  "c_exposure": {
+    "state": "measured",
+    "per_unit": {
+      "turtle_soup": {
+        "legs": 1,
+        "live": 0
+      },
+      "trend_donchian": {
+        "legs": 23,
+        "live": 20
+      },
+      "fade_breakout_4h": {
+        "legs": 1,
+        "live": 0
+      },
+      "squeeze_breakout_4h": {
+        "legs": 1,
+        "live": 1
+      },
+      "vwap": {
+        "legs": 1,
+        "live": 0
+      },
+      "ict_scalp": {
+        "legs": 8,
+        "live": 8
+      },
+      "fvg_range_15m": {
+        "legs": 1,
+        "live": 0
+      },
+      "htf_pullback_trend_2h": {
+        "legs": 19,
+        "live": 16
+      }
+    },
+    "total_legs": 55,
+    "total_live": 45,
+    "unresolved_legs": 0
+  },
+  "d_adjudication": {
+    "fade_breakout_4h": {
+      "harness": "scripts/backtest_fade.py",
+      "claim_scope": "entry/exit",
+      "mi319_state": "divergent",
+      "gate_counts": {
+        "harness": 8,
+        "live": 5,
+        "ratio": 0.625,
+        "min_ratio_required": 0.5
+      },
+      "shared_disjunct_count": 5,
+      "residuals": [
+        {
+          "side": "harness",
+          "disjunct": "direction == 'long' and target <= __PRICE__",
+          "class": "unclassified_divergence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "direction == 'short' and target >= __PRICE__",
+          "class": "unclassified_divergence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "direction is None",
+          "class": "renamed_counterpart",
+          "counterpart": "adx_val is None",
+          "name_map": {
+            "direction": "adx_val"
+          }
+        },
+        {
+          "side": "harness",
+          "disjunct": "float(adx_i) >= adx_max",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "adx_val >= adx_max",
+            "adx_val is None"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "i < next_idx",
+          "class": "harness_loop_bookkeeping"
+        },
+        {
+          "side": "harness",
+          "disjunct": "pd.isna(adx_i)",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "adx_val >= adx_max",
+            "adx_val is None"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        },
+        {
+          "side": "live",
+          "disjunct": "adx_val >= adx_max",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "float(adx_i) >= adx_max",
+            "pd.isna(adx_i)"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        },
+        {
+          "side": "live",
+          "disjunct": "adx_val is None",
+          "class": "renamed_counterpart",
+          "counterpart": "direction is None",
+          "name_map": {
+            "adx_val": "direction"
+          }
+        },
+        {
+          "side": "live",
+          "disjunct": "len(candles_df) < needed",
+          "class": "live_input_validation"
+        }
+      ],
+      "unclassified_count": 5,
+      "verdict_note": "A CLASSIFIED residual is not a CLEARED one: this says what the difference IS, never that the two would place the same trade. Only a behavioural probe says that, and this instrument does not run one."
+    },
+    "fvg_range_15m": {
+      "harness": "scripts/backtest_fvg_range.py",
+      "claim_scope": "entry",
+      "mi319_state": "equivalent_modulo_order",
+      "gate_counts": {
+        "harness": 13,
+        "live": 13,
+        "ratio": 1.0,
+        "min_ratio_required": 0.5
+      },
+      "shared_disjunct_count": 18,
+      "residuals": [
+        {
+          "side": "harness",
+          "disjunct": "i < next_idx",
+          "class": "harness_loop_bookkeeping"
+        },
+        {
+          "side": "live",
+          "disjunct": "len(candles_df) < needed",
+          "class": "live_input_validation"
+        },
+        {
+          "side": "live",
+          "disjunct": "missing_cols",
+          "class": "live_input_validation"
+        }
+      ],
+      "unclassified_count": 0,
+      "verdict_note": "A CLASSIFIED residual is not a CLEARED one: this says what the difference IS, never that the two would place the same trade. Only a behavioural probe says that, and this instrument does not run one."
+    },
+    "trend_donchian": {
+      "harness": "scripts/backtest_trend.py",
+      "claim_scope": "entry/exit",
+      "mi319_state": "idiom_mismatch",
+      "gate_counts": {
+        "harness": 16,
+        "live": 7,
+        "ratio": 0.4375,
+        "min_ratio_required": 0.5
+      },
+      "shared_disjunct_count": 5,
+      "residuals": [
+        {
+          "side": "harness",
+          "disjunct": "_sf == 'long' and direction == 'short'",
+          "class": "implemented_upstream",
+          "identifier": "side_filter",
+          "written_in_harness_as": "_sf",
+          "evidence": {
+            "state": "found",
+            "files": [
+              "src/core/coordinator.py",
+              "src/runtime/account_side_filter.py",
+              "src/runtime/silent_refusal_alert.py",
+              "src/runtime/strategy_signal_builders.py"
+            ],
+            "n_files": 4,
+            "controls_ok": true
+          }
+        },
+        {
+          "side": "harness",
+          "disjunct": "_sf == 'short' and direction == 'long'",
+          "class": "implemented_upstream",
+          "identifier": "side_filter",
+          "written_in_harness_as": "_sf",
+          "evidence": {
+            "state": "found",
+            "files": [
+              "src/core/coordinator.py",
+              "src/runtime/account_side_filter.py",
+              "src/runtime/silent_refusal_alert.py",
+              "src/runtime/strategy_signal_builders.py"
+            ],
+            "n_files": 4,
+            "controls_ok": true
+          }
+        },
+        {
+          "side": "harness",
+          "disjunct": "adx_max is not None and adx_val > adx_max",
+          "class": "harness_only_lever",
+          "identifier": "adx_max",
+          "evidence": {
+            "state": "inert_in_shipped_config",
+            "flag": "--adx-max",
+            "argparse_default": null,
+            "default_is_off": true,
+            "declared_by_a_leg": false,
+            "declaration_scope": "unit_legs",
+            "declaring_legs": [],
+            "n_unit_legs": 23
+          }
+        },
+        {
+          "side": "harness",
+          "disjunct": "adx_min is not None and adx_val < adx_min",
+          "class": "harness_only_lever",
+          "identifier": "adx_min",
+          "evidence": {
+            "state": "inert_in_shipped_config",
+            "flag": "--adx-min",
+            "argparse_default": null,
+            "default_is_off": true,
+            "declared_by_a_leg": false,
+            "declaration_scope": "unit_legs",
+            "declaring_legs": [],
+            "n_unit_legs": 23
+          }
+        },
+        {
+          "side": "harness",
+          "disjunct": "direction == 'long' and down_regime",
+          "class": "unclassified_divergence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "direction == 'short' and (not down_regime)",
+          "class": "unclassified_divergence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "direction is None",
+          "class": "unclassified_divergence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "i < next_idx",
+          "class": "harness_loop_bookkeeping"
+        },
+        {
+          "side": "harness",
+          "disjunct": "not confirmed",
+          "class": "unclassified_divergence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "pd.Timestamp(df['timestamp'].iloc[i]).hour in skip_hour_set",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "trigger_hour is not None and trigger_hour in skip_hour_set"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "pd.isna(adx_val)",
+          "class": "unclassified_divergence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "vol_skip_above_pctl > 0.0 and float(vp) > vol_skip_above_pctl",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "vol_above > 0.0 and vol_pctl > vol_above",
+            "vol_below > 0.0 and vol_pctl < vol_below"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        },
+        {
+          "side": "harness",
+          "disjunct": "vol_skip_below_pctl > 0.0 and float(vp) < vol_skip_below_pctl",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "vol_above > 0.0 and vol_pctl > vol_above",
+            "vol_below > 0.0 and vol_pctl < vol_below"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        },
+        {
+          "side": "live",
+          "disjunct": "len(candles_df) < needed",
+          "class": "live_input_validation"
+        },
+        {
+          "side": "live",
+          "disjunct": "trigger_hour is not None and trigger_hour in skip_hour_set",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "pd.Timestamp(df['timestamp'].iloc[i]).hour in skip_hour_set"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        },
+        {
+          "side": "live",
+          "disjunct": "vol_above > 0.0 and vol_pctl > vol_above",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "vol_skip_above_pctl > 0.0 and float(vp) > vol_skip_above_pctl",
+            "vol_skip_below_pctl > 0.0 and float(vp) < vol_skip_below_pctl"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        },
+        {
+          "side": "live",
+          "disjunct": "vol_below > 0.0 and vol_pctl < vol_below",
+          "class": "unclassified_divergence",
+          "possible_counterpart_by_name": [
+            "vol_skip_above_pctl > 0.0 and float(vp) > vol_skip_above_pctl",
+            "vol_skip_below_pctl > 0.0 and float(vp) < vol_skip_below_pctl"
+          ],
+          "hint_note": "shares an identifier stem with the other side; a HINT for a reader, never evidence of equivalence"
+        }
+      ],
+      "unclassified_count": 11,
+      "verdict_note": "A CLASSIFIED residual is not a CLEARED one: this says what the difference IS, never that the two would place the same trade. Only a behavioural probe says that, and this instrument does not run one."
+    }
+  }
+}
