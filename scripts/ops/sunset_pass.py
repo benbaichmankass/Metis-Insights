@@ -133,6 +133,7 @@ import argparse
 import json
 import re
 import sys
+import tempfile
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -142,6 +143,7 @@ REVIEWS = REPO / "comms" / "strategy_reviews"
 OUT_ROOT = REPO / "comms" / "sunset"
 STRATEGIES_YAML = REPO / "config" / "strategies.yaml"
 ACCOUNTS_YAML = REPO / "config" / "accounts.yaml"
+DISPOSITIONS_PATH = REPO / "docs" / "claude" / "SUNSET-DISPOSITIONS.json"
 
 SCHEMA_VERSION = 1
 
@@ -638,11 +640,48 @@ def render_markdown(doc: dict) -> str:
     return "\n".join(L)
 
 
-def render_brief_lines(doc: Optional[dict]) -> List[str]:
+def read_dispositions(path: Path = DISPOSITIONS_PATH) -> Tuple[Dict[str, dict], bool]:
+    """`id -> disposition row` from `docs/claude/SUNSET-DISPOSITIONS.json`.
+
+    Returns `(mapping, readable)`. `readable=False` on any read/parse failure
+    or a malformed `dispositions` list — *we could not look*, never *nothing
+    is dispositioned*. A row's `id` is the SAME `f"strategy:{name}"` /
+    `f"tool:{rel}"` token `grade_strategies`/the machinery-probe scan already
+    stamp onto each candidate row here (see `rows.append` above), so this is a
+    plain dict join and never re-derives the id format.
+    """
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}, False
+    rows = doc.get("dispositions") if isinstance(doc, dict) else None
+    if not isinstance(rows, list):
+        return {}, False
+    out: Dict[str, dict] = {}
+    for r in rows:
+        if isinstance(r, dict) and r.get("id"):
+            out[str(r["id"])] = r
+    return out, True
+
+
+def render_brief_lines(doc: Optional[dict], *,
+                       dispositions_path: Path = DISPOSITIONS_PATH) -> List[str]:
     """The `CLAUDE.md` session-brief lines. Mirrors `constraint_readout`'s contract.
 
     ⚠️ AN ABSENT PASS IS RENDERED, NOT SKIPPED — *nobody has run one* and *the
     renderer broke* must not look identical.
+
+    MI-234, 2026-09-18: this used to list every `retire_candidate` from the
+    pass whatever `docs/claude/SUNSET-DISPOSITIONS.json` already said about
+    it, because it never read that file at all — measured live, `gdx_pullback_1d`
+    / `gld_pullback_1d` / `iaum_pullback_1d` / `mes_trend_long_1d` (among
+    others) were each dispositioned `repair` on 2026-09-04 and were STILL
+    rendered as open candidates in the 2026-09-14 brief, ten days later. The
+    operator's own complaint made mechanical: an answer given and never read
+    manufactures the same question forever. Every candidate is still LISTED —
+    omitting a dispositioned one would hide that it was ever a candidate at
+    all — but one already answered carries its answer inline, so a fresh
+    session does not re-ask it.
     """
     if not isinstance(doc, dict) or not doc.get("population"):
         return ["**No sunset pass has been recorded.** (E3 — generated into "
@@ -658,10 +697,29 @@ def render_brief_lines(doc: Optional[dict]) -> List[str]:
             f"{p['machinery_probe']['scanned']} findings carried.")
     out = [head]
     if n:
-        names = [r["name"] for r in doc.get("rows", []) if r["verdict"] == "retire_candidate"]
-        out.append(f"- Candidates: {', '.join(f'`{x}`' for x in names[:12])}"
-                   f"{' …' if len(names) > 12 else ''}. Retiring a leg is **Tier-3** — "
-                   f"propose, never enact. Disposition them in "
+        cand_rows = [r for r in doc.get("rows", []) if r.get("verdict") == "retire_candidate"]
+        disp, disp_readable = read_dispositions(dispositions_path)
+        labels: List[str] = []
+        undispositioned = 0
+        for r in cand_rows:
+            name = r["name"]
+            row = disp.get(str(r.get("id"))) if disp_readable else None
+            if row is not None:
+                labels.append(f"`{name}` [{row.get('disposition', '?')}, "
+                              f"{row.get('decided_at', '?')}]")
+            else:
+                labels.append(f"`{name}`")
+                undispositioned += 1
+        if not disp_readable:
+            coverage_note = ("`docs/claude/SUNSET-DISPOSITIONS.json` could not be read — "
+                             "disposition status UNKNOWN for every candidate below, not "
+                             "'none dispositioned'")
+        else:
+            coverage_note = (f"{len(cand_rows) - undispositioned} of {len(cand_rows)} "
+                             f"already carry a recorded disposition")
+        out.append(f"- Candidates ({coverage_note}): {', '.join(labels[:12])}"
+                   f"{' …' if len(labels) > 12 else ''}. Retiring a leg is **Tier-3** — "
+                   f"propose, never enact. Undispositioned ones go in "
                    f"`docs/claude/SUNSET-DISPOSITIONS.json`.")
     out.append("")
     return out
@@ -844,6 +902,45 @@ def _self_test() -> int:
 
     checks.append(("an absent pass RENDERS a line rather than going quiet",
                    "No sunset pass has been recorded" in render_brief_lines(None)[0]))
+
+    # ── MI-234: a dispositioned candidate carries its answer, an undispositioned
+    # one does not, and an unreadable register says so rather than reading as
+    # "nothing is dispositioned" ────────────────────────────────────────────
+    with tempfile.TemporaryDirectory() as td:
+        disp_path = Path(td) / "SUNSET-DISPOSITIONS.json"
+        disp_path.write_text(json.dumps({"dispositions": [
+            {"id": "strategy:gdx_pullback_1d", "disposition": "repair",
+             "decided_at": "2026-09-04"},
+        ]}), encoding="utf-8")
+        cand_doc = {"population": {"strategy_legs_graded": 2, "lifetime_state": "read",
+                                   "packet_dates_read": ["2026-09-14"],
+                                   "machinery_probe": {"probe_state": "measured", "scanned": 0}},
+                    "utc_date": "2026-09-14", "retire_candidates": 2,
+                    "rows": [
+                        {"id": "strategy:gdx_pullback_1d", "name": "gdx_pullback_1d",
+                         "verdict": "retire_candidate"},
+                        {"id": "strategy:mhg_pullback_1d", "name": "mhg_pullback_1d",
+                         "verdict": "retire_candidate"},
+                    ]}
+        rendered = "\n".join(render_brief_lines(cand_doc, dispositions_path=disp_path))
+        checks.append(("a dispositioned candidate carries its recorded answer inline",
+                       "gdx_pullback_1d` [repair, 2026-09-04]" in rendered))
+        checks.append(("an undispositioned candidate is still LISTED, bare",
+                       "`mhg_pullback_1d`" in rendered
+                       and "mhg_pullback_1d` [" not in rendered))
+        checks.append(("the coverage note states the population, not just a name list",
+                       "1 of 2 already carry a recorded disposition" in rendered))
+
+        # a NEGATIVE control worth its own line: nothing is silently omitted
+        checks.append(("a dispositioned candidate is NEVER dropped from the list",
+                       "`gdx_pullback_1d`" in rendered))
+
+        missing = Path(td) / "does-not-exist.json"
+        rendered_bad = "\n".join(render_brief_lines(cand_doc, dispositions_path=missing))
+        checks.append(("an unreadable register reads UNKNOWN, never 'none dispositioned'",
+                       "could not be read" in rendered_bad and "UNKNOWN" in rendered_bad))
+        checks.append(("...and it does not silently credit the candidate with an answer",
+                       "gdx_pullback_1d` [repair" not in rendered_bad))
 
     for name, good in checks:
         print(f"  {'ok  ' if good else 'FAIL'}  {name}")
