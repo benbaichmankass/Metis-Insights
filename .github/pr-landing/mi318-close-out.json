@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/OPEN-PRS.json only -- a bookkeeping record of PR #12535's closure (own PR, own decision, no code, no config, no order path). Tier-1 docs/tooling surface."
+}
