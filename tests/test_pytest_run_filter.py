@@ -679,7 +679,7 @@ def test_the_ast_scan_sees_the_call_node_spelling_of_a_join():
     call_join = f'A = os.path.join({root}, "docs/planted/call.json")'
     path_ctor = f'B = Path({root}, "docs", "planted", "ctor.json")'
     kwarg_call = f'C = os.path.join({root}, "docs/planted/kw.json", sep="/")'
-    non_root_first_arg = f'D = os.path.join("elsewhere", "docs/planted/skip.json")'
+    non_root_first_arg = 'D = os.path.join("elsewhere", "docs/planted/skip.json")'
 
     with tempfile.TemporaryDirectory() as td:
         fake = pathlib.Path(td) / "tests"
