@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 by path and by content, and the unit's own scope is measurement only. The diff adds one research instrument under scripts/research/, one memo plus its JSON artifact under docs/research/, one work object under docs/claude/work/objects/, one health-backlog row, an observation appended to one existing OPEN-ITEMS row, and one row in each document index. NO order path, NO strategy config, NO risk cap, NO src/, NO deploy/, NO .github/workflows/ and NO live-VM runtime file. The instrument READS the live VM through the existing diag relay (a token-gated read-only surface) and mutates nothing on it. The operator decision this answers — DEC-20260910-MI-29-MEASURE-THE-STARVED-LEGS-FIRST — says measurement only in terms; the two levers the measurement points at (widening ARBITRATION_FANOUT_ACCOUNTS, Tier-2; re-rostering the prop legs, Tier-3) are presented as OPTIONS in the memo and are NOT taken, and the environment is untouched."
+}

@@ -1,0 +1,115 @@
+id: WO-20260918-WHICH-LEGS-ARE-STARVED-AND-HOW-OFTEN
+type: work_object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  Research lane: measure which legs are starved, how often, and whether the per-account
+  arbitration fan-out already covers them
+stage: EVIDENCE
+lifecycle: waiting
+owner: session_01Ex5Dx1TMYy46ncsp8eptpx
+opened_at: 2026-09-18
+why: >-
+  MI-29, unblocked by DEC-20260910-MI-29-MEASURE-THE-STARVED-LEGS-FIRST (operator, via
+  popup, chosen 'Route it -- measure which legs, how often, and bring the options back').
+  MI-29 had been blocked on the operator since 2026-09-01. The decision's own stated
+  reason for measuring first: the instrument had not been re-measured since the fan-out
+  was armed, so some 'never traded' legs may now be trading -- the cycle priority
+  CY-20260906-TRADING-TRUTH applied, repair the measurement before acting on it.
+done_condition: >-
+  A per-leg answer with its population: which legs are starved, how often, and whether
+  the fan-out covers them -- plus the OPTIONS put back to the operator. A count with no
+  denominator, or a rate pooled across the soak's two inclusion regimes, does NOT satisfy
+  it.
+must_not:
+  - >-
+    Propose a Tier-3 disposition off the existing evidence. The operator's decision says
+    measurement only, in terms, and names re-measurement as the reason.
+  - >-
+    Merge `starved` with `no_winner`. arbitration_fanout.py's own docstring records that
+    doing so overstated this exact finding 6.5x in the only evidence base the lane had.
+  - >-
+    Count rows in `trades` as fills. This repo journals refusals and orphan adoptions
+    into that table, and counting rows reverses the verdict on MI-29's own sharpest case.
+  - >-
+    Pool soak rows across the 2026-09-12 projection repair. The write condition is
+    `notable`, which the repair changed, so the file's inclusion rule differs either side
+    of it under one filename.
+  - >-
+    Enact the allowlist widening. Adding breakout_1 to ARBITRATION_FANOUT_ACCOUNTS is
+    Tier-2 and is an OPTION in the memo, not an action.
+outcome: >-
+  MET. Evidence: docs/research/starved-legs-2026-09-18.md, instrument
+  scripts/research/mi29_starved_legs.py (26 selftests, 10 negative controls), artifact
+  docs/research/mi29-starved-legs-2026-09-18.json.
+  WHICH LEGS: starvation is FOUR legs and essentially ONE account. Over the COMPLETE soak
+  (771 rows, 889,195 B, 2026-08-30T14:25:15 -> 2026-09-18T20:00:35), the starved account
+  is breakout_1 on 88 of 90 gradings, holding eth_pullback_prop_2h (shadow, 27 then 14),
+  trend_donchian_eth_prop (LIVE, 15 then 14), trend_donchian_sol_prop (LIVE, 8 then 10),
+  plus two singletons. NO non-prop execution:live leg is starved more than twice in
+  either epoch.
+  HOW OFTEN, AND THE CORRECTION THAT MATTERS: the much larger figure beside it -- 208
+  account-ticks -- is `no_winner`, which is NOT starvation. THE FIRST PASS OF THIS
+  MEASUREMENT MADE THAT ERROR and reported trend_donchian (execution:live) 'losing 64% of
+  its contests'; all 27 were no_winner, i.e. it lost to nobody. Pooling inflates the
+  finding 4.3x / 4.2x by epoch. Recorded in the memo rather than quietly fixed.
+  DOES THE FAN-OUT COVER THEM: NO, and both halves are measured. It DOES dispatch -- 89
+  of 1000 order packages carry meta.arbitration_fanout_round, 2026-09-13T01:41 ->
+  2026-09-18T20:00, all naming bybit_1, 0 unjoinable to a soak round -- which is the day
+  after the 2026-09-12 projection repair. But 0 of 89 dispatched a leg other than the
+  tick's global winner, so it is exercised and has never changed an outcome; and
+  breakout_1 reads `not_allowlisted` on all 88 of its starved gradings, read from the
+  apply_scope the RUNNING process stamps rather than from a .env.
+  THE SECOND LAYER: 11 of 44 execution:live legs produced zero genuine fills in the
+  27.4-day journal overlap window; 9 produced zero packages too (silent, not starved),
+  and EXACTLY TWO produced packages and no fills -- trend_donchian_eth_prop and
+  trend_donchian_sol_prop, the same two live prop legs, reached from the opposite end.
+  MI-29'S SHARPEST CASE RE-MEASURED: mgc_trend_1h shows 51 trades rows and ZERO fills --
+  50 are its own journalled refusals and 1 is an adopted orphan. A row count would report
+  PB-20260902 as resolved; it is not. What DID change is its execution gate: it now reads
+  `execution: shadow` where MI-29 filed it as live, so it is no longer 'declared live and
+  structurally cannot trade'.
+  INCIDENTALLY SETTLED: OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED
+  is cleared on BOTH clauses by the same evidence (section 4.1); its row is updated rather
+  than removed.
+  WHAT IS LEFT is a DECISION, not a measurement -- see blocked_on.
+blocked_on:
+  - kind: operator_decision
+    ref: DEC-20260918-UNSTARVE-THE-PROP-LEGS-OR-RECORD-THAT-WE-WILL-NOT
+    since: 2026-09-18
+blocked_on_basis: ASSESSED
+decision_requests:
+  - id: DEC-20260918-UNSTARVE-THE-PROP-LEGS-OR-RECORD-THAT-WE-WILL-NOT
+    asked_by: session_01Ex5Dx1TMYy46ncsp8eptpx
+    question: >-
+      Starvation is four legs on one account: breakout_1, holding two execution:live prop
+      legs (trend_donchian_eth_prop, trend_donchian_sol_prop) that are also the only two
+      live legs in the fleet producing order packages and zero fills. Each loses to its
+      own non-prop twin on the same symbol. Which?
+    options:
+      - key: allowlist_breakout_1
+        label: >-
+          [Tier-2] Add breakout_1 to ARBITRATION_FANOUT_ACCOUNTS. Aimed exactly at the
+          measured condition. MI-282's objection -- that this would be inert and harmful
+          -- is DISCHARGED: it rested on the apply_rounds projection defect, which is
+          repaired and observed dispatching. NOT a proven remedy: the fan-out has only
+          ever dispatched on bybit_1 and only ever the global winner, and a prop dispatch
+          is a Telegram ticket rather than an order, so this newly exercises a path that
+          has never run. Expect the prop sequence in OI-20260911 to bind next, not a trade.
+      - key: reroster_the_prop_legs
+        label: >-
+          [Tier-3] Re-roster so the prop legs are not entry-clones of bybit_1 legs. Three
+          of the four starved candidates lose to their own non-prop twin, so the roster is
+          what creates the contest. OI-20260911's clears_when already names this as a
+          legitimate decision that must be recorded as one.
+      - key: accept_and_record
+        label: >-
+          [no change] Accept it. Four legs, two of them live, on an account whose own
+          unblock is an unfinished sequence. Legitimate -- and it must be RECORDED as a
+          decision, because a measurement that is taken and then sits is the failure mode
+          this row exists inside.
+      - key: measure_the_silent_nine_first
+        label: >-
+          Neither yet. Nine execution:live legs produced ZERO order packages in the window
+          and are silent rather than starved -- a different question with a different
+          answer, deliberately out of MI-29's scope. Route that first if the fleet's
+          never-traded legs are the real concern.

@@ -1,0 +1,674 @@
+{
+  "answers": "DEC-20260910-MI-29-MEASURE-THE-STARVED-LEGS-FIRST",
+  "fanout_dispatch": {
+    "by_account": {
+      "bybit_1": 89
+    },
+    "by_status": {
+      "closed": 50,
+      "open": 7,
+      "rejected": 32
+    },
+    "by_strategy": {
+      "ada_pullback_2h": 1,
+      "eth_pullback_2h": 2,
+      "fade_breakout_4h": 2,
+      "htf_pullback_trend_2h": 2,
+      "ict_scalp_5m": 1,
+      "ict_scalp_avax_5m": 17,
+      "ict_scalp_eth_15m": 2,
+      "ict_scalp_sol_15m": 5,
+      "ict_scalp_sol_5m": 18,
+      "ict_scalp_xrp_15m": 6,
+      "ict_scalp_xrp_5m": 5,
+      "sol_pullback_2h": 2,
+      "squeeze_breakout_4h": 1,
+      "trend_donchian": 1,
+      "trend_donchian_ada_4h": 2,
+      "trend_donchian_avax_4h": 1,
+      "trend_donchian_eth": 8,
+      "trend_donchian_eth_4h": 3,
+      "trend_donchian_sol": 5,
+      "trend_donchian_sol_4h": 3,
+      "xrp_pullback_2h": 2
+    },
+    "dispatched_leg_differs_from_global_winner": 0,
+    "dispatched_leg_equals_global_winner": 89,
+    "geometry_matches_a_soak_round": 68,
+    "geometry_mismatch_UNEXPLAINED": 0,
+    "geometry_mismatch_explained_by_a_later_amend": 21,
+    "packages_carrying_a_fanout_round": 89,
+    "packages_scanned": 1000,
+    "span": {
+      "from": "2026-09-13T01:41:50.989859+00:00",
+      "to": "2026-09-18T20:00:39.287048+00:00"
+    },
+    "unjoinable_to_a_soak_round": 0
+  },
+  "generated_at": "2026-09-18",
+  "journal": {
+    "live_legs": 44,
+    "row_kinds": {
+      "adoptions": 27,
+      "fills": 607,
+      "refusals": 365,
+      "total": 999
+    },
+    "window": {
+      "from": "2026-08-22T10:45:24.397992+00:00",
+      "packages_in_window": 834,
+      "to": "2026-09-18T20:00:39.287048+00:00",
+      "trades_in_window": 999
+    },
+    "zero_fill_live_legs": [
+      {
+        "fills": 0,
+        "leg": "ief_pullback_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "iwm_trend_long_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "mes_trend_long_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 2
+      },
+      {
+        "fills": 0,
+        "leg": "qld_trend_long_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "qqq_trend_long_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "scha_trend_long_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "splg_trend_long_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "spy_trend_long_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "tqqq_trend_long_1d",
+        "of_which_refusals": 0,
+        "packages": 0,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "trend_donchian_eth_prop",
+        "of_which_refusals": 0,
+        "packages": 12,
+        "trade_rows": 0
+      },
+      {
+        "fills": 0,
+        "leg": "trend_donchian_sol_prop",
+        "of_which_refusals": 0,
+        "packages": 8,
+        "trade_rows": 0
+      }
+    ]
+  },
+  "schema_2_pre_repair": {
+    "account_state_counts": {
+      "alpaca_paper:no_winner": 11,
+      "alpaca_portfolio:no_winner": 11,
+      "breakout_1:routed": 1,
+      "breakout_1:starved": 50,
+      "bybit_1:no_winner": 95,
+      "bybit_1:routed": 407,
+      "bybit_1:starved": 1,
+      "bybit_2:no_winner": 11,
+      "bybit_2:routed": 74,
+      "bybit_portfolio:no_winner": 11,
+      "bybit_portfolio:routed": 74
+    },
+    "per_leg": [
+      {
+        "candidate": 54,
+        "elected": 27,
+        "execution": "shadow",
+        "leg": "eth_pullback_prop_2h",
+        "lost_to_sibling": 27,
+        "no_winner": 0
+      },
+      {
+        "candidate": 97,
+        "elected": 10,
+        "execution": "shadow",
+        "leg": "htf_pullback_trend_2h",
+        "lost_to_sibling": 3,
+        "no_winner": 84
+      },
+      {
+        "candidate": 30,
+        "elected": 29,
+        "execution": "live",
+        "leg": "ict_scalp_sol_15m",
+        "lost_to_sibling": 1,
+        "no_winner": 0
+      },
+      {
+        "candidate": 12,
+        "elected": 11,
+        "execution": "live",
+        "leg": "ict_scalp_xrp_15m",
+        "lost_to_sibling": 1,
+        "no_winner": 0
+      },
+      {
+        "candidate": 21,
+        "elected": 20,
+        "execution": "live",
+        "leg": "ict_scalp_eth_15m",
+        "lost_to_sibling": 1,
+        "no_winner": 0
+      },
+      {
+        "candidate": 17,
+        "elected": 16,
+        "execution": "live",
+        "leg": "trend_donchian_eth",
+        "lost_to_sibling": 0,
+        "no_winner": 1
+      },
+      {
+        "candidate": 16,
+        "elected": 15,
+        "execution": "live",
+        "leg": "trend_donchian_eth_prop",
+        "lost_to_sibling": 0,
+        "no_winner": 1
+      },
+      {
+        "candidate": 37,
+        "elected": 37,
+        "execution": "live",
+        "leg": "ict_scalp_sol_5m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 66,
+        "elected": 66,
+        "execution": "live",
+        "leg": "ict_scalp_avax_5m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 6,
+        "elected": 0,
+        "execution": "shadow",
+        "leg": "fvg_range_15m",
+        "lost_to_sibling": 0,
+        "no_winner": 6
+      },
+      {
+        "candidate": 51,
+        "elected": 51,
+        "execution": "shadow",
+        "leg": "avax_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 10,
+        "elected": 10,
+        "execution": "live",
+        "leg": "ict_scalp_xrp_5m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 9,
+        "elected": 9,
+        "execution": "shadow",
+        "leg": "fade_breakout_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 21,
+        "elected": 21,
+        "execution": "live",
+        "leg": "squeeze_breakout_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 2,
+        "elected": 2,
+        "execution": "live",
+        "leg": "trend_donchian_sol_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 43,
+        "elected": 43,
+        "execution": "live",
+        "leg": "ict_scalp_5m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 12,
+        "elected": 12,
+        "execution": "live",
+        "leg": "trend_donchian_eth_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 81,
+        "elected": 81,
+        "execution": "live",
+        "leg": "eth_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 15,
+        "elected": 15,
+        "execution": "live",
+        "leg": "sol_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 72,
+        "elected": 72,
+        "execution": "live",
+        "leg": "xrp_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 22,
+        "elected": 0,
+        "execution": "live",
+        "leg": "gld_pullback_1h",
+        "lost_to_sibling": 0,
+        "no_winner": 22
+      },
+      {
+        "candidate": 42,
+        "elected": 15,
+        "execution": "live",
+        "leg": "trend_donchian",
+        "lost_to_sibling": 0,
+        "no_winner": 27
+      },
+      {
+        "candidate": 2,
+        "elected": 2,
+        "execution": "live",
+        "leg": "trend_donchian_ada_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 8,
+        "elected": 8,
+        "execution": "live",
+        "leg": "trend_donchian_sol",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 8,
+        "elected": 8,
+        "execution": "live",
+        "leg": "trend_donchian_sol_prop",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 12,
+        "elected": 12,
+        "execution": "live",
+        "leg": "trend_donchian_avax_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 13,
+        "elected": 13,
+        "execution": "live",
+        "leg": "ada_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      }
+    ],
+    "rows": 514,
+    "starved_by_account": {
+      "breakout_1": 50,
+      "bybit_1": 1
+    },
+    "starved_candidate_held": [
+      {
+        "count": 27,
+        "execution": "shadow",
+        "leg": "eth_pullback_prop_2h"
+      },
+      {
+        "count": 15,
+        "execution": "live",
+        "leg": "trend_donchian_eth_prop"
+      },
+      {
+        "count": 8,
+        "execution": "live",
+        "leg": "trend_donchian_sol_prop"
+      },
+      {
+        "count": 1,
+        "execution": "live",
+        "leg": "trend_donchian_eth"
+      }
+    ],
+    "totals": {
+      "elected": 605,
+      "lost_to_sibling": 33,
+      "no_winner": 141
+    },
+    "winner_that_took_the_symbol": {
+      "eth_pullback_2h": 27,
+      "trend_donchian_eth": 15,
+      "trend_donchian_eth_prop": 1,
+      "trend_donchian_sol": 8
+    }
+  },
+  "schema_3_post_repair": {
+    "account_state_counts": {
+      "breakout_1:starved": 38,
+      "bybit_1:no_winner": 61,
+      "bybit_1:routed": 183,
+      "bybit_2:no_winner": 3,
+      "bybit_2:routed": 23,
+      "bybit_2:starved": 1,
+      "bybit_portfolio:no_winner": 3,
+      "bybit_portfolio:routed": 23,
+      "bybit_portfolio:starved": 1
+    },
+    "per_leg": [
+      {
+        "candidate": 28,
+        "elected": 14,
+        "execution": "shadow",
+        "leg": "eth_pullback_prop_2h",
+        "lost_to_sibling": 14,
+        "no_winner": 0
+      },
+      {
+        "candidate": 12,
+        "elected": 11,
+        "execution": "live",
+        "leg": "trend_donchian_eth_4h",
+        "lost_to_sibling": 1,
+        "no_winner": 0
+      },
+      {
+        "candidate": 6,
+        "elected": 5,
+        "execution": "live",
+        "leg": "ict_scalp_eth_15m",
+        "lost_to_sibling": 1,
+        "no_winner": 0
+      },
+      {
+        "candidate": 42,
+        "elected": 42,
+        "execution": "live",
+        "leg": "eth_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 60,
+        "elected": 2,
+        "execution": "shadow",
+        "leg": "htf_pullback_trend_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 58
+      },
+      {
+        "candidate": 5,
+        "elected": 5,
+        "execution": "live",
+        "leg": "ict_scalp_xrp_5m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 15,
+        "elected": 15,
+        "execution": "live",
+        "leg": "ict_scalp_sol_15m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 47,
+        "elected": 47,
+        "execution": "live",
+        "leg": "ict_scalp_avax_5m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 14,
+        "elected": 14,
+        "execution": "live",
+        "leg": "trend_donchian_eth",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 14,
+        "elected": 14,
+        "execution": "live",
+        "leg": "trend_donchian_eth_prop",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 2,
+        "elected": 2,
+        "execution": "live",
+        "leg": "squeeze_breakout_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 18,
+        "elected": 18,
+        "execution": "live",
+        "leg": "ict_scalp_xrp_15m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 25,
+        "elected": 25,
+        "execution": "live",
+        "leg": "ict_scalp_sol_5m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 10,
+        "elected": 10,
+        "execution": "live",
+        "leg": "trend_donchian_sol",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 10,
+        "elected": 10,
+        "execution": "live",
+        "leg": "trend_donchian_sol_prop",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 12,
+        "elected": 12,
+        "execution": "live",
+        "leg": "xrp_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 1,
+        "elected": 1,
+        "execution": "live",
+        "leg": "ict_scalp_5m",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 2,
+        "elected": 2,
+        "execution": "shadow",
+        "leg": "fade_breakout_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 2,
+        "elected": 2,
+        "execution": "live",
+        "leg": "trend_donchian_ada_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 2,
+        "elected": 2,
+        "execution": "live",
+        "leg": "sol_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 2,
+        "elected": 2,
+        "execution": "live",
+        "leg": "ada_pullback_2h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 15,
+        "elected": 6,
+        "execution": "live",
+        "leg": "trend_donchian",
+        "lost_to_sibling": 0,
+        "no_winner": 9
+      },
+      {
+        "candidate": 5,
+        "elected": 5,
+        "execution": "live",
+        "leg": "trend_donchian_avax_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      },
+      {
+        "candidate": 3,
+        "elected": 3,
+        "execution": "live",
+        "leg": "trend_donchian_sol_4h",
+        "lost_to_sibling": 0,
+        "no_winner": 0
+      }
+    ],
+    "rows": 244,
+    "starved_by_account": {
+      "breakout_1": 38,
+      "bybit_2": 1,
+      "bybit_portfolio": 1
+    },
+    "starved_candidate_held": [
+      {
+        "count": 14,
+        "execution": "shadow",
+        "leg": "eth_pullback_prop_2h"
+      },
+      {
+        "count": 14,
+        "execution": "live",
+        "leg": "trend_donchian_eth_prop"
+      },
+      {
+        "count": 10,
+        "execution": "live",
+        "leg": "trend_donchian_sol_prop"
+      },
+      {
+        "count": 2,
+        "execution": "live",
+        "leg": "trend_donchian_eth_4h"
+      }
+    ],
+    "totals": {
+      "elected": 269,
+      "lost_to_sibling": 16,
+      "no_winner": 67
+    },
+    "winner_that_took_the_symbol": {
+      "eth_pullback_2h": 14,
+      "trend_donchian_eth": 16,
+      "trend_donchian_sol": 10
+    }
+  },
+  "soak_population": {
+    "by_schema": {
+      "2": 514,
+      "3": 244,
+      "None": 13
+    },
+    "complete_file": true,
+    "file_size_bytes": 889195,
+    "rows_returned": 771,
+    "span": {
+      "from": "2026-08-30T14:25:15.286372+00:00",
+      "to": "2026-09-18T20:00:35.890045+00:00"
+    }
+  },
+  "unit": "MI-29"
+}
