@@ -1,0 +1,6 @@
+MI-278 U37 — the margin-ceiling record exists only where it does not matter.
+Tier-1, landing: self. PR #12181, opened by this session so it carries a real
+pull_request event and CI fires normally.
+Full guard set on committed state: every step PASS except pr-landing R6, which
+is what this file satisfies. diagnostic-provenance, silent-empty,
+collapsed-state, document-index, backlog-refs and claim-basis all clean.
