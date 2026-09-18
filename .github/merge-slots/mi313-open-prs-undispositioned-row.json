@@ -1,0 +1,6 @@
+{
+  "held_by": "session_011oA6WHnyj5cjgvZfMdK4uG",
+  "branch": "claude/mi313-open-prs-undispositioned-row",
+  "claimed_at": "2026-09-18T04:37:57Z",
+  "purpose": "MI-313: land the OPEN-PRS.json disposition fix for #12346 (PR #12509)"
+}

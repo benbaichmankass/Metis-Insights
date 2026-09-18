@@ -232,26 +232,6 @@
       "hold_reason": "operator_asked_to_hold"
     },
     {
-      "pr": 12346,
-      "title": "record the four operator answers of 2026-09-16, route the first lane",
-      "owner_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-      "checklist_item": "MI-288",
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09",
-      "observed": "⚠️ SUPERSEDED IN ITS HEADLINE CONTENT — the four operator answers it was opened to land ALREADY REACHED main via #12392 (16d25eef3, 13:50Z). What is still only here: the OPEN-ITEMS re-observation, a BL-20260917 lease-grading backlog row, and a checklist update. It went DIRTY six times across six refresh->CI->merge cycles, each voided by a concurrent session. Decide whether to salvage the remaining three edits onto a fresh branch or close it; do NOT simply re-refresh it a seventh time.",
-      "observed_at": "2026-09-17T16:05Z",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
-      }
-    },
-    {
       "pr": 12398,
       "title": "record that a register-appending PR cannot reliably reach a merge",
       "owner_session": "session_01HoFquGdTrD3TTGbMMRc43t",
@@ -2778,6 +2758,32 @@
       "settled_at": "2026-09-17T16:1xZ",
       "terminal": "merged",
       "settled_by": "session_01HoFquGdTrD3TTGbMMRc43t"
+    },
+    {
+      "pr": 12346,
+      "title": "record the four operator answers of 2026-09-16, route the first lane",
+      "owner_session": "session_01HoFquGdTrD3TTGbMMRc43t",
+      "checklist_item": "MI-288",
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "closed",
+      "opened_at": "2026-09",
+      "observed": "⚠️ SUPERSEDED IN ITS HEADLINE CONTENT — the four operator answers it was opened to land ALREADY REACHED main via #12392 (16d25eef3, 13:50Z). What is still only here: the OPEN-ITEMS re-observation, a BL-20260917 lease-grading backlog row, and a checklist update. It went DIRTY six times across six refresh->CI->merge cycles, each voided by a concurrent session. Decide whether to salvage the remaining three edits onto a fresh branch or close it; do NOT simply re-refresh it a seventh time.",
+      "observed_at": "2026-09-17T16:05Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator approval was ever sought or given for this PR, and none is required: it declares tier 1, read from its own .github/pr-landing/<slug>.json rather than inferred. Under CLAUDE.md's permission tiers, Tier-1 (docs / tests / CI / tooling / observability / read paths) commits on validation with no approval. ⚠️ `not_required` IS A POSITIVE CLAIM, NOT A MISSING RECORD — a successor must not read it as an approval that was lost, and must not go and ask the operator to re-approve something they were never asked about. If a later revision moves this PR to Tier-2/3, this verdict becomes WRONG and must be re-graded; the tier is the thing to re-read, not this field."
+      },
+      "terminal": "closed_unmerged",
+      "closed_at": "2026-09-17T14:40:49Z",
+      "settled_at": "2026-09-18T04:xxZ",
+      "settled_by": "session_011oA6WHnyj5cjgvZfMdK4uG",
+      "disposition": "superseded",
+      "disposition_basis": "MEASURED from the PR's own closing comment (2026-09-17T14:40:46Z, operator), not inferred. Closed unmerged after SIX refresh->CI->merge cycles were each voided before the merge button: required CI ran ~20 minutes against a main moving roughly every 4 minutes (25 commits in the ~2h to 15:05Z), so the branch was behind again before its own checks finished -- arithmetic, not bad luck. Operator chose salvage onto fresh branches on 2026-09-17 rather than a seventh identical retry. What it owed, per the closing comment's own table: OPEN-ITEMS.json's OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT re-affirmation and the health-review-backlog.json lease-grades-main-red row were SALVAGED into #12437 (4bec48427); MANAGER-CHECKLIST.json was SUPERSEDED by #12412 (f258d5232); this file's own OPEN-PRS.json edit was SUPERSEDED by #12428 (fb259c8d7); the CLAUDE.md delta was not an edit (only the generated session-brief hour counter). Nothing this PR carried was lost -- it is reachable on main through the four PRs named above."
     }
   ],
   "last_reconciled_at": "2026-09-17T16:05Z",
