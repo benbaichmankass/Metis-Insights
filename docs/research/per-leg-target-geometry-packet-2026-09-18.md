@@ -1,7 +1,7 @@
 # The per-leg target-geometry decision packet — all 55 legs, at each leg's own stated n
 
 > **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
-> MI-317 · `2026-09-18` · successor to MI-307 ([`offline-mfe-distribution-2026-09-18.md`](offline-mfe-distribution-2026-09-18.md), #12503) and MI-312 ([`scalp-family-target-arms-2026-09-18.md`](scalp-family-target-arms-2026-09-18.md), #12515)
+> MI-317 · `2026-09-18` · successor to MI-307 ([`offline-mfe-distribution-2026-09-18.md`](offline-mfe-distribution-2026-09-18.md), #12503) and MI-312 ([`scalp-family-target-arms-2026-09-18.md`](scalp-family-target-arms-2026-09-18.md), #12515, merged)
 > · row `OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON` clause (2)
 
 **⚠️ PROPOSE ONLY. Nothing in `config/` is touched. Every `tp_r` and `tp_at_r` is Tier-3 and the
@@ -385,9 +385,21 @@ Artifact: [`mi317-target-geometry-packet-2026-09-18.json`](mi317-target-geometry
 leg's own n, every surviving sweep cell with its inert-fold accounting, and the derived
 disposition.
 
-⚠️ **Until #12515 merges, MI-312's artifact is not on `main`** and the 8 legs of § 3.A grade
-`not_measured` rather than silently reading as unproblematic. Pass
-`--mi312 <path-to-mi312-scalp-target-arms-2026-09-18.json>` to reproduce this memo's § 3.A; the
-figures here were read from that file at `f271931ed`
-(`origin/claude/mi312-scalp-family-capped-arm`). The selftest asserts the absent case behaves
-honestly rather than defaulting.
+⚠️ **THIS PARAGRAPH SAID "Until #12515 merges, MI-312's artifact is not on `main`" AND THAT IS NOW
+FALSE — do not re-quote it.** It was true when § 3.A was built and became stale mid-session, in the
+dangerous direction: a reader acting on it would go hunting a branch for a file that is on `main`.
+**#12515 MERGED** while this PR was open (`origin/main` moved `d4ff439ce → 8460ff8b2`), so
+`docs/research/mi312-scalp-target-arms-2026-09-18.json` is canonical and **no `--mi312` override is
+needed** — the two commands in § 7 are the whole reproduction.
+
+**VERIFIED RATHER THAN ASSUMED, because § 3.A was built before the merge and a silent divergence
+would have been invisible.** Two checks, both run after merging `origin/main`: the branch copy this
+memo was built from (`origin/claude/mi312-scalp-family-capped-arm@f271931ed`) is **byte-identical**
+to the artifact that landed, and re-running the instrument against the canonical path with **no
+override** reproduces this memo's committed JSON **byte-identically**. So every § 3.A figure was
+computed from exactly what is now on `main`.
+
+⚠️ **The absent-artifact path is still live and still tested**, because it is what a future reader
+on an older tree will hit: with the file missing, the 8 legs of § 3.A grade `not_measured` rather
+than silently reading as unproblematic, and a selftest asserts that rather than letting them
+default.
