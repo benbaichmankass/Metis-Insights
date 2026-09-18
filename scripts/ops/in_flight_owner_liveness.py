@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a session or manager runs this by hand (its live layer
+# needs a get_session/list_sessions observation CI cannot produce, same reason
+# session_registry.py::reconcile is not CI-wired); deliberately not added to
+# run_guards.py in this PR to avoid touching that heavily-contended shared file
 """IS THE SESSION OWNING THIS in_flight WORK OBJECT STILL ALIVE?
 
 WHY THIS EXISTS — MEASURED, NOT HYPOTHETICAL
@@ -250,7 +254,6 @@ def normalise_live_buckets(raw: Any) -> Dict[str, str]:
     or a `{"data": [...]}` / `{"sessions": [...]}` listing wrapper)."""
     out: Dict[str, str] = {}
     stack = [raw]
-    seen_lists = False
     for _ in range(6):
         if not stack:
             break
@@ -263,7 +266,6 @@ def normalise_live_buckets(raw: Any) -> Dict[str, str]:
                 inner = cur.get(key)
                 if isinstance(inner, (list, dict)):
                     stack.insert(0, inner)
-                    seen_lists = True
                     break
             else:
                 sid = cur.get("id") or cur.get("session_id")
@@ -273,7 +275,6 @@ def normalise_live_buckets(raw: Any) -> Dict[str, str]:
             continue
         if isinstance(cur, list):
             stack = list(cur) + stack
-            seen_lists = True
     return out
 
 
@@ -476,8 +477,8 @@ def main(argv=None) -> int:
                 print(f"    -> {oid}")
     if a.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
-    worst = FAIL if any(res[l]["state"] == FAIL for l in ("registry", "live")) else (
-        UNKNOWN if any(res[l]["state"] == UNKNOWN for l in ("registry", "live")) else PASS)
+    worst = FAIL if any(res[layer]["state"] == FAIL for layer in ("registry", "live")) else (
+        UNKNOWN if any(res[layer]["state"] == UNKNOWN for layer in ("registry", "live")) else PASS)
     return {PASS: 0, FAIL: 3, UNKNOWN: 4}[worst]
 
 
