@@ -1,0 +1,139 @@
+{
+  "unit": "MI-321",
+  "question": "backtest_ict_scalp.py CALLS the live order_package -- so does it hand it the same inputs the live builder does?",
+  "generated_at_utc": "2026-09-18T22:31:06Z",
+  "window_seam": {
+    "state": "identical",
+    "candles": "btc_1m_sample.csv",
+    "bars_in_file": 10080,
+    "graded_bars": 9879,
+    "harness_window_bars": 50,
+    "live_window_bars": 200,
+    "accepts_harness_window": 46,
+    "accepts_live_window": 46,
+    "both_accepted": 46,
+    "differing_geometry": 0,
+    "only_harness_window": 0,
+    "only_live_window": 0,
+    "examples": [],
+    "verdict_note": "`no_accepts_in_population` is NOT agreement -- two probes that declined everything agree about nothing. A non-zero accept count is what makes `identical` mean something, so it is reported beside the verdict rather than left implicit."
+  },
+  "config_seam": {
+    "state": "measured",
+    "harness_reads": "ict_scalp_5m",
+    "legs": {
+      "ict_scalp_5m": {
+        "execution": "live",
+        "differing_keys": {},
+        "n_differing": 0
+      },
+      "ict_scalp_sol_5m": {
+        "execution": "live",
+        "differing_keys": {},
+        "n_differing": 0
+      },
+      "ict_scalp_xrp_5m": {
+        "execution": "live",
+        "differing_keys": {
+          "off_cells": {
+            "flag": null,
+            "default": null,
+            "harness_reaches_skip": false,
+            "live_reaches_skip": true,
+            "class": "not_expressible",
+            "note": "the live side SKIPS an entry on this key and the harness never does"
+          },
+          "vol_spec": {
+            "flag": "--vol-spec-json",
+            "default": null,
+            "harness_reaches_skip": false,
+            "live_reaches_skip": true,
+            "class": "asymmetric_gate",
+            "note": "the live side SKIPS an entry on this key and the harness never does; `--vol-spec-json` exists but the value reaches no skip, so a run can be LABELLED with it while behaving as if it were unset"
+          }
+        },
+        "n_differing": 2
+      },
+      "ict_scalp_avax_5m": {
+        "execution": "live",
+        "differing_keys": {},
+        "n_differing": 0
+      },
+      "ict_scalp_xrp_15m": {
+        "execution": "live",
+        "differing_keys": {
+          "timeframe": {
+            "flag": "--timeframe",
+            "default": "5m",
+            "harness_reaches_skip": false,
+            "live_reaches_skip": false,
+            "class": "restorable"
+          }
+        },
+        "n_differing": 1
+      },
+      "ict_scalp_eth_15m": {
+        "execution": "live",
+        "differing_keys": {
+          "stale_exit_bars": {
+            "flag": "--stale-exit-bars",
+            "default": null,
+            "harness_reaches_skip": true,
+            "live_reaches_skip": false,
+            "class": "restorable"
+          },
+          "stale_exit_below_r": {
+            "flag": "--stale-exit-below-r",
+            "default": 0.0,
+            "harness_reaches_skip": true,
+            "live_reaches_skip": false,
+            "class": "restorable"
+          },
+          "timeframe": {
+            "flag": "--timeframe",
+            "default": "5m",
+            "harness_reaches_skip": false,
+            "live_reaches_skip": false,
+            "class": "restorable"
+          }
+        },
+        "n_differing": 3
+      },
+      "ict_scalp_sol_15m": {
+        "execution": "live",
+        "differing_keys": {
+          "timeframe": {
+            "flag": "--timeframe",
+            "default": "5m",
+            "harness_reaches_skip": false,
+            "live_reaches_skip": false,
+            "class": "restorable"
+          }
+        },
+        "n_differing": 1
+      },
+      "ict_scalp_mgc_15m": {
+        "execution": "live",
+        "differing_keys": {
+          "timeframe": {
+            "flag": "--timeframe",
+            "default": "5m",
+            "harness_reaches_skip": false,
+            "live_reaches_skip": false,
+            "class": "restorable"
+          }
+        },
+        "n_differing": 1
+      }
+    },
+    "n_legs": 8,
+    "n_live": 8
+  },
+  "live_off_cell_suppression": {
+    "state": "found",
+    "reads_config_key": true,
+    "gates_on_it": true,
+    "occurrences": 7
+  },
+  "harness_cli_flags": 32
+}
