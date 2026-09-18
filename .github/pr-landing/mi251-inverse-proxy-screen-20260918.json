@@ -1,0 +1,8 @@
+{
+  "branch": "claude/mi251-inverse-proxy-screen-20260918",
+  "tier": 1,
+  "landing": "self",
+  "session": "session_01Ex5Dx1TMYy46ncsp8eptpx",
+  "item": "MI-251",
+  "why": "Tier-1 by path: docs/** and scripts/research/** only. Measurement and a proposal; config/ and src/ are read and never written. The instrument screens candidates and wires nothing - declaring an inverse instrument on alpaca_live is a separate Tier-3 decision, explicitly out of scope per MI-251's own scope line."
+}
