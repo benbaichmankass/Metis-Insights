@@ -111,6 +111,41 @@ reads `off_cells = vcfg.get("off_cells") or []` and gates on
 occurs **12** — every one of them inside `_stamp_decision_time_regime`. **A
 count reports it as implemented; the skip test does not.**
 
+### 3.1 — What a DEFAULT run of this harness represents
+
+With no flags passed, `_load_yaml_params()` gives the `ict_scalp_5m` block, so a
+default run is faithful to **three** of the eight live legs exactly —
+`ict_scalp_5m`, `ict_scalp_sol_5m`, `ict_scalp_avax_5m`, which differ from that
+block in **0** consumable keys. It is faithful to the other five only if the
+caller passed the right flags, and **never** to `ict_scalp_xrp_5m`, for which no
+flag exists.
+
+⚠️ **Whether any real caller passed those flags is UNMEASURED.** The claim here
+is about what the harness CAN represent, not about what any particular run did.
+
+## 3.2 — An incidental observation, recorded because its own backlog row is not on this branch
+
+While verifying this PR, `check_pr_landing.py --base main` **FAILED** with
+`state=undeclared`, naming **eight** files this diff never touched — four `src/`
+paths as *"Tier-2 by name"* and four `.github/pr-landing/` declarations as
+*"CHANGES THE LANDING MACHINERY"*. Cause: **local `main` was 4 commits behind
+`origin/main`**, so the guard diffed across other sessions' merges. `git branch
+-f main origin/main` and the same command returns `OK`.
+
+**This is the third occurrence in this lane, and the third one changes the
+claim.** The first two read as *a session forgot to fetch*. Here the branch had
+been created FROM `origin/main` minutes earlier and was current — only the local
+`main` **ref** was stale — and it had been re-pointed once already in the same
+session. This repo lands automation commits to `main` continuously (PR-queue
+receipts, work digests, settled-PR reconciliation), so the ref goes stale again
+between guard runs. **"Fetch before running a guard" is therefore not a habit a
+session can hold; the remedy is the guard printing its RESOLVED BASE**, which is
+what `check_timestamp_comparisons` already does for its diff path.
+
+Filed at `BL-20260918-A-GUARD-RUN-AGAINST-A-STALE-BASELINE-FAILS-CONFIDENTLY-ABOUT-FILES-THE-PR-NEVER-TOUCHED-AND-PRINTS-A-PLAUSIBLE-WRONG-REMEDY`,
+which is on an unmerged branch — hence this note, so the third instance is not
+lost if that row lands before anyone reads it.
+
 ## 4 — What this does NOT establish
 
 - **No backtest was re-run and none is proposed.** Whether `ict_scalp_xrp_5m`'s
