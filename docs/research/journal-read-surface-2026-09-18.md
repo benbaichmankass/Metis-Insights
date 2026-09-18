@@ -1,7 +1,9 @@
 # `/api/diag/journal` accepts `offset` and discards it — measured, and the clamp is not the bug
 
-> **Doc status:** `live` · category `research` · MI-305 (ENGINEERING lane) · measured `2026-09-18`
-> Reproduces and extends **MI-298** (2026-09-17) and **MI-301** (2026-09-18).
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+**MI-305** · ENGINEERING lane · Tier-2 · `session_01XYu2vvg9Qgxoqf4jJQyd8i` · measured `2026-09-18`
+Reproduces and extends **MI-298** (2026-09-17) and **MI-301** (2026-09-18).
 
 ## 1. What was measured, and the population
 
