@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "ops tooling + tests + docs only (scripts/ops/blocked_lane_watch.py, scripts/ops/session_registry.py, tests/, docs/claude/blocked-lane-watch.md); no src/, config/, deploy/ order path, risk cap, or strategy param touched. MI-264."
+}

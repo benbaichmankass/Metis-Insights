@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01F5RhV5okTSrPK3vq8jbwTY",
+  "branch": "claude/mi264-registry-confirmed-blocker",
+  "claimed_at": "2026-09-18T03:49:56Z",
+  "purpose": "MI-264: land the registry_confirmed blocked-on kind"
+}
