@@ -86,7 +86,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
@@ -207,13 +207,30 @@ def grade_parent(parent: str, routed_symbols: frozenset,
 
 # --------------------------------------------------------------- repo readers
 def load_account(path: Optional[Path] = None) -> dict:
-    import yaml
-    p = path or (REPO / "config" / "accounts.yaml")
-    raw = yaml.safe_load(p.read_text())
-    accs = raw.get("accounts", raw)
+    """Read this account's cfg through the CANONICAL accounts loader.
+
+    ⚠️ NOT a hand-rolled yaml.safe_load: `canonical-config-loaders` forbids a
+    second accounts.yaml parser, and it caught this file doing exactly that.
+    A private parser drifts from the one the runtime uses, which is how a
+    screen ends up describing an account nobody routes.
+
+    ⚠️ AND THE LOADER RETURNS {} ON A READ FAILURE, so `errors` is passed and
+    CHECKED: without it, a corrupt accounts.yaml and an accounts.yaml with no
+    `alpaca_live` are the same empty dict — the collapsed state this whole
+    instrument is written to avoid. A parse failure REFUSES here; it never
+    renders as an absent account.
+    """
+    from src.config.accounts_loader import load_accounts_dict
+
+    errors: List[Dict[str, Any]] = []
+    accs = load_accounts_dict(path, errors=errors)
+    if errors:
+        raise SystemExit(
+            f"accounts.yaml could not be parsed ({errors[0].get('error')}) -- "
+            "refusing to report on an account we could not read")
     acc = accs.get(ACCOUNT_ID)
     if not isinstance(acc, dict):
-        raise SystemExit(f"{ACCOUNT_ID} absent from {p} -- refusing to guess")
+        raise SystemExit(f"{ACCOUNT_ID} absent from accounts.yaml -- refusing to guess")
     return acc
 
 
@@ -249,17 +266,25 @@ def live_leg_symbols(legs: dict) -> frozenset:
     return frozenset(out)
 
 
-def mapped_tickers() -> frozenset:
-    """Tickers the repo's OWN yfinance adapter can resolve.
+def mapped_tickers() -> Optional[frozenset]:
+    """Tickers the repo's OWN yfinance adapter can resolve, or None.
 
     Membership is NOT tradeability -- the adapter says so itself. It answers
     only "could we fetch candles for this without new wiring?".
+
+    ⚠️ RETURNS None FOR *WE COULD NOT LOOK*, NEVER AN EMPTY SET. An earlier
+    draft caught a broad `Exception` and returned `frozenset()`, which
+    `silent-empty-guard` refused -- correctly: an adapter that fails to import
+    would then render EVERY candidate as `UNMAPPED`, a confident verdict about
+    data availability derived from having no information at all. The exception
+    is NARROWED rather than annotated, on MI-319's lesson: a broad catch would
+    grade a genuine defect in this instrument as an ordinary negative.
     """
     try:
         from ml.datasets.adapters.yf_symbols import known_symbols
         return known_symbols()
-    except Exception:
-        return frozenset()
+    except (ImportError, AttributeError, OSError):
+        return None
 
 
 # ------------------------------------------------------------------- the screen
@@ -286,7 +311,8 @@ def screen(acc: dict, legs: dict, equity: float) -> dict:
             "stop_reconstructed": None if stop is None else round(stop, 4),
             "wall_state": grade_walls(c.price, stop, cash_ceil, stop_ceil),
             "parent_state": grade_parent(c.parent, routed, live_syms),
-            "candles_mapped": c.ticker in mapped,
+            # None (not False) when the adapter could not be read at all.
+            "candles_mapped": None if mapped is None else (c.ticker in mapped),
             "note": c.note,
         })
     return {
@@ -462,11 +488,31 @@ def _selftest() -> int:
     ok("live_leg_symbols spans the fleet, not one account",
        live_leg_symbols(legs) == frozenset({"TLT", "SPY"}))
 
+    # --- the third state on candle availability -------------------------
+    # NEGATIVE CONTROL for the silent-empty fix: an unreadable adapter must
+    # render as `could_not_read`, never as UNMAPPED. Reporting every candidate
+    # unmapped because the adapter failed to import is a confident verdict
+    # about data availability drawn from no information at all.
+    ok("NEG: an unreadable adapter renders could_not_read, NOT UNMAPPED",
+       _candles_label(None) == "could_not_read")
+    ok("a mapped ticker still renders mapped, an unmapped one UNMAPPED",
+       _candles_label(True) == "mapped" and _candles_label(False) == "UNMAPPED")
+    ok("NEG: could_not_read is not either of the two graded labels",
+       _candles_label(None) not in {_candles_label(True), _candles_label(False)})
+
     bad = [n for n, good in checks if not good]
     for n, good in checks:
         print(f"  {'ok  ' if good else 'FAIL'}  {n}")
     print(f"mi251 selftest: {len(checks) - len(bad)}/{len(checks)} passed")
     return 1 if bad else 0
+
+
+
+def _candles_label(v: Optional[bool]) -> str:
+    """`could_not_read` is a THIRD value and must never print as UNMAPPED."""
+    if v is None:
+        return "could_not_read"
+    return "mapped" if v else "UNMAPPED"
 
 
 def _render(res: dict) -> str:
@@ -489,7 +535,7 @@ def _render(res: dict) -> str:
         p = "   n/a" if r["price_asof"] is None else f"{r['price_asof']:8.2f}"
         s = "    n/a" if r["stop_reconstructed"] is None else f"{r['stop_reconstructed']:7.3f}"
         A(f"{r['ticker']:7} {r['parent']:7} {p} {s}  {r['wall_state']:20} "
-          f"{r['parent_state']:22} {'mapped' if r['candles_mapped'] else 'UNMAPPED'}")
+          f"{r['parent_state']:22} {_candles_label(r['candles_mapped'])}")
     return "\n".join(L)
 
 
