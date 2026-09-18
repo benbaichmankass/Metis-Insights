@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Touches src/runtime/telegram_decisions.py, the Telegram half of the operator decision round-trip. The change is scoped to render_decision_prompt only -- the inbox/route/write-gate/poll-registry it composes with are untouched -- but it needs an ict-telegram-bot.service restart to take effect on the fleet, and WO-20260918-DECISION-POPUPS-NEVER-ARRIVE-BECAUSE-EVERY-OVER-CAP-PROMPT-400S (Tier-2, dispatched via MI-318) asks for one operator OK before it lands, same as every other change to this bridge.",
+  "why": "Runtime Telegram bridge, Tier-2 by path (src/runtime/**). Fixes a measured defect: render_decision_prompt had no cap handling, so every decision prompt whose rendered text exceeded Telegram's 4096-char sendMessage cap failed with HTTP 400 forever (the once-only prompted-marker is never set on a failed send). Adds a three-rung compaction ladder (context, then option implications, then a stated floor) that never shortens the question and never drops an option or touches callback_data, per WO-20260918's must_not. Verified against the three real requests the work object measured at 4738/5463/4569 chars: all three now render under 4096 with the question intact and every option label present. A green test cannot establish the fleet observation the work object's done_condition asks for (a real over-cap prompt arriving with its keyboard intact) -- that is for the manager to carry after merge + restart."
+}
