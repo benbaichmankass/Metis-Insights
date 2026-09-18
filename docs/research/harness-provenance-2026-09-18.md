@@ -28,6 +28,34 @@ leg is `execution: shadow`.
 a third state, and the whole point of keeping it apart from *divergent* is that
 nobody has looked. What the numbers say is where looking would be worth most.
 
+## 0.1 — The join, per unit
+
+The three groups above are this table summed. Every column is measured; nothing
+is inferred from a filename (`backtest_trend` → `trend_donchian` is not a name
+match, and the correspondence comes from the unit's own reference to the
+harness path).
+
+| unit | legs | live | its CLI harness | provenance | adjudicated? |
+|---|---:|---:|---|---|---|
+| `trend_donchian` | 23 | **20** | `backtest_trend.py` | reimplements, **claimed** | **no** — probe refuses (`idiom_mismatch`) |
+| `htf_pullback_trend_2h` | 19 | **16** | `backtest_pullback.py` | corresponds, **no claim** | **no** — nothing asserted to grade |
+| `ict_scalp` | 8 | **8** | `backtest_ict_scalp.py` | **imports the live unit** | n/a — entry exact by construction |
+| `squeeze_breakout_4h` | 1 | **1** | `backtest_squeeze.py` | corresponds, no claim | no |
+| `fade_breakout_4h` | 1 | 0 | `backtest_fade.py` | reimplements, claimed | yes — `divergent`, see § 4.2 |
+| `fvg_range_15m` | 1 | 0 | `backtest_fvg_range.py` | reimplements, claimed | **yes — MI-319** |
+| `turtle_soup` | 1 | 0 | *(none)* | — | — |
+| `vwap` | 1 | 0 | *(none)* | — | — |
+
+`20 + 16 + 1 = 37` live legs behind an unadjudicated reimplementation; `8`
+behind a harness that ran the live decision; `45` in total, which is the whole
+live fleet — the arithmetic closes, which is the point of reporting it this way
+rather than as three shares.
+
+⚠️ **`turtle_soup` and `vwap` have no `scripts/backtest_*.py` at all.** Both are
+`execution: shadow`, so nothing live rests on it, and this row is a *we did not
+look* rather than a finding: where their validation evidence came from was not
+traced here.
+
 ## 1 — Populations
 
 Every figure below is over one of these three, stated at the point of use.
