@@ -1,0 +1,1 @@
+armed by MI-315 for claude/mi315-pr-queue-noise-measurement (PR #12523) — Tier-1, docs-only, PR-queue-noise measurement
