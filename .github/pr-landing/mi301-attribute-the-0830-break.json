@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research evidence and a manual-only instrument, plus governance records. Adds docs/research/mi301-stop-term-robustness-2026-09-17.md, scripts/research/mi301_stop_term_robustness.py (header `wiring: manual-only`; nothing imports it, nothing schedules it, it is not on the order path), tests/test_mi301_stop_term_robustness.py, and register updates: OPEN-ITEMS.json (re-affirms OI-20260911, does NOT clear it), three health-backlog rows filed through backlog_append.py, the work object the lane was dispatched against, DOCUMENT-INDEX.md, RESEARCH-CAPABILITY-INDEX.md, and the regenerated CLAUDE.md SESSION-BRIEF block that changing a register requires. No src/, no config/, no deploy/, no .github/workflows/, no unit file, no live-VM file. It reads two journal pulls read-only and PROPOSES no parameter change -- the e35 geometry is Tier-3 and the operator's, and the memo's recommendation is explicitly not to change it on this evidence. Tier-1 by the canonical doc's own examples (docs, tests, tooling, observability/read paths, retrieving + analyzing state)."
+}

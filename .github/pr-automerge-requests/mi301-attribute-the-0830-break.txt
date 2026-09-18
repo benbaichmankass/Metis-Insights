@@ -1,0 +1,2 @@
+MI-301 · PR #12491 · Tier-1 research doc + manual-only instrument + tests + registers.
+landing: self. No src/, no config/, no deploy/, no workflow, no unit file.
