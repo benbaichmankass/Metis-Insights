@@ -1,0 +1,7 @@
+MI-319 — fvg_range_15m verbatim-port adjudication.
+
+Tier-1 by path: docs/** and scripts/research/** only. The PR was opened by this
+session (#12556) BEFORE this arming file was pushed, so it carries a real
+pull_request event and CI fires normally — rather than being born under
+GITHUB_TOKEN with a single green open-and-automerge check and no others, which
+is the zero-check trap that hit six PRs on 2026-09-08.
