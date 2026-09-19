@@ -19,16 +19,12 @@
     "reads to pick them up. Design: docs/claude/work/objects/WO-20260901-PHASE-E.yaml"
   ],
   "schema_version": 1,
-  "state": "held",
-  "holder": "session_01GHpyXT2qssLJsrvXBQRkQF",
-  "claimed_at": "2026-09-19T08:11:57Z",
-  "heartbeat_at": "2026-09-19T08:11:57Z",
-  "expires_at": "2026-09-19T09:41:57Z",
-  "ttl_minutes": 90,
-  "heartbeat_target_minutes": 30,
-  "claimed_over_state": "expired",
+  "state": "released",
+  "holder": null,
+  "released_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
+  "released_at": "2026-09-19T09:12:44Z",
+  "previous_holder": "session_01GHpyXT2qssLJsrvXBQRkQF",
   "forced": false,
   "force_reason": null,
-  "previous_holder": "session_01GHpyXT2qssLJsrvXBQRkQF",
-  "note": null
+  "note": "Stand-down at end of session. Both PRs of this session (#12580, #12581) are merged and every queued row (MI-327..MI-334) is DEFERRED on the operator's budget constraint until the week of 2026-09-22 — so there is no supervision behind this lease. Released rather than heartbeated: extending a lease with nothing behind it is exactly what R6 names. 3 BLOCKED and 6 REVIEW_READY lanes are recorded in SESSIONS.json and are the next manager's first read."
 }
