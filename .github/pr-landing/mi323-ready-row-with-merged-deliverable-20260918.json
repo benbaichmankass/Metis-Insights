@@ -1,0 +1,6 @@
+{
+  "branch": "claude/mi323-ready-row-with-merged-deliverable-20260918",
+  "landing": "self",
+  "tier": 1,
+  "why": "Backlog row only. Touches docs/claude/health-review-backlog.json and landing machinery; no src, no config, no scripts, no new document, so it touches neither index register."
+}
