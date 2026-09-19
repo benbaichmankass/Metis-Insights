@@ -315,27 +315,6 @@
         "text": "None sought and none required: declares tier 1, read from its own .github/pr-landing/ declaration."
       },
       "hold_reason": null
-    },
-    {
-      "pr": 12585,
-      "title": "mgr: stand down — release the lease, and leave the session receipt behind",
-      "owner_session": "session_01GHpyXT2qssLJsrvXBQRkQF",
-      "checklist_item": null,
-      "tier": 1,
-      "draft": false,
-      "landing": "self",
-      "state": "open",
-      "opened_at": "2026-09-19T09:1xZ",
-      "observed": "This row's own PR. Tier-1 register-only: the manager lease moving to `released` plus this session's receipt, both on docs/claude/work/**. Armed, merge-slot claimed on the shared field. Recorded here because a manager that reconciles this register and omits its own PR has not reconciled it.",
-      "observed_at": "2026-09-19T09:2xZ",
-      "operator_decision": {
-        "verdict": "not_required",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "None sought and none required: tier 1, no src/, config/, deploy/, scripts/ or workflow, no order path."
-      },
-      "hold_reason": null
     }
   ],
   "⚠️_manager_is_github_write_rate_limited": "CLEARED 2026-09-02T07:5xZ — write calls (update_pull_request, merge_pull_request, issue_write, create_pull_request) all succeeded again. The limit was self-inflicted: polling get_check_runs in a loop across ~11 PRs for hours. #10757 (the CI waiter, now MERGED as 066bfa7f) is the mechanism that removes that waste — use it instead of polling.",
@@ -2957,10 +2936,34 @@
       "terminal": "merged",
       "merge_sha": "a7b23d51436551070203f64b45bd174946b3fcd3",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 12585,
+      "title": "mgr: stand down — release the lease, and leave the session receipt behind",
+      "owner_session": "session_01GHpyXT2qssLJsrvXBQRkQF",
+      "checklist_item": null,
+      "tier": 1,
+      "draft": false,
+      "landing": "self",
+      "state": "open",
+      "opened_at": "2026-09-19T09:1xZ",
+      "observed": "This row's own PR. Tier-1 register-only: the manager lease moving to `released` plus this session's receipt, both on docs/claude/work/**. Armed, merge-slot claimed on the shared field. Recorded here because a manager that reconciles this register and omits its own PR has not reconciled it.",
+      "observed_at": "2026-09-19T09:53:32Z",
+      "operator_decision": {
+        "verdict": "not_required",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "None sought and none required: tier 1, no src/, config/, deploy/, scripts/ or workflow, no order path."
+      },
+      "hold_reason": null,
+      "terminal": "merged",
+      "merge_sha": "32d65bee569346e46c5e6ef1e787d9672e751bbc",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-19T09:22:00Z",
-  "last_reconciled_sha": "a7b23d51436551070203f64b45bd174946b3fcd3",
+  "last_reconciled_at": "2026-09-19T09:53:32Z",
+  "last_reconciled_sha": "ae2367d6c79eb191eda1b7e3c95d0571655a33a7",
   "updated_at": "2026-09-18T11:36Z",
   "updated_by": "session_01PHax6vjumG6Aa1xh4GfKiF",
   "⚠️_RECONCILE_2026_09_17_THE_RECORD_WAS_EMPTY": "Reconciled 2026-09-17T16:05Z by manager session_01HoFquGdTrD3TTGbMMRc43t against a LIVE 60-row list_pull_requests observation. ⚠️ BEFORE THIS, open_prs WAS AN EMPTY LIST while 17 non-automation PRs were open — handoff_check graded '17 open PR(s) have no row ... of 60 open, against 0 recorded'. A successor could see none of them. ⚠️ THE MOST USEFUL THING THIS RECONCILE ESTABLISHED IS A NEGATIVE: EVERY open PR declares tier 1 — read from each branch's own .github/pr-landing/<slug>.json, not inferred — so NOT ONE of them is waiting on an operator approval, and every operator_decision here is null because none was ever sought. Do not read those nulls as lost approvals. What holds the 10 `hold` rows is their OWN declaration (unvouchable_paths / changes_landing_machinery / operator_asked_to_hold), which is a structural refusal, not a queue position. ⚠️ EXACTLY ONE ROW NEEDS A HUMAN DECISION ON CONTENT: #12072, where the row-aware merge driver refused because two sessions edited the same backlog row differently. ⚠️ AND TWO ARE DRAFTS ON PURPOSE (#12070, #12219) — un-drafting them to shorten the queue would be a decision nobody has taken. ⚠️ THE 43 AUTOMATION PRs ARE DELIBERATELY NOT ROWED: R13 blocks every bot-opened PR by construction (a bot writes no merge-slot claim), so they are the steady state of a mechanism and not a backlog — this file's own _doc already says so. || SNAPSHOT CAVEAT, stated rather than worked around: open_pr_record --strict against the live list used here grades completeness=stale_row naming #12412 and #12426. THEY ARE BOTH OPEN. The list_pull_requests snapshot was taken at ~15:45Z, BEFORE either PR existed (#12412 created 12:08:59Z UTC-in-API-clock, #12426 at 13:05:08Z), so the tool is correctly reporting that two rows are absent from the observation it was given — it says in its own message that it does not claim to know which of the two causes it is. Do NOT move these rows to settled_prs on the strength of that grade; re-run the check against a FRESH listing first. This is the denominator discipline applied to the checker. || ARMING NOTE (third occurrence this session): claude-pr-automerge.yml opened THIS PR (#12428) under GITHUB_TOKEN too, so it was born with no required check runs. Three for three — #12412, #12426, #12428 — because the arming file must ride in the same push as the content when the branch is created, and that push fires the workflow before a session can open the PR itself. CLAUDE.md documents the prevention but not this variant.",
