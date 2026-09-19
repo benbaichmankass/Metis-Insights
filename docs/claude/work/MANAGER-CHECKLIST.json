@@ -39,7 +39,7 @@
   ],
   "schema_version": 1,
   "manager_session": "session_01HoFquGdTrD3TTGbMMRc43t",
-  "updated_at": "2026-09-18T11:25:00Z",
+  "updated_at": "2026-09-19T00:00:00Z",
   "cycle": "CY-20260906-TRADING-TRUTH",
   "states": {
     "done": "merged AND its effect observed",
@@ -4620,6 +4620,86 @@
       "object": "WO-20260918-DECISION-POPUPS-NEVER-ARRIVE-BECAUSE-EVERY-OVER-CAP-PROMPT-400S",
       "closed": "2026-09-18",
       "closed_observation": "CLOSED AS A DUPLICATE, AND THE DUPLICATION IS MY ERROR AS MANAGER. The lane returned COMPLETED reporting its own PR #12535 closed as a duplicate of #12490, and I verified that rather than taking the summary: #12490 (MI-303, 'the decision channel reported healthy while sending nothing -- the 4096-char body cap') was opened 2026-09-17T23:36Z, is Tier-2 landing:hold, and diagnoses the IDENTICAL defect with BETTER evidence than my MI-318 dispatch produced -- a partition over the COMPLETE population of 33 decision requests cross-checked against the live marker file (0 of 5 over-cap requests ever delivered; 20 of 20 under-cap ones delivered), two positive controls including an in-situ one on the same sweep run, and a second finding I did not have (the sweep wrote a durable receipt on every run and NOTHING READ IT, so it ships a reader, not just a better field). ⚠️ I HAD #12490 IN MY OWN HELD-FOR-THE-OPERATOR LIST AND DISPATCHED A LANE AGAINST IT ANYWAY. The operator asked twice for decisions as pop-ups; the correct answer both times was 'the fix is written and waiting on your merge click plus an ict-telegram-bot.service restart', not a new lane. Cost: one Sonnet lane, ~$23.76 / 100.7M cache-read tokens, to re-derive a held PR. The lane filed its own recurrence row for the class; the id is deliberately not quoted in truncated form here, because a shortened id stops being an id and artifact-validity reads it as a reference to nothing. ⚠️ THE DEFECT IS STILL LIVE ON MAIN: `grep -c 4096 src/runtime/telegram_decisions.py` on origin/main reads 0, measured after the lane closed. Merged is not deployed and a closed duplicate fixes nothing -- #12490 is what fixes it and it is UNMERGED."
+    },
+    {
+      "id": "MI-327",
+      "state": "queued",
+      "lane": "engineering",
+      "tier": 3,
+      "title": "Re-point the M7 strategy-review EDGE verdict at the offline record (the diff that never came back)",
+      "note": "OPERATOR-RAISED 2026-09-19, and it is a RECURRENCE the operator has now had to explain TWICE. Verbatim: \"we've built extensive backtesting infra so that we only need soaking for mechanical verification, not data to assess - there's no reason that anything needs to observe 20 live trades, the structure of this test is wrong and contradicts the system we've been building for 7 months\". They said the same on 2026-09-09 against DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR, which is `committed` and says in terms \"Do NOT re-ask it in another form\". MEASURED 2026-09-19: scripts/check_soak_doctrine.py still reports 7 KNOWN accrual-gated verdict branches in strategy_review_packet.py::decide (L1035/1059/1082/1103/1138/1166/1186) and its own output calls that \"a live contradiction of the canonical rule ... It is NOT compliance\"; comms/strategy_reviews/2026-09-18/INDEX.json reads graded 52 / actionable 0 / by_action {hold: 41, no_offline_evidence: 11} with min_closed_for_action still 20, while 52 per-leg records exist under comms/strategy_evidence/ -- so 41 legs that DO have an offline record are still held for want of live closes. ⚠️ NO NEW APPROVAL IS NEEDED TO BUILD THE DIFF. DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-BASIS is committed with `build_producer`; MI-216 (producer) and MI-217 (the interim `no_offline_evidence` state) shipped. The half that never happened is the one that answer named: \"the concrete diff still returns to the operator before it ships\". So: BUILD the diff, bring it back, do not ship it. ⚠️ THE EXCEPTION LEDGER IS A RATCHET: docs/claude/soak-doctrine-exceptions.json must be walked DOWN from 7 in the same change, and the guard fails until the count matches. ⚠️ AND ITS `not_a_fix` CLAUSE IS BINDING: lowering MIN_CLOSED_FOR_ACTION or widening the window reduces the count by ZERO. The branches must stop being control-dependent on accrual at all. ⚠️ BUDGET-CONSTRAINED UNTIL THE WEEK OF 2026-09-22. Operator, 2026-09-19: \"These all need to be taken care of next week when the budget renews - this is high priority\". Queued means QUEUED: do not start it early to be helpful, and do not read the delay as doubt about the work.",
+      "opened": "2026-09-19",
+      "owner": null
+    },
+    {
+      "id": "MI-328",
+      "state": "queued",
+      "lane": "research",
+      "tier": 1,
+      "title": "Harness adjudication: all three units the operator called high priority",
+      "note": "DEC-20260918-WHERE-TO-SPEND-THE-NEXT-HARNESS-ADJUDICATION answered 2026-09-19 with ALL THREE, not one: behavioural_probe_for_trend (trend_donchian, 20 live legs), pullback_first_because_nothing_is_claimed (htf_pullback_trend_2h, 16 live legs), and close_the_ict_scalp_seam (8 live legs). `decline` was explicitly excluded. ⚠️ DO NOT RE-ASK WHICH ONE FIRST -- all three are wanted, and the sequencing ARGUMENT is already in the option text (an unclaimed correspondence is worse than an unadjudicated claim; the ict_scalp seam is the cheapest path to a KNOWN class). ⚠️ MI-319 records that a population with zero accepts is `no_accepts_in_population` and NOT agreement, so the trend probe may legitimately buy a refusal rather than a verdict. That is a real outcome. ⚠️ BUDGET-CONSTRAINED UNTIL THE WEEK OF 2026-09-22. Operator, 2026-09-19: \"These all need to be taken care of next week when the budget renews - this is high priority\". Queued means QUEUED: do not start it early to be helpful, and do not read the delay as doubt about the work.",
+      "opened": "2026-09-19",
+      "owner": null
+    },
+    {
+      "id": "MI-329",
+      "state": "queued",
+      "lane": "research",
+      "tier": 1,
+      "title": "Scalp exit-mix falsifiable control (the second half the operator queued)",
+      "note": "DEC-20260918-BUILD-THE-UNDERDETERMINED-SCALP-CONTROL answered 2026-09-19: \"Do 2, but make sure the second half is on the to do list for next week\". Option 2 = land the COMMITTED per-leg histogram (the cheap half of BL-20260918-MI312-EXIT-MIX-EVIDENCE-IS-GITIGNORED-SO-ITS-MECHANISM-CLAIM-CANNOT-BE-RE-READ...). THIS ROW IS THE SECOND HALF: build the falsifiable control itself, including the 16-invocation harness re-run. ⚠️ READ AS `build_exit_mix` AND THE READING IS STATED, NOT ASSUMED -- the operator did not name which control; exit-mix is taken because the request itself calls it the strongest candidate (the be_stop/timeout split depends on the path AFTER the peak, which mfe_r does not encode, so a wrong model genuinely fails). If hold-time was meant, it is the same cost and the same re-run. ⚠️ THE HISTOGRAM IS NOT A CONTROL. It makes evidence re-readable; it predicts nothing and can fail nothing. This row is not closed by the histogram landing. ⚠️ BUDGET-CONSTRAINED UNTIL THE WEEK OF 2026-09-22. Operator, 2026-09-19: \"These all need to be taken care of next week when the budget renews - this is high priority\". Queued means QUEUED: do not start it early to be helpful, and do not read the delay as doubt about the work.",
+      "opened": "2026-09-19",
+      "owner": null
+    },
+    {
+      "id": "MI-330",
+      "state": "queued",
+      "lane": "engineering",
+      "tier": 2,
+      "title": "Three small operator-approved fixes from the 2026-09-19 pop-ups (Tier-2 OKs recorded)",
+      "note": "Each carries an operator OK given against the request's own recorded wording: (a) DEC-20260918-FVG-DECLARED-CANDLE-MINIMUM -> `raise_needed_to_fetched`: raise fvg_range_15m's declared `needed` to 250. One line in src/. Changes NO live behaviour -- the live caller already passes 250 -- so do not report it as repairing a live defect. It is the NARROW fix: fade_breakout_4h and hf_vwap_revert keep their structural exposure and their actual divergence stays UNMEASURED; do NOT quote fvg's 21.9% for them. (b) DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE -> `protect_the_keys`: add both netting keys to json_notes._DEFAULT_PROTECTED. Recovers NOTHING already shed. The observation owed is a netting rewrite AFTER the deploy whose keys survive in trades.notes, read back from the journal. (c) DEC-20260918-THE-ICT-SCALP-HARNESS-AND-THE-GATED-XRP-VARIANT -> `refuse_loudly`: backtest_ict_scalp must REFUSE or warn AT RUN TIME when the named leg carries `off_cells` it cannot apply. A docstring is not the fix -- a harness that documents the limitation and runs anyway leaves the silent mislabel. ⚠️ BUDGET-CONSTRAINED UNTIL THE WEEK OF 2026-09-22. Operator, 2026-09-19: \"These all need to be taken care of next week when the budget renews - this is high priority\". Queued means QUEUED: do not start it early to be helpful, and do not read the delay as doubt about the work.",
+      "opened": "2026-09-19",
+      "owner": null
+    },
+    {
+      "id": "MI-331",
+      "state": "queued",
+      "lane": "ops",
+      "tier": 2,
+      "title": "Arm ARBITRATION_FANOUT_ACCOUNTS for breakout_1 (Tier-2 OK recorded 2026-09-19)",
+      "note": "DEC-20260918-UNSTARVE-THE-PROP-LEGS -> `allowlist_breakout_1`, chosen from a pop-up carrying the option's own [Tier-2] label and caveats. Add breakout_1 to ARBITRATION_FANOUT_ACCOUNTS via set-env, restart the trader, and READ THE ARM BACK OFF /proc/<MainPID>/environ via get-env -- never from the .env, which says only what the NEXT restart picks up. ⚠️ A ROUTING ROW IS NOT THE EVIDENCE. OI-20260911's clause (2) wants an emitted prop_tickets row traced to a fan-out round; an `allowlisted` apply_scope proves the PLAN, not a dispatch -- 317 such rows already exist for bybit_1 while the fan-out dispatched nothing. ⚠️ AND DO NOT EXPECT A TRADE. A prop dispatch is a Telegram ticket, not an order; the expected next binding constraint is the prop sequence in OI-20260911. ⚠️ BUDGET-CONSTRAINED UNTIL THE WEEK OF 2026-09-22. Operator, 2026-09-19: \"These all need to be taken care of next week when the budget renews - this is high priority\". Queued means QUEUED: do not start it early to be helpful, and do not read the delay as doubt about the work.",
+      "opened": "2026-09-19",
+      "owner": null
+    },
+    {
+      "id": "MI-332",
+      "state": "queued",
+      "lane": "research",
+      "tier": 1,
+      "title": "M8 sweep: min_stop_bps floor over the ict_scalp family (margin-bound sizing)",
+      "note": "DEC-20260917-SCALP-MARGIN-BOUND-SIZING -> `sweep_first`. Set the floor from MEASUREMENT, not inference. NO live change until the sweep reports; per-trade risk on the bound cohort keeps being set by available margin meanwhile, and that is an accepted interim state. ⚠️ THE FLOOR IS NOT APPROVED -- the MEASUREMENT is. This unit's own within-leg control points the OPPOSITE way to the intuition: a wider stop lowers the demanded quantity and un-clamps the cohort that, on the only measurement available, is not the losing one. A sweep favouring NO floor is a real outcome and must be reported as one. ⚠️ `observable_first` was NOT chosen, so PB-20260822's first resolution_criteria conjunct stays unmet. ⚠️ BUDGET-CONSTRAINED UNTIL THE WEEK OF 2026-09-22. Operator, 2026-09-19: \"These all need to be taken care of next week when the budget renews - this is high priority\". Queued means QUEUED: do not start it early to be helpful, and do not read the delay as doubt about the work.",
+      "opened": "2026-09-19",
+      "owner": null
+    },
+    {
+      "id": "MI-333",
+      "state": "queued",
+      "lane": "ops",
+      "tier": 1,
+      "title": "loud-flag triage: derive `loud` from severity plus dueness",
+      "note": "DEC-20260912-LOUD-FLAG-TRIAGE (was BLOCKING) -> `derive_from_severity`, 2026-09-19. ⚠️ NOT THE RECOMMENDED OPTION, AND THAT IS THE OPERATOR'S CALL. `derive_from_due` was recommended and the chosen option's own text says it is \"strictly more machinery than derive_from_due for the same output\". The operator saw that sentence. Do NOT re-open it and do NOT quietly build the cheaper one. ⚠️ WHAT IT OWES: severity is an AUTHORED field, so deriving from it inherits whatever authoring bias `loud` already has. Say which severity vocabulary is read, and NEVER collapse \"no severity recorded\" into a low one -- *we did not look* is not *not severe*. Dueness is already derived (due_items). ⚠️ BUDGET-CONSTRAINED UNTIL THE WEEK OF 2026-09-22. Operator, 2026-09-19: \"These all need to be taken care of next week when the budget renews - this is high priority\". Queued means QUEUED: do not start it early to be helpful, and do not read the delay as doubt about the work.",
+      "opened": "2026-09-19",
+      "owner": null
+    },
+    {
+      "id": "MI-334",
+      "state": "queued",
+      "lane": "ops",
+      "tier": 1,
+      "title": "Session receipt: manager sessions only, both cadences, and INTO THE SPRINT LOG",
+      "note": "DEC-20260917-SESSION-RECEIPT-CADENCE answered 2026-09-19 as a COMPOSITE: \"Manager session, on demand and at the end of session (this isn't just visibility for me, it's also for future manager sessions to know what was done, should be part of sprint log)\". (a) scope = manager sessions only; (b) cadence = BOTH; (c) NEW and expressed by no option -- the receipt must be part of the SPRINT LOG. ⚠️ (c) CHANGES THE AUDIENCE AND THEREFORE THE FORMAT: a receipt for a successor MANAGER must be readable COLD, the same standard MANAGER-LEASE.json / SESSIONS.json / MANAGER-CHECKLIST.json are held to, because it must survive its author's death. ⚠️ READ docs/SPRINT-LOG-TEMPLATE-CANONICAL.md FIRST -- that format is canonical and mandatory; the receipt fits it rather than redefining it. ⚠️ AND THE generated_at STAMP ON THE WORKFLOW PAGE IS NOW LOAD-BEARING: cadence `both` means the page can serve a STALE receipt for a live session. Do not remove it. ⚠️ BUDGET-CONSTRAINED UNTIL THE WEEK OF 2026-09-22. Operator, 2026-09-19: \"These all need to be taken care of next week when the budget renews - this is high priority\". Queued means QUEUED: do not start it early to be helpful, and do not read the delay as doubt about the work.",
+      "opened": "2026-09-19",
+      "owner": null
     }
   ],
   "as_of": "2026-09-17T17:05:00Z",
@@ -6335,5 +6415,7 @@
       "⚠️_SUPERSEDES_A_STANDING_PROHIBITION": "DEC-20260917-LANES-AFTER-WRAP records 'Stay stopped; hand off to a new manager' with the clause 'no new lane may be spawned'. That clause is SUPERSEDED by this answer. Recorded explicitly because a successor reading the earlier decision alone would find a live prohibition.",
       "status": "recorded; MI-294/295/296 spawned, registered and CONFIRMED against observed get_session reads"
     }
-  }
+  },
+  "operator_decisions_2026_09_19T_popups": "OPERATOR ASKED FOR THE DECISION INBOX AS CHAT POP-UPS AND ANSWERED ALL TEN. Inbox drained: awaitingOperator 10 -> 0, every one `committed` (verified by RUNNING work_decisions.grade_answer_state, not assumed). Answers live in the object YAMLs; PR #12580. TWO OF THE TEN WERE NOT A DECLARED OPTION. (1) DEC-20260913-FOUR-LEG-DISPOSITION: the operator REJECTED THE PREMISE -- the >=20-live-close gate -- which they had already ruled void on 2026-09-09 against DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR, an answer that says \"Do NOT re-ask it in another form\". The manager rendered it without checking its premise against the committed ruling, so the operator explained it twice. Recorded as `premise_rejected_request_void`; the repair is MI-327. (2) DEC-20260918-WHERE-TO-SPEND: answered with ALL THREE work options, deferred on BUDGET. ⚠️ BUDGET IS CONSTRAINED UNTIL THE WEEK OF 2026-09-22 and that bounds what ANY session should start, not just these rows.",
+  "⚠️_CHECKLIST_IS_MISSING_MI_IDS_IN_USE_2026_09_19": "MEASURED 2026-09-19 while allocating new ids, and it is a REAL GAP, not bookkeeping. These ids are referenced across docs/ comms/ scripts/ .github/ and have NO ROW IN THIS FILE: MI-319, MI-320, MI-321, MI-322, MI-323. ⚠️ THE CONSEQUENCE IS A SILENT ID COLLISION, and it nearly happened here: allocating 'the next id' from max(items) in this file returned 319, which is already in use for the harness-adjudication work that several 2026-09-18 decision requests cite by name. Two different units would have carried one id, and the checklist would have looked internally consistent throughout. The new rows were renumbered to MI-327..MI-334 after checking the WHOLE REPO rather than this file. ⚠️ SO DO NOT ALLOCATE AN MI ID FROM THIS FILE ALONE. Grep the repo. ⚠️ AND THE MISSING ROWS ARE THE LARGER FINDING: the checklist is the manager's state of record and a successor arriving cold reads it, so work that exists only as a citation in a research memo or a decision request is work this file says is not happening. Whether those units are in flight, done or abandoned is UNKNOWN from here -- *we did not look* -- and that is exactly the state the register exists to prevent. Not fixed here: back-filling a row means establishing each unit's real state, which is its own unit of work and the budget is constrained until the week of 2026-09-22."
 }

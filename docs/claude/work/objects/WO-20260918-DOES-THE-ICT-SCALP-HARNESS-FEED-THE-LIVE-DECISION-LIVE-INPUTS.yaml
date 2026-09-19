@@ -108,3 +108,22 @@ decision_requests:
           and must be RECORDED as a decision rather than left looking like a repair about
           to happen -- otherwise this row reads as work about to start, which is the
           failure mode it exists to prevent.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: refuse_loudly
+      free_text: >-
+        2026-09-19: the operator chose `refuse_loudly` from a chat pop-up. When the leg named by
+        --strategy-name carries `off_cells` the harness cannot apply, the harness REFUSES or warns
+        at run time.
+        [!] IT IMPLEMENTS NO STRATEGY LOGIC AND CANNOT CHANGE ANY EXISTING RUN'S NUMBERS. What it
+        stops is a result being QUOTED as that leg's. ict_scalp_xrp_5m stays non-reproducible in
+        the harness -- `implement_the_suppression` was NOT chosen -- so its gated evidence (ungated
+        2/4 folds fails, gated 4/4 passes) still cannot be re-derived offline. That is a knowingly
+        accepted state, not an oversight.
+        [!] `reroute_the_config_block` WAS NOT CHOSEN, and its own text says why that matters: it
+        would change what EVERY variant run reads and silently move behaviour for callers nobody
+        has enumerated. Do not take it as a "while we are in here" tidy-up of the refusal.
+        [!] THE REFUSAL MUST BE LOUD AT RUN TIME, NOT A DOCSTRING. A harness that documents the
+        limitation and runs anyway leaves exactly the silent mislabel this option exists to end.

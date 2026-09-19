@@ -175,6 +175,35 @@ decision_requests:
           Targets the case the format was designed for — a manager accounting for
           the lanes it spawned — and leaves worker lanes to the on-demand path.
           Section B (SESSIONS SPAWNED) is empty for a worker lane anyway.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: manager_sessions_only_both_cadences_and_into_the_sprint_log
+      free_text: >-
+        2026-09-19: the operator answered "Manager session, on demand and at the end of session
+        (this isn't just visibility for me, it's also for future manager sessions to know what was
+        done, should be part of sprint log)".
+        THAT IS A COMPOSITE OF TWO DECLARED OPTIONS PLUS A REQUIREMENT NONE OF THEM CARRIED:
+        (a) SCOPE = `manager_sessions_only`. Worker lanes stay on the on-demand path; Section B
+        (SESSIONS SPAWNED) is empty for a worker lane anyway.
+        (b) CADENCE = `both` -- written at session end AND regenerable on demand. Consequence,
+        stated rather than discovered later: the Workflow page can then serve a STALE receipt for a
+        live session, so it MUST show the generated_at stamp. It does today; that is now
+        load-bearing and must not be removed.
+        (c) NEW, AND IT IS THE PART NO OPTION EXPRESSED: the receipt must be PART OF THE SPRINT
+        LOG. The operator's stated reason is the one that matters for the build -- "this isn't just
+        visibility for me, it's also for future manager sessions to know what was done".
+        [!] (c) CHANGES THE AUDIENCE AND THEREFORE THE FORMAT. A receipt written only for the
+        operator's page may assume today's context; one written for a successor MANAGER must be
+        readable cold, which is the same standard MANAGER-LEASE.json, SESSIONS.json and
+        MANAGER-CHECKLIST.json are held to and for the same reason -- it must survive its author's
+        death.
+        [!] READ docs/SPRINT-LOG-TEMPLATE-CANONICAL.md BEFORE BUILDING (c). The sprint-log format
+        is canonical and mandatory; a receipt bolted into it must fit that template rather than
+        redefine it.
+        [!] RECORDED IS NOT BUILT, and the operator has signalled budget is constrained until the
+        week of 2026-09-22.
 closed_observation: >-
   DONE 2026-09-17. PR #12473 MERGED as d258e852c by the manager on the landing: hold / unvouchable_paths
   decision the guard correctly refused to make -- diff READ first (197 insertions, 0 deletions, one additive

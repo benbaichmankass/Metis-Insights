@@ -128,3 +128,24 @@ decision_requests:
           RECORDED as a decision rather than left looking like an adjudication about to
           start -- otherwise this row reads as work about to begin, which is the failure
           mode it exists to prevent.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: all_three_deferred_high_priority
+      free_text: >-
+        2026-09-19: the operator did NOT pick one option. Verbatim: "These all need to be taken
+        care of next week when the budget renews - this is high priority".
+        [!] READ THAT AS ALL THREE WORK OPTIONS, NOT AS ONE OF THEM AND NOT AS `decline`. The three
+        are behavioural_probe_for_trend (20 live legs), pullback_first_because_nothing_is_claimed
+        (16 live legs) and close_the_ict_scalp_seam (8 live legs) -- together the legs the census
+        names. `decline` is explicitly excluded: the answer is high priority, not "spend nothing
+        more".
+        [!] THE CONSTRAINT IS BUDGET, NOT DOUBT. Deferred to the week of 2026-09-22 when the
+        operator's budget renews. A successor must not read this row as undecided and must not
+        re-ask which one to do first -- all three are wanted. If a sequencing question genuinely
+        arises, the ordering ARGUMENT is already in the option text (an unclaimed correspondence is
+        worse than an unadjudicated claim; the ict_scalp seam is the cheapest path to a KNOWN
+        class) and does not need the operator again.
+        [!] AND DO NOT START THEM EARLY TO BE HELPFUL. Spending the constrained budget on this is
+        the opposite of what was asked.

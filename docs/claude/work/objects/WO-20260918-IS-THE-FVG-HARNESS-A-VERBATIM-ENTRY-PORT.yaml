@@ -104,3 +104,22 @@ decision_requests:
           latent contract defect nobody is hitting. Legitimate, and must be RECORDED as a
           decision rather than left looking like a fix about to land -- otherwise this row
           reads as work about to start, which is the failure mode it exists to prevent.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: raise_needed_to_fetched
+      free_text: >-
+        2026-09-19: the operator chose `raise_needed_to_fetched` from a chat pop-up. Raise fvg's
+        declared `needed` to 250, the window the builder already passes. THIS IS THE TIER-2
+        OPERATOR OK for that one-line change in src/.
+        [!] IT CHANGES NO LIVE BEHAVIOUR, BY CONSTRUCTION -- the live caller already passes 250, so
+        the fix makes the DECLARATION true and moves nothing else. Do not report it as a repair to
+        a live defect; there is no live defect today, only a latent contract one.
+        [!] IT IS THE NARROW FIX, NOT THE CLASS FIX. `derive_from_convergence` was NOT chosen, so
+        fade_breakout_4h (50 declared vs 200 fetched) and hf_vwap_revert keep their structural
+        exposure, and `fix_the_class_measure_first` was not chosen either -- so their actual
+        divergence stays UNMEASURED. Do not quote fvg's 21.9% for them; MI-319 establishes their
+        exposure structurally and nothing more, and generalising the number would be the
+        unprovenanced-diagnostic class this repo has a guard for.
+        [!] RECORDED IS NOT SHIPPED. The line is not written.

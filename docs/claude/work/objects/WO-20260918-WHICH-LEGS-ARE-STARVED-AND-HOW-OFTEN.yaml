@@ -113,3 +113,21 @@ decision_requests:
           and are silent rather than starved -- a different question with a different
           answer, deliberately out of MI-29's scope. Route that first if the fleet's
           never-traded legs are the real concern.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: allowlist_breakout_1
+      free_text: >-
+        2026-09-19: the operator chose `allowlist_breakout_1` from a chat pop-up that carried
+        the option's own [Tier-2] label and its caveats verbatim. THIS IS THE TIER-2 OPERATOR OK
+        for adding breakout_1 to ARBITRATION_FANOUT_ACCOUNTS.
+        [!] THE ANSWER IS RECORDED; THE ACTION IS NOT TAKEN. The env change plus a trader restart
+        is a separate Tier-2 system-action, and it is NOT done by recording this. Read the arm
+        back off /proc/<MainPID>/environ via get-env, never from the .env, which says only what
+        the NEXT restart picks up.
+        [!] AND DO NOT READ A DISPATCH AS A TRADE. The option's own text says the fan-out has only
+        ever dispatched on bybit_1 and only ever the global winner, and that a prop dispatch is a
+        Telegram ticket rather than an order -- so the expected next binding constraint is the
+        prop sequence in OI-20260911, not a fill. An allowlisted routing row is NOT the clause-(2)
+        evidence that row wants; an emitted prop_tickets row traced to a fan-out round is.

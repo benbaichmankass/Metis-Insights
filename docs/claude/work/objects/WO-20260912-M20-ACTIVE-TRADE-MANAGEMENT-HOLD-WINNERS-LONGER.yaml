@@ -164,6 +164,49 @@ decision_requests:
     notes: >-
       NOT BLOCKING. U42 continues to the next unit; nothing waits on this answer, and
       no parameter, roster or execution value was changed by the unit that raised it.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion); premise rejected
+      chosen: premise_rejected_request_void
+      free_text: >-
+        2026-09-19: the operator was shown this as a chat pop-up and REJECTED THE PREMISE rather
+        than choosing an option. Verbatim: "I don't understand how this is still happening - we've
+        built extensive backtesting infra so that we only need soaking for mechanical
+        verification, not data to assess - there's no reason that anything needs to observe 20
+        live trades, the structure of this test is wrong and contradicts the system we've been
+        building for 7 months".
+        [!] THE REQUEST IS VOID, NOT UNANSWERED, AND NOT `something_else`. No per-leg disposition
+        was given, so recording one would invent an answer. What was given is a ruling on the
+        INSTRUMENT.
+        [!] THIS IS A RECURRENCE AND THAT IS THE FINDING. The operator ruled exactly this on
+        2026-09-09 against DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR ("we have built EXTENSIVE
+        BACKETESTING INFRA FOR EXACTLY THIS REASON!!!!!! We do NOT rely on live soaking for
+        validating strategies, only mechanics ... I don't know how many more times I can explain
+        this to various cluades"), that answer is `committed`, and it says in terms: "Do NOT
+        re-ask it in another form and do NOT tune window/floor." This request, raised 2026-09-13,
+        frames its whole question on the >=20-live-close gate -- which is re-asking it in another
+        form. It then sat in the inbox for six days and was put in front of the operator AGAIN by
+        the manager session on 2026-09-19, which is the manager's error: the premise was not
+        checked against the already-committed ruling before rendering the prompt.
+        [!] MEASURED 2026-09-19, not asserted: `python3 scripts/check_soak_doctrine.py` still
+        reports 7 KNOWN accrual-gated verdict branches in strategy_review_packet.py::decide
+        (L1035, L1059, L1082, L1103, L1138, L1166, L1186), and the guard's own output calls this
+        "a live contradiction of the canonical rule ... It is NOT compliance". The newest
+        committed packet, comms/strategy_reviews/2026-09-18/INDEX.json, reads graded 52 /
+        actionable 0 / by_action {hold: 41, no_offline_evidence: 11} with min_closed_for_action
+        still 20 -- while 52 per-leg records exist under comms/strategy_evidence/. So 41 legs
+        that DO have an offline record are still graded `hold` for want of live closes.
+        [!] THE REPAIR IS NOT BLOCKED ON A NEW APPROVAL. DEC-20260909-STRATEGY-LEG-OFFLINE-EDGE-
+        BASIS is `committed` with `build_producer`; the producer (MI-216) and the interim
+        `no_offline_evidence` state (MI-217) both shipped. What has NOT happened is the second
+        half that answer named -- "the concrete diff still returns to the operator before it
+        ships" -- for re-pointing the EDGE verdict at the offline record. That diff has never
+        come back. Routed 2026-09-19.
+        [!] PB-20260821 IS NOT CLOSED BY THIS. The four legs still want a disposition; what is
+        settled is that the M7 gate cannot be the thing that produces one, and that the question
+        must be re-put on an OFFLINE basis once the gate reads one. tlt_pullback_1h's dead
+        real-money route is a separate live-money fact and does not wait on any of this.
 
   - id: DEC-20260917-SCALP-MARGIN-BOUND-SIZING
     question: >-
@@ -283,6 +326,24 @@ decision_requests:
       unit's own within-leg control withdrew it. Offering it as a ready choice would put
       an unevidenced Tier-3 change in front of the operator wearing a measurement's
       clothes.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: sweep_first
+      free_text: >-
+        2026-09-19: the operator chose `sweep_first` from a chat pop-up. An M8 sweep over the
+        ict_scalp family sets a min_stop_bps floor from MEASUREMENT rather than inference.
+        NO LIVE CHANGE until the sweep reports -- per-trade risk on the bound cohort keeps being
+        set by available margin in the meantime, and that is an accepted interim state, not an
+        oversight.
+        [!] THE STOP FLOOR IS NOT THEREBY APPROVED. What was chosen is the MEASUREMENT, and this
+        unit's own within-leg control points the OPPOSITE way to the intuition -- a wider stop
+        lowers the demanded quantity and un-clamps the cohort that, on the only measurement
+        available, is not the losing one. A sweep that comes back favouring no floor is a real
+        outcome and must be reported as one.
+        [!] `observable_first` was NOT chosen and is independent of this one; PB-20260822's first
+        resolution_criteria conjunct therefore stays unmet.
   - id: DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE
     question: >-
       The two keys that record a netting quantity rewrite are stored unprotected in
@@ -387,6 +448,22 @@ decision_requests:
       so, but it would leave the netted sibling holding its full size, which is the 451x
       journal-vs-exchange divergence BL-20260801 exists to stop. It is not offered as a
       ready choice without that consequence being measured.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: protect_the_keys
+      free_text: >-
+        2026-09-19: the operator chose `protect_the_keys` from a chat pop-up. Add both netting
+        keys to json_notes._DEFAULT_PROTECTED (Tier-2, one line) -- the remedy the module's own
+        comment prescribes for this class, and the one used on the three prior instances.
+        [!] IT RECOVERS NOTHING ALREADY SHED. The five live rows that have lost their keys stay
+        lost, and the 104 rows grading `evidence_may_be_shed` stay *we could not look* rather than
+        a clean negative. Any analysis scoping this contamination must still read the soak, which
+        is itself a tail, so the population stays a LOWER BOUND.
+        [!] AND THE FIX IS NOT SELF-PROVING: protection landing is a merge, not an observation.
+        The observation owed is a netting rewrite AFTER the deploy whose two keys survive in
+        trades.notes on a row read back from the journal.
 
 progress:
   U48: >-

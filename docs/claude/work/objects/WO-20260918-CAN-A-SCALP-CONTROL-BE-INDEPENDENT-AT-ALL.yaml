@@ -91,3 +91,28 @@ decision_requests:
           weakness now being a RECORDED structural fact rather than an untested
           shortcoming. Legitimate, and must be recorded as a decision rather than left
           looking like work about to start.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: commit_the_histogram_only_then_build_exit_mix
+      free_text: >-
+        2026-09-19: the operator answered "Do 2, but make sure the second half is on the to do
+        list for next week". Option 2 as rendered was `commit_the_histogram_only`.
+        SO THIS IS TWO INSTRUCTIONS, NOT ONE, AND BOTH ARE BINDING:
+        (1) NOW -- land the cheap half of
+        BL-20260918-MI312-EXIT-MIX-EVIDENCE-IS-GITIGNORED-SO-ITS-MECHANISM-CLAIM-CANNOT-BE-RE-READ:
+        a COMMITTED per-leg histogram, so the mechanism claim can be re-read later.
+        (2) NEXT WEEK -- build the falsifiable control itself. Queued for the week of 2026-09-22
+        when the operator's budget renews; this is a QUEUED COMMITMENT, not a deferral to nowhere,
+        and a successor must not read the row as closed by (1).
+        [!] "THE SECOND HALF" IS READ AS `build_exit_mix`, AND THE READING IS STATED RATHER THAN
+        ASSUMED. The operator did not name which control. It is taken as the exit-mix one because
+        that is the option the request itself calls the strongest candidate -- the be_stop/timeout
+        split depends on the path AFTER the peak, which mfe_r does not encode, so a wrong model
+        genuinely fails instead of being confirmed by construction. If the hold-time control was
+        meant instead, correct this line; the two are the same cost and the same harness re-run.
+        [!] LANDING THE HISTOGRAM IS NOT A CONTROL AND MUST NOT BE REPORTED AS ONE. It makes the
+        evidence RE-READABLE; it predicts nothing and can fail nothing. Until (2) ships, the scalp
+        distribution's weakness stays a recorded structural fact.
+        [!] THE HARNESS RE-RUN (16 invocations) IS PART OF (2), NOT (1).
