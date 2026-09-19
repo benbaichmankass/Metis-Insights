@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "touches src/web/api/routers/diag.py (the /api/diag/journal read path); needs one operator OK in chat. MI-305 was dispatched as prepare-validate-propose only, and the operator was asleep when it was written. No arming file and no merge-slot claim are written on purpose.",
+  "why": "web-api read-surface change, Tier-2 by path; read-only throughout (mode=ro, SELECT only, no new route, no write path)"
+}

@@ -525,3 +525,277 @@ def test_version_503_when_diag_token_unset(monkeypatch, fake_runtime):
     resp = client.get("/api/diag/version", headers=_bearer(_TOKEN))
     assert resp.status_code == 503
     assert resp.json()["detail"]["error"] == "diag_disabled"
+
+
+# ---------------------------------------------------------------------------
+# MI-305 — /api/diag/journal paging.
+#
+# The defect these cover: the route took `table` + `limit` only, FastAPI
+# DISCARDED every other query parameter in silence, and the newest-`limit`
+# window's FLOOR ROSE as the table grew — so the OLDEST rows walked out of
+# reach a little more each day while callers grading before/after populations
+# had no way to know. Measured across all four allowlisted tables on the live
+# VM 2026-09-18: 83.0%–99.3% of every table unreachable, `offset=1000` and
+# `limit=2000` and an invented `bogus_param=zzz` all returning byte-identical
+# payloads (sha-equal, not merely same-length).
+# ---------------------------------------------------------------------------
+
+
+def _mk_trades(db_path: Path, n: int) -> None:
+    db = sqlite3.connect(str(db_path))
+    db.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT, symbol TEXT)")
+    db.executemany(
+        "INSERT INTO trades (id, status, symbol) VALUES (?, ?, ?)",
+        [(i, "closed", "BTCUSDT") for i in range(1, n + 1)],
+    )
+    db.commit()
+    db.close()
+
+
+def test_journal_offset_is_honoured_and_pages_are_disjoint(client, fake_runtime):
+    """THE defect. `offset` must move the window, not be discarded."""
+    _mk_trades(fake_runtime["db_path"], 25)
+
+    page1 = client.get(
+        "/api/diag/journal?table=trades&limit=10&offset=0", headers=_bearer(_TOKEN)
+    ).json()
+    page2 = client.get(
+        "/api/diag/journal?table=trades&limit=10&offset=10", headers=_bearer(_TOKEN)
+    ).json()
+    page3 = client.get(
+        "/api/diag/journal?table=trades&limit=10&offset=20", headers=_bearer(_TOKEN)
+    ).json()
+
+    ids1 = [r["id"] for r in page1]
+    ids2 = [r["id"] for r in page2]
+    ids3 = [r["id"] for r in page3]
+
+    assert ids1 == list(range(25, 15, -1))
+    assert ids2 == list(range(15, 5, -1))
+    assert ids3 == list(range(5, 0, -1))
+    # Disjoint, and together they are the WHOLE table — the property the
+    # research population actually needs.
+    assert not set(ids1) & set(ids2)
+    assert sorted(ids1 + ids2 + ids3) == list(range(1, 26))
+    # The pre-MI-305 behaviour, asserted as a negative control: before the
+    # fix page2 was byte-identical to page1. If that ever returns, this fails.
+    assert page1 != page2
+
+
+def test_journal_offset_past_the_end_returns_empty_not_the_first_page(
+    client, fake_runtime
+):
+    _mk_trades(fake_runtime["db_path"], 5)
+    body = client.get(
+        "/api/diag/journal?table=trades&limit=10&offset=500", headers=_bearer(_TOKEN)
+    ).json()
+    assert body == []
+
+
+def test_journal_unsupported_parameter_is_refused_by_name(client, fake_runtime):
+    """Silently accepting and ignoring is the one outcome that must not survive."""
+    _mk_trades(fake_runtime["db_path"], 3)
+    for bad in ("since=2026-08-01", "until=2026-09-01", "bogus_param=zzz"):
+        resp = client.get(
+            f"/api/diag/journal?table=trades&limit=5&{bad}", headers=_bearer(_TOKEN)
+        )
+        assert resp.status_code == 400, bad
+        detail = resp.json()["detail"]
+        assert detail["error"] == "unsupported_parameter"
+        # It must NAME the offending parameter, not just refuse.
+        assert detail["unsupported"] == [bad.split("=")[0]]
+        assert "offset" in detail["supported"]
+        assert "audit_query" in detail["hint"]
+
+
+def test_journal_unsupported_parameter_refusal_is_behind_the_token(
+    client, fake_runtime
+):
+    """An unauthenticated caller must not learn the parameter vocabulary."""
+    resp = client.get("/api/diag/journal?table=trades&bogus_param=zzz")
+    assert resp.status_code in (401, 403)
+    assert "unsupported_parameter" not in resp.text
+
+
+def test_journal_default_shape_is_still_a_bare_array(client, fake_runtime):
+    """~15 in-repo consumers parse this as a JSON array. Do not break them."""
+    _mk_trades(fake_runtime["db_path"], 3)
+    body = client.get(
+        "/api/diag/journal?table=trades&limit=10", headers=_bearer(_TOKEN)
+    ).json()
+    assert isinstance(body, list)
+    assert [r["id"] for r in body] == [3, 2, 1]
+
+
+def test_journal_envelope_states_what_it_actually_returned(client, fake_runtime):
+    _mk_trades(fake_runtime["db_path"], 25)
+    body = client.get(
+        "/api/diag/journal?table=trades&limit=10&offset=0&envelope=true",
+        headers=_bearer(_TOKEN),
+    ).json()
+    assert isinstance(body, dict)
+    assert body["count"] == 10
+    assert body["total_rows"] == 25
+    assert body["total_rows_state"] == "counted"
+    assert body["has_more"] is True
+    assert body["returned_range"] == {"column": "id", "first": 25, "last": 16}
+    assert body["page_stability"] == "stable_key"
+    assert [r["id"] for r in body["rows"]] == list(range(25, 15, -1))
+
+    last = client.get(
+        "/api/diag/journal?table=trades&limit=10&offset=20&envelope=true",
+        headers=_bearer(_TOKEN),
+    ).json()
+    assert last["has_more"] is False
+
+
+def test_journal_envelope_reports_the_limit_clamp_in_three_states(
+    client, fake_runtime
+):
+    _mk_trades(fake_runtime["db_path"], 3)
+
+    def _state(q):
+        return client.get(
+            f"/api/diag/journal?table=trades&envelope=true&{q}",
+            headers=_bearer(_TOKEN),
+        ).json()
+
+    asked = _state("limit=2")
+    assert asked["limit_state"] == "as_requested" and asked["limit"] == 2
+
+    clamped = _state("limit=5000")
+    assert clamped["limit_state"] == "clamped_to_max"
+    assert clamped["limit"] == diag_router._MAX_LIMIT
+    assert clamped["limit_requested"] == 5000
+
+    defaulted = _state("limit=0")
+    assert defaulted["limit_state"] == "defaulted_invalid"
+    assert defaulted["limit"] == diag_router._DEFAULT_LIMIT
+
+
+def test_journal_empty_table_totals_zero_but_missing_db_totals_none(
+    client, fake_runtime
+):
+    """`0` is a real reading; `None` is 'we did not look'. Never conflate."""
+    # DB file absent entirely.
+    absent = client.get(
+        "/api/diag/journal?table=trades&envelope=true", headers=_bearer(_TOKEN)
+    ).json()
+    assert absent["total_rows"] is None
+    assert absent["total_rows_state"] == "db_absent"
+    assert absent["has_more"] is None
+    assert absent["returned_range"] is None
+
+    _mk_trades(fake_runtime["db_path"], 0)
+    empty = client.get(
+        "/api/diag/journal?table=trades&envelope=true", headers=_bearer(_TOKEN)
+    ).json()
+    assert empty["total_rows"] == 0
+    assert empty["total_rows_state"] == "counted"
+    assert empty["has_more"] is False
+
+
+def test_journal_order_packages_paging_is_total_even_when_updated_at_ties(
+    client, fake_runtime
+):
+    """The trap inside the fix.
+
+    `order_packages` is ordered by the MUTABLE, NON-UNIQUE
+    `datetime(updated_at)`. Adding OFFSET over a non-total order lets a page
+    boundary fall inside a tie, so rows are skipped or repeated across pages —
+    a NEW silent wrongness inside the fix for a silent wrongness. The
+    deterministic `order_package_id` tiebreaker is what prevents it.
+    """
+    db = sqlite3.connect(str(fake_runtime["db_path"]))
+    db.execute(
+        "CREATE TABLE order_packages ("
+        "order_package_id TEXT PRIMARY KEY, status TEXT, strategy_name TEXT, "
+        "updated_at TEXT NOT NULL)"
+    )
+    # Six rows sharing ONE timestamp — the whole table is a single tie, so a
+    # boundary at offset=2 and offset=4 lands inside it.
+    db.executemany(
+        "INSERT INTO order_packages "
+        "(order_package_id, status, strategy_name, updated_at) VALUES (?, ?, ?, ?)",
+        [(f"pkg-{c}", "open", "vwap", "2026-05-09T01:00:00+00:00") for c in "abcdef"],
+    )
+    db.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT)")
+    db.commit()
+    db.close()
+
+    seen: list[str] = []
+    for off in (0, 2, 4):
+        page = client.get(
+            f"/api/diag/journal?table=order_packages&limit=2&offset={off}",
+            headers=_bearer(_TOKEN),
+        ).json()
+        seen.extend(r["order_package_id"] for r in page)
+
+    assert len(seen) == 6
+    assert len(set(seen)) == 6, f"paging skipped or repeated a tied row: {seen}"
+    assert sorted(seen) == [f"pkg-{c}" for c in "abcdef"]
+
+    # ⚠️ THE THREE ASSERTIONS ABOVE DO NOT DISCRIMINATE, AND SAYING SO IS THE
+    # POINT. Removing the tiebreaker was planted as a mutant and they all
+    # still passed: SQLite's order among tied rows is UNSPECIFIED by SQL but
+    # is in practice stable for a small single-table scan, so it hands back a
+    # consistent sequence here for free. They pin the observable behaviour and
+    # they are NOT evidence that the tiebreaker is present.
+    #
+    # What the fix actually claims is that the emitted ordering is a TOTAL
+    # order, so no page boundary can fall inside a tie at any table size or
+    # under any query plan. That claim is asserted directly — and on the
+    # PUBLIC envelope field, not a private, because `order_by` is part of what
+    # a caller is told about its own read.
+    meta = client.get(
+        "/api/diag/journal?table=order_packages&limit=2&envelope=true",
+        headers=_bearer(_TOKEN),
+    ).json()
+    assert meta["order_by"] == "datetime(updated_at) DESC, order_package_id DESC"
+    assert meta["page_key"] == "order_package_id"
+
+    # And the immutable-id tables must NOT grow a redundant second term.
+    trades_meta = client.get(
+        "/api/diag/journal?table=trades&envelope=true", headers=_bearer(_TOKEN)
+    ).json()
+    assert trades_meta["order_by"] == "id DESC"
+
+
+def test_journal_page_stability_distinguishes_mutable_from_immutable_keys(
+    client, fake_runtime
+):
+    """`order_packages` pages over a key that can CHANGE between reads; every
+    other table pages over an immutable id. A caller treating a paged pull as
+    a census needs that distinction, so it is reported rather than smoothed."""
+    db = sqlite3.connect(str(fake_runtime["db_path"]))
+    db.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT)")
+    db.execute(
+        "CREATE TABLE order_packages ("
+        "order_package_id TEXT PRIMARY KEY, updated_at TEXT NOT NULL)"
+    )
+    db.commit()
+    db.close()
+
+    def _stab(table):
+        return client.get(
+            f"/api/diag/journal?table={table}&envelope=true", headers=_bearer(_TOKEN)
+        ).json()["page_stability"]
+
+    assert _stab("trades") == "stable_key"
+    assert _stab("order_packages") == "mutable_key"
+
+
+def test_journal_snapshot_still_serves_bare_lists(client, fake_runtime):
+    """/snapshot embeds these two tables; its shape must not change."""
+    _mk_trades(fake_runtime["db_path"], 3)
+    # /snapshot reads BOTH tables, and a missing one is a legitimate 503.
+    db = sqlite3.connect(str(fake_runtime["db_path"]))
+    db.execute(
+        "CREATE TABLE order_packages ("
+        "order_package_id TEXT PRIMARY KEY, updated_at TEXT NOT NULL)"
+    )
+    db.commit()
+    db.close()
+    body = client.get("/api/diag/snapshot?limit=5", headers=_bearer(_TOKEN)).json()
+    assert isinstance(body["trades"], list)
+    assert [r["id"] for r in body["trades"]] == [3, 2, 1]
