@@ -1,0 +1,6 @@
+{
+  "branch": "claude/mi324-append-row-misses-a-required-field-20260919",
+  "landing": "self",
+  "tier": 1,
+  "why": "One backlog row. Touches docs/claude/health-review-backlog.json and landing machinery only; no src, no config, no scripts, no new document, so it touches neither index register and cannot contend with the two in-flight PRs."
+}
