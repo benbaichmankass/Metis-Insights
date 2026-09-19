@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
-    "branch": "claude/decisions-20260919",
-    "claimed_at": "2026-09-19T08:17:42Z",
-    "purpose": "Tier-1 register-only: ten operator decision answers + queued rows"
+    "branch": "claude/mgr-standdown-20260919",
+    "claimed_at": "2026-09-19T09:17:58Z",
+    "purpose": "Tier-1 register-only: manager stand-down (lease release + this session's receipt)"
   },
   "active_sessions": [
     {

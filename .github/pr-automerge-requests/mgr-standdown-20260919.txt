@@ -1,0 +1,7 @@
+Arms self-landing for claude/mgr-standdown-20260919 (PR #12585).
+
+Tier 1, register-only. Two files on the manager surface (docs/claude/work/**):
+the manager lease moving to `released`, and this session's receipt. The PR was
+opened by hand FIRST so it carries a real pull_request event and CI fires
+normally -- claude-pr-automerge adopts an existing open PR rather than creating
+one, which is what avoids the zero-check window.
