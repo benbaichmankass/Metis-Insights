@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-18T09:53:26.916711+00:00",
+  "generated_at": "2026-09-19T09:37:13.087667+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -7,14 +7,14 @@
     "source_empty",
     "could_not_run"
   ],
-  "monitoring_rows": 70,
+  "monitoring_rows": 71,
   "rows_with_a_probe": 15,
-  "rows_without_a_probe": 55,
+  "rows_without_a_probe": 56,
   "counts": {
     "pass": 7,
     "fail": 4,
     "source_empty": 0,
-    "could_not_run": 59
+    "could_not_run": 60
   },
   "results": [
     {
@@ -151,11 +151,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 568,
-      "scanned": 749,
+      "matched": 603,
+      "scanned": 784,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=568 scanned=749\nprobe: PASS — 568 of 749 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 749 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=603 scanned=784\nprobe: PASS — 603 of 784 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 784 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -428,7 +428,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.6h ago, inside the 30.0h window.\n  queue at last run: 71 PR(s) waiting on a merge decision, worst 140.2h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.5h ago, inside the 30.0h window.\n  queue at last run: 77 PR(s) waiting on a merge decision, worst 164.0h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
@@ -484,11 +484,11 @@
         "--positive-control",
         "decision_state~not_scored,scored_no_fire,scored_would_close"
       ],
-      "matched": 41,
+      "matched": 40,
       "scanned": 1000,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=41 scanned=1000\nprobe: PASS — 41 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
+      "detail": "probe-counts: matched=40 scanned=1000\nprobe: PASS — 40 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
     },
     {
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
@@ -706,11 +706,11 @@
         "--positive-control",
         "fanout_schema~2,3"
       ],
-      "matched": 161,
-      "scanned": 749,
+      "matched": 196,
+      "scanned": 784,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=161 scanned=749\nprobe: PASS — 161 of 749 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 749 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 736)"
+      "detail": "probe-counts: matched=196 scanned=784\nprobe: PASS — 196 of 784 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 784 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 771)"
     },
     {
       "id": "OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP",
@@ -769,6 +769,14 @@
       "state": "could_not_run",
       "reason": "no_probe_declared",
       "detail": "A PROBE CANNOT REACH THIS. The observable is an OPERATOR DECISION on per-leg target geometry -- three of them -- and no repo surface can distinguish 'not yet answered' from 'answered and not recorded'. What a probe COULD check (does the packet file exist) is precisely the thing this row must not clear on.",
+      "checks": null,
+      "is_not": null
+    },
+    {
+      "id": "OI-20260918-THE-DECISION-CHANNEL-IS-REPAIRED-AND-NO-PROMPT-HAS-BEEN-OBSERVED-ARRIVING",
+      "state": "could_not_run",
+      "reason": "no_probe_declared",
+      "detail": "A PROBE CANNOT REACH THE ONLY THING STILL OWED. Clause (2) is a HUMAN confirming which conversation a message appeared in -- the same limit that keeps OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN open, and for the same structural reason: in a DM the chat_id is the operator's own id for every bot by construction, so no VM-side read can substitute. Clause (1) IS probeable and is alread",
       "checks": null,
       "is_not": null
     }

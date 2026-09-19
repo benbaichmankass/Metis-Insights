@@ -1,16 +1,16 @@
 {
   "schema": 1,
-  "generated_at": "2026-09-18T09:55:13.932486+00:00",
+  "generated_at": "2026-09-19T09:39:11.741824+00:00",
   "prefix": "automation/",
   "shared_ref": "origin/main",
   "stale_hours": 6.0,
-  "population": 251,
+  "population": 252,
   "refetch": "not_needed",
   "read_state": "complete",
   "read_note": "every branch in the population was graded",
   "counts": {
-    "stuck": 246,
-    "in_flight": 2,
+    "stuck": 248,
+    "in_flight": 1,
     "landed": 3,
     "no_remote": 0,
     "unknown": 0
@@ -189,12 +189,14 @@
     "automation/reconcile-open-prs-35291099600-1",
     "automation/reconcile-open-prs-35292839249-1",
     "automation/reconcile-open-prs-35295103637-1",
+    "automation/reconcile-open-prs-35308264155-1",
     "automation/replay-pregate-34683288123-1",
     "automation/replay-pregate-34749050321-1",
     "automation/replay-pregate-34829077166-1",
     "automation/replay-pregate-34951505315-1",
     "automation/replay-pregate-35077687003-1",
     "automation/replay-pregate-35204197736-1",
+    "automation/replay-pregate-35326495386-1",
     "automation/research-queue-stamp-33340458710-1",
     "automation/research-queue-stamp-33342140520-1",
     "automation/session-reaper-33648472594-1",
@@ -266,27 +268,10 @@
   "last_transition": {
     "state": "changed",
     "added": [
-      "automation/data-commit-35184094134-1",
-      "automation/data-commit-35185407037-1",
-      "automation/error-feed-digest-35190585909-1",
-      "automation/reconcile-open-prs-35240633088-1",
-      "automation/reconcile-open-prs-35241174254-1",
-      "automation/reconcile-open-prs-35250511170-1",
-      "automation/reconcile-open-prs-35252974625-1",
-      "automation/reconcile-open-prs-35258176931-1",
-      "automation/reconcile-open-prs-35271748603-1",
-      "automation/reconcile-open-prs-35272436824-1",
-      "automation/reconcile-open-prs-35279124391-1",
-      "automation/reconcile-open-prs-35283563576-1",
-      "automation/reconcile-open-prs-35284019079-1",
-      "automation/reconcile-open-prs-35291099600-1",
-      "automation/reconcile-open-prs-35292839249-1",
-      "automation/reconcile-open-prs-35295103637-1",
-      "automation/replay-pregate-35204197736-1",
-      "automation/session-reaper-35183490770-1",
-      "automation/work-digest-35189628198-1"
+      "automation/reconcile-open-prs-35308264155-1",
+      "automation/replay-pregate-35326495386-1"
     ],
     "cleared": [],
-    "note": "19 newly stranded, 0 cleared (count 227 -> 246)"
+    "note": "2 newly stranded, 0 cleared (count 246 -> 248)"
   }
 }
