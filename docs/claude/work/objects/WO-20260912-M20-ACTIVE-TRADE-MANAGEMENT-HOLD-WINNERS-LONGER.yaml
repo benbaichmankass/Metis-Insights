@@ -283,6 +283,24 @@ decision_requests:
       unit's own within-leg control withdrew it. Offering it as a ready choice would put
       an unevidenced Tier-3 change in front of the operator wearing a measurement's
       clothes.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: sweep_first
+      free_text: >-
+        2026-09-19: the operator chose `sweep_first` from a chat pop-up. An M8 sweep over the
+        ict_scalp family sets a min_stop_bps floor from MEASUREMENT rather than inference.
+        NO LIVE CHANGE until the sweep reports -- per-trade risk on the bound cohort keeps being
+        set by available margin in the meantime, and that is an accepted interim state, not an
+        oversight.
+        [!] THE STOP FLOOR IS NOT THEREBY APPROVED. What was chosen is the MEASUREMENT, and this
+        unit's own within-leg control points the OPPOSITE way to the intuition -- a wider stop
+        lowers the demanded quantity and un-clamps the cohort that, on the only measurement
+        available, is not the losing one. A sweep that comes back favouring no floor is a real
+        outcome and must be reported as one.
+        [!] `observable_first` was NOT chosen and is independent of this one; PB-20260822's first
+        resolution_criteria conjunct therefore stays unmet.
   - id: DEC-20260917-NETTING-ATTRIBUTION-EVIDENCE-IS-DROPPABLE
     question: >-
       The two keys that record a netting quantity rewrite are stored unprotected in
@@ -387,6 +405,22 @@ decision_requests:
       so, but it would leave the netted sibling holding its full size, which is the 451x
       journal-vs-exchange divergence BL-20260801 exists to stop. It is not offered as a
       ready choice without that consequence being measured.
+    answer:
+      answered_by: operator
+      answered_on: '2026-09-19'
+      channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+      chosen: protect_the_keys
+      free_text: >-
+        2026-09-19: the operator chose `protect_the_keys` from a chat pop-up. Add both netting
+        keys to json_notes._DEFAULT_PROTECTED (Tier-2, one line) -- the remedy the module's own
+        comment prescribes for this class, and the one used on the three prior instances.
+        [!] IT RECOVERS NOTHING ALREADY SHED. The five live rows that have lost their keys stay
+        lost, and the 104 rows grading `evidence_may_be_shed` stay *we could not look* rather than
+        a clean negative. Any analysis scoping this contamination must still read the soak, which
+        is itself a tail, so the population stays a LOWER BOUND.
+        [!] AND THE FIX IS NOT SELF-PROVING: protection landing is a merge, not an observation.
+        The observation owed is a netting rewrite AFTER the deploy whose two keys survive in
+        trades.notes on a row read back from the journal.
 
 progress:
   U48: >-
