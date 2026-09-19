@@ -21,14 +21,14 @@
   "schema_version": 1,
   "state": "held",
   "holder": "session_01GHpyXT2qssLJsrvXBQRkQF",
-  "claimed_at": "2026-09-18T11:06:44Z",
-  "heartbeat_at": "2026-09-18T11:06:44Z",
-  "expires_at": "2026-09-18T12:36:44Z",
+  "claimed_at": "2026-09-19T08:11:57Z",
+  "heartbeat_at": "2026-09-19T08:11:57Z",
+  "expires_at": "2026-09-19T09:41:57Z",
   "ttl_minutes": 90,
   "heartbeat_target_minutes": 30,
-  "claimed_over_state": "expired_unverified",
+  "claimed_over_state": "expired",
   "forced": false,
   "force_reason": null,
   "previous_holder": "session_01GHpyXT2qssLJsrvXBQRkQF",
-  "note": "Landing the manager branch to main in the same cycle so the lease, the checklist (21 items MI-298..MI-318 that have NEVER reached main) and SESSIONS.json all become readable from origin."
+  "note": null
 }
