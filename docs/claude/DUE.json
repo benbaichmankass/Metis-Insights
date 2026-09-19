@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-19T01:33:18+00:00",
+  "generated_at": "2026-09-19T06:36:02+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,11 +28,11 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=15.7h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=20.7h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 2,
+      "rows": 1,
       "note": ""
     },
     "red_main_runs": {
@@ -53,7 +53,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-19T01:33:14+00:00, age 0.0h"
+      "note": "digest 2026-09-19T06:35:58+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -87,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 196,
-    "loud": 156
+    "due": 195,
+    "loud": 155
   },
   "rows": [
     {
@@ -176,7 +176,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 395.6h ago, on the order of 395 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 400.7h ago, on the order of 400 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 16,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -1425,15 +1425,6 @@
     },
     {
       "source": "red_crons",
-      "id": "pr-queue-watch",
-      "title": "pr-queue-watch",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35395705021"
-    },
-    {
-      "source": "red_crons",
       "id": "replay-pregate-nightly",
       "title": "replay-pregate-nightly",
       "why_due": "latest scheduled run concluded 'failure'",
@@ -1660,8 +1651,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-a46d2970",
-      "title": "[error] x15 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 15 rows 2026-09-12T18:12:44 → 2026-09-18T21:49:18 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-12T18:12:44 → 2026-09-19T05:08:13 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 7,
       "loud": false,
       "link": ""
@@ -1714,8 +1705,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-ae533209",
-      "title": "[error] x6 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 6 rows 2026-09-13T14:15:14 → 2026-09-16T13:06:52 · accounts=bybit_1 symbols=AVAXUSDT — decide: fix now, or file to a backlog",
+      "title": "[error] x7 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 7 rows 2026-09-13T14:15:14 → 2026-09-19T01:54:22 · accounts=bybit_1 symbols=AVAXUSDT — decide: fix now, or file to a backlog",
       "age_days": 6,
       "loud": false,
       "link": ""
@@ -1777,8 +1768,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "90 cause groups over 1349 rows (60 error-level, 30 warn-level, 1 new since the last digest)",
-      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-18T22:26:54.555455+00:00`.",
+      "title": "91 cause groups over 1354 rows (60 error-level, 31 warn-level, 1 new since the last digest)",
+      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-19T01:23:16.563946+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
