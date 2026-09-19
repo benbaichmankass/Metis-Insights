@@ -212,27 +212,6 @@
       }
     },
     {
-      "pr": 12497,
-      "title": "TIER-2, HOLD: /api/diag/journal accepted `offset` and discarded it — 83–99.3% of every table unreachable (MI-305)",
-      "owner_session": "session_01XYu2vvg9Qgxoqf4jJQyd8i",
-      "checklist_item": "MI-305",
-      "tier": 2,
-      "draft": true,
-      "landing": "hold",
-      "state": "open",
-      "opened_at": "2026-09-18T00:48:33Z",
-      "observed": "⚠️ THE ONE ON THIS LIST THAT NEEDS A HUMAN. Declares tier 2 / landing: hold / hold_reason: tier_2_3_needs_approval — read from its own .github/pr-landing/mi305-journal-read-surface.json on the PR ref, not inferred. It is NOT waiting on CI and NOT waiting on a session: mergeable_state reads `clean` and the author reports run_guards --base main PASS 88 / FAIL 0. It is waiting on ONE operator OK, and has been since 2026-09-18. It carries NO arming file and NO merge-slot claim, deliberately. It is 89 commits behind main. ⚠️ IT HAD NO ROW HERE AND WAS CARRIED ONLY BY AN HOURLY CHECK-IN ROUTINE THAT HAD FIRED 33 TIMES — a routine cannot supply an operator decision, so every one of those firings was noise about a condition it could never clear. That is the desensitised-alarm shape this repo calls its own worst failure mode, and it is why this row exists. DO NOT re-ask the operator for an approval if one has since been given; read the PR thread first.",
-      "observed_at": "2026-09-19T09:2xZ",
-      "operator_decision": {
-        "verdict": "none_recorded",
-        "condition": null,
-        "scope": null,
-        "decided_on": null,
-        "text": "No operator wording was read for this PR by the session writing this row. `none_recorded` is a statement about THIS row's evidence, never a claim that no approval exists — read the PR before acting on it."
-      },
-      "hold_reason": "tier_2_3_needs_approval"
-    },
-    {
       "pr": 12569,
       "title": "backlog: the filing helper enforces three of the four fields CI requires (MI-324)",
       "owner_session": null,
@@ -2960,10 +2939,34 @@
       "terminal": "merged",
       "merge_sha": "32d65bee569346e46c5e6ef1e787d9672e751bbc",
       "settled_by": "reconciler"
+    },
+    {
+      "pr": 12497,
+      "title": "TIER-2, HOLD: /api/diag/journal accepted `offset` and discarded it — 83–99.3% of every table unreachable (MI-305)",
+      "owner_session": "session_01XYu2vvg9Qgxoqf4jJQyd8i",
+      "checklist_item": "MI-305",
+      "tier": 2,
+      "draft": true,
+      "landing": "hold",
+      "state": "open",
+      "opened_at": "2026-09-18T00:48:33Z",
+      "observed": "⚠️ THE ONE ON THIS LIST THAT NEEDS A HUMAN. Declares tier 2 / landing: hold / hold_reason: tier_2_3_needs_approval — read from its own .github/pr-landing/mi305-journal-read-surface.json on the PR ref, not inferred. It is NOT waiting on CI and NOT waiting on a session: mergeable_state reads `clean` and the author reports run_guards --base main PASS 88 / FAIL 0. It is waiting on ONE operator OK, and has been since 2026-09-18. It carries NO arming file and NO merge-slot claim, deliberately. It is 89 commits behind main. ⚠️ IT HAD NO ROW HERE AND WAS CARRIED ONLY BY AN HOURLY CHECK-IN ROUTINE THAT HAD FIRED 33 TIMES — a routine cannot supply an operator decision, so every one of those firings was noise about a condition it could never clear. That is the desensitised-alarm shape this repo calls its own worst failure mode, and it is why this row exists. DO NOT re-ask the operator for an approval if one has since been given; read the PR thread first.",
+      "observed_at": "2026-09-19T12:01:48Z",
+      "operator_decision": {
+        "verdict": "none_recorded",
+        "condition": null,
+        "scope": null,
+        "decided_on": null,
+        "text": "No operator wording was read for this PR by the session writing this row. `none_recorded` is a statement about THIS row's evidence, never a claim that no approval exists — read the PR before acting on it."
+      },
+      "hold_reason": "tier_2_3_needs_approval",
+      "terminal": "merged",
+      "merge_sha": "f5560a301b2015498d4c02bdb50eb364c892cee3",
+      "settled_by": "reconciler"
     }
   ],
-  "last_reconciled_at": "2026-09-19T09:53:32Z",
-  "last_reconciled_sha": "ae2367d6c79eb191eda1b7e3c95d0571655a33a7",
+  "last_reconciled_at": "2026-09-19T12:01:48Z",
+  "last_reconciled_sha": "f5560a301b2015498d4c02bdb50eb364c892cee3",
   "updated_at": "2026-09-18T11:36Z",
   "updated_by": "session_01PHax6vjumG6Aa1xh4GfKiF",
   "⚠️_RECONCILE_2026_09_17_THE_RECORD_WAS_EMPTY": "Reconciled 2026-09-17T16:05Z by manager session_01HoFquGdTrD3TTGbMMRc43t against a LIVE 60-row list_pull_requests observation. ⚠️ BEFORE THIS, open_prs WAS AN EMPTY LIST while 17 non-automation PRs were open — handoff_check graded '17 open PR(s) have no row ... of 60 open, against 0 recorded'. A successor could see none of them. ⚠️ THE MOST USEFUL THING THIS RECONCILE ESTABLISHED IS A NEGATIVE: EVERY open PR declares tier 1 — read from each branch's own .github/pr-landing/<slug>.json, not inferred — so NOT ONE of them is waiting on an operator approval, and every operator_decision here is null because none was ever sought. Do not read those nulls as lost approvals. What holds the 10 `hold` rows is their OWN declaration (unvouchable_paths / changes_landing_machinery / operator_asked_to_hold), which is a structural refusal, not a queue position. ⚠️ EXACTLY ONE ROW NEEDS A HUMAN DECISION ON CONTENT: #12072, where the row-aware merge driver refused because two sessions edited the same backlog row differently. ⚠️ AND TWO ARE DRAFTS ON PURPOSE (#12070, #12219) — un-drafting them to shorten the queue would be a decision nobody has taken. ⚠️ THE 43 AUTOMATION PRs ARE DELIBERATELY NOT ROWED: R13 blocks every bot-opened PR by construction (a bot writes no merge-slot claim), so they are the steady state of a mechanism and not a backlog — this file's own _doc already says so. || SNAPSHOT CAVEAT, stated rather than worked around: open_pr_record --strict against the live list used here grades completeness=stale_row naming #12412 and #12426. THEY ARE BOTH OPEN. The list_pull_requests snapshot was taken at ~15:45Z, BEFORE either PR existed (#12412 created 12:08:59Z UTC-in-API-clock, #12426 at 13:05:08Z), so the tool is correctly reporting that two rows are absent from the observation it was given — it says in its own message that it does not claim to know which of the two causes it is. Do NOT move these rows to settled_prs on the strength of that grade; re-run the check against a FRESH listing first. This is the denominator discipline applied to the checker. || ARMING NOTE (third occurrence this session): claude-pr-automerge.yml opened THIS PR (#12428) under GITHUB_TOKEN too, so it was born with no required check runs. Three for three — #12412, #12426, #12428 — because the arming file must ride in the same push as the content when the branch is created, and that push fires the workflow before a session can open the PR itself. CLAUDE.md documents the prevention but not this variant.",
