@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-19T09:44:29+00:00",
+  "generated_at": "2026-09-19T12:03:29+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,17 +28,17 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=0.1h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=2.4h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 0,
+      "rows": 2,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
       "rows": 0,
-      "note": "7 workflow(s) graded, 0 red · 6 graded at `main`'s tip · worst distance 1 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
+      "note": "7 workflow(s) graded, 0 red · 3 graded at `main`'s tip · worst distance 1 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
       "state": "read",
@@ -47,13 +47,13 @@
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 67,
+      "rows": 70,
       "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-19T06:35:58+00:00, age 3.1h"
+      "note": "digest 2026-09-19T12:03:26+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -62,7 +62,7 @@
     },
     "checklist_unrouted": {
       "state": "read",
-      "rows": 1,
+      "rows": 5,
       "note": "register_freshness=fresh"
     },
     "stuck_branches": {
@@ -73,7 +73,7 @@
     "settled_disposition_owed": {
       "state": "read",
       "rows": 0,
-      "note": "settled record grades settled_graded (116 settled row(s))"
+      "note": "settled record grades settled_graded (117 settled row(s))"
     },
     "spent_decision_edges": {
       "state": "read",
@@ -87,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 201,
-    "loud": 161
+    "due": 210,
+    "loud": 166
   },
   "rows": [
     {
@@ -176,7 +176,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 403.8h ago, on the order of 403 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 406.1h ago, on the order of 406 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 16,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -1379,6 +1379,33 @@
       "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12584"
     },
     {
+      "source": "unlanded_automation",
+      "id": "#12595",
+      "title": "chore(m28): valuation snapshots (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12595"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12596",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12596"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12597",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12597"
+    },
+    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -1431,6 +1458,24 @@
       "age_days": null,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "red_crons",
+      "id": "pr-queue-watch",
+      "title": "pr-queue-watch",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35440318939"
+    },
+    {
+      "source": "red_crons",
+      "id": "replay-pregate-nightly",
+      "title": "replay-pregate-nightly",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35432513421"
     },
     {
       "source": "spent_decision_edges",
@@ -1705,8 +1750,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-a46d2970",
-      "title": "[error] x16 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 16 rows 2026-09-12T18:12:44 → 2026-09-19T05:08:13 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x17 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 17 rows 2026-09-12T18:12:44 → 2026-09-19T09:45:19 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 7,
       "loud": false,
       "link": ""
@@ -1759,8 +1804,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-ae533209",
-      "title": "[error] x7 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 7 rows 2026-09-13T14:15:14 → 2026-09-19T01:54:22 · accounts=bybit_1 symbols=AVAXUSDT — decide: fix now, or file to a backlog",
+      "title": "[error] x8 🔔 Broker close detected by reconciler Account: bybit_N Symbol: AVAXUSDT | Side: long DB trade id: N Package: pkg-<hex> Reason: reconciler Cl",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 8 rows 2026-09-13T14:15:14 → 2026-09-19T11:48:47 · accounts=bybit_1 symbols=AVAXUSDT — decide: fix now, or file to a backlog",
       "age_days": 6,
       "loud": false,
       "link": ""
@@ -1794,15 +1839,6 @@
     },
     {
       "source": "error_feed",
-      "id": "ERRFEED-bfbfcb97",
-      "title": "[error] x5 🛑 Position CLOSE failing — won't flatten Account: alpaca_paper Symbol: GLD | Side: long | Qty: N Consecutive close failures: N share_hold: b",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 5 rows 2026-09-14T08:01:34 → 2026-09-18T08:01:17 · accounts=alpaca_paper symbols=GLD — decide: fix now, or file to a backlog",
-      "age_days": 5,
-      "loud": false,
-      "link": ""
-    },
-    {
-      "source": "error_feed",
       "id": "ERRFEED-22c7c0be",
       "title": "[error] x14 👁 Exchange-side orphan position — policy=detect_only Account: ib_paper Symbol: MES | Side: long | Size: N Entry (Bybit avgPrice): N Note: re",
       "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 14 rows 2026-09-16T19:29:11 → 2026-09-16T19:56:10 · accounts=ib_paper symbols=MES — decide: fix now, or file to a backlog",
@@ -1821,9 +1857,54 @@
     },
     {
       "source": "error_feed",
+      "id": "ERRFEED-6da04340",
+      "title": "[error] x5 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 5 rows 2026-09-18T05:56:33 → 2026-09-19T09:45:18 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog",
+      "age_days": 1,
+      "loud": false,
+      "link": ""
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-190-SPAWN-WITHOUT-SOURCE-URL-ATTACHES-THE-WRONG-REPO",
+      "title": "Spawning without source_url can attach the WRONG repo, not merely no repo — and the 2026-09-06 row did not prevent it",
+      "why_due": "FILED AND NEVER ROUTED — 30.7h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 1,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-197-MERGE-SLOT-CARVE-OUT-DEADLOCK-HIT-TWICE-IN-ONE-MORNING",
+      "title": "The merge_slot carve-out is checked against EVERY parent, so an armed manager branch can never take main in — hit twice, cost two full re-la",
+      "why_due": "FILED AND NEVER ROUTED — 30.7h with owner `unassigned` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 1,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-198-DUPLICATE-HELD-BY-KEY-PARSED-PAST-BY-EVERY-GUARD",
+      "title": "#11378 left a duplicate `held_by` inside merge_slot and every guard read straight past it",
+      "why_due": "FILED AND NEVER ROUTED — 30.7h with owner `unassigned` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 1,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-290",
+      "title": "CANONIZE the session-receipt format — one shape for every session, and render it on the Workflow page",
+      "why_due": "FILED AND NEVER ROUTED — 30.7h with owner `unassigned — needs a session; the operator asked for it to be QUEUED, not built ` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 1,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "91 cause groups over 1354 rows (60 error-level, 31 warn-level, 1 new since the last digest)",
-      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-19T01:23:16.563946+00:00`.",
+      "title": "91 cause groups over 1359 rows (60 error-level, 31 warn-level, 0 new since the last digest)",
+      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-19T06:05:58.945372+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
