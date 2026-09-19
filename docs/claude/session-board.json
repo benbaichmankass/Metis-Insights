@@ -6,9 +6,9 @@
   },
   "merge_slot": {
     "held_by": "session_01GHpyXT2qssLJsrvXBQRkQF",
-    "branch": "claude/wonderful-bardeen-ofg7um",
-    "claimed_at": "2026-09-17T20:33:58Z",
-    "purpose": ""
+    "branch": "claude/decisions-20260919",
+    "claimed_at": "2026-09-19T08:17:42Z",
+    "purpose": "Tier-1 register-only: ten operator decision answers + queued rows"
   },
   "active_sessions": [
     {
