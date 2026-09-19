@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-19T06:36:02+00:00",
+  "generated_at": "2026-09-19T09:39:11+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,17 +28,17 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=20.7h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 1,
+      "rows": 0,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
       "rows": 0,
-      "note": "7 workflow(s) graded, 0 red · 7 graded at `main`'s tip · none graded behind the tip · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
+      "note": "7 workflow(s) graded, 0 red · 6 graded at `main`'s tip · worst distance 1 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
       "state": "read",
@@ -47,13 +47,13 @@
     },
     "unlanded_automation": {
       "state": "read",
-      "rows": 66,
+      "rows": 67,
       "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-19T06:35:58+00:00, age 0.0h"
+      "note": "digest 2026-09-19T06:35:58+00:00, age 3.1h"
     },
     "sunset": {
       "state": "read",
@@ -68,7 +68,7 @@
     "stuck_branches": {
       "state": "read",
       "rows": 1,
-      "note": "246 branch(es) standing"
+      "note": "248 branch(es) standing"
     },
     "settled_disposition_owed": {
       "state": "read",
@@ -77,8 +77,8 @@
     },
     "spent_decision_edges": {
       "state": "read",
-      "rows": 5,
-      "note": "210 object(s) read, 0 unparseable; 13 reported edge(s): 11 spent, 2 unresolvable; 5 on a `waiting` object"
+      "rows": 11,
+      "note": "210 object(s) read, 0 unparseable; 19 reported edge(s): 17 spent, 2 unresolvable; 11 on a `waiting` object"
     },
     "manager_queue_watch": {
       "state": "read",
@@ -87,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 195,
-    "loud": 155
+    "due": 201,
+    "loud": 161
   },
   "rows": [
     {
@@ -176,7 +176,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 400.7h ago, on the order of 400 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 403.7h ago, on the order of 403 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 16,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -239,7 +239,7 @@
       "source": "soaks",
       "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
       "title": "MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L",
-      "why_due": "soak READY — ✅ READY — 41 matching row(s) of 1000 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.",
+      "why_due": "soak READY — ✅ READY — 40 matching row(s) of 1000 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.",
       "age_days": 13,
       "loud": true,
       "link": ""
@@ -1370,6 +1370,15 @@
       "link": ""
     },
     {
+      "source": "unlanded_automation",
+      "id": "#12584",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12584"
+    },
+    {
       "source": "probes",
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
       "title": "A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.",
@@ -1424,15 +1433,6 @@
       "link": ""
     },
     {
-      "source": "red_crons",
-      "id": "replay-pregate-nightly",
-      "title": "replay-pregate-nightly",
-      "why_due": "latest scheduled run concluded 'failure'",
-      "age_days": null,
-      "loud": true,
-      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35326495386"
-    },
-    {
       "source": "spent_decision_edges",
       "id": "spent-edge-WO-20260901-PHASE-F",
       "title": "WO-20260901-PHASE-F is `waiting` on an answered decision",
@@ -1461,6 +1461,60 @@
     },
     {
       "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260912-DECIDE-THE-LOUD-FLAG-TRIAGE",
+      "title": "WO-20260912-DECIDE-THE-LOUD-FLAG-TRIAGE is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260912-LOUD-FLAG-TRIAGE, which carries a readable answer (date not recorded) — the edge has not been a blocker since. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260912-DECIDE-THE-LOUD-FLAG-TRIAGE.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260918-CAN-A-SCALP-CONTROL-BE-INDEPENDENT-AT-ALL",
+      "title": "WO-20260918-CAN-A-SCALP-CONTROL-BE-INDEPENDENT-AT-ALL is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260918-BUILD-THE-UNDERDETERMINED-SCALP-CONTROL, which carries a readable answer (date not recorded) — the edge has not been a blocker since. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260918-CAN-A-SCALP-CONTROL-BE-INDEPENDENT-AT-ALL.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260918-DOES-THE-ICT-SCALP-HARNESS-FEED-THE-LIVE-DECISION-LIVE-INPUTS",
+      "title": "WO-20260918-DOES-THE-ICT-SCALP-HARNESS-FEED-THE-LIVE-DECISION-LIVE-INPUTS is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260918-THE-ICT-SCALP-HARNESS-AND-THE-GATED-XRP-VARIANT, which carries a readable answer (date not recorded) — the edge has not been a blocker since. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260918-DOES-THE-ICT-SCALP-HARNESS-FEED-THE-LIVE-DECISION-LIVE-INPUTS.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260918-IS-THE-FVG-HARNESS-A-VERBATIM-ENTRY-PORT",
+      "title": "WO-20260918-IS-THE-FVG-HARNESS-A-VERBATIM-ENTRY-PORT is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260918-FVG-DECLARED-CANDLE-MINIMUM, which carries a readable answer (date not recorded) — the edge has not been a blocker since. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260918-IS-THE-FVG-HARNESS-A-VERBATIM-ENTRY-PORT.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260918-WHICH-HARNESSES-RUN-THE-LIVE-ENTRY-DECISION",
+      "title": "WO-20260918-WHICH-HARNESSES-RUN-THE-LIVE-ENTRY-DECISION is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260918-WHERE-TO-SPEND-THE-NEXT-HARNESS-ADJUDICATION, which carries a readable answer (date not recorded) — the edge has not been a blocker since. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260918-WHICH-HARNESSES-RUN-THE-LIVE-ENTRY-DECISION.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
+      "id": "spent-edge-WO-20260918-WHICH-LEGS-ARE-STARVED-AND-HOW-OFTEN",
+      "title": "WO-20260918-WHICH-LEGS-ARE-STARVED-AND-HOW-OFTEN is `waiting` on an answered decision",
+      "why_due": "Its `blocked_on` names DEC-20260918-UNSTARVE-THE-PROP-LEGS-OR-RECORD-THAT-WE-WILL-NOT, which carries a readable answer (date not recorded) — the edge has not been a blocker since. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.",
+      "age_days": null,
+      "loud": true,
+      "link": "docs/claude/work/objects/WO-20260918-WHICH-LEGS-ARE-STARVED-AND-HOW-OFTEN.yaml"
+    },
+    {
+      "source": "spent_decision_edges",
       "id": "stranded-edge-WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE",
       "title": "WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE is `waiting` on an UNRESOLVABLE edge",
       "why_due": "Its `blocked_on` ref is 'originate JWT_SIGNING_KEY + WEBAPP_PASSWORD_SHA256, then a Tier-2 set-env', graded unresolvable — no decision request in the store declares that id. ⚠️ THIS IS NOT SPENT AND THE REMEDY IS THE OPPOSITE: a spent edge is discharged by re-pointing or re-grading it, while nothing matching on ids can ever discharge this one, so the object is parked with no way out and no consumer can say what it is waiting for. A typed edge whose ref is prose is untyped. ⚠️ Fixing it is the object owner's or the manager's call.",
@@ -1480,8 +1534,8 @@
     {
       "source": "stuck_branches",
       "id": "stuck-branches-changed",
-      "title": "19 automation branch(es) newly stranded, 0 cleared",
-      "why_due": "automation/data-commit-35184094134-1, automation/data-commit-35185407037-1, automation/error-feed-digest-35190585909-1, automation/reconcile-open-prs-35240633088-1, automation/reconcile-open-prs-35241174254-1…. A stranded automation branch is a producer whose output never landed; a red check on a base that has since been fixed will NEVER re-run on its own, so nothing recovers it without a push.",
+      "title": "2 automation branch(es) newly stranded, 0 cleared",
+      "why_due": "automation/reconcile-open-prs-35308264155-1, automation/replay-pregate-35326495386-1. A stranded automation branch is a producer whose output never landed; a red check on a base that has since been fixed will NEVER re-run on its own, so nothing recovers it without a push.",
       "age_days": null,
       "loud": true,
       "link": "docs/claude/STUCK-BRANCHES.json"
