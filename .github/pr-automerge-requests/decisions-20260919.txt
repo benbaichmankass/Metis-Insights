@@ -1,0 +1,1 @@
+decisions-20260919: Tier-1 register-only; ten operator answers recorded. Arms auto-merge; GitHub still merges only on green.
