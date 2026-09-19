@@ -15,7 +15,7 @@
     "object": "WO-20260918-WHICH-LEGS-ARE-STARVED-AND-HOW-OFTEN",
     "chosen": "allowlist_breakout_1",
     "overruled": null,
-    "note": "Queued as MI-331. ⚠️ NOT startable as written: BL-20260912-THE-ARBITRATION-FANOUT-APPLY-PATH-HAS-NEVER-DISPATCHED must land first, or arming flips apply_scope to `allowlisted` and every surface reports the account as routed while it stays starved."
+    "note": "Queued as MI-331. ⚠️ NOT startable as written: BL-20260912-THE-ARBITRATION-FANOUT-APPLY-PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-VALIDATES must land first, or arming flips apply_scope to `allowlisted` and every surface reports the account as routed while it stays starved."
    },
    {
     "question": "Four legs would need 20 closed live trades each before the M7 review can act on them. Accept the accrual, or change the basis?",
@@ -232,6 +232,10 @@
    {
     "what": "I opened #12580 as a DRAFT and then wondered why auto-merge would not arm. A draft PR cannot auto-merge, and claude-pr-automerge refuses to un-draft a PR it did not open. Its body was also stale — it described only the first three answers of ten.",
     "correction": "Un-drafted it, RE-enabled auto-merge (the ready_for_review notice warns auto-merge does not survive a draft conversion), and rewrote the body to cover all ten answers."
+   },
+   {
+    "what": "A TRUNCATED BACKLOG ID — IN THE RECEIPT ITSELF, AND THE SECOND TIME THIS SESSION. The MI-331 decision row cited the MI-331 arbitration-fanout backlog row by a PREFIX, dropping its `-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-VALIDATES` tail. check_backlog_refs.py failed the `guards` job on head f16915204: a reference that resolves to NOTHING reads as tracked while being tracked by nobody. I had already made this exact mistake earlier the same session on #12580 and fixed it there — so this is a RECURRENCE, and that it recurred inside the artifact whose job is to record such things is the finding. ⚠️ AND THE FIRST FIX FAILED THE SAME GUARD AGAIN, WHICH IS THE MORE USEFUL HALF: I expanded the id, then WROTE THE TRUNCATED FORM A SECOND TIME in this very error row while describing the mistake — and abbreviated four MORE ids with a trailing `...` in the new backlog row's similarity-check note. The guard reads a PREFIX, so quoting a shortened id to talk ABOUT shortened ids re-introduces the defect. Five refusals on the second run, from one root.",
+    "correction": "Expanded every id to its full form — the four neighbours in the backlog row and the one in this receipt — and stopped quoting truncated ids in prose at all: this row now names the offending row by description rather than by a prefix. Fix-forward is valid here because check_backlog_refs grades the DIFF against origin/main, unlike check_manager_scope and check_pr_landing which grade the COMMIT RANGE and need history rewritten. ⚠️ THE ROOT CAUSE IS NOT CARELESSNESS AND A THIRD RESOLUTION TO BE CAREFUL WOULD NOT HOLD — it has now failed twice in one session: these ids run past 100 characters and get hand-quoted into prose, where abbreviating them is the natural thing to do. `scripts/ops/session_receipt.py --resolve-id` already exists to expand a prefix to its full form and I did not use it; using it, and running check_backlog_refs BEFORE pushing rather than after CI says so, is the mechanism."
    }
   ]
  }
