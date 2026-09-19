@@ -180,7 +180,28 @@ decision_requests:
       and should probably be softened in CLAUDE.md so the repo is not carrying an instruction it
       knows is unfollowable.
   allows_free_text: true
-  answer: null
+  answer:
+    answered_by: operator
+    answered_on: '2026-09-19'
+    channel: chat pop-up to the manager session (AskUserQuestion), recorded here
+    chosen: derive_from_severity
+    free_text: >-
+      2026-09-19: the operator chose `derive_from_severity` from a chat pop-up -- derive `loud`
+      from severity plus dueness instead of declaring it. This CLOSES the object; the request had
+      been sitting at `engaged_not_settled` and is now settled.
+      [!] THIS IS NOT THE RECOMMENDED OPTION AND THAT IS THE OPERATOR'S CALL, NOT AN ERROR TO
+      CORRECT. `derive_from_due` was recommended in the proposal and the option text for the
+      chosen one says plainly it is "strictly more machinery than derive_from_due for the same
+      output". The operator was shown that sentence and chose this anyway. Do NOT re-open this
+      as "they may not have seen the recommendation", and do NOT quietly implement
+      derive_from_due instead because it is cheaper.
+      [!] WHAT IT OWES THAT derive_from_due WOULD NOT: severity is an AUTHORED field, so deriving
+      from it inherits whatever authoring bias `loud` already has. The build must therefore say
+      what severity vocabulary it reads, and must not collapse "no severity recorded" into a low
+      one -- *we did not look* is not *not severe*. Dueness is already derived (due_items), so
+      that half is free.
+      [!] RECORDED IS NOT BUILT. Nothing is implemented by this answer, and the operator has
+      signalled that build budget is constrained until the week of 2026-09-22.
 
 refs:
   - docs/design/open-items-loud-triage-PROPOSAL-2026-09-12.md
