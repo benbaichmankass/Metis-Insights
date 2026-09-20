@@ -1,6 +1,6 @@
 # What is due right now
 
-_Generated 2026-09-20T21:02:38+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-20T23:29:36+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 20d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -18,7 +18,7 @@ _Generated 2026-09-20T21:02:38+00:00 · verdict **all_sources_read**_
   - Whether the half-built local LLM carries any weight is UNDECIDED — and it is undecided BY THE OPERATOR, not for want of evidence. ⚠️ THIS SUMMARY PREVIOUSLY ENDED '#10605 makes that arm dispatchable v
 - 🔔 **OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE** (open_items · 18d) — loud row — must be reported on every session
   - MI-70 built the missing Phase E reaper (scripts/ops/session_reaper.py + .github/workflows/session-reaper.yml) and RAN THE KILL. !! THE HEADLINE IS THAT WO-20260901-PHASE-E'S DONE-CONDITION AS WRITTEN 
-- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 18d) — armed 439.1h ago, on the order of 439 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
+- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 18d) — armed 441.6h ago, on the order of 441 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
   - the Manager Queue Watch Routine has never written its receipt
 - 🔔 **OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD** (open_items · 17d) — monitoring row 17d since last observation (cadence 2d)
   - ⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator 
@@ -302,6 +302,8 @@ _Generated 2026-09-20T21:02:38+00:00 · verdict **all_sources_read**_
   - scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper P
 - 🔔 **OI-20260918-THE-DECISION-CHANNEL-IS-REPAIRED-AND-NO-PROMPT-HAS-BEEN-OBSERVED-ARRIVING** (open_items) — loud row — must be reported on every session
   - MI-303. THE CAUSE OF THE DEAD DECISION CHANNEL IS FOUND, MEASURED AND REPAIRED, AND NOT ONE PROMPT HAS BEEN OBSERVED ARRIVING SINCE -- those are different facts and only the first holds. Telegram caps
+- 🔔 **pr-queue-watch** (red_crons) — latest scheduled run concluded 'failure'
+  - pr-queue-watch
 - 🔔 **replay-pregate-nightly** (red_crons) — latest scheduled run concluded 'failure'
   - replay-pregate-nightly
 - 🔔 **spent-edge-WO-20260901-PHASE-F** (spent_decision_edges) — Its `blocked_on` names DEC-20260909-STRATEGY-REVIEW-WINDOW-FLOOR, which carries a readable answer (2026-09-09T09:30:00Z) — the edge has not been a blocker since. ⚠️ THE ANSWER CHOSE NO OPTION (rejected / mis-framed), so the question may still be genuinely open under a SUCCESSOR request: RE-POINT the edge, do not delete it. ⚠️ Re-grading `lifecycle` or editing an edge is the object owner's or the manager's call — it changes what the WIP ceiling and the constraint readout compute over. This row reports the disagreement; it does not propose the edit.
@@ -364,8 +366,8 @@ _Generated 2026-09-20T21:02:38+00:00 · verdict **all_sources_read**_
   - MI-246 (Tier-1, PR #11787) gave a FILED-but-never-ROUTED manager-checklist row an AGE, derived from the git history of docs/claude/work/MANAGER-CHECKLIST.json because items[] carries no `state_since` 
 - **ERRFEED-9da85381** (error_feed · 8d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 21 rows 2026-09-12T18:18:11 → 2026-09-18T04:51:30 · symbols=MGC strategies=ict_scalp_mgc_15m — decide: fix now, or file to a backlog
   - [error] x21 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: ict_scalp_mgc_Nm | Symbol: MGC Reason: candles_
-- **ERRFEED-a46d2970** (error_feed · 8d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 21 rows 2026-09-12T18:12:44 → 2026-09-20T06:06:30 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
-  - [error] x21 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
+- **ERRFEED-a46d2970** (error_feed · 8d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 22 rows 2026-09-12T18:12:44 → 2026-09-20T21:12:15 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog
+  - [error] x22 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u
 - **ERRFEED-fa77ad80** (error_feed · 8d) — error-level condition on `operator_alerts`, STANDING (predates the last digest) — 24 rows 2026-09-12T18:12:44 → 2026-09-18T21:49:18 · symbols=MES — decide: fix now, or file to a backlog
   - [error] x24 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mes_trend_long_Nd | Symbol: MES Reason: candles
 - **OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED** (open_items · 8d) — monitoring row 8d since last observation (cadence 2d)
@@ -410,8 +412,8 @@ _Generated 2026-09-20T21:02:38+00:00 · verdict **all_sources_read**_
   - loud-flag triage: derive `loud` from severity plus dueness
 - **MI-334** (checklist_unrouted · 1d) — FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.
   - Session receipt: manager sessions only, both cadences, and INTO THE SPRINT LOG
-- **ERROR-FEED-SUMMARY** (error_feed) — 50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-20T16:33:08.117384+00:00`.
-  - 92 cause groups over 1394 rows (60 error-level, 32 warn-level, 0 new since the last digest)
+- **ERROR-FEED-SUMMARY** (error_feed) — 50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-20T20:06:48.139457+00:00`.
+  - 93 cause groups over 1396 rows (60 error-level, 33 warn-level, 1 new since the last digest)
 - **OI-20260831-RESEARCH-QUEUE-GPU-ROUTE-AND-SPEND-GATE-NEVER-EXERCISED** (probes) — we did not look — this row is currently unwatched
   - probe could not run (exit_2)
 - **OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED** (probes) — we did not look — this row is currently unwatched
