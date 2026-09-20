@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-20T09:55:38+00:00",
+  "generated_at": "2026-09-20T10:04:48+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,7 +28,7 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=0.0h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=0.2h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
@@ -38,7 +38,7 @@
     "red_main_runs": {
       "state": "read",
       "rows": 0,
-      "note": "7 workflow(s) graded, 0 red · 0 graded at `main`'s tip · worst distance 2 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
+      "note": "7 workflow(s) graded, 0 red · 6 graded at `main`'s tip · worst distance 1 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
       "state": "read",
@@ -53,7 +53,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-20T05:21:57+00:00, age 4.6h"
+      "note": "digest 2026-09-20T10:04:44+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -176,7 +176,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 428.0h ago, on the order of 427 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 428.1h ago, on the order of 428 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 17,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -1723,8 +1723,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-a46d2970",
-      "title": "[error] x19 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 19 rows 2026-09-12T18:12:44 → 2026-09-19T21:13:27 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x21 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 21 rows 2026-09-12T18:12:44 → 2026-09-20T06:06:30 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 8,
       "loud": false,
       "link": ""
@@ -1786,8 +1786,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-c8553cf1",
-      "title": "[error] x6 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the ",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 6 rows 2026-09-13T08:38:35 → 2026-09-20T00:12:28 — decide: fix now, or file to a backlog",
+      "title": "[error] x7 🧹 Stuck linked-package sweep fired Force-closed N order package(s) whose linked trade was already terminal but the package stayed open (the ",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 7 rows 2026-09-13T08:38:35 → 2026-09-20T09:59:28 — decide: fix now, or file to a backlog",
       "age_days": 7,
       "loud": false,
       "link": ""
@@ -1849,8 +1849,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-6da04340",
-      "title": "[error] x6 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 6 rows 2026-09-18T05:56:33 → 2026-09-19T12:38:17 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x8 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mgc_pullback_Nd | Symbol: MGC Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 8 rows 2026-09-18T05:56:33 → 2026-09-20T06:06:30 · symbols=MGC strategies=mgc_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 2,
       "loud": false,
       "link": ""
@@ -1894,8 +1894,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "91 cause groups over 1379 rows (60 error-level, 31 warn-level, 0 new since the last digest)",
-      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-20T00:12:28.841943+00:00`.",
+      "title": "91 cause groups over 1387 rows (60 error-level, 31 warn-level, 0 new since the last digest)",
+      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-20T05:09:21.594411+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
