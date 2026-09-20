@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-19T09:37:13.087667+00:00",
+  "generated_at": "2026-09-20T09:53:27.494375+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -151,11 +151,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 603,
-      "scanned": 784,
+      "matched": 652,
+      "scanned": 841,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=603 scanned=784\nprobe: PASS — 603 of 784 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 784 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=652 scanned=841\nprobe: PASS — 652 of 841 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 841 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -428,7 +428,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.5h ago, inside the 30.0h window.\n  queue at last run: 77 PR(s) waiting on a merge decision, worst 164.0h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.4h ago, inside the 30.0h window.\n  queue at last run: 79 PR(s) waiting on a merge decision, worst 188.4h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
@@ -484,11 +484,11 @@
         "--positive-control",
         "decision_state~not_scored,scored_no_fire,scored_would_close"
       ],
-      "matched": 40,
+      "matched": 95,
       "scanned": 1000,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=40 scanned=1000\nprobe: PASS — 40 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
+      "detail": "probe-counts: matched=95 scanned=1000\nprobe: PASS — 95 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
     },
     {
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
@@ -706,11 +706,11 @@
         "--positive-control",
         "fanout_schema~2,3"
       ],
-      "matched": 196,
-      "scanned": 784,
+      "matched": 245,
+      "scanned": 841,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=196 scanned=784\nprobe: PASS — 196 of 784 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 784 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 771)"
+      "detail": "probe-counts: matched=245 scanned=841\nprobe: PASS — 245 of 841 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 841 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 828)"
     },
     {
       "id": "OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP",
