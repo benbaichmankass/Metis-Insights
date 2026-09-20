@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-20T21:02:38+00:00",
+  "generated_at": "2026-09-20T23:29:36+00:00",
   "verdict": "all_sources_read",
   "unreadable_sources": [],
   "sources": {
@@ -28,17 +28,17 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=11.2h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=13.6h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
       "state": "read",
-      "rows": 1,
+      "rows": 2,
       "note": ""
     },
     "red_main_runs": {
       "state": "read",
       "rows": 0,
-      "note": "7 workflow(s) graded, 0 red · 6 graded at `main`'s tip · worst distance 2 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
+      "note": "7 workflow(s) graded, 0 red · 6 graded at `main`'s tip · worst distance 1 commit(s) behind · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
       "state": "read",
@@ -53,7 +53,7 @@
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-20T21:02:35+00:00, age 0.0h"
+      "note": "digest 2026-09-20T23:29:33+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -87,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 213,
-    "loud": 163
+    "due": 214,
+    "loud": 164
   },
   "rows": [
     {
@@ -167,7 +167,7 @@
       "source": "manager_queue_watch",
       "id": "manager-queue-watch-never-ran-overdue",
       "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 439.1h ago, on the order of 439 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "why_due": "armed 441.6h ago, on the order of 441 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
       "age_days": 18,
       "loud": true,
       "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
@@ -1443,6 +1443,15 @@
     },
     {
       "source": "red_crons",
+      "id": "pr-queue-watch",
+      "title": "pr-queue-watch",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35537461050"
+    },
+    {
+      "source": "red_crons",
       "id": "replay-pregate-nightly",
       "title": "replay-pregate-nightly",
       "why_due": "latest scheduled run concluded 'failure'",
@@ -1723,8 +1732,8 @@
     {
       "source": "error_feed",
       "id": "ERRFEED-a46d2970",
-      "title": "[error] x21 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
-      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 21 rows 2026-09-12T18:12:44 → 2026-09-20T06:06:30 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
+      "title": "[error] x22 ⚠️ MONITOR BLIND — open position has no live dynamic exit Order package: pkg-<hex> Strategy: mhg_pullback_Nd | Symbol: MHG Reason: candles_u",
+      "why_due": "error-level condition on `operator_alerts`, STANDING (predates the last digest) — 22 rows 2026-09-12T18:12:44 → 2026-09-20T21:12:15 · symbols=MHG strategies=mhg_pullback_1d — decide: fix now, or file to a backlog",
       "age_days": 8,
       "loud": false,
       "link": ""
@@ -1930,8 +1939,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "92 cause groups over 1394 rows (60 error-level, 32 warn-level, 0 new since the last digest)",
-      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-20T16:33:08.117384+00:00`.",
+      "title": "93 cause groups over 1396 rows (60 error-level, 33 warn-level, 1 new since the last digest)",
+      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-20T20:06:48.139457+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
