@@ -1,14 +1,9 @@
 {
   "schema_version": 1,
   "what_this_is": "The single due-list, rendered from every structured register by scripts/ops/render_due_list.py. It COLLECTS and ORDERS; it decides nothing. Read `verdict` before reading `rows`: on `partial` the list is a LOWER BOUND, not a complete answer.",
-  "generated_at": "2026-09-20T10:18:28+00:00",
-  "verdict": "partial",
-  "unreadable_sources": [
-    "red_crons",
-    "red_main_runs",
-    "unparseable_workflows",
-    "unlanded_automation"
-  ],
+  "generated_at": "2026-09-20T14:21:20+00:00",
+  "verdict": "all_sources_read",
+  "unreadable_sources": [],
   "sources": {
     "open_items": {
       "state": "read",
@@ -33,32 +28,32 @@
     "probes": {
       "state": "read",
       "rows": 8,
-      "note": "freshness=fresh age=0.4h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
+      "note": "freshness=fresh age=4.5h cadence=daily (cron 20 5 * * *) | 4 probe result(s) deferred to the `soaks` source, which grades a soak's accruing/not_writing distinction this function cannot make"
     },
     "red_crons": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot query the Actions API"
+      "state": "read",
+      "rows": 1,
+      "note": ""
     },
     "red_main_runs": {
-      "state": "could_not_read",
+      "state": "read",
       "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot query the Actions API"
+      "note": "7 workflow(s) graded, 0 red · 7 graded at `main`'s tip · none graded behind the tip · 0 with distance_unknown · ⚠️ ZERO RED ROWS IS NOT A CLEAN NEGATIVE ABOUT THE TIP — each verdict is the latest COMPLETED push run, and an auto-merged PR produces no push run at all, so the tip is routinely ungraded"
     },
     "unparseable_workflows": {
-      "state": "could_not_read",
+      "state": "read",
       "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot ask GitHub what it parsed"
+      "note": "147 workflow(s) known to GitHub · 143 local file(s) declare a name · 143 gradeable (both sides present) · 0 skipped because the file declares NO name, where a path-valued name is CORRECT rather than a defect · 0 local file(s) unreadable as YAML"
     },
     "unlanded_automation": {
-      "state": "could_not_read",
-      "rows": 0,
-      "note": "no GITHUB_TOKEN — cannot list pull requests"
+      "state": "read",
+      "rows": 68,
+      "note": ""
     },
     "error_feed": {
       "state": "read",
       "rows": 11,
-      "note": "digest 2026-09-20T10:04:44+00:00, age 0.2h"
+      "note": "digest 2026-09-20T14:21:16+00:00, age 0.0h"
     },
     "sunset": {
       "state": "read",
@@ -67,7 +62,7 @@
     },
     "checklist_unrouted": {
       "state": "read",
-      "rows": 5,
+      "rows": 9,
       "note": "register_freshness=fresh"
     },
     "stuck_branches": {
@@ -92,8 +87,8 @@
     }
   },
   "counts": {
-    "due": 140,
-    "loud": 94
+    "due": 213,
+    "loud": 163
   },
   "rows": [
     {
@@ -169,6 +164,15 @@
       "link": ""
     },
     {
+      "source": "manager_queue_watch",
+      "id": "manager-queue-watch-never-ran-overdue",
+      "title": "the Manager Queue Watch Routine has never written its receipt",
+      "why_due": "armed 432.4h ago, on the order of 432 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
+      "age_days": 18,
+      "loud": true,
+      "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
+    },
+    {
       "source": "open_items",
       "id": "OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD",
       "title": "⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator ",
@@ -176,15 +180,6 @@
       "age_days": 17,
       "loud": true,
       "link": ""
-    },
-    {
-      "source": "manager_queue_watch",
-      "id": "manager-queue-watch-never-ran-overdue",
-      "title": "the Manager Queue Watch Routine has never written its receipt",
-      "why_due": "armed 428.4h ago, on the order of 428 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.",
-      "age_days": 17,
-      "loud": true,
-      "link": "docs/claude/work/MANAGER-QUEUE-WATCH.json"
     },
     {
       "source": "open_items",
@@ -374,6 +369,87 @@
       "age_days": 9,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11912",
+      "title": "chore(m7): strategy review packets (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11912"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11916",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11916"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11919",
+      "title": "chore(ops): refresh probe results (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11919"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11939",
+      "title": "chore(ops): refresh the A1 constraint readout (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11939"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11943",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11943"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11952",
+      "title": "chore(ops): PR-queue watcher receipt (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11952"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11953",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11953"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11956",
+      "title": "chore(m28): valuation snapshots (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11956"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#11998",
+      "title": "chore(ops): trainer capture-watch receipt (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 8,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/11998"
     },
     {
       "source": "open_items",
@@ -619,6 +695,87 @@
       "link": ""
     },
     {
+      "source": "unlanded_automation",
+      "id": "#12225",
+      "title": "chore(ops): session-reaper observations (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12225"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12228",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12228"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12229",
+      "title": "chore(ops): refresh probe results (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12229"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12230",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12230"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12231",
+      "title": "chore(ops): refresh the A1 constraint readout (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12231"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12239",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12239"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12245",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12245"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12249",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12249"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12253",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 7,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12253"
+    },
+    {
       "source": "open_items",
       "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
       "title": "⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, n",
@@ -680,6 +837,393 @@
       "age_days": 7,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12257",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 6,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12257"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12263",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 6,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12263"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12265",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 6,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12265"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12268",
+      "title": "chore(ops): refresh probe results (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 6,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12268"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12269",
+      "title": "chore(ops): refresh the A1 constraint readout (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 6,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12269"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12276",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 6,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12276"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12279",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 6,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12279"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12284",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 6,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12284"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12289",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 5,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12289"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12295",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 5,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12295"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12297",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 5,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12297"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12298",
+      "title": "chore(ops): refresh probe results (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 5,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12298"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12299",
+      "title": "chore(ops): refresh the A1 constraint readout (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 5,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12299"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12306",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 5,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12306"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12312",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 5,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12312"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12316",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 5,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12316"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12320",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 4,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12320"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12326",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 4,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12326"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12328",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 4,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12328"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12330",
+      "title": "chore(ops): refresh probe results (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 4,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12330"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12331",
+      "title": "chore(ops): refresh the A1 constraint readout (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 4,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12331"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12337",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 4,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12337"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12343",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 4,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12343"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12353",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 4,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12353"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12356",
+      "title": "chore(m1): economic-calendar PIT snapshots (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12356"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12357",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12357"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12358",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12358"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12359",
+      "title": "chore(ops): session-reaper observations (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12359"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12360",
+      "title": "chore(ops): trainer capture-watch receipt (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12360"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12361",
+      "title": "chore(ops): PR-queue watcher receipt (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12361"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12362",
+      "title": "chore(ops): queue the daily work digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12362"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12363",
+      "title": "chore(ops): refresh the error-feed digest (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12363"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12385",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12385"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12451",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12451"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12456",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12456"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12459",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12459"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12466",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12466"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12469",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12469"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12474",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12474"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12477",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12477"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12484",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12484"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12486",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12486"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12489",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 3,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12489"
     },
     {
       "source": "open_items",
@@ -754,6 +1298,51 @@
       "link": ""
     },
     {
+      "source": "unlanded_automation",
+      "id": "#12493",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 2,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12493"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12498",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 2,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12498"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12502",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 2,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12502"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12511",
+      "title": "chore(ops): reconcile OPEN-PRS.json after merge (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 2,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12511"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12529",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 2,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12529"
+    },
+    {
       "source": "open_items",
       "id": "OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE",
       "title": "[!] THE HEADLINE IN THIS ROW'S OWN ID IS NOW FALSE AND THE ID IS KEPT ONLY BECAUSE OTHER ROWS AND DOCS LINK IT BY NAME -- the same treatment OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER",
@@ -779,6 +1368,24 @@
       "age_days": 2,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12584",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 1,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12584"
+    },
+    {
+      "source": "unlanded_automation",
+      "id": "#12625",
+      "title": "chore(ml): replay pre-gate fleet report (auto)",
+      "why_due": "producer output opened a PR that has not landed",
+      "age_days": 0,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/pull/12625"
     },
     {
       "source": "probes",
@@ -833,6 +1440,15 @@
       "age_days": null,
       "loud": true,
       "link": ""
+    },
+    {
+      "source": "red_crons",
+      "id": "replay-pregate-nightly",
+      "title": "replay-pregate-nightly",
+      "why_due": "latest scheduled run concluded 'failure'",
+      "age_days": null,
+      "loud": true,
+      "link": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35501445978"
     },
     {
       "source": "spent_decision_edges",
@@ -1241,36 +1857,72 @@
     },
     {
       "source": "checklist_unrouted",
-      "id": "MI-190-SPAWN-WITHOUT-SOURCE-URL-ATTACHES-THE-WRONG-REPO",
-      "title": "Spawning without source_url can attach the WRONG repo, not merely no repo — and the 2026-09-06 row did not prevent it",
-      "why_due": "FILED AND NEVER ROUTED — 30.7h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "id": "MI-327",
+      "title": "Re-point the M7 strategy-review EDGE verdict at the offline record (the diff that never came back)",
+      "why_due": "FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
       "age_days": 1,
       "loud": false,
       "link": "docs/claude/work/MANAGER-CHECKLIST.json"
     },
     {
       "source": "checklist_unrouted",
-      "id": "MI-197-MERGE-SLOT-CARVE-OUT-DEADLOCK-HIT-TWICE-IN-ONE-MORNING",
-      "title": "The merge_slot carve-out is checked against EVERY parent, so an armed manager branch can never take main in — hit twice, cost two full re-la",
-      "why_due": "FILED AND NEVER ROUTED — 30.7h with owner `unassigned` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "id": "MI-328",
+      "title": "Harness adjudication: all three units the operator called high priority",
+      "why_due": "FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
       "age_days": 1,
       "loud": false,
       "link": "docs/claude/work/MANAGER-CHECKLIST.json"
     },
     {
       "source": "checklist_unrouted",
-      "id": "MI-198-DUPLICATE-HELD-BY-KEY-PARSED-PAST-BY-EVERY-GUARD",
-      "title": "#11378 left a duplicate `held_by` inside merge_slot and every guard read straight past it",
-      "why_due": "FILED AND NEVER ROUTED — 30.7h with owner `unassigned` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "id": "MI-329",
+      "title": "Scalp exit-mix falsifiable control (the second half the operator queued)",
+      "why_due": "FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
       "age_days": 1,
       "loud": false,
       "link": "docs/claude/work/MANAGER-CHECKLIST.json"
     },
     {
       "source": "checklist_unrouted",
-      "id": "MI-290",
-      "title": "CANONIZE the session-receipt format — one shape for every session, and render it on the Workflow page",
-      "why_due": "FILED AND NEVER ROUTED — 30.7h with owner `unassigned — needs a session; the operator asked for it to be QUEUED, not built ` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "id": "MI-330",
+      "title": "Three small operator-approved fixes from the 2026-09-19 pop-ups (Tier-2 OKs recorded)",
+      "why_due": "FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 1,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-331",
+      "title": "Arm ARBITRATION_FANOUT_ACCOUNTS for breakout_1 (Tier-2 OK recorded 2026-09-19)",
+      "why_due": "FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 1,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-332",
+      "title": "M8 sweep: min_stop_bps floor over the ict_scalp family (margin-bound sizing)",
+      "why_due": "FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 1,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-333",
+      "title": "loud-flag triage: derive `loud` from severity plus dueness",
+      "why_due": "FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
+      "age_days": 1,
+      "loud": false,
+      "link": "docs/claude/work/MANAGER-CHECKLIST.json"
+    },
+    {
+      "source": "checklist_unrouted",
+      "id": "MI-334",
+      "title": "Session receipt: manager sessions only, both cadences, and INTO THE SPRINT LOG",
+      "why_due": "FILED AND NEVER ROUTED — 26.3h with owner `(no owner field)` and status `queued`, past the measured 24h threshold. Route it, disposition it, or record why it stays unrouted; it is reported once and then becomes a count.",
       "age_days": 1,
       "loud": false,
       "link": "docs/claude/work/MANAGER-CHECKLIST.json"
@@ -1278,8 +1930,8 @@
     {
       "source": "error_feed",
       "id": "ERROR-FEED-SUMMARY",
-      "title": "91 cause groups over 1387 rows (60 error-level, 31 warn-level, 0 new since the last digest)",
-      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-20T05:09:21.594411+00:00`.",
+      "title": "92 cause groups over 1390 rows (60 error-level, 32 warn-level, 1 new since the last digest)",
+      "why_due": "50 further error group(s) and every warn group are NOT listed above — read `docs/claude/ERROR-FEED-DIGEST.json` for the full set. Digest verdict `all_feeds_read`, page cap hit on `bot_logs`, covers rows after `2026-09-20T10:01:10.098939+00:00`.",
       "age_days": null,
       "loud": false,
       "link": ""
@@ -1350,8 +2002,8 @@
     {
       "source": "checklist_unrouted",
       "id": "checklist-unrouted-standing",
-      "title": "76 checklist row(s) unrouted past 24h, carried as a stock",
-      "why_due": "The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 76 have been said once already and 0 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.",
+      "title": "80 checklist row(s) unrouted past 24h, carried as a stock",
+      "why_due": "The standing stock, carried as ONE row deliberately — the register names every id under `seeded_ids`/`reported_ids`. 80 have been said once already and 0 were SEEDED at the first reading (armed over, never announced — see the register). Saying them individually every run is the desensitised alarm, not a signal; they are all still unrouted, and seeding is not a disposition.",
       "age_days": null,
       "loud": false,
       "link": "docs/claude/work/CHECKLIST-ROUTING-AGE.json"
