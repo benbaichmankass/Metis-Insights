@@ -449,7 +449,15 @@ def _wip_block(in_flight: int) -> dict[str, Any]:
             "⚠️ Enforcement is in CI, NOT in this route — this count is still a "
             "reading and this route still gates nothing; a read path that refused "
             "something would be a second copy of the rule, free to drift from the "
-            "one that binds."
+            "one that binds. "
+            "⚠️ E9 (2026-09-21): `inFlight` counts `lifecycle: in_flight` work "
+            "objects under docs/claude/work/objects/, which the 2026-09-21 "
+            "operating reset archived without a replacement — so this number is "
+            "structurally 0 under the current MANAGER-CHECKLIST.json model, not "
+            "a live measurement of anything happening today. Whether "
+            "`enforced`/`state` above still describe scripts/ci/check_wip_ceiling.py's "
+            "actual CI wiring after the reset is filed, not verified here — see "
+            "docs/claude/work/PIPELINE.jsonl."
         ),
     }
 
@@ -485,8 +493,14 @@ def _coverage_block() -> dict[str, Any]:
             "started, and NOT queued. Carrying everything is not the same as "
             "everything being open. ⚠️ `complete` is still false: there are no "
             "`steps`, and no audit has established that every workstream has an "
-            "object. A bug to fix still goes to the review backlogs; what a "
-            "session must KNOW before it plans is still OPEN-ITEMS.json."
+            "object. ⚠️ CORRECTED 2026-09-21 (E9) — this note used to say a bug "
+            "still goes to the review backlogs and that OPEN-ITEMS.json is what "
+            "a session must know before it plans. Both were archived by the "
+            "2026-09-21 operating reset (docs/archive/2026-09-21-operating-reset/) "
+            "and nothing live reads either any more. A finding that needs picking "
+            "up later goes into docs/claude/work/PIPELINE.jsonl (via "
+            "scripts/ops/pipeline.py); a build goes into a row in "
+            "docs/claude/work/MANAGER-CHECKLIST.json. Nothing else is filing."
         ),
     }
 
@@ -997,10 +1011,15 @@ def _sessions_panel() -> dict[str, Any]:
 
 
 _SESSIONS_NOTE = (
-    "Session state is only as fresh as the last MANAGER OBSERVATION written "
-    "into docs/claude/work/SESSIONS.json. This is NOT a live feed: reading the "
+    "⚠️ CORRECTED 2026-09-21 (E9) — this used to read as a merely STALE "
+    "register; it is not. docs/claude/work/SESSIONS.json was archived by the "
+    "2026-09-21 operating reset (docs/archive/2026-09-21-operating-reset/) and "
+    "nothing repopulates it, so under the current model this panel reads "
+    "`present: false` PERMANENTLY, not intermittently. It is not coming back. "
+    "Session state was only ever as fresh as the last MANAGER OBSERVATION "
+    "written into that file. This is NOT a live feed: reading the "
     "platform's own session list needs `list_sessions`, an mcp__* tool no API "
-    "route holds. Read each lane's observation age beside its state."
+    "route holds."
 )
 
 
@@ -1204,19 +1223,133 @@ _ANSWER_STATE_NOTES = {
 }
 
 
+def _checklist_path() -> Path:
+    return Path(repo_root()) / manager_status.CHECKLIST_RELPATH
+
+
+def _pipeline_store_path() -> Path:
+    from scripts.ops import pipeline as _pipeline
+
+    return Path(repo_root()) / _pipeline.STORE
+
+
+def _checklist_operator_decision_edges() -> tuple[list[dict[str, Any]], str, str | None]:
+    """``blocked_on`` edges of ``kind: operator_decision`` on LIVE checklist rows.
+
+    ⚠️ E15. Before this, ``_decision_inbox``'s ONLY source was
+    ``docs/claude/work/objects/*.yaml`` — a directory the 2026-09-21 operating
+    reset archived. ``_yaml_files`` on an absent directory returns ``[]``
+    silently, so the inbox read as ``present: true`` with zero requests and
+    zero edges FOREVER after — an unanswered decision and no decision at all
+    render identically, which is exactly the collapsed state
+    ``scripts/ci/check_collapsed_states.py`` exists to catch. This is one of
+    the two LIVE replacements named in the E15 scope fence (the other is
+    ``_pipeline_ask_operator_items`` below); the archived directory is never
+    resurrected.
+
+    Read state reuses ``manager_status.FileRead``'s own vocabulary
+    (``read`` / ``absent`` / ``unreadable``) rather than a second one, so "the
+    checklist declares no operator-decision edges" and "we could not read the
+    checklist" can never render alike.
+    """
+    read = manager_status.read_json_file(_checklist_path())
+    if read.state != "read":
+        return [], read.state, read.error
+    edges: list[dict[str, Any]] = []
+    items = read.data.get("items")
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        blocked = item.get("blocked_on")
+        for edge in blocked if isinstance(blocked, list) else []:
+            if not isinstance(edge, dict) or edge.get("kind") != "operator_decision":
+                continue
+            edges.append(
+                {
+                    "source": "checklist",
+                    "objectId": item.get("id"),
+                    "objectTitle": item.get("title"),
+                    "objectLifecycle": item.get("state"),
+                    "ref": edge.get("ref"),
+                    "since": None,
+                    "note": edge.get("what"),
+                }
+            )
+    return edges, "read", None
+
+
+def _pipeline_ask_operator_items() -> tuple[list[dict[str, Any]], str, int]:
+    """Open ``PIPELINE.jsonl`` items whose ``next_action`` is ``ask_operator``.
+
+    ⚠️ E15. The SECOND live replacement named in the scope fence:
+    ``next_action: ask_operator`` is a pipeline item's own declaration that it
+    needs the operator's decision — the live equivalent of what the archived
+    ``objects/*.yaml``'s ``decision_requests[]`` used to carry.
+    ``TERMINAL_STATES`` (``done`` / ``killed``) are excluded — a decision
+    already made and closed is not "waiting on you" (it is reported in
+    ``docs/claude/work/PIPELINE.jsonl``'s own audit trail instead).
+    ⚠️ Read-only: this never appends to or otherwise touches
+    ``PIPELINE.jsonl`` — a merge queue drains it concurrently.
+
+    Read state reuses ``scripts/ops/render_daily_brief.py``'s own two-value
+    vocabulary for THIS store (``read`` vs ``partial``) rather than inventing
+    a third. A genuinely never-written store still reads ``read`` with zero
+    items — ``pipeline.py``'s own docstring: an append-only log that has never
+    been written "genuinely holds nothing", which is not the same condition as
+    "we could not parse what is there" (``partial``).
+    """
+    from scripts.ops import pipeline as _pipeline
+
+    res = _pipeline.read_log(_pipeline_store_path())
+    state = "read" if res.healthy else "partial"
+    today = datetime.now(timezone.utc).date()
+    items: list[dict[str, Any]] = []
+    for item in res.items.values():
+        if item.get("next_action") != "ask_operator":
+            continue
+        if item.get("state") in _pipeline.TERMINAL_STATES:
+            continue
+        due_when = item.get("due_when") or {}
+        items.append(
+            {
+                "source": "pipeline",
+                "objectId": item.get("id"),
+                "objectTitle": item.get("what"),
+                "objectLifecycle": item.get("state"),
+                "ref": item.get("routed_to"),
+                "since": None,
+                "note": due_when.get("clears_when"),
+                "due": _pipeline.is_due(item, today),
+            }
+        )
+    # Due first — the ones asking for attention NOW lead the list.
+    items.sort(key=lambda i: (not i["due"], str(i["objectId"])))
+    return items, state, len(res.unreadable)
+
+
 def _decision_inbox() -> dict[str, Any]:
     """Every operator decision the store is waiting on, with its answer state.
 
-    Two sources of a pending decision, and they are counted separately because
-    they are different facts:
+    Three sources of a pending decision, and they are counted separately
+    because they are different facts:
 
       * a ``decision_requests[]`` entry — an ANSWERABLE question, with options
-      * a ``blocked_on`` edge of ``kind: operator_decision`` — a declared
-        dependency on the operator that carries NO answerable request
+        (from ``docs/claude/work/objects/*.yaml`` — ⚠️ E15: that directory is
+        ARCHIVED as of 2026-09-21, so this source structurally reads empty;
+        see ``sources.workObjects`` on the response, never treat the resulting
+        zero as verified)
+      * a ``blocked_on`` edge of ``kind: operator_decision`` on a LIVE
+        checklist row — a declared dependency on the operator that carries NO
+        answerable request (``_checklist_operator_decision_edges``)
+      * a LIVE pipeline item whose ``next_action`` is ``ask_operator``
+        (``_pipeline_ask_operator_items``)
 
-    The second is the one worth surfacing loudly: it is a question the operator
-    is blocking on that they cannot answer from the UI, because nobody wrote it
-    down as a request. Folding the two together would hide exactly that gap.
+    The second and third are the ones worth surfacing loudly: each is a
+    question the operator is blocking on that they cannot answer from the UI,
+    because nobody wrote it down as a request. Folding any of the three
+    together would hide exactly that gap — so they stay tagged by ``source``
+    inside ``unanswerableOperatorEdges`` rather than merged into one
+    unattributed count.
     """
     index = _get_index()
     rows, transit_state, transit_error = read_transit()
@@ -1291,6 +1424,7 @@ def _decision_inbox() -> dict[str, Any]:
                 continue
             unanswerable.append(
                 {
+                    "source": "work_object",
                     "objectId": object_id,
                     "objectTitle": obj.get("title"),
                     "objectLifecycle": obj.get("lifecycle"),
@@ -1299,6 +1433,17 @@ def _decision_inbox() -> dict[str, Any]:
                     "note": edge.get("note"),
                 }
             )
+
+    # ── E15: the two LIVE replacements for the archived objects/ directory ──
+    checklist_edges, checklist_state, checklist_error = (
+        _checklist_operator_decision_edges()
+    )
+    unanswerable.extend(checklist_edges)
+
+    pipeline_items, pipeline_state, pipeline_unreadable_records = (
+        _pipeline_ask_operator_items()
+    )
+    unanswerable.extend(pipeline_items)
 
     by_state = {state: 0 for state in ANSWER_STATES}
     by_subject = {state: 0 for state in SUBJECT_STATES}
@@ -1457,6 +1602,27 @@ def _decision_inbox() -> dict[str, Any]:
             # cannot ANSWER is worse than one that was never asked.
             "malformedRequestsDropped": malformed,
             "unanswerableOperatorEdgeCount": len(unanswerable),
+            # ⚠️ E15: the auditable split behind `unanswerableOperatorEdgeCount`
+            # — published so the count is never trusted as a single opaque
+            # number. `workObject` is structurally 0 while objects/ stays
+            # archived; that is NOT the same fact as "nothing is waiting", and
+            # `checklist` + `pipeline` are the two counts that actually move.
+            "unanswerableBySource": {
+                "workObject": sum(1 for e in unanswerable if e.get("source") == "work_object"),
+                "checklist": sum(1 for e in unanswerable if e.get("source") == "checklist"),
+                "pipeline": sum(1 for e in unanswerable if e.get("source") == "pipeline"),
+            },
+            # ⚠️ E15: THE HEADLINE NUMBER. Everything genuinely waiting on the
+            # operator, across all three sources, added rather than any one of
+            # them read alone — `actionableCount` (answerable requests) is
+            # structurally 0 today (objects/ is archived); the checklist and
+            # pipeline edges inside `unanswerableOperatorEdges` are where a
+            # real pending decision now shows up. A consumer that renders
+            # "nothing is waiting on you" must read THIS field, not
+            # `actionableCount` alone.
+            "waitingOnYouTotal": (
+                sum(1 for r in requests if r["actionable"]) + len(unanswerable)
+            ),
             "staleOpenWindows": stale_open,
             "staleAfterSeconds": STALE_TRANSIT_SECONDS,
             # Who asked, graded over EVERY request — the coverage denominator
@@ -1477,11 +1643,55 @@ def _decision_inbox() -> dict[str, Any]:
             "rowsRead": len(rows),
         },
         "writeGate": _write_gate_reading(),
+        # ⚠️ E15: per-source read-state, published so a consumer can tell "this
+        # source has nothing pending" from "we could not read this source"
+        # WITHOUT re-deriving it from `unanswerableBySource`'s counts (a count
+        # of 0 is ambiguous between the two; a state string is not). Reuses
+        # `manager_status.FileRead`'s vocabulary for the checklist and
+        # `render_daily_brief.py`'s two-value vocabulary for the pipeline
+        # store, per the E15 scope fence — neither is re-derived here.
+        "sources": {
+            "workObjects": {
+                "state": "read" if _objects_dir().exists() else "archived",
+                "note": (
+                    "docs/claude/work/objects/ was archived by the 2026-09-21 "
+                    "operating reset (see docs/plans/OPERATING-PLAN-2026-09-21.md "
+                    "and E9). `decision_requests[]` — the only source this route "
+                    "read before E15 — structurally reads empty under the "
+                    "current model. That is NOT the same fact as \"no decisions "
+                    "are pending\"; see `sources.checklist` and `sources.pipeline` "
+                    "for the two live replacements."
+                ),
+            },
+            "checklist": {
+                "state": checklist_state,
+                "error": checklist_error,
+                "path": manager_status.CHECKLIST_RELPATH,
+            },
+            "pipeline": {
+                "state": pipeline_state,
+                "unreadableRecords": pipeline_unreadable_records,
+                "path": str(_pipeline_store_path()),
+            },
+        },
         "note": (
             "The repo is the source of truth. This route reports `committed` "
             "ONLY from an `answer` block on the work object in the repo — never "
             "from the transit log — so an answer that does not commit leaves "
-            "its question UNANSWERED. Transit fails BACK, never forward."
+            "its question UNANSWERED. Transit fails BACK, never forward. "
+            "⚠️ CORRECTED 2026-09-21 (E15) — `docs/claude/work/objects/` was "
+            "archived by the operating reset and this route's ONLY source "
+            "until now, so `requests`/`actionableCount` read structurally "
+            "empty regardless of what the operator actually had pending — a "
+            "genuine unanswered decision and no decision at all rendered "
+            "identically. `unanswerableOperatorEdges` now ALSO carries live "
+            "`blocked_on: operator_decision` edges from "
+            "`docs/claude/work/MANAGER-CHECKLIST.json` and open "
+            "`next_action: ask_operator` items from "
+            "`docs/claude/work/PIPELINE.jsonl` (tagged `source`), and "
+            "`summary.waitingOnYouTotal` is the number that actually reflects "
+            "them — read that, not `actionableCount` alone, for \"is anything "
+            "waiting on me\". PIPELINE.jsonl is read-only from this route."
         ),
     }
 
@@ -1538,6 +1748,12 @@ def get_work_decisions() -> dict[str, Any]:
                 "requestCount": 0,
                 "malformedRequestsDropped": 0,
                 "unanswerableOperatorEdgeCount": 0,
+                "unanswerableBySource": {"workObject": 0, "checklist": 0, "pipeline": 0},
+                # ⚠️ NOT 0 — the build failed before this could be counted, so
+                # it is unknown, never a fabricated clean number. See the E15
+                # note on the healthy envelope: a consumer must not read an
+                # absent/None value here as "nothing is waiting".
+                "waitingOnYouTotal": None,
                 "staleOpenWindows": 0,
                 "staleAfterSeconds": STALE_TRANSIT_SECONDS,
             },
@@ -1547,6 +1763,11 @@ def get_work_decisions() -> dict[str, Any]:
                         "path": None, "rowsRead": 0},
             "writeGate": {"state": "unknown", "acceptsWrites": None,
                           "note": "inbox build failed before the gate was read"},
+            "sources": {
+                "workObjects": {"state": "unknown", "note": "inbox build failed before this was read"},
+                "checklist": {"state": "unknown", "error": None, "path": manager_status.CHECKLIST_RELPATH},
+                "pipeline": {"state": "unknown", "unreadableRecords": None, "path": None},
+            },
         }
 
 
@@ -1901,4 +2122,174 @@ def get_work_receipts() -> dict[str, Any]:
                         "population": "payload build failed before the directory was read"},
         }
     _receipts_cache = (now, payload)
+    return payload
+
+
+# ── /brief — A3, the six-section daily brief, served LIVE ──────────────────
+#
+# Added 2026-09-21 (A3a). `scripts/ops/render_daily_brief.py` builds the six
+# fixed sections (what came due / taken under mandate / decisions for you /
+# what moved / what is running / spend) from files already on this tree —
+# the pipeline store, this checklist, and `config/mandates.yaml`. There is no
+# writer step and no cron: this route calls `build()` + `render()` on every
+# request (20s cache), the same shape `/checklist` above already uses for
+# `MANAGER-CHECKLIST.json`. See the module's own docstring for why that
+# decision is safe here and was not safe for the four-section module it
+# replaced (`DECIDED 2026-09-21 (A3a) — THE SCHEDULE QUESTION`).
+#
+# Tier: 1 (read-only, file-backed, no DB, no secrets — see
+# docs/api-tier-policy.md). Deliberately does not import `render_daily_brief`
+# at module scope: it in turn imports `scripts.ops.pipeline`, and keeping
+# that import inside the request path means a bug in either module degrades
+# this one route to `present: false` rather than failing every route this
+# file serves at process start.
+
+_BRIEF_CACHE_TTL_S = 20.0
+_brief_cache: tuple[float, dict[str, Any]] | None = None
+
+
+def _brief_payload() -> dict[str, Any]:
+    from scripts.ops import render_daily_brief as _rdb
+
+    repo = Path(repo_root())
+    b = _rdb.build(root=repo)
+    tree = manager_status.read_tree_provenance(repo_dir=repo)
+    return {
+        "present": True,
+        "readState": "read",
+        "reason": None,
+        "forDate": b["forDate"],
+        "generatedAt": b["generatedAt"],
+        "markdown": _rdb.render(b),
+        # The three input read-states, verbatim — so a consumer can grey out
+        # a section instead of trusting a brief one of its inputs could not
+        # supply. Never collapsed to a single boolean.
+        "inputs": {
+            "pipeline": "read" if b["pipeline"]["healthy"] else "partial",
+            "checklist": b["checklistState"],
+            "mandates": b["mandatesState"],
+        },
+        "pipelineStats": b["pipeline"]["stats"],
+        "coverageComplete": b["coverageComplete"],
+        "freshness": {
+            # Same working-tree discipline as `/checklist`: the route reads
+            # the VM's working tree, which `ict-git-sync` pulls roughly every
+            # 5 minutes, so the brief is exactly as fresh as the last PUSH
+            # plus that interval — never as fresh as "just now" implies.
+            "treeState": tree.state,
+            "treeStamp": manager_status.render_tree_stamp(tree),
+            "note": ("Computed live from the working tree on every request "
+                     "(20s cache) — there is no separate generation step to "
+                     "go stale between pushes."),
+        },
+    }
+
+
+@router.get("/brief")
+def get_work_brief() -> dict[str, Any]:
+    """The six-section daily brief (A3), rendered live from the pipeline
+    store, the checklist, and `config/mandates.yaml`.
+
+    Read-only, file-backed, no DB, no secrets, no write surface. Best-effort:
+    a failure to build the brief degrades to ``present: false`` WITH a
+    reason, never a 5xx and never a stale/blank page passed off as current.
+    """
+    global _brief_cache
+    now = time.monotonic()
+    cached = _brief_cache
+    if cached is not None and (now - cached[0]) < _BRIEF_CACHE_TTL_S:
+        return cached[1]
+    try:
+        payload = _brief_payload()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged WITH a stack and surfaced as present:false + reason. A Tier-1 read surface must not 5xx (roadmap.py's contract); a brief that 500s is invisible rather than absent.
+        logger.warning("work: brief build failed: %s", exc, exc_info=True)
+        return {
+            "present": False,
+            "readState": "unreadable",
+            "reason": f"brief build failed: {exc}",
+            "markdown": None,
+            "inputs": {}, "pipelineStats": None, "coverageComplete": False,
+        }
+    _brief_cache = (now, payload)
+    return payload
+
+
+# ── /schedule — A9: cadenced sessions, decisions owed, monitoring coming ──
+# due, cron cadences. Appended at end-of-file deliberately: a concurrent
+# lane (E15) is editing `_decision_inbox` and the helpers it calls, and a
+# new handler at the end merges cleanly against that diff. Same reasoning
+# as `_brief_payload` for the deferred import: `render_schedule` in turn
+# imports `scripts.ops.pipeline`, and an import at module scope would let a
+# bug in either degrade every route this file serves at process start,
+# rather than just this one to `present: false`.
+
+_SCHEDULE_CACHE_TTL_S = 20.0
+_schedule_cache: tuple[float, dict[str, Any]] | None = None
+
+
+def _schedule_payload() -> dict[str, Any]:
+    from scripts.ops import render_schedule as _rs
+
+    repo = Path(repo_root())
+    b = _rs.build(root=repo)
+    tree = manager_status.read_tree_provenance(repo_dir=repo)
+    return {
+        "present": True,
+        "readState": "read",
+        "reason": None,
+        "forDate": b["forDate"],
+        "generatedAt": b["generatedAt"],
+        "markdown": _rs.render(b),
+        "cadencedSessions": b["cadencedSessions"],
+        "decisionsOwed": b["decisionsOwed"],
+        "monitoringDue": b["monitoringDue"],
+        "crons": b["crons"],
+        # The three input read-states, verbatim — never collapsed to one
+        # boolean, same contract as `/brief`'s `inputs`.
+        "inputs": b["inputs"],
+        "coverageComplete": b["coverageComplete"],
+        "freshness": {
+            # Same working-tree discipline as `/checklist` and `/brief`: the
+            # route reads the VM's working tree, which `ict-git-sync` pulls
+            # roughly every 5 minutes, so the schedule is exactly as fresh
+            # as the last PUSH plus that interval.
+            "treeState": tree.state,
+            "treeStamp": manager_status.render_tree_stamp(tree),
+            "note": ("Computed live from the working tree on every request "
+                     "(20s cache) — there is no separate generation step to "
+                     "go stale between pushes."),
+        },
+    }
+
+
+@router.get("/schedule")
+def get_work_schedule() -> dict[str, Any]:
+    """The work schedule (A9): cadenced sessions, decisions owed, monitoring
+    coming due, and cron cadences — rendered live from
+    `docs/claude/work/SCHEDULE.json`, the pipeline store
+    (`docs/claude/work/PIPELINE.jsonl`), and `.github/workflows/*.yml`.
+
+    Read-only, file-backed, no DB, no secrets, no write surface. Best-effort:
+    a failure to build the schedule degrades to ``present: false`` WITH a
+    reason, never a 5xx and never a stale/blank page passed off as current.
+    """
+    global _schedule_cache
+    now = time.monotonic()
+    cached = _schedule_cache
+    if cached is not None and (now - cached[0]) < _SCHEDULE_CACHE_TTL_S:
+        return cached[1]
+    try:
+        payload = _schedule_payload()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged WITH a stack and surfaced as present:false + reason. A Tier-1 read surface must not 5xx (roadmap.py's contract); a schedule that 500s is invisible rather than absent.
+        logger.warning("work: schedule build failed: %s", exc, exc_info=True)
+        return {
+            "present": False,
+            "readState": "unreadable",
+            "reason": f"schedule build failed: {exc}",
+            "markdown": None,
+            "cadencedSessions": None, "decisionsOwed": None,
+            "monitoringDue": None, "crons": None,
+            "inputs": {}, "coverageComplete": False,
+        }
+    _schedule_cache = (now, payload)
     return payload

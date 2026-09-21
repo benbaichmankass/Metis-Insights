@@ -1,340 +1,192 @@
 """Tests for the DAILY BRIEF renderer (`scripts/ops/render_daily_brief.py`).
 
-⚠️ **These are NOT a second copy of the module's `--self-test`.** The self-test
-runs in CI on every PR and asserts the invariants that must never regress
-(`landed_unproven` is never `done`; the four read-states never collapse; the two
-verdict axes stay independent). These tests exercise the parts a self-test
-cannot cheaply reach: real files on disk, real argument plumbing, and the
-`--write` path — plus the ADVERSARIAL direction, a planted defect that must
-FAIL, because a check that only ever sees clean input proves it runs and never
-that it discriminates.
+⚠️ **These are NOT a second copy of the module's `--self-test`.** The
+self-test runs in CI on every PR and asserts the invariants that must never
+regress (§0 is pipeline.py's own text; `landed_unproven` is never `done`; the
+three read-states never collapse). These tests exercise what a self-test
+cannot cheaply reach: real files on disk, the CLI's argument plumbing, and
+the `--write` path.
+
+The pre-reset version of this file tested the four-section module this one
+replaces (`registerStates` keyed to `SESSIONS.json` / `OPEN-PRS.json` /
+`MANAGER-LEASE.json` / `OPEN-ITEMS.json` / `CYCLE-PRIORITY.json`, all
+archived under `docs/archive/2026-09-21-operating-reset/`). It is replaced
+wholesale rather than patched, because the module's shape changed —
+six sections, three inputs, no MCP-only observation boundary. Restore the old
+file from git history if the old module's subject ever returns.
 """
 from __future__ import annotations
 
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.ops import pipeline  # noqa: E402
 from scripts.ops import render_daily_brief as rdb  # noqa: E402
 
-NOW = datetime(2026, 9, 3, 6, 20, tzinfo=timezone.utc)
+
+def test_the_modules_own_self_test_passes_as_a_subprocess():
+    r = subprocess.run(
+        [sys.executable, "scripts/ops/render_daily_brief.py", "--self-test"],
+        cwd=REPO_ROOT, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
 
 
-# ── the module's own self-test must pass as a subprocess ──────────────────
-
-# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_self_test_passes_as_a_subprocess`.
-# It asserted a property of the LIVE retired governance registers, which is archived under
-# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
-# test cannot pass and cannot be made to pass — it is removed WITH its
-# subject rather than skipped, because a permanently-skipped test is a
-# control in name only. Its fixture-based siblings in this file are
-# UNTOUCHED and still green: they test the CODE, which still exists.
-# Restore it from git history if the register ever returns.
+def test_the_modules_own_check_passes_over_the_live_tree():
+    r = subprocess.run(
+        [sys.executable, "scripts/ops/render_daily_brief.py", "--check"],
+        cwd=REPO_ROOT, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
 
 
-# ── the four read states, on REAL files ───────────────────────────────────
+# ── read_json / read_yaml, on real files ───────────────────────────────────
 
-def test_read_json_distinguishes_absent_from_unreadable(tmp_path):
-    """`we looked and it is not there` vs `we could not look` — opposite facts."""
+def test_read_json_distinguishes_absent_unreadable_read(tmp_path):
     (tmp_path / "d").mkdir()
     (tmp_path / "d" / "bad.json").write_text("{oops", encoding="utf-8")
+    (tmp_path / "d" / "ok.json").write_text('{"a": 1}', encoding="utf-8")
     assert rdb.read_json(Path("d/missing.json"), tmp_path) == (None, "absent")
     assert rdb.read_json(Path("d/bad.json"), tmp_path)[1] == "unreadable"
-    (tmp_path / "d" / "ok.json").write_text('{"a": 1}', encoding="utf-8")
     assert rdb.read_json(Path("d/ok.json"), tmp_path) == ({"a": 1}, "read")
 
 
-def test_an_unreadable_register_is_named_in_the_rendered_brief(tmp_path):
-    """A hole must be VISIBLE to the operator, not just present in the envelope.
+def test_read_yaml_distinguishes_absent_unreadable_read(tmp_path):
+    (tmp_path / "d").mkdir()
+    (tmp_path / "d" / "bad.yaml").write_text("a: [oops", encoding="utf-8")
+    (tmp_path / "d" / "ok.yaml").write_text("mandates: []\n", encoding="utf-8")
+    assert rdb.read_yaml(Path("d/missing.yaml"), tmp_path) == (None, "absent")
+    assert rdb.read_yaml(Path("d/bad.yaml"), tmp_path)[1] == "unreadable"
+    assert rdb.read_yaml(Path("d/ok.yaml"), tmp_path) == ({"mandates": []}, "read")
 
-    The adversarial direction: this plants a broken register and asserts the
-    brief SAYS SO. Without it, a renderer that silently skipped the section
-    would pass every other test here.
-    """
-    states = {k: "read" for k, _ in rdb.REGISTER_INPUTS}
-    states["open_items"] = "unreadable"
-    assert rdb.registers_verdict(states) == "partial"
-    b = _minimal_brief(register_states=states, registers_verdict="partial")
+
+# ── build() against a real, isolated tree ──────────────────────────────────
+
+def _write_pipeline_item(store: Path, **over):
+    item = {
+        "id": "PI-TEST-0001", "what": "a test item",
+        "origin": {"kind": "audit", "ref": "#1", "rerun": "true"},
+        "due_when": {"kind": "observation", "clears_when": "x"},
+        "next_action": "dispatch_lane", "state": "queued",
+        "routed_to": None, "terminal_reason": None,
+    }
+    item.update(over)
+    store.parent.mkdir(parents=True, exist_ok=True)
+    with open(store, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(item) + "\n")
+
+
+def test_build_reads_all_three_inputs_from_an_isolated_root(tmp_path):
+    pipeline_store = tmp_path / "docs/claude/work/PIPELINE.jsonl"
+    _write_pipeline_item(pipeline_store)
+
+    checklist = tmp_path / "docs/claude/work/MANAGER-CHECKLIST.json"
+    checklist.parent.mkdir(parents=True, exist_ok=True)
+    checklist.write_text(json.dumps({"items": [
+        {"id": "X1", "state": "in_flight", "owner": "build lane", "title": "t"},
+    ]}), encoding="utf-8")
+
+    mandates = tmp_path / "config/mandates.yaml"
+    mandates.parent.mkdir(parents=True, exist_ok=True)
+    mandates.write_text("mandates:\n  - id: MD-KILL-QUESTION\n    grants: derisk_only\n",
+                        encoding="utf-8")
+
+    import datetime
+    b = rdb.build(today=datetime.date(2026, 9, 21), root=tmp_path)
+    assert b["checklistState"] == "read"
+    assert b["mandatesState"] == "read"
+    assert b["pipeline"]["healthy"] is True
+    assert b["pipeline"]["stats"]["items"] == 1
     md = rdb.render(b)
-    assert "`open_items` | `unreadable`" in md
-    assert "we could not look" in md.lower()
-    # …and the CONTROL: with every register read, the brief must NOT cry wolf.
-    clean = rdb.render(_minimal_brief())
-    assert "at least one register could not be read" not in clean
+    assert "MD-KILL-QUESTION" in md
+    assert "- **X1**" in md
+    assert "PI-TEST-0001" in md
 
 
-# ── `landed_unproven` is not `done` — the load-bearing invariant ──────────
-
-def test_landed_unproven_is_never_counted_as_done():
-    v = rdb.checklist_view({"items": [
-        {"id": "A", "state": "done"},
-        {"id": "B", "state": "landed_unproven"},
-        {"id": "C", "state": "landed_unproven"},
-    ]})
-    assert v["doneCount"] == 1
-    assert v["mergedEffectUnobservedCount"] == 2
-    # There is deliberately NO combined "finished" figure to be misread.
-    assert "finished" not in json.dumps(v)
-
-
-def test_landed_unproven_rows_render_under_a_not_done_heading():
-    v = rdb.checklist_view({"items": [
-        {"id": "MI-X", "state": "landed_unproven", "title": "merged only",
-         "landed_unproven_because": "no fleet observation"},
-        {"id": "MI-Y", "state": "done", "title": "observed"},
-    ]})
-    md = rdb.render(_minimal_brief(checklist=v))
-    assert "**NOT done**" in md
-    assert md.index("- **MI-X**") > md.index("LANDED, EFFECT UNOBSERVED")
-    assert "no fleet observation" in md
-    # `done` rows are NOT enumerated at all — they need no eyes — so a reader
-    # can never find MI-Y under a heading that also holds MI-X.
-    assert "- **MI-Y**" not in md
-
-
-# ── the operator-condition rule, which is the dangerous one ───────────────
-
-def test_an_approval_condition_and_scope_survive_verbatim():
-    """`README.md`: only the HALF-INFORMED successor is dangerous."""
-    v = rdb.open_pr_view({"open_prs": [{
-        "pr": "#10746", "title": "graded coverage basis",
-        "operator_decision": {
-            "verdict": "approved_with_conditions",
-            "condition": "hold arming until the soak",
-            "scope": "bybit_1 (demo) ONLY. NOT a fleet-wide flip.",
-            "decided_on": "2026-09-02",
-            "text": "hold it until the soak"}}]})
-    md = rdb.render(_minimal_brief(open_prs=v))
-    for fragment in ("approved_with_conditions", "hold arming until the soak",
-                     "bybit_1 (demo) ONLY", "hold it until the soak"):
-        assert fragment in md, fragment
-    assert "CONDITION:" in md and "SCOPE:" in md
-
-
-def test_a_free_text_decision_is_graded_not_passed_as_approved():
-    v = rdb.open_pr_view({"open_prs": [
-        {"pr": "#1", "operator_decision": "I think he approved it"}]})
-    assert v["rows"][0]["decision"]["form"] == "prose_ungradeable"
-    assert v["rows"][0]["decision"]["verdict"] is None
-    assert "prose_ungradeable" in rdb.render(_minimal_brief(open_prs=v))
-
-
-def test_an_empty_open_pr_record_does_not_read_as_no_open_prs():
-    """The live tree's record holds zero rows; that is a record state, not a
-    fleet state, and the two must not render identically."""
-    md = rdb.render(_minimal_brief())
-    joined = md.replace("\n", " ")
-    assert "no rows" in joined
-    assert "not" in joined and "no PR is open" in joined
-
-
-# ── the observation boundary this must not fake around ────────────────────
-
-def test_an_unsupplied_night_observation_is_a_declared_hole():
-    md = rdb.render(_minimal_brief())
-    assert "NOT OBSERVED" in md
-    assert "not evidence that nothing was concluded" in md.replace("\n", " ")
-    assert "post_turn_summary" in md
-
-
-def test_a_supplied_night_observation_changes_the_output():
-    """The negative control for the test above — one direction proves nothing."""
-    b = _minimal_brief(
-        session_notes={"state": "read", "observedAt": "2026-09-03T05:00Z",
-                       "observedBy": "session_m",
-                       "sessions": [{"sessionId": "s1", "title": "night work",
-                                     "status": "archived",
-                                     "concluded": "landed the reaper",
-                                     "needsAction": "merge #10800"}]},
-        observation_states={"night_session_conclusions": "read",
-                            "live_sub_sessions": "not_observed",
-                            "open_pr_completeness": "not_observed"},
-        observations_verdict="partial")
+def test_build_declares_all_three_inputs_absent_on_an_empty_tree(tmp_path):
+    import datetime
+    b = rdb.build(today=datetime.date(2026, 9, 21), root=tmp_path)
+    assert b["checklistState"] == "absent"
+    assert b["mandatesState"] == "absent"
+    assert b["pipeline"]["healthy"] is True  # a missing store is empty, not broken
     md = rdb.render(b)
-    overnight = md.split("## §2")[0]
-    assert "landed the reaper" in overnight
-    assert "merge #10800" in overnight
-    assert "NOT OBSERVED" not in overnight
+    assert md.count("we looked; it is not there") >= 3  # §2, §3, §4
+    assert "no mandate mechanism exists yet" in md.lower()
 
 
-def test_the_two_verdict_axes_are_independent():
-    """A structurally-absent live observation must not drag the register verdict
-    down — a permanently-degraded verdict is one that gets skimmed past."""
-    assert rdb.registers_verdict({k: "read" for k, _ in rdb.REGISTER_INPUTS}) == "all_read"
-    assert rdb.observations_verdict(
-        {k: "not_observed" for k, _ in rdb.OBSERVATION_INPUTS}) == "none_observed"
-    assert rdb.observations_verdict({"a": "read", "b": "not_observed"}) == "partial"
-    assert rdb.observations_verdict({"a": "read"}) == "all_observed"
+# ── the adversarial direction: a malformed input must be DECLARED ─────────
+
+def test_an_unparseable_checklist_is_declared_not_silently_empty(tmp_path):
+    checklist = tmp_path / "docs/claude/work/MANAGER-CHECKLIST.json"
+    checklist.parent.mkdir(parents=True, exist_ok=True)
+    checklist.write_text("{not json", encoding="utf-8")
+    import datetime
+    b = rdb.build(today=datetime.date(2026, 9, 21), root=tmp_path)
+    assert b["checklistState"] == "unreadable"
+    md = rdb.render(b)
+    assert md.count("we could not look") >= 3
 
 
-def test_an_absent_register_does_not_degrade_the_verdict_but_an_unreadable_one_does():
-    assert rdb.registers_verdict({"a": "read", "b": "absent"}) == "all_read"
-    assert rdb.registers_verdict({"a": "read", "b": "unreadable"}) == "partial"
-    assert rdb.registers_verdict({"a": "unreadable"}) == "none_read"
+# ── §0/§5 are pipeline.py's own numbers, never re-derived ─────────────────
+
+def test_section0_and_section5_are_pipelines_own_numbers(tmp_path):
+    store = tmp_path / "docs/claude/work/PIPELINE.jsonl"
+    _write_pipeline_item(store, id="A", state="queued")
+    _write_pipeline_item(store, id="B", state="routed", routed_to="A7",
+                         terminal_reason=None)
+    import datetime
+    today = datetime.date(2026, 9, 21)
+    b = rdb.build(today=today, root=tmp_path)
+    res = pipeline.read_log(store)
+    assert b["pipeline"]["stats"]["unrouted"] == pipeline.unrouted_count(
+        res.items.values(), today)
+    md = rdb.render(b)
+    assert f"Unrouted pipeline items: {pipeline.unrouted_count(res.items.values(), today)}." in md
 
 
-# ── the window ────────────────────────────────────────────────────────────
+# ── the write path ──────────────────────────────────────────────────────
 
-def test_an_unresolvable_window_is_not_a_quiet_night(tmp_path):
-    ref, how = rdb.resolve_since("1970-01-01T00:00:00Z", now=NOW, root=tmp_path)
-    assert ref == ""
-    md = rdb.render(_minimal_brief(
-        window={"base": None, "how": how, "resolved": False, "since": None}))
-    assert "COULD NOT BE ESTABLISHED" in md
-    assert "not** a quiet night" in md
-
-
-def test_the_window_states_how_it_was_chosen():
-    ref, how = rdb.resolve_since(None, now=NOW, root=REPO_ROOT)
-    assert "before" in how or "could NOT be established" in how
-
-
-def test_an_unparseable_since_is_refused_never_resolved_to_head():
-    """git does NOT fail on a garbage `--before` — it returns HEAD, rc 0.
-
-    That would make the overnight window `HEAD..HEAD`, i.e. EMPTY, and the
-    brief would report a quiet night for a window nobody chose. This asserts
-    the behaviour of git itself (so the test fails loudly if git ever starts
-    rejecting it and this validation becomes dead weight) and then asserts we
-    refuse first.
-    """
-    # The premise, measured rather than assumed.
-    out = subprocess.run(["git", "rev-list", "-1", "--before=not-a-timestamp", "HEAD"],
-                         cwd=REPO_ROOT, capture_output=True, text=True)
-    assert out.returncode == 0 and out.stdout.strip(), (
-        "git no longer ignores a bad --before; re-argue parse_since")
-
-    for bad in ("not-a-timestamp", "2026-13-45", "yesterday", ""):
-        try:
-            rdb.parse_since(bad)
-        except rdb.BadSince:
-            continue
-        raise AssertionError(f"{bad!r} was accepted")
-
-    # …and the control: valid forms pass and are read correctly.
-    assert rdb.parse_since("2026-09-02T22:00Z").hour == 22
-    assert rdb.parse_since("2026-09-02").day == 2
-    assert rdb.parse_since("2026-09-02 22:00").hour == 22
-
-
-def test_the_cli_refuses_a_bad_since_rather_than_rendering():
-    r = subprocess.run(
-        [sys.executable, "scripts/ops/render_daily_brief.py", "--since", "oops"],
-        cwd=REPO_ROOT, capture_output=True, text=True)
-    assert r.returncode == 2, r.stdout + r.stderr
-    assert "REFUSED" in r.stderr
-    assert "quiet night for a window nobody chose" in r.stderr
-    assert "# DAILY BRIEF" not in r.stdout, "it rendered anyway"
-
-
-def test_the_no_commit_that_old_message_names_a_measured_cause():
-    """A failure message naming a cause no code path tested is
-    UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A. This line used to assert
-    'the clone is shallow' unconditionally — true here, and wrong for a full
-    clone of a young repo, where it would send a reader to deepen a clone that
-    is already complete."""
-    from scripts.ops import work_digest
-    _, how = rdb.resolve_since("1999-01-01T00:00:00Z", now=NOW, root=REPO_ROOT)
-    assert "could NOT be established" in how
-    if work_digest._is_shallow():
-        assert "SHALLOW" in how and "COMPLETE" not in how
-    else:
-        assert "COMPLETE" in how and "SHALLOW" not in how
-
-
-# ── the lease ─────────────────────────────────────────────────────────────
-
-def test_an_unreadable_lease_is_not_an_unheld_one():
-    v = rdb.lease_view(None, "unreadable", now=NOW)
-    assert v["state"] == "lease_unreadable"
-    assert v["holder"] is None and v["expired"] is None
-
-
-def test_an_undateable_lease_expiry_is_never_rendered_as_valid():
-    v = rdb.lease_view({"state": "held", "holder": "s", "expires_at": "not-a-date"},
-                       "read", now=NOW)
-    assert v["expired"] is None
-    md = rdb.render(_minimal_brief(lease=v))
-    assert "undateable" in md and "not** rendered as valid" in md
-
-
-# ── §4 always carries a denominator ───────────────────────────────────────
-
-def test_every_declared_input_appears_in_the_inputs_table():
-    md = rdb.render(_minimal_brief())
-    for name, _ in rdb.REGISTER_INPUTS:
-        assert f"| `{name}` |" in md, name
-    for name, _ in rdb.OBSERVATION_INPUTS:
-        assert f"| `{name}` |" in md, name
-
-
-# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_every_declared_register_path_exists_on_disk`.
-# It asserted a property of the LIVE retired governance registers, which is archived under
-# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
-# test cannot pass and cannot be made to pass — it is removed WITH its
-# subject rather than skipped, because a permanently-skipped test is a
-# control in name only. Its fixture-based siblings in this file are
-# UNTOUCHED and still green: they test the CODE, which still exists.
-# Restore it from git history if the register ever returns.
-
-
-def test_coverage_is_always_declared_incomplete():
-    assert _minimal_brief()["coverageComplete"] is False
-    assert "`coverageComplete` is `false`" in rdb.render(_minimal_brief())
-
-
-# ── the write path ────────────────────────────────────────────────────────
-
-def test_write_produces_a_dated_file_and_says_what_it_could_not_see(tmp_path,
-                                                                    monkeypatch):
+def test_write_produces_a_dated_file(tmp_path, monkeypatch):
     monkeypatch.setattr(rdb, "BRIEF_DIR", tmp_path / "briefs")
-    b = _minimal_brief()
-    out = tmp_path / "briefs" / f"{b['forDate']}.md"
-    (tmp_path / "briefs").mkdir(parents=True)
+    import datetime
+    b = rdb.build(today=datetime.date(2026, 9, 21), root=REPO_ROOT)
+    out_dir = tmp_path / "briefs"
+    out_dir.mkdir(parents=True)
+    out = out_dir / f"{b['forDate']}.md"
     out.write_text(rdb.render(b), encoding="utf-8")
     text = out.read_text(encoding="utf-8")
     assert text.startswith("# DAILY BRIEF — ")
     assert "do not hand-edit" in text
-    assert "§0 — WHAT THIS BRIEF COULD NOT SEE" in text
+    assert "## §0 — WHAT CAME DUE" in text
 
 
-# ── helper ────────────────────────────────────────────────────────────────
+def test_the_cli_write_flag_actually_writes(tmp_path):
+    r = subprocess.run(
+        [sys.executable, "scripts/ops/render_daily_brief.py", "--write"],
+        cwd=REPO_ROOT, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "daily-brief: wrote comms/briefs/" in r.stdout
+    written = r.stdout.split("wrote ")[1].split(" ")[0]
+    path = REPO_ROOT / written
+    assert path.exists()
+    try:
+        text = path.read_text(encoding="utf-8")
+        assert "## §0 — WHAT CAME DUE" in text
+        assert "## §5 — SPEND" in text
+    finally:
+        path.unlink(missing_ok=True)
 
-def _minimal_brief(**over):
-    b = {
-        "schemaVersion": 1, "forDate": "2026-09-03",
-        "generatedAt": NOW.isoformat(),
-        "registerStates": {k: "read" for k, _ in rdb.REGISTER_INPUTS},
-        "registersVerdict": "all_read",
-        "observationStates": {k: "not_observed" for k, _ in rdb.OBSERVATION_INPUTS},
-        "observationsVerdict": "none_observed",
-        "window": {"base": "abc1234", "how": "test window", "resolved": True,
-                   "since": None},
-        "digest": {}, "digestText": "[work digest] test",
-        "sessionNotes": {"state": "not_observed", "sessions": [],
-                         "observedAt": None, "observedBy": None},
-        "liveSessions": None,
-        "checklist": rdb.checklist_view({"items": []}),
-        "openPrs": rdb.open_pr_view({"open_prs": []}),
-        "lease": rdb.lease_view({"state": "held", "holder": "s1",
-                                 "expires_at": "2026-09-03T07:00:00Z"},
-                                "read", now=NOW),
-        "loudOpenItems": [], "cyclePriority": {},
-        "due": rdb.__dict__["_due"].build([], now=NOW),
-        "coverageComplete": False,
-    }
-    # keys arrive snake-ish in tests; map the friendly names
-    alias = {"register_states": "registerStates",
-             "registers_verdict": "registersVerdict",
-             "observation_states": "observationStates",
-             "observations_verdict": "observationsVerdict",
-             "session_notes": "sessionNotes", "open_prs": "openPrs"}
-    for k, v in over.items():
-        b[alias.get(k, k)] = v
-    return b
+
+def test_the_cli_json_flag_emits_the_envelope():
+    r = subprocess.run(
+        [sys.executable, "scripts/ops/render_daily_brief.py", "--json"],
+        cwd=REPO_ROOT, capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    env = json.loads(r.stdout)
+    assert env["schemaVersion"] == 1
+    assert env["coverageComplete"] is False
+    assert "pipeline" in env and "checklistState" in env and "mandatesState" in env

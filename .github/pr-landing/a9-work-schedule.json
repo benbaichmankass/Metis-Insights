@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Dispatch instruction for A9, 2026-09-21: \"Open each PR as a draft, write the .github/pr-landing/<branch-slug>.json declaration with tier: 1, landing: \\\"hold\\\", hold_reason: \\\"operator_asked_to_hold\\\" quoting this instruction -- the manager merges; do not arm auto-merge and do not merge yourself.\"",
+  "why": "docs + CI + a new read-only Tier-1 route (docs/claude/work/SCHEDULE.json, scripts/ops/render_schedule.py, tests/test_render_schedule.py, docs/api-tier-policy.md, scripts/ci/run_guards.py, src/web/api/routers/work.py -- append-only, no runtime/order-path/config touched); held per explicit dispatch instruction, not self-landed."
+}
