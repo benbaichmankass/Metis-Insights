@@ -1,0 +1,2 @@
+Arming request for branch claude/metis-insights-manager-9qmm63 (PR #12690).
+The relay never reads this content -- the path is the trigger.

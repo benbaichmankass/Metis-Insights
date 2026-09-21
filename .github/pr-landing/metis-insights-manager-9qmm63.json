@@ -1,7 +1,5 @@
 {
   "tier": 1,
-  "landing": "hold",
-  "hold_reason": "unvouchable_paths",
-  "hold_text": "Tier-1 work touching .claude/settings.json, which is outside TIER1_SURFACE. Verified against the diff: the only unvouchable path is .claude/settings.json; everything else is docs/claude/work/** (the manager surface) and .github/pr-landing|pr-automerge-requests|merge-slots. The change removes instructions sending every session to files the 2026-09-21 reset archived and repoints them at what exists. OPERATOR GRANTED IT 2026-09-21, answering a decision put to them as one of four: they chose 'Grant me settings.json' over editing it themselves. Recorded under this guard's sibling escape hatch as docs/claude/work/manager-scope-exception.yaml :: MGR-20260921-STALE-SESSION-HOOKS (active, that one path, expiring 2026-09-24). Held rather than self-landed because R5 is right that a guard must not certify what it cannot vouch for -- the grant authorises the EDIT, it does not make the path Tier-1.",
-  "why": "Repoints .claude/settings.json's session hooks off 22 archived references; plus manager register, pipeline rows, and the landing paperwork."
+  "landing": "self",
+  "why": "Manager register + pipeline rows only. The diff at this head is docs/claude/work/MANAGER-CHECKLIST.json and docs/claude/work/PIPELINE.jsonl, plus this landing paperwork and the arming file -- every path inside TIER1_SURFACE. The earlier `hold_reason: unvouchable_paths` on this file was TRUE of an earlier head, which carried .claude/settings.json; that change landed in #12685 and the reason went stale with it. R14 caught the stale hold, which is the rule working: a hold that outlives its reason is a way of not landing ready work."
 }
