@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Build-lane dispatch (row A1, docs/claude/work/MANAGER-CHECKLIST.json): 'Open a PR against main, drive CI green, do not merge -- the manager merges.'",
+  "why": "New scripts/ops/ module + a run_guards.py guard registration; docs/tests/CI/tooling only, no runtime/order-path/config touched -- Tier-1 by path, held per the lane's own landing instruction rather than self-landed."
+}
