@@ -1,6 +1,6 @@
 {
   "held_by": "session_01XQhayAHWdrSYv8jN54P2HH",
   "branch": "claude/metis-insights-manager-9qmm63",
-  "claimed_at": "2026-09-21T19:47:25Z",
-  "purpose": "Manager register: A10, E14 re-measure, E3 PR number, pytest-report.xml ignore"
+  "claimed_at": "2026-09-21T20:14:17Z",
+  "purpose": "E16 prop row + lane updates (round 2, after #12690)"
 }
