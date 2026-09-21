@@ -16,6 +16,10 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .mypy_cache/
+# Written into the repo root by scripts/ci/run_guards.py's pytest leg. Ignored
+# because an untracked file a session did not create is a FALSE POSITIVE on the
+# probe sessions use to decide whether they have unlanded work.
+pytest-report.xml
 
 # Virtual environments
 .venv/
