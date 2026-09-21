@@ -1,6 +1,6 @@
 # System review — 2026-09-17, weighted to performance (7d) and soak monitoring
 
-> **Doc status:** `live` · category `evidence` · produced by the OPS lane
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > (`session_0178pRo8ZxrnrREzDzDzb9Zk`, MI-294) · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 
 ## ⚠️ COVERAGE — READ THIS BEFORE QUOTING ANYTHING BELOW

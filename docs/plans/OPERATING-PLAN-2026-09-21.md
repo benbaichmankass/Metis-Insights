@@ -1,6 +1,6 @@
 # Operating plan — decide offline, prove on the book
 
-> **Doc status:** `live` · category `instruction` · adopted `2026-09-21` (operator-directed)
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > **Supersedes:** the operating-layer model of 2026-09-01 (design phases A–H) in full.
 > **Carrier chain:** [`CLAUDE.md`](../../CLAUDE.md) → this file → rows in
 > [`docs/claude/work/MANAGER-CHECKLIST.json`](../claude/work/MANAGER-CHECKLIST.json)

@@ -1,6 +1,6 @@
 # System-review evidence — 2026-09-11 (MI-272)
 
-> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 **What this is, and is not.** This is the measurement record behind MI-272's
 findings — populations, denominators, and the specific reads. It is **not** the

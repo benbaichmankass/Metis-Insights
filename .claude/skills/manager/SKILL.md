@@ -3,6 +3,8 @@ name: manager
 description: The manager-session contract. Read this at the start of any session that spawns or supervises other sessions. Defines the one job, the one register, spawn rules, the model table, the budget, and the daily-sync brief.
 ---
 
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-21` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
 # The manager contract
 
 > Adopted 2026-09-21, operator-directed. Supersedes the operating-layer model of

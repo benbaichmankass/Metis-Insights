@@ -15,7 +15,7 @@ description: >
   than closing one.
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-17` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 # session-receipt — one shape, every session
 

@@ -113,6 +113,47 @@ GUARDS: List[Dict[str, Any]] = [
     # Removed: artifact-validity-guard, backlog-unresolve-guard, board-coherence, capability-pull-guard, checklist-routing-age-guard, constraint-readout-guard, daily-brief-guard, decision-answer-consumers, decision-answers-guard, demote-budget-guard, digest-liveness-guard, due-list-guard, due-list-token-guard, error-feed-digest-guard, manager-checklist-vocabulary-guard, manager-lease-guard, manager-queue-watch-guard, manager-tooling-selftests, one-live-workplan, open-items-guard, operator-owed-guard, pr-queue-watch-guard, priority-fallback-distribution, probe-guard, recurrence-ledger-guard, register-field-loss-guard, register-id-guard, register-reserialization-guard, role-pack-operating-layer, rows-landed-guard, scope-overlap-guard, session-brief-guard, session-registry-guard, soak-registered-guard, spec-carrier-guard, stale-in-flight-guard, sunset-disposition-guard, uncarried-spec-guard, wip-ceiling-guard, work-digest-source-coverage
     # ─────────────────────────────────────────────────────────────────────
     {
+        # SALVAGED FROM THREE REMOVED GOVERNANCE ENTRIES, 2026-09-21.
+        #
+        # `artifact-validity-guard`, `recurrence-ledger-guard` and
+        # `due-list-guard` were grab-bags: each carried its own register check
+        # AND a run of unrelated research/ops self-tests that had nowhere else
+        # to live. Deleting the entries wholesale would have silently retired
+        # 18 working controls with nothing to do with the operating model —
+        # the "a guard stops looking because the text moved" failure this
+        # harness's own header warns about.
+        #
+        # So the REGISTER steps are gone and the rest are here, verbatim and
+        # verified passing on the day of the move. The backlog steps
+        # (`backlog_append --check-live`, `check_backlog_refs`,
+        # `check_backlog_criteria`, `backlog_union_merge`, `backlog_search`)
+        # are deliberately NOT here: the four review backlogs they read are
+        # archived, so those checks have no population left to grade.
+        "name": "research-tooling-selftests",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_pending_pings_render.py", "--self-test"],
+            ["python3", "scripts/ci/check_pending_pings_render.py"],
+            ["python3", "scripts/ci/check_workflow_failure_swallow.py", "--self-test"],
+            ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
+            ["python3", "scripts/ops/check_allow_degraded.py"],
+            ["python3", "scripts/ops/check_research_index.py", "--list"],
+            ["python3", "scripts/ops/check_workflow_shell.py"],
+            ["python3", "scripts/ops/accrual_clock.py", "--self-test"],
+            ["python3", "scripts/ops/accrual_clock.py", "--all"],
+            ["python3", "scripts/ops/column_provenance.py", "--self-test"],
+            ["python3", "scripts/ops/strategy_liveness.py", "--self-test"],
+            ["python3", "scripts/ops/soak_alarm.py"],
+            ["python3", "scripts/research/target_reachability_report.py"],
+            ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
+            ["python3", "scripts/research/e35_verdicts_adapter.py", "--selftest"],
+            ["python3", "scripts/research/bracket_expectation_census.py", "--selftest"],
+            ["python3", "scripts/research/adx_entry_distribution.py", "--selftest"],
+            ["python3", "scripts/research/bracket_reachability_audit.py", "--selftest"],
+            ["python3", "-m", "pytest", "tests/test_check_research_index.py", "-q"],
+        ],
+    },
+    {
         "name": "api-tier-policy-guard",
         # The self-test runs on EVERY invocation of this guard — including when
         # the scan is not diff-relevant — because a guard whose failure path is
@@ -477,18 +518,13 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_skills_index.py"],
         ],
     },
-    {
-        # The typed-edge contract the work store's README declares and nothing
-        # enforced. Its self-test proves BOTH verdicts and BOTH ways the check
-        # could stop looking (an unreadable vocabulary, an unparseable object) —
-        # a guard that silently disables itself reports exactly like a clean one.
-        "name": "edge-kind-vocabulary-guard",
-        "when": None,
-        "steps": [
-            ["python3", "scripts/ci/check_edge_kind_vocabulary.py", "--self-test"],
-            ["python3", "scripts/ci/check_edge_kind_vocabulary.py"],
-        ],
-    },
+    # `edge-kind-vocabulary-guard` REMOVED 2026-09-21. It read the typed
+    # `blocked_on` edge vocabulary off `docs/claude/work/README.md` and graded
+    # the work store's edges. The work store is archived and the checklist's
+    # `blocked_on` is a plain named blocker, not a typed edge — so the guard
+    # now parses 0 files of 0 and reads its own missing marker as a finding.
+    # Re-declaring a vocabulary nothing emits would be a marker cheaper to
+    # satisfy than to mean.
     {
         "name": "async-route-blocking-guard",
         "when": {"globs": ["src/web/api/**/*.py", "scripts/ci/check_async_route_blocking.py"]},

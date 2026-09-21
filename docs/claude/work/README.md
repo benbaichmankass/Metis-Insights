@@ -1,5 +1,7 @@
 # `docs/claude/work/` — the manager's one register
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Since the operating reset of **2026-09-21** this directory holds exactly one
 live file:
 

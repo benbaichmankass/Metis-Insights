@@ -1,6 +1,6 @@
 # The hedge-book flat read is REPAIRED and OBSERVED on the fleet
 
-> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > **Unit:** MI-281 · object [`WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT`](objects/WO-20260912-REPAIR-THE-HEDGE-BOOK-FLAT-READ-THAT.yaml)
 > **Session:** `session_01ALe9gTsSEMVWYyR8X8TY79` · operator-directed 2026-09-12 (dedicated ORDER-PATH lane)

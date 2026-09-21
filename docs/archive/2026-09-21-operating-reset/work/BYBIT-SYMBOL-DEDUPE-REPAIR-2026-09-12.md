@@ -1,6 +1,6 @@
 # The Bybit position dedupe keys on the SYMBOL, and it closed live positions
 
-> **Doc status:** `live` · category `unknown` · last verified `2026-09-12` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > MI-283 · session `session_01YEdjrYi5Kpp9dLw3yQNyNm`
 

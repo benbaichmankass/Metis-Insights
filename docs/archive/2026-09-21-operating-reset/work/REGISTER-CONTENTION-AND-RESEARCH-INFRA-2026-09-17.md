@@ -1,6 +1,6 @@
 # Register contention, and whether the research/testing/ML infra is fit for purpose
 
-> **Doc status:** `unknown` · category `unknown` · last verified `2026-09-17` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `unknown` · last verified `2026-09-17` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > ENGINEERING LANE, `session_01SzoZAiXJibakevDU9pbwxm`, under
 > `WO-20260917-ENGINEERING-LANE-STRUCTURAL-FIXES-AND-RESEARCH-INFRA-FITNESS`.

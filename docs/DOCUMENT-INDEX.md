@@ -197,39 +197,31 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 
 | path | category | status | superseded_by | last_verified | basis | note |
 |---|---|---|---|---|---|---|
-| `.claude/skills/backlog-drain/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
+
 | `.claude/skills/backtesting/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/before-asking-the-operator/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/credentials-and-vm-mutations/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/db-setup/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/db-wiring/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/delegate-work/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/diag-data/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/doc-freshness/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/drift-remediation/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/duty/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/exit-refinement/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/full-system-audit/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/git-actions/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/health-review/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/llm-delegate/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/macro-research/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
+| `.claude/skills/manager/SKILL.md` | instruction | live | — | 2026-09-21 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/ml-review/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/model-training/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/new-broker/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/new-strategy/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/performance-review/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/regime-selectivity/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/research-driver/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/session-coordination/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/session-handoff/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/session-receipt/SKILL.md` | instruction | live | — | 2026-09-17 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/sprint-format/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/system-report/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/system-review/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/vm-migration/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `.claude/skills/vm-ops/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
-| `.claude/skills/workplan-vs-architecture/SKILL.md` | instruction | live | — | 2026-09-07 | `dir:skills-are-binding-workflows / harness:skill-is-loaded-and-invocable` | — |
 | `CLAUDE.md` | instruction | live | — | 2026-09-11 | `read:repo-orientation-and-binding-brief / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
 | `ROADMAP.md` | plan | unknown | — | never | `read:hierarchy-rank-3-milestone-record / not-assessed` | MI-159 (#11241) corrected this file's milestone statuses 2026-09-07; it carries no machine-readable status header, so no status is asserted here |
 | `ROADMAP_MACRO.md` | plan | unknown | — | never | `read:macro-milestone-record / not-assessed` | MI-159 (#11241) corrected this file's milestone statuses 2026-09-07; it carries no machine-readable status header, so no status is asserted here |
@@ -248,6 +240,48 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/architecture/model-inventory.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
 | `docs/architecture/multi-strategy-architecture-target.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
 | `docs/architecture/oci-block-storage.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/registers/DUE.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/registers/READOUT.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/backlog-drain/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/delegate-work/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/duty/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/full-system-audit/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/research-driver/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/session-coordination/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/session-handoff/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/session-receipt/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/system-review/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/skills/workplan-vs-architecture/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/BACKLOG-DRAIN-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/BACKLOG-TRIAGE-2026-09-17.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/BYBIT-HEDGE-BOOK-FLAT-READ-2026-09-08.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/BYBIT-SYMBOL-DEDUPE-REPAIR-2026-09-12.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/BYBIT2-ETH-PHANTOM-CLOSE-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/DORMANT-SWEEP-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/EXIT-EVAL-60S-ROOTCAUSE-2026-09-10.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/HANDOFF-20260903-DAY.md` | history | historical | — | 2026-09-21 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
+| `docs/archive/2026-09-21-operating-reset/work/HANDOFF-20260905-DAY.md` | history | historical | — | 2026-09-21 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
+| `docs/archive/2026-09-21-operating-reset/work/HEDGE-BOOK-FLAT-READ-OBSERVED-2026-09-12.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/IN-FLIGHT-OWNER-LIVENESS-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/IN-FLIGHT-ROW-DISPOSITIONS-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/MEASUREMENT-DEFECTS-2026-09-06.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/MGC-REMEDIATION-ABORT-2026-09-08.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/MI-222-ROSTER-SWEEP-ALREADY-EXISTS-THE-GAP-IS-THE-COLLAPSED-READ-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/REGISTER-CONTENTION-AND-RESEARCH-INFRA-2026-09-17.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/RETIRED-MIRRORS-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/STRATEGY-REVIEW-WINDOW-FLOOR-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/SYSTEM-REVIEW-2026-09-17.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/SYSTEM-REVIEW-EVIDENCE-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/TIER2-SELF-LAND-APPROVAL-RECORD-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/UNREAD-ACCOUNT-VENUE-AUDIT-2026-09-08.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/approvals/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/decision-drain-routine-prompt.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/manager-wake-routine-prompt.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/spawn-prompts/2026-09-06/1A-observation-sweep.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/spawn-prompts/2026-09-06/1B-loss-attribution.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/spawn-prompts/2026-09-06/1C-live-alarms.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/work/spawn-prompts/2026-09-06/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/audit/2026-04-30-housekeeping.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audit/2026-04-30-unit-independence.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audit/2026-05-12-end-to-end-audit.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
@@ -315,10 +349,8 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/backtests/sprint-015/smoke-test-daily.md` | evidence | unknown | — | never | `dir:backtests-are-measurement / not-assessed` | — |
 | `docs/backtests/sprint-015/summary.md` | evidence | unknown | — | never | `dir:backtests-are-measurement / not-assessed` | — |
 | `docs/bot.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/DUE.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/ERROR-FEED-DIGEST.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/INDEX.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/READOUT.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/TASK-PRIORITY-2026-09-07.md` | plan | live | — | 2026-09-07 | `read:ranks-tasks-under-the-current-cycle-priority / read:MI-162-opened-it-anchored-to-the-current-cycle-priority` | ranks TASKS under CY-20260906-TRADING-TRUTH; companion to the live work plan WORKPLAN-2026-08-29.md, not a replacement for it |
 | `docs/claude/WORKPLAN-2026-08-21.md` | plan | superseded | `docs/claude/WORKPLAN-2026-08-26.md` | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:superseded` | — |
 | `docs/claude/WORKPLAN-2026-08-26.md` | plan | superseded | `docs/claude/WORKPLAN-2026-08-29.md` | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:superseded` | — |
@@ -395,37 +427,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/vm-operator-mode.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
 | `docs/claude/vm-resource-management.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/web-automations.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/BACKLOG-TRIAGE-2026-09-17.md` | unknown | live | — | 2026-09-17 | `not-assessed / read:MI-294-authored-it-this-session-triage-handoff` | the current triage of the health backlog into 21 named chunks; goes historical when a later triage re-measures the same population |
-| `docs/claude/work/BACKLOG-DRAIN-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/BYBIT-HEDGE-BOOK-FLAT-READ-2026-09-08.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/BYBIT-SYMBOL-DEDUPE-REPAIR-2026-09-12.md` | unknown | live | — | 2026-09-12 | `not-assessed / read:MI-283-authored-it-this-session-evidence-for-open-PR-11903` | evidence for the Tier-2 ask in PR #11903, which is open and unmerged; goes historical when that PR is decided |
-| `docs/claude/work/BYBIT2-ETH-PHANTOM-CLOSE-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/DORMANT-SWEEP-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/EXIT-EVAL-60S-ROOTCAUSE-2026-09-10.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/HANDOFF-20260903-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
-| `docs/claude/work/HANDOFF-20260905-DAY.md` | history | historical | — | 2026-09-07 | `name:record-of-a-past-state / dir:record-of-a-completed-session` | — |
-| `docs/claude/work/HEDGE-BOOK-FLAT-READ-OBSERVED-2026-09-12.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/IN-FLIGHT-OWNER-LIVENESS-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/IN-FLIGHT-ROW-DISPOSITIONS-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/JOURNAL-VENUE-FLEET-AUDIT-2026-09-08.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
-| `docs/claude/work/MEASUREMENT-DEFECTS-2026-09-06.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/MGC-REMEDIATION-ABORT-2026-09-08.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/MI-222-ROSTER-SWEEP-ALREADY-EXISTS-THE-GAP-IS-THE-COLLAPSED-READ-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/REGISTER-CONTENTION-AND-RESEARCH-INFRA-2026-09-17.md` | unknown | unknown | — | 2026-09-17 | `not-assessed / read:engineering-lane-authored-it-this-session-evidence-for-open-PR` | evidence for the landing-machinery fix (conflict census + the 33-branch replay) and the research/testing/ML infra verdict; goes historical when that PR is decided |
-| `docs/claude/work/RETIRED-MIRRORS-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/STRATEGY-REVIEW-WINDOW-FLOOR-2026-09-09.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/SYSTEM-REVIEW-2026-09-17.md` | unknown | live | — | 2026-09-17 | `not-assessed / read:MI-294-authored-it-this-session-review-record` | the 2026-09-17 review record, weighted to performance-7d and soak monitoring; goes historical at the next system review |
-| `docs/claude/work/SYSTEM-REVIEW-EVIDENCE-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/TIER2-SELF-LAND-APPROVAL-RECORD-2026-09-11.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/UNREAD-ACCOUNT-VENUE-AUDIT-2026-09-08.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
-| `docs/claude/work/approvals/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/decision-drain-routine-prompt.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/manager-wake-routine-prompt.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/spawn-prompts/2026-09-06/1A-observation-sweep.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/spawn-prompts/2026-09-06/1B-loss-attribution.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/spawn-prompts/2026-09-06/1C-live-alarms.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
-| `docs/claude/work/spawn-prompts/2026-09-06/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/workplan.md` | plan | historical | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:historical` | — |
 | `docs/cross-asset-regime-conviction-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/data/dataset-schema.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
@@ -480,8 +482,15 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/operator/github-actions-oci-secrets.md` | lookup | unknown | — | never | `dir:operator-setup-procedures / not-assessed` | — |
 | `docs/operator/setup-api-keys.md` | lookup | unknown | — | never | `dir:operator-setup-procedures / not-assessed` | — |
 | `docs/pipeline/stage-contracts.md` | architecture | unknown | — | never | `name:declares-a-contract / not-assessed` | — |
+| `docs/plans/OPERATING-PLAN-2026-09-21.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/proposals/tier2-sweep-candle-anchoring-2026-07-30.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/reference/bot-api-reference.md` | lookup | live | — | 2026-09-07 | `dir:reference-is-lookup / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
+| `docs/reference/data-model.md` | lookup | unknown | — | never | `dir:reference-is-lookup / not-assessed` | — |
+| `docs/reference/diag-access.md` | lookup | unknown | — | never | `dir:reference-is-lookup / not-assessed` | — |
+| `docs/reference/env-vars.md` | lookup | unknown | — | never | `dir:reference-is-lookup / not-assessed` | — |
+| `docs/reference/runtime-notes.md` | lookup | unknown | — | never | `dir:reference-is-lookup / not-assessed` | — |
+| `docs/reference/session-capabilities.md` | lookup | unknown | — | never | `dir:reference-is-lookup / not-assessed` | — |
+| `docs/reference/vm-topology.md` | lookup | unknown | — | never | `dir:reference-is-lookup / not-assessed` | — |
 | `docs/reports/system-report-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/A-multisymbol-ETH-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/A-regime-router-ml-vol-verdict-DESIGN-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -501,9 +510,6 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/CAPITAL-ACTIVATION-PACKET-2026-08-14.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/D2-spike-A-pooled-labels-evidence-2026-07-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/EXIT-GEOMETRY-REBUILD-SESSION-PROMPT.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/journal-read-surface-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u5-the-non-e35-control-arm-2026-09-12.md` | evidence | unknown | — | never | `mi-278-u5:self-measured-2026-09-12 / population-stated / builder-positive-control-passes / three-instrument-findings-filed` | MI-278 U5: supplies the **NON-e35 CONTROL ARM** the excursion measurement never had, serving the MFE half of `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED`'s `clears_when` (*"'THE MARKET CHOPPED' IS NOT A VERDICT WITHOUT THE NON-e35 CONTROL"*). **The instrument already existed and had no control**: `stop_width_counterfactual_2026_09_11.py::build_units` filters `group_of == "e35"` and then drops anything `stop_change()` does not know, excluding a control leg twice over — so `excursion_control_arm.py` IMPORTS `excursion_regime` / `fixed_window_excursion` unmodified and runs them on `untouched_control`. **Population: `/api/diag/journal` trades+order_packages limit=1000 pulled 2026-09-12T16:0xZ; unit = ORDER PACKAGE; population rule and split instant (`2026-08-30T08:53:19Z`) IMPORTED from MI-271/MI-275, not restated; treated 18 pre / 17 post packages (7 `trend_donchian_*`/`ada_pullback_2h` legs), control 60 pre / 66 post (7 `ict_scalp_*` legs), 7 ungraded `no_candle_source` (MGC, an IB future).** **RESULT — the two candidate mechanisms separate.** MAE in ATR units grew in BOTH arms (post/pre **1.09–1.45×**, control slightly more), so a market-wide adverse effect is real; **MFE collapsed only in the treated arm** — at a fixed 48h window from entry, **0.195× on e35 against 0.945× on the control** — and it survives symbol matching (ETH 0.03× vs 0.96×, SOL 0.10× vs 0.88×, AVAX 0.33× vs 1.06×), **with BTCUSDT the honest exception at 0.36× in BOTH**. ⚠️ **A fixed window measured forward from entry ignores the exit, and e35 changed only the stop, so the winner-size collapse is NOT attributable to e35** — it points at ENTRY quality on the trend family, which nothing owns. e35 IS a real second effect on the STOP side (package-unit stop rate 11.1%→47.1% vs the control's 50.0%→64.8%, **DiD +21.2pp**). ⚠️ **Does NOT clear the row**: *per-leg* is unreachable (largest e35 leg-era cell is 5 packages), only the group-level contrast is delivered. **THREE INSTRUMENT FINDINGS, each caught by a control rather than by reading, each filed**: `extreme()`'s bare `else` returns max-high for ANY unrecognised side, which produced **MAE exactly equal to MFE in all eight cells** with no error; `excursion_regime` windows on `rows[0]`'s close where **5 of 35 packages have a sibling close spread over an hour, widest 30.9h**, and `rows[0]` is input order (a fragility, NOT an error in MI-275's published numbers — the builders agree exactly once sorted); and **MI-275's OKX basis, validated `fit` on trend legs, grades `unfit` on the scalp control (5 of 126, max 120.5bp vs a 25bp tolerance)**. **Builder positive control PASSES: 0 disagreements across all 31 shared packages** after failing three times, once per finding. ⚠️ **OKX returns 403 to Python `urllib` and 200 to `curl`** — a User-Agent artifact, not a venue block; Bybit genuinely is country-blocked and Binance 451. **Nothing enacted: no `src/`, no config, no order path, no scheduled surface.** |
-| `docs/research/m20-u13-expectancyr-two-defects-2026-09-12.md` | evidence | unknown | — | never | `mi-278-u13:self-measured-2026-09-12 / population-stated / graded-off-the-endpoints-own-self-report` | MI-278 U13 on `PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG` clause (1). **Population: the LIVE `GET /api/bot/performance?window=30d`, read 2026-09-12 (HTTP 200, `since` 2026-08-13T15:56:03Z, `demo=False`), graded off the endpoint's OWN `rProvenance`/`rBasis` blocks — exact by construction, not re-implemented.** **Clause (1) is FAILING LIVE:** real money publishes `totalPnl −14.5552` and `profitFactor 0.8251` beside `expectancyR **+0.1113**` — an independent re-confirmation six days after filing, on a moved window. ⚠️ **The magnitude fell nine-fold (+0.9818 → +0.1113) and the SIGN IS STILL WRONG** — do not read that as progress. ⚠️ **Two of the row's three candidate fixes are ALREADY SHIPPED and neither closed it:** `rBasis` reads `declaredInitial=41, storedStop=0` on real money, so the row's stated trailed-stop mechanism is **not** the live cause there (it IS still live on paper — 319 of 606), and `refusedWrongSide=0` everywhere. **The remaining lever is the third: 11 of 41 (26.8%) grade `contaminated` and sit inside the aggregate the endpoint publishes them beside.** ⚠️ **Interaction with U12, previously unmeasured: the two defects do NOT compound on real money (fan-out exactly 1.000×) — but only because `bybit_2` (crypto) and `alpaca_live` (US ETFs) trade DISJOINT universes with 0 shared packages**, a routing coincidence, not a property of the filter. ⚠️ **And the row's own exact reproducer can no longer be run** — `/api/diag/journal` hard-caps at 1000 rows (verified at limit 3000 and 5000), which now spans ~25 of the 30 days, giving n=38 against the endpoint's 41; filed as `BL-20260912-THE-DIAG-JOURNAL-1000-ROW-CAP-SILENTLY-BROKE-A-DOCUMENTED-30-DAY-REPRODUCER`. **The fix is Tier-2 and is proposed, not taken.** |
 | `docs/research/FAITHFUL-BACKTEST-PLATFORM-DESIGN-2026-08-04.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M-regime-direction-filter-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/M1-econ-calendar-source-probe-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -654,6 +660,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/capital-allocation-ai-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/capital-allocation-ai-PROMPT.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/chop-scalp-capital-efficiency-2026-07-15.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/corpus-schema-degradation-2026-09-12.md` | evidence | live | — | 2026-09-12 | `mi-279:self-measured-2026-09-12 / population-stated / positive-control-on-every-negative` | MI-279 OPS lane: closes `BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR`. **HALF 1 (code) verified on a run that ACTUALLY CONFLICTED**, which is what its criterion demands: `corpus union:` is printed from exactly ONE call site — inside `rebase_onto_target`'s conflict branch — so its presence in a log is a positive marker, not an inference. Negative control run 49 (pre-fix, `31976325152`): conflict fired, reset to `9a085926`, 52 rows with none of the eight `live_tp_reach_r_*` keys. Positive control run 53 (post-fix, head `e90108644`, which CONTAINS both #9812 and #9827 by `merge-base --is-ancestor`): union line present, 2 rows written, **both carrying the field**. **HALF 2 (data) CANNOT be met — the 52 rows are GONE**: no commit on `claude/m20-sweep-corpus` has ever held a `2026-08-16` row (probe positive-controlled at 39/348/65/312 on four other dates), four of its six corpus commits are ancestors of `main`, and `e9fb0d6d` is unreachable — the branch was reset onto `main` and the rows went with the commit. **What replaces it:** whether a run's extractor COULD emit a field is a property of the commit it was dispatched with, and the corpus records **no dispatched sha** (`run_id` is the sweep's own timestamp, by design), so two candidate boundaries exist and disagree. Over `main`'s **1379 rows**: present 452 · predates 906 · **after both 1** · **between 20** · undateable 0. ⚠️ **THIS CORRECTED THE AUTHOR'S OWN FIRST READING BY 20×** — a hand probe against the default-branch boundary alone called 21 rows degraded; 20 sit BETWEEN the boundaries where the corpus cannot settle it. Silently taking one boundary is the unprovenanced-diagnostic **sub-class B** shape, committed by the session that went looking for it. **The 20 are deliberately NOT stamped** — their cause is unestablished and recording one would be a fabricated measurement. Re-filed as `BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT`; carried by `docs/claude/work/objects/BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT.yaml` (`dormant`). Reader: `scripts/research/m20_corpus_schema_census.py`. Nothing enacted: no `src/`, no config, no order path, and the census writes nothing. |
 | `docs/research/cross-asset-diversification-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/cross-asset-feature-probe-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/cross-asset-strategy-scope-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -696,15 +703,19 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/expansion-backtesting-research-2026-06-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/fleet-model-scorecard-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/flip-override-walkforward-2026-08-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/fvg-parity-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/harness-provenance-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/hf-prop-strategy-research-plan-2026-06-16.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/ib-intraday-shortlist-backtest-2026-07-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ib-intraday-strategy-survey-2026-07-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ib-metals-native-backtest-2026-07-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ib-pipeline-stability-review-2026-07-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ict-scalp-5m-real-money-verdict-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/ict-scalp-seam-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ict_scalp_5m-modernization-research-plan-2026-07-20.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/ict_scalp_5m-phase0-findings-2026-07-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/journal-read-surface-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/lane-p-compat-verdict-diff-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/leveraged-etf-research-2026-06-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m15-phase0-results-2026-06-10.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -725,31 +736,12 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m20-u10-venue-mechanism-recovery-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u11-e35-controls-that-can-report-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u12-fanout-denominator-surfaces-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u13-expectancyr-two-defects-2026-09-12.md` | evidence | unknown | — | never | `mi-278-u13:self-measured-2026-09-12 / population-stated / graded-off-the-endpoints-own-self-report` | MI-278 U13 on `PB-20260906-R-CONTAMINATION-QUANTIFIED-AND-THE-HEADLINE-SIGN-IS-WRONG` clause (1). **Population: the LIVE `GET /api/bot/performance?window=30d`, read 2026-09-12 (HTTP 200, `since` 2026-08-13T15:56:03Z, `demo=False`), graded off the endpoint's OWN `rProvenance`/`rBasis` blocks — exact by construction, not re-implemented.** **Clause (1) is FAILING LIVE:** real money publishes `totalPnl −14.5552` and `profitFactor 0.8251` beside `expectancyR **+0.1113**` — an independent re-confirmation six days after filing, on a moved window. ⚠️ **The magnitude fell nine-fold (+0.9818 → +0.1113) and the SIGN IS STILL WRONG** — do not read that as progress. ⚠️ **Two of the row's three candidate fixes are ALREADY SHIPPED and neither closed it:** `rBasis` reads `declaredInitial=41, storedStop=0` on real money, so the row's stated trailed-stop mechanism is **not** the live cause there (it IS still live on paper — 319 of 606), and `refusedWrongSide=0` everywhere. **The remaining lever is the third: 11 of 41 (26.8%) grade `contaminated` and sit inside the aggregate the endpoint publishes them beside.** ⚠️ **Interaction with U12, previously unmeasured: the two defects do NOT compound on real money (fan-out exactly 1.000×) — but only because `bybit_2` (crypto) and `alpaca_live` (US ETFs) trade DISJOINT universes with 0 shared packages**, a routing coincidence, not a property of the filter. ⚠️ **And the row's own exact reproducer can no longer be run** — `/api/diag/journal` hard-caps at 1000 rows (verified at limit 3000 and 5000), which now spans ~25 of the 30 days, giving n=38 against the endpoint's 41; filed as `BL-20260912-THE-DIAG-JOURNAL-1000-ROW-CAP-SILENTLY-BROKE-A-DOCUMENTED-30-DAY-REPRODUCER`. **The fix is Tier-2 and is proposed, not taken.** |
 | `docs/research/m20-u14-the-bleed-record-is-wrong-in-three-places-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u15-stop-integrity-both-arms-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u16-netting-unmatched-remainder-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u18-e35-dose-response-still-not-gradeable-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u19-package-denominator-rederivation-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u41-e35-break-attribution-verdict-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u45-the-size-is-the-ceiling-and-the-stop-is-why-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u46-half-the-paper-r-population-cannot-register-an-r-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u47-the-risk-dispersion-is-not-any-clamp-a-session-can-read-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u49-the-netting-scoping-rule-applied-and-u47-audited-against-it-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u51-the-stanza-round-trips-as-text-and-not-as-evidence-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u50-two-of-the-three-payments-never-touched-the-surface-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u48-the-geometry-contrast-cannot-be-built-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u52-the-netting-remeasure-is-runnable-and-under-powered-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/mi295-active-management-focus-2026-09-17.md` | plan | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/mi298-winner-label-recovery-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/mi301-stop-term-robustness-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u37-margin-ceiling-visibility-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u33-netting-position-size-basis-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u2-winner-close-attribution-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u21-fanout-exit-unit-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u22-wire-fanout-exit-unit-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -761,8 +753,26 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/m20-u28-prioritisation-answered-and-the-ties-got-worse-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u2b-risk-denominator-ratchet-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u31-bleed-record-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u32-e35-binomial-package-denominator-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u33-netting-position-size-basis-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u34-disposition-surface-cannot-grade-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u36-r-sign-is-risk-size-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u37-margin-ceiling-visibility-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u38-order-package-id-is-not-a-fanout-key-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u39-alpaca-live-books-dry-on-a-live-account-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u40-priority-fallback-inverts-its-own-purpose-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u41-e35-break-attribution-verdict-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u42-the-kill-case-does-not-rest-on-measured-rows-2026-09-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u45-the-size-is-the-ceiling-and-the-stop-is-why-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u46-half-the-paper-r-population-cannot-register-an-r-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u47-the-risk-dispersion-is-not-any-clamp-a-session-can-read-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u48-the-geometry-contrast-cannot-be-built-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u49-the-netting-scoping-rule-applied-and-u47-audited-against-it-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u5-excursion-regime-instrument-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u5-the-non-e35-control-arm-2026-09-12.md` | evidence | unknown | — | never | `mi-278-u5:self-measured-2026-09-12 / population-stated / builder-positive-control-passes / three-instrument-findings-filed` | MI-278 U5: supplies the **NON-e35 CONTROL ARM** the excursion measurement never had, serving the MFE half of `OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED`'s `clears_when` (*"'THE MARKET CHOPPED' IS NOT A VERDICT WITHOUT THE NON-e35 CONTROL"*). **The instrument already existed and had no control**: `stop_width_counterfactual_2026_09_11.py::build_units` filters `group_of == "e35"` and then drops anything `stop_change()` does not know, excluding a control leg twice over — so `excursion_control_arm.py` IMPORTS `excursion_regime` / `fixed_window_excursion` unmodified and runs them on `untouched_control`. **Population: `/api/diag/journal` trades+order_packages limit=1000 pulled 2026-09-12T16:0xZ; unit = ORDER PACKAGE; population rule and split instant (`2026-08-30T08:53:19Z`) IMPORTED from MI-271/MI-275, not restated; treated 18 pre / 17 post packages (7 `trend_donchian_*`/`ada_pullback_2h` legs), control 60 pre / 66 post (7 `ict_scalp_*` legs), 7 ungraded `no_candle_source` (MGC, an IB future).** **RESULT — the two candidate mechanisms separate.** MAE in ATR units grew in BOTH arms (post/pre **1.09–1.45×**, control slightly more), so a market-wide adverse effect is real; **MFE collapsed only in the treated arm** — at a fixed 48h window from entry, **0.195× on e35 against 0.945× on the control** — and it survives symbol matching (ETH 0.03× vs 0.96×, SOL 0.10× vs 0.88×, AVAX 0.33× vs 1.06×), **with BTCUSDT the honest exception at 0.36× in BOTH**. ⚠️ **A fixed window measured forward from entry ignores the exit, and e35 changed only the stop, so the winner-size collapse is NOT attributable to e35** — it points at ENTRY quality on the trend family, which nothing owns. e35 IS a real second effect on the STOP side (package-unit stop rate 11.1%→47.1% vs the control's 50.0%→64.8%, **DiD +21.2pp**). ⚠️ **Does NOT clear the row**: *per-leg* is unreachable (largest e35 leg-era cell is 5 packages), only the group-level contrast is delivered. **THREE INSTRUMENT FINDINGS, each caught by a control rather than by reading, each filed**: `extreme()`'s bare `else` returns max-high for ANY unrecognised side, which produced **MAE exactly equal to MFE in all eight cells** with no error; `excursion_regime` windows on `rows[0]`'s close where **5 of 35 packages have a sibling close spread over an hour, widest 30.9h**, and `rows[0]` is input order (a fragility, NOT an error in MI-275's published numbers — the builders agree exactly once sorted); and **MI-275's OKX basis, validated `fit` on trend legs, grades `unfit` on the scalp control (5 of 126, max 120.5bp vs a 25bp tolerance)**. **Builder positive control PASSES: 0 disagreements across all 31 shared packages** after failing three times, once per finding. ⚠️ **OKX returns 403 to Python `urllib` and 200 to `curl`** — a User-Agent artifact, not a venue block; Bybit genuinely is country-blocked and Binance 451. **Nothing enacted: no `src/`, no config, no order path, no scheduled surface.** |
+| `docs/research/m20-u50-two-of-the-three-payments-never-touched-the-surface-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u51-the-stanza-round-trips-as-text-and-not-as-evidence-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/m20-u52-the-netting-remeasure-is-runnable-and-under-powered-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-u9-netting-close-venue-adjudication-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m20-what-remains-2026-08-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/m30-to-m16-integration-backbone-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
@@ -770,17 +780,14 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/mgc-trend-1h-walkforward-2026-07-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/mi147-backtest-soak-chain-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/mi235-landing-machinery-review-2026-09-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/mi295-active-management-focus-2026-09-17.md` | plan | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/mi298-winner-label-recovery-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/mi301-stop-term-robustness-2026-09-17.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ml-buildout-strategy-2026-06-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ml-strategies-deep-review-2026-06-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/ml2-predictive-bracket-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/netting-partial-close-packet-2026-08-02.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/offline-mfe-distribution-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/per-leg-target-geometry-packet-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/scalp-control-design-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/fvg-parity-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/ict-scalp-seam-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/harness-provenance-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/starved-legs-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/offload-model-stage-correction-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/operating-model-measurement-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/options-level3-alpaca-research-BRIEF-2026-06-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -790,6 +797,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/pairs-sleeve-PROPOSAL-2026-07-15.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/pairs-sleeve-real-money-readiness-2026-07-16.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/partial-close-producer-never-fired-2026-09-09.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/per-leg-target-geometry-packet-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/pnl-optimal-conflict-resolution-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/position-sizing-confidence-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/promotion-gatecheck-and-mes-labeling-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -824,6 +832,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/roadmap-redundancy-audit-2026-09-07.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roadmap-toolbox-assessment-2026-07-29.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roll-adjusted-continuous-futures-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/research/scalp-control-design-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/scalp-family-target-arms-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/session-handoff-2026-06-01-afternoon.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/session-handoff-2026-06-01-evening.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -833,6 +842,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/signal-research-framework-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/small-tf-directions-2026-07-15.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/sol-pullback-stale8-deep-corpus-2026-08-18.md` | evidence | closed_unfinished | — | 2026-09-07 | `dir:research-is-measurement / self-declared:not shipped` | self-declared abandoned/parked; WHAT WAS LEFT is not recorded in the file |
+| `docs/research/starved-legs-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/stop-width-counterfactual-2026-09-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/strategy-primitives-recombination-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/target-r-derivation-crypto-pullback-2026-08-23.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -859,7 +869,6 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/xrp-pullback-entry-axis-2026-08-24.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/xrp-pullback-joint-geometry-2026-08-23.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/xrp-pullback-trail-axis-and-inert-levers-2026-08-23.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/corpus-schema-degradation-2026-09-12.md` | evidence | live | — | 2026-09-12 | `mi-279:self-measured-2026-09-12 / population-stated / positive-control-on-every-negative` | MI-279 OPS lane: closes `BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR`. **HALF 1 (code) verified on a run that ACTUALLY CONFLICTED**, which is what its criterion demands: `corpus union:` is printed from exactly ONE call site — inside `rebase_onto_target`'s conflict branch — so its presence in a log is a positive marker, not an inference. Negative control run 49 (pre-fix, `31976325152`): conflict fired, reset to `9a085926`, 52 rows with none of the eight `live_tp_reach_r_*` keys. Positive control run 53 (post-fix, head `e90108644`, which CONTAINS both #9812 and #9827 by `merge-base --is-ancestor`): union line present, 2 rows written, **both carrying the field**. **HALF 2 (data) CANNOT be met — the 52 rows are GONE**: no commit on `claude/m20-sweep-corpus` has ever held a `2026-08-16` row (probe positive-controlled at 39/348/65/312 on four other dates), four of its six corpus commits are ancestors of `main`, and `e9fb0d6d` is unreachable — the branch was reset onto `main` and the rows went with the commit. **What replaces it:** whether a run's extractor COULD emit a field is a property of the commit it was dispatched with, and the corpus records **no dispatched sha** (`run_id` is the sweep's own timestamp, by design), so two candidate boundaries exist and disagree. Over `main`'s **1379 rows**: present 452 · predates 906 · **after both 1** · **between 20** · undateable 0. ⚠️ **THIS CORRECTED THE AUTHOR'S OWN FIRST READING BY 20×** — a hand probe against the default-branch boundary alone called 21 rows degraded; 20 sit BETWEEN the boundaries where the corpus cannot settle it. Silently taking one boundary is the unprovenanced-diagnostic **sub-class B** shape, committed by the session that went looking for it. **The 20 are deliberately NOT stamped** — their cause is unestablished and recording one would be a fabricated measurement. Re-filed as `BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT`; carried by `docs/claude/work/objects/BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT.yaml` (`dormant`). Reader: `scripts/research/m20_corpus_schema_census.py`. Nothing enacted: no `src/`, no config, no order path, and the census writes nothing. |
 | `docs/runbooks/alpaca-integration.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/backfill-orphan-pnl.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
 | `docs/runbooks/devnull-guard.md` | lookup | unknown | — | never | `dir:runbooks-are-procedures-to-consult / not-assessed` | — |
@@ -1312,5 +1321,4 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/workflows/telegram_bot.md` | lookup | unknown | — | never | `dir:workflow-notes-are-lookup / not-assessed` | — |
 | `docs/workflows/trading_school.md` | lookup | unknown | — | never | `dir:workflow-notes-are-lookup / not-assessed` | — |
 | `docs/workplan.md` | plan | historical | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:historical` | — |
-
 <!-- DOCUMENT-INDEX-ROWS-END -->

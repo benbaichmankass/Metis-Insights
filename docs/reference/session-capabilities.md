@@ -1,5 +1,7 @@
 # PM-side session capabilities (Claude Code on the web)
 
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Extracted verbatim from `CLAUDE.md` on 2026-09-21 by the operating reset.
 > Reference material — read on demand, not at session start.
 > Registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md).
