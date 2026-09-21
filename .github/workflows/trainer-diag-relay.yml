@@ -122,10 +122,36 @@ concurrency:
   # sha key makes every push its own group: nothing pends, nothing is dropped.
   #
   # This does NOT serialize heavy work on the 1-OCPU trainer, and cannot: a true
-  # FIFO of depth > 1 is impossible at this layer. That is why cross-session
-  # serialization is an APPLICATION-level VM-lane FIFO on the coordination board
-  # (the issue named by docs/claude/board-pointer.json) — the same reasoning
-  # `trainer-vm-diag.yml` states verbatim.
+  # FIFO of depth > 1 is impossible at this layer.
+  #
+  # ⚠️ UPDATED 2026-09-21 (PI-20260921-0001) — the sentence this used to end
+  # with ("cross-session serialization is an APPLICATION-level VM-lane FIFO on
+  # the coordination board") is FALSE today and is NOT being replaced with
+  # another comforting claim, because none is true for THIS relay. MEASURED
+  # this session: `docs/claude/board-pointer.json` is archived (the 2026-09-21
+  # operating reset), the `session-coordination` skill that operationalized the
+  # board claim/release protocol is archived too, and `docs/claude/
+  # coordination-board.md` itself records (MEASURED 2026-08-20) that the guard
+  # meant to make claiming mandatory "is all inert on [Claude Code on] the web,
+  # which is where most of these sessions run" — so the board FIFO was never
+  # more than an honor-system convention and today has no live target at all.
+  #
+  # UNLIKE `trainer-vm-diag.yml`, this relay is a RAW script drop with no
+  # heavy/light label to key an automatic lock-wrap on — every push is
+  # "whatever the script does" and the workflow cannot tell heavy from light
+  # without running it. So the honest state of the world is:
+  # **THIS RELAY APPLIES NO AUTOMATIC SERIALIZATION OF ANY KIND, and two
+  # heavy scripts pushed through it at once CAN collide on the 6 GB / 1-OCPU
+  # box (cgroup-OOM or swap-death per docs/claude/trainer-resource-protocol.md).**
+  # If your script is memory-heavy, it must take the SAME shared on-VM flock
+  # the rest of this repo's heavy jobs already use before it does real work:
+  #   flock /home/ubuntu/ict-trading-bot/runtime_logs/trainer/.heavy.lock -c '
+  #     <your heavy command>
+  #   '
+  # (or, for a Python entrypoint under scripts/ml, call
+  # `scripts/ml/_heavy_queue.py::take_heavy_queue("<label>")` directly — see
+  # `docs/claude/trainer-resource-protocol.md`). A script that skips this is
+  # not protected by anything at the relay layer.
   # See docs/claude/vm-resource-management.md.
   group: trainer-diag-relay-${{ github.sha }}
   cancel-in-progress: false

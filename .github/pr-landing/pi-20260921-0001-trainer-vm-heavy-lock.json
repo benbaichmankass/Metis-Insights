@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Build-lane spawn prompt for PI-20260921-0001: 'Push, open a PR against main, drive CI green. DO NOT MERGE - the manager merges.' This is CI/workflow/doc tooling only (no runtime/order-path/config touched) but landing itself is explicitly withheld by the dispatching instruction, not by tier.",
+  "why": "trainer-diag-relay.yml + trainer-vm-diag.yml concurrency comments, a new flock-wrap step in trainer-vm-diag.yml (GH Actions workflow logic, not a VM/systemd change), vm_lane_guard.sh deny-message text, and docs/claude/vm-resource-management.md corrections. No src/, config/, or VM-resident state touched."
+}

@@ -99,12 +99,50 @@ concurrency:
   # HEAVY jobs on the single 1-OCPU trainer VM, and it CANNOT — GitHub
   # concurrency keeps at most one PENDING run per group, so a true FIFO queue
   # of depth > 1 is impossible at this layer (that limitation is exactly why
-  # the shared group dropped bursts). Cross-session serialization of heavy VM
-  # work is therefore an APPLICATION-level FIFO on the coordination board
-  # (the issue named by docs/claude/board-pointer.json) — the `🔒 VM-LANE CLAIM`
-  # / `🔓 VM-LANE RELEASE` protocol,
-  # mirroring the merge queue — NOT a concurrency group here. Full contract:
-  # docs/claude/vm-resource-management.md + docs/claude/coordination-board.md.
+  # the shared group dropped bursts).
+  #
+  # ⚠️ UPDATED 2026-09-21 (PI-20260921-0001) — READ THIS BEFORE TRUSTING THE
+  # OLD CLAIM BELOW, WHICH IS NOW FALSE. This comment used to say cross-session
+  # serialization of heavy VM work was "an APPLICATION-level FIFO on the
+  # coordination board" (issue named by docs/claude/board-pointer.json,
+  # `🔒 VM-LANE CLAIM` / `🔓 VM-LANE RELEASE`). MEASURED this session:
+  # `docs/claude/board-pointer.json` no longer exists at that path (archived
+  # under docs/archive/2026-09-21-operating-reset/registers/ by the 2026-09-21
+  # operating reset); the `session-coordination` skill that operationalized the
+  # claim/release protocol is archived too and absent from `.claude/skills/`;
+  # and even while it existed, `docs/claude/coordination-board.md` itself
+  # records (MEASURED 2026-08-20, its own § "Enforcement: the hard
+  # merge-guard") that `.claude/hooks/vm_lane_guard.sh` — the guard that made
+  # claiming a precondition of a heavy dispatch — "is all inert on
+  # [Claude Code on] the web, which is where most of these sessions run": the
+  # web runtime loads zero project hooks, so the guard's deny never fires
+  # there. So the board-FIFO story was never more than an honor-system
+  # convention even before the reset, and it has no live target to honor-system
+  # against today.
+  #
+  # WHAT ACTUALLY SERIALIZES HEAVY WORK NOW: the job below acquires the SAME
+  # on-VM flock (`runtime_logs/trainer/.heavy.lock`, canonically at
+  # `/home/ubuntu/ict-trading-bot/`) that `src/utils/trainer_heavy_lock.py`
+  # already enforces for `python -m ml train|build-dataset` and the
+  # CI-enumerated research entrypoints (`scripts/ci/check_trainer_heavy_lock.py`
+  # / `docs/claude/trainer-resource-protocol.md`), but it does so directly in
+  # THIS WORKFLOW, in the "Serialize on the shared heavy-job lock" step below —
+  # ONLY for `issues`-triggered dispatches carrying the `trainer-vm-heavy-request`
+  # label. That is a real, observable (`heavy_lock_holder.json`), cross-process
+  # OS-level lock that auto-releases if the holding SSH session dies (no
+  # deadlock), and it now genuinely collides a second heavy relay dispatch with
+  # a first one, and with a live training cycle, rather than letting them run
+  # side by side on the 1-OCPU box.
+  #
+  # ⚠️ RESIDUAL GAP, STATED RATHER THAN HIDDEN: this wrap covers only the
+  # `issues` + `trainer-vm-heavy-request` path. A `workflow_dispatch` run (no
+  # label to key on) and anything dispatched via the sibling
+  # `trainer-diag-relay.yml` (a raw script drop, no heavy/light distinction —
+  # see that workflow's own header) are NOT auto-wrapped. A script dispatched
+  # either of those ways can still collide with a concurrent heavy job unless
+  # it takes the lock itself (`flock runtime_logs/trainer/.heavy.lock -c '...'`
+  # on the VM, or Python's `scripts/ml/_heavy_queue.py::take_heavy_queue`).
+  # Full contract: docs/claude/vm-resource-management.md.
   group: trainer-vm-diag-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
@@ -292,6 +330,50 @@ jobs:
           printf '%s\n' "${VM_SSH_KEY}" > ~/.ssh/trainer_key
           chmod 600 ~/.ssh/trainer_key
           ssh-keyscan -t ed25519,ecdsa,rsa "${TRAINER_IP}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Serialize on the shared heavy-job lock (heavy dispatch only)
+        # Fires ONLY for an issues-triggered dispatch carrying
+        # `trainer-vm-heavy-request` — the label this repo already treats as
+        # "exclusive/heavy trainer job" (bootstrap-labels.yml,
+        # vm_lane_guard.sh). Prepends a lock-acquire preamble to the command
+        # file so the WHOLE remote bash -s invocation — preamble + the
+        # caller's command — runs as one SSH session, and the flock's fd stays
+        # held for the caller's entire run and is released automatically the
+        # instant that remote bash process ends, however it ends (success,
+        # error, or the SSH link dying) — no separate release step, no
+        # deadlock on a crashed job.
+        #
+        # Uses the SAME canonical lock file the Python-side queue already
+        # uses (src/utils/trainer_heavy_lock.py::canonical_lock_file), so this
+        # genuinely collides with a concurrent `python -m ml train`, a running
+        # training cycle, or a locked research entrypoint — not a second,
+        # parallel notion of "heavy".
+        #
+        # SHORT wait, not the Python side's 1h default: this runs inside a
+        # 60-minute job budget shared with the caller's actual command, so it
+        # fails FAST (2 min) and tells the caller to retry, rather than
+        # silently eating the job's entire time budget waiting and leaving no
+        # time for the real work. Exit 75 (EX_TEMPFAIL) matches the
+        # convention `trainer-resource-protocol.md` already uses for "queue
+        # busy, retry later".
+        if: steps.dedup.outputs.skip != 'true' && github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'trainer-vm-heavy-request')
+        run: |
+          set -euo pipefail
+          {
+            cat <<'LOCKWRAP'
+          set -uo pipefail
+          LOCK_DIR="/home/ubuntu/ict-trading-bot/runtime_logs/trainer"
+          mkdir -p "$LOCK_DIR"
+          exec 9>"$LOCK_DIR/.heavy.lock"
+          if ! flock -w 120 9; then
+            echo "trainer-heavy-lock busy past the 2-min wait -- another heavy job is holding it (see $LOCK_DIR/heavy_lock_holder.json). Refusing rather than colliding on the 1-OCPU box. Retry once it releases." >&2
+            exit 75
+          fi
+          printf '{"pid": %s, "label": "trainer-vm-heavy-request run ${{ github.run_id }}", "since_utc": "%s"}' "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LOCK_DIR/heavy_lock_holder.json"
+          LOCKWRAP
+            cat /tmp/trainer_diag_cmd.sh
+          } > /tmp/trainer_diag_cmd_locked.sh
+          mv /tmp/trainer_diag_cmd_locked.sh /tmp/trainer_diag_cmd.sh
 
       - name: Run command on trainer VM
         if: steps.dedup.outputs.skip != 'true'
