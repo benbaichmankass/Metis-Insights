@@ -9,6 +9,34 @@ Enforced by `pr-landing-guard` (`scripts/ci/check_pr_landing.py`), which runs on
 every PR. Read that file's docstring for the rule-by-rule reasoning; this is the
 operator's-eye summary.
 
+> ### ⚠️ THE MERGE-SLOT CLAIM: USE THE PER-BRANCH ROUTE (2026-09-21)
+>
+> **R13's first failure message names `docs/claude/session-board.json`, and the
+> 2026-09-21 operating reset ARCHIVED that file.** It is now at
+> `docs/archive/2026-09-21-operating-reset/registers/session-board.json`, along
+> with `board-pointer.json`, so a session that follows the error text lands on a
+> file that does not exist and a board it cannot resolve.
+>
+> **The route that works, and the one R13 itself calls PREFERRED:**
+>
+> ```bash
+> python3 scripts/ops/claim_merge_slot.py --branch-claim \
+>     --branch <your-branch> --held-by <your session id>
+> ```
+>
+> It writes `.github/merge-slots/<slug>.json`, which cannot conflict with another
+> branch's claim. Commit it in the same push that arms the route. Measured
+> 2026-09-21 on `claude/metis-insights-manager-9qmm63`: R13 went from
+> `session-board.json does not exist` to `OK — state=declared_self_land` on that
+> one command.
+>
+> ⚠️ **This note is not the fix.** The guard still names the dead register first,
+> which bites every Tier-1 self-landing PR from here on. Filed as
+> `PI-20260921-0002` in `docs/claude/work/PIPELINE.jsonl` and routed to the E9
+> reader sweep. **Do not "fix" it by weakening R13** — it fails closed on purpose
+> and the loss it guards is real; the remedy TEXT and its ordering are what is
+> wrong.
+
 ## Why this exists
 
 On 2026-09-03, seven of the night shift's PRs sat open, green and unlanded,
