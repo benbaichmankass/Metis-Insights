@@ -71,6 +71,7 @@ from typing import Any
 import pandas as pd
 
 from src.backtest.run_backtest import load_data
+from src.runtime import execution_costs  # the ONE shared cost model
 from src.units.strategies.vwap import (
     _session_anchor_slice,
     build_vwap_signal,
@@ -80,15 +81,30 @@ from src.units.strategies.vwap import (
 # Match the production pipeline candle lookback fed to build_vwap_signal.
 M5_LOOKBACK_BARS = 300  # ~25 h at 5 m
 
+# vwap trades one symbol; hardcoded here (mirrors the build_vwap_signal call
+# below) so the venue-aware cost resolution below has something to key on.
+SYMBOL = "BTCUSDT"
+
 # Round-trip taker fee on Bybit linear perps, basis points (S-STRAT-IMPROVE-S4,
 # 2026-05-23). The live audit (bybit_2, 7d) showed the strategy is GROSS-
 # positive but NET-negative: fees were 418% of gross because the tight 0.3σ
 # stop makes the per-trade fee a large fraction of risk-R. So gross total_r is
 # misleading for selectivity work — each backtest trade now also reports
-# net_pnl_r = gross_pnl_r − fee_r, where fee_r = (FEE_BPS_ROUNDTRIP/1e4) ×
+# net_pnl_r = gross_pnl_r − total_cost_r, where fee_r = (FEE_BPS_ROUNDTRIP/1e4) ×
 # (entry+exit)/2 / risk. Settable via --fee-bps-roundtrip. Module-level so
 # _simulate_trade reads it without signature churn (mirrors ENTRY_STD_THRESHOLD).
-FEE_BPS_ROUNDTRIP = 7.5
+FEE_BPS_ROUNDTRIP = execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP
+
+# Execution-realism (P1 § 3.B, checklist E3): this harness carried FEE ONLY —
+# vwap is 318 of 431 lifetime real-money trades, so a fee-only verdict here is
+# the single largest source of optimism bias in the corpus. Slippage/funding
+# resolve via the shared venue-aware policy (execution_costs.resolve_cost_policy)
+# in main(); these in-process defaults stay 0.0 so a direct (non-CLI) caller of
+# run_single()/_simulate_trade() is unaffected, matching the other harnesses'
+# convention (resolve_cost_policy's own docstring).
+SLIPPAGE_BPS_ROUNDTRIP = 0.0
+FUNDING_BPS_PER_WINDOW = 0.0
+FUNDING_WINDOW_HOURS = execution_costs.FUNDING_WINDOW_HOURS
 
 # monitor_hold_window_minutes = 240 min / 5 min per bar = 48 bars
 HOLD_BARS_MAX = 48
@@ -383,16 +399,34 @@ def _simulate_trade(
         if direction == "long"
         else (entry - exit_price) / risk
     )
-    # Net-of-fee R (S-STRAT-IMPROVE-S4). Round-trip taker fee in R units:
-    # fee charged on both legs ≈ (FEE_BPS_ROUNDTRIP/1e4) × (entry+exit)/2 per
-    # unit notional; dividing by ``risk`` expresses it in R. Tight stops make
-    # this large (a 0.3σ ≈ 14 bps stop vs a 7.5 bps round-trip ≈ 0.5R/trade),
-    # which is why high-frequency vwap is net-negative despite positive gross.
+    # Net-of-full-cost R (P1 § 3.B / checklist E3). Round-trip taker fee in R
+    # units: fee charged on both legs ≈ (FEE_BPS_ROUNDTRIP/1e4) × (entry+exit)/2
+    # per unit notional; dividing by ``risk`` expresses it in R. Tight stops
+    # make this large (a 0.3σ ≈ 14 bps stop vs a 7.5 bps round-trip ≈ 0.5R/
+    # trade), which is why high-frequency vwap is net-negative despite positive
+    # gross. Fee is computed locally (preserves this harness's exact legacy
+    # formula, byte-identical when slippage/funding are 0); slippage + perp
+    # funding are the shared execution_costs terms (0.0 by default here — main()
+    # resolves them to the venue-aware policy, see module docstring above).
     fee_r = (FEE_BPS_ROUNDTRIP / 10_000.0) * ((entry + exit_price) / 2.0) / risk
-    net_pnl_r = pnl_r - fee_r
+    _entry_ts = df["timestamp"].iloc[entry_idx]
+    _exit_ts = df["timestamp"].iloc[exit_idx]
+    _cb = execution_costs.roundtrip_cost_r(
+        entry=entry, exit_price=exit_price, risk=risk,
+        entry_time=_entry_ts, exit_time=_exit_ts,
+        fee_bps_roundtrip=0.0,  # fee handled locally above to preserve the exact legacy formula
+        slippage_bps_roundtrip=SLIPPAGE_BPS_ROUNDTRIP,
+        funding_bps_per_window=FUNDING_BPS_PER_WINDOW,
+        funding_window_hours=FUNDING_WINDOW_HOURS,
+    )
+    slippage_r = _cb["slippage_r"]
+    funding_r = _cb["funding_r"]
+    total_cost_r = fee_r + slippage_r + funding_r
+    net_pnl_r_fee_only = pnl_r - fee_r  # always-computed fee-only comparison arm
+    net_pnl_r = pnl_r - total_cost_r
     return {
-        "entry_time": str(df["timestamp"].iloc[entry_idx])[:16],
-        "exit_time": str(df["timestamp"].iloc[exit_idx])[:16],
+        "entry_time": str(_entry_ts)[:16],
+        "exit_time": str(_exit_ts)[:16],
         "direction": direction,
         "entry": round(entry, 2),
         "sl": round(sl, 2),
@@ -401,6 +435,10 @@ def _simulate_trade(
         "exit_reason": exit_reason,
         "pnl_r": round(pnl_r, 3),
         "fee_r": round(fee_r, 4),
+        "slippage_r": round(slippage_r, 4),
+        "funding_r": round(funding_r, 4),
+        "total_cost_r": round(total_cost_r, 4),
+        "net_pnl_r_fee_only": round(net_pnl_r_fee_only, 3),
         "net_pnl_r": round(net_pnl_r, 3),
         "duration_bars": exit_idx - entry_idx,
     }
@@ -467,7 +505,7 @@ def run_single(
         )
         signal = build_vwap_signal(
             window_for_signal,
-            symbol="BTCUSDT",
+            symbol=SYMBOL,
             htf_close=htf_close,
             htf_ema=htf_ema_val,
             htf_band_pct=band_pct if use_htf else 0.02,
@@ -533,6 +571,14 @@ def run_single(
         net_total_r_long = round(sum(t["net_pnl_r"] for t in long_trades), 2)
         net_total_r_short = round(sum(t["net_pnl_r"] for t in short_trades), 2)
         total_fee_r = round(sum(t["fee_r"] for t in trades), 2)
+        # Execution-realism (checklist E3): fee-only comparison arm + the
+        # slippage/funding totals, so the size of the correction is always on
+        # the record rather than assumed.
+        total_slippage_r = round(sum(t["slippage_r"] for t in trades), 2)
+        total_funding_r = round(sum(t["funding_r"] for t in trades), 2)
+        net_r_fee_only_vals = [t["net_pnl_r_fee_only"] for t in trades]
+        net_total_r_fee_only = round(sum(net_r_fee_only_vals), 2)
+        net_avg_r_fee_only = round(net_total_r_fee_only / len(trades), 3)
     else:
         wins = 0
         total_r = avg_r = win_rate = sharpe_r = 0.0
@@ -543,6 +589,8 @@ def run_single(
         net_wins = 0
         net_total_r_long = net_total_r_short = 0.0
         total_fee_r = 0.0
+        total_slippage_r = total_funding_r = 0.0
+        net_total_r_fee_only = net_avg_r_fee_only = 0.0
 
     cfg_label = (
         f"{htf_timeframe} EMA-{ema_period}" if use_htf else "no HTF filter"
@@ -597,15 +645,26 @@ def run_single(
         "total_r_long": total_r_long,
         "total_r_short": total_r_short,
         "avg_r_per_trade": avg_r,
-        # Net-of-fee (S-STRAT-IMPROVE-S4) — the selectivity-ranking metrics.
+        # Net-of-full-cost (checklist E3) — fee + slippage + funding, the
+        # selectivity-ranking metrics.
         "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        "slippage_bps_roundtrip": SLIPPAGE_BPS_ROUNDTRIP,
+        "funding_bps_per_window": FUNDING_BPS_PER_WINDOW,
         "total_fee_r": total_fee_r,
+        "total_slippage_r": total_slippage_r,
+        "total_funding_r": total_funding_r,
         "net_total_r": net_total_r,
         "net_total_r_long": net_total_r_long,
         "net_total_r_short": net_total_r_short,
         "net_avg_r_per_trade": net_avg_r,
         "net_win_rate_pct": net_win_rate,
         "net_wins": net_wins,
+        # Fee-only comparison arm (always present, per checklist E3): the
+        # number BEFORE slippage+funding — a fee-only run must now be
+        # something a caller ASKS for (--slippage-bps-roundtrip 0
+        # --funding-bps-per-window 0), never the silent default.
+        "net_total_r_fee_only": net_total_r_fee_only,
+        "net_avg_r_per_trade_fee_only": net_avg_r_fee_only,
         "sharpe_r": sharpe_r,
         "htf_blocked_count": blocked_count,
         "exit_reasons": exit_reasons,
@@ -952,6 +1011,7 @@ def run_windows(
 
 def main(argv: list[str]) -> int:
     global FEE_BPS_ROUNDTRIP  # set from --fee-bps-roundtrip after parse
+    global SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW
     global MIN_R_FOR_VWAP_CROSS, MIN_HOLD_MINUTES_FOR_VWAP_CROSS
     global BE_AT_R, BE_OFFSET_BPS
     parser = argparse.ArgumentParser(description="VWAP HTF-filter backtest")
@@ -973,6 +1033,22 @@ def main(argv: list[str]) -> int:
         default=FEE_BPS_ROUNDTRIP,
         help="Round-trip taker fee in bps for net-of-fee R (default 7.5, "
              "Bybit linear). Set 0 to reproduce gross-only results.",
+    )
+    parser.add_argument(
+        "--slippage-bps-roundtrip",
+        type=float,
+        default=None,
+        help="Execution-realism: round-trip slippage bps; DEFAULT (unset) = "
+             "venue-aware (execution_costs.slippage_bps_roundtrip_for, ~5 bps "
+             "for BTCUSDT). Pass 0 for the fee-only comparison arm.",
+    )
+    parser.add_argument(
+        "--funding-bps-per-window",
+        type=float,
+        default=None,
+        help="Execution-realism: perp funding bps/8h; DEFAULT (unset) = "
+             "VENUE-AWARE (execution_costs.funding_bps_per_window_for): ~1 "
+             "bps/8h for BTCUSDT (a perp). Pass 0 for the fee-only comparison arm.",
     )
     parser.add_argument(
         "--no-htf",
@@ -1148,6 +1224,15 @@ def main(argv: list[str]) -> int:
     # ``global`` is declared at the top of main() (the argparse default reads
     # the module value, which counts as a use).
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
+    # Mandatory venue-aware cost policy (checklist E3): unset flags resolve to
+    # the venue-aware defaults (funding is perp-only — 0 for a non-perp); an
+    # explicit value (including 0 for the fee-only comparison arm) always wins.
+    # This is what makes a fee-only run something a caller must ASK for.
+    SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW = execution_costs.resolve_cost_policy(
+        SYMBOL,
+        slippage_bps_roundtrip=args.slippage_bps_roundtrip,
+        funding_bps_per_window=args.funding_bps_per_window,
+    )
     # PERF-20260601-003 live exit-side gates — same pattern. CLI flag overrides
     # the module default when explicitly supplied (None = leave as-is).
     if args.min_r_for_vwap_cross is not None:

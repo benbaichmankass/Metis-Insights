@@ -65,11 +65,12 @@ it feeds, because the two prop limits are not both position-scoped:
 The 2026-08-14 concern was precisely *"flat is exactly when the next ticket is
 sized against a cushion nobody has measured."* That concern is **preserved and
 now OBSERVED rather than assumed**: :data:`ASK_TICKET_SINCE_SNAPSHOT` fires on a
-real (non-``suppressed``) ticket created after the snapshot, which is the moment
-new exposure is actually taken. A ``suppressed`` row is excluded deliberately —
-it produces no exposure by construction (``breakout_executor`` journals it and
-returns before routing), so counting it would re-create the noise while adding
-no safety.
+real ticket created after the snapshot that **can still take exposure**
+(:func:`ticket_can_take_exposure`), which is the moment new exposure is actually
+taken. ⚠️ **The parenthetical here read "(non-``suppressed``)" until 2026-09-21
+and that was the defect** — see the decision record at the foot of this
+docstring: the exclusion set had one member, so a ticket that had gone
+``expired`` without ever being placed counted as exposure and asked forever.
 
 **AND THE THRESHOLD IS NOT TOUCHED.** ``PROP_STATUS_REQUEST_MAX_AGE_HOURS`` has
 **four** consumers — this ask, the folded balance nudge on every fill ack,
@@ -78,16 +79,30 @@ the ``status_freshness`` verdict on ``/api/bot/prop/status``. One definition of
 "too old to trust" is deliberate, so sizing can never run off a balance the
 safety panel has written off. The **trigger** changed; the threshold did not.
 
-⚠️ **RESIDUAL, STATED RATHER THAN HIDDEN — going quiet while flat is only safe
-because SIZING refuses on a stale balance, and that refusal reaches nobody.**
-``prop_sizing_balance`` returns ``stale`` and ``Coordinator.multi_account_execute``
-raises, but that branch only calls ``log_rejection_to_journal`` + ``logger``; the
-operator-facing ``_emit_execution_failure_ping`` is on the LATER ``execute_pkg``
-branch and is never reached. So a prop account blocked by a stale balance stops
-trading with no operator-facing signal. Filed as
-``BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED``;
-deliberately NOT fixed here (one PR, one concern), and it is why
-:data:`ASK_TICKET_SINCE_SNAPSHOT` exists rather than trusting the gate alone.
+⚠️ **RESIDUAL — CLOSED 2026-09-21; THE PARAGRAPH IS KEPT BECAUSE THE REASONING
+STILL BINDS.** As written (2026-09-09) this said: *going quiet while flat is
+only safe because SIZING refuses on a stale balance, and that refusal reaches
+nobody* — ``prop_sizing_balance`` returns ``stale``,
+``Coordinator.multi_account_execute`` raises, and that branch called only
+``log_rejection_to_journal`` + ``logger`` while the operator-facing
+``_emit_execution_failure_ping`` sat on the LATER ``execute_pkg`` branch and was
+never reached. Filed as
+``BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED``.
+**It is now routed**: :func:`src.prop.prop_balance.note_refusal` pages the
+operator once per account per occurrence through the ``pending_pings`` inbox.
+That was a PRECONDITION of the decision below, not a coincidence of timing —
+silencing the flat-book ask without it would have removed the only thing that
+happened to be noisy in that state.
+
+⚠️ **WHAT THAT PING STILL DOES NOT COVER, because a fix that looks complete is
+worse than one that says where it stops.** It fires only when an intent
+actually REACHES this account's sizing. MEASURED 2026-09-21 (E16): between
+2026-09-13T06:55Z and 2026-09-21T20:15Z, ``trend_donchian_eth_prop`` contributed
+an intent to **11 of 11** ``trend_donchian_eth`` order packages and won **none**
+of them — the intent-layer same-direction election picked the base twin, which
+is not on ``breakout_1``'s roster, so the prop account was never asked to size
+at all. No refusal, no ticket, no row, no ping. **A BLOCKED ACCOUNT AND AN
+UNREACHED ACCOUNT ARE DIFFERENT FAILURES** and only the first has a signal.
 
 So the ask is now driven by :func:`src.prop.prop_identity.declared_prop_account_ids`
 (``live_only=True`` — a ``dry_run`` prop account has no exposure to protect and
@@ -118,6 +133,65 @@ Design notes (mirrors ``prop_monitor_pulse``):
   per 12h, only while the snapshot is actually stale.
 - **Best-effort + isolated.** Every path swallows its own exceptions; called
   once per trader tick from ``src/main.py``.
+
+═══════════════════════════════════════════════════════════════════════════
+**DECIDED 2026-09-21 — OPERATOR, ASKED DIRECTLY: THE ASK FIRES ONLY WHEN A
+REAL TICKET CAN STILL TAKE EXPOSURE.**
+═══════════════════════════════════════════════════════════════════════════
+
+Nothing above is retracted, and the argument above is the reason this record
+exists rather than a deletion: the static-DD floor IS account-level, it DOES
+bind while the book is flat, and going quiet while flat DOES let the cushion
+age without bound. The operator was shown exactly that — a ``$87.34`` distance
+to the ``$4,700`` floor computed from a snapshot **22 days old**
+(``/api/bot/prop/status``, read 2026-09-21) — and chose this anyway:
+
+    "I keep getting the prop status request notifications even though we said
+    we don't need that anymore — I give the snapshot when a trade closes and
+    the account doesn't need to be tracked actively when there's no activity"
+
+**THE COST THEY ACCEPTED, STATED PLAINLY** so the next session reads a decision
+and not an absence: while ``breakout_1`` is flat with no placeable ticket, the
+bot will no longer ask for a balance, so the cushion on
+``/api/bot/prop/status`` may be arbitrarily old. What still protects the
+account is (a) ``prop_balance``'s sizing gate, which REFUSES to size off a
+stale snapshot and — **as of this same change** — now pages the operator when
+it does (``prop_balance.note_refusal``), and (b) the three ask-arms below,
+which are unchanged in intent.
+
+**WHAT ACTUALLY FIRED ON THE OPERATOR — established before changing anything,
+because "remove the arm that is firing" needs to name the arm.** It was
+:data:`ASK_TICKET_SINCE_SNAPSHOT`, and it was a **LATCH**: ticket
+``prop-manual-5c4694c96819`` was created ``2026-09-13T06:55:35Z`` with a **1h**
+validity and went ``expired`` unanswered at ``07:55:35Z``. ``expired`` was not
+in :data:`NON_EXPOSING_TICKET_STATUSES`, and the arm's whole test was
+``created_at > snapshot.reported_at`` — a comparison against a snapshot only an
+operator report can move. So a ticket that by definition took **no** exposure
+asked forever, once every ``PROP_STATUS_REQUEST_COOLDOWN_HOURS`` (12h), and the
+only thing that could stop it was the report it was asking for, which the
+operator had no reason to send because no trade had closed. MEASURED
+2026-09-21 from ``/api/bot/prop/tickets?limit=200`` + ``/api/bot/prop/status``,
+read direct over ``https://ict-bot.duckdns.org``.
+
+That is the same shape as the ``expiry_prompted`` latch that suppressed **37**
+consecutive prop tickets between 2026-08-30 and 2026-09-11 (see prop_fills id
+42/43): **a terminal-but-unanswered ticket state read as a live one.** Fixing
+it by adding ``"expired"`` to the excluded-status set would fix this instance
+and leave the class, so the predicate below asks the question the operator's
+decision actually poses — *can this ticket still take exposure?* — and a
+ticket falls out of it by the clock, with no report required.
+
+**THE THRESHOLD IS STILL NOT TOUCHED.** ``PROP_STATUS_REQUEST_MAX_AGE_HOURS``
+keeps all four consumers and all four readings. The TRIGGER changed; the
+definition of "too old to trust" did not.
+
+⚠️ **THE RESIDUAL, STATED RATHER THAN HIDDEN.** A ticket the operator DID place
+and never reported now goes quiet once its validity window closes, where before
+it nagged. That gap is not created here — ``find_open_prop_positions`` derives
+the book from ``prop_fills`` and is equally blind to an unreported fill — and
+it has its own channel in ``prop_expiry_prompt``, which asks *"did you place
+this?"* rather than *"send me a balance"*. Naming it so the next session can
+weigh it instead of rediscovering it.
 """
 from __future__ import annotations
 
@@ -161,13 +235,78 @@ ACTIVITY_STATES = (
     QUIESCENT, UNKNOWN,
 )
 
-#: Ticket statuses that took NO exposure. ``suppressed`` is journaled by
-#: ``breakout_executor`` and returns BEFORE routing, so the ticket never
-#: reaches a venue and never becomes a position — counting it would recreate
-#: the wall-clock noise while adding no safety. Anything else (including an
-#: unrecognised or blank status) counts as real: on an ALARM the fail-safe
-#: direction is to ask, the opposite polarity to an order gate.
-NON_EXPOSING_TICKET_STATUSES = frozenset({"suppressed"})
+#: Ticket statuses that took NO exposure and never can. ``suppressed`` is
+#: journaled by ``breakout_executor`` and returns BEFORE routing; ``shadow`` is
+#: the observe-only row written when the strategy is ``execution: shadow``
+#: (``close_reason: prop_shadow_no_emit``). Neither ever reaches the operator,
+#: so neither can become a position.
+NON_EXPOSING_TICKET_STATUSES = frozenset({"suppressed", "shadow"})
+
+#: Statuses whose exposure question is SETTLED — the ticket's life is over and
+#: asking for a balance on its account cannot change what it did.
+#:
+#: ⚠️ ``expired`` IS THE ONE THIS CHANGE TURNS OFF, and it is the whole of the
+#: 2026-09-21 operator complaint (see the decision record above). The others
+#: are its siblings by the same argument: ``skipped`` is the operator saying
+#: *I did not place it*, ``rejected`` never emitted, and ``orphaned`` carries
+#: no order package to have been placed from.
+#:
+#: ⚠️ ``closed`` is here for a DIFFERENT and load-bearing reason, already argued
+#: at length in the module docstring: a reported fill can only make the cushion
+#: CONSERVATIVE, because ``reconstruct_equity`` applies an unplaceable loss and
+#: withholds an unplaceable gain. Asking about it buys precision, not safety.
+SETTLED_TICKET_STATUSES = frozenset({
+    "expired", "skipped", "rejected", "orphaned", "closed",
+})
+
+
+def ticket_can_take_exposure(
+    ticket: Dict[str, Any], now: datetime,
+) -> bool:
+    """Can this ticket still put money at risk against the current cushion?
+
+    **THIS IS THE OPERATOR'S 2026-09-21 DECISION, AS A PREDICATE** — the ask
+    fires at the moment real exposure can be taken, and at no other moment.
+
+    Pure and side-effect free, so the policy is arguable in a test rather than
+    against a funded prop account.
+
+    Three groups, and the third is why this is a function and not a set:
+
+    1. **Never exposed** (:data:`NON_EXPOSING_TICKET_STATUSES`) — ``False``.
+    2. **Settled** (:data:`SETTLED_TICKET_STATUSES`) — ``False``. This is the
+       group that kills the latch: a ticket leaves the asking population by the
+       CLOCK, with no operator report required, where the old
+       ``created_at > snapshot`` test could only ever be cleared by the very
+       report it was asking for.
+    3. **Live, or unknown** — ``True``. ``placed`` means the operator put it on
+       the terminal and no fill has been reported, which is genuine
+       unaccounted exposure. ``expiry_prompted`` / ``awaiting_report`` /
+       ``invalidated_prompted`` mean *we asked and were not answered*, which is
+       **we do not know**, never *nothing happened* (CLAUDE.md § "Collapsed
+       states"). An unrecognised or blank status is also ``True``: on an ALARM
+       the fail-safe direction is to ask, the opposite polarity to an order
+       gate.
+
+    ``emitted`` is the one status that is answered by the clock rather than by
+    the word: it is live **only while ``valid_until`` has not passed**, because
+    the ticket's own rendered text tells the operator *"If now is past 'Valid
+    until' ... DO NOT place"*. An ``emitted`` row with an unreadable or absent
+    ``valid_until`` cannot be SHOWN to be past its window, so it stays
+    ``True``. (The same live/expired distinction
+    ``breakout_executor._reticket_suppress_reason`` already draws for its own
+    purposes — deliberately re-derived here rather than imported, because that
+    module is the ORDER PATH and this one is a notifier.)
+    """
+    status = str(ticket.get("status") or "").strip().lower()
+    if status in NON_EXPOSING_TICKET_STATUSES:
+        return False
+    if status in SETTLED_TICKET_STATUSES:
+        return False
+    if status == "emitted":
+        vu = _parse_iso(ticket.get("valid_until"))
+        return True if vu is None else vu > now
+    return True
 
 
 def assess_activity(
@@ -175,6 +314,7 @@ def assess_activity(
     snapshot_reported_at: Optional[str],
     open_positions: Optional[List[Dict[str, Any]]],
     tickets: Optional[List[Dict[str, Any]]],
+    now: Optional[datetime] = None,
 ) -> tuple:
     """``(state, detail)`` — has anything HAPPENED since the snapshot?
 
@@ -186,6 +326,7 @@ def assess_activity(
     would otherwise become :data:`QUIESCENT` and suppress the ask — see the
     ``find_open_prop_positions`` caveat in the module docstring.
     """
+    now = now or _now()
     if open_positions is None or tickets is None:
         return UNKNOWN, {
             "reason": "positions_unreadable" if open_positions is None
@@ -202,7 +343,11 @@ def assess_activity(
         return ASK_NO_SNAPSHOT, {"reason": "no dateable snapshot to measure from"}
     exposing = 0
     for t in tickets:
-        if str(t.get("status") or "").strip().lower() in NON_EXPOSING_TICKET_STATUSES:
+        # TWO conditions, and both must hold (2026-09-21). "Newer than the
+        # snapshot" alone is a LATCH: only an operator report moves the
+        # snapshot, so a ticket that took no exposure asked forever. The
+        # ticket must ALSO still be able to take exposure.
+        if not ticket_can_take_exposure(t, now):
             continue
         created = _parse_iso(t.get("created_at") or t.get("signal_time"))
         # An undateable ticket cannot be shown to predate the snapshot; count it
@@ -216,7 +361,9 @@ def assess_activity(
         "tickets_since_snapshot": 0,
         "note": ("reported fills are deliberately NOT a trigger: "
                  "reconstruct_equity applies losses and withholds gains, so a "
-                 "reported fill can only make the cushion conservative"),
+                 "reported fill can only make the cushion conservative; and a "
+                 "ticket counts only while it can STILL take exposure "
+                 "(ticket_can_take_exposure) — see the 2026-09-21 decision"),
     }
 
 
@@ -407,6 +554,7 @@ def run_prop_status_request(now: Optional[datetime] = None) -> List[str]:
             open_positions=open_positions,
             tickets=(None if tickets_by_account is None
                      else tickets_by_account.get(acct, [])),
+            now=now,
         )
         # ⚠️ RECORD THE VERDICT WHETHER OR NOT WE ASK — this is what makes the
         # suppression OBSERVABLE. Measured 2026-09-09T11:3xZ on the live VM
@@ -469,4 +617,6 @@ __all__ = [
     "QUIESCENT",
     "UNKNOWN",
     "NON_EXPOSING_TICKET_STATUSES",
+    "SETTLED_TICKET_STATUSES",
+    "ticket_can_take_exposure",
 ]
