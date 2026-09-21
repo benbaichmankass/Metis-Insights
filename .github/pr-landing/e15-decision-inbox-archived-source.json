@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The E15 build-lane dispatch says in terms: \"Open the PR as a draft against `main` and write `.github/pr-landing/<your-branch-slug>.json` declaring `tier: 1` with `landing: \\\"hold\\\"` and `hold_reason: \\\"operator_asked_to_hold\\\"` quoting this instruction -- the manager merges; do not arm auto-merge and do not merge yourself.\" This PR is held on that instruction, not on tier or evidence.",
+  "why": "docs/claude/work/MANAGER-CHECKLIST.json row E15: the /api/bot/work/decisions route's only source (docs/claude/work/objects/) was archived by the 2026-09-21 operating reset, so the route read present:true with everything at zero regardless of what the operator actually had pending. Fix reads two LIVE sources instead (checklist blocked_on:operator_decision edges, open PIPELINE.jsonl next_action:ask_operator items), publishes a per-source read-state block so 'nothing pending' and 'could not read the source' can never render alike, and is read-only end to end (PIPELINE.jsonl is never written). Touches src/web/api/routers/work.py (one existing read route, no new write surface), tests/test_work_decisions.py, and docs/api-tier-policy.md. No config/, no order path, no risk caps, no deploy/, no live-VM runtime mutation -- Tier-1 by CLAUDE.md's own table (observability/read paths, tests, docs)."
+}
