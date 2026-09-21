@@ -68,6 +68,23 @@ is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
 ⚠️ **`create_session`'s `model` parameter defaults to the CALLING session's
 model.** Omit it and the lane silently inherits `opus`. Pass it every time.
 
+⚠️ **THERE IS A SECOND BUDGET, AND IT IS UNUSED.** Settings → Usage shows
+**Fable on its own weekly limit**, separate from the pool every row above draws
+on — measured 2026-09-21 at **0% used** against a main pool at **68%**. Work
+routed there is *additive* capacity. The operator has directed that it be
+employed: *"it should definitely be used when appropriate… we just want to make
+sure it is getting the tasks that are the best use of that resource."*
+
+**Which task classes has NOT been decided, and this table does not guess.**
+Choosing them is checklist row **E11**, whose method is to start with a class
+whose output is cheaply verifiable against work a current-model lane has already
+done, diff the two, and widen only on that evidence.
+
+⚠️ **Spare budget NEVER moves work off the model its risk demands.** The
+real-money order-path row above is not negotiable against headroom in another
+pool, and *"we had Fable budget spare"* is not an argument that may appear
+beside an order-path change.
+
 ### Fresh vs resume
 
 **Resume only when the next unit needs context the previous session built *in
