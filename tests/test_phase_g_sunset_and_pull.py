@@ -10,7 +10,6 @@ across the three modules together.
 """
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +21,6 @@ sys.path.insert(0, str(REPO / "scripts" / "ops"))
 sys.path.insert(0, str(REPO / "scripts" / "ci"))
 
 import check_capability_pull as cpull  # noqa: E402
-import check_sunset_dispositions as sdisp  # noqa: E402
 import sunset_pass as sp  # noqa: E402
 
 

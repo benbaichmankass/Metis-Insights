@@ -31,7 +31,6 @@ Run: ``python3 -m pytest tests/test_register_field_loss.py``
 from __future__ import annotations
 
 import importlib.util
-import json
 from pathlib import Path
 
 import pytest

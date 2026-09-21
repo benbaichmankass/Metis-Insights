@@ -12,7 +12,6 @@ that cannot go red is the state this row describes one level up.
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 from pathlib import Path
 
