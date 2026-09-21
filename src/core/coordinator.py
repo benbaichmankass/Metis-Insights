@@ -1007,12 +1007,34 @@ class Coordinator:
                 # emitted a prop ticket.
                 if _is_prop_account_obj(acc):
                     from src.prop.prop_balance import (
-                        prop_sizing_balance, refusal_message)
+                        note_refusal, prop_sizing_balance, refusal_message)
                     state, bal, meta = prop_sizing_balance(acc.name)
                     if state == "ok" and bal is not None:
+                        # Clears the refusal cadence state, so the NEXT refusal
+                        # after a recovery pages as a fresh occurrence instead
+                        # of being swallowed by the previous one's re-ping timer.
+                        note_refusal(state, acc.name, meta)
                         return float(bal)
-                    # Still refuses — never sizes off a guess. Only the message
-                    # changes, and it now names something the operator can act on.
+                    # ⚠️ THE ONLY CHANGE HERE IS THAT THE REFUSAL IS NOW
+                    # OPERATOR-FACING. The gate is untouched: it still refuses,
+                    # still never sizes off a guess, still raises the same
+                    # message. What was missing is that the raise lands in the
+                    # `sizing_failed` branch below, which writes a journal row
+                    # and a logger line and nothing the operator ever sees —
+                    # `_emit_execution_failure_ping` is on the LATER
+                    # `execute_pkg` branch and is not reached from here. So a
+                    # funded prop account could stop trading indefinitely with
+                    # the only evidence being a journalctl line in a unit whose
+                    # journald retention is ~30 minutes
+                    # (BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-
+                    # JOURNALED-BUT-NEVER-PINGED).
+                    #
+                    # `note_refusal` is best-effort and swallows every one of
+                    # its own exceptions — a diagnostic must never be able to
+                    # strand a trade — and it de-duplicates to one page per
+                    # account per occurrence, so it cannot become the per-tick
+                    # pager this repo files as its own P1 bug class.
+                    note_refusal(state, acc.name, meta)
                     raise RuntimeError(refusal_message(state, acc.name, meta))
                 # Non-prop sibling of the prop refusal above: still refuses,
                 # still never sizes off a guess — only the message changes, and

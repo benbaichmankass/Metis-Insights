@@ -175,6 +175,23 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # A9 — the work schedule. Same "wire it the day it's written" reasoning
+        # as pipeline-guard/daily-brief-guard above: a module nothing runs is
+        # the declared-capability-with-no-consumer antipattern. --self-test
+        # asserts the decisions/monitoring split (both from pipeline.due(),
+        # never re-derived) and the cron reader's negative control (a
+        # commented-out `on.schedule` must not read as armed); --check
+        # renders over the live tree (SCHEDULE.json, PIPELINE.jsonl,
+        # .github/workflows/*.yml) and asserts the invariant sentences
+        # without failing on an unreadable/absent input.
+        "name": "schedule-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/render_schedule.py", "--self-test"],
+            ["python3", "scripts/ops/render_schedule.py", "--check"],
+        ],
+    },
+    {
         "name": "research-tooling-selftests",
         "when": None,
         "steps": [

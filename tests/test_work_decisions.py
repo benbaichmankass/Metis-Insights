@@ -50,6 +50,12 @@ def _isolate(tmp_path, monkeypatch):
     monkeypatch.setattr(wk, "_intents_dir", lambda: root / "intents")
     monkeypatch.setattr(wk, "_objects_dir", lambda: root / "objects")
     monkeypatch.setattr(wk, "_steps_dir", lambda: root / "steps")
+    # E15: the inbox's two other live sources — redirected to paths that do
+    # not exist, so an isolated test never sees the REAL checklist/pipeline
+    # (both change often and would make this suite non-deterministic) and a
+    # test that wants either populated does so explicitly.
+    monkeypatch.setattr(wk, "_checklist_path", lambda: root / "MANAGER-CHECKLIST.json")
+    monkeypatch.setattr(wk, "_pipeline_store_path", lambda: root / "PIPELINE.jsonl")
     transit = tmp_path / "transit.jsonl"
     monkeypatch.setattr(wk, "transit_log_path", lambda: transit)
     monkeypatch.setattr(wd, "transit_log_path", lambda: transit)
@@ -484,3 +490,184 @@ def test_the_read_route_degrades_rather_than_5xxing(_isolate, client, monkeypatc
 # control in name only. Its fixture-based siblings in this file are
 # UNTOUCHED and still green: they test the CODE, which still exists.
 # Restore it from git history if the register ever returns.
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# E15 — the inbox's ONE source (objects/decision_requests) was archived
+# 2026-09-21, and the route kept reading `present: true` with zero requests
+# forever after: a genuine unanswered decision and no decision at all
+# rendered IDENTICALLY. These cover the two LIVE replacements
+# (`_checklist_operator_decision_edges`, `_pipeline_ask_operator_items`) in
+# both directions — a real pending item surfaces (positive control), and an
+# unreadable source is REPORTED as unreadable rather than folded into a
+# clean zero (negative control, the actual defect).
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _write_checklist(root, items):
+    (root / "MANAGER-CHECKLIST.json").write_text(
+        json.dumps({"items": items}), encoding="utf-8"
+    )
+
+
+def _write_pipeline_lines(root, lines):
+    (root / "PIPELINE.jsonl").write_text(
+        "\n".join(lines) + "\n" if lines else "", encoding="utf-8"
+    )
+
+
+def _pipeline_item(item_id, *, next_action="ask_operator", state="queued", **extra):
+    rec = {
+        "id": item_id,
+        "what": f"finding {item_id}",
+        "state": state,
+        "next_action": next_action,
+        "origin": {"kind": "audit", "ref": "r", "rerun": "r"},
+        "due_when": {"kind": "observation", "clears_when": "c"},
+        "routed_to": None,
+        "terminal_reason": None,
+    }
+    rec.update(extra)
+    return json.dumps(rec)
+
+
+def test_e15_checklist_operator_decision_edge_is_surfaced(_isolate, client):
+    """POSITIVE CONTROL: a live checklist blocked_on:operator_decision edge —
+    one of the two sources that replaced the archived objects/ directory —
+    reaches the inbox, tagged by source."""
+    root, _ = _isolate
+    _write_checklist(root, [{
+        "id": "X1", "title": "needs a call", "state": "queued", "owner": "operator",
+        "blocked_on": [{"kind": "operator_decision", "ref": "R1", "what": "which way?"}],
+    }])
+    inbox = client.get("/api/bot/work/decisions").json()
+    edges = [e for e in inbox["unanswerableOperatorEdges"] if e["source"] == "checklist"]
+    assert len(edges) == 1, "the checklist edge must reach the inbox"
+    assert edges[0]["objectId"] == "X1"
+    assert inbox["summary"]["unanswerableBySource"]["checklist"] == 1
+    assert inbox["sources"]["checklist"]["state"] == "read"
+
+
+def test_e15_checklist_edges_of_other_kinds_are_not_operator_decisions(_isolate, client):
+    """A `work_item` blocked_on edge is a different fact and must not inflate
+    the operator's own count."""
+    root, _ = _isolate
+    _write_checklist(root, [{
+        "id": "X2", "title": "waits on code", "state": "blocked",
+        "blocked_on": [{"kind": "work_item", "ref": "X1", "what": "needs X1 first"}],
+    }])
+    inbox = client.get("/api/bot/work/decisions").json()
+    assert inbox["summary"]["unanswerableBySource"]["checklist"] == 0
+
+
+def test_e15_pipeline_ask_operator_item_is_surfaced(_isolate, client):
+    """POSITIVE CONTROL: the second live source — an open PIPELINE.jsonl item
+    declaring `next_action: ask_operator` — reaches the inbox."""
+    root, _ = _isolate
+    _write_pipeline_lines(root, [_pipeline_item("PI-1")])
+    inbox = client.get("/api/bot/work/decisions").json()
+    edges = [e for e in inbox["unanswerableOperatorEdges"] if e["source"] == "pipeline"]
+    assert len(edges) == 1, "the open ask_operator pipeline item must reach the inbox"
+    assert edges[0]["objectId"] == "PI-1"
+    assert inbox["summary"]["unanswerableBySource"]["pipeline"] == 1
+    assert inbox["sources"]["pipeline"]["state"] == "read"
+
+
+def test_e15_terminal_pipeline_items_are_not_waiting(_isolate, client):
+    """A decision already made and closed (done/killed) is not `waiting on
+    you` — it is history, reported in the pipeline's own audit trail."""
+    root, _ = _isolate
+    _write_pipeline_lines(root, [
+        _pipeline_item("PI-open"),                                    # positive control
+        _pipeline_item("PI-done", state="done", terminal_reason="answered"),
+        _pipeline_item("PI-killed", state="killed", terminal_reason="moot"),
+    ])
+    inbox = client.get("/api/bot/work/decisions").json()
+    ids = {e["objectId"] for e in inbox["unanswerableOperatorEdges"] if e["source"] == "pipeline"}
+    assert ids == {"PI-open"}, "positive control (PI-open) must show, terminal rows must not"
+
+
+def test_e15_pipeline_items_with_other_next_actions_are_excluded(_isolate, client):
+    root, _ = _isolate
+    _write_pipeline_lines(root, [_pipeline_item("PI-dispatch", next_action="dispatch_lane")])
+    inbox = client.get("/api/bot/work/decisions").json()
+    assert inbox["summary"]["unanswerableBySource"]["pipeline"] == 0
+
+
+def test_e15_missing_checklist_reads_absent_not_silently_zero(_isolate, client):
+    """NEGATIVE CONTROL. Before E15 a missing/archived source and a genuinely
+    empty one rendered identically — `present: true`, count 0, no way to tell
+    them apart. `sources.checklist.state` must say `absent` rather than
+    leaving the caller to infer it from a bare zero."""
+    inbox = client.get("/api/bot/work/decisions").json()
+    assert inbox["sources"]["checklist"]["state"] == "absent"
+    assert inbox["summary"]["unanswerableBySource"]["checklist"] == 0
+
+
+def test_e15_malformed_checklist_reads_unreadable_not_silently_zero(_isolate, client):
+    """NEGATIVE CONTROL, the sharper one: the checklist EXISTS and is broken.
+    This must say `unreadable` ("we could not look"), never collapse into the
+    same zero a genuinely empty or absent checklist would produce."""
+    root, _ = _isolate
+    (root / "MANAGER-CHECKLIST.json").write_text("{not valid json", encoding="utf-8")
+    inbox = client.get("/api/bot/work/decisions").json()
+    assert inbox["sources"]["checklist"]["state"] == "unreadable"
+    assert inbox["sources"]["checklist"]["error"]
+    assert inbox["summary"]["unanswerableBySource"]["checklist"] == 0
+
+
+def test_e15_absent_pipeline_store_reads_as_read_with_zero_items(_isolate, client):
+    """A pipeline store that has never been written genuinely holds nothing
+    (pipeline.py's own doctrine) — distinct from a store that exists and has
+    unreadable lines, which is the next test."""
+    inbox = client.get("/api/bot/work/decisions").json()
+    assert inbox["sources"]["pipeline"]["state"] == "read"
+    assert inbox["sources"]["pipeline"]["unreadableRecords"] == 0
+    assert inbox["summary"]["unanswerableBySource"]["pipeline"] == 0
+
+
+def test_e15_malformed_pipeline_record_reads_partial_not_silently_zero(_isolate, client):
+    """NEGATIVE CONTROL: one bad line must not make the whole store read as a
+    clean, empty pipeline — and the good line beside it must still surface
+    (so this cannot pass merely by reporting everything as broken)."""
+    root, _ = _isolate
+    _write_pipeline_lines(root, [_pipeline_item("PI-good"), "{not json"])
+    inbox = client.get("/api/bot/work/decisions").json()
+    assert inbox["sources"]["pipeline"]["state"] == "partial"
+    assert inbox["sources"]["pipeline"]["unreadableRecords"] == 1
+    edges = [e for e in inbox["unanswerableOperatorEdges"] if e["source"] == "pipeline"]
+    assert {e["objectId"] for e in edges} == {"PI-good"}, (
+        "the readable line must still surface beside the reported bad one")
+
+
+def test_e15_waiting_on_you_total_sums_all_three_sources(_isolate, client):
+    """The headline number a consumer should read for "is anything waiting on
+    me" — not `actionableCount` alone, which is structurally 0 while
+    objects/ stays archived."""
+    root, _ = _isolate
+    _write_object(root)  # one answerable decision_requests[] row -> actionable
+    _write_checklist(root, [{
+        "id": "X1", "title": "t", "state": "queued",
+        "blocked_on": [{"kind": "operator_decision", "ref": "R1", "what": "w"}],
+    }])
+    _write_pipeline_lines(root, [_pipeline_item("PI-1")])
+    inbox = client.get("/api/bot/work/decisions").json()
+    total = inbox["summary"]["waitingOnYouTotal"]
+    assert total == (
+        inbox["summary"]["actionableCount"]
+        + inbox["summary"]["unanswerableOperatorEdgeCount"]
+    )
+    assert total >= 2, "the checklist edge and pipeline item must both count"
+
+
+def test_e15_a_build_failure_reports_unknown_sources_not_a_clean_zero(_isolate, client, monkeypatch):
+    """The degraded (exception) shape must carry the same `sources` keys — a
+    key that only exists on the healthy envelope makes a consumer branch on
+    absence, and `waitingOnYouTotal` must read `None`, never `0`, since the
+    build failed before anything could be counted."""
+    monkeypatch.setattr(wk, "_get_index", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    inbox = client.get("/api/bot/work/decisions").json()
+    assert set(inbox["sources"]) == {"workObjects", "checklist", "pipeline"}
+    assert inbox["sources"]["checklist"]["state"] == "unknown"
+    assert inbox["sources"]["pipeline"]["state"] == "unknown"
+    assert inbox["summary"]["waitingOnYouTotal"] is None

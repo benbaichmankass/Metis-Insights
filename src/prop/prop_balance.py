@@ -34,9 +34,32 @@ Only ``ok`` yields a number. The other three refuse, each with its own message �
 **this module can never cause a trade to be sized off a guess.** The single
 behaviour change is that a prop account with a fresh operator-reported balance
 can now size, which is the path the manual bridge was built for.
+
+⚠️ **A REFUSAL IS NOW PAGED, NOT ONLY RETURNED** (2026-09-21). Until this
+change the refusal message was handed to ``Coordinator._default_balance_fetcher``,
+which raised it into the ``sizing_failed`` branch — a journal rejection row and
+a ``logger.exception`` line, and nothing operator-facing
+(``_emit_execution_failure_ping`` is on the LATER ``execute_pkg`` branch and is
+never reached from here). That is
+``BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED``,
+whose ``clears_when`` says in terms that *"breakout_1 can stop trading
+indefinitely with the only evidence being a journalctl line"*.
+:func:`note_refusal` closes that: one ping per account per OCCURRENCE (see its
+docstring for why an occurrence is keyed on the STATE and not on the message),
+through the same non-blocking ``pending_pings`` inbox every other diagnostic
+uses, so nothing on the order path waits on Telegram.
+
+⚠️ **AND STATE WHAT IT DOES NOT CATCH, because the honest limit is the point.**
+This ping fires only when an intent actually REACHES this account's sizing. It
+would NOT have detected the 2026-09-13 → 2026-09-21 ``breakout_1`` silence,
+because no refusal occurred: the prop legs' intents were arbitrated away at the
+intent layer and the account was never asked to size at all (measured — see the
+E16 diagnosis). A blocked account and an unreached account are different
+failures and this signal only covers the first.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -146,6 +169,145 @@ def prop_sizing_balance(account_id: str) -> Tuple[str, Optional[float], Dict[str
 
     return "absent", None, {**meta,
                             "reason": "snapshot carries no positive equity/balance"}
+
+
+_REFUSAL_STATE_FILENAME = "prop_balance_refusal.json"
+_DEFAULT_REPING_HOURS = 24.0
+#: States that mean "this account can place no order until something changes".
+REFUSING_STATES = ("stale", "absent", "error")
+
+
+def _reping_hours() -> float:
+    """Hours before a STILL-refusing account is paged again. ``<= 0`` disables
+    the re-ping, leaving one page per transition into the refusing state."""
+    raw = os.environ.get("PROP_BALANCE_REFUSAL_REPING_HOURS")
+    try:
+        return float(raw) if raw not in (None, "") else _DEFAULT_REPING_HOURS
+    except (TypeError, ValueError):
+        return _DEFAULT_REPING_HOURS
+
+
+def _refusal_state_path() -> str:
+    from src.utils.paths import runtime_logs_dir
+
+    return str(runtime_logs_dir() / _REFUSAL_STATE_FILENAME)
+
+
+def _load_refusal_state() -> Dict[str, Any]:
+    try:
+        with open(_refusal_state_path(), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_refusal_state(state: Dict[str, Any]) -> None:
+    try:
+        path = _refusal_state_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(state, fh)
+    except OSError as exc:
+        logger.warning("prop_balance: refusal-state save failed: %s", exc)
+
+
+def should_page(
+    prior: Any, state: str, now: datetime, reping_hours: float,
+) -> bool:
+    """Is this refusal a NEW occurrence worth paging for?
+
+    Pure, so the cadence policy is arguable in a test instead of against a
+    funded account. ``prior`` is the stored entry (or ``None``).
+
+    ⚠️ **AN OCCURRENCE IS KEYED ON THE STATE, NEVER ON THE MESSAGE.** The
+    ``stale`` refusal's reason embeds the snapshot's AGE
+    (``"snapshot 528.6h old"``), which changes on every tick — so a
+    "page when the reason changes" rule reads as de-duplication and is in fact
+    a pager that fires once per tick, for the entire life of the condition.
+    That is precisely the desensitised-alarm P1 this repo files as its own bug
+    class, and it is the one mistake this function exists to make impossible.
+
+    Three ways to be a new occurrence:
+
+    1. nothing stored — first sighting, or the account previously sized ``ok``
+       (``note_refusal`` CLEARS the entry on ``ok``, which is what makes a
+       recovery-then-refusal a fresh occurrence rather than a silent one);
+    2. the refusing STATE changed (``stale`` -> ``error`` is a different fault
+       calling for a different operator action);
+    3. the condition has persisted past ``reping_hours``. **This re-ping is
+       deliberate and is not the flat-book nag** (see
+       ``prop_status_request``'s 2026-09-21 decision record): it fires only
+       while the account is ACTUALLY BLOCKED from placing any order, which is
+       the condition the operator said they want to hear about. ``<= 0``
+       disables it, leaving one page per transition — at the cost of letting an
+       indefinite stall go quiet again, which is the failure being fixed.
+    """
+    if not isinstance(prior, dict):
+        return True
+    if str(prior.get("state") or "") != state:
+        return True
+    if reping_hours <= 0:
+        return False
+    last = prior.get("notified_at")
+    try:
+        dt = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return True  # undateable stamp: we cannot show we paged recently
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return (now - dt).total_seconds() >= reping_hours * 3600.0
+
+
+def note_refusal(state: str, account_id: str, meta: Dict[str, Any]) -> bool:
+    """Page the operator when *account_id* enters (or is still in) a refusal.
+
+    Returns ``True`` when a ping was enqueued. Best-effort and fully isolated:
+    every path swallows its own exception, because this runs inside the
+    balance fetcher on the order path and a diagnostic must never be able to
+    strand a trade.
+    """
+    try:
+        now = datetime.now(timezone.utc)
+        store = _load_refusal_state()
+        if state == "ok":
+            if account_id in store:
+                store.pop(account_id, None)
+                _save_refusal_state(store)
+            return False
+        if state not in REFUSING_STATES:
+            return False
+        prior = store.get(account_id)
+        entry: Dict[str, Any] = {
+            "state": state,
+            "reason": str(meta.get("reason") or ""),
+            "first_seen_at": (prior or {}).get("first_seen_at") or now.isoformat()
+            if isinstance(prior, dict) else now.isoformat(),
+            "last_seen_at": now.isoformat(),
+            "notified_at": (prior or {}).get("notified_at")
+            if isinstance(prior, dict) else None,
+        }
+        paged = False
+        if should_page(prior, state, now, _reping_hours()):
+            from src.runtime.execution_diagnostics import (
+                enqueue_prop_sizing_refusal)
+
+            enqueue_prop_sizing_refusal(
+                account=account_id,
+                reason=refusal_message(state, account_id, meta),
+            )
+            entry["notified_at"] = now.isoformat()
+            paged = True
+            logger.warning(
+                "prop_balance: %s REFUSES sizing (%s) — operator paged",
+                account_id, state)
+        store[account_id] = entry
+        _save_refusal_state(store)
+        return paged
+    except Exception as exc:  # noqa: BLE001 — a diagnostic never strands a trade
+        logger.warning("prop_balance: note_refusal failed for %s: %s",
+                       account_id, exc)
+        return False
 
 
 def refusal_message(state: str, account_id: str, meta: Dict[str, Any]) -> str:
