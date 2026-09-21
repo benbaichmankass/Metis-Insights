@@ -105,6 +105,15 @@ page** on the SPA (`GET /api/bot/work/checklist`), which reads the file from the
 VM's working tree; `ict-git-sync` pulls `main` every ~5 min, so the page is
 exactly as fresh as the last push **to `main`**. **Push, then answer.**
 
+⚠️ **THE FOLLOW-THROUGH PIPELINE IS DESIGNED AND NOT YET BUILT — plan items
+A7/A8, design in the plan § 3b.** Archiving the registers removed the place
+work rotted; it did not build the thing that pulls work through. **Until A7
+lands, follow-through is WORSE than before the reset**, because 1,065
+unresolved backlog rows and 91 monitoring rows (all carrying a `clears_when`)
+are in git history and nothing reads them. If you are about to file something
+that needs picking up later and find nowhere to put it, that is this gap — say
+so, and put it on the checklist rather than inventing a register.
+
 **Retired 2026-09-21** and archived under
 [`docs/archive/2026-09-21-operating-reset/`](docs/archive/2026-09-21-operating-reset/):
 the work store (`docs/claude/work/objects|intents|steps/`), `OPEN-ITEMS.json`,

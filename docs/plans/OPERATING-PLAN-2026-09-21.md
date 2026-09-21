@@ -195,6 +195,122 @@ measures learning, which is the thing that is not happening.
 
 ---
 
+## 3b. The follow-through pipeline — why things get dropped
+
+> Added 2026-09-21 on operator direction: *"there's too many things here that
+> get just dropped halfway through, and that was definitely one of the problems
+> we were trying to solve and that still doesn't seem to have been resolved…
+> not just more CI guards or whatever, not just building up the CLAUDE.md —
+> actually creating infra that has a pipeline that pulls things through to the
+> finish."*
+
+⚠️ **This is an honest gap in what § 1 and § 4 propose.** Archiving the
+registers removes the place where work rotted; it does not build the thing that
+pulls work through. **Until this section is built, follow-through is WORSE than
+before the reset, not better** — the rows are in git history and nothing reads
+them at all.
+
+**What was archived, measured 2026-09-21:**
+
+| register | rows | unresolved |
+|---|---|---|
+| `health-review-backlog.json` | 1,663 | 756 `open` + 195 `kept_open` |
+| `performance-review-backlog.json` | 146 | 42 + 29 |
+| `ml-review-backlog.json` | 111 | 7 + 20 |
+| `research-review-backlog.json` | 22 | 16 + 0 |
+| `OPEN-ITEMS.json` | **91** | all 91 — every one carries a `clears_when`, 76 marked `loud` |
+
+**1,065 unresolved backlog rows and 91 live monitoring rows.** The health
+backlog's own completion rate is **683 resolved against 951 still open** — 42%,
+accumulated over months.
+
+### Five reasons the old system dropped things
+
+Stated so the replacement can be checked against them rather than hoped at.
+
+1. **Filing was free; picking up was voluntary.** A row entered a backlog and
+   nothing was obligated to read it.
+2. **Most rows carried no due condition.** `OPEN-ITEMS.json` was the exception
+   and got this RIGHT — 91 of 91 carry `clears_when`. That part is worth
+   keeping.
+3. **No link back to the generator.** A row from an audit could not re-run that
+   audit to ask whether it still applied.
+4. **No forced terminal state.** A row could sit at `open` indefinitely. Nothing
+   made it either complete or die.
+5. **The surface nobody read.** `DUE.md` was rendered, read by the `duty`
+   skill, which a session had to *choose* to run. **A reminder is not a
+   mechanism.** The operator never saw it.
+
+### The replacement — one intake, a due condition, and an automatic pull
+
+```jsonc
+// docs/claude/work/PIPELINE.jsonl — APPEND-ONLY. A JSONL file, not a JSON
+// array, because a shared array is what produced the register merge conflicts.
+{
+  "id": "PI-20260921-0001",
+  "what": "one line",
+  "origin": {                      // (3): it knows where it came from
+    "kind": "audit|review|session|deploy|research|operator",
+    "ref":  "the audit/PR/session that produced it",
+    "rerun": "the command or workflow that REGENERATES this finding"
+  },
+  "due_when": {                    // (2): it knows when it needs attention
+    "kind": "observation|date|event",
+    "clears_when": "what would have to be TRUE — carried over from OPEN-ITEMS",
+    "check_every_days": 7
+  },
+  "next_action": "dispatch_lane|check_observation|apply_mandate|ask_operator",
+  "state": "queued|due|routed|done|killed",
+  "routed_to": "checklist row id, lane id, or mandate id",
+  "terminal_reason": null          // (4): required to leave the pipeline
+}
+```
+
+**The pull is the part that matters, and it is not a guard.** A scheduled job
+renders every `due` item into the daily brief as **section 0 — what came due**.
+The manager must give each one a disposition the same day: dispatched to a lane,
+applied under a mandate, killed with a reason, or escalated to the operator.
+
+⚠️ **The forcing function is the OPERATOR'S OWN PAGE.** An unrouted due item
+appears in the brief every day until it is routed, and the **count of unrouted
+items is reported as a number in section 5.** That is the single structural
+difference from `DUE.md`: the old due-list was read by machinery that was read
+by nobody, so a backing-up queue was invisible to the one person who could
+reprioritize it. A rising count on a page the operator opens daily cannot rot
+quietly.
+
+**Terminal states are forced, and `killed` is a first-class outcome.** An item
+leaves the pipeline by being done or by being killed *with a stated reason*. It
+may not simply stop being mentioned. Most of the 1,065 archived rows should be
+killed, explicitly — a row nobody worked for months is dead, and recording that
+is worth more than carrying it.
+
+### Where the checklist, the queue and the pipeline meet
+
+Three files, one flow — and the **transitions** are what the brief reports.
+
+```
+  generator (audit / review / deploy / session / operator)
+        │
+        ▼
+  PIPELINE.jsonl          everything that will ever need a follow-up.
+        │                 Carries origin + due condition. May be large.
+        │  comes due  ──▶  section 0 of the brief  ──▶  MUST be routed
+        ▼
+   ┌────┴─────────────────┬──────────────────┬──────────────┐
+   ▼                      ▼                  ▼              ▼
+ MANAGER-CHECKLIST    research/queue/    a mandate fires   killed
+ (a build, in flight) (a question)       (no human)        (with a reason)
+```
+
+**This does not reintroduce the eight registers, and the test of that is
+specific:** in the old model an item could sit in a register forever without
+anyone noticing — 951 rows prove it could. Here, coming due puts an item on the
+operator's page and it stays there until it is routed. **If that property is
+ever removed, this is the eight registers again.**
+
+---
+
 ## 4. The manager, restructured
 
 Keep it. The model was not wrong; the job description was.
@@ -433,6 +549,8 @@ deletion and rewiring; nothing new gets built until C.
 | **A4** | **Manager contract.** One page: what it does, what it may not do, spawn rules, the model table, the budget. Replaces ~6,200 lines of process skills. | this session |
 | **A5** | **Stand down the governance layer.** Disable the governance crons; archive the registers (951 open backlog rows); retire the lease, work store, session registry, merge queue, coordination board, and the `duty` / `backlog-drain` / `full-system-audit` skills. | this session + build lane |
 | **A6** | **Pull the two negative-OOS Alpaca legs.** `tlt_pullback_1h` (−4.41R, n=94) and `tlt_pullback_1d` (−3.92R, n=8, 0 of 4 folds positive) off `alpaca_live`. One-line config change, reversible, does not wait on D1. **Tier-3 — needs explicit operator approval.** | operator |
+| **A7** | **The follow-through pipeline** (§ 3b). `PIPELINE.jsonl` + the renderer that puts due items into the brief as section 0 + the required-disposition rule. **This is the unsolved problem the reset has so far only relocated** — until it lands, follow-through is worse than before, because the registers are archived and nothing reads them. Pairs with A3. | build lane |
+| **A8** | **Rescue the 91 monitoring rows; triage the 1,065 backlog rows.** The 91 all carry a `clears_when` and are the live deployed-but-unproven state — import them. The 1,065 are NOT bulk-imported: each is promoted with a due condition or **killed with a reason**, one bounded pass. A row nobody worked for months is dead, and saying so beats carrying it. | build lane |
 
 ### PHASE B — make the ladder mechanical (week 1–2)
 
@@ -477,6 +595,7 @@ deletion and rewiring; nothing new gets built until C.
 | 3 | What is the daily budget? | **Operator's number.** A2 alone should cut per-lane cost substantially, but the meter needs a line to report against or it is just accounting. |
 | 3b | **Which mandates get granted first, and at what bounds?** | **Start with the three `derisk_only` ones**, because a blanket yes on them is safe by construction: (a) demote a Stage-2 leg when the mirror goes net-negative over the declared window; (b) kill a research question that failed its pre-registered rule; (c) drop a Stage-1 leg whose realized cost diverges from its harness assumption. None can add exposure. **Then decide separately, and more slowly, on the one that can: promotion Stage 1 → Stage 2.** A mandate there is real and worth having — it is the step that currently waits longest — but its bounds are the operator's call, not a default: total risk added per week, per-leg size, and whether a count or a dollar ceiling is the binding term. |
 | 3c | **Does `execution: shadow` → `live` on the SOAK book need a mandate at all?** | **Recommendation: no — authorize it outright.** `bybit_1` and `alpaca_paper` are paper money and the plan already says Stage 1 may be wide. Requiring a decision to put a leg on a paper book is a gate with no money behind it, and it is one of the places throughput is being lost today. |
+| 3d | **What is the kill bar for the 1,065 archived backlog rows (A8)?** | **Recommendation: kill by default, promote by exception.** Anything with no observation in 60 days and no named owner is killed with `terminal_reason: unworked_since_<date>`. The 91 `OPEN-ITEMS` monitoring rows are the exception and come across whole. The alternative — import everything and triage later — rebuilds the graveyard in a new file, which is the failure this is meant to end. |
 | 4 | How aggressive is the Phase-A deletion? | **Aggressive.** Partial removal leaves the treadmill running — the crons keep firing, the briefs keep growing, and the manager keeps having somewhere to put its effort that is not research. |
 
 ---
