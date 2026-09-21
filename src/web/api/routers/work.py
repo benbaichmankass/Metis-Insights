@@ -449,7 +449,15 @@ def _wip_block(in_flight: int) -> dict[str, Any]:
             "⚠️ Enforcement is in CI, NOT in this route — this count is still a "
             "reading and this route still gates nothing; a read path that refused "
             "something would be a second copy of the rule, free to drift from the "
-            "one that binds."
+            "one that binds. "
+            "⚠️ E9 (2026-09-21): `inFlight` counts `lifecycle: in_flight` work "
+            "objects under docs/claude/work/objects/, which the 2026-09-21 "
+            "operating reset archived without a replacement — so this number is "
+            "structurally 0 under the current MANAGER-CHECKLIST.json model, not "
+            "a live measurement of anything happening today. Whether "
+            "`enforced`/`state` above still describe scripts/ci/check_wip_ceiling.py's "
+            "actual CI wiring after the reset is filed, not verified here — see "
+            "docs/claude/work/PIPELINE.jsonl."
         ),
     }
 
@@ -485,8 +493,14 @@ def _coverage_block() -> dict[str, Any]:
             "started, and NOT queued. Carrying everything is not the same as "
             "everything being open. ⚠️ `complete` is still false: there are no "
             "`steps`, and no audit has established that every workstream has an "
-            "object. A bug to fix still goes to the review backlogs; what a "
-            "session must KNOW before it plans is still OPEN-ITEMS.json."
+            "object. ⚠️ CORRECTED 2026-09-21 (E9) — this note used to say a bug "
+            "still goes to the review backlogs and that OPEN-ITEMS.json is what "
+            "a session must know before it plans. Both were archived by the "
+            "2026-09-21 operating reset (docs/archive/2026-09-21-operating-reset/) "
+            "and nothing live reads either any more. A finding that needs picking "
+            "up later goes into docs/claude/work/PIPELINE.jsonl (via "
+            "scripts/ops/pipeline.py); a build goes into a row in "
+            "docs/claude/work/MANAGER-CHECKLIST.json. Nothing else is filing."
         ),
     }
 
@@ -997,10 +1011,15 @@ def _sessions_panel() -> dict[str, Any]:
 
 
 _SESSIONS_NOTE = (
-    "Session state is only as fresh as the last MANAGER OBSERVATION written "
-    "into docs/claude/work/SESSIONS.json. This is NOT a live feed: reading the "
+    "⚠️ CORRECTED 2026-09-21 (E9) — this used to read as a merely STALE "
+    "register; it is not. docs/claude/work/SESSIONS.json was archived by the "
+    "2026-09-21 operating reset (docs/archive/2026-09-21-operating-reset/) and "
+    "nothing repopulates it, so under the current model this panel reads "
+    "`present: false` PERMANENTLY, not intermittently. It is not coming back. "
+    "Session state was only ever as fresh as the last MANAGER OBSERVATION "
+    "written into that file. This is NOT a live feed: reading the "
     "platform's own session list needs `list_sessions`, an mcp__* tool no API "
-    "route holds. Read each lane's observation age beside its state."
+    "route holds."
 )
 
 
