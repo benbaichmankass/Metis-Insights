@@ -45,6 +45,11 @@ WHAT THIS DOES
    months-old sentence; it does not claim to re-execute a live probe.
 
 Run: python3 scripts/ops/import_archived_registers.py [--dry-run]
+
+# wiring: manual-only - a one-time A8 import, run once by hand this session
+# against a store seeded empty; re-running it would re-append every id and
+# violate the append-only log's one-current-record-per-id contract. Nothing
+# should invoke this on a schedule or from a workflow.
 """
 from __future__ import annotations
 
@@ -160,7 +165,7 @@ def _origin_ref_and_rerun(source_file: str, item_id: str) -> tuple[str, str]:
     return ref, rerun
 
 
-def build_backlog_items(dry_run: bool) -> tuple[list[dict], list[dict], dict]:
+def build_backlog_items() -> tuple[list[dict], list[dict], dict]:
     """Returns (promoted, killed, counts-by-source)."""
     promoted: list[dict] = []
     killed: list[dict] = []
@@ -273,7 +278,7 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    promoted, killed, counts = build_backlog_items(args.dry_run)
+    promoted, killed, counts = build_backlog_items()
     open_items = build_open_items()
 
     print("=== backlog rows (1,065 open+kept_open) ===")

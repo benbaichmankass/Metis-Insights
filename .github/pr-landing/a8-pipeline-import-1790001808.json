@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The build-lane dispatch for checklist row A8 says in terms: 'push, open a draft PR against main, drive CI green. DO NOT MERGE -- the manager session merges.' This PR (#12679) is held on that instruction, not on tier or evidence.",
+  "why": "docs/tooling only -- docs/claude/work/PIPELINE.jsonl (data), scripts/ops/import_archived_registers.py (a manual-only one-time import script), and one checklist row status update in docs/claude/work/MANAGER-CHECKLIST.json. No src/, no config/, no order path, no deploy/, no live-VM runtime file."
+}
