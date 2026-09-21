@@ -1,5 +1,11 @@
 name: sunset-pass
 
+# ⚠️ SCHEDULE RETIRED 2026-09-21 — operating reset.
+# This workflow served the eight-register operating model, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its cron is commented out below rather
+# than deleted, so re-arming it is one uncomment. `workflow_dispatch` still works.
+# Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md
+
 # E3 — the SUNSET PASS, on a cadence. Phase G of the operating-layer build.
 #
 # WHY A CRON AND NOT A SESSION. E3's trigger is *Cadenced* in the operating
@@ -26,14 +32,14 @@ name: sunset-pass
 # That is the whole reason the fetch and the run are separate steps.
 
 on:
-  schedule:
-    # 05:10 UTC Mondays — WEEKLY, not daily, and the cadence is the argument.
-    # A retirement candidate is a claim about accumulated silence; re-asking
-    # daily would not make the answer arrive sooner and would put 52 rows of
-    # churn a day into a committed record. It runs after
-    # `strategy-review-packets` (04:40 daily) so the newest M7 index is already
-    # committed and the pass reads a same-day denominator.
-    - cron: "10 5 * * 1"
+  # schedule:
+    # # 05:10 UTC Mondays — WEEKLY, not daily, and the cadence is the argument.
+    # # A retirement candidate is a claim about accumulated silence; re-asking
+    # # daily would not make the answer arrive sooner and would put 52 rows of
+    # # churn a day into a committed record. It runs after
+    # # `strategy-review-packets` (04:40 daily) so the newest M7 index is already
+    # # committed and the pass reads a same-day denominator.
+    # - cron: "10 5 * * 1"
   workflow_dispatch:
     inputs:
       reason:

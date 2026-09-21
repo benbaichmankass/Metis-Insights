@@ -872,17 +872,27 @@ list is mirrored verbatim in the root `CLAUDE.md` § "Instruction hierarchy" —
 **the two must always agree** (the `canonical-doc-coherence` CI check enforces
 it).
 
-1. `docs/CLAUDE-RULES-CANONICAL.md` (this doc)
-2. `docs/ARCHITECTURE-CANONICAL.md`
-3. `ROADMAP.md`
-4. The current sprint log (`docs/sprint-logs/`)
-5. Skills under `.claude/skills/` (binding, composable workflows)
-6. The root `CLAUDE.md` (repo orientation. The dashboard REST-API + diag-API
-   reference split out to [`reference/bot-api-reference.md`](reference/bot-api-reference.md)
-   on 2026-09-02 — that file is a level-7 subsystem spec, not level 6)
-7. Focused implementation specs (sprint prompts, subsystem specs) and
-   workflow-helper docs (e.g. `docs/github-actions-workflows.md`)
-8. `docs/claude/*` and older sprint plans, PR summaries, and historical notes
+1. `docs/CLAUDE-RULES-CANONICAL.md` — how you operate: access, honesty,
+   permission tiers, session discipline.
+2. `docs/ARCHITECTURE-CANONICAL.md` — system architecture, trade/comms
+   pipeline, contracts.
+3. `docs/plans/OPERATING-PLAN-2026-09-21.md` — the promotion ladder, the
+   research loop, and how work is chosen. Adopted 2026-09-21.
+4. `docs/claude/work/MANAGER-CHECKLIST.json` — what is actually being worked
+   right now, and by whom.
+5. Skills under `.claude/skills/` (binding, composable workflows) — the manager
+   contract is `.claude/skills/manager/SKILL.md`.
+6. The root `CLAUDE.md` — repo orientation and pointers.
+7. Focused implementation specs and workflow-helper docs (e.g.
+   `docs/github-actions-workflows.md`, `docs/reference/*`).
+8. `ROADMAP.md`, `docs/sprint-logs/`, `docs/claude/*` and historical notes —
+   context only.
+
+⚠️ **Revised 2026-09-21 by the operating reset.** `ROADMAP.md` and the sprint
+logs dropped from levels 3–4 to level 8: milestones measure construction, and
+what this system needs to measure is learning. `ROADMAP.md` carries its own
+header saying nobody has verified its status — it is context, not instruction.
+Levels 3 and 4 are now the plan and the checklist.
 
 Historical notes remain available for context only. **Newer canonical
 documents override older materials.**

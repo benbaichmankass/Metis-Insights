@@ -50,35 +50,33 @@ historical rather than silently deleting unique content.
 
 ## Skills ([`.claude/skills/`](../../.claude/skills/))
 
-Composable workflows — prefer a skill over improvising; chain them. **31 skills**,
-grouped by the kind of session they serve. ⚠️ This list was **12 of 31** from
-its creation until 2026-08-31 — 19 skills, including `system-review`,
-`full-system-audit`, `session-coordination`, `backlog-drain` and `research-driver`,
-were absent from the index that routes sessions to them. A session searching here
-for "is there a skill for X" got a **negative with no denominator** and would
-reasonably conclude none existed. The authoritative list is the directory itself —
-`ls .claude/skills/` — and this index is a convenience view of it.
+Composable workflows — prefer a skill over improvising; chain them. **24 skills**,
+grouped by the kind of session they serve. The authoritative list is the directory
+itself — `ls .claude/skills/` — and this index is a convenience view of it,
+CI-checked by `skills-index`.
+
+⚠️ **Ten process skills were RETIRED on 2026-09-21** by the operating reset and
+are archived under `docs/archive/2026-09-21-operating-reset/skills/`: `duty`,
+`delegate-work`, `research-driver`, `session-coordination`, `session-handoff`,
+`session-receipt`, `backlog-drain`, `full-system-audit`, `system-review` and
+`workplan-vs-architecture`. They served the eight-register operating model, which
+is archived with them. **They are not "missing from the index" — they are gone.**
+Their job is now one page: `.claude/skills/manager/SKILL.md`.
+
+**The manager**
+
+- `manager` — THE MANAGER CONTRACT. Read it at the start of any session that spawns or supervises another. One job (keep research questions moving through the ladder and hand the operator at most three decisions a day), one register (`docs/claude/work/MANAGER-CHECKLIST.json`), the spawn rules, the model-by-task-class table, the per-lane budget, and the four-section daily brief.
 
 **Review cadence**
 
-- `duty` — The DUTY PASS — the short, bounded session that gives every detected signal an OWNER: reads the one generated due-list (`docs/claude/DUE.md`) and drives each row to a written disposition (acted / filed / escalated / not-due). Start here; it is not a review and never replaces one.
-  - ⚠️ **`docs/claude/READOUT.md` sits BESIDE `DUE.md`, and neither supersedes the other.** The due-list says what is DUE; the readout (E1/A1, `scripts/ops/constraint_readout.py --write`) says where the chain is HELD UP, with the book and the money, the in-flight set against the ceiling, and the decisions waiting on a person. Phase D's plan called for deleting the due-list; it was NOT deleted, because four of its source classes — probes, monitoring cadences, the recurrence ledger, red crons and unlanded automation PRs — have no counterpart in the readout. ⚠️ The readout is a **dated snapshot**, not a live read: check its `generated_at` before quoting it, and re-run rather than trusting its age.
-- `system-review` — Master SYSTEM REVIEW session — the WORK is the review; the report is just its deliverable.
 - `system-report` — Back-compat alias for /system-review — the master SYSTEM REVIEW session (the work is the review; the report is its deliverable).
 - `health-review` — Autonomous layer-2 review of the LIVE ICT TRADING BOT's TECHNICAL runtime health — pipeline plumbing, DB integrity, data validity, service state, alert delivery, sprint-doc drift.
 - `performance-review` — Autonomous review of the ICT trading bot's TRADING PERFORMANCE and its RESEARCH PIPELINE — per-strategy aggregate stats, per-order-package decision grading, comparison against actual closed-trade PnL, and proposed tweaks to consider.
 - `ml-review` — Autonomous review of the ICT bot's ML LIFECYCLE — trainer service health, training cycles since the last review, dataset builds, per-model status (latest training metrics + shadow/live track record), promotion/demotion recommendations against the 3-stage ladder (candidate→shadow→advisory), per-model fit within the unified-confidence framework, and AI-experiment proposals to continue expanding ML coverage.
-- `full-system-audit` — The EXHAUSTIVE whole-system audit PROGRAM across all three repos (bot, dashboard, android), both VMs, the git history, and the canonical store — not a quick consistency check, and not a per-file review.
-- `backlog-drain` — A DEDICATED session whose only job is CLOSING backlog rows — not reviewing, not filing.
 - `doc-freshness` — Session-end (and on-demand) check that the canonical instruction docs do not contradict each other, the code/config on disk, or the changes this session made — AND that this session's material decisions actually landed in every durable surface they belong in (roadmap + sprint log + the right review backlog), so nothing flows through the cracks.
-- `workplan-vs-architecture` — Reconcile what the project INTENDED to build (the operator's workplan/goals + ROADMAP milestones) against what is ACTUALLY built (ARCHITECTURE-CANONICAL.md + the code/config on disk).
 
 **Session process**
 
-- `session-coordination` — Binding cross-session workflow governance — the session preflight (read the rules + know your tool/capability limits), the MANDATORY live coordination board (GitHub issue #6927 — post updates + questions, NOT gated on merging), the multi-session MERGE PROTOCOL that serializes PRs so concurrent sessions don't race a merge and force each other into behind-rebase retest churn, and CROSS-SESSION RESOURCE OPTIMIZATION — route CPU-heavy work to free GitHub runners (not the scarce 1-core trainer VM), serialize the VM with a board FIFO lane, and flag any dead run loudly (docs/claude/vm-resource-management.md).
-- `session-handoff` — Recognize when a session has run long enough that continuing to a NEW unrelated work item in the SAME context window is wasting compute (repeated context-compaction, cross-subsystem thrash), then close the current unit of work cleanly with no loose ends and hand off with a concrete, self-contained prompt for a fresh session to continue.
-- `session-receipt` — The ONE canonical shape for a "session receipt" — the wrap-up summary a session hands the OPERATOR. Five sections (A DECISIONS · B SESSIONS SPAWNED · C THE SESSION'S OWN WORK · D TOTALS · E ERRORS) and two binding rules: every number carries its population (enforced — `counted()` raises on an empty one), and "landed" is MEASURED from commit trailers and squash suffixes, never recalled. Generator: `scripts/ops/session_receipt.py`. Served to the Workflow page by `GET /api/bot/work/receipts`.
-- `delegate-work` — How to DELEGATE and PARALLELIZE a big-scope or long-running task across sub-agents and sub-sessions so it runs correctly and efficiently instead of as one slow serial slog.
 - `llm-delegate` — Offload a BOUNDED coding/research subtask to a cheap external LLM running as an ephemeral GitHub Actions job, then verify its output before acting.
 - `before-asking-the-operator` — TRIGGER any time you are about to write phrases like "you'll need to", "run this locally", "manually...", "SSH in and", "sudo", "open a terminal", "on the VM, edit", "the operator needs to", "go to the dashboard and create", or any other instruction that attributes work to the operator.
 - `credentials-and-vm-mutations` — Invoke BEFORE writing any operator-facing instruction that involves credentials, the live VM's runtime state, or systemd.
@@ -101,7 +99,6 @@ reasonably conclude none existed. The authoritative list is the directory itself
 
 **Research, testing & ML**
 
-- `research-driver` — The governance layer for open-ended research/build sessions that don't already map onto a fixed review cadence or a narrower domain skill — how Claude picks what to work on, dispatches to the right existing pipeline before freelancing, keeps moving on other work when a specific item is blocked on a pending Tier-3 decision, pings the operator on a binding hourly cadence, recognizes when a recurring ad hoc pattern should be promoted into its own domain skill, and lands the outcome in the right place in ROADMAP.md's structure.
 - `backtesting` — Run and interpret strategy backtests for the ICT bot — the standalone research harnesses (scripts/backtest_squeeze.py, backtest_fade.py, backtest_trend.py, backtest_ict_scalp.py, src/backtest/run_backtest_vwap.py), and the trainer-VM sweep mirror surfaced at /api/bot/backtests/sweeps (the M5 `/test` consumer was REMOVED 2026-08-20).
 - `exit-refinement` — The binding, repeatable pipeline for building, validating, and shipping EXIT improvements (trailing-stop geometry, stale-stops, giveback-stops, partial-TP ladders, ML exit heads) for any strategy×symbol leg — data → harness lever sweep → E0/E1/E1.5 exit-head → live parity check → Tier-3 flip → first-decision health check — plus the committed coverage matrix that is M20's done-condition.
 - `macro-research` — The repeatable pipeline for MACRO / value / event-study research — the ROADMAP_MACRO family (energy event calendars, surprise-vs-consensus, the M28 value sleeve, M29 system-dynamics, COT/crowding, crypto-funding).

@@ -1,5 +1,11 @@
 name: stale-automation-sweep
 
+# ⚠️ SCHEDULE RETIRED 2026-09-21 — operating reset.
+# This workflow served the eight-register operating model, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its cron is commented out below rather
+# than deleted, so re-arming it is one uncomment. `workflow_dispatch` still works.
+# Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md
+
 # THE OWNER AN AUTOMATION PR DOES NOT HAVE AFTER ITS PRODUCING RUN EXITS.
 #
 # WHY THIS EXISTS.
@@ -60,13 +66,13 @@ name: stale-automation-sweep
 # no risk caps, no src/, no deploy/, no VM.
 
 on:
-  schedule:
-    # Every 2 hours, offset off the hour so it does not pile into the :00 rush.
-    # CHOSEN against the 6h window of `check_digest_liveness` -- the tightest of
-    # the four repo-wide receipt guards -- so a strand gets ~3 sweeps before
-    # that clock expires. NOT tuned against queue volume: the queue filling
-    # faster does not make a strand more urgent, the guard window does.
-    - cron: '17 */2 * * *'
+  # schedule:
+    # # Every 2 hours, offset off the hour so it does not pile into the :00 rush.
+    # # CHOSEN against the 6h window of `check_digest_liveness` -- the tightest of
+    # # the four repo-wide receipt guards -- so a strand gets ~3 sweeps before
+    # # that clock expires. NOT tuned against queue volume: the queue filling
+    # # faster does not make a strand more urgent, the guard window does.
+    # - cron: '17 */2 * * *'
   workflow_dispatch:
     inputs:
       apply:

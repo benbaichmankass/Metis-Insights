@@ -338,6 +338,8 @@ def check_seven_stage_ladder() -> list[str]:
 _HIER_KEYS = [
     ("rules", re.compile(r"CLAUDE-RULES-CANONICAL", re.I)),
     ("architecture", re.compile(r"ARCHITECTURE-CANONICAL", re.I)),
+    ("plan", re.compile(r"OPERATING-PLAN", re.I)),
+    ("checklist", re.compile(r"MANAGER-CHECKLIST", re.I)),
     ("roadmap", re.compile(r"ROADMAP", re.I)),
     ("sprintlog", re.compile(r"sprint log|sprint-logs", re.I)),
     ("skills", re.compile(r"\.claude/skills|^.*\bSkills\b", re.I)),
