@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "This is a tiny Tier-1 bookkeeping fix (MANAGER-CHECKLIST.json's A8 row state) that would ordinarily self-land, but the runtime's own safety classifier declined to let this session arm auto-merge (reason: 'Merge Without Review'), so it is held for a human or the manager session to merge instead of working around that block.",
+  "why": "docs/claude/work/MANAGER-CHECKLIST.json only -- transitions the A8 checklist row's state field from a stale 'in_flight' (its PR, #12679, merged as 497bae2 while this session was still open) to 'landed_unproven', and appends the merge confirmation plus the specific observation that would close it per docs/CLAUDE-RULES-CANONICAL.md's close-out discipline. No src/, no config/, no order path, no deploy/, no live-VM runtime file."
+}
