@@ -1,6 +1,6 @@
 # Archived-register readers — independent probe (E11, second pass)
 
-> **Doc status:** `evidence` · category `audit` · measured `2026-09-21` · lane **E11** (report-only; no code changed)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · lane **E11**, measured 2026-09-21 at `53436a1` (report-only; no code changed). `unknown` is the generator's own value for an unreviewed audit: nobody but its author has read it yet.
 > **Population of record:** every git-tracked file outside `docs/archive/` at `53436a1`, case-folded, fixed-string search for every basename under `docs/archive/2026-09-21-operating-reset/` plus the ten retired skill names plus the six retired work-store subdirectories.
 
 ## Headline

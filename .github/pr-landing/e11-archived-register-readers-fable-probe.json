@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Held because the E11 lane brief says, verbatim, 'open a draft PR against main. DO NOT MERGE. The manager reads it and decides.' The PR is a MEASUREMENT whose value is that it was produced independently of the fixing lane's list; the manager diffs the two. The diff is Tier-1 on its own terms (one audit document under docs/audits/, its DOCUMENT-INDEX.md row, and this declaration) and touches no src/, config/, deploy/, workflow, order path, strategy parameter or register. Nothing here is waiting on an approval; it is waiting on the manager's read.",
+  "why": "E11: which files still READ a register archived by the 2026-09-21 operating reset. Second, independent grep-and-classify pass with a derived needle set (282 archived basenames + 10 retired skill names + 6 work-store subdirectories), case-folded, positive-controlled against the three known positives (all found, including src/web/api/routers/work.py which the previous sweep missed) and negative-controlled against the archive itself (152 of 294 files hit). Report only: docs/audits/archived-register-readers-fable-probe.md. The DOCUMENT-INDEX.md row and this file exist only because document-index-guard and pr-landing-guard require them; they are the repo's landing paperwork, not a widening of the lane's one-file scope, and are stated as such on the PR."
+}
