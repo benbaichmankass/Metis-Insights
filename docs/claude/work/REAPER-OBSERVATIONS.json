@@ -1,0 +1,923 @@
+{
+  "_doc": [
+    "THE REAPER'S LEDGER — what each session left behind, recorded by",
+    "the reaper (an external cron) rather than by the session itself.",
+    "",
+    "A dead session cannot run its own close-out. This file is what a",
+    "manager arriving COLD reads to learn what a session that is no",
+    "longer running actually produced.",
+    "",
+    "⚠️ `no_landing_evidence` IS NOT `lost`. See the state table in",
+    "scripts/ops/session_reaper.py. ⚠️ `coverage` names what the reaper",
+    "CANNOT see — read it beside `by_state`, never `by_state` alone."
+  ],
+  "schema_version": 1,
+  "runs": [
+    {
+      "generated_at": "2026-09-21T12:18:46Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    }
+  ],
+  "updated_at": "2026-09-21T12:18:46Z",
+  "latest": {
+    "generated_at": "2026-09-21T12:18:46Z",
+    "rows_graded": 0,
+    "by_state": {
+      "active": 0,
+      "stalled_with_work": 0,
+      "landed": 0,
+      "no_landing_evidence": 0,
+      "unreadable": 0
+    },
+    "by_branch_source": {
+      "registry_declared": 0,
+      "recovered_from_commit_trailer": 0,
+      "none_found": 0
+    },
+    "coverage": {
+      "unregistered_claude_branches": 1000,
+      "unregistered_sample": [
+        "claude/adoring-pasteur-P60hd",
+        "claude/ai-trading-profitability-gaps-ldQCu",
+        "claude/analyst-read-cache-check-yv0nyh",
+        "claude/android-overview-page-Ghkyw",
+        "claude/audit-B-salvage-stale-backlog",
+        "claude/audit-B-vestigial-route-order",
+        "claude/audit-B-zombie-bot",
+        "claude/automation-landing-orphans",
+        "claude/backlog-drain-20260909",
+        "claude/backlog-merge-slot-release-and-automerge-order",
+        "claude/backtest-labeled-setup-candidates-3Xmqg",
+        "claude/board-addendum-ci-settled-20260902",
+        "claude/board-automerge-correction",
+        "claude/board-claim-10083",
+        "claude/board-claim-10086"
+      ],
+      "unregistered_but_attributable_sessions": 226,
+      "unregistered_owner_map": {
+        "session_011Gqsv3NxLmm5yp9gfNh6ar": [
+          "claude/board-done-drain-perf-pass2"
+        ],
+        "session_011J1VB7UsXW1LZb5bCFixRD": [
+          "claude/workflow-overhaul-scope-z4sjm3"
+        ],
+        "session_011JWFxuYAaEQKCFCmG6gnHJ": [
+          "claude/automation-landing-orphans",
+          "claude/board-automerge-correction",
+          "claude/bybit-coverage-graded-book"
+        ],
+        "session_011PHmZzVy92M6zjNopAMy51": [
+          "claude/mi199-cancel-accepted-ineffective",
+          "claude/mi199-record-correction",
+          "claude/mi199-reset-decision"
+        ],
+        "session_012LzuYyFm1U5BPaN9UHRWeX": [
+          "claude/health-performance-review-z99fxi"
+        ],
+        "session_012Nk5tVpHfSHvYfRyN7BC5S": [
+          "claude/pr-req-exit-head-9k2p1x"
+        ],
+        "session_012TCEVvu215RLhuY5EkAy8k": [
+          "claude/m12-s1-followups"
+        ],
+        "session_012cVryifpv359yAWWVkrmnk": [
+          "claude/mi193-backtest-exit-fidelity",
+          "claude/mi193-operating-model-measurement"
+        ],
+        "session_012kfL8m9T7xW3XkAv71To27": [
+          "claude/mi-209c-partial-close-producer-20260909"
+        ],
+        "session_012p1DoQBRJYyggX8ELT1WEP": [
+          "claude/manager-handoff-2026-09-04-f2ru37"
+        ],
+        "session_012yX7SLyJiqAWG8oVxZSNoq": [
+          "claude/mgr-lanes-0819-20260908"
+        ],
+        "session_012zFXi272Uywe4vzXsr7Jfi": [
+          "claude/drain-research-board-done"
+        ],
+        "session_0136WbFixUR51Q9FngHUp9GR": [
+          "claude/mgr-file-doclib-gap-20260907",
+          "claude/mi-162-close-backlog-row",
+          "claude/mi-162-document-index-population"
+        ],
+        "session_013ANr63vsQ9TjU4sh51vxny": [
+          "claude/manager-spawn-mi68"
+        ],
+        "session_013Gc62P9tYC3zTMQuCUbqYv": [
+          "claude/fix-attach-ib-target-db-import",
+          "claude/ib-duplicate-oca-groups",
+          "claude/reopen-observation-0817"
+        ],
+        "session_013hVMTyqnqeiEvrK711p5ud": [
+          "claude/m7-vm-activation",
+          "claude/youthful-tesla-tise45"
+        ],
+        "session_013iSqp4LsU1eq8K326eUtgj": [
+          "claude/dedupe-backlog-register-id",
+          "claude/mi279-alpaca-protection-incidence",
+          "claude/mi279-append-row-refuses-an-unworkable-row"
+        ],
+        "session_013pf3udgf7Z7mETsCDhZ5tr": [
+          "claude/fix-backfill-account-loader",
+          "claude/followup-trade-1454-orphan-skip"
+        ],
+        "session_0148fMEXBbDgQU3qsrcWujtx": [
+          "claude/board-post-reachable-tp-20260907"
+        ],
+        "session_014KmudAoAJoVsatWrpnD9ah": [
+          "claude/mi257-checklist-vocabulary-resolve"
+        ],
+        "session_014RAYKspW1gtBsjuHA1XzKJ": [
+          "claude/pr-conflict-board"
+        ],
+        "session_014ZKXKoPUbHgANGdDmRRjHz": [
+          "claude/mi301-attribute-the-0830-break"
+        ],
+        "session_014jrW67rFyJNnHr7y6dEhec": [
+          "claude/per-merge-ping-reobservation-20260906"
+        ],
+        "session_014myC5S5VacHNuzzBR8dGBC": [
+          "claude/exit-integrity-cluster"
+        ],
+        "session_014tHgKvnnLdpgAgGXbaHRUt": [
+          "claude/mi236b-stale-active-cannot-support-the-claim",
+          "claude/mi236c-scope-overlap-reads-a-disclaimer-as-a-claim",
+          "claude/mi275-stop-width-counterfactual"
+        ],
+        "session_014wizWRD5P388ZL3APK3EGG": [
+          "claude/mi191-r13-slot-release-corollary"
+        ],
+        "session_014zhDAQTVrAuppjm5WDAWwF": [
+          "claude/mi275-close-out",
+          "claude/mi275-observation-repair"
+        ],
+        "session_0151sPopndkktHdnuqDthXTM": [
+          "claude/health-review-fyeZE"
+        ],
+        "session_015K3oTDNwh2X6C33P6jh6CR": [
+          "claude/mi286-open-item-fanout-unexercised"
+        ],
+        "session_015iukpShDdwvP5CM79Qtt3B": [
+          "claude/mgr-land-blocked-prs-0512-20260908"
+        ],
+        "session_015iy2R6BP11eiVHbNeUnT6a": [
+          "claude/manager-tick-0526z-20260911",
+          "claude/mi235-merge-driver-evidence",
+          "claude/mi275-close-out"
+        ],
+        "session_015oCrkh4XHdMDqUqW3Zhsgw": [
+          "claude/conflict-resolve-10705-10679-report"
+        ],
+        "session_015pyrrpXvN2voNi2WYF8TRA": [
+          "claude/profit-gaps-wrap-up-1yjqx"
+        ],
+        "session_0163wAEERsgMztSeTcKMNVLm": [
+          "claude/backtest-labeled-setup-candidates-3Xmqg",
+          "claude/setup-candidates-signal-log"
+        ],
+        "session_016KUFTHGYyFDerbnXDSA6Wb": [
+          "claude/mgr-operator-decisions-1420-20260908",
+          "claude/mi204-bybit1-eth-orphan",
+          "claude/mi204-claude-md-failsafe-correction"
+        ],
+        "session_016Li3hqzjKh3bAX7HYuGu23": [
+          "claude/mi158-relay-20260907"
+        ],
+        "session_016UhdzaVjP5BLaokn2LajcA": [
+          "claude/count-uncarried-specs-20260906",
+          "claude/file-control-contamination-20260906"
+        ],
+        "session_016dJtEibrgnsX32qD2gvDQY": [
+          "claude/mi271-bleed-attribution"
+        ],
+        "session_016e2k4UmsMGgpbrJ5ctqeFv": [
+          "claude/manager-handoff-2026-09-04-f2ru37",
+          "claude/manager-record-2026-09-05b",
+          "claude/manager-record-2026-09-05c"
+        ],
+        "session_016szw9vJrzPUCH1FVMuXycM": [
+          "claude/mi159-board-post-only",
+          "claude/mi159-liveplan-lane-a-correction",
+          "claude/mi159-one-live-workplan"
+        ],
+        "session_0178Pn128KK71u6nCzLeVH6w": [
+          "claude/mgr-audit-dispositions-20260909",
+          "claude/mgr-lease-hb-20260909T2226",
+          "claude/mgr-lease-hb-20260909T2326"
+        ],
+        "session_017CSW7fZsqsbgGSDN6Atijj": [
+          "claude/board-daily-brief"
+        ],
+        "session_017PQcFJne7qyuVHzH5RZtFC": [
+          "claude/mi298-winner-label-recovery"
+        ],
+        "session_017RdHjT8D9JoRfskvFY8Srb": [
+          "claude/mi287-register-spawn"
+        ],
+        "session_017UnyG4ArXmXKpB8rmEGv1j": [
+          "claude/mi139-observe-deployed-20260910",
+          "claude/mi139b-closeout-20260906",
+          "claude/reconciler-deadlock-recurrence-20260906"
+        ],
+        "session_017e9t9gcUYwW7EyqgJaTQ4E": [
+          "claude/cloud-docs-phase7a-close-stale"
+        ],
+        "session_017odwPFdR66U1yWyjBqzCwR": [
+          "claude/mgr-mi155-dispatch-20260907",
+          "claude/mi155-exit-fidelity-20260907"
+        ],
+        "session_017vNWUL48WWrtxssFv2EDMf": [
+          "claude/mgr-hb-20260910T0531",
+          "claude/mgr-route-f39-f50-20260910T0100",
+          "claude/mi231-f39-openitems-observation"
+        ],
+        "session_017windcijwZp3qttYNWCwYP": [
+          "claude/mgr-canon-20260909T1635",
+          "claude/mgr-canon-20260909T1700",
+          "claude/mgr-consolidated-20260909T1912"
+        ],
+        "session_0187bfajpPSP7WmYzGjQv9BK": [
+          "claude/health-check-CjAWV"
+        ],
+        "session_018DHwHyw85iasvNKgQVR2V8": [
+          "claude/fix-pending-pings-canonical-path",
+          "claude/kilogram-bots-overhaul-ZtXDS",
+          "claude/quiet-no-signal-pipeline-ping"
+        ],
+        "session_018DVD1cUgPSJAqQVsUEQj3i": [
+          "claude/conflict-hold-policy-tier3",
+          "claude/docs-freshness-2026-05-31",
+          "claude/epic-bohr-RBAIg"
+        ],
+        "session_018b6dC9uUk1z5KDDaN41uJ2": [
+          "claude/system-review-backlog-xsg81e"
+        ],
+        "session_018iDJZVj11ugKyUwsHF7X3q": [
+          "claude/mgr-hb-0227-20260908",
+          "claude/mi176-alpaca-coverage-quantity-20260908"
+        ],
+        "session_018ruZdgEkPZ1XceWzLwuYUU": [
+          "claude/mgr-hb-0135-20260908",
+          "claude/mi83-clear-merge-ping-row"
+        ],
+        "session_018zzzSLT8UdJ1e1RbFeyvsz": [
+          "claude/decision-answers-guard",
+          "claude/manager-handoff-2026-09-04-f2ru37",
+          "claude/mi107-downgrade-and-tune"
+        ],
+        "session_0193VFQDazaYDmMT6tpLX4eE": [
+          "claude/expansion-backtesting-research-y74054"
+        ],
+        "session_019B3Gjf2nQaVa9J9Xsx4TBC": [
+          "claude/mi308-decisions-inbox-read-half"
+        ],
+        "session_019G7vh8rkRZryXJGhbhfov7": [
+          "claude/mgr-mi171-carry-20260907",
+          "claude/mgr-queue-drain-20260907",
+          "claude/mi171-alpaca-overclose-population"
+        ],
+        "session_019qeQsttJE4akWLhUeNbcDF": [
+          "claude/trainer-relay-demo-scratch"
+        ],
+        "session_019rZTh1JFCXRNR4kYpueGPu": [
+          "claude/mi188b-exit-trailing-banking-measurement"
+        ],
+        "session_019udKqceYPBqp4kzBYNZ6Sp": [
+          "claude/subsession-registry-coupling-handoff-check"
+        ],
+        "session_019vcX5ZTD8C7wNAEtfPUdFQ": [
+          "claude/manager-spawn-mi68"
+        ],
+        "session_01A38DipTvNyB843X4gnmA23": [
+          "claude/mi93-board-start",
+          "claude/mi93-pr-author-live-refusal"
+        ],
+        "session_01ALy1pgBCEuvPm9x4pwWmoG": [
+          "claude/mi117-probes-partial-take"
+        ],
+        "session_01AS4fvrJMdvjDpmnrkfvjyf": [
+          "claude/reconciler-readopt-guard",
+          "claude/regime-weighting-design",
+          "claude/session-review-artifacts"
+        ],
+        "session_01AWw28Sfk7hNZASfMrssFLq": [
+          "claude/mgr-lanes-0819-20260908"
+        ],
+        "session_01AYPxs3aDHwv3XBLRF4oK15": [
+          "claude/night-manager-lease-claim-and-correction",
+          "claude/night-shift-telegram-ping",
+          "claude/pr-request-night-manager-stood-down"
+        ],
+        "session_01AYYb7VazAkpFm9Ao4eQiRP": [
+          "claude/cleanup-2026-06-08",
+          "claude/diag-relay-labeled-fallback",
+          "claude/vwap-bybit1-2026-06-08"
+        ],
+        "session_01Ad7WZwbS1sQAFNH1FN7Beq": [
+          "claude/m26-m27-regime-scalp-qpe9c3"
+        ],
+        "session_01Adzvjpv8SZQouoBjwMJ4qv": [
+          "claude/mgr-dispatch-lane2-refill-20260909"
+        ],
+        "session_01AkZzA4Gq9J2pfx5sRB1ZUB": [
+          "claude/mgr-consolidated-20260909T1912",
+          "claude/mgr-mi225-landing-spawn-20260909T1840",
+          "claude/mi225-full-system-audit"
+        ],
+        "session_01Au13tQ9BaLKsEU7youUomr": [
+          "claude/drain-ml-board-posts"
+        ],
+        "session_01B7kFi5rErkv5rAd42nEPJB": [
+          "claude/mi233-standing-sunset-policy",
+          "claude/mi234-sunset-brief-reads-dispositions"
+        ],
+        "session_01BNXj6ogjXeixSkQ4ug6gxp": [
+          "claude/ml-backlog-drain-board-done"
+        ],
+        "session_01BbUwYSusoggWYmSwpgcLnc": [
+          "claude/mi127-pnl-null-and-stuck-leg"
+        ],
+        "session_01BcdKgkkaVsFww9H7ZXDrqA": [
+          "claude/health-strategy-ml-review-iyn6sw"
+        ],
+        "session_01Bh89HtTcDzZqhfSCzZ2Lmp": [
+          "claude/mi106-manager-scope-authorship",
+          "claude/mi106-pr-request"
+        ],
+        "session_01BjTp5RYwedmpFfkEtkQo1j": [
+          "claude/mi280-21-guards-unproven",
+          "claude/mi280-armed-branch-push-watch",
+          "claude/mi280-audits-share-one-lever-map"
+        ],
+        "session_01BpU7rfqWKir4rQrowT4ZQd": [
+          "claude/mgr-land-11347-r13-20260908",
+          "claude/mgr-land-11347-r13b-20260908"
+        ],
+        "session_01BszfYWtJAeemBNhAywRuv5": [
+          "claude/session-doc-freshness"
+        ],
+        "session_01CTPC91xaHrK6ES33UKjkTY": [
+          "claude/manager-tick-2126z-20260910",
+          "claude/metis-insights-manager-handoff-poqq52",
+          "claude/mgr-handoff-correction-20260911T1700"
+        ],
+        "session_01CU2izDKoWpfyACrMdR43Mu": [
+          "claude/evidence-floor-horizon-board"
+        ],
+        "session_01CmitsBjXiAJxcuxi3DRoXB": [
+          "claude/manager-record-2026-09-05g"
+        ],
+        "session_01CvFCybCkvrfzaHqNH3tQsb": [
+          "claude/mgr-heartbeat-1827-20260908",
+          "claude/mi200-real-money-close-attribution"
+        ],
+        "session_01CwHNLSX6gMjPoKUWHoYj7q": [
+          "claude/mgr-hb-20260909T1826",
+          "claude/mi-221-bybit2-eth-phantom-close",
+          "claude/mi-221-correct-s12"
+        ],
+        "session_01DMQJewWwFDbMsUEFq98j7J": [
+          "claude/mgr-route-audit-20260909T2020"
+        ],
+        "session_01DUBXxiaZ3PMERcAfcJce7P": [
+          "claude/document-index-write-second-instance",
+          "claude/mi-209c-partial-close-producer-20260909"
+        ],
+        "session_01DabHd36V6iqcd9diSrCFfP": [
+          "claude/mi302-backlog-drain"
+        ],
+        "session_01EHkF94b1cSZ9gTfGFkysZH": [
+          "claude/audit-B-salvage-stale-backlog",
+          "claude/audit-B-vestigial-route-order",
+          "claude/audit-B-zombie-bot"
+        ],
+        "session_01EPvAGZDFZCYF3QJk12u3mk": [
+          "claude/mgr-hb-0322-20260908",
+          "claude/mi177-journal-venue-fleet-audit-20260908"
+        ],
+        "session_01EQLJiYrk7NGFqW7CS6vyMw": [
+          "claude/m20-e3-exit-mechanism-cont-plkj6q"
+        ],
+        "session_01EihsgewHt7BZv43YcC7caV": [
+          "claude/r-metric-done-board"
+        ],
+        "session_01Ek2KDXDeLAMrN4JH4aEXWf": [
+          "claude/mi201-decision-edge-narrowed",
+          "claude/mi247-fix-manager-wake-cycle-pin",
+          "claude/mi247-oi-option-a-observed"
+        ],
+        "session_01Ex5Dx1TMYy46ncsp8eptpx": [
+          "claude/mi251-inverse-proxy-screen-20260918",
+          "claude/mi29-starved-legs-20260918",
+          "claude/mi318-scalp-control-design"
+        ],
+        "session_01FAJhh5Q47LA1zhpPyXQ27c": [
+          "claude/android-overview-page-Ghkyw"
+        ],
+        "session_01Fm4wBus9JMSYenSFRjd71h": [
+          "claude/mi277-close-out",
+          "claude/mi277-winner-size-collapse"
+        ],
+        "session_01FoASvmUGuahCphE1cewPPs": [
+          "claude/mgr-route-mi214-mi215-20260909",
+          "claude/mi214-claude-md-reaches-nobody",
+          "claude/mi214-suppression-observed"
+        ],
+        "session_01FyYyybxWC7VD1Rq1doEEdf": [
+          "claude/backlog-merge-slot-release-and-automerge-order",
+          "claude/file-r13-merge-slot-recurrence",
+          "claude/fix-adopt-population-and-id-transposition"
+        ],
+        "session_01G4VneSjgv5QT4rMGj4izi5": [
+          "claude/mi258-observed-on-the-fleet"
+        ],
+        "session_01GEoYvuaSCxYf86jnwdBXhZ": [
+          "claude/board-claim-10086"
+        ],
+        "session_01GGFAu1uNpHL5KrzC7X7jAm": [
+          "claude/mi-160-roadmap-redundancy-proposal"
+        ],
+        "session_01GHpyXT2qssLJsrvXBQRkQF": [
+          "claude/mgr-lease-20260919",
+          "claude/mgr-standdown-20260919",
+          "claude/mi279-close-the-builder-exception-latch-row"
+        ],
+        "session_01GKhbzDXkaxRuYm4JCjBvqB": [
+          "claude/ib-broker-pnl-reader-unwired",
+          "claude/xrp-lever-gate-detail"
+        ],
+        "session_01GNkN16mQBnSVNRLweSXNWP": [
+          "claude/mgr-hb-0324z",
+          "claude/mi154b-scalp-artifact-20260907",
+          "claude/mi154b-scalp-artifact-20260907-land"
+        ],
+        "session_01GPBc31S8TgNvxEekzdDSpV": [
+          "claude/manager-tick-0626z-20260911",
+          "claude/mi236-decay-in-flight"
+        ],
+        "session_01GVhZg4McfH48jb5MwMxxEm": [
+          "claude/fix-branchprot-rename-301"
+        ],
+        "session_01GXpHkCHCx3bLrDGVNkVPrP": [
+          "claude/mgr-lease-20260909T1630"
+        ],
+        "session_01Ghn5jF15TUC6VUmWY64wp4": [
+          "claude/mi314-u1-one-line-second-clip"
+        ],
+        "session_01HMfmAi3sPv4TtZ67SP2utB": [
+          "claude/board-done-drain2-20260902"
+        ],
+        "session_01HTHCedaMSamfxT69fnRzXG": [
+          "claude/mi125-backlog-rows",
+          "claude/mi125-board-post",
+          "claude/mi125-mi122-mi123-residues"
+        ],
+        "session_01HaWB6g8EsN1x64hKKQHT2B": [
+          "claude/mlopt-regime-recency-adopt",
+          "claude/purged-walk-forward-splitter-cKEdI"
+        ],
+        "session_01HoFquGdTrD3TTGbMMRc43t": [
+          "claude/file-cadence-never-enforced-20260917",
+          "claude/fix-pacing-tick-clause-20260917",
+          "claude/future-dated-register-stamps"
+        ],
+        "session_01HrmZ1RRNM4UnEUaFdrPEjj": [
+          "claude/backlog-drain-20260909",
+          "claude/exit-geometry-carrier-20260906",
+          "claude/live-alarms-1c-20260906"
+        ],
+        "session_01Hw9mp8cEeZqF1KSGZHyHui": [
+          "claude/backlog-drain-20260909",
+          "claude/mgr-lease-hb-20260909T2128",
+          "claude/mi-209c-partial-close-producer-20260909"
+        ],
+        "session_01HyZBZ7DNcu5VQaTmmJK5dL": [
+          "claude/mgr-dispatch-0140-20260908"
+        ],
+        "session_01J16qHJHbnvqDyRWWAvdiRD": [
+          "claude/claude-channel-board"
+        ],
+        "session_01J2dBJqYb85GwahYy51CdLV": [
+          "claude/mi139-observe-deployed-20260910"
+        ],
+        "session_01J2tRr5LVT1Zer8MkjLVLYV": [
+          "claude/mi131-pr10398-disposition"
+        ],
+        "session_01JALQ7skjJQN3yNHz5mF51s": [
+          "claude/mgr-spawn-harness-2208-20260908"
+        ],
+        "session_01JBsVN6ngip5seWkpgC38k7": [
+          "claude/fervent-hopper-0x9vy0"
+        ],
+        "session_01JGuWPnMTR4WabiDpsF9v5c": [
+          "claude/wc5-signals-cutover"
+        ],
+        "session_01JHFDpaWxaGw4BaxMGgtF9A": [
+          "claude/mi307-offline-mfe-distribution"
+        ],
+        "session_01JhtPDUP92XmMSuE8c4i3Up": [
+          "claude/mgr-arming-decision-20260906",
+          "claude/mi153-exit-head-figures-20260906",
+          "claude/mi153-relay-20260906"
+        ],
+        "session_01JtCLjnWPvNRN7K3td116BY": [
+          "claude/board-done-bybit-graded-book",
+          "claude/bybit-coverage-graded-book"
+        ],
+        "session_01JuznkKwm1oYm7bUFc9v23w": [
+          "claude/mi209-exit-trailing-banking-broker-truth",
+          "claude/mi209b-tailcap-and-banking-reachability"
+        ],
+        "session_01JxSL81c1ZdG1X1LvGRGqmy": [
+          "claude/ict-order-rejections-BmqU1"
+        ],
+        "session_01KFxqGuauQn113r7AgoHAQ7": [
+          "claude/ai-trading-profitability-gaps-ldQCu",
+          "claude/health-review-squeeze-notify-bugs",
+          "claude/perf-rolling-vol-reverse-scan"
+        ],
+        "session_01KSZCUtFKze3k7ZvxnTnD4T": [
+          "claude/mgr-route-mi218-and-correct-tlt-20260909",
+          "claude/mi218-closeout",
+          "claude/mi218-count-calendar-time-edge-surfaces"
+        ],
+        "session_01KXMj8CrQUTgED6YzYZDpLx": [
+          "claude/risk-manager-backstop"
+        ],
+        "session_01Kyq3Zpgh6DoujFGAMkyJ9o": [
+          "claude/mi89-board-start"
+        ],
+        "session_01L1MbHt6xogVvRn3zvy23pB": [
+          "claude/mi126-sunset-pass-absence-not-zero"
+        ],
+        "session_01L2xaQxxSktSaRWHqpSkrPJ": [
+          "claude/mgr-canon-20260909T1635"
+        ],
+        "session_01L7dTAuGMdn3CTGeyYV5Mox": [
+          "claude/mi-144-observed-20260906"
+        ],
+        "session_01L8GZoVxY9iqAykyydG13rP": [
+          "claude/phase-b-done-post"
+        ],
+        "session_01LRLUSvcGqQjPcMByAiggsg": [
+          "claude/mi189b-unread-account-venue-audit"
+        ],
+        "session_01LoZJDARzLr1REPnqQ5Kgbz": [
+          "claude/manager-tick-0328z-20260911",
+          "claude/mi243-dormant-sweep-20260911"
+        ],
+        "session_01Lozuti2jAX4kQ9RC4yTSPo": [
+          "claude/mgr-lanes-0819-20260908",
+          "claude/mi195-tp-decisions-and-examine"
+        ],
+        "session_01LqVvgvusnN87neBn5ayzhg": [
+          "claude/claude-ping-double-delivery-x4mq2p",
+          "claude/subsession-registry-coupling-handoff-check"
+        ],
+        "session_01LsgzrBzfwPkZG5iBrXk8Ss": [
+          "claude/vwap-entry-threshold-2sigma"
+        ],
+        "session_01LsuxVvkKLcnicv6TkzrZw9": [
+          "claude/drain-health-board-start"
+        ],
+        "session_01LuKhJhxiK1K8h1ZVPYJjZ9": [
+          "claude/mi300-canonize-spawn-economics"
+        ],
+        "session_01M3FPDA7Yp9dmMXFqsYzGi3": [
+          "claude/manager-tick-2126z-20260910",
+          "claude/mi259-close-the-work-object",
+          "claude/mi259-file-the-two-findings"
+        ],
+        "session_01ML8uLRrKLMmzR9fFywTWv5": [
+          "claude/mgr-redispatch-205b-2218-20260908",
+          "claude/mi205b-ranking-key-harness"
+        ],
+        "session_01MLKjDPG9n1MHBByYEAEgjc": [
+          "claude/mi-157-board-post"
+        ],
+        "session_01MQ2EzPomkBsM6uxJMCrJbF": [
+          "claude/mi238-live-observation"
+        ],
+        "session_01MQggD8Bidctr1fRf8JH4aB": [
+          "claude/mi315-close-bybit2-eth-phantom-close",
+          "claude/mi315-pr-queue-noise-measurement"
+        ],
+        "session_01MbqAr49twiFKMwkfjiJJA6": [
+          "claude/mgr-lease-hb-20260909T2128"
+        ],
+        "session_01MookmZshi5ikDNqjAUiifA": [
+          "claude/mi109-board-post"
+        ],
+        "session_01MrTjuoRpBb7spyQLydXmmT": [
+          "claude/mgr-route-mi214-mi215-20260909"
+        ],
+        "session_01MyUujGAQYs72UUgrfXXmFA": [
+          "claude/mi275-stop-width-counterfactual"
+        ],
+        "session_01N4QpvcvLWQ5cuKXUcCWJ8E": [
+          "claude/mgr-route-f39-f50-20260910T0100",
+          "claude/mi230-closeout-exit-eval-lifetime-breaches"
+        ],
+        "session_01NFUHBS41Dn15pUbz5Qr6Vx": [
+          "claude/manager-record-operator-decisions-20260911",
+          "claude/mi-ops-retire-work-store-mirrors-20260911"
+        ],
+        "session_01NFnmLiu9zNDppY3qFXcJJA": [
+          "claude/manager-tick-0825z-20260911",
+          "claude/mi264-disposition-17-unsupported-rows",
+          "claude/mi265-attribution-fix"
+        ],
+        "session_01NLwdbYJNCUD8bBVdYBjLVy": [
+          "claude/strategy-improvement-program-EZi1X"
+        ],
+        "session_01NN97cVYW5dmiNNXHfsu7Nn": [
+          "claude/mi70-kill-subject"
+        ],
+        "session_01Naj6n7JvhPrvxjwWbUGbnQ": [
+          "claude/mi-274-prop-account-not-trading"
+        ],
+        "session_01NcYsS6kFNrzxEKcrNy9eXP": [
+          "claude/lane4-stale-automation-landing-20260909",
+          "claude/lane4-sweep-cadence-20260910",
+          "claude/lane4-sweep-gap-20260910"
+        ],
+        "session_01Ne7LK6wMCoLUwnKpCZTPqE": [
+          "claude/ict-scalp-5m-shadow-20260906"
+        ],
+        "session_01NeR2kREiXrXQcYYuRHvzRa": [
+          "claude/session-invokable-actions-ci-settled"
+        ],
+        "session_01NfzmaV7FxP4bAZtKbXYVb9": [
+          "claude/soak-alarm-threshold"
+        ],
+        "session_01NjMTWmTnK1EKvYoT6m2UFn": [
+          "claude/docfresh-ibkr-7E7Re",
+          "claude/ibkr-deepen-7E7Re",
+          "claude/ibkr-pull-fixes-7E7Re"
+        ],
+        "session_01NkekPZw73VYuynYhSdWLWm": [
+          "claude/manager-spawn-mi68",
+          "claude/mi70-board-done",
+          "claude/mi70-board-reopen"
+        ],
+        "session_01NocraYKXWU6jPEFv2QEMv8": [
+          "claude/board-post-pregate-done"
+        ],
+        "session_01Nopk1HcpvWBSEbZxEmALkd": [
+          "claude/manager-handoff-20260903",
+          "claude/manager-unjam-decision-and-10780",
+          "claude/manager-wind-down-20260903"
+        ],
+        "session_01NriFh691pHJFiVc7agPHnC": [
+          "claude/mgr-hb-20260907-1430",
+          "claude/mi161-board-post-20260907",
+          "claude/mi161-document-library-20260907"
+        ],
+        "session_01PEYVqTaCY92C3HmtHwxYff": [
+          "claude/decision-push-back"
+        ],
+        "session_01PHax6vjumG6Aa1xh4GfKiF": [
+          "claude/mi318-close-out",
+          "claude/mi318-decision-prompt-compaction"
+        ],
+        "session_01PYkDGej394sSF3zWBpy16j": [
+          "claude/workflow-overhaul-scope-z4sjm3"
+        ],
+        "session_01PbQAQXRY2oB1ep2BFEUZeA": [
+          "claude/mi77-escalation-exit-code"
+        ],
+        "session_01PkGrU3GSYiWYAUyF99pEQi": [
+          "claude/mi235-landing-machinery-review"
+        ],
+        "session_01PnQLKnuezWVB4D47PtnTqR": [
+          "claude/subsession-registry-coupling-handoff-check"
+        ],
+        "session_01Q1HYBVoThQdKTWSYQHpm6Y": [
+          "claude/mi90-board-scratch"
+        ],
+        "session_01QF6kgTnqd4yg32y2UYe9FQ": [
+          "claude/ci-unbreak-phantom-register-removal"
+        ],
+        "session_01QMyqGF4MSKku9rGtH8Ywnf": [
+          "claude/m14-progress-next-u260C"
+        ],
+        "session_01QRMbr88Ju1XAqsfHxcms5c": [
+          "claude/mi122-board-start",
+          "claude/mi122-r7-lease-run"
+        ],
+        "session_01R8AwiHfe59gMXAAhXcq9pi": [
+          "claude/m13-s1-generator-5EP04",
+          "claude/m13-s1-sprint-log-5EP04",
+          "claude/m13-s1-systemd-5EP04"
+        ],
+        "session_01RHuSYKu1r1ZErc65KLKV8t": [
+          "claude/live-alarms-1c-20260906",
+          "claude/reland-1c-disposition-20260906"
+        ],
+        "session_01RQiedALVJzWCGdBqY6aNV7": [
+          "claude/manager-register-mi62",
+          "claude/mi63-true-blocked-on-edges"
+        ],
+        "session_01RYoQ5e8i6B4SCn9kMm2gpB": [
+          "claude/mi92-board-ci-green",
+          "claude/mi92-observed-on-the-fleet",
+          "claude/mi92-operator-commands-off-trader-bot"
+        ],
+        "session_01RijvyUiR2C92u8XwK7bwfe": [
+          "claude/health-review-P2Zwr"
+        ],
+        "session_01RnHJ3qArTqywF7TzLZr9st": [
+          "claude/unit-a-selective-flip-mamcnu",
+          "claude/unit-c-prop-exits-mamcnu"
+        ],
+        "session_01RyP6vAtAASSAhF6jt8K1gu": [
+          "claude/econ-calendar-source-probe-r30gnq"
+        ],
+        "session_01Ryr6K2VXGojZbqjFgQ2PrN": [
+          "claude/claude-md-reference-split"
+        ],
+        "session_01Rz1uBXibdN6cZKh2nqQyQr": [
+          "claude/backtest-labeled-setup-candidates-3Xmqg"
+        ],
+        "session_01S7pASy78QiNViwhSadGdNb": [
+          "claude/mgr-arming-decision-20260906",
+          "claude/mi154-board-start-20260906",
+          "claude/mi154-pr-requests-20260906"
+        ],
+        "session_01S8UNvkQ7BTVHyYn7xHvvts": [
+          "claude/sharp-galileo-7kc4ni"
+        ],
+        "session_01SKvbp9rm3fiyD9uHxpeFKM": [
+          "claude/sweep-positive-control-20260906"
+        ],
+        "session_01SVUv3HZiqBsriCcc2RqQo7": [
+          "claude/mi123-board-start",
+          "claude/mi123-manager-durable-wake"
+        ],
+        "session_01SZCy1acPMrX3ANUkzhM5te": [
+          "claude/mgr-record-tier3-banking-20260907",
+          "claude/mi164-openitems-clause1-20260907",
+          "claude/mi279-u5-prune-settled-telemetry-row"
+        ],
+        "session_01SZnY5fHV3fzh8UXg6cRgTS": [
+          "claude/mi124-never-firing-legs-diagnosis"
+        ],
+        "session_01SrUaz8LmKMcSwNZEr8JupC": [
+          "claude/mi-tier2-approved-self-land",
+          "claude/mi273-scope-overlap-granularity"
+        ],
+        "session_01SxTAh4kAf3KBhhw7p6Le5y": [
+          "claude/tickcost-attributed-pct"
+        ],
+        "session_01Sxe5Mj9GbmuvVCKZ8LHrLv": [
+          "claude/mi163-banking-half-20260907",
+          "claude/mi163-followup-20260907"
+        ],
+        "session_01T5o3AkucfgozxdVhANWAdw": [
+          "claude/mgr-heartbeat-2024z",
+          "claude/mi147-backtest-soak-chain-20260906",
+          "claude/mi147-board-done-20260906"
+        ],
+        "session_01TASYv35o6XciFnMC9wmnHi": [
+          "claude/board-done-ping-delivery-ledger"
+        ],
+        "session_01TM8XjkvVpvMxH4EcLtTsvP": [
+          "claude/mgr-lease-hb-20260909T2326",
+          "claude/mgr-route-mi229-20260909T2307",
+          "claude/mi229-closeout"
+        ],
+        "session_01TXmgt2S1zZjcdCDEpXdxmV": [
+          "claude/flatten-marking-durable",
+          "claude/hedge-phase-b-fix"
+        ],
+        "session_01U2ibSa4FNcuV6bSLaPb9GS": [
+          "claude/mgr-lanes-0819-20260908",
+          "claude/mi196-board-note",
+          "claude/mi196-due-readout-consolidation"
+        ],
+        "session_01UFEDvWwTCMqAsBoQCh9Kz1": [
+          "claude/mgr-lease-hb-20260909T2226",
+          "claude/mgr-lease-hb-20260909T2326",
+          "claude/mgr-route-two-lanes-20260909T2152"
+        ],
+        "session_01UTcLyMtHKYkhMiMKk1asbv": [
+          "claude/workplan-2026-08-29"
+        ],
+        "session_01UaZ9boMDajiCZsjVkr4Fnz": [
+          "claude/observation-sweep-1a",
+          "claude/observation-sweep-1a-relay"
+        ],
+        "session_01Uk4qLFBTyMEDMJXydYzSyw": [
+          "claude/mi246-unrouted-row-age"
+        ],
+        "session_01UxsiSgFa9dKwBFw5RTbLGA": [
+          "claude/mi201-alpaca-live-roster-proposal",
+          "claude/mi201-correct-symbols-claim",
+          "claude/mi201-decision-edge-narrowed"
+        ],
+        "session_01V62BVG7Q9BHZeyTvkBWNPy": [
+          "claude/mgr-dispatch-0140-20260908",
+          "claude/mi174-digest-generator-header-20260908"
+        ],
+        "session_01VKEGm8ZcTUgiZYRztPfryK": [
+          "claude/mgr-record-tier3-banking-20260907"
+        ],
+        "session_01W56JbiKrada5AM4pGtHxmg": [
+          "claude/system-review-20260911"
+        ],
+        "session_01W7CyS8ShLnZiNyUms3YYEp": [
+          "claude/mi194-phase-a-respec",
+          "claude/mi194-phase-abcd-observations",
+          "claude/mi194-strategy-decision-record"
+        ],
+        "session_01WKwvhBuaYYCKbdkk7fHrpf": [
+          "claude/mi275-close-out",
+          "claude/mi275-observation-repair",
+          "claude/mi275-stop-width-counterfactual"
+        ],
+        "session_01WZVcSxKY59cQXGgz3L5nLf": [
+          "claude/resolve-report-10679"
+        ],
+        "session_01WaQaYCpGb3yZKkkRqk4JfU": [
+          "claude/reland-1c-disposition-20260906"
+        ],
+        "session_01WmFdLwfq4U5aLLjFRDDy6b": [
+          "claude/mgr-hb-20260909T1826",
+          "claude/mgr-mi222-venue-truth-detector",
+          "claude/mi-222-board-notes"
+        ],
+        "session_01Wu7y3KL6MMgAV1ghetQWFx": [
+          "claude/bybit-coverage-graded-book"
+        ],
+        "session_01Wv1BdfEUnmCBZrhvUjeBzb": [
+          "claude/dedupe-health-backlog-second-duplicate",
+          "claude/mi278-board-posts",
+          "claude/mi278-two-process-rows"
+        ],
+        "session_01Ww2pZVK5VUqV8xFFtTs9B1": [
+          "claude/mi-exit-eval-60s-rootcause"
+        ],
+        "session_01X3kyzCfUdFVimATxZFE8nd": [
+          "claude/mgr-dispatch-lane2-refill-20260909",
+          "claude/mi143b-closeout-20260906"
+        ],
+        "session_01X9HcdqY1K9k9nGjfGCFKAc": [
+          "claude/m28-value-thesis-sweep-evapa5"
+        ],
+        "session_01XHZLyD6muRE7t77JxtKrJ2": [
+          "claude/mi312-board-done"
+        ],
+        "session_01XMoeH1BMgXyXFPtxitZfdr": [
+          "claude/mi309-backlog-drain-3"
+        ],
+        "session_01XRYfPGr4jAHr4k1rmvTKFi": [
+          "claude/perf-rootcause-1b-20260906"
+        ],
+        "session_01XbigCVRcy2bnVpm1tKNPno": [
+          "claude/mi34-wedge-page-to-digest"
+        ],
+        "session_01XrwTGRY819PCzBnppCTLbi": [
+          "claude/manager-spawn-mi68"
+        ],
+        "session_01XvvrE1Jp5G7fLcYCTRdMjX": [
+          "claude/mi120-work-digest-test-control"
+        ],
+        "session_01YBQQzvgJzSumk1APmjiG7B": [
+          "claude/oi-review-packet-cron-observation-p7t2w4"
+        ],
+        "session_01YEdjrYi5Kpp9dLw3yQNyNm": [
+          "claude/mi283-arming-file-unverified",
+          "claude/mi283-automerge-pat-rootcause",
+          "claude/mi283-clause3-met"
+        ],
+        "session_01YP3DnuFmSbvtLgBQiuCHso": [
+          "claude/mgr-dispatch-landing-lane-0530-20260909",
+          "claude/mi209-exit-trailing-banking-broker-truth",
+          "claude/mi209b-tailcap-and-banking-reachability"
+        ]
+      },
+      "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
+      "registry_declared_branches": 0,
+      "origin_head_count": 1266,
+      "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
+      "unpushed_work": "invisible_by_construction",
+      "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",
+      "liveness": "not_observed",
+      "liveness_caveat": "The reaper cannot tell alive from dead — `list_sessions` is an MCP tool CI does not hold. It grades branch quiescence, a PROXY, which is safe only because it records and never acts."
+    }
+  },
+  "observations": []
+}
