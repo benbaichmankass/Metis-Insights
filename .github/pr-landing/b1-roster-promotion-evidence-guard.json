@@ -1,0 +1,5 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "B1 — the roster-promotion evidence guard. Three files, all CI/tooling: NEW scripts/ci/check_roster_promotion_evidence.py, its registry entry in scripts/ci/run_guards.py, and a +1 ratchet of COVERAGE_FLOOR in scripts/ci/check_guard_selftest_coverage.py (43 -> 44, banking the new guard's own self-test per that guard's own instruction). By PATH the diff is entirely inside the Tier-1 surface (scripts/ci/**) and it changes no roster, mode or execution value, no src/, no config/, no deploy/, no workflow, no order path, no strategy or risk cap, no VM; no order placed, modified or cancelled on any account. It is declared tier 2 anyway because the B1 checklist row declares tier 2 (CI + order-path POLICY) — the guard decides what may reach a real-money roster, which is a policy surface even though the code is not on the order path. landing=hold because this lane was spawned with an explicit DO NOT MERGE — the manager merges. The guard is DIFF-SCOPED and grades 0 findings on an unchanged roster, so it cannot red an unrelated PR; `--population` reports the standing 0-of-12 debt without failing any build."
+}
