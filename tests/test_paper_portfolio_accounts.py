@@ -11,6 +11,13 @@ kept in step, CI fails here (guard structure, not judgment — sanctioned by the
 canonical rules). ``alpaca_portfolio`` carries ONE operator-approved divergence:
 it drops the affordability-only proxies SPLG/IAUM so a big-balance paper book
 doesn't double S&P/gold exposure.
+
+BOTH mirrors are now STRICT EQUALITY (DECIDED 2026-09-21, operator, checklist
+row B2) — ``alpaca_portfolio`` was a deliberate SUBSET assertion from
+2026-08-29 until then. A successor should read the bybit and alpaca mirror
+tests as the SAME mechanism, differing only in the declared proxy carve-out.
+REVERSAL: the subset form is recoverable from git (#10393, #10633); reversing
+it is an operator decision, not a test edit.
 """
 from __future__ import annotations
 
@@ -31,6 +38,18 @@ _ALPACA_PROXY_SYMBOLS = {"SPLG", "IAUM"}
 def _accounts() -> dict:
     data = yaml.safe_load(_ACCOUNTS_YAML.read_text(encoding="utf-8")) or {}
     return data.get("accounts") or {}
+
+
+def _expected_mirror_roster(alpaca_live_cfg: dict) -> list[str]:
+    """What ``alpaca_portfolio``'s roster must be — ONE definition, two readers.
+
+    Both alpaca mirror tests below derive the expectation from here rather than
+    re-implementing the proxy filter, so the coverage assertion and the strict
+    equality assertion can never drift into disagreeing about what the mirror
+    is supposed to carry.
+    """
+    return [s for s in (alpaca_live_cfg.get("strategies") or [])
+            if s not in _ALPACA_PROXY_STRATEGIES]
 
 
 def test_portfolio_accounts_present_and_paper():
@@ -79,65 +98,91 @@ def test_bybit_portfolio_mirrors_bybit_2_exactly():
     assert portfolio["risk"].get("risk_pct") == real["risk"].get("risk_pct")
 
 
-def test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies():
+def test_alpaca_portfolio_covers_every_alpaca_live_leg():
+    """The REAL-MONEY direction, asserted on its own so it stays green.
+
+    This is the half of ROSTER-SYNC that protects money: no ``alpaca_live``
+    leg may trade without a paper counterpart accruing a record beside it. It
+    is implied by the strict equality asserted below, and kept as a separate
+    test deliberately — while the equality test is RED (see its docstring),
+    this one still says out loud that the money-protecting direction holds.
+    """
     accts = _accounts()
     portfolio, real = accts["alpaca_portfolio"], accts["alpaca_live"]
-
-    live_strats = real.get("strategies") or []
-    port_strats = portfolio.get("strategies") or []
-    expected_strats = [s for s in live_strats if s not in _ALPACA_PROXY_STRATEGIES]
-
-    # THREE STATES, SPLIT RATHER THAN CONFLATED (2026-08-29, extended 2026-08-31).
-    #
-    # The purpose of ROSTER-SYNC is that the paper read is REPRESENTATIVE of the
-    # live account — every leg real money runs has a paper counterpart accruing
-    # a record. The failure it exists to catch is a live leg with NO paper
-    # counterpart. Equality expressed that, but equality also asserts the
-    # converse (the mirror may run nothing extra), and the converse is what
-    # breaks during a STAGED go-live.
-    #
-    # 1. live EMPTY (2026-08-29 .. 2026-08-31) — the mirror must stay POPULATED.
-    # 2. live a SUBSET of the mirror — a staged go-live. Added 2026-08-31, when
-    #    alpaca_live went to `['tlt_pullback_1h']`: one plumbing-test leg,
-    #    Tier-3 operator-approved, deliberately NOT a roster.
-    # 3. live and mirror aligned — the steady state.
-    #
-    # ⚠️ ASSERTING EQUALITY IN STATE 2 WOULD FORCE alpaca_portfolio DOWN FROM 14
-    # LEGS TO 1, destroying the paper research book that the eventual roster
-    # selection depends on. That is the SAME harm the 2026-08-29 note records
-    # for state 1 — "the invariant would demand the opposite of its own
-    # purpose" — one state over. A one-leg live book has almost nothing to be
-    # representative OF, and deleting 13 paper legs to match it is a loss, not
-    # a sync.
-    #
-    # ⚠️ WHAT THIS GIVES UP, STATED PLAINLY RATHER THAN QUIETLY RELAXED: the
-    # superset direction is no longer asserted, so a leg added to the MIRROR
-    # and not to live no longer fails here. That direction was never the
-    # representativeness risk (a paper leg with no live counterpart costs
-    # research data, not a blind spot on real money), and it is still covered
-    # at the INSTRUMENT level by the strict `symbols` equality below, which is
-    # UNCHANGED and still exact. The direction that protects real money —
-    # a live leg with no paper counterpart — is now asserted in EVERY state,
-    # including the empty one, where equality previously asserted nothing.
-    assert set(expected_strats) <= set(port_strats), (
+    expected = _expected_mirror_roster(real)
+    missing = sorted(set(expected) - set(portfolio.get("strategies") or []))
+    assert not missing, (
         "every alpaca_live leg (minus the affordability proxies "
         f"{_ALPACA_PROXY_STRATEGIES}) must have a counterpart in "
         "alpaca_portfolio, so real money never trades a leg with no paper "
-        "record accruing beside it (ROSTER-SYNC). Missing from the mirror: "
+        f"record accruing beside it (ROSTER-SYNC). Missing: {missing}"
+    )
+
+
+def test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies():
+    """STRICT EQUALITY — the same mechanism as ``bybit_portfolio``/``bybit_2``.
+
+    DECIDED 2026-09-21 (operator, checklist row B2). Reverses the SUBSET
+    relaxation taken 2026-08-29/08-31 and restores the ordered-equality
+    assertion this test shipped with on 2026-07-16 (#6663).
+
+    WHY. ``docs/plans/OPERATING-PLAN-2026-09-21.md`` makes the mirror's
+    net-of-cost window Gate 2's DEMOTION signal. A demotion signal read off a
+    roster that is not the live roster is not a demotion signal — it is a
+    different book's aggregate wearing the mirror's name. The subset
+    assertion could never deliver that, by construction: it permits the
+    mirror to run arbitrarily many extra legs.
+
+    WHAT WAS GIVEN UP, and it was put to the operator before this landed: the
+    surplus mirror legs stop trading on this book. The operator accepted that
+    cost. Do not re-present it as a discovery.
+
+    ⚠️ THE PROXY CARVE-OUT IS REAL AND SURVIVES — it is not a leftover of the
+    subset era. ``alpaca_live`` carries ``iaum_pullback_1d`` today (Tier-3,
+    operator-approved 2026-09-10) purely so a ~$150 cash book can buy a whole
+    share of gold exposure; on a ~$98k paper balance the primary
+    ``gld_pullback_1d`` fires directly, so mirroring the proxy would DOUBLE
+    gold exposure and pollute the very read this test exists to protect. It
+    would also contradict the strict ``symbols`` equality below, which
+    excludes SPLG/IAUM by construction. "Exactly" here means exactly
+    ``alpaca_live`` minus the two declared affordability proxies, and that is
+    why the name still says ``minus_proxies``.
+
+    ⚠️ THE EMPTY-LIVE STATE IS NOT RESOLVED BY THIS DECISION, AND THIS TEST
+    REFUSES TO PRETEND OTHERWISE. If ``alpaca_live`` returns to
+    ``strategies: []`` — which Gate 2 can produce by demoting the last live
+    leg, and which held 2026-08-29..08-31 — strict equality demands an EMPTY
+    mirror, and the two assertions below become unsatisfiable together. That
+    is the correct outcome, not a bug in the test: the config would be in a
+    state the B2 decision does not cover, and CI should say so rather than
+    silently deleting the last paper book or silently dropping the invariant.
+    The resolution is an operator call, not a test edit.
+    """
+    accts = _accounts()
+    portfolio, real = accts["alpaca_portfolio"], accts["alpaca_live"]
+    expected_strats = _expected_mirror_roster(real)
+    port_strats = list(portfolio.get("strategies") or [])
+
+    assert port_strats, (
+        "alpaca_portfolio must NOT be emptied. If alpaca_live's roster is "
+        "empty, strict equality and this assertion cannot both hold — that "
+        "is the unresolved state named in this test's docstring, and it is "
+        "an operator decision (B2), not a test edit."
+    )
+    assert port_strats == expected_strats, (
+        "alpaca_portfolio must mirror alpaca_live's roster exactly, minus the "
+        f"affordability proxies {_ALPACA_PROXY_STRATEGIES} — same mechanism as "
+        "test_bybit_portfolio_mirrors_bybit_2_exactly (ROSTER-SYNC, B2 "
+        "2026-09-21). Order matters, as it does for bybit.\n"
+        f"  expected (alpaca_live minus proxies, n={len(expected_strats)}): {expected_strats}\n"
+        f"  actual   (alpaca_portfolio,          n={len(port_strats)}): {port_strats}\n"
+        f"  surplus on the mirror ({len(set(port_strats) - set(expected_strats))}): "
+        f"{sorted(set(port_strats) - set(expected_strats))}\n"
+        f"  missing from the mirror ({len(set(expected_strats) - set(port_strats))}): "
         f"{sorted(set(expected_strats) - set(port_strats))}"
     )
-    assert port_strats, (
-        "alpaca_portfolio must NOT be emptied. While alpaca_live's roster is "
-        "empty or staged it is the only place the paper record still accrues. "
-        "If you meant to retire the Alpaca research book, do it explicitly, "
-        "not by mirroring a live roster that is deliberately small."
-    )
-    # ⚠️ CONSEQUENCE, recorded rather than hidden: while live is empty or
-    # carries only a staging leg, `/api/bot/performance`'s `paperPortfolio`
-    # block describes a RESEARCH book, not a mirror of what real money is
-    # trading. Do not read it as "the live portfolio on paper" in this window.
 
-    # No proxy strategy leaks in — holds in BOTH states.
+    # No proxy strategy leaks in.
     assert _ALPACA_PROXY_STRATEGIES.isdisjoint(set(port_strats))
 
     expected_syms = [s for s in real.get("symbols") or []

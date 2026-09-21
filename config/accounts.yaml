@@ -838,6 +838,26 @@ accounts:
   # S&P/gold exposure and pollute the portfolio read. This paper book trades the
   # primaries; the proxies stay alpaca_live-only. ROLLBACK: re-add both cells +
   # SPLG/IAUM to `symbols`.
+  #
+  # ⚠️ ROSTER-SYNC IS NOW STRICT EQUALITY, AND THE LIST BELOW DOES NOT YET
+  # SATISFY IT. DECIDED 2026-09-21 (operator, checklist row B2): this account
+  # must carry EXACTLY alpaca_live's roster minus the two declared proxies,
+  # the same mechanism bybit_portfolio/bybit_2 already use, because
+  # docs/plans/OPERATING-PLAN-2026-09-21.md makes this book's net-of-cost
+  # window Gate 2's DEMOTION signal and a 14-leg mirror of a 3-leg live book
+  # cannot carry that meaning. Enforced by
+  # tests/test_paper_portfolio_accounts.py::
+  #   test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies
+  # which is RED against the list below ON PURPOSE — the invariant landed, the
+  # roster edit that satisfies it did not, because removing 12 legs from a
+  # trading account's roster needs an operator OK this lane does not have.
+  # MEASURED 2026-09-21 by parsing THIS FILE: alpaca_live 3 legs, minus the
+  # iaum proxy = 2; this account 14; 12 surplus. To satisfy the invariant,
+  # `strategies:` below becomes exactly:
+  #     - ief_pullback_1d
+  #     - slv_pullback_1d
+  # ROLLBACK of the invariant (not of the roster): the SUBSET form is in git
+  # (#10393, #10633) and restoring it is an operator decision, not a test edit.
   alpaca_portfolio:
     exchange: alpaca
     account_class: paper               # PAPER money (Alpaca paper host).
@@ -1098,6 +1118,13 @@ accounts:
       #  test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies), so shrinking
       # the live roster can never break it. Both legs stay in
       # alpaca_portfolio, where their paper record keeps accruing.
+      # ⚠️ SUPERSEDED THE SAME DAY by checklist row B2: the invariant is now
+      # STRICT EQUALITY (test_alpaca_portfolio_mirrors_alpaca_live_exactly_
+      # minus_proxies), so shrinking the live roster DOES now demand the
+      # matching mirror edit, and `tlt_pullback_1h` / `tlt_pullback_1d` are two
+      # of the 12 legs that leave alpaca_portfolio once that edit is approved.
+      # The paragraph above is kept as the record of what was believed when A6
+      # shipped; see the ROSTER-SYNC block on alpaca_portfolio for the state.
       #
       # ROLLBACK: re-add the two lines. Tier-3 again — re-adding a leg to a
       # real-money roster IS the live-trading moment, as the header above says.

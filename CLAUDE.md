@@ -177,15 +177,27 @@ If a proposal advances a leg on live-book P&L, that is a category error.
 
 **Stage 2 is one stage, not two** (operator, 2026-09-21): the mirror and the
 live account carry the same strategies and take the same trades at all times.
-The Bybit half is enforced by
-`tests/test_paper_portfolio_accounts.py::test_bybit_portfolio_mirrors_bybit_2_exactly`;
-**the Alpaca half is a deliberate SUBSET invariant, not equality**
-(`test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies`): it guarantees no
-live leg trades without a paper counterpart, and deliberately allows the mirror
-to run extra. Measured 2026-09-21 — live 5 legs, mirror 14 — so **Gate 2's
-demotion signal cannot be read off the Alpaca mirror's aggregate.** Plan item
-**B2**. ⚠️ An earlier draft of this line said *"no invariant exists"*; that was
-inferred rather than checked and is false.
+Both halves are enforced by strict equality in
+`tests/test_paper_portfolio_accounts.py` —
+`test_bybit_portfolio_mirrors_bybit_2_exactly` and
+`test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies`. The Alpaca
+one carries the only sanctioned divergence: the two declared affordability
+proxies (`splg_trend_long_1d`, `iaum_pullback_1d`) are dropped, because
+mirroring a sub-$100 proxy on a ~$98k paper book doubles the exposure its
+primary already carries.
+
+⚠️ **The Alpaca invariant is LANDED BUT NOT SATISFIED, and that is deliberate.**
+Until 2026-09-21 the Alpaca half was a SUBSET assertion — it guaranteed no live
+leg trades without a paper counterpart and deliberately allowed the mirror to
+run extra, so **Gate 2's demotion signal could not be read off the Alpaca
+mirror's aggregate.** DECIDED 2026-09-21 (operator, plan item **B2**): strict
+equality, like Bybit, with the surplus-leg cost accepted. The test says so; the
+roster does not yet, because the config edit needs an operator OK. MEASURED
+2026-09-21 by parsing `config/accounts.yaml` — `alpaca_live` **3** legs (2
+after the proxy carve-out), `alpaca_portfolio` **14**, so **12 surplus**. ⚠️ An
+earlier draft of this paragraph said *"no invariant exists"* (inferred, false);
+a later one said *"live 5 legs"*, which was true before **A6** (#12673) pulled
+`tlt_pullback_1h` and `tlt_pullback_1d` the same day.
 
 ### The daily sync, and standing authorizations
 
