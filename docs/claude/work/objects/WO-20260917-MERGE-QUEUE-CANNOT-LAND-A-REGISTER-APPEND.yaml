@@ -1,0 +1,61 @@
+id: WO-20260917-MERGE-QUEUE-CANNOT-LAND-A-REGISTER-APPEND
+type: object
+parent_intent: IN-20260903-TRADING-SYSTEM-HEALTH
+title: >-
+  A PR whose diff appends to a shared register has no reliable path to a merge while
+  other sessions are active — measured, not inferred
+stage: measured
+lifecycle: waiting
+owner: manager
+opened_at: '2026-09-17'
+closed_at: null
+blocked_on: []
+blocked_on_basis: NOT_ASSESSED
+why: >-
+  The manager's merge-queue duty says it SCHEDULES merges rather than resolving the
+  conflicts that not scheduling them causes. This object records that on 2026-09-17 the
+  scheduling was not available to it, and what that cost, so a successor does not spend
+  the same cycles rediscovering it.
+the_measurement: >-
+  POPULATION - every merge attempt made by session_01HoFquGdTrD3TTGbMMRc43t on 2026-09-17
+  between 06:20Z and 13:0xZ, against the carried lane queue.
+  SIX consecutive CI cycles on #12346 were voided: each time it reached green or
+  near-green, concurrent sessions landed register-touching PRs and GitHub regraded it
+  `dirty`. FOUR lane PRs (#12222 #12213 #12090 #12181) reached ALL THREE required checks
+  green and were refused at the merge with 405 `has merge conflicts` on TWO separate
+  occasions, ~40 minutes apart, having been refreshed in between.
+  THE ARITHMETIC IS THE FINDING - required CI is ~20 minutes; over the same window main
+  took 7 and then 7 more non-automation commits, i.e. it moved roughly every 4 minutes.
+  A cycle that needs 20 uninterrupted minutes cannot close inside a 4-minute gap, so the
+  outcome is structural rather than unlucky.
+what_is_NOT_the_cause: >-
+  !! NOT THE GUARDS. Every refusal in the sequence was CORRECT and caught a real defect:
+  a truncated backlog id, a severity outside the closed vocabulary, and a hold_reason the
+  diff did not support (R8 refused `changes_landing_machinery` because .github/pr-landing/
+  is not in its recognised set, which is right).
+  !! NOT THE ROW-AWARE MERGE DRIVER, which resolves these appends correctly - GitHub simply
+  cannot run it, so a merge the repo considers clean is refused at the button. Already filed
+  as BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY.
+  !! AND NOT A ONE-OFF DUPLICATE ROW. A byte-identical duplicate id on main did seize the
+  driver for part of the window (introduced by #12374, owned and fixed by #12381) - that was
+  a real and separate incident, and the queue stayed unlandable after it cleared.
+what_DOES_work_and_is_proven: >-
+  A diff with NO shared-register surface lands first time. WO-20260916-OPERATOR-DIRECTION.yaml
+  carried the four operator answers on a branch of ONE NEW FILE plus its own landing
+  declaration, arming file and PER-BRANCH merge-slot claim, and landed as #12392 / 16d25eef3
+  on its first attempt while four register-touching PRs were being refused the same minute.
+  The per-branch claim (.github/merge-slots/<slug>.json) is now ACCEPTED by
+  check_manager_scope for a manager - tested this session - so the shared
+  docs/claude/session-board.json merge_slot field, which moved on 39 of its last 40 commits,
+  need not be touched at all.
+what_is_still_owed: >-
+  The carried lane PRs whose CONTENT IS a backlog row cannot use that escape - stripping the
+  register append would gut them. #12222 is the clearest case: its entire diff is one row
+  appended to health-review-backlog.json. Those need either a quiet window, or a scheduling
+  mechanism that actually serialises merges across concurrent sessions.
+the_open_question_for_the_operator: >-
+  Whether to serialise merges across sessions at all. The merge queue exists
+  (docs/claude/work/MERGE-QUEUE.json) and its one invariant is enforced, but nothing stops a
+  concurrent session from merging while another's CI runs, and a manager cannot block one
+  synchronously. This is recorded as a QUESTION and not as a proposal: the alternative -
+  fewer, larger register PRs - trades one cost for another, and that is the operator's call.
