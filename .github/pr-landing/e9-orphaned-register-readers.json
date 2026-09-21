@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "This session's own dispatch instructions for checklist row E9 state verbatim: 'Push, open a draft PR against main, drive CI green. DO NOT MERGE -- the manager session merges.' Tier 1 (read-only route + PIPELINE.jsonl entries per docs/api-tier-policy.md); held for the manager to merge, not this session.",
+  "why": "docs/api-tier-policy.md lists GET /api/bot/work/checklist as read-only Tier 1; PIPELINE.jsonl entries are append-only findings, not runtime/order-path changes."
+}
