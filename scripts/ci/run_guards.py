@@ -129,6 +129,18 @@ GUARDS: List[Dict[str, Any]] = [
         # `check_backlog_criteria`, `backlog_union_merge`, `backlog_search`)
         # are deliberately NOT here: the four review backlogs they read are
         # archived, so those checks have no population left to grade.
+        # A7 — the follow-through pipeline. Wired the day it was written,
+        # because a module nothing runs is the "declared capability with no
+        # consumer" antipattern this repo already names. --self-test asserts
+        # the five documented drop-reasons; --check validates the real store.
+        "name": "pipeline-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/pipeline.py", "--self-test"],
+            ["python3", "scripts/ops/pipeline.py", "--check"],
+        ],
+    },
+    {
         "name": "research-tooling-selftests",
         "when": None,
         "steps": [

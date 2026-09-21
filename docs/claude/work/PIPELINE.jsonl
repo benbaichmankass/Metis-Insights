@@ -1,0 +1,20 @@
+// docs/claude/work/PIPELINE.jsonl — THE FOLLOW-THROUGH PIPELINE. Append-only.
+// Schema, the five failure reasons it answers, and every invariant:
+//   scripts/ops/pipeline.py  (python3 scripts/ops/pipeline.py --self-test)
+// Design of record: docs/plans/OPERATING-PLAN-2026-09-21.md § 3b.
+//
+// APPEND A LINE. NEVER EDIT ONE. A state change is a NEW record; the current
+// state of an item is its LAST record, and the log is the audit trail. This is
+// JSONL and not a JSON array precisely because a shared array is what produced
+// the archived registers' merge conflicts.
+//
+// An item may NOT leave without a terminal_reason. `killed` is a first-class,
+// respectable outcome — most of the 1,065 archived backlog rows should be
+// killed explicitly, and recording that is worth more than carrying them.
+//
+// ⚠️ SEEDED EMPTY ON PURPOSE. The 91 OPEN-ITEMS monitoring rows (each already
+// carrying a `clears_when`) and the 1,065 archived backlog rows are A8's
+// import, not A7's. Importing them unvalidated would fill the operator's
+// section 0 with rows nobody triaged, which is the failure this replaces.
+{"due_when": {"check_every_days": 7, "clears_when": "Either the trainer VM has a serialization mechanism that actually exists, or those comments say plainly that heavy work is unserialized and what the consequence is. Reading the comments is not enough -- check whether two concurrent trainer jobs can in fact overlap today.", "kind": "observation"}, "id": "PI-20260921-0001", "next_action": "dispatch_lane", "origin": {"kind": "session", "ref": "session_011Z18XADmiW1npvEeHm5nCP, found via scope-overlap-audit's self-test failing on PR #12674 for a missing board-pointer.json", "rerun": "grep -rln 'board-pointer\\|board_pointer' --include=*.yml --include=*.py . | grep -v '^./docs/archive'"}, "state": "queued", "what": "The trainer VM's cross-session serialization protocol is gone: trainer-diag-relay.yml and trainer-vm-diag.yml both document heavy VM work as serialized by a VM-LANE CLAIM/RELEASE FIFO on the coordination board, which the 2026-09-21 reset archived. Comments only -- the relays still RUN -- but on a 1-OCPU box the serialization they promise no longer exists and nothing says so."}
+{"due_when": {"check_every_days": 14, "clears_when": "Every one of the 10 either no longer references the archived path, or carries a dated note saying why it stays. The COUNT going to zero is the check.", "kind": "observation"}, "id": "PI-20260921-0002", "next_action": "dispatch_lane", "origin": {"kind": "audit", "ref": "E9 / PR #12674", "rerun": "python3 -c \"import pathlib;print([p for p in pathlib.Path('.').rglob('*') if p.suffix in {'.py','.yml','.yaml','.md'} and 'docs/archive' not in str(p) and 'board-pointer' in p.read_text(errors='ignore')])\""}, "state": "queued", "what": "10 files still read docs/claude/board-pointer.json, which the reset archived. 8 are board machinery that should retire with it; 2 are the live diag relays (comments only). This is the same orphan-reader class as E9 and is its concrete worklist."}

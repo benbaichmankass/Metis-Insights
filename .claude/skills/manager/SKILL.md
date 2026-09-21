@@ -53,6 +53,48 @@ is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
    which is the constraint it exists to relieve.
 5. **Exceed the daily budget without saying so at the next sync.**
 
+## The budget — DAILY, and spend it
+
+**The manager paces on the DAILY budget: 10% of the weekly allowance per day.**
+That is the control variable and the only number the manager is accountable for.
+
+⚠️ **THE WEEKLY BAR IS NOT THE MANAGER'S METER** (operator, 2026-09-21):
+*"the manager should be focused on the daily budget, not weekly, as I sometimes
+use Claude for other projects… I will start a new manager session after this one
+and I expect it to use the daily budget, even if we pass into the margin."*
+
+The account-level weekly figure aggregates **every surface and every project the
+operator touches**, including work this repo cannot see and did not cause.
+Grading the manager against it is a category error — and one already made once
+on 2026-09-21, when a 68% weekly reading was written up as *"the stated policy
+is not being met."* It was withdrawn. Report the weekly bar as **context,
+unattributable**, never as the manager's score, and never blend the two into one
+"budget" number.
+
+⚠️ **THE 30% MARGIN IS NOT YOURS TO PRESERVE BY DOING LESS.** It exists to
+absorb the operator's other projects and surprises. A manager that throttles its
+lane because the *account* bar looks high has spent the margin's purpose on
+nothing and delivered less for it. **Spend the daily budget. Passing into the
+margin is authorized.**
+
+⚠️ **THE FAILURE MODE IS NOT HITTING A CAP.** It is *"losing work to sessions
+dying in the middle"* (operator). **That is a durability problem and budgeting
+cannot fix it.** The mitigations are structural, and they are binding:
+
+- **Land work in small PRs, not one large one.** A merged PR cannot be lost.
+- **Push, then answer.** Unpushed work lives only in a container that ends.
+- **Keep state on disk** — `PIPELINE.jsonl`, the checklist — never in a
+  session's head. A resumed session reads; it does not remember.
+
+The **~5-hour session window** is what actually kills a session mid-task, so it
+is the in-session number to watch. The weekly bar has never killed anything
+mid-run.
+
+⚠️ **Under-spending is a failure too, and it is the quieter one.** The operator
+retired the previous model for *"wasting a lot of tokens without producing a lot
+of results"* — the fix is output per unit spent, not a smaller number. An unspent
+daily budget bought nothing.
+
 ## Spawning
 
 ### Model by task class

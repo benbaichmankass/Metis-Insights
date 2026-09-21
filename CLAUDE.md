@@ -105,14 +105,43 @@ page** on the SPA (`GET /api/bot/work/checklist`), which reads the file from the
 VM's working tree; `ict-git-sync` pulls `main` every ~5 min, so the page is
 exactly as fresh as the last push **to `main`**. **Push, then answer.**
 
-⚠️ **THE FOLLOW-THROUGH PIPELINE IS DESIGNED AND NOT YET BUILT — plan items
-A7/A8, design in the plan § 3b.** Archiving the registers removed the place
-work rotted; it did not build the thing that pulls work through. **Until A7
-lands, follow-through is WORSE than before the reset**, because 1,065
-unresolved backlog rows and 91 monitoring rows (all carrying a `clears_when`)
-are in git history and nothing reads them. If you are about to file something
-that needs picking up later and find nowhere to put it, that is this gap — say
-so, and put it on the checklist rather than inventing a register.
+### The follow-through pipeline — what exists, and what does not
+
+**`docs/claude/work/PIPELINE.jsonl` is the intake for anything that will need
+picking up later.** Append-only JSONL, never a JSON array — a shared array is
+what produced the archived registers' merge conflicts. Schema, every invariant
+and the reasoning: `scripts/ops/pipeline.py` (guarded by `pipeline-guard`).
+
+An item is **refused** unless it carries three things, and each refusal maps to
+a reason work used to get dropped (plan § 3b):
+
+| required | because, without it |
+|---|---|
+| `due_when` | nothing ever makes it ask for attention |
+| `origin.rerun` | nobody can re-ask whether the finding still applies |
+| `terminal_reason` (to close) | it can stop being mentioned instead of ending |
+
+**Due is COMPUTED, not declared** — an item becomes due because the clock or
+the condition says so, whether or not anyone chose to look. `killed` is a
+first-class outcome: closing a dead row *with a stated reason* is worth more
+than carrying it.
+
+⚠️ **THE PULL IS BUILT BUT NOT YET CONNECTED, AND THAT DISTINCTION IS THE
+WHOLE POINT.** `render_section_0()` and `unrouted_count()` exist, are tested,
+and are what the brief consumes. **Nothing runs them on a schedule yet, because
+the brief that displays them is `A3` and is not built.** So today the pipeline
+will hold what you put in it and correctly tell you what is due *when asked* —
+and asking is still voluntary, which is reason (5), the one that killed
+`DUE.md`. **A7 is not finished until A3 renders section 0 on the operator's own
+page.** Do not read "the pipeline exists" as "things no longer get dropped".
+
+⚠️ **The 1,065 archived backlog rows and 91 monitoring rows are NOT imported.**
+The store is seeded empty on purpose; importing them is `A8`, and most of them
+should be *killed explicitly* rather than carried. Until A8 runs, those rows are
+still in git history with nothing reading them.
+
+**If you are filing something that needs picking up later, it goes in the
+pipeline** — not into a new register, and not into a memo.
 
 **Retired 2026-09-21** and archived under
 [`docs/archive/2026-09-21-operating-reset/`](docs/archive/2026-09-21-operating-reset/):
@@ -206,8 +235,23 @@ be **CHANGED without asking**.
    exists first** (`git cat-file -e origin/main:<path>`). On 2026-08-26 a
    session wrote a guard from scratch and destroyed the working one of that
    name.
-5. End by updating your checklist row's `state` — and `landed_unproven` is not
-   `done`.
+5. **End by running the `close-out` skill** —
+   [`.claude/skills/close-out/SKILL.md`](.claude/skills/close-out/SKILL.md).
+   It is a completion test, not a register: seven checks against the checklist,
+   the pipeline and git. **The one question it asks is whether this session
+   could end right now, without warning, and nothing be lost or silently
+   dropped.**
+
+   ⚠️ **Run it when you stop early too.** Budget, context and time run out —
+   that is normal, and it is a HANDOFF rather than a completion. A session that
+   ends mid-task having said so is fine; one that ends mid-task silently is the
+   drop. Budget for close-out as part of the work, or you will reach the
+   boundary unable to afford landing what you built.
+
+   The two that catch the most: **`landed_unproven` is not `done`** and must
+   name the observation that would close it, and **a finding is only *filed*
+   when it is in the pipeline or on the checklist** — a chat message, a PR
+   comment and a new memo are none of them.
 
 ---
 

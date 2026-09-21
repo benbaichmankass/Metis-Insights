@@ -226,6 +226,14 @@ jobs:
           #     test's own `_matches("docs/sprint-logs")`. Dropping the slash
           #     over-matches a hypothetical `docs/sprint-logs-*` sibling, which
           #     only ever runs MORE tests — the safe direction.
+          #   docs/claude/work/PIPELINE.jsonl             test_pipeline —
+          #     `test_the_committed_store_is_valid` validates the REAL store, not a
+          #     fixture, because the thing worth protecting is the file the brief
+          #     will read. That makes the store a test INPUT, so a PR touching only
+          #     it must run the suite. Added 2026-09-21 when test_pytest_run_filter
+          #     caught exactly that hole on the store's first commit — the same
+          #     shape as #9208, which merged green having executed nothing and left
+          #     main red.
           #   docs/claude/work/SESSIONS.json               test_register_field_loss —
           #     plants a FIELD revert into the REAL 231-row register and asserts the
           #     guard goes red while the union-by-id proof still reads CLEAN. A fixture
@@ -246,7 +254,7 @@ jobs:
           # on the backlog row; it is a bigger change than this one.
           #
           # Pinned in tests/test_pytest_run_filter.py::COVERED.
-          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^docs/claude/work/SESSIONS\.json$|^docs/claude/session-board\.json$|^docs/claude/work/objects/WO-20260901-PHASE-G\.yaml$|^docs/research/e35-bracket-corpus\.jsonl$|^docs/research/research-disposition-ledger\.jsonl$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$|^docs/claude/soak-doctrine-exceptions\.json$|^docs/claude/system-review-checklist\.json$|^docs/research/data/backtest-mfe-reference-2026-09-07\.json$|^docs/claude/work/objects/|^docs/api-tier-policy\.md$|^docs/CLAUDE-RULES-CANONICAL\.md$|^docs/sprint-logs|^docs/claude/health-review-backlog\.json$|^docs/claude/OPEN-ITEMS\.json$|^docs/claude/work/MANAGER-CHECKLIST\.json$|^docs/claude/work/OPEN-PRS\.json$'; then
+          if echo "$FILES" | grep -Eq '\.py$|requirements(-test)?\.txt$|pytest\.ini$|setup\.cfg$|pyproject\.toml$|^config/|^\.github/workflows/|^\.github/actions/|^scripts/|^deploy/|^comms/|^docs/research/exit-refinement-coverage\.json$|^docs/research/m20-sweep-corpus\.jsonl$|^docs/claude/system-actions\.md$|^docs/ARCHITECTURE-CANONICAL\.md$|^docs/research/m20-exit-head-rounds\.jsonl$|^docs/research/m20-fold-dispersion-arms-consolidated\.jsonl$|^docs/research/m20-fold-dispersion-2026-08-15\.md$|^docs/claude/impossibility-claim-baseline\.json$|^docs/claude/SUNSET-DISPOSITIONS\.json$|^docs/claude/CONSTRAINT\.json$|^docs/claude/diag-relay\.md$|^docs/claude/work/SESSIONS\.json$|^docs/claude/session-board\.json$|^docs/claude/work/objects/WO-20260901-PHASE-G\.yaml$|^docs/research/e35-bracket-corpus\.jsonl$|^docs/research/research-disposition-ledger\.jsonl$|^ml/|^automation/|^research/|^\.claude/|^\.env\.example$|^tests/|^data/backtest_candles\.csv$|^data/btc_1m_sample\.csv$|^data/ict_validate_manifest\.csv$|^docs/claude/soak-doctrine-exceptions\.json$|^docs/claude/system-review-checklist\.json$|^docs/research/data/backtest-mfe-reference-2026-09-07\.json$|^docs/claude/work/objects/|^docs/api-tier-policy\.md$|^docs/CLAUDE-RULES-CANONICAL\.md$|^docs/sprint-logs|^docs/claude/health-review-backlog\.json$|^docs/claude/OPEN-ITEMS\.json$|^docs/claude/work/MANAGER-CHECKLIST\.json$|^docs/claude/work/PIPELINE\.jsonl$|^docs/claude/work/OPEN-PRS\.json$'; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"

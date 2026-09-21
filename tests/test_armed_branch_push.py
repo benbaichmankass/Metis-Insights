@@ -156,12 +156,53 @@ def test_every_state_is_reachable_so_none_is_decorative():
     reached = {
         G.grade(DROPPED_PUSH, _pr(merged=True, state="closed"))["state"],
         G.grade(MERGED_HEAD, _pr(merged=True, state="closed"))["state"],
+        G.grade(DROPPED_PUSH, _pr(merged=True, state="closed"),
+                merge_reachable=True)["state"],
         G.grade(DROPPED_PUSH, _pr(auto_merge={"m": 1}))["state"],
         G.grade(DROPPED_PUSH, _pr())["state"],
         G.grade(DROPPED_PUSH, None)["state"],
         G.grade(DROPPED_PUSH, None, pr_read_ok=False)["state"],
     }
     assert reached == set(G.ALL_STATES)
+
+
+# ── E10: the branch-reset case (2026-09-21) ────────────────────────────────
+# This guard reported a HEALTHY push as `dropped` on two consecutive PRs
+# (#12673, #12674): the watcher fires on the push, and for the ~30s before the
+# follow-up PR exists the branch's only PR is the merged one, whose head is
+# necessarily not the pushed sha. These live in tests/ as well as in the
+# script's --self-test so that loosening one cannot quietly restore the false
+# positive.
+
+def test_a_reset_branch_is_not_a_drop():
+    row = G.grade(DROPPED_PUSH, _pr(merged=True, state="closed"),
+                  merge_reachable=True)
+    assert row["state"] == G.RESET_FROM_MERGE
+    assert not row["error"] and not row["warn"]
+    assert G.exit_code(row) == G.EXIT_QUIET
+
+
+def test_only_an_affirmative_true_clears_a_drop():
+    """⚠️ The tri-state IS the safety property.
+
+    `False` and `None` must BOTH keep `dropped`: a probe that could not run
+    must never clear a finding, and unknown reachability is not evidence that
+    nothing was lost.
+    """
+    for reachable in (False, None):
+        row = G.grade(DROPPED_PUSH, _pr(merged=True, state="closed"),
+                      merge_reachable=reachable)
+        assert row["state"] == G.DROPPED, f"merge_reachable={reachable!r}"
+        assert row["error"], f"merge_reachable={reachable!r}"
+
+
+def test_reachability_cannot_override_the_states_that_are_not_about_drops():
+    assert G.grade(DROPPED_PUSH, _pr(auto_merge={"m": 1}),
+                   merge_reachable=True)["state"] == G.ARMED
+    assert G.grade(DROPPED_PUSH, None, pr_read_ok=False,
+                   merge_reachable=True)["state"] == G.UNKNOWN
+    assert G.grade(MERGED_HEAD, _pr(merged=True, state="closed"),
+                   merge_reachable=True)["state"] == G.MERGED_CONTAINED
 
 
 # ── the CLI, since the workflow calls it and CI never runs that workflow ────
