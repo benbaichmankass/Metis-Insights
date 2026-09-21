@@ -4,10 +4,20 @@
 #
 # Operator directive (2026-07-28): "we need some sort of queue like we have for
 # merging so that everyone knows who is using the VM … nothing new starts till
-# what is running ends, FIFO." The board VM-LANE CLAIM protocol is the queue;
-# this guard makes claiming a PHYSICAL PRECONDITION of dispatching a HEAVY
-# trainer-VM job, so the FIFO can't be silently skipped under load (the exact
-# failure that forced the merge guard, 2026-07-27).
+# what is running ends, FIFO." Originally the board VM-LANE CLAIM protocol was
+# the queue and this guard made claiming it a PHYSICAL PRECONDITION of
+# dispatching a HEAVY trainer-VM job.
+#
+# ⚠️ UPDATED 2026-09-21 (PI-20260921-0001): the board is archived and its
+# skill (session-coordination) is archived, so "claim, then post on the board"
+# has no live target any more — and docs/claude/coordination-board.md (MEASURED
+# 2026-08-20) records this guard as inert on Claude Code on the web anyway,
+# where most sessions run. This hook is kept as a local speed-bump for the
+# runtimes where hooks DO fire, but the real serialization for the
+# `trainer-vm-heavy-request` path now lives in `trainer-vm-diag.yml` itself
+# (a flock-wrap around the same on-VM lock `python -m ml train` uses) — see
+# that workflow's "Serialize on the shared heavy-job lock" step and
+# docs/claude/vm-resource-management.md § 3.
 #
 # Scope (DELIBERATELY NARROW + FAIL-OPEN so it can never strand the relays):
 #   - Fires ONLY on mcp__github__issue_write whose payload carries the
@@ -56,14 +66,22 @@ if [ -f "$marker" ]; then
 fi
 
 # No fresh claim → DENY with the runbook.
+#
+# ⚠️ REWRITTEN 2026-09-21 (PI-20260921-0001). The old message here told a
+# session to "read the board tail (issue #6927)" and post 🔒/🕓/🔓 comments
+# there. That board is ARCHIVED (docs/claude/board-pointer.json no longer
+# exists at its old path) and the session-coordination skill that
+# operationalized the protocol is archived too — following the old text would
+# send a session to comment on a dead, do-not-post-there issue. Do not
+# resurrect that instruction.
 deny_reason=$(cat <<'EOF'
-VM-LANE CLAIM REQUIRED before a HEAVY trainer-VM job (trainer-vm-heavy-request).
-The trainer VM is a single core shared across sessions — nothing new starts until the running job ends (FIFO). Do this FIRST:
+VM-LANE CLAIM MARKER REQUIRED before a HEAVY trainer-VM job (trainer-vm-heavy-request).
+The trainer VM is a single core shared across sessions. Do this FIRST:
 1) FIRST ASK: does this job need VM-RESIDENT state? If it's CPU-only (a public-feed fetch + a backtest over it), run it on a FREE GitHub runner instead (research-symbol-p0-build / research-exit-head-build pattern) — no lane, no contention. Most heavy work belongs there. See docs/claude/vm-resource-management.md.
-2) If it genuinely needs the VM: read the board tail (issue #6927). If an open "🔒 VM-LANE CLAIM · trainer" has no matching "🔓 RELEASE", the lane is HELD — post "🕓 VM-LANE QUEUED · trainer" and WAIT (do not dispatch).
-3) If the lane is FREE: post "🔒 VM-LANE CLAIM · trainer · <session> · <task> · ETA <min>" on #6927, then `touch /tmp/.claude-vm-lane-claim-<session_id>` and RETRY this call.
-4) Post "🔓 VM-LANE RELEASE · trainer · <session>" the instant the job ends.
-The marker is a speed-bump, not the claim — the board comment is what other sessions see, so post it for real.
+2) If it genuinely needs the VM: `trainer-vm-diag.yml` now wraps an issues-triggered `trainer-vm-heavy-request` dispatch in the real on-VM flock (runtime_logs/trainer/.heavy.lock, the same lock python -m ml train/build-dataset already uses) — a second heavy dispatch will itself wait or refuse (exit 75) rather than collide, no board post needed for that part.
+3) This marker is only a local speed-bump proving you thought about it before dispatching: `touch /tmp/.claude-vm-lane-claim-<session_id>` and RETRY this call.
+4) There is no coordination-board release step any more — the flock in step 2 releases itself when the job ends.
+NOTE: this hook does not fire on Claude Code on the web (that runtime loads no project hooks — see docs/claude/coordination-board.md § "Enforcement"), so on the web this deny is never seen and step 2's flock-wrap is the only real protection.
 EOF
 )
 
