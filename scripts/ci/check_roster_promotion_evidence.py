@@ -714,6 +714,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--json", action="store_true", help="machine-readable census (with --population)")
     args = ap.parse_args(argv)
 
+    # The verdict below is about the COMMITTED tree. Say so when that is not the
+    # tree you edited — this guard takes `--base`, so it grades a commit range,
+    # and a session chasing a CI failure types THIS file rather than
+    # run_guards.py. See
+    # BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS-SO-ALL-18-DIRECTLY-INVOCABLE-DIFF-SCOPED-GUARDS-STILL-GRADE-THE-WRONG-TREE-SILENTLY
+    # ⚠️ It is a NOTICE: no stashing, no committing, no exit-code change. A
+    # dirty tree is not a guard failure, it is a verdict about a different tree.
+    import _dirty_tree  # noqa: PLC0415 — the path shim is at module level
+    _dirty_tree.warn()
+
     if args.self_test:
         return self_test()
 
