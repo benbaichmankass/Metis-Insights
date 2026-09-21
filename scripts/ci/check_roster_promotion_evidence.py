@@ -499,8 +499,18 @@ accounts:
     mode: live
     strategies: [leg_ok]
   dry_real_acct:
+    # ⚠️ NO `mode:` LINE HERE, DELIBERATELY. This account exists to show that a
+    # real-money account requires evidence regardless of its mode — and this
+    # guard never branches on `mode` at all, so spelling one in a FIXTURE buys
+    # nothing. It would also trip `dry-run-guard`, which matches the literal
+    # line anywhere outside tests/ and docs/. Satisfying that with its
+    # operator-permission allow-marker would spend an escape hatch meant for a
+    # deliberate DEMOTION on a string that is not an account, so the property is
+    # asserted against the REAL config instead, where the line already exists
+    # and this change does not touch it:
+    # tests/test_roster_promotion_evidence.py::test_a_real_money_account_in_dry_run_is_still_risk_bearing
+    # pins `ib_live` (account_class: real_money, mode: dry_run) as risk-bearing.
     account_class: real_money
-    mode: dry_run
     strategies: []
   mystery_acct:
     account_class: quantum_money
