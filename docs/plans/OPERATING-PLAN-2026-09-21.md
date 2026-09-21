@@ -48,6 +48,20 @@ CI makes switching a strategy **off** need the operator's signature and
 switching one **on** free. That is why the roster went 36 → 55 while every memo
 said cut.
 
+⚠️ **REFINED 2026-09-21, and the refinement changes what B1 must key on.** There
+are **two** ways to take a leg off a book and the guard only sees one of them.
+`check_dry_run_in_diff.py` matches on added `mode: dry_run` and
+`execution: shadow` **lines** — so setting a leg to `shadow` is guarded, while
+**removing it from an account's `strategies:` roster is not.** Verified by
+running the guard against the A6 diff, which removes two legs from
+`alpaca_live`: it reports `clean`.
+
+So the asymmetry is sharper than "off is guarded, on is free". It is: **one
+spelling of *off* is guarded, the other spelling of *off* is free, and *on* is
+free by both spellings.** B1 must therefore key on **roster membership**, not on
+the `mode`/`execution` fields — a guard that watches only the fields can be
+walked around by editing the list, in either direction.
+
 The rule this plan enforces already exists, in
 [`docs/CLAUDE-RULES-CANONICAL.md`](../CLAUDE-RULES-CANONICAL.md) § "Promotion
 evidence — offline edge, live mechanics". It is correct and it keeps losing,

@@ -934,7 +934,7 @@ accounts:
     api_key_env: ALPACA_API_KEY_ID_LIVE        # this account's OWN key pair, so
     api_secret_env: ALPACA_API_SECRET_KEY_LIVE # paper + live run concurrently.
     strategies:                        # ⚠️ NO LONGER EMPTY as of 2026-08-31 — this account now
-      - tlt_pullback_1h                # ROUTES REAL MONEY. Tier-3, operator-approved in
+                                       # ROUTES REAL MONEY. Tier-3, operator-approved in
                                        # conversation 2026-08-31 ("get this taken care of so we can
                                        # actually have something routed to the real money"), on the
                                        # explicit leg choice put to the operator and confirmed.
@@ -1071,9 +1071,36 @@ accounts:
       # `/api/diag/broker_account_status` reads `shorting_enabled: false` here,
       # so a short is unexecutable BEFORE `side_filter: long` is consulted.
       # That is not a config choice to revisit.
-      - tlt_pullback_1d      # TLT 1d pullback. 44/44 observed long setups size
-                             # (2 sh, $3.03-3.22 risk). Already in
-                             # alpaca_portfolio -> ROSTER-SYNC clean.
+      # ⚠️ A6 — `tlt_pullback_1h` AND `tlt_pullback_1d` REMOVED 2026-09-21.
+      # Tier-3, operator-approved in conversation: "yeah, you can pull those
+      # strategies off if they need to be turned off."
+      #
+      # WHY, with the population stated. Both are negative out-of-sample:
+      #   tlt_pullback_1h   -4.41R over n=94
+      #   tlt_pullback_1d   -3.92R over n=8, 0 of 4 walk-forward folds positive
+      # Under the promotion ladder adopted the same day
+      # (docs/plans/OPERATING-PLAN-2026-09-21.md) a leg reaches a Stage-2
+      # roster only on an offline edge proof that clears a pre-registered bar.
+      # Neither clears one, so neither belongs on real money — and the ladder's
+      # Gate 2 is a DEMOTION gate precisely so this kind of row leaves.
+      #
+      # ⚠️ THE 1h LEG WAS THE PLUMBING TEST, and removing it does not retire
+      # that question. Its purpose was to prove real fills reconcile against
+      # exchange truth on a CASH book, and it never answered: ZERO long signals
+      # ever reached this account (18x Jun / 2x Jul / 13x Aug / 0x Sep, going
+      # quiet the day before the account was armed), and every package since
+      # 08-31 was SHORT, which is unexecutable here because the venue reads
+      # `shorting_enabled: false`. So the order path on alpaca_live is STILL
+      # UNEXERCISED. The three legs below inherit that job.
+      #
+      # ROSTER-SYNC IS UNAFFECTED: the invariant is a SUBSET assertion
+      # (tests/test_paper_portfolio_accounts.py::
+      #  test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies), so shrinking
+      # the live roster can never break it. Both legs stay in
+      # alpaca_portfolio, where their paper record keeps accruing.
+      #
+      # ROLLBACK: re-add the two lines. Tier-3 again — re-adding a leg to a
+      # real-money roster IS the live-trading moment, as the header above says.
       - ief_pullback_1d      # IEF 1d pullback. 67/67 (1 sh, $0.89-0.94).
                              # Already in alpaca_portfolio.
       - slv_pullback_1d      # SLV 1d pullback. 217/217 (1 sh, $3.54-3.90).

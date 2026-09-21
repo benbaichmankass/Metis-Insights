@@ -251,12 +251,19 @@ route through `RiskManager` per-trade: the account stays live and individual
 trades are refused with a logged cause. Full Prime Directive:
 [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § Prime Directive.
 
-⚠️ **CI is currently asymmetric and this is the single mechanical fact behind
-the roster drift.** `scripts/check_dry_run_in_diff.py` fails any PR that turns a
-strategy **off** without an operator marker; across all 78 guards **nothing
-blocks turning one on**, and nothing requires evidence before a leg reaches a
-real-money roster. That is why the roster went 36 → 55 while every memo said
-cut. Plan item **B1** inverts it.
+⚠️ **CI is asymmetric, and this is the single mechanical fact behind the roster
+drift.** `scripts/check_dry_run_in_diff.py` fails any PR that adds a
+`mode: dry_run` or `execution: shadow` line without an operator marker; across
+all 78 guards **nothing blocks turning a leg on**, and nothing requires evidence
+before it reaches a real-money roster. That is why the roster went 36 → 55 while
+every memo said cut.
+
+⚠️ **And it is sharper than "off is guarded, on is free"** (verified 2026-09-21
+by running the guard against a real diff): there are **two spellings of off**,
+and the guard sees only one. Setting `execution: shadow` is guarded; **removing
+a leg from an account's `strategies:` roster is not.** So **B1 must key on
+roster membership**, not on the `mode`/`execution` fields — a guard watching
+only the fields can be walked around by editing the list, in either direction.
 
 ---
 
