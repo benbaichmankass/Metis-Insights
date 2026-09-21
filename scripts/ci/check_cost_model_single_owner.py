@@ -59,17 +59,14 @@ _FEE_NAMES = re.compile(r"^_?FEE_BPS_ROUNDTRIP$")
 #: value ever changed, so the migration is per-file work with its own verification.
 #: The registry's job is to stop the population GROWING and to fire if one drifts.
 KNOWN_DUPLICATES: dict[str, str] = {
-    "scripts/backtest_chop_scalp.py": "7.5",
-    "scripts/backtest_funding_carry.py": "7.5",
-    "scripts/backtest_fvg_range.py": "7.5",
-    "scripts/backtest_pairs.py": "7.5",
-    "scripts/backtest_xsec_momentum.py": "7.5",
+    # checklist E3 (2026-09-21): these 6 now import execution_costs (to wire
+    # slippage/funding) and alias FEE_BPS_ROUNDTRIP to the owner — no longer
+    # duplicates. Removed rather than left stale.
     "scripts/research/hf_solo_sim.py": "7.5",
     "scripts/research/hf_vectorized.py": "7.5",
     "scripts/research/m20_regime_flip_replay.py": "7.5",
     "scripts/research/regime_matrix.py": "7.5",
     "scripts/research/research_momentum.py": "7.5",
-    "src/backtest/run_backtest_vwap.py": "7.5",
 }
 
 

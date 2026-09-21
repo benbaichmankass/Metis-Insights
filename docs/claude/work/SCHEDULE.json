@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "note": "CADENCED SESSIONS ONLY. Everything else A9 renders (decisions owed, monitoring coming due, cron cadences) is computed LIVE from docs/claude/work/PIPELINE.jsonl and .github/workflows/*.yml -- never duplicated here. This file exists because the daily sync and the three project-level reviews have NO machine-readable cadence record anywhere else in the repo: they are declared in CLAUDE.md / skill prose, not in a data file. That absence is itself a finding about the instruction set, not license for a general-purpose register -- see docs/claude/work/MANAGER-CHECKLIST.json item A9. Read by scripts/ops/render_schedule.py, served by GET /api/bot/work/schedule.",
+  "sessions": [
+    {
+      "id": "daily-sync",
+      "title": "Daily sync with the operator",
+      "cadence": "once per day; not time-boxed (operator directive 2026-09-21: no cap on decisions, do not report session length as a metric)",
+      "source": "CLAUDE.md § \"The daily sync, and standing authorizations\"",
+      "note": "The manager pushes the six-section brief (GET /api/bot/work/brief) before the sync."
+    },
+    {
+      "id": "health-review",
+      "title": "/health-review",
+      "cadence": "on demand -- no declared fixed interval; a weekly compliance-audit rotation runs inside it, not as its own trigger",
+      "source": ".claude/skills/health-review/SKILL.md",
+      "note": "Technical / pipeline / data health."
+    },
+    {
+      "id": "performance-review",
+      "title": "/performance-review",
+      "cadence": "on demand -- no declared fixed interval",
+      "source": ".claude/skills/performance-review/SKILL.md",
+      "note": "Trading + strategy performance, per-decision grading, research pipeline."
+    },
+    {
+      "id": "ml-review",
+      "title": "/ml-review",
+      "cadence": "on demand -- no declared fixed interval",
+      "source": ".claude/skills/ml-review/SKILL.md",
+      "note": "Model lifecycle, promotion/demotion against the candidate→shadow→advisory ladder."
+    }
+  ]
+}
