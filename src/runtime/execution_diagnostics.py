@@ -1415,3 +1415,70 @@ def enqueue_trade_close(
             "(symbol=%s): %s", symbol, exc,
         )
         return None
+
+
+def enqueue_prop_sizing_refusal(
+    *,
+    account: str,
+    reason: str,
+    priority: str = "high",
+) -> Optional[Path]:
+    """Drop a Telegram-ready ping for a PROP account that cannot size.
+
+    ⚠️ **THIS IS THE SIGNAL THAT DID NOT EXIST**, and its absence is the whole
+    of ``BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-
+    NEVER-PINGED``. ``prop_balance.prop_sizing_balance`` refuses on
+    ``stale``/``absent``/``error`` and ``Coordinator._default_balance_fetcher``
+    raises, but that raise lands in the ``sizing_failed`` branch, which writes
+    a journal rejection and a logger line and nothing else —
+    ``_emit_execution_failure_ping`` sits on the LATER ``execute_pkg`` branch
+    and is never reached. So a funded prop account could stop trading
+    indefinitely with the only evidence being a journalctl line, in a unit
+    whose journald retention was measured at ~30 minutes.
+
+    Separate from :func:`enqueue_execution_failure` rather than reusing it,
+    because that function's body says *"Order execution failed"* with a
+    strategy/symbol/side the refusal does not have: the prop refusal is not a
+    dropped order, it is an account that can place NO order until the operator
+    sends a balance. Naming it as an order failure would be this repo's
+    "unprovenanced diagnostic output" class — a label describing a cause no
+    code path tested.
+
+    Same delivery channel as every other producer here (a JSON file dropped in
+    ``runtime_logs/pending_pings/``, drained by the ``ict-telegram-bot``
+    job-queue tick), so **nothing on the order path waits on Telegram** — which
+    is why the emit lives here rather than as a direct send from
+    ``prop_balance``.
+
+    ⚠️ **THE DE-DUPLICATION IS THE CALLER'S** (``prop_balance.note_refusal``).
+    This function pages every time it is called; the refusal condition is
+    evaluated once per prop account per tick, so calling it unguarded would put
+    one condition on the whole of the operator's feed — the desensitised-alarm
+    P1 this repo has an explicit rule about.
+
+    Returns the queued file's path, or ``None`` when the enqueue itself failed.
+    Never raises.
+    """
+    try:
+        body = (
+            f"⛔ Prop account cannot size — no orders will be ticketed\n"
+            f"Account: {account}\n"
+            f"Reason: {reason}"
+        )[:1024]
+        _append_operator_alert("prop_sizing_refusal", priority, body,
+                               extra={"account": account})
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = f"{int(uuid.uuid4().int % 10**12):012d}-propsize.json"
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: prop-sizing-refusal enqueue failed for "
+            "account=%s reason=%r: %s", account, str(reason)[:80], exc,
+        )
+        return None
