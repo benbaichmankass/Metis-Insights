@@ -355,13 +355,14 @@ def _blocked_on(*args):
          "blocked-on", *args], capture_output=True, text=True, cwd=str(REPO))
 
 
-def test_registry_refuses_a_kind_with_no_resolver():
-    """The refusal is what guarantees `could_not_look` can only mean *we tried
-    and failed* — never *there was never a resolver for this*."""
-    out = _blocked_on("--session-id", "whatever", "--kind", "vibes",
-                      "--ref", "x", "--clears-when", "y")
-    assert out.returncode == 5
-    assert "no resolver" in out.stdout or "no row for" in out.stdout
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_registry_refuses_a_kind_with_no_resolver`.
+# It asserted a property of the LIVE SESSIONS.json sub-session registry, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 def test_every_declared_kind_has_a_working_resolver():

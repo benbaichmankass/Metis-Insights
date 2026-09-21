@@ -112,17 +112,11 @@ def test_terminal_is_derived_from_the_enum_not_listed_beside_it():
     assert BACKLOG_TERMINAL, "positive control: the terminal set is not empty"
 
 
-def test_no_row_in_any_guarded_backlog_carries_an_off_enum_status():
-    """The denominator the row asked for, asserted rather than remembered."""
-    from scripts.check_claim_basis import BACKLOGS, STATUS_ENUM
-
-    total, bad = 0, []
-    for rel in BACKLOGS:
-        doc = json.loads((REPO / rel).read_text(encoding="utf-8"))
-        rows = doc if isinstance(doc, list) else (doc.get("items") or [])
-        assert rows, f"positive control: {rel} must have rows to grade"
-        total += len(rows)
-        bad += [(rel, r.get("id"), r.get("status")) for r in rows
-                if r.get("status") not in STATUS_ENUM]
-    assert total > 1000, f"positive control: only {total} rows read"
-    assert not bad, bad
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_no_row_in_any_guarded_backlog_carries_an_off_enum_status`.
+# It asserted a property of the LIVE review backlogs, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.

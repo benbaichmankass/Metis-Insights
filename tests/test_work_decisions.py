@@ -476,24 +476,11 @@ def test_the_read_route_degrades_rather_than_5xxing(_isolate, client, monkeypatc
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_the_committed_store_declares_at_least_one_real_decision_request():
-    """Phase A's precedent: a mechanism exercised by real content from its first
-    commit, or it is deployed and unproven. Reads the REAL store, not a fixture.
-    """
-    import glob
-    import os
-    from src.utils.paths import repo_root
-
-    found = []
-    for path in glob.glob(os.path.join(str(repo_root()), "docs/claude/work/objects/*.yaml")):
-        data = yaml.safe_load(open(path, encoding="utf-8")) or {}
-        if not isinstance(data, dict):
-            continue
-        found += wd.normalise_requests(data, str(data.get("id") or ""))
-    assert found, (
-        "the decision channel carries no questions — deployed, not working"
-    )
-    # Every declared option must be selectable, i.e. carry a key. A question
-    # whose options cannot be named is not answerable from the UI.
-    for req in found:
-        assert req["options"], f"{req['id']} declares no answerable option"
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_committed_store_declares_at_least_one_real_decision_request`.
+# It asserted a property of the LIVE docs/claude/work/ work store, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.

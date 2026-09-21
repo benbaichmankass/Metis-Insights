@@ -161,7 +161,17 @@ class TestEveryDiffScopedGuardCarriesIt:
         """Vacuity control. Without it, 'every guard carries the notice' is
         satisfied by a probe that finds no guards at all."""
         guards = _base_accepting_guards()
-        assert len(guards) >= 20, guards
+        # ⚠️ FLOOR LOWERED 20 -> 6 on 2026-09-21 by the operating reset, and
+        # this is a DENOMINATOR, not a finding. 41 governance guard entries were
+        # removed from `run_guards.py` (111 -> 70) because the registers they
+        # graded are archived under `docs/archive/2026-09-21-operating-reset/`.
+        # The diff-scoped POPULATION fell with them; the SHARE carrying the
+        # notice did not move -- all 6 survivors carry it, which is what the
+        # sibling test asserts and what stayed green through the cut. A floor
+        # of 20 over a population of 6 asserts nothing about the notice and
+        # everything about a guard count nobody is holding constant.
+        # It may only go UP from here.
+        assert len(guards) >= 6, guards
 
     @pytest.mark.parametrize("rel", _base_accepting_guards())
     def test_it_calls_the_shared_notice(self, rel):

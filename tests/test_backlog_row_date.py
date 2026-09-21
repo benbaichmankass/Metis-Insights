@@ -116,52 +116,30 @@ def test_age_days_is_None_not_zero_when_there_is_no_date():
 # The corpus. This is the assertion the plant has to break.
 # --------------------------------------------------------------------------
 
-def test_the_accessor_dates_the_overwhelming_majority_of_live_rows():
-    rows = _live_rows()
-    assert len(rows) > 400, f"population collapsed to {len(rows)} — check the loader"
-    reach = _reach(rows)
-    assert reach >= 0.90, (
-        f"row_date dates only {reach:.1%} of {len(rows)} live rows. Measured "
-        f"2026-09-12 it reached 94.7%. Either DATE_FIELDS lost a key, or a new "
-        f"date key has entered the corpora and must be appended to it."
-    )
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_accessor_dates_the_overwhelming_majority_of_live_rows`.
+# It asserted a property of the LIVE review backlogs, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
-def test_opened_at_alone_is_measurably_insufficient():
-    """The row's whole finding, asserted rather than asserted-about.
-
-    If this ever passes at a high number the split has healed and the
-    accessor's long tail could be revisited — but nobody should *assume* that.
-    """
-    rows = _live_rows()
-    only_opened_at = sum(1 for r in rows if r.get("opened_at")) / len(rows)
-    assert only_opened_at < 0.80, (
-        f"`opened_at` alone now covers {only_opened_at:.1%} of live rows; the "
-        f"2026-09-12 measurement was 59.8%. Re-measure before relying on it."
-    )
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_opened_at_alone_is_measurably_insufficient`.
+# It measured a property of the LIVE review backlogs, which are archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so it is removed
+# WITH its subject rather than skipped. The fixture-based siblings are untouched.
 
 
-def test_rows_carrying_more_than_one_date_key_do_not_disagree():
-    """Pins the fact that justifies first-key-wins.
-
-    MEASURED 2026-09-12: 15 live rows carry more than one date key and all 15
-    agree on the day. The COUNT is reported, never pinned — rows get filed. The
-    INVARIANT is pinned, because the day it breaks, first-key-wins stops being
-    a no-op and starts being a silent choice.
-    """
-    rows = _live_rows()
-    multi = [r for r in rows
-             if sum(1 for f in _backlog.DATE_FIELDS if r.get(f)) > 1]
-    disagreeing = [
-        r for r in multi
-        if len({_backlog._as_day(r[f]) for f in _backlog.DATE_FIELDS if r.get(f)}) > 1
-    ]
-    assert not disagreeing, (
-        f"{len(disagreeing)} of {len(multi)} multi-keyed live rows now disagree "
-        f"about their own open day: {[r.get('id') for r in disagreeing][:5]}. "
-        f"first-key-wins is no longer a no-op — row_date should GROW A STATE "
-        f"rather than keep picking silently."
-    )
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_rows_carrying_more_than_one_date_key_do_not_disagree`.
+# It asserted a property of the LIVE review backlogs, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 def test_is_open_status_is_the_re_export_not_a_second_definition():
@@ -220,37 +198,21 @@ def test_added_after_still_answers_when_the_date_IS_stated():
 # PLANTED DEFECT + NEGATIVE CONTROL
 # --------------------------------------------------------------------------
 
-def test_planted_defect_the_pre_fix_vocabulary_FAILS_the_reach_floor(monkeypatch):
-    """Re-install the pre-fix definition and show the floor goes RED.
-
-    The plant asserts ITSELF first: if narrowing DATE_FIELDS did not actually
-    drop the reach, the plant never landed and a subsequent failure would be
-    evidence of nothing.
-    """
-    rows = _live_rows()
-    before = _reach(rows)
-
-    monkeypatch.setattr(_backlog, "DATE_FIELDS", ("opened_at",))
-    after = _reach(rows)
-
-    assert after < before - 0.20, (
-        f"THE PLANT DID NOT LAND: narrowing DATE_FIELDS to ('opened_at',) moved "
-        f"reach {before:.1%} -> {after:.1%}. Either the corpora changed shape or "
-        f"row_date no longer reads DATE_FIELDS, and this probe is now inert."
-    )
-
-    with pytest.raises(AssertionError):
-        test_the_accessor_dates_the_overwhelming_majority_of_live_rows()
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_planted_defect_the_pre_fix_vocabulary_FAILS_the_reach_floor`.
+# It asserted a property of the LIVE review backlogs, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
-def test_negative_control_an_inert_plant_stays_green(monkeypatch):
-    """An edit that changes nothing must not make the floor fail.
-
-    Appending a key no row carries is the inert edit: it touches the same
-    constant the real plant touches, so a probe that reds on *any* change to
-    DATE_FIELDS — rather than on the loss of coverage — is caught here.
-    """
-    monkeypatch.setattr(
-        _backlog, "DATE_FIELDS",
-        _backlog.DATE_FIELDS + ("a_key_no_row_carries",))
-    test_the_accessor_dates_the_overwhelming_majority_of_live_rows()
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_negative_control_an_inert_plant_stays_green`.
+# It asserted a property of the LIVE review backlogs, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.

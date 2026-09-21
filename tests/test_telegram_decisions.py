@@ -1308,37 +1308,14 @@ def test_the_footer_survives_even_when_the_options_alone_blow_the_budget():
     assert "DEC-20260901-READ-GATE-SEQUENCING" in body
 
 
-def test_the_whole_live_repo_corpus_now_fits(): # noqa: C901
-    """THE REGRESSION GUARD, over the REAL population rather than a fixture.
-
-    Measured 2026-09-17: 5 of the 33 decision requests in the work store
-    rendered over the cap and 0 of them had EVER been delivered, against 20
-    delivered markers all under it. If a future prose edit pushes one back over
-    the cap, this fails here instead of on the operator's phone.
-    """
-    import glob
-    import yaml
-    from src.runtime.work_decisions import normalise_requests
-
-    n = 0
-    for path in sorted(glob.glob("docs/claude/work/objects/*.yaml")):
-        try:
-            data = yaml.safe_load(open(path, encoding="utf-8")) or {}
-        except Exception:                      # noqa: BLE001 — not this test's job
-            continue
-        if not isinstance(data, dict) or not data.get("decision_requests"):
-            continue
-        oid = str(data.get("id") or "")
-        for req in normalise_requests(
-                {"decision_requests": data["decision_requests"]}, oid):
-            body = td.render_decision_prompt({**req,
-                                              "objectTitle": data.get("title")})
-            assert len(body) <= td.TELEGRAM_MESSAGE_MAX_CHARS, (
-                f"{oid}::{req['id']} renders {len(body)} chars")
-            n += 1
-    # POSITIVE CONTROL: a corpus this probe cannot see proves nothing. 33 were
-    # measured on 2026-09-17; assert we are still reading a real population.
-    assert n >= 20, f"only {n} requests found — the probe has gone blind"
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_whole_live_repo_corpus_now_fits`.
+# It asserted a property of the LIVE docs/claude/work/ work store, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 # ── the failure is NAMED, not counted (resolution criterion 1) ───────────────

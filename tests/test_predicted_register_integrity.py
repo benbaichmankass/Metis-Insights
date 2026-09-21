@@ -228,11 +228,14 @@ def test_an_unparseable_register_is_counted_not_silently_clean():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def test_the_real_repo_grades_clean():
-    """A positive control: the probe can return CLEAN, so a finding means something."""
-    r = pri.inspect_tree(str(ROOT))
-    assert r["state"] == pri.CLEAN, r
-    assert r["registers_read"] >= 5
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_real_repo_grades_clean`.
+# It asserted a property of the LIVE shared JSON registers, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 # ── the single-owner rule ────────────────────────────────────────────────────
