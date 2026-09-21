@@ -1,15 +1,15 @@
 {
   "schema": 1,
-  "generated_at": "2026-09-20T09:55:38.813556+00:00",
+  "generated_at": "2026-09-21T10:53:53.091468+00:00",
   "prefix": "automation/",
   "shared_ref": "origin/main",
   "stale_hours": 6.0,
-  "population": 254,
+  "population": 255,
   "refetch": "not_needed",
   "read_state": "complete",
   "read_note": "every branch in the population was graded",
   "counts": {
-    "stuck": 249,
+    "stuck": 250,
     "in_flight": 2,
     "landed": 3,
     "no_remote": 0,
@@ -198,6 +198,7 @@
     "automation/replay-pregate-35204197736-1",
     "automation/replay-pregate-35326495386-1",
     "automation/replay-pregate-35432513421-1",
+    "automation/replay-pregate-35501445978-1",
     "automation/research-queue-stamp-33340458710-1",
     "automation/research-queue-stamp-33342140520-1",
     "automation/session-reaper-33648472594-1",
@@ -269,9 +270,9 @@
   "last_transition": {
     "state": "changed",
     "added": [
-      "automation/replay-pregate-35432513421-1"
+      "automation/replay-pregate-35501445978-1"
     ],
     "cleared": [],
-    "note": "1 newly stranded, 0 cleared (count 248 -> 249)"
+    "note": "1 newly stranded, 0 cleared (count 249 -> 250)"
   }
 }

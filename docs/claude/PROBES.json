@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-20T09:53:27.494375+00:00",
+  "generated_at": "2026-09-21T10:51:21.050408+00:00",
   "contract": "A probe REPORTS. A session CLEARS the row. Nothing here writes verified_at, observation, or removes a row.",
   "states": [
     "pass",
@@ -74,10 +74,10 @@
         "decision~stray_unkeyed,no_strays,could_not_look"
       ],
       "matched": 5,
-      "scanned": 128,
+      "scanned": 130,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=5 scanned=128\nprobe: PASS — 5 of 128 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 128 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 128)"
+      "detail": "probe-counts: matched=5 scanned=130\nprobe: PASS — 5 of 130 row(s) match ['decision=stray_unkeyed', 'acted=true'] (read 130 row(s) from /api/diag/log_file?name=stray_oca_soak&lines=1000; positive control 'decision~stray_unkeyed,no_strays,could_not_look' matched 130)"
     },
     {
       "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
@@ -151,11 +151,11 @@
         "--require",
         "applied=true"
       ],
-      "matched": 652,
-      "scanned": 841,
+      "matched": 722,
+      "scanned": 918,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=652 scanned=841\nprobe: PASS — 652 of 841 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 841 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
+      "detail": "probe-counts: matched=722 scanned=918\nprobe: PASS — 722 of 918 row(s) match ['apply_implemented=true', 'plan_state=planned', 'applied=true'] (read 918 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000)"
     },
     {
       "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
@@ -428,7 +428,7 @@
       "scanned": null,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "pr-queue-watch: FRESH -- a run was recorded 4.4h ago, inside the 30.0h window.\n  queue at last run: 79 PR(s) waiting on a merge decision, worst 188.4h  (reported, not enforced here)"
+      "detail": "pr-queue-watch: FRESH -- a run was recorded 13.7h ago, inside the 30.0h window.\n  queue at last run: 80 PR(s) waiting on a merge decision, worst 204.0h  (reported, not enforced here)"
     },
     {
       "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
@@ -484,11 +484,11 @@
         "--positive-control",
         "decision_state~not_scored,scored_no_fire,scored_would_close"
       ],
-      "matched": 95,
+      "matched": 54,
       "scanned": 1000,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=95 scanned=1000\nprobe: PASS — 95 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
+      "detail": "probe-counts: matched=54 scanned=1000\nprobe: PASS — 54 of 1000 row(s) match ['decision_state~scored_no_fire,scored_would_close'] (read 1000 row(s) from /api/diag/log_file?name=ict_scalp_exit_head_soak&lines=1000; positive control 'decision_state~not_scored,scored_no_fire,scored_would_close' matched 1000)"
     },
     {
       "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
@@ -706,11 +706,11 @@
         "--positive-control",
         "fanout_schema~2,3"
       ],
-      "matched": 245,
-      "scanned": 841,
+      "matched": 315,
+      "scanned": 918,
       "state": "pass",
       "reason": "exit_0",
-      "detail": "probe-counts: matched=245 scanned=841\nprobe: PASS — 245 of 841 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 841 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 828)"
+      "detail": "probe-counts: matched=315 scanned=918\nprobe: PASS — 315 of 918 row(s) match ['fanout_schema=3', 'apply_state=dispatchable'] (read 918 row(s) from /api/diag/log_file?name=arbitration_fanout_soak&lines=1000; positive control 'fanout_schema~2,3' matched 905)"
     },
     {
       "id": "OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP",
