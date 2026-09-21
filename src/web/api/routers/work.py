@@ -1017,7 +1017,7 @@ _SESSIONS_NOTE = (
     "nothing repopulates it, so under the current model this panel reads "
     "`present: false` PERMANENTLY, not intermittently. It is not coming back. "
     "Session state was only ever as fresh as the last MANAGER OBSERVATION "
-    "written into that file, and was never a live feed: reading the "
+    "written into that file. This is NOT a live feed: reading the "
     "platform's own session list needs `list_sessions`, an mcp__* tool no API "
     "route holds."
 )
