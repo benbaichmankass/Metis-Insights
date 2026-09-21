@@ -141,6 +141,20 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # A1 — the spend meter. Wired the day it was written, same reasoning
+        # as pipeline-guard: a module nothing runs is a declared capability
+        # with no consumer. --self-test asserts the one sentence this module
+        # exists to get right (never a fabricated reading when nobody has
+        # looked); --check validates the real on-disk log of operator
+        # readings.
+        "name": "spend-meter-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/spend_meter.py", "--self-test"],
+            ["python3", "scripts/ops/spend_meter.py", "--check"],
+        ],
+    },
+    {
         "name": "research-tooling-selftests",
         "when": None,
         "steps": [
