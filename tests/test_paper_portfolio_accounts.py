@@ -148,27 +148,28 @@ def test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies():
     ``alpaca_live`` minus the two declared affordability proxies, and that is
     why the name still says ``minus_proxies``.
 
-    ⚠️ THE EMPTY-LIVE STATE IS NOT RESOLVED BY THIS DECISION, AND THIS TEST
-    REFUSES TO PRETEND OTHERWISE. If ``alpaca_live`` returns to
-    ``strategies: []`` — which Gate 2 can produce by demoting the last live
-    leg, and which held 2026-08-29..08-31 — strict equality demands an EMPTY
-    mirror, and the two assertions below become unsatisfiable together. That
-    is the correct outcome, not a bug in the test: the config would be in a
-    state the B2 decision does not cover, and CI should say so rather than
-    silently deleting the last paper book or silently dropping the invariant.
-    The resolution is an operator call, not a test edit.
+    ⚠️ THE EMPTY-LIVE STATE IS NOW DECIDED: EQUALITY WINS, NO EXCEPTION.
+    OPERATOR, 2026-09-21, asked directly and answered directly. If
+    ``alpaca_live`` returns to ``strategies: []`` — which Gate 2 can produce by
+    demoting the last live leg, and which held 2026-08-29..08-31 — then the
+    mirror is empty too.
+
+    THE ARGUMENT AGAINST IT IS KEPT HERE ON PURPOSE, because the cost is real
+    and specific and a later session must read a DECISION rather than an
+    absence: at that moment the Alpaca demotion signal Gate 2 exists to read
+    disappears along with the mirror, and **nothing flags the gap**. An earlier
+    draft of this test asserted a non-empty mirror so CI would go red and name
+    the question; the operator was shown that and chose the clean rule over the
+    standing question. Accepted cost, not an oversight.
+
+    So there is exactly ONE assertion below. Do not reintroduce a non-empty
+    guard without a new operator decision — it would be reopening this one.
     """
     accts = _accounts()
     portfolio, real = accts["alpaca_portfolio"], accts["alpaca_live"]
     expected_strats = _expected_mirror_roster(real)
     port_strats = list(portfolio.get("strategies") or [])
 
-    assert port_strats, (
-        "alpaca_portfolio must NOT be emptied. If alpaca_live's roster is "
-        "empty, strict equality and this assertion cannot both hold — that "
-        "is the unresolved state named in this test's docstring, and it is "
-        "an operator decision (B2), not a test edit."
-    )
     assert port_strats == expected_strats, (
         "alpaca_portfolio must mirror alpaca_live's roster exactly, minus the "
         f"affordability proxies {_ALPACA_PROXY_STRATEGIES} — same mechanism as "

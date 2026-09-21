@@ -186,18 +186,30 @@ proxies (`splg_trend_long_1d`, `iaum_pullback_1d`) are dropped, because
 mirroring a sub-$100 proxy on a ~$98k paper book doubles the exposure its
 primary already carries.
 
-⚠️ **The Alpaca invariant is LANDED BUT NOT SATISFIED, and that is deliberate.**
-Until 2026-09-21 the Alpaca half was a SUBSET assertion — it guaranteed no live
-leg trades without a paper counterpart and deliberately allowed the mirror to
-run extra, so **Gate 2's demotion signal could not be read off the Alpaca
-mirror's aggregate.** DECIDED 2026-09-21 (operator, plan item **B2**): strict
-equality, like Bybit, with the surplus-leg cost accepted. The test says so; the
-roster does not yet, because the config edit needs an operator OK. MEASURED
-2026-09-21 by parsing `config/accounts.yaml` — `alpaca_live` **3** legs (2
-after the proxy carve-out), `alpaca_portfolio` **14**, so **12 surplus**. ⚠️ An
-earlier draft of this paragraph said *"no invariant exists"* (inferred, false);
-a later one said *"live 5 legs"*, which was true before **A6** (#12673) pulled
-`tlt_pullback_1h` and `tlt_pullback_1d` the same day.
+**The Alpaca invariant is now LANDED AND SATISFIED.** Until 2026-09-21 the
+Alpaca half was a SUBSET assertion — it guaranteed no live leg trades without a
+paper counterpart and deliberately allowed the mirror to run extra, so **Gate
+2's demotion signal could not be read off the Alpaca mirror's aggregate.**
+DECIDED 2026-09-21 (operator, plan item **B2**): strict equality, like Bybit,
+with the surplus-leg cost accepted — and the roster was cut the same day, so
+the test and the config now agree. MEASURED by parsing `config/accounts.yaml`:
+`alpaca_live` **3** legs (2 after the proxy carve-out), `alpaca_portfolio` cut
+**14 → 2**, so **12 legs removed**. What ends for those 12 is narrower than
+"they stop trading" — all 12 also sit on `alpaca_paper`, so each keeps a paper
+record; what ends is their record at the *portfolio* risk basis and their
+presence in `/api/bot/performance`'s `paperPortfolio` block.
+
+⚠️ **And the EMPTY-`alpaca_live` case is decided too: equality wins, no
+exception** (operator, same day). If Gate 2 demotes the last live leg the
+mirror empties with it — accepted, with the cost stated on the test: at that
+moment the Alpaca demotion signal disappears and nothing flags the gap. Do not
+reintroduce a non-empty guard without reopening that decision.
+
+⚠️ Two earlier drafts of this paragraph were wrong in ways worth remembering:
+one said *"no invariant exists"* (inferred, never checked); another said *"live
+5 legs"*, true only before **A6** (#12673) pulled `tlt_pullback_1h` and
+`tlt_pullback_1d` the same day — which is why the surplus the operator approved
+was **12, not the 9** every note said.
 
 ### The daily sync, and standing authorizations
 

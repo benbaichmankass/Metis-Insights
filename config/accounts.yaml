@@ -867,20 +867,23 @@ accounts:
     api_secret_env: ALPACA_API_SECRET_KEY_PAPER_PORTFOLIO  # separate from alpaca_paper.
     mode: live                         # paper host = paper money; executes.
     strategies:                        # alpaca_live's roster MINUS the affordability
-      - spy_trend_long_1d              # proxies (SPLG/IAUM) — see ROSTER-SYNC above.
-      - qqq_trend_long_1d
-      - gld_pullback_1d
-      - iwm_trend_long_1d
-      - tlt_pullback_1d
-      - ief_pullback_1d
-      - gld_pullback_1h
-      - slv_trend_1h
-      - spy_pullback_1h
-      - qqq_pullback_1h
-      - tlt_pullback_1h
-      - uso_trend_1h
+      - ief_pullback_1d                # proxies (SPLG/IAUM) — see ROSTER-SYNC above.
       - slv_pullback_1d
-      - gdx_pullback_1d
+      # ⚠️ CUT FROM 14 TO 2 ON 2026-09-21, BY EXPLICIT OPERATOR APPROVAL, asked
+      # and answered directly. The 12 removed were:
+      #   spy_trend_long_1d, qqq_trend_long_1d, gld_pullback_1d,
+      #   iwm_trend_long_1d, tlt_pullback_1d, gld_pullback_1h, slv_trend_1h,
+      #   spy_pullback_1h, qqq_pullback_1h, tlt_pullback_1h, uso_trend_1h,
+      #   gdx_pullback_1d
+      # THE OPERATOR WAS SHOWN THAT THE NUMBER HAD MOVED: every earlier note
+      # said 9 surplus legs, but A6 (#12673) pulled tlt_pullback_1d and
+      # tlt_pullback_1h off alpaca_live the same day, leaving live at 3 and the
+      # surplus at 12. They approved at 12, knowing that.
+      # WHAT IS ACTUALLY LOST IS NARROWER THAN "they stop trading": all 12 also
+      # sit on alpaca_paper's roster, so each keeps a paper record accruing.
+      # What ends is their record at the PORTFOLIO risk basis (risk_pct 0.02 vs
+      # alpaca_paper's 0.015) and their presence in /api/bot/performance's
+      # paperPortfolio block.
     symbols: [SPY, QQQ, GLD, IWM, TLT, IEF, SLV, USO, GDX]  # alpaca_live.symbols minus the SPLG/IAUM proxies.
     risk:
       max_dd_pct: 0.05                 # mirrors alpaca_live's caps.
