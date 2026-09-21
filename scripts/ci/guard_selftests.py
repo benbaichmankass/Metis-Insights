@@ -863,7 +863,11 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "workflow-catalog": selftest_workflow_catalog,
     "collapsed-state": selftest_collapsed_state,
     "canonical-doc-values": selftest_canonical_doc_values,
-    "claim-basis": selftest_claim_basis,
+    # `claim-basis` unregistered 2026-09-21 with its guard entry (operating
+    # reset). The four review backlogs it scanned are archived, so the guard
+    # reported "scanned NOTHING" and failed on an empty denominator. The
+    # function below is kept so the control can be re-registered if a
+    # basis-bearing register ever returns.
     "impossibility-claim": selftest_impossibility_claim,
     "diag-unit-allowlist": selftest_diag_unit_allowlist,
     "diagnostic-provenance": selftest_diagnostic_provenance,

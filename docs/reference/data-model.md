@@ -223,6 +223,7 @@ trader's monitor tick, so an unbounded per-row fetch is the 2026-06-09 cold-star
 unsupported root costs one request per process, not one per row per tick.
 
 **IBKR is a broker-truth reader now**, because the anchoring change alone would have made IB
+<!-- population-ok: moved VERBATIM from CLAUDE.md on 2026-09-21 by the operating reset. The claim and its missing population are both PRE-EXISTING and unchanged — this is a file move, not a new assertion, and inventing a denominator here would be worse than recording that nobody stated one. -->
 *worse-looking-but-honest* rather than correct: **IBKR historical-candle coverage is 0%**, so
 every future IB close would land as a declared gap. `interactive_brokers` is in
 `BROKER_PNL_READER_EXCHANGES`; `exchange_fills_ib.closed_pnl_from_fills` reads IBKR's own
