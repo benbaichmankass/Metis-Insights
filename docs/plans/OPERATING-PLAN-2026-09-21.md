@@ -213,30 +213,146 @@ and reproduced it.
 
 ---
 
-## 5. The daily sync — 30 minutes
+## 5. The daily sync — 30 minutes, and standing authorizations
 
 Once a day, same time. The manager pushes the brief **before** the sync, so the
-Workflow page and the conversation never disagree. Four sections, fixed order,
-hard cap.
+Workflow page and the conversation never disagree.
 
-| # | Section | Contents | Cap |
-|---|---|---|---|
-| 1 | **Decisions for you** | Each with the rule registered before the run, the result, and the verdict that follows. Tier-3 only — everything else has already applied itself. | 3 |
-| 2 | **What moved** | Lanes completed since yesterday, what they concluded, what auto-applied, what was killed. | 1 line ea. |
-| 3 | **What is running** | Live lanes, spend so far, expected completion. Anything blocked, and on what. | 1 line ea. |
-| 4 | **Spend** | Yesterday, month-to-date, against budget. Cost per unit delivered. | 4 numbers |
+> ⚠️ **CORRECTED 2026-09-21, same day, by the operator.** The first draft of
+> this section said *"if it does not fit in 30 minutes, the manager has failed
+> to prepare"* and capped the operator at **three decisions**. Both were wrong,
+> and the second was wrong in a way that would have defeated the whole plan.
+> The original text is preserved below the corrections, because a session
+> reading a quietly-rewritten section cannot tell which version the machinery
+> was built against.
 
-**If it does not fit in 30 minutes, the manager has failed to prepare** — that
-is the signal, not an excuse to run long. Three decisions is the cap because a
-fourth means the queue is producing faster than the operator can adjudicate,
-which is itself a thing to fix rather than absorb.
+### 5.1 Thirty minutes is a FLOOR, not a ceiling
 
-What the operator never does again: read a 400-line memo to make a decision,
-approve a demotion, or triage a backlog.
+Operator, 2026-09-21: *"If it lasts less than 30 minutes, that means they
+didn't come with enough work… there needs to be enough things going on for us
+to have at least 30 minutes to talk about stuff."*
+
+**A short sync is the failure signal.** It means the manager did not have
+enough in flight to fill the time — not that it prepared well. A sync that runs
+long because there is genuinely a lot moving is the system working.
+
+What the manager owes is a sync **worth** thirty minutes: real results, real
+decisions, real spend. Not a compressed one.
+
+### 5.2 The cap is removed, and replaced by standing authorizations
+
+Operator, 2026-09-21: *"We need to think of a better way to give more
+decision-making power, more things automated — not create less decisions and
+limit how much work we can actually do. It's the wrong way of how I want to
+think about things. I want to think about it the opposite: how can I give
+blanket permissions up front that allow for more decisions to be automated so
+that we can keep things running."*
+
+**The cap treated the operator's attention as the scarce resource and rationed
+it. The actual scarce resource is throughput, and rationing decisions throttles
+throughput** — a queue producing four decisions a day against a cap of three is
+a system deliberately running below its own rate. The fix is not a bigger cap.
+It is to stop most decisions from needing a person at all.
+
+**A standing authorization ("mandate") is an operator decision granted ONCE, in
+advance, that lets the system act inside stated bounds without asking again.**
+It is the same move as a pre-registered `decision_rule` (§3), lifted from the
+single question to the CLASS of question.
+
+It is declared the way the execution gates are — visible in YAML, bounded,
+revocable — and it lives beside them:
+
+```yaml
+# config/mandates.yaml — beside accounts.yaml and strategies.yaml, because a
+# mandate IS a declared permission, and declared permissions live in config.
+mandates:
+  - id: MD-DEMOTE-ON-MIRROR-NEGATIVE
+    grants:   demote a Stage-2 leg to Stage 1 (execution: shadow)
+    when:     the mirror's net-of-cost expectancy over the declared window is
+              negative at n >= N
+    direction: derisk_only          # may only REMOVE exposure
+    bounds:
+      accounts: [bybit_2, bybit_portfolio, alpaca_live, alpaca_portfolio]
+      max_per_week: null            # unbounded — see the asymmetry below
+    granted_by: operator
+    granted_on: 2026-09-21
+    expires:    2027-03-21
+```
+
+⚠️ **A mandate is NOT a third execution gate, and must never be described as
+one.** § "The two execution gates" says in terms that there is no third gate,
+and that rule is untouched: `accounts.yaml::mode` and
+`strategies.yaml::execution` remain the only two things deciding whether a
+strategy trades, and neither is default-off. A mandate sits on a **different
+axis** — it does not decide what RUNS, it decides what may be **CHANGED without
+asking**. A leg no mandate covers trades exactly as it does today; the only
+thing absent is permission to move it automatically.
+
+**The asymmetry IS the safety property, and it is what makes a blanket yes
+safe.** A mandate marked `derisk_only` can only ever reduce exposure; its worst
+case is that the system trades less than it could, which is recoverable by
+definition and costs a pull request to undo. A mandate that can ADD exposure is
+a different object and carries a hard ceiling on total risk added, a per-leg
+size bound, and a count. Granting the first freely and the second carefully is
+not timidity — it is the only split under which "grant more up front" is
+actually the safer arrangement rather than the braver one.
+
+Four properties keep a mandate from rotting into a forgotten blanket yes:
+
+1. **Bounded** — scope, direction, magnitude, and a rate where direction is
+   `add_risk`.
+2. **Evidence-conditional** — it fires on a stated rule, never on judgement.
+3. **Expiring** — a granted-on and an expiry. An expired mandate stops
+   authorizing; it does not quietly persist.
+4. **Attributed** — every action taken under one records WHICH mandate
+   authorized it, so the sync reports what fired rather than asking permission
+   for it retroactively.
+
+### 5.3 What the sync is actually for
+
+The brief is five sections now. Section 1 is the change: it is a **report**, not
+a request.
+
+| # | Section | Contents |
+|---|---|---|
+| 1 | **Taken under mandate** | What the system did on its own, which mandate authorized it, and the number that met the rule. **No approval sought — this already happened.** |
+| 2 | **Decisions for you** | Only what no mandate covers. **No cap.** |
+| 3 | **What moved** | Lanes completed, what they concluded, what was killed. |
+| 4 | **What is running** | Live lanes, spend so far, expected completion, anything blocked and on what. |
+| 5 | **Spend** | Yesterday, month-to-date, against budget, cost per unit delivered. |
+
+**A decision that reaches the operator twice in the same shape is itself an
+agenda item**, and the manager raises it as one: *"this is the third time —
+should it become a mandate, and what are the bounds?"* That is the mechanism by
+which section 2 shrinks and section 1 grows without anyone rationing anything.
+
+**The metric that matters is the share of decisions taken under mandate, and it
+should rise.** If it is flat month over month, the loop is not learning — which
+is a finding about the system, not about the operator's availability.
+
+What the operator still never does: read a 400-line memo to make a decision, or
+triage a backlog.
 
 **Monthly, one question:** how many legs advanced a stage, how many were
-killed, and what did we learn? If that is zero two months running, the answer
-is not more process.
+killed, and what did we learn? If that is zero two months running, the answer is
+not more process.
+
+<details>
+<summary>The superseded text, kept as the record of what was proposed</summary>
+
+> Four sections, fixed order, hard cap. **Decisions for you** — capped at 3,
+> Tier-3 only. **What moved** · **What is running** · **Spend**.
+>
+> *"If it does not fit in 30 minutes, the manager has failed to prepare — that
+> is the signal, not an excuse to run long. Three decisions is the cap because
+> a fourth means the queue is producing faster than the operator can
+> adjudicate, which is itself a thing to fix rather than absorb."*
+
+Both claims were rejected by the operator on the day they were written. The
+30-minute figure is a floor, and a queue outrunning one person is an argument
+for automating the class, not for slowing the queue.
+
+</details>
 
 ---
 
@@ -305,6 +421,7 @@ deletion and rewiring; nothing new gets built until C.
 | **B2** | **Alpaca mirror invariant.** Extend the Bybit roster-sync test to `alpaca_live` / `alpaca_portfolio`. Precondition for Gate 2 working on that side. | build lane |
 | **B3** | **R4 as the demotion gate.** Flip to enforcing, pointed at demotion rather than promotion. Recommended 2026-07-30, built, shipped observe-only, never armed. | operator + build lane |
 | **B4** | **Re-scope the review packet.** Grade Stage 2 on money and Stage 1 on cost fidelity. Without this it keeps grading 52 legs against a 20-trade floor and emitting nothing, forever. | build lane |
+| **B5** | **The mandate mechanism** (`config/mandates.yaml` + a resolver + a guard). A standing authorization the operator grants ONCE that lets the system act inside stated bounds without asking again. `direction: derisk_only` mandates carry no rate ceiling because their worst case is trading less than we could; `add_risk` mandates carry a hard cap on total risk added, a per-leg size bound and a count. Every action records which mandate authorized it. **Pairs with B1** — the guard that requires evidence before a Stage-2 roster is the same guard that reads what is already authorized. | operator + build lane |
 
 ### PHASE C — unblock the research loop (week 2)
 
@@ -337,6 +454,8 @@ deletion and rewiring; nothing new gets built until C.
 | 1 | Does the soak book stay at 26 legs, or get curated? | **Keep it wide.** It is an instrument, not a decision surface, and the cost-fidelity job will tell us which legs are worth keeping — a measurement rather than a guess. |
 | 2 | Cut real money now, or go flat during the transition? | **Cut rather than stop.** The mechanics data is worth something and the exposure is a few hundred dollars. But pull the two negative-OOS Alpaca legs (A6). |
 | 3 | What is the daily budget? | **Operator's number.** A2 alone should cut per-lane cost substantially, but the meter needs a line to report against or it is just accounting. |
+| 3b | **Which mandates get granted first, and at what bounds?** | **Start with the three `derisk_only` ones**, because a blanket yes on them is safe by construction: (a) demote a Stage-2 leg when the mirror goes net-negative over the declared window; (b) kill a research question that failed its pre-registered rule; (c) drop a Stage-1 leg whose realized cost diverges from its harness assumption. None can add exposure. **Then decide separately, and more slowly, on the one that can: promotion Stage 1 → Stage 2.** A mandate there is real and worth having — it is the step that currently waits longest — but its bounds are the operator's call, not a default: total risk added per week, per-leg size, and whether a count or a dollar ceiling is the binding term. |
+| 3c | **Does `execution: shadow` → `live` on the SOAK book need a mandate at all?** | **Recommendation: no — authorize it outright.** `bybit_1` and `alpaca_paper` are paper money and the plan already says Stage 1 may be wide. Requiring a decision to put a leg on a paper book is a gate with no money behind it, and it is one of the places throughput is being lost today. |
 | 4 | How aggressive is the Phase-A deletion? | **Aggressive.** Partial removal leaves the treadmill running — the crons keep firing, the briefs keep growing, and the manager keeps having somewhere to put its effort that is not research. |
 
 ---

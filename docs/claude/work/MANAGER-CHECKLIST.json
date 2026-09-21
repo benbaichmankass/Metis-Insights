@@ -211,6 +211,27 @@
       "note": "Without this it keeps grading 52 legs against a 20-trade floor and emitting nothing, forever. comms/strategy_reviews/2026-09-20/INDEX.json: 52 graded, 71 closes in window, actionable 0, its own days_to_grade_all_reachable_point 140.0, unbounded_no_closes 23."
     },
     {
+      "id": "B5",
+      "title": "The mandate mechanism — standing authorizations in config/mandates.yaml",
+      "phase": "B",
+      "state": "queued",
+      "owner": "operator + build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "B1",
+          "what": "The guard that requires evidence before a Stage-2 roster is the same guard that reads what is already authorized. Build them together."
+        }
+      ],
+      "note": "ADDED 2026-09-21 on operator correction: 'we need to think of a better way to give more decision-making power, more things automated -- not create less decisions and limit how much work we can actually do... how can I give blanket permissions up front.' A mandate is an operator decision granted ONCE that lets the system act inside stated bounds without asking again. NOT a third execution gate -- it does not decide what RUNS, it decides what may be CHANGED without asking. The direction asymmetry is the safety property: derisk_only needs no rate ceiling (worst case is trading less than we could), add_risk carries a hard cap on total risk added, a per-leg size bound and a count. Every action records which mandate authorized it, so the brief's section 1 REPORTS rather than asks. Bounds are the operator's call -- see plan open decisions 3b and 3c."
+    },
+    {
       "id": "C1",
       "title": "decision_rule in the research queue schema, plus a guard that refuses a unit without one",
       "phase": "C",

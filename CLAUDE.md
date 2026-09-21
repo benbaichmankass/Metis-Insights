@@ -144,12 +144,34 @@ The Bybit half is enforced by
 **the Alpaca half is not, and is currently broken** (5 vs 14 strategies) — plan
 item B2.
 
-### The daily sync
+### The daily sync, and standing authorizations
 
-One 30-minute session a day with the operator. The manager pushes the brief
-**before** the sync. Four sections, fixed order: **decisions for you (max 3,
-Tier-3 only) · what moved · what is running · spend.** Contract:
+One session a day with the operator. The manager pushes the brief **before** the
+sync. Five sections, fixed order: **taken under mandate · decisions for you ·
+what moved · what is running · spend.** Contract:
 [`.claude/skills/manager/SKILL.md`](.claude/skills/manager/SKILL.md).
+
+⚠️ **Thirty minutes is a FLOOR, not a ceiling, and there is no cap on
+decisions** (operator, 2026-09-21; an earlier draft of this file said the
+opposite on both counts). A *short* sync is the failure signal — it means the
+manager did not have enough in flight to fill it. And a queue producing more
+decisions than one person can take is an argument for **automating the class**,
+never for slowing the queue.
+
+**A decision class that can be stated as a rule does not reach the operator at
+all.** It becomes a **mandate**: an authorization granted ONCE, in advance, in
+`config/mandates.yaml`, letting the system act inside stated bounds without
+asking again — the pre-registered `decision_rule` idea lifted from the single
+question to the class. A decision that arrives twice in the same shape is
+raised as *"should this become a mandate?"*
+
+⚠️ **A mandate is not a third execution gate** — see § "The two execution gates"
+below, which is unchanged. It does not decide what RUNS; it decides what may be
+**CHANGED without asking**. ⚠️ And the direction asymmetry is what makes a
+blanket yes safe: a `derisk_only` mandate needs no rate ceiling, because its
+worst case is trading less than we could; an `add_risk` mandate carries a hard
+cap on total risk added, a per-leg size bound and a count. Plan item **B5**
+builds it; nothing is authorized until the operator grants a row.
 
 ### Every session
 
