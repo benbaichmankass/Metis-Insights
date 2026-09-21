@@ -69,14 +69,67 @@ would make a corrupted pipeline look like an empty one -- an EMPTY pipeline
 reads as "nothing is due", which is precisely the false all-clear this module
 exists to prevent.
 
+A SIXTH FAILURE MODE, FOUND LIVE INSIDE THIS MODULE: TWO FINDINGS SHARING ONE ID
+----------------------------------------------------------------------------
+Last-record-wins is correct for a STATE CHANGE to a known item -- that is what
+gives the audit trail for free. It is silently wrong for two CONCURRENT
+sessions that each mint "the next free number" from the store they read at
+their own startup: neither can see the other's in-flight write, both pick the
+same id, and `load()` cannot tell "a new state for item X" from "an unrelated
+finding that reused X's id". The second record does not merge with the first;
+it DISPLACES it -- the first finding vanishes from `items`, `due()` and
+`render_section_0()` with no error anywhere.
+
+⚠️ **THIS IS NOT HYPOTHETICAL. IT HAPPENED IN THIS FILE, THE SAME DAY IT WAS
+WRITTEN.** `PI-20260921-0002` was filed twice for two UNRELATED findings (a
+board-pointer reader count and a pr-landing-guard remedy-text bug). `--check`
+reported `clean — 4 item(s) validated over 8 record(s), 0 unreadable`
+throughout -- a parse-clean, validate-clean store that had already silently
+dropped a filed finding. That is the dangerous half: a displaced row looks
+EXACTLY like a healthy store from every signal this module used to report,
+which is the same collapsed-state class `check_collapsed_states.py` polices
+everywhere else, occurring inside the module built to stop findings being
+dropped.
+
+THE FIX, in three parts:
+
+1. **`append()` REQUIRES an explicit `intent`** ("new" files a finding under
+   an id that must not already exist; "update" records a state change and is
+   checked against the existing record's IDENTITY -- `what` and `origin`,
+   the fields the self-test's own `base(**over)` convention never varies for
+   a real state change). A mismatch is refused, by name, rather than written.
+   This is a heuristic, not a proof: it cannot catch a hand-edited or
+   out-of-band write that bypasses `append()` entirely (`--check`, part 2, is
+   the backstop for that), and it cannot distinguish a genuinely different
+   finding that happens to coincide on both `what` and `origin.ref` --
+   deliberately narrow rather than deliberately clever, so the refusal
+   reason is always statable in one sentence.
+2. **`--check` reports every collision it finds, and never prints bare
+   `clean` over one.** A NEW collision fails the guard. The one instance
+   above PRE-DATES this fix and cannot be repaired without rewriting
+   append-only history, which this module's own contract forbids -- so it is
+   named in `GRANDFATHERED_COLLISIONS`, the same escape-hatch shape
+   `check_collapsed_states.py::GRANDFATHERED_UNREAD` already uses: reported
+   LOUDLY every run, never silently passed, and not a place a NEW collision
+   may hide.
+3. **`mint_id()` allocates ids scoped to the CALLING SESSION**, because a
+   global "next free number" is exactly what collided. Two sessions can
+   never collide on the same prefix; one session's own ids stay a readable,
+   gapless, dated sequence. It does not replace part 1 -- a caller that
+   hand-picks an id instead of calling `mint_id()` is still caught by
+   `append()`'s refusal, not by this.
+
 Self-test:  python3 scripts/ops/pipeline.py --self-test
 Check:      python3 scripts/ops/pipeline.py --check
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
+import re
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -104,18 +157,44 @@ class PipelineError(ValueError):
     """A refusal to accept an item. Carries WHICH field and WHY."""
 
 
+#: Ids whose colliding records PRE-DATE the collision check below and could
+#: not be repaired here without rewriting append-only history (this module's
+#: own contract forbids that -- see the module docstring). Same convention as
+#: `check_collapsed_states.py::GRANDFATHERED_UNREAD`: a DATED DEBT LIST, not
+#: an exemption. Reported LOUDLY on every `--check` run, never silently
+#: passed, and a store with a collision is never printed as `clean`. Adding a
+#: name here is not how a NEW collision gets silenced -- fix the caller that
+#: produced it, or mint the finding a fresh id.
+#:
+#: PI-20260921-0002, added 2026-09-21: two unrelated findings (a
+#: board-pointer reader count and a pr-landing-guard remedy-text bug) were
+#: filed under the same id the same day this module shipped, before
+#: `append()` could refuse it. See docs/claude/work/PIPELINE.jsonl lines
+#: 20-21 for the two records.
+GRANDFATHERED_COLLISIONS = {
+    "PI-20260921-0002",
+}
+
+
 @dataclass
 class LoadResult:
-    """⚠️ Three counts, never collapsed into one 'items' list.
+    """⚠️ Four counts, never collapsed into one 'items' list.
 
     `unreadable` existing and being non-empty is a LOUD condition: it means the
     store is partially unreadable, which must never render as an empty or
-    healthy pipeline.
+    healthy pipeline. `collisions` is the sibling loud condition for a store
+    that parses and validates cleanly but has silently displaced a finding --
+    see the module docstring's "SIXTH FAILURE MODE".
     """
 
     items: dict[str, dict] = field(default_factory=dict)
     unreadable: list[tuple[int, str]] = field(default_factory=list)
     records: int = 0
+    #: Each entry: {"id", "line", "reason"} -- an id where the record at
+    #: `line` does NOT look like a state change of the record it displaced.
+    #: Populated by `read_log()` as it folds, so detecting this costs no
+    #: extra pass over the store.
+    collisions: list[dict] = field(default_factory=list)
 
     @property
     def healthy(self) -> bool:
@@ -225,8 +304,62 @@ def validate(item: dict) -> dict:
     return item
 
 
+def _identity_mismatches(prior: dict, new: dict) -> list[str]:
+    """Say why `new` does NOT look like a state change of `prior` under the
+    SAME id -- i.e. why it is plausibly a DIFFERENT finding instead.
+
+    Deliberately narrow, and the narrowness is documented rather than hidden:
+    `state`, `routed_to`, `terminal_reason`, `next_action` and `due_when` are
+    exactly the fields a real state change is EXPECTED to move (this is the
+    self-test's own `base(**over)` convention -- a state-change round trip
+    only ever varies those). `origin.kind` and `origin.ref` are the finding's
+    IDENTITY -- what produced it -- and must match exactly.
+
+    `what` is checked as an APPEND, not an equality, and this was corrected
+    against the REAL store rather than assumed: `PI-20260921-0004` (a
+    genuine, legitimate item) was filed at 2080 characters and later
+    RE-APPENDED at 2995 -- the same session adding a measured "reply-channel
+    mechanics" paragraph to the SAME finding as it learned more. A strict
+    `==` flagged that as a collision on this file's real data on the first
+    run of this check, which would have made `--check` fail the guard over
+    ordinary practice. So `new.what` must **start with** `prior.what` --
+    elaboration is allowed, replacement is not.
+
+    What this heuristic MISSES, stated rather than hidden: (1) a genuinely
+    different finding whose text happens to begin with the prior finding's
+    text verbatim would pass as a plausible update -- vanishingly unlikely
+    for free-text paragraphs this long, and narrow rather than clever, so a
+    false negative here is a coincidence, not a design gap; (2) it cannot
+    stop a hand-edited or out-of-band write to the store that never calls
+    this function at all -- `--check`'s collision report (below) is the
+    backstop for that; (3) a legitimate CORRECTION to `what` (a typo fixed,
+    text removed rather than only added) is now refused too -- this module
+    accepts that false-positive cost rather than risk silently welcoming a
+    real collision, and `PI-20260921-0002` is exactly what welcoming one
+    looks like.
+    """
+    out: list[str] = []
+    old_what = prior.get("what") or ""
+    new_what = new.get("what") or ""
+    if not new_what.startswith(old_what):
+        out.append("what changed (not an append-only extension of the prior text)")
+    po = prior.get("origin") or {}
+    no = new.get("origin") or {}
+    if po.get("kind") != no.get("kind"):
+        out.append(f"origin.kind changed ({po.get('kind')!r} -> {no.get('kind')!r})")
+    if po.get("ref") != no.get("ref"):
+        out.append(f"origin.ref changed ({po.get('ref')!r} -> {no.get('ref')!r})")
+    return out
+
+
 def read_log(store: Path = STORE) -> LoadResult:
-    """Read every record, folding to the LAST per id. Never drops a bad line."""
+    """Read every record, folding to the LAST per id. Never drops a bad line.
+
+    ⚠️ Also flags a COLLISION the moment a record displaces a prior one under
+    the same id without looking like its state change (`_identity_mismatches`)
+    -- see the module docstring's "SIXTH FAILURE MODE". This costs no extra
+    pass: the fold already visits every record once.
+    """
     res = LoadResult()
     if not store.exists():
         return res
@@ -242,6 +375,15 @@ def read_log(store: Path = STORE) -> LoadResult:
             res.unreadable.append((lineno, f"{type(exc).__name__}: {exc}"))
             continue
         res.records += 1
+        prior = res.items.get(rec["id"])
+        if prior is not None:
+            mismatches = _identity_mismatches(prior, rec)
+            if mismatches:
+                res.collisions.append({
+                    "id": rec["id"],
+                    "line": lineno,
+                    "reason": "; ".join(mismatches),
+                })
         res.items[rec["id"]] = rec
     return res
 
@@ -250,9 +392,57 @@ def load(store: Path = STORE) -> LoadResult:
     return read_log(store)
 
 
-def append(item: dict, store: Path = STORE) -> dict:
-    """Validate, then append one record. Atomic and never rewrites history."""
+def append(item: dict, store: Path = STORE, *, intent: str) -> dict:
+    """Validate, then append one record. Atomic and never rewrites history.
+
+    `intent` is REQUIRED -- there is deliberately no default, because the
+    caller having to say which it means is the fix. Two values:
+
+      "new"    -- this id must NOT already exist. Refused if it does, naming
+                  the existing record's state and origin, because writing
+                  anyway is exactly how PI-20260921-0002 collided.
+      "update" -- this id MUST already exist, and the new record must look
+                  like a state change of it (`_identity_mismatches`). A
+                  mismatch is refused by name rather than silently folded
+                  over the record it would have displaced.
+
+    Neither path re-derives what "plausibly a state change" means locally --
+    that definition lives once, in `_identity_mismatches`, so this function
+    and `read_log()`'s own collision detector can never drift apart on it.
+    """
     validate(item)
+    if intent not in ("new", "update"):
+        raise PipelineError(f"intent: must be 'new' or 'update', got {intent!r}")
+
+    prior = read_log(store).items.get(item["id"])
+
+    if intent == "new" and prior is not None:
+        raise PipelineError(
+            f"id {item['id']!r} already exists (state={prior.get('state')!r}, "
+            f"origin.ref={(prior.get('origin') or {}).get('ref')!r}) -- call "
+            f"append(..., intent='update') to record a state change of THAT "
+            f"finding, or mint_id() a fresh id if this is a DIFFERENT one. "
+            f"Refusing rather than silently displacing it the way "
+            f"PI-20260921-0002 already was."
+        )
+    if intent == "update":
+        if prior is None:
+            raise PipelineError(
+                f"id {item['id']!r}: intent='update' but no prior record "
+                f"exists to update -- call append(..., intent='new') to file "
+                f"it for the first time."
+            )
+        mismatches = _identity_mismatches(prior, item)
+        if mismatches:
+            raise PipelineError(
+                f"id {item['id']!r}: intent='update' but this record does "
+                f"not look like a state change of the existing one -- "
+                f"{'; '.join(mismatches)}. A genuinely different finding "
+                f"needs its OWN id (mint_id()); reusing this one would "
+                f"displace the existing finding exactly the way "
+                f"PI-20260921-0002 already was."
+            )
+
     store.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n"
     with open(store, "a", encoding="utf-8") as fh:
@@ -260,6 +450,70 @@ def append(item: dict, store: Path = STORE) -> dict:
         fh.flush()
         os.fsync(fh.fileno())
     return item
+
+
+def _session_tag(session_ref: str) -> str:
+    """A short, deterministic, filesystem/id-safe slug for `session_ref`.
+
+    Prefers the `session_XXXXXXXX...` token the harness already hands out
+    (unique per running session by construction, which is the whole point);
+    falls back to slugifying whatever string was given so a caller with no
+    formal session id yet (an audit, a manual filing) still gets something
+    legible and stable rather than an exception.
+    """
+    m = re.search(r"session_[A-Za-z0-9]+", session_ref)
+    token = m.group(0) if m else session_ref
+    slug = re.sub(r"[^A-Za-z0-9]", "", token).upper()
+    return slug[-8:] if slug else "UNSCOPED"
+
+
+def mint_id(session_ref: str, *, today: date | None = None, store: Path = STORE) -> str:
+    """Allocate a NEW pipeline id that no OTHER concurrent session can also
+    pick, by scoping the counter to the CALLING session rather than to a
+    shared "next free number".
+
+    ⚠️ WHY SESSION-SCOPED, NOT A GLOBAL COUNTER: two sessions filing
+    concurrently each read the store at their own startup and cannot see the
+    other's in-flight write -- a shared counter WILL be read-and-incremented
+    twice with no lock to stop it (this store is deliberately lock-free, see
+    the module docstring). The only counter safe to allocate without
+    coordination is one namespaced to something already unique to the
+    CALLER, and the environment already hands every session one: its own
+    session id.
+
+    id shape: `PI-<YYYYMMDD>-<SESSION_TAG>-<NNNN>`. Two sessions can never
+    collide (different tags, by construction); one session's own ids stay a
+    readable, gapless, dated sequence -- which is the property worth keeping
+    from the plain `PI-<date>-NNNN` scheme. Do NOT "fix" the collision by
+    making ids opaque instead (a UUID) and stopping there: that only makes a
+    collision less LIKELY while leaving the store exactly as unable to
+    REPORT one -- `append()`'s intent check and `--check`'s collision report
+    are the actual fix; this function only makes reaching them less likely
+    to matter.
+
+    What this does NOT solve, stated rather than hidden: (1) it does not stop
+    a caller that bypasses `mint_id()` and hand-picks a colliding id --
+    `append()`'s refusal is the real backstop, not this; (2) it does not
+    protect a session racing ITSELF by calling `mint_id()` twice before the
+    first `append()` lands -- a live agent session issues tool calls
+    sequentially, so this is not exercised in practice, but a caller doing
+    its own concurrency must serialize its own calls; (3) two distinct
+    session ids could in principle share the same 8-character tail --
+    astronomically unlikely given the id format in use, and not
+    mathematically ruled out, which is exactly why (1)'s backstop exists
+    independently of this function being correct.
+    """
+    tag = _session_tag(session_ref)
+    date_str = _today(today).strftime("%Y%m%d")
+    prefix = f"PI-{date_str}-{tag}-"
+    existing = read_log(store).items
+    used = [
+        int(item_id[len(prefix):])
+        for item_id in existing
+        if item_id.startswith(prefix) and item_id[len(prefix):].isdigit()
+    ]
+    nxt = (max(used) + 1) if used else 1
+    return f"{prefix}{nxt:04d}"
 
 
 def is_due(item: dict, today: date | None = None) -> bool:
@@ -327,6 +581,10 @@ def stats(res: LoadResult, today: date | None = None) -> dict:
         # is never rendered as a clean bill of health.
         "unreadable": len(res.unreadable),
         "readable": res.healthy,
+        # ⚠️ Same reasoning, for the sibling loud condition: a store that
+        # parses and validates cleanly can still have silently displaced a
+        # finding. Reported ALWAYS, including as 0.
+        "collisions": len(res.collisions),
     }
 
 
@@ -450,9 +708,9 @@ def _selftest() -> int:
     print("— append-only round trip, and the unreadable line —")
     with tempfile.TemporaryDirectory() as td:
         store = Path(td) / "P.jsonl"
-        append(base(id="X"), store)
-        append(base(id="X", state="routed", routed_to="A7"), store)
-        append(base(id="Y"), store)
+        append(base(id="X"), store, intent="new")
+        append(base(id="X", state="routed", routed_to="A7"), store, intent="update")
+        append(base(id="Y"), store, intent="new")
         res = read_log(store)
         check("two records for one id fold to the LAST (append-only state)",
               res.items["X"]["state"] == "routed")
@@ -483,13 +741,118 @@ def _selftest() -> int:
     with tempfile.TemporaryDirectory() as td:
         store = Path(td) / "P.jsonl"
         try:
-            append(base(state="killed"), store)
+            append(base(state="killed"), store, intent="new")
         except PipelineError:
             check("append() refuses an invalid item", True)
         else:
             check("append() refuses an invalid item", False)
         check("…and wrote NOTHING when it refused",
               not store.exists() or store.read_text() == "")
+
+    print("— NEW: two DIFFERENT findings must never share an id —")
+    with tempfile.TemporaryDirectory() as td:
+        store = Path(td) / "P.jsonl"
+        append(base(id="COLL"), store, intent="new")
+
+        try:
+            append(base(id="COLL"), store, intent="new")
+        except PipelineError as exc:
+            check("intent='new' refuses a SECOND filing under an id that "
+                  "already exists (says why: 'already exists')",
+                  "already exists" in str(exc))
+        else:
+            check("intent='new' refuses a SECOND filing under an existing id",
+                  False)
+
+        try:
+            append(base(id="COLL", what="a totally unrelated finding",
+                        origin={"kind": "audit", "ref": "#999",
+                                "rerun": "python3 other.py"}),
+                   store, intent="update")
+        except PipelineError as exc:
+            check("intent='update' refuses a record whose identity "
+                  "(what/origin) does not match the one it claims to update",
+                  "does not look like a state change" in str(exc))
+        else:
+            check("intent='update' refuses a mismatched record", False)
+
+        try:
+            append(base(id="NEVER-FILED"), store, intent="update")
+        except PipelineError as exc:
+            check("intent='update' refuses when there is no prior record",
+                  "no prior record" in str(exc))
+        else:
+            check("intent='update' refuses with no prior record", False)
+
+        # …but a GENUINE state change under intent='update' is accepted —
+        # the negative control that proves the checks above are measuring
+        # the identity mismatch and not intent='update' itself.
+        append(base(id="COLL", state="routed", routed_to="A7"), store,
+               intent="update")
+        check("…but intent='update' WITH matching identity is accepted "
+              "(negative control)",
+              read_log(store).items["COLL"]["state"] == "routed")
+        check("…and the store still carries ALL THREE records — refused "
+              "writes never landed, accepted ones are never edited in place",
+              len(store.read_text().strip().splitlines()) == 2)
+
+    print("— NEW: --check reports a collision instead of silently folding it —")
+    with tempfile.TemporaryDirectory() as td:
+        # Manufacture the exact live defect directly (bypassing append()'s
+        # own refusal, the way an out-of-band write already did on main):
+        # two DIFFERENT findings filed under the SAME id.
+        store = Path(td) / "P.jsonl"
+        a = base(id="X", what="finding A", origin={"kind": "audit", "ref": "#1",
+                                                     "rerun": "python3 a.py"})
+        b = base(id="X", what="finding B",
+                 origin={"kind": "session", "ref": "sess_2",
+                         "rerun": "python3 b.py"})
+        store.write_text(json.dumps(a) + "\n" + json.dumps(b) + "\n")
+        res = read_log(store)
+        check("read_log() flags the id as a collision, not a clean fold",
+              len(res.collisions) == 1 and res.collisions[0]["id"] == "X")
+        check("…and the folded view still shows the LAST record unchanged — "
+              "collisions are reported ALONGSIDE the fold, not instead of it",
+              res.items["X"]["what"] == "finding B")
+
+        clean = Path(td) / "clean.jsonl"
+        append(base(id="Y"), clean, intent="new")
+        append(base(id="Y", state="routed", routed_to="A7"), clean,
+               intent="update")
+        check("…and a genuine state-change pair raises NO collision "
+              "(negative control)",
+              read_log(clean).collisions == [])
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = _check(store)
+        check("_check() FAILS on a fresh (non-grandfathered) collision",
+              rc == 1)
+        check("…and its output never prints the bare-clean verdict over one",
+              "pipeline: clean —" not in out.getvalue())
+
+        # A GRANDFATHERED collision stays green (CI cannot rewrite
+        # append-only history to repair PI-20260921-0002) but is still
+        # reported loudly, never as "clean".
+        graveyard = Path(td) / "grandfathered.jsonl"
+        gid = next(iter(GRANDFATHERED_COLLISIONS))
+        ga = base(id=gid, what="finding A",
+                  origin={"kind": "audit", "ref": "#1", "rerun": "python3 a.py"})
+        gb = base(id=gid, what="finding B",
+                  origin={"kind": "session", "ref": "sess_2",
+                          "rerun": "python3 b.py"})
+        graveyard.write_text(json.dumps(ga) + "\n" + json.dumps(gb) + "\n")
+        out2 = io.StringIO()
+        with contextlib.redirect_stdout(out2):
+            rc2 = _check(graveyard)
+        check("_check() still EXITS 0 on a KNOWN/grandfathered collision "
+              "(pre-existing debt, not a fresh regression)", rc2 == 0)
+        check("…but its output STILL never prints the bare-clean verdict — "
+              "grandfathered is 'not blocking', never 'clean'",
+              "pipeline: clean —" not in out2.getvalue())
+        check("…and the collision is named in the output regardless "
+              "(loud, not silently passed)",
+              gid in out2.getvalue())
 
     print()
     if failures:
@@ -525,12 +888,43 @@ def _check(store: Path) -> int:
               f"field and the failure reason it maps to.")
         for b in bad:
             print(f"  {b}")
-    if res.unreadable or bad:
+
+    # ⚠️ A DISPLACEMENT IS NOT AN EMPTY-DENOMINATOR PROBLEM -- it is the
+    # opposite: the store parses and validates cleanly while a filed finding
+    # is invisible behind another record wearing its id. See the module
+    # docstring's "SIXTH FAILURE MODE". Reported here, loudly, whether or not
+    # it is grandfathered -- "clean" is never printed over any of them.
+    new_collisions = [c for c in res.collisions
+                       if c["id"] not in GRANDFATHERED_COLLISIONS]
+    known_collisions = [c for c in res.collisions
+                          if c["id"] in GRANDFATHERED_COLLISIONS]
+    if res.collisions:
+        print(f"\n::warning::pipeline: {len(res.collisions)} id(s) with a "
+              f"DISPLACED/SHADOWED record — two records share an id without "
+              f"the later one looking like a state change of the earlier, "
+              f"so load() folded them and the earlier finding is invisible "
+              f"to due()/render_section_0() even though nothing above failed.")
+        for c in res.collisions:
+            tag = ("GRANDFATHERED -- pre-existing, see GRANDFATHERED_COLLISIONS"
+                   if c["id"] in GRANDFATHERED_COLLISIONS else "NEW")
+            print(f"  {c['id']} at line {c['line']}: {c['reason']} [{tag}]")
+
+    if res.unreadable or bad or new_collisions:
         return 1
+
     # ⚠️ THE DENOMINATOR IS PART OF THE VERDICT, not decoration. A bare
     # "clean" over an empty or truncated store reads as a clean bill of health
     # for nothing — the exact failure this module's docstring names, caught
     # here by diagnostic-provenance-guard on this file's own first commit.
+    # ⚠️ AND IT IS NEVER PRINTED OVER A COLLISION, grandfathered or not — a
+    # store with a displacement is not clean, even when CI must stay green
+    # over a pre-existing one it cannot rewrite history to repair.
+    if known_collisions:
+        print(f"\npipeline: NOT clean — {len(res.items)} item(s) validated over "
+              f"{res.records} record(s); {s['due']} due, {s['unrouted']} "
+              f"unrouted; {len(known_collisions)} KNOWN/GRANDFATHERED id "
+              f"collision(s) above (not blocking, but not clean)")
+        return 0
     print(f"\npipeline: clean — {len(res.items)} item(s) validated over "
           f"{res.records} record(s); {s['due']} due, {s['unrouted']} unrouted")
     return 0
@@ -543,12 +937,18 @@ def main(argv: list[str] | None = None) -> int:
                     help="validate every item in the store")
     ap.add_argument("--due", action="store_true", help="render brief section 0")
     ap.add_argument("--stats", action="store_true")
+    ap.add_argument("--mint-id", metavar="SESSION_REF",
+                    help="print a fresh, session-scoped id and exit -- see "
+                         "mint_id()'s docstring for why it is scoped this way")
     ap.add_argument("--store", default=str(STORE))
     args = ap.parse_args(argv)
 
     if args.self_test:
         return _selftest()
     store = Path(args.store)
+    if args.mint_id:
+        print(mint_id(args.mint_id, store=store))
+        return 0
     if args.check:
         return _check(store)
     res = read_log(store)
