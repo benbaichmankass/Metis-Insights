@@ -658,14 +658,13 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_canonical_doc_coherence.py"],
         ],
     },
-    {
-        "name": "claim-basis-guard",
-        "when": None,
-        "steps": [
-            ["python3", "scripts/check_claim_basis.py", "--base", "origin/{base_ref}"],
-            ["python3", "scripts/ci/guard_selftests.py", "claim-basis"],
-        ],
-    },
+    # `claim-basis-guard` REMOVED 2026-09-21. It scanned the four review
+    # backlogs for basis-less claim rows and off-enum statuses. Those files
+    # are archived, so it now reports "scanned NOTHING — an absent result,
+    # not a clean one" and fails on its own empty denominator. Correctly:
+    # the population is gone, not clean. The RULE it enforced is not gone —
+    # "always state the population" is now top-level in CLAUDE.md § RULE ONE
+    # and is still mechanically checked on prose by `stated-population-guard`.
     {
         "name": "impossibility-claim-guard",
         "when": None,
