@@ -49,7 +49,19 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-FEE_BPS_ROUNDTRIP = 7.5
+from src.runtime import execution_costs  # noqa: E402  (the shared SLIPPAGE term only — see note below)
+
+FEE_BPS_ROUNDTRIP = execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP
+
+# Execution-realism (P1 § 3.B, checklist E3): SLIPPAGE only, deliberately NOT
+# execution_costs' funding term. This harness already prices funding EXACTLY —
+# `Trade.funding_r` sums the real settled funding rate over (entry, exit], signed
+# by which side receives — which is strictly more accurate than
+# `execution_costs`'s directionless magnitude-drag placeholder. Charging that
+# placeholder on top would double-count the very quantity this strategy exists
+# to capture and would corrupt its sign. Slippage is a distinct, real
+# execution cost this harness never modelled at all.
+SLIPPAGE_BPS_ROUNDTRIP = 0.0
 
 
 @dataclass
@@ -249,11 +261,30 @@ def run_backtest(df: pd.DataFrame, fund: pd.DataFrame, *, atr_period: int,
                       hedge_cost_bps=hedge_cost_bps if hedge == "neutral" else 0.0)
 
 
-def _fee_r(t: Trade, extra_bps: float = 0.0) -> float:
+def _fee_only_r(t: Trade, extra_bps: float = 0.0) -> float:
     if not t.exit_price or t.risk <= 0:
         return 0.0
     bps = FEE_BPS_ROUNDTRIP + extra_bps   # extra = hedge-leg round-trip when neutral
     return (bps / 10_000.0) * ((t.entry + t.exit_price) / 2.0) / t.risk
+
+
+def _slippage_r(t: Trade) -> float:
+    """Round-trip slippage in R (execution_costs, SLIPPAGE ONLY — see module note:
+    funding is deliberately excluded, this harness already prices it exactly)."""
+    if not t.exit_price or t.risk <= 0:
+        return 0.0
+    cb = execution_costs.roundtrip_cost_r(
+        entry=t.entry, exit_price=t.exit_price, risk=t.risk,
+        entry_time=t.entry_time, exit_time=t.exit_time,
+        fee_bps_roundtrip=0.0, slippage_bps_roundtrip=SLIPPAGE_BPS_ROUNDTRIP,
+        funding_bps_per_window=0.0)
+    return cb["slippage_r"]
+
+
+def _fee_r(t: Trade, extra_bps: float = 0.0) -> float:
+    """Total round-trip cost in R (fee + slippage). Name kept for the existing
+    call sites; with slippage at 0.0 it equals the legacy fee-only term."""
+    return _fee_only_r(t, extra_bps) + _slippage_r(t)
 
 
 def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str, symbol: str,
@@ -262,16 +293,21 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str, symbol:
     base: Dict[str, Any] = {
         "strategy": "funding_carry", "symbol": symbol, "timeframe": timeframe,
         "params": params, "total_trades": n, "fee_bps_roundtrip": FEE_BPS_ROUNDTRIP,
+        # Execution-realism cost config (P1 § 3.B); funding is deliberately NOT
+        # a bps knob here (see module note) — the strategy prices it exactly.
+        "slippage_bps_roundtrip": SLIPPAGE_BPS_ROUNDTRIP,
         "data_start": str(df["timestamp"].iloc[0]) if len(df) else None,
         "data_end": str(df["timestamp"].iloc[-1]) if len(df) else None,
         "run_date": str(date.today())}
     if n == 0:
-        base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_expectancy_r": 0.0,
+        base.update({"win_rate_pct": 0.0, "net_total_r": 0.0, "net_total_r_fee_only": 0.0,
+                     "net_expectancy_r": 0.0,
                      "net_funding_r": 0.0, "net_price_r": 0.0,
                      "trades_long": 0, "trades_short": 0, "max_drawdown_r": 0.0,
                      "by_outcome": {}, "by_year": {}})
         return base
     net = [t.gross_r - _fee_r(t, hedge_cost_bps) for t in trades]
+    net_fee_only = [t.gross_r - _fee_only_r(t, hedge_cost_bps) for t in trades]
     wins = [r for r in net if r > 0]
     cum = peak = mdd = 0.0
     for r in net:
@@ -290,6 +326,9 @@ def _summarize(trades: List[Trade], df: pd.DataFrame, *, timeframe: str, symbol:
     base.update({
         "win_rate_pct": round(100 * len(wins) / n, 2),
         "net_total_r": round(sum(net), 4),
+        # Fee-only comparison arm (always present, checklist E3): the number
+        # BEFORE slippage, so a fee-only run is visible, not silent.
+        "net_total_r_fee_only": round(sum(net_fee_only), 4),
         "net_expectancy_r": round(sum(net) / n, 4),
         "net_funding_r": round(sum(t.funding_r for t in trades), 4),
         "net_price_r": round(sum(t.price_r for t in trades), 4),
@@ -325,8 +364,8 @@ def _parse_grid(spec: str) -> List[float]:
 
 
 def main(argv: List[str]) -> int:
-    global FEE_BPS_ROUNDTRIP
-    p = argparse.ArgumentParser(description="Funding-rate carry backtest (net-of-fee).")
+    global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP
+    p = argparse.ArgumentParser(description="Funding-rate carry backtest (net-of-fee+slippage; funding is priced exactly by the strategy itself).")
     p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
     p.add_argument("--funding-data", required=True,
                    help="Funding history CSV (timestamp,funding_rate) from fetch_bybit_funding.py.")
@@ -352,11 +391,22 @@ def main(argv: List[str]) -> int:
     p.add_argument("--hedge-cost-bps", type=float, default=2.0,
                    help="Extra round-trip cost of the hedge leg (neutral variant only).")
     p.add_argument("--fee-bps-roundtrip", type=float, default=FEE_BPS_ROUNDTRIP)
+    p.add_argument("--slippage-bps-roundtrip", type=float, default=None,
+                   help="Execution-realism: round-trip slippage bps; DEFAULT (unset) = "
+                        "venue-aware (execution_costs.slippage_bps_roundtrip_for, ~5 bps). "
+                        "Pass 0 for the fee-only comparison arm. (No --funding-bps flag: "
+                        "this strategy prices funding exactly from the real settled rate.)")
     p.add_argument("--funding-threshold-sweep", default=None, metavar="GRID")
     p.add_argument("--json", dest="json_out", default=None)
     p.add_argument("--emit-trades", default=None, metavar="PATH")
     args = p.parse_args(argv[1:])
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
+    # Mandatory venue-aware cost policy (slippage only — see module note on why
+    # funding is excluded). Unset resolves to the venue-aware default; an
+    # explicit value (incl. 0 for the fee-only comparison arm) always wins.
+    SLIPPAGE_BPS_ROUNDTRIP, _ = execution_costs.resolve_cost_policy(
+        args.symbol, slippage_bps_roundtrip=args.slippage_bps_roundtrip,
+        funding_bps_per_window=0.0)
     try:
         df = _load_candles(args.data)
         if args.resample:
