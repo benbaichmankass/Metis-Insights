@@ -192,16 +192,16 @@
       "id": "B1",
       "title": "Invert the execution-gate guard — evidence required to reach a Stage-2 roster",
       "phase": "B",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "operator + build lane",
-      "lane": null,
+      "lane": "session_01K4v2zisKhUyNaXsm2cSmgg",
       "model": "claude-sonnet-5",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [12688],
       "blocked_on": [],
-      "note": "THE LOAD-BEARING CHANGE. Today check_dry_run_in_diff.py blocks turning a leg OFF and nothing blocks turning one ON; across 78 guards there is no counterpart. Demotion becomes free; promotion to a real-money roster requires a fresh evidence record clearing its declared bar. Tier-2 (CI + order-path policy) and needs the operator on the bar definition. [!] REFINED 2026-09-21 BY RUNNING THE GUARD, not by reading it: check_dry_run_in_diff.py matches ADDED `mode: dry_run` / `execution: shadow` LINES, so there are TWO spellings of 'off' and it sees only one. Removing a leg from an account's strategies: roster is NOT guarded -- verified against the A6 diff, which removes two legs from alpaca_live and reports `clean`. SO B1 MUST KEY ON ROSTER MEMBERSHIP, not on the mode/execution fields: a guard watching only the fields can be walked around by editing the list, in either direction. This also matters for the mandates -- MD-PROMOTE-S1-S2 adds a leg to a roster, which is exactly the edit the current guard cannot see."
+      "note": "THE LOAD-BEARING CHANGE. Today check_dry_run_in_diff.py blocks turning a leg OFF and nothing blocks turning one ON; across 78 guards there is no counterpart. Demotion becomes free; promotion to a real-money roster requires a fresh evidence record clearing its declared bar. Tier-2 (CI + order-path policy) and needs the operator on the bar definition. [!] REFINED 2026-09-21 BY RUNNING THE GUARD, not by reading it: check_dry_run_in_diff.py matches ADDED `mode: dry_run` / `execution: shadow` LINES, so there are TWO spellings of 'off' and it sees only one. Removing a leg from an account's strategies: roster is NOT guarded -- verified against the A6 diff, which removes two legs from alpaca_live and reports `clean`. SO B1 MUST KEY ON ROSTER MEMBERSHIP, not on the mode/execution fields: a guard watching only the fields can be walked around by editing the list, in either direction. This also matters for the mandates -- MD-PROMOTE-S1-S2 adds a leg to a roster, which is exactly the edit the current guard cannot see. [!] IN FLIGHT 2026-09-21 as PR #12688 (draft, landing=hold -- the lane was spawned DO NOT MERGE; the manager merges). Built scripts/ci/check_roster_promotion_evidence.py keyed on ROSTER MEMBERSHIP (parsed roster at the fork point vs HEAD), registered in run_guards.py, 16 real-config tests, COVERAGE_FLOOR ratcheted 43->44. MEASURED by --population on c71eeb748: 12 roster slots across 4 risk-bearing accounts, 0 clear the four-clause bar; 11 fail C3 (fee-only corpus, no slippage/funding in any of the 52 records) and C4 (param_selection_provenance `not_established` on 52 of 52); bybit_2/fvg_range_15m fails all four (coverage_state no_harness). The guard is DIFF-SCOPED so those 12 are grandfathered -- carried as PI-20260921-0011, blocked on D1 and B5. [!] TWO ROW FIELDS WERE WRONG AND ARE LEFT AS THE MANAGER FOUND THEM RATHER THAN QUIETLY CORRECTED: `model` reads claude-sonnet-5 but the lane actually ran on claude-opus-5, and `ceiling_usd` reads 25 while the dispatch brief set $35. Recording the discrepancy rather than picking a side, since only the manager knows which was intended."
     },
     {
       "id": "B2",
