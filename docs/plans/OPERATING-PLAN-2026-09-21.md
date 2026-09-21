@@ -457,9 +457,41 @@ being trustworthy. The `derisk_only` mandates carry no such block — they act o
 live measurement, not on the backtest corpus, and their worst case removes
 exposure.
 
-Outstanding, and put to the operator as decisions: **the bar's exact content**
-and **the ceiling on how much real-money exposure may be added without a
-human** (§ 8, rows 5 and 6).
+### The bar and the cap — DECIDED 2026-09-21
+
+**THE BAR.** A leg is auto-promoted to a real-money roster only on a **committed
+evidence record** — named harness, stated population, rule registered before the
+run — showing **all three**:
+
+1. **Expectancy > 0 net of the FULL cost stack** at **n ≥ 30 closed**.
+2. **Positive in a majority of walk-forward folds.**
+3. **Stage-1 realized cost within a stated tolerance of the modelled cost.**
+
+⚠️ **Clause 3 is the one this system has never had**, and it is the cheap one:
+it converges in a handful of trades because it measures a per-trade quantity
+rather than a distribution. It is also the clause that makes clauses 1 and 2
+mean anything — an expectancy computed against a cost the venue does not charge
+is not an expectancy.
+
+**THE CAP.** Total declared risk across **auto-promoted** legs may not exceed
+<!-- population-ok: a configured ceiling or threshold the operator chose, not a measurement -->
+**25% of the account's configured risk budget**. That is the only ceiling:
+**there is no rate limit** (operator decision — a leg-per-week cap was offered
+and declined).
+
+⚠️ **State the consequence plainly, because it was chosen knowingly:** if R1
+promotes a batch, **several legs can arrive on the same day**, bounded only by
+the 25% share. That is the intended behaviour — the bar is the gate, and a rate
+limit would throttle a correct decision for no reason other than nerves. What
+<!-- population-ok: a configured ceiling the operator chose, not a measurement -->
+it means operationally is that **the 25% share is load-bearing on its own**,
+with nothing behind it.
+<!-- population-ok: a configured ceiling chosen by the operator, not a measurement -->
+
+⚠️ **The cap counts AUTO-PROMOTED legs only.** A leg the operator put on a
+roster by hand does not consume the mandate's budget — otherwise a manual
+decision would silently shrink the automation's headroom, and the two would
+become impossible to reason about separately.
 
 ### 5.4 What the brief contains
 
@@ -655,17 +687,48 @@ push **to `main`** plus `ict-git-sync`'s ~5-minute pull.
 
 ---
 
-## 8. Open decisions
+## 8. Decisions — four taken 2026-09-21, the rest open
+
+### Taken
+
+| # | Question | **Decision** |
+|---|---|---|
+| **5** | What must an evidence record show to auto-promote to real money? | **Expectancy > 0 net of full costs at n ≥ 30, AND a majority of walk-forward folds positive, AND Stage-1 realized cost within tolerance of modelled cost.** All three. |
+| **6** | What caps real-money exposure added without a human? | **25% of the account's configured risk budget across auto-promoted legs. No rate limit** — a leg-per-week cap was offered and declined, so a batch can land in one day. |
+| **3** | The spend budget | **10% of the weekly plan allowance per day** — see below; this is a *fraction of an allowance*, not a dollar line, and it changes what A1 measures. |
+| **3d** | Default disposition for the 1,065 archived backlog rows | **Kill by default, promote by exception.** No observation in 60 days and no named owner → killed with a stated reason. The 91 `OPEN-ITEMS` monitoring rows come across whole. |
+
+#### The budget decision, and what it changes
+
+Operator, 2026-09-21: *"We need to pace ourselves based on the weekly budget for
+the $200 Max plan — I want the budget to be 10% of the weekly budget a day, so
+that we leave ourselves a wide margin for error or unexpected needs."*
+
+**10% per day × 7 days = 70% of the weekly allowance, leaving 30% margin.**
+That is the rule, and it is deliberately a *share*, not a number of dollars.
+
+⚠️ **THIS CHANGES WHAT A1 MEASURES, and the change is not cosmetic.** A
+subscription plan's constraint is a **weekly usage allowance**, not a dollar
+spend. The `cost_usd` figures quoted throughout this plan — the $125 across two
+resumed lanes, the $11.88 in ten minutes — are **API-equivalent pricing read off
+session metadata**. They are the right signal for *comparing* lanes and the
+wrong denominator for *pacing* against a plan. A1 must report **usage against
+the weekly allowance** as the budget line, with the dollar figure kept beside it
+as the per-lane comparison.
+
+⚠️ **The denominator is not established and I did not invent one.** The exact
+weekly allowance of the $200 Max plan is not readable from this repo, and
+guessing it would put a fabricated number under a real rule. **A1's first job is
+to establish it** — from whatever surface reports plan usage, or from the
+operator — and to say `unknown` rather than substitute a figure until it has.
+
+### Open
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | Does the soak book stay at 26 legs, or get curated? | **Keep it wide.** It is an instrument, not a decision surface, and the cost-fidelity job will tell us which legs are worth keeping — a measurement rather than a guess. |
-| 2 | Cut real money now, or go flat during the transition? | **Cut rather than stop.** The mechanics data is worth something and the exposure is a few hundred dollars. But pull the two negative-OOS Alpaca legs (A6). |
-| 3 | What is the daily budget? | **Operator's number.** A2 alone should cut per-lane cost substantially, but the meter needs a line to report against or it is just accounting. |
-| 3d | **What is the kill bar for the 1,065 archived backlog rows (A8)?** | **Recommendation: kill by default, promote by exception.** Anything with no observation in 60 days and no named owner is killed with `terminal_reason: unworked_since_<date>`. The 91 `OPEN-ITEMS` monitoring rows are the exception and come across whole. The alternative — import everything and triage later — rebuilds the graveyard in a new file, which is the failure this is meant to end. |
-| **5** | **What must an evidence record SHOW to auto-promote a leg to real money?** | This is now the entire safety property, since nobody is in the path. Recommendation: **expectancy > 0 net of the full cost stack at n >= 30 closed, AND positive in a majority of walk-forward folds, AND realized Stage-1 cost within a stated tolerance of the modelled cost.** The third clause is the one this system has never had and is cheap to check. Your numbers, not mine — but a bar with no n and no fold requirement is not a bar. |
-| **6** | **What is the ceiling on real-money exposure added without a human?** | An `add_risk` mandate needs one by construction. Recommendation: **cap the RISK ADDED per week rather than the leg count** — a count treats a 0.1% leg and a 2% leg alike. Suggested opening value: no more than one new leg per week per account, and total declared risk across auto-promoted legs no more than 25% of the account's configured risk budget, whichever binds first. |
-| 4 | How aggressive is the Phase-A deletion? | **Aggressive.** Partial removal leaves the treadmill running — the crons keep firing, the briefs keep growing, and the manager keeps having somewhere to put its effort that is not research. |
+| 1 | Does the soak book stay at 26 legs, or get curated? | **Keep it wide.** It is an instrument, not a decision surface, and R5's cadence read will say which legs are worth keeping — a measurement rather than a guess. |
+| 2 | Cut real money now, or go flat during the transition? | **Cut rather than stop**, and R1 will do most of the cutting automatically. A6 already pulls the two worst. |
+| 4 | How aggressive is the Phase-A deletion? | **Aggressive.** Partial removal leaves the treadmill running — which it has been, visibly: four cron commits landed on `main` during this PR, each recreating a register it archives. |
 
 ---
 

@@ -50,7 +50,7 @@
   "items": [
     {
       "id": "A1",
-      "title": "Cost meter — cost and tokens per session into one register, rendered in the brief",
+      "title": "Cost meter — usage against the WEEKLY PLAN ALLOWANCE, plus per-lane dollars",
       "phase": "A",
       "state": "queued",
       "owner": "build lane",
@@ -61,7 +61,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "Per-lane ceiling + a daily total. Today 263 session rows across ~90 keys carry ZERO cost or token fields. The meter's job is scoping, not accounting."
+      "note": "OPERATOR DECISION 2026-09-21: 'pace ourselves based on the weekly budget for the $200 Max plan -- 10% of the weekly budget a day, so we leave a wide margin for error or unexpected needs.' 10%/day x 7 = 70% of the weekly allowance, 30% margin. [!] THIS CHANGES WHAT THIS ITEM MEASURES AND THE CHANGE IS NOT COSMETIC. A subscription plan's constraint is a WEEKLY USAGE ALLOWANCE, not a dollar spend. Every cost_usd figure in the plan (the $125 across two resumed lanes, the $11.88 in ten minutes) is API-EQUIVALENT PRICING read off session metadata -- the right signal for COMPARING lanes, the wrong denominator for PACING against a plan. Report usage-against-allowance as the budget line, keep dollars beside it as the per-lane comparison. [!] THE DENOMINATOR IS NOT ESTABLISHED AND MUST NOT BE INVENTED: the exact weekly allowance is not readable from this repo. FIRST JOB is to establish it from whatever surface reports plan usage, or from the operator, and to report `unknown` rather than substitute a figure until it has. A fabricated denominator under a real rule is worse than no meter."
     },
     {
       "id": "A2",
@@ -189,7 +189,7 @@
           "what": "Nowhere to import to until the pipeline exists."
         }
       ],
-      "note": "Measured 2026-09-21 over the archived registers: 1,065 unresolved backlog rows (756+195 health, 42+29 performance, 7+20 ml, 16+0 research) and 91 OPEN-ITEMS rows. The 91 ALL carry a clears_when, 76 are marked loud, median 9 days since last observation and 7 were never verified -- they are the live deployed-but-unproven state and the class most likely to be silently lost, so they come across whole. The 1,065 are NOT bulk-imported: each is promoted with a due condition or KILLED with a reason, one bounded pass. Importing everything rebuilds the graveyard in a new file, which is the failure this exists to end. Kill bar is plan open decision 3d."
+      "note": "Measured 2026-09-21 over the archived registers: 1,065 unresolved backlog rows (756+195 health, 42+29 performance, 7+20 ml, 16+0 research) and 91 OPEN-ITEMS rows. The 91 ALL carry a clears_when, 76 are marked loud, median 9 days since last observation and 7 were never verified -- they are the live deployed-but-unproven state and the class most likely to be silently lost, so they come across whole. The 1,065 are NOT bulk-imported: each is promoted with a due condition or KILLED with a reason, one bounded pass. Importing everything rebuilds the graveyard in a new file, which is the failure this exists to end. Kill bar is plan open decision 3d. DECIDED 2026-09-21: KILL BY DEFAULT, PROMOTE BY EXCEPTION. No observation in 60 days and no named owner -> killed with terminal_reason 'unworked_since_<date>'. The 91 OPEN-ITEMS monitoring rows are the exception and come across whole."
     },
     {
       "id": "B1",
@@ -267,15 +267,10 @@
         {
           "kind": "work_item",
           "ref": "B1",
-          "what": "The evidence guard is what makes 'the evidence supports it' checkable rather than asserted."
-        },
-        {
-          "kind": "operator_decision",
-          "ref": "5+6",
-          "what": "The promotion bar's content, and the ceiling on real-money exposure added without a human."
+          "what": "The evidence guard is what makes the three-clause bar checkable rather than asserted."
         }
       ],
-      "note": "OPERATOR GRANT 2026-09-21, verbatim: 'All the ladder decisions can be automated -- that is a standing mandate. Strategies can be promoted to live money without explicit operator approval if the evidence supports the decision. I should just get a ping in realtime of the update and an evidence review in the next daily briefing.' FIVE MANDATES ARE GRANTED: MD-PROMOTE-S0-S1, MD-PROMOTE-S1-S2 (REAL MONEY), MD-DEMOTE-S2-S1, MD-DEMOTE-S1-OFF, MD-KILL-QUESTION. Build config/mandates.yaml + the resolver + the ping + the section-1 evidence render. [!] THE FILE IS NOT CREATED AHEAD OF THE RESOLVER -- a config nothing reads is the 'declared capability with no consumer' antipattern this repo already names. [!] WHAT CARRIES THE SAFETY IS 'if the evidence supports it': a COMMITTED evidence record, named harness, stated n, net of the FULL cost stack, clearing a rule registered before the run. A claim in a PR body is not a record; B1 is what makes that checkable. [!] MD-PROMOTE-S1-S2 MUST NOT ARM UNTIL D1 LANDS -- arithmetic, not caution: the harnesses default slippage and funding to 0.0, so every 'passed the backtest' verdict in today's corpus is fee-only and optimistic by an unknown amount (+0.57R on the one leg measured). The derisk_only mandates carry no such block; they read live measurement, not the corpus. Bounds and the bar's content are operator decisions -- plan open decisions 5 and 6."
+      "note": "OPERATOR GRANT 2026-09-21, verbatim: 'All the ladder decisions can be automated -- that is a standing mandate. Strategies can be promoted to live money without explicit operator approval if the evidence supports the decision. I should just get a ping in realtime of the update and an evidence review in the next daily briefing.' FIVE MANDATES ARE GRANTED: MD-PROMOTE-S0-S1, MD-PROMOTE-S1-S2 (REAL MONEY), MD-DEMOTE-S2-S1, MD-DEMOTE-S1-OFF, MD-KILL-QUESTION. Build config/mandates.yaml + the resolver + the ping + the section-1 evidence render. [!] THE FILE IS NOT CREATED AHEAD OF THE RESOLVER -- a config nothing reads is the 'declared capability with no consumer' antipattern this repo already names. [!] WHAT CARRIES THE SAFETY IS 'if the evidence supports it': a COMMITTED evidence record, named harness, stated n, net of the FULL cost stack, clearing a rule registered before the run. A claim in a PR body is not a record; B1 is what makes that checkable. [!] MD-PROMOTE-S1-S2 MUST NOT ARM UNTIL D1 LANDS -- arithmetic, not caution: the harnesses default slippage and funding to 0.0, so every 'passed the backtest' verdict in today's corpus is fee-only and optimistic by an unknown amount (+0.57R on the one leg measured). The derisk_only mandates carry no such block; they read live measurement, not the corpus. Bounds and the bar's content are operator decisions -- plan open decisions 5 and 6. [!] THE BAR AND THE CAP ARE NOW DECIDED (2026-09-21), so B5 builds against fixed numbers rather than waiting on them. BAR, all three clauses: expectancy > 0 net of the FULL cost stack at n >= 30 closed; positive in a MAJORITY of walk-forward folds; Stage-1 realized cost within a stated tolerance of modelled cost. CAP: total declared risk across AUTO-PROMOTED legs <= 25% of the account's configured risk budget, and NO RATE LIMIT -- a leg-per-week cap was offered and declined, so a batch CAN land in one day and the 25% number is load-bearing on its own. The cap counts auto-promoted legs ONLY; a leg the operator placed by hand does not consume the mandate's budget."
     },
     {
       "id": "C1",
