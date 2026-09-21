@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "This session is a scoped build lane spawned by this repo's manager session (session_01XQhayAHWdrSYv8jN54P2HH), per the documented spawn model in .claude/skills/manager/SKILL.md and docs/plans/OPERATING-PLAN-2026-09-21.md. Its dispatch for PI-20260921-M04 states in terms: \"Push, open a PR against main, drive CI green. DO NOT MERGE -- the manager merges.\" This is Tier-1 by content (scripts/ops/ tooling + tests/, no runtime/order-path/config touched) and would otherwise self-land, but the lane is instructed not to click merge itself.",
+  "why": "scripts/ops/pipeline.py (a CI-tooling module, not a runtime/order-path file) and tests/test_pipeline.py only -- no src/, no config/, no deploy/, no live-VM runtime file. Fixes a real defect this module shipped with: append() previously let two UNRELATED findings share an id and silently displace one another (live on main: PI-20260921-0002), and --check reported that store as `clean`. append() now requires an explicit intent (new/update) and refuses an update whose identity does not match; --check reports every collision and never prints bare `clean` over one, with the one pre-existing instance grandfathered (loud, not silenced); mint_id() allocates session-scoped ids so two concurrent sessions cannot mint the same next number."
+}
