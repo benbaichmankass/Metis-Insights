@@ -405,16 +405,18 @@
       "id": "A9",
       "title": "The work schedule, rendered on the GitHub Pages UI",
       "phase": "A",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_017tAnBLFVJcGDs5kR7CGYcE",
       "model": "claude-sonnet-5",
       "ceiling_usd": 30,
-      "spend_usd": null,
+      "spend_usd": 37.13,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12692
+      ],
       "blocked_on": [],
-      "note": "OPERATOR-REQUESTED 2026-09-21: 'A work schedule, visible on the gitpages UI site -- when different sessions need to happen, when decisions are due, monitoring items, etc.' Two halves and they are DIFFERENT REPOS: docs/claude/work/SCHEDULE.json + a route here, and the render in benbaichmankass/ict-trader-dashboard. Sources are already-existing state, NOT a new register: cadenced sessions (the daily sync, the three reviews), decisions owed (from the pipeline's ask_operator rows), monitoring items coming due (pipeline due_when), and cron cadences read from the workflow files rather than retyped. [!] IT RENDERS WHAT EXISTS; if it needs a fact nobody records, that is a finding about the pipeline, not a reason for a second register. [!] UNBLOCKED AND DISPATCHED 2026-09-21: its declared blocker (A7) closed on the operator's own observation of section 0 on the live page. Lane fenced off PIPELINE.jsonl (merge queue draining) and off work.py::_decision_inbox (E15 is in that function concurrently)."
+      "note": "OPERATOR-REQUESTED 2026-09-21: 'A work schedule, visible on the gitpages UI site -- when different sessions need to happen, when decisions are due, monitoring items, etc.' Two halves and they are DIFFERENT REPOS: docs/claude/work/SCHEDULE.json + a route here, and the render in benbaichmankass/ict-trader-dashboard. Sources are already-existing state, NOT a new register: cadenced sessions (the daily sync, the three reviews), decisions owed (from the pipeline's ask_operator rows), monitoring items coming due (pipeline due_when), and cron cadences read from the workflow files rather than retyped. [!] IT RENDERS WHAT EXISTS; if it needs a fact nobody records, that is a finding about the pipeline, not a reason for a second register. [!] UNBLOCKED AND DISPATCHED 2026-09-21: its declared blocker (A7) closed on the operator's own observation of section 0 on the live page. Lane fenced off PIPELINE.jsonl (merge queue draining) and off work.py::_decision_inbox (E15 is in that function concurrently). [!] BOT-SIDE MERGED 2026-09-21 as 429c3eb; the RENDER is ict-trader-dashboard#219 and is not merged. Closes when the schedule is on the page the operator opens -- the same bar A7 was held to. [!] ⚠️ OVERRAN ITS CEILING: $37.13 against $30. Recorded rather than absorbed. A ceiling nobody checks mid-flight is not a ceiling, and seven lanes overran today for that reason."
     },
     {
       "id": "A10",
@@ -583,7 +585,7 @@
       "id": "E3",
       "title": "Make the cost model reach every harness",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01HmQgaLfZv9rv7uuWfgA321",
       "model": "claude-sonnet-5",
@@ -594,7 +596,7 @@
         12684
       ],
       "blocked_on": [],
-      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect. [!] DISPATCHED 2026-09-21, ahead of the A-phase order the handoff gave, and the reason is on this row already: it is named THE SINGLE HIGHEST-VALUE ENGINEERING ITEM, it is unblocked, Tier-1, and it conflicts with no file any other live lane is in. Holding it behind A9 would have bought nothing. FRESH, sonnet-5. [!] MODEL CHOICE ARGUED, because this one is close to the order-path rule and close calls are where a table gets misread: the task table sends anything ON A REAL-MONEY ORDER PATH to opus, and a backtest harness is not one. The downstream risk -- a wrong cost number arming a real-money promotion -- is real but cannot fire today: MD-PROMOTE-S1-S2 does not arm until D1, and B5 (the mandate mechanism) is not built, so nothing automatic follows from this landing. Sonnet is correct HERE and would not be once B5 exists. [!] LANE FENCED OUT of changing what execution_costs.py COMPUTES (it is correct, and a behaviour change there is a different tier) and out of re-running the corpus (that is D1/R1). It was told to wire vwap FIRST if it cannot finish -- 318 of 431 lifetime real-money trades -- and to file the remainder in the pipeline rather than leave it in a PR body. [!] PR IS #12684. The lane's own summary named #8831, a number that belongs to no PR of this change -- recorded because a wrong PR number in a summary is unfalsifiable from the summary alone, and the manager merged from the branch name, not the number."
+      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect. [!] DISPATCHED 2026-09-21, ahead of the A-phase order the handoff gave, and the reason is on this row already: it is named THE SINGLE HIGHEST-VALUE ENGINEERING ITEM, it is unblocked, Tier-1, and it conflicts with no file any other live lane is in. Holding it behind A9 would have bought nothing. FRESH, sonnet-5. [!] MODEL CHOICE ARGUED, because this one is close to the order-path rule and close calls are where a table gets misread: the task table sends anything ON A REAL-MONEY ORDER PATH to opus, and a backtest harness is not one. The downstream risk -- a wrong cost number arming a real-money promotion -- is real but cannot fire today: MD-PROMOTE-S1-S2 does not arm until D1, and B5 (the mandate mechanism) is not built, so nothing automatic follows from this landing. Sonnet is correct HERE and would not be once B5 exists. [!] LANE FENCED OUT of changing what execution_costs.py COMPUTES (it is correct, and a behaviour change there is a different tier) and out of re-running the corpus (that is D1/R1). It was told to wire vwap FIRST if it cannot finish -- 318 of 431 lifetime real-money trades -- and to file the remainder in the pipeline rather than leave it in a PR body. [!] PR IS #12684. The lane's own summary named #8831, a number that belongs to no PR of this change -- recorded because a wrong PR number in a summary is unfalsifiable from the summary alone, and the manager merged from the branch name, not the number. [!] MERGED 2026-09-21 as 3afc02b. ⚠️ THE FIRST REAL CI RUN ON THIS PR IS THE ONE THAT MERGED IT -- before the conflict-resolution push only `watch` had ever fired, so the green in the lane's original summary was a local run. guards/pytest-collect/pytest-run all green on e6bd336. [!] DONE means the harnesses are wired; it does NOT mean the corpus is re-run. Every leg whose harness previously defaulted to fee-only now has a STALE backtest record, and that is D1/R1."
     },
     {
       "id": "E4",
@@ -790,7 +792,7 @@
       "id": "E15",
       "title": "The Workflow page's 'Waiting on you' panel renders a false all-clear",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01S2iRKZgnA7coozWoGZRXyn",
       "model": "claude-sonnet-5",
@@ -801,22 +803,75 @@
         12693
       ],
       "blocked_on": [],
-      "note": "PROMOTED FROM PI-20260921-M09, and FOUND BY THE OPERATOR LOOKING AT THE PAGE — which is now the SECOND time that has been the discovery method for this exact class, and the reason E9's row says a filename grep is the wrong PRIMARY probe. [!] _decision_inbox sources from docs/claude/work/objects/*.yaml :: decision_requests[]; the reset ARCHIVED that directory, _yaml_files() returns [] for an absent one, and the panel therefore reports on an empty folder. [!] THE OPERATOR ANSWERED FIVE DECISIONS TODAY and the page says zero are on record. [!] THE SERIOUS HALF IS THE ALL-CLEAR, NOT THE MISSING HISTORY: a genuine unanswered decision renders IDENTICALLY to none existing. 'Nothing is waiting on you' is the most load-bearing sentence on that page and it is currently unearned. [!] DO NOT resurrect the work store to fix it. Decisions live on the checklist and as pipeline rows with next_action: ask_operator. Either read those, or say the source is unreadable — never a silent zero. [!] DISPATCHED 2026-09-21, PR #12693. The lane MEASURED the size of the false all-clear: the page read 0 where the open `ask_operator` pipeline population alone is 84."
+      "note": "PROMOTED FROM PI-20260921-M09, and FOUND BY THE OPERATOR LOOKING AT THE PAGE — which is now the SECOND time that has been the discovery method for this exact class, and the reason E9's row says a filename grep is the wrong PRIMARY probe. [!] _decision_inbox sources from docs/claude/work/objects/*.yaml :: decision_requests[]; the reset ARCHIVED that directory, _yaml_files() returns [] for an absent one, and the panel therefore reports on an empty folder. [!] THE OPERATOR ANSWERED FIVE DECISIONS TODAY and the page says zero are on record. [!] THE SERIOUS HALF IS THE ALL-CLEAR, NOT THE MISSING HISTORY: a genuine unanswered decision renders IDENTICALLY to none existing. 'Nothing is waiting on you' is the most load-bearing sentence on that page and it is currently unearned. [!] DO NOT resurrect the work store to fix it. Decisions live on the checklist and as pipeline rows with next_action: ask_operator. Either read those, or say the source is unreadable — never a silent zero. [!] DISPATCHED 2026-09-21, PR #12693. The lane MEASURED the size of the false all-clear: the page read 0 where the open `ask_operator` pipeline population alone is 84. [!] MERGED 2026-09-21 as f914a13. MEASURED: 84 open ask_operator items where the page read 0. ⚠️ ESTABLISHES MERGED, NOT OBSERVED -- whether the panel shows the right number on the live page needs a human on a browser, and this row is closed on the code being right, not on that."
     },
     {
       "id": "E16",
       "title": "Prop: no fill since 2026-08-30, and the status ask fires on the wrong trigger",
       "phase": "E",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_012DyVaL6CpsTxEwHBs9MEcB",
       "model": "claude-opus-5",
       "ceiling_usd": 35,
+      "spend_usd": 25.38,
+      "tier": 1,
+      "prs": [
+        12696
+      ],
+      "blocked_on": [],
+      "note": "OPERATOR-RAISED 2026-09-21, unprompted, in their own words: 'I haven't gotten any trade notifications there in a suspiciously long time, and I keep getting the prop status request notifications even though we said we don't need that anymore -- I give the snapshot when a trade closes and the account doesn't need to be tracked actively when there's no activity.' [!] MEASURED off the live host the same hour (direct over ict-bot.duckdns.org, not from a doc): newest account_status is id 19 at 2026-08-30T19:33:29Z -- status_age_hours 528.4 against a 24h threshold, freshness `stale`. distance_to_dd_floor_usd reads $87.34 against the $4,700 static floor, computed off that 22-day-old snapshot; distance_to_daily_loss_usd is null (day_pnl_state `realized_unreported`), so the daily-loss half of the account-killer guard is NOT COMPUTED AT ALL. Newest ticket 2026-09-13 `expired`; everything back to 2026-08-30 `suppressed`/`skipped`. reconcile: 92 tickets, 43 fills, 0 unacted. [!] SO THE STRATEGY SIDE IS ALIVE AND NOTHING REACHES A FILL -- that is the shape of the question, and the lane's first job is to say WHICH of four candidates is true with a stated population, not to adopt the tidy one. The manager's leading hypothesis (sizing refusing on the stale balance) is EXPLICITLY CHALLENGED on the row: a ticket was emitted 2026-09-13, fourteen days past the snapshot, so sizing did not refuse on that tick. [!] OPERATOR DECISION 2026-09-21 (popup, direct): the status ask fires ONLY ON NEW EXPOSURE -- at the moment a real, non-suppressed ticket is about to take exposure. The flat-book cadence goes. They were shown the $87.34-on-a-22-day-old-number cushion and the cost of going quiet while flat, and chose this. prop_status_request.py's docstring argues WELL against it (the static-DD floor binds while flat); that argument is to be KEPT and the decision recorded beside it, dated and attributed -- not deleted. [!] OPERATOR CONFIRMED, asked directly: breakout_1 is funded, live, and SHOULD be trading. So the silence is a defect, not the expected state. [!] THE PIPELINE PREDICTED THIS EXACT DAY. BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED has been open since 2026-09-09 and its clears_when says in terms: 'breakout_1 can stop trading indefinitely with the only evidence being a journalctl line.' The operator found it from the outside, by noticing an absence of notifications -- the worst available discovery method, and the second time today that the operator's own eyes beat a sweep. [!] SO SILENCING THE ASK DOES NOT SHIP ALONE: the periodic ask was the only thing that happened to be noisy in the stalled state, so removing it makes the silent stall strictly worse. The refusal path gets an operator-facing signal in the same landing. [!] LANE FENCED OUT of changing sizing logic, breakout_executor's suppression rule, and anything on the order path -- a diagnosis pointing there comes BACK as a proposal. PROP IS REAL MONEY: routed to opus for that reason, against the model table's order-path line. [!] MERGED 2026-09-21 as 635600c, Tier-2, OPERATOR APPROVED after being shown what it does. [!] THE ROOT CAUSE IS FOUND AND IS NOT WHAT ANYONE GUESSED -- and the manager's leading hypothesis (sizing refusing on the stale balance) was REFUTED twice, independently. TWO INDIVIDUALLY-CORRECT TIER-3 CHANGES COMPOSED INTO A SILENT OUTAGE: 2026-08-23 removed the base twins from breakout_1's roster (approved de-dup), and 2026-08-31 rewrote _election_sort_key so the base twin now wins a tie against its _prop sibling. The twins carry IDENTICAL entry parameters, so both fire on every breakout bar, one global winner is elected per symbol, and since 2026-08-31 the winner is always the base twin -- which is not on breakout_1. MEASURED 21 of 21 contested packages to the base twin; breakout_1 received none. No ticket, no suppressed row, no rejection, no log line naming the account. [!] THE ASK WAS A LATCH, established before anything was changed: a 2026-09-13 ticket with a 1h TTL expired unanswered, `expired` was not in NON_EXPOSING_TICKET_STATUSES, and the arm compared against a snapshot only an OPERATOR REPORT can move -- so it asked every 12h forever for the report it was asking for. Fixed as a class (`ticket_can_take_exposure`), not as an instance. [!] landed_unproven, NOT done: BL-20260909 is MOVED not closed (its clears_when needs the refusal observed reaching a channel on the live host after deploy), and the OUTAGE ITSELF IS UNFIXED -- that is E17."
+    },
+    {
+      "id": "E17",
+      "title": "breakout_1 receives nothing: re-arm per-account arbitration on the crypto/prop path",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-opus-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "E19",
+          "what": "Establishing whether arbitration_fanout RUNS on this path needs the arbitration_fanout_soak log, and the diag relay that reads it is down."
+        }
+      ],
+      "note": "THE ACTUAL OUTAGE, diagnosed by E16 and measured 21-of-21: the intent layer elects ONE global winner per symbol across twins WITHOUT consulting per-account rosters, so a twin that is the only leg on an account can be arbitrated away by a sibling that is not on that account at all. [!] OPERATOR CHOSE THE SHAPE 2026-09-21, from three: RE-ARM PER-ACCOUNT `arbitration_fanout` on the crypto/prop path. A per-account fanout mechanism EXISTS and exists precisely to stop one twin starving another account -- and on all 11 measured ETH packages `signalLogic.arbitration_fanout` is ABSENT ENTIRELY, while a contemporaneous tlt_pullback_1h package carries a full `fanout_schema: 3` plan with per_account elections. [!] ⚠️ FIRST ESTABLISH WHETHER IT RUNS AND IS NOT RECORDED, OR DOES NOT RUN. E16 could not: that read needs `arbitration_fanout_soak`, behind the diag relay, which is FAILING. Those two possibilities call for different fixes and the cheaper option was chosen on the assumption the second is true -- if it turns out the fanout runs and the record is merely missing, COME BACK, do not improvise. [!] NOT CHOSEN, and recorded so it is not re-proposed: re-adding the base twins to breakout_1's roster restores tickets and reinstates the wrong-twin emission the 2026-08-23 change existed to remove. [!] SAME DEFECT, OPPOSITE POLARITY, ALREADY ON FILE: BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING, measured 0-of-60. What is new is that the starved side is now a FUNDED account with a live account-killer cushion. [!] TIER 3 -- intent arbitration. The exact diff and a before/after election trace go to the operator; nothing lands on this row's authority alone."
+    },
+    {
+      "id": "E18",
+      "title": "The detector that does not exist: intents produced vs tickets the account actually received",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "OPERATOR-RAISED 2026-09-21, unprompted, in their own words: 'I haven't gotten any trade notifications there in a suspiciously long time, and I keep getting the prop status request notifications even though we said we don't need that anymore -- I give the snapshot when a trade closes and the account doesn't need to be tracked actively when there's no activity.' [!] MEASURED off the live host the same hour (direct over ict-bot.duckdns.org, not from a doc): newest account_status is id 19 at 2026-08-30T19:33:29Z -- status_age_hours 528.4 against a 24h threshold, freshness `stale`. distance_to_dd_floor_usd reads $87.34 against the $4,700 static floor, computed off that 22-day-old snapshot; distance_to_daily_loss_usd is null (day_pnl_state `realized_unreported`), so the daily-loss half of the account-killer guard is NOT COMPUTED AT ALL. Newest ticket 2026-09-13 `expired`; everything back to 2026-08-30 `suppressed`/`skipped`. reconcile: 92 tickets, 43 fills, 0 unacted. [!] SO THE STRATEGY SIDE IS ALIVE AND NOTHING REACHES A FILL -- that is the shape of the question, and the lane's first job is to say WHICH of four candidates is true with a stated population, not to adopt the tidy one. The manager's leading hypothesis (sizing refusing on the stale balance) is EXPLICITLY CHALLENGED on the row: a ticket was emitted 2026-09-13, fourteen days past the snapshot, so sizing did not refuse on that tick. [!] OPERATOR DECISION 2026-09-21 (popup, direct): the status ask fires ONLY ON NEW EXPOSURE -- at the moment a real, non-suppressed ticket is about to take exposure. The flat-book cadence goes. They were shown the $87.34-on-a-22-day-old-number cushion and the cost of going quiet while flat, and chose this. prop_status_request.py's docstring argues WELL against it (the static-DD floor binds while flat); that argument is to be KEPT and the decision recorded beside it, dated and attributed -- not deleted. [!] OPERATOR CONFIRMED, asked directly: breakout_1 is funded, live, and SHOULD be trading. So the silence is a defect, not the expected state. [!] THE PIPELINE PREDICTED THIS EXACT DAY. BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED has been open since 2026-09-09 and its clears_when says in terms: 'breakout_1 can stop trading indefinitely with the only evidence being a journalctl line.' The operator found it from the outside, by noticing an absence of notifications -- the worst available discovery method, and the second time today that the operator's own eyes beat a sweep. [!] SO SILENCING THE ASK DOES NOT SHIP ALONE: the periodic ask was the only thing that happened to be noisy in the stalled state, so removing it makes the silent stall strictly worse. The refusal path gets an operator-facing signal in the same landing. [!] LANE FENCED OUT of changing sizing logic, breakout_executor's suppression rule, and anything on the order path -- a diagnosis pointing there comes BACK as a proposal. PROP IS REAL MONEY: routed to opus for that reason, against the model table's order-path line."
+      "note": "OPERATOR DECISION 2026-09-21, asked and answered: BUILD IT, AND FOR ALL ACCOUNTS -- not scoped to prop. [!] THE FACT THAT MOTIVATES IT: breakout_1 produced 21 intents over 22 days and received ZERO tickets, and NOTHING IN THE SYSTEM FIRES ON THAT. The operator found it by noticing an absence, which is the worst available discovery method and the second time today. [!] THE SIZING-REFUSAL PING SHIPPED IN #12696 DOES NOT SUBSTITUTE: no refusal occurred. A BLOCKED account and an UNREACHED account are different failures, and only the first has a signal. [!] SHAPE: for every live leg, intents produced vs orders/tickets its account received over a rolling window, with the read-state DISTINGUISHABLE from zero -- 'we could not look' must never render as 'nothing was starved'. That is the whole point; a detector with a collapsed state is the bug it is meant to catch. [!] GENERALISES PAST PROP by the operator's explicit choice: the same blindness applies to any account whose only leg loses an election to a sibling routed elsewhere."
+    },
+    {
+      "id": "E19",
+      "title": "The vm-diag-snapshot relay is failing — every session is blind to the live host",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first."
     }
   ]
 }
