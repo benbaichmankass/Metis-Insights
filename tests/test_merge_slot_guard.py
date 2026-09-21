@@ -81,23 +81,33 @@ def test_deny_names_the_specific_pr(sid):
     reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
     assert "#4242" in reason
     assert f"/tmp/.claude-merge-claim-{sid}-4242" in reason
-    # ⚠️ THIS ASSERTED THE LITERAL `6927` UNTIL 2026-09-08, AND THE CHANGE IS NOT
-    # A WEAKENING — it is the same requirement stated durably. The test's purpose
-    # is that a session reading this deny knows WHERE to post its claim. Pinning
-    # that to a hardcoded issue number made the test go stale the moment the
-    # board did: #6927 reached GitHub's hard 2500-comment cap on 2026-09-07 and
-    # stopped accepting writes, at which point a deny naming it was sending
-    # every session to a board that could not take a claim — while this test
-    # still passed, because the number was present.
+    # ⚠️ THIS ASSERTED THE LITERAL `6927` UNTIL 2026-09-08, THEN
+    # `board-pointer.json` UNTIL 2026-09-21. NEITHER CHANGE WAS A WEAKENING —
+    # each is the SAME requirement stated against the thing that currently
+    # exists. The test's purpose is that a session reading this deny knows
+    # WHERE to make its claim, and WHAT the claim is.
     #
-    # The board is now resolved from docs/claude/board-pointer.json, so the deny
-    # must name that instead. A future rotation cannot silently invalidate this
-    # message, and cannot silently invalidate this test either.
-    assert "board-pointer.json" in reason, (
-        "the deny must tell a session where to resolve the coordination board; "
-        "a number would go stale with the board, which is the failure being fixed")
+    # The history is the argument for keeping it that way. Pinning it to a
+    # hardcoded issue number went stale the moment the board did: #6927 hit
+    # GitHub's hard 2500-comment cap on 2026-09-07 and stopped accepting
+    # writes, so the deny was sending every session to a board that could not
+    # take a claim — while this test still passed, because the number was
+    # present. Re-pinning to docs/claude/board-pointer.json went stale the same
+    # way when the 2026-09-21 operating reset ARCHIVED the board entirely.
+    #
+    # The claim is no longer a comment anywhere. It is a FILE —
+    # .github/merge-slots/<slug>.json, written by
+    # scripts/ops/claim_merge_slot.py --branch-claim — and that is also what
+    # pr-landing-guard R13 actually checks, so the deny and the guard now name
+    # the same mechanism instead of two.
+    assert "claim_merge_slot.py" in reason, (
+        "the deny must tell a session HOW to make its claim; naming a board, or "
+        "an issue number, goes stale with the board — which has now happened twice")
+    assert "--branch-claim" in reason, (
+        "and it must name the per-branch route specifically: the shared-board "
+        "route it replaced could conflict between two sessions, this one cannot")
     assert "MERGE SLOT CLAIM" in reason, (
-        "and it must name the claim to post, not merely the board")
+        "and it must name the claim itself, not merely where it goes")
 
 
 def test_fresh_marker_allows(sid):
