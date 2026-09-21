@@ -330,3 +330,23 @@ def test_jsonable_stringifies_an_unknown_type_rather_than_dropping_it():
     assert wk._jsonable(Weird()) == "weird-value"
     # Positive control: ordinary scalars pass through untouched.
     assert wk._jsonable("s") == "s" and wk._jsonable(3) == 3 and wk._jsonable(None) is None
+
+
+# ── /brief — A3, served live from scripts/ops/render_daily_brief.py ───────
+
+def test_real_brief_route_serves_all_six_sections_over_http():
+    """Integration: `GET /api/bot/work/brief` against the REAL committed
+    ``docs/claude/work/`` — same shape as the object-route traversal test
+    above. Confirms the route wiring, the cache, and that the module's six
+    sections actually reach an HTTP response — `test_render_daily_brief.py`
+    covers the module's own logic in depth and is not duplicated here."""
+    wk._brief_cache = None
+    client = TestClient(app)
+    r = client.get("/api/bot/work/brief")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["present"] is True
+    for n in range(6):
+        assert f"## §{n} —" in body["markdown"]
+    assert set(body["inputs"]) == {"pipeline", "checklist", "mandates"}
+    assert body["coverageComplete"] is False
