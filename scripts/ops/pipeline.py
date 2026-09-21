@@ -527,7 +527,12 @@ def _check(store: Path) -> int:
             print(f"  {b}")
     if res.unreadable or bad:
         return 1
-    print("\npipeline: clean")
+    # ⚠️ THE DENOMINATOR IS PART OF THE VERDICT, not decoration. A bare
+    # "clean" over an empty or truncated store reads as a clean bill of health
+    # for nothing — the exact failure this module's docstring names, caught
+    # here by diagnostic-provenance-guard on this file's own first commit.
+    print(f"\npipeline: clean — {len(res.items)} item(s) validated over "
+          f"{res.records} record(s); {s['due']} due, {s['unrouted']} unrouted")
     return 0
 
 

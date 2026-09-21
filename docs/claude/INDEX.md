@@ -77,6 +77,7 @@ Their job is now one page: `.claude/skills/manager/SKILL.md`.
 
 **Session process**
 
+- `close-out` — How a session knows it is DONE. Read it BEFORE you stop — whether you finished, ran out of budget, or are handing off. The one question (could this session end right now and nothing be lost or silently dropped?), seven checks against the checklist / the pipeline / git, and why stopping early is a HANDOFF rather than a completion.
 - `llm-delegate` — Offload a BOUNDED coding/research subtask to a cheap external LLM running as an ephemeral GitHub Actions job, then verify its output before acting.
 - `before-asking-the-operator` — TRIGGER any time you are about to write phrases like "you'll need to", "run this locally", "manually...", "SSH in and", "sudo", "open a terminal", "on the VM, edit", "the operator needs to", "go to the dashboard and create", or any other instruction that attributes work to the operator.
 - `credentials-and-vm-mutations` — Invoke BEFORE writing any operator-facing instruction that involves credentials, the live VM's runtime state, or systemd.
