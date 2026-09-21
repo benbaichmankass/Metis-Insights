@@ -155,6 +155,26 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # RE-ARMED 2026-09-21 (A3a) — `daily-brief-guard` was in the list of 40
+        # governance guards deleted above, and its subject (the four-section
+        # module keyed to the five archived registers) is genuinely gone. But
+        # `scripts/ops/render_daily_brief.py` is not gone — A3 replaced it with
+        # a six-section module reading only the pipeline store, the checklist
+        # and `config/mandates.yaml`, and a module nothing runs is the
+        # "declared capability with no consumer" antipattern this repo already
+        # names (see pipeline-guard above, same reasoning). --self-test asserts
+        # the six sections and the three-way read-state contract; --check
+        # renders over the live tree and asserts the invariant sentences
+        # without failing on an unreadable/absent input (grades the code, not
+        # the data — the same discipline `pipeline-guard --check` follows).
+        "name": "daily-brief-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/render_daily_brief.py", "--self-test"],
+            ["python3", "scripts/ops/render_daily_brief.py", "--check"],
+        ],
+    },
+    {
         "name": "research-tooling-selftests",
         "when": None,
         "steps": [
