@@ -1223,19 +1223,133 @@ _ANSWER_STATE_NOTES = {
 }
 
 
+def _checklist_path() -> Path:
+    return Path(repo_root()) / manager_status.CHECKLIST_RELPATH
+
+
+def _pipeline_store_path() -> Path:
+    from scripts.ops import pipeline as _pipeline
+
+    return Path(repo_root()) / _pipeline.STORE
+
+
+def _checklist_operator_decision_edges() -> tuple[list[dict[str, Any]], str, str | None]:
+    """``blocked_on`` edges of ``kind: operator_decision`` on LIVE checklist rows.
+
+    ⚠️ E15. Before this, ``_decision_inbox``'s ONLY source was
+    ``docs/claude/work/objects/*.yaml`` — a directory the 2026-09-21 operating
+    reset archived. ``_yaml_files`` on an absent directory returns ``[]``
+    silently, so the inbox read as ``present: true`` with zero requests and
+    zero edges FOREVER after — an unanswered decision and no decision at all
+    render identically, which is exactly the collapsed state
+    ``scripts/ci/check_collapsed_states.py`` exists to catch. This is one of
+    the two LIVE replacements named in the E15 scope fence (the other is
+    ``_pipeline_ask_operator_items`` below); the archived directory is never
+    resurrected.
+
+    Read state reuses ``manager_status.FileRead``'s own vocabulary
+    (``read`` / ``absent`` / ``unreadable``) rather than a second one, so "the
+    checklist declares no operator-decision edges" and "we could not read the
+    checklist" can never render alike.
+    """
+    read = manager_status.read_json_file(_checklist_path())
+    if read.state != "read":
+        return [], read.state, read.error
+    edges: list[dict[str, Any]] = []
+    items = read.data.get("items")
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        blocked = item.get("blocked_on")
+        for edge in blocked if isinstance(blocked, list) else []:
+            if not isinstance(edge, dict) or edge.get("kind") != "operator_decision":
+                continue
+            edges.append(
+                {
+                    "source": "checklist",
+                    "objectId": item.get("id"),
+                    "objectTitle": item.get("title"),
+                    "objectLifecycle": item.get("state"),
+                    "ref": edge.get("ref"),
+                    "since": None,
+                    "note": edge.get("what"),
+                }
+            )
+    return edges, "read", None
+
+
+def _pipeline_ask_operator_items() -> tuple[list[dict[str, Any]], str, int]:
+    """Open ``PIPELINE.jsonl`` items whose ``next_action`` is ``ask_operator``.
+
+    ⚠️ E15. The SECOND live replacement named in the scope fence:
+    ``next_action: ask_operator`` is a pipeline item's own declaration that it
+    needs the operator's decision — the live equivalent of what the archived
+    ``objects/*.yaml``'s ``decision_requests[]`` used to carry.
+    ``TERMINAL_STATES`` (``done`` / ``killed``) are excluded — a decision
+    already made and closed is not "waiting on you" (it is reported in
+    ``docs/claude/work/PIPELINE.jsonl``'s own audit trail instead).
+    ⚠️ Read-only: this never appends to or otherwise touches
+    ``PIPELINE.jsonl`` — a merge queue drains it concurrently.
+
+    Read state reuses ``scripts/ops/render_daily_brief.py``'s own two-value
+    vocabulary for THIS store (``read`` vs ``partial``) rather than inventing
+    a third. A genuinely never-written store still reads ``read`` with zero
+    items — ``pipeline.py``'s own docstring: an append-only log that has never
+    been written "genuinely holds nothing", which is not the same condition as
+    "we could not parse what is there" (``partial``).
+    """
+    from scripts.ops import pipeline as _pipeline
+
+    res = _pipeline.read_log(_pipeline_store_path())
+    state = "read" if res.healthy else "partial"
+    today = datetime.now(timezone.utc).date()
+    items: list[dict[str, Any]] = []
+    for item in res.items.values():
+        if item.get("next_action") != "ask_operator":
+            continue
+        if item.get("state") in _pipeline.TERMINAL_STATES:
+            continue
+        due_when = item.get("due_when") or {}
+        items.append(
+            {
+                "source": "pipeline",
+                "objectId": item.get("id"),
+                "objectTitle": item.get("what"),
+                "objectLifecycle": item.get("state"),
+                "ref": item.get("routed_to"),
+                "since": None,
+                "note": due_when.get("clears_when"),
+                "due": _pipeline.is_due(item, today),
+            }
+        )
+    # Due first — the ones asking for attention NOW lead the list.
+    items.sort(key=lambda i: (not i["due"], str(i["objectId"])))
+    return items, state, len(res.unreadable)
+
+
 def _decision_inbox() -> dict[str, Any]:
     """Every operator decision the store is waiting on, with its answer state.
 
-    Two sources of a pending decision, and they are counted separately because
-    they are different facts:
+    Three sources of a pending decision, and they are counted separately
+    because they are different facts:
 
       * a ``decision_requests[]`` entry — an ANSWERABLE question, with options
-      * a ``blocked_on`` edge of ``kind: operator_decision`` — a declared
-        dependency on the operator that carries NO answerable request
+        (from ``docs/claude/work/objects/*.yaml`` — ⚠️ E15: that directory is
+        ARCHIVED as of 2026-09-21, so this source structurally reads empty;
+        see ``sources.workObjects`` on the response, never treat the resulting
+        zero as verified)
+      * a ``blocked_on`` edge of ``kind: operator_decision`` on a LIVE
+        checklist row — a declared dependency on the operator that carries NO
+        answerable request (``_checklist_operator_decision_edges``)
+      * a LIVE pipeline item whose ``next_action`` is ``ask_operator``
+        (``_pipeline_ask_operator_items``)
 
-    The second is the one worth surfacing loudly: it is a question the operator
-    is blocking on that they cannot answer from the UI, because nobody wrote it
-    down as a request. Folding the two together would hide exactly that gap.
+    The second and third are the ones worth surfacing loudly: each is a
+    question the operator is blocking on that they cannot answer from the UI,
+    because nobody wrote it down as a request. Folding any of the three
+    together would hide exactly that gap — so they stay tagged by ``source``
+    inside ``unanswerableOperatorEdges`` rather than merged into one
+    unattributed count.
     """
     index = _get_index()
     rows, transit_state, transit_error = read_transit()
@@ -1310,6 +1424,7 @@ def _decision_inbox() -> dict[str, Any]:
                 continue
             unanswerable.append(
                 {
+                    "source": "work_object",
                     "objectId": object_id,
                     "objectTitle": obj.get("title"),
                     "objectLifecycle": obj.get("lifecycle"),
@@ -1318,6 +1433,17 @@ def _decision_inbox() -> dict[str, Any]:
                     "note": edge.get("note"),
                 }
             )
+
+    # ── E15: the two LIVE replacements for the archived objects/ directory ──
+    checklist_edges, checklist_state, checklist_error = (
+        _checklist_operator_decision_edges()
+    )
+    unanswerable.extend(checklist_edges)
+
+    pipeline_items, pipeline_state, pipeline_unreadable_records = (
+        _pipeline_ask_operator_items()
+    )
+    unanswerable.extend(pipeline_items)
 
     by_state = {state: 0 for state in ANSWER_STATES}
     by_subject = {state: 0 for state in SUBJECT_STATES}
@@ -1476,6 +1602,27 @@ def _decision_inbox() -> dict[str, Any]:
             # cannot ANSWER is worse than one that was never asked.
             "malformedRequestsDropped": malformed,
             "unanswerableOperatorEdgeCount": len(unanswerable),
+            # ⚠️ E15: the auditable split behind `unanswerableOperatorEdgeCount`
+            # — published so the count is never trusted as a single opaque
+            # number. `workObject` is structurally 0 while objects/ stays
+            # archived; that is NOT the same fact as "nothing is waiting", and
+            # `checklist` + `pipeline` are the two counts that actually move.
+            "unanswerableBySource": {
+                "workObject": sum(1 for e in unanswerable if e.get("source") == "work_object"),
+                "checklist": sum(1 for e in unanswerable if e.get("source") == "checklist"),
+                "pipeline": sum(1 for e in unanswerable if e.get("source") == "pipeline"),
+            },
+            # ⚠️ E15: THE HEADLINE NUMBER. Everything genuinely waiting on the
+            # operator, across all three sources, added rather than any one of
+            # them read alone — `actionableCount` (answerable requests) is
+            # structurally 0 today (objects/ is archived); the checklist and
+            # pipeline edges inside `unanswerableOperatorEdges` are where a
+            # real pending decision now shows up. A consumer that renders
+            # "nothing is waiting on you" must read THIS field, not
+            # `actionableCount` alone.
+            "waitingOnYouTotal": (
+                sum(1 for r in requests if r["actionable"]) + len(unanswerable)
+            ),
             "staleOpenWindows": stale_open,
             "staleAfterSeconds": STALE_TRANSIT_SECONDS,
             # Who asked, graded over EVERY request — the coverage denominator
@@ -1496,11 +1643,55 @@ def _decision_inbox() -> dict[str, Any]:
             "rowsRead": len(rows),
         },
         "writeGate": _write_gate_reading(),
+        # ⚠️ E15: per-source read-state, published so a consumer can tell "this
+        # source has nothing pending" from "we could not read this source"
+        # WITHOUT re-deriving it from `unanswerableBySource`'s counts (a count
+        # of 0 is ambiguous between the two; a state string is not). Reuses
+        # `manager_status.FileRead`'s vocabulary for the checklist and
+        # `render_daily_brief.py`'s two-value vocabulary for the pipeline
+        # store, per the E15 scope fence — neither is re-derived here.
+        "sources": {
+            "workObjects": {
+                "state": "read" if _objects_dir().exists() else "archived",
+                "note": (
+                    "docs/claude/work/objects/ was archived by the 2026-09-21 "
+                    "operating reset (see docs/plans/OPERATING-PLAN-2026-09-21.md "
+                    "and E9). `decision_requests[]` — the only source this route "
+                    "read before E15 — structurally reads empty under the "
+                    "current model. That is NOT the same fact as \"no decisions "
+                    "are pending\"; see `sources.checklist` and `sources.pipeline` "
+                    "for the two live replacements."
+                ),
+            },
+            "checklist": {
+                "state": checklist_state,
+                "error": checklist_error,
+                "path": manager_status.CHECKLIST_RELPATH,
+            },
+            "pipeline": {
+                "state": pipeline_state,
+                "unreadableRecords": pipeline_unreadable_records,
+                "path": str(_pipeline_store_path()),
+            },
+        },
         "note": (
             "The repo is the source of truth. This route reports `committed` "
             "ONLY from an `answer` block on the work object in the repo — never "
             "from the transit log — so an answer that does not commit leaves "
-            "its question UNANSWERED. Transit fails BACK, never forward."
+            "its question UNANSWERED. Transit fails BACK, never forward. "
+            "⚠️ CORRECTED 2026-09-21 (E15) — `docs/claude/work/objects/` was "
+            "archived by the operating reset and this route's ONLY source "
+            "until now, so `requests`/`actionableCount` read structurally "
+            "empty regardless of what the operator actually had pending — a "
+            "genuine unanswered decision and no decision at all rendered "
+            "identically. `unanswerableOperatorEdges` now ALSO carries live "
+            "`blocked_on: operator_decision` edges from "
+            "`docs/claude/work/MANAGER-CHECKLIST.json` and open "
+            "`next_action: ask_operator` items from "
+            "`docs/claude/work/PIPELINE.jsonl` (tagged `source`), and "
+            "`summary.waitingOnYouTotal` is the number that actually reflects "
+            "them — read that, not `actionableCount` alone, for \"is anything "
+            "waiting on me\". PIPELINE.jsonl is read-only from this route."
         ),
     }
 
@@ -1557,6 +1748,12 @@ def get_work_decisions() -> dict[str, Any]:
                 "requestCount": 0,
                 "malformedRequestsDropped": 0,
                 "unanswerableOperatorEdgeCount": 0,
+                "unanswerableBySource": {"workObject": 0, "checklist": 0, "pipeline": 0},
+                # ⚠️ NOT 0 — the build failed before this could be counted, so
+                # it is unknown, never a fabricated clean number. See the E15
+                # note on the healthy envelope: a consumer must not read an
+                # absent/None value here as "nothing is waiting".
+                "waitingOnYouTotal": None,
                 "staleOpenWindows": 0,
                 "staleAfterSeconds": STALE_TRANSIT_SECONDS,
             },
@@ -1566,6 +1763,11 @@ def get_work_decisions() -> dict[str, Any]:
                         "path": None, "rowsRead": 0},
             "writeGate": {"state": "unknown", "acceptsWrites": None,
                           "note": "inbox build failed before the gate was read"},
+            "sources": {
+                "workObjects": {"state": "unknown", "note": "inbox build failed before this was read"},
+                "checklist": {"state": "unknown", "error": None, "path": manager_status.CHECKLIST_RELPATH},
+                "pipeline": {"state": "unknown", "unreadableRecords": None, "path": None},
+            },
         }
 
 
