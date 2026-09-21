@@ -175,7 +175,7 @@
       "id": "A8",
       "title": "Rescue the 91 monitoring rows; triage the 1,065 archived backlog rows",
       "phase": "A",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_0117y7AKbbAJczK7VvPNrrwe",
       "model": "claude-sonnet-5",
@@ -186,7 +186,7 @@
         12679
       ],
       "blocked_on": [],
-      "note": "Measured 2026-09-21 over the archived registers: 1,065 unresolved backlog rows (756+195 health, 42+29 performance, 7+20 ml, 16+0 research) and 91 OPEN-ITEMS rows. The 91 ALL carry a clears_when, 76 are marked loud, median 9 days since last observation and 7 were never verified -- they are the live deployed-but-unproven state and the class most likely to be silently lost, so they come across whole. The 1,065 are NOT bulk-imported: each is promoted with a due condition or KILLED with a reason, one bounded pass. Importing everything rebuilds the graveyard in a new file, which is the failure this exists to end. Kill bar is plan open decision 3d. DECIDED 2026-09-21: KILL BY DEFAULT, PROMOTE BY EXCEPTION. No observation in 60 days and no named owner -> killed with terminal_reason 'unworked_since_<date>'. The 91 OPEN-ITEMS monitoring rows are the exception and come across whole. [!] DISPATCHED 2026-09-21. UNBLOCKED ON A7 IN PART: A7's store, validator and append path LANDED, so there is somewhere to import to even though A7 as a whole is not closed. The blocked_on edge stated 'nowhere to import to until the pipeline exists' -- that condition is now satisfied, which is why this runs today rather than waiting on A3a. FRESH, sonnet-5. [!] THE ACCEPTANCE TEST GIVEN TO THE LANE IS THE RENDERED SECTION 0, not the import count: a section 0 that is a wall of undispositioned rows is the graveyard rebuilt in a new file, and is a failed import even if every row validated. [!] PR #12679 OPEN, DRAFT, NOT MERGED 2026-09-21: independently re-counted population matches (1,065 / 91). Result: 607 promoted, 458 killed (386 stale, 72 unworkable_no_resolution_criteria). Applying the 60-day bar literally promotes over half the backlog -- measured, not manufactured; the corpus is young (opened_at spans 2026-05-25 to 2026-09-19) and the single bulk '/system-review 2026-08-29 triage' sweep (430/563 items-with-updates, 76%) was excluded from resetting the clock so it couldn't understate staleness. pipeline.py --self-test and --check both pass clean on the populated store; --due shows 87 genuinely-overdue OPEN-ITEMS rows and zero flood from the 607 promoted backlog rows (last_checked=today on each). blocked_on A7 cleared: A7's store+validator half (what A8 needed) is landed and working, even though A7 itself is not fully done (A3 rendering is separate). NOT YET MERGED -- manager session's call per lane instructions; this row stays in_flight until then. [!] CI GREEN 2026-09-21 on head 342b1b1 (Guards, pytest-collect, pytest-run, repo-inventory all passed) after fixing 3 real guard findings the first push tripped: an unused dry_run parameter in build_backlog_items (diagnostic-provenance-guard), a missing manual-only wiring declaration for the one-time import script (unwired-artifact-guard), and a missing .github/pr-landing/a8-pipeline-import-1790001808.json declaration (pr-landing-guard, tier 1 / landing hold, quoting this row's own DO-NOT-MERGE instruction). mergeable_state: clean. Still MERGED=false -- CI-green is not deployed, and deployed is not observed."
+      "note": "Measured 2026-09-21 over the archived registers: 1,065 unresolved backlog rows (756+195 health, 42+29 performance, 7+20 ml, 16+0 research) and 91 OPEN-ITEMS rows. The 91 ALL carry a clears_when, 76 are marked loud, median 9 days since last observation and 7 were never verified -- they are the live deployed-but-unproven state and the class most likely to be silently lost, so they come across whole. The 1,065 are NOT bulk-imported: each is promoted with a due condition or KILLED with a reason, one bounded pass. Importing everything rebuilds the graveyard in a new file, which is the failure this exists to end. Kill bar is plan open decision 3d. DECIDED 2026-09-21: KILL BY DEFAULT, PROMOTE BY EXCEPTION. No observation in 60 days and no named owner -> killed with terminal_reason 'unworked_since_<date>'. The 91 OPEN-ITEMS monitoring rows are the exception and come across whole. [!] DISPATCHED 2026-09-21. UNBLOCKED ON A7 IN PART: A7's store, validator and append path LANDED, so there is somewhere to import to even though A7 as a whole is not closed. The blocked_on edge stated 'nowhere to import to until the pipeline exists' -- that condition is now satisfied, which is why this runs today rather than waiting on A3a. FRESH, sonnet-5. [!] THE ACCEPTANCE TEST GIVEN TO THE LANE IS THE RENDERED SECTION 0, not the import count: a section 0 that is a wall of undispositioned rows is the graveyard rebuilt in a new file, and is a failed import even if every row validated. [!] PR #12679 OPEN, DRAFT, NOT MERGED 2026-09-21: independently re-counted population matches (1,065 / 91). Result: 607 promoted, 458 killed (386 stale, 72 unworkable_no_resolution_criteria). Applying the 60-day bar literally promotes over half the backlog -- measured, not manufactured; the corpus is young (opened_at spans 2026-05-25 to 2026-09-19) and the single bulk '/system-review 2026-08-29 triage' sweep (430/563 items-with-updates, 76%) was excluded from resetting the clock so it couldn't understate staleness. pipeline.py --self-test and --check both pass clean on the populated store; --due shows 87 genuinely-overdue OPEN-ITEMS rows and zero flood from the 607 promoted backlog rows (last_checked=today on each). blocked_on A7 cleared: A7's store+validator half (what A8 needed) is landed and working, even though A7 itself is not fully done (A3 rendering is separate). NOT YET MERGED -- manager session's call per lane instructions; this row stays in_flight until then. [!] CI GREEN 2026-09-21 on head 342b1b1 (Guards, pytest-collect, pytest-run, repo-inventory all passed) after fixing 3 real guard findings the first push tripped: an unused dry_run parameter in build_backlog_items (diagnostic-provenance-guard), a missing manual-only wiring declaration for the one-time import script (unwired-artifact-guard), and a missing .github/pr-landing/a8-pipeline-import-1790001808.json declaration (pr-landing-guard, tier 1 / landing hold, quoting this row's own DO-NOT-MERGE instruction). mergeable_state: clean. Still MERGED=false -- CI-green is not deployed, and deployed is not observed. [!] MERGED 2026-09-21 as 497bae2 on main (#12679). MEASURED post-merge on origin/main: pipeline.py --check reads clean -- 1168 items / 1182 records, 0 unreadable, 0 invalid (store grew from this session's 1158 after a concurrent lane's stale-branch merge unioned another PI- id and a pipeline-id-collision repair, both landed separately via #12685). landed_unproven, not done: MERGED is the only fact established here. DEPLOYED means the VM's working tree has this file after ict-git-sync's next ~5min pull. OBSERVED means an operator or a rendered brief actually reads it -- and today nothing does, because A3's section-0 renderer is not built. Closes when: A3 ships and a rendered brief section 0 is read against this store and shows a non-empty, non-flooded due list (or explicitly nothing due) -- that is the first point this row's work is OBSERVED rather than merely landed."
     },
     {
       "id": "B1",
@@ -216,7 +216,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "RE-SCOPED 2026-09-21, same day it was written. The first version said 'extend the Bybit roster-sync test to alpaca_live / alpaca_portfolio' on the premise that NO invariant existed. THAT PREMISE WAS FALSE and was inferred rather than checked (a RULE ONE failure). tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies DOES exist and asserts set(live legs minus affordability proxies) <= set(portfolio legs), in every state. What is true and still a problem: that is a SUBSET assertion, deliberately, so it protects real money (no live leg without a paper counterpart) and does NOT make the mirror representative. Measured 2026-09-21: live 5 legs, mirror 14 -- nine mirror legs are not on the live book -- so Gate 2's demotion signal cannot be read off the mirror's aggregate. The test's own comment argues that asserting equality during a staged go-live would force alpaca_portfolio from 14 legs to 1 and destroy the paper research book. That argument is good and must be ANSWERED, not overwritten. [!] OPERATOR DECIDED 2026-09-21: STRICT EQUALITY, LIKE BYBIT. alpaca_portfolio carries exactly alpaca_live's roster, enforced by a test mirroring test_bybit_portfolio_mirrors_bybit_2_exactly. Chosen over keeping the subset with a per-leg demotion read, and over dropping Alpaca from Gate 2 entirely. [!] THE COST WAS STATED WHEN ASKED AND IS ACCEPTED: the 9 surplus mirror legs stop accruing shadow ML data. Do not re-litigate that as a discovery. [!] WHAT THIS BUYS: Gate 2's demotion signal becomes readable off the Alpaca mirror's aggregate, which today it is not — live 5 legs vs mirror 14 means the aggregate cannot mean what the ladder says it means. [!] DISPATCHED 2026-09-21 on OPUS: it edits config on accounts that trade, and although the mirror is paper, the roster it must match is alpaca_live's, which is real money. [!] LANE TOLD IT HAS NO OPERATOR OK FOR A TIER-2/3 CONFIG CHANGE. If the roster edit lands in those tiers it lands the Tier-1 half, states the exact one-line change, and STOPS — and it was told explicitly that leaving the new test RED against current config is a legitimate outcome that makes the gap loud, while weakening the test to go green is not. [!] AND TOLD NOT TO TOUCH alpaca_live: if the two differ, alpaca_live is the truth and the MIRROR moves. [!] POINTED at the `minus_proxies` carve-out in the existing test name, to establish whether it encodes real instruments that cannot mirror rather than deleting it silently — and at CLAUDE.md's record that an earlier session INFERRED 'no invariant exists' here and was wrong, so this is replacing a considered design with another, not fixing an oversight."
+      "note": "RE-SCOPED 2026-09-21, same day it was written. The first version said 'extend the Bybit roster-sync test to alpaca_live / alpaca_portfolio' on the premise that NO invariant existed. THAT PREMISE WAS FALSE and was inferred rather than checked (a RULE ONE failure). tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies DOES exist and asserts set(live legs minus affordability proxies) <= set(portfolio legs), in every state. What is true and still a problem: that is a SUBSET assertion, deliberately, so it protects real money (no live leg without a paper counterpart) and does NOT make the mirror representative. Measured 2026-09-21: live 5 legs, mirror 14 -- nine mirror legs are not on the live book -- so Gate 2's demotion signal cannot be read off the mirror's aggregate. The test's own comment argues that asserting equality during a staged go-live would force alpaca_portfolio from 14 legs to 1 and destroy the paper research book. That argument is good and must be ANSWERED, not overwritten. [!] OPERATOR DECIDED 2026-09-21: STRICT EQUALITY, LIKE BYBIT. alpaca_portfolio carries exactly alpaca_live's roster, enforced by a test mirroring test_bybit_portfolio_mirrors_bybit_2_exactly. Chosen over keeping the subset with a per-leg demotion read, and over dropping Alpaca from Gate 2 entirely. [!] THE COST WAS STATED WHEN ASKED AND IS ACCEPTED: the 9 surplus mirror legs stop accruing shadow ML data. Do not re-litigate that as a discovery. [!] WHAT THIS BUYS: Gate 2's demotion signal becomes readable off the Alpaca mirror's aggregate, which today it is not — live 5 legs vs mirror 14 means the aggregate cannot mean what the ladder says it means. [!] DISPATCHED 2026-09-21 on OPUS: it edits config on accounts that trade, and although the mirror is paper, the roster it must match is alpaca_live's, which is real money. [!] LANE TOLD IT HAS NO OPERATOR OK FOR A TIER-2/3 CONFIG CHANGE. If the roster edit lands in those tiers it lands the Tier-1 half, states the exact one-line change, and STOPS — and it was told explicitly that leaving the new test RED against current config is a legitimate outcome that makes the gap loud, while weakening the test to go green is not. [!] AND TOLD NOT TO TOUCH alpaca_live: if the two differ, alpaca_live is the truth and the MIRROR moves. [!] POINTED at the `minus_proxies` carve-out in the existing test name, to establish whether it encodes real instruments that cannot mirror rather than deleting it silently — and at CLAUDE.md's record that an earlier session INFERRED 'no invariant exists' here and was wrong, so this is replacing a considered design with another, not fixing an oversight. [!] OPERATOR APPROVED 2026-09-21 (popup): cut alpaca_portfolio to exactly [ief_pullback_1d, slv_pullback_1d]. THE NUMBER MOVED AND THEY WERE TOLD -- the surplus is 12, not the 9 this row, the plan and CLAUDE.md all say, because A6 (#12673) pulled tlt_pullback_1d/tlt_pullback_1h off alpaca_live the same day. All 12 keep trading on alpaca_paper; what is lost is their record at the portfolio risk basis. [!] AND THE EMPTY-alpaca_live QUESTION THE LANE RAISED IS DECIDED: EQUALITY WINS -- an empty live book means an empty mirror, no exception. The lane had built a fail-and-ask (equality AND non-empty); that assertion comes out. The accepted cost is explicit and stays on the record in the test: when Gate 2 demotes the last live leg, the Alpaca demotion signal disappears with the mirror and nothing flags the gap."
     },
     {
       "id": "B3",
@@ -405,22 +405,33 @@
       "id": "A9",
       "title": "The work schedule, rendered on the GitHub Pages UI",
       "phase": "A",
-      "state": "queued",
+      "state": "landed_unproven",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_017tAnBLFVJcGDs5kR7CGYcE",
       "model": "claude-sonnet-5",
       "ceiling_usd": 30,
+      "spend_usd": 37.13,
+      "tier": 1,
+      "prs": [
+        12692
+      ],
+      "blocked_on": [],
+      "note": "OPERATOR-REQUESTED 2026-09-21: 'A work schedule, visible on the gitpages UI site -- when different sessions need to happen, when decisions are due, monitoring items, etc.' Two halves and they are DIFFERENT REPOS: docs/claude/work/SCHEDULE.json + a route here, and the render in benbaichmankass/ict-trader-dashboard. Sources are already-existing state, NOT a new register: cadenced sessions (the daily sync, the three reviews), decisions owed (from the pipeline's ask_operator rows), monitoring items coming due (pipeline due_when), and cron cadences read from the workflow files rather than retyped. [!] IT RENDERS WHAT EXISTS; if it needs a fact nobody records, that is a finding about the pipeline, not a reason for a second register. [!] UNBLOCKED AND DISPATCHED 2026-09-21: its declared blocker (A7) closed on the operator's own observation of section 0 on the live page. Lane fenced off PIPELINE.jsonl (merge queue draining) and off work.py::_decision_inbox (E15 is in that function concurrently). [!] BOT-SIDE MERGED 2026-09-21 as 429c3eb; the RENDER is ict-trader-dashboard#219 and is not merged. Closes when the schedule is on the page the operator opens -- the same bar A7 was held to. [!] ⚠️ OVERRAN ITS CEILING: $37.13 against $30. Recorded rather than absorbed. A ceiling nobody checks mid-flight is not a ceiling, and seven lanes overran today for that reason."
+    },
+    {
+      "id": "A10",
+      "title": "Dispose of the 85 unrouted rows section 0 is reporting",
+      "phase": "A",
+      "state": "queued",
+      "owner": "build lane",
+      "ceiling_usd": 25,
       "spend_usd": null,
+      "lane": null,
+      "model": "claude-sonnet-5",
       "tier": 1,
       "prs": [],
-      "blocked_on": [
-        {
-          "kind": "work_item",
-          "ref": "A7",
-          "what": "Due items and owed decisions come from the pipeline."
-        }
-      ],
-      "note": "OPERATOR-REQUESTED 2026-09-21: 'A work schedule, visible on the gitpages UI site -- when different sessions need to happen, when decisions are due, monitoring items, etc.' Two halves and they are DIFFERENT REPOS: docs/claude/work/SCHEDULE.json + a route here, and the render in benbaichmankass/ict-trader-dashboard. Sources are already-existing state, NOT a new register: cadenced sessions (the daily sync, the three reviews), decisions owed (from the pipeline's ask_operator rows), monitoring items coming due (pipeline due_when), and cron cadences read from the workflow files rather than retyped. [!] IT RENDERS WHAT EXISTS; if it needs a fact nobody records, that is a finding about the pipeline, not a reason for a second register."
+      "blocked_on": [],
+      "note": "OBSERVED ON THE OPERATOR'S PAGE 2026-09-21, in the same screenshot that closed A7: `85 UNROUTED · 93 DUE · 1,168 ITEM(S)`. Those are A8's imported `OI-*` rows, carried rather than killed. [!] THIS IS ONE BOUNDED SWEEP, NOT 85 RUBBER-STAMPS — the plan's own position is that most archived rows should be KILLED EXPLICITLY with a stated reason rather than routed, and a lane that routes all 85 to `ask_operator` or to a new row has done the opposite of the work. Read each, kill with `terminal_reason` by default, and promote by exception with the exception argued. [!] ACCEPTANCE IS A NUMBER ON THE PAGE: unrouted_count() back to a figure the operator can read in one sitting, with the kill reasons in the store, not in a PR body. [!] DO NOT batch-kill on a pattern match — `killed` is a first-class outcome precisely because it is a JUDGEMENT; an 85-row sed is the same non-reading that produced 951 open rows and one `actioned`."
     },
     {
       "id": "E1",
@@ -574,7 +585,7 @@
       "id": "E3",
       "title": "Make the cost model reach every harness",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01HmQgaLfZv9rv7uuWfgA321",
       "model": "claude-sonnet-5",
@@ -585,7 +596,7 @@
         12684
       ],
       "blocked_on": [],
-      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect. [!] DISPATCHED 2026-09-21, ahead of the A-phase order the handoff gave, and the reason is on this row already: it is named THE SINGLE HIGHEST-VALUE ENGINEERING ITEM, it is unblocked, Tier-1, and it conflicts with no file any other live lane is in. Holding it behind A9 would have bought nothing. FRESH, sonnet-5. [!] MODEL CHOICE ARGUED, because this one is close to the order-path rule and close calls are where a table gets misread: the task table sends anything ON A REAL-MONEY ORDER PATH to opus, and a backtest harness is not one. The downstream risk -- a wrong cost number arming a real-money promotion -- is real but cannot fire today: MD-PROMOTE-S1-S2 does not arm until D1, and B5 (the mandate mechanism) is not built, so nothing automatic follows from this landing. Sonnet is correct HERE and would not be once B5 exists. [!] LANE FENCED OUT of changing what execution_costs.py COMPUTES (it is correct, and a behaviour change there is a different tier) and out of re-running the corpus (that is D1/R1). It was told to wire vwap FIRST if it cannot finish -- 318 of 431 lifetime real-money trades -- and to file the remainder in the pipeline rather than leave it in a PR body. [!] PR IS #12684. The lane's own summary named #8831, a number that belongs to no PR of this change -- recorded because a wrong PR number in a summary is unfalsifiable from the summary alone, and the manager merged from the branch name, not the number."
+      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect. [!] DISPATCHED 2026-09-21, ahead of the A-phase order the handoff gave, and the reason is on this row already: it is named THE SINGLE HIGHEST-VALUE ENGINEERING ITEM, it is unblocked, Tier-1, and it conflicts with no file any other live lane is in. Holding it behind A9 would have bought nothing. FRESH, sonnet-5. [!] MODEL CHOICE ARGUED, because this one is close to the order-path rule and close calls are where a table gets misread: the task table sends anything ON A REAL-MONEY ORDER PATH to opus, and a backtest harness is not one. The downstream risk -- a wrong cost number arming a real-money promotion -- is real but cannot fire today: MD-PROMOTE-S1-S2 does not arm until D1, and B5 (the mandate mechanism) is not built, so nothing automatic follows from this landing. Sonnet is correct HERE and would not be once B5 exists. [!] LANE FENCED OUT of changing what execution_costs.py COMPUTES (it is correct, and a behaviour change there is a different tier) and out of re-running the corpus (that is D1/R1). It was told to wire vwap FIRST if it cannot finish -- 318 of 431 lifetime real-money trades -- and to file the remainder in the pipeline rather than leave it in a PR body. [!] PR IS #12684. The lane's own summary named #8831, a number that belongs to no PR of this change -- recorded because a wrong PR number in a summary is unfalsifiable from the summary alone, and the manager merged from the branch name, not the number. [!] MERGED 2026-09-21 as 3afc02b. ⚠️ THE FIRST REAL CI RUN ON THIS PR IS THE ONE THAT MERGED IT -- before the conflict-resolution push only `watch` had ever fired, so the green in the lane's original summary was a local run. guards/pytest-collect/pytest-run all green on e6bd336. [!] DONE means the harnesses are wired; it does NOT mean the corpus is re-run. Every leg whose harness previously defaulted to fee-only now has a STALE backtest record, and that is D1/R1."
     },
     {
       "id": "E4",
@@ -766,7 +777,7 @@
       "id": "A3b",
       "title": "Render the daily brief on the operator's page (dashboard SPA)",
       "phase": "A",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01UMNJ2GoxuQzpbsUCMgkifm",
       "model": "claude-sonnet-5",
@@ -775,26 +786,81 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "SPLIT OUT OF A3 AND DISPATCHED 2026-09-21, the hour A3a merged (9751e17) so the lane builds against a REAL contract rather than a promised one. Repo: benbaichmankass/ict-trader-dashboard. [!] THIS IS THE HALF THAT CLOSES A7, and nothing else does. A3a's route renders the brief live, but reaching it still requires someone to CHOOSE to call it — which is reason (5) in plan § 3b verbatim, the failure that killed DUE.md. A7 closes when section 0 and the unrouted count are on the page the operator already opens. [!] LANE GIVEN THE MERGED CONTRACT rather than left to re-derive it: GET /api/bot/work/brief's envelope, and the three properties that must survive the render — `present:false` carries a REASON and must show as a stated gap not a blank panel; `inputs` ships a three-way read state per source and must not be collapsed; `coverageComplete` is false and the page must say so. [!] AND THE 47 KB PROBLEM: the brief measured 47,604 chars against 11 items and gets worse at A8's ~1,150. The lane is told section 0 and the section-5 unrouted count must be visible WITHOUT scrolling, the rest may collapse, and any truncation must print its count beside it. The store-side fix is E14 and is explicitly NOT this lane's. [!] IT CANNOT ESTABLISH THE CLOSING OBSERVATION ITSELF — 'the page renders correctly' needs a human on a real browser (headless against the deployed Pages URL fails from a sandbox, measured 2026-09-11). The lane can establish that the DEPLOY CARRIED THE CODE, and was told to do that with a positive control and a negative control rather than trusting a green pages.yml."
-    },
-    {
-      "id": "A10",
-      "title": "Dispose of the 85 unrouted rows section 0 is reporting",
-      "phase": "A",
-      "state": "queued",
-      "owner": "build lane",
-      "ceiling_usd": 25,
-      "spend_usd": null,
-      "lane": null,
-      "model": "claude-sonnet-5",
-      "tier": 1,
-      "prs": [],
-      "blocked_on": [],
-      "note": "OBSERVED ON THE OPERATOR'S PAGE 2026-09-21, in the same screenshot that closed A7: `85 UNROUTED · 93 DUE · 1,168 ITEM(S)`. Those are A8's imported `OI-*` rows, carried rather than killed. [!] THIS IS ONE BOUNDED SWEEP, NOT 85 RUBBER-STAMPS — the plan's own position is that most archived rows should be KILLED EXPLICITLY with a stated reason rather than routed, and a lane that routes all 85 to `ask_operator` or to a new row has done the opposite of the work. Read each, kill with `terminal_reason` by default, and promote by exception with the exception argued. [!] ACCEPTANCE IS A NUMBER ON THE PAGE: unrouted_count() back to a figure the operator can read in one sitting, with the kill reasons in the store, not in a PR body. [!] DO NOT batch-kill on a pattern match — `killed` is a first-class outcome precisely because it is a JUDGEMENT; an 85-row sed is the same non-reading that produced 951 open rows and one `actioned`."
+      "note": "SPLIT OUT OF A3 AND DISPATCHED 2026-09-21, the hour A3a merged (9751e17) so the lane builds against a REAL contract rather than a promised one. Repo: benbaichmankass/ict-trader-dashboard. [!] THIS IS THE HALF THAT CLOSES A7, and nothing else does. A3a's route renders the brief live, but reaching it still requires someone to CHOOSE to call it — which is reason (5) in plan § 3b verbatim, the failure that killed DUE.md. A7 closes when section 0 and the unrouted count are on the page the operator already opens. [!] LANE GIVEN THE MERGED CONTRACT rather than left to re-derive it: GET /api/bot/work/brief's envelope, and the three properties that must survive the render — `present:false` carries a REASON and must show as a stated gap not a blank panel; `inputs` ships a three-way read state per source and must not be collapsed; `coverageComplete` is false and the page must say so. [!] AND THE 47 KB PROBLEM: the brief measured 47,604 chars against 11 items and gets worse at A8's ~1,150. The lane is told section 0 and the section-5 unrouted count must be visible WITHOUT scrolling, the rest may collapse, and any truncation must print its count beside it. The store-side fix is E14 and is explicitly NOT this lane's. [!] IT CANNOT ESTABLISH THE CLOSING OBSERVATION ITSELF — 'the page renders correctly' needs a human on a real browser (headless against the deployed Pages URL fails from a sandbox, measured 2026-09-11). The lane can establish that the DEPLOY CARRIED THE CODE, and was told to do that with a positive control and a negative control rather than trusting a green pages.yml. [!] DONE 2026-09-21 ON THE CLOSING OBSERVATION, which this lane correctly said it could not make itself: the operator loaded the live Workflow page and section 0 was rendering there, with the read-state band intact (MANDATES: ABSENT separate from PIPELINE: READ). That same observation closed A7 and A3."
     },
     {
       "id": "E15",
       "title": "The Workflow page's 'Waiting on you' panel renders a false all-clear",
+      "phase": "E",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_01S2iRKZgnA7coozWoGZRXyn",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        12693
+      ],
+      "blocked_on": [],
+      "note": "PROMOTED FROM PI-20260921-M09, and FOUND BY THE OPERATOR LOOKING AT THE PAGE — which is now the SECOND time that has been the discovery method for this exact class, and the reason E9's row says a filename grep is the wrong PRIMARY probe. [!] _decision_inbox sources from docs/claude/work/objects/*.yaml :: decision_requests[]; the reset ARCHIVED that directory, _yaml_files() returns [] for an absent one, and the panel therefore reports on an empty folder. [!] THE OPERATOR ANSWERED FIVE DECISIONS TODAY and the page says zero are on record. [!] THE SERIOUS HALF IS THE ALL-CLEAR, NOT THE MISSING HISTORY: a genuine unanswered decision renders IDENTICALLY to none existing. 'Nothing is waiting on you' is the most load-bearing sentence on that page and it is currently unearned. [!] DO NOT resurrect the work store to fix it. Decisions live on the checklist and as pipeline rows with next_action: ask_operator. Either read those, or say the source is unreadable — never a silent zero. [!] DISPATCHED 2026-09-21, PR #12693. The lane MEASURED the size of the false all-clear: the page read 0 where the open `ask_operator` pipeline population alone is 84. [!] MERGED 2026-09-21 as f914a13. MEASURED: 84 open ask_operator items where the page read 0. ⚠️ ESTABLISHES MERGED, NOT OBSERVED -- whether the panel shows the right number on the live page needs a human on a browser, and this row is closed on the code being right, not on that."
+    },
+    {
+      "id": "E16",
+      "title": "Prop: no fill since 2026-08-30, and the status ask fires on the wrong trigger",
+      "phase": "E",
+      "state": "landed_unproven",
+      "owner": "build lane",
+      "lane": "session_012DyVaL6CpsTxEwHBs9MEcB",
+      "model": "claude-opus-5",
+      "ceiling_usd": 35,
+      "spend_usd": 25.38,
+      "tier": 1,
+      "prs": [
+        12696
+      ],
+      "blocked_on": [],
+      "note": "OPERATOR-RAISED 2026-09-21, unprompted, in their own words: 'I haven't gotten any trade notifications there in a suspiciously long time, and I keep getting the prop status request notifications even though we said we don't need that anymore -- I give the snapshot when a trade closes and the account doesn't need to be tracked actively when there's no activity.' [!] MEASURED off the live host the same hour (direct over ict-bot.duckdns.org, not from a doc): newest account_status is id 19 at 2026-08-30T19:33:29Z -- status_age_hours 528.4 against a 24h threshold, freshness `stale`. distance_to_dd_floor_usd reads $87.34 against the $4,700 static floor, computed off that 22-day-old snapshot; distance_to_daily_loss_usd is null (day_pnl_state `realized_unreported`), so the daily-loss half of the account-killer guard is NOT COMPUTED AT ALL. Newest ticket 2026-09-13 `expired`; everything back to 2026-08-30 `suppressed`/`skipped`. reconcile: 92 tickets, 43 fills, 0 unacted. [!] SO THE STRATEGY SIDE IS ALIVE AND NOTHING REACHES A FILL -- that is the shape of the question, and the lane's first job is to say WHICH of four candidates is true with a stated population, not to adopt the tidy one. The manager's leading hypothesis (sizing refusing on the stale balance) is EXPLICITLY CHALLENGED on the row: a ticket was emitted 2026-09-13, fourteen days past the snapshot, so sizing did not refuse on that tick. [!] OPERATOR DECISION 2026-09-21 (popup, direct): the status ask fires ONLY ON NEW EXPOSURE -- at the moment a real, non-suppressed ticket is about to take exposure. The flat-book cadence goes. They were shown the $87.34-on-a-22-day-old-number cushion and the cost of going quiet while flat, and chose this. prop_status_request.py's docstring argues WELL against it (the static-DD floor binds while flat); that argument is to be KEPT and the decision recorded beside it, dated and attributed -- not deleted. [!] OPERATOR CONFIRMED, asked directly: breakout_1 is funded, live, and SHOULD be trading. So the silence is a defect, not the expected state. [!] THE PIPELINE PREDICTED THIS EXACT DAY. BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED has been open since 2026-09-09 and its clears_when says in terms: 'breakout_1 can stop trading indefinitely with the only evidence being a journalctl line.' The operator found it from the outside, by noticing an absence of notifications -- the worst available discovery method, and the second time today that the operator's own eyes beat a sweep. [!] SO SILENCING THE ASK DOES NOT SHIP ALONE: the periodic ask was the only thing that happened to be noisy in the stalled state, so removing it makes the silent stall strictly worse. The refusal path gets an operator-facing signal in the same landing. [!] LANE FENCED OUT of changing sizing logic, breakout_executor's suppression rule, and anything on the order path -- a diagnosis pointing there comes BACK as a proposal. PROP IS REAL MONEY: routed to opus for that reason, against the model table's order-path line. [!] MERGED 2026-09-21 as 635600c, Tier-2, OPERATOR APPROVED after being shown what it does. [!] THE ROOT CAUSE IS FOUND AND IS NOT WHAT ANYONE GUESSED -- and the manager's leading hypothesis (sizing refusing on the stale balance) was REFUTED twice, independently. TWO INDIVIDUALLY-CORRECT TIER-3 CHANGES COMPOSED INTO A SILENT OUTAGE: 2026-08-23 removed the base twins from breakout_1's roster (approved de-dup), and 2026-08-31 rewrote _election_sort_key so the base twin now wins a tie against its _prop sibling. The twins carry IDENTICAL entry parameters, so both fire on every breakout bar, one global winner is elected per symbol, and since 2026-08-31 the winner is always the base twin -- which is not on breakout_1. MEASURED 21 of 21 contested packages to the base twin; breakout_1 received none. No ticket, no suppressed row, no rejection, no log line naming the account. [!] THE ASK WAS A LATCH, established before anything was changed: a 2026-09-13 ticket with a 1h TTL expired unanswered, `expired` was not in NON_EXPOSING_TICKET_STATUSES, and the arm compared against a snapshot only an OPERATOR REPORT can move -- so it asked every 12h forever for the report it was asking for. Fixed as a class (`ticket_can_take_exposure`), not as an instance. [!] landed_unproven, NOT done: BL-20260909 is MOVED not closed (its clears_when needs the refusal observed reaching a channel on the live host after deploy), and the OUTAGE ITSELF IS UNFIXED -- that is E17."
+    },
+    {
+      "id": "E17",
+      "title": "breakout_1 receives nothing: re-arm per-account arbitration on the crypto/prop path",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-opus-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "E19",
+          "what": "Establishing whether arbitration_fanout RUNS on this path needs the arbitration_fanout_soak log, and the diag relay that reads it is down."
+        }
+      ],
+      "note": "THE ACTUAL OUTAGE, diagnosed by E16 and measured 21-of-21: the intent layer elects ONE global winner per symbol across twins WITHOUT consulting per-account rosters, so a twin that is the only leg on an account can be arbitrated away by a sibling that is not on that account at all. [!] OPERATOR CHOSE THE SHAPE 2026-09-21, from three: RE-ARM PER-ACCOUNT `arbitration_fanout` on the crypto/prop path. A per-account fanout mechanism EXISTS and exists precisely to stop one twin starving another account -- and on all 11 measured ETH packages `signalLogic.arbitration_fanout` is ABSENT ENTIRELY, while a contemporaneous tlt_pullback_1h package carries a full `fanout_schema: 3` plan with per_account elections. [!] ⚠️ FIRST ESTABLISH WHETHER IT RUNS AND IS NOT RECORDED, OR DOES NOT RUN. E16 could not: that read needs `arbitration_fanout_soak`, behind the diag relay, which is FAILING. Those two possibilities call for different fixes and the cheaper option was chosen on the assumption the second is true -- if it turns out the fanout runs and the record is merely missing, COME BACK, do not improvise. [!] NOT CHOSEN, and recorded so it is not re-proposed: re-adding the base twins to breakout_1's roster restores tickets and reinstates the wrong-twin emission the 2026-08-23 change existed to remove. [!] SAME DEFECT, OPPOSITE POLARITY, ALREADY ON FILE: BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING, measured 0-of-60. What is new is that the starved side is now a FUNDED account with a live account-killer cushion. [!] TIER 3 -- intent arbitration. The exact diff and a before/after election trace go to the operator; nothing lands on this row's authority alone."
+    },
+    {
+      "id": "E18",
+      "title": "The detector that does not exist: intents produced vs tickets the account actually received",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-21, asked and answered: BUILD IT, AND FOR ALL ACCOUNTS -- not scoped to prop. [!] THE FACT THAT MOTIVATES IT: breakout_1 produced 21 intents over 22 days and received ZERO tickets, and NOTHING IN THE SYSTEM FIRES ON THAT. The operator found it by noticing an absence, which is the worst available discovery method and the second time today. [!] THE SIZING-REFUSAL PING SHIPPED IN #12696 DOES NOT SUBSTITUTE: no refusal occurred. A BLOCKED account and an UNREACHED account are different failures, and only the first has a signal. [!] SHAPE: for every live leg, intents produced vs orders/tickets its account received over a rolling window, with the read-state DISTINGUISHABLE from zero -- 'we could not look' must never render as 'nothing was starved'. That is the whole point; a detector with a collapsed state is the bug it is meant to catch. [!] GENERALISES PAST PROP by the operator's explicit choice: the same blindness applies to any account whose only leg loses an election to a sibling routed elsewhere."
+    },
+    {
+      "id": "E19",
+      "title": "The vm-diag-snapshot relay is failing — every session is blind to the live host",
       "phase": "E",
       "state": "queued",
       "owner": "build lane",
@@ -802,10 +868,10 @@
       "model": "claude-sonnet-5",
       "ceiling_usd": 15,
       "spend_usd": null,
-      "tier": 1,
+      "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "PROMOTED FROM PI-20260921-M09, and FOUND BY THE OPERATOR LOOKING AT THE PAGE — which is now the SECOND time that has been the discovery method for this exact class, and the reason E9's row says a filename grep is the wrong PRIMARY probe. [!] _decision_inbox sources from docs/claude/work/objects/*.yaml :: decision_requests[]; the reset ARCHIVED that directory, _yaml_files() returns [] for an absent one, and the panel therefore reports on an empty folder. [!] THE OPERATOR ANSWERED FIVE DECISIONS TODAY and the page says zero are on record. [!] THE SERIOUS HALF IS THE ALL-CLEAR, NOT THE MISSING HISTORY: a genuine unanswered decision renders IDENTICALLY to none existing. 'Nothing is waiting on you' is the most load-bearing sentence on that page and it is currently unearned. [!] DO NOT resurrect the work store to fix it. Decisions live on the checklist and as pipeline rows with next_action: ask_operator. Either read those, or say the source is unreadable — never a silent zero."
+      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first."
     }
   ]
 }
