@@ -113,9 +113,11 @@ UNARMED = "unarmed"
 ARMED = "armed"
 DROPPED = "dropped"
 MERGED_CONTAINED = "merged_contained"
+RESET_FROM_MERGE = "reset_from_merge"
 UNKNOWN = "unknown"
 
-ALL_STATES = (NO_PR, UNARMED, ARMED, DROPPED, MERGED_CONTAINED, UNKNOWN)
+ALL_STATES = (NO_PR, UNARMED, ARMED, DROPPED, MERGED_CONTAINED,
+              RESET_FROM_MERGE, UNKNOWN)
 
 #: The states that must reach a human. `armed` is a WARNING and `dropped` an
 #: ERROR, and they are deliberately different: arming is legitimate and usually
@@ -131,7 +133,8 @@ EXIT_QUIET, EXIT_WARN, EXIT_ERROR = 0, 0, 1
 
 
 def grade(pushed_sha: Optional[str], pr: Optional[Dict[str, Any]],
-          pr_read_ok: bool = True) -> Dict[str, Any]:
+          pr_read_ok: bool = True,
+          merge_reachable: Optional[bool] = None) -> Dict[str, Any]:
     """PURE. The pushed sha and the branch's pull request in, one row out.
 
     ``pr`` is ``None`` when the branch has no pull request. ``pr_read_ok=False``
@@ -167,6 +170,44 @@ def grade(pushed_sha: Optional[str], pr: Optional[Dict[str, Any]],
             return _row(MERGED_CONTAINED, pushed_sha, pr,
                         f"the pull request is merged and the merged head IS this "
                         f"push ({_short(head)}). Nothing was lost.")
+
+        # ⚠️ THE BRANCH-RESET CASE, added 2026-09-21 (checklist E10) after this
+        # guard reported `dropped` on two consecutive HEALTHY pushes — #12673
+        # and #12674. Both were the sanctioned follow-up path: merge, then
+        # `git fetch origin main && git checkout -B <branch> origin/main`, push,
+        # THEN open the new PR. The watcher fires on the push, so for the
+        # seconds before the new PR exists the branch's only PR is the merged
+        # one and its head is necessarily not the pushed sha. Measured: 27s on
+        # #12673, 28s on #12674. EVERY follow-up PR trips it.
+        #
+        # ⚠️ IT IS NOT FIXED BY LOWERING THE SEVERITY. The loss this guard
+        # exists for (#11846) is real, and a guard that cries wolf on the
+        # healthy path is how a guard gets ignored — the desensitisation this
+        # repo measured at 202 of 376 CRITICALs being one un-latched condition.
+        # The condition is SHARPENED instead.
+        #
+        # ⚠️ AND IT IS NOT THE ANCESTRY TRAP THIS FILE WARNS ABOUT ABOVE. That
+        # trap is asking whether a BRANCH commit reached `main`, which a squash
+        # merge always answers NO to. This asks the OPPOSITE and the squash does
+        # not defeat it: did `main` reach the BRANCH? If the merge commit of the
+        # old PR is an ancestor of what was just pushed, the branch was reset
+        # onto it and nothing can have been lost — the push is new work whose PR
+        # has not been opened yet.
+        #
+        # ⚠️ TRI-STATE, AND `None` MUST NOT MEAN YES. Unknown reachability keeps
+        # the `dropped` verdict, because the safe direction for a broken probe
+        # is to surface the item. Only an affirmative True clears it.
+        if merge_reachable is True:
+            return _row(
+                RESET_FROM_MERGE, pushed_sha, pr,
+                f"the pull request is merged at {_short(head)} and the branch "
+                f"head is now {_short(pushed_sha)} — but the merge IS AN "
+                f"ANCESTOR of this push, so the branch was reset onto `main` "
+                f"after that merge and nothing was lost. This is the sanctioned "
+                f"follow-up path; the new pull request has simply not been "
+                f"opened yet. ⚠️ If no PR appears for this branch, the work "
+                f"still will not land — that is an unopened PR, not a drop.",
+                merge_reachable=merge_reachable)
         return _row(
             DROPPED, pushed_sha, pr,
             f"⚠️ THE PULL REQUEST IS ALREADY MERGED, and what merged is "
@@ -177,7 +218,13 @@ def grade(pushed_sha: Optional[str], pr: Optional[Dict[str, Any]],
             f"⚠️ `git push` reported success, which is a fact about the BRANCH "
             f"and not about `main`; do not report this work as landed. "
             f"(A force-push back to an older commit produces the same reading "
-            f"and also deserves a look.)")
+            f"and also deserves a look.)"
+            + ("" if merge_reachable is not None else
+               " ⚠️ REACHABILITY WAS NOT SUPPLIED, so the branch-reset case "
+               "could not be ruled out; pass --merge-reachable to distinguish "
+               "a reset branch from a real drop."),
+            merge_reachable=merge_reachable)
+
 
     state = str(pr.get("state") or "open").lower()
     if state != "open":
@@ -214,7 +261,7 @@ def _short(sha: Optional[str]) -> str:
 
 
 def _row(state: str, pushed_sha: Optional[str], pr: Optional[Dict[str, Any]],
-         why: str) -> Dict[str, Any]:
+         why: str, merge_reachable: Optional[bool] = None) -> Dict[str, Any]:
     return {
         "state": state,
         "pushed_sha": pushed_sha,
@@ -222,6 +269,7 @@ def _row(state: str, pushed_sha: Optional[str], pr: Optional[Dict[str, Any]],
         "pr_state": (pr or {}).get("state"),
         "merged_head_sha": ((pr or {}).get("head") or {}).get("sha"),
         "auto_merge": _auto_merge_enabled(pr) if pr else None,
+        "merge_reachable": merge_reachable,
         "warn": state in WARN_STATES,
         "error": state in ERROR_STATES,
         "why": why,
@@ -342,16 +390,57 @@ def _self_test(quiet: bool = False) -> Tuple[bool, List[str]]:
     check("a missing pushed sha is `unknown`, never a pass",
           grade(None, pr())["state"] == UNKNOWN)
 
+    # ── E10: the BRANCH-RESET case, which this guard used to call a drop ───
+    # Regression fixtures for a false positive measured on two consecutive
+    # healthy PRs (#12673, #12674). Named so a later tightening cannot quietly
+    # re-introduce it.
+    reset = grade(B, pr(merged=True, state="closed"), merge_reachable=True)
+    check("a merged PR + a DIFFERENT head + the merge REACHABLE is "
+          "`reset_from_merge`, not `dropped`",
+          reset["state"] == RESET_FROM_MERGE)
+    check("…and it is QUIET — no warn, no error, exit 0",
+          not reset["error"] and not reset["warn"] and exit_code(reset) == EXIT_QUIET)
+    check("…and it says the new PR has not been opened yet",
+          "not been opened yet" in reset["why"])
+
+    # ⚠️ THE THREE CONTROLS THAT STOP THIS BECOMING A SILENCER. Each asserts a
+    # case that must STILL be `dropped`, because the whole risk of this change
+    # is that it clears a real loss.
+    drop_false = grade(B, pr(merged=True, state="closed"), merge_reachable=False)
+    check("⚠️ merge NOT reachable is still `dropped` (the real loss)",
+          drop_false["state"] == DROPPED and drop_false["error"])
+    drop_none = grade(B, pr(merged=True, state="closed"), merge_reachable=None)
+    check("⚠️ UNKNOWN reachability is still `dropped` — a probe that could not "
+          "run must never CLEAR an item",
+          drop_none["state"] == DROPPED and drop_none["error"])
+    check("…and the unknown case SAYS reachability was not supplied",
+          "REACHABILITY WAS NOT SUPPLIED" in drop_none["why"])
+    check("…while the explicit-False case does NOT say that (negative control)",
+          "REACHABILITY WAS NOT SUPPLIED" not in drop_false["why"])
+
+    # ⚠️ Reachability may not override the states that are not about drops.
+    check("reachable=True does not turn an OPEN armed PR quiet",
+          grade(B, pr(auto_merge={"m": 1}), merge_reachable=True)["state"] == ARMED)
+    check("reachable=True does not manufacture a verdict when the read FAILED",
+          grade(B, None, pr_read_ok=False, merge_reachable=True)["state"] == UNKNOWN)
+    check("reachable=True on a merged PR whose head IS the push stays "
+          "`merged_contained`",
+          grade(A, pr(merged=True, state="closed"),
+                merge_reachable=True)["state"] == MERGED_CONTAINED)
+    check("the flag is surfaced in the row, so a reader can see WHY it cleared",
+          reset["merge_reachable"] is True and drop_none["merge_reachable"] is None)
+
     # ── every state is reachable, so none is decorative ────────────────────
     reached = {
         grade(B, pr(merged=True, state="closed"))["state"],
         grade(A, pr(merged=True, state="closed"))["state"],
+        grade(B, pr(merged=True, state="closed"), merge_reachable=True)["state"],
         grade(B, pr(auto_merge={"m": 1}))["state"],
         grade(B, pr())["state"],
         grade(B, None)["state"],
         grade(B, None, pr_read_ok=False)["state"],
     }
-    check("all six states are reachable from a real input",
+    check("all seven states are reachable from a real input",
           reached == set(ALL_STATES))
 
     if not quiet:
@@ -373,6 +462,14 @@ def main(argv=None) -> int:
                          "or the literal string `none` when the lookup "
                          "SUCCEEDED and found no PR. ⚠️ OMITTING IT grades "
                          "`unknown` — we did not look — and NEVER `no_pr`.")
+    ap.add_argument("--merge-reachable", default="unknown",
+                    choices=("true", "false", "unknown"),
+                    help="Is the merged PR's merge commit an ANCESTOR of the "
+                         "pushed commit? `true` means the branch was reset onto "
+                         "`main` after that merge, so nothing was lost. ⚠️ "
+                         "`unknown` keeps the `dropped` verdict on purpose — the "
+                         "safe direction for a probe that could not run is to "
+                         "surface the item, never to clear it.")
     args = ap.parse_args(argv)
 
     if args.self_test:
@@ -395,7 +492,9 @@ def main(argv=None) -> int:
             print(f"could not read --pr-json: {exc}", file=sys.stderr)
             read_ok = False
 
-    row = grade(args.pushed_sha, pr, pr_read_ok=read_ok)
+    reachable = {"true": True, "false": False, "unknown": None}[args.merge_reachable]
+    row = grade(args.pushed_sha, pr, pr_read_ok=read_ok,
+                merge_reachable=reachable)
     print(render(row, args.branch))
     print(json.dumps(row, indent=2, ensure_ascii=False))
     return exit_code(row)

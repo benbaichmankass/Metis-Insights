@@ -102,6 +102,51 @@ jobs:
           "watch will grade 'unknown', which is NOT 'nothing was lost'. $(tail -1 /tmp/pr-err.txt)"
           fi
 
+      - name: Is the merged PR's merge commit an ANCESTOR of this push?
+        # ⚠️ E10. Without this, EVERY follow-up PR is graded `dropped`. The
+        # sanctioned path after a merge is: reset the branch from the new
+        # `main`, push, THEN open the new PR — and this watcher fires on the
+        # PUSH, so for the seconds before that PR exists the branch's only
+        # pull request is the merged one and its head is necessarily not the
+        # pushed sha. Measured twice: 27s on #12673, 28s on #12674.
+        #
+        # ⚠️ THE COMPARE API, NOT `git merge-base`. The checkout above is
+        # `fetch-depth: 1`, so no history is present to walk — and deepening it
+        # on every push to answer one question is the wrong trade. The compare
+        # endpoint answers exactly this: `status: ahead|identical` means the
+        # base IS an ancestor of the head.
+        #
+        # ⚠️ AND IT IS NOT THE ANCESTRY TRAP the script warns about. That trap
+        # asks whether a BRANCH commit reached `main`, which a squash merge
+        # always answers no to. This asks whether `main` reached the BRANCH.
+        #
+        # ⚠️ EVERY FAILURE PATH LEAVES IT `unknown`, and `unknown` KEEPS the
+        # `dropped` verdict. A probe that could not run must never clear an
+        # item — that direction is the whole risk of this change.
+        if: ${{ env.PR_JSON != '' && env.PR_JSON != 'none' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          REACHABLE=unknown
+          MERGE_SHA="$(jq -r '.merge_commit_sha // empty' "$PR_JSON" 2>/dev/null || true)"
+          MERGED="$(jq -r 'if (.merged // .merged_at) then "yes" else "no" end' "$PR_JSON" 2>/dev/null || echo no)"
+          if [ "$MERGED" = "yes" ] && [ -n "$MERGE_SHA" ]; then
+            if gh api "repos/${GITHUB_REPOSITORY}/compare/${MERGE_SHA}...${GITHUB_SHA}" \
+                 --jq '.status' > /tmp/cmp.txt 2>/tmp/cmp-err.txt; then
+              case "$(cat /tmp/cmp.txt)" in
+                ahead|identical) REACHABLE=true ;;
+                behind|diverged) REACHABLE=false ;;
+                *)               REACHABLE=unknown ;;
+              esac
+            else
+              echo "::warning::could not compare ${MERGE_SHA}...${GITHUB_SHA} — "\
+          "grading will keep the stricter verdict. $(tail -1 /tmp/cmp-err.txt)"
+            fi
+          fi
+          echo "MERGE_REACHABLE=${REACHABLE}" >> "$GITHUB_ENV"
+          echo "merge_reachable=${REACHABLE} (merge_commit_sha=${MERGE_SHA:-none})"
+
       - name: Grade the push
         # ⚠️ NOT PIPED. `$?` after a pipeline is the LAST command's status, and
         # that defect shipped once in this repo and made an escalation channel
@@ -115,4 +160,5 @@ jobs:
           python3 scripts/ci/check_armed_branch_push.py \
             --pushed-sha "${GITHUB_SHA}" \
             --branch "${GITHUB_REF#refs/heads/}" \
-            ${PR_JSON:+--pr-json "$PR_JSON"}
+            ${PR_JSON:+--pr-json "$PR_JSON"} \
+            --merge-reachable "${MERGE_REACHABLE:-unknown}"
