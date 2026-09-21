@@ -1,8 +1,7 @@
 # What is due right now
-
 > **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
-_Generated 2026-09-21T08:11:41+00:00 · verdict **all_sources_read**_
+_Generated 2026-09-21T10:53:53+00:00 · verdict **all_sources_read**_
 
 - 🔔 **OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL** (open_items · 21d) — loud row — must be reported on every session
   - alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `ann
@@ -22,7 +21,7 @@ _Generated 2026-09-21T08:11:41+00:00 · verdict **all_sources_read**_
   - MI-70 built the missing Phase E reaper (scripts/ops/session_reaper.py + .github/workflows/session-reaper.yml) and RAN THE KILL. !! THE HEADLINE IS THAT WO-20260901-PHASE-E'S DONE-CONDITION AS WRITTEN 
 - 🔔 **OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD** (open_items · 18d) — monitoring row 18d since last observation (cadence 2d)
   - ⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator 
-- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 18d) — armed 450.3h ago, on the order of 450 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
+- 🔔 **manager-queue-watch-never-ran-overdue** (manager_queue_watch · 18d) — armed 453.0h ago, on the order of 452 expected firings, and ZERO receipts have ever been committed. The Routine reports SUCCEEDED, so nothing else reads as wrong. This is NOT `it has not fired yet`. Only the Routine can clear it — a hand-written receipt would arm the freshness grading against a file nobody maintains and report a healthy watch forever. Decide: fire it and confirm it can write, fold the escalation into the manager tick (which HAS a persistent session with tools), or RECORD the decision to retire it together with what then grades the manager's inaction.
   - the Manager Queue Watch Routine has never written its receipt
 - 🔔 **OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST** (open_items · 16d) — loud row — must be reported on every session
   - MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager
@@ -36,7 +35,7 @@ _Generated 2026-09-21T08:11:41+00:00 · verdict **all_sources_read**_
   - Work-decision prompts are re-pointed from the TRADER bot to the dedicated Claude bot (@ict_cluade_bot), and the thing that makes that safe ships in the SAME PR: src/bot/claude_decision_bot.py + deploy
 - 🔔 **OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE** (open_items · 15d) — loud row — must be reported on every session
   - The TELEGRAM half of the decision round-trip is built (src/runtime/telegram_decisions.py + a `wdec:*` branch in telegram_query_bot.callback_handler + a job-queue sweep): an unanswered `decision_reques
-- 🔔 **OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED** (soaks · 15d) — soak READY — ✅ READY — 95 matching row(s) of 1000 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.
+- 🔔 **OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED** (soaks · 15d) — soak READY — ✅ READY — 54 matching row(s) of 1000 scanned satisfy the declared criterion (decision_state!=not_scored). ⚠️ Ready is not CLEARED: read the row's `clears_when`, which may carry clauses no predicate can express.
   - MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE L
 - 🔔 **OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON** (open_items · 15d) — monitoring row 15d since last observation (cadence 7d)
   - E3.6's calibration falsifier finally has an instrument (MI-148, PR #11138) and it returns a clear negative: the fleet's take-profits are not predictions. NOTHING HAS BEEN CHANGED IN RESPONSE, delibera
@@ -292,6 +291,10 @@ _Generated 2026-09-21T08:11:41+00:00 · verdict **all_sources_read**_
   - chore(ml): replay pre-gate fleet report (auto)
 - 🔔 **#12625** (unlanded_automation · 1d) — producer output opened a PR that has not landed
   - chore(ml): replay pre-gate fleet report (auto)
+- 🔔 **#12666** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ml): replay pre-gate fleet report (auto)
+- 🔔 **#12669** (unlanded_automation · 0d) — producer output opened a PR that has not landed
+  - chore(ops): sunset-pass E3 candidates (auto)
 - 🔔 **OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED** (probes) — probe FAILED — its declared observation did not hold
   - A prop_ticket_risk_soak row exists, within the last 1000, in which the gate ran under `enforce`, graded a ticket `exceeds_cushion`, and records `would_have_capped: true`.
 - 🔔 **OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE** (probes) — probe FAILED — its declared observation did not hold
@@ -328,7 +331,7 @@ _Generated 2026-09-21T08:11:41+00:00 · verdict **all_sources_read**_
   - WO-20260911-MAKE-THE-DATA-EXPLORER-REACHABLE-LAND-THE is `waiting` on an UNRESOLVABLE edge
 - 🔔 **stranded-edge-WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER** (spent_decision_edges) — Its `blocked_on` ref is 'DEC-20260913-WHAT-BOUNDS-AN-OPEN-ITEMS-OBSERVATION', graded unresolvable — no decision request in the store declares that id. ⚠️ THIS IS NOT SPENT AND THE REMEDY IS THE OPPOSITE: a spent edge is discharged by re-pointing or re-grading it, while nothing matching on ids can ever discharge this one, so the object is parked with no way out and no consumer can say what it is waiting for. A typed edge whose ref is prose is untyped. ⚠️ Fixing it is the object owner's or the manager's call.
   - WO-20260912-ENGINEERING-LANE-MAKE-THE-LANDING-AND-REGISTER is `waiting` on an UNRESOLVABLE edge
-- 🔔 **stuck-branches-changed** (stuck_branches) — automation/replay-pregate-35432513421-1. A stranded automation branch is a producer whose output never landed; a red check on a base that has since been fixed will NEVER re-run on its own, so nothing recovers it without a push.
+- 🔔 **stuck-branches-changed** (stuck_branches) — automation/replay-pregate-35501445978-1. A stranded automation branch is a producer whose output never landed; a red check on a base that has since been fixed will NEVER re-run on its own, so nothing recovers it without a push.
   - 1 automation branch(es) newly stranded, 0 cleared
 - **strategy:avax_pullback_2h** (sunset · 20d) — sunset pass proposed RETIRE (persistently_silent) and no disposition is recorded — Tier-3, so propose, never enact
   - strategy_leg · avax_pullback_2h
