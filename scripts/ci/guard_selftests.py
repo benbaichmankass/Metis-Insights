@@ -863,7 +863,11 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "workflow-catalog": selftest_workflow_catalog,
     "collapsed-state": selftest_collapsed_state,
     "canonical-doc-values": selftest_canonical_doc_values,
-    "claim-basis": selftest_claim_basis,
+    # `claim-basis` unregistered 2026-09-21 with its guard entry (operating
+    # reset). The four review backlogs it scanned are archived, so the guard
+    # reported "scanned NOTHING" and failed on an empty denominator. The
+    # function below is kept so the control can be re-registered if a
+    # basis-bearing register ever returns.
     "impossibility-claim": selftest_impossibility_claim,
     "diag-unit-allowlist": selftest_diag_unit_allowlist,
     "diagnostic-provenance": selftest_diagnostic_provenance,
@@ -873,7 +877,9 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "automerge-trigger": selftest_automerge_trigger,
     "pr-landing": selftest_pr_landing,
     "manager-scope": selftest_manager_scope,
-    "one-live-workplan": selftest_one_live_workplan,
+    # `one-live-workplan` unregistered 2026-09-21 with its guard entry
+    # (operating reset). The function below is kept so the control can be
+    # re-registered if the workplan register ever returns.
 }
 
 # The SECOND covering path. A name here is one whose controls reach CI via the
@@ -888,7 +894,12 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
 # mapping cheaper to fake than to satisfy is worse than none at all
 # (`new-table-wiring-guard`'s presence-only marker is the cautionary case).
 COVERED_BY_CHECKER: Dict[str, str] = {
-    "one-live-workplan": "scripts/ci/check_one_live_workplan.py",
+    # `one-live-workplan` REMOVED 2026-09-21 by the operating reset. Its guard
+    # entry is gone from `run_guards.py` (the workplan register it graded is
+    # archived), so this declaration became UNBACKED — a registered self-test
+    # that never runs, which is the exact "control in name only" state
+    # `check_selftest_wiring.py` exists to catch. The declaration is deleted
+    # with the entry, not left pointing at nothing.
     "matrix-corpus-agreement": "scripts/ci/check_matrix_corpus_agreement.py",
     "workflow-catalog": "scripts/ci/check_workflow_catalog.py",
     "automerge-trigger": "scripts/ci/check_automerge_trigger.py",

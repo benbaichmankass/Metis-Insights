@@ -205,14 +205,14 @@ def test_a_new_register_reports_an_UNDEFINED_fraction_not_zero():
 
 # ── THE SCOPE, which must not be able to go quietly empty ───────────────────
 
-def test_the_register_set_comes_from_gitattributes_and_is_not_empty():
-    """A hardcoded second list is how a guard drifts from the driver it
-    protects, and an empty list would make every run vacuously green."""
-    regs = G.registers_from_gitattributes(REPO)
-    assert len(regs) >= 3, regs
-    assert "docs/claude/OPEN-ITEMS.json" in regs
-    for rel in regs:
-        assert (REPO / rel).is_file(), f"{rel} is bound to the driver and absent"
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_register_set_comes_from_gitattributes_and_is_not_empty`.
+# It asserted a property of the LIVE shared JSON registers, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 def test_unmarked_candidates_are_reported_so_clean_is_not_read_as_coverage():

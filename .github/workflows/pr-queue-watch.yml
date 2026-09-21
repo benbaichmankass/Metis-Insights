@@ -1,5 +1,11 @@
 name: pr-queue-watch
 
+# ⚠️ SCHEDULE RETIRED 2026-09-21 — operating reset.
+# This workflow served the eight-register operating model, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its cron is commented out below rather
+# than deleted, so re-arming it is one uncomment. `workflow_dispatch` still works.
+# Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md
+
 # THE CLOCK THE MANAGER DOES NOT OWN.
 #
 # Operator directive 2026-09-02: "I want actual guards and mechanisms in the
@@ -41,13 +47,13 @@ name: pr-queue-watch
 # cannot verify. Tier-1: no order path, no strategy config, no risk caps, no VM.
 
 on:
-  schedule:
-    # Every 6 hours, offset off the hour so it does not pile into the :00 rush.
-    # CHOSEN against the watcher's own 6h escalation threshold: a cadence slower
-    # than the threshold would let a PR cross it and sit a full extra period
-    # before anything looked. NOT tuned -- see the threshold's own basis note in
-    # scripts/ops/pr_queue_latency.py.
-    - cron: '41 */6 * * *'
+  # schedule:
+    # # Every 6 hours, offset off the hour so it does not pile into the :00 rush.
+    # # CHOSEN against the watcher's own 6h escalation threshold: a cadence slower
+    # # than the threshold would let a PR cross it and sit a full extra period
+    # # before anything looked. NOT tuned -- see the threshold's own basis note in
+    # # scripts/ops/pr_queue_latency.py.
+    # - cron: '41 */6 * * *'
   workflow_dispatch:
     inputs:
       threshold_hours:

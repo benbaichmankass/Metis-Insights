@@ -1,5 +1,12 @@
 name: stale-automation-sweep
 
+# ⚠️ SCHEDULE RESTORED 2026-09-21, hours after it was wrongly retired by the
+# operating reset. It was disabled as governance. It is not: it un-strands the
+# automation PRs that `.github/actions/commit-to-main` opens, and 27 workflows
+# call that action -- including every cron the reset KEPT (strategy-review-packets,
+# health-snapshot, the macro/econ producers, replay-pregate, research-queue-dispatch).
+# With no sweep those PRs strand and pile up.
+# Caught by tests/test_sweep_stale_automation_prs.py::test_the_workflow_pushes_with_the_pat_not_github_token.
 # THE OWNER AN AUTOMATION PR DOES NOT HAVE AFTER ITS PRODUCING RUN EXITS.
 #
 # WHY THIS EXISTS.

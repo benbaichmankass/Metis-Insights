@@ -92,14 +92,14 @@ class TestScopedNotGlobal:
         assert cbr.main(["--repo-root", str(tmp_path)]) == 1
 
 
-class TestThisRepo:
-    def test_the_four_late_filed_ids_now_resolve(self):
-        filed = cbr.filed_ids()
-        for i in ("BL-20260730-M1-PRICE-JOIN-DEAD",
-                  "BL-20260730-RESEARCH-VENUE-FEE",
-                  "BL-20260730-EXITHEAD-REPLAY-SINGLE-THRESHOLD",
-                  "BL-20260730-CITED-BUT-UNFILED-BACKLOG-IDS"):
-            assert i in filed, f"{i} must stay filed"
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `TestThisRepo`.
+# It asserted a property of the LIVE review backlogs, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 class TestReformatDoesNotLookLikeIntroduction:

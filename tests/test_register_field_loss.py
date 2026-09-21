@@ -31,7 +31,6 @@ Run: ``python3 -m pytest tests/test_register_field_loss.py``
 from __future__ import annotations
 
 import importlib.util
-import json
 from pathlib import Path
 
 import pytest
@@ -194,43 +193,24 @@ def test_a_malformed_declaration_file_silences_nothing(tmp_path):
 
 # ── the live entry point, on the REAL register ──────────────────────────────
 
-def test_the_real_register_is_clean_on_this_tree():
-    """Positive control for the live path — and it proves the probe can be
-    quiet, which is what makes its red mean something."""
-    verdict = G.check("origin/main")
-    assert verdict["ok"], verdict["summary"]
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_real_register_is_clean_on_this_tree`.
+# It asserted a property of the LIVE shared JSON registers, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
-def test_planting_the_defect_on_the_real_register_turns_it_red(tmp_path):
-    """The whole point, run against the real file rather than a fixture.
-
-    A copy of the live `SESSIONS.json` with ONE key removed from ONE real row
-    must be caught — while the id sets still match exactly.
-    """
-    live = REPO / "docs" / "claude" / "work" / "SESSIONS.json"
-    doc = json.loads(live.read_text(encoding="utf-8"))
-    victim = next((r for r in doc["sessions"]
-                   if any(k.startswith(("observed_", "manager_observation_"))
-                          for k in r)), None)
-    if victim is None:
-        pytest.skip("no row on this tree carries a manager write-back to remove")
-    key = next(k for k in victim
-               if k.startswith(("observed_", "manager_observation_")))
-
-    before = json.loads(live.read_text(encoding="utf-8"))
-    after = json.loads(live.read_text(encoding="utf-8"))
-    for r in after["sessions"]:
-        if r["session_id"] == victim["session_id"]:
-            r.pop(key)
-
-    assert ({r["session_id"] for r in before["sessions"]}
-            == {r["session_id"] for r in after["sessions"]}), (
-        "the union-by-id proof still passes — that is the premise")
-
-    v = G.compare(before, after, "sessions", "session_id",
-                  "docs/claude/work/SESSIONS.json")
-    assert [f["kind"] for f in v["findings"]] == [G.FIELD_LOSS]
-    assert v["findings"][0]["key"] == key
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_planting_the_defect_on_the_real_register_turns_it_red`.
+# It asserted a property of the LIVE shared JSON registers, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 # ── the VERDICT ASSEMBLY, which a mutation run proved was unpinned ───────────
@@ -293,9 +273,11 @@ def test_a_root_with_no_registers_refuses_rather_than_reporting_green(tmp_path):
     assert "vacuous" in v["summary"]
 
 
-def test_registers_that_exist_but_did_not_change_is_still_a_real_clean_reading():
-    """The control: 'no register CHANGED' must stay OK, or the guard would fail
-    every PR that touches no register — which is most of them."""
-    v = G.check("origin/main")
-    assert v["ok"], v["summary"]
-    assert "NOTHING WAS CHECKED" not in v["summary"]
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_registers_that_exist_but_did_not_change_is_still_a_real_clean_reading`.
+# It asserted a property of the LIVE shared JSON registers, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.

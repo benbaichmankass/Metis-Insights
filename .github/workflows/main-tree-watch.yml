@@ -45,6 +45,16 @@
 # the log.
 name: main-tree-watch
 
+# ⚠️ SCHEDULE RESTORED 2026-09-21, hours after it was wrongly retired by the
+# operating reset. It was disabled as governance. IT IS NOT GOVERNANCE: it is
+# the repo's ONLY post-merge check on `main`. This file's own header measures
+# why -- `guards.yml` carries `push: branches: [main]`, but an auto-merged PR's
+# merge commit is created by GITHUB_TOKEN and GitHub starts no run for it
+# (0 of 24 by merge credential; 0 of 31 PR merges in a later window). Without
+# this cron nothing grades main after a PR lands.
+# Caught by tests/test_main_tree_health.py::test_the_workflow_exists_and_is_scheduled
+# -- 'a watcher with no cadence watches nothing' -- which is the test doing
+# exactly its job against a change that should not have been made.
 on:
   schedule:
     # 37 past the hour — offset off :00 so it does not pile into the rush.

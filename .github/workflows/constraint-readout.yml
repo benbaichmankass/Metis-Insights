@@ -1,5 +1,11 @@
 name: constraint-readout
 
+# ⚠️ SCHEDULE RETIRED 2026-09-21 — operating reset.
+# This workflow served the eight-register operating model, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its cron is commented out below rather
+# than deleted, so re-arming it is one uncomment. `workflow_dispatch` still works.
+# Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md
+
 # A1's readout, on a real cadence. The operating model classifies A1 as trigger
 # `Cadenced`, autonomy `Full`; until this file landed it had NEITHER.
 #
@@ -52,12 +58,12 @@ name: constraint-readout
 # auto-merge PR, plus a read-only diag bearer for the money item.
 
 on:
-  schedule:
-    # 06:05 UTC daily. The slot is chosen, not decorative: it lands after
-    # probes (05:20) and due-list (05:50) have refreshed the registers the
-    # brief renders from, and before work-digest's 06:20 slot reads them. See
-    # the lateness warning above — this ordering is intent, not a promise.
-    - cron: "5 6 * * *"
+  # schedule:
+    # # 06:05 UTC daily. The slot is chosen, not decorative: it lands after
+    # # probes (05:20) and due-list (05:50) have refreshed the registers the
+    # # brief renders from, and before work-digest's 06:20 slot reads them. See
+    # # the lateness warning above — this ordering is intent, not a promise.
+    # - cron: "5 6 * * *"
   workflow_dispatch:
 
 permissions:

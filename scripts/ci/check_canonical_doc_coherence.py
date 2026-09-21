@@ -338,6 +338,8 @@ def check_seven_stage_ladder() -> list[str]:
 _HIER_KEYS = [
     ("rules", re.compile(r"CLAUDE-RULES-CANONICAL", re.I)),
     ("architecture", re.compile(r"ARCHITECTURE-CANONICAL", re.I)),
+    ("plan", re.compile(r"OPERATING-PLAN", re.I)),
+    ("checklist", re.compile(r"MANAGER-CHECKLIST", re.I)),
     ("roadmap", re.compile(r"ROADMAP", re.I)),
     ("sprintlog", re.compile(r"sprint log|sprint-logs", re.I)),
     ("skills", re.compile(r"\.claude/skills|^.*\bSkills\b", re.I)),
@@ -695,7 +697,15 @@ def check_status_enum_mirror() -> list[str]:
 # a second list here would be free to drift from the one the read path uses.
 # ---------------------------------------------------------------------------
 GET_ENV = "scripts/ops/get_env.py"
-CLAUDE_MD = "CLAUDE.md"
+
+#: ⚠️ RE-POINTED 2026-09-21 by the operating reset. This read `CLAUDE.md` until
+#: the env table — 186 KB of it, a third of that file — moved VERBATIM to
+#: `docs/reference/env-vars.md`. Leaving the constant pointing at `CLAUDE.md`
+#: would have been exactly the failure this module's own header warns about:
+#: the guard still passes (or here, still fails) because the text it reads
+#: MOVED, not because anything about the knobs changed. The name is kept so
+#: every message below still reads naturally about "the env table".
+CLAUDE_MD = "docs/reference/env-vars.md"
 
 #: THREE states, never collapsed. `silent` is the one this check exists for —
 #: it is NOT `undocumented` (the doc has a row and says nothing about the live

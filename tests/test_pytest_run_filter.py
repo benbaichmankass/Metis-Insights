@@ -903,23 +903,14 @@ def test_a_per_file_exclusion_does_not_swallow_its_whole_tree():
         "no committed file under data/ — this control is vacuous")
 
 
-def test_the_two_scans_agree_on_the_live_tree():
-    """Cross-check, not a third scan.
-
-    The line scan and the AST scan find docs/ readers by entirely different
-    means (a per-line regex vs a parsed path expression). They disagreed for
-    months and each disagreement was a blind spot. Every docs/ path the LINE
-    scan finds must therefore also be found by the AST walk — if it is not,
-    one of them has gone narrow again and the other is carrying it silently.
-    """
-    line_scan = set(_committed_docs_readers())
-    ast_scan = {k for k in _committed_readers_any_tree() if k.startswith("docs/")}
-    assert line_scan, "the line scan found nothing — vacuous"
-    assert ast_scan, "the AST scan found nothing over docs/ — vacuous"
-    missing = sorted(line_scan - ast_scan)
-    assert not missing, (
-        "the AST scan no longer sees docs/ paths the line scan does, so it is "
-        f"blind again over part of that tree: {missing}")
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_two_scans_agree_on_the_live_tree`.
+# It asserted a property of the LIVE retired guard registrations, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 # ---------------------------------------------------------------------------
@@ -1003,63 +994,11 @@ def test_every_repo_root_binding_name_is_recognised():
         f"scan: {unrecognised}. Add the name — do not narrow this census.")
 
 
-def test_the_work_digest_source_coverage_runs_on_a_pr():
-    """PLANTED: the premise behind excluding the `docs/claude` tree.
-
-    That exclusion is only honest because `guards` grades the property instead,
-    and `guards` does not short-circuit. Before 2026-09-12 it did not: the
-    property's owner (work_digest's own self-test) ran on schedule, push-to-main
-    and dispatch, never on `pull_request` — so a PR adding a review backlog was
-    graded by nobody until after it had merged.
-
-    Two halves, because either alone is worth nothing: the guard must be
-    REGISTERED, and the property it runs must actually DISCRIMINATE.
-    """
-    import importlib.util as _ilu
-
-    # Half 1 — registered, and pointed at the one owner rather than a copy.
-    spec = _ilu.spec_from_file_location(
-        "_rg", REPO / "scripts" / "ci" / "run_guards.py")
-    rg = _ilu.module_from_spec(spec)
-    spec.loader.exec_module(rg)
-    entries = [g for g in rg.GUARDS if g.get("name") == "work-digest-source-coverage"]
-    assert len(entries) == 1, (
-        "the work-digest source-coverage guard is not registered, so nothing "
-        "grades the docs/claude glob dependency before a merge — and that "
-        "dependency is why the tree may be excluded from pytest-run at all")
-    steps = [" ".join(s) for s in entries[0]["steps"]]
-    assert any("scripts/ops/work_digest.py" in s and "--self-test" in s
-               for s in steps), (
-        f"the guard no longer invokes the property's owner: {steps}. A second "
-        "implementation here would drift from the one in work_digest.py")
-    assert entries[0]["when"] is None, (
-        "the guard is path-scoped, but the diff that breaks it ADDS a backlog "
-        "file and need touch nothing a `when:` could name")
-
-    # Half 2 — the property discriminates. Asserted against a PLANTED tree, not
-    # the live one: a property that happens to hold today passes either way.
-    spec = _ilu.spec_from_file_location(
-        "_wd", REPO / "scripts" / "ops" / "work_digest.py")
-    wd = _ilu.module_from_spec(spec)
-    spec.loader.exec_module(wd)
-
-    def unread_backlogs(root: pathlib.Path) -> set[str]:
-        declared = {s.path for s in wd.SOURCES}
-        on_disk = {f"docs/claude/{p.name}"
-                   for p in (root / "docs" / "claude").glob("*-review-backlog.json")}
-        return on_disk - declared
-
-    assert not unread_backlogs(REPO), (
-        f"a review backlog on disk is not read by the digest: "
-        f"{sorted(unread_backlogs(REPO))}")
-
-    import tempfile
-    with tempfile.TemporaryDirectory() as td:
-        planted = pathlib.Path(td)
-        (planted / "docs" / "claude").mkdir(parents=True)
-        (planted / "docs" / "claude" / "planted-review-backlog.json").write_text(
-            "[]", encoding="utf-8")
-        assert unread_backlogs(planted) == {
-            "docs/claude/planted-review-backlog.json"}, (
-            "a review backlog the digest does not declare read as COVERED — the "
-            "property cannot fail, so registering it in guards buys nothing")
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_work_digest_source_coverage_runs_on_a_pr`.
+# It asserted a property of the LIVE retired guard registrations, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.

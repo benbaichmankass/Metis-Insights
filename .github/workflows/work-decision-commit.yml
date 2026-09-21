@@ -1,5 +1,11 @@
 name: work-decision-commit
 
+# ⚠️ SCHEDULE RETIRED 2026-09-21 — operating reset.
+# This workflow served the eight-register operating model, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its cron is commented out below rather
+# than deleted, so re-arming it is one uncomment. `workflow_dispatch` still works.
+# Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md
+
 # Phase H — the half that makes a SUBMITTED decision TRUE.
 #
 # WHY IT EXISTS, and why it ships in the same change as the write route.
@@ -42,11 +48,11 @@ name: work-decision-commit
 # make decisions; it records ones the operator already made.
 
 on:
-  schedule:
-    # Every 2h at :35. Offset off the :20 slots work-digest uses so a digest
-    # rendered right after a commit sees the landed answer rather than racing
-    # it — the same ordering argument work-digest makes about probes/due-list.
-    - cron: "35 1,3,5,7,9,11,13,15,17,19,21,23 * * *"
+  # schedule:
+    # # Every 2h at :35. Offset off the :20 slots work-digest uses so a digest
+    # # rendered right after a commit sees the landed answer rather than racing
+    # # it — the same ordering argument work-digest makes about probes/due-list.
+    # - cron: "35 1,3,5,7,9,11,13,15,17,19,21,23 * * *"
   workflow_dispatch:
 
 permissions:

@@ -269,27 +269,24 @@ def test_object_id_traversal_is_rejected(bad):
 
 # ── integration against the REAL committed store ─────────────────────────
 
-def test_real_store_serves_and_partition_holds():
-    client = TestClient(app)
-    r = client.get("/api/bot/work")
-    assert r.status_code == 200
-    d = r.json()
-    assert d["present"] is True, "the committed work store must parse"
-    assert d["summary"]["objectCount"] >= 1
-    assert sum(d["lifecycle"].values()) == d["summary"]["objectCount"]
-    assert d["coverage"]["complete"] is False
-    assert d["wip"]["enforced"] is True, (
-        "Phase C shipped check_wip_ceiling.py; reporting the ceiling as "
-        "unenforced tells a reader they may open a ninth object")
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_real_store_serves_and_partition_holds`.
+# It asserted a property of the LIVE docs/claude/work/ work store, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
-def test_real_store_object_route_round_trips():
-    client = TestClient(app)
-    listed = client.get("/api/bot/work").json()["objects"]
-    assert listed, "positive control: the store is non-empty"
-    one = client.get(f"/api/bot/work/object/{listed[0]['id']}").json()
-    assert one["present"] is True
-    assert one["object"]["id"] == listed[0]["id"]
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_real_store_object_route_round_trips`.
+# It asserted a property of the LIVE docs/claude/work/ work store, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 def test_real_store_rejects_traversal_over_http():

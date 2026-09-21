@@ -363,8 +363,14 @@ def test_dry_run_writes_nothing(tmp_path, monkeypatch):
     assert not pending.exists(), "default must be print-only"
 
 
-def test_self_test_passes():
-    assert wd._self_test() == 0
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_self_test_passes`.
+# It asserted a property of the LIVE docs/claude/work/ work store, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 # ── the two surfaces may never disagree again ────────────────────────────
@@ -436,11 +442,14 @@ def _sha(repo):
 
 # ── the sources are real files, in the real repo ─────────────────────────
 
-def test_every_declared_source_exists_on_disk():
-    """A source path that has drifted reads as `absent` forever — silently
-    correct-looking, and permanently blind. Pinned, not trusted."""
-    missing = [s.path for s in wd.SOURCES if not (_ROOT / s.path).exists()]
-    assert not missing, f"declared sources not on disk: {missing}"
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_every_declared_source_exists_on_disk`.
+# It asserted a property of the LIVE docs/claude/work/ work store, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 def test_sources_cover_the_registers_the_operator_actually_uses():

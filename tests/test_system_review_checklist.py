@@ -46,16 +46,14 @@ def test_subreviews_are_broken_into_DERIVED_sub_items():
     assert "ml_review.promotion_recommendations" in ids
 
 
-def test_burndown_counts_closed_rows_and_never_retriages_them():
-    """The metric is CLOSING, not looking. Resolved rows are history, not work."""
-    b = cl.backlog_burndown()
-    assert b["open_now"] > 0
-    assert b["by_month"], "no months parsed -- the probe is broken, not the data"
-    for m in b["by_month"]:
-        assert m["net"] == m["opened"] - m["closed"]
-        assert m["closed"] >= 0
-    total_closed = sum(m["closed"] for m in b["by_month"])
-    assert total_closed > 0, "a backlog with zero closures would mean the probe missed them"
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_burndown_counts_closed_rows_and_never_retriages_them`.
+# It asserted a property of the LIVE retired guard registrations, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 def test_review_is_not_complete_while_anything_is_outstanding():

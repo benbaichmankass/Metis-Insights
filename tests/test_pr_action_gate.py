@@ -209,12 +209,14 @@ def test_there_is_no_force_flag():
         g.main(["--pr", "10857", "--force"])
 
 
-def test_the_shipped_exception_file_is_pending_so_it_grants_nothing():
-    exc, readable = g.read_exception()
-    assert readable
-    assert exc is not None, "the template must exist to be the known escape hatch"
-    assert exc.get("decision") == "pending"
-    assert sg.exception_covers(exc, "10857")[0] is False
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_shipped_exception_file_is_pending_so_it_grants_nothing`.
+# It asserted a property of the LIVE archived registers, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 # --------------------------------------------------------------------------- #

@@ -235,26 +235,14 @@ def test_a_settled_question_is_never_work_whatever_its_subject():
 # ── the live corpus, so the module is anchored to real data ─────────────────
 
 
-def test_the_one_measured_instance_grades_gone_on_the_real_store():
-    """`DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW` asks whether to
-    remove a row that was deleted on 2026-09-09 (`ba5fccc1a`, #11509).
-
-    ⚠️ This asserts the DECLARATION and the REGISTER together. If the row is
-    ever restored to OPEN-ITEMS.json this test correctly fails — the question
-    would become live again, and that is the behaviour, not a broken test.
-    """
-    import yaml
-
-    path = REAL / "docs/claude/work/objects/WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS.yaml"
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    req = next(
-        r for r in data["decision_requests"]
-        if r["id"] == "DR-20260908-CLEAR-THE-LOUD-TRADE-PRIORITISATION-ROW"
-    )
-    assert req["subject"]["kind"] == "open_item"
-    g = grade_subject({"subject": normalise_subject(req["subject"])}, SubjectResolver(REAL))
-    assert g["subjectState"] == SUBJECT_GONE
-    assert is_actionable(settled=False, subject_state=g["subjectState"]) is False
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_one_measured_instance_grades_gone_on_the_real_store`.
+# It asserted a property of the LIVE docs/claude/work/ work store, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 
 def test_no_live_request_declares_a_subject_this_module_cannot_name():

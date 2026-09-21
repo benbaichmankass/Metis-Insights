@@ -1,5 +1,11 @@
 name: work-digest
 
+# ⚠️ SCHEDULE RETIRED 2026-09-21 — operating reset.
+# This workflow served the eight-register operating model, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its cron is commented out below rather
+# than deleted, so re-arming it is one uncomment. `workflow_dispatch` still works.
+# Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md
+
 # Phase B's daily roll-up, on a real cadence. Operator decision 2026-09-01:
 # a standalone daily workflow, not folded into an existing job.
 #
@@ -43,33 +49,33 @@ name: work-digest
 # secret beyond the PAT that opens the auto-merge PR.
 
 on:
-  schedule:
-    # HOURLY at :20 — operator-directed 2026-09-02, verbatim: "I realize that's
-    # a lot of noise, but that's how I want it for now until we get a little
-    # more settled in." Raised from every-4h (2026-09-01), itself raised from
-    # the daily 06:20 this shipped with.
-    #
-    # [!] THE WINDOW MOVED WITH THE CADENCE AND HAD TO. This was described as
-    # "changing one little number" and the cron genuinely is one number -- but
-    # the window below was pinned at 24h, so hourly firing alone would have
-    # re-reported THE SAME DAY twenty-four times over. That is not more
-    # frequent reporting, it is the same report louder, and it is the fastest
-    # way to train a reader to ignore the channel (the desensitized-alarm P1
-    # this repo has already paid for once: 202 of 376 CRITICAL rows in one
-    # window were a single un-latched alarm). Cadence and window are ONE
-    # decision; if a future change moves either, it moves both.
-    #
-    # WHY :20 AND WHY 06 IS IN THE SET. The 06:20 slot is load-bearing and was
-    # not chosen for looks: it lands after probes (05:20) and due-list (05:50),
-    # so the day's first digest reads registers those two have already
-    # refreshed. Keeping the offset at :20 and including 06 preserves that
-    # ordering while adding the other five slots around it.
-    #
-    # ⚠️ MOST OF THESE WILL SAY ALMOST NOTHING, and that is correct. A digest
-    # that only fires when something interesting happened is indistinguishable
-    # from one that has broken — the empty run IS the evidence the cadence is
-    # alive. It will feel like noise before it feels like reassurance.
-    - cron: "20 * * * *"
+  # schedule:
+    # # HOURLY at :20 — operator-directed 2026-09-02, verbatim: "I realize that's
+    # # a lot of noise, but that's how I want it for now until we get a little
+    # # more settled in." Raised from every-4h (2026-09-01), itself raised from
+    # # the daily 06:20 this shipped with.
+    # #
+    # # [!] THE WINDOW MOVED WITH THE CADENCE AND HAD TO. This was described as
+    # # "changing one little number" and the cron genuinely is one number -- but
+    # # the window below was pinned at 24h, so hourly firing alone would have
+    # # re-reported THE SAME DAY twenty-four times over. That is not more
+    # # frequent reporting, it is the same report louder, and it is the fastest
+    # # way to train a reader to ignore the channel (the desensitized-alarm P1
+    # # this repo has already paid for once: 202 of 376 CRITICAL rows in one
+    # # window were a single un-latched alarm). Cadence and window are ONE
+    # # decision; if a future change moves either, it moves both.
+    # #
+    # # WHY :20 AND WHY 06 IS IN THE SET. The 06:20 slot is load-bearing and was
+    # # not chosen for looks: it lands after probes (05:20) and due-list (05:50),
+    # # so the day's first digest reads registers those two have already
+    # # refreshed. Keeping the offset at :20 and including 06 preserves that
+    # # ordering while adding the other five slots around it.
+    # #
+    # # ⚠️ MOST OF THESE WILL SAY ALMOST NOTHING, and that is correct. A digest
+    # # that only fires when something interesting happened is indistinguishable
+    # # from one that has broken — the empty run IS the evidence the cadence is
+    # # alive. It will feel like noise before it feels like reassurance.
+    # - cron: "20 * * * *"
 
   # ⚠️ THE CRON IS NOW THE SECOND CARRIER, NOT THE FIRST — and it is kept
   # rather than replaced, deliberately: it is the ONLY carrier that can fire

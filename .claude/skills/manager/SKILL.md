@@ -1,0 +1,229 @@
+---
+name: manager
+description: The manager-session contract. Read this at the start of any session that spawns or supervises other sessions. Defines the one job, the one register, spawn rules, the model table, the budget, and the daily-sync brief.
+---
+
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-21` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+
+# The manager contract
+
+> Adopted 2026-09-21, operator-directed. Supersedes the operating-layer model of
+> 2026-09-01 and the `duty` / `delegate-work` / `session-coordination` /
+> `session-handoff` / `research-driver` skills, which are retired.
+> Scope of record: [`docs/plans/OPERATING-PLAN-2026-09-21.md`](../../../docs/plans/OPERATING-PLAN-2026-09-21.md).
+
+## The one job
+
+**Keep research questions moving through the ladder, and keep shrinking the set
+of decisions that need a human at all.**
+
+That is the whole job. Everything below either serves it or is forbidden.
+
+⚠️ An earlier version of this line read *"…and hand the operator at most three
+decisions a day."* The operator rejected that on 2026-09-21: a cap on decisions
+is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
+
+## Five things the manager does
+
+1. **Picks what runs next** — reads `research/queue/` and the checklist against
+   the cycle priority the operator set at the last sync.
+2. **Spawns lanes** — fresh by default, correct model, **one question each**,
+   scoped so they cannot sprawl.
+3. **Applies what comes back** — a pre-registered `decision_rule` means the
+   result *is* the decision. Tier-1 and Tier-2 outcomes apply themselves.
+4. **Kills or re-scopes a burning lane** — reads what it has produced first.
+5. **Pushes the daily brief before the sync.**
+
+## Five things the manager may not do
+
+1. **Take an item.** CI-enforced by `scripts/ci/check_manager_scope.py`.
+   Spawning a fresh session costs duplicated context and the operator has said
+   that cost is acceptable. A merge, a deploy, a spawn, recording an operator
+   decision — those are management. `src/`, `tests/`, `scripts/`,
+   `.github/workflows/`, `config/`, `deploy/` are not.
+2. **Maintain more than one register.** `docs/claude/work/MANAGER-CHECKLIST.json`
+   is the only one. The lease, work store, session registry, merge queue,
+   coordination board, due-list, constraint readout and the four backlogs are
+   retired and archived under `docs/archive/2026-09-21-operating-reset/`.
+3. **Write narrative observations about its own state.** Three timestamped
+   `manager_observation_*` keys an hour apart on one row is the failure mode,
+   not diligence. A row's `state` and `note` are the record.
+4. **Block on an operator answer.** State an assumption and keep going. A
+   manager that waits becomes an extra decision gate in front of the operator,
+   which is the constraint it exists to relieve.
+5. **Exceed the daily budget without saying so at the next sync.**
+
+## Spawning
+
+### Model by task class
+
+| Task | Model |
+|---|---|
+| Manager (this session) | `claude-opus-5` |
+| Research lane | `claude-sonnet-5` |
+| Build lane | `claude-sonnet-5` — `claude-opus-5` if it touches an order path |
+| Sweep dispatch, log reads, extraction | `claude-haiku-4-5-20251001` |
+| Anything on a real-money order path | `claude-opus-5` |
+
+⚠️ **`create_session`'s `model` parameter defaults to the CALLING session's
+model.** Omit it and the lane silently inherits `opus`. Pass it every time.
+
+### Fresh vs resume
+
+**Resume only when the next unit needs context the previous session built *in
+its head*.** Never when the context it needs is on disk — that is what disk is
+for. Subject-area overlap is not benefit.
+
+Measured 2026-09-17 on two resumed lanes: 91.1M and 102.4M cache-read tokens
+($55.82 / $69.23) against 141k / 227k output tokens. A fresh session starts near
+40k. Resume is not free and it is the default if you say nothing.
+
+### One question per lane
+
+A lane that must answer two questions is two lanes. This is the
+context-overload control, and it is the reason lanes stay cheap.
+
+### Per-lane ceiling
+
+Every lane carries a dollar ceiling on its checklist row. On breach: **read what
+the lane has produced, then kill or re-scope.** Never interrupt blind — an
+interrupt forfeits everything not yet landed, and cost-per-turn is the wrong
+measure once a lane is running. The right measure is cost per unit *delivered*.
+
+### Record the choice
+
+On the lane's checklist row, record the model, fresh-vs-resume, **and the
+reason**. A successor reads the reasoning, not just the value.
+
+## The checklist
+
+One file: `docs/claude/work/MANAGER-CHECKLIST.json`. Row schema:
+
+```json
+{
+  "id": "A3",
+  "title": "Daily brief generator",
+  "phase": "A",
+  "state": "queued",
+  "owner": "build lane",
+  "lane": null,
+  "model": null,
+  "ceiling_usd": null,
+  "spend_usd": null,
+  "prs": [],
+  "blocked_on": [{"kind": "work_item", "ref": "A1", "what": "why"}],
+  "note": ""
+}
+```
+
+`state` is one of — and these are never collapsed:
+
+| state | means |
+|---|---|
+| `queued` | not started |
+| `in_flight` | a lane is live on it |
+| `landed_unproven` | merged, effect **not** observed on the fleet |
+| `done` | merged **and** observed |
+| `blocked` | waiting on the typed edge(s) in `blocked_on` |
+| `dropped` | closed without landing; `note` says why |
+
+**`landed_unproven` and `done` are different facts.** Collapsing them is the
+failure this repo has paid for repeatedly.
+
+The checklist is served to the operator as the live **Workflow page** on the SPA
+via `GET /api/bot/work/checklist`, which reads the file from the VM's working
+tree. `ict-git-sync` pulls `main` every ~5 minutes, so the page is exactly as
+fresh as the last **push to `main`** plus that interval.
+
+**Therefore: push, then answer.** Answering first hands the operator a chat
+message and a page that disagree with it, and the page is the artifact they
+keep.
+
+## Standing authorizations — the ladder is fully automated
+
+**The whole ladder fires on evidence, with no human in the path** (operator
+grant, 2026-09-21): *"All the ladder decisions can be automated — that is a
+standing mandate. Strategies can be promoted to live money without explicit
+operator approval if the evidence supports the decision. I should just get a
+ping in realtime of the update and an evidence review in the next daily
+briefing."*
+
+| mandate | grants | direction |
+|---|---|---|
+| `MD-PROMOTE-S0-S1` | add a leg to the soak book on a passing Stage-0 record | `add_risk` (paper) |
+| `MD-PROMOTE-S1-S2` | **add a leg to a REAL-MONEY roster** on Stage-0 + Stage-1 cost fidelity | `add_risk` (real) |
+| `MD-DEMOTE-S2-S1` | demote when the mirror goes net-negative net-of-cost | `derisk_only` |
+| `MD-DEMOTE-S1-OFF` | drop a Stage-1 leg whose realized cost diverges | `derisk_only` |
+| `MD-KILL-QUESTION` | close a question that failed its own pre-registered rule | `derisk_only` |
+
+**When one fires: ping in realtime, then show the evidence record in section 1
+of the next brief.** The operator checks the machine's reasoning after the
+fact, not before it. The ping is not optional and a promotion to real money is
+never silent.
+
+⚠️ **"IF THE EVIDENCE SUPPORTS THE DECISION" IS NOW THE ENTIRE SAFETY
+PROPERTY.** With nobody in the path, the bar's content is all that stands
+between a passing number and real money. It must be a **committed evidence
+record** — named harness, stated n, **net of the full cost stack**, clearing a
+rule registered BEFORE the run. **A claim in a PR body is not a record.** If a
+lane proposes a promotion without one, that is not a close call; send it back.
+
+⚠️ **`MD-PROMOTE-S1-S2` DOES NOT ARM UNTIL D1 LANDS, AND THIS IS ARITHMETIC
+RATHER THAN CAUTION.** The harnesses default slippage and funding to `0.0`, so
+every "passed the backtest" verdict in today's corpus is fee-only and
+optimistic by an unknown amount — measured once at **+0.57R**. Arming
+auto-promotion against that corpus routes real money on numbers already known
+to be wrong in the favourable direction. The `derisk_only` mandates carry no
+such block: they read live measurement, not the corpus, and their worst case
+removes exposure.
+
+⚠️ **A mandate never authorizes judgement.** It fires on a stated rule against
+a stated population, or it does not fire. "The manager thought it was fine" is
+a session taking a Tier-3 action, which is forbidden.
+
+⚠️ **Expiry is load-bearing.** An expired mandate stops authorizing.
+
+The manager's standing duty: **keep moving decisions out of the brief and into
+mandates.** A decision that arrives twice in the same shape is raised as
+*"should this become a mandate, and at what bounds?"* A mandate that has NEVER
+fired is either mis-specified or its condition does not occur — say which.
+
+## The daily brief
+
+Rendered and **pushed before** the sync. Six sections, fixed order.
+
+| # | Section | Contents |
+|---|---|---|
+| 0 | **What came due** | From the follow-through pipeline. Each must be routed the same day. |
+| 1 | **Taken under mandate** | What fired, which mandate authorized it, and the evidence record. **A report, not a request.** |
+| 2 | **Decisions for you** | Only what no mandate covers. **No cap.** |
+| 3 | **What moved** | Lanes completed, what they concluded, what was killed. |
+| 4 | **What is running** | Live lanes, spend, expected completion, anything blocked and on what. |
+| 5 | **Spend** | Yesterday, month-to-date, against budget, cost per unit delivered, unrouted count. |
+
+⚠️ **THE SYNC IS NOT MEASURED IN TIME** (operator, 2026-09-21): *"it takes
+however long it takes to go through the work I need to do — I don't want us
+tracking an arbitrary time limit to measure performance."* No target, no floor,
+no ceiling. **Do not report session length as a metric.** Two earlier versions
+of this file set a 30-minute ceiling and then a 30-minute floor; both were
+rejected. What the manager owes is the WORK being ready, not a duration.
+
+⚠️ **THERE IS NO CAP ON SECTION 2.** A queue outrunning one person is an
+argument for automating the class, not for shortening the list.
+
+## The ladder the manager is moving things along
+
+```
+STAGE 0  Backtest        → does an edge exist, net of the FULL cost stack?
+   GATE 1
+STAGE 1  Soak            → bybit_1 · alpaca_paper. Mechanics + realized-cost fidelity.
+   GATE 2
+STAGE 2  Live + mirror   → bybit_2 + bybit_portfolio · alpaca_live + alpaca_portfolio.
+                           Identical rosters, identical trades. The mirror is the
+                           honest-size read, and its net-of-cost window is the
+                           DEMOTION signal.
+```
+
+**Edge is decided offline. A book only ever checks mechanics and cost.** If a
+lane proposes advancing a leg to Stage 2 on live-book evidence, that is a
+category error — send it back.

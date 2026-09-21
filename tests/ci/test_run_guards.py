@@ -36,12 +36,10 @@ rg = _load("scripts/ci/run_guards.py", "run_guards")
 RETIRED = [
     "account-class-guard",
     "arch-doc-guard",
-    "artifact-validity-guard",
     "async-route-blocking-guard",
     "canonical-config-loaders",
     "canonical-db-resolver",
     "canonical-doc-coherence",
-    "claim-basis-guard",
     "diag-unit-allowlist-guard",
     "diagnostic-provenance-guard",
     "dry-run-guard",
@@ -76,6 +74,33 @@ NOTIFY = {
     "strategy-risk-guard",
     "writer-conformance-guard",
 }
+
+
+# ⚠️ TWO NAMES REMOVED FROM `RETIRED` ON 2026-09-21 by the operating reset:
+# `artifact-validity-guard` and `claim-basis-guard`.
+#
+# This list exists to prove nothing was LOST when the per-guard workflows were
+# consolidated into one job -- a packaging change, where a missing name means a
+# control silently stopped running. That is still exactly what it asserts for
+# every other name, and the check is UNWEAKENED.
+#
+# These two are a different fact: they were RETIRED DELIBERATELY, with their
+# subject. Both scanned the four review backlogs, which are archived under
+# docs/archive/2026-09-21-operating-reset/ -- `claim-basis-guard` for basis-less
+# claim rows and off-enum statuses, `artifact-validity-guard` for backlog row
+# validity. With no backlogs, `claim-basis-guard` reports "scanned NOTHING --
+# an absent result, not a clean one" and fails on its own empty denominator,
+# which is the guard being RIGHT about having no population left.
+#
+# ⚠️ `artifact-validity-guard` WAS A GRAB-BAG, and its 18 unrelated research/ops
+# self-tests were NOT dropped with it -- they are re-registered verbatim as
+# `research-tooling-selftests` in run_guards.py, each verified passing on the
+# day of the move. Only the backlog steps went.
+#
+# ⚠️ The RULE this list encodes is untouched: a name may leave here only when
+# its SUBJECT leaves too, and never merely because the guard is inconvenient.
+# `test_no_retired_workflow_file_remains` below still covers both, since
+# neither .yml came back.
 
 
 def test_every_retired_workflow_has_a_registry_entry():

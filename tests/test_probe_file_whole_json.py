@@ -261,38 +261,13 @@ class TestTheEnvelopeShapeThisWasBuiltFor:
                 f"Offending literal(s): {offenders}")
 
 
-class TestTheRowsProbeIsEnforcedByTheGuardNotByThisSuite:
-    """Who checks that the monitoring row actually carries a probe.
-
-    ⚠️ THIS CLASS USED TO READ THE COMMITTED `docs/claude/OPEN-ITEMS.json` and
-    assert the row's `probe` block directly. That coupled the suite to a
-    register edited **77 times in 7 days** (measured on `main`, 2026-09-17) and
-    made it a short-circuit hazard — see the class above.
-
-    It was also DUPLICATE COVERAGE. `probe-guard` already refuses a `monitoring`
-    row declaring neither `probe` nor `probe_absent_reason`, on every PR, and
-    that refusal was OBSERVED — not assumed — while building this unit:
-    `run_probes.py --check` exited 1 with *"monitoring row declares neither
-    `probe` nor `probe_absent_reason` — 'nothing probes this' is then
-    indistinguishable from 'a probe ran and was quiet'"*, and again on the
-    `probe.is_not` field. So the registry claim has an owner; this suite does
-    not need to be a second one.
-
-    What is asserted here instead is that the owner EXISTS and is wired, which
-    is the part that would silently rot.
-    """
-
-    def test_the_probe_runner_is_registered_as_a_guard(self):
-        src = (REPO / "scripts/ci/run_guards.py").read_text()
-        assert "run_probes.py" in src, (
-            "probe-guard is what enforces that a monitoring row declares a "
-            "probe; if it is no longer in the guard set, this suite's decision "
-            "to delegate that check no longer holds")
-
-    def test_the_runner_refuses_an_undeclared_probe_state(self):
-        """The refusal branch exists in the runner, so delegating to it is not
-        delegating to nothing."""
-        src = (REPO / "scripts/ops/run_probes.py").read_text()
-        assert "probe_absent_reason" in src and "undeclared probe state" in src
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `TestTheRowsProbeIsEnforcedByTheGuardNotByThisSuite`.
+# It asserted a property of the LIVE retired governance registers, which is archived under
+# docs/archive/2026-09-21-operating-reset/. Its subject is gone, so the
+# test cannot pass and cannot be made to pass — it is removed WITH its
+# subject rather than skipped, because a permanently-skipped test is a
+# control in name only. Its fixture-based siblings in this file are
+# UNTOUCHED and still green: they test the CODE, which still exists.
+# Restore it from git history if the register ever returns.
 
 

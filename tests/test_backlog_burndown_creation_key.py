@@ -54,22 +54,22 @@ B = CL.backlog_burndown()
 # reads `opened_at` alone and dumps everything else into `undated` — the exact
 # shipped behaviour, wearing the new fields.
 
-def test_rows_are_actually_reached_through_the_alternate_spellings():
-    basis = B["creation_key_basis"]
-    assert basis.get("opened", 0) > 0, (
-        f"no row was dated via `opened` — either the register changed shape or "
-        f"the vocabulary is not being consulted: {basis}")
-    assert basis.get("opened_at", 0) > 0, "the ORIGINAL spelling must still work"
-    reachable_only_by_widening = sum(
-        basis.get(k, 0) for k in CL.CREATION_KEYS if k != "opened_at")
-    assert reachable_only_by_widening > 100, (
-        f"measured 413 such rows on 2026-09-12; {reachable_only_by_widening} now")
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_rows_are_actually_reached_through_the_alternate_spellings`.
+# It measured a property of the LIVE review backlogs, which are archived under
+# docs/archive/2026-09-21-operating-reset/registers/. Its subject is gone, so it
+# is removed WITH its subject rather than skipped — a permanently-skipped test is
+# a control in name only. The fixture-based siblings in this file are untouched
+# and still green: they test the CODE, which still exists. Restore from git
+# history if a review backlog ever returns.
 
 
-def test_the_undated_state_is_populated_so_it_is_not_decorative():
-    """A state no row reaches is untested. Both were non-zero when measured."""
-    assert B["undated"]["opened"] > 0
-    assert B["undated"]["closed"] > 0
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_undated_state_is_populated_so_it_is_not_decorative`.
+# It measured a property of the LIVE review backlogs, which are archived under
+# docs/archive/2026-09-21-operating-reset/registers/. Its subject is gone, so it
+# is removed WITH its subject rather than skipped — a permanently-skipped test is
+# a control in name only. The fixture-based siblings in this file are untouched
+# and still green: they test the CODE, which still exists. Restore from git
+# history if a review backlog ever returns.
 
 
 # ── THE IDENTITIES — what makes `undated` a publication and not a comment ───
@@ -137,43 +137,13 @@ def test_a_row_with_no_recognised_key_reports_that_rather_than_a_month():
 
 # ── THE ROW'S OWN CRITERION: "the two numbers must be shown to agree" ───────
 
-def test_open_now_agrees_with_an_INDEPENDENT_status_census():
-    """`BL-20260908-BACKLOG-BURNDOWN-READS-ONLY-OPENED-AT...` says in terms that
-    a code change alone does not clear it — the burn-down block and a direct
-    status census have to agree. This is that census, computed here from the
-    raw JSON without going through the function under test, so it is a second
-    reading rather than a restatement of the first.
-
-    ⚠️ **THIS CENSUS HARDCODED THE SAME THREE FILES UNTIL 2026-09-17, AND SO
-    INHERITED THE BUG IT EXISTED TO CATCH.** `backlog_burndown` read a
-    hardcoded three-entry dict; this "independent" reading enumerated the same
-    three paths. They agreed — because both were blind to
-    `docs/claude/research-review-backlog.json`, split out 2026-08-30. **A second
-    reading that shares the defect is not a second reading**, and the agreement
-    it produced was evidence of nothing.
-
-    It now globs the DISK, deliberately NOT `BACKLOGS`. Reading the same
-    constant as the function under test would restore exactly the property just
-    removed: a drift in that constant would be invisible to both. The chain is
-    disk-glob → `LIVE_BACKLOGS` (pinned equal in
-    `tests/test_backlog_append.py`) → `BACKLOGS` (pinned equal to it) → this
-    function, so every link is asserted and this end is anchored outside it.
-    """
-    import json
-    closed = {"resolved", "wont_fix", "invalid", "superseded"}
-    files = sorted(p.relative_to(REPO).as_posix()
-                   for p in REPO.glob("docs/claude/*-review-backlog.json"))
-    # ⚠️ NON-VACUITY, the shape `test_live_backlogs_covers_every_review_backlog`
-    # already uses: an empty glob would make every equality below trivially true
-    # over zero rows — a census covering nothing, passing cleanly.
-    assert len(files) >= 4, (
-        f"only {len(files)} review backlog(s) on disk: {files} — the equalities "
-        "below would not be meaningful; check the glob before trusting a green")
-    rows = [r for f in files
-            for r in json.loads((REPO / f).read_text(encoding="utf-8"))["items"]]
-    assert len(rows) == B["rows_total"]
-    assert sum(1 for r in rows if r.get("status") not in closed) == B["open_now"]
-    assert sum(1 for r in rows if r.get("status") in closed) == B["closed_total"]
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_open_now_agrees_with_an_INDEPENDENT_status_census`.
+# It measured a property of the LIVE review backlogs, which are archived under
+# docs/archive/2026-09-21-operating-reset/registers/. Its subject is gone, so it
+# is removed WITH its subject rather than skipped — a permanently-skipped test is
+# a control in name only. The fixture-based siblings in this file are untouched
+# and still green: they test the CODE, which still exists. Restore from git
+# history if a review backlog ever returns.
 
 
 # ── THE SCOPE: the function must count every DECLARED review backlog ────────
@@ -183,62 +153,19 @@ def test_open_now_agrees_with_an_INDEPENDENT_status_census():
 # is the quieter of the two: a missing date shows up in `undated`, a missing
 # FILE shows up nowhere.
 
-def test_the_burndown_counts_every_declared_review_backlog():
-    """MEASURED 2026-09-17: it counted three of four, and had since 2026-08-30.
-
-    `backlog_burndown` held a hardcoded three-entry dict while
-    `docs/claude/research-review-backlog.json` had been split out on 2026-08-30
-    and never added. Scope-only delta, both readings taken from the REAL
-    function on ONE tree:
-
-        rows_total   1864 -> 1883   (+19)
-        open_now     1013 -> 1026   (+13)
-        closed_total  851 ->  857    (+6)
-
-    which reconciles exactly against that register's 19 rows / 13 not-closed /
-    6 closed. ⚠️ MY FIRST COMPARISON DID NOT RECONCILE — it read +20/+14/+6,
-    because the two readings were taken on DIFFERENT COMMITS and I changed the
-    scope and the tree at once. The arithmetic is what caught it; re-reading the
-    numbers would not have.
-
-    ⚠️ AND IT DRIFTED BECAUSE IT SAT OUTSIDE A PIN THAT ALREADY EXISTED —
-    `LIVE_BACKLOGS` is asserted equal to a glob of the disk and `BACKLOGS` is
-    asserted equal to `LIVE_BACKLOGS`, so adding a register already failed a
-    test until both learned of it. This third copy was reachable by neither.
-    """
-    import json
-    from scripts.ops.check_backlog_criteria import BACKLOGS
-
-    on_disk = sorted(p.relative_to(REPO).as_posix()
-                     for p in REPO.glob("docs/claude/*-review-backlog.json"))
-    assert set(BACKLOGS) == set(on_disk), (
-        "the burn-down's declared scope and the review backlogs on disk have "
-        f"diverged: only declared {sorted(set(BACKLOGS) - set(on_disk))}, "
-        f"ON DISK BUT UNCOUNTED {sorted(set(on_disk) - set(BACKLOGS))}")
-
-    # BEHAVIOURAL, not just structural: re-hardcoding a narrower list inside the
-    # function would leave the assertion above green and this one red.
-    expected = sum(len(json.loads((REPO / f).read_text(encoding="utf-8"))["items"])
-                   for f in on_disk)
-    assert B["rows_total"] == expected, (
-        f"the burn-down counted {B['rows_total']} rows; the {len(on_disk)} review "
-        f"backlogs on disk hold {expected}. A register it does not count is one "
-        "whose rows are in neither side of the opened/closed ratio.")
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_the_burndown_counts_every_declared_review_backlog`.
+# It measured a property of the LIVE review backlogs, which are archived under
+# docs/archive/2026-09-21-operating-reset/registers/. Its subject is gone, so it
+# is removed WITH its subject rather than skipped — a permanently-skipped test is
+# a control in name only. The fixture-based siblings in this file are untouched
+# and still green: they test the CODE, which still exists. Restore from git
+# history if a review backlog ever returns.
 
 
-def test_that_scope_check_would_have_caught_the_original_defect():
-    """A VACUITY CONTROL: the check above must be able to go red.
-
-    Reconstructs the pre-fix three-entry scope and asserts the equality fails,
-    so a green means `looked and found none` rather than `looked for something
-    that cannot occur`.
-    """
-    pre_fix = ["docs/claude/health-review-backlog.json",
-               "docs/claude/performance-review-backlog.json",
-               "docs/claude/ml-review-backlog.json"]
-    on_disk = {p.relative_to(REPO).as_posix()
-               for p in REPO.glob("docs/claude/*-review-backlog.json")}
-    assert set(pre_fix) != on_disk, (
-        "the pre-fix scope now equals the disk, so the check above cannot go "
-        "red and proves nothing")
-    assert on_disk - set(pre_fix) == {"docs/claude/research-review-backlog.json"}
+# ⚠️ REMOVED 2026-09-21 by the operating reset: `test_that_scope_check_would_have_caught_the_original_defect`.
+# It measured a property of the LIVE review backlogs, which are archived under
+# docs/archive/2026-09-21-operating-reset/registers/. Its subject is gone, so it
+# is removed WITH its subject rather than skipped — a permanently-skipped test is
+# a control in name only. The fixture-based siblings in this file are untouched
+# and still green: they test the CODE, which still exists. Restore from git
+# history if a review backlog ever returns.
