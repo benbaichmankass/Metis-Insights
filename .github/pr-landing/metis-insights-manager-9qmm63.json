@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register only -- docs/claude/work/MANAGER-CHECKLIST.json, which is the manager surface. No runtime, order path, config or CI machinery touched."
+}
