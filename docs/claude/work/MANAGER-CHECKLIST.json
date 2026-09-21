@@ -138,7 +138,7 @@
       "id": "A6",
       "title": "Pull the two negative-OOS legs off alpaca_live",
       "phase": "A",
-      "state": "blocked",
+      "state": "in_flight",
       "owner": "operator",
       "lane": null,
       "model": null,
@@ -146,14 +146,8 @@
       "spend_usd": null,
       "tier": 3,
       "prs": [],
-      "blocked_on": [
-        {
-          "kind": "operator_decision",
-          "ref": "A6",
-          "what": "Tier-3: removing a leg from a real-money roster needs explicit operator approval before merge."
-        }
-      ],
-      "note": "tlt_pullback_1h (-4.41R, n=94) and tlt_pullback_1d (-3.92R, n=8, 0 of 4 folds positive). One-line config change, reversible, does NOT wait on D1. TIER-3: needs explicit operator approval before merge."
+      "blocked_on": [],
+      "note": "tlt_pullback_1h (-4.41R, n=94) and tlt_pullback_1d (-3.92R, n=8, 0 of 4 folds positive). One-line config change, reversible, does NOT wait on D1. TIER-3. APPROVED BY THE OPERATOR 2026-09-21 in conversation, verbatim: 'yeah, you can pull those strategies off if they need to be turned off.' Shipped as its own PR rather than inside the reset diff -- the one line that touches real money should not be reviewed inside a 360-file Tier-1 refactor. [!] THIS DOES NOT RETIRE THE QUESTION THE 1h LEG WAS ASKING. Its purpose was to prove real fills reconcile against exchange truth on a CASH book, and it never answered: ZERO long signals ever reached this account (18x Jun / 2x Jul / 13x Aug / 0x Sep, going quiet the day before the account was armed), and every package since 08-31 was SHORT, unexecutable here because the venue reads shorting_enabled: false. The alpaca_live order path is therefore STILL UNEXERCISED after this change. The three surviving legs inherit that job, and nothing yet checks that they do it -- if they also go quiet, the account is armed and proving nothing. [!] ROSTER-SYNC IS UNAFFECTED and this was verified, not assumed: the invariant is a SUBSET assertion (test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies), so shrinking the live roster can never break it. Both legs stay in alpaca_portfolio, where their paper record keeps accruing. [!] MEASURED WHILE SHIPPING THIS, and it is the sharper version of the asymmetry finding: scripts/check_dry_run_in_diff.py reports 'dry_run_in_diff: clean' on THIS diff. Removing a leg from a roster is NOT guarded -- only the literal mode:/execution: fields are. Two spellings of 'off', one guarded. B1 must key on ROSTER MEMBERSHIP."
     },
     {
       "id": "A7",
@@ -204,7 +198,7 @@
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "THE LOAD-BEARING CHANGE. Today check_dry_run_in_diff.py blocks turning a leg OFF and nothing blocks turning one ON; across 78 guards there is no counterpart. Demotion becomes free; promotion to a real-money roster requires a fresh evidence record clearing its declared bar. Tier-2 (CI + order-path policy) and needs the operator on the bar definition."
+      "note": "THE LOAD-BEARING CHANGE. Today check_dry_run_in_diff.py blocks turning a leg OFF and nothing blocks turning one ON; across 78 guards there is no counterpart. Demotion becomes free; promotion to a real-money roster requires a fresh evidence record clearing its declared bar. Tier-2 (CI + order-path policy) and needs the operator on the bar definition. [!] REFINED 2026-09-21 BY RUNNING THE GUARD, not by reading it: check_dry_run_in_diff.py matches ADDED `mode: dry_run` / `execution: shadow` LINES, so there are TWO spellings of 'off' and it sees only one. Removing a leg from an account's strategies: roster is NOT guarded -- verified against the A6 diff, which removes two legs from alpaca_live and reports `clean`. SO B1 MUST KEY ON ROSTER MEMBERSHIP, not on the mode/execution fields: a guard watching only the fields can be walked around by editing the list, in either direction. This also matters for the mandates -- MD-PROMOTE-S1-S2 adds a leg to a roster, which is exactly the edit the current guard cannot see."
     },
     {
       "id": "B2",
