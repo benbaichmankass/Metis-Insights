@@ -1921,3 +1921,92 @@ def get_work_receipts() -> dict[str, Any]:
         }
     _receipts_cache = (now, payload)
     return payload
+
+
+# ── /brief — A3, the six-section daily brief, served LIVE ──────────────────
+#
+# Added 2026-09-21 (A3a). `scripts/ops/render_daily_brief.py` builds the six
+# fixed sections (what came due / taken under mandate / decisions for you /
+# what moved / what is running / spend) from files already on this tree —
+# the pipeline store, this checklist, and `config/mandates.yaml`. There is no
+# writer step and no cron: this route calls `build()` + `render()` on every
+# request (20s cache), the same shape `/checklist` above already uses for
+# `MANAGER-CHECKLIST.json`. See the module's own docstring for why that
+# decision is safe here and was not safe for the four-section module it
+# replaced (`DECIDED 2026-09-21 (A3a) — THE SCHEDULE QUESTION`).
+#
+# Tier: 1 (read-only, file-backed, no DB, no secrets — see
+# docs/api-tier-policy.md). Deliberately does not import `render_daily_brief`
+# at module scope: it in turn imports `scripts.ops.pipeline`, and keeping
+# that import inside the request path means a bug in either module degrades
+# this one route to `present: false` rather than failing every route this
+# file serves at process start.
+
+_BRIEF_CACHE_TTL_S = 20.0
+_brief_cache: tuple[float, dict[str, Any]] | None = None
+
+
+def _brief_payload() -> dict[str, Any]:
+    from scripts.ops import render_daily_brief as _rdb
+
+    repo = Path(repo_root())
+    b = _rdb.build(root=repo)
+    tree = manager_status.read_tree_provenance(repo_dir=repo)
+    return {
+        "present": True,
+        "readState": "read",
+        "reason": None,
+        "forDate": b["forDate"],
+        "generatedAt": b["generatedAt"],
+        "markdown": _rdb.render(b),
+        # The three input read-states, verbatim — so a consumer can grey out
+        # a section instead of trusting a brief one of its inputs could not
+        # supply. Never collapsed to a single boolean.
+        "inputs": {
+            "pipeline": "read" if b["pipeline"]["healthy"] else "partial",
+            "checklist": b["checklistState"],
+            "mandates": b["mandatesState"],
+        },
+        "pipelineStats": b["pipeline"]["stats"],
+        "coverageComplete": b["coverageComplete"],
+        "freshness": {
+            # Same working-tree discipline as `/checklist`: the route reads
+            # the VM's working tree, which `ict-git-sync` pulls roughly every
+            # 5 minutes, so the brief is exactly as fresh as the last PUSH
+            # plus that interval — never as fresh as "just now" implies.
+            "treeState": tree.state,
+            "treeStamp": manager_status.render_tree_stamp(tree),
+            "note": ("Computed live from the working tree on every request "
+                     "(20s cache) — there is no separate generation step to "
+                     "go stale between pushes."),
+        },
+    }
+
+
+@router.get("/brief")
+def get_work_brief() -> dict[str, Any]:
+    """The six-section daily brief (A3), rendered live from the pipeline
+    store, the checklist, and `config/mandates.yaml`.
+
+    Read-only, file-backed, no DB, no secrets, no write surface. Best-effort:
+    a failure to build the brief degrades to ``present: false`` WITH a
+    reason, never a 5xx and never a stale/blank page passed off as current.
+    """
+    global _brief_cache
+    now = time.monotonic()
+    cached = _brief_cache
+    if cached is not None and (now - cached[0]) < _BRIEF_CACHE_TTL_S:
+        return cached[1]
+    try:
+        payload = _brief_payload()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged WITH a stack and surfaced as present:false + reason. A Tier-1 read surface must not 5xx (roadmap.py's contract); a brief that 500s is invisible rather than absent.
+        logger.warning("work: brief build failed: %s", exc, exc_info=True)
+        return {
+            "present": False,
+            "readState": "unreadable",
+            "reason": f"brief build failed: {exc}",
+            "markdown": None,
+            "inputs": {}, "pipelineStats": None, "coverageComplete": False,
+        }
+    _brief_cache = (now, payload)
+    return payload
