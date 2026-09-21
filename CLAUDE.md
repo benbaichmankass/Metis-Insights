@@ -141,8 +141,13 @@ If a proposal advances a leg on live-book P&L, that is a category error.
 live account carry the same strategies and take the same trades at all times.
 The Bybit half is enforced by
 `tests/test_paper_portfolio_accounts.py::test_bybit_portfolio_mirrors_bybit_2_exactly`;
-**the Alpaca half is not, and is currently broken** (5 vs 14 strategies) — plan
-item B2.
+**the Alpaca half is a deliberate SUBSET invariant, not equality**
+(`test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies`): it guarantees no
+live leg trades without a paper counterpart, and deliberately allows the mirror
+to run extra. Measured 2026-09-21 — live 5 legs, mirror 14 — so **Gate 2's
+demotion signal cannot be read off the Alpaca mirror's aggregate.** Plan item
+**B2**. ⚠️ An earlier draft of this line said *"no invariant exists"*; that was
+inferred rather than checked and is false.
 
 ### The daily sync, and standing authorizations
 

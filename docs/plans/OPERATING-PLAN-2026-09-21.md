@@ -112,10 +112,31 @@ outcomes. That is what makes the ladder traversable for the slow legs.
 - **The Bybit mirror invariant exists and is enforced** —
   `tests/test_paper_portfolio_accounts.py::test_bybit_portfolio_mirrors_bybit_2_exactly`
   pins the rosters together. `bybit_2`: 6 strategies, `bybit_portfolio`: 6.
-- **The Alpaca mirror is broken.** `alpaca_live` carries 5 strategies,
-  `alpaca_portfolio` carries 14. No invariant exists, so that mirror cannot be
-  read as the honest-size version of the live book, and Gate 2's demotion
-  signal does not work on that side. → **B2**.
+- **The Alpaca mirror is a SUBSET invariant, not an equality one.**
+  ⚠️ **CORRECTED 2026-09-21, same day.** This row first read *"No invariant
+  exists"* — **that is false, and I inferred it instead of grepping `tests/`,
+  which is a RULE ONE failure in the exact shape RULE ONE names.**
+  `tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies`
+  exists and asserts `set(live legs − affordability proxies) ⊆ set(portfolio
+  legs)`, in **every** state including the empty one.
+
+  What is true is narrower and is still the problem: it guarantees the
+  direction that **protects real money** — no live leg trades without a paper
+  counterpart accruing beside it — and it **deliberately does not** assert the
+  converse. The test says so in terms, with the reasoning: asserting equality
+  during a staged go-live *"would force `alpaca_portfolio` down from 14 legs to
+  1, destroying the paper research book that the eventual roster selection
+  depends on."*
+
+  Measured 2026-09-21: `alpaca_live` 5 legs, `alpaca_portfolio` 14. So the
+  mirror is **not** a like-for-like honest-size read of the live book the way
+  `bybit_portfolio` is, and **Gate 2's demotion signal cannot be read off its
+  aggregate** — nine of its fourteen legs are not on the live book at all.
+
+  → **B2, and B2's scope changes with this.** It is not "add an invariant."
+  It is: decide what the Alpaca mirror is FOR, then make the invariant say
+  that. The test's own argument against blind equality is good and must be
+  answered, not overwritten.
 
 ---
 
@@ -418,7 +439,7 @@ deletion and rewiring; nothing new gets built until C.
 | id | item | who |
 |---|---|---|
 | **B1** | **Invert the execution-gate guard.** Demotion becomes free. A new guard blocks any leg reaching a Stage-2 roster without a fresh evidence record that clears its declared bar. **This is the load-bearing change.** | operator + build lane |
-| **B2** | **Alpaca mirror invariant.** Extend the Bybit roster-sync test to `alpaca_live` / `alpaca_portfolio`. Precondition for Gate 2 working on that side. | build lane |
+| **B2** | **Decide what the Alpaca mirror is FOR, then make its invariant say that.** ⚠️ Re-scoped 2026-09-21: the first draft said *"extend the Bybit roster-sync test"* on the false premise that no invariant existed. One does — a deliberate SUBSET assertion (`test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies`) that protects real money and does not make the mirror representative. Live 5 legs vs mirror 14, so Gate 2's demotion signal cannot be read off the mirror's aggregate. The test argues against blind equality during a staged go-live and that argument must be answered, not overwritten. | operator + build lane |
 | **B3** | **R4 as the demotion gate.** Flip to enforcing, pointed at demotion rather than promotion. Recommended 2026-07-30, built, shipped observe-only, never armed. | operator + build lane |
 | **B4** | **Re-scope the review packet.** Grade Stage 2 on money and Stage 1 on cost fidelity. Without this it keeps grading 52 legs against a 20-trade floor and emitting nothing, forever. | build lane |
 | **B5** | **The mandate mechanism** (`config/mandates.yaml` + a resolver + a guard). A standing authorization the operator grants ONCE that lets the system act inside stated bounds without asking again. `direction: derisk_only` mandates carry no rate ceiling because their worst case is trading less than we could; `add_risk` mandates carry a hard cap on total risk added, a per-leg size bound and a count. Every action records which mandate authorized it. **Pairs with B1** — the guard that requires evidence before a Stage-2 roster is the same guard that reads what is already authorized. | operator + build lane |
