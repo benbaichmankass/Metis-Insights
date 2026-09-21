@@ -161,31 +161,38 @@ inferred rather than checked and is false.
 ### The daily sync, and standing authorizations
 
 One session a day with the operator. The manager pushes the brief **before** the
-sync. Five sections, fixed order: **taken under mandate · decisions for you ·
-what moved · what is running · spend.** Contract:
+sync. Six sections, fixed order: **what came due · taken under mandate ·
+decisions for you · what moved · what is running · spend.** Contract:
 [`.claude/skills/manager/SKILL.md`](.claude/skills/manager/SKILL.md).
 
-⚠️ **Thirty minutes is a FLOOR, not a ceiling, and there is no cap on
-decisions** (operator, 2026-09-21; an earlier draft of this file said the
-opposite on both counts). A *short* sync is the failure signal — it means the
-manager did not have enough in flight to fill it. And a queue producing more
-decisions than one person can take is an argument for **automating the class**,
-never for slowing the queue.
+⚠️ **The sync is NOT measured in time, and there is no cap on decisions**
+(operator, 2026-09-21). Two earlier drafts of this file set a 30-minute ceiling
+and then a 30-minute floor; both were rejected — *"it takes however long it
+takes… I don't want us tracking an arbitrary time limit to measure
+performance."* **Do not report session length as a metric.**
 
-**A decision class that can be stated as a rule does not reach the operator at
-all.** It becomes a **mandate**: an authorization granted ONCE, in advance, in
-`config/mandates.yaml`, letting the system act inside stated bounds without
-asking again — the pre-registered `decision_rule` idea lifted from the single
-question to the class. A decision that arrives twice in the same shape is
-raised as *"should this become a mandate?"*
+**THE LADDER IS FULLY AUTOMATED — operator grant, 2026-09-21.** Every ladder
+transition, both gates and both directions, fires on evidence with no human in
+the path — **including promotion to a real-money roster**. A **mandate** is an
+authorization granted once, in advance, in `config/mandates.yaml`. When one
+fires: a realtime ping, then the evidence record in section 1 of the next
+brief. A decision arriving twice in the same shape is raised as *"should this
+become a mandate?"*
 
-⚠️ **A mandate is not a third execution gate** — see § "The two execution gates"
-below, which is unchanged. It does not decide what RUNS; it decides what may be
-**CHANGED without asking**. ⚠️ And the direction asymmetry is what makes a
-blanket yes safe: a `derisk_only` mandate needs no rate ceiling, because its
-worst case is trading less than we could; an `add_risk` mandate carries a hard
-cap on total risk added, a per-leg size bound and a count. Plan item **B5**
-builds it; nothing is authorized until the operator grants a row.
+⚠️ **"If the evidence supports it" is the entire safety property** once nobody
+is in the path: a committed evidence record, named harness, stated n, **net of
+the full cost stack**, clearing a rule registered before the run. A claim in a
+PR body is not a record. **B1** makes it checkable; **B5** builds the mechanism.
+
+⚠️ **The real-money promotion mandate does not arm until D1 lands** — the
+harnesses default slippage and funding to `0.0`, so today's corpus is fee-only
+and optimistic by an unknown amount (+0.57R on the one leg measured). Arming
+against it would route real money on numbers already known to be wrong in the
+favourable direction. The `derisk_only` mandates carry no such block.
+
+⚠️ **A mandate is not a third execution gate** — see § "The two execution
+gates", which is unchanged. It does not decide what RUNS; it decides what may
+be **CHANGED without asking**.
 
 ### Every session
 

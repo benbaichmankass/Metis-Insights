@@ -27,7 +27,7 @@
   "states": {
     "queued": "scoped and agreed, nobody started it",
     "in_flight": "a lane is actively working it",
-    "blocked": "waiting on the thing named in blocked_on",
+    "blocked": "waiting on the typed edge(s) in blocked_on",
     "landed_unproven": "merged; effect NOT yet observed",
     "done": "merged AND its effect observed",
     "dropped": "deliberately not doing; note says why"
@@ -253,7 +253,7 @@
     },
     {
       "id": "B5",
-      "title": "The mandate mechanism — standing authorizations in config/mandates.yaml",
+      "title": "The mandate mechanism — arm the fully-automated ladder",
       "phase": "B",
       "state": "queued",
       "owner": "operator + build lane",
@@ -261,16 +261,21 @@
       "model": "claude-sonnet-5",
       "ceiling_usd": 25,
       "spend_usd": null,
-      "tier": 2,
+      "tier": 3,
       "prs": [],
       "blocked_on": [
         {
           "kind": "work_item",
           "ref": "B1",
-          "what": "The guard that requires evidence before a Stage-2 roster is the same guard that reads what is already authorized. Build them together."
+          "what": "The evidence guard is what makes 'the evidence supports it' checkable rather than asserted."
+        },
+        {
+          "kind": "operator_decision",
+          "ref": "5+6",
+          "what": "The promotion bar's content, and the ceiling on real-money exposure added without a human."
         }
       ],
-      "note": "ADDED 2026-09-21 on operator correction: 'we need to think of a better way to give more decision-making power, more things automated -- not create less decisions and limit how much work we can actually do... how can I give blanket permissions up front.' A mandate is an operator decision granted ONCE that lets the system act inside stated bounds without asking again. NOT a third execution gate -- it does not decide what RUNS, it decides what may be CHANGED without asking. The direction asymmetry is the safety property: derisk_only needs no rate ceiling (worst case is trading less than we could), add_risk carries a hard cap on total risk added, a per-leg size bound and a count. Every action records which mandate authorized it, so the brief's section 1 REPORTS rather than asks. Bounds are the operator's call -- see plan open decisions 3b and 3c."
+      "note": "OPERATOR GRANT 2026-09-21, verbatim: 'All the ladder decisions can be automated -- that is a standing mandate. Strategies can be promoted to live money without explicit operator approval if the evidence supports the decision. I should just get a ping in realtime of the update and an evidence review in the next daily briefing.' FIVE MANDATES ARE GRANTED: MD-PROMOTE-S0-S1, MD-PROMOTE-S1-S2 (REAL MONEY), MD-DEMOTE-S2-S1, MD-DEMOTE-S1-OFF, MD-KILL-QUESTION. Build config/mandates.yaml + the resolver + the ping + the section-1 evidence render. [!] THE FILE IS NOT CREATED AHEAD OF THE RESOLVER -- a config nothing reads is the 'declared capability with no consumer' antipattern this repo already names. [!] WHAT CARRIES THE SAFETY IS 'if the evidence supports it': a COMMITTED evidence record, named harness, stated n, net of the FULL cost stack, clearing a rule registered before the run. A claim in a PR body is not a record; B1 is what makes that checkable. [!] MD-PROMOTE-S1-S2 MUST NOT ARM UNTIL D1 LANDS -- arithmetic, not caution: the harnesses default slippage and funding to 0.0, so every 'passed the backtest' verdict in today's corpus is fee-only and optimistic by an unknown amount (+0.57R on the one leg measured). The derisk_only mandates carry no such block; they read live measurement, not the corpus. Bounds and the bar's content are operator decisions -- plan open decisions 5 and 6."
     },
     {
       "id": "C1",
@@ -403,6 +408,282 @@
         }
       ],
       "note": "This IS Gate 1, and it is what makes the ladder traversable for slow legs: 'is realized slippage what we assumed?' converges in a handful of trades where expectancy needs 50+. Build only once D1 has given it something to compare to."
+    },
+    {
+      "id": "A9",
+      "title": "The work schedule, rendered on the GitHub Pages UI",
+      "phase": "A",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "A7",
+          "what": "Due items and owed decisions come from the pipeline."
+        }
+      ],
+      "note": "OPERATOR-REQUESTED 2026-09-21: 'A work schedule, visible on the gitpages UI site -- when different sessions need to happen, when decisions are due, monitoring items, etc.' Two halves and they are DIFFERENT REPOS: docs/claude/work/SCHEDULE.json + a route here, and the render in benbaichmankass/ict-trader-dashboard. Sources are already-existing state, NOT a new register: cadenced sessions (the daily sync, the three reviews), decisions owed (from the pipeline's ask_operator rows), monitoring items coming due (pipeline due_when), and cron cadences read from the workflow files rather than retyped. [!] IT RENDERS WHAT EXISTS; if it needs a fact nobody records, that is a finding about the pipeline, not a reason for a second register."
+    },
+    {
+      "id": "E1",
+      "title": "Research plan + ROADMAP re-point",
+      "phase": "E",
+      "state": "landed_unproven",
+      "owner": "this session",
+      "lane": null,
+      "model": "claude-opus-5",
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "docs/plans/RESEARCH-PLAN-2026-09-21.md. The prioritised research programme, and ROADMAP.md given a current-cycle header that supersedes rather than a 668 KB rewrite."
+    },
+    {
+      "id": "E2",
+      "title": "Engineering / infra build-out plan",
+      "phase": "E",
+      "state": "landed_unproven",
+      "owner": "this session",
+      "lane": null,
+      "model": "claude-opus-5",
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "docs/plans/ENGINEERING-PLAN-2026-09-21.md. The infra the research programme needs: harnesses, corpus, durable results, the trainer. Distinct from Phases A-D, which repair the OPERATING model."
+    },
+    {
+      "id": "R1",
+      "title": "Re-run the backtest corpus with the cost defaults ON",
+      "phase": "R",
+      "state": "blocked",
+      "owner": "research lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 60,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "E3",
+          "what": "The corpus must be honest before any verdict computed from it is acted on."
+        }
+      ],
+      "note": "THE FIRST THING; nothing real depends on anything else until it is done. Which legs still clear Stage 0 once slippage and funding are modelled? Decision rule REGISTERED NOW: a leg that no longer clears its own declared bar under full costs is demoted to shadow automatically under MD-DEMOTE-S1-OFF -- no memo. EXPECTED SHAPE, stated so it can be wrong: on a +0.57R shift, legs whose edge was under ~0.6R invert, and most declared edges are smaller than that, so expect a MAJORITY of the 45 live legs to fail. If almost everything still passes, suspect the run did not change the cost terms -- check the run, not the luck. Population: all 55 legs, full history, per-symbol."
+    },
+    {
+      "id": "R2",
+      "title": "Cut the fleet to what passes",
+      "phase": "R",
+      "state": "blocked",
+      "owner": "manager",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "R1",
+          "what": "Nothing to cut on until the re-run has spoken."
+        }
+      ],
+      "note": "Not a separate judgement: under the standing mandates this is MD-DEMOTE-S1-OFF firing on R1's output. R2 is the OBSERVATION that it fired correctly. Failing legs keep running on the SOAK book, which is what it is for. Expect a much smaller live roster -- that is the point: 55 legs producing 71 closes a week is WHY nothing can be graded."
+    },
+    {
+      "id": "R3",
+      "title": "Cost fidelity as the standing Gate-1 test",
+      "phase": "R",
+      "state": "blocked",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "E3",
+          "what": "The corpus must be honest before any verdict computed from it is acted on."
+        }
+      ],
+      "note": "Is realized slippage what the harness assumed, per leg? This is what makes the ladder traversable for SLOW legs: a 1d leg can never establish expectancy on paper in usable time (23 of 52 legs are unbounded_no_closes), but cost fidelity converges in a handful of trades because it measures a per-trade quantity. Divergence demotes the leg AND invalidates its Stage-0 record, because the backtest assumed a cost the venue does not charge. Same unit as D3."
+    },
+    {
+      "id": "R4",
+      "title": "Write the first ten pre-registered research questions",
+      "phase": "R",
+      "state": "blocked",
+      "owner": "operator + manager",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "R1",
+          "what": "Questions are chosen against the surviving roster."
+        }
+      ],
+      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets."
+    },
+    {
+      "id": "R5",
+      "title": "Read the soak book on a cadence",
+      "phase": "R",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR-NAMED and never built: 26 legs on bybit_1 and 19 on alpaca_paper make decisions on live data continuously and nobody reads them. A standing weekly pass grading every soak leg on MECHANICS and COST FIDELITY (not expectancy -- see R3), filing each as tweakable-with-a-named-hypothesis or kill."
+    },
+    {
+      "id": "R6",
+      "title": "Decide whether the system should trade at all right now",
+      "phase": "R",
+      "state": "queued",
+      "owner": "operator",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Asked explicitly rather than assumed. Lifetime real-money expectancy is -0.3231R over n=431. If R1 demotes most of the fleet the live books may be near-empty for a period. THAT IS AN ACCEPTABLE OUTCOME, not a failure -- the operator's own principle is that only proven-edge strategies run. No leg is kept live to avoid an empty roster."
+    },
+    {
+      "id": "E3",
+      "title": "Make the cost model reach every harness",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect."
+    },
+    {
+      "id": "E4",
+      "title": "A real corpus, and one way to get candles",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "The default fixture is 5,001 rows spanning 3.5 days of 2022; anything falling back to it produces a confident answer about nothing. Per-symbol committed corpus with stated coverage, --data made mandatory, a guard failing a run whose input row count is below a floor. [!] THE FIXTURE STAYS -- it is the fast smoke path and deleting it breaks every self-test. What changes is that reaching it BY DEFAULT becomes impossible."
+    },
+    {
+      "id": "E5",
+      "title": "Every research workflow lands a durable queryable result",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "19 of 23 produce an artifact and an issue comment: artifacts expire, comments are not queryable. This is what makes MD-PROMOTE-S1-S2 POSSIBLE AT ALL -- without it there is no evidence record for the mandate to read. One result schema, one committed location, the commit step in the shared composite action rather than re-implemented 19 times."
+    },
+    {
+      "id": "E6",
+      "title": "Unblock replay-pregate",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "TWO independent faults and both must go: runtime_logs/** is not in TIER1_SURFACE so pr-landing R5 rejects the commit (0 reports on main since inception), AND the trainer swap-thrashes so 6 of 6 runs die at 10 of 22 heads with NO non-BTC head ever graded. [!] Fixing only the surface produces a green workflow that still grades a third of the fleet -- do not report it fixed on the commit landing. Raising trainer memory is an OCI capacity question: the Ampere pool is FULL at 4 of 4 OCPU."
+    },
+    {
+      "id": "E7",
+      "title": "Wire the 9 orphan backtest harnesses",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "A harness with no workflow runs when a human remembers it, which is never. One dispatchable workflow per family, taking leg + corpus as inputs, landing through E5. A queued research unit names its instrument, and the instrument must be dispatchable for the queue to mean anything."
+    },
+    {
+      "id": "E8",
+      "title": "The testing queue",
+      "phase": "E",
+      "state": "blocked",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "E5",
+          "what": "A queue of runs that land nothing durable is faster waste."
+        }
+      ],
+      "note": "The operator's original ask: 'always tests running, maximizing the infrastructure we have.' [!] IT GOES LAST ON PURPOSE -- a queue keeping runners busy against a fee-only corpus and a 3.5-day fixture manufactures wrong answers faster. Capacity is NOT the constraint; results not becoming decisions is, and E3-E7 fix that. Idle capacity that exists: GitHub-hosted runners, free for this repo."
+    },
+    {
+      "id": "E9",
+      "title": "Retire what the reset orphaned",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "67 guard scripts unreachable from run_guards.py, kept because 30+ live files still name their paths. Right call today, poor steady state. One bounded pass: delete with references, or record why it stays. NOT by bulk deletion -- the reference sweep IS the job. Low priority."
     }
   ]
 }

@@ -350,144 +350,155 @@ and reproduced it.
 
 ---
 
-## 5. The daily sync — 30 minutes, and standing authorizations
+## 5. The daily sync, and standing authorizations
 
 Once a day, same time. The manager pushes the brief **before** the sync, so the
 Workflow page and the conversation never disagree.
 
-> ⚠️ **CORRECTED 2026-09-21, same day, by the operator.** The first draft of
-> this section said *"if it does not fit in 30 minutes, the manager has failed
-> to prepare"* and capped the operator at **three decisions**. Both were wrong,
-> and the second was wrong in a way that would have defeated the whole plan.
-> The original text is preserved below the corrections, because a session
-> reading a quietly-rewritten section cannot tell which version the machinery
-> was built against.
+> ⚠️ **CORRECTED TWICE ON 2026-09-21, both times by the operator.** The first
+> draft capped the sync at 30 minutes and the operator at **three decisions**.
+> The second draft made 30 minutes a floor instead. **Both are wrong and the
+> time framing is now gone entirely** — see 5.1. The superseded text is kept at
+> the end of this section, because a session reading a quietly-rewritten
+> section cannot tell which version the machinery was built against.
 
-### 5.1 Thirty minutes is a FLOOR, not a ceiling
+### 5.1 The sync is not measured in time
 
-Operator, 2026-09-21: *"If it lasts less than 30 minutes, that means they
-didn't come with enough work… there needs to be enough things going on for us
-to have at least 30 minutes to talk about stuff."*
+Operator, 2026-09-21: *"The daily session shouldn't be measured in time. It
+takes however long it takes to go through the work I need to do — I don't want
+us tracking an arbitrary time limit to measure performance."*
 
-**A short sync is the failure signal.** It means the manager did not have
-enough in flight to fill the time — not that it prepared well. A sync that runs
-long because there is genuinely a lot moving is the system working.
+**There is no target duration, no floor and no ceiling.** The sync runs until
+the work in it is done. A clock is a proxy, and a proxy that gets tracked
+becomes a thing to optimise: a manager measured on session length has a reason
+to compress a real decision or pad a thin one, and neither serves anything.
 
-What the manager owes is a sync **worth** thirty minutes: real results, real
-decisions, real spend. Not a compressed one.
+What the manager owes is **the work being ready** — every item prepared to the
+point where the operator can act on it without going and finding something.
+Whether that takes eight minutes or ninety is an output of the work, not a
+target.
 
-### 5.2 The cap is removed, and replaced by standing authorizations
+### 5.2 The cap is removed, and standing authorizations replace it
 
 Operator, 2026-09-21: *"We need to think of a better way to give more
 decision-making power, more things automated — not create less decisions and
-limit how much work we can actually do. It's the wrong way of how I want to
-think about things. I want to think about it the opposite: how can I give
-blanket permissions up front that allow for more decisions to be automated so
-that we can keep things running."*
+limit how much work we can actually do… how can I give blanket permissions up
+front that allow for more decisions to be automated so that we can keep things
+running."*
 
 **The cap treated the operator's attention as the scarce resource and rationed
 it. The actual scarce resource is throughput, and rationing decisions throttles
-throughput** — a queue producing four decisions a day against a cap of three is
-a system deliberately running below its own rate. The fix is not a bigger cap.
-It is to stop most decisions from needing a person at all.
+it.** The fix is not a bigger cap. It is to stop most decisions from needing a
+person at all.
 
-**A standing authorization ("mandate") is an operator decision granted ONCE, in
-advance, that lets the system act inside stated bounds without asking again.**
-It is the same move as a pre-registered `decision_rule` (§3), lifted from the
-single question to the CLASS of question.
+A **mandate** is an operator decision granted ONCE, in advance, that lets the
+system act inside stated bounds without asking again. It is the pre-registered
+`decision_rule` of § 3, lifted from the single question to the CLASS of
+question. It is declared the way the execution gates are — visible in YAML,
+bounded, revocable — and lives in `config/mandates.yaml`.
 
-It is declared the way the execution gates are — visible in YAML, bounded,
-revocable — and it lives beside them:
+⚠️ **A mandate is NOT a third execution gate.** § "The two execution gates"
+says in terms that there is no third gate, and that is untouched:
+`accounts.yaml::mode` and `strategies.yaml::execution` remain the only two
+things deciding whether a strategy trades, and neither is default-off. A
+mandate sits on a **different axis** — it does not decide what RUNS, it decides
+what may be **CHANGED without asking**.
 
-```yaml
-# config/mandates.yaml — beside accounts.yaml and strategies.yaml, because a
-# mandate IS a declared permission, and declared permissions live in config.
-mandates:
-  - id: MD-DEMOTE-ON-MIRROR-NEGATIVE
-    grants:   demote a Stage-2 leg to Stage 1 (execution: shadow)
-    when:     the mirror's net-of-cost expectancy over the declared window is
-              negative at n >= N
-    direction: derisk_only          # may only REMOVE exposure
-    bounds:
-      accounts: [bybit_2, bybit_portfolio, alpaca_live, alpaca_portfolio]
-      max_per_week: null            # unbounded — see the asymmetry below
-    granted_by: operator
-    granted_on: 2026-09-21
-    expires:    2027-03-21
-```
+Four properties stop one rotting into a forgotten blanket yes: **bounded**,
+**evidence-conditional** (it fires on a stated rule, never on judgement),
+**expiring**, and **attributed** (every action records which mandate authorized
+it).
 
-⚠️ **A mandate is NOT a third execution gate, and must never be described as
-one.** § "The two execution gates" says in terms that there is no third gate,
-and that rule is untouched: `accounts.yaml::mode` and
-`strategies.yaml::execution` remain the only two things deciding whether a
-strategy trades, and neither is default-off. A mandate sits on a **different
-axis** — it does not decide what RUNS, it decides what may be **CHANGED without
-asking**. A leg no mandate covers trades exactly as it does today; the only
-thing absent is permission to move it automatically.
+### 5.3 THE LADDER IS FULLY AUTOMATED — granted 2026-09-21
 
-**The asymmetry IS the safety property, and it is what makes a blanket yes
-safe.** A mandate marked `derisk_only` can only ever reduce exposure; its worst
-case is that the system trades less than it could, which is recoverable by
-definition and costs a pull request to undo. A mandate that can ADD exposure is
-a different object and carries a hard ceiling on total risk added, a per-leg
-size bound, and a count. Granting the first freely and the second carefully is
-not timidity — it is the only split under which "grant more up front" is
-actually the safer arrangement rather than the braver one.
+Operator, 2026-09-21, verbatim: *"All the ladder decisions can be automated —
+that is a standing mandate. Strategies can be promoted to live money without
+explicit operator approval if the evidence supports the decision. I should just
+get a ping in realtime of the update and an evidence review in the next daily
+briefing."*
 
-Four properties keep a mandate from rotting into a forgotten blanket yes:
+**This is the strongest grant in the plan and it is recorded here as made.**
+Every transition on the ladder — both gates, both directions — fires on
+evidence without a human in the path.
 
-1. **Bounded** — scope, direction, magnitude, and a rate where direction is
-   `add_risk`.
-2. **Evidence-conditional** — it fires on a stated rule, never on judgement.
-3. **Expiring** — a granted-on and an expiry. An expired mandate stops
-   authorizing; it does not quietly persist.
-4. **Attributed** — every action taken under one records WHICH mandate
-   authorized it, so the sync reports what fired rather than asking permission
-   for it retroactively.
+| mandate | grants | direction |
+|---|---|---|
+| `MD-PROMOTE-S0-S1` | add a leg to the soak book (`bybit_1`, `alpaca_paper`) on a passing Stage-0 record | `add_risk` (paper) |
+| `MD-PROMOTE-S1-S2` | **add a leg to a REAL-MONEY roster** on a passing Stage-0 record plus Stage-1 cost fidelity | `add_risk` (real) |
+| `MD-DEMOTE-S2-S1` | demote a Stage-2 leg when the mirror goes net-negative net-of-cost over the declared window | `derisk_only` |
+| `MD-DEMOTE-S1-OFF` | drop a Stage-1 leg whose realized cost diverges from its harness assumption | `derisk_only` |
+| `MD-KILL-QUESTION` | close a research question that failed its own pre-registered rule | `derisk_only` |
 
-### 5.3 What the sync is actually for
+**Reporting, as the grant specifies it** — a promotion to real money is not
+silent:
 
-The brief is five sections now. Section 1 is the change: it is a **report**, not
-a request.
+1. **A realtime ping** when it fires, naming the leg, the direction, the
+   mandate, and the number that met the rule.
+2. **An evidence review in the next brief**, in section 1 — the record it fired
+   on, shown so the operator can check the machine's reasoning after the fact
+   rather than before it.
+
+⚠️ **WHAT NOW CARRIES ALL THE WEIGHT IS THE PHRASE "IF THE EVIDENCE SUPPORTS
+THE DECISION".** With no human in the path, the bar's *content* is the entire
+safety property. It must be: a **committed evidence record**, produced by a
+named harness, at a stated n, **net of the full cost stack**, clearing a rule
+registered BEFORE the run. A claim in a PR body is not a record. **B1 is what
+makes this checkable** — until the guard that requires an evidence record
+exists, "the evidence supports it" cannot be enforced, only asserted.
+
+⚠️ **AND THE PROMOTION MANDATE MUST NOT ARM UNTIL D1 LANDS. THIS IS NOT
+CAUTION, IT IS ARITHMETIC.** The harnesses default slippage and funding to
+`0.0`, so **every "passed the backtest" verdict in the corpus today is fee-only
+and optimistic by an unknown amount** — measured once at **+0.57R** on the one
+leg anyone checked. Arming auto-promotion against that corpus would
+automatically route real money on numbers we already know are wrong in the
+favourable direction. The grant stands; its arming is blocked on the instrument
+being trustworthy. The `derisk_only` mandates carry no such block — they act on
+live measurement, not on the backtest corpus, and their worst case removes
+exposure.
+
+Outstanding, and put to the operator as decisions: **the bar's exact content**
+and **the ceiling on how much real-money exposure may be added without a
+human** (§ 8, rows 5 and 6).
+
+### 5.4 What the brief contains
+
+Five sections, fixed order. Section 1 is a **report**, not a request.
 
 | # | Section | Contents |
 |---|---|---|
-| 1 | **Taken under mandate** | What the system did on its own, which mandate authorized it, and the number that met the rule. **No approval sought — this already happened.** |
+| 0 | **What came due** | From the follow-through pipeline (§ 3b). Each must be routed. |
+| 1 | **Taken under mandate** | What fired on its own, which mandate authorized it, and the evidence record it fired on. **No approval sought.** |
 | 2 | **Decisions for you** | Only what no mandate covers. **No cap.** |
 | 3 | **What moved** | Lanes completed, what they concluded, what was killed. |
 | 4 | **What is running** | Live lanes, spend so far, expected completion, anything blocked and on what. |
-| 5 | **Spend** | Yesterday, month-to-date, against budget, cost per unit delivered. |
+| 5 | **Spend** | Yesterday, month-to-date, against budget, cost per unit delivered, and the unrouted-item count. |
 
-**A decision that reaches the operator twice in the same shape is itself an
-agenda item**, and the manager raises it as one: *"this is the third time —
-should it become a mandate, and what are the bounds?"* That is the mechanism by
-which section 2 shrinks and section 1 grows without anyone rationing anything.
+**A decision that reaches the operator twice in the same shape is an agenda
+item**: *should this become a mandate, and at what bounds?* That is how
+section 2 shrinks and section 1 grows without anyone rationing anything.
 
 **The metric that matters is the share of decisions taken under mandate, and it
-should rise.** If it is flat month over month, the loop is not learning — which
-is a finding about the system, not about the operator's availability.
-
-What the operator still never does: read a 400-line memo to make a decision, or
-triage a backlog.
+should rise.** Flat month over month means the loop is not learning.
 
 **Monthly, one question:** how many legs advanced a stage, how many were
-killed, and what did we learn? If that is zero two months running, the answer is
-not more process.
+killed, and what did we learn? If that is zero two months running, the answer
+is not more process.
 
 <details>
-<summary>The superseded text, kept as the record of what was proposed</summary>
+<summary>The two superseded versions, kept as the record of what was proposed</summary>
 
-> Four sections, fixed order, hard cap. **Decisions for you** — capped at 3,
-> Tier-3 only. **What moved** · **What is running** · **Spend**.
+> **v1, rejected same day.** Four sections, hard cap of 3 decisions. *"If it
+> does not fit in 30 minutes, the manager has failed to prepare… a fourth
+> decision means the queue is producing faster than the operator can
+> adjudicate."*
 >
-> *"If it does not fit in 30 minutes, the manager has failed to prepare — that
-> is the signal, not an excuse to run long. Three decisions is the cap because
-> a fourth means the queue is producing faster than the operator can
-> adjudicate, which is itself a thing to fix rather than absorb."*
+> **v2, rejected same day.** *"Thirty minutes is a FLOOR, not a ceiling. A
+> short sync is the failure signal."*
 
-Both claims were rejected by the operator on the day they were written. The
-30-minute figure is a floor, and a queue outrunning one person is an argument
-for automating the class, not for slowing the queue.
+v1 rationed the operator's attention, which throttles throughput. v2 fixed the
+direction and kept the clock. The operator rejected the clock itself: *"I don't
+want us tracking an arbitrary time limit to measure performance."*
 
 </details>
 
@@ -572,6 +583,27 @@ deletion and rewiring; nothing new gets built until C.
 | **C4** | Wire the 9 orphan harnesses; replace the smoke fixture with a real corpus. | build lane |
 | **C5** | **Write the first ten pre-registered questions.** The only item that builds nothing — and the only one that produces knowledge. | operator + manager |
 
+### PHASE E — the research programme and its infra (runs alongside B/C)
+
+Full statements: [`RESEARCH-PLAN-2026-09-21.md`](RESEARCH-PLAN-2026-09-21.md) ·
+[`ENGINEERING-PLAN-2026-09-21.md`](ENGINEERING-PLAN-2026-09-21.md).
+
+| id | item | who |
+|---|---|---|
+| **E3** | **Make the cost model reach every harness.** The highest-value engineering item in the repo: R1 depends on it, and R1 gates the arming of `MD-PROMOTE-S1-S2`. | build lane |
+| **E4** | A real corpus; `--data` mandatory; a row-count floor. The 3.5-day fixture stays as a smoke path but stops being reachable by default. | build lane |
+| **E5** | Every research workflow lands a durable, queryable result. **This is what makes the promotion mandate possible at all** — without it there is no evidence record to read. | build lane |
+| **E6** | Unblock `replay-pregate`: the `TIER1_SURFACE` entry *and* the trainer memory. Fixing only the first grades a third of the fleet and looks green. | build lane |
+| **E7** | Wire the 9 orphan harnesses. | build lane |
+| **E8** | The testing queue. **Last on purpose** — a queue running against a fee-only corpus manufactures wrong answers faster. | build lane |
+| **E9** | Retire the 67 orphaned guard scripts. Low priority; the reference sweep is the job. | build lane |
+| **R1** | **Re-run the corpus with costs on.** Nothing real depends on anything else until this is done. | research lane |
+| **R2** | Cut the fleet to what passes — an observation that `MD-DEMOTE-S1-OFF` fired correctly, not a separate decision. | manager |
+| **R3** | Cost fidelity as the standing Gate-1 test. What makes the ladder traversable for slow legs. | build lane |
+| **R4** | The first ten pre-registered questions. | operator + manager |
+| **R5** | **Read the soak book on a cadence.** Operator-named, never built. | build lane |
+| **R6** | Decide whether to trade at all right now. An empty live roster is an acceptable outcome. | operator |
+
 ### PHASE D — repair the evidence base (deferred, operator's call on timing)
 
 | id | item | who |
@@ -586,6 +618,43 @@ deletion and rewiring; nothing new gets built until C.
 
 ---
 
+## 7b. The work schedule — what happens when, on the Pages UI
+
+> Operator-requested 2026-09-21: *"A work schedule, visible on the gitpages UI
+> site — when different sessions need to happen, when decisions are due,
+> monitoring items, etc."*
+> Built as **A9**. Two halves in two repos.
+
+**It renders what already exists. It is not a new register**, and that
+constraint is the whole design — a schedule maintained by hand is the ninth
+register wearing a calendar.
+
+| row kind | where it comes from |
+|---|---|
+| **Cadenced sessions** | the daily sync; `/health-review`, `/performance-review`, `/ml-review` on their own cadences |
+| **Decisions due** | pipeline rows whose `next_action` is `ask_operator` (§ 3b) |
+| **Monitoring due** | pipeline `due_when.check_every_days` coming up |
+| **Automated jobs** | cron cadences **read from the workflow files**, never retyped |
+| **Lanes running** | the checklist's `in_flight` rows with their spend |
+
+⚠️ **The cron column is derived, not declared.** A schedule that states a
+cadence a second time is free to drift from the workflow that actually carries
+it, and this repo has already measured that exact failure: `work-digest`
+declared `20 * * * *` and fired five times in a day, at :19, :10, :33 and :47.
+**So the page shows the declared cadence beside the LAST OBSERVED FIRING**, and
+where those disagree it says so rather than picking one.
+
+⚠️ **If the schedule needs a fact nobody records, that is a finding about the
+pipeline — not a reason to start typing it into a new file.**
+
+**The two halves are in different repos and the second is the one that makes it
+visible:** a route here (`GET /api/bot/work/schedule`, reading the VM's working
+tree like the checklist route) and the render in
+`benbaichmankass/ict-trader-dashboard`. The page is exactly as fresh as the last
+push **to `main`** plus `ict-git-sync`'s ~5-minute pull.
+
+---
+
 ## 8. Open decisions
 
 | # | Question | Recommendation |
@@ -593,9 +662,9 @@ deletion and rewiring; nothing new gets built until C.
 | 1 | Does the soak book stay at 26 legs, or get curated? | **Keep it wide.** It is an instrument, not a decision surface, and the cost-fidelity job will tell us which legs are worth keeping — a measurement rather than a guess. |
 | 2 | Cut real money now, or go flat during the transition? | **Cut rather than stop.** The mechanics data is worth something and the exposure is a few hundred dollars. But pull the two negative-OOS Alpaca legs (A6). |
 | 3 | What is the daily budget? | **Operator's number.** A2 alone should cut per-lane cost substantially, but the meter needs a line to report against or it is just accounting. |
-| 3b | **Which mandates get granted first, and at what bounds?** | **Start with the three `derisk_only` ones**, because a blanket yes on them is safe by construction: (a) demote a Stage-2 leg when the mirror goes net-negative over the declared window; (b) kill a research question that failed its pre-registered rule; (c) drop a Stage-1 leg whose realized cost diverges from its harness assumption. None can add exposure. **Then decide separately, and more slowly, on the one that can: promotion Stage 1 → Stage 2.** A mandate there is real and worth having — it is the step that currently waits longest — but its bounds are the operator's call, not a default: total risk added per week, per-leg size, and whether a count or a dollar ceiling is the binding term. |
-| 3c | **Does `execution: shadow` → `live` on the SOAK book need a mandate at all?** | **Recommendation: no — authorize it outright.** `bybit_1` and `alpaca_paper` are paper money and the plan already says Stage 1 may be wide. Requiring a decision to put a leg on a paper book is a gate with no money behind it, and it is one of the places throughput is being lost today. |
 | 3d | **What is the kill bar for the 1,065 archived backlog rows (A8)?** | **Recommendation: kill by default, promote by exception.** Anything with no observation in 60 days and no named owner is killed with `terminal_reason: unworked_since_<date>`. The 91 `OPEN-ITEMS` monitoring rows are the exception and come across whole. The alternative — import everything and triage later — rebuilds the graveyard in a new file, which is the failure this is meant to end. |
+| **5** | **What must an evidence record SHOW to auto-promote a leg to real money?** | This is now the entire safety property, since nobody is in the path. Recommendation: **expectancy > 0 net of the full cost stack at n >= 30 closed, AND positive in a majority of walk-forward folds, AND realized Stage-1 cost within a stated tolerance of the modelled cost.** The third clause is the one this system has never had and is cheap to check. Your numbers, not mine — but a bar with no n and no fold requirement is not a bar. |
+| **6** | **What is the ceiling on real-money exposure added without a human?** | An `add_risk` mandate needs one by construction. Recommendation: **cap the RISK ADDED per week rather than the leg count** — a count treats a 0.1% leg and a 2% leg alike. Suggested opening value: no more than one new leg per week per account, and total declared risk across auto-promoted legs no more than 25% of the account's configured risk budget, whichever binds first. |
 | 4 | How aggressive is the Phase-A deletion? | **Aggressive.** Partial removal leaves the treadmill running — the crons keep firing, the briefs keep growing, and the manager keeps having somewhere to put its effort that is not research. |
 
 ---

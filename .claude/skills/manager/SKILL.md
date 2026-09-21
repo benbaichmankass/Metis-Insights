@@ -139,79 +139,77 @@ fresh as the last **push to `main`** plus that interval.
 message and a page that disagree with it, and the page is the artifact they
 keep.
 
-## Standing authorizations — the default, not the exception
+## Standing authorizations — the ladder is fully automated
 
-**A decision class that can be stated as a rule does not belong in the brief.
-It belongs in `config/mandates.yaml`.**
+**The whole ladder fires on evidence, with no human in the path** (operator
+grant, 2026-09-21): *"All the ladder decisions can be automated — that is a
+standing mandate. Strategies can be promoted to live money without explicit
+operator approval if the evidence supports the decision. I should just get a
+ping in realtime of the update and an evidence review in the next daily
+briefing."*
 
-A **mandate** is an operator decision granted ONCE, in advance, that lets the
-system act inside stated bounds without asking again. It is declared the same
-way the execution gates are — visible in YAML, bounded, revocable.
-
-⚠️ **It is NOT a third execution gate, and must never be described as one.**
-CLAUDE.md § "The two execution gates" says in terms that there is no third gate,
-and that rule stands untouched: `accounts.yaml::mode` and
-`strategies.yaml::execution` remain the only two things that decide whether a
-strategy trades, and neither is default-off. A mandate sits on a **different
-axis** — it does not decide what RUNS, it decides what may be **CHANGED without
-asking**. A leg with no mandate covering it trades exactly as before; all that
-is missing is permission to move it automatically.
-
-The manager's standing duty here is to **keep moving decisions out of the brief
-and into mandates**:
-
-- A decision that reaches the operator **twice in the same shape** is raised at
-  the next sync as *"this is the second time — should it become a mandate, and
-  what are the bounds?"*
-- A mandate that fires often is working. A mandate that has **never** fired is
-  either mis-specified or its condition does not occur — say which.
-- A mandate that fires and surprises is a finding, reported in section 1.
-
-**The asymmetry is what makes a blanket yes safe, and it is not optional.**
-
-| `direction` | ceiling | why |
+| mandate | grants | direction |
 |---|---|---|
-| `derisk_only` | none needed | Worst case is the system trades less than it could — recoverable, and undone by a PR. |
-| `add_risk` | hard cap on total risk added, per-leg size bound, and a count | Worst case is money on the table nobody chose to put there. |
+| `MD-PROMOTE-S0-S1` | add a leg to the soak book on a passing Stage-0 record | `add_risk` (paper) |
+| `MD-PROMOTE-S1-S2` | **add a leg to a REAL-MONEY roster** on Stage-0 + Stage-1 cost fidelity | `add_risk` (real) |
+| `MD-DEMOTE-S2-S1` | demote when the mirror goes net-negative net-of-cost | `derisk_only` |
+| `MD-DEMOTE-S1-OFF` | drop a Stage-1 leg whose realized cost diverges | `derisk_only` |
+| `MD-KILL-QUESTION` | close a question that failed its own pre-registered rule | `derisk_only` |
 
-Granting the first kind freely and the second carefully is the whole reason
-"grant more up front" is the *safer* arrangement rather than the braver one.
+**When one fires: ping in realtime, then show the evidence record in section 1
+of the next brief.** The operator checks the machine's reasoning after the
+fact, not before it. The ping is not optional and a promotion to real money is
+never silent.
+
+⚠️ **"IF THE EVIDENCE SUPPORTS THE DECISION" IS NOW THE ENTIRE SAFETY
+PROPERTY.** With nobody in the path, the bar's content is all that stands
+between a passing number and real money. It must be a **committed evidence
+record** — named harness, stated n, **net of the full cost stack**, clearing a
+rule registered BEFORE the run. **A claim in a PR body is not a record.** If a
+lane proposes a promotion without one, that is not a close call; send it back.
+
+⚠️ **`MD-PROMOTE-S1-S2` DOES NOT ARM UNTIL D1 LANDS, AND THIS IS ARITHMETIC
+RATHER THAN CAUTION.** The harnesses default slippage and funding to `0.0`, so
+every "passed the backtest" verdict in today's corpus is fee-only and
+optimistic by an unknown amount — measured once at **+0.57R**. Arming
+auto-promotion against that corpus routes real money on numbers already known
+to be wrong in the favourable direction. The `derisk_only` mandates carry no
+such block: they read live measurement, not the corpus, and their worst case
+removes exposure.
 
 ⚠️ **A mandate never authorizes judgement.** It fires on a stated rule against
 a stated population, or it does not fire. "The manager thought it was fine" is
-not a mandate firing; it is a session taking a Tier-3 action, which is
-forbidden.
+a session taking a Tier-3 action, which is forbidden.
 
-⚠️ **Expiry is load-bearing.** An expired mandate stops authorizing. It does not
-quietly persist because nobody looked.
+⚠️ **Expiry is load-bearing.** An expired mandate stops authorizing.
+
+The manager's standing duty: **keep moving decisions out of the brief and into
+mandates.** A decision that arrives twice in the same shape is raised as
+*"should this become a mandate, and at what bounds?"* A mandate that has NEVER
+fired is either mis-specified or its condition does not occur — say which.
 
 ## The daily brief
 
-Rendered and **pushed before** the sync. Five sections, fixed order.
+Rendered and **pushed before** the sync. Six sections, fixed order.
 
 | # | Section | Contents |
 |---|---|---|
-| 1 | **Taken under mandate** | What the system did on its own, which mandate authorized it, and the number that met the rule. **This is a REPORT. No approval is sought — it already happened.** |
-| 2 | **Decisions for you** | Only what no mandate covers. **There is no cap.** |
+| 0 | **What came due** | From the follow-through pipeline. Each must be routed the same day. |
+| 1 | **Taken under mandate** | What fired, which mandate authorized it, and the evidence record. **A report, not a request.** |
+| 2 | **Decisions for you** | Only what no mandate covers. **No cap.** |
 | 3 | **What moved** | Lanes completed, what they concluded, what was killed. |
-| 4 | **What is running** | Live lanes, spend so far, expected completion, anything blocked and on what. |
-| 5 | **Spend** | Yesterday, month-to-date, against budget, cost per unit delivered. |
+| 4 | **What is running** | Live lanes, spend, expected completion, anything blocked and on what. |
+| 5 | **Spend** | Yesterday, month-to-date, against budget, cost per unit delivered, unrouted count. |
 
-⚠️ **THIRTY MINUTES IS A FLOOR, NOT A CEILING** (operator, 2026-09-21). **A
-SHORT SYNC IS THE FAILURE SIGNAL** — it means the manager did not have enough in
-flight to fill the time. A sync that runs long because a lot is genuinely moving
-is the system working. What the manager owes is a sync *worth* thirty minutes,
-not a compressed one.
+⚠️ **THE SYNC IS NOT MEASURED IN TIME** (operator, 2026-09-21): *"it takes
+however long it takes to go through the work I need to do — I don't want us
+tracking an arbitrary time limit to measure performance."* No target, no floor,
+no ceiling. **Do not report session length as a metric.** Two earlier versions
+of this file set a 30-minute ceiling and then a 30-minute floor; both were
+rejected. What the manager owes is the WORK being ready, not a duration.
 
-⚠️ **THERE IS NO CAP ON SECTION 2, AND AN EARLIER VERSION OF THIS FILE SET ONE
-AT THREE.** That was rejected by the operator on the day it was written: a cap
-rations the operator's attention, which throttles throughput, and a queue
-outrunning one person is an argument for **automating the class**, not for
-slowing the queue. If section 2 is long, the answer is mandates — not a shorter
-list.
-
-**The metric that matters is the share of decisions taken under mandate, and it
-should RISE.** Flat month over month means the loop is not learning.
+⚠️ **THERE IS NO CAP ON SECTION 2.** A queue outrunning one person is an
+argument for automating the class, not for shortening the list.
 
 ## The ladder the manager is moving things along
 

@@ -2,6 +2,35 @@
 
 > **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
+> ---
+> # 🔄 SUPERSEDED AS THE STATEMENT OF WHAT HAPPENS NEXT — 2026-09-21
+>
+> **Read [`docs/plans/RESEARCH-PLAN-2026-09-21.md`](docs/plans/RESEARCH-PLAN-2026-09-21.md)
+> for what research happens next, and
+> [`docs/plans/ENGINEERING-PLAN-2026-09-21.md`](docs/plans/ENGINEERING-PLAN-2026-09-21.md)
+> for the infra it needs.** What is being worked right now is
+> [`docs/claude/work/MANAGER-CHECKLIST.json`](docs/claude/work/MANAGER-CHECKLIST.json),
+> served as the Workflow page on the SPA.
+>
+> **This file dropped from level 3 to level 8 of the instruction hierarchy** in
+> the operator-directed operating reset of 2026-09-21. It is **context, not
+> instruction**: a record of what was built, not a statement of what to build.
+>
+> **Why.** It is 668 KB, reads 191 ✅ against 24 📋, was last verified 23 days
+> ago, and carries its own warning that *"nobody has verified this document's
+> status — do not act on it as current."* Milestones measure **construction**.
+> The thing that is not happening is **learning**: 404 research memos, 117
+> dispositions, **one** ever marked `actioned`. A question queue measures that;
+> a milestone list cannot.
+>
+> **It is deliberately NOT rewritten.** A 668 KB rewrite is precisely the
+> work-about-work the reset exists to stop, and the historical record below is
+> worth keeping intact. Nothing here is deleted — it is re-pointed.
+>
+> ⚠️ **Do not add a new milestone here.** A build goes to the checklist; a
+> question goes to `research/queue/`. Those are the only two categories.
+> ---
+>
 > **Companion roadmap:** [`ROADMAP_MACRO.md`](./ROADMAP_MACRO.md) — the
 > platform-layering effort (a machine-enforced Signals / Strategy / Execution
 > boundary via `import-linter`) + the **macro event-driven** (energy / carbon)
