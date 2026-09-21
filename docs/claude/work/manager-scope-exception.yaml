@@ -37,3 +37,48 @@ exceptions:
       it lives only in this session's head, and the operator's stated
       number-one failure mode is losing work to sessions dying mid-flight. An
       unwritten fix IS that loss.
+
+  - id: MGR-20260921-STALE-SESSION-HOOKS
+    status: active
+    expires: "2026-09-24"
+    paths:
+      - ".claude/settings.json"
+    reason: >-
+      OPERATOR GRANT, 2026-09-21, in answer to a decision put to them as one of
+      four: they chose "Grant me settings.json" over editing it themselves or
+      leaving it. Specific, not inferred.
+
+      WHAT IT COVERS: removing instructions that send sessions to files the
+      2026-09-21 reset archived, and repointing them at what exists. Nothing
+      else in this file is touched — no new hook, no permission change, no
+      env var. Scope of record is pipeline item PI-20260921-M05.
+
+      WHY IT MATTERS: MEASURED 2026-09-21, 22 references across three
+      SessionStart hooks and two PreToolUse hooks. This is the most expensive
+      instance of the reset's orphan class found so far, because it is not a
+      degraded check a session might never run — it is the FIRST thing EVERY
+      session reads, and it instructed them to register on a coordination board
+      that does not exist, claim merge slots by commenting on it, pull two
+      retired skills, and file findings into three archived backlogs.
+
+      WHAT CHANGED, precisely: item 0 of the session-start contract (the whole
+      coordination-board protocol) replaced with what is actually live; the
+      /system-review roll-up marked retired; the definition of done repointed
+      from "the three review backlogs are drained" to the pipeline and the
+      checklist; Rule 2's filing target repointed; the delegate-work and
+      session-registry paragraph replaced with the manager contract; the
+      board-nudge PreToolUse hook DELETED outright, since the thing it nudged
+      is gone; and the merge-slot PreToolUse guard KEPT but repointed — the
+      claim is still live and required, it is now a file
+      (scripts/ops/claim_merge_slot.py --branch-claim) rather than a board
+      comment.
+
+      ⚠️ A DELIBERATE RESIDUE, so a successor does not "fix" it: the hooks
+      still NAME the archived files, in sentences saying they are archived and
+      must not be used. That is correct and load-bearing — a session needs the
+      name it would otherwise go looking for. A probe that merely counts
+      mentions will therefore never read zero, and the acceptance criterion on
+      PI-20260921-M05 was corrected to say so.
+
+      VERIFIED, not assumed: all six hook commands re-parsed under `bash -n`
+      and the rendered session-start text was read back after the edit.
