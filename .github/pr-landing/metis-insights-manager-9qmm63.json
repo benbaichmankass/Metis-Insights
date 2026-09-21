@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Manager register only -- docs/claude/work/MANAGER-CHECKLIST.json, which is the manager surface. No runtime, order path, config or CI machinery touched."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 work touching .claude/settings.json, which is outside TIER1_SURFACE. Verified against the diff: the only unvouchable path is .claude/settings.json; everything else is docs/claude/work/** (the manager surface) and .github/pr-landing|pr-automerge-requests|merge-slots. The change removes instructions sending every session to files the 2026-09-21 reset archived and repoints them at what exists. OPERATOR GRANTED IT 2026-09-21, answering a decision put to them as one of four: they chose 'Grant me settings.json' over editing it themselves. Recorded under this guard's sibling escape hatch as docs/claude/work/manager-scope-exception.yaml :: MGR-20260921-STALE-SESSION-HOOKS (active, that one path, expiring 2026-09-24). Held rather than self-landed because R5 is right that a guard must not certify what it cannot vouch for -- the grant authorises the EDIT, it does not make the path Tier-1.",
+  "why": "Repoints .claude/settings.json's session hooks off 22 archived references; plus manager register, pipeline rows, and the landing paperwork."
 }
