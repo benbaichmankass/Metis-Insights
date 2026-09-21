@@ -423,6 +423,21 @@
       "note": "OPERATOR-REQUESTED 2026-09-21: 'A work schedule, visible on the gitpages UI site -- when different sessions need to happen, when decisions are due, monitoring items, etc.' Two halves and they are DIFFERENT REPOS: docs/claude/work/SCHEDULE.json + a route here, and the render in benbaichmankass/ict-trader-dashboard. Sources are already-existing state, NOT a new register: cadenced sessions (the daily sync, the three reviews), decisions owed (from the pipeline's ask_operator rows), monitoring items coming due (pipeline due_when), and cron cadences read from the workflow files rather than retyped. [!] IT RENDERS WHAT EXISTS; if it needs a fact nobody records, that is a finding about the pipeline, not a reason for a second register."
     },
     {
+      "id": "A10",
+      "title": "Dispose of the 85 unrouted rows section 0 is reporting",
+      "phase": "A",
+      "state": "queued",
+      "owner": "build lane",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OBSERVED ON THE OPERATOR'S PAGE 2026-09-21, in the same screenshot that closed A7: `85 UNROUTED · 93 DUE · 1,168 ITEM(S)`. Those are A8's imported `OI-*` rows, carried rather than killed. [!] THIS IS ONE BOUNDED SWEEP, NOT 85 RUBBER-STAMPS — the plan's own position is that most archived rows should be KILLED EXPLICITLY with a stated reason rather than routed, and a lane that routes all 85 to `ask_operator` or to a new row has done the opposite of the work. Read each, kill with `terminal_reason` by default, and promote by exception with the exception argued. [!] ACCEPTANCE IS A NUMBER ON THE PAGE: unrouted_count() back to a figure the operator can read in one sitting, with the kill reasons in the store, not in a PR body. [!] DO NOT batch-kill on a pattern match — `killed` is a first-class outcome precisely because it is a JUDGEMENT; an 85-row sed is the same non-reading that produced 951 open rows and one `actioned`."
+    },
+    {
       "id": "E1",
       "title": "Research plan + ROADMAP re-point",
       "phase": "E",
@@ -581,9 +596,11 @@
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12684
+      ],
       "blocked_on": [],
-      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect. [!] DISPATCHED 2026-09-21, ahead of the A-phase order the handoff gave, and the reason is on this row already: it is named THE SINGLE HIGHEST-VALUE ENGINEERING ITEM, it is unblocked, Tier-1, and it conflicts with no file any other live lane is in. Holding it behind A9 would have bought nothing. FRESH, sonnet-5. [!] MODEL CHOICE ARGUED, because this one is close to the order-path rule and close calls are where a table gets misread: the task table sends anything ON A REAL-MONEY ORDER PATH to opus, and a backtest harness is not one. The downstream risk -- a wrong cost number arming a real-money promotion -- is real but cannot fire today: MD-PROMOTE-S1-S2 does not arm until D1, and B5 (the mandate mechanism) is not built, so nothing automatic follows from this landing. Sonnet is correct HERE and would not be once B5 exists. [!] LANE FENCED OUT of changing what execution_costs.py COMPUTES (it is correct, and a behaviour change there is a different tier) and out of re-running the corpus (that is D1/R1). It was told to wire vwap FIRST if it cannot finish -- 318 of 431 lifetime real-money trades -- and to file the remainder in the pipeline rather than leave it in a PR body."
+      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect. [!] DISPATCHED 2026-09-21, ahead of the A-phase order the handoff gave, and the reason is on this row already: it is named THE SINGLE HIGHEST-VALUE ENGINEERING ITEM, it is unblocked, Tier-1, and it conflicts with no file any other live lane is in. Holding it behind A9 would have bought nothing. FRESH, sonnet-5. [!] MODEL CHOICE ARGUED, because this one is close to the order-path rule and close calls are where a table gets misread: the task table sends anything ON A REAL-MONEY ORDER PATH to opus, and a backtest harness is not one. The downstream risk -- a wrong cost number arming a real-money promotion -- is real but cannot fire today: MD-PROMOTE-S1-S2 does not arm until D1, and B5 (the mandate mechanism) is not built, so nothing automatic follows from this landing. Sonnet is correct HERE and would not be once B5 exists. [!] LANE FENCED OUT of changing what execution_costs.py COMPUTES (it is correct, and a behaviour change there is a different tier) and out of re-running the corpus (that is D1/R1). It was told to wire vwap FIRST if it cannot finish -- 318 of 431 lifetime real-money trades -- and to file the remainder in the pipeline rather than leave it in a PR body. [!] PR IS #12684. The lane's own summary named #8831, a number that belongs to no PR of this change -- recorded because a wrong PR number in a summary is unfalsifiable from the summary alone, and the manager merged from the branch name, not the number."
     },
     {
       "id": "E4",
@@ -747,7 +764,7 @@
     },
     {
       "id": "E14",
-      "title": "The brief renders at 42 KB — give the store a length discipline",
+      "title": "The brief renders at 159,766 characters — give the store a length discipline",
       "phase": "E",
       "state": "queued",
       "owner": "build lane",
@@ -757,14 +774,8 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": [
-        {
-          "kind": "work_item",
-          "ref": "A8",
-          "what": "Fix against the ~1,150-item store, not today's 11 — the sizing question is different at that scale."
-        }
-      ],
-      "note": "PROMOTED FROM PI-20260921-M07. MEASURED on the first real render after A3a merged: 42,159 characters, 140 lines, section 0 the bulk. The GENERATOR is not at fault — it prints each item's `what` and `routed_to` verbatim, correct for a store whose fields are sentences. The manager wrote paragraph-length routing essays and section 0 printed them. [!] NEAR MISS OF THE EXACT FAILURE A8 WAS WARNED AGAINST: A8's acceptance test was that section 0 must not become a wall of UNDISPOSITIONED rows and it passed cleanly; mine is a wall of DISPOSITIONED rows, which is better in kind and identical in effect, because the mechanism rests entirely on the operator reading it daily. [!] TWO FIXES, NOT EQUIVALENT: (a) truncate per row with the full text one click away — mitigation, and this repo's rule is a truncation may never hide, so the count must print beside it; (b) give the STORE a length discipline, `what` is one sentence and the reasoning lives in the linked artifact — the real fix. Prefer (b). The validator currently enforces a MINIMUM on these fields and no maximum."
+      "blocked_on": [],
+      "note": "PROMOTED FROM PI-20260921-M07. MEASURED TWICE. First real render after A3a merged: 42,159 characters, 140 lines. Re-measured after A8 imported the archived registers (#12679, on main as 497bae2): 159,766 characters -- 3.8x, and the store it was warned about at scale is now the store that exists. The GENERATOR is not at fault — it prints each item's `what` and `routed_to` verbatim, correct for a store whose fields are sentences. The manager wrote paragraph-length routing essays and section 0 printed them. [!] NEAR MISS OF THE EXACT FAILURE A8 WAS WARNED AGAINST: A8's acceptance test was that section 0 must not become a wall of UNDISPOSITIONED rows and it passed cleanly; mine is a wall of DISPOSITIONED rows, which is better in kind and identical in effect, because the mechanism rests entirely on the operator reading it daily. [!] TWO FIXES, NOT EQUIVALENT: (a) truncate per row with the full text one click away — mitigation, and this repo's rule is a truncation may never hide, so the count must print beside it; (b) give the STORE a length discipline, `what` is one sentence and the reasoning lives in the linked artifact — the real fix. Prefer (b). The validator currently enforces a MINIMUM on these fields and no maximum. [!] UNBLOCKED 2026-09-21: A8's import is on main, so the ~1,150-item store this row was told to size against is the live one. The blocker is discharged by observation, not by waiting. [!] URGENCY CHANGED WITH THE NUMBER: at 42 KB this was a tidiness item; at 159,766 characters it is the mechanism failing, because the whole pull rests on the operator reading section 0 daily and nobody reads 160 KB daily."
     },
     {
       "id": "A3b",
