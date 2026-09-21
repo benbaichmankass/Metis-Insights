@@ -44,7 +44,7 @@
     "spend_usd": "actual, filled in by the cost meter (A1)",
     "tier": "1 | 2 | 3 - the approval the resulting change needs",
     "prs": "PR numbers",
-    "blocked_on": "named blocker, or null",
+    "blocked_on": "typed edges [{kind, ref, what}] — kind is `work_item` or `operator_decision`, ref names the blocker, what says why. Empty list = nothing declared blocks it.",
     "note": "what is true about this row. Not a log."
   },
   "items": [
@@ -60,7 +60,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "Per-lane ceiling + a daily total. Today 263 session rows across ~90 keys carry ZERO cost or token fields. The meter's job is scoping, not accounting."
     },
     {
@@ -75,7 +75,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "DONE in this PR: 547 KB -> 16.5 KB (~136K -> ~4.1K tokens). The generated SESSION-BRIEF block (39.4% of the file) and its generator scripts/ops/render_session_brief.py are deleted. Reference moved verbatim to docs/reference/. landed_unproven until a cold session is observed orienting from the cut file."
     },
     {
@@ -90,7 +90,13 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": "A1 (section 4 only)",
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "A1",
+          "what": "Section 4 (spend) needs the cost meter. Sections 1-3 can ship without it."
+        }
+      ],
       "note": "Renders from research/queue/ + checklist lane state + the A1 cost meter. Served on the existing Workflow page. Blocked on A1 for section 4 only; sections 1-3 can ship first."
     },
     {
@@ -105,7 +111,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "DONE in this PR: .claude/skills/manager/SKILL.md. One job, one register, spawn rules, model table, budget, brief format. landed_unproven until a manager session is observed running against it."
     },
     {
@@ -120,7 +126,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "DONE in this PR: archived the work store (210 objects), OPEN-ITEMS.json, the four review backlogs (951 open rows), SESSIONS.json, MANAGER-LEASE.json, MERGE-QUEUE.json, DUE.*, READOUT.md, the coordination board and 10 process skills. REMAINING for a build lane: retire the guards and crons that guarded the archived machinery, and prune the workflow catalog."
     },
     {
@@ -135,7 +141,13 @@
       "spend_usd": null,
       "tier": 3,
       "prs": [],
-      "blocked_on": "operator approval",
+      "blocked_on": [
+        {
+          "kind": "operator_decision",
+          "ref": "A6",
+          "what": "Tier-3: removing a leg from a real-money roster needs explicit operator approval before merge."
+        }
+      ],
       "note": "tlt_pullback_1h (-4.41R, n=94) and tlt_pullback_1d (-3.92R, n=8, 0 of 4 folds positive). One-line config change, reversible, does NOT wait on D1. TIER-3: needs explicit operator approval before merge."
     },
     {
@@ -150,7 +162,7 @@
       "spend_usd": null,
       "tier": 2,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "THE LOAD-BEARING CHANGE. Today check_dry_run_in_diff.py blocks turning a leg OFF and nothing blocks turning one ON; across 78 guards there is no counterpart. Demotion becomes free; promotion to a real-money roster requires a fresh evidence record clearing its declared bar. Tier-2 (CI + order-path policy) and needs the operator on the bar definition."
     },
     {
@@ -165,7 +177,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "Extend tests/test_paper_portfolio_accounts.py's Bybit roster-sync test to alpaca_live / alpaca_portfolio. Measured 2026-09-21: alpaca_live 5 strategies, alpaca_portfolio 14 - so that mirror cannot be read as the honest-size live book and Gate 2's demotion signal does not work on that side."
     },
     {
@@ -180,7 +192,7 @@
       "spend_usd": null,
       "tier": 2,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "Flip to enforcing, pointed at demotion rather than promotion. A mirror carrying an identical roster only holds data for legs already live, so it cannot gate entry - it gates exit. Recommended 2026-07-30, built, shipped observe-only, never armed. Tier-2."
     },
     {
@@ -195,7 +207,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "Without this it keeps grading 52 legs against a 20-trade floor and emitting nothing, forever. comms/strategy_reviews/2026-09-20/INDEX.json: 52 graded, 71 closes in window, actionable 0, its own days_to_grade_all_reachable_point 140.0, unbounded_no_closes 23."
     },
     {
@@ -210,7 +222,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "Decide before you measure: the result IS the decision, removing the interpretation step where everything currently dies (1 actioned disposition of 117)."
     },
     {
@@ -225,7 +237,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "19 of 23 produce an artifact and an issue comment and nothing else. A result nobody can query later is not evidence."
     },
     {
@@ -240,7 +252,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "runtime_logs/** is not in TIER1_SURFACE so pr-landing-guard R5 rejects the commit - 0 reports on main since inception. Separately the trainer swap-thrashes, so 6 of 6 nightly runs die at 10 of 22 heads and no non-BTC head has ever been graded."
     },
     {
@@ -255,7 +267,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "9 of 13 harnesses are wired to no workflow, and the default candle file is a 5,001-row smoke fixture spanning 3.5 days of 2022."
     },
     {
@@ -270,7 +282,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier."
     },
     {
@@ -285,7 +297,7 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": null,
+      "blocked_on": [],
       "note": "src/runtime/execution_costs.py models fee + slippage + funding correctly; the HARNESSES set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0 by default, deliberately, for backward compatibility. So every 'passed the backtest' verdict in the corpus is fee-only and optimistic by an unknown amount - measured once at +0.57R on htf_pullback_trend_2h, the one leg anyone checked. 6 of 13 harnesses have no cost terms at all, including the vwap harness (vwap is 318 of 431 lifetime real-money trades)."
     },
     {
@@ -300,7 +312,13 @@
       "spend_usd": null,
       "tier": 3,
       "prs": [],
-      "blocked_on": "D1",
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "D1",
+          "what": "Until the corpus is re-run with the cost defaults on, we do not know which legs clear Stage 0."
+        }
+      ],
       "note": "Depends on D1: until the re-run we do not know which legs clear Stage 0. Today 3 of 44 meet the live_money_ready bar and none is on bybit_2. Tier-3."
     },
     {
@@ -315,7 +333,13 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": "D1",
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "D1",
+          "what": "Nothing to compare realized cost against until the harnesses model the full cost stack."
+        }
+      ],
       "note": "This IS Gate 1, and it is what makes the ladder traversable for slow legs: 'is realized slippage what we assumed?' converges in a handful of trades where expectancy needs 50+. Build only once D1 has given it something to compare to."
     }
   ]

@@ -107,6 +107,7 @@ One file: `docs/claude/work/MANAGER-CHECKLIST.json`. Row schema:
   "ceiling_usd": null,
   "spend_usd": null,
   "prs": [],
+  "blocked_on": [{"kind": "work_item", "ref": "A1", "what": "why"}],
   "note": ""
 }
 ```
@@ -119,7 +120,7 @@ One file: `docs/claude/work/MANAGER-CHECKLIST.json`. Row schema:
 | `in_flight` | a lane is live on it |
 | `landed_unproven` | merged, effect **not** observed on the fleet |
 | `done` | merged **and** observed |
-| `blocked` | waiting on something named in `note` |
+| `blocked` | waiting on the typed edge(s) in `blocked_on` |
 | `dropped` | closed without landing; `note` says why |
 
 **`landed_unproven` and `done` are different facts.** Collapsing them is the
