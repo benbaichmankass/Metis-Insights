@@ -235,8 +235,23 @@ be **CHANGED without asking**.
    exists first** (`git cat-file -e origin/main:<path>`). On 2026-08-26 a
    session wrote a guard from scratch and destroyed the working one of that
    name.
-5. End by updating your checklist row's `state` — and `landed_unproven` is not
-   `done`.
+5. **End by running the `close-out` skill** —
+   [`.claude/skills/close-out/SKILL.md`](.claude/skills/close-out/SKILL.md).
+   It is a completion test, not a register: seven checks against the checklist,
+   the pipeline and git. **The one question it asks is whether this session
+   could end right now, without warning, and nothing be lost or silently
+   dropped.**
+
+   ⚠️ **Run it when you stop early too.** Budget, context and time run out —
+   that is normal, and it is a HANDOFF rather than a completion. A session that
+   ends mid-task having said so is fine; one that ends mid-task silently is the
+   drop. Budget for close-out as part of the work, or you will reach the
+   boundary unable to afford landing what you built.
+
+   The two that catch the most: **`landed_unproven` is not `done`** and must
+   name the observation that would close it, and **a finding is only *filed*
+   when it is in the pipeline or on the checklist** — a chat message, a PR
+   comment and a new memo are none of them.
 
 ---
 
