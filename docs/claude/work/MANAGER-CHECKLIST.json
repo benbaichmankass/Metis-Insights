@@ -574,16 +574,16 @@
       "id": "E3",
       "title": "Make the cost model reach every harness",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01HmQgaLfZv9rv7uuWfgA321",
       "model": "claude-sonnet-5",
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect."
+      "note": "THE SINGLE HIGHEST-VALUE ENGINEERING ITEM: R1 depends on it and R1 gates everything, including the arming of MD-PROMOTE-S1-S2. execution_costs.py is correct; the defect is at the call sites -- harness globals set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0, documented as deliberate for backward compatibility. THAT ARGUMENT HAS EXPIRED: it preserved comparability with runs we no longer trust. 6 of 15 harnesses carry no cost terms at all, including vwap. [!] KEEP resolve_cost_policy's None-vs-explicit-0.0 distinction: a fee-only ARM is a legitimate experiment, a fee-only DEFAULT is the defect. [!] DISPATCHED 2026-09-21, ahead of the A-phase order the handoff gave, and the reason is on this row already: it is named THE SINGLE HIGHEST-VALUE ENGINEERING ITEM, it is unblocked, Tier-1, and it conflicts with no file any other live lane is in. Holding it behind A9 would have bought nothing. FRESH, sonnet-5. [!] MODEL CHOICE ARGUED, because this one is close to the order-path rule and close calls are where a table gets misread: the task table sends anything ON A REAL-MONEY ORDER PATH to opus, and a backtest harness is not one. The downstream risk -- a wrong cost number arming a real-money promotion -- is real but cannot fire today: MD-PROMOTE-S1-S2 does not arm until D1, and B5 (the mandate mechanism) is not built, so nothing automatic follows from this landing. Sonnet is correct HERE and would not be once B5 exists. [!] LANE FENCED OUT of changing what execution_costs.py COMPUTES (it is correct, and a behaviour change there is a different tier) and out of re-running the corpus (that is D1/R1). It was told to wire vwap FIRST if it cannot finish -- 318 of 431 lifetime real-money trades -- and to file the remainder in the pipeline rather than leave it in a PR body."
     },
     {
       "id": "E4",
@@ -685,16 +685,16 @@
       "id": "E10",
       "title": "armed-branch-push-watch races PR creation — every post-merge follow-up trips it",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
-      "model": null,
-      "ceiling_usd": null,
+      "lane": "session_01RVzC78AagczGHoVdAybwpi",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 12,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "MEASURED 2026-09-21 on PR #12673, which is the follow-up to the reset's own merge. scripts/ci/check_armed_branch_push.py reported `dropped` (error, exit 1) on a HEALTHY push. Timing is the whole bug: #12668 squash-merged as 3ea2777 at 12:18 and GitHub deleted the branch; the branch was reset from the new main and A6 pushed at 12:25:43; #12673 was opened at 12:26:10. The watcher ran in that 27-second gap, when the branch's ONLY associated PR was the merged #12668 whose head.sha (1d596e2) is not the pushed sha (f3301d0). [!] THIS IS NOT A ONE-OFF. A PR cannot be opened for a branch that has not been pushed, so EVERY follow-up PR made the sanctioned way (git fetch origin main && git checkout -B <branch> origin/main) trips this between push and PR creation. The guard's premise -- that the PR it finds is the PR for this push -- is false during a branch reset. [!] DO NOT 'FIX' IT BY DOWNGRADING THE SEVERITY. The loss it exists for (#11846) is real, and a guard that cries wolf on the healthy path is how a guard gets ignored -- the desensitisation this repo already measured at 202 of 376 CRITICALs being one un-latched condition. Sharpen the condition. [!] THE DISCRIMINATOR, and it does NOT fall into the ancestry trap the script's own docstring warns about. That trap is asking whether a BRANCH commit reached main -- which a squash merge always answers no to. Ask the OPPOSITE: is the old PR's MERGE COMMIT an ancestor of the PUSHED commit? Branch correctly reset -> yes (3ea2777 is an ancestor of f3301d0), nothing lost, a new PR is coming. Genuine drop, i.e. more commits pushed onto the merged branch's old history -> no; the pre-merge head is the ancestor instead. A squash does not defeat that direction. [!] The script has an elaborate --self-test with a mutation-tested exact-sha comparison; extend it rather than loosening it, and add the branch-reset case as a NAMED fixture so the next person cannot re-introduce this by tightening something else."
+      "note": "MEASURED 2026-09-21 on PR #12673, which is the follow-up to the reset's own merge. scripts/ci/check_armed_branch_push.py reported `dropped` (error, exit 1) on a HEALTHY push. Timing is the whole bug: #12668 squash-merged as 3ea2777 at 12:18 and GitHub deleted the branch; the branch was reset from the new main and A6 pushed at 12:25:43; #12673 was opened at 12:26:10. The watcher ran in that 27-second gap, when the branch's ONLY associated PR was the merged #12668 whose head.sha (1d596e2) is not the pushed sha (f3301d0). [!] THIS IS NOT A ONE-OFF. A PR cannot be opened for a branch that has not been pushed, so EVERY follow-up PR made the sanctioned way (git fetch origin main && git checkout -B <branch> origin/main) trips this between push and PR creation. The guard's premise -- that the PR it finds is the PR for this push -- is false during a branch reset. [!] DO NOT 'FIX' IT BY DOWNGRADING THE SEVERITY. The loss it exists for (#11846) is real, and a guard that cries wolf on the healthy path is how a guard gets ignored -- the desensitisation this repo already measured at 202 of 376 CRITICALs being one un-latched condition. Sharpen the condition. [!] THE DISCRIMINATOR, and it does NOT fall into the ancestry trap the script's own docstring warns about. That trap is asking whether a BRANCH commit reached main -- which a squash merge always answers no to. Ask the OPPOSITE: is the old PR's MERGE COMMIT an ancestor of the PUSHED commit? Branch correctly reset -> yes (3ea2777 is an ancestor of f3301d0), nothing lost, a new PR is coming. Genuine drop, i.e. more commits pushed onto the merged branch's old history -> no; the pre-merge head is the ancestor instead. A squash does not defeat that direction. [!] The script has an elaborate --self-test with a mutation-tested exact-sha comparison; extend it rather than loosening it, and add the branch-reset case as a NAMED fixture so the next person cannot re-introduce this by tightening something else. [!] DISPATCHED 2026-09-21, sonnet-5, fresh, ceiling $12 (this row carried no ceiling; one is set now). It earns its slot today because the manager's own pushes are the population it mis-grades: every follow-up PR made the sanctioned way trips it in the gap between push and PR creation. Lane told in terms to SHARPEN the condition and NOT downgrade the severity, and to CONSTRUCT both cases rather than implement the proposed discriminator on trust -- a reported hole beats a confident fix."
     },
     {
       "id": "E11",
