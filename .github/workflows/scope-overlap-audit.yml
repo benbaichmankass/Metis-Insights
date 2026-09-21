@@ -1,5 +1,33 @@
 name: scope-overlap-audit
 
+# ⚠️ PR TRIGGER RETIRED 2026-09-21 — operating reset.
+# This detector reads the COORDINATION BOARD, which the reset archived under
+# docs/archive/2026-09-21-operating-reset/. Its trigger is commented out below
+# rather than deleted, so re-arming it is one uncomment. `workflow_dispatch`
+# still works. Scope of record: docs/plans/OPERATING-PLAN-2026-09-21.md
+#
+# ⚠️ WHY THIS WAS MISSED ON THE DAY, because the pattern will recur: the reset
+# disarmed the workflows that WRITE to the retired registers (board-heartbeat,
+# constraint-readout, due-list and nine others) and did not sweep the ones that
+# READ them. A writer to a missing register fails loudly. A READER does not —
+# this one has a `could_not_check` verdict it was designed to emit honestly,
+# so it degraded exactly as built and kept posting on every PR.
+#
+# It fired on the reset's own PR (#12668) moments after merge and told the
+# session: "COULD NOT CHECK — no START comments found on a board that is never
+# silent … Read the coordination board yourself before assuming no other
+# session has declared these files." That instruction now points at an archived
+# file, on every PR, forever. The verdict was CORRECT and the advice was not —
+# which is the specific way a well-built detector becomes misinformation when
+# its subject is removed instead of its wiring.
+#
+# ⚠️ ITS PREMISE IS ALSO GONE, not just its input. This detects collisions
+# between CONCURRENT SESSIONS declaring scope on a shared board. The operating
+# model that produced those is retired: one manager spawns lanes, each scoped to
+# one question, and `scope-overlap-guard` was already removed from
+# scripts/ci/run_guards.py in the same pass. Re-arming it needs the BOARD back,
+# not just this line — do not uncomment it and expect a working detector.
+#
 # NON-BLOCKING detector: does this PR touch a file another LIVE session has
 # already declared on the coordination board?
 #
@@ -66,8 +94,9 @@ name: scope-overlap-audit
 # Tier-1: read-only, no VM, no order path, no secret beyond GITHUB_TOKEN.
 
 on:
-  pull_request_target:
-    types: [opened, ready_for_review, reopened]
+  # pull_request_target:
+    # types: [opened, ready_for_review, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read

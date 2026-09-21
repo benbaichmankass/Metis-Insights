@@ -61,7 +61,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "OPERATOR DECISION 2026-09-21: 'pace ourselves based on the weekly budget for the $200 Max plan -- 10% of the weekly budget a day, so we leave a wide margin for error or unexpected needs.' 10%/day x 7 = 70% of the weekly allowance, 30% margin. [!] THIS CHANGES WHAT THIS ITEM MEASURES AND THE CHANGE IS NOT COSMETIC. A subscription plan's constraint is a WEEKLY USAGE ALLOWANCE, not a dollar spend. Every cost_usd figure in the plan (the $125 across two resumed lanes, the $11.88 in ten minutes) is API-EQUIVALENT PRICING read off session metadata -- the right signal for COMPARING lanes, the wrong denominator for PACING against a plan. Report usage-against-allowance as the budget line, keep dollars beside it as the per-lane comparison. [!] THE DENOMINATOR IS NOT ESTABLISHED AND MUST NOT BE INVENTED: the exact weekly allowance is not readable from this repo. FIRST JOB is to establish it from whatever surface reports plan usage, or from the operator, and to report `unknown` rather than substitute a figure until it has. A fabricated denominator under a real rule is worse than no meter."
+      "note": "OPERATOR DECISION 2026-09-21: 'pace ourselves based on the weekly budget for the $200 Max plan -- 10% of the weekly budget a day, so we leave a wide margin for error or unexpected needs.' 10%/day x 7 = 70% of the weekly allowance, 30% margin. [!] THIS CHANGES WHAT THIS ITEM MEASURES AND THE CHANGE IS NOT COSMETIC. A subscription plan's constraint is a WEEKLY USAGE ALLOWANCE, not a dollar spend. Every cost_usd figure in the plan (the $125 across two resumed lanes, the $11.88 in ten minutes) is API-EQUIVALENT PRICING read off session metadata -- the right signal for COMPARING lanes, the wrong denominator for PACING against a plan. Report usage-against-allowance as the budget line, keep dollars beside it as the per-lane comparison. [!] THE DENOMINATOR IS NOT ESTABLISHED AND MUST NOT BE INVENTED: the exact weekly allowance is not readable from this repo. FIRST JOB is to establish it from whatever surface reports plan usage, or from the operator, and to report `unknown` rather than substitute a figure until it has. A fabricated denominator under a real rule is worse than no meter. [!] THE DENOMINATOR IS ESTABLISHED 2026-09-21, AND IT IS A PERCENTAGE, NOT A TOKEN COUNT. The operator read Settings > Usage directly. Plan: Max (20x). The surface exposes THREE meters, each a percent-of-allowance bar with no absolute number anywhere: a ~5-hour SESSION window, a WEEKLY window, and a SEPARATE WEEKLY LIMIT FOR FABLE. Anthropic's own support pages publish no figure either -- only '20x Pro per-session allowance'. [!] DO NOT CONVERT TO TOKENS, and this is a design decision rather than a limitation. The allowance is MODEL-WEIGHTED, so tokens-per-percent is not a constant -- it is a function of the model mix and moves whenever the manager routes a lane to sonnet instead of opus. A token budget would read as precise and drift silently. A1 METERS IN PERCENT. The operator's rule -- 10% of the weekly budget per day -- is already stated in that unit, so no conversion is needed to enforce it. A measured per-model exchange rate may be reported as a sanity check, labelled measured and drifting, NEVER as the budget. [!] TWO WINDOWS BIND, NOT ONE. The weekly cap is what the 10%/day rule governs; the ~5-hour session window is what actually walls a lane mid-run. A day's 10% spent as a single burst can exhaust the session window while the weekly meter still reads green, so A1 MUST SHOW BOTH or it reports 'fine' during an outage. [!] MEASURED 2026-09-21, and it CORRECTS an earlier claim on this row that was asserted rather than checked. The claim was that a meter summing only agent lanes would systematically under-report because the operator's own chat draws on the same pool. The mechanism is real -- all surfaces do share one limit -- but the magnitude is currently ZERO: 'What's using your week' reads Claude Code 100%, Chats 0%, Cowork 0%, Other 0%. Lane accounting is therefore ~= the whole pool today. A1 should still LABEL its scope, because the day that mix changes the meter goes quietly wrong. [!] FIRST REAL READING, and it is the finding: 68% of the week consumed with ~2 of 7 days left (resets Wednesday). That is ~13.6%/day against a 10%/day target -- roughly a third hot, with ~32% left for ~2 days, so the week completes but THE STATED POLICY IS NOT BEING MET. The operator noticed this by looking at a bar; noticing it automatically is what this row is for. [!] FABLE HAS A SEPARATE WEEKLY ALLOWANCE, MEASURED AT 0% USED, AND THE OPERATOR HAS DIRECTED THAT IT BE EMPLOYED (2026-09-21): 'it should definitely be used when appropriate -- we want to employ that budget as well, we just want to make sure it is getting the tasks that are the best use of that resource.' It is a SECOND pool that does not draw on the main one, so work routed there is additive capacity, not a trade-off. That makes it a live routing input for the model table in .claude/skills/manager/SKILL.md. Tracked as E11 -- A1 reports the pool, E11 decides what goes in it."
     },
     {
       "id": "A2",
@@ -80,7 +80,7 @@
     },
     {
       "id": "A3",
-      "title": "Daily brief generator — four fixed sections, pushed before the sync",
+      "title": "Daily brief generator — six fixed sections, pushed before the sync",
       "phase": "A",
       "state": "queued",
       "owner": "build lane",
@@ -102,7 +102,7 @@
           "what": "Section 0 (what came due) is rendered from the pipeline."
         }
       ],
-      "note": "Renders from research/queue/ + checklist lane state + the A1 cost meter. Served on the existing Workflow page. Blocked on A1 for section 4 only; sections 1-3 can ship first."
+      "note": "Renders from research/queue/ + checklist lane state + the A1 cost meter. Served on the existing Workflow page. Blocked on A1 for the SPEND section only; the rest can ship first. [!] THE TITLE SAID 'four fixed sections' UNTIL 2026-09-21 AND WAS STALE ON ARRIVAL -- the contract in .claude/skills/manager/SKILL.md is SIX (what came due / taken under mandate / decisions for you / what moved / what is running / spend). Sections 0 and 1 are the two the reset added and they carry the new operating model: section 0 is the follow-through pull (A7), section 1 is the mandate evidence review that replaces pre-approval. A four-section brief is not a smaller version of this one; it is the old one. [!] DO NOT WRITE THIS FROM SCRATCH -- scripts/ops/render_daily_brief.py ALREADY EXISTS and is the thing to replace. Measured 2026-09-21: five of its six inputs were archived by the reset (SESSIONS.json, OPEN-PRS.json, MANAGER-LEASE.json, OPEN-ITEMS.json, CYCLE-PRIORITY.json), leaving only MANAGER-CHECKLIST.json, and daily-brief-guard was dropped in the pass that cut run_guards.py 111 -> 70. It renders green in its unit tests while being structurally unable to answer the question it was built for -- the exact failure its own docstring names ('a brief that renders but does not answer that sentence FAILS'). KEEP its DELTA/STATE split and its habit of printing what it could not read; replace its inputs."
     },
     {
       "id": "A4",
@@ -130,7 +130,9 @@
       "ceiling_usd": null,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12668
+      ],
       "blocked_on": [],
       "note": "DONE in this PR: archived the work store (210 objects), OPEN-ITEMS.json, the four review backlogs (951 open rows), SESSIONS.json, MANAGER-LEASE.json, MERGE-QUEUE.json, DUE.*, READOUT.md, the coordination board and 10 process skills. REMAINING for a build lane: retire the guards and crons that guarded the archived machinery, and prune the workflow catalog."
     },
@@ -138,16 +140,18 @@
       "id": "A6",
       "title": "Pull the two negative-OOS legs off alpaca_live",
       "phase": "A",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "operator",
       "lane": null,
       "model": null,
       "ceiling_usd": null,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        12673
+      ],
       "blocked_on": [],
-      "note": "tlt_pullback_1h (-4.41R, n=94) and tlt_pullback_1d (-3.92R, n=8, 0 of 4 folds positive). One-line config change, reversible, does NOT wait on D1. TIER-3. APPROVED BY THE OPERATOR 2026-09-21 in conversation, verbatim: 'yeah, you can pull those strategies off if they need to be turned off.' Shipped as its own PR rather than inside the reset diff -- the one line that touches real money should not be reviewed inside a 360-file Tier-1 refactor. [!] THIS DOES NOT RETIRE THE QUESTION THE 1h LEG WAS ASKING. Its purpose was to prove real fills reconcile against exchange truth on a CASH book, and it never answered: ZERO long signals ever reached this account (18x Jun / 2x Jul / 13x Aug / 0x Sep, going quiet the day before the account was armed), and every package since 08-31 was SHORT, unexecutable here because the venue reads shorting_enabled: false. The alpaca_live order path is therefore STILL UNEXERCISED after this change. The three surviving legs inherit that job, and nothing yet checks that they do it -- if they also go quiet, the account is armed and proving nothing. [!] ROSTER-SYNC IS UNAFFECTED and this was verified, not assumed: the invariant is a SUBSET assertion (test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies), so shrinking the live roster can never break it. Both legs stay in alpaca_portfolio, where their paper record keeps accruing. [!] MEASURED WHILE SHIPPING THIS, and it is the sharper version of the asymmetry finding: scripts/check_dry_run_in_diff.py reports 'dry_run_in_diff: clean' on THIS diff. Removing a leg from a roster is NOT guarded -- only the literal mode:/execution: fields are. Two spellings of 'off', one guarded. B1 must key on ROSTER MEMBERSHIP."
+      "note": "tlt_pullback_1h (-4.41R, n=94) and tlt_pullback_1d (-3.92R, n=8, 0 of 4 folds positive). One-line config change, reversible, does NOT wait on D1. TIER-3. APPROVED BY THE OPERATOR 2026-09-21 in conversation, verbatim: 'yeah, you can pull those strategies off if they need to be turned off.' Shipped as its own PR rather than inside the reset diff -- the one line that touches real money should not be reviewed inside a 360-file Tier-1 refactor. [!] THIS DOES NOT RETIRE THE QUESTION THE 1h LEG WAS ASKING. Its purpose was to prove real fills reconcile against exchange truth on a CASH book, and it never answered: ZERO long signals ever reached this account (18x Jun / 2x Jul / 13x Aug / 0x Sep, going quiet the day before the account was armed), and every package since 08-31 was SHORT, unexecutable here because the venue reads shorting_enabled: false. The alpaca_live order path is therefore STILL UNEXERCISED after this change. The three surviving legs inherit that job, and nothing yet checks that they do it -- if they also go quiet, the account is armed and proving nothing. [!] ROSTER-SYNC IS UNAFFECTED and this was verified, not assumed: the invariant is a SUBSET assertion (test_alpaca_portfolio_mirrors_alpaca_live_minus_proxies), so shrinking the live roster can never break it. Both legs stay in alpaca_portfolio, where their paper record keeps accruing. [!] MEASURED WHILE SHIPPING THIS, and it is the sharper version of the asymmetry finding: scripts/check_dry_run_in_diff.py reports 'dry_run_in_diff: clean' on THIS diff. Removing a leg from a roster is NOT guarded -- only the literal mode:/execution: fields are. Two spellings of 'off', one guarded. B1 must key on ROSTER MEMBERSHIP. [!] MERGED 2026-09-21 as 47404b4 (PR #12673), CI green. STATE IS `landed_unproven` AND NOT `done`, deliberately: merged is not observed. The trader reads config on its next reload, so the live roster has NOT been confirmed to read 3 legs. Closing this row means reading alpaca_live's roster off /api/bot/config on the running trader -- not re-reading the YAML, which is the file we just changed and therefore proves nothing about the process."
     },
     {
       "id": "A7",
@@ -672,7 +676,37 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "67 guard scripts unreachable from run_guards.py, kept because 30+ live files still name their paths. Right call today, poor steady state. One bounded pass: delete with references, or record why it stays. NOT by bulk deletion -- the reference sweep IS the job. Low priority."
+      "note": "67 guard scripts unreachable from run_guards.py, kept because 30+ live files still name their paths. Right call today, poor steady state. One bounded pass: delete with references, or record why it stays. NOT by bulk deletion -- the reference sweep IS the job. [!] SCOPE CORRECTED 2026-09-21: THE GUARD SCRIPTS WERE NOT THE ONLY ORPHAN, and the pattern is worth more than the list. The reset disarmed every workflow that WRITES to a retired register and swept none of the ones that READ one. A writer to a missing register fails loudly; a reader degrades to 'could not check' and keeps issuing advice about a file that is gone. Two were found the same day: (a) scope-overlap-audit.yml, which posted 'read the coordination board yourself' on the reset's own PR and is DISARMED in this pass; (b) scripts/ops/render_daily_brief.py + its test, five of whose six inputs were archived and whose guard (daily-brief-guard) was dropped in the same pass -- NOT deleted here, because A3 replaces it and removing a renderer before its replacement exists is how a capability goes missing quietly. [!] THE SWEEP THIS ROW OWES IS THEREFORE A READER SWEEP, not a deletion pass: for each path under docs/archive/2026-09-21-operating-reset/, find what still reads it. A grep for the archived FILENAMES across .github/ and scripts/ is the probe, and it needs a positive control -- the two above are it."
+    },
+    {
+      "id": "E10",
+      "title": "armed-branch-push-watch races PR creation — every post-merge follow-up trips it",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "MEASURED 2026-09-21 on PR #12673, which is the follow-up to the reset's own merge. scripts/ci/check_armed_branch_push.py reported `dropped` (error, exit 1) on a HEALTHY push. Timing is the whole bug: #12668 squash-merged as 3ea2777 at 12:18 and GitHub deleted the branch; the branch was reset from the new main and A6 pushed at 12:25:43; #12673 was opened at 12:26:10. The watcher ran in that 27-second gap, when the branch's ONLY associated PR was the merged #12668 whose head.sha (1d596e2) is not the pushed sha (f3301d0). [!] THIS IS NOT A ONE-OFF. A PR cannot be opened for a branch that has not been pushed, so EVERY follow-up PR made the sanctioned way (git fetch origin main && git checkout -B <branch> origin/main) trips this between push and PR creation. The guard's premise -- that the PR it finds is the PR for this push -- is false during a branch reset. [!] DO NOT 'FIX' IT BY DOWNGRADING THE SEVERITY. The loss it exists for (#11846) is real, and a guard that cries wolf on the healthy path is how a guard gets ignored -- the desensitisation this repo already measured at 202 of 376 CRITICALs being one un-latched condition. Sharpen the condition. [!] THE DISCRIMINATOR, and it does NOT fall into the ancestry trap the script's own docstring warns about. That trap is asking whether a BRANCH commit reached main -- which a squash merge always answers no to. Ask the OPPOSITE: is the old PR's MERGE COMMIT an ancestor of the PUSHED commit? Branch correctly reset -> yes (3ea2777 is an ancestor of f3301d0), nothing lost, a new PR is coming. Genuine drop, i.e. more commits pushed onto the merged branch's old history -> no; the pre-merge head is the ancestor instead. A squash does not defeat that direction. [!] The script has an elaborate --self-test with a mutation-tested exact-sha comparison; extend it rather than loosening it, and add the branch-reset case as a NAMED fixture so the next person cannot re-introduce this by tightening something else."
+    },
+    {
+      "id": "E11",
+      "title": "Employ the Fable weekly allowance — decide WHICH task classes, by measurement",
+      "phase": "E",
+      "state": "queued",
+      "owner": "manager",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DIRECTIVE 2026-09-21, verbatim: 'it should definitely be used when appropriate -- we want to employ that budget as well, we just want to make sure it is getting the tasks that are the best use of that resource.' So this row is NOT 'should we use it'. It is 'what goes there', and the answer must be measured rather than assumed. [!] WHY IT IS FREE CAPACITY: Settings > Usage shows Fable on a SEPARATE weekly limit from the main pool, measured 2026-09-21 at 0% used against a main pool at 68%. Work routed to Fable does not draw down the allowance the other lanes pace against, so this is additive headroom, not a trade-off between lanes. [!] THE SELECTION METHOD, because 'seems like a good fit' is how the wrong work lands on the wrong model. Pick the first class by ONE property: its output must be CHEAPLY VERIFIABLE against ground truth that already exists, so a bad fit is caught on the first run instead of propagating into a register. Run it on inputs a current-model lane has ALREADY done, diff the outputs, and widen only on that evidence. State the population of any quality claim, per RULE ONE. [!] WHAT THIS ROW MAY NOT DO, and it is the one hard edge: budget headroom is NEVER a reason to move work off the model its risk demands. .claude/skills/manager/SKILL.md already binds 'anything on a real-money order path' to opus. A cheaper pool does not relax that, and 'we had Fable budget spare' is not an argument that may ever appear next to an order-path change. [!] NOTHING IS MEASURED YET. No claim about Fable's fit for any lane in this repo has been made or tested as of 2026-09-21 -- the only established facts are that the pool exists, is separate, and is unused. Do not read a task list into this row that is not here."
     }
   ]
 }
