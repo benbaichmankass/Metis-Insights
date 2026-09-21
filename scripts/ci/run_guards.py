@@ -1253,6 +1253,60 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "roster-promotion-evidence-guard",
+        # B1, THE LOAD-BEARING CHANGE. The counterpart that never existed:
+        # `scripts/check_dry_run_in_diff.py` blocks turning a leg OFF and
+        # NOTHING blocked turning one ON. That asymmetry is the mechanical fact
+        # behind the roster going 36 -> 55 while every memo said cut.
+        #
+        # ⚠️ IT KEYS ON ROSTER MEMBERSHIP, NOT ON `mode:` / `execution:`. There
+        # are TWO SPELLINGS OF OFF and the old guard sees only one: it matches
+        # ADDED LINES, so removing a leg from an account's `strategies:` list is
+        # invisible to it (verified against the A6 diff, which removed two legs
+        # from alpaca_live and reported `clean`). A guard watching the fields is
+        # walked around by editing the list, in EITHER direction; this one
+        # compares the PARSED roster at the fork point against HEAD, so it also
+        # sees a flow-style `strategies: [a, b]` edit that no line regex covers.
+        #
+        # ⚠️ DEMOTION STAYS FREE, and that is the entire point of inverting.
+        # `--self-test` plants both directions: removing a leg, and moving an
+        # account out of a risk-bearing class, must BOTH stay silent. A change
+        # that makes removal harder has broken this guard's purpose.
+        #
+        # ⚠️ IT GRADES 0 OF 12 TODAY AND PASSES, DELIBERATELY — same posture as
+        # strategy-decision-record above. It is DIFF-SCOPED: the existing roster
+        # is grandfathered (`check_backlog_criteria.py`'s polarity — the past is
+        # grandfathered, the future is not) because a whole-tree version would
+        # red every PR in the repo over 12 legs nobody is proposing to promote,
+        # which is how a guard gets disabled instead of fixed. The standing
+        # census is reported by `--population`, which never fails a build.
+        #
+        # Self-test FIRST: this guard REFUSES work, so one that started failing
+        # correct PRs would be worse than the problem it fixes — the
+        # manager-scope-guard posture.
+        #
+        # The globs include `comms/strategy_evidence/**` and
+        # `config/strategies.yaml` because the check READS them (the evidence
+        # record, and the config the record's fingerprint is bound to). Scoping
+        # a two-sided check to one side is the exit-coverage-matrix defect that
+        # `check_guard_glob_coverage.py` exists to catch.
+        "when": {"globs": [
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+            "config/pairs.yaml",
+            "comms/strategy_evidence/**",
+            "scripts/ci/check_roster_promotion_evidence.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_roster_promotion_evidence.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_roster_promotion_evidence.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         "name": "manifest-scope-constants",
         # The ML manifest<->dataset contract, at COMMIT time. It was previously
         # validated ONLY at train time, on the trainer, inside a cycle that
