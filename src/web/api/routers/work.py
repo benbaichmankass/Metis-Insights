@@ -449,7 +449,15 @@ def _wip_block(in_flight: int) -> dict[str, Any]:
             "⚠️ Enforcement is in CI, NOT in this route — this count is still a "
             "reading and this route still gates nothing; a read path that refused "
             "something would be a second copy of the rule, free to drift from the "
-            "one that binds."
+            "one that binds. "
+            "⚠️ E9 (2026-09-21): `inFlight` counts `lifecycle: in_flight` work "
+            "objects under docs/claude/work/objects/, which the 2026-09-21 "
+            "operating reset archived without a replacement — so this number is "
+            "structurally 0 under the current MANAGER-CHECKLIST.json model, not "
+            "a live measurement of anything happening today. Whether "
+            "`enforced`/`state` above still describe scripts/ci/check_wip_ceiling.py's "
+            "actual CI wiring after the reset is filed, not verified here — see "
+            "docs/claude/work/PIPELINE.jsonl."
         ),
     }
 
@@ -485,8 +493,14 @@ def _coverage_block() -> dict[str, Any]:
             "started, and NOT queued. Carrying everything is not the same as "
             "everything being open. ⚠️ `complete` is still false: there are no "
             "`steps`, and no audit has established that every workstream has an "
-            "object. A bug to fix still goes to the review backlogs; what a "
-            "session must KNOW before it plans is still OPEN-ITEMS.json."
+            "object. ⚠️ CORRECTED 2026-09-21 (E9) — this note used to say a bug "
+            "still goes to the review backlogs and that OPEN-ITEMS.json is what "
+            "a session must know before it plans. Both were archived by the "
+            "2026-09-21 operating reset (docs/archive/2026-09-21-operating-reset/) "
+            "and nothing live reads either any more. A finding that needs picking "
+            "up later goes into docs/claude/work/PIPELINE.jsonl (via "
+            "scripts/ops/pipeline.py); a build goes into a row in "
+            "docs/claude/work/MANAGER-CHECKLIST.json. Nothing else is filing."
         ),
     }
 
@@ -997,10 +1011,15 @@ def _sessions_panel() -> dict[str, Any]:
 
 
 _SESSIONS_NOTE = (
-    "Session state is only as fresh as the last MANAGER OBSERVATION written "
-    "into docs/claude/work/SESSIONS.json. This is NOT a live feed: reading the "
+    "⚠️ CORRECTED 2026-09-21 (E9) — this used to read as a merely STALE "
+    "register; it is not. docs/claude/work/SESSIONS.json was archived by the "
+    "2026-09-21 operating reset (docs/archive/2026-09-21-operating-reset/) and "
+    "nothing repopulates it, so under the current model this panel reads "
+    "`present: false` PERMANENTLY, not intermittently. It is not coming back. "
+    "Session state was only ever as fresh as the last MANAGER OBSERVATION "
+    "written into that file. This is NOT a live feed: reading the "
     "platform's own session list needs `list_sessions`, an mcp__* tool no API "
-    "route holds. Read each lane's observation age beside its state."
+    "route holds."
 )
 
 
@@ -1901,4 +1920,93 @@ def get_work_receipts() -> dict[str, Any]:
                         "population": "payload build failed before the directory was read"},
         }
     _receipts_cache = (now, payload)
+    return payload
+
+
+# ── /brief — A3, the six-section daily brief, served LIVE ──────────────────
+#
+# Added 2026-09-21 (A3a). `scripts/ops/render_daily_brief.py` builds the six
+# fixed sections (what came due / taken under mandate / decisions for you /
+# what moved / what is running / spend) from files already on this tree —
+# the pipeline store, this checklist, and `config/mandates.yaml`. There is no
+# writer step and no cron: this route calls `build()` + `render()` on every
+# request (20s cache), the same shape `/checklist` above already uses for
+# `MANAGER-CHECKLIST.json`. See the module's own docstring for why that
+# decision is safe here and was not safe for the four-section module it
+# replaced (`DECIDED 2026-09-21 (A3a) — THE SCHEDULE QUESTION`).
+#
+# Tier: 1 (read-only, file-backed, no DB, no secrets — see
+# docs/api-tier-policy.md). Deliberately does not import `render_daily_brief`
+# at module scope: it in turn imports `scripts.ops.pipeline`, and keeping
+# that import inside the request path means a bug in either module degrades
+# this one route to `present: false` rather than failing every route this
+# file serves at process start.
+
+_BRIEF_CACHE_TTL_S = 20.0
+_brief_cache: tuple[float, dict[str, Any]] | None = None
+
+
+def _brief_payload() -> dict[str, Any]:
+    from scripts.ops import render_daily_brief as _rdb
+
+    repo = Path(repo_root())
+    b = _rdb.build(root=repo)
+    tree = manager_status.read_tree_provenance(repo_dir=repo)
+    return {
+        "present": True,
+        "readState": "read",
+        "reason": None,
+        "forDate": b["forDate"],
+        "generatedAt": b["generatedAt"],
+        "markdown": _rdb.render(b),
+        # The three input read-states, verbatim — so a consumer can grey out
+        # a section instead of trusting a brief one of its inputs could not
+        # supply. Never collapsed to a single boolean.
+        "inputs": {
+            "pipeline": "read" if b["pipeline"]["healthy"] else "partial",
+            "checklist": b["checklistState"],
+            "mandates": b["mandatesState"],
+        },
+        "pipelineStats": b["pipeline"]["stats"],
+        "coverageComplete": b["coverageComplete"],
+        "freshness": {
+            # Same working-tree discipline as `/checklist`: the route reads
+            # the VM's working tree, which `ict-git-sync` pulls roughly every
+            # 5 minutes, so the brief is exactly as fresh as the last PUSH
+            # plus that interval — never as fresh as "just now" implies.
+            "treeState": tree.state,
+            "treeStamp": manager_status.render_tree_stamp(tree),
+            "note": ("Computed live from the working tree on every request "
+                     "(20s cache) — there is no separate generation step to "
+                     "go stale between pushes."),
+        },
+    }
+
+
+@router.get("/brief")
+def get_work_brief() -> dict[str, Any]:
+    """The six-section daily brief (A3), rendered live from the pipeline
+    store, the checklist, and `config/mandates.yaml`.
+
+    Read-only, file-backed, no DB, no secrets, no write surface. Best-effort:
+    a failure to build the brief degrades to ``present: false`` WITH a
+    reason, never a 5xx and never a stale/blank page passed off as current.
+    """
+    global _brief_cache
+    now = time.monotonic()
+    cached = _brief_cache
+    if cached is not None and (now - cached[0]) < _BRIEF_CACHE_TTL_S:
+        return cached[1]
+    try:
+        payload = _brief_payload()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged WITH a stack and surfaced as present:false + reason. A Tier-1 read surface must not 5xx (roadmap.py's contract); a brief that 500s is invisible rather than absent.
+        logger.warning("work: brief build failed: %s", exc, exc_info=True)
+        return {
+            "present": False,
+            "readState": "unreadable",
+            "reason": f"brief build failed: {exc}",
+            "markdown": None,
+            "inputs": {}, "pipelineStats": None, "coverageComplete": False,
+        }
+    _brief_cache = (now, payload)
     return payload

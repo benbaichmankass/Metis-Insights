@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "This is A3 (checklist row A3, ceiling $15) — the six-section daily brief. The bulk of the diff (scripts/ops/render_daily_brief.py, scripts/ci/run_guards.py, tests/) is genuinely Tier-1 tooling/CI, matching the checklist row's own tier:1. But the diff also adds a new route (`GET /api/bot/work/brief`) to src/web/api/routers/work.py, which is TIER2_PATHS (`src/**`) in this guard and, by CLAUDE.md's own permission table, a runtime/service change (new code shipped to the live ict-web-api.service) even though the ROUTE's ACCESS tier is 1 (public, unauthenticated, read-only — documented as such in docs/api-tier-policy.md, same 'access tier vs deploy tier' split that /ws/market already carries in that file: 'Access tier is 1; its deploy was Tier-2 ... those are different questions'). This build lane was explicitly told DO NOT MERGE — the manager session (session_01XQhayAHWdrSYv8jN54P2HH) merges after driving CI green and, per CLAUDE.md's Tier-2 process, getting one operator OK in chat before shipping the route to the live service. Holding rather than self-landing is the honest declaration; nothing here should auto-merge.",
+  "why": "A3 — six-section daily brief (scripts/ops/render_daily_brief.py) + CI guard re-arm + a new read-only route on work.py. Route deploys new code to a live service (Tier-2 by path) even though its own access tier is 1."
+}

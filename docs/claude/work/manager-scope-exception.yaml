@@ -1,0 +1,105 @@
+# Manager-scope exceptions — read scripts/ci/check_manager_scope.py before adding one.
+#
+# Each entry NAMES the paths, is DATED, carries a real reason, and EXPIRES.
+# `status: pending` grants NOTHING — only `active` does. There is no bypass
+# flag and no environment variable, deliberately: the cheapest way to silence
+# this guard must remain "route the work to a session", because that is the
+# behaviour wanted.
+exceptions:
+  - id: MGR-20260921-SPAWN-PROVENANCE
+    status: active
+    expires: "2026-09-24"
+    paths:
+      - ".claude/skills/manager/SKILL.md"
+    reason: >-
+      OPERATOR GRANT, 2026-09-21, verbatim: "You have permission to make this
+      fix permanent." It answers a decision this manager put to them in chat,
+      so the grant is specific rather than inferred, and it is recorded here
+      rather than acted on silently.
+
+      WHAT IT COVERS: writing the spawn-provenance recipe into
+      .claude/skills/manager/SKILL.md, and nothing else. Scope of record is
+      pipeline item PI-20260921-0004.
+
+      WHY A SESSION COULD NOT DO IT, which is the whole reason an exception is
+      needed. Measured 2026-09-21: the manager spawned a lane to make exactly
+      this edit and create_session was REFUSED by the auto-mode permission
+      classifier, reason [Self-Modification] — an agent spawning another agent
+      to rewrite its own operating instructions. That refusal is correct and
+      was not worked around. The normal remedy this guard prescribes, "route it
+      to a session", is therefore structurally unavailable for this one path,
+      which is precisely the case an argued escape hatch exists for.
+
+      WHY IT MATTERS ENOUGH TO USE THE HATCH: three of six lanes in the first
+      dispatch under the new operating model ended their first turn having done
+      no work, each asking whether its own task prompt was injected. They were
+      right to ask. The behavioural fix is already applied in this session, but
+      it lives only in this session's head, and the operator's stated
+      number-one failure mode is losing work to sessions dying mid-flight. An
+      unwritten fix IS that loss.
+
+  - id: MGR-20260921-STALE-SESSION-HOOKS
+    status: active
+    expires: "2026-09-24"
+    paths:
+      - ".claude/settings.json"
+      - "tests/test_merge_slot_guard.py"
+    reason: >-
+      OPERATOR GRANT, 2026-09-21, in answer to a decision put to them as one of
+      four: they chose "Grant me settings.json" over editing it themselves or
+      leaving it. Specific, not inferred.
+
+      ⚠️ WHY A tests/ PATH IS IN AN EXCEPTION THAT WAS GRANTED FOR
+      .claude/settings.json, stated rather than slipped in.
+      tests/test_merge_slot_guard.py asserts the CONTENT of the merge-slot
+      guard's deny message, which lives in settings.json. Repointing that
+      message off the archived board necessarily broke the assertion pinning
+      the old pointer — CI caught it as the single failure in 17,953. The test
+      change is therefore a direct consequence of the granted edit, not
+      separate work, and leaving CI red was not an option.
+
+      ⚠️ AND IT IS NOT A WEAKENING, which is the thing to check when a session
+      edits a test to go green. The test's own comment records it having made
+      this exact move once before — it asserted the literal issue number `6927`
+      until that board hit GitHub's comment cap, then asserted
+      board-pointer.json until the reset archived it. Both times the
+      REQUIREMENT was unchanged: the deny must tell a session where to make its
+      claim and what the claim is. The assertions now name
+      claim_merge_slot.py + --branch-claim + "MERGE SLOT CLAIM", which is
+      strictly MORE than the two they replaced, and they now name the same
+      mechanism pr-landing-guard R13 actually checks.
+
+      WHAT IT COVERS: removing instructions that send sessions to files the
+      2026-09-21 reset archived, and repointing them at what exists. Nothing
+      else in this file is touched — no new hook, no permission change, no
+      env var. Scope of record is pipeline item PI-20260921-M05.
+
+      WHY IT MATTERS: MEASURED 2026-09-21, 22 references across three
+      SessionStart hooks and two PreToolUse hooks. This is the most expensive
+      instance of the reset's orphan class found so far, because it is not a
+      degraded check a session might never run — it is the FIRST thing EVERY
+      session reads, and it instructed them to register on a coordination board
+      that does not exist, claim merge slots by commenting on it, pull two
+      retired skills, and file findings into three archived backlogs.
+
+      WHAT CHANGED, precisely: item 0 of the session-start contract (the whole
+      coordination-board protocol) replaced with what is actually live; the
+      /system-review roll-up marked retired; the definition of done repointed
+      from "the three review backlogs are drained" to the pipeline and the
+      checklist; Rule 2's filing target repointed; the delegate-work and
+      session-registry paragraph replaced with the manager contract; the
+      board-nudge PreToolUse hook DELETED outright, since the thing it nudged
+      is gone; and the merge-slot PreToolUse guard KEPT but repointed — the
+      claim is still live and required, it is now a file
+      (scripts/ops/claim_merge_slot.py --branch-claim) rather than a board
+      comment.
+
+      ⚠️ A DELIBERATE RESIDUE, so a successor does not "fix" it: the hooks
+      still NAME the archived files, in sentences saying they are archived and
+      must not be used. That is correct and load-bearing — a session needs the
+      name it would otherwise go looking for. A probe that merely counts
+      mentions will therefore never read zero, and the acceptance criterion on
+      PI-20260921-M05 was corrected to say so.
+
+      VERIFIED, not assumed: all six hook commands re-parsed under `bash -n`
+      and the rendered session-start text was read back after the edit.

@@ -303,6 +303,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audit/vercel-edge-vs-cf-worker.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/M1-comms-audit-2026-05-07-fresh.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/M1-comms-audit-followups-fresh.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/archived-register-readers-fable-probe.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/audit-blindspot-zombies-2026-06-10.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/authored-cell-reaudit-register.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/automerge-request-gate-2026-09-02.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |

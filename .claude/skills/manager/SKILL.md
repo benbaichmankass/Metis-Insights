@@ -127,6 +127,39 @@ real-money order-path row above is not negotiable against headroom in another
 pool, and *"we had Fable budget spare"* is not an argument that may appear
 beside an order-path change.
 
+### Every spawn carries provenance, and every dispatch is verified
+
+**Measured 2026-09-21, first dispatch under this model: three of six lanes
+ended their first turn having done no work**, each asking whether its own task
+prompt was legitimate or injected. **They were right to ask**, and nothing here
+trains them out of it: a `create_session` dispatch arrives with **no human turn
+in the conversation**, and "edit infrastructure and open a PR" from an unseen
+sender is exactly what a session should question.
+
+The answer is evidence the lane can **check**, not a louder assertion. Pass
+`append_system_prompt` — it lands before the lane's first tool call — naming
+who spawned it, and naming the **in-repo artifacts that corroborate it
+independently**: this file, the plan, the lane's checklist row, and the
+`PIPELINE.jsonl` item whose `routed_to` carries the lane's own session id. All
+of those exist before the lane does, which is what makes them evidence.
+
+⚠️ **Then verify the dispatch actually started.** Read **`status_bucket` and
+`post_turn_summary`**, never `session_status`: **`idle` collapses "finished"
+and "never started"**, so a manager reading it alone records six lanes
+dispatched and returns to three that never began. That is the repo's
+collapsed-state rule (`scripts/ci/check_collapsed_states.py`) applied to your
+own supervision, and work dying at the *start* is quieter than work dying in
+the middle.
+
+**The reply channel**, since there is no `send_message` and `ListAgents` does
+not list cloud sessions: `create_trigger(persistent_session_id=<lane>)` then
+`fire_trigger(trigger_id)` **with no other argument**. Passing `fire_trigger`'s
+optional `text` does NOT reach the lane — it spawns a fresh session with no
+repo (measured: $0.18 burned doing nothing). It is **refused, correctly**, when
+the lane holds a pending permission prompt, because firing would answer that
+prompt on the operator's behalf. Such a lane stays blocked until a human
+clicks, and your job is to **surface it, not clear it**.
+
 ### Fresh vs resume
 
 **Resume only when the next unit needs context the previous session built *in
