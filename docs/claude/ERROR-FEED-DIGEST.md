@@ -2,14 +2,14 @@
 
 > **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
-_Generated 2026-09-20T23:29:33+00:00 · covers rows after `2026-09-20T20:06:48.139457+00:00` · verdict **all_feeds_read**_
+_Generated 2026-09-21T01:35:59+00:00 · covers rows after `2026-09-20T22:11:37.158113+00:00` · verdict **all_feeds_read**_
 
 > ⚠️ **Page cap hit** on `bot_logs` — older rows exist that this digest did not see.
 
 ## Population
 
 - **operator_alerts** — state `read` · 396 of 1000 requested · span 2026-09-12T18:12:44.115241+00:00 → 2026-09-20T22:11:37.158113+00:00
-- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-09-12T10:56:46.802898+00:00 → 2026-09-20T21:16:54.141495+00:00
+- **bot_logs** — state `read` · 1000 of 1000 requested · span 2026-09-12T10:57:15.051720+00:00 → 2026-09-21T00:51:39.489827+00:00
 
 ## Groups (93, covering 1396 rows)
 
@@ -133,20 +133,18 @@ _Generated 2026-09-20T23:29:33+00:00 · covers rows after `2026-09-20T20:06:48.1
   - 2026-09-15T13:39:20.015180+00:00 → 2026-09-15T13:39:20.015180+00:00 · accounts: bybit_1 · symbols: BTCUSDT
 - **[error] x1** `operator_alerts` — 🛑 Position CLOSE failing — won't flatten Account: bybit_N Symbol: ETHUSDT | Side: short | Qty: N Consecutive close failures: N share_hold: not_classified Nobody
   - 2026-09-18T09:09:40.546989+00:00 → 2026-09-18T09:09:40.546989+00:00 · accounts: bybit_1 · symbols: ETHUSDT
-- **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: mhg_pullback_Nd | Symbol: MHG Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
-  - 2026-09-20T22:11:37.158113+00:00 → 2026-09-20T22:11:37.158113+00:00 · symbols: MHG · strategies: mhg_pullback_1d
-- **[warn] x352** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
-  - 2026-09-12T10:59:06.495970+00:00 → 2026-09-20T21:16:54.141495+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
+- **[warn] x354** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: ict_scalp_mgc_Nm: no candle data for symbol=MGC timeframe=Nm.
+  - 2026-09-12T10:59:06.495970+00:00 → 2026-09-21T00:51:39.489827+00:00 · symbols: MGC · strategies: ict_scalp_mgc_15m
 - **[warn] x166** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_trend_Nh: no candle data returned for symbol=MGC timeframe=Nh. Check that the IBKR connection
   - 2026-09-12T10:59:07.452591+00:00 → 2026-09-20T21:10:49.606745+00:00 · symbols: MGC · strategies: mgc_trend_1h
 - **[warn] x148** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mgc_pullback_Nd: no candle data returned for symbol=MGC timeframe=Nd. Check that the IBKR connect
   - 2026-09-12T10:59:06.975231+00:00 → 2026-09-20T06:06:25.010917+00:00 · symbols: MGC · strategies: mgc_pullback_1d
-- **[warn] x145** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
-  - 2026-09-12T10:56:46.802898+00:00 → 2026-09-20T06:06:26.663630+00:00 · symbols: MHG · strategies: mhg_pullback_1d
+- **[warn] x144** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mhg_pullback_Nd: no candle data returned for symbol=MHG timeframe=Nd. Check that the IBKR connect
+  - 2026-09-12T10:59:09.720331+00:00 → 2026-09-20T06:06:26.663630+00:00 · symbols: MHG · strategies: mhg_pullback_1d
 - **[warn] x140** `bot_logs` — strategy_builder exception: transient_market_data_unavailable: mes_trend_long_Nd: no candle data returned for symbol=MES timeframe=Nd. Check that the IBKR conne
   - 2026-09-12T10:59:04.118856+00:00 → 2026-09-20T21:10:46.622344+00:00 · symbols: MES
-- **[warn] x18** `bot_logs` — position_read_state hedge_book_dropped
-  - 2026-09-12T10:57:12.888648+00:00 → 2026-09-12T11:05:29.593930+00:00
+- **[warn] x17** `bot_logs` — position_read_state hedge_book_dropped
+  - 2026-09-12T10:57:15.051720+00:00 → 2026-09-12T11:05:29.593930+00:00
 - **[warn] x13** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_avax_Nm | Symbol: AVAXUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its
   - 2026-09-13T10:11:57.781608+00:00 → 2026-09-20T01:46:31.506977+00:00 · symbols: AVAXUSDT · strategies: ict_scalp_avax_5m
 - **[warn] x13** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_sol_Nm | Symbol: SOLUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its t
@@ -187,6 +185,8 @@ _Generated 2026-09-20T23:29:33+00:00 · covers rows after `2026-09-20T20:06:48.1
   - 2026-09-14T15:44:27.671365+00:00 → 2026-09-14T15:44:27.671365+00:00 · symbols: TLT · strategies: tlt_pullback_1d
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: ict_scalp_Nm | Symbol: BTCUSDT Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timef
   - 2026-09-15T12:09:56.250324+00:00 → 2026-09-15T12:09:56.250324+00:00 · symbols: BTCUSDT · strategies: ict_scalp_5m
+- **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: mhg_pullback_Nd | Symbol: MHG Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
+  - 2026-09-20T22:11:37.158113+00:00 → 2026-09-20T22:11:37.158113+00:00 · symbols: MHG · strategies: mhg_pullback_1d
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: slv_pullback_Nd | Symbol: SLV Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
   - 2026-09-20T13:38:24.253673+00:00 → 2026-09-20T13:38:24.253673+00:00 · symbols: SLV · strategies: slv_pullback_1d
 - **[warn] x1** `operator_alerts` — 🔎 Stuck-strategy watchdog (informational — no action) Strategy: spy_pullback_Nh | Symbol: SPY Package: pkg-<hex> DB trade id: N Held for: N min (≥ N× its timefr
@@ -202,4 +202,4 @@ _Generated 2026-09-20T23:29:33+00:00 · covers rows after `2026-09-20T20:06:48.1
 
 ---
 
-_Watermark: `2026-09-20T22:11:37.158113+00:00` — advanced to the newest row read (2026-09-20T22:11:37.158113+00:00)_
+_Watermark: `2026-09-21T00:51:39.489827+00:00` — advanced to the newest row read (2026-09-21T00:51:39.489827+00:00)_
