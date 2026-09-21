@@ -2212,3 +2212,84 @@ def get_work_brief() -> dict[str, Any]:
         }
     _brief_cache = (now, payload)
     return payload
+
+
+# ── /schedule — A9: cadenced sessions, decisions owed, monitoring coming ──
+# due, cron cadences. Appended at end-of-file deliberately: a concurrent
+# lane (E15) is editing `_decision_inbox` and the helpers it calls, and a
+# new handler at the end merges cleanly against that diff. Same reasoning
+# as `_brief_payload` for the deferred import: `render_schedule` in turn
+# imports `scripts.ops.pipeline`, and an import at module scope would let a
+# bug in either degrade every route this file serves at process start,
+# rather than just this one to `present: false`.
+
+_SCHEDULE_CACHE_TTL_S = 20.0
+_schedule_cache: tuple[float, dict[str, Any]] | None = None
+
+
+def _schedule_payload() -> dict[str, Any]:
+    from scripts.ops import render_schedule as _rs
+
+    repo = Path(repo_root())
+    b = _rs.build(root=repo)
+    tree = manager_status.read_tree_provenance(repo_dir=repo)
+    return {
+        "present": True,
+        "readState": "read",
+        "reason": None,
+        "forDate": b["forDate"],
+        "generatedAt": b["generatedAt"],
+        "markdown": _rs.render(b),
+        "cadencedSessions": b["cadencedSessions"],
+        "decisionsOwed": b["decisionsOwed"],
+        "monitoringDue": b["monitoringDue"],
+        "crons": b["crons"],
+        # The three input read-states, verbatim — never collapsed to one
+        # boolean, same contract as `/brief`'s `inputs`.
+        "inputs": b["inputs"],
+        "coverageComplete": b["coverageComplete"],
+        "freshness": {
+            # Same working-tree discipline as `/checklist` and `/brief`: the
+            # route reads the VM's working tree, which `ict-git-sync` pulls
+            # roughly every 5 minutes, so the schedule is exactly as fresh
+            # as the last PUSH plus that interval.
+            "treeState": tree.state,
+            "treeStamp": manager_status.render_tree_stamp(tree),
+            "note": ("Computed live from the working tree on every request "
+                     "(20s cache) — there is no separate generation step to "
+                     "go stale between pushes."),
+        },
+    }
+
+
+@router.get("/schedule")
+def get_work_schedule() -> dict[str, Any]:
+    """The work schedule (A9): cadenced sessions, decisions owed, monitoring
+    coming due, and cron cadences — rendered live from
+    `docs/claude/work/SCHEDULE.json`, the pipeline store
+    (`docs/claude/work/PIPELINE.jsonl`), and `.github/workflows/*.yml`.
+
+    Read-only, file-backed, no DB, no secrets, no write surface. Best-effort:
+    a failure to build the schedule degrades to ``present: false`` WITH a
+    reason, never a 5xx and never a stale/blank page passed off as current.
+    """
+    global _schedule_cache
+    now = time.monotonic()
+    cached = _schedule_cache
+    if cached is not None and (now - cached[0]) < _SCHEDULE_CACHE_TTL_S:
+        return cached[1]
+    try:
+        payload = _schedule_payload()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: not silent — logged WITH a stack and surfaced as present:false + reason. A Tier-1 read surface must not 5xx (roadmap.py's contract); a schedule that 500s is invisible rather than absent.
+        logger.warning("work: schedule build failed: %s", exc, exc_info=True)
+        return {
+            "present": False,
+            "readState": "unreadable",
+            "reason": f"schedule build failed: {exc}",
+            "markdown": None,
+            "cadencedSessions": None, "decisionsOwed": None,
+            "monitoringDue": None, "crons": None,
+            "inputs": {}, "coverageComplete": False,
+        }
+    _schedule_cache = (now, payload)
+    return payload
