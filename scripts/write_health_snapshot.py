@@ -38,8 +38,37 @@ Payload shape (consumed by the readers):
       "summary": "<N>/<M> checks ok; ...",
       "action_required": <bool>,           # true iff a critical check failed
       "model": "deterministic:v1",
+      "not_checked": {"accounts": [...], "count": <int>, "by_check": {...}},
       "checks": {"<name>": {"status": "ok|warn|critical", "detail": "...", "ctx": {...}}, ...}
     }
+
+⚠️ ``not_checked`` IS A THIRD STATE AND IT EXISTS BECAUSE ``7/7 checks ok`` WAS
+SAYABLE OVER AN ACCOUNT THAT HAD BEEN DEAD FOR THREE WEEKS (checklist row E22).
+MEASURED 2026-09-22T05:30Z from ``/api/bot/health/latest``: ``status: ok``,
+``summary: "7/7 checks ok"``, ``action_required: false`` — while the
+``accounts_api`` check's own ``detail`` read *"all 8 recorded broker-API
+accounts ok (1 manual-bridge skipped: breakout_1; ...)"*. ``breakout_1`` is the
+FUNDED PROP ACCOUNT that received zero tickets for three weeks (row E16,
+measured 21 of 21 intents). It is excluded **by construction**, and the
+all-clear counted the exclusion as a pass.
+
+*"We did not look"* and *"we looked and found nothing"* were sharing one value,
+which ``docs/CLAUDE-RULES-CANONICAL.md`` § "Collapsed states" names as the bug
+itself. They no longer share it: the excluded accounts are counted, named, and
+put in the summary line, so ``7/7 checks ok`` can never again be read alone.
+
+⚠️ **THIS DELIBERATELY DOES NOT MOVE ``status`` OR ``action_required``.** A
+manual-bridge account is skipped on EVERY snapshot for its whole life, so
+grading the exclusion ``watch`` would put one permanent condition on every
+snapshot forever — the desensitised alarm this repo already calls a P1
+(``BL-20260823-TARGET-NAKED-COOLDOWN-RESETS-ON-EVERY-RESTART`` put ONE condition
+on 53.7% of the operator's entire ERROR+ feed by exactly that mechanism), and
+the same refusal ``soak_alarm``'s ``accruing`` state makes. The fix for *"is
+that account still being fed?"* is a DETECTOR, not a louder all-clear — and
+that detector is checklist row **E18** (intents produced vs tickets received,
+all accounts). This writer must NOT grow a second, drifting implementation of
+it; when E18 lands, it reports its own verdict and this block keeps saying only
+what was and was not examined.
 """
 from __future__ import annotations
 
@@ -72,6 +101,46 @@ _TS_FMT = "%Y%m%dT%H%M%SZ"
 _HISTORY_RETENTION = timedelta(days=15)
 
 
+# Per-check ``ctx`` keys naming accounts a check EXCLUDED rather than examined.
+# Read from ``ctx``, never parsed out of ``detail`` — the prose is a claim about
+# the check, the ctx list is the check's own record of what it did.
+#
+#   skipped  — no broker API to read (a manual bridge, e.g. ``breakout_1``)
+#   shelved  — not declared live (``dry_run`` / retired)
+#   no_data  — declared live WITH a broker API, and no snapshot was recorded.
+#              ⚠️ This one is the dangerous member and it is deliberately
+#              included: the ``accounts_api`` check subtracts it from its own
+#              headline (``all {total - len(no_data)} ... ok``), so an account
+#              whose reading never arrived passes just as quietly as one that
+#              was never eligible. "We could not look" belongs here.
+_EXCLUSION_CTX_KEYS = ("skipped", "shelved", "no_data")
+
+
+def _not_checked(check_map: dict) -> dict:
+    """Accounts the suite EXCLUDED, as a first-class state beside ok/failing.
+
+    Returns ``{"accounts": [...sorted, deduped...], "count": N, "by_check":
+    {"<check>": {"<key>": [...]}}}``. An empty ``accounts`` list with
+    ``count: 0`` is a real measurement — every account was examined — and is
+    NOT the same statement as a check that emitted no ``ctx`` at all, which
+    simply contributes nothing here and is visible as its absence from
+    ``by_check``.
+    """
+    accounts: set[str] = set()
+    by_check: dict[str, dict] = {}
+    for name, entry in check_map.items():
+        ctx = entry.get("ctx") or {}
+        found = {}
+        for key in _EXCLUSION_CTX_KEYS:
+            ids = ctx.get(key)
+            if isinstance(ids, (list, tuple)) and ids:
+                found[key] = sorted(str(i) for i in ids)
+                accounts.update(found[key])
+        if found:
+            by_check[name] = found
+    return {"accounts": sorted(accounts), "count": len(accounts), "by_check": by_check}
+
+
 def build_payload(now: datetime | None = None) -> dict:
     """Run the health suite and assemble the snapshot payload."""
     now = now or datetime.now(timezone.utc)
@@ -92,9 +161,15 @@ def build_payload(now: datetime | None = None) -> dict:
     failing = [n for n, e in check_map.items() if e["status"] not in _OK_STATUSES]
     ok_count = len(check_map) - len(failing)
     overall = {"critical": "concern", "warn": "watch", "ok": "ok"}[worst]
+    not_checked = _not_checked(check_map)
     summary = f"{ok_count}/{len(check_map)} checks ok"
     if failing:
         summary += f"; not-ok: {', '.join(failing)}"
+    if not_checked["count"]:
+        summary += (
+            f"; {not_checked['count']} account(s) NOT CHECKED: "
+            + ", ".join(not_checked["accounts"])
+        )
 
     return {
         "timestamp": now.isoformat(),
@@ -102,6 +177,7 @@ def build_payload(now: datetime | None = None) -> dict:
         "summary": summary,
         "action_required": worst == "critical",
         "model": "deterministic:v1",
+        "not_checked": not_checked,
         "checks": check_map,
     }
 
