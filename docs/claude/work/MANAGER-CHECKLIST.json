@@ -20,7 +20,7 @@
   ],
   "schema_version": 2,
   "updated_at": "2026-09-22",
-  "updated_by": "E30 lane (session_017mdYduTwtyVPXU54wqNHJx) — merged origin/main (manager's E27/E29 rows) into the E30 branch; resolved BY ID, not by side",
+  "updated_by": "E41 lane (session_01TVZywdTHMxsrPt3BZptnv9)",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -45,9 +45,7 @@
     "tier": "1 | 2 | 3 - the approval the resulting change needs",
     "prs": "PR numbers",
     "blocked_on": "typed edges [{kind, ref, what}] — kind is `work_item` or `operator_decision`, ref names the blocker, what says why. Empty list = nothing declared blocks it.",
-    "note": "what is true about this row. Not a log.",
-    "landing": "`hold` when the lane may not self-land (see hold_reason); absent otherwise",
-    "hold_reason": "why landing is held, e.g. `tier_2_3_needs_approval`"
+    "note": "what is true about this row. Not a log."
   },
   "items": [
     {
@@ -1347,16 +1345,18 @@
       "id": "E45",
       "title": "Eight CI guards grade NOTHING and eleven more are silently narrowed — and three of the dead are named in the #1 doc as live enforcing mechanisms",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01JZxTx1RYggzVemZCbLnSyG",
       "model": "claude-opus-5",
       "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12756
+      ],
       "blocked_on": [],
-      "note": "MEASURED by the E20 lane 2026-09-22 over a STATED POPULATION of 95 guard scripts — scripts/ci/check_*.py PLUS scripts/check_*.py, because check_claim_basis.py, the one CLAUDE-RULES-CANONICAL leans on hardest, lives in the latter. Every module-level repo-path constant tested with `git cat-file -e HEAD:<path>`. Four states, never collapsed: live 30 · degraded 11 · DEAD 8 · no_declared_subject 46 (the instrument cannot speak to those, and it is the LARGEST bucket, so folding it into `live` would be this tool committing the defect it exists to find). [!] THE EIGHT DEAD: check_backlog_unresolve, check_claim_basis, check_open_items, check_operator_owed, check_recurrence_ledger, check_register_field_loss, check_soak_registered, check_stated_population. Every one is the 2026-09-21 reset's blast radius — it archived the four review backlogs, OPEN-ITEMS.json, the lease, SESSIONS.json, MERGE-QUEUE.json, session-board.json, RECURRENCE-LEDGER.json and operator-owed-register.json, and nothing swept the guards that read them. [!] AND THREE ARE NAMED IN docs/CLAUDE-RULES-CANONICAL.md AS LIVE MECHANISMS, which is why this is not housekeeping: § Backlog governance says the status enum is 'enforced whole-file over every review backlog by claim-basis-guard'; § 'A soak must carry its own alarm' says check_soak_registered fails when a *_soak.jsonl exists with no register alarm; § Session-end reconciliation says operator-owed-guard fails on an item carried across commits without a state change. All three subjects are archived. A canonical doc naming a mechanism that cannot run is the folklore failure that document has its own section about. [!] OPERATOR DECISION 2026-09-22: RE-POINT THE THREE NAMED ONES, RETIRE THE OTHER FIVE with stated reasons, and correct the doc text to match — the doc follows the decision, it does not lead it. [!] DO NOT PROMOTE THE 19 INTO A HARD FAILURE as part of this. E20 already wired scripts/ci/check_guard_liveness.py REPORT-FIRST, with a dated shrink-only baseline and counts printed every run; only a NEW dead or degraded guard fails. Keep that shape and let the baseline shrink by eight. resolution_criteria: the three re-pointed guards each FAIL on a planted violation against their new subject (a green re-point proves nothing); the five retirements each carry a written reason; CLAUDE-RULES-CANONICAL no longer claims a mechanism that cannot run; and check_guard_liveness's baseline is smaller by eight with the count visible in the diff."
+      "note": "MEASURED by the E20 lane 2026-09-22 over a STATED POPULATION of 95 guard scripts — scripts/ci/check_*.py PLUS scripts/check_*.py, because check_claim_basis.py, the one CLAUDE-RULES-CANONICAL leans on hardest, lives in the latter. Every module-level repo-path constant tested with `git cat-file -e HEAD:<path>`. Four states, never collapsed: live 30 · degraded 11 · DEAD 8 · no_declared_subject 46 (the instrument cannot speak to those, and it is the LARGEST bucket, so folding it into `live` would be this tool committing the defect it exists to find). [!] THE EIGHT DEAD: check_backlog_unresolve, check_claim_basis, check_open_items, check_operator_owed, check_recurrence_ledger, check_register_field_loss, check_soak_registered, check_stated_population. Every one is the 2026-09-21 reset's blast radius — it archived the four review backlogs, OPEN-ITEMS.json, the lease, SESSIONS.json, MERGE-QUEUE.json, session-board.json, RECURRENCE-LEDGER.json and operator-owed-register.json, and nothing swept the guards that read them. [!] AND THREE ARE NAMED IN docs/CLAUDE-RULES-CANONICAL.md AS LIVE MECHANISMS, which is why this is not housekeeping: § Backlog governance says the status enum is 'enforced whole-file over every review backlog by claim-basis-guard'; § 'A soak must carry its own alarm' says check_soak_registered fails when a *_soak.jsonl exists with no register alarm; § Session-end reconciliation says operator-owed-guard fails on an item carried across commits without a state change. All three subjects are archived. A canonical doc naming a mechanism that cannot run is the folklore failure that document has its own section about. [!] OPERATOR DECISION 2026-09-22: RE-POINT THE THREE NAMED ONES, RETIRE THE OTHER FIVE with stated reasons, and correct the doc text to match — the doc follows the decision, it does not lead it. [!] DO NOT PROMOTE THE 19 INTO A HARD FAILURE as part of this. E20 already wired scripts/ci/check_guard_liveness.py REPORT-FIRST, with a dated shrink-only baseline and counts printed every run; only a NEW dead or degraded guard fails. Keep that shape and let the baseline shrink by eight. resolution_criteria: the three re-pointed guards each FAIL on a planted violation against their new subject (a green re-point proves nothing); the five retirements each carry a written reason; CLAUDE-RULES-CANONICAL no longer claims a mechanism that cannot run; and check_guard_liveness's baseline is smaller by eight with the count visible in the diff. [!] CLOSED 2026-09-22 — PR #12756 MERGED, and `done` rather than `landed_unproven` because all four resolution criteria were RE-CHECKED ON MAIN after the merge (main 8a0669284), not inferred from the merge: (1) the re-pointed guards each FAIL on a violation planted against their new subject — self-tests 11/16/14/11 controls, run on main; (2) the four retired scripts are absent from the tree and each carries its reason in docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md; (3) the only surviving mentions of the archived registers in CLAUDE-RULES-CANONICAL are inside the dated correction notes (lines 640, 1683), i.e. history, not a live mechanism claim; (4) guard-liveness reads dead 0, baseline 11 of 11, exit 0. [!] FOUR guards were re-pointed, not three: a manager addendum added check_allow_degraded, which was UNSATISFIABLE — 0 of 753 open PIPELINE rows were citable because check_backlog_refs.REF does not match a PI- id at all. [!] AND THE FIFTH RETIREMENT DID NOT HAPPEN: check_stated_population is NOT dead (verified by running it against a planted diff, exit 1); its population is a glob the liveness instrument cannot see, so 1 of 8 dead verdicts (12.5%) was a false positive. Retiring it would have removed the only mechanical floor under § 'Always state the population'. 8 findings filed in PIPELINE.jsonl."
     },
     {
       "id": "E46",
