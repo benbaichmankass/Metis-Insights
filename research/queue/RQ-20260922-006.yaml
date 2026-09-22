@@ -1,0 +1,127 @@
+id: RQ-20260922-006
+title: Were the shipped parameters of the twelve risk-bearing legs selected on data that overlaps their OOS folds?
+status: blocked
+cadence: once
+kind: deterministic
+
+question: >-
+  Every one of the twelve risk-bearing evidence records reads
+  `param_selection_provenance: "not_established"` — including all eight that
+  clear the four-clause bar. If a leg's shipped parameters were chosen by
+  looking at the period its OOS folds are drawn from, its net_r_oos is
+  optimistic by an unknown amount and "8 of 12 clear the bar" is not 8 of 12.
+  For each of the twelve, can the provenance of the shipped parameter set be
+  established, and does its selection window overlap its OOS folds?
+
+why_this_matters: >-
+  MEASURED, by reading `param_selection_provenance` across all twelve records
+  in comms/strategy_evidence/ on main at f3746ab: 12 of 12 read
+  `not_established`. R1 fixed the COST basis of these records and registered a
+  decision rule before the run; it did not and could not fix where the
+  parameters came from. So the corpus now says, precisely, "these numbers are
+  net of the full cost stack, graded against a rule registered beforehand, and
+  we do not know whether the parameters were fit on the test set." That is the
+  single largest unquantified optimism left in the Stage-0 evidence, and it is
+  invisible to the bar: scripts/ci/check_roster_promotion_evidence.py's C4
+  clause is satisfied by the presence of a `decision_rule` block, not by
+  parameter provenance.
+  Each record does carry a `config_fingerprint` (sha256 of the leg's resolved
+  config), which is the handle: a fingerprint dates the parameter set to the
+  commit that introduced it, and that date is comparable to the OOS fold
+  boundaries already in `fold_detail`.
+
+why_not_inferential: >-
+  This estimates nothing from a sample. It is archaeology over a fixed,
+  finite record: twelve config fingerprints, their introducing commits, and
+  twelve committed fold-boundary date pairs. Same inputs, same answer. The
+  honesty condition is coverage — whether all twelve fingerprints can be
+  dated — not a sample size, and a fingerprint that cannot be dated is a
+  first-class outcome (`provenance: unestablishable`), never folded in with
+  the clean ones.
+
+decision_rule:
+  id: RULE-RQ0922-006-PARAM-PROVENANCE
+  registered_at: '2026-09-22'
+  registered_before_run: true
+  statistic: >-
+    Per leg, a three-valued provenance verdict, never collapsed to two:
+      `out_of_sample`   — the commit introducing the current config_fingerprint
+                          predates the leg's earliest OOS fold start.
+      `contaminated`    — it postdates that start, so the parameters could have
+                          been chosen with the OOS window visible.
+      `unestablishable` — the fingerprint cannot be dated from history.
+    ⚠️ `unestablishable` is NOT `out_of_sample`. "We could not look" and "we
+    looked and it is clean" are opposite statements
+    (docs/CLAUDE-RULES-CANONICAL.md § Collapsed states).
+  rule: >-
+    PER LEG: the verdict is written to the evidence record as
+    `param_selection_provenance`, replacing `not_established` — which is
+    itself a collapsed value standing in for all three states today.
+    ACROSS THE POPULATION: if >= 4 of the 8 PASSING legs come back
+    `contaminated`, the Stage-0 corpus is recorded as not yet establishing
+    edge for the real-money roster, and the real-money promotion mandate
+    stays disarmed on that ground as well as on D1's — a statement that goes
+    to the operator with the count and the per-leg list attached.
+    If 0 of the 8 passing legs come back `contaminated`, the Stage-0 corpus
+    clears this concern and the unit closes `no_action_warranted`.
+    Between 1 and 3, report the named legs and close `no_action_warranted`:
+    individual contaminated legs are a per-leg finding for R2/D2, not a
+    verdict on the corpus.
+    ⚠️ A high `unestablishable` count is NOT a pass. If >= 4 of the 8 passing
+    legs are unestablishable, the finding is that parameter provenance is not
+    recoverable from this repo's history and the deliverable is a proposal to
+    START recording it at config-change time — a statement about the
+    instrument, reported as such.
+  what_it_does_not_do: >-
+    It changes no parameter and cuts no leg. Strategy parameters are Tier-3.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 15
+  basis: >-
+    Runner, with one hard requirement: a FULL-DEPTH clone. The dating step is
+    `git log` over config/strategies.yaml, and this repo's session clones are
+    shallow by default — the failure mode
+    BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE records, where the
+    mandated history check returns a plausible wrong answer with no error.
+    The job must run `git fetch --unshallow` (or
+    scripts/ops/git_history_check.py, which REFUSES rather than answering on a
+    truncated clone) before dating anything. A shallow run here would report
+    `unestablishable` across the board and look like a finding.
+
+blocked_on:
+  - what: >-
+      Nothing computes or lands this. It needs (a) a mapping from each record's
+      `config_fingerprint` back to the config block that produced it —
+      scripts/ops/build_strategy_evidence.py computes the fingerprint but does
+      not record WHICH keys went into it, so the reverse lookup is not defined
+      today; and (b) a workflow with full history. (a) is the real blocker;
+      (b) is one line.
+    ref: 'scripts/ops/build_strategy_evidence.py (config_fingerprint has no recorded key set)'
+    clears_when: >-
+      The evidence record names the config keys the fingerprint is taken over
+      (or the harness records the fingerprint's source block verbatim), so a
+      later session can date it without guessing what was hashed.
+
+run:
+  workflow: null
+  note: >-
+    Null on purpose — see blocked_on. A guessed workflow name here would be
+    the guard-cheaper-to-lie-to-than-satisfy pattern.
+
+lands:
+  store: comms/strategy_evidence/<leg>.json
+  assert_field: param_selection_provenance
+  min_rows: 12
+  note: >-
+    min_rows 12 — the full risk-bearing population. There is no per-leg
+    fan-out that can partially fail: all twelve are read in one process from
+    one checkout, so fewer than twelve is a defect.
+
+related:
+  - 'checklist C5 / R4 (this unit is one of the ten)'
+  - 'CLAUDE.md § "if the evidence supports it is the entire safety property" — this is the clause of that property nobody has checked'
+  - 'checklist B5 (the mandate mechanism, which this rule can hold disarmed)'
+last_dispatched_at: null
