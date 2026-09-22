@@ -87,7 +87,12 @@ def _status_raw(path: Path) -> Dict[str, Any]:
     import json
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001  (read-state is carried by process_state)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        # Narrow on purpose: these are the three ways reading this artifact can
+        # fail, and anything else is a bug that should surface rather than
+        # become an empty dict. The read-state for the artifact is NOT lost
+        # here either — `read_process_block` grades the same file and returns
+        # `unreadable`, which is what the caller reports.
         return {}
     return raw if isinstance(raw, dict) else {}
 

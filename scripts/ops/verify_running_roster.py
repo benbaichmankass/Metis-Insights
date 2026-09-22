@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+# wiring: manual-only - a QUESTION-ANSWERING procedure, not a watcher. A session
+# or the operator runs it on demand, and the manager runs it after a deploy to
+# turn `deployed` into `observed` (E32's rule: a Tier-3 roster change is done
+# when layer 4 agrees with layer 6). Its served twin, GET /api/bot/runtime-config,
+# IS wired -- routers/runtime_config.py is registered in src/web/api/main.py --
+# so the capability is reachable without this file; this is the local/CLI form.
+# ⚠️ Deliberately NOT on a schedule: `pending_reload` is a normal, transient
+# state for the seconds between an ict-git-sync pull and the next tick, so a
+# cron over it would alarm on healthy operation -- the alarm-fatigue P1 that
+# docs/CLAUDE-RULES-CANONICAL.md § "A soak must carry its own alarm" describes.
+# The anomaly worth watching is the inverse roster check, filed as
+# PI-20260922-E32-THE-INVERSE-ROSTER-ANOMALY-DETECTOR-IS-NOT-BUILT.
 """E32 — the ONE procedure that answers *"what is the running trader trading?"*
 
 Operator, 2026-09-22:

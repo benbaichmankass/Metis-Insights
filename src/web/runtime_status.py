@@ -158,7 +158,13 @@ def _process_snapshot() -> Dict[str, Any]:
     try:
         from src.runtime.loaded_config import process_snapshot
         return process_snapshot()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged at WARN, and `{}` is the named `not_written` state downstream — never an empty roster; the breadth is required because this runs on the trading tick.
+        # The reason above, at length. It is NOT silent — it WARNs with the exception type and text,
+        # and the empty dict is a NAMED downstream state (`not_written`), never
+        # an empty roster. The breadth is the requirement, not a shortcut: this
+        # runs on the trading tick, and an observation surface that could raise
+        # into `run_pipeline` would let a failure to WATCH what trades become a
+        # failure to TRADE. Prime Directive § 5 — the trader keeps ticking.
         logger.warning("runtime_status: process snapshot failed: %s: %s",
                        type(exc).__name__, exc)
         return {}

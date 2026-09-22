@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "E31/E32 lane dispatch: 'Tier 2 -- it adds an API route on the live VM. landing: hold, hold_reason: tier_2_3_needs_approval. Open a DRAFT PR; the manager lands and deploys.'",
+  "why": "Adds GET /api/bot/runtime-config to ict-web-api.service (Tier-2: a route the live service serves) and one additive key to the runtime_status.json inter-process contract, written by ict-trader-live. It also adds a load-time stamp inside src/units/accounts/load_accounts, which Coordinator.multi_account_execute reaches on the order path -- the stamp is a module-global assignment wrapped so a failure to OBSERVE degrades to 'no stamp' and dispatch continues byte-for-byte, and no order path reads it back. No strategy logic, no risk cap, no sizing, no gate: config/accounts.yaml and config/strategies.yaml are untouched. Held for the operator OK the tier requires, then the manager lands AND deploys -- this row does not reach `done` until the trader has restarted and verify_running_roster.py reports `current`."
+}
