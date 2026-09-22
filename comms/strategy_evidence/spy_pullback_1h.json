@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "spy_pullback_1h",
   "symbol": "SPY",
   "timeframe": "1h",
@@ -10,9 +10,9 @@
   "omitted_levers": [
     "skip_hours"
   ],
-  "net_r_oos": -8.5483,
-  "expectancy_r_oos": -0.1526,
-  "n_trades_oos": 56,
+  "net_r_oos": -11.2379,
+  "expectancy_r_oos": -0.1972,
+  "n_trades_oos": 57,
   "folds": 4,
   "fold_detail": [
     {
@@ -41,20 +41,49 @@
     },
     {
       "fold": 4,
-      "trades": 14,
-      "net_r": -4.6961,
-      "expectancy_r": -0.3354,
+      "trades": 15,
+      "net_r": -7.3857,
+      "expectancy_r": -0.4924,
       "start": "2026-05-18 17:00:00+00:00",
-      "end": "2026-09-11 16:00:00+00:00"
+      "end": "2026-09-18 14:00:00+00:00"
     }
   ],
   "folds_positive": 1,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 57,
+    "max_drawdown_r": 22.0809,
+    "max_drawdown_at_trade": 40,
+    "final_equity_r": -11.2379,
+    "max_equity_r": 4.2916,
+    "worst_trade_r": -1.1128,
+    "best_trade_r": 11.6132,
+    "worst_day_r": -2.2228,
+    "worst_day_date": "2025-12-31",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
+  "cost_stack": {
+    "fees": 0.0,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/spy_pullback_1h__bt.json"
+  },
+  "net_r_oos_fee_only": -7.7661,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "fail"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:29.418195+00:00",
+  "generated_at": "2026-09-22T09:27:53.272469+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/spy_pullback_1h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/spy_pullback_1h__trades.jsonl",
   "error": null,
   "harness": "pullback"
 }

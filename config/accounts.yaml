@@ -361,34 +361,31 @@ accounts:
                                        #    standing because FIELD BEATS COMMENT and a
                                        #    stale comment in a Tier-3 file reads as
                                        #    corroboration. Manager, landing E25 + R2.
-                                       #    [!] PROVENANCE CORRECTION (R2 lane,
-                                       #    2026-09-22, on commit 9036005d3): the
-                                       #    paragraph above is TRUE OF #12714's BRANCH
-                                       #    AND NOT OF THIS TREE, and it invokes FIELD
-                                       #    BEATS COMMENT while stating numbers no
-                                       #    committed field holds — the inversion of
-                                       #    the rule it cites. VERIFIED by me on this
-                                       #    commit and on origin/main: E25 (#12714) is
-                                       #    merged to NEITHER, and
-                                       #    comms/strategy_evidence/fvg_range_15m.json
-                                       #    reads coverage_state: no_harness with
-                                       #    n_trades_oos: null and net_r_oos: null on
-                                       #    BOTH. So as of this commit the cut's
-                                       #    standing reason is still the no_harness
-                                       #    one, and the -10.2594 / n=17 / 0-of-4
-                                       #    figures are ANTICIPATED, not measured here.
-                                       #    THE CUT IS CORRECT EITHER WAY and no roster
-                                       #    value depends on this — both readings end
-                                       #    with the leg off bybit_2. What depends on it
-                                       #    is what a later session may TRUST: if R2
-                                       #    lands before E25, this file asserts measured
-                                       #    figures with no record behind them, in the
-                                       #    most-read place on a Tier-3 routing
-                                       #    decision. REMEDY, manager's call: land
-                                       #    #12714 FIRST and this paragraph becomes
-                                       #    true, or land R2 first and delete the E25
-                                       #    paragraph as premature. Do not resolve it by
-                                       #    deleting THIS note while the figures stay.
+                                       #    [!] PROVENANCE NOTE, RAISED AND NOW SPENT
+                                       #    (R2 lane, 2026-09-22). When the paragraph
+                                       #    above was written, E25 was merged to
+                                       #    neither this branch nor main, and
+                                       #    fvg_range_15m.json still read no_harness
+                                       #    with null figures on both — so it asserted
+                                       #    measured values no committed field held.
+                                       #    RESOLVED the right way: #12714 was landed
+                                       #    to main FIRST (f783ae1c3) and merged in, so
+                                       #    the record now reads coverage_state:
+                                       #    measured, fidelity: faithful,
+                                       #    n_trades_oos: 17, net_r_oos: -10.2594,
+                                       #    expectancy_r_oos: -0.6035, decision_rule
+                                       #    RULE-D1-STAGE0-NET-OF-FULL-COST verdict
+                                       #    `fail`. VERIFIED by me on this tree by
+                                       #    reading comms/strategy_evidence/
+                                       #    fvg_range_15m.json, not from the PR body.
+                                       #    The paragraph above is now TRUE and this
+                                       #    note is kept only so the sequence is
+                                       #    legible; it asserts nothing further.
+                                       #    ONE FIGURE ABOVE IS STILL UNBACKED: the
+                                       #    record carries folds_positive: 0 with
+                                       #    folds_total: null, so "0 OF 4 FOLDS" should
+                                       #    read "0 of an unstated fold count" until
+                                       #    the producer emits a total.
                                        #
                                        # OPEN POSITIONS: none on any of the three.
                                        # MEASURED by me against the RUNNING process,
