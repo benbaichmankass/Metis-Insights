@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Comment-only edit to config/accounts.yaml's header, proven so: parsing both sides of the diff yields identical YAML. No account, roster, mode:, execution:, risk cap or symbol is touched. Tier-1 by the permission table (documentation), and a documentation-hygiene fix is the sanctioned disposition when a field and its surrounding prose disagree -- field beats comment, the prose gets fixed. Both corrected claims are cited to a commit and a test rather than asserted."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "The one path in this diff is `config/accounts.yaml`, which pr-landing-guard names Tier-3 and cannot certify for self-landing. The refusal is correct and is NOT being worked around: the guard fails closed on the account-config file on purpose, and the fact that this particular edit is provably comment-only is exactly the kind of claim a human should spend ten seconds confirming rather than a guard accepting on trust. The dispatch for row E42 said to self-land this fix; the guard says otherwise, and the guard wins.",
+  "why": "Comment-only edit to config/accounts.yaml's header, proven so rather than asserted: parsing both sides of the diff yields identical YAML. No account, roster, mode:, execution:, risk cap or symbol is touched. It corrects two false claims about the `mode:` gate — a named writer function deleted in 2026-06 (cited to commit 278c51845 and to the regression test asserting its absence), and a denial that the strategy-level `execution:` gate exists (cited to bc8ce1aaa / #1862 and to coordinator.py:1371). Field beats comment: the fields are right, the prose was stale, and the prose is what changed."
 }
