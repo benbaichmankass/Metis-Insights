@@ -127,6 +127,12 @@ outcomes. That is what makes the ladder traversable for the slow legs.
   `tests/test_paper_portfolio_accounts.py::test_bybit_portfolio_mirrors_bybit_2_exactly`
   pins the rosters together. `bybit_2`: 6 strategies, `bybit_portfolio`: 6.
 - **The Alpaca mirror is a SUBSET invariant, not an equality one.**
+  ⚠️ **RESOLVED BY B2, 2026-09-21** — the operator chose strict equality and the
+  invariant now reads
+  `test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies`. The
+  diagnosis below stands as the record of why; the leg counts in it predate
+  **A6** (#12673), which cut `alpaca_live` from 5 legs to 3 the same day, so the
+  mirror surplus is **12**, not 9.
   ⚠️ **CORRECTED 2026-09-21, same day.** This row first read *"No invariant
   exists"* — **that is false, and I inferred it instead of grepping `tests/`,
   which is a RULE ONE failure in the exact shape RULE ONE names.**

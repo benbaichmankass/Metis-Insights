@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "This build lane was spawned with an explicit instruction, quoted verbatim: \"Push, open a PR against `main`. **DO NOT MERGE** -- the manager merges.\" The manager session is session_01XQhayAHWdrSYv8jN54P2HH.",
+  "why": "Tier-1 by content: a test, its docstrings, and comment-only/doc corrections. The diff touches config/accounts.yaml, which is OUTSIDE the Tier-1 allowlist, so it is named here rather than vouched for -- and the reason it is still Tier 1 was ASSERTED, not assumed: parsing origin/main's accounts.yaml and this tree's with yaml.safe_load and comparing the whole account map yields EQUAL, so every inserted line in that file is a comment and no value changed. NOT IN THIS DIFF, deliberately: the roster edit that would make the new invariant pass. tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies is RED on purpose against the current config; satisfying it means deleting 12 legs from config/accounts.yaml::alpaca_portfolio.strategies, which alters what a trading (paper) account trades and therefore needs an operator OK this lane does not have. The red is the deliverable: it makes the Gate-2 gap loud instead of silent. Weakening the test to go green would restore the silence."
+}
