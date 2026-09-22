@@ -483,11 +483,13 @@
       "ceiling_usd": 60,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12705
+      ],
       "blocked_on": [
         {
           "kind": "operator_decision",
-          "ref": "this row's PR (branch claude/r1-d1-cost-corpus-rerun, opened draft)",
+          "ref": "PR #12705 (branch claude/r1-d1-cost-corpus-rerun, opened draft)",
           "what": "PR opened with landing: hold, hold_reason: operator_asked_to_hold, per this session's standing instruction to hold rather than self-land. Needs the manager/operator to review and merge -- until then the evidence records below exist only on the branch, not on main, and no consumer (M7 gate, the C3/C4 guard's committed-tree check) sees them."
         }
       ],
