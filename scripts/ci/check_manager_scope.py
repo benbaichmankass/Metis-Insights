@@ -102,10 +102,20 @@ A retired source keeps contributing its history; what it cannot do is grow.
 AGAINST THE EXACT ONE RATHER THAN ASSUMED.** `dispatch_observations` reads added
 `"lane": "session_…"` lines out of a single `git log --all -p --unified=0` (3.0s
 over 8.8MB of patch). An exact implementation — reload the whole JSON at every
-commit and diff it against EVERY parent — was run over the same 635 commits and
-the two AGREE COMPLETELY: same 1 dispatcher, same 12 observations, same 6
+commit and diff it against EVERY parent — is committed beside it as
+`dispatch_observations_exact` and runnable as **`--verify-dispatch`**, so this
+claim has a locator instead of being one session's word. Run over the same 635
+commits, the two AGREE COMPLETELY: same 1 dispatcher, same 12 observations, same 6
 self-lane-only sessions, same 6 untrailered commits, zero disagreements. The
 fast one is used; the agreement is the reason it may be.
+
+⚠️ **AND THE COUNTS ARE NOT STANDING PROPERTIES — RE-RUN, DO NOT RE-QUOTE.**
+`--verify-dispatch` run again a few hours later, on a history that had moved:
+**641 revisions, 13 dispatch acts, 7 self-lane-only sessions**, still 1
+dispatcher, still agreeing. The seventh self-assigner is the E20 lane that wrote
+this paragraph setting its own row's `lane` — which is the control firing on its
+own author, and the plainest demonstration that the rule admits DISPATCHERS
+rather than everyone who writes the checklist.
 
 Commits carry `Claude-Session: https://claude.ai/code/session_…` trailers by
 standing attribution rule. So the join is exact: a commit whose trailer names a
@@ -798,6 +808,98 @@ def dispatch_observations(root: Path) -> tuple[list[tuple[datetime, str]], list[
             f"be identified. A gap in this source's coverage, not evidence "
             f"that nobody dispatched.")
     return obs, notes
+
+
+def dispatch_observations_exact(root: Path) -> tuple[list[tuple[datetime, str]], list[str]]:
+    """The SLOW, EXACT derivation `dispatch_observations` is validated against.
+
+    ⚠️ THIS EXISTS SO THE VALIDATION CLAIM HAS A DURABLE LOCATOR. The module
+    docstring says the one-pass `git log -p` form agrees with an exact one over
+    635 commits; a claim like that is only MEASURED if a later session can
+    re-run it (`docs/CLAUDE-RULES-CANONICAL.md` § "A MEASURED must say WHERE THE
+    MEASUREMENT LIVES" — *"a number whose source cannot be found is not MEASURED,
+    it is INFERRED from an unstated one"*). Run `--verify-dispatch` to re-check
+    the agreement. It takes minutes rather than seconds, which is exactly why it
+    is not the form used in CI.
+
+    The difference that could make them disagree: this RELOADS the whole
+    checklist JSON at every revision and compares each row's `lane` against
+    EVERY parent, so a value already carried by any parent is not a new
+    assignment. The fast form reads added lines out of the first-parent patch, so
+    a merge that re-adds an unchanged lane line would register there and not
+    here. Whether that actually happens in this repo's history is a
+    MEASUREMENT, and this function is what makes it one.
+    """
+    notes: list[str] = []
+    rc, out = _git(root, "log", "--all", "--pretty=%H", "--", CHECKLIST_REL)
+    if rc != 0:
+        return [], [f"{CHECKLIST_REL} history unreadable — nothing compared"]
+    shas = [x for x in out.split() if x]
+
+    def lanes(ref: str) -> Optional[dict[str, str]]:
+        state, doc = _json_at(root, ref, CHECKLIST_REL)
+        if state != "ok":
+            return None
+        found: dict[str, str] = {}
+        for item in (doc.get("items") or []):
+            if not isinstance(item, dict):
+                continue
+            rid, lane = item.get("id"), item.get("lane")
+            if isinstance(rid, str) and isinstance(lane, str) \
+                    and re.fullmatch(r"session_[A-Za-z0-9]+", lane.strip()):
+                found[rid] = lane.strip()
+        return found
+
+    obs: list[tuple[datetime, str]] = []
+    for sha in shas:
+        after = lanes(sha)
+        if after is None:
+            continue
+        author = commit_session(root, sha)
+        if author is None:
+            continue
+        rc, par = _git(root, "log", "-1", "--pretty=%P", sha)
+        prior: dict[str, set[str]] = {}
+        for parent in (par.split() if rc == 0 else []):
+            pl = lanes(parent)
+            if pl:
+                for rid, lane in pl.items():
+                    prior.setdefault(rid, set()).add(lane)
+        newly = {rid: lane for rid, lane in after.items()
+                 if lane not in prior.get(rid, set())}
+        if any(lane != author for lane in newly.values()):
+            when = commit_authored_at(root, sha)
+            if when is not None:
+                obs.append((when, author))
+    obs.sort()
+    notes.append(f"exact derivation over {len(shas)} revision(s) of "
+                 f"{CHECKLIST_REL}: {len(obs)} dispatch act(s) by "
+                 f"{len({s for _w, s in obs})} session(s)")
+    return obs, notes
+
+
+def verify_dispatch(root: Path) -> int:
+    """Re-check the fast derivation against the exact one. 0 == they agree."""
+    fast, fnotes = dispatch_observations(root)
+    exact, enotes = dispatch_observations_exact(root)
+    for n in fnotes + enotes:
+        print(f"  · {n}")
+    fs = {s for _w, s in fast}
+    es = {s for _w, s in exact}
+    print("")
+    print(f"  fast : {len(fast)} observation(s), roster {sorted(fs)}")
+    print(f"  exact: {len(exact)} observation(s), roster {sorted(es)}")
+    print("")
+    if fs == es and len(fast) == len(exact):
+        print("  AGREE — the one-pass form may be used in CI. State the "
+              "population and the counts above when re-quoting this; neither "
+              "is a standing property of the repo.")
+        return 0
+    print(f"  DISAGREE — only in fast: {sorted(fs - es)}. Only in exact: "
+          f"{sorted(es - fs)}. The CI form is the FAST one, so a disagreement "
+          f"means the cheap derivation is wrong and the docstring's validation "
+          f"claim no longer holds. Do not 'fix' this by deleting the check.")
+    return 1
 
 
 def _runs_to_windows(obs: list[tuple[datetime, str]], grace_minutes: int
@@ -2987,6 +3089,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base", default="origin/main")
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--verify-dispatch", action="store_true",
+                    help="re-check the fast dispatch derivation against the "
+                         "slow exact one (minutes, not seconds) — the durable "
+                         "locator for the docstring's agreement claim")
     ap.add_argument("--today", default=None,
                     help="override today's date (YYYY-MM-DD) for expiry checks")
     args = ap.parse_args()
@@ -3002,6 +3108,11 @@ def main() -> int:
 
     if args.self_test:
         return self_test()
+
+    if args.verify_dispatch:
+        print("verify-dispatch: fast (one `git log -p`) vs exact (reload the "
+              "JSON at every revision, diff against EVERY parent)")
+        return verify_dispatch(REPO)
 
     predates = guard_existed_at_merge_base(REPO, args.base)
     if predates is False:
