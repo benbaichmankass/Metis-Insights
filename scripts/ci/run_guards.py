@@ -109,13 +109,20 @@ GUARDS: List[Dict[str, Any]] = [
         "name": "symbol-resolver-guard",
         "when": {"globs": [
             "src/config/symbol_sets.py",
+            "scripts/ci/check_symbol_resolver.py",
             "src/main.py",
             "src/units/accounts/clients.py",
             "src/runtime/exchange_accounts.py",
             "config/accounts.yaml",
             "config/strategies.yaml",
         ]},
-        "steps": [["python3", "-m", "src.config.symbol_sets", "--self-test"]],
+        # Invoked by PATH, not `-m`: `-m src.config.symbol_sets` makes the
+        # MODULE the registry's "runner", and every runner needs a
+        # RUNNER_REMEDY entry answering "what does the operator install?"
+        # — a question repo code has no true answer to. See the wrapper's
+        # docstring; `tests/ci/test_run_guards_runner_absent.py` caught it.
+        "steps": [["python3", "scripts/ci/check_symbol_resolver.py",
+                   "--self-test"]],
     },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
