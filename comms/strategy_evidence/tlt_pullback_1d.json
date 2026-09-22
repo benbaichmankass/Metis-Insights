@@ -47,6 +47,21 @@
     }
   ],
   "folds_positive": 0,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 8,
+    "max_drawdown_r": 4.7376,
+    "max_drawdown_at_trade": 7,
+    "final_equity_r": -4.4309,
+    "max_equity_r": 0.0,
+    "worst_trade_r": -1.0289,
+    "best_trade_r": 0.4799,
+    "worst_day_r": -1.0289,
+    "worst_day_date": "2026-02-12",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
   "cost_stack": {

@@ -240,6 +240,86 @@ def time_folds(trades: List[Dict[str, Any]], folds: int) -> List[Dict[str, Any]]
     return out
 
 
+def path_stats(trades: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Descriptive PATH statistics over the ordered per-trade R series.
+
+    WHY THIS EXISTS (B6). `net_r_oos` is a SUM and `fold_detail` is a sum per
+    fold, and neither is an equity PATH: a fold reading -5.39R may never have
+    been 5.39R underwater at any single moment. The prop bar the operator set
+    is `E[profit before the account dies] > the account cost`, which is a
+    ruin-with-payoff question, and the quantity it needs -- P(target before
+    floor) -- is a property of the PATH, not of the total. Measured 2026-09-22
+    across all 52 committed records: none carried a path statistic, so that
+    probability was not computable for any leg.
+
+    ⚠️ THIS FUNCTION DELIBERATELY DOES NOT GRADE ANYTHING. It emits
+    descriptive statistics and stops. The prop bar is registered by B6 and it
+    must be registered BEFORE these numbers are read; a producer that also
+    scored them against `breakout_1`'s 4.0R floor / 6.67R target would be
+    writing the rule after seeing the result, which is the exact ordering
+    clause C4 exists to refuse. No threshold from config/prop_rulesets/ is
+    imported here, on purpose.
+
+    ⚠️ AND THE SUMMARY IS NOT A SUBSTITUTE FOR THE SERIES. `source_run` names
+    the committed per-trade rows; anything a later consumer needs that is not
+    here (a first-passage simulation, a bootstrap, a different ordering) is
+    computed from those rows. This block exists so the common questions do not
+    require reading 80 lines of JSONL, not so the JSONL can be discarded.
+    """
+    dated = [t for t in trades if t.get("entry_time")]
+    dated.sort(key=lambda t: str(t["entry_time"]))
+    rs = [float(t.get("net_r") or 0.0) for t in dated]
+    if not rs:
+        return None
+
+    # Running equity in R, and its worst peak-to-trough excursion. This is the
+    # `how far underwater did it actually go` number a per-fold sum cannot give.
+    equity = 0.0
+    peak = 0.0
+    max_dd = 0.0
+    trough_at = 0
+    for i, r in enumerate(rs):
+        equity += r
+        if equity > peak:
+            peak = equity
+        dd = peak - equity
+        if dd > max_dd:
+            max_dd, trough_at = dd, i + 1
+
+    # Worst single calendar day, by EXIT date -- a day's damage is realised when
+    # the trades close, not when they opened. Trades with no exit_time are
+    # excluded and the count says how many, rather than being folded in at 0.0.
+    by_day: Dict[str, float] = {}
+    no_exit = 0
+    for t in dated:
+        et = t.get("exit_time")
+        if not et:
+            no_exit += 1
+            continue
+        by_day[str(et)[:10]] = by_day.get(str(et)[:10], 0.0) + float(t.get("net_r") or 0.0)
+    worst_day = min(by_day.values()) if by_day else None
+    worst_day_date = min(by_day, key=by_day.get) if by_day else None
+
+    return {
+        "series_location": "source_run (the per-trade rows, in order, with net_r)",
+        "n": len(rs),
+        "max_drawdown_r": round(max_dd, 4),
+        "max_drawdown_at_trade": trough_at,
+        "final_equity_r": round(equity, 4),
+        "max_equity_r": round(peak, 4),
+        "worst_trade_r": round(min(rs), 4),
+        "best_trade_r": round(max(rs), 4),
+        "worst_day_r": round(worst_day, 4) if worst_day is not None else None,
+        "worst_day_date": worst_day_date,
+        "trades_without_exit_time": no_exit,
+        "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the "
+                    "full-window path, not a per-fold one",
+        "not_a_verdict": "Descriptive only. No bar is applied here -- the prop "
+                         "bar is B6's to register, and it must be registered "
+                         "before these numbers are read.",
+    }
+
+
 def build_record(name: str, cfg: Dict[str, Any], *, workdir: str,
                  days: int, folds: int) -> Dict[str, Any]:
     """Produce one leg's evidence record. Never raises on a leg-level failure."""
@@ -265,6 +345,7 @@ def build_record(name: str, cfg: Dict[str, Any], *, workdir: str,
         "folds_positive": None,
         "window_days": days,
         "fee_bps_roundtrip": None,
+        "path_stats": None,
         "cost_stack": None,
         "net_r_oos_fee_only": None,
         "decision_rule": None,
@@ -334,6 +415,8 @@ def build_record(name: str, cfg: Dict[str, Any], *, workdir: str,
         # ONE fold is a different fact from one positive in every fold, and the
         # pooled number alone cannot tell them apart.
         "folds_positive": sum(1 for f in fd if f["net_r"] > 0),
+        # B6 -- the equity PATH, which no sum can reconstruct. See path_stats().
+        "path_stats": path_stats(trades),
     })
     if len(trades) < MIN_TRADES_FOR_POOLED:
         rec["low_n_warning"] = (

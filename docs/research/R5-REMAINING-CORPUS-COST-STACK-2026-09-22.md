@@ -275,6 +275,73 @@ Caveats, stated rather than buried:
 
 ---
 
+## ⚠️ FINDING 4 — the path is far worse than the total, and this qualifies my own answer above (B6)
+
+Added after the run, on B6's ask. The per-trade R series was already committed
+by this lane (`source_run`), so **no backtest was re-run** — `path_stats` is
+computed from those rows and cross-checked against the record it sits in
+(`final_equity_r == net_r_oos` and `n == n_trades_oos` on 30 of 30).
+
+**`net_r_oos` is a SUM. It says nothing about how far underwater a leg went.**
+Measured over the 30 legs this lane regraded, the worst peak-to-trough
+excursion in R (`path_stats.max_drawdown_r`) **exceeds the leg's entire net
+result on 18 of 30**, and the two legs I named as candidates are among the
+worst:
+
+| leg | `net_r_oos` | `max_drawdown_r` | worst day | n |
+|---|--:|--:|--:|--:|
+| `htf_pullback_trend_2h` *(the BTC candidate)* | **+2.7979** | **12.3706** | −2.069 | 80 |
+| `trend_donchian_sol_4h` *(operator question 1)* | **+4.1648** | **10.2791** | −1.1771 | 34 |
+| `spy_pullback_1h` | −11.2379 | 22.0809 | −2.2228 | 57 |
+| `trend_donchian_eth` | +21.6753 | 17.1990 | −2.1231 | 102 |
+| `fade_breakout_4h` | +6.1101 | 5.0547 | −1.1273 | 25 |
+| `squeeze_breakout_4h` | −0.4874 | 3.7821 | −1.1010 | 10 |
+
+⚠️ **This qualifies what I wrote about both operator questions, and the
+qualification is mine to make rather than the reader's to discover.** Calling
+`htf_pullback_trend_2h` *"the strongest BTC candidate"* remains true **of the
+Stage-0 rule as registered** — `RULE-D1-STAGE0-NET-OF-FULL-COST` is a test on
+the pooled total and it passes. It is **not** a statement that the leg suits a
+drawdown-bounded book, and the 12.37R excursion behind its +2.80R is a fact the
+verdict field cannot express. A reader taking `verdict: pass` as fitness for
+`breakout_1` would be reading a total as a path.
+
+⚠️ **I have deliberately NOT scored any leg against `breakout_1`'s floor or
+target.** B6 registers the prop bar and it must be registered *before* these
+numbers are read; a lane that emitted the measurement and the grade in the same
+pass would be writing the rule after seeing the result. `path_stats` imports no
+threshold from `config/prop_rulesets/` and says so in its own docstring. The
+numbers above are descriptive.
+
+### ⚠️ And B6 CANNOT be answered for the prop account today — the `/tmp` defect is why
+
+**Population: all 52 records. 30 now carry `path_stats`; 22 do not**, and the
+22 split into two genuinely different reasons:
+
+| | count | why |
+|---|--:|---|
+| **series unreachable** | **12** | `source_run` points into a `/tmp` dir that no longer exists (R1's 11 + E25's 1). The trades were emitted and then lost. |
+| no series at all | 10 | 9 `no_harness` + 1 `harness_failed` — nothing was ever emitted. |
+
+⚠️ **All the risk-bearing legs are in the unreachable 12** — including
+`trend_donchian_sol_prop` and `trend_donchian_eth_prop`, the two legs on
+`breakout_1`, **the prop account B6 is about.** So the measurement B6 needs is
+missing for exactly the legs B6 exists to decide.
+
+**This is the second, larger cost of `PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH`,
+and it was not visible when that row was filed as a provenance defect.** A dead
+locator does not only stop someone re-checking a number — it stops any NEW
+question being asked of the old measurement. Every future statistic over those
+12 legs costs a re-run.
+
+⚠️ **I did not re-run those 12, and the reason is a judgement the next owner
+should be able to overturn.** Re-running would fix their locators and produce
+their path stats in one pass — but Finding 2 says the numbers would move on the
+window shift, and those 12 are the records **R2 has already acted on** (four
+roster cuts) and **R8 is about to read**. Silently replacing them mid-decision
+is worse than the gap. Whether to re-run them is R8/B6's call, not this lane's.
+Filed as `PI-20260922-R5-PATH-STATS-MISSING-FOR-THE-12-LEGS-WHOSE-SERIES-IS-IN-A-DEAD-TMP-DIR`.
+
 ## PROPOSAL — for the operator. Nothing below is applied by this lane.
 
 Per `docs/CLAUDE-RULES-CANONICAL.md` § Permission Tiers, every item here is
@@ -289,8 +356,7 @@ instability. Recommend D1's owner fix the window (a pinned `--end`, or an n/CI
 clause) **before** any Gate-1 crossing is taken on these records. This is the
 opposite of lowering a bar and it is deliberately the first item.
 
-**P2 — `htf_pullback_trend_2h` (BTC 2h): the strongest candidate for Gate 1, on
-evidence, once P1 is satisfied.** It is the only BTC leg with a `pass`,
+**P2 — `htf_pullback_trend_2h` (BTC 2h): the strongest candidate for Gate 1 ON THE STAGE-0 RULE AS REGISTERED, once P1 is satisfied — and read Finding 4 before treating that as fitness for a drawdown-bounded book (max drawdown 12.3706R behind a +2.7979R total).** It is the only BTC leg with a `pass`,
 `faithful` fidelity, 3 of 4 folds positive and n=80. The exact change would be
 `config/strategies.yaml::htf_pullback_trend_2h::execution: shadow → live`
 **(Tier 3 — not made here)**. Note it already runs on `bybit_1`, so this is a
@@ -307,7 +373,7 @@ way too: at n=10 with a verdict that flipped last week, this `fail` is as
 unstable as the `pass` it replaced. **Do not demote on it either.** The right
 disposition is "measure it properly", which is P1 plus a sweep.
 
-**P4 — `trend_donchian_sol_4h`: no promotion recommended today.** It passes, but
+**P4 — `trend_donchian_sol_4h`: no promotion recommended today**, and Finding 4 strengthens this rather than adding a caveat to it (max drawdown 10.2791R behind a +4.1648R total). It passes, but
 on half the sample of the prop leg already carrying SOL 1h, with a number that
 halved on a 9-day shift and a pooled positive carried by one fold. Adding a
 second SOL trend leg to a risk-bearing book on that basis buys correlated
