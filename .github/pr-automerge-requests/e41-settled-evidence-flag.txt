@@ -1,0 +1,3 @@
+Tier-1, landing: self. CI tooling + a measurement record; no runtime, no
+strategy parameter, no order path. Armed so the declaration actually lands
+rather than sitting green and unmerged (pr-landing-guard R6).

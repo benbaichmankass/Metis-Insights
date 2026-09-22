@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI tooling plus a measurement record. Adds scripts/ops/lever_evidence_flag.py (read-only over config/lever_reachability.json), registers it as `lever-evidence-flag-guard` in scripts/ci/run_guards.py, and writes an `evidence` block (k, n, interval, flag) onto each registry entry plus the `evidence_flag_policy` block the script reads its policy from. NO strategy parameter, no runtime code, no order path, no account or roster change -- config/lever_reachability.json 'RECORDS MEASUREMENTS AND DISPOSITIONS; it changes no behaviour and no value' by its own header. Tier-1 by path and by effect.",
+  "note": "Deliberately split from the Tier-3 arm-strip PR #12737, which stays `landing: hold`. This lands FIRST so the strip PR can cite the flag: a strip proposed on 0/8 is a proposal to delete a lever we cannot show is dead, and the operator must see it in those terms. The two cut-points in evidence_flag_policy are PROPOSED and are an operator decision; the block says so and nothing branches on them outside this script."
+}
