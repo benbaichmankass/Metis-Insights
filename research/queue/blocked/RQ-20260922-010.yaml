@@ -1,0 +1,135 @@
+id: RQ-20260922-010
+title: Can fvg_range_15m be given a Stage-0 number at all, and what is the minimum change that does it?
+status: blocked
+cadence: once
+kind: deterministic
+
+question: >-
+  fvg_range_15m trades real money on bybit_2 and is the one leg of the twelve
+  with NO harness at all — it fails every clause of the four-clause bar, not
+  just the cost clause. Which existing harness, if any, can represent the
+  fvg_range family, and what is the smallest change that would produce a
+  Stage-0 number for it? Or is the honest answer that this leg cannot be
+  measured offline today, in which case that is the finding and it is a
+  Gate-2 input on its own.
+
+why_this_matters: >-
+  MEASURED, from `scripts/ci/check_roster_promotion_evidence.py --population`
+  run on main at f3746ab this session — the ONLY leg failing all four clauses:
+    [FAIL] bybit_2/fvg_range_15m (real_money, mode=live)
+      C1: coverage_state='no_harness' (not 'measured')
+      C2: n_trades_oos=None is not a stated integer
+      C3: no `cost_stack` block
+      C4: no `decision_rule` block (param_selection_provenance='not_established')
+  Everything else in the risk-bearing population has a number that can be
+  argued with. This leg has none, and it is routed to a real-money account.
+  Corroborated: `python3 scripts/research/e35_shard_plan.py
+  --ignore-missing-data` (run 2026-09-22) schedules 43 legs and excludes 12 as
+  `out_of_scope_family`; fvg_range_15m is not in the include set. R1's note
+  records the mechanism — `regime_debt_matrix.classify()` has no branch for
+  the fvg_range family at all — and states plainly that this is a classifier
+  gap unrelated to the cost defaults, named by E3 and not fixed by it.
+
+why_not_inferential: >-
+  This is a CAPABILITY question, not an estimate. It asks which tools can
+  represent a strategy family and what each is missing — an inventory over the
+  repo, whose answer is the same every time it is taken. No sample is drawn,
+  so an expected_n and a minimum detectable effect would be theatre. The
+  honesty condition is that the inventory is COMPLETE, which is why the rule
+  below requires naming the tools checked.
+
+why_an_impossibility_claim_needs_more_care_here: >-
+  docs/CLAUDE-RULES-CANONICAL.md § "Green is not evidence", obligation 3: an
+  IMPOSSIBILITY claim gets MORE scepticism than a success claim, because a
+  tool wrongly reporting "measured: OK" wastes a decision while a tool wrongly
+  reporting "this cannot be measured" CLOSES OFF THE WORK — nobody re-checks a
+  dead end. On 2026-07-30 a session reported six live regime gates as
+  permanently un-auditable on the strength of one code comment while
+  scripts/research/analyze_exit_head.py had been doing that job all along. So
+  this unit may NOT conclude "unmeasurable" from `coverage_state: no_harness`,
+  from the shard plan's exclusion, or from R1's note — all three are reports
+  about the CLASSIFIER, not about the space of harnesses. It must check
+  docs/research/RESEARCH-CAPABILITY-INDEX.md and grep scripts/research/, and
+  NAME what it checked.
+
+decision_rule:
+  id: RULE-RQ0922-010-FVG-MEASURABILITY
+  registered_at: '2026-09-22'
+  registered_before_run: true
+  statistic: >-
+    A named verdict plus the inventory that produced it: every harness
+    inspected, and for each, the specific reason it can or cannot represent a
+    15-minute fair-value-gap range strategy.
+  rule: >-
+    IF an existing harness can represent the family with a bounded change
+    (a classifier branch, a family mapping, a config adapter — no new engine),
+    the deliverable is that change specified exactly, handed to the build lane
+    as a checklist row. The measurement itself is NOT made by this unit.
+    IF no existing harness can, the deliverable is a statement to the operator
+    that bybit_2 carries a real-money leg whose edge cannot be established
+    offline, naming every harness checked and why each fails. Under the
+    promotion ladder — "a live or paper book never establishes edge" — a leg
+    that cannot be measured offline cannot have its Stage-0 gate satisfied by
+    any amount of live running, so that statement is a Gate-2 input and a
+    Tier-3 decision for the operator: build the harness, or do not run the leg
+    on real money. THIS UNIT PROPOSES NEITHER OUTCOME; it establishes which of
+    the two questions the operator is actually being asked.
+    ⚠️ A verdict of "no harness can" is REFUSED unless the record names at
+    least the harnesses enumerated in .claude/skills/backtesting/SKILL.md AND
+    a grep of scripts/research/, per the section above. An unsourced
+    impossibility claim closes the work, and that is the more expensive error.
+  what_it_does_not_do: >-
+    It does not remove fvg_range_15m from bybit_2's roster, does not touch
+    config/accounts.yaml, and does not build a harness. Roster membership is
+    Tier-3 (R2/D2) and building the harness is a build-lane row.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 20
+  basis: >-
+    Runner, and it is a repo read: the inputs are scripts/research/,
+    .claude/skills/backtesting/SKILL.md,
+    docs/research/RESEARCH-CAPABILITY-INDEX.md and
+    src/units/strategies/. No candles are fetched, no harness runs, no VM is
+    touched.
+
+blocked_on:
+  - what: >-
+      Nothing lands a capability inventory. This unit's deliverable is prose
+      plus a specified change, and the plan is explicit that a memo no
+      checklist row and no queue unit points at is NOT work — this repo has
+      404 of those. So it needs a landing surface before it is dispatched, or
+      it produces the 405th.
+    ref: 'checklist E5 / C2 (every research workflow lands a durable queryable result)'
+    clears_when: >-
+      The verdict has a committed home — either a `coverage_state` transition
+      on comms/strategy_evidence/fvg_range_15m.json with the inventory
+      attached, or a checklist row carrying the specified change.
+
+run:
+  workflow: null
+  note: >-
+    Null on purpose. `regime-debt-matrix.yml` is the nearest workflow and is
+    NOT it: the classifier's inability to see this family is the thing being
+    investigated, so dispatching it would return the same silence that
+    motivated the question and would look like a measurement.
+
+lands:
+  store: comms/strategy_evidence/fvg_range_15m.json
+  assert_field: coverage_state
+  min_rows: 1
+  note: >-
+    The record already exists and reads `coverage_state: no_harness`. The
+    deliverable is that field moving to a state that distinguishes "no harness
+    has been built" from "no harness CAN represent this" — two conditions that
+    share one value today, which is the collapsed state
+    (docs/CLAUDE-RULES-CANONICAL.md § Collapsed states) at the root of this
+    unit.
+
+related:
+  - 'checklist C5 / R4 (this unit is one of the ten)'
+  - 'checklist E7 / C4 (wire the 9 orphan backtest harnesses) — the likely home of any harness change this unit specifies'
+  - 'PI-20260922-R1-REMAINING-CORPUS (R1 filed the fvg_range harness gap; this asks whether it is closable)'
+last_dispatched_at: null

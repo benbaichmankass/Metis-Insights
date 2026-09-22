@@ -338,16 +338,16 @@
       "id": "C5",
       "title": "Write the first ten pre-registered research questions",
       "phase": "C",
-      "state": "in_flight",
+      "state": "dropped",
       "owner": "operator + manager",
-      "lane": "session_01AHNgatHswZsemNiP8aSXCk",
+      "lane": null,
       "model": "claude-opus-5",
-      "ceiling_usd": 40,
+      "ceiling_usd": null,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier. [!] ⚠️ DUPLICATE OF R4 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] DISPATCHED 2026-09-22 to the RESEARCH lane, with the twin to be killed in the same push. Precondition met: R1 merged (f3746ab), so the questions are written against an instrument that prices the full cost stack."
+      "note": "KILLED 2026-09-22 (session_01AHNgatHswZsemNiP8aSXCk) as a DUPLICATE of R4 -- both rows carry the identical title, 'Write the first ten pre-registered research questions', under two numbering schemes, and both rows' own dispatch said so. R4 is the SURVIVOR, on the same reasoning the eng lane used for D1/R1 the day before: R4 carries the more complete tracking (a typed blocked_on edge on R1, and the priority-ordered source list -- surviving legs first, then the flipped ones, then the four not clearing the bar) while C5 carried only owner/model/tier. R4 also sits in phase R, the live research plan adopted by E1, where C5 is from the superseded phase-C numbering. See R4 for the work and its PR. Original note, preserved rather than deleted: 'The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier.'"
     },
     {
       "id": "D1",
@@ -523,16 +523,18 @@
       "id": "R4",
       "title": "Write the first ten pre-registered research questions",
       "phase": "R",
-      "state": "in_flight",
+      "state": "done",
       "owner": "operator + manager",
       "lane": "session_01AHNgatHswZsemNiP8aSXCk",
-      "model": null,
+      "model": "claude-opus-5",
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12706
+      ],
       "blocked_on": [],
-      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets. [!] ⚠️ DUPLICATE OF C5 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] UNBLOCKED 2026-09-22: R1 merged as f3746ab. The edge is discharged by the merge. [!] DISPATCHED 2026-09-22 to the RESEARCH lane, with the twin to be killed in the same push. Precondition met: R1 merged (f3746ab), so the questions are written against an instrument that prices the full cost stack."
+      "note": "PRECONDITION DISCHARGED: R1 merged as f3746ab, so the instrument these questions are written against is on main. DELIVERED: ten units, research/queue/RQ-20260922-001 through -010, each carrying hypothesis / population / instrument / decision_rule / power. Every one names a decision rule registered BEFORE any run, in the form 'if X then we do Y', and every rule states what it does NOT do -- none of them touches config/accounts.yaml or config/strategies.yaml, because cutting the fleet is R2/D2 and Tier-3. POPULATION, stated because the batch is scoped by it: the 12 risk-bearing roster slots that scripts/ci/check_roster_promotion_evidence.py --population enumerates (alpaca_live x3, breakout_1 x3, bybit_2 x6), 8 clearing the four-clause bar and 4 not. Allocation: 6 units over the 8 surviving legs (grouped where the question is genuinely shared, e.g. the three alpaca_live 1d ETF legs), 3 over the legs that flipped net-negative, 1 over fvg_range_15m, the only leg failing all four clauses. WHAT THE EXERCISE SURFACED, and it is the finding of the session: only 3 of the 10 are dispatchable today. Four of those live in research/queue/blocked/ rather than research/queue/, because validate() requires run.workflow + lands.store on every job unconditionally and tests/test_research_queue.py enforces it over the whole directory -- correctly: the queue is a DISPATCH queue and a question with no instrument is not a job. Their full pre-registered text is preserved verbatim; load_queue() globs non-recursively, so they are out of the dispatched population by construction rather than by a flag. They are blocked on missing measurement plumbing (per-trade rows written to a tempdir; no per-trade dispersion field; nothing that lands a read over comms/strategy_evidence) and three are blocked because m20-exit-lever-sweep.yml and research-exit-head-build.yml declare no `research_unit` input, so an honestly-declared `accruing` unit can route to exactly ONE of the repo's research workflows. Five pipeline rows filed with reruns and clears_when. MERGED: no. DEPLOYED: no (repo-only; no VM or runtime change). OBSERVED: yes, on this branch -- dispatch_queue.py grades all ten and the three queued ones read would_dispatch route=runner; not observed from main, the PR is unmerged. [!] MANAGER 2026-09-22: MERGED as 28e7f6a9, and `done` rather than `landed_unproven` because the effect is OBSERVED, not assumed. I ran scripts/research/dispatch_queue.py against MAIN's research/ and scripts/research/ (checked out over my branch, so this reads main's behaviour): `not_due=8 · would_dispatch=3`, with RQ-20260922-005 / -008 / -009 each grading `would_dispatch route=runner`. [!] ONE PREDICTION IN THE PR DID NOT COME TRUE AND IT IS THE GOOD DIRECTION: the PR expected `invalid=4` from the dispatcher validating run.workflow before status. Main reads no invalid units at all, because the four blocked units live under research/queue/blocked/ where the dispatcher does not enumerate them. So that gap is SIDESTEPPED, not fixed -- PI-20260922-DISPATCHER-REPORTS-A-BLOCKED-UNIT-AS-INVALID still stands for any blocked unit left in the main directory, and the census figure to quote is 11 enumerated, not 15."
     },
     {
       "id": "R5",
