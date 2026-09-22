@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Build-lane dispatch (row E29, docs/claude/work/MANAGER-CHECKLIST.json): 'Push, open a draft PR with landing: \"hold\", update row E29, STOP. The manager merges.'",
+  "why": "CI workflow triggers, two ops scripts, their tests and the workflow catalogue doc. No runtime, order path, config or live-VM surface touched -- Tier-1 by path, held per the lane's own landing instruction rather than self-landed."
+}
