@@ -1,0 +1,6 @@
+# The fetched candle feed is an INPUT, not a measurement: it is reproducible by
+# re-running the fetch against data.binance.vision / Yahoo, it is ~150 KB per
+# leg, and no record cites it. The per-trade rows (`*__trades.jsonl`) and the
+# harness summary (`*__bt.json`) ARE cited -- by `source_run` and
+# `cost_stack.source` -- so those are committed and must stay so.
+*__data.csv
