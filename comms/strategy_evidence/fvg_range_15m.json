@@ -1,25 +1,72 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "fvg_range_15m",
   "symbol": "BTCUSDT",
   "timeframe": "15m",
   "config_fingerprint": "sha256:2d576ef7e5f328499d5220f9c8b35866",
   "basis": "harness_timefolds",
-  "coverage_state": "no_harness",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": -10.2594,
+  "expectancy_r_oos": -0.6035,
+  "n_trades_oos": 17,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 4,
+      "net_r": -1.0706,
+      "expectancy_r": -0.2677,
+      "start": "2025-11-05 08:15:00+00:00",
+      "end": "2025-12-17 10:30:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 4,
+      "net_r": -1.1983,
+      "expectancy_r": -0.2996,
+      "start": "2025-12-24 03:30:00+00:00",
+      "end": "2026-03-25 20:45:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 4,
+      "net_r": -1.9058,
+      "expectancy_r": -0.4765,
+      "start": "2026-04-24 10:45:00+00:00",
+      "end": "2026-06-19 21:15:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 5,
+      "net_r": -6.0847,
+      "expectancy_r": -1.2169,
+      "start": "2026-06-30 22:45:00+00:00",
+      "end": "2026-08-27 03:30:00+00:00"
+    }
+  ],
+  "folds_positive": 0,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
+  "fee_bps_roundtrip": 7.5,
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "/tmp/claude-0/e25wd/fvg_range_15m__bt.json"
+  },
+  "net_r_oos_fee_only": null,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "fail"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:22:08.099483+00:00",
+  "generated_at": "2026-09-22T07:02:50.689455+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "regime_debt_matrix.classify() routes nothing for this leg. Its three branches (donchian / trend_lookback|pullback_frac / kc_mult+bb_period) do not cover this config. A harness may still EXIST for the family -- backtest_ict_scalp.py and backtest_fvg_range.py both do -- so this is a missing classifier branch plus a lever map, not absent infrastructure.",
-  "harness": null
+  "source_run": "/tmp/claude-0/e25wd/fvg_range_15m__trades.jsonl",
+  "error": null,
+  "harness": "fvg_range"
 }

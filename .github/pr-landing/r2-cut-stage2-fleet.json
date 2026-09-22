@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "TIER-3 BY PATH AND BY SUBSTANCE: this diff removes four legs from the strategies: rosters of two RISK-BEARING accounts (bybit_2, real money; breakout_1, prop) and mirrors the bybit_2 cut onto bybit_portfolio, which is Gate 2's demotion signal. Approval being sought: the MANAGER lands it, on the operator's standing instruction of 2026-09-22 -- \"Cut the legs that don't clear the bar.\" The operator approved the CRITERION (B1's four-clause evidence bar, as measured by scripts/ci/check_roster_promotion_evidence.py --population); this lane produced the exact diff and does not merge it. Note that removing a leg from a strategies: roster is the spelling of \"off\" that scripts/check_dry_run_in_diff.py does NOT guard -- which is precisely why B1 exists and why this PR is held for a human read rather than self-landed.",
+  "why": "R2 (checklist row, phase R): cut the Stage-2 fleet to the legs that clear the evidence bar. MEASURED by this lane on f3746ab, not inherited: 8 of 12 risk-bearing roster slots clear the four-clause bar; the four that do not are breakout_1/eth_pullback_prop_2h, bybit_2/trend_donchian, bybit_2/eth_pullback_2h (all C4, verdict 'fail' on RULE-D1-STAGE0-NET-OF-FULL-COST) and bybit_2/fvg_range_15m (all four clauses, coverage_state 'no_harness'). No execution: shadow or mode: dry_run substitution -- the operator said cut. Open positions verified clean against the running process before push."
+}

@@ -70,22 +70,49 @@ def test_prop_is_its_own_class_not_folded_into_real_money_or_paper() -> None:
     A prop-only leg must grade `prop`. Folding it into `real_money` overstates
     money-at-risk; folding it into `paper` understates a fundable account that
     can be lost. The repo never blends prop into either KPI.
+
+    ⚠️ ANCHOR MOVED 2026-09-22 (checklist row R2). ``eth_pullback_prop_2h``
+    was this test's prop anchor until the R2 cut removed it from breakout_1's
+    roster (Tier-3, operator instruction "Cut the legs that don't clear the
+    bar"; it fails clause C4 of B1's four-clause evidence bar). It now resolves
+    ``paper`` — it is still declared by bybit_1, the soak book. The anchor moved
+    to the two _prop legs that remain routed to breakout_1; the old anchor is
+    kept below as a MOVEMENT assertion, because a leg silently reappearing on a
+    fundable account is the thing worth catching.
     """
     routing = ROLLUP._funding_by_leg()
-    assert ROLLUP._leg_funding("eth_pullback_prop_2h", routing) == "prop"
     assert ROLLUP._leg_funding("trend_donchian_eth_prop", routing) == "prop"
+    assert ROLLUP._leg_funding("trend_donchian_sol_prop", routing) == "prop"
+    assert ROLLUP._leg_funding("eth_pullback_prop_2h", routing) == "paper", (
+        "eth_pullback_prop_2h graded prop again — R2 cut it from breakout_1 on "
+        "2026-09-22 and bybit_1 (paper) is its only remaining route. If it was "
+        "deliberately re-promoted, that is Tier-3 and needs a record clearing "
+        "the four-clause bar")
 
 
 def test_routing_is_keyed_on_declared_strategies_not_on_symbols() -> None:
     """The regression that published a false real-money claim.
 
-    `htf_pullback_trend_2h` and `eth_pullback_2h` both trade instruments that a
-    live real-money account also trades. Only the SECOND is declared by
+    `htf_pullback_trend_2h` and `trend_donchian_eth_4h` both trade instruments
+    that a live real-money account also trades. Only the SECOND is declared by
     `bybit_2.strategies`. A symbol-keyed resolver grades both `real_money`;
     the leg-keyed one separates them.
+
+    ⚠️ POSITIVE ANCHOR MOVED 2026-09-22 (checklist row R2): it was
+    `eth_pullback_2h` until the R2 cut removed that leg from bybit_2. The move
+    STRENGTHENS the test rather than weakening it — eth_pullback_2h is now a
+    SECOND negative control of exactly the shape this test exists for: it
+    trades ETHUSDT, which the real-money bybit_2 does trade, and bybit_2 no
+    longer declares it. A symbol-keyed resolver would still grade it
+    `real_money` today; the leg-keyed one must not.
     """
     routing = ROLLUP._funding_by_leg()
-    assert ROLLUP._leg_funding("eth_pullback_2h", routing) == "real_money"
+    assert ROLLUP._leg_funding("trend_donchian_eth_4h", routing) == "real_money"
+    assert ROLLUP._leg_funding("eth_pullback_2h", routing) == "paper", (
+        "eth_pullback_2h graded real_money — it trades ETHUSDT, which bybit_2 "
+        "trades, but since the R2 cut (2026-09-22) bybit_2.strategies does not "
+        "list this leg. That is the same symbol-keyed inference that published "
+        "a false real-money claim on 2026-08-15")
     assert ROLLUP._leg_funding("htf_pullback_trend_2h", routing) == "paper", (
         "htf_pullback_trend_2h graded real_money again — it trades BTCUSDT, "
         "which bybit_2 trades, but bybit_2.strategies does not list this leg. "
@@ -115,12 +142,18 @@ def test_a_leg_with_no_declared_body_is_unresolved() -> None:
 def test_real_money_wins_over_paper_when_both_declare_the_leg() -> None:
     """One live real-money route makes the leg money-at-risk.
 
-    `eth_pullback_2h` is declared by `bybit_2` (real) AND by the paper books
-    `bybit_1`/`bybit_portfolio`. Letting a paper mirror mask the real route
-    would under-report exactly the cell that matters.
+    `trend_donchian_eth_4h` is declared by `bybit_2` (real) AND by the paper
+    books `bybit_1`/`bybit_portfolio`. Letting a paper mirror mask the real
+    route would under-report exactly the cell that matters.
+
+    ⚠️ The example leg was `eth_pullback_2h` until 2026-09-22 (checklist row
+    R2), which cut it from bybit_2. This assertion passes a literal map rather
+    than reading the config, so it did not fail — the DOCSTRING had gone false
+    while the test stayed green, which is precisely the "field beats comment"
+    drift this module was written about. Corrected rather than left.
     """
-    assert ROLLUP._leg_funding("eth_pullback_2h",
-                               {"eth_pullback_2h": "real_money"}) == "real_money"
+    assert ROLLUP._leg_funding("trend_donchian_eth_4h",
+                               {"trend_donchian_eth_4h": "real_money"}) == "real_money"
 
 
 def test_a_dry_run_real_money_account_does_NOT_make_a_leg_money_at_risk() -> None:
@@ -154,15 +187,20 @@ def test_a_dry_run_real_money_account_does_NOT_make_a_leg_money_at_risk() -> Non
 def test_the_resolver_actually_resolves_something() -> None:
     by_leg = ROLLUP._funding_by_leg()
     assert by_leg, "accounts.yaml resolved to nothing — every routing verdict above is vacuous"
-    assert "eth_pullback_2h" in by_leg, "the leg->account map resolved no known leg"
+    assert "trend_donchian_eth_4h" in by_leg, "the leg->account map resolved no known leg"
     assert "real_money" in by_leg.values(), (
         "no leg anywhere resolved to real_money, so a real_money verdict "
         "could never be produced and the paper counts prove nothing")
 
 
 def test_a_known_real_money_leg_resolves_real_money() -> None:
-    """Positive anchor — without one, every `paper` verdict below is vacuous."""
-    assert ROLLUP._funding_by_leg().get("eth_pullback_2h") == "real_money"
+    """Positive anchor — without one, every `paper` verdict below is vacuous.
+
+    Anchor moved from `eth_pullback_2h` on 2026-09-22 (checklist row R2) when
+    that leg was cut from bybit_2. `trend_donchian_eth_4h` is one of the three
+    legs bybit_2 still carries.
+    """
+    assert ROLLUP._funding_by_leg().get("trend_donchian_eth_4h") == "real_money"
 
 
 # --------------------------------------------------------------------------
@@ -177,7 +215,11 @@ def test_the_stale_decision_routing_split_is_not_uniform() -> None:
     cell updates the numbers without failing a test that is really about the
     banner having stopped over-claiming.
     """
-    dec = [("eth_pullback_2h", "trail_geometry", "shipped", "2026-07-12", "2026-08-10"),
+    # Real-money row moved from `eth_pullback_2h` to `trend_donchian_eth_4h` on
+    # 2026-09-22 (checklist row R2) — the former is no longer on any live
+    # real-money roster, so it could no longer supply the real_money side of
+    # the split this test is about.
+    dec = [("trend_donchian_eth_4h", "trail_geometry", "shipped", "2026-07-12", "2026-08-10"),
            ("mes_trend_long_1d", "trail_geometry", "shipped", "2026-08-09", "2026-08-10"),
            ("mhg_pullback_1d", "trail_geometry", "shipped", "2026-08-09", "2026-08-10")]
     split = ROLLUP._stale_decision_funding(dec)
