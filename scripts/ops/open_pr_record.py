@@ -175,13 +175,63 @@ TERMINAL_UNKNOWN = "unknown_not_reconstructible"
 TERMINALS = (TERMINAL_MERGED, TERMINAL_CLOSED_UNMERGED, TERMINAL_UNKNOWN)
 
 
-def read_record(path: Path = RECORD_PATH) -> Tuple[Optional[Any], bool]:
+#: What a read of the record actually found. THREE states, because the two-state
+#: `(doc, readable)` shape below cannot tell an ABSENT register from a present
+#: one, and that collapse has already cost a workflow:
+#:
+#: ⚠️ MEASURED 2026-09-22 (E29). `read_record()` returns `(None, True)` for a
+#: file that does not exist — "we read it fine, and it is None". After the
+#: 2026-09-21 reset archived `docs/claude/work/OPEN-PRS.json`,
+#: `reconcile_open_prs.py` took that `True` branch and died four lines later on
+#: `AttributeError: 'NoneType' object has no attribute 'get'`, 6 of 6 runs on
+#: `main`. The register being GONE — the one fact worth reporting — was never
+#: printed. `we could not look` rendered as a stack trace instead of as a state.
+RECORD_ABSENT = "absent"
+RECORD_READ = "read"
+RECORD_UNREADABLE = "unreadable"
+RECORD_READ_STATES = (RECORD_ABSENT, RECORD_READ, RECORD_UNREADABLE)
+
+
+def read_record_state(path: Optional[Path] = None) -> Tuple[Optional[Any], str]:
+    """`(doc, state)` where state is one of `RECORD_READ_STATES`.
+
+    * ``absent``     — the file is not there. A real, reportable observation:
+      the register was archived, or never created. NOT an empty register.
+    * ``read``       — it parsed. The doc is whatever it holds, possibly empty,
+      and "present and empty" is a DIFFERENT finding from "absent".
+    * ``unreadable`` — it exists and would not parse. **We could not look.**
+
+    Prefer this over `read_record()` in anything new. `read_record()` is kept
+    for its existing callers and is defined in terms of this one, so the two
+    cannot drift.
+    """
+    # ⚠️ RESOLVED AT CALL TIME, not bound as a default. `path=RECORD_PATH` in
+    # the signature freezes the module-level value at IMPORT, so a caller (or a
+    # test) that repoints `RECORD_PATH` is silently ignored and the function
+    # reads the original file while appearing to honour the override. Caught by
+    # the positive control in
+    # tests/ops/test_reconcile_open_prs.py::test_an_absent_register_is_not_an_empty_one.
+    path = Path(path) if path is not None else RECORD_PATH
     if not path.is_file():
-        return None, True
+        return None, RECORD_ABSENT
     try:
-        return json.loads(path.read_text(encoding="utf-8")), True
+        return json.loads(path.read_text(encoding="utf-8")), RECORD_READ
     except (json.JSONDecodeError, OSError, UnicodeDecodeError):
-        return None, False
+        return None, RECORD_UNREADABLE
+
+
+def read_record(path: Optional[Path] = None) -> Tuple[Optional[Any], bool]:
+    """`(doc, readable)` — the two-state legacy shape.
+
+    ⚠️ `readable` is True for an ABSENT file, so a caller that only checks it
+    gets `doc=None` with no way to say why. Six modules still call this
+    (`handoff_check`, `render_daily_brief`, `render_due_list`,
+    `manager_preflight`, `pr_queue_latency`, `check_pr_landing`) and each one
+    treats absent as empty. That is filed, not fixed here — see E29. New code
+    should call `read_record_state()`.
+    """
+    doc, state = read_record_state(path)
+    return doc, state != RECORD_UNREADABLE
 
 
 def _rows(doc: Optional[Any], key: str) -> List[Dict[str, Any]]:
