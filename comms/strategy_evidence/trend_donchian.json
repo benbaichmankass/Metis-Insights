@@ -3,7 +3,7 @@
   "strategy": "trend_donchian",
   "symbol": "BTCUSDT",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:d176feae1394beb1d9cbeaa26f552a86",
+  "config_fingerprint": "sha256:29b2156e584801db9ab847faa0569ebe",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

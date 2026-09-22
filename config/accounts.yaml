@@ -338,7 +338,64 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h]
+                                       # ── R8 WIRING, 2026-09-22 (Tier-3). ONE LEG ADDED:
+                                       #   ada_pullback_2h   4/4 folds  +21.93R  n=44
+                                       # It passes RULE-D1-STAGE0-NET-OF-FULL-COST on the
+                                       # corpus R7 completed (#12720), carries NO prior
+                                       # demotion, and — the property that decided it — its
+                                       # MOST RECENT fold is POSITIVE:
+                                       #   +8.87 -> +2.72 -> +6.84 -> +3.51
+                                       # Excluding the oldest fold it is still +13.06R.
+                                       # [!] A SECOND LEG WAS STAGED HERE AND WITHDRAWN
+                                       # BEFORE MERGE, and the reason is the useful part.
+                                       # avax_pullback_2h (3/4 folds, +12.67R, n=45) was
+                                       # wired on the argument that its 2026-07-22 demotion
+                                       # set its own re-promotion condition ("a 4-6wk shadow
+                                       # re-eval is expected"). THAT ARGUMENT WAS WRONG: the
+                                       # demotion is dated 2026-07-22 and the corpus's fold 4
+                                       # runs 2026-07-09 -> 2026-09-20, so THE RE-EVAL *IS*
+                                       # FOLD 4 — and fold 4 is -4.3601R over 12 trades. The
+                                       # +12.67 was discharged against ten months that
+                                       # PREDATE the demotion. Its fold shape says the same
+                                       # without the date argument: +15.39 -> +1.10 -> +0.54
+                                       # -> -4.36, i.e. the whole result is one fold a year
+                                       # old and the last nine months are -2.72R.
+                                       # OPERATOR 2026-09-22: "wire ada only and send avax to
+                                       # the research que for refinement." The 2026-07-22
+                                       # demotion therefore STANDS, undischarged.
+                                       # [!] THE SELECTION CRITERION ITSELF IS NOW A RESEARCH
+                                       # QUESTION, NOT A SETTLED BAR. "3 of 4 folds positive"
+                                       # counts folds without ORDERING them, and on all three
+                                       # 3/4 candidates the negative fold was the MOST RECENT
+                                       # one (avax -4.36, fade_breakout_4h -5.05,
+                                       # htf_pullback_trend_2h -2.75). RULE-D1 reads a pooled
+                                       # sum and has no opinion about recency. The operator
+                                       # routed that to research rather than registering a
+                                       # new clause on the strength of four legs.
+                                       # [!] TWO 3/4 LEGS REMAIN HELD, see row E39.
+                                       # fade_breakout_4h (+6.11R n=25) was demoted 2026-06-01
+                                       # on "net -86R" with the condition "re-promote only on
+                                       # a fresh net-positive LIVE/SHADOW WINDOW" — a backtest
+                                       # is a different instrument and does not satisfy it
+                                       # literally. htf_pullback_trend_2h (+2.80R n=80) was
+                                       # demoted 2026-08-23 on "OOS net_R -13.933 on real
+                                       # money"; its fold shape (+4.09 -> +0.58 -> +0.88 ->
+                                       # -2.75) now largely EXPLAINS that contradiction
+                                       # rather than leaving it open — the leg is decaying,
+                                       # and the August demotion was made inside the fold
+                                       # that is negative.
+                                       # [!] SIX OTHER PASSING LEGS WERE DELIBERATELY NOT
+                                       # WIRED. trend_donchian_eth (+21.68R, n=102) and
+                                       # sol_pullback_2h (+7.28R, n=16) pass on 1 of 4 folds
+                                       # — their whole result is one window — and four more
+                                       # pass on 2/4. The operator held them back pending a
+                                       # working REGIME-CLASSIFICATION mechanism (row E38):
+                                       # under what market conditions is each strategy
+                                       # expected to perform. A pooled sum that is blind to
+                                       # WHERE the R came from is exactly what
+                                       # RQ-20260922-002 was written to question, and this is
+                                       # that question deciding a real-money promotion.
                                        # ── R2 CUT, 2026-09-22 (Tier-3, operator
                                        # instruction "Cut the legs that don't clear
                                        # the bar"; criterion = B1's four-clause
@@ -568,7 +625,28 @@ accounts:
                                        # normally via native Bybit SL/TP brackets (S3:
                                        # 96% native bracket fires) — de-routing stops
                                        # NEW entries + trail updates, not exits.
-    symbols: [BTCUSDT, ETHUSDT, XRPUSDT, ADAUSDT]  # BTCUSDT + ETHUSDT (bybit perps). ETHUSDT added
+    symbols: [BTCUSDT, ETHUSDT, XRPUSDT, ADAUSDT]
+                                       # ── AVAXUSDT WAS ADDED HERE 2026-09-22 AND THEN
+                                       # REVERTED THE SAME DAY. Keeping the record because
+                                       # the NEAR-MISS is the point, not the symbol:
+                                       # avax_pullback_2h was about to join the roster
+                                       # while AVAXUSDT was absent from this list, which
+                                       # would have left the leg sitting on a REAL-MONEY
+                                       # roster looking wired and NEVER TRADING. Caught by
+                                       # checking symbol coverage before the edit rather
+                                       # than after the silence — nothing in CI asserts the
+                                       # relationship. That is row E42: this list is a THIRD
+                                       # execution gate (src/main.py:714 builds the trader's
+                                       # fetch set from it, not from the roster) and, measured
+                                       # over all 11 accounts, it carries 19 symbols no
+                                       # rostered leg needs and 0 that are missing — 0 only
+                                       # because this near-miss was caught by hand.
+                                       # The symbol itself is reverted because the leg is:
+                                       # avax_pullback_2h went to the RESEARCH QUEUE instead
+                                       # of to bybit_2 (operator, 2026-09-22), so nothing on
+                                       # this account needs AVAXUSDT and adding it would be a
+                                       # 20th orphan.
+                                       # BTCUSDT + ETHUSDT (bybit perps). ETHUSDT added
                                        # 2026-06-18 (Tier-3) for eth_pullback_2h real-money
                                        # test. XRPUSDT + ADAUSDT added 2026-06-30 (Tier-3)
                                        # for xrp_pullback_2h + ada_pullback_2h live test.
@@ -627,7 +705,16 @@ accounts:
     mode: live                         # demo = paper money; live is correct.
     market_type: linear                # USDT-margined linear perps (mirrors
                                        # bybit_2); set-leverage fires at boot.
-    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h]
+                                       # ── R8 WIRING, 2026-09-22 — FOLLOWS bybit_2's
+                                       # single addition IDENTICALLY AND IN THE SAME
+                                       # ORDER, in the same commit. This is not
+                                       # tidiness: test_bybit_portfolio_mirrors_
+                                       # bybit_2_exactly asserts ORDERED equality on
+                                       # `strategies` AND on `symbols`, and the mirror
+                                       # is Gate 2's demotion signal — letting it
+                                       # drift corrupts the reading the roster exists
+                                       # to inform.
                                        # ── R2 CUT, 2026-09-22 — FOLLOWS bybit_2's cut
                                        # of trend_donchian, fvg_range_15m and
                                        # eth_pullback_2h. See that account above for

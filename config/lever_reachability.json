@@ -399,6 +399,39 @@
       "reach_share_pct": 83.3,
       "measured_at": "2026-08-16",
       "note": "Measured BECAUSE this guard demanded it: PR #9549 declares this arm on a real-money leg (bybit_2) and had no reachability record, so the guard would have failed it — the first live catch, within the hour. The measurement SUPPORTS the PR: 5 of 6 recent entries clear arm 2.0, risk/entry 2.416-5.021%. The one miss is marginal (risk/entry 5.021% -> cap_R 1.97 vs arm 2.00), so a high-vol entry can still land just under the arm; that is a real characteristic of the leg, not a defect, and it is why the verdict is `reachable` rather than a claim that it always arms. Sample is truncated and recency-biased (55KB relay budget) — not a lifetime rate. Entry added ahead of #9549 merging so the two PRs are mergeable in either order."
+    },
+    {
+      "strategy": "avax_pullback_2h",
+      "lever": "trail_decay_arm_r",
+      "arm_r": 4.86,
+      "verdict": "unmeasured",
+      "disposition": "queued_tier3",
+      "opened_at": "2026-09-22",
+      "basis": null,
+      "measured_at": null,
+      "unmeasured_reason": "The AUTHORITATIVE live `order_packages/risk_per_unit` population was NOT PULLED this session — say that rather than 'absent', because nobody looked. ⚠️ THIS SENTENCE IS A CORRECTION OF ITSELF, KEPT IN THAT FORM ON PURPOSE. It first read 'this entry exists because the leg was PROMOTED to bybit_2 (real money) on 2026-09-22 under R8' — TRUE WHEN WRITTEN AND FALSE BY THE END OF THE SAME SESSION: the promotion was WITHDRAWN before merge (the leg's pooled +12.67R is one fold a year old and its most recent fold is -4.36R; operator: 'wire ada only and send avax to the research que for refinement'). So avax_pullback_2h is `execution: shadow`, is NOT on any real-money roster, and is NOT in this guard's denominator — check_lever_reachability.py requires an entry only for live+enabled legs on a capped family. THE ENTRY IS KEPT ANYWAY, deliberately: the measurement below is real, it was taken against this leg's committed OOS series, and deleting it would mean re-deriving it the next time promotion is considered. An entry the guard does not require is harmless; a measurement thrown away is not. A BACKTEST entry-conditioned basis WAS measured this session and is recorded below; it supports `inert`/`vol_conditional` at the low end (2 of 45), NOT `reachable`. The verdict is deliberately left `unmeasured` rather than graded off the backtest book, per the precedent set on trend_donchian_sol_4h and scha_trend_long_1d: this file grades on the live basis, and the third basis is recorded as a measurement, not promoted into a verdict.",
+      "note": "⚠️ NOT A LIVE LEG. avax_pullback_2h is `execution: shadow` and on no real-money roster — see `unmeasured_reason`. ⚠️ REACHABILITY DID NOT BLOCK THE PROMOTION AND NOTHING HERE ARGUED IT SHOULD — the promotion was withdrawn for an unrelated reason (fold recency), not for this. An inert exit lever means one refinement never fires; the leg still trades its entry, stop and TP. What it does mean is that `trail_decay_arm_r: 4.86` on this leg is probably decoration — recorded so it is not later read as an armed protection that simply had not triggered yet, which is the exact defect BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP exists to stop recurring. No arm_r was changed: that is Tier-3 and the operator's.",
+      "backtest_entry_conditioned_2026_09_22": {
+        "basis": "R7's committed per-trade OOS series, `comms/strategy_evidence/runs/2026-09-22-r5/avax_pullback_2h__trades.jsonl` — each row carries the trade's `entry` and its `sl` AT ENTRY, so risk/entry is entry-conditioned by construction and no stop-trailing error applies (the basis_note's warning about `entry - stop_loss` is about the LIVE journal, where the stop is amended after entry).",
+        "basis_caveat": "A THIRD BASIS, not the authoritative one. Drawn from the BACKTEST book, so it is comparable to live only where the era is held fixed. Recorded as a measurement; it changes no verdict and no value.",
+        "measured_at": "2026-09-22",
+        "cap_r_identity": "cap_R = 0.099 / (|entry - sl| / entry) — the venue TP cap, per this file's basis_note (the value that reaches kwargs[\"takeProfit\"]), NOT the clamped exit_plan_state.targets[].reach_r.",
+        "n": 45,
+        "span": "2025-09-26 -> 2026-09-20",
+        "med_risk_entry_pct": 3.029,
+        "cap_r_min": 0.4724,
+        "cap_r_p25": 2.4335,
+        "cap_r_median": 3.2689,
+        "cap_r_p75": 3.8372,
+        "cap_r_max": 5.2831,
+        "reach_count": "2/45",
+        "reach_share_pct": 4.4,
+        "era_note": "STABLE ACROSS BOTH YEARS IN THE SPAN, so this is not an era effect: 2025 1/14 (median cap_R 3.268), 2026 1/31 (median cap_R 3.269). The arm 4.86 requires risk/entry <= 2.037%; the leg's MEDIAN entry risk is 3.029% and even its single quietest entry (cap_R 5.28) only just clears.",
+        "mfe_cross_check": "Independent of the cap identity, the leg's own realised MFE distribution agrees that the arm is far out: median mfe_r 0.758, p90 4.220, and only 4 of 45 trades ever printed an MFE at or above 4.86R (max 22.885). So even IGNORING the TP cap the arm would arm on <9% of trades.",
+        "builder_unit_note": "Every row in the series carries `strategy: htf_pullback_trend_2h` — the BUILDER UNIT, the same pattern recorded on uso_trend_1h ('Capped via builder_unit:trend_donchian'). Stated because it is the reason `cap_applies` returns True for this leg, and because a reader comparing this file to the trades file would otherwise see a name mismatch and suspect the wrong series was read.",
+        "supports": "`inert` or low-end `vol_conditional`, on a 1.49x gap (cap_R median 3.27 vs arm 4.86) at n=45 over the leg's complete R7 OOS span. NOT recorded as a verdict here — the live basis has not been pulled, and this file grades on the live basis."
+      },
+      "how_to_close": "Pull `order_packages` for strategy_name = avax_pullback_2h via the diag/journal relay, compute cap_R = 0.099/(risk_per_unit/entry) per package, and record the live entry-conditioned reach share. If it agrees with the 4.4% above, the row resolves to `inert` + `recorded_inert` on an operator adjudication, or to a Tier-3 arm correction."
     }
   ],
   "_resweep_note": "config/lever_reachability.json records REACHABILITY (can a declared arm fire under its own TP cap). The live_parity_p80_resweep_2026_08_16 block on each entry records a SEPARATE question answered on 2026-08-16: what arm a live-parity p80 sweep proposes, and whether that cell clears its gate. THE TWO CAN DISAGREE, and on gld_pullback_1d they do — the sweep's PASSING arm (3.86) is itself above that leg's measured cap_R (2.20-3.01). Read both before proposing any arm value. No arm_r was changed; every correction remains Tier-3 and the operator's."
