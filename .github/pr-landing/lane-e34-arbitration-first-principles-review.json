@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "TIER-3 SUBJECT MATTER, ZERO RUNTIME DIFF. This PR changes no runtime behaviour at all: it touches only docs/research/ (one new review), docs/DOCUMENT-INDEX.md (one row), docs/claude/work/PIPELINE.jsonl (four appended rows) and this declaration. No set-env, no config/, no src/, no tests. It is held not because the DIFF is risky but because its PRODUCT is a Tier-3 proposal on live intent arbitration -- it recommends making the per-account fan-out ADD accounts to a dispatch and never REMOVE them (the P1 no-subtraction property), which changes which account a real-money order routes to. The exact parameters and the two code sites are stated in the review; nothing is applied. Per CLAUDE.md Tier 3, the lane analyses and proposes; the merge is the operator's.",
+  "hold_text": "E34 lane dispatch, verbatim: \"This is a review, not a build -- you produce a document and rows, and you change no runtime behaviour. Tier-3 subject matter. landing: \\\"hold\\\", hold_reason: \\\"tier_2_3_needs_approval\\\". The manager lands.\" and \"You change no runtime behaviour. No set-env, no config/, no src/ -- this is a review. If you conclude a change is needed, propose it with exact parameters and stop.\" This lane did not seek and does not hold operator approval. Approval is sought via the manager, who dispatched this row."
+}
