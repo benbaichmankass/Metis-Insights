@@ -362,7 +362,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "src/runtime/execution_costs.py models fee + slippage + funding correctly; the HARNESSES set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0 by default, deliberately, for backward compatibility. So every 'passed the backtest' verdict in the corpus is fee-only and optimistic by an unknown amount - measured once at +0.57R on htf_pullback_trend_2h, the one leg anyone checked. 6 of 13 harnesses have no cost terms at all, including the vwap harness (vwap is 318 of 431 lifetime real-money trades). [!] ⚠️ DUPLICATE OF R1 — same work (flip the cost defaults and re-run the corpus) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
+      "note": "src/runtime/execution_costs.py models fee + slippage + funding correctly; the HARNESSES set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0 by default, deliberately, for backward compatibility. So every 'passed the backtest' verdict in the corpus is fee-only and optimistic by an unknown amount - measured once at +0.57R on htf_pullback_trend_2h, the one leg anyone checked. 6 of 13 harnesses have no cost terms at all, including the vwap harness (vwap is 318 of 431 lifetime real-money trades). [!] ⚠️ DUPLICATE OF R1 — same work (flip the cost defaults and re-run the corpus) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] R1's lane (session_016FkzGuob8CJMJgqYRddvSV) is taking this work and will kill whichever of the pair it does not use. DO NOT DISPATCH THIS ROW."
     },
     {
       "id": "D2",
@@ -476,16 +476,16 @@
       "id": "R1",
       "title": "Re-run the backtest corpus with the cost defaults ON",
       "phase": "R",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "research lane",
-      "lane": null,
+      "lane": "session_016FkzGuob8CJMJgqYRddvSV",
       "model": "claude-sonnet-5",
-      "ceiling_usd": 60,
+      "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "THE FIRST THING; nothing real depends on anything else until it is done. Which legs still clear Stage 0 once slippage and funding are modelled? Decision rule REGISTERED NOW: a leg that no longer clears its own declared bar under full costs is demoted to shadow automatically under MD-DEMOTE-S1-OFF -- no memo. EXPECTED SHAPE, stated so it can be wrong: on a +0.57R shift, legs whose edge was under ~0.6R invert, and most declared edges are smaller than that, so expect a MAJORITY of the 45 live legs to fail. If almost everything still passes, suspect the run did not change the cost terms -- check the run, not the luck. Population: all 55 legs, full history, per-symbol. [!] UNBLOCKED 2026-09-21: E3 merged as 3afc02b, so the harnesses now price slippage and funding. The edge is discharged by the merge, not by waiting. [!] ⚠️ DUPLICATE OF D1 — same work (flip the cost defaults and re-run the corpus) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
+      "note": "THE FIRST THING; nothing real depends on anything else until it is done. Which legs still clear Stage 0 once slippage and funding are modelled? Decision rule REGISTERED NOW: a leg that no longer clears its own declared bar under full costs is demoted to shadow automatically under MD-DEMOTE-S1-OFF -- no memo. EXPECTED SHAPE, stated so it can be wrong: on a +0.57R shift, legs whose edge was under ~0.6R invert, and most declared edges are smaller than that, so expect a MAJORITY of the 45 live legs to fail. If almost everything still passes, suspect the run did not change the cost terms -- check the run, not the luck. Population: all 55 legs, full history, per-symbol. [!] UNBLOCKED 2026-09-21: E3 merged as 3afc02b, so the harnesses now price slippage and funding. The edge is discharged by the merge, not by waiting. [!] ⚠️ DUPLICATE OF D1 — same work (flip the cost defaults and re-run the corpus) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] DISPATCHED 2026-09-22 as the ENGINEERING lane, with D1 named as its twin to kill in the same push. Operator: 'We need to do both' -- R1 and the prop track run in parallel, not in sequence."
     },
     {
       "id": "R2",
@@ -857,16 +857,16 @@
       "id": "E19",
       "title": "The vm-diag-snapshot relay is failing — every session is blind to the live host",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_0178qqSNhbW9vpQbREtc4drS",
       "model": "claude-sonnet-5",
-      "ceiling_usd": 15,
+      "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first."
+      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first. [!] DISPATCHED 2026-09-22 as the OPS lane. It is E17's blocker, and E17 is the fix for a funded prop account receiving nothing -- so this is the prop track's first move, not a side quest."
     },
     {
       "id": "E20",
