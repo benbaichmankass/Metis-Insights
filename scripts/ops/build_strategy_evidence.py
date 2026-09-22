@@ -126,10 +126,11 @@ OUT_DIR = ROOT / "comms" / "strategy_evidence"
 #: Where a run's raw harness output lands, and therefore what `source_run` and
 #: `cost_stack.source` POINT AT. Repo-relative and COMMITTED, deliberately.
 #:
-#: ⚠️ This used to be `tempfile.mkdtemp()`, and every record written before
-#: 2026-09-22 carries a `/tmp/...` path that no longer exists on any machine
-#: (`PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH`, measured over all 52
-#: committed records: 42 name a dead `/tmp` dir, 10 name nothing). Under
+#: ⚠️ This used to be `tempfile.mkdtemp()`. MEASURED on `0e0a8f3` over all 52
+#: committed records: **42 name a `/tmp/...` dir that exists on no machine
+#: today, and 10 name nothing at all** -- so this is NOT only a pre-2026-09-22
+#: problem, R1's own 2026-09-22 records name `/tmp/tmp.RsNZr5lfkw`
+#: (`PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH`). Under
 #: `docs/CLAUDE-RULES-CANONICAL.md` § "A MEASURED must say WHERE THE
 #: MEASUREMENT LIVES", a record whose locator cannot be reached is not MEASURED
 #: -- it degrades to INFERRED from an unstated measurement. The per-trade rows
