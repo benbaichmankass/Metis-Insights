@@ -1,0 +1,139 @@
+{
+  "_comment": "/health-review output. Conforms to comms/schema/health_review_response.template.json EXCEPT for the added `could_not_look` status value -- see `_status_enum_note`.",
+  "_status_enum_note": "The template's findings status enum is `ok | watch | concern`. It has NO value for 'we did not look', so an unmeasurable dimension can only be rendered as one of three MEASUREMENT outcomes. That is the exact collapse docs/CLAUDE-RULES-CANONICAL.md 'Collapsed states' forbids and scripts/ci/check_collapsed_states.py enforces elsewhere. This review therefore uses `could_not_look` for every dimension the /api/diag/* outage made unmeasurable, rather than grading it `ok`. Filed as E23.",
+  "request_id": "REQ-20260922-053000-health-review",
+  "reviewed_at": "2026-09-22T05:45:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-09-21T00:00:00+00:00",
+  "window_end": "2026-09-22T05:45:00+00:00",
+  "window_note": "Window opened at the 2026-09-21 operating reset. No prior health-review JSON was locatable: docs/claude/health-review-backlog.json -- the skill's own window anchor -- was ARCHIVED by that reset and no longer exists.",
+  "overall_assessment": "investigate",
+
+  "coverage": {
+    "_comment": "MEASURED, not asserted. Stated first because a finding list is only as good as the surface it was taken over.",
+    "reachable": {
+      "surface": "/api/bot/* browser-direct via Caddy (https://ict-bot.duckdns.org)",
+      "probed": 7,
+      "http_200": 7,
+      "paths": ["api/bot/health/latest", "api/bot/config", "api/bot/stats", "api/bot/accounts/balances", "api/bot/positions", "api/bot/trades/closed?limit=3", "api/bot/work/checklist"],
+      "read_at": "2026-09-22T05:30:00Z"
+    },
+    "unreachable": {
+      "surface": "/api/diag/*",
+      "probed": 3,
+      "http_401": 3,
+      "paths": ["api/diag/services", "api/diag/snapshot?limit=5", "api/diag/log_file?name=orphan_events"],
+      "body": "{\"detail\":{\"error\":\"missing_token\"}}",
+      "why": "DIAG_READ_TOKEN lives in Actions secrets, not in a session. The only session-side route is the vm-diag-snapshot relay, which is FAILING (issue #12695, run 35649903349, row E19). A parallel ops lane owns the relay; this review did not duplicate that work.",
+      "read_at": "2026-09-22T05:35:00Z"
+    },
+    "correction_to_the_brief": "The dispatch said 'some of what you would normally measure may be unmeasurable right now'. MEASURED: the live host is NOT dark. /api/bot/* answers 200 from this session with no token. The relay outage costs EXACTLY the /api/diag/* surface and nothing else. Both a positive control (7/7 200) and a negative control (3/3 401) were run, so this is a bounded negative, not an absence of evidence.",
+    "what_the_outage_cost": [
+      "orphan-events ingest (diag log_file) -- MANDATORY section, NOT PERFORMED",
+      "signal->order plumbing from the audit tail -- NOT PERFORMED",
+      "monitor-tick cadence (run_monitor_tick events) -- NOT PERFORMED",
+      "strategy silence (*_eval per-tick events) -- NOT PERFORMED",
+      "alert-delivery drain (AlertsQueue) -- NOT PERFORMED",
+      "VM host auth-log / sshd security sweep -- NOT PERFORMED",
+      "per-account reachability via /api/diag/exchange_positions -- SUBSTITUTED with /api/bot/accounts/balances api_ok, which the skill lists as a sanctioned alternate source"
+    ]
+  },
+
+  "findings": {
+    "heartbeat":         {"status": "ok", "note": "last tick 5s ago (heartbeat.txt) per health/latest snapshot 2026-09-22T05:16:31Z"},
+    "ticks":             {"status": "ok", "note": "same snapshot; tick check ok"},
+    "signals":           {"status": "could_not_look", "note": "audit tail is /api/diag/* only; 401. Not graded."},
+    "orders":            {"status": "could_not_look", "note": "signal->order plumbing needs the audit tail; 401. Not graded."},
+    "trades":            {"status": "ok", "note": "/api/bot/trades/closed returns rows; 2 open real-money positions on /api/bot/positions, both alpaca_live, both carrying SL+TP and a fresh r-block (updatedAt 05:29Z)."},
+    "monitoring":        {"status": "could_not_look", "note": "monitor-tick cadence needs journalctl/audit; 401. Not graded."},
+    "sizing":            {"status": "ok", "note": "2 open real-money rows, qty 1.0 each (TLT, SLV) on a $201 alpaca_live book. No absurd leverage in the readable population (n=2)."},
+    "api_errors":        {"status": "concern", "note": "vm-diag-snapshot relay failing (#12695). Every session is blind to /api/diag/*. Row E19, owned by the ops lane."},
+    "state_consistency": {"status": "could_not_look", "note": "needs runtime_status.json via diag; 401. YAML side read (11 accounts) but not comparable alone."},
+    "alert_delivery":    {"status": "could_not_look", "note": "AlertsQueue drain evidence is in the journal; 401. Not graded."},
+    "strategy_silence":  {"status": "could_not_look", "note": "*_eval events are journal-only; 401. Not graded. See E22 -- no /api/bot/* surface answers 'is this leg still producing'."},
+    "db_integrity":      {"status": "ok", "note": "health snapshot: SELECT 1 ok on /data/bot-data/trade_journal.db. PRAGMA integrity_check not fetched (no relay)."},
+    "data_validity":     {"status": "watch", "note": "stats pnlCoverage 0.7633 real (329 measured / 20 estimated), 0.2228 paper (264 measured / 658 estimated). The paper book is 73.8% unmeasured PnL by row count."},
+    "audit_log_freshness": {"status": "could_not_look", "note": "audit endpoint is /api/diag/*; 401."},
+    "trainer_service":   {"status": "could_not_look", "note": "trainer-vm-diag not exercised this session (budget). Not graded -- deliberately not reported as ok."},
+    "health_snapshot":   {"status": "concern", "note": "present + fresh (05:16Z) and reads '7/7 checks ok' -- but see E22: its 7 checks cannot express the failure that actually happened."},
+    "security":          {"status": "could_not_look", "note": "PARTIAL. Host auth-log sweep impossible (401). GitHub-side sweep not run this session (budget). Reported as not-performed, NOT as clean."}
+  },
+
+  "security_check": {
+    "status": "could_not_look",
+    "sources_checked": [],
+    "sources_not_checked": ["github secret scanning", "external/non-collaborator activity", "repo/supply-chain mutations", "actions anomalies", "VM host auth signals (blocked: /api/diag/* 401)"],
+    "signals": [],
+    "note": "NOT a clean check. The skill requires a stated negative; this session cannot make one. Zero of five sources were swept. Recording 'no breach detected' here would be exactly the fabricated-reassuring-value the collapsed-states rule forbids. Filed as E24."
+  },
+
+  "soak_decisions_due": [],
+  "soak_decisions_note": "Not assessed -- /api/bot/shadow/stats and the M7 review packets were not pulled (budget). Stated as not-assessed rather than 'no soak decisions due'.",
+
+  "new_work_compliance": {
+    "prs_audited": 0,
+    "commits_audited": 0,
+    "findings": [],
+    "note": "NOT PERFORMED. The clone is shallow (50 commits, oldest 2026-09-21) and `git fetch --deepen=2000` returned exit 0 without deepening it -- still 50 commits after. The mandated change-driven audit had no readable change set. This is itself the BL-20260730-SHALLOW-CLONE-DEFEATS-HISTORY-RULE class recurring, and it is reported as not-performed rather than clean."
+  },
+
+  "sprint_doc_review": [],
+
+  "backlog_drain": [],
+  "backlog_coverage": {
+    "open_at_start": null,
+    "triaged": 0,
+    "resolved": 0,
+    "fixed_now": 0,
+    "closed_stale": 0,
+    "kept_open": 0,
+    "count_untriaged": null,
+    "note": "THE GATE IS UNSATISFIABLE AS WRITTEN. The skill's hard completion gate drains docs/claude/health-review-backlog.json; the 2026-09-21 reset ARCHIVED that file and it does not exist on main. open_at_start is null ('we could not look'), not 0 ('we looked and it was empty'). Filed as E23."
+  },
+
+  "anomalies": [
+    {
+      "id": "E21",
+      "severity": "high",
+      "title": "The exit monitor's strategy list has a registry-failure fallback that covers 0 of 52 routed-live legs",
+      "measured": "Parsed config/strategies.yaml (55 declared) and config/accounts.yaml (11 accounts) on the working tree at 0d3ab95, 2026-09-22. 52 distinct strategies are routed to at least one mode:live account. src/runtime/pipeline.py:349-351 returns the hardcoded fallback ['turtle_soup','vwap'] when load_strategies() raises. Neither name is routed to ANY live account: turtle_soup is execution:shadow, vwap is enabled:false + execution:shadow. Set difference: 52 of 52 routed-live legs absent from the fallback.",
+      "why_it_matters": "STRATEGIES is consumed by BOTH halves. Entry: the multiplexer would try 2 strategies that trade nothing. Exit: run_exit_evaluation_tick calls _load_strategies(None) -> pipeline.STRATEGIES, then get_order_packages_by_strategy per name -- so every open package belonging to the other 52 legs gets NO monitor() call: no trailing amend, no stale-exit, no giveback stop, no exit head. Open real-money positions would sit unmanaged until a broker-side bracket or the reconciler caught them.",
+      "trigger_reachability": "Not hypothetical. STRATEGIES is a module-level constant evaluated once at import; the fallback fires on any load_strategies() exception -- a malformed config/strategies.yaml being the live one. ict-git-sync pulls main every ~5 min, so a YAML syntax error landing on main reaches the live trader inside ~5 minutes.",
+      "silence": "It announces itself with ONE logger.warning at import. None of the health snapshot's 7 checks (service, git_drift, git_fetch, tick, accounts_api, db, disk) would go red: the process is alive, ticking, in sync and the DB answers. The snapshot would keep reading '7/7 checks ok'.",
+      "field_beats_comment": "The comment at src/runtime/pipeline.py:350 asserts 'hardcoded fallback matches the production roster in config/strategies.yaml after PR B1'. MEASURED today it matches 0 of 52. This is the same shape as the trainer flock comment fixed in de20550 -- prose describing a mechanism that no longer exists.",
+      "second_collapse": "src/runtime/order_monitor.py:124-126 -- _load_strategies returns [] on exception with a warning, and the tick then returns {} summaries. 'We could not resolve the strategy list' and 'no strategy had anything open' are indistinguishable downstream.",
+      "proposed_fix": "Tier-2, NOT applied by this review (the skill forbids touching src/ and this is runtime). (1) Delete the value fallback: on registry failure RAISE, or return a sentinel the callers must branch on -- a trader that cannot read its own roster must not silently run a two-name one. (2) Make the exit half's population open-package-driven (SELECT DISTINCT strategy FROM order_packages WHERE status='open') UNION the roster, so an open position is monitored on the strength of BEING OPEN, never on the strength of appearing in a list. (3) Add a health check 'STRATEGIES length vs strategies.yaml enabled count' so the divergence is loud.",
+      "verification_note": "A related hypothesis was checked and REFUTED, and is recorded so it is not re-derived: the TLT position open on alpaca_live (id 5924, pattern tlt_pullback_1h, opened 2026-09-18) belongs to a leg A6/#12673 removed from the alpaca_live ROSTER on 2026-09-21. It is NOT stranded -- exit evaluation iterates STRATEGIES (the strategies.yaml registry), not account rosters, and tlt_pullback_1h is still enabled:true/execution:live there. Its r-block updated 05:29Z. Roster removal does not strand an open position; registry FAILURE would strand all of them."
+    },
+    {
+      "id": "E22",
+      "severity": "high",
+      "title": "The health snapshot reports 7/7 ok while structurally unable to see the failure that actually happened",
+      "measured": "/api/bot/health/latest read 2026-09-22T05:30Z, snapshot ts 05:16:31Z: status ok, summary '7/7 checks ok', action_required false. The 7 checks are service, git_drift, git_fetch, tick, accounts_api, db, disk. The accounts_api check's own detail reads: 'all 8 recorded broker-API accounts ok (1 manual-bridge skipped: breakout_1; 2 dry/shelved skipped: ib_live, oanda_practice)'.",
+      "why_it_matters": "breakout_1 is a FUNDED prop account that received zero tickets for three weeks (row E16, measured 21 of 21) and nobody noticed from the inside. The snapshot's account check EXCLUDES it by construction -- it is the one account skipped -- and there is no check anywhere in the 7 that asks whether signals, intents or tickets are still being produced. So the surface the operator looks at was green throughout the failure and would be green through the next one.",
+      "cross_check": "/api/bot/accounts/balances confirms breakout_1 balance:null, open_positions:null, api_ok:false. The data is honest (null, not 0 -- the repo's own rule followed correctly). The defect is that nothing GRADES it: an account that is permanently api_ok:false is indistinguishable from one that just went dark.",
+      "relation_to_E18": "COMPLEMENTS, does not duplicate. E18 is the missing detector (intents produced vs tickets the account actually received). This is narrower and cheaper: the EXISTING health snapshot counts a structurally-skipped account toward a 7/7 all-clear. E18 builds the missing measurement; this says the existing all-clear must stop claiming coverage it does not have.",
+      "proposed_fix": "Tier-1 where it lands in the snapshot generator's reporting (no runtime path): (a) report skipped accounts as a distinct state in the summary line -- '7/7 ok, 3 accounts NOT CHECKED' rather than folding them into ok; (b) add a liveness check keyed on last-ticket-age per routed account, which is the check whose absence E16 measured."
+    },
+    {
+      "id": "E23",
+      "severity": "medium",
+      "title": "The health-review skill's own completion gate points at a file the 2026-09-21 reset archived",
+      "measured": ".claude/skills/health-review/SKILL.md names docs/claude/health-review-backlog.json in five places, including the section headed 'Draining the backlog -- a HARD COMPLETION GATE (not a sample)' and the Output contract's backlog_coverage.count_untriaged == 0 requirement. `ls docs/claude/health-review-backlog.json` -> No such file or directory. It is archived under docs/archive/2026-09-21-operating-reset/.",
+      "why_it_matters": "The skill's hard completion gate is unsatisfiable, so EVERY health-review from the reset onward is either incomplete by its own contract or quietly ignores its own gate. The skill also still anchors its review WINDOW on that file's newest backlog_drain timestamp, so the window has no anchor either. A binding skill (instruction-hierarchy level 5) instructing something that cannot be done is the same defect class the canonical rules record at 'THIS RULE NAMED FIVE OTHER WORDS UNTIL 2026-09-12'.",
+      "also": "comms/schema/health_review_response.template.json's findings status enum is `ok | watch | concern` with no value for 'we did not look'. Under a diag outage the template forces an unmeasurable dimension to be rendered as a measurement outcome. This review emitted `could_not_look` rather than comply.",
+      "proposed_fix": "Tier-1. Re-point the skill's backlog sections at docs/claude/work/PIPELINE.jsonl + MANAGER-CHECKLIST.json, re-anchor the window on the newest health review under comms/reviews/health/, and add `could_not_look` to the template's status enum (registering the three-way contract with collapsed-state-guard's CONTRACTS table is the mechanical form)."
+    },
+    {
+      "id": "E24",
+      "severity": "medium",
+      "title": "This review could not produce the MANDATORY security stated-negative",
+      "measured": "0 of 5 declared breach-sweep sources were swept. Host auth signals are blocked behind /api/diag/* (3/3 401). The four GitHub-side sources were not run within this lane's budget.",
+      "why_it_matters": "The skill is explicit that a clean security check must be a stated verification and that an empty security finding is a review failure. This review therefore does NOT state one. Recorded so the gap is visible rather than absorbed.",
+      "proposed_fix": "Tier-1. The four GitHub-side sources need no VM access and no token beyond the MCP session -- they should be split into their own cheap lane rather than riding a review that can be budget-truncated."
+    }
+  ],
+
+  "recommended_action": "E21 is the one to act on first and it is Tier-2: the trader's exit monitor can silently reduce its own population to two strategies that trade nothing, while every health check stays green. Decide the fix shape with the operator. E22 and E23 are Tier-1 and can land without approval.",
+  "operator_attention_required": true
+}
