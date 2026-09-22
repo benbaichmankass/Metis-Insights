@@ -249,6 +249,13 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_pending_pings_render.py"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py", "--self-test"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
+            # E45, 2026-09-22: the --self-test proves BOTH calls — a live
+            # PIPELINE.jsonl row id PASSES (it could not be written before the
+            # re-point) and a bad one FAILS as UNRESOLVED rather than as "no id
+            # named". A guard that accepts everything is the same defect as one
+            # that grades nothing, and this one printed OK while being
+            # unsatisfiable.
+            ["python3", "scripts/ops/check_allow_degraded.py", "--self-test"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
             ["python3", "scripts/ops/check_workflow_shell.py"],
