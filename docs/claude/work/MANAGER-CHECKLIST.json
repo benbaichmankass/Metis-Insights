@@ -317,7 +317,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "runtime_logs/** is not in TIER1_SURFACE so pr-landing-guard R5 rejects the commit - 0 reports on main since inception. Separately the trainer swap-thrashes, so 6 of 6 nightly runs die at 10 of 22 heads and no non-BTC head has ever been graded."
+      "note": "runtime_logs/** is not in TIER1_SURFACE so pr-landing-guard R5 rejects the commit - 0 reports on main since inception. Separately the trainer swap-thrashes, so 6 of 6 nightly runs die at 10 of 22 heads and no non-BTC head has ever been graded. [!] ⚠️ DUPLICATE OF E6 — same work (unblock replay-pregate) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
     },
     {
       "id": "C4",
@@ -332,7 +332,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "9 of 13 harnesses are wired to no workflow, and the default candle file is a 5,001-row smoke fixture spanning 3.5 days of 2022."
+      "note": "9 of 13 harnesses are wired to no workflow, and the default candle file is a 5,001-row smoke fixture spanning 3.5 days of 2022. [!] ⚠️ DUPLICATE OF E7 — same work (wire the 9 orphan backtest harnesses) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
     },
     {
       "id": "C5",
@@ -347,7 +347,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier."
+      "note": "The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier. [!] ⚠️ DUPLICATE OF R4 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
     },
     {
       "id": "D1",
@@ -362,7 +362,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "src/runtime/execution_costs.py models fee + slippage + funding correctly; the HARNESSES set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0 by default, deliberately, for backward compatibility. So every 'passed the backtest' verdict in the corpus is fee-only and optimistic by an unknown amount - measured once at +0.57R on htf_pullback_trend_2h, the one leg anyone checked. 6 of 13 harnesses have no cost terms at all, including the vwap harness (vwap is 318 of 431 lifetime real-money trades)."
+      "note": "src/runtime/execution_costs.py models fee + slippage + funding correctly; the HARNESSES set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0 by default, deliberately, for backward compatibility. So every 'passed the backtest' verdict in the corpus is fee-only and optimistic by an unknown amount - measured once at +0.57R on htf_pullback_trend_2h, the one leg anyone checked. 6 of 13 harnesses have no cost terms at all, including the vwap harness (vwap is 318 of 431 lifetime real-money trades). [!] ⚠️ DUPLICATE OF R1 — same work (flip the cost defaults and re-run the corpus) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
     },
     {
       "id": "D2",
@@ -476,7 +476,7 @@
       "id": "R1",
       "title": "Re-run the backtest corpus with the cost defaults ON",
       "phase": "R",
-      "state": "blocked",
+      "state": "queued",
       "owner": "research lane",
       "lane": null,
       "model": "claude-sonnet-5",
@@ -484,14 +484,8 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": [
-        {
-          "kind": "work_item",
-          "ref": "E3",
-          "what": "The corpus must be honest before any verdict computed from it is acted on."
-        }
-      ],
-      "note": "THE FIRST THING; nothing real depends on anything else until it is done. Which legs still clear Stage 0 once slippage and funding are modelled? Decision rule REGISTERED NOW: a leg that no longer clears its own declared bar under full costs is demoted to shadow automatically under MD-DEMOTE-S1-OFF -- no memo. EXPECTED SHAPE, stated so it can be wrong: on a +0.57R shift, legs whose edge was under ~0.6R invert, and most declared edges are smaller than that, so expect a MAJORITY of the 45 live legs to fail. If almost everything still passes, suspect the run did not change the cost terms -- check the run, not the luck. Population: all 55 legs, full history, per-symbol."
+      "blocked_on": [],
+      "note": "THE FIRST THING; nothing real depends on anything else until it is done. Which legs still clear Stage 0 once slippage and funding are modelled? Decision rule REGISTERED NOW: a leg that no longer clears its own declared bar under full costs is demoted to shadow automatically under MD-DEMOTE-S1-OFF -- no memo. EXPECTED SHAPE, stated so it can be wrong: on a +0.57R shift, legs whose edge was under ~0.6R invert, and most declared edges are smaller than that, so expect a MAJORITY of the 45 live legs to fail. If almost everything still passes, suspect the run did not change the cost terms -- check the run, not the luck. Population: all 55 legs, full history, per-symbol. [!] UNBLOCKED 2026-09-21: E3 merged as 3afc02b, so the harnesses now price slippage and funding. The edge is discharged by the merge, not by waiting. [!] ⚠️ DUPLICATE OF D1 — same work (flip the cost defaults and re-run the corpus) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
     },
     {
       "id": "R2",
@@ -518,7 +512,7 @@
       "id": "R3",
       "title": "Cost fidelity as the standing Gate-1 test",
       "phase": "R",
-      "state": "blocked",
+      "state": "queued",
       "owner": "build lane",
       "lane": null,
       "model": "claude-sonnet-5",
@@ -526,14 +520,8 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": [
-        {
-          "kind": "work_item",
-          "ref": "E3",
-          "what": "The corpus must be honest before any verdict computed from it is acted on."
-        }
-      ],
-      "note": "Is realized slippage what the harness assumed, per leg? This is what makes the ladder traversable for SLOW legs: a 1d leg can never establish expectancy on paper in usable time (23 of 52 legs are unbounded_no_closes), but cost fidelity converges in a handful of trades because it measures a per-trade quantity. Divergence demotes the leg AND invalidates its Stage-0 record, because the backtest assumed a cost the venue does not charge. Same unit as D3."
+      "blocked_on": [],
+      "note": "Is realized slippage what the harness assumed, per leg? This is what makes the ladder traversable for SLOW legs: a 1d leg can never establish expectancy on paper in usable time (23 of 52 legs are unbounded_no_closes), but cost fidelity converges in a handful of trades because it measures a per-trade quantity. Divergence demotes the leg AND invalidates its Stage-0 record, because the backtest assumed a cost the venue does not charge. Same unit as D3. [!] UNBLOCKED 2026-09-21: E3 merged as 3afc02b, so the harnesses now price slippage and funding. The edge is discharged by the merge, not by waiting."
     },
     {
       "id": "R4",
@@ -554,7 +542,7 @@
           "what": "Questions are chosen against the surviving roster."
         }
       ],
-      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets."
+      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets. [!] ⚠️ DUPLICATE OF C5 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
     },
     {
       "id": "R5",
@@ -646,7 +634,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "TWO independent faults and both must go: runtime_logs/** is not in TIER1_SURFACE so pr-landing R5 rejects the commit (0 reports on main since inception), AND the trainer swap-thrashes so 6 of 6 runs die at 10 of 22 heads with NO non-BTC head ever graded. [!] Fixing only the surface produces a green workflow that still grades a third of the fleet -- do not report it fixed on the commit landing. Raising trainer memory is an OCI capacity question: the Ampere pool is FULL at 4 of 4 OCPU."
+      "note": "TWO independent faults and both must go: runtime_logs/** is not in TIER1_SURFACE so pr-landing R5 rejects the commit (0 reports on main since inception), AND the trainer swap-thrashes so 6 of 6 runs die at 10 of 22 heads with NO non-BTC head ever graded. [!] Fixing only the surface produces a green workflow that still grades a third of the fleet -- do not report it fixed on the commit landing. Raising trainer memory is an OCI capacity question: the Ampere pool is FULL at 4 of 4 OCPU. [!] ⚠️ DUPLICATE OF C3 — same work (unblock replay-pregate) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
     },
     {
       "id": "E7",
@@ -661,7 +649,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "A harness with no workflow runs when a human remembers it, which is never. One dispatchable workflow per family, taking leg + corpus as inputs, landing through E5. A queued research unit names its instrument, and the instrument must be dispatchable for the queue to mean anything."
+      "note": "A harness with no workflow runs when a human remembers it, which is never. One dispatchable workflow per family, taking leg + corpus as inputs, landing through E5. A queued research unit names its instrument, and the instrument must be dispatchable for the queue to mean anything. [!] ⚠️ DUPLICATE OF C4 — same work (wire the 9 orphan backtest harnesses) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
     },
     {
       "id": "E8",
