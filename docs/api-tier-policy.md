@@ -19,7 +19,7 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 112 of 112 routes documented (100%).**
+> **Coverage, computed rather than counted: 113 of 113 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
 > route table (`app.routes`): the enumerator finds exactly those 96 with no
@@ -55,9 +55,21 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **75 rows in the table below**;
+Endpoints a consumer hits directly without a JWT. **79 rows in the table below**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
+
+⚠️ **That figure read `75` until 2026-09-22 and was stale by THREE before this
+PR touched the section** — re-counted mechanically (lines in this section whose
+first cell opens with an HTTP verb in backticks; the last row covers three
+endpoints, which is why this is a ROW count and not an endpoint count): **78**
+rows before E31, **79** with `GET /api/bot/runtime-config`. So one of the four
+is mine and three were already wrong. Recorded rather than quietly corrected,
+because the paragraph below is a warning about exactly this drift and the
+warning had already failed twice — this is the third. **Only the coverage
+banner above is machine-checked** (`tests/test_check_api_tier_policy.py::
+TestStatedCoverageIsTrue`, which is what caught E31's route); this number is
+not, which is why it rots.
 
 ⚠️ **The previous figure here read *"70 of the 96 routes"* and was wrong in both
 halves** — counted mechanically on 2026-09-09 the section held **76** rows
