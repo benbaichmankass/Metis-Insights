@@ -2,15 +2,7 @@ Arming request for branch claude/metis-insights-manager-9qmm63.
 The relay never reads this content -- the path is the trigger, and the file must
 differ from main's copy or it reads as one merely inherited from main.
 
-Round 3 (2026-09-21, after #12694): row E20 (lane dispatch has two cost leaks
-and one silent wall) and the unattended-permission-prompt finding that cost row
-B2 two lanes without a single commit between them.
-
-Round 4 (2026-09-21): the spends in round 3 were ALSO mid-flight. Corrected
-after archiving every lane -- ~$1,142, not ~$860. Same error twice in one day,
-the second time inside the commit describing it.
-
-Round 5 (2026-09-22): three lanes dispatched (eng/R1, ops/E19, health-review);
-R1 and R3 unblocked because E3 landed; four duplicate row-pairs marked; E19's
-fix merged and its row moved to landed_unproven on the observation, not the
-merge.
+Round 5 (2026-09-22, after #12704 merged and the branch was restarted from main):
+row E30 -- the paper books' P&L is mostly NOT measured (pnlCoverage 0.2235,
+266 measured / 661 estimated), which is the stage whose whole job is measuring
+realized cost. A finding the 2026-09-22 health-review made and never filed.
