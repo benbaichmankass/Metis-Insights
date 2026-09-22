@@ -993,6 +993,21 @@
         }
       ],
       "note": "SPLIT OUT OF E24 2026-09-22. E24's own first diagnosis of this was SUPERSEDED IN BOTH HALVES and that is worth keeping: it recorded `401 missing_token, the vm-diag-snapshot relay being down per E19`. The relay is now fixed and OBSERVED (E19, issue #12708, run 35695727461) and a valid DIAG_READ_TOKEN is in hand -- and the source is STILL unreachable, structurally. MEASURED 2026-09-22: journalctl?unit=ssh / ssh.service / sshd / sshd.service all return HTTP 400 `unknown_unit`, against a CONTROL of unit=ict-web-api.service returning 200 with journal lines. _CANONICAL_UNITS holds only this project's own systemd units and has no ssh entry, so THERE IS NO SPELLING THAT WORKS. [!] The /health-review skill lists journalctl for sshd/auth as a MANDATORY source, so that source has never been satisfiable on any day since the skill was written -- the same defect class as E23 (a binding skill instructing something that cannot be done), found independently by a different lane on the same day."
+    },
+    {
+      "id": "E28",
+      "title": "The eight ict_scalp_* legs route to no harness — the same defect E25 just fixed for fvg_range, at eight times the size",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPENED 2026-09-22 off E25's finding (#12714), with its population CORRECTED by me before filing. MEASURED by parsing config/accounts.yaml + config/strategies.yaml on this branch: all eight ict_scalp_* legs carry `execution: live` AND `enabled: true`, and regime_debt_matrix.classify() routes none of them, while scripts/backtest_ict_scalp.py exists -- E25 left 9 unrouted legs of 52 and 8 of those 9 are this family. [!] BUT `live` HERE IS THE STRATEGY GATE, NOT A MONEY-AT-RISK CLAIM, AND E25'S PR BODY READS AS IF IT WERE. Their roster memberships are 7 on bybit_1 and 1 on ib_paper -- BOTH `account_class: paper`. ZERO of the eight sits on a risk-bearing account, so none of them appears in check_roster_promotion_evidence.py --population's 12 slots and NO REAL MONEY RIDES ON THIS GAP. That is a lower urgency than 'eight live legs' implies and it is stated here so the next reader does not re-derive it or act on the louder reading. [!] WHAT IS STILL REAL: these are Stage-1 SOAK legs, and under the promotion ladder a soak leg can never leave Stage 0 for a real-money roster without a committed evidence record. With no harness route there is no record and no route to one, so the family is permanently stuck below Gate 1 -- exactly the condition that left fvg_range_15m on bybit_2 with `coverage_state: no_harness` until E25 measured it at net_r_oos -10.2594 and 0 of 4 folds positive. [!] NOT A MECHANICAL PORT OF E25's BRANCH: backtest_ict_scalp.py takes --strategy-name/--ignore-yaml and LOADS THE LEG'S PARAMS FROM config/strategies.yaml ITSELF, where the four flag-driven harnesses are each handed theirs explicitly. So the lever map either forwards nothing and trusts the harness's own read (and `fidelity` then cannot be computed the way the other four compute it) or uses --ignore-yaml and forwards every param. That is a design call. E25's lane filed the same point as PI-20260922-5GAYXBX5-0001; this row is where it gets scheduled."
     }
   ]
 }
