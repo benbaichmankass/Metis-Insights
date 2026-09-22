@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Same lane, same dispatch instruction as #12720: 'Push, open a draft PR, and STOP. The manager merges.' Nothing about this follow-up changes that.",
+  "why": "State-only close-out. R7 blocked -> done and PI-20260922-R1-REMAINING-CORPUS routed -> done, because the observation R7 named has now been RUN on main at f50a25928: all 52 enabled legs carry a record (42 measured with cost_stack + verdict, 9 no_harness, 1 harness_failed) and the clears_when predicate returns empty. Two registers, no code, no config. Leaving R7 reading `blocked` on a merge that already happened is the stale-state failure the close-out skill's check 3 exists for."
+}
