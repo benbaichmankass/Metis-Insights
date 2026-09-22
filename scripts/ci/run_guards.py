@@ -119,8 +119,13 @@ GUARDS: List[Dict[str, Any]] = [
         # Invoked by PATH, not `-m`: `-m src.config.symbol_sets` makes the
         # MODULE the registry's "runner", and every runner needs a
         # RUNNER_REMEDY entry answering "what does the operator install?"
-        # — a question repo code has no true answer to. See the wrapper's
-        # docstring; `tests/ci/test_run_guards_runner_absent.py` caught it.
+        # — a question repo code has no true answer to
+        # (`tests/ci/test_run_guards_runner_absent.py` caught that). And the
+        # CONTROLS live in this script rather than in the module, because a
+        # file that claims coverage in this registry while asserting nothing
+        # itself is the presence-only marker `new-table-wiring-guard` already
+        # cost us (`check_guard_selftest_coverage.py` caught THAT). Both
+        # corrections are written up in the script's own docstring.
         "steps": [["python3", "scripts/ci/check_symbol_resolver.py",
                    "--self-test"]],
     },
