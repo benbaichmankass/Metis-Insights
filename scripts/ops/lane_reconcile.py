@@ -795,6 +795,19 @@ def _self_test() -> int:
           [x["lane"] for x in plan({"a": lane("a", COMPLETED)})["authorised"]]
           == ["a"])
 
+    # S6d — the TOP-LEVEL declaration works, and OUTRANKS a row's. This is the
+    # form that survives its declaring row being closed.
+    pl = archive_plan({"sup": lane("sup", COMPLETED)},
+                      [{"id": "X", "lane": None}], NOW, open_prs=[], triggers=[],
+                      doc={"supervisor_lane": "sup"})
+    check("S6d a TOP-LEVEL supervisor_lane protects the supervisor",
+          pl["supervisor"] == "sup" and not pl["authorised"], str(pl))
+    pl = archive_plan({"a": lane("a", COMPLETED)},
+                      [{"id": "X", "lane": None, "supervisor_lane": "zzz"}], NOW,
+                      open_prs=[], triggers=[], doc={"supervisor_lane": "sup"})
+    check("S6e ...and it outranks a row's, so a stale row key cannot shadow it",
+          pl["supervisor"] == "sup", str(pl))
+
     # S7 — an ALREADY-ARCHIVED lane is not re-proposed (the plan must converge).
     check("S7 an already-archived lane is not proposed again",
           not plan({"a": lane("a", COMPLETED, archived=True)})["authorised"])
@@ -1154,7 +1167,8 @@ def pending_wakes(triggers: Optional[List[dict]], now_iso: str
 def archive_plan(sessions: Dict[str, dict], rows: List[dict], now_iso: str,
                  open_prs: Optional[List[dict]] = None,
                  triggers: Optional[List[dict]] = None,
-                 idle_hours: float = IDLE_ARCHIVE_HOURS) -> Dict[str, Any]:
+                 idle_hours: float = IDLE_ARCHIVE_HOURS,
+                 doc: Optional[dict] = None) -> Dict[str, Any]:
     """Which lanes MAY be archived, which are RAISED, and which are HELD and why.
 
     ⚠️ EVERY ARCHIVE MUST EARN ITSELF AGAINST FIVE CONDITIONS, AND A CONDITION
@@ -1182,7 +1196,7 @@ def archive_plan(sessions: Dict[str, dict], rows: List[dict], now_iso: str,
     """
     owners = open_pr_owners(open_prs, rows)
     wakes = pending_wakes(triggers, now_iso)
-    supervisor = _supervisor_session_id(rows)
+    supervisor = _supervisor_session_id(rows, doc)
 
     authorised: List[dict] = []
     held: List[dict] = []
@@ -1249,15 +1263,27 @@ def archive_plan(sessions: Dict[str, dict], rows: List[dict], now_iso: str,
             "now": now_iso}
 
 
-def _supervisor_session_id(rows: List[dict]) -> Optional[str]:
-    """The supervisor's own session id, read from the checklist rather than hardcoded.
+def _supervisor_session_id(rows: List[dict],
+                          doc: Optional[dict] = None) -> Optional[str]:
+    """The supervisor's own session id, read from the REGISTER, never hardcoded.
 
     ⚠️ READ FROM THE REGISTER, NOT A CONSTANT. A hardcoded id silently stops
     protecting anything the moment the supervisor is recreated, and it would fail
-    OPEN -- the supervisor would become archivable by itself. The row carries it,
-    so the register is the source and a missing row is reported rather than
-    defaulted.
+    OPEN -- the supervisor would become archivable by itself.
+
+    ⚠️ THE TOP-LEVEL KEY IS PREFERRED OVER A ROW KEY, and the reason is structural
+    rather than cosmetic: WHICH SESSION IS THE SUPERVISOR IS A PROPERTY OF THE
+    REGISTER, NOT OF ANY ONE WORK ITEM. Hanging it off a row means the protection
+    disappears the day that row is closed -- and the row that declares the
+    supervisor is exactly the row that gets marked `done` once the supervisor is
+    built. The row form is still read, second, so an existing declaration keeps
+    working.
+
+    Returns None when NOTHING declares it, and the caller must treat that as
+    *could not look* and authorise nothing -- not as *there is no supervisor*.
     """
+    if doc and doc.get("supervisor_lane"):
+        return str(doc["supervisor_lane"])
     for r in rows:
         if r.get("supervisor_lane"):
             return str(r["supervisor_lane"])
@@ -1281,7 +1307,8 @@ def render_supervise(plan: Dict[str, Any], read_at: str) -> Tuple[str, int]:
                    + "; ".join(missing_evidence)
                    + ". 'We could not look' is NOT 'there is none'.")
     if plan["supervisor"] is None:
-        out.append("⚠️  NO `supervisor_lane` ON ANY CHECKLIST ROW. Condition 5 "
+        out.append("⚠️  NO `supervisor_lane` DECLARED — not at the checklist's "
+                   "top level and not on any row. Condition 5 "
                    "cannot be applied — the supervisor cannot be recognised, so "
                    "it cannot be protected from archiving ITSELF, and every "
                    "candidate is therefore HELD rather than authorised.")
@@ -1534,7 +1561,8 @@ def main() -> int:
         print(text)
         return code
     try:
-        rows = json.loads(Path(a.checklist).read_text(encoding="utf-8"))["items"]
+        doc = json.loads(Path(a.checklist).read_text(encoding="utf-8"))
+        rows = doc["items"]
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -1587,7 +1615,7 @@ def main() -> int:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 2
         plan = archive_plan(sessions, rows, now_iso, open_prs=prs,
-                            triggers=trigs)
+                            triggers=trigs, doc=doc)
         if a.json:
             print(json.dumps(plan, indent=2, default=str))
             return 2 if PR_UNKNOWN in (plan["pr_evidence"],
