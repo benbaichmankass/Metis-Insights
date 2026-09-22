@@ -1,0 +1,154 @@
+id: RQ-20260922-008
+title: Is eth_pullback_prop_2h simply a worse parameterisation of eth_pullback_2h?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Two legs run the same strategy on the same symbol at the same timeframe,
+  measured by the same harness over overlapping history. One is fee-only
+  POSITIVE, the other is fee-only NEGATIVE — and the negative one is the only
+  risk-bearing leg in the entire population that fails Stage 0 before any
+  slippage or funding is charged. Their config fingerprints differ. Is the
+  prop variant a strictly worse parameter set of the same idea, or is the
+  difference an artifact of different OOS windows?
+
+why_this_matters: >-
+  MEASURED, comms/strategy_evidence/ on main at f3746ab, both `harness:
+  pullback`, symbol ETHUSDT, timeframe 2h, identical cost_stack {7.5, 5.0,
+  1.0} bps:
+    eth_pullback_prop_2h  (breakout_1, prop)  n=66  net_r_oos -2.6137
+                          net_r_oos_fee_only -0.1254  fidelity faithful
+                          config_fingerprint sha256:6b... (differs)
+    eth_pullback_2h       (bybit_2, real)     n=57  net_r_oos -1.7548
+                          net_r_oos_fee_only +0.8487  fidelity approximate
+  eth_pullback_prop_2h is the ONLY one of the twelve that is negative before
+  slippage and funding are charged. For every other flipped leg the story is
+  "cost ate the edge"; for this one there was no edge to eat. That makes it
+  the cheapest real answer available in this batch, and it is a question about
+  PARAMETERS rather than about cost — a different diagnosis pointing at a
+  different remedy.
+  ⚠️ The two records' `fidelity` differs (faithful vs approximate), so the
+  comparison is not clean as it stands. The run below re-measures both legs
+  through the same sweep so the arms are comparable; do not compare the two
+  committed records directly and call it an answer.
+
+power:
+  expected_n: 58
+  min_detectable_effect: 0.55
+  effect_units: sd
+  design: two_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    TWO_SAMPLE, and deliberately not paired: these are two different parameter
+    sets producing two different trade sets over overlapping but non-identical
+    windows, so there is no per-trade pairing to exploit. The queue README
+    doubles the floor per group for two_sample: 2 * (1.96+0.8416)^2 / 0.55^2 =
+    51.90, and expected_n = 57 clears it by 5.10.
+    ⚠️ expected_n is taken from the E35 CORPUS, not from the evidence
+    records, because the run below IS an e35 sweep and a unit must size
+    itself on the measurement its own run produces. MEASURED 2026-09-22 via
+    `scripts/research/research_disposition.py --report`: base_oos_trades is
+    58 for eth_pullback_2h and 58 for eth_pullback_prop_2h, so min_per_leg is
+    58. The harness_timefolds counts on the evidence records are DIFFERENT
+    numbers for a different measurement (57 and 66) and are quoted in
+    why_this_matters only as the source of the verdict being questioned.
+    min, not mean or max: the smaller group bounds a two-sample design.
+    ⚠️ d=0.55 is coarse and it is what n=57 per group supports: the smallest
+    detectable effect is sqrt(2*7.849/57) = 0.52 sd. A null here means the two
+    parameter sets do not differ by half a standard deviation per trade, not
+    that they are equivalent.
+    ⚠️ The floor assumes iid draws and errs one-directionally; overlapping
+    history between the two arms makes the true requirement higher still,
+    because the arms are not independent in the way two_sample assumes. Treat
+    a marginal result as no result.
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+      - eth_pullback_2h
+      - eth_pullback_prop_2h
+    basis: >-
+      Grounded on e35 because this unit's run IS an e35 bracket sweep, so the
+      corpus statistic and the run's own achieved count are the same
+      measurement — the condition RQ-20260922-003/004/007 could not meet.
+      Both legs are scheduled in the shard plan (family `pullback`, symbol
+      ETHUSDT, feed_source binance_vision), verified 2026-09-22 by running
+      `scripts/research/e35_shard_plan.py --ignore-missing-data`.
+      `min_per_leg` rather than `median_per_leg` because the weaker leg bounds
+      a two-sample design, per the basis above.
+
+decision_rule:
+  id: RULE-RQ0922-008-PROP-VARIANT-PARAMETERS
+  registered_at: '2026-09-22'
+  registered_before_run: true
+  statistic: >-
+    Per leg, OOS expectancy_r and achieved base_oos_trades from the re-sweep;
+    and delta = expectancy_r(eth_pullback_prop_2h) - expectancy_r(eth_pullback_2h),
+    both measured in the SAME run at the same fee arm.
+  rule: >-
+    IF delta < 0 and the prop leg's re-swept OOS expectancy is <= 0 while the
+    bybit leg's is > 0, the finding is `worse_parameterisation`: the prop
+    variant is recorded as a dominated config, and the deliverable is a
+    proposal to the operator to either align breakout_1's parameters with
+    eth_pullback_2h's or drop the leg. Both are Tier-3 and neither is done
+    here.
+    IF both legs re-sweep to OOS expectancy <= 0, the finding is
+    `family_not_viable` — the difference between them is noise and the
+    pullback-on-ETH-2h idea fails Stage 0 in both parameterisations. That goes
+    to R2/D2 covering BOTH legs, not just the prop one.
+    IF the prop leg re-sweeps to OOS expectancy > 0, the committed -0.1254R
+    fee-only record did not reproduce, and the finding is about the RECORD:
+    re-run this leg's evidence before any demotion cites it.
+    IF either leg's achieved base_oos_trades < 52 (the 51.90 per-group floor above),
+    the verdict is `unresolvable_at_current_n` and none of the three branches
+    fires. Reporting one of them anyway on a short sample is the
+    lower-the-floor-to-manufacture-a-verdict move the canonical rules forbid.
+  what_it_does_not_do: >-
+    It does not change a parameter and does not touch breakout_1's roster.
+    Strategy parameters and roster membership are both Tier-3.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 50
+  basis: >-
+    Runner. e35-bracket-sweep.yml shards one leg per job and fetches its own
+    candles from data.binance.vision; both legs are in the shard plan
+    (verified 2026-09-22). No VM, peak memory per-shard. est_minutes is 2 legs
+    in one wave at ~25 min per leg — an ESTIMATE from RQ-20260830-001's
+    single-leg timing, not a measurement of this fan-out.
+
+run:
+  workflow: e35-bracket-sweep.yml
+  inputs:
+    only: eth_pullback_2h,eth_pullback_prop_2h
+    research_unit: RQ-20260922-008
+    days: '1830'
+    gate_top: '2'
+    singles_only: 'false'
+    max_parallel: '2'
+  note: >-
+    Both legs in ONE dispatch, unlike RQ-20260922-004's two arms. That is the
+    point: a two-sample comparison across two separate runs would differ in
+    fetch window and run stamp as well as in parameters, and the question is
+    about the parameters.
+
+lands:
+  store: docs/research/e35-bracket-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+  note: >-
+    min_rows 1, not 2, for the reason RQ-20260830-002 states: a per-leg fetch
+    can fail and a 1-of-2 run is a different defect from "nothing landed".
+    ⚠️ But for THIS unit a 1-of-2 run answers nothing — the comparison needs
+    both arms. Read per-leg completeness off the corpus before reading any
+    verdict; a landing pass here is not an answer.
+
+related:
+  - 'checklist C5 / R4 (this unit is one of the ten)'
+  - 'RQ-20260922-009 (the other half of eth_pullback_2h — whether it can be graded at all)'
+last_dispatched_at: null
