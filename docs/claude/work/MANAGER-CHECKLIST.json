@@ -506,11 +506,13 @@
       "ceiling_usd": 35,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        12707
+      ],
       "blocked_on": [
         {
           "kind": "operator_decision",
-          "ref": "PR on branch claude/r2-cut-stage2-fleet (draft, landing: hold, hold_reason: tier_2_3_needs_approval)",
+          "ref": "PR #12707 (branch claude/r2-cut-stage2-fleet, draft; landing: hold, hold_reason: tier_2_3_needs_approval)",
           "what": "Tier-3 diff to config/accounts.yaml on two real-money/prop rosters plus the Gate-2 mirror. The CRITERION is operator-approved (2026-09-22, \"Cut the legs that don't clear the bar\"); the DIFF still needs the manager to land it. This lane does not merge."
         }
       ],
