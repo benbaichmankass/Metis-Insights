@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "TIER-3 REAL-MONEY ROSTER ADDITION. config/accounts.yaml: bybit_2 and bybit_portfolio 3 -> 7 legs, identical and same-ordered, plus AVAXUSDT added to both symbol lists. The operator approved wiring the legs passing on 3/4 or 4/4 folds. TWO OF THE FOUR WERE PREVIOUSLY DEMOTED BY EXPLICIT TIER-3 OPERATOR DECISION and this PR does NOT re-promote them on the manager's authority -- it is held for the operator to choose. htf_pullback_trend_2h was demoted 2026-08-23 on 'baseline OOS net_R -13.933 on real money'; the new corpus grades it +2.7979R over n=80, and that contradiction is unexplained. avax_pullback_2h was demoted 2026-07-22 with a 4-6wk shadow re-eval EXPECTED before any permanent decision; it is now 2 months and today's grade is +12.6729R over n=45. ada_pullback_2h (4/4, +21.93R) and fade_breakout_4h (3/4, +6.11R) carry no contradicting demotion.",
+  "hold_text": "Held pending the operator's choice between: (A) wire only ada_pullback_2h + fade_breakout_4h; (B) wire all four, overriding the two prior demotions on the new evidence, recorded as an override; (C) wire three, holding htf_pullback_trend_2h until the -13.933R vs +2.7979R discrepancy is explained. The manager recommends C. The three shadow->live execution flips are NOT in this diff and are a second change."
+}

@@ -295,7 +295,31 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h, avax_pullback_2h, fade_breakout_4h, htf_pullback_trend_2h]
+                                       # ── R8 WIRING, 2026-09-22 (Tier-3, operator
+                                       # instruction: "Wire the ones that are 3/4
+                                       # or 4/4"). FOUR LEGS ADDED, each PASSING
+                                       # RULE-D1-STAGE0-NET-OF-FULL-COST on the
+                                       # corpus R7 completed (#12720), and each
+                                       # selected on FOLD CONSISTENCY rather than
+                                       # on pooled net_R alone:
+                                       #   ada_pullback_2h        4/4 folds +21.93R n=44
+                                       #   avax_pullback_2h       3/4 folds +12.67R n=45
+                                       #   fade_breakout_4h       3/4 folds  +6.11R n=25
+                                       #   htf_pullback_trend_2h  3/4 folds  +2.80R n=80
+                                       # [!] SIX OTHER PASSING LEGS WERE DELIBERATELY
+                                       # NOT WIRED. trend_donchian_eth (+21.68R, n=102)
+                                       # and sol_pullback_2h (+7.28R, n=16) pass on
+                                       # 1 of 4 folds — their whole result is one
+                                       # window — and four more pass on 2/4. The
+                                       # operator held them back pending a working
+                                       # REGIME-CLASSIFICATION mechanism (row E38):
+                                       # under what market conditions is each
+                                       # strategy expected to perform. A pooled sum
+                                       # that is blind to WHERE the R came from is
+                                       # exactly what RQ-20260922-002 was written to
+                                       # question, and this is that question
+                                       # deciding a real-money promotion.
                                        # ── R2 CUT, 2026-09-22 (Tier-3, operator
                                        # instruction "Cut the legs that don't clear
                                        # the bar"; criterion = B1's four-clause
@@ -525,7 +549,16 @@ accounts:
                                        # normally via native Bybit SL/TP brackets (S3:
                                        # 96% native bracket fires) — de-routing stops
                                        # NEW entries + trail updates, not exits.
-    symbols: [BTCUSDT, ETHUSDT, XRPUSDT, ADAUSDT]  # BTCUSDT + ETHUSDT (bybit perps). ETHUSDT added
+    symbols: [BTCUSDT, ETHUSDT, XRPUSDT, ADAUSDT, AVAXUSDT]
+                                       # AVAXUSDT ADDED 2026-09-22 with the R8 wiring,
+                                       # and it is load-bearing rather than cosmetic:
+                                       # avax_pullback_2h was about to be added to the
+                                       # roster while AVAXUSDT was absent here, which
+                                       # would have left the leg sitting on the roster
+                                       # and NEVER TRADING — wired-looking and inert.
+                                       # Caught by checking symbol coverage before the
+                                       # edit rather than after the silence.
+                                       # BTCUSDT + ETHUSDT (bybit perps). ETHUSDT added
                                        # 2026-06-18 (Tier-3) for eth_pullback_2h real-money
                                        # test. XRPUSDT + ADAUSDT added 2026-06-30 (Tier-3)
                                        # for xrp_pullback_2h + ada_pullback_2h live test.
@@ -584,7 +617,16 @@ accounts:
     mode: live                         # demo = paper money; live is correct.
     market_type: linear                # USDT-margined linear perps (mirrors
                                        # bybit_2); set-leverage fires at boot.
-    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h, avax_pullback_2h, fade_breakout_4h, htf_pullback_trend_2h]
+                                       # ── R8 WIRING, 2026-09-22 — FOLLOWS bybit_2's
+                                       # four additions IDENTICALLY AND IN THE SAME
+                                       # ORDER, in the same commit. This is not
+                                       # tidiness: test_bybit_portfolio_mirrors_
+                                       # bybit_2_exactly asserts ORDERED equality on
+                                       # `strategies` AND on `symbols`, and the mirror
+                                       # is Gate 2's demotion signal — letting it
+                                       # drift corrupts the reading the roster exists
+                                       # to inform.
                                        # ── R2 CUT, 2026-09-22 — FOLLOWS bybit_2's cut
                                        # of trend_donchian, fvg_range_15m and
                                        # eth_pullback_2h. See that account above for
@@ -640,7 +682,7 @@ accounts:
                                        # execution: live since the 2026-07-20 Tier-3
                                        # re-promotion, so this book was EXECUTING it,
                                        # not shadow-logging it. Field beats comment.
-    symbols: [BTCUSDT, ETHUSDT, XRPUSDT, ADAUSDT]  # mirrors bybit_2.symbols.
+    symbols: [BTCUSDT, ETHUSDT, XRPUSDT, ADAUSDT, AVAXUSDT]  # mirrors bybit_2.symbols.
     risk:
       max_dd_pct: 0.05                 # mirrors bybit_2's caps.
       daily_loss_pct: 0.05
