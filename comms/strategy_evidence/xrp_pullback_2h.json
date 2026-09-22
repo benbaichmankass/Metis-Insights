@@ -8,6 +8,7 @@
   "coverage_state": "measured",
   "fidelity": "approximate",
   "omitted_levers": [
+    "tp_r",
     "trail_decay_arm_r",
     "trail_decay_tight_mult"
   ],
