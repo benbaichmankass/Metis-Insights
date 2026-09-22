@@ -106,7 +106,6 @@ from src.utils.work_facts import (  # noqa: E402
     CEILING_ENFORCED,
     CEILING_STATE,
 )
-from scripts.check_claim_basis import STATUS_ENUM  # noqa: E402
 from scripts.ops.work_phase_ping import (  # noqa: E402
     PING_WORTHY,
     _field,
@@ -511,9 +510,19 @@ class Source(NamedTuple):
 #: the digest stops reporting a real transition).
 BACKLOG_NON_TERMINAL = frozenset({"open", "kept_open"})
 
-#: A terminal `status` on a review backlog, derived from the ONE home of that
-#: vocabulary: `scripts/check_claim_basis.py::STATUS_ENUM`, which CI enforces
-#: whole-file over every backlog this module reads.
+#: A terminal `status` on a review backlog.
+#:
+#: ⚠️ DECOUPLED 2026-09-22 (E45), AND THE REASON MATTERS. This used to be
+#: DERIVED from `scripts/check_claim_basis.py::STATUS_ENUM`, when that enum was
+#: the four review backlogs' `status` vocabulary. Those four backlogs are
+#: ARCHIVED under `docs/archive/2026-09-21-operating-reset/`, and that guard has
+#: been re-pointed at the live registers, so its enum is now the CHECKLIST's
+#: `state` vocabulary — a different field on a different file. Continuing to
+#: derive from it would have silently made every backlog status "terminal".
+#: The six values below are the LAST MEASURED contents of the archived field
+#: (2026-09-12, 1,803 rows across all four backlogs) and are historical by
+#: construction: nothing writes them any more, so there is no enum for them to
+#: drift from. That is why a literal is correct here and was not before.
 #:
 #: ⚠️ THIS SET USED TO CARRY FOUR MEMBERS THE FIELD CANNOT HOLD, and the comment
 #: above it asserted the opposite of what the files say. It read "the on-disk
@@ -534,7 +543,9 @@ BACKLOG_NON_TERMINAL = frozenset({"open", "kept_open"})
 #: free text. Tracked at
 #: BL-20260912-THE-BACKLOG-DISPOSITION-FIELD-HAS-NO-ENUM-AND-HAS-DRIFTED-TO-35-VALUES-INCLUDING-FREE-TEXT
 #: and deliberately NOT fixed here — a second vocabulary is a second migration.
-BACKLOG_TERMINAL = frozenset(STATUS_ENUM) - BACKLOG_NON_TERMINAL
+BACKLOG_TERMINAL = frozenset({
+    "resolved", "wont_fix", "superseded", "invalid",
+}) - BACKLOG_NON_TERMINAL
 
 #: A checklist item reaching one of these is a decision the operator wants.
 #: `queued` and `triage` are deliberately absent: scoping an item is work in

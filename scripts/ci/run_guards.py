@@ -111,6 +111,15 @@ GUARDS: List[Dict[str, Any]] = [
     # them is a lookup rather than an excavation.
     #
     # Removed: artifact-validity-guard, backlog-unresolve-guard, board-coherence, capability-pull-guard, checklist-routing-age-guard, constraint-readout-guard, daily-brief-guard, decision-answer-consumers, decision-answers-guard, demote-budget-guard, digest-liveness-guard, due-list-guard, due-list-token-guard, error-feed-digest-guard, manager-checklist-vocabulary-guard, manager-lease-guard, manager-queue-watch-guard, manager-tooling-selftests, one-live-workplan, open-items-guard, operator-owed-guard, pr-queue-watch-guard, priority-fallback-distribution, probe-guard, recurrence-ledger-guard, register-field-loss-guard, register-id-guard, register-reserialization-guard, role-pack-operating-layer, rows-landed-guard, scope-overlap-guard, session-brief-guard, session-registry-guard, soak-registered-guard, spec-carrier-guard, stale-in-flight-guard, sunset-disposition-guard, uncarried-spec-guard, wip-ceiling-guard, work-digest-source-coverage
+    #
+    # ⚠️ 2026-09-22 (E45): `operator-owed-guard` and `soak-registered-guard` are
+    # BACK, below, re-pointed at subjects that exist post-reset; `claim-basis-guard`
+    # is back with them (it had been dropped from this registry earlier and is
+    # not in the list above). `backlog-unresolve-guard`, `open-items-guard`,
+    # `recurrence-ledger-guard` and `register-field-loss-guard` are now RETIRED
+    # for good and their scripts deleted — see
+    # `docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md`
+    # for the reason each one carries.
     # ─────────────────────────────────────────────────────────────────────
     {
         # SALVAGED FROM THREE REMOVED GOVERNANCE ENTRIES, 2026-09-21.
@@ -138,6 +147,47 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ops/pipeline.py", "--self-test"],
             ["python3", "scripts/ops/pipeline.py", "--check"],
+        ],
+    },
+    # ─────────────────────────────────────────────────────────────────────
+    # E45, 2026-09-22 — THREE GUARDS RE-ARMED AFTER BEING RE-POINTED.
+    #
+    # All three were dropped from this registry by the 2026-09-21 reset because
+    # their subjects were archived, and all three are named in
+    # `docs/CLAUDE-RULES-CANONICAL.md` — the #1 doc — as what ENFORCES a binding
+    # rule. A canonical doc naming a mechanism that no longer runs is the
+    # folklore failure that document has its own section about, so the choice
+    # was re-point or retire, and the operator chose re-point for these three.
+    #
+    # Each one now grades a subject that EXISTS in the post-reset world, and
+    # each ships a `--self-test` that PLANTS A VIOLATION against that new
+    # subject and requires the guard to fail on it. A green re-point proves
+    # nothing: these three spent a month green-or-quiet while grading zero rows,
+    # which is the whole defect.
+    # ─────────────────────────────────────────────────────────────────────
+    {
+        "name": "claim-basis-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/check_claim_basis.py", "--self-test"],
+            ["python3", "scripts/check_claim_basis.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
+        "name": "soak-registered-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_soak_registered.py", "--self-test"],
+            ["python3", "scripts/ci/check_soak_registered.py"],
+        ],
+    },
+    {
+        "name": "operator-owed-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_operator_owed.py", "--self-test"],
+            ["python3", "scripts/ci/check_operator_owed.py"],
         ],
     },
     {

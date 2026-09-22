@@ -18,6 +18,7 @@ import pytest
 from scripts.ci.check_operator_owed import (
     check,
     measure_carries,
+    parse_rows,
     register_commits,
 )
 from src.runtime.operator_owed import (
@@ -38,7 +39,6 @@ from src.runtime.operator_owed import (
 )
 
 NOW = _dt.datetime(2026, 8, 25, 19, 0, tzinfo=_dt.timezone.utc)
-REL = "docs/claude/operator-owed-register.json"
 
 
 def _item(**over):
@@ -285,20 +285,63 @@ def test_a_terminal_item_must_say_what_happened():
 
 # ---------------------------------------------------------------------------
 # the MEASUREMENT — part (d)'s basis, against a real git history
+#
+# ⚠️ REWRITTEN 2026-09-22 (E45). These tests used to build a
+# `docs/claude/operator-owed-register.json`, which the 2026-09-21 operating
+# reset ARCHIVED, and called `check(repo, now=..., path=...)`. The guard is
+# re-pointed at `docs/claude/work/PIPELINE.jsonl` — the post-reset home of
+# anything owed to the operator (`next_action: "ask_operator"`) — so the
+# fixtures are rebuilt on that schema and against a real git history, for the
+# original reason: a grader tested only on hand-fed integers leaves the
+# MEASUREMENT itself unverified.
+#
+# The `grade_item` / `validate_item` tests above still pass and still test real
+# code, but note what they now cover: `src/runtime/operator_owed.py` is imported
+# by nothing outside this file since the re-point. That is filed, not fixed
+# here.
 # ---------------------------------------------------------------------------
 
-def _repo(tmp_path, items):
+REL = "docs/claude/work/PIPELINE.jsonl"
+
+
+@pytest.fixture(autouse=True)
+def _no_live_baseline(monkeypatch):
+    """The shipped debt list describes the LIVE register, not these fixtures.
+
+    Leaving it in place makes every fixture repo report BASELINE STALE for the
+    eight real ids, which would drown the property under test. The baseline's
+    own behaviour — exemption, its printed count, and the stale-entry failure —
+    is planted and asserted in the guard's `--self-test`, run by
+    `test_the_shipped_selftest_plants_its_own_violations` below.
+    """
+    monkeypatch.setattr(
+        "scripts.ci.check_operator_owed.BASELINE_2026_09_22", {})
+
+
+def _owed(rid="OO-TEST", *, action="ask_operator", state="queued",
+          due=None, what="a question for the operator"):
+    return {
+        "id": rid,
+        "what": what,
+        "origin": {"kind": "session", "ref": "s1", "rerun": "re-ask"},
+        "due_when": due or {"kind": "date", "due_date": "2020-01-01"},
+        "next_action": action,
+        "state": state,
+    }
+
+
+def _repo(tmp_path):
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.email", "t@t"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.name", "t"], cwd=tmp_path, check=True)
-    (tmp_path / "docs" / "claude").mkdir(parents=True)
-    _write(tmp_path, items)
+    (tmp_path / "docs" / "claude" / "work").mkdir(parents=True)
     return tmp_path
 
 
-def _write(repo, items):
-    (repo / REL).write_text(json.dumps(
-        {"schema_version": 1, "carry_limit": 2, "items": items}, indent=2))
+def _write(repo, rows):
+    (repo / REL).write_text(
+        "// PIPELINE.jsonl — append-only\n"
+        + "\n".join(json.dumps(r) for r in rows) + "\n")
 
 
 def _commit(repo, message):
@@ -306,101 +349,134 @@ def _commit(repo, message):
     subprocess.run(["git", "commit", "-q", "-m", message], cwd=repo, check=True)
 
 
+def _history(repo, *generations):
+    """Commit each generation. Each carries a UNIQUE filler row.
+
+    ⚠️ The filler is not padding. `register_commits` reads `git log -- <path>`,
+    so a commit that changes nothing in the file is not a register commit at
+    all — which is what a carry IS in the real store: someone appended a
+    DIFFERENT row and left this one alone. Without it these fixtures would
+    measure zero commits and every assertion below would pass vacuously.
+    """
+    for i, rows in enumerate(generations):
+        _write(repo, [*rows, _owed(f"FILL-{i}", action="dispatch_lane")])
+        _commit(repo, f"gen{i}")
+
+
 def test_carry_is_none_before_the_register_has_any_history(tmp_path):
-    repo = _repo(tmp_path, [_item()])
-    current = {"OO-TEST": _item()}
-    carries, transitions = measure_carries(repo, REL, current, register_commits(repo, REL))
+    repo = _repo(tmp_path)
+    _write(repo, [_owed()])
+    current = {"OO-TEST": _owed()}
+    carries, transitions = measure_carries(repo, REL, current,
+                                           register_commits(repo, REL))
     assert carries["OO-TEST"] is None, "no commits means no carry EXISTS to count"
     assert transitions["OO-TEST"] == 0
 
 
-def test_carry_counts_register_commits_that_left_the_item_alone(tmp_path):
-    """The core of (d): each register commit that does not change an item is
-    one session carrying it forward unmoved."""
-    stale = _item(id="STALE")
-    repo = _repo(tmp_path, [stale, _item(id="OTHER")])
-    _commit(repo, "register the items")
-
-    def carry_of(item_id):
-        current = {i["id"]: i for i in json.loads((repo / REL).read_text())["items"]}
-        carries, _ = measure_carries(repo, REL, current, register_commits(repo, REL))
-        return carries[item_id]
-
-    # The commit that MADE the current content is not itself a carry.
-    assert carry_of("STALE") == 0
-
-    # A later register commit that touches only OTHER carries STALE once.
-    _write(repo, [stale, _item(id="OTHER", title="edited once")])
-    _commit(repo, "move OTHER")
-    assert carry_of("STALE") == 1
-    assert carry_of("OTHER") == 0
-
-    # And again -> at the limit of 2, which is the escalation.
-    _write(repo, [stale, _item(id="OTHER", title="edited twice")])
-    _commit(repo, "move OTHER again")
-    assert carry_of("STALE") == 2
-    grade = grade_item(stale, carries_unchanged=2, now=NOW)
-    assert grade["state"] == STATE_ESCALATE_CARRIED and grade["escalates"]
+def test_carry_counts_register_commits_that_left_the_row_alone(tmp_path):
+    """The core of (d): each register commit that does not change a row is one
+    session carrying it forward unmoved."""
+    repo = _repo(tmp_path)
+    stale = _owed("STALE")
+    _history(repo, [stale], [stale], [stale])
+    carries, _ = measure_carries(repo, REL, {"STALE": stale},
+                                 register_commits(repo, REL))
+    assert carries["STALE"] == 2, (
+        "three register commits with the row unchanged is two carries — the "
+        "`- 1` is the commit that MADE the content")
 
 
-def test_moving_an_item_clears_its_carry(tmp_path):
-    stale = _item(id="STALE")
-    repo = _repo(tmp_path, [stale, _item(id="OTHER")])
-    _commit(repo, "register")
-    _write(repo, [stale, _item(id="OTHER", title="edited")])
-    _commit(repo, "move OTHER")
-
-    _write(repo, [_item(id="STALE", status="resolved", resolution="done"),
-                  _item(id="OTHER", title="edited")])
-    _commit(repo, "resolve STALE")
-    current = {i["id"]: i for i in json.loads((repo / REL).read_text())["items"]}
-    carries, transitions = measure_carries(repo, REL, current, register_commits(repo, REL))
-    assert carries["STALE"] == 0
-    assert transitions["STALE"] >= 1, "a real content change is an observed transition"
+def test_moving_a_row_clears_its_carry(tmp_path):
+    repo = _repo(tmp_path)
+    before = _owed("MOVED")
+    after = dict(before, what="answered: yes")
+    _history(repo, [before], [before], [after])
+    carries, transitions = measure_carries(repo, REL, {"MOVED": after},
+                                           register_commits(repo, REL))
+    assert carries["MOVED"] == 0, "a row edited on the newest commit is moved"
+    assert transitions["MOVED"] >= 1, (
+        "and the change is OBSERVED — a green with zero observed transitions "
+        "is unproven, not success")
 
 
-def test_an_uncommitted_edit_reads_as_in_flight_not_as_a_carry(tmp_path):
-    stale = _item(id="STALE")
-    repo = _repo(tmp_path, [stale])
-    _commit(repo, "register")
-    _write(repo, [_item(id="STALE", title="being edited right now")])
-    current = {i["id"]: i for i in json.loads((repo / REL).read_text())["items"]}
-    carries, _ = measure_carries(repo, REL, current, register_commits(repo, REL))
-    assert carries["STALE"] == 0
+def test_an_appended_update_supersedes_the_earlier_line(tmp_path):
+    """⚠️ LAST WINS. The store is append-only: a row is updated by appending it
+    again. Reading the first occurrence would grade a superseded copy and
+    manufacture carries that never happened."""
+    repo = _repo(tmp_path)
+    old = _owed("DUP", what="unanswered")
+    new = _owed("DUP", what="answered")
+    _write(repo, [old, new])
+    rows = parse_rows((repo / REL).read_text())
+    assert rows["DUP"]["what"] == "answered"
 
 
-def test_the_check_fails_on_a_carried_item_and_says_how_to_clear_it(tmp_path, capsys):
-    stale = _item(id="STALE")
-    repo = _repo(tmp_path, [stale, _item(id="OTHER")])
-    _commit(repo, "register")
-    for n in range(2):
-        _write(repo, [stale, _item(id="OTHER", title=f"edit {n}")])
-        _commit(repo, f"move OTHER {n}")
-
-    assert check(repo, now=NOW, path=REL) == 1
+def test_the_check_fails_on_a_carried_row_and_says_how_to_clear_it(tmp_path, capsys):
+    repo = _repo(tmp_path)
+    stale = _owed("STALE")
+    _history(repo, [stale], [stale], [stale])
+    rc = check(repo, path=REL)
     out = capsys.readouterr().out
-    assert "escalate_carried" in out and "STALE" in out
-    # The escalation must name the ways OUT, since re-listing is what it replaces.
-    assert "snoozed_until" in out and "resolution" in out
+    assert rc == 1, out
+    assert "STALE" in out
+    for way_out in ("ACT on it", "MOVE it", "DEFER it", "KILL it"):
+        assert way_out in out, f"the failure must offer {way_out!r}"
 
 
-def test_the_check_passes_a_register_whose_items_are_moving(tmp_path, capsys):
-    # No `automation_path`: the fixture's placeholder does not exist inside a
-    # temporary repo, and this check verifies the path rather than trusting the
-    # declaration — which is the behaviour a sibling test pins.
-    items = [_item(id="A"), _item(id="B")]
-    for item in items:
-        item.pop("automation_path")
-        item["cannot_automate_reason"] = (
-            "no broker API exists for this venue; it is a manual bridge by design")
-    repo = _repo(tmp_path, items)
-    _commit(repo, "register")
-    assert check(repo, now=NOW, path=REL) == 0
+def test_a_row_that_is_not_due_is_the_defer_path_not_a_carry(tmp_path, capsys):
+    """Grading a row waiting behind its own condition would punish the
+    canonical rule's third way out."""
+    repo = _repo(tmp_path)
+    deferred = _owed("LATER", due={"kind": "date", "due_date": "2099-01-01"})
+    _history(repo, [deferred], [deferred], [deferred])
+    assert check(repo, path=REL) == 0, capsys.readouterr().out
+
+
+def test_a_row_nobody_owes_the_operator_is_out_of_population(tmp_path, capsys):
+    repo = _repo(tmp_path)
+    lane = _owed("LANE", action="dispatch_lane")
+    _history(repo, [lane], [lane], [lane])
+    assert check(repo, path=REL) == 0, capsys.readouterr().out
+
+
+def test_a_terminal_row_is_out_of_population(tmp_path, capsys):
+    repo = _repo(tmp_path)
+    done = dict(_owed("DONE", state="done"), terminal_reason="answered")
+    _history(repo, [done], [done], [done])
+    assert check(repo, path=REL) == 0, capsys.readouterr().out
+
+
+def test_zero_observed_transitions_is_reported_as_unproven(tmp_path, capsys):
+    repo = _repo(tmp_path)
+    row = _owed("QUIET")
+    _history(repo, [row], [row])
+    check(repo, path=REL)
     assert "UNPROVEN" in capsys.readouterr().out, (
         "a register that has never moved anything must say so rather than "
         "reading as a clean green")
 
 
-def test_a_missing_register_fails_rather_than_passing_vacuously(tmp_path):
-    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
-    assert check(tmp_path, now=NOW, path=REL) == 1
+def test_a_missing_register_is_COULD_NOT_LOOK_not_a_pass(tmp_path, capsys):
+    """⚠️ EXIT 2, NOT 0 AND NOT 1. This is the exact state the guard sat in from
+    the 2026-09-21 reset until the E45 re-point: its register did not exist, so
+    it graded nothing. Reading that as a pass is the defect; reading it as a
+    finding would blame the PR for it."""
+    repo = _repo(tmp_path)
+    assert check(repo, path=REL) == 2
+    assert "COULD NOT LOOK" in capsys.readouterr().out
+
+
+def test_an_unparseable_register_is_COULD_NOT_LOOK(tmp_path, capsys):
+    repo = _repo(tmp_path)
+    (repo / REL).write_text("{not json\n")
+    _commit(repo, "broken")
+    assert check(repo, path=REL) == 2
+    assert "COULD NOT LOOK" in capsys.readouterr().out
+
+
+def test_the_shipped_selftest_plants_its_own_violations():
+    """The guard's own planted controls, run as a test so a broken one is a red
+    suite rather than a line nobody reads in a CI log."""
+    from scripts.ci.check_operator_owed import _self_test
+
+    assert _self_test() == 0
