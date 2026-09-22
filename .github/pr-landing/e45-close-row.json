@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one field on one row of docs/claude/work/MANAGER-CHECKLIST.json: E45 state in_flight -> done, prs -> [12756], plus the note recording what was re-checked on main. No code, no guards, no docs, no config, no runtime surface."
+}
