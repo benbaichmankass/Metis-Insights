@@ -1,0 +1,2 @@
+E43 — merge_json_register: resolve `updated_by` by naming both writers.
+Tier 1 (tooling + tests). Self-land once green.

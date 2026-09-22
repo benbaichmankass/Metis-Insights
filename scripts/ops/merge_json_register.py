@@ -26,6 +26,13 @@ same id with different content and last-write-wins took one. So:
     resurrected by seeding from base
   * disjoint rows / append+append -> merged
   * a header scalar in TIMESTAMP_KEYS bumped on both sides -> take the max
+  * `updated_by` divergent on both sides -> NAME BOTH WRITERS (a union, not a
+    pick-a-side). Taking the later name alone would auto-erase an author who
+    really did write; see AUTHORSHIP_KEYS. When `updated_at` diverges in the same
+    hunk the later side leads, otherwise no order is claimed.
+    ⚠️ This resolves the BOOKKEEPING half ONLY: a conflict that also disagrees on
+    a ROW still refuses, and an UNRECOGNISED header scalar still refuses. There
+    is deliberately no "ignore any scalar you do not recognise" escape.
 
 IT NEVER REFORMATS. Rows are spliced as their ORIGINAL BYTES; equality is judged
 semantically (parsed + canonicalised) but emission is byte-for-byte. This is what
@@ -76,7 +83,64 @@ ID_FIELDS = ("id", "session_id", "pr", "item_id", "key")
 TIMESTAMP_KEYS = ("updated_at", "as_of", "generated_at", "last_reconciled_at")
 # Keys that are only meaningful WITH a timestamp key: resolved by taking the
 # whole side whose timestamp is later, never independently.
-COUPLED_WITH = {"last_reconciled_at": ("last_reconciled_sha",)}
+#
+# ⚠️ A GROUP DRIVES ONLY WHEN ONE OF ITS FOLLOWERS IS IN THE SAME HUNK. Without
+# that condition, adding `updated_at` here would NARROW the driver: a hunk of
+# `updated_at` + `as_of` and no `updated_by` is two plain bookkeeping clocks
+# that TIMESTAMP_KEYS resolves per-line today, and routing it through the
+# coupled path would refuse it. When no follower is present, `updated_at` is an
+# ordinary TIMESTAMP_KEYS entry and nothing about it changes.
+COUPLED_WITH = {
+    "last_reconciled_at": ("last_reconciled_sha",),
+    # MEASURED 2026-09-22 over the 20 adjacent register-touching commit pairs on
+    # origin/main dated that day (`git log --since=2026-09-22 -- <register>`,
+    # simulating each as base=A^ / ours=A / theirs=B): the driver refused 5, and
+    # `updated_by` ALONE was the entire disagreement in 1 of them
+    # (9323a0bf9 -> abda697ce). A second (f50a25928 -> 4ca43ed4a) disagreed on
+    # `updated_by` AND on row R7 — it must, and still does, refuse.
+    "updated_at": ("updated_by",),
+}
+# Followers whose value is an AUTHORSHIP CLAIM. Taking the later side's value
+# alone would be a small lie the file then tells forever: the merged register
+# carries BOTH sessions' rows, so a header naming one of them mis-attributes the
+# other's work, and a later session asking "who wrote this row" gets a name that
+# never touched it. That is the `RC-STORED-FIELD-READ-AS-ITS-NAME` class in
+# docs/claude/RECURRENCE-LEDGER.json, authored by a machine instead of inherited.
+#
+# So authorship is UNIONED, later writer first, and the separator is not invented:
+# ` + ` is the form the E31 lane used when it resolved exactly this conflict by
+# hand — `manager (session_01XQ…) + E31/E32 lane (session_01SVq…)` is on `main`
+# today. The machine now writes what the careful human wrote.
+#
+# ⚠️ GROWTH IS BOUNDED BY THE NEXT WRITE, NOT BY A CAP. A branch that merges
+# `main` repeatedly accumulates names, and every one of them genuinely did write,
+# so the list stays TRUE — just long. The next session to stamp the header
+# replaces the value wholesale. A cap was considered and rejected: dropping a
+# name to keep a line short is the erasure this whole block exists to prevent.
+#
+# ⚠️ AND COUPLING IT TO `updated_at` IS NOT ENOUGH — MEASURED, AFTER WRITING IT.
+# The obvious fix is `COUPLED_WITH = {"updated_at": ("updated_by",)}` and it
+# fires on ZERO of the real conflicts. `MANAGER-CHECKLIST.json` stamps
+# `"updated_at": "2026-09-22"` at DATE granularity, so two lanes landing the same
+# day write it IDENTICALLY, git never marks that line, and the conflict hunk
+# holds `updated_by` ALONE with no clock in it to rank the two names by. Both
+# measured 2026-09-22 refusals (9323a0bf9 -> abda697ce and f50a25928 ->
+# 4ca43ed4a) are that shape; re-running the population with the coupling alone
+# moved the refusal count 5 -> 5.
+#
+# So authorship is resolved as its OWN kind, in or out of a coupled hunk, and the
+# rule is UNION rather than pick-a-side. That is also why it is safe where a
+# pick-a-side rule would not be: taking the max of two timestamps DISCARDS a
+# value, whereas the union discards nothing. It cannot lose a fact — the worst it
+# can do is make one header line longer.
+#
+# ⚠️ DEDUPE IS EXACT-STRING, STATED RATHER THAN HIDDEN. One session that stamped
+# two different descriptions ("manager (X) — main + the E27 lane row" and
+# "manager (X) — counted union of…") is named twice. Matching on the session id
+# instead would have to throw one description away, which is the erasure this
+# block refuses; verbose-and-true beats short-and-lossy.
+AUTHORSHIP_KEYS = ("updated_by",)
+AUTHOR_JOIN = " + "
 
 
 class ParseError(Exception):
@@ -344,6 +408,33 @@ def _kv(lines):
     return out
 
 
+def _union_authors(kept_line, kept_val, other_val):
+    """`kept_line` with BOTH sides' authors named, later writer first.
+
+    Returns the line unchanged when the other side names nobody new, and None
+    when either value is not a plain JSON string literal — in which case the
+    caller REFUSES rather than guessing at a shape it does not recognise.
+
+    ⚠️ IT SPLICES RAW BYTES, like the row merge. Each retained name keeps the
+    exact escaping its own side wrote, so a header carrying a literal em-dash and
+    an escaped one does not get normalised into one spelling by a merge.
+    """
+    if not (kept_val.startswith('"') and kept_val.endswith('"') and len(kept_val) >= 2):
+        return None
+    if not (other_val.startswith('"') and other_val.endswith('"') and len(other_val) >= 2):
+        return None
+    kept = [p for p in kept_val[1:-1].split(AUTHOR_JOIN) if p]
+    merged = list(kept)
+    for p in other_val[1:-1].split(AUTHOR_JOIN):
+        if p and p not in merged:
+            merged.append(p)
+    if merged == kept:
+        return kept_line                       # idempotent: nobody new to name
+    new_val = '"' + AUTHOR_JOIN.join(merged) + '"'
+    ci = kept_line.index(":")
+    return kept_line[:ci + 1] + kept_line[ci + 1:].replace(kept_val, new_val, 1)
+
+
 def _resolve_ts(ours_lines, theirs_lines):
     """Resolve a header conflict that is only bookkeeping timestamps."""
     ko, kt = _kv(ours_lines), _kv(theirs_lines)
@@ -352,7 +443,10 @@ def _resolve_ts(ours_lines, theirs_lines):
     if [k for k, _, _ in ko] != [k for k, _, _ in kt]:
         return None
     keys = [k for k, _, _ in ko]
-    driving = [k for k in keys if k in COUPLED_WITH]
+    # A coupled group drives only when one of its followers is in this hunk;
+    # see the COUPLED_WITH comment for why the condition is load-bearing.
+    driving = [k for k in keys
+               if k in COUPLED_WITH and set(COUPLED_WITH[k]) & set(keys)]
     if driving:
         d = driving[0]
         followers = set(COUPLED_WITH[d])
@@ -360,12 +454,30 @@ def _resolve_ts(ours_lines, theirs_lines):
             return None
         ov = dict((k, v) for k, v, _ in ko)[d]
         tv = dict((k, v) for k, v, _ in kt)[d]
-        return list(ours_lines) if ov >= tv else list(theirs_lines)
-    if not all(k in TIMESTAMP_KEYS for k in keys):
+        later, earlier = (ko, kt) if ov >= tv else (kt, ko)
+        earlier_v = dict((k, v) for k, v, _ in earlier)
+        out = []
+        for k, v, ln in later:
+            if k in AUTHORSHIP_KEYS and earlier_v.get(k, v) != v:
+                ln = _union_authors(ln, v, earlier_v[k])
+                if ln is None:
+                    return None
+            out.append(ln)
+        return out
+    if not all(k in TIMESTAMP_KEYS or k in AUTHORSHIP_KEYS for k in keys):
         return None
     out = []
     for (k, vo, lo), (_, vt, lt) in zip(ko, kt):
-        out.append(lo if vo >= vt else lt)
+        if k in AUTHORSHIP_KEYS:
+            # No clock in this hunk ranks the two names, so no ranking is
+            # claimed: the union states the one thing that IS true, that both
+            # sessions wrote. Order is ours-first and is presentation only.
+            ln = _union_authors(lo, vo, vt)
+            if ln is None:
+                return None
+            out.append(ln)
+        else:
+            out.append(lo if vo >= vt else lt)
     return out
 
 
