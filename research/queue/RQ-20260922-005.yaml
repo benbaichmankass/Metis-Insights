@@ -1,0 +1,153 @@
+id: RQ-20260922-005
+title: Is the 4h Donchian variants' 10-30x expectancy premium real, or a small-sample artifact?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  The same strategy runs at two timeframes on real money. The 1h variants
+  earn about 0.05R per trade; the 4h variants on bybit_2 record 0.52R and
+  1.29R per trade — an order of magnitude more — on 28 and 16 OOS trades
+  against a power floor of 49.06. Is the 4h premium a property of the
+  timeframe, or is it what a 16-trade sample looks like?
+
+why_this_matters: >-
+  MEASURED, comms/strategy_evidence/*.json on main at f3746ab, all from the
+  trend harness, all `fidelity: faithful`, all on the identical cost stack
+  {7.5, 5.0, 1.0} bps:
+    trend_donchian_eth_prop  n=169  expectancy_r_oos +0.0422  net +7.1300
+    trend_donchian_sol_prop  n= 63  expectancy_r_oos +0.0547  net +3.4484
+    trend_donchian (1h)      n= 73  expectancy_r_oos -0.0058  net -0.4245
+    trend_donchian_eth_4h    n= 28  expectancy_r_oos +0.5188  net +14.5275
+    trend_donchian_xrp_4h    n= 16  expectancy_r_oos +1.2851  net +20.5617
+  Two of bybit_2's four surviving legs are the 4h pair, and they clear the bar
+  on the two smallest samples in the risk-bearing population. Their pooled
+  contribution (+35.09R) is larger than every other passing crypto leg
+  combined. If the premium is sampling noise, most of what makes bybit_2 look
+  solvent is noise.
+
+power:
+  expected_n: 48
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    ⚠️ TWO DIFFERENT OOS COUNTS EXIST FOR THESE LEGS AND THEY MEASURE
+    DIFFERENT THINGS. `comms/strategy_evidence/*.json` records
+    `n_trades_oos` 28 (eth_4h) and 16 (xrp_4h) — the harness_timefolds counts
+    the RULE-D1 Stage-0 verdict was read off. The e35 corpus records
+    `base_oos_trades` 48 and 49 for the same two legs (MEASURED 2026-09-22 by
+    running `scripts/research/research_disposition.py --report`) — the
+    bracket-sweep's derived IS/OOS boundary. expected_n is declared as **48**,
+    the MINIMUM of the e35 counts, because the run below IS an e35 bracket
+    sweep and a unit must size itself on the measurement its own run produces.
+    Declaring 16 here while grounding feasibility on e35 would be exactly the
+    laundering the feasibility check exists to catch, in the other direction.
+    The floor at d=0.45 is (1.96+0.8416)^2 / 0.45^2 = 38.76, and 48 clears it
+    by 9.24. The smallest effect this design can see is sqrt(7.849/48) = 0.404
+    sd; read a null as "not half a standard deviation", never as "no premium".
+    ⚠️ AND THE GAP BETWEEN THE TWO COUNTS IS ITSELF PART OF THE ANSWER. The
+    Stage-0 pass that put these two legs on bybit_2 was read off 28 and 16
+    trades; the re-sweep has 48 and 49 to read off. So the e35 arm is the
+    better-powered instrument for the same legs, and if the premium does not
+    reproduce there, the shortfall is not "we did not have enough data" — it
+    is that the number the promotion cited was taken on the thinner of two
+    available samples.
+    ⚠️ min, not median or max: the verdict is PER LEG and the weaker leg
+    bounds it. An unscoped statistic would certify one leg on the other's
+    data — the error the queue README records against e35's fleet max.
+    ⚠️ ALPHA IS PER-LEG and this runs two legs; read the two verdicts jointly.
+  feasibility:
+    source: corpus
+    corpus: e35
+    statistic: min_per_leg
+    legs:
+      - trend_donchian_eth_4h
+      - trend_donchian_xrp_4h
+    basis: >-
+      Grounded on e35 because THIS unit's run is an e35 bracket sweep, so the
+      corpus statistic and the run's own count are the same measurement — the
+      condition RQ-20260922-003 and -004 could not meet and therefore declared
+      `source: none`. MEASURED 2026-09-22 via research_disposition --report: min_per_leg over
+      these two legs is 48 (eth_4h 48, xrp_4h 49), against the 38.76 floor, so
+      this should grade `cleared` — by 9.24 trades, which is margin and not
+      comfort. Do NOT read an
+      `underpowered` grade as a reason to lower d — the queue README forbids
+      lowering a pre-registered bar to manufacture a verdict.
+
+decision_rule:
+  id: RULE-RQ0922-005-TIMEFRAME-PREMIUM
+  registered_at: '2026-09-22'
+  registered_before_run: true
+  statistic: >-
+    Per 4h leg, the e35 re-sweep's OOS expectancy_r and its achieved
+    base_oos_trades; and premium = expectancy_r(4h leg) - 0.0485, the mean
+    of the two 1h prop variants' recorded expectancy (+0.0422, +0.0547).
+  rule: >-
+    IF a 4h leg's re-swept OOS expectancy_r falls below 0.10R per trade — i.e.
+    the premium substantially collapses toward the 1h level — that leg is
+    recorded `expectancy_not_reproduced: true` and its Stage-0 pass is handed
+    to R2/D2 for a Tier-3 read, BECAUSE the pass was cited on a number the
+    re-run did not reproduce.
+    IF a leg's re-swept expectancy stays above 0.30R per trade AND its
+    achieved base_oos_trades >= 39 (the d=0.45 floor, 38.76, rounded up), the premium is recorded as reproduced at
+    adequate power and the unit closes `no_action_warranted`.
+    IF expectancy stays high but base_oos_trades < 39 — the verdict is `unresolvable_at_current_n`, and the deliverable
+    is a statement that bybit_2's two largest R contributors cannot be graded
+    on the data that exists, plus the one thing that would change it (more
+    history, or pooling the 4h family into one cross-sectional test with its
+    own design). That statement goes to the operator as a Gate-2 input. It is
+    NOT a demotion and NOT a clean bill of health; recording it as either
+    would be the collapse this repo names `unknown` vs `not_writing`.
+  what_it_does_not_do: >-
+    It does not touch config/accounts.yaml or config/strategies.yaml and does
+    not cut bybit_2's roster. That is R2/D2 and Tier-3.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 50
+  basis: >-
+    Runner. e35-bracket-sweep.yml shards one leg per job and fetches its own
+    candles from data.binance.vision; both legs are scheduled in the shard
+    plan with feed_source binance_vision (verified 2026-09-22 by running
+    `scripts/research/e35_shard_plan.py --ignore-missing-data`). No VM, and
+    peak memory is per-shard rather than cumulative. est_minutes is 2 legs in
+    one wave at ~25 min per leg — an ESTIMATE carried from RQ-20260830-001's
+    single-leg timing, not a measurement of this fan-out.
+
+run:
+  workflow: e35-bracket-sweep.yml
+  inputs:
+    only: trend_donchian_eth_4h,trend_donchian_xrp_4h
+    research_unit: RQ-20260922-005
+    days: '1830'
+    gate_top: '2'
+    singles_only: 'false'
+    max_parallel: '2'
+  note: >-
+    `split_target_oos` is deliberately LEFT EMPTY (script default 50) rather
+    than raised the way RQ-20260830-002 raised it to 60. Raising the target
+    cannot manufacture trades these legs never took — at 4h the history
+    simply does not hold 60 OOS trades — and setting a target this run cannot
+    meet would restate the target back as an expectation, which is the
+    substitution the feasibility check exists to catch. The achieved
+    `base_oos_trades` is the number to read.
+
+lands:
+  store: docs/research/e35-bracket-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+  note: >-
+    min_rows 1, not 2: the sweep shards per leg and one leg's fetch can fail,
+    so requiring both would grade a 1-of-2 run as a LANDING failure — a
+    different defect from "nothing landed", which is all this gate catches.
+    Per-leg completeness is read off the corpus.
+
+related:
+  - 'checklist C5 / R4 (this unit is one of the ten)'
+  - 'RQ-20260830-002 (the monthly job that already sweeps both these legs; this one-shot asks a different question of the same run and its leg list needs re-deriving — see the PR body)'
+last_dispatched_at: null

@@ -1,0 +1,104 @@
+id: RQ-20260922-002
+title: Is the Stage-0 pass fold-concentrated across the eight legs that clear the bar?
+status: blocked
+cadence: once
+kind: deterministic
+
+question: >-
+  RULE-D1-STAGE0-NET-OF-FULL-COST asks one thing of a leg: pooled net_r_oos >
+  0. Pooling is blind to WHERE the R came from. For each of the eight
+  risk-bearing legs that clear the four-clause bar today, does net_r_oos stay
+  > 0 after removing the single largest-contributing time-fold — and if it
+  does not for most of them, is RULE-D1 as written a Stage-0 bar at all?
+
+why_this_matters: >-
+  MEASURED, from the `folds_positive` field of the eight passing records
+  (comms/strategy_evidence/*.json on main at f3746ab, each over 4 folds):
+  ief_pullback_1d 2, slv_pullback_1d 4, iaum_pullback_1d 2,
+  trend_donchian_sol_prop 2, trend_donchian_eth_prop 3, xrp_pullback_2h 3,
+  trend_donchian_eth_4h 3, trend_donchian_xrp_4h 3. Four of the eight are
+  positive in HALF their folds or fewer while passing a bar that reads only
+  the pooled sum. `folds_positive` is a count, not the drop-max-fold statistic
+  this unit asks for; the fold_detail needed to compute that IS committed, which
+  is why this unit's blocker is small.
+
+why_not_inferential: >-
+  A leave-one-fold-out recomputation over a fixed, committed fold_detail
+  array. Same inputs, same answer, every time. No sample is drawn and no
+  effect is estimated, so a power declaration would be theatre. The honesty
+  condition is that the fold set is complete — it is: every record carries
+  `folds` and an equal-length `fold_detail`.
+
+decision_rule:
+  id: RULE-RQ0922-002-FOLD-ROBUSTNESS
+  registered_at: '2026-09-22'
+  registered_before_run: true
+  statistic: >-
+    drop_max_fold = net_r_oos - max(fold.net_r over fold_detail), per leg.
+    Population: the legs that PASS the four-clause bar at run time, as
+    enumerated by `scripts/ci/check_roster_promotion_evidence.py --population`
+    on the commit being read. Not a typed list — re-derive it, because the
+    passing set moves.
+  rule: >-
+    PER LEG: if drop_max_fold <= 0, the record is annotated
+    `fold_concentrated: true`. That annotation is REPORTING, not a demotion.
+    ACROSS THE POPULATION, and this is the decision the unit exists for:
+    if >= 5 of the 8 (>= 62.5%) are fold_concentrated, the finding is that
+    RULE-D1's pooled-sum predicate does not discriminate at Stage 0, and the
+    deliverable is ONE amendment proposal to the operator — add a
+    fold-robustness clause to RULE-D1 — rather than eight per-leg findings.
+    If <= 2 of 8 are fold_concentrated, RULE-D1 stands as written and this
+    unit closes `no_action_warranted`.
+    If 3 or 4 of 8, the result is reported as INDETERMINATE and the unit
+    closes `no_action_warranted` with the counts stated. A threshold that
+    can only ever say "yes" is not a decision rule; this one can say no, and
+    can say it did not resolve.
+  what_it_does_not_do: >-
+    Amending RULE-D1 is the operator's call and this unit produces the
+    proposal, never the amendment. It changes no config and cuts no leg.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 2
+  basis: >-
+    Runner, and barely that. The inputs are 12 committed JSON files totalling
+    under 100 KB in comms/strategy_evidence/. No candles are fetched, no
+    harness runs, no VM is touched. est_minutes is the checkout, not the
+    arithmetic.
+
+blocked_on:
+  - what: >-
+      NOTHING READS THE EVIDENCE RECORDS INTO A RESEARCH RESULT. The data is
+      committed and the statistic is a one-line reduction, but there is no
+      workflow that computes it and no store that would hold the answer, so
+      the result would exist only in a session's scrollback — which
+      docs/CLAUDE-RULES-CANONICAL.md and the plan both refuse to count. This
+      is the cheapest unit in this batch to unblock and the one most likely
+      to be skipped for that reason.
+    ref: 'checklist E5 (every research workflow lands a durable queryable result) / C2'
+    clears_when: >-
+      A workflow computes drop_max_fold over comms/strategy_evidence/*.json and
+      lands the per-leg result where a later session can read it.
+
+run:
+  workflow: null
+  note: >-
+    Null on purpose. Declaring an existing sweep workflow here would be false —
+    none of them read comms/strategy_evidence/.
+
+lands:
+  store: comms/strategy_evidence/<leg>.json
+  assert_field: fold_concentrated
+  min_rows: 8
+  note: >-
+    min_rows 8, not 1, unlike the e35 units: there is no per-leg fan-out that
+    can partially fail here. All eight records are read in one process from
+    one checkout, so a result covering fewer than eight is a defect, not a
+    partial success.
+
+related:
+  - 'checklist C5 / R4 (this unit is one of the ten)'
+  - 'RULE-D1-STAGE0-NET-OF-FULL-COST (registered 2026-09-22T05:34:08Z; the rule this tests)'
+last_dispatched_at: null

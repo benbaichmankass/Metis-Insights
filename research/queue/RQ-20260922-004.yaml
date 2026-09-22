@@ -1,0 +1,146 @@
+id: RQ-20260922-004
+title: Does xrp_pullback_2h's Stage-0 pass hold once the two levers its harness omits are simulated?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  xrp_pullback_2h clears the bar with the largest margin of any pullback leg
+  on a real-money roster, and its own evidence record declares the
+  measurement `fidelity: approximate` because the harness does not simulate
+  two levers the live leg actually runs. Does the pass survive simulating
+  them — and does it survive turning them OFF, which is the arm that says
+  whether they are load-bearing at all?
+
+why_this_matters: >-
+  MEASURED, comms/strategy_evidence/xrp_pullback_2h.json on main at f3746ab:
+  net_r_oos +16.4080, net_r_oos_fee_only +18.9143, n_trades_oos 44,
+  expectancy_r_oos +0.3729, folds_positive 3 of 4, `fidelity: approximate`,
+  `omitted_levers: [trail_decay_arm_r, trail_decay_tight_mult]`. The record is
+  honest about the gap — it names the levers rather than reporting `faithful`
+  — but nothing downstream reads `fidelity`. The four-clause bar in
+  scripts/ci/check_roster_promotion_evidence.py checks coverage_state,
+  n_trades_oos, cost_stack and decision_rule; `fidelity` and `omitted_levers`
+  are not among them, so an `approximate` measurement and a `faithful` one
+  clear it identically. Three of the eight passing legs are `approximate`.
+
+power:
+  expected_n: 44
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    PAIRED: the lever-on and lever-off arms score the same trade sequence, so
+    the unit is the per-trade difference and the design is one_sample. The
+    floor at d=0.45 is (1.96+0.8416)^2 / 0.45^2 = 38.76, and expected_n = 44
+    clears it by 5.24.
+    ⚠️ d=0.45 is COARSE and chosen because it is what n=44 supports, not
+    because 0.45 sd is the effect worth detecting. The smallest effect this
+    design can see is sqrt(7.849/44) = 0.42 sd; anything finer is invisible
+    here. Read a null as "the levers did not move it by half a standard
+    deviation", never as "the levers do nothing".
+    ⚠️ expected_n is the ACHIEVED `n_trades_oos: 44` on the record, not a
+    sweep target. Enabling a trailing lever CAN change which trades close
+    when and therefore the achieved count; read it off each arm.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Same declaration as RQ-20260922-003 and for the same reason: n=44 is
+      observed and committed (comms/strategy_evidence/xrp_pullback_2h.json,
+      field n_trades_oos, generated 2026-09-22T05:35Z), but
+      comms/strategy_evidence is not one of the three registered corpora in
+      research_disposition.CORPORA (e35, m20, gld_compat — read 2026-09-22),
+      so the gate cannot go and check it. Grounding on e35 instead would grade
+      a harness_timefolds count against a bracket-sweep boundary count. See
+      PI-20260922-STRATEGY-EVIDENCE-IS-NOT-A-REGISTERED-CORPUS.
+
+decision_rule:
+  id: RULE-RQ0922-004-OMITTED-LEVER-FIDELITY
+  registered_at: '2026-09-22'
+  registered_before_run: true
+  statistic: >-
+    delta_R = net_r_oos(levers simulated) - net_r_oos(levers omitted, = the
+    +16.4080 already on the record), and the sign of net_r_oos in the
+    lever-simulated arm.
+  rule: >-
+    IF the lever-simulated arm gives net_r_oos <= 0, the leg's Stage-0 pass
+    is WITHDRAWN on the record (`decision_rule.verdict` -> 'fail',
+    `withdrawn_because: fidelity_approximate`) and the leg joins the flipped
+    set for R2/D2 as a Tier-3 read.
+    IF it stays > 0 but |delta_R| > 0.25 * 16.4080 (4.10R), the finding is
+    about the BAR, not this leg: `fidelity` is materially load-bearing and the
+    deliverable is a proposal to add a fifth clause to
+    check_roster_promotion_evidence.py refusing `fidelity: approximate` as
+    Stage-0 evidence for a real-money slot. That proposal goes to the
+    operator; the guard change is not made by this unit.
+    IF it stays > 0 and |delta_R| <= 4.10R, the omission is immaterial for
+    this leg, `fidelity: approximate` is recorded as tolerable here, and the
+    unit closes `no_action_warranted`.
+  what_it_does_not_do: >-
+    It does not change a lever on the live leg. Trailing-stop geometry is
+    Tier-3 (config/strategies.yaml params) and belongs to exit-refinement,
+    not to this queue.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 40
+  basis: >-
+    Runner. m20-exit-lever-sweep.yml declares both halves of this question as
+    inputs — `levers` selects trail_decay for the ON arm and
+    `without_declared_levers` is documented as the LEVER-OFF ARM. It fetches
+    its own candles; no VM, no trainer-resident data. Verified by reading the
+    workflow's workflow_dispatch inputs, 2026-09-22.
+
+blocked_on:
+  - what: >-
+      THE QUEUE'S OWN HONESTY STAMP IS NOT IMPLEMENTED ON THIS WORKFLOW.
+      This unit's feasibility declaration grades `accruing`, and
+      scripts/research/dispatch_queue.py REFUSES to fire an `accruing` unit
+      unless it declares `run.inputs.research_unit`, so the producer stamps
+      the label onto every row it lands ("without it 'do not read this as a
+      test result' is a claim the rows cannot carry"). But `m20-exit-lever-sweep.yml`
+      declares no `research_unit` input, and the dispatcher's own note is
+      explicit that `gh workflow run -f <input-the-workflow-never-declared>`
+      ERRORS. MEASURED 2026-09-22 by reading the workflow_dispatch inputs of
+      e35-bracket-sweep.yml, m20-exit-lever-sweep.yml,
+      pullback-frac-cross-leg-sweep.yml, research-exit-head-build.yml and
+      regime-debt-matrix.yml: only e35-bracket-sweep.yml declares
+      `research_unit` (and `power_state`). So an `accruing` or
+      `underpowered` unit can route to exactly one of them. Declaring the
+      input anyway would fail at fire time; omitting it is refused at grade
+      time. The unit is therefore undispatchable as written, and saying so is
+      better than leaving it `queued` to fail on dispatch.
+    ref: PI-20260922-RESEARCH-UNIT-STAMP-ONLY-ON-E35
+    clears_when: >-
+      `m20-exit-lever-sweep.yml` declares `research_unit` (and ideally `power_state`)
+      as workflow_dispatch inputs and stamps them onto the rows it lands, as
+      e35-bracket-sweep.yml already does. Then flip this unit to `queued` and
+      add `research_unit: RQ-20260922-004` to run.inputs.
+
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: xrp_pullback_2h
+    levers: trail_decay
+    split_mode: oos-trades
+    tp_cap_pct: '0.099'
+  note: >-
+    The lever-OFF arm is a SECOND dispatch with
+    `without_declared_levers: trail_decay` and no `levers`. Two arms, two
+    runs, deliberately not one — the corpus keys on run stamp and folding
+    both into one dispatch would make the two arms indistinguishable in the
+    landed rows.
+
+lands:
+  store: docs/research/m20-sweep-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+
+related:
+  - 'checklist C5 / R4 (this unit is one of the ten)'
+  - 'The other two `approximate` passing legs (slv_pullback_1d, iaum_pullback_1d) carry the SAME two omitted levers and are covered by RQ-20260922-001, not here.'
+last_dispatched_at: null

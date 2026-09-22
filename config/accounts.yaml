@@ -342,6 +342,25 @@ accounts:
                                        #    branch for the fvg_range family at all.
                                        #    It was already execution: shadow, so no
                                        #    live order flow changes for this leg.
+                                       #    [!] SUPERSEDED THE SAME DAY, AND THE CUT
+                                       #    SURVIVES ON BETTER GROUND. E25 (#12714,
+                                       #    2026-09-22) added the missing classifier
+                                       #    branch and RAN the harness, so this leg is
+                                       #    no longer `no_harness`: the record now
+                                       #    reads coverage_state: measured, fidelity:
+                                       #    faithful, net_r_oos -10.2594,
+                                       #    expectancy_r_oos -0.6035 R over n=17, with
+                                       #    0 OF 4 FOLDS POSITIVE, against
+                                       #    RULE-D1-STAGE0-NET-OF-FULL-COST registered
+                                       #    2026-09-22T05:34:08Z — verdict `fail`.
+                                       #    So it is now the SAME kind of cut as (1)
+                                       #    and (2): the rule was applied and said no.
+                                       #    It is no longer reversible by building a
+                                       #    harness, because the harness exists and
+                                       #    graded it. Corrected here rather than left
+                                       #    standing because FIELD BEATS COMMENT and a
+                                       #    stale comment in a Tier-3 file reads as
+                                       #    corroboration. Manager, landing E25 + R2.
                                        #
                                        # OPEN POSITIONS: none on any of the three.
                                        # MEASURED by me against the RUNNING process,

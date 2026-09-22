@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "From this lane's dispatch instruction, quoted: \"Open a **draft** PR against `main` with `.github/pr-landing/<branch-slug>.json` declaring `tier: 1`, `landing: \\\"hold\\\"`, `hold_reason: \\\"operator_asked_to_hold\\\"` quoting this instruction.\" and \"Do not dispatch sessions; do not merge -- the manager merges.\"",
+  "why": "Adds ten research-question units under research/queue/, files five pipeline rows, and updates two checklist rows (C5 killed as a duplicate, R4 carrying the work). No runtime, order-path, service, timer or config change; config/accounts.yaml and config/strategies.yaml are untouched by design -- cutting the fleet is R2/D2 and Tier-3. Tier-1 by path, held per the lane's landing convention."
+}

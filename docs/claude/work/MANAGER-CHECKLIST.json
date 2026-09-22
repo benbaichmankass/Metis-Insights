@@ -20,7 +20,7 @@
   ],
   "schema_version": 2,
   "updated_at": "2026-09-22",
-  "updated_by": "session_017aScqdVcFoXxqffMcsf5Ge",
+  "updated_by": "session_01AHNgatHswZsemNiP8aSXCk",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -338,7 +338,7 @@
       "id": "C5",
       "title": "Write the first ten pre-registered research questions",
       "phase": "C",
-      "state": "queued",
+      "state": "dropped",
       "owner": "operator + manager",
       "lane": null,
       "model": "claude-opus-5",
@@ -347,7 +347,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier."
+      "note": "KILLED 2026-09-22 (session_01AHNgatHswZsemNiP8aSXCk) as a DUPLICATE of R4 -- both rows carry the identical title, 'Write the first ten pre-registered research questions', under two numbering schemes, and both rows' own dispatch said so. R4 is the SURVIVOR, on the same reasoning the eng lane used for D1/R1 the day before: R4 carries the more complete tracking (a typed blocked_on edge on R1, and the priority-ordered source list -- surviving legs first, then the flipped ones, then the four not clearing the bar) while C5 carried only owner/model/tier. R4 also sits in phase R, the live research plan adopted by E1, where C5 is from the superseded phase-C numbering. See R4 for the work and its PR. Original note, preserved rather than deleted: 'The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier.'"
     },
     {
       "id": "D1",
@@ -545,20 +545,22 @@
       "phase": "R",
       "state": "blocked",
       "owner": "operator + manager",
-      "lane": null,
-      "model": null,
-      "ceiling_usd": null,
+      "lane": "session_01AHNgatHswZsemNiP8aSXCk",
+      "model": "claude-opus-5",
+      "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12706
+      ],
       "blocked_on": [
         {
-          "kind": "work_item",
-          "ref": "R1",
-          "what": "Questions are chosen against the surviving roster."
+          "kind": "operator_decision",
+          "ref": "PR #12706 (branch claude/c5-r4-ten-research-questions, opened draft)",
+          "what": "PR opened with landing: hold, hold_reason: operator_asked_to_hold, per this lane's standing instruction to hold rather than self-land. Needs the manager/operator to review and merge -- until then the ten units exist only on the branch, and scripts/research/dispatch_queue.py on main still sees five job files, not fifteen."
         }
       ],
-      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets."
+      "note": "PRECONDITION DISCHARGED: R1 merged as f3746ab, so the instrument these questions are written against is on main. DELIVERED: ten units, research/queue/RQ-20260922-001 through -010, each carrying hypothesis / population / instrument / decision_rule / power. Every one names a decision rule registered BEFORE any run, in the form 'if X then we do Y', and every rule states what it does NOT do -- none of them touches config/accounts.yaml or config/strategies.yaml, because cutting the fleet is R2/D2 and Tier-3. POPULATION, stated because the batch is scoped by it: the 12 risk-bearing roster slots that scripts/ci/check_roster_promotion_evidence.py --population enumerates (alpaca_live x3, breakout_1 x3, bybit_2 x6), 8 clearing the four-clause bar and 4 not. Allocation: 6 units over the 8 surviving legs (grouped where the question is genuinely shared, e.g. the three alpaca_live 1d ETF legs), 3 over the legs that flipped net-negative, 1 over fvg_range_15m, the only leg failing all four clauses. WHAT THE EXERCISE SURFACED, and it is the finding of the session: only 3 of the 10 are dispatchable today. Four of those live in research/queue/blocked/ rather than research/queue/, because validate() requires run.workflow + lands.store on every job unconditionally and tests/test_research_queue.py enforces it over the whole directory -- correctly: the queue is a DISPATCH queue and a question with no instrument is not a job. Their full pre-registered text is preserved verbatim; load_queue() globs non-recursively, so they are out of the dispatched population by construction rather than by a flag. They are blocked on missing measurement plumbing (per-trade rows written to a tempdir; no per-trade dispersion field; nothing that lands a read over comms/strategy_evidence) and three are blocked because m20-exit-lever-sweep.yml and research-exit-head-build.yml declare no `research_unit` input, so an honestly-declared `accruing` unit can route to exactly ONE of the repo's research workflows. Five pipeline rows filed with reruns and clears_when. MERGED: no. DEPLOYED: no (repo-only; no VM or runtime change). OBSERVED: yes, on this branch -- dispatch_queue.py grades all ten and the three queued ones read would_dispatch route=runner; not observed from main, the PR is unmerged."
     },
     {
       "id": "R5",
