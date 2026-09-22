@@ -36,6 +36,42 @@
         "oos_n": 49,
         "basis": "m20_fleet_exit_sweep --p80-only --tp-cap-pct 0.099 --split-target-oos 50 (relay #9662/#9667)",
         "note": "NOT an arm-above-cap failure — this is the one leg graded reachable at 100% (cap_R p50 11.91 vs arm 6.49). The live-parity sweep proposes a LOWER arm (5.5) and that cell then fails OOS, which is a different question: whether the lever earns its place on this leg at all."
+      },
+      "evidence": {
+        "bases": [
+          {
+            "basis_id": "live_order_package_2026_08_16",
+            "kind": "live_entry_conditioned",
+            "geometry": "unknown",
+            "k": 1,
+            "n": 1,
+            "source": "the single order_package quoted in this entry's `basis` (cap_R 16.85)",
+            "note": "n=1. This is the leg's ONLY entry-conditioned basis and it is the cell that forced the interval method: 95% Wilson would call 1/1 settled_reachable.",
+            "share_pct": 100.0,
+            "ci_low_pct": 2.5,
+            "ci_high_pct": 100.0,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 2.5,
+            "settled_inert_if_inert_cut_above_pct": 100.0
+          },
+          {
+            "basis_id": "candle_screen_1h_btc_2026_08_16",
+            "kind": "candle_screen",
+            "geometry": "unknown",
+            "k": 101,
+            "n": 101,
+            "source": "candles/atr(14) 1h BTCUSDT, n=101, reach_share_pct 100.0 on this entry",
+            "note": "NEVER primary: unconditional over bars, not over the entries the strategy actually took.",
+            "share_pct": 100.0,
+            "ci_low_pct": 96.4,
+            "ci_high_pct": 100.0,
+            "flag": "settled_reachable",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 96.4,
+            "settled_inert_if_inert_cut_above_pct": 100.0
+          }
+        ],
+        "primary_basis": "live_order_package_2026_08_16",
+        "flag": "unsettled"
       }
     },
     {
@@ -94,6 +130,42 @@
         "resolves_unmeasured": "This entry's verdict was 'unmeasured' because the p80 sweep was skipped_thin (14 winner MFEs vs a 30 minimum). Reachability does NOT depend on that sweep: cap_R is entry geometry and is measurable on every entry the leg ever took, thin winners or not. The skipped sweep blocked a REPLACEMENT arm, never the reachability verdict.",
         "changes_nothing": "verdict and disposition deliberately UNTOUCHED. Recording a measurement is not making a decision; an inert verdict + recorded_inert disposition is the operator's call (Tier-3).",
         "operator_decision_ready": "Both available bases now read 0.0% on a complete/large-n population. This is the same evidential position that supported the operator's 2026-08-16 recorded_inert decisions on gld_pullback_1d and qqq_trend_long_1d."
+      },
+      "evidence": {
+        "bases": [
+          {
+            "basis_id": "live_entry_conditioned_2026_08_16",
+            "kind": "live_entry_conditioned",
+            "geometry": "stale",
+            "k": 0,
+            "n": 16,
+            "source": "this entry's live_entry_conditioned_2026_08_16 block (population_complete: true)",
+            "note": "[!] COMPLETE and still only n=16. STALE: measured at atr_stop_mult 2.5; the leg has run 1.5 since 892c9a2c8 (#10450) landed 2026-08-30, which scales cap_R by 1.667x.",
+            "share_pct": 0.0,
+            "ci_low_pct": 0.0,
+            "ci_high_pct": 20.6,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 20.6
+          },
+          {
+            "basis_id": "backtest_entry_conditioned_2026_08_16",
+            "kind": "backtest_entry_conditioned",
+            "geometry": "stale",
+            "k": 0,
+            "n": 127,
+            "source": "this entry's backtest_entry_conditioned_2026_08_16 block",
+            "note": "Same stale geometry. 0 in every year 2023-2026.",
+            "share_pct": 0.0,
+            "ci_low_pct": 0.0,
+            "ci_high_pct": 2.9,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 2.9
+          }
+        ],
+        "primary_basis": "live_entry_conditioned_2026_08_16",
+        "flag": "unsettled"
       }
     },
     {
@@ -135,7 +207,43 @@
         "live_band_overlap": "16/112 inside live risk/entry band 3.294-4.506%; 21/112 at or above the live minimum"
       },
       "decided_at": "2026-08-16",
-      "decided_by": "operator"
+      "decided_by": "operator",
+      "evidence": {
+        "bases": [
+          {
+            "basis_id": "live_entry_conditioned_2026_08_16",
+            "kind": "live_entry_conditioned",
+            "geometry": "current",
+            "k": 0,
+            "n": 8,
+            "source": "this entry's `basis` -- order_packages/risk_per_unit, COMPLETE history (server count:8, untruncated)",
+            "note": "[!] THE CELL THAT CARRIES `verdict: inert` AND `disposition: recorded_inert`. atr_stop_mult 2.0 and the tp_r 50.0 sentinel are both unchanged since, so the geometry is current; the denominator is the problem, not the staleness.",
+            "share_pct": 0.0,
+            "ci_low_pct": 0.0,
+            "ci_high_pct": 36.9,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 36.9
+          },
+          {
+            "basis_id": "backtest_entry_conditioned_2026_08_16",
+            "kind": "backtest_entry_conditioned",
+            "geometry": "current",
+            "k": 42,
+            "n": 112,
+            "source": "this entry's backtest_entry_conditioned_2026_08_16 block",
+            "note": "Pooled over 2010-2026. This entry's own era_note shows reachability is regime-clustered (2018 7/7, 2026 0/2), so the pooled figure describes no regime in particular -- the flag grades the SAMPLE, it cannot grade that.",
+            "share_pct": 37.5,
+            "ci_low_pct": 28.5,
+            "ci_high_pct": 47.1,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 28.5,
+            "settled_inert_if_inert_cut_above_pct": 47.1
+          }
+        ],
+        "primary_basis": "live_entry_conditioned_2026_08_16",
+        "flag": "unsettled"
+      }
     },
     {
       "strategy": "xrp_pullback_2h",
@@ -253,6 +361,42 @@
         "CONFIRMS_THE_ORIGINAL_CLAIM": "This measurement was taken BECAUSE the collapsed label was suspected of hiding a Path-A blind spot — xrp_pullback_2h is a pullback leg, the named blind-spot population, and the cell reads positive net_R in BOTH windows (IS +3.73 / OOS +12.12) which is the shape the source calls unreadable. The suspicion was reasonable and the answer is NO: those are the cell's ABSOLUTE net_R values, and against its own base the cell is +2.35R in-sample and -0.99R out-of-sample. The sibling row's claim that 2.17R 'STILL fails OOS' is CORRECT, and now correct for a stated reason instead of a label.",
         "interpretation": "Better in-sample on both axes, marginally worse out-of-sample on net_R — the classic in-sample-fitted shape, and the p80 arm is itself derived from the leg's winner-MFE distribution, so the IS improvement is partly the fit showing up in its own training window. The larger IS sample (247 vs 49) does NOT make the IS result the more trustworthy one here for exactly that reason. `is_path_b_candidate`'s docstring makes the mirror-image argument about a cell positive only OUT-of-sample; the same logic rejects one positive only in-sample.",
         "changes_nothing": "verdict and disposition deliberately UNTOUCHED — this records a measurement. Resolving a queued_tier3 row is the operator's call."
+      },
+      "evidence": {
+        "bases": [
+          {
+            "basis_id": "live_entry_conditioned_COMPLETE_2026_08_16",
+            "kind": "live_entry_conditioned",
+            "geometry": "stale",
+            "k": 2,
+            "n": 37,
+            "source": "this entry's live_entry_conditioned_COMPLETE_2026_08_16 block (population_complete: true)",
+            "note": "STALE: tp_r was the 50.0 sentinel when this was measured and is 3.0 since 2026-08-23 (#10171), so the operative ceiling min(cap_R, tp_r) is now <= 3.0R against a 4.49R arm.",
+            "share_pct": 5.4,
+            "ci_low_pct": 0.7,
+            "ci_high_pct": 18.2,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.7,
+            "settled_inert_if_inert_cut_above_pct": 18.2
+          },
+          {
+            "basis_id": "backtest_entry_conditioned_2026_08_16",
+            "kind": "backtest_entry_conditioned",
+            "geometry": "stale",
+            "k": 12,
+            "n": 204,
+            "source": "this entry's backtest_entry_conditioned_2026_08_16 block",
+            "note": "Same stale geometry. Agrees with the live basis to 0.5pp on the share.",
+            "share_pct": 5.9,
+            "ci_low_pct": 3.1,
+            "ci_high_pct": 10.0,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 3.1,
+            "settled_inert_if_inert_cut_above_pct": 10.0
+          }
+        ],
+        "primary_basis": "live_entry_conditioned_COMPLETE_2026_08_16",
+        "flag": "unsettled"
       }
     },
     {
@@ -293,7 +437,58 @@
         "basis_disagreement": "The candle screen read cap_R 2.13; entry-conditioned reads 2.70 - entries select QUIETER bars than the unconditional distribution here, the OPPOSITE direction to xrp, where the screen overstated reach. So the screen's error has no fixed sign either."
       },
       "decided_at": "2026-08-16",
-      "decided_by": "operator"
+      "decided_by": "operator",
+      "evidence": {
+        "bases": [
+          {
+            "basis_id": "live_entry_conditioned_2026_08_16",
+            "kind": "live_entry_conditioned",
+            "geometry": "stale",
+            "k": 0,
+            "n": 1,
+            "source": "this entry's `basis` -- order_packages/risk_per_unit (n=1)",
+            "note": "[!] n=1, AND IT CARRIES `verdict: inert` / `disposition: recorded_inert`. STALE: M20 B4 (#10419, 2026-08-29) cut atr_stop_mult 2.5 -> 2.0 and tp_r 50.0 -> 3.0.",
+            "share_pct": 0.0,
+            "ci_low_pct": 0.0,
+            "ci_high_pct": 97.5,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 97.5
+          },
+          {
+            "basis_id": "backtest_entry_conditioned_2026_08_16",
+            "kind": "backtest_entry_conditioned",
+            "geometry": "stale",
+            "k": 16,
+            "n": 81,
+            "source": "this entry's backtest_entry_conditioned_2026_08_16 block",
+            "note": "[!] READ THE FLAG ON THIS ONE AGAINST THE ENTRY'S VERDICT. Pooled 2007-2026; its own era_note records 0/3 in 2026.",
+            "share_pct": 19.8,
+            "ci_low_pct": 11.7,
+            "ci_high_pct": 30.1,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 11.7,
+            "settled_inert_if_inert_cut_above_pct": 30.1
+          },
+          {
+            "basis_id": "candle_screen_1d_qqq_2026_08_16",
+            "kind": "candle_screen",
+            "geometry": "stale",
+            "k": 0,
+            "n": 105,
+            "source": "candles/atr(14) 1d QQQ, n=105, cap_R p50 2.13 vs arm 3.56",
+            "note": "NEVER primary.",
+            "share_pct": 0.0,
+            "ci_low_pct": 0.0,
+            "ci_high_pct": 3.5,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 3.5
+          }
+        ],
+        "primary_basis": "live_entry_conditioned_2026_08_16",
+        "flag": "unsettled"
+      }
     },
     {
       "strategy": "scha_trend_long_1d",
@@ -341,6 +536,42 @@
         "probe_is_sound": "Verified rather than assumed: the identical query shape returned total 37 (xrp_pullback_2h) and total 16 (trend_donchian_sol_4h) the same minute, the key is exact in config/strategies.yaml (enabled: true, execution: live), and SCHA is present in alpaca_paper's symbols list with the strategy in its roster.",
         "consequence_for_the_decision": "A LIVE-basis reachability measurement for this leg is not obtainable for months. This row must be decided on the backtest basis or stay queued -- it cannot be resolved by waiting for a live sample in any useful timeframe.",
         "changes_nothing": "verdict and disposition deliberately UNTOUCHED."
+      },
+      "evidence": {
+        "bases": [
+          {
+            "basis_id": "backtest_entry_conditioned_2026_08_16",
+            "kind": "backtest_entry_conditioned",
+            "geometry": "stale",
+            "k": 54,
+            "n": 65,
+            "source": "this entry's backtest_entry_conditioned_2026_08_16 block",
+            "note": "[!] STALE IN THE DIRECTION THAT MATTERS. This is the 83.1% cited as proof the lever FIRES. M20 B4 (#10419, 2026-08-29) then cut tp_r 50.0 -> 1.5 and atr_stop_mult 2.5 -> 3.0; the operative ceiling min(cap_R, 1.5) sits BELOW the 2.00R arm, so on the current geometry the arm looks inert. The flag grades the sample, not the staleness -- read `geometry` beside it.",
+            "share_pct": 83.1,
+            "ci_low_pct": 71.7,
+            "ci_high_pct": 91.2,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 71.7,
+            "settled_inert_if_inert_cut_above_pct": 91.2
+          },
+          {
+            "basis_id": "live_basis_probe_2026_08_16",
+            "kind": "live_entry_conditioned",
+            "geometry": "stale",
+            "k": null,
+            "n": 0,
+            "source": "this entry's live_basis_probe_2026_08_16 block (envelope_total 0, filter_state applied)",
+            "note": "n=0 -> `not_measured`. The probe is sound and the journal genuinely holds zero packages for this leg; `looked_and_found_nothing` about PACKAGES is still `could not look` about REACHABILITY.",
+            "share_pct": null,
+            "ci_low_pct": null,
+            "ci_high_pct": null,
+            "flag": "not_measured",
+            "settled_reachable_if_reach_cut_at_or_below_pct": null,
+            "settled_inert_if_inert_cut_above_pct": null
+          }
+        ],
+        "primary_basis": "backtest_entry_conditioned_2026_08_16",
+        "flag": "unsettled"
       }
     },
     {
@@ -383,6 +614,27 @@
         "verdict_is_basis_INDEPENDENT": "30/30 clear the arm on EITHER basis. arm 1.0 sits far below even the clamp, so min (2.9837) and median (4.2924) are identical under both readings and only the reported MAX moves (7.5639 -> 5.0000). Which ceiling you read cannot move this leg's grade — recorded because that is exactly why the error below was survivable here and would NOT be on a leg with a high arm.",
         "correction_2026_08_16": "This block was edited TWICE before merge and the second edit was wrong. It first reported the venue cap (correct), was then 'corrected' to the clamped 5.0 on the belief that the realism clamp bound the placed order, and is now restored to the venue cap after reading the placement path in execute.py. The verdict (30/30) and the min/median (2.9837/4.2924) were identical under every version; only cap_r_max moved.",
         "clamp_note": "7 of the 30 rows have a venue cap above DEFAULT_MAX_REACH_R (5.0), so their OBSERVE-ONLY exit_plan_state target reads 5.0 while the placed TP is the uncapped venue value (max 7.5639). Reading the clamped field would have reported max 5.0000. It changes nothing here — arm 1.0 clears both — but on an arm above 5.0 it manufactures a false `inert`."
+      },
+      "evidence": {
+        "bases": [
+          {
+            "basis_id": "live_entry_conditioned_2026_08_16",
+            "kind": "live_entry_conditioned",
+            "geometry": "unknown",
+            "k": 30,
+            "n": 30,
+            "source": "this entry's live_entry_conditioned_2026_08_16 block (population_complete: true)",
+            "note": "Geometry `unknown` because nobody re-checked whether atr_stop_mult/tp_r moved since -- but this entry's own verdict_is_basis_INDEPENDENT note shows the arm (1.0) sits far below every ceiling on either reading, and the lever was OBSERVED FIRING in production (pkg-29261c70cb4e41ba, close_reason giveback_stop). A direct firing beats any ceiling arithmetic.",
+            "share_pct": 100.0,
+            "ci_low_pct": 88.4,
+            "ci_high_pct": 100.0,
+            "flag": "settled_reachable",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 88.4,
+            "settled_inert_if_inert_cut_above_pct": 100.0
+          }
+        ],
+        "primary_basis": "live_entry_conditioned_2026_08_16",
+        "flag": "settled_reachable"
       }
     },
     {
@@ -398,7 +650,28 @@
       "cap_r_max": 4.1,
       "reach_share_pct": 83.3,
       "measured_at": "2026-08-16",
-      "note": "Measured BECAUSE this guard demanded it: PR #9549 declares this arm on a real-money leg (bybit_2) and had no reachability record, so the guard would have failed it — the first live catch, within the hour. The measurement SUPPORTS the PR: 5 of 6 recent entries clear arm 2.0, risk/entry 2.416-5.021%. The one miss is marginal (risk/entry 5.021% -> cap_R 1.97 vs arm 2.00), so a high-vol entry can still land just under the arm; that is a real characteristic of the leg, not a defect, and it is why the verdict is `reachable` rather than a claim that it always arms. Sample is truncated and recency-biased (55KB relay budget) — not a lifetime rate. Entry added ahead of #9549 merging so the two PRs are mergeable in either order."
+      "note": "Measured BECAUSE this guard demanded it: PR #9549 declares this arm on a real-money leg (bybit_2) and had no reachability record, so the guard would have failed it — the first live catch, within the hour. The measurement SUPPORTS the PR: 5 of 6 recent entries clear arm 2.0, risk/entry 2.416-5.021%. The one miss is marginal (risk/entry 5.021% -> cap_R 1.97 vs arm 2.00), so a high-vol entry can still land just under the arm; that is a real characteristic of the leg, not a defect, and it is why the verdict is `reachable` rather than a claim that it always arms. Sample is truncated and recency-biased (55KB relay budget) — not a lifetime rate. Entry added ahead of #9549 merging so the two PRs are mergeable in either order.",
+      "evidence": {
+        "bases": [
+          {
+            "basis_id": "live_entry_conditioned_2026_08_16",
+            "kind": "live_entry_conditioned",
+            "geometry": "unknown",
+            "k": 5,
+            "n": 6,
+            "source": "this entry's `basis` -- order_packages/risk_per_unit, TRUNCATED (6 newest of up to 25; relay #9624), reach_share_pct 83.3",
+            "note": "[!] TRUNCATED AND RECENCY-BIASED, which the interval CANNOT see: a confidence interval assumes the sample is a random draw, and this one is the 6 newest rows. The flag grades sampling NOISE only. Read this entry's own note, which already says the sample is not a lifetime rate.",
+            "share_pct": 83.3,
+            "ci_low_pct": 35.9,
+            "ci_high_pct": 99.6,
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 35.9,
+            "settled_inert_if_inert_cut_above_pct": 99.6
+          }
+        ],
+        "primary_basis": "live_entry_conditioned_2026_08_16",
+        "flag": "unsettled"
+      }
     },
     {
       "strategy": "avax_pullback_2h",
@@ -434,5 +707,31 @@
       "how_to_close": "Pull `order_packages` for strategy_name = avax_pullback_2h via the diag/journal relay, compute cap_R = 0.099/(risk_per_unit/entry) per package, and record the live entry-conditioned reach share. If it agrees with the 4.4% above, the row resolves to `inert` + `recorded_inert` on an operator adjudication, or to a Tier-3 arm correction."
     }
   ],
-  "_resweep_note": "config/lever_reachability.json records REACHABILITY (can a declared arm fire under its own TP cap). The live_parity_p80_resweep_2026_08_16 block on each entry records a SEPARATE question answered on 2026-08-16: what arm a live-parity p80 sweep proposes, and whether that cell clears its gate. THE TWO CAN DISAGREE, and on gld_pullback_1d they do — the sweep's PASSING arm (3.86) is itself above that leg's measured cap_R (2.20-3.01). Read both before proposing any arm value. No arm_r was changed; every correction remains Tier-3 and the operator's."
+  "_resweep_note": "config/lever_reachability.json records REACHABILITY (can a declared arm fire under its own TP cap). The live_parity_p80_resweep_2026_08_16 block on each entry records a SEPARATE question answered on 2026-08-16: what arm a live-parity p80 sweep proposes, and whether that cell clears its gate. THE TWO CAN DISAGREE, and on gld_pullback_1d they do — the sweep's PASSING arm (3.86) is itself above that leg's measured cap_R (2.20-3.01). Read both before proposing any arm value. No arm_r was changed; every correction remains Tier-3 and the operator's.",
+  "evidence_flag_policy": {
+    "_what": "Is a reach-share verdict SETTLED, or a point estimate over a sample too small to grade? Computed by scripts/ops/lever_evidence_flag.py from each basis's k and n; NEVER hand-written. The guard `lever-evidence-flag-guard` fails when a stored share, interval or flag does not reproduce from its own k/n under this policy.",
+    "method": "clopper_pearson",
+    "method_why": "Exact (inverted binomial test), so coverage is >= nominal at EVERY n rather than on average, and it is conservative -- wider than Wilson. For a flag whose job is refusing to overclaim, erring wide errs in the right direction. [!] THE DISPATCH PROPOSED WILSON AND THIS DELIBERATELY DEPARTS FROM IT, with a measured reason: 95% Wilson puts the lower bound on 1 of 1 at 20.6%, which clears the 10% settled_reachable cut-point -- a flag built to stop a verdict overclaiming its denominator would have declared a SINGLE observation settled, and trend_donchian's only entry-conditioned basis is exactly n=1. Clopper-Pearson gives 2.5% for that cell, i.e. unsettled. Over the nine cells the dispatch tabulated with Wilson the two methods assign the SAME flag to every one, so the swap changes no published verdict; it changes the one cell the table did not include.",
+    "confidence": 0.95,
+    "status": "UNDERIVED -- NO CUT-POINT HAS BEEN DERIVED, AND THE TWO THAT WERE PROPOSED ARE WITHDRAWN. A first version of this block carried settled_inert_ci_high_below_pct: 2.0 and settled_reachable_ci_low_at_or_above_pct: 10.0. The operator REJECTED both on 2026-09-22, verbatim: \"we need data-backed values, not arbitrary ones (otherwise what's the point of the arm in the first place?)\" -- and was right: a threshold picked to make a table come out is the same species of unearned number as the p80 arms this registry exists to audit. The two fields are DELETED rather than set to null, so nothing can read them as adopted-but-empty. What replaces them is `plausible_cut_band` below, which asserts strictly less. Deriving a real cut-point is OPEN WORK, specified on checklist row E41 and not done here.",
+    "vocabulary": {
+      "settled_inert": "the interval's UPPER bound is below settled_inert_ci_high_below_pct -- we looked, over enough entries, and the arm is dead",
+      "settled_reachable": "the interval's LOWER bound is at or above settled_reachable_ci_low_at_or_above_pct -- we looked and the arm fires",
+      "unsettled": "neither -- WE LOOKED AND CANNOT TELL. The interval spans both cut-points.",
+      "not_measured": "n == 0 -- WE COULD NOT LOOK. Distinct from `unsettled` in the direction that matters."
+    },
+    "three_states_never_collapsed": "`unsettled` is NOT `unmeasured` and NOT `inert`, and this is the whole point of the flag: today an `inert` on n=8 and an `inert` on n=127 are the same word. `unmeasured`/`not_measured` says we could not look; `settled_inert` says we looked and it is dead; `unsettled` says we looked and cannot tell. Collapsing the third into either is the class docs/CLAUDE-RULES-CANONICAL.md section 'Collapsed states' and scripts/ci/check_collapsed_states.py exist for. The script's --self-test carries a NON-VACUITY CONTROL -- a cell that MUST come out `unsettled` -- so a flag that had quietly lost its ability to say 'I don't know' would fail rather than look clean.",
+    "primary_basis_rule": "The entry-level flag is taken from ONE basis, chosen by a declared rule rather than by whichever reads best: a basis on the CURRENT geometry beats a stale one; then live_entry_conditioned beats backtest_entry_conditioned; then larger n. A `candle_screen` is NEVER primary -- this file's own basis_note records the screen overstating reachability 90.5% vs 33.3% on xrp because entries are filter-selected.",
+    "geometry_field": "`current` / `stale` / `unknown`, never collapsed. cap_R = 0.099/(atr_stop_mult*ATR/entry) and the operative ceiling is min(cap_R, tp_r), so a measurement stops describing its leg the moment either knob moves -- which is exactly what happened to trend_donchian_sol_4h (atr_stop_mult 2.5 -> 1.5) and scha_trend_long_1d (tp_r 50.0 -> 1.5) after 2026-08-16. `unknown` means nobody has checked whether the knobs moved; it is NOT `current`.",
+    "plausible_cut_band": {
+      "_what": "The band of cut-points still OPEN. A `settled_*` flag is emitted only where the verdict is INVARIANT across this whole band -- i.e. it holds for EVERY cut-point nobody has ruled out -- rather than for one somebody picked. That is why this file can say anything at all while the cut-point is underived: it states only what survives not knowing it.",
+      "reach_cut_upper_pct": 88.4,
+      "reach_cut_upper_anchor": "ANCHORED BY A DIRECT OBSERVATION, not chosen. `uso_trend_1h`'s giveback lever ARMED AND FIRED in production -- pkg-29261c70cb4e41ba, trade 4511, close_reason `giveback_stop`, recorded on that entry as `observed_firing`. Any reachable cut-point that would grade that lever NOT reachable is refuted by the firing itself, so the band cannot extend above the lower bound of its interval, 88.4%. This is the one place in the registry where a lever is graded on the fact that it DID fire rather than on whether it COULD.",
+      "reach_cut_lower_pct": null,
+      "inert_cut_lower_pct": null,
+      "inert_cut_anchor": "[!] THERE IS NO ANCHOR ON THE INERT SIDE, AND THE CONSEQUENCE IS DELIBERATE: with `inert_cut_lower_pct` null, `settled_inert` IS UNREACHABLE -- no entry in this file can currently be graded a settled dead arm, whatever its numbers. A null edge is NOT read as permissive. The inert side has no equivalent of the uso firing: an observation can prove a lever DID fire, but nothing observes a lever failing to fire in a way that bounds the threshold, so the anchor has to come from the derivation in E41 rather than from the corpus.",
+      "consequence_measured_2026_09_22": "Under this band exactly ONE of the eight entries is graded settled: `uso_trend_1h` (ci_low 88.4 >= 88.4). `trend_donchian_xrp_4h` MOVES settled_reachable -> unsettled: its ci_low is 35.9, so its verdict would flip for any reachable cut-point above 35.9% and nothing rules those out. [!] THE MANAGER'S DISPATCH EXPECTED IT TO STAY settled_reachable ('trend_donchian_xrp_4h at 35.9% likewise'). It does not, under invariance across the band, and that disagreement is recorded rather than resolved by a lane -- see E41. Its sample is also the 6 NEWEST of up to 25 rows, truncated and recency-biased, which an interval cannot see.",
+      "what_each_entry_stores": "Every basis carries `settled_reachable_if_reach_cut_at_or_below_pct` (= its CI low) and `settled_inert_if_inert_cut_above_pct` (= its CI high) -- the exact cut-points at which its own verdict flips. Those are facts about the MEASUREMENT, not policy, so they stay valid when the band moves and they are what a derived cut-point gets compared against."
+    }
+  }
 }
