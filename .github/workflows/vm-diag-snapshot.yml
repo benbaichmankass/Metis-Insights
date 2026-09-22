@@ -163,6 +163,22 @@ jobs:
               core.setOutput('skip', 'false');
             }
 
+      - name: Checkout repo
+        # E19 (2026-09-22): the "Build combined diag comment" step
+        # (issues path) does `from scripts.ops.diag_relay_render import
+        # render_section` against `os.getcwd()` — this job never
+        # checked out the repo, so on any runner that path is empty
+        # and the import fails with `ModuleNotFoundError: No module
+        # named 'scripts'`, before the VM is ever contacted. Verified
+        # against run 35649903349: the SSH fetch step itself succeeded
+        # (6 lines written to diag-multi-output.txt) — the failure is
+        # entirely in this local post-processing step, not the relay
+        # to the VM, not VM_SSH_KEY, and not DIAG_READ_TOKEN. The
+        # import was added 2026-09-13 (a45d360) without adding this
+        # checkout, which git log confirms this workflow has never had.
+        if: steps.dedup.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
       # ────────────────────────────────────────────────────────────
       # workflow_dispatch path: single path, operator-driven, unchanged
       # behaviour/artifact contract from before the 2026-07-06 batching

@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-21",
-  "updated_by": "session_01XQhayAHWdrSYv8jN54P2HH",
+  "updated_at": "2026-09-22",
+  "updated_by": "session_012SDoEVCGw6xCoTbxW4NEy8",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -833,7 +833,7 @@
         {
           "kind": "work_item",
           "ref": "E19",
-          "what": "Establishing whether arbitration_fanout RUNS on this path needs the arbitration_fanout_soak log, and the diag relay that reads it is down."
+          "what": "Needs a WORKING diag relay to read arbitration_fanout_soak. E19's fix is merged (5837dc2) but not yet observed round-tripping; the edge lifts on the observation, not on the merge."
         }
       ],
       "note": "THE ACTUAL OUTAGE, diagnosed by E16 and measured 21-of-21: the intent layer elects ONE global winner per symbol across twins WITHOUT consulting per-account rosters, so a twin that is the only leg on an account can be arbitrated away by a sibling that is not on that account at all. [!] OPERATOR CHOSE THE SHAPE 2026-09-21, from three: RE-ARM PER-ACCOUNT `arbitration_fanout` on the crypto/prop path. A per-account fanout mechanism EXISTS and exists precisely to stop one twin starving another account -- and on all 11 measured ETH packages `signalLogic.arbitration_fanout` is ABSENT ENTIRELY, while a contemporaneous tlt_pullback_1h package carries a full `fanout_schema: 3` plan with per_account elections. [!] ⚠️ FIRST ESTABLISH WHETHER IT RUNS AND IS NOT RECORDED, OR DOES NOT RUN. E16 could not: that read needs `arbitration_fanout_soak`, behind the diag relay, which is FAILING. Those two possibilities call for different fixes and the cheaper option was chosen on the assumption the second is true -- if it turns out the fanout runs and the record is merely missing, COME BACK, do not improvise. [!] NOT CHOSEN, and recorded so it is not re-proposed: re-adding the base twins to breakout_1's roster restores tickets and reinstates the wrong-twin emission the 2026-08-23 change existed to remove. [!] SAME DEFECT, OPPOSITE POLARITY, ALREADY ON FILE: BL-20260827-PROP-ONLY-TWIN-WINS-THE-GLOBAL-SYMBOL-SLOT-AND-STARVES-ITS-PAPER-SIBLING, measured 0-of-60. What is new is that the starved side is now a FUNDED account with a live account-killer cushion. [!] TIER 3 -- intent arbitration. The exact diff and a before/after election trace go to the operator; nothing lands on this row's authority alone."
@@ -857,16 +857,18 @@
       "id": "E19",
       "title": "The vm-diag-snapshot relay is failing — every session is blind to the live host",
       "phase": "E",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_0178qqSNhbW9vpQbREtc4drS",
       "model": "claude-sonnet-5",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        12702
+      ],
       "blocked_on": [],
-      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first. [!] DISPATCHED 2026-09-22 as the OPS lane. It is E17's blocker, and E17 is the fix for a funded prop account receiving nothing -- so this is the prop track's first move, not a side quest."
+      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first. [!] DISPATCHED 2026-09-22 as the OPS lane. It is E17's blocker, and E17 is the fix for a funded prop account receiving nothing -- so this is the prop track's first move, not a side quest. [!] FIX MERGED as 5837dc2 — and it was NOT a secret. The lane read the FAILED JOB LOG rather than the workflow source: the SSH+curl round-trip to the VM SUCCEEDED and the run died one step later on ModuleNotFoundError: No module named 'scripts', because the issues-triggered path never ran actions/checkout. git log -p dates it — the scripts.* import landed 2026-09-13 (a45d360) with no checkout, so EVERY BATCHED DIAG REQUEST HAS BEEN BROKEN FOR NINE DAYS, while the workflow_dispatch path (which imports nothing) kept working and made it look intermittent. [!] CLOSING THIS ROW MEANS a real diag round-trip observed returning content -- a log_file or journalctl request that comes back with real text. Merged is not that. It is also E17's blocker, so that observation is the gate on the prop fix too."
     },
     {
       "id": "E20",
@@ -882,6 +884,66 @@
       "prs": [],
       "blocked_on": [],
       "note": "MEASURED 2026-09-21 across 12 dispatched lanes, final spends read off get_session: roughly $860 against ceilings totalling ~$250. Six lanes exceeded theirs; two exceeded by more than 6x (B1 $270.39/$35, B2 $229.13/$30). [!] THREE DISTINCT CAUSES, and they need different fixes -- lumping them as 'lanes are expensive' would fix none. (1) A CEILING NOBODY CHECKS MID-FLIGHT IS NOT A CEILING. Nothing reads spend during a run; the manager set ceilings and looked once, at the end. A1's meter now exists and this is its first real consumer. (2) FINISHED LANES KEEP SPENDING. A9 went $37.13 -> $50.78 AFTER its work merged, sitting subscribed to its own PR; E16 went $25.38 -> $56.14 the same way. Watching a PR is not free and the lane has nothing left to contribute to it. Archive on merge, or do not subscribe a lane to the PR the manager is going to merge anyway. (3) AN UNATTENDED LANE CAN HIT AN INTERACTIVE PERMISSION PROMPT AND SPEND ITS WHOLE BUDGET THERE. B2 did, twice. The second attempt's pending action was readable and specific: a COMPOUND, PIPED git command (`git fetch ... 2>&1 | tail -5 && git merge ... 2>&1 | tail -60`) awaiting a Bash approval nobody was present to give. ⚠️ THAT COMMAND SHAPE IS A HYPOTHESIS, NOT ESTABLISHED -- other lanes committed and pushed all day, so it is not universal. Establish WHICH shapes are refused before writing a rule about it; a dispatch instruction based on a guess would be the same category of error this repo keeps paying for. [!] THE CHEAPEST FIX IS PROBABLY (2) AND IT IS FREE: stop subscribing lanes to PRs the manager merges. [!] ⚠️ THE TOTAL ON THIS ROW WAS WRONG WHEN IT WAS WRITTEN, AND THE ERROR WAS THIS ROW'S OWN CAUSE (1). It said ~$860. Read again after every lane was ARCHIVED, the total is ~$1,142 across 13 lanes. B1 alone is $435.05, not the $270.39 committed a few hours earlier -- it accrued $165 MORE while IDLE, watching the PR the manager was about to merge anyway. A1 is $59.17, not $28.03. [!] SO THE MANAGER MADE THE SAME MISTAKE TWICE IN ONE DAY, the second time inside the commit describing the mistake. The mechanism is exact and unglamorous: get_session on a LIVE lane returns a RUNNING total, and a running total written onto a row reads like a final one. [!] THE RULE IS MECHANICAL, NOT 'be more careful': A LANE'S SPEND IS FINAL ONLY ONCE THE LANE IS ARCHIVED. Read it there, or record it with the read-time and the word `running` beside it. A number with no read-time is the same defect as a count that cannot say whether anyone looked. [!] AND IT SHARPENS CAUSE (2) from 'lanes keep spending' into a SIZE: the idle-watching tail is the single largest line in the day's spend, larger than any lane's actual work. [!] AND ONE MORE INSTANCE, CAUGHT IN THE ACT WHILE WRITING THIS ROW: resolving the checklist conflict with a 'longest note wins' heuristic silently reverted B1's state from `done` to `in_flight`. A heuristic that cannot say WHY it chose a side is the same defect as a count that cannot say whether anyone looked. States are now set explicitly from the merges performed, and the heuristic is not reused."
+    },
+    {
+      "id": "E21",
+      "title": "The exit monitor's registry-failure fallback covers 0 of 52 routed-live legs",
+      "phase": "E",
+      "state": "queued",
+      "owner": "operator + build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "MEASURED 2026-09-22 by parsing config/strategies.yaml (55 declared) + config/accounts.yaml (11 accounts) at 0d3ab95: 52 distinct strategies are routed to at least one `mode: live` account. src/runtime/pipeline.py:349-351 returns the hardcoded fallback ['turtle_soup','vwap'] whenever load_strategies() raises. NEITHER name is routed to any live account -- turtle_soup is `execution: shadow`, vwap is `enabled: false` + `execution: shadow`. The set difference is 52 of 52. [!] THIS IS NOT ONLY AN ENTRY-SIDE LIST. `STRATEGIES` is what the EXIT half iterates: run_exit_evaluation_tick calls _load_strategies(None) -> pipeline.STRATEGIES, then get_order_packages_by_strategy per name. On the fallback, every open package belonging to the other 52 legs receives NO monitor() call -- no trailing amend, no stale-exit, no giveback stop, no exit head. Open REAL-MONEY positions would sit unmanaged until a broker-side bracket or the reconciler caught them. [!] THE TRIGGER IS REACHABLE. STRATEGIES is a module-level constant evaluated once at import and the fallback fires on ANY load_strategies() exception -- a malformed config/strategies.yaml being the live one. ict-git-sync pulls main every ~5 min, so a YAML syntax error landing on main reaches the live trader inside ~5 minutes. [!] AND IT IS SILENT. One logger.warning at import. None of the health snapshot's 7 checks (service, git_drift, git_fetch, tick, accounts_api, db, disk) would go red -- the process is alive, ticking, in sync, and the DB answers. The snapshot keeps reading `7/7 checks ok`. [!] FIELD BEATS COMMENT: the comment at pipeline.py:350 asserts the fallback `matches the production roster in config/strategies.yaml after PR B1`. Measured today it matches 0 of 52 -- the same shape as the trainer flock comment fixed in de20550. [!] SECOND, SEPARATE COLLAPSE at order_monitor.py:124-126: _load_strategies returns [] on exception, and the tick then returns {} summaries -- `we could not resolve the strategy list` and `no strategy had anything open` are indistinguishable downstream. [!] PROPOSED FIX, not applied (Tier-2, and /health-review may not touch src/): (1) delete the VALUE fallback -- on registry failure raise, or return a sentinel callers must branch on; a trader that cannot read its own roster must not silently run a two-name one. (2) Make the exit half's population open-package-driven (SELECT DISTINCT strategy FROM order_packages WHERE status='open') UNION the roster, so an open position is monitored because it IS OPEN, never because it appears in a list. (3) Add a health check comparing len(STRATEGIES) against the enabled count in strategies.yaml. [!] REFUTED HYPOTHESIS, recorded so it is not re-derived: the TLT position open on alpaca_live (id 5924, pattern tlt_pullback_1h, opened 2026-09-18) belongs to a leg A6/#12673 pulled from the alpaca_live ROSTER on 2026-09-21, and is NOT stranded -- exit evaluation iterates the strategies.yaml registry, not account rosters, and tlt_pullback_1h is still enabled there (r-block updated 05:29Z). Roster removal does not strand an open position; registry FAILURE would strand all of them."
+    },
+    {
+      "id": "E22",
+      "title": "The health snapshot reports 7/7 ok while structurally unable to see the failure that happened",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "MEASURED 2026-09-22T05:30Z from /api/bot/health/latest (snapshot ts 05:16:31Z): status ok, summary `7/7 checks ok`, action_required false. The seven checks are service, git_drift, git_fetch, tick, accounts_api, db, disk. The accounts_api check's OWN detail string reads: `all 8 recorded broker-API accounts ok (1 manual-bridge skipped: breakout_1; 2 dry/shelved skipped: ib_live, oanda_practice)`. [!] breakout_1 IS THE FUNDED PROP ACCOUNT THAT RECEIVED ZERO TICKETS FOR THREE WEEKS (row E16, measured 21 of 21). The account check EXCLUDES it by construction -- it is the one account skipped -- and no check among the seven asks whether signals, intents or tickets are still being PRODUCED. The surface the operator looks at was green throughout the failure and would be green through the next one. [!] CROSS-CHECKED against /api/bot/accounts/balances: breakout_1 balance null, open_positions null, api_ok false. The DATA is honest (null, not 0 -- the repo's own render rule followed correctly). The defect is that nothing GRADES it: an account permanently api_ok:false is indistinguishable from one that just went dark. [!] COMPLEMENTS E18, does not duplicate it. E18 builds the missing detector (intents produced vs tickets received). This row is narrower and cheaper: the EXISTING all-clear counts a structurally-skipped account toward 7/7. [!] PROPOSED FIX (Tier-1, reporting only, no runtime path): (a) report skipped accounts as a distinct state in the summary line -- `7/7 ok, 3 accounts NOT CHECKED` rather than folding them into ok; (b) add a per-routed-account last-ticket-age check, which is the check whose absence E16 measured."
+    },
+    {
+      "id": "E23",
+      "title": "The health-review skill's hard completion gate points at a file the reset archived",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "MEASURED 2026-09-22: .claude/skills/health-review/SKILL.md names docs/claude/health-review-backlog.json in five places, including the section headed `Draining the backlog -- a HARD COMPLETION GATE (not a sample)` and the Output contract's `backlog_coverage.count_untriaged` MUST be 0. `ls docs/claude/health-review-backlog.json` -> No such file or directory; it was archived by the 2026-09-21 reset. [!] SO THE GATE IS UNSATISFIABLE AND EVERY HEALTH-REVIEW FROM THE RESET ONWARD IS EITHER INCOMPLETE BY ITS OWN CONTRACT OR QUIETLY IGNORING IT. The same file is also the skill's WINDOW anchor (`the newest backlog_drain timestamp`), so the review window has no anchor either -- this review had to open its window at the reset and say so. A binding skill at instruction-hierarchy level 5 instructing something that cannot be done is the defect class the canonical rules already record at `THIS RULE NAMED FIVE OTHER WORDS UNTIL 2026-09-12 AND NOT ONE OF THEM WAS A LEGAL status`. [!] AND THE OUTPUT TEMPLATE HAS THE SAME SHAPE OF GAP: comms/schema/health_review_response.template.json's findings status enum is `ok | watch | concern`, with NO value for `we did not look`. Under a diag outage the template FORCES an unmeasurable dimension to be rendered as a measurement outcome -- exactly the collapse docs/CLAUDE-RULES-CANONICAL.md 'Collapsed states' forbids and scripts/ci/check_collapsed_states.py enforces elsewhere. This review emitted `could_not_look` and declared the deviation rather than comply. [!] PROPOSED FIX (Tier-1): re-point the skill's backlog sections at docs/claude/work/PIPELINE.jsonl + MANAGER-CHECKLIST.json, re-anchor the window on the newest file under comms/reviews/health/, and add `could_not_look` to the template enum -- registering the three-way contract in collapsed-state-guard's CONTRACTS table is the mechanical form."
+    },
+    {
+      "id": "E24",
+      "title": "The mandatory security stated-negative could not be produced, and was not faked",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "The health-review skill is explicit that a clean breach check must be a STATED VERIFICATION and that an empty security finding is a review failure. MEASURED 2026-09-22: 0 of the 5 declared sweep sources were swept. Host auth signals are blocked behind /api/diag/* (3 of 3 probes -> HTTP 401 missing_token, the vm-diag-snapshot relay being down per E19). The four GitHub-side sources (secret scanning, external-actor activity, repo/supply-chain mutations, Actions anomalies) were not run inside this lane's $40 ceiling. [!] THIS ROW EXISTS BECAUSE THE ALTERNATIVE WAS TO WRITE `no breach detected`, WHICH WOULD HAVE BEEN THE FABRICATED REASSURING VALUE the collapsed-states rule forbids. The review reports security as `could_not_look`, not `ok`. [!] PROPOSED FIX (Tier-1): the four GitHub-side sources need no VM access and no DIAG token -- only the MCP session. They should be their own cheap standing lane rather than riding a review that can be budget-truncated, since truncation currently takes the security sweep with it every time."
     }
   ]
 }

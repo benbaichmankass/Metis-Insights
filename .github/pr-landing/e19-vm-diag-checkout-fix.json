@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Dispatch instruction for row E19: 'Tier-2 by the row (it touches a relay that reaches a live VM). Open a draft PR against main with .github/pr-landing/<branch-slug>.json declaring its tier honestly, landing: \"hold\", hold_reason: \"operator_asked_to_hold\" quoting this instruction.'",
+  "why": "One-line fix to .github/workflows/vm-diag-snapshot.yml: adds a missing `actions/checkout` step before the issues-path 'Build combined diag comment' step, which does `from scripts.ops.diag_relay_render import render_section` against `os.getcwd()`. The job never checked out the repo, so that import always failed with `ModuleNotFoundError: No module named 'scripts'` on any batched (issues-triggered) diag request -- since the import was added 2026-09-13 (a45d360) with no checkout ever added. Verified against the actual failed run (35649903349, issue #12695): the SSH+curl fetch to the VM SUCCEEDED (diag-multi-output.txt got 6 lines, no curl/ssh error), so this was never a VM_SSH_KEY or DIAG_READ_TOKEN problem -- the failure is entirely local Python post-processing, after the VM round-trip already completed. This is a relay/deploy-surface workflow change reaching a live VM, Tier-2 by path even though the specific defect is a pure code bug with no secret or runtime-value implication."
+}
