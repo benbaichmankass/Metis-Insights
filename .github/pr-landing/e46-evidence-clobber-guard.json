@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Failure-behaviour fix to scripts/ops/build_strategy_evidence.py (an offline evidence PRODUCER, not a runtime path) plus its tests and the corpus README. No config/, src/, deploy/ or order-path file is touched, and no committed evidence record is modified -- the change is that a failed run now REFUSES to modify one. scripts/ops/**, tests/** and comms/** are all on TIER1_SURFACE."
+}
