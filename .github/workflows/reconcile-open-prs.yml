@@ -1,5 +1,50 @@
 name: reconcile-open-prs
 
+# ⚠️ RETIRED 2026-09-22 (E29) — THE REGISTER IT MAINTAINS WAS ARCHIVED.
+#
+#   `docs/claude/work/OPEN-PRS.json` moved to
+#   `docs/archive/2026-09-21-operating-reset/work/OPEN-PRS.json` in the
+#   operating reset. A reconciler for a register that does not exist has
+#   nothing to reconcile.
+#
+#   ⚠️ AND IT DID NOT SAY THAT — IT CRASHED. MEASURED 2026-09-22: 6 of 6 runs
+#   on `main` red, `scripts/ops/reconcile_open_prs.py:269` raising
+#   `AttributeError: 'NoneType' object has no attribute 'get'`, because
+#   `open_pr_record.read_record()` returns `(None, True)` for an ABSENT file —
+#   it collapses "the register is gone" into "the register read fine and is
+#   None". That collapse is fixed in this PR regardless of the retirement (the
+#   script stays dispatchable), so the honest state now reaches the log.
+#
+#   ⚠️ WHAT HAPPENS TO THE 14 OPEN PRs THIS JOB OPENED — THEY MUST BE CLOSED,
+#   NOT MERGED, and that is MEASURED rather than assumed. As of 2026-09-22
+#   there are 14 open `automation/reconcile-open-prs-*` PRs (#12451 … #12511,
+#   opened 2026-09-17T15:30Z … 2026-09-18T04:47Z), every one of them cut from
+#   a PRE-RESET `main`:
+#     * `git diff --stat main <branch>` on the newest (#12511) and the oldest
+#       (#12451) reports 1,055 and 1,190 files changed with 315,876 and
+#       394,616 DELETIONS. Merging any one of them would revert the operating
+#       reset wholesale.
+#     * Nothing is lost by closing them. Their only payload is
+#       OPEN-PRS.json (the job's `paths:` names that file alone), and that
+#       payload is strictly STALER than the archived copy: #12511's branch
+#       carries 9 open rows / 114 settled, the archived register carries 12 /
+#       118, and the one number in the branch that is not in the archive's
+#       `open_prs` (#12400) is present in the archive's `settled_prs` — i.e.
+#       already reconciled. There is no row in a branch that the archive lacks.
+#     * They are NOT `work-digest` PRs, so the `pending-pings.jsonl` warning in
+#       `scripts/ops/sweep_stale_automation_prs.py` ("closing it unmerged DROPS
+#       queued pings") does not apply — these carry no ping payload.
+#   Closing 14 PRs is an outward-facing action, so this lane RECOMMENDS and
+#   FILES it rather than doing it unasked. See E29 in
+#   docs/claude/work/MANAGER-CHECKLIST.json.
+#
+#   The trigger is commented out rather than the file deleted:
+#   `scripts/ci/check_workflow_catalog.py` pins every workflow file against a
+#   catalogue row in both directions, and the MI-57 reasoning below is a
+#   decision record worth keeping. `workflow_dispatch` stays.
+#
+# ── the original rationale, unchanged ────────────────────────────────────
+#
 # MI-57 — move a settled PR's row out of the graded population, from OUTSIDE
 # the commit that settled it.
 #
@@ -45,8 +90,11 @@ name: reconcile-open-prs
 # Tier-1.
 
 on:
-  push:
-    branches: [main]
+  # RETIRED 2026-09-22 — see the header. Uncomment to re-arm, but
+  # docs/claude/work/OPEN-PRS.json has to exist first or every push to main is
+  # red again.
+  # push:
+    # branches: [main]
   workflow_dispatch:
 
 permissions:
