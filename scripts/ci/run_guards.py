@@ -1268,6 +1268,37 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # ⚠️ WHO WATCHES THE WATCHER — and why this one is allowed to be a CI
+        # guard when E20 killed a different one on exactly this objection.
+        #
+        # E20's killed guard graded a DECISION (how many checklist rows the
+        # manager left queued): it would have failed a contributor's PR over the
+        # MANAGER's behaviour, the one actor who cannot fix it. This grades
+        # whether a piece of INFRASTRUCTURE is running, and the remedy is open to
+        # whoever sees the red — `fire_trigger` on the Routine, or recreate it
+        # from the mandate doc. "Dead infrastructure" is what a guard SHOULD red
+        # on.
+        #
+        # ⚠️ AND IT MUST BE CI, NOT A TIMER, for the reason
+        # check_cadence_liveness.py records: a scheduled grader can always be the
+        # thing that did not fire, and its not-firing is invisible BY
+        # CONSTRUCTION. This repo's CI liveness is proven by PRs merging at all.
+        #
+        # ⚠️ `when: None` — it grades a single receipt path that no PR touches,
+        # so a diff-scoped version would pass vacuously on every PR, which is a
+        # green that checked nothing.
+        #
+        # It is NON-BLOCKING until the declared arming deadline (2026-09-25) and
+        # blocking after: `never_armed` forever would be a watcher reporting
+        # nothing, which is the defect E44 exists to refuse, one level up.
+        "name": "lane-supervisor-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/lane_reconcile.py", "--self-test"],
+            ["python3", "scripts/ops/lane_reconcile.py", "--heartbeat-grade"],
+        ],
+    },
+    {
         "name": "guard-liveness",
         "when": None,
         "steps": [
