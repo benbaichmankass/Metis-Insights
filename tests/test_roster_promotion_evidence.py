@@ -101,9 +101,30 @@ def test_adding_a_leg_to_a_real_money_roster_is_caught(account, tmp_path):
         ("roster_add", "tlt_pullback_1d", account)]
     findings = G.grade(found, REAL_STRATEGIES, EVIDENCE)
     assert len(findings) == 1, "a leg with no passing record must produce a finding"
-    # C3 and C4 are what the whole committed corpus fails on today; naming them
-    # here means a change that silently starts passing them fails this test.
-    assert "C3 FAIL" in findings[0] and "C4 FAIL" in findings[0]
+    # ⚠️ THIS ASSERTION READ `C3 FAIL and C4 FAIL` UNTIL 2026-09-22 AND THE TEST
+    # WAS RIGHT TO BREAK. Its comment said "C3 and C4 are what the whole
+    # committed corpus fails on today; naming them here means a change that
+    # silently starts passing them fails this test" -- and R7 finished the
+    # corpus, so `tlt_pullback_1d` now HAS a cost_stack and C3 passes. The
+    # premise expired; the mechanism worked exactly as designed and told us.
+    #
+    # The property under test never was "C3 fails". It is that a roster_add of
+    # a leg WITHOUT A PASSING RECORD is refused, and that the finding NAMES THE
+    # CLAUSE it was refused on. `tlt_pullback_1d` is still refused, now on C4:
+    # its record grades net_r_oos -4.4309 over n=8, verdict 'fail'.
+    #
+    # So both clauses stay pinned, in their CURRENT states rather than loosened
+    # to "something failed". C3 PASS is asserted deliberately: if the corpus
+    # ever regresses and a real-money roster_add starts failing C3 again, that
+    # is a corpus regression this test should catch, and a bare `C4 FAIL` check
+    # would sail past it.
+    assert "C3 PASS" in findings[0], (
+        "C3 regressed: this leg's record lost its cost_stack. R7 (PR #12720) "
+        "gave every enabled leg one; a FAIL here means the corpus went backwards.")
+    assert "C4 FAIL" in findings[0], (
+        "C4 is the clause that must still refuse this add -- tlt_pullback_1d's "
+        "record carries verdict='fail'. A PASS here means either the record or "
+        "the rule moved, and the roster bar just got weaker.")
 
 
 def test_flow_style_roster_edit_is_caught_the_same_as_block_style():
