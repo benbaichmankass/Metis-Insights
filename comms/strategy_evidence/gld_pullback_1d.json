@@ -3,12 +3,11 @@
   "strategy": "gld_pullback_1d",
   "symbol": "GLD",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:8b423762b9ad8fe0c9f26b950d1859b7",
+  "config_fingerprint": "sha256:662a8897b024551981188c1b712e3fdc",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",
   "omitted_levers": [
-    "trail_decay_arm_r",
     "trail_decay_stall_bars",
     "trail_decay_tight_mult"
   ],
@@ -51,6 +50,8 @@
     }
   ],
   "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 0.0,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
     "n": 6,
@@ -66,14 +67,12 @@
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
   },
-  "window_days": 365,
-  "fee_bps_roundtrip": 0.0,
   "cost_stack": {
     "fees": 0.0,
     "slippage": 5.0,
     "funding": 0.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-22-r5/gld_pullback_1d__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-22/gld_pullback_1d__bt.json"
   },
   "net_r_oos_fee_only": 13.7365,
   "decision_rule": {
@@ -83,9 +82,9 @@
     "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T09:26:40.336215+00:00",
+  "generated_at": "2026-09-22T13:29:37.393764+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/gld_pullback_1d__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22/gld_pullback_1d__trades.jsonl",
   "error": null,
   "harness": "pullback",
   "low_n_warning": "n_trades_oos=6 < 10; the pooled number is reported but is not a basis for a verdict."
