@@ -3,7 +3,7 @@
   "strategy": "tlt_pullback_1h",
   "symbol": "TLT",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:64596baa0f40728a0ffa9561eb74b534",
+  "config_fingerprint": "sha256:741a91aaa5df103977ff8890b2f1822c",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

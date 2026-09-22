@@ -249,6 +249,95 @@ _FVG_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
 #     target the harness then ignores. Left out, so a leg declaring `tp_r`
 #     reads `approximate` and names it — the honest answer. Porting the flags,
 #     not widening these sets, is the fix if a variant ever needs them.
+# ICT scalp (liquidity sweep -> displacement -> FVG mitigation) config-key ->
+# harness flag, for scripts/backtest_ict_scalp.py. THE EIGHT-LEG FAMILY E28
+# ROUTES, and it is NOT a mechanical copy of the fvg_range branch above.
+#
+# ⚠️ THE "FORWARD EVERY PARAM UNDER --ignore-yaml" OPTION DOES NOT EXIST, so the
+# design call E28's row poses is FORCED rather than chosen. Read off the
+# harness's own `add_argument` list (field beats comment): it declares NO flag
+# for any of the fourteen keys `src/units/strategies/ict_scalp.py::_DEFAULTS`
+# consumes — sweep/swing lookbacks, sweep_buffer_bps, displacement_atr_mult,
+# min_displacement_body_to_range, min_fvg_size_bps, mitigation_mode,
+# atr_sl_buffer_mult, tp_at_r, atr_period, htf_trend_filter_enabled and the
+# three session keys. They reach the unit ONLY through the harness's own
+# `_load_yaml_params()` read. So the YAML read is load-bearing, not a
+# convenience, and `_SCALP_PLAIN` below records which keys it carries.
+#
+# ⚠️ AND "TRUST THE HARNESS'S OWN READ" WAS UNSOUND UNTIL THIS PR: that read was
+# HARDCODED to the `ict_scalp_5m` block for every leg (MI-321,
+# docs/research/ict-scalp-seam-2026-09-18.md § 3, filed and explicitly NOT
+# fixed there because the file was outside that lane's Tier-1 surface). Routing
+# the family at the old signature would have measured ONE leg's config eight
+# times under eight names and written eight `coverage_state: "measured"`
+# records — worse than the `no_harness` they replace, because a wrong number
+# reads as evidence and a missing one does not. `backtest_ict_scalp.py` now
+# takes the block from `--strategy-name` and RAISES on an unknown name rather
+# than falling back. That fix is a precondition of this map, not a bonus.
+_SCALP_LEVER_FLAG = {
+    # The HTF bias filter's geometry. The unit consumes the FILTER's verdict
+    # (cfg["htf_close"]/cfg["htf_ema"]), which the harness computes itself from
+    # these two flags — so they must be forwarded, not left to the harness
+    # defaults that happen to equal today's config ("1h"/20). Relying on that
+    # coincidence is how a lever stops being applied the day a leg moves.
+    # Same config-key -> flag mapping scripts/research/m20_fleet_exit_sweep.py
+    # already uses for this harness.
+    "htf_filter_timeframe": "--htf-rule",
+    "htf_filter_ema_period": "--htf-ema-period",
+    # Exit levers. These are `run_backtest` KEYWORD ARGUMENTS, not cfg keys:
+    # the YAML read cannot reach them, so a leg declaring one is measured
+    # without it unless it is forwarded here. `ict_scalp_eth_15m` declares
+    # stale_exit_bars=12 / stale_exit_below_r=0.0 and is the live instance.
+    "stale_exit_bars": "--stale-exit-bars",
+    "stale_exit_below_r": "--stale-exit-below-r",
+    "giveback_min_mfe_r": "--giveback-min-mfe-r",
+    "giveback_r": "--giveback-r",
+    "bank_frac": "--bank-frac",
+    "bank_at_r": "--bank-at-r",
+    "min_confidence": "--min-confidence",
+}
+#: `be_offset_bps` maps to a STORE_TRUE flag, so it cannot live in the value map
+#: above. The live monitor genuinely arms the break-even ratchet from this key
+#: (`src/units/strategies/ict_scalp.py::monitor` -> `_base.monitor_breakeven_sl`,
+#: read 2026-09-22), and the harness models that rule ONLY under
+#: `--sim-breakeven` — with the offset then taken from cfg. Forwarding it is the
+#: same act as forwarding `--side-filter` on the trend map: applying a lever the
+#: leg declares. Leaving it off would have measured every one of the eight legs
+#: with no break-even ratchet at all, which live has.
+_SCALP_BE_FLAG = "--sim-breakeven"
+#: Keys the harness genuinely accounts for WITHOUT a flag, because
+#: `_load_yaml_params()` hands them to the unit verbatim. The `_DEFAULTS` half is
+#: asserted against the unit rather than transcribed — see
+#: tests/test_regime_debt_matrix_ict_scalp.py, which fails if the unit gains a
+#: parameter this set does not carry.
+_SCALP_PLAIN = {
+    "model", "signal_prefixes", "enabled", "execution", "timeframe", "symbols",
+    "shadow_model_ids", "description", "tp_intent",
+    # == src.units.strategies.ict_scalp._DEFAULTS
+    "sweep_lookback_bars", "swing_lookback_bars", "atr_period",
+    "sweep_buffer_bps", "displacement_atr_mult",
+    "min_displacement_body_to_range", "min_fvg_size_bps", "mitigation_mode",
+    "atr_sl_buffer_mult", "tp_at_r", "htf_trend_filter_enabled",
+    "session_filter_enabled", "session_start_hour", "session_end_hour",
+}
+# ⚠️ `off_cells` and `vol_spec` are in NEITHER set, deliberately, and this is the
+# one place where this family is NOT the shape E25 fixed. MI-321 graded them by
+# joining two independent measurements (does a flag exist; does the key reach a
+# SKIP on each side) rather than one predicate:
+#   * `off_cells` -> `not_expressible`. The LIVE builder suppresses an entry on
+#     it (`strategy_signal_builders.py:797-802`, `if off_cells and vol_spec:`);
+#     `off_cells` occurs ZERO times in backtest_ict_scalp.py and NO flag exists.
+#   * `vol_spec`  -> `asymmetric_gate`. `--vol-spec-json` exists and reaches no
+#     skip — it guards the regime-STAMPING routine only (12 occurrences, all
+#     inside `_stamp_decision_time_regime`), so passing it would LABEL a run
+#     with the spec while it behaves as if unset. A count reports it as
+#     implemented; the skip test does not.
+# `ict_scalp_xrp_5m` is the only leg carrying either, so it is the only one that
+# grades `approximate`, naming both. Its measured number is therefore the
+# UNGATED arm, and the live builder's own docstring says which arm that is:
+# "XRP's pass was conditional on this gate (ungated 2/4 folds fails; gated 4/4
+# passes)". Forwarding `--vol-spec-json` to make the row look faithful is the
+# trap, not the fix; porting an off-cell skip into the harness is.
 # Levers no offline harness can replay.
 _UNREPLAYABLE = {"exit_head_model", "exit_head_threshold", "exit_head_action"}
 
@@ -340,6 +429,20 @@ def classify(cfg: dict) -> str | None:
     # the same reason squeeze is checked after trend/pullback.
     if "range_lookback" in cfg and "third_frac" in cfg:
         return "fvg_range"
+    # ICT scalp: a liquidity sweep over `sweep_lookback_bars` of prior
+    # structure, mitigated per `mitigation_mode`. Keyed on the family's own
+    # defining STRUCTURAL params for the same reason the fvg_range branch is —
+    # not on the name, `signal_prefixes` or the module, which are labels about
+    # the config rather than the config. MEASURED over all 55 legs in
+    # config/strategies.yaml on 2026-09-22: `sweep_lookback_bars` and
+    # `mitigation_mode` are each carried by exactly the EIGHT ict_scalp_* legs
+    # and by nothing else, and no leg carrying either also carries `donchian`,
+    # `trend_lookback`, `pullback_frac`, `kc_mult`/`bb_period` or
+    # `range_lookback`/`third_frac` — so the conjunction cannot capture a leg an
+    # earlier branch should have taken. Checked LAST, like squeeze and
+    # fvg_range, so no already-measured leg is silently re-routed.
+    if "sweep_lookback_bars" in cfg and "mitigation_mode" in cfg:
+        return "ict_scalp"
     return None
 
 
@@ -357,8 +460,16 @@ def resolve_feed(symbol: str, timeframe: str) -> dict:
 _YF_CONTROL_TICKER = "SPY"
 
 
-def _yahoo_empty_reason(ticker: str, yf) -> str:
-    """Say WHICH empty this is: the venue refused us, or it has no such data.
+#: Window the same-interval self-probe asks for. Well inside every documented
+#: yfinance intraday limit (~60d for 5m/15m, ~730d for 60m), so a POSITIVE here
+#: means the ticker+interval pair is genuinely served and only the WINDOW was
+#: too wide.
+_YF_SELF_PROBE_PERIOD = "5d"
+
+
+def _yahoo_empty_reason(ticker: str, yf, interval: str = "1d") -> str:
+    """Say WHICH empty this is: the venue refused us, it has no such data, or we
+    asked for more history than it serves at this interval.
 
     ⚠️ THIS EXISTS BECAUSE THE COLLAPSED MESSAGE COST A SESSION, NOT AS POLISH.
     The old text was `yfinance returned no rows for {ticker}`, which is true of
@@ -415,6 +526,46 @@ def _yahoo_empty_reason(ticker: str, yf) -> str:
                 f"requests-backed and the 1.x line impersonates via curl_cffi. "
                 f"Check the installed version against requirements "
                 f"(yfinance>=1.7.0).")
+    # ⚠️ FOURTH STATE, ADDED 2026-09-22 (E28), BECAUSE THE THREE ABOVE MISATTRIBUTED
+    # A REAL FAILURE WITH CONFIDENCE. `ict_scalp_mgc_15m` is the instance: 15m over
+    # 365 days returns nothing, and the SPY control — which probes `period="5d",
+    # interval="1d"` and therefore exercises NEITHER the requested interval NOR the
+    # requested window — came back serving, so the message read
+    # "specific to GC=F (delisting, a short listing history, or a wrong symbol map)".
+    # All three of those are FALSE: measured the same day, `GC=F` at 15m over 5d
+    # returns 4,338 rows and over 365d returns 0, with Yahoo's own error naming the
+    # cause ("The requested range must be within the last 60 days").
+    #
+    # This is the collapsed-state rule applied to a control rather than to a field:
+    # a probe that cannot vary along the axis under test can only ever return the
+    # answer it already had. `_TF_TO_YF_INT`'s own comment predicted this exact
+    # failure ("A `--days` window past that returns an EMPTY frame"); the discriminator
+    # simply could not see it, so the honest outcome was reported with a wrong cause
+    # attached — worse than an unexplained failure, because a named cause closes off
+    # the investigation. A later session would have gone hunting a symbol map that is
+    # correct.
+    #
+    # So: re-ask for the SAME ticker at the SAME interval over a window no documented
+    # limit excludes. Rows here mean the pair is served and only the span was too wide.
+    if interval.endswith("m"):
+        try:
+            self_probe = yf.download(ticker, period=_YF_SELF_PROBE_PERIOD,
+                                     interval=interval, auto_adjust=False,
+                                     progress=False, threads=False)
+        # allow-silent: same contract as the control probe above — a raising probe
+        # yields `undetermined` for THIS axis and falls through to the ticker-specific
+        # answer, which is the pre-existing behaviour. It cannot manufacture a clean read.
+        except Exception:  # noqa: BLE001  # allow-silent: probe failure falls through to the ticker-specific answer below
+            self_probe = None
+        if self_probe is not None and len(self_probe):
+            return (f"{base}; venue_state=serving, "
+                    f"interval_state=window_exceeds_intraday_limit -- {ticker} at "
+                    f"interval={interval} returns rows over "
+                    f"{_YF_SELF_PROBE_PERIOD} and none over the requested window, "
+                    f"so the ticker and the symbol map are FINE and the WINDOW is "
+                    f"the problem. Yahoo serves ~60d of 5m/15m and ~730d of 60m. "
+                    f"The remedy is a shorter --days, or a feed that serves this "
+                    f"interval over the full history -- NOT a symbol-map change.")
     return (f"{base}; venue_state=serving -- the {_YF_CONTROL_TICKER} control "
             f"returned {len(ctl)} rows, so the venue is up and this is specific "
             f"to {ticker} (delisting, a short listing history, or a wrong "
@@ -441,7 +592,7 @@ def _fetch_csv(feed: dict, days: int, out: str) -> None:
     df = yf.download(feed["ticker"], period=period, interval=feed["interval"],
                      auto_adjust=False, progress=False, threads=False)
     if df is None or len(df) == 0:
-        raise RuntimeError(_yahoo_empty_reason(feed["ticker"], yf))
+        raise RuntimeError(_yahoo_empty_reason(feed["ticker"], yf, feed["interval"]))
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df.rename(columns=str.lower).reset_index()
@@ -581,6 +732,42 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         omitted = sorted(k for k in cfg
                          if k not in _FVG_PLAIN and k not in _FVG_LEVER_FLAG)
         faithful = not omitted
+    elif harness == "ict_scalp":
+        # Like the fvg_range branch, this deliberately does NOT reuse `common`:
+        # backtest_ict_scalp.py accepts neither --resample nor --atr-period /
+        # --atr-stop-mult / --trail-mult, and an unrecognised argument aborts the
+        # subprocess, which run_one reports as `harness failed` — a missing FLAG
+        # misread as a broken harness.
+        #
+        # ⚠️ NO --resample, and that is a REQUIREMENT on the feed rather than an
+        # omission: this harness reads the CSV as given (`_load_candles`, no
+        # resample step anywhere), so the fetch must already be at the leg's own
+        # interval. `resolve_feed` supplies exactly that — `_TF_TO_BYBIT_INT`
+        # has native 5m/15m codes, so the seven USDT legs fetch natively. The
+        # one non-USDT leg (`ict_scalp_mgc_15m`) goes to Yahoo, whose 15m lane
+        # serves ~60d against a 365d window, and `_fetch_csv` turns the empty
+        # frame into a NAMED `_yahoo_empty_reason` failure. That is a loud
+        # `harness_failed` with its reason, which is the honest outcome — never
+        # a daily-bar fallback silently graded as 15m.
+        #
+        # `--strategy-name` now SELECTS the config block as well as stamping the
+        # emitted rows (see the map above); passing `name` is what makes this
+        # branch measure the leg in front of it.
+        argv = [py, os.path.join(REPO, "scripts/backtest_ict_scalp.py"),
+                "--data", csv, "--symbol", symbol,
+                "--timeframe", str(cfg.get("timeframe") or resample),
+                "--strategy-name", name,
+                "--fee-bps-roundtrip", str(fee),
+                "--emit-trades", emit, "--json", jout]
+        for k, flag in _SCALP_LEVER_FLAG.items():
+            if cfg.get(k) is not None:
+                argv += [flag, str(cfg[k])]
+        if cfg.get("be_offset_bps"):
+            argv.append(_SCALP_BE_FLAG)
+        omitted = sorted(k for k in cfg
+                         if k not in _SCALP_PLAIN and k not in _SCALP_LEVER_FLAG
+                         and k != "be_offset_bps")
+        faithful = not omitted
     else:
         argv = [py, os.path.join(REPO, "scripts/backtest_pullback.py"),
                 "--trend-lookback", str(cfg.get("trend_lookback", 40)),
@@ -677,8 +864,8 @@ def emit_trades_for(name: str, cfg: dict, workdir: str, days: int, *,
     row: dict = {"strategy": name, "symbol": sym, "timeframe": tf,
                  "harness": harness, "emit_path": None, "n_emitted": 0}
     if harness is None or not sym or not tf:
-        row["error"] = ("unclassifiable (no donchian/pullback/squeeze/fvg-range "
-                        "params or no symbol/timeframe)")
+        row["error"] = ("unclassifiable (no donchian/pullback/squeeze/fvg-range/"
+                        "ict-scalp params or no symbol/timeframe)")
         return row
     feed = resolve_feed(sym, tf)
     row["feed"] = feed
@@ -727,8 +914,8 @@ def run_one(name: str, cfg: dict, workdir: str, days: int,
     tf = cfg.get("timeframe")
     row: dict = {"strategy": name, "symbol": sym, "timeframe": tf, "harness": harness}
     if harness is None or not sym or not tf:
-        row["error"] = ("unclassifiable (no donchian/pullback/squeeze/fvg-range "
-                        "params or no symbol/timeframe)")
+        row["error"] = ("unclassifiable (no donchian/pullback/squeeze/fvg-range/"
+                        "ict-scalp params or no symbol/timeframe)")
         return row
     feed = resolve_feed(sym, tf)
     row["feed"] = feed

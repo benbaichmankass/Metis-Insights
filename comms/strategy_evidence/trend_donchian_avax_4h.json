@@ -3,7 +3,7 @@
   "strategy": "trend_donchian_avax_4h",
   "symbol": "AVAXUSDT",
   "timeframe": "4h",
-  "config_fingerprint": "sha256:b8cf2f0dd9a4b6684c4934ee55390806",
+  "config_fingerprint": "sha256:0364e4e79b5b6bfe9042c57843ed2c35",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
