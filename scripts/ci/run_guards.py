@@ -95,6 +95,43 @@ GUARDS: List[Dict[str, Any]] = [
         "when": {"globs": ["config/accounts.yaml", "scripts/check_account_class.py"]},
         "steps": [["python3", "scripts/check_account_class.py", "--list"]],
     },
+    {
+        # E42 — a rostered leg's symbol must be REACHABLE, and the remedy is
+        # always the PULL LIST, never the leg.
+        #
+        # ⚠️ THIS LANDS BEFORE THE FIX IT ANTICIPATES, ON PURPOSE (operator,
+        # 2026-09-22). The union that stops `accounts.yaml::symbols` being a
+        # de-facto third execution gate is held in PR #12736 behind a
+        # shared-resolver change that must go first. Until it merges the pull
+        # list IS the gate, so the operator's standing rule is that any leg
+        # promoted in that window declares its symbol in the SAME PR — and an
+        # unguarded window is exactly what shipping this guard with the union
+        # would have left. The guard reads `src/main.py` to decide which
+        # consequence to print, so its message corrects itself on the day the
+        # union lands instead of waiting for someone to remember.
+        #
+        # `config/instruments.yaml` is in the globs because the third axis
+        # grades against it: deleting a profile can strand a rostered symbol
+        # with neither config file touched. `src/main.py` is in them because
+        # the union-state read is a fact about that file.
+        #
+        # The self-test runs on EVERY invocation, before the tree check — a
+        # guard whose green has never been shown capable of turning red is not
+        # evidence (`check_guard_selftest_coverage.py`).
+        "name": "roster-symbol-reachability",
+        "when": {"globs": [
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+            "config/instruments.yaml",
+            "src/main.py",
+            "scripts/ci/check_roster_symbol_reachability.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_roster_symbol_reachability.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_roster_symbol_reachability.py"],
+        ],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
@@ -1284,6 +1321,55 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # ⚠️ A CHECK MUST BE ABLE TO SAY WHEN IT CANNOT SEE ITS SUBJECT. Three
+        # independent instances in the week of 2026-09-22 reported a passing or
+        # quiet state about a thing they could no longer see: check_manager_scope
+        # (identity source archived, roster frozen, PASSED on 38 manager commits),
+        # work_digest (five of six sources `absent`, self-reported healthy), and
+        # check_manager_queue_watch (armed 479h, ~479 firings, ZERO receipts).
+        # That is the collapsed-state rule applied to the CHECKS rather than to
+        # the data they read — check_collapsed_states.py polices producers and
+        # nothing policed the police.
+        #
+        # ⚠️ `when: None` BECAUSE ITS SUBJECT IS THE GUARD FLEET AND THE TREE, and
+        # a diff-scoped version would pass vacuously on nearly every PR — the
+        # reasoning check_soak_registered.py records for running whole-tree.
+        # Measured cost: ~95 file parses plus ~92 `git cat-file -e` calls.
+        #
+        # ⚠️ IT IS REPORT-FIRST BY DESIGN. The 19 already-broken guards are
+        # carried in a dated baseline that may only SHRINK; only a NEW dead or
+        # degraded guard fails. Failing all 19 on day one would red-wall the repo
+        # and get the guard reverted rather than the debt fixed.
+        # ⚠️ FRESHNESS BELONGS IN CI, NOT ON A TIMER. The natural fix for a
+        # silent scheduled check — "emit a receipt, and grade receipt freshness"
+        # — IS ALREADY BUILT and is instance #3 of the class:
+        # check_manager_queue_watch.py grades a receipt the Routine has never
+        # written in 479 firings. A scheduled grader can always be the thing that
+        # did not fire. CI cannot: it runs on every push, so its own liveness is
+        # PROVEN BY PRs MERGING AT ALL.
+        #
+        # ⚠️ THE POPULATION IS DERIVED FROM THE TREE, NOT LISTED. Anything
+        # declaring a cadence (workflow `schedule:`, deploy/*.timer) and absent
+        # from CADENCE_REGISTRY FAILS — a hand-maintained list would reintroduce
+        # the bug in new clothes. Measured 2026-09-22: 38 declarations, of which
+        # exactly 1 is gradeable today, which is why it ships REPORT-FIRST with a
+        # shrink-only baseline.
+        "name": "cadence-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_cadence_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_cadence_liveness.py"],
+        ],
+    },
+    {
+        "name": "guard-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_guard_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_guard_liveness.py"],
+        ],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
@@ -1516,6 +1602,26 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_lever_reachability.py", "--self-test"],
             ["python3", "scripts/ci/check_lever_reachability.py"],
+        ],
+    },
+    {
+        "name": "lever-evidence-flag-guard",
+        # The sibling of lever-reachability-guard, and it grades what that one
+        # cannot: reachability pins `arm_r` to config, so a verdict stays
+        # "current" while its DENOMINATOR goes unexamined. `gld_pullback_1d`
+        # carried `inert` / `recorded_inert` -- "no observed entry could reach
+        # the arm" -- on 0 of 8, whose exact 95% upper bound is 36.9%.
+        #
+        # The self-test runs on EVERY invocation for the same reason its
+        # siblings' do, and one of its cases is a NON-VACUITY control: a cell
+        # that must come out `unsettled`. A flag that had quietly lost the
+        # ability to say "I don't know" would otherwise look clean while
+        # rubber-stamping every verdict it grades.
+        "when": {"globs": ["config/lever_reachability.json",
+                           "scripts/ops/lever_evidence_flag.py"]},
+        "steps": [
+            ["python3", "scripts/ops/lever_evidence_flag.py", "--self-test"],
+            ["python3", "scripts/ops/lever_evidence_flag.py", "--check"],
         ],
     },
     {
