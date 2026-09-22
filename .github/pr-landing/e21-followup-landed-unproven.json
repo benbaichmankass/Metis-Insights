@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Same lane, same dispatch instruction as PR #12710: 'do not merge -- the manager merges.'",
+  "why": "Docs/registers only -- two files, no src/, no config, no workflow. (1) Re-lands PI-20260922-NW5KGJN8-0002, which was pushed to the e21-exit-monitor-roster-resolution branch AFTER PR #12710 had already merged and was therefore stranded on a merged PR. (2) Corrects E21 from `blocked` to `landed_unproven`, which is what it became the moment #12710 merged. Tier-1 by path, held per the lane's landing convention."
+}
