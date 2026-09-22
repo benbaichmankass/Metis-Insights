@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "slv_pullback_1d",
   "symbol": "SLV",
   "timeframe": "1d",
@@ -11,8 +11,8 @@
     "trail_decay_stall_bars",
     "trail_decay_tight_mult"
   ],
-  "net_r_oos": 20.6541,
-  "expectancy_r_oos": 5.1635,
+  "net_r_oos": 20.3638,
+  "expectancy_r_oos": 5.091,
   "n_trades_oos": 4,
   "folds": 4,
   "fold_detail": [
@@ -43,8 +43,8 @@
     {
       "fold": 4,
       "trades": 1,
-      "net_r": 2.1229,
-      "expectancy_r": 2.1229,
+      "net_r": 1.8326,
+      "expectancy_r": 1.8326,
       "start": "2026-02-24 00:00:00+00:00",
       "end": "2026-02-24 00:00:00+00:00"
     }
@@ -52,10 +52,24 @@
   "folds_positive": 4,
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
+  "cost_stack": {
+    "fees": 0.0,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "/tmp/tmp.RsNZr5lfkw/slv_pullback_1d__bt.json"
+  },
+  "net_r_oos_fee_only": 20.4094,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:26.151202+00:00",
+  "generated_at": "2026-09-22T05:34:51.903046+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/slv_pullback_1d__trades.jsonl",
+  "source_run": "/tmp/tmp.RsNZr5lfkw/slv_pullback_1d__trades.jsonl",
   "error": null,
   "harness": "pullback",
   "low_n_warning": "n_trades_oos=4 < 10; the pooled number is reported but is not a basis for a verdict."

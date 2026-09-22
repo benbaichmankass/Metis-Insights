@@ -353,7 +353,7 @@
       "id": "D1",
       "title": "Flip the backtest cost defaults on, and re-run the corpus",
       "phase": "D",
-      "state": "queued",
+      "state": "dropped",
       "owner": "research lane",
       "lane": null,
       "model": "claude-sonnet-5",
@@ -362,7 +362,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "src/runtime/execution_costs.py models fee + slippage + funding correctly; the HARNESSES set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0 by default, deliberately, for backward compatibility. So every 'passed the backtest' verdict in the corpus is fee-only and optimistic by an unknown amount - measured once at +0.57R on htf_pullback_trend_2h, the one leg anyone checked. 6 of 13 harnesses have no cost terms at all, including the vwap harness (vwap is 318 of 431 lifetime real-money trades). [!] ⚠️ DUPLICATE OF R1 — same work (flip the cost defaults and re-run the corpus) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] R1's lane (session_016FkzGuob8CJMJgqYRddvSV) is taking this work and will kill whichever of the pair it does not use. DO NOT DISPATCH THIS ROW."
+      "note": "KILLED 2026-09-22 (session_016FkzGuob8CJMJgqYRddvSV) as a DUPLICATE of R1 -- both rows describe the identical work (re-run the backtest corpus with the cost defaults on) under two numbering schemes; both rows' own text said so ('R1 and D1 ARE THE SAME WORK'). R1 is the survivor: it carries the more complete tracking (a stated decision rule, an expected shape to check the run against, and an explicit population). See R1 for the real work and its PR. Original note, preserved rather than deleted: src/runtime/execution_costs.py models fee + slippage + funding correctly; the HARNESSES set SLIPPAGE_BPS_ROUNDTRIP and FUNDING_BPS_PER_WINDOW to 0.0 by default, deliberately, for backward compatibility. So every 'passed the backtest' verdict in the corpus is fee-only and optimistic by an unknown amount - measured once at +0.57R on htf_pullback_trend_2h, the one leg anyone checked. 6 of 13 harnesses have no cost terms at all, including the vwap harness (vwap is 318 of 431 lifetime real-money trades)."
     },
     {
       "id": "D2",
@@ -476,22 +476,24 @@
       "id": "R1",
       "title": "Re-run the backtest corpus with the cost defaults ON",
       "phase": "R",
-      "state": "in_flight",
+      "state": "done",
       "owner": "research lane",
-      "lane": "session_016FkzGuob8CJMJgqYRddvSV",
+      "lane": null,
       "model": "claude-sonnet-5",
-      "ceiling_usd": 45,
-      "spend_usd": null,
+      "ceiling_usd": 60,
+      "spend_usd": 4.59,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12705
+      ],
       "blocked_on": [],
-      "note": "THE FIRST THING; nothing real depends on anything else until it is done. Which legs still clear Stage 0 once slippage and funding are modelled? Decision rule REGISTERED NOW: a leg that no longer clears its own declared bar under full costs is demoted to shadow automatically under MD-DEMOTE-S1-OFF -- no memo. EXPECTED SHAPE, stated so it can be wrong: on a +0.57R shift, legs whose edge was under ~0.6R invert, and most declared edges are smaller than that, so expect a MAJORITY of the 45 live legs to fail. If almost everything still passes, suspect the run did not change the cost terms -- check the run, not the luck. Population: all 55 legs, full history, per-symbol. [!] UNBLOCKED 2026-09-21: E3 merged as 3afc02b, so the harnesses now price slippage and funding. The edge is discharged by the merge, not by waiting. [!] ⚠️ DUPLICATE OF D1 — same work (flip the cost defaults and re-run the corpus) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] DISPATCHED 2026-09-22 as the ENGINEERING lane, with D1 named as its twin to kill in the same push. Operator: 'We need to do both' -- R1 and the prop track run in parallel, not in sequence."
+      "note": "E3's blocker is DISCHARGED (merged 3afc02b). THIS SESSION'S SCOPE, stated precisely because R1's original note scoped 'all 55 legs' and that was not what got covered -- read scripts/ci/check_roster_promotion_evidence.py --population FIRST, which is a NARROWER and more decision-relevant population: the 12 legs actually on a risk-bearing (real_money/prop) roster today (alpaca_live x3, breakout_1 x3, bybit_2 x6), the ones C3/C4 gate for real-money promotion. MEASURED this session (net-of-full-cost-stack, via an extended scripts/ops/build_strategy_evidence.py -- see its diff): 11 of those 12 legs actually re-ran through their harness (trend_donchian.py / backtest_pullback.py), whose OWN CLI path already resolves slippage+funding to venue-aware defaults (scripts/backtest_trend.py:74-76) -- so the corpus staleness for THESE 11 legs was in the evidence RECORD schema (no cost_stack/decision_rule block), not in the harness math, which was already correct pre-E3 for this family. `comms/strategy_evidence/*.json` now carries a real `cost_stack` (fees/slippage/funding bps, source-linked to the harness's own JSON summary) and a `decision_rule` (id RULE-D1-STAGE0-NET-OF-FULL-COST, registered_at 2026-09-22T05:34:08Z, strictly before any run) for all 11. Guard verdict on the committed tree, once this PR merges: `scripts/ci/check_roster_promotion_evidence.py --population` goes from 0/12 clearing the four-clause bar to 8/12. EXPECTED-SHAPE CHECK: 3 of 11 (eth_pullback_prop_2h, trend_donchian@bybit_2, eth_pullback_2h) FLIP from fee-only-positive to net-negative under full cost -- directionally confirms the note's prediction that legs were riding on an unpriced discount, though the fraction (3/11) is far short of the predicted majority; treat the 45/55-leg 'majority fails' claim as UNTESTED, not confirmed, since only these 11 ran. WHAT DID NOT GET DONE, stated rather than left implied: (1) `fvg_range_15m` (the 12th risk-bearing leg, bybit_2) is STILL `no_harness` -- unrelated to cost defaults, `regime_debt_matrix.classify()` has no branch for the fvg_range family at all, a classifier gap E3 named but did not fix; filed. (2) The remaining ~43 of the full 55-leg live roster (every leg NOT on a risk-bearing account) were NOT re-run this session -- pipeline row PI-20260922-R1-REMAINING-CORPUS carries the continuation with its own rerun command. (3) The three harnesses E3 filed as having NO bps cost model at all (backtest_orb.py, src/backtest/backtester.py, xsec_momentum's funding term -- PI-20260921-E3-* rows) are untouched; any leg on those families is still fee-only and mislabelled if read as costed. NOT APPLIED, on purpose, per this session's standing instruction: MD-DEMOTE-S1-OFF is not a registered mandate (grep config/mandates.yaml: no hit) and this lane did not create one or touch config/accounts.yaml or config/strategies.yaml -- producing evidence only, per R2/D2 owning the cut. MERGED: no. DEPLOYED: no (repo-only; no VM/runtime change). OBSERVED: yes, on this branch -- the 11 records above are real harness output, not claims; not yet observed from main because the PR is unmerged. [!] MERGED 2026-09-22 as f3746ab. THE NUMBER MOVED: risk-bearing legs clearing the four-clause bar go 0/12 -> 8/12. AND THREE OF THE ELEVEN RE-RUN FLIP from fee-only-POSITIVE to net-NEGATIVE once slippage and funding are priced -- the 'optimistic in the favourable direction' claim, measured rather than predicted. ⚠️ The lane said plainly it is NOT a majority, so this row's original implication that most would flip is UNTESTED beyond these 11. [!] C4 IS SATISFIABLE FOR THE FIRST TIME: records now grade against RULE-D1-STAGE0-NET-OF-FULL-COST, registered BEFORE the runs. Until today param_selection_provenance read `not_established` on 52 of 52. [!] SCOPE NARROWER THAN THIS ROW ASKED, and stated rather than let pass: the 12 risk-bearing legs, not the full ~55 roster. The rest is PI-20260922-R1-REMAINING-CORPUS. [!] ARMING CHECKED, NOT ASSUMED: config/mandates.yaml DOES NOT EXIST and B5 is queued, so no evidence record can fire a real-money promotion today. [!] Lane finished at $4.59 against a $45 ceiling and STOPPED when its PR was up instead of idling on CI -- E20's rules working on their first outing."
     },
     {
       "id": "R2",
       "title": "Cut the fleet to what passes",
       "phase": "R",
-      "state": "blocked",
+      "state": "queued",
       "owner": "manager",
       "lane": null,
       "model": null,
@@ -499,14 +501,8 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": [
-        {
-          "kind": "work_item",
-          "ref": "R1",
-          "what": "Nothing to cut on until the re-run has spoken."
-        }
-      ],
-      "note": "Not a separate judgement: under the standing mandates this is MD-DEMOTE-S1-OFF firing on R1's output. R2 is the OBSERVATION that it fired correctly. Failing legs keep running on the SOAK book, which is what it is for. Expect a much smaller live roster -- that is the point: 55 legs producing 71 closes a week is WHY nothing can be graded."
+      "blocked_on": [],
+      "note": "Not a separate judgement: under the standing mandates this is MD-DEMOTE-S1-OFF firing on R1's output. R2 is the OBSERVATION that it fired correctly. Failing legs keep running on the SOAK book, which is what it is for. Expect a much smaller live roster -- that is the point: 55 legs producing 71 closes a week is WHY nothing can be graded. [!] UNBLOCKED 2026-09-22: R1 merged as f3746ab. The edge is discharged by the merge."
     },
     {
       "id": "R3",
@@ -527,7 +523,7 @@
       "id": "R4",
       "title": "Write the first ten pre-registered research questions",
       "phase": "R",
-      "state": "blocked",
+      "state": "queued",
       "owner": "operator + manager",
       "lane": null,
       "model": null,
@@ -535,14 +531,8 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": [
-        {
-          "kind": "work_item",
-          "ref": "R1",
-          "what": "Questions are chosen against the surviving roster."
-        }
-      ],
-      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets. [!] ⚠️ DUPLICATE OF C5 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
+      "blocked_on": [],
+      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets. [!] ⚠️ DUPLICATE OF C5 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] UNBLOCKED 2026-09-22: R1 merged as f3746ab. The edge is discharged by the merge."
     },
     {
       "id": "R5",

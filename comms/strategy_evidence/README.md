@@ -64,6 +64,33 @@ The **first record ever produced** demonstrates it: `eth_pullback_2h` pools
 `net_r_oos: +3.3242` over 56 trades — and `folds_positive` is **2 of 4**
 (+6.32, −2.92, +2.77, −2.85). Most of that edge is a single quarter.
 
+## `schema_version: 2` — `cost_stack` and `decision_rule` (R1, 2026-09-22)
+
+Added by `scripts/ops/build_strategy_evidence.py` so a `measured` record can
+clear `scripts/ci/check_roster_promotion_evidence.py`'s C3/C4 clauses:
+
+- **`cost_stack`** — `{fees, slippage, funding}` in bps (funding per funding
+  window), read from the harness's own `--json` summary. **Not new pricing** —
+  `trend`/`squeeze`/`pullback`'s CLI path already resolves unset
+  slippage/funding to venue-aware defaults before it writes that summary
+  (`scripts/backtest_trend.py:74-76`), so `net_r_oos` was already net of the
+  full cost stack before this field existed. This block only makes the
+  resolved bps legible in the record. `null` when the harness's summary does
+  not carry all three components (e.g. a family this producer classifies but
+  whose harness predates the cost model).
+- **`net_r_oos_fee_only`** — the same pooled sum using each trade's
+  `net_r_fee_only`, so the size of the slippage+funding correction is on the
+  record next to the number it corrects, the way E3 did for the harnesses it
+  wired directly.
+- **`decision_rule`** — `{id, rule, registered_at, verdict}`. `registered_at`
+  is fixed in the producer's source **before** any run; `verdict` is `pass`
+  when `net_r_oos > 0`. C4 checks `registered_at < generated_at` so a rule
+  cannot be written after seeing the result.
+
+A `schema_version: 1` record (no `cost_stack`/`decision_rule`) means the
+producer has not been re-run against that leg since 2026-09-22 — regenerate it
+rather than reading the old fields as current.
+
 ## Regenerating
 
 ```bash
