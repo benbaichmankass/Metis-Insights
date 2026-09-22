@@ -66,15 +66,42 @@ def test_instrument_profile_routes_to_bybit():
     assert eth["quote_currency"] == "USDT"
 
 
-def test_routed_to_bybit_1_and_2():
-    # 2026-06-18 (Tier-3, operator-directed): eth_pullback_2h PROMOTED to real-money
-    # bybit_2 as a deliberate live test ("bybit_2 is a test account; I want to see how
-    # ETH performs there"), running the same ADX>=25-gated config as the bybit_1 demo.
+def test_routed_to_bybit_1_only_since_the_r2_cut():
+    """The leg soaks on bybit_1 and is OFF real money.
+
+    RENAMED from ``test_routed_to_bybit_1_and_2`` on 2026-09-22, deliberately:
+    a test named ``_and_2`` whose body asserts the leg is NOT on bybit_2 is the
+    stored-label-read-as-the-measurement defect this repo keeps paying for, so
+    the name moves with the fact.
+
+    HISTORY, kept because it is what a re-promotion would have to overturn:
+    2026-06-18 (Tier-3, operator-directed) eth_pullback_2h was PROMOTED to
+    real-money bybit_2 as a deliberate live test ("bybit_2 is a test account; I
+    want to see how ETH performs there"), running the same ADX>=25-gated config
+    as the bybit_1 demo.
+
+    2026-09-22 (Tier-3, operator instruction "Cut the legs that don't clear the
+    bar", checklist row R2): REMOVED from bybit_2 and from the bybit_portfolio
+    mirror. It fails clause C4 of B1's four-clause evidence bar — the registered
+    rule RULE-D1-STAGE0-NET-OF-FULL-COST returns verdict `fail` on its record.
+    The leg keeps ``execution: live`` in config/strategies.yaml and keeps
+    trading on bybit_1, the full-roster soak book, so evidence still accrues.
+
+    The bybit_2 assertion is INVERTED rather than deleted: an accidental re-add
+    to a real-money roster should fail this test, and re-promotion is a Tier-3
+    act that updates it deliberately.
+    """
     accounts = yaml.safe_load(open("config/accounts.yaml"))["accounts"]
     assert "eth_pullback_2h" in accounts["bybit_1"]["strategies"], "runs on bybit_1 (demo)"
-    assert "eth_pullback_2h" in accounts["bybit_2"]["strategies"], "runs on bybit_2 (real-money test)"
+    assert "eth_pullback_2h" not in accounts["bybit_2"]["strategies"], (
+        "eth_pullback_2h is back on the real-money bybit_2 roster. That is a "
+        "Tier-3 promotion and needs a record clearing the four-clause bar: "
+        "python3 scripts/ci/check_roster_promotion_evidence.py --population")
+    assert "eth_pullback_2h" not in accounts["bybit_portfolio"]["strategies"], (
+        "the Gate-2 mirror must not carry a leg bybit_2 does not trade")
     assert "ETHUSDT" in accounts["bybit_1"]["symbols"]
-    assert "ETHUSDT" in accounts["bybit_2"]["symbols"]
+    assert "ETHUSDT" in accounts["bybit_2"]["symbols"], (
+        "ETHUSDT stays in bybit_2.symbols — trend_donchian_eth_4h still trades it")
 
 
 def test_registered_in_multiplexer_and_priorities():

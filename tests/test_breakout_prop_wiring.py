@@ -77,11 +77,18 @@ def test_prop_account_config():
     # applied to the pullback pair a month earlier was never carried across to
     # the donchian pair. Only the _prop twins remain routed here; the base legs
     # stay live on their bybit_1/bybit_2 routes.
-    # NOTE eth_pullback_prop_2h is still LISTED here but was demoted to
-    # execution: shadow on 2026-08-23 (PR #10161) — this set is the ROUTING
-    # roster, which is orthogonal to the per-strategy execution gate.
+    # 2026-09-22 (Tier-3, operator instruction "Cut the legs that don't clear
+    # the bar", checklist row R2): eth_pullback_prop_2h REMOVED from breakout_1.
+    # It fails clause C4 of B1's four-clause evidence bar — the registered rule
+    # RULE-D1-STAGE0-NET-OF-FULL-COST returns verdict `fail` on its record
+    # (`python3 scripts/ci/check_roster_promotion_evidence.py --population`).
+    # The leg had ALREADY been execution: shadow since 2026-08-23, so this cut
+    # changes no order flow; what ends is its ROSTER MEMBERSHIP on a prop
+    # account, which is what that guard keys on. The previous NOTE here — that
+    # the leg is "still LISTED but demoted to shadow", the routing roster being
+    # orthogonal to the execution gate — described exactly that situation and no
+    # longer applies, so it is replaced rather than left to read as current.
     assert set(a["strategies"]) == {
-        "eth_pullback_prop_2h",
         "trend_donchian_sol_prop", "trend_donchian_eth_prop"}
     assert set(a["symbols"]) == {"SOLUSDT", "ETHUSDT"}
 
