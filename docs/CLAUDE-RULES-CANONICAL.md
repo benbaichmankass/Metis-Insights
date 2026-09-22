@@ -985,10 +985,31 @@ decides whether to intervene.
    2026-05-22 MES discovery demonstrated why:** the IB `ib_paper` account
    declared `mode: live` with all three strategies, yet MES never traded
    because a `MULTI_SYMBOL_ENABLED` env defaulted off — a hidden third
-   gate. The fix removed the flag and derives the traded-symbol set from
-   `config/accounts.yaml` (`_resolve_tick_symbols` unions every
+   gate. The fix removed the flag and derived the traded-symbol set from
+   `config/accounts.yaml` (`_resolve_tick_symbols` unioned every
    configured account's `symbols`). What accounts.yaml + strategies.yaml
    declare, runs.
+
+   ⚠️ **AND THAT 2026-05-22 FIX CARRIED THE SAME DEFECT ONE LEVEL DOWN,
+   for 4 months** (found 2026-09-22, operator-raised; fixed the same day,
+   Tier-2). Deriving the fetch set from `symbols:` made *that list* the
+   thing a leg could be stranded behind: a strategy on an account's
+   `strategies:` roster whose symbol nobody had added to the same
+   account's `symbols:` got **no candles, no signal and no order**, while
+   reading as wired everywhere an operator looks. A second place you must
+   edit to let a rostered leg trade is the MES pattern wearing different
+   clothes — an omission instead of a flag, which is why no guard saw it.
+   **`_resolve_tick_symbols` now fetches the UNION of the roster-implied
+   symbols and the declared ones**, so the roster is the single source of
+   truth for what trades and `config/accounts.yaml::symbols` is what it
+   always claimed to be: an **additive DATA-PULL list**, legitimately
+   naming instruments no strategy trades (21 such entries on 2026-09-22).
+   DECIDED by the operator the same day: *"even if something is … missing
+   from the pull list, it doesn't mean that it shouldn't be traded — it
+   means that the pull list is not updated correctly."* A stale pull list
+   is a bug in the pull list; it is never a trading decision, and
+   `roster-symbol-reachability` says so in those words rather than naming
+   the leg. Reverse it only by reopening that decision.
 
    **Precise scope of the rule** (settled 2026-07-09, full-system-audit
    Phase 0). What is forbidden is a **default-off `*_ENABLED` flag in

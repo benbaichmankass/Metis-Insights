@@ -54,6 +54,49 @@
 #   `demo:` to mean "paper" on any non-Bybit account — use
 #   `account_class: paper` instead.
 #
+# ------------------------------------------------------------------
+# strategies: vs symbols: — TWO LISTS, TWO JOBS, NOT A GATE PAIR
+# (operator decision 2026-09-22, E42)
+# ------------------------------------------------------------------
+#   `strategies:` is the ROSTER. It is the SINGLE SOURCE OF TRUTH for
+#     what this account trades. Full stop. Routing tests it and nothing
+#     else (`coordinator._dispatch_exclusion_reason`: an account is
+#     excluded when `pkg.strategy not in assigned`).
+#
+#   `symbols:` is the PULL LIST, and it is purely ADDITIVE. It names
+#     instruments to fetch DATA for, for reasons UNRELATED to the
+#     strategies — per-symbol position cross-checks, the Bybit fill/cost
+#     sweep, the SPA's symbol selectors via /api/bot/config. It is
+#     LEGITIMATE for it to carry a symbol nothing trades; 21 entries did
+#     on 2026-09-22 and none of them is drift to clean up.
+#
+#   The trader FETCHES the UNION of the two:
+#       fetch set = roster-implied symbols  ∪  declared `symbols:`
+#     (`src/main.py::_resolve_tick_symbols`). So you never declare a
+#     symbol twice, and a leg's data is guaranteed by putting the leg on
+#     the roster — nothing else.
+#
+#   ⚠️ A SYMBOL MISSING FROM `symbols:` IS A BUG IN THE PULL LIST. It is
+#     NEVER a reason a rostered leg does not trade, and never a reason to
+#     touch a roster. Operator, verbatim: "even if something is for some
+#     reason missing from the pull list, it doesn't mean that it
+#     shouldn't be traded — it means that the pull list is not updated
+#     correctly." CI reports it as `roster-symbol-reachability` and its
+#     failure message says exactly that.
+#
+#   ⚠️ UNTIL 2026-09-22 THIS WAS NOT TRUE AND MUCH OF THE PROSE BELOW
+#     STILL READS THAT WAY WHERE IT IS DATED. `_resolve_tick_symbols`
+#     built the fetch set from `symbols:` ALONE, so an undeclared symbol
+#     meant no candles, no signal and no order for a leg sitting on the
+#     roster looking wired — a third execution gate in everything but
+#     name, which Prime Directive rule 6 forbids. Comments written under
+#     that regime are historically accurate; the field is the truth now.
+#
+#   ⚠️ REMOVING A SYMBOL FROM `symbols:` IS NOT A WAY TO STOP A LEG
+#     TRADING. The two sanctioned gates are unchanged: `mode:` here and
+#     `execution:` in strategies.yaml. Taking a leg off the roster is the
+#     third way, and it is a Tier-3 edit.
+#
 # Bybit V5 category routing (operator directives 2026-05-06 + 2026-05-10):
 #   `market_type: spot`         → Bybit spot cash market (place_order
 #                                 category="spot", marketUnit="baseCoin").
@@ -228,11 +271,17 @@ accounts:
                                        # DEMO account ONLY; NOT on bybit_2 (real money),
                                        # whose addition stays a separate Tier-3 gate.
     symbols: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, AVAXUSDT]
-                                       # instrument(s) this account trades. The
-                                       # multi-symbol tick loop unions every
-                                       # configured account's symbols, so this
-                                       # is the source of truth for "trade BTCUSDT
-                                       # here". Routing to the bybit exchange is
+                                       # instrument(s) this account PULLS DATA
+                                       # for. ⚠️ CORRECTED 2026-09-22 (E42):
+                                       # this said it was "the source of truth
+                                       # for 'trade BTCUSDT here'". It is not —
+                                       # `strategies:` above is. The tick loop
+                                       # fetches the UNION of roster-implied and
+                                       # declared symbols, so this list is
+                                       # ADDITIVE and may name instruments no
+                                       # leg trades. See the header block
+                                       # "strategies: vs symbols:".
+                                       # Routing to the bybit exchange is
                                        # by symbol→exchange (coordinator gate).
                                        # ETHUSDT added 2026-06-11 (M15 WS-C alt
                                        # sleeve — eth_pullback_2h, demo-only).
@@ -683,10 +732,12 @@ accounts:
   # ever receives MES/MGC/MHG packages, and each per-symbol strategy only
   # fires on its own instrument.
   #
-  # Symbol set is config-driven (2026-05-22): the tick loop
-  # (src/main.py::_resolve_tick_symbols) unions the ``symbols`` of every
-  # configured account, so MES is GENERATED simply because ib_paper
-  # declares ``symbols: [MES]`` + a non-empty ``strategies`` list. There
+  # Symbol set is config-driven (2026-05-22; widened 2026-09-22): the
+  # tick loop (src/main.py::_resolve_tick_symbols) unions each configured
+  # account's ROSTER-IMPLIED symbols with its declared ``symbols``, so MES
+  # is GENERATED because ib_paper has a non-empty ``strategies`` list
+  # whose legs trade it — the ``symbols: [MES]`` declaration is now
+  # belt-and-braces rather than the thing that enables it. There
   # is NO separate enable flag — per the "one switch per account" rule,
   # ``mode:`` is the only runtime gate. (The removed ``MULTI_SYMBOL_ENABLED``
   # env was a forbidden second gate.) ib_live keeps ``strategies: []`` —
@@ -1305,18 +1356,22 @@ accounts:
       # specifically to keep the fleet's worst leg off the account being funded.
       # Same shape as the USO constraint recorded above, and it holds the same way.
       #
-      # ⚠️ NO `symbols:` EDIT IS REQUIRED — and the reason recorded in #11665 was
-      # WRONG, corrected by its own author 2026-09-10T09:02Z. That doc says the
-      # account-level `symbols:` list is "inert for Alpaca". It is NOT:
-      # `src/main.py::_resolve_tick_symbols` reads `acct.symbols` and decides the
-      # union of symbols the TICK LOOP fetches, so a symbol carried by no
-      # non-opted-out account is never fetched and no strategy on it can signal
-      # at all. The conclusion survives on the correct reason: TLT/IEF/SLV/IAUM
-      # are ALREADY in this account's `symbols` below, and this account has a
-      # non-empty roster, so all four are already in the union. What was verified
-      # directly and still stands is narrower: `symbols:` is not a ROUTING gate —
-      # `coordinator._dispatch_exclusion_reason`'s Alpaca path tests only
-      # `pkg.strategy not in assigned`.
+      # ⚠️ NO `symbols:` EDIT IS REQUIRED. This paragraph has now been wrong
+      # TWICE in opposite directions, so read the dates.
+      #   * #11665 said the account-level `symbols:` list is "inert for Alpaca".
+      #     FALSE when written.
+      #   * The 2026-09-10T09:02Z correction said `_resolve_tick_symbols` reads
+      #     `acct.symbols` and decides the tick's fetch set, "so a symbol carried
+      #     by no non-opted-out account is never fetched and no strategy on it
+      #     can signal at all". TRUE when written, and it is precisely the defect
+      #     E42 fixed on 2026-09-22 — the fetch set now unions the ROSTER-implied
+      #     symbols in, so putting a leg on a roster is sufficient and the pull
+      #     list can never strand it.
+      # The conclusion held under both regimes and still does: TLT/IEF/SLV/IAUM
+      # are ALREADY in this account's `symbols` below AND implied by its roster.
+      # What was verified directly and still stands unchanged: `symbols:` is not
+      # a ROUTING gate — `coordinator._dispatch_exclusion_reason`'s Alpaca path
+      # tests only `pkg.strategy not in assigned`.
       #
       # ⚠️ A COMPAT-MATRIX `ROUTE` IS NOT A TRACK RECORD AND NOT AFFORDABILITY.
       # tlt_pullback_1d (n=66) and slv_pullback_1d (n=95) carry ROUTE for this

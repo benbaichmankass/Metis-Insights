@@ -95,6 +95,36 @@ GUARDS: List[Dict[str, Any]] = [
         "when": {"globs": ["config/accounts.yaml", "scripts/check_account_class.py"]},
         "steps": [["python3", "scripts/check_account_class.py", "--list"]],
     },
+    {
+        # E42 — a rostered leg's symbol must be reachable, and the message
+        # must blame the PULL LIST rather than the leg. `symbols:` in
+        # accounts.yaml is an additive DATA-PULL list; the roster is the
+        # single source for what trades. Until 2026-09-22 the tick's fetch
+        # set came from the pull lists alone, which made an omission a third
+        # execution gate (Prime Directive rule 6) that nothing could see.
+        #
+        # `instruments.yaml` is in the globs because the guard's third axis
+        # grades against it: deleting a profile can strand a rostered symbol
+        # without either config file being touched.
+        #
+        # The self-test runs on EVERY invocation, before the tree check — a
+        # guard whose green has never been shown capable of turning red is
+        # not evidence (`check_guard_selftest_coverage.py`).
+        "name": "roster-symbol-reachability",
+        "when": {"globs": [
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+            "config/instruments.yaml",
+            "src/main.py",
+            "src/runtime/intents.py",
+            "scripts/ci/check_roster_symbol_reachability.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_roster_symbol_reachability.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_roster_symbol_reachability.py"],
+        ],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
