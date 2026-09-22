@@ -1,0 +1,135 @@
+id: RQ-20260922-011
+title: Is there ANY pairs configuration whose edge survives the fee stack, or is the sleeve structurally unviable?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  Every pair currently configured was backtested and every one goes deeply
+  negative once two-leg taker fees are applied. The mechanism is proven; the
+  edge is not. Is there a pair, a universe member, or an execution/parameter
+  configuration whose net-of-cost edge is positive — or is a two-leg
+  mean-reversion sleeve structurally unviable at this venue's fee schedule?
+
+why_this_matters: >-
+  OPERATOR DIRECTIVE 2026-09-22: "we need to find some pairs that pass
+  backtesting, and as the mechanism itself is already proven, we can push
+  those straight to live money once they pass." That is a correct application
+  of the ladder — Stage 0 establishes edge, Stage 1 verifies mechanics, and
+  pairs has ALREADY PASSED the mechanics half (see below). So the only thing
+  standing between this sleeve and a real-money roster is a Stage-0 pass.
+
+  MEASURED, docs/sprint-logs/S-M22-D2-PAIRS-READINESS-2026-07-16.md, G2
+  evidence (trainer-diag #6612/#6615, real candles at bybit_2 risk_pct 0.015):
+  R-space edge net_R +513..+825 COLLAPSES TO NET-NEGATIVE IN DOLLARS.
+  Fee-free fixed-beta-hold: SOL/ETH +$1279, BNB/BTC +$357, SOL/BTC -$295,
+  ETH/BTC -$855. Then "7.5bps taker x 2 legs x ~2800 trades tips all four
+  deeply negative. THE LOSS IS FEES — same wall as the small-TF program."
+
+  [!] AND THE TWO PAIRS RUNNING `live` ON PAPER TODAY WERE SELECTED ON THE
+  FEE-FREE NUMBER. config/pairs.yaml's own note: "edge-gated per operator
+  directive: SOL/ETH + BNB/BTC live on bybit_1 paper (positive fee-free
+  edge)". That is E3/R1's exact failure — selection on a pre-cost figure —
+  two months earlier and in a different sleeve.
+
+  MECHANICS, measured by the manager 2026-09-22 over the 200 most recent
+  closed trades: 88 pairs legs, 44 complete round-trips, 2026-09-14 ->
+  2026-09-22. Legs balance exactly (bnb_btc 25/25, sol_eth 19/19) and hold
+  times are symmetric to the minute (medians 121.6m/121.6m and 302.1m/302.1m).
+  Only 2 of 25 and 1 of 19 legs close inside 6 minutes, and when they do BOTH
+  legs do. BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN measured 8 of 8
+  stranded since 08-18; it no longer reproduces. The symmetry test is the one
+  that matters — balanced COUNTS alone prove nothing, because a stranded leg
+  still produces a close.
+
+power:
+  expected_n: null
+  min_detectable_effect: null
+  effect_units: usd
+  design: null
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    [!] DECLARED NULL DELIBERATELY, AND THIS UNIT SHIPS `blocked` BECAUSE OF
+    IT. A universe scan's n is the number of pairs that survive cointegration
+    screening times their trade counts, and neither is known before the scan
+    runs — so any expected_n written here would be invented. The queue README
+    forbids lowering a bar to manufacture a verdict; inventing a power basis
+    to clear a feasibility check is the same act. The FIRST deliverable of
+    this unit is its own power basis, from a dry pass of
+    scripts/research/pairs_universe_scan.py.
+  feasibility:
+    source: none
+    basis: >-
+      research_disposition.CORPORA holds e35, m20, gld_compat only. No pairs
+      corpus is registered, so grounding this on e35 would launder a
+      bracket-sweep boundary count as a pairs trade count. `source: none` is
+      the honest value.
+
+decision_rule:
+  id: RULE-RQ0922-011-PAIRS-NET-OF-FEES
+  registered_at: '2026-09-22'
+  registered_before_run: true
+  statistic: >-
+    Per candidate pair: two-leg DOLLAR P&L over the OOS window at the
+    real-money risk basis (balance x risk_pct, floored to venue lots), NET OF
+    the full fee stack actually payable on the execution style being tested —
+    taker 7.5bps x 2 legs by default, or the measured maker schedule if the
+    maker-execution arm is run. Trade count reported alongside, because the
+    fee bill is linear in it.
+  rule: >-
+    A pair PASSES only if its net-of-fee dollar P&L is > 0 over the OOS window
+    at a stated n. R-space net_R is NOT admissible on its own — it is the
+    exact statistic that read +513..+825 while the dollar result was negative.
+
+    IF one or more pairs pass, the deliverable is a Stage-0 evidence record
+    per passing pair in comms/strategy_evidence/, in the same shape as every
+    other leg, so check_roster_promotion_evidence.py can see it. A pass is a
+    PROPOSAL to the operator, never a roster edit.
+
+    IF no pair passes under taker fees BUT the maker-execution arm flips one
+    or more positive, the verdict is `viable_only_under_maker_execution`, and
+    the deliverable names maker execution as a PRECONDITION of the sleeve
+    rather than an optimisation — which makes `maker_band_post_only` a build
+    dependency, not a nice-to-have.
+
+    IF no configuration passes under any tested fee model, the verdict is
+    `structurally_unviable_at_this_fee_schedule`, and that is a RESULT, not a
+    failure of the unit. It would say the sleeve should be retired or moved to
+    a venue whose maker rebate changes the arithmetic — and it closes a
+    question that has been open since 2026-07-15.
+  what_it_does_not_do: >-
+    It does not touch config/pairs.yaml, config/accounts.yaml or
+    config/strategies.yaml, and it does not itself move any pair to a
+    real-money account — that is the operator's Tier-3 decision, and it is
+    AVAILABLE TODAY (config/pairs.yaml::account_id is one line). ⚠️ The
+    manager earlier called that "a build, not a config flip"; OPERATOR
+    CORRECTION 2026-09-22: "of course straight to live money is possible,
+    it's just a decision." Correct. What E36 buys is GRANULARITY — routing
+    ONE passing pair to real money while the rest stay on the paper soak —
+    not permission. Without it the flip is all-or-nothing.
+
+blocked_on:
+  - kind: work_item
+    ref: E37
+    what: >-
+      NOTHING ROUTES scripts/backtest_pairs.py TO A WORKFLOW. The harness
+      exists and is net-of-cost by its own argparse description, and
+      pairs_universe_scan.py and pairs_dollar_lots.py exist alongside it —
+      but no .github/workflows entry fires any of them, so this unit names no
+      `run.workflow` and the dispatcher correctly refuses it. Same defect
+      class as E25 (fvg_range) and E28 (ict_scalp). THIS is the blocker: it is
+      about the instrument, not about what happens after a pass.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: null
+  basis: >-
+    scripts/backtest_pairs.py exists and is net-of-cost by its own argparse
+    description ("net-of-cost: fee+slippage+funding"); scripts/research/
+    pairs_universe_scan.py and pairs_dollar_lots.py exist. NOTHING ROUTES ANY
+    OF THEM to a workflow — the same defect class as E25 (fvg_range) and E28
+    (ict_scalp). est_minutes is null rather than guessed: no run of this
+    sweep has been timed.
