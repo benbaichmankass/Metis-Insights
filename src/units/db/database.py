@@ -1675,6 +1675,40 @@ class Database:
         finally:
             conn.close()
 
+    def get_open_package_strategy_names(self):
+        """Every DISTINCT ``strategy_name`` that currently has an OPEN package.
+
+        E21. The exit half used to derive its population from the strategy
+        ROSTER (``pipeline.STRATEGIES``), which means a position was monitored
+        because its name appeared in a list. Two ways that strands a real
+        position, both reachable:
+
+        1. ``config/strategies.yaml`` becomes unreadable — the roster resolves
+           to nothing (before 2026-09-22, to the wrong two names) and every
+           open package stops receiving ``monitor()``.
+        2. A leg is RETIRED from ``strategies.yaml`` while it still holds an
+           open position. Roster removal from an ACCOUNT is harmless (exit
+           evaluation never read account rosters), but removal from the
+           registry is not — and cutting legs is routine here.
+
+        So the exit population is DB-driven and unioned with the roster: a
+        package is monitored because it is OPEN. Returns ``[]`` only when the
+        query genuinely found nothing; a failure RAISES so the caller can tell
+        "nothing is open" from "we could not look" rather than inferring a
+        calm answer from an empty list.
+        """
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT DISTINCT strategy_name FROM order_packages "
+                "WHERE status = 'open' AND strategy_name IS NOT NULL "
+                "AND strategy_name != ''"
+            )
+            return [str(row[0]) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
     def get_recent_order_packages_for_symbol(self, symbol, *, limit=30):
         """Newest-first order packages for ``symbol`` (any strategy/status).
 
