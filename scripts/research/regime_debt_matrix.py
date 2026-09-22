@@ -76,9 +76,26 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 # Yahoo tickers for the symbols that need translating (mirror dashboard _yf_ticker).
 _YF_TICKER = {"MES": "ES=F", "MGC": "GC=F", "MHG": "HG=F", "XAUUSD": "GC=F"}
 # Bybit interval code fetch_backtest_candles speaks, per timeframe.
-_TF_TO_BYBIT_INT = {"1h": "60", "2h": "120", "4h": "240", "1d": "D"}
+# ⚠️ BOTH MAPS `.get(timeframe, <daily>)`, so a timeframe MISSING here does not
+# fail — it silently fetches DAILY bars and hands them to a harness told to
+# `--resample 15m`. That is the collapsed state this repo has a guard family
+# for, one level down in the feed: "we have no mapping for this bar" and "this
+# leg trades daily" produced the same CSV. Nothing hit it while classify() only
+# routed 1h/2h/4h/1d legs; routing the 15m fvg_range family (below) makes it
+# reachable, so the intraday codes are filled in here rather than left to be
+# rediscovered as a mysteriously empty backtest.
+# Bybit kline codes, per scripts/ops/fetch_backtest_candles.py --interval
+# (1/3/5/15/30/60/120/240/D/W).
+_TF_TO_BYBIT_INT = {"1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30",
+                    "1h": "60", "2h": "120", "4h": "240", "1d": "D"}
 # Yahoo base interval to fetch per timeframe (Yahoo has no 2h/4h -> fetch 60m + resample).
-_TF_TO_YF_INT = {"1h": "60m", "2h": "60m", "4h": "60m", "1d": "1d"}
+# ⚠️ The intraday entries are served by yfinance only over a SHORT lookback
+# (~60d for 5m/15m against the 720d the 60m lane gets). A `--days` window past
+# that returns an EMPTY frame, which `_fetch_csv` turns into a NAMED
+# `_yahoo_empty_reason` failure — a loud `harness_failed`, which is the honest
+# outcome and strictly better than the daily-bar fallback it replaces.
+_TF_TO_YF_INT = {"5m": "5m", "15m": "15m", "30m": "30m",
+                 "1h": "60m", "2h": "60m", "4h": "60m", "1d": "1d"}
 
 # Plain trend param keys the base harness fully models; anything else on a
 # Donchian strategy is an unmodelled lever -> approximate.
@@ -195,6 +212,43 @@ _SQZ_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "
 # emitted trade's MFE ever reached tp_r on the sample — which needs a post-run
 # fidelity adjustment in both callers: BL-20260730-SQZ-TPR-EMPIRICAL-CHECK.
 _SQZ_TP_R_NONBINDING = 20.0
+# FVG range / mean-reversion (scripts/backtest_fvg_range.py) config-key -> harness
+# flag. The harness has existed and been cost-wired the whole time; nothing
+# routed to it, so `fvg_range_15m` — a leg on the REAL-MONEY bybit_2 roster —
+# was the only one of the four legs failing B1's evidence bar to fail all four
+# clauses, purely because nothing ever measured it.
+#
+# ⚠️ These flags were read off `backtest_fvg_range.py`'s own add_argument list,
+# not off its docstring (field beats comment). Every key the LIVE
+# `fvg_range_15m` config carries maps to a real flag, so the leg grades
+# `faithful` rather than `approximate` — verified by running the classifier
+# against the live config, not asserted here.
+_FVG_LEVER_FLAG = {
+    "adx_max": "--adx-max",
+    "min_width_pct": "--min-width-pct", "max_width_pct": "--max-width-pct",
+    "touch_tol_pct": "--touch-tol-pct", "min_touches": "--min-touches",
+    "third_frac": "--third-frac", "fvg_search": "--fvg-search",
+    "min_fvg_size_bps": "--min-fvg-size-bps",
+    "atr_stop_buffer": "--atr-stop-buffer",
+    "timeout_bars": "--timeout-bars", "cooldown_bars": "--cooldown-bars",
+    "exit_style": "--exit-style",
+    "stale_exit_bars": "--stale-exit-bars",
+    "stale_exit_below_r": "--stale-exit-below-r",
+    "giveback_min_mfe_r": "--giveback-min-mfe-r", "giveback_r": "--giveback-r",
+}
+_FVG_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
+              "symbols", "range_lookback", "atr_period", "adx_period",
+              "min_confidence", "shadow_model_ids", "description", "tp_intent"}
+# ⚠️ `adx_min` and `tp_r` are in NEITHER set, deliberately, and for the reason
+# the squeeze block gives for its own `side_filter`/`tp_r` omissions:
+#   * `backtest_fvg_range.py` has no `--adx-min` — only the trend + pullback
+#     harnesses gained one. A fvg leg declaring it degrades to `approximate`
+#     and names it, rather than having a floor silently not applied.
+#   * `--tp-r` EXISTS but binds only under `--exit-style tp1r` (the default is
+#     `mid`, the range midline). Forwarding it unconditionally would claim a
+#     target the harness then ignores. Left out, so a leg declaring `tp_r`
+#     reads `approximate` and names it — the honest answer. Porting the flags,
+#     not widening these sets, is the fix if a variant ever needs them.
 # Levers no offline harness can replay.
 _UNREPLAYABLE = {"exit_head_model", "exit_head_threshold", "exit_head_action"}
 
@@ -275,6 +329,17 @@ def classify(cfg: dict) -> str | None:
     # existing harness (no silent re-routing of an already-measured strategy).
     if "kc_mult" in cfg and "bb_period" in cfg:
         return "squeeze"
+    # FVG range mean-reversion: a horizontal range (range_lookback) entered on
+    # its outer third (third_frac). Keyed on the leg's own defining STRUCTURAL
+    # params, the same kind of signal the three branches above use — not on the
+    # strategy's name, its signal_prefixes or its module, which are labels about
+    # the config rather than the config. MEASURED over all 55 legs in
+    # config/strategies.yaml on 2026-09-22: `range_lookback` and `third_frac`
+    # are each carried by exactly ONE leg (fvg_range_15m), so the conjunction
+    # cannot capture a leg an earlier branch should have taken. Checked LAST for
+    # the same reason squeeze is checked after trend/pullback.
+    if "range_lookback" in cfg and "third_frac" in cfg:
+        return "fvg_range"
     return None
 
 
@@ -491,6 +556,31 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         if tp_r is not None and float(tp_r) < _SQZ_TP_R_NONBINDING:
             omitted = sorted(set(omitted) | {"tp_r"})
         faithful = not omitted
+    elif harness == "fvg_range":
+        # Deliberately does NOT reuse `common`: that list hard-codes
+        # `--atr-stop-mult` and `--trail-mult`, which backtest_fvg_range.py does
+        # not accept (it sizes its stop from the range edge + --atr-stop-buffer
+        # and exits at the midline). Passing them would abort the subprocess with
+        # "unrecognized arguments", and run_one reports a non-zero exit as
+        # `harness failed` — a missing FLAG would have been misread as a broken
+        # harness. Same reasoning as the adx_flags carve-out above, one step
+        # further: the flags are not merely withheld, the shared list is not
+        # applicable at all.
+        argv = [py, os.path.join(REPO, "scripts/backtest_fvg_range.py"),
+                "--data", csv, "--symbol", symbol, "--resample", resample,
+                "--timeframe", str(cfg.get("timeframe") or resample),
+                "--range-lookback", str(cfg.get("range_lookback", 48)),
+                "--atr-period", str(cfg.get("atr_period", 14)),
+                "--adx-period", str(cfg.get("adx_period", 14)),
+                "--min-confidence", str(cfg.get("min_confidence", 0.0)),
+                "--fee-bps-roundtrip", str(fee),
+                "--emit-trades", emit, "--json", jout]
+        for k, flag in _FVG_LEVER_FLAG.items():
+            if cfg.get(k) is not None:
+                argv += [flag, str(cfg[k])]
+        omitted = sorted(k for k in cfg
+                         if k not in _FVG_PLAIN and k not in _FVG_LEVER_FLAG)
+        faithful = not omitted
     else:
         argv = [py, os.path.join(REPO, "scripts/backtest_pullback.py"),
                 "--trend-lookback", str(cfg.get("trend_lookback", 40)),
@@ -587,8 +677,8 @@ def emit_trades_for(name: str, cfg: dict, workdir: str, days: int, *,
     row: dict = {"strategy": name, "symbol": sym, "timeframe": tf,
                  "harness": harness, "emit_path": None, "n_emitted": 0}
     if harness is None or not sym or not tf:
-        row["error"] = ("unclassifiable (no donchian/pullback/squeeze params "
-                        "or no symbol/timeframe)")
+        row["error"] = ("unclassifiable (no donchian/pullback/squeeze/fvg-range "
+                        "params or no symbol/timeframe)")
         return row
     feed = resolve_feed(sym, tf)
     row["feed"] = feed
@@ -637,7 +727,8 @@ def run_one(name: str, cfg: dict, workdir: str, days: int,
     tf = cfg.get("timeframe")
     row: dict = {"strategy": name, "symbol": sym, "timeframe": tf, "harness": harness}
     if harness is None or not sym or not tf:
-        row["error"] = "unclassifiable (no donchian/pullback/squeeze params or no symbol/timeframe)"
+        row["error"] = ("unclassifiable (no donchian/pullback/squeeze/fvg-range "
+                        "params or no symbol/timeframe)")
         return row
     feed = resolve_feed(sym, tf)
     row["feed"] = feed

@@ -958,6 +958,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "The health-review skill is explicit that a clean breach check must be a STATED VERIFICATION and that an empty security finding is a review failure. MEASURED 2026-09-22: 0 of the 5 declared sweep sources were swept. Host auth signals are blocked behind /api/diag/* (3 of 3 probes -> HTTP 401 missing_token, the vm-diag-snapshot relay being down per E19). The four GitHub-side sources (secret scanning, external-actor activity, repo/supply-chain mutations, Actions anomalies) were not run inside this lane's $40 ceiling. [!] THIS ROW EXISTS BECAUSE THE ALTERNATIVE WAS TO WRITE `no breach detected`, WHICH WOULD HAVE BEEN THE FABRICATED REASSURING VALUE the collapsed-states rule forbids. The review reports security as `could_not_look`, not `ok`. [!] PROPOSED FIX (Tier-1): the four GitHub-side sources need no VM access and no DIAG token -- only the MCP session. They should be their own cheap standing lane rather than riding a review that can be budget-truncated, since truncation currently takes the security sweep with it every time."
+    },
+    {
+      "id": "E25",
+      "title": "Resolve the fvg_range harness issue — route the family, and let the measurement say what it says",
+      "phase": "E",
+      "state": "landed_unproven",
+      "owner": "build lane",
+      "lane": "session_01Pfa2shVwLhbdof5GayXBX5",
+      "model": "claude-opus-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "DONE, and the verdict is a measured FAIL, which is the outcome this row wanted. regime_debt_matrix.classify() gained a fourth branch (range_lookback+third_frac -> fvg_range) plus a _FVG_PLAIN/_FVG_LEVER_FLAG map read off backtest_fvg_range.py's own add_argument list; build_harness_cmd builds its own argv rather than reusing `common`, which hard-codes two flags that harness does not accept. comms/strategy_evidence/fvg_range_15m.json went no_harness -> MEASURED, fidelity=faithful, omitted_levers=[]: net_r_oos -10.2594 over n=17 trades, expectancy -0.6035R, 0 of 4 time-folds positive, net of the full cost stack (fee 7.5 / slippage 5.0 / funding 1.0 bps), over 34,944 real BTCUSDT 15m bars from data.binance.vision, 2025-09-22 -> 2026-09-20. decision_rule RULE-D1-STAGE0-NET-OF-FULL-COST (registered 2026-09-22T05:34:08Z, BEFORE this run) verdict=fail. So against B1's four-clause bar fvg_range_15m went from failing ALL FOUR clauses to failing ONE (C4, the rule itself) -- 'we never looked' became 'we looked and it does not clear'. The roster tally is unchanged at 8/12 passing; nothing here re-adds or removes a leg, and config/accounts.yaml + config/strategies.yaml were not touched (Tier-3, concurrent lane R2). [!] POPULATION, because the row asked: MEASURED over all 52 enabled legs by importing regime_debt_matrix and calling classify() -- 42 routed before, 43 after; unrouted 10 -> 9. It was never one leg. The 9 that remain are turtle_soup plus the EIGHT-leg ict_scalp_* family, and all eight of those are execution: live while fvg_range_15m is only shadow -- scripts/backtest_ict_scalp.py exists and nothing routes to it. Filed as PI-20260922-5GAYXBX5-0001 with the one design call that stopped this lane doing it too (that harness loads its params from strategies.yaml itself, so the fidelity grade cannot be computed the way the other four compute it). [!] Also fixed en route: _TF_TO_BYBIT_INT/_TF_TO_YF_INT had no 15m/5m entry and .get()-defaulted to DAILY bars, so routing any intraday leg would have silently backtested it on the wrong bar. Unreachable before this change, reachable after. [!] Also filed: PI-20260922-5GAYXBX5-0002 -- every strategy_evidence record's source_run (R1's too) points into a /tmp dir that does not survive its session, which the canonical 'a MEASURED must say where the measurement lives' rule refuses. [!] landed_unproven, not done: OBSERVATION THAT WOULD CLOSE IT = the fvg_range_15m record read back from merged main showing coverage_state=measured, and scripts/ci/check_roster_promotion_evidence.py --population reporting that leg's failure as C4-only rather than C1-C4."
     }
   ]
 }
