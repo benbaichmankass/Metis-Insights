@@ -6,8 +6,10 @@
   "config_fingerprint": "sha256:e50b1a963a62ba0a644bd8e9920c9cdb",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "faithful",
-  "omitted_levers": [],
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "tp_r"
+  ],
   "net_r_oos": 3.034,
   "expectancy_r_oos": 0.5057,
   "n_trades_oos": 6,
