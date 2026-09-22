@@ -1,5 +1,0 @@
-E42 finding (c) — Tier-1 self-land.
-
-Corrects two false claims in config/accounts.yaml's header comment about the
-`mode:` gate. Comment-only: parsing both sides of the diff yields identical
-YAML.
