@@ -6,3 +6,10 @@ Round 5 (2026-09-22, after #12704 merged and the branch was restarted from main)
 row E30 -- the paper books' P&L is mostly NOT measured (pnlCoverage 0.2235,
 266 measured / 661 estimated), which is the stage whose whole job is measuring
 realized cost. A finding the 2026-09-22 health-review made and never filed.
+
+Round 6 (2026-09-22, after #12717 merged and the branch was recut from main):
+row E32 -- the verification mapping the operator asked for, and the measurement
+behind it: over the 200 most recent closed trades (~9 days) 199 are PAPER and
+ONE is real money, closed 8 days ago. So a behavioural check of R2's cut has no
+positive control and proves nothing; layer 4 (the process's loaded roster, E31)
+is not optional.

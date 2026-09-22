@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The R7 dispatch says it in terms: 'Do NOT subscribe to your own PR and do not idle watching it -- one lane burned $165 doing exactly that. Push, open a draft PR with landing: \"hold\", and STOP. The manager merges.' This lane is also at its $45 ceiling. The PR is held for the manager, not because anything about it is unresolved.",
+  "why": "Evidence only. Regrades the 40 of 52 strategy-evidence records that carried no cost_stack, so every enabled leg now has a cost_stack + a decision_rule verdict or a named no_harness/harness_failed reason, plus path_stats for B6 and a source_run that points at committed per-trade rows instead of a dead /tmp path. Tier-1 by path: comms/strategy_evidence/, docs/, scripts/ops/build_strategy_evidence.py (backtest tooling, no live runtime), and two registers. config/accounts.yaml and config/strategies.yaml are UNTOUCHED -- the results imply roster questions and those are written as proposals P1-P5 and left to R8, which is Tier-3."
+}

@@ -599,6 +599,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/P5-orb-mes-result-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/P7-xsec-momentum-firstpass-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/POST-VALUE-PIVOT-WORKPLAN-2026-07-27.md` | plan | closed_unfinished | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:closed_unfinished` | what was left: BOTH tracks. **Track 1** (higher-frequency microstructure off |
+| `docs/research/R5-REMAINING-CORPUS-COST-STACK-2026-09-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | R7 lane: regrades the 40 of 52 evidence records that carried no `cost_stack`. Answers both live operator questions and carries proposals P1-P5, applied by nobody. `unknown` is correct and deliberate — the author wrote it, nobody else has read it. |
 | `docs/research/R6-VM-RESIDENCY-VERDICT-2026-08-28.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/RESEARCH-CAPABILITY-INDEX.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/RESEARCH-INFRA-AUDIT-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
