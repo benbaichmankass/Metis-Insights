@@ -1822,11 +1822,11 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2.0  # M20 B4 bracket geometry: cell tp3_sm2 (path_b_wf_pass, wf 5/6); was 2.5
     trail_mult: 4.0
-    # trail_decay_arm_r REMOVED 2026-09-22 — the follow-through of THIS LEG'S OWN adjudication,
-    # under the same "cannot fire" test the operator applied on 2026-09-22 to the other legs.
-    # ⚠️ SEPARATE FROM THAT DECISION AND SEPARABLE FROM IT: this leg was NOT one of the three the
-    # operator was shown when they answered, so this hunk ships in its own commit and can be
-    # dropped alone. Was: `trail_decay_arm_r: 3.56` (M20 P4.4 p80 cell, wf 5/6; sweep 2026-07-13).
+    # trail_decay_arm_r REMOVED 2026-09-22 — Tier-3, OPERATOR-DECIDED. The decision was "strip the
+    # arms entirely", and the operator CLARIFIED the test in their own words the same day: "I only
+    # wanted to strip the arm where it can't produce a result, it should stay where it can produce
+    # one." So the test is not "is the arm high" and not "does it rarely fire" — it is whether the
+    # measured answer is ZERO. This leg's is. Was: `trail_decay_arm_r: 3.56` (M20 P4.4 p80 cell, wf 5/6; sweep 2026-07-13).
     #   ALREADY ADJUDICATED — OPERATOR DECISION 2026-08-16 (Tier-3, in-conversation): RECORD
     #   INERT. MEASURED: cap_R 2.13 against the 3.56R arm, on two independent bases agreeing
     #   exactly (live order_packages/risk_per_unit n=1 + candles/atr(14) 1d QQQ n=105); the
@@ -1968,11 +1968,11 @@ strategies:
     atr_stop_mult: 2.0
     trail_mult: 4.0
     trail_decay_stall_bars: 10   # M20 P4.1 decay cell (stall10 tight2 wf 4/6; sweep 2026-07-12, PR #6251)
-    # trail_decay_arm_r REMOVED 2026-09-22 — the follow-through of THIS LEG'S OWN adjudication,
-    # under the same "cannot fire" test the operator applied on 2026-09-22 to the other legs.
-    # ⚠️ SEPARATE FROM THAT DECISION AND SEPARABLE FROM IT: this leg was NOT one of the three the
-    # operator was shown when they answered, so this hunk ships in its own commit and can be
-    # dropped alone. Was: `trail_decay_arm_r: 5.06` (M20 P4.4 p80 arm ADDED to stall10, wf 5/6;
+    # trail_decay_arm_r REMOVED 2026-09-22 — Tier-3, OPERATOR-DECIDED. The decision was "strip the
+    # arms entirely", and the operator CLARIFIED the test in their own words the same day: "I only
+    # wanted to strip the arm where it can't produce a result, it should stay where it can produce
+    # one." So the test is not "is the arm high" and not "does it rarely fire" — it is whether the
+    # measured answer is ZERO. This leg's is. Was: `trail_decay_arm_r: 5.06` (M20 P4.4 p80 arm ADDED to stall10, wf 5/6;
     # sweep 2026-07-13).
     #   ALREADY ADJUDICATED — OPERATOR DECISION 2026-08-16 (Tier-3, in-conversation): RECORD
     #   INERT. MEASURED: 0 of 8 live order_packages over the leg's COMPLETE history could reach
@@ -2757,28 +2757,7 @@ strategies:
     # trail is for. beats_baseline TRUE, train/OOS-consistent TRUE over 13,212 XRPUSDT 2h
     # bars (net-of-cost 7.5bps, --oos-start 2026-01-01). ROLLBACK: set back to 5.0.
     trail_mult: 6.0
-    # trail_decay_arm_r REMOVED 2026-09-22 — Tier-3, OPERATOR-DECIDED 2026-09-22: "strip the
-    # arms entirely", i.e. remove the reach-gate from the legs where it CANNOT FIRE so the
-    # config stops declaring a protection that does not exist. Was: `trail_decay_arm_r: 4.49`
-    # (M20 P4.4 p80 cell, sweep 2026-07-13).
-    #   MEASURED, two independent populations, both recorded in config/lever_reachability.json
-    #   under this leg: LIVE order_packages/risk_per_unit, the authoritative basis, COMPLETE
-    #   population n=37 -> 2 reachable (5.4%); BACKTEST entry-conditioned n=204, 2023-01-06 ->
-    #   2026-07-17 -> 12 reachable (5.9%). cap_R = 0.099/(risk_per_unit/entry).
-    #   AND SINCE 2026-08-23 IT IS INERT BY CONSTRUCTION, not just empirically: `tp_r` was cut
-    #   50.0 -> 3.0, and the placed TP is min(entry*(1+0.099), entry + tp_r*risk)
-    #   (src/units/strategies/htf_pullback_trend_2h.py:351), so the highest MFE a trade can
-    #   print before its TP fills is min(cap_R, 3.0) <= 3.0R on EVERY entry — below the 4.49R
-    #   arm regardless of vol. The 2026-08-16 registry measurement predates that tp_r change.
-    #   EFFECT OF THE REMOVAL: this leg declares no `trail_decay_stall_bars`, so with the arm
-    #   gone the trail-decay lever is UNDECLARED and `resolve_trail_mult` returns the base
-    #   trail mult (src/runtime/trail_decay.py:143-145) — byte-identical to today, because the
-    #   arm could not fire. The undeclared branch additionally writes one OBSERVE-ONLY
-    #   annotate row to runtime_logs/exit_lever_soak.jsonl per package when the reference
-    #   stall-6 cell would arm; that path never touches an order.
-    #   ROLLBACK (one line): restore `trail_decay_arm_r: 4.49` above `trail_decay_tight_mult`.
-    # NOTE `trail_decay_tight_mult: 2.5` is deliberately LEFT: with no arming condition it is
-    # now inert too, but removing it was not what the operator decided and is not taken here.
+    trail_decay_arm_r: 4.49   # M20 P4.4 p80 cell (p80 arm, wf 5/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.5
     # tp_r 50.0 -> 3.0 (Tier-3, operator-approved 2026-08-23). The 50 was a FAR
     # SENTINEL meaning "no real target, the trail is the exit" — so the placed TP was
@@ -2844,36 +2823,22 @@ strategies:
     atr_period: 14
     atr_stop_mult: 2  # M20 e35 re-check 2026-08-29: cell sm2 (path_b_wf_pass, wf 4/6, d_net_r +1.0084); was 2.5
     trail_mult: 5.0
-    # trail_decay_arm_r REMOVED 2026-09-22 — Tier-3, OPERATOR-DECIDED 2026-09-22: "strip the
-    # arms entirely", i.e. remove the reach-gate from the legs where it CANNOT FIRE so the
-    # config stops declaring a protection that does not exist. Was: `trail_decay_arm_r: 4.86`
-    # (M20 P4.4 p80 cell, sweep 2026-07-13).
-    #   MEASURED 2026-09-22 by this lane, because no reachability record for this leg existed:
-    #   entry-conditioned cap_R = 0.099/(|entry - sl|/entry) over the leg's own backtest
-    #   trades, n=45, 2025-09-22 -> 2026-09-21, config-exact at this block's atr_stop_mult 2.0
-    #   -> 2 reachable (4.4%), stable across both years (2025 1/14, 2026 1/31); cap_R median
-    #   3.269, max 5.283 against the 4.86R arm. Population and source:
-    #   comms/strategy_evidence/runs/2026-09-22-r5/avax_pullback_2h__trades.jsonl. Recorded in
-    #   config/lever_reachability.json. `execution: shadow` — this leg routes to no
-    #   real-money account, so the change carries no money impact either way.
-    #   EFFECT OF THE REMOVAL: `trail_decay_stall_bars: 6` below keeps the lever DECLARED, so
-    #   the stall arm and the tightened mult go on working exactly as today
-    #   (src/runtime/trail_decay.py:143-145); only the R-arm is gone.
-    #   ROLLBACK (one line): restore `trail_decay_arm_r: 4.86` above `trail_decay_tight_mult`.
+    trail_decay_arm_r: 4.86   # M20 P4.4 p80 cell (p80 arm, wf 4/6; sweep 2026-07-13)
     trail_decay_tight_mult: 2.5
     trail_decay_stall_bars: 6    # M20 exit-lever sweep 2026-08-10 (Tier-3, operator-approved):
                                  # decay_stall6_t2.5 (IS +5.36R / OOS +4.78R, maxDD -3.99 / -2.02,
-                                 # cap/day +0.031; >=2/3 yearly folds). The sweep base threaded
-                                 # arm_r + tight_mult, so the delta was measured against the book as
-                                 # it then stood. ⚠️ CORRECTED 2026-09-22: this comment used to read
-                                 # "this ADDS a second arming condition to an ALREADY-ARMED lever —
-                                 # trail_decay_arm_r 4.86 above is live, so this is not switching on a
-                                 # dead lever." That was measured false (2 of 45 entries could reach
-                                 # 4.86R) and the arm has now been stripped, so SINCE 2026-09-22 THIS
-                                 # STALL BAR IS THE LEVER'S ONLY ARMING CONDITION. `execution: shadow`
-                                 # — no money impact until this leg is promoted.
-                                 # ROLLBACK: delete this line (the lever then has no arming condition
-                                 # at all and `resolve_trail_mult` returns the base mult).
+                                 # cap/day +0.031; >=2/3 yearly folds). NOTE this ADDS a second arming
+                                 # condition to an ALREADY-ARMED lever. ⚠️ AMENDED 2026-09-22: that
+                                 # claim is MEASURED FALSE as an absolute — only 2 of 45 entry-conditioned
+                                 # backtest trades (4.4%) could reach trail_decay_arm_r 4.86 under the
+                                 # venue TP cap, so the R-arm is live but nearly always out of range and
+                                 # this stall bar is in practice the lever's working arming condition.
+                                 # The arm is NOT stripped: 4.4% is non-zero and the operator's test is
+                                 # "strip only where it cannot produce a result at all" — held pending
+                                 # their answer (PI-20260922-E41-0004). The sweep base threaded
+                                 # arm_r + tight_mult, so the delta is measured against the real
+                                 # book. `execution: shadow` — no money impact until this leg is promoted.
+                                 # ROLLBACK: delete this line (restores arm-only decay).
     tp_r: 50.0
     min_confidence: 0.0
     vol_skip_below_pctl: 0.1   # M21 E-2 round 4 vol_lo10 (wf 4/6, 2026-07-14) — skip entries whose trigger-bar ATR sits in the dead-vol bottom decile (trailing 200-bar pctl); IS net_R 34.9 -> 36.2 (dd equal), OOS 15.0 -> 16.4 (dd 10.3 -> 9.6); measured config-exact on top of the P4.4 trail-decay declare. Rollback = delete this line.
