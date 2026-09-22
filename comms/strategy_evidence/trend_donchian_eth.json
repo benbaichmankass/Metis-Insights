@@ -3,7 +3,7 @@
   "strategy": "trend_donchian_eth",
   "symbol": "ETHUSDT",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:35db8497ea7ff4eb9d54d27bcebceca7",
+  "config_fingerprint": "sha256:bcc6cf399a40ff3230bf72999d6d36c7",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

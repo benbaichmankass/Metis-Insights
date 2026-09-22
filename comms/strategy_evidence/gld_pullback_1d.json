@@ -3,7 +3,7 @@
   "strategy": "gld_pullback_1d",
   "symbol": "GLD",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:8b423762b9ad8fe0c9f26b950d1859b7",
+  "config_fingerprint": "sha256:3d4caab99f4d17621de12bd7ee4a0304",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

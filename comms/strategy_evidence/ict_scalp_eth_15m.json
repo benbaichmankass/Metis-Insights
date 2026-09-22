@@ -3,7 +3,7 @@
   "strategy": "ict_scalp_eth_15m",
   "symbol": "ETHUSDT",
   "timeframe": "15m",
-  "config_fingerprint": "sha256:e606d10261e1a9224e5301e13daa7d3c",
+  "config_fingerprint": "sha256:e564425f5a2e021562a9be58f9a93974",
   "basis": "harness_timefolds",
   "coverage_state": "no_harness",
   "fidelity": null,

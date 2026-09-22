@@ -3,7 +3,7 @@
   "strategy": "scha_trend_long_1d",
   "symbol": "SCHA",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:0ff6f295957202614ee964e8b5032377",
+  "config_fingerprint": "sha256:63c25f9a2def667a020c8c1978ed7702",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
