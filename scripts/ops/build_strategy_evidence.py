@@ -55,18 +55,22 @@ over `load_legs()` -- no fetch, no harness run):
     is the number MI-215 first published. It does not establish that the harness
     accepts a leg's parameters. (Not re-derived on 2026-09-22; carried from
     2026-09-09.)
-  * **43/52 (82.7%)** actually route -- was 42/52 (80.8%) on 2026-09-09.
-    `regime_debt_matrix.classify()` now has FOUR branches (donchian /
-    trend_lookback|pullback_frac / kc_mult+bb_period / range_lookback+third_frac)
-    against a THIRTEEN-family harness fleet. **The nine that still do not route
-    are `turtle_soup` plus the EIGHT-leg `ict_scalp_*` family, and all eight of
-    those are `execution: live`** -- `backtest_ict_scalp.py` exists and nothing
-    routes to it, which is the same defect E25 fixed for fvg_range, at 8x the
-    size. Tracked as PI-20260922-E25-ICT-SCALP-FAMILY-STILL-UNROUTED.
-  * **30/52 (57.7%)** grade `faithful` -- the harness models EVERY lever the
-    leg's config declares (was 29/52, 55.8%). The other 13 grade `approximate`.
+  * **51/52 (98.1%)** actually route -- was 43/52 (82.7%) before E28 added the
+    fifth branch the same day. `regime_debt_matrix.classify()` now has FIVE
+    (donchian / trend_lookback|pullback_frac / kc_mult+bb_period /
+    range_lookback+third_frac / sweep_lookback_bars+mitigation_mode) against a
+    THIRTEEN-family harness fleet. **The one that still does not route is
+    `turtle_soup`.** ⚠️ That this now EQUALS the by-name upper bound above is a
+    coincidence of arithmetic, not the same measurement -- the two would part
+    again the moment a leg matched a family by name without its config being
+    accepted, which is exactly what the upper bound cannot see.
+  * **37/52 (71.2%)** grade `faithful` -- the harness models EVERY lever the
+    leg's config declares (was 30/52, 57.7%). The other **14** of the 51 routed
+    grade `approximate` (37 + 14 = 51; the 52nd is `turtle_soup`, unrouted), and
+    `ict_scalp_xrp_5m` is one of the 14: its `off_cells` is `not_expressible`
+    by this harness (MI-321), so its number is the UNGATED arm.
 
-**57.7% is the number this record rests on.** Do not quote 98.1%.
+**71.2% is the number this record rests on.** Do not quote 98.1%.
 
 ⚠️ `fidelity` IS IN THE RECORD, AND THAT IS DELIBERATE
 ------------------------------------------------------
@@ -179,14 +183,37 @@ DEFAULT_DAYS = 365
 MIN_TRADES_FOR_POOLED = 10
 
 
+# Fields that are EXECUTION GATES, not strategy parameters. They decide whether
+# a leg trades; they do not change what the harness would produce for it, so
+# they are excluded from the fingerprint.
+#
+# ⚠️ THIS EXCLUSION IS LOAD-BEARING AND WAS FOUND BY A DEFECT, 2026-09-22 (E40).
+# Until it existed, the digest covered the WHOLE config block, so flipping
+# `execution: shadow -> live` moved the fingerprint — which meant EVERY
+# PROMOTION INVALIDATED ITS OWN EVIDENCE at the moment of promotion, and
+# check_roster_promotion_evidence.py refused it with `identity FAIL ... STALE`
+# while C1-C4 all passed. B1 landed 2026-09-21 and had permitted zero
+# promotions; the first one attempted found it.
+#
+# ⚠️ DO NOT WIDEN THIS SET TO QUIET A GUARD COMPLAINT. A moved `atr_stop_mult`,
+# `entry_z`, `lookback` or any other parameter the harness reads MUST still
+# invalidate the record — that is the whole job of the check, and the
+# `--self-test` plants exactly that case.
+_GATE_FIELDS: frozenset = frozenset({"execution", "enabled"})
+
+
 def config_fingerprint(cfg: Dict[str, Any]) -> str:
-    """Stable digest of a leg's config block.
+    """Stable digest of a leg's STRATEGY PARAMETERS.
 
     An edge record is evidence about the leg AS CONFIGURED, so a moved config
     makes the record STALE rather than silently wrong. Sorted keys + separators
     so formatting churn does not change the digest.
+
+    Execution gates (`_GATE_FIELDS`) are excluded: they decide whether the leg
+    trades, not what a backtest of it would produce. See the note above.
     """
-    blob = json.dumps(cfg, sort_keys=True, separators=(",", ":"), default=str)
+    params = {k: v for k, v in (cfg or {}).items() if k not in _GATE_FIELDS}
+    blob = json.dumps(params, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
 
@@ -365,13 +392,17 @@ def build_record(name: str, cfg: Dict[str, Any], *, workdir: str,
         rec["coverage_state"] = "no_harness"
         rec["error"] = (
             "regime_debt_matrix.classify() routes nothing for this leg. Its "
-            "four branches (donchian / trend_lookback|pullback_frac / "
-            "kc_mult+bb_period / range_lookback+third_frac) do not cover this "
-            "config. A harness may still EXIST for the family -- "
-            "backtest_ict_scalp.py does, and nothing routes to it -- so this "
-            "is a missing classifier branch plus a lever map, not absent "
-            "infrastructure. The fvg_range branch was added the same way on "
-            "2026-09-22 (E25); that is the worked example to copy."
+            "five branches (donchian / trend_lookback|pullback_frac / "
+            "kc_mult+bb_period / range_lookback+third_frac / "
+            "sweep_lookback_bars+mitigation_mode) do not cover this config. A "
+            "harness may still EXIST for the family, so this is a missing "
+            "classifier branch plus a lever map, not necessarily absent "
+            "infrastructure -- check scripts/backtest_*.py before concluding "
+            "otherwise. The fvg_range branch was added that way on 2026-09-22 "
+            "(E25) and the ict_scalp family the same day (E28); those are the "
+            "worked examples to copy. ⚠️ E28 is the one to read FIRST if the "
+            "harness reads config/strategies.yaml itself, because it had to fix "
+            "that read before the route was sound."
         )
         return rec
 
