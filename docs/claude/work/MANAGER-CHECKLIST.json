@@ -1165,7 +1165,9 @@
       "ceiling_usd": 50,
       "spend_usd": null,
       "tier": 3,
-      "prs": [],
+      "prs": [
+        12737
+      ],
       "blocked_on": [
         {
           "kind": "operator_decision",
