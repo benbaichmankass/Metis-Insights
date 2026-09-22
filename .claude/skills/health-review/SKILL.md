@@ -555,13 +555,20 @@ with the `/security-review` skill (route there if a signal points at code).
   vector). Cross-check against the session's own known changes.
 - **Actions anomalies** — workflow runs triggered by an unexpected actor, or
   a spike/burst that doesn't match Claude-session or scheduled activity.
-- **VM host signals (via the diag relay)** — `journalctl` for
-  `sshd`/auth (failed-then-succeeded logins, new sessions/users), unexpected
+- **VM host signals (via the diag relay)** — `journalctl?unit=ssh.service`
+  for sshd/auth (failed-then-succeeded logins, new sessions/users), unexpected
   new systemd units / timers / cron, unexpected listening ports or processes,
   and host-agent tampering of the `/dev/null` clobber class. The 2026-06-28
   intrusion audit (`BL-20260628-SEC-HARDENING-FOLLOWUPS`) and the `/dev/null`
   investigation are the standing precedents — reconcile any new signal against
   them before calling it novel.
+  ⚠️ The unit is **`ssh.service`**, not `sshd.service` — measured 2026-09-22
+  on ict-bot-arm, `sshd.service` is a systemd *alias* and `journalctl -u
+  sshd.service` returns **`-- No entries --`**, so that spelling would report
+  the auth log CLEAN having read nothing. Until 2026-09-22 (E27) no spelling
+  worked at all: the unit was absent from `_CANONICAL_UNITS` and every attempt
+  returned HTTP 400 `unknown_unit`, so this source was unsatisfiable — if the
+  probe 400s, the sweep is `could_not_look`, never `clean`.
 
 **What to do:**
 
