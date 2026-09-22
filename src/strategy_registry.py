@@ -104,6 +104,22 @@ def load_strategies(path: str = _YAML_PATH) -> list[dict]:
     return result
 
 
+def reload_strategies(path: str = _YAML_PATH) -> list[dict]:
+    """Re-read the YAML, BYPASSING the module cache.
+
+    E21. ``load_strategies()`` caches after the first successful read, which is
+    right for a trader process that resolves its roster once at import — but it
+    means a long-lived READER (the health snapshot, the hourly report) would go
+    on reporting the last good roster after ``config/strategies.yaml`` broke,
+    i.e. the health check built to catch an unreadable roster would never see
+    one. Anything whose job is to ASK whether the file is currently readable
+    must use this; anything that wants the roster it is running on must not.
+    """
+    global _cache
+    _cache = None
+    return load_strategies(path)
+
+
 def _strategy_cfg(name: str, path: str = _YAML_PATH) -> dict:
     strategies = load_strategies(path)
     for s in strategies:

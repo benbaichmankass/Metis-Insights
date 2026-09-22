@@ -84,8 +84,12 @@ def test_the_per_strategy_loop_is_measured_too():
     unwrapped phase -- two findings with completely different fixes.
     """
     body = _run_monitor_tick_body()
+    # E21 renamed the population helper `_load_strategies` -> `exit_population`
+    # (open packages UNION the roster). Match either spelling so this test pins
+    # the PHASE WRAP, which is what it is about, rather than a helper name.
     loop = next(i for i, ln in enumerate(body)
-                if ln.strip().startswith("for strategy_name in _load_strategies"))
+                if ln.strip().startswith("for strategy_name in ")
+                and ("exit_population" in ln or "_load_strategies" in ln))
     assert '_phase("strategy_monitor_loop")' in body[loop - 1], (
         "the per-strategy monitor loop is not inside the split")
 

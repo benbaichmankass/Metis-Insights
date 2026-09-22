@@ -506,6 +506,104 @@ def check_disk(
 
 
 # ---------------------------------------------------------------------------
+# Check 8 — strategy roster readable (E21)
+# ---------------------------------------------------------------------------
+
+
+def check_strategy_roster(*, path: Optional[str] = None) -> HealthCheck:
+    """Can the trader read its own strategy roster, and does it agree with YAML?
+
+    ⚠️ **This check exists because the failure it covers was SILENT.** Until
+    2026-09-22 an unreadable ``config/strategies.yaml`` resolved to the literal
+    ``["turtle_soup", "vwap"]`` behind one ``logger.warning``, and none of the
+    seven checks above could go red on it: the service is active, git is in
+    sync, ticks are fresh, the accounts API answers, the DB selects and the
+    disk is fine. The snapshot kept reading ``7/7 checks ok`` while the roster
+    covered **0 of the 52 strategies routed to a live account** (MEASURED
+    2026-09-22 against ``config/strategies.yaml`` + ``config/accounts.yaml`` at
+    commit ``f3746ab``).
+
+    The three roster states are graded differently on purpose — see
+    ``src/runtime/strategy_roster.py``:
+
+    * ``ROSTER_UNREADABLE`` → **critical**. *We could not look.* A trader that
+      restarts in this state opens nothing.
+    * ``ROSTER_EMPTY`` → **critical**. The file WAS read and declares nothing.
+      A real measurement of the config, and a different remedy from the above.
+    * ``ROSTER_OK`` → compare against an independent parse of the YAML, so a
+      registry that silently drops names is visible; ``ok`` when they agree.
+
+    Never raises (health-check contract). ``yaml`` is imported lazily so this
+    module keeps its stdlib-only import surface.
+    """
+    name = "strategy_roster"
+    try:
+        from src.runtime.strategy_roster import (
+            ROSTER_EMPTY, ROSTER_OK, ROSTER_UNREADABLE, resolve_roster,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _warn(name, f"strategy_roster module unavailable: {exc}")
+
+    try:
+        res = resolve_roster(path, fresh=True)
+    except Exception as exc:  # noqa: BLE001
+        return _critical(name, f"resolve_roster raised: {type(exc).__name__}: {exc}")
+
+    if res.state == ROSTER_UNREADABLE:
+        return _critical(
+            name,
+            "COULD NOT READ config/strategies.yaml — the roster is unknown, "
+            f"not empty: {res.error}",
+            state=ROSTER_UNREADABLE, resolved=0, error=res.error,
+        )
+    if res.state == ROSTER_EMPTY:
+        return _critical(
+            name,
+            "config/strategies.yaml was READ and declares ZERO strategies — "
+            "this is the config, not a read failure",
+            state=ROSTER_EMPTY, resolved=0,
+        )
+
+    # ROSTER_OK — cross-check the registry against a raw parse of the file.
+    resolved = len(res.names)
+    declared: Optional[int] = None
+    enabled: Optional[int] = None
+    try:
+        import yaml  # noqa: PLC0415 — optional on the VM image, by design
+        yaml_path = Path(path) if path else (_REPO_ROOT / "config" / "strategies.yaml")
+        with open(yaml_path, "r", encoding="utf-8") as fh:
+            raw = (yaml.safe_load(fh) or {}).get("strategies") or {}
+        if isinstance(raw, dict):
+            declared = len(raw)
+            enabled = sum(
+                1 for cfg in raw.values()
+                if not isinstance(cfg, dict) or cfg.get("enabled", True) is not False
+            )
+    except Exception as exc:  # noqa: BLE001
+        # "we could not cross-check" is its own outcome — never reported as
+        # agreement, and never as a roster failure either.
+        return _warn(
+            name,
+            f"roster resolved {resolved} strategies; could not cross-check "
+            f"against the YAML: {exc}",
+            state=ROSTER_OK, resolved=resolved,
+        )
+
+    if declared is not None and declared != resolved:
+        return _warn(
+            name,
+            f"roster resolved {resolved} strategies but strategies.yaml "
+            f"declares {declared} — the registry dropped names",
+            state=ROSTER_OK, resolved=resolved, declared=declared, enabled=enabled,
+        )
+    return _ok(
+        name,
+        f"roster readable: {resolved} declared, {enabled} enabled",
+        state=ROSTER_OK, resolved=resolved, declared=declared, enabled=enabled,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Top-level runner
 # ---------------------------------------------------------------------------
 
@@ -518,6 +616,7 @@ _DEFAULT_CHECKS: List[Callable[[], HealthCheck]] = [
     check_accounts_api,
     check_db,
     check_disk,
+    check_strategy_roster,
 ]
 
 

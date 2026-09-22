@@ -108,22 +108,115 @@ class _StrategyTickSummary:
         }
 
 
-def _load_strategies(strategies: Optional[List[str]]) -> List[str]:
-    """Return the list of strategy names to scan.
+def _roster_names() -> Tuple[List[str], str]:
+    """The strategy ROSTER and whether we actually read it.
 
-    Caller-supplied list wins; otherwise default to the production
-    STRATEGIES list from the pipeline. The fallback survives even
-    when the pipeline import fails (e.g. test harness) — returns an
-    empty list rather than crashing.
+    Returns ``(names, state)`` where ``state`` is one of
+    ``strategy_roster.ROSTER_OK`` / ``ROSTER_EMPTY`` / ``ROSTER_UNREADABLE``.
+    A pipeline import failure is itself ``ROSTER_UNREADABLE`` — *we could not
+    look* — and is never reported as an empty roster.
+    """
+    from src.runtime.strategy_roster import (
+        ROSTER_EMPTY, ROSTER_OK, ROSTER_UNREADABLE,
+    )
+    try:
+        from src.runtime.pipeline import STRATEGIES, STRATEGY_ROSTER
+    except Exception as exc:  # noqa: BLE001
+        logger.error("order_monitor: roster UNREADABLE (pipeline import): %s", exc)
+        return [], ROSTER_UNREADABLE
+    state = getattr(STRATEGY_ROSTER, "state", ROSTER_OK)
+    names = list(STRATEGIES)
+    if state == ROSTER_UNREADABLE:
+        logger.error(
+            "order_monitor: roster UNREADABLE — exit population falls back to "
+            "OPEN PACKAGES ONLY (%s)", getattr(STRATEGY_ROSTER, "error", None),
+        )
+    elif state == ROSTER_EMPTY:
+        logger.error("order_monitor: roster READ and declares ZERO strategies")
+    return names, state
+
+
+def _open_package_names(db) -> Tuple[List[str], bool]:
+    """DISTINCT strategy names with an OPEN package, and whether we could look.
+
+    Returns ``(names, readable)``. ``([], True)`` means the journal was queried
+    and nothing is open; ``([], False)`` means the query failed — the two are
+    NOT the same finding and the caller must not treat the second as calm.
+    """
+    getter = getattr(db, "get_open_package_strategy_names", None)
+    if getter is None:
+        # An older/stubbed DB object (tests, a partial fake). Say we could not
+        # look rather than reporting a confident empty set.
+        return [], False
+    try:
+        return [str(n) for n in (getter() or [])], True
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "order_monitor: could not read open-package strategy names: %s", exc,
+        )
+        return [], False
+
+
+def exit_population(strategies: Optional[List[str]], db=None) -> List[str]:
+    """The names the EXIT half scans this tick — open packages UNION the roster.
+
+    ⚠️ **A position is monitored because it is OPEN, never because its name is
+    on a list** (E21, 2026-09-22). This function used to be ``_load_strategies``
+    and returned ``pipeline.STRATEGIES`` verbatim, which made the entire exit
+    half — trailing amends, stale-exit, giveback stops, the exit head —
+    conditional on a config read succeeding. Two reachable ways that stranded a
+    real-money position:
+
+    1. ``config/strategies.yaml`` unreadable. The roster then resolved to the
+       hardcoded ``["turtle_soup", "vwap"]``, which MEASURED 2026-09-22 covers
+       **0 of the 52 strategies routed to a live account** — every open package
+       would have received no ``monitor()`` call at all, silently.
+    2. A leg RETIRED from ``strategies.yaml`` while holding an open position.
+       (Removal from an ACCOUNT roster is harmless — exit evaluation never read
+       account rosters. Removal from the REGISTRY was not, and cutting legs is
+       routine: row R2 cuts four more.)
+
+    The union keeps the roster's ORDER (multiplexer priority, and the order the
+    old behaviour scanned in) and appends any open-package name the roster does
+    not carry, so a retired leg's position is scanned last but is scanned.
+
+    A caller-supplied ``strategies`` list still wins verbatim — tests and ops
+    scripts scope the scan deliberately and must not silently gain names.
     """
     if strategies is not None:
         return list(strategies)
-    try:
-        from src.runtime.pipeline import STRATEGIES
-        return list(STRATEGIES)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("order_monitor: STRATEGIES unavailable: %s", exc)
-        return []
+
+    names, _roster_state = _roster_names()
+    seen = set(names)
+    out = list(names)
+
+    if db is not None:
+        open_names, readable = _open_package_names(db)
+        for name in open_names:
+            if name not in seen:
+                seen.add(name)
+                out.append(name)
+                logger.warning(
+                    "order_monitor: %s holds an OPEN package but is not on the "
+                    "strategy roster — monitoring it anyway (E21)", name,
+                )
+        if not readable and not out:
+            logger.error(
+                "order_monitor: exit population is EMPTY and we could not read "
+                "either the roster or the open packages — this tick monitored "
+                "NOTHING and that is a blindness, not a quiet book",
+            )
+    return out
+
+
+def _load_strategies(strategies: Optional[List[str]]) -> List[str]:
+    """Back-compat shim — the ROSTER half of :func:`exit_population`.
+
+    Kept so callers that only want the roster (and pass no DB) keep working.
+    New code on the exit path must use ``exit_population(strategies, db)``:
+    this function cannot see an open package whose leg left the registry.
+    """
+    return exit_population(strategies, db=None)
 
 
 _STRATEGY_CFG_CACHE: Dict[str, Any] = {"mtime": None, "cfgs": {}}
@@ -11664,7 +11757,7 @@ def run_exit_evaluation_tick(
     cfg_map = strategy_cfg if strategy_cfg is not None else _load_live_strategy_cfgs()
 
     with _phase("strategy_monitor_loop"):
-        for strategy_name in _load_strategies(strategies):
+        for strategy_name in exit_population(strategies, db):
             summary = _StrategyTickSummary()
             try:
                 open_rows = db.get_order_packages_by_strategy(
