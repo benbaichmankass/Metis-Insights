@@ -2,5 +2,10 @@ Arming request for branch claude/metis-insights-manager-9qmm63.
 The relay never reads this content -- the path is the trigger, and the file must
 differ from main's copy or it reads as one merely inherited from main.
 
-Round 2 (2026-09-21, after #12690 squash-merged as 4538643): E16 -- the prop
-account's three-week silence, and the two operator decisions attached to it.
+Round 3 (2026-09-21, after #12694): row E20 (lane dispatch has two cost leaks
+and one silent wall) and the unattended-permission-prompt finding that cost row
+B2 two lanes without a single commit between them.
+
+Round 4 (2026-09-21): the spends in round 3 were ALSO mid-flight. Corrected
+after archiving every lane -- ~$1,142, not ~$860. Same error twice in one day,
+the second time inside the commit describing it.

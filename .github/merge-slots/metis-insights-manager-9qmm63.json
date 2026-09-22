@@ -1,6 +1,6 @@
 {
   "held_by": "session_01XQhayAHWdrSYv8jN54P2HH",
   "branch": "claude/metis-insights-manager-9qmm63",
-  "claimed_at": "2026-09-21T20:14:17Z",
-  "purpose": "E16 prop row + lane updates (round 2, after #12690)"
+  "claimed_at": "2026-09-22T00:24:30Z",
+  "purpose": "Close-out: stale in_flight rows, named closing observations, the A2/A4/E1/E2 verdict"
 }
