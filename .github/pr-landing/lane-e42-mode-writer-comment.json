@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Comment-only edit to config/accounts.yaml's header, proven so: parsing both sides of the diff yields identical YAML. No account, roster, mode:, execution:, risk cap or symbol is touched. Tier-1 by the permission table (documentation), and a documentation-hygiene fix is the sanctioned disposition when a field and its surrounding prose disagree -- field beats comment, the prose gets fixed. Both corrected claims are cited to a commit and a test rather than asserted."
+}
