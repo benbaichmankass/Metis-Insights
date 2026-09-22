@@ -122,7 +122,13 @@ TESTS_DIR = REPO / "tests"
 # fell with them; the covered RATIO did not collapse (43/93 = 46.2% against
 # 67/134 = 50.0% before). Nothing lost its self-test — the population shrank.
 # The floor may only go up from here.
-COVERAGE_FLOOR = 43
+#
+# 43 -> 44 on 2026-09-21 (B1): `roster-promotion-evidence-guard` declares
+# `--self-test` and `run_guards.py` invokes it with that flag, so it resolves
+# into the required `guards` context by path A. Banked here in the same commit
+# that created it, per this guard's own instruction, so the new control cannot
+# be silently dropped later without lowering a number someone has to justify.
+COVERAGE_FLOOR = 44
 
 _MONEY_BLAST_RADII = {"accounting", "money-at-risk", "money_at_risk"}
 

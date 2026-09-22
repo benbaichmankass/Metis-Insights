@@ -141,6 +141,20 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # A1 — the spend meter. Wired the day it was written, same reasoning
+        # as pipeline-guard: a module nothing runs is a declared capability
+        # with no consumer. --self-test asserts the one sentence this module
+        # exists to get right (never a fabricated reading when nobody has
+        # looked); --check validates the real on-disk log of operator
+        # readings.
+        "name": "spend-meter-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/spend_meter.py", "--self-test"],
+            ["python3", "scripts/ops/spend_meter.py", "--check"],
+        ],
+    },
+    {
         # RE-ARMED 2026-09-21 (A3a) — `daily-brief-guard` was in the list of 40
         # governance guards deleted above, and its subject (the four-section
         # module keyed to the five archived registers) is genuinely gone. But
@@ -158,6 +172,23 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ops/render_daily_brief.py", "--self-test"],
             ["python3", "scripts/ops/render_daily_brief.py", "--check"],
+        ],
+    },
+    {
+        # A9 — the work schedule. Same "wire it the day it's written" reasoning
+        # as pipeline-guard/daily-brief-guard above: a module nothing runs is
+        # the declared-capability-with-no-consumer antipattern. --self-test
+        # asserts the decisions/monitoring split (both from pipeline.due(),
+        # never re-derived) and the cron reader's negative control (a
+        # commented-out `on.schedule` must not read as armed); --check
+        # renders over the live tree (SCHEDULE.json, PIPELINE.jsonl,
+        # .github/workflows/*.yml) and asserts the invariant sentences
+        # without failing on an unreadable/absent input.
+        "name": "schedule-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/render_schedule.py", "--self-test"],
+            ["python3", "scripts/ops/render_schedule.py", "--check"],
         ],
     },
     {
@@ -1250,6 +1281,60 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_strategy_decision_record.py", "--self-test"],
             ["python3", "scripts/ci/check_strategy_decision_record.py"],
+        ],
+    },
+    {
+        "name": "roster-promotion-evidence-guard",
+        # B1, THE LOAD-BEARING CHANGE. The counterpart that never existed:
+        # `scripts/check_dry_run_in_diff.py` blocks turning a leg OFF and
+        # NOTHING blocked turning one ON. That asymmetry is the mechanical fact
+        # behind the roster going 36 -> 55 while every memo said cut.
+        #
+        # ⚠️ IT KEYS ON ROSTER MEMBERSHIP, NOT ON `mode:` / `execution:`. There
+        # are TWO SPELLINGS OF OFF and the old guard sees only one: it matches
+        # ADDED LINES, so removing a leg from an account's `strategies:` list is
+        # invisible to it (verified against the A6 diff, which removed two legs
+        # from alpaca_live and reported `clean`). A guard watching the fields is
+        # walked around by editing the list, in EITHER direction; this one
+        # compares the PARSED roster at the fork point against HEAD, so it also
+        # sees a flow-style `strategies: [a, b]` edit that no line regex covers.
+        #
+        # ⚠️ DEMOTION STAYS FREE, and that is the entire point of inverting.
+        # `--self-test` plants both directions: removing a leg, and moving an
+        # account out of a risk-bearing class, must BOTH stay silent. A change
+        # that makes removal harder has broken this guard's purpose.
+        #
+        # ⚠️ IT GRADES 0 OF 12 TODAY AND PASSES, DELIBERATELY — same posture as
+        # strategy-decision-record above. It is DIFF-SCOPED: the existing roster
+        # is grandfathered (`check_backlog_criteria.py`'s polarity — the past is
+        # grandfathered, the future is not) because a whole-tree version would
+        # red every PR in the repo over 12 legs nobody is proposing to promote,
+        # which is how a guard gets disabled instead of fixed. The standing
+        # census is reported by `--population`, which never fails a build.
+        #
+        # Self-test FIRST: this guard REFUSES work, so one that started failing
+        # correct PRs would be worse than the problem it fixes — the
+        # manager-scope-guard posture.
+        #
+        # The globs include `comms/strategy_evidence/**` and
+        # `config/strategies.yaml` because the check READS them (the evidence
+        # record, and the config the record's fingerprint is bound to). Scoping
+        # a two-sided check to one side is the exit-coverage-matrix defect that
+        # `check_guard_glob_coverage.py` exists to catch.
+        "when": {"globs": [
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+            "config/pairs.yaml",
+            "comms/strategy_evidence/**",
+            "scripts/ci/check_roster_promotion_evidence.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_roster_promotion_evidence.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_roster_promotion_evidence.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
         ],
     },
     {

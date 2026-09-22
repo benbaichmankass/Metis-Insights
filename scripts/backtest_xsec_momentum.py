@@ -94,8 +94,22 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from src.runtime import execution_costs  # noqa: E402  (the shared SLIPPAGE term only — see note below)
+
 TRADING_DAYS_PER_YEAR = 252
-FEE_BPS_ROUNDTRIP = 7.5  # per-rebalance round-trip cost on |delta weight|
+FEE_BPS_ROUNDTRIP = execution_costs.DEFAULT_FEE_BPS_ROUNDTRIP  # per-rebalance round-trip cost on |delta weight|
+
+# Execution-realism (P1 § 3.B, checklist E3): SLIPPAGE only, wired through the
+# SAME turnover-cost mechanism as the fee (both are a bps-of-|delta weight|
+# drag charged on rebalance — the natural unit for a book-return harness, unlike
+# the per-trade R harnesses). FUNDING is deliberately NOT wired here: this
+# harness holds WEIGHTS across a multi-symbol universe with no per-position
+# entry/exit accounting, so there is no clean per-leg hold-duration to charge a
+# funding drag against (unlike a single-instrument harness's Trade.entry_time/
+# exit_time). The book trades a crypto-perp universe, so funding IS a real,
+# currently-unpriced cost here — filed to the pipeline as remaining work
+# (checklist E3) rather than approximated incorrectly.
+SLIPPAGE_BPS_ROUNDTRIP = 0.0
 
 
 # --------------------------------------------------------------------------- #
@@ -251,6 +265,7 @@ def _turnover_cost(prev_w: Dict[str, float], new_w: Dict[str, float], *,
 def run_backtest(panel: pd.DataFrame, *, formation: int, skip: int,
                  rebalance: int, quantile: float, fee_bps: float,
                  fee_mult: float,
+                 slippage_bps: float = 0.0,
                  btc_risk_off: Optional[pd.Series] = None,
                  funding: Optional[Dict[str, pd.Series]] = None,
                  funding_threshold: float = 0.0,
@@ -278,7 +293,9 @@ def run_backtest(panel: pd.DataFrame, *, formation: int, skip: int,
     weeks_funding_skips = 0
     gross_sum = 0.0
     net_sum = 0.0
+    net_sum_fee_only = 0.0
     turnover_total = 0.0
+    turnover_total_fee_only = 0.0
 
     cur_w: Dict[str, float] = {}
     prev_w: Dict[str, float] = {}
@@ -287,6 +304,7 @@ def run_backtest(panel: pd.DataFrame, *, formation: int, skip: int,
         day_ts = days[t]
         is_rebal = (t % rebalance == 0)
         rebal_cost = 0.0
+        rebal_cost_fee_only = 0.0
         if is_rebal:
             weeks_total += 1
             form = _formation_returns(panel, t, formation=formation, skip=skip)
@@ -317,7 +335,9 @@ def run_backtest(panel: pd.DataFrame, *, formation: int, skip: int,
                                 dropped += 1
                 if dropped:
                     weeks_funding_skips += 1
-            rebal_cost = _turnover_cost(prev_w, new_w, fee_bps=fee_bps, fee_mult=fee_mult)
+            rebal_cost_fee_only = _turnover_cost(prev_w, new_w, fee_bps=fee_bps, fee_mult=fee_mult)
+            rebal_cost = _turnover_cost(prev_w, new_w, fee_bps=fee_bps + slippage_bps, fee_mult=fee_mult)
+            turnover_total_fee_only += rebal_cost_fee_only
             turnover_total += rebal_cost
             cur_w = new_w
             prev_w = new_w
@@ -347,13 +367,16 @@ def run_backtest(panel: pd.DataFrame, *, formation: int, skip: int,
                     n_legs += 1
         gross_sum += book_r
         net_r = book_r - rebal_cost
+        net_r_fee_only = book_r - rebal_cost_fee_only
         net_sum += net_r
+        net_sum_fee_only += net_r_fee_only
         daily.append((pd.Timestamp(day_ts).date(), round(net_r, 8), n_legs))
 
     summary = _summarize(daily, panel,
                          params={"formation_days": formation, "skip_days": skip,
                                  "rebalance_days": rebalance, "quantile": quantile,
                                  "fee_bps_roundtrip": fee_bps, "fee_multiplier": fee_mult,
+                                 "slippage_bps_roundtrip": slippage_bps,
                                  "btc_gate": btc_risk_off is not None,
                                  "funding_aware": funding_aware})
     summary.update({
@@ -364,7 +387,11 @@ def run_backtest(panel: pd.DataFrame, *, formation: int, skip: int,
         "weeks_funding_skips": weeks_funding_skips,
         "gross_total_return": round(gross_sum, 8),
         "net_total_return": round(net_sum, 8),
+        # Fee-only comparison arm (always present, checklist E3): the number
+        # BEFORE slippage, so a fee-only run is visible, not silent.
+        "net_total_return_fee_only": round(net_sum_fee_only, 8),
         "turnover_cost_total": round(turnover_total, 8),
+        "turnover_cost_total_fee_only": round(turnover_total_fee_only, 8),
         "mean_gross_exposure": round(
             statistics.fmean([r["gross_weight"] for r in rebal_records]), 6)
         if rebal_records else 0.0,
@@ -461,6 +488,7 @@ def _run_for_panel(panel: pd.DataFrame, *, fee_mult: float, cfg: Dict[str, Any]
         panel, formation=cfg["formation"], skip=cfg["skip"],
         rebalance=cfg["rebalance"], quantile=cfg["quantile"],
         fee_bps=cfg["fee_bps"], fee_mult=fee_mult,
+        slippage_bps=cfg.get("slippage_bps", 0.0),
         btc_risk_off=cfg.get("btc_risk_off"), funding=cfg.get("funding"),
         funding_threshold=cfg.get("funding_threshold", 0.0),
         funding_aware=cfg.get("funding_aware", False))
@@ -743,6 +771,13 @@ def main(argv: List[str]) -> int:
                    help="per-rebalance round-trip cost (bps) on |delta weight|. Default 7.5.")
     p.add_argument("--fee-multiplier", type=float, default=1.0,
                    help="scale the fee (gate runs full-period at 2x). Default 1.0.")
+    p.add_argument("--slippage-bps-roundtrip", type=float, default=None,
+                   help="Execution-realism: round-trip slippage bps charged on the same "
+                        "per-rebalance |delta weight| turnover as the fee. DEFAULT (unset) "
+                        "= venue-aware (execution_costs.slippage_bps_roundtrip_for, ~5 bps, "
+                        "uniform across venues). Pass 0 for the fee-only comparison arm. "
+                        "(No funding flag: this book-weight harness has no per-position "
+                        "hold-duration to charge a funding drag against — see module note.)")
     p.add_argument("--btc-gate", metavar="PATH", default=None,
                    help="BTC daily CSV; risk-off (flat) the week BTC < its 50d SMA.")
     p.add_argument("--btc-sma-days", type=int, default=50,
@@ -771,6 +806,13 @@ def main(argv: List[str]) -> int:
 
     if args.self_test:
         return _self_test()
+
+    # Mandatory venue-aware cost policy (slippage only — see module note on why
+    # funding is excluded). Unset resolves to the venue-aware default; an
+    # explicit value (incl. 0 for the fee-only comparison arm) always wins.
+    # slippage_bps_roundtrip_for ignores its argument (uniform across venues).
+    slippage_bps = (execution_costs.slippage_bps_roundtrip_for(None)
+                    if args.slippage_bps_roundtrip is None else args.slippage_bps_roundtrip)
 
     specs = _resolve_universe(args)
     if len(specs) < 2:
@@ -812,6 +854,7 @@ def main(argv: List[str]) -> int:
         panel, formation=args.formation_days, skip=args.skip_days,
         rebalance=args.rebalance_days, quantile=args.quantile,
         fee_bps=args.fee_bps_roundtrip, fee_mult=args.fee_multiplier,
+        slippage_bps=slippage_bps,
         btc_risk_off=btc_risk_off, funding=funding,
         funding_threshold=args.funding_short_threshold,
         funding_aware=args.funding_aware)
@@ -819,7 +862,7 @@ def main(argv: List[str]) -> int:
     if args.gate:
         cfg = {"formation": args.formation_days, "skip": args.skip_days,
                "rebalance": args.rebalance_days, "quantile": args.quantile,
-               "fee_bps": args.fee_bps_roundtrip,
+               "fee_bps": args.fee_bps_roundtrip, "slippage_bps": slippage_bps,
                "btc_risk_off": btc_risk_off, "funding": funding,
                "funding_threshold": args.funding_short_threshold,
                "funding_aware": args.funding_aware}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "src/backtest/run_backtest_vwap.py is not covered by TIER1_SURFACE (which lists scripts/backtest_*.py explicitly but not src/backtest/**), even though docs/CLAUDE-RULES-CANONICAL.md's own Tier-1 examples name 'backtest tooling that does not alter live runtime behavior' and every harness this diff touches carries that exact docstring. The rest of the diff (scripts/backtest_*.py, scripts/ci/check_cost_model_single_owner.py, docs/claude/work/PIPELINE.jsonl) is covered by TIER1_SURFACE. Per this session's spawning instructions (checklist row E3, docs/claude/work/MANAGER-CHECKLIST.json), the manager merges this PR directly rather than it self-landing through auto-merge, so no .github/pr-automerge-requests file or merge-slot claim is written.",
+  "why": "Wires src/runtime/execution_costs.py's venue-aware slippage/funding cost policy into the 6 backtest research harnesses that had no cost terms at all (vwap, chop_scalp, funding_carry, fvg_range, pairs, xsec_momentum), matching the pattern already used by the 6 harnesses that had it. Research-only Tier-1 tooling -- no order path, strategy config, risk caps, account mode, or live-VM runtime file touched; execution_costs.py's own computation is unchanged. Filed 3 pipeline items for genuine remaining gaps (orb.py's points-unit fee, backtester.py's independent non-canonical cost model, xsec_momentum's unmodelled funding) rather than approximating them."
+}
