@@ -1548,6 +1548,26 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "lever-evidence-flag-guard",
+        # The sibling of lever-reachability-guard, and it grades what that one
+        # cannot: reachability pins `arm_r` to config, so a verdict stays
+        # "current" while its DENOMINATOR goes unexamined. `gld_pullback_1d`
+        # carried `inert` / `recorded_inert` -- "no observed entry could reach
+        # the arm" -- on 0 of 8, whose exact 95% upper bound is 36.9%.
+        #
+        # The self-test runs on EVERY invocation for the same reason its
+        # siblings' do, and one of its cases is a NON-VACUITY control: a cell
+        # that must come out `unsettled`. A flag that had quietly lost the
+        # ability to say "I don't know" would otherwise look clean while
+        # rubber-stamping every verdict it grades.
+        "when": {"globs": ["config/lever_reachability.json",
+                           "scripts/ops/lever_evidence_flag.py"]},
+        "steps": [
+            ["python3", "scripts/ops/lever_evidence_flag.py", "--self-test"],
+            ["python3", "scripts/ops/lever_evidence_flag.py", "--check"],
+        ],
+    },
+    {
         "name": "guard-selftest-coverage",
         # UNGATED (`when: None`): this measures the guard POPULATION, so a diff
         # filter would make it blind to exactly the change that matters -- a
