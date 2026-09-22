@@ -5,24 +5,83 @@
   "timeframe": "5m",
   "config_fingerprint": "sha256:5a810b6b0ee0265a22d51970e8d79fb9",
   "basis": "harness_timefolds",
-  "coverage_state": "no_harness",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": -16.814,
+  "expectancy_r_oos": -0.0871,
+  "n_trades_oos": 193,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 48,
+      "net_r": -3.3872,
+      "expectancy_r": -0.0706,
+      "start": "2025-09-23 00:50:00+00:00",
+      "end": "2025-12-26 14:35:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 48,
+      "net_r": 0.8681,
+      "expectancy_r": 0.0181,
+      "start": "2025-12-29 14:55:00+00:00",
+      "end": "2026-03-15 07:15:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 48,
+      "net_r": -6.0356,
+      "expectancy_r": -0.1257,
+      "start": "2026-03-16 08:05:00+00:00",
+      "end": "2026-06-22 07:15:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 49,
+      "net_r": -8.2593,
+      "expectancy_r": -0.1686,
+      "start": "2026-06-22 17:00:00+00:00",
+      "end": "2026-09-19 00:35:00+00:00"
+    }
+  ],
+  "folds_positive": 1,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
-  "cost_stack": null,
-  "net_r_oos_fee_only": null,
-  "decision_rule": null,
+  "fee_bps_roundtrip": 7.5,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 193,
+    "max_drawdown_r": 22.8158,
+    "max_drawdown_at_trade": 189,
+    "final_equity_r": -16.814,
+    "max_equity_r": 4.4541,
+    "worst_trade_r": -2.1075,
+    "best_trade_r": 1.455,
+    "worst_day_r": -2.8554,
+    "worst_day_date": "2026-09-03",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-e28/ict_scalp_5m__bt.json"
+  },
+  "net_r_oos_fee_only": 4.3019,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "fail"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T09:27:10.887219+00:00",
+  "generated_at": "2026-09-22T12:46:30.751406+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "regime_debt_matrix.classify() routes nothing for this leg. Its four branches (donchian / trend_lookback|pullback_frac / kc_mult+bb_period / range_lookback+third_frac) do not cover this config. A harness may still EXIST for the family -- backtest_ict_scalp.py does, and nothing routes to it -- so this is a missing classifier branch plus a lever map, not absent infrastructure. The fvg_range branch was added the same way on 2026-09-22 (E25); that is the worked example to copy.",
-  "harness": null
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-e28/ict_scalp_5m__trades.jsonl",
+  "error": null,
+  "harness": "ict_scalp"
 }
