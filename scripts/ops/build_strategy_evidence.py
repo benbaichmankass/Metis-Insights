@@ -179,14 +179,37 @@ DEFAULT_DAYS = 365
 MIN_TRADES_FOR_POOLED = 10
 
 
+# Fields that are EXECUTION GATES, not strategy parameters. They decide whether
+# a leg trades; they do not change what the harness would produce for it, so
+# they are excluded from the fingerprint.
+#
+# ⚠️ THIS EXCLUSION IS LOAD-BEARING AND WAS FOUND BY A DEFECT, 2026-09-22 (E40).
+# Until it existed, the digest covered the WHOLE config block, so flipping
+# `execution: shadow -> live` moved the fingerprint — which meant EVERY
+# PROMOTION INVALIDATED ITS OWN EVIDENCE at the moment of promotion, and
+# check_roster_promotion_evidence.py refused it with `identity FAIL ... STALE`
+# while C1-C4 all passed. B1 landed 2026-09-21 and had permitted zero
+# promotions; the first one attempted found it.
+#
+# ⚠️ DO NOT WIDEN THIS SET TO QUIET A GUARD COMPLAINT. A moved `atr_stop_mult`,
+# `entry_z`, `lookback` or any other parameter the harness reads MUST still
+# invalidate the record — that is the whole job of the check, and the
+# `--self-test` plants exactly that case.
+_GATE_FIELDS: frozenset = frozenset({"execution", "enabled"})
+
+
 def config_fingerprint(cfg: Dict[str, Any]) -> str:
-    """Stable digest of a leg's config block.
+    """Stable digest of a leg's STRATEGY PARAMETERS.
 
     An edge record is evidence about the leg AS CONFIGURED, so a moved config
     makes the record STALE rather than silently wrong. Sorted keys + separators
     so formatting churn does not change the digest.
+
+    Execution gates (`_GATE_FIELDS`) are excluded: they decide whether the leg
+    trades, not what a backtest of it would produce. See the note above.
     """
-    blob = json.dumps(cfg, sort_keys=True, separators=(",", ":"), default=str)
+    params = {k: v for k, v in (cfg or {}).items() if k not in _GATE_FIELDS}
+    blob = json.dumps(params, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
 

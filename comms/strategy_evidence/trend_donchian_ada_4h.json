@@ -3,7 +3,7 @@
   "strategy": "trend_donchian_ada_4h",
   "symbol": "ADAUSDT",
   "timeframe": "4h",
-  "config_fingerprint": "sha256:49737fa45cb83c3603aedb4ffcdb0979",
+  "config_fingerprint": "sha256:56590243dbe08bbaf49b6c650a8a4a51",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

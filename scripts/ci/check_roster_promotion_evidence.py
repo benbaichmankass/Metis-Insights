@@ -238,8 +238,17 @@ def canonical_account_classes(module_text: Optional[str]) -> Optional[frozenset]
 # --------------------------------------------------------------------------
 # evidence records
 # --------------------------------------------------------------------------
+# ⚠️ MUST STAY IDENTICAL to `build_strategy_evidence.py::_GATE_FIELDS`.
+# Execution gates, excluded from the fingerprint because they decide whether a
+# leg trades and not what a harness would produce for it. Added 2026-09-22 (E40)
+# after the first promotion attempted since this guard landed was refused by it:
+# flipping `execution: shadow -> live` moved the digest, so every promotion
+# invalidated its own evidence. Do NOT widen this set to quiet a complaint.
+_GATE_FIELDS: frozenset = frozenset({"execution", "enabled"})
+
+
 def config_fingerprint(cfg: Dict[str, Any]) -> str:
-    """Stable digest of a leg's config block.
+    """Stable digest of a leg's STRATEGY PARAMETERS.
 
     ⚠️ DELIBERATELY BYTE-IDENTICAL to
     `scripts/ops/build_strategy_evidence.py::config_fingerprint`. It is
@@ -247,8 +256,15 @@ def config_fingerprint(cfg: Dict[str, Any]) -> str:
     (and its research dependencies) into CI. Verified 2026-09-21 by recomputing
     against all 52 committed records: 52 match, 0 drift. `--self-test` plants a
     drift case so the check is shown capable of turning red.
+
+    ⚠️ 2026-09-22 (E40): now digests the strategy PARAMETERS, excluding
+    `_GATE_FIELDS`. The 52 records were migrated in the same commit, and the
+    migration PRESERVED the staleness signal rather than washing it out — a
+    record whose params had genuinely drifted was left carrying its old digest
+    so it still reads STALE.
     """
-    blob = json.dumps(cfg, sort_keys=True, separators=(",", ":"), default=str)
+    params = {k: v for k, v in (cfg or {}).items() if k not in _GATE_FIELDS}
+    blob = json.dumps(params, sort_keys=True, separators=(",", ":"), default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
 

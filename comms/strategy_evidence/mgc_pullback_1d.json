@@ -3,7 +3,7 @@
   "strategy": "mgc_pullback_1d",
   "symbol": "MGC",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:24255a4767cc2c3ec85678df9d980244",
+  "config_fingerprint": "sha256:a6d42b94f8dd8bbee44e4b4322671a93",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

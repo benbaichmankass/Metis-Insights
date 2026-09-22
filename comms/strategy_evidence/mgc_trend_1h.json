@@ -3,7 +3,7 @@
   "strategy": "mgc_trend_1h",
   "symbol": "MGC",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:50e08d1c76aa90d49489b1247f173694",
+  "config_fingerprint": "sha256:96314917bfb558d736d5d81d99f9c86a",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

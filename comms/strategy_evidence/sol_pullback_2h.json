@@ -3,7 +3,7 @@
   "strategy": "sol_pullback_2h",
   "symbol": "SOLUSDT",
   "timeframe": "2h",
-  "config_fingerprint": "sha256:4b116eb0cf3fe4f38522c0c77a12676e",
+  "config_fingerprint": "sha256:6c230443371fd5d4a94b0d8c588a0515",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

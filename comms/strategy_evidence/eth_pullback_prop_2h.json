@@ -3,7 +3,7 @@
   "strategy": "eth_pullback_prop_2h",
   "symbol": "ETHUSDT",
   "timeframe": "2h",
-  "config_fingerprint": "sha256:9a5caad8d3add199916867ec892877de",
+  "config_fingerprint": "sha256:4841a3933f961a36d41b55ed729f33c9",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
