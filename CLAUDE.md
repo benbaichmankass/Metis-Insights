@@ -316,9 +316,12 @@ declare, runs.
 ⚠️ **`accounts.yaml::symbols` IS NOT A GATE, and it was one until 2026-09-22.**
 The `strategies:` roster is the single source of truth for what an account
 trades; `symbols:` is a **purely additive DATA-PULL list** that legitimately
-names instruments no leg trades (21 such entries, MEASURED 2026-09-22 by
-`scripts/ci/check_roster_symbol_reachability.py` over `config/accounts.yaml` ×
-`config/strategies.yaml`). Until E42 the tick's fetch set came from the pull
+names instruments no leg trades. ⚠️ **That count MOVES with every roster edit
+and must be re-run, never quoted** — it read 21 when this paragraph was written
+and 19 hours later, because `ada_pullback_2h` joining `bybit_2` turned ADAUSDT
+from declared-but-untraded into declared-and-traded. Run
+`python3 scripts/ci/check_roster_symbol_reachability.py`; it prints the count
+beside its denominators for exactly this reason. Until E42 the tick's fetch set came from the pull
 lists **alone**, so a rostered leg whose symbol nobody had declared got no
 candles, no signal and no order while reading as wired — the MES pattern spelled
 as an omission instead of a flag. `_resolve_tick_symbols` now fetches
