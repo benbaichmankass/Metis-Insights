@@ -50,7 +50,9 @@
             "share_pct": 100.0,
             "ci_low_pct": 2.5,
             "ci_high_pct": 100.0,
-            "flag": "unsettled"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 2.5,
+            "settled_inert_if_inert_cut_above_pct": 100.0
           },
           {
             "basis_id": "candle_screen_1h_btc_2026_08_16",
@@ -63,7 +65,9 @@
             "share_pct": 100.0,
             "ci_low_pct": 96.4,
             "ci_high_pct": 100.0,
-            "flag": "settled_reachable"
+            "flag": "settled_reachable",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 96.4,
+            "settled_inert_if_inert_cut_above_pct": 100.0
           }
         ],
         "primary_basis": "live_order_package_2026_08_16",
@@ -140,7 +144,9 @@
             "share_pct": 0.0,
             "ci_low_pct": 0.0,
             "ci_high_pct": 20.6,
-            "flag": "unsettled"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 20.6
           },
           {
             "basis_id": "backtest_entry_conditioned_2026_08_16",
@@ -153,7 +159,9 @@
             "share_pct": 0.0,
             "ci_low_pct": 0.0,
             "ci_high_pct": 2.9,
-            "flag": "unsettled"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 2.9
           }
         ],
         "primary_basis": "live_entry_conditioned_2026_08_16",
@@ -213,7 +221,9 @@
             "share_pct": 0.0,
             "ci_low_pct": 0.0,
             "ci_high_pct": 36.9,
-            "flag": "unsettled"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 36.9
           },
           {
             "basis_id": "backtest_entry_conditioned_2026_08_16",
@@ -226,7 +236,9 @@
             "share_pct": 37.5,
             "ci_low_pct": 28.5,
             "ci_high_pct": 47.1,
-            "flag": "settled_reachable"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 28.5,
+            "settled_inert_if_inert_cut_above_pct": 47.1
           }
         ],
         "primary_basis": "live_entry_conditioned_2026_08_16",
@@ -363,7 +375,9 @@
             "share_pct": 5.4,
             "ci_low_pct": 0.7,
             "ci_high_pct": 18.2,
-            "flag": "unsettled"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.7,
+            "settled_inert_if_inert_cut_above_pct": 18.2
           },
           {
             "basis_id": "backtest_entry_conditioned_2026_08_16",
@@ -376,7 +390,9 @@
             "share_pct": 5.9,
             "ci_low_pct": 3.1,
             "ci_high_pct": 10.0,
-            "flag": "unsettled"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 3.1,
+            "settled_inert_if_inert_cut_above_pct": 10.0
           }
         ],
         "primary_basis": "live_entry_conditioned_COMPLETE_2026_08_16",
@@ -435,7 +451,9 @@
             "share_pct": 0.0,
             "ci_low_pct": 0.0,
             "ci_high_pct": 97.5,
-            "flag": "unsettled"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 97.5
           },
           {
             "basis_id": "backtest_entry_conditioned_2026_08_16",
@@ -448,7 +466,9 @@
             "share_pct": 19.8,
             "ci_low_pct": 11.7,
             "ci_high_pct": 30.1,
-            "flag": "settled_reachable"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 11.7,
+            "settled_inert_if_inert_cut_above_pct": 30.1
           },
           {
             "basis_id": "candle_screen_1d_qqq_2026_08_16",
@@ -461,7 +481,9 @@
             "share_pct": 0.0,
             "ci_low_pct": 0.0,
             "ci_high_pct": 3.5,
-            "flag": "unsettled"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 3.5
           }
         ],
         "primary_basis": "live_entry_conditioned_2026_08_16",
@@ -528,7 +550,9 @@
             "share_pct": 83.1,
             "ci_low_pct": 71.7,
             "ci_high_pct": 91.2,
-            "flag": "settled_reachable"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 71.7,
+            "settled_inert_if_inert_cut_above_pct": 91.2
           },
           {
             "basis_id": "live_basis_probe_2026_08_16",
@@ -541,11 +565,13 @@
             "share_pct": null,
             "ci_low_pct": null,
             "ci_high_pct": null,
-            "flag": "not_measured"
+            "flag": "not_measured",
+            "settled_reachable_if_reach_cut_at_or_below_pct": null,
+            "settled_inert_if_inert_cut_above_pct": null
           }
         ],
         "primary_basis": "backtest_entry_conditioned_2026_08_16",
-        "flag": "settled_reachable"
+        "flag": "unsettled"
       }
     },
     {
@@ -602,7 +628,9 @@
             "share_pct": 100.0,
             "ci_low_pct": 88.4,
             "ci_high_pct": 100.0,
-            "flag": "settled_reachable"
+            "flag": "settled_reachable",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 88.4,
+            "settled_inert_if_inert_cut_above_pct": 100.0
           }
         ],
         "primary_basis": "live_entry_conditioned_2026_08_16",
@@ -636,11 +664,13 @@
             "share_pct": 83.3,
             "ci_low_pct": 35.9,
             "ci_high_pct": 99.6,
-            "flag": "settled_reachable"
+            "flag": "unsettled",
+            "settled_reachable_if_reach_cut_at_or_below_pct": 35.9,
+            "settled_inert_if_inert_cut_above_pct": 99.6
           }
         ],
         "primary_basis": "live_entry_conditioned_2026_08_16",
-        "flag": "settled_reachable"
+        "flag": "unsettled"
       }
     }
   ],
@@ -650,9 +680,7 @@
     "method": "clopper_pearson",
     "method_why": "Exact (inverted binomial test), so coverage is >= nominal at EVERY n rather than on average, and it is conservative -- wider than Wilson. For a flag whose job is refusing to overclaim, erring wide errs in the right direction. [!] THE DISPATCH PROPOSED WILSON AND THIS DELIBERATELY DEPARTS FROM IT, with a measured reason: 95% Wilson puts the lower bound on 1 of 1 at 20.6%, which clears the 10% settled_reachable cut-point -- a flag built to stop a verdict overclaiming its denominator would have declared a SINGLE observation settled, and trend_donchian's only entry-conditioned basis is exactly n=1. Clopper-Pearson gives 2.5% for that cell, i.e. unsettled. Over the nine cells the dispatch tabulated with Wilson the two methods assign the SAME flag to every one, so the swap changes no published verdict; it changes the one cell the table did not include.",
     "confidence": 0.95,
-    "settled_inert_ci_high_below_pct": 2.0,
-    "settled_reachable_ci_low_at_or_above_pct": 10.0,
-    "status": "PROPOSED -- the two cut-points are INVENTED and are an OPERATOR DECISION, not a measurement. They are recorded here rather than in the script so a reader meets them next to the numbers they grade. What is NOT invented is the shape of the answer: n=1, n=6, n=8 and n=16 cannot settle this question at ANY defensible cut-point, and that conclusion is invariant to where these two land. Proposed by the manager 2026-09-22; awaiting the operator.",
+    "status": "UNDERIVED -- NO CUT-POINT HAS BEEN DERIVED, AND THE TWO THAT WERE PROPOSED ARE WITHDRAWN. A first version of this block carried settled_inert_ci_high_below_pct: 2.0 and settled_reachable_ci_low_at_or_above_pct: 10.0. The operator REJECTED both on 2026-09-22, verbatim: \"we need data-backed values, not arbitrary ones (otherwise what's the point of the arm in the first place?)\" -- and was right: a threshold picked to make a table come out is the same species of unearned number as the p80 arms this registry exists to audit. The two fields are DELETED rather than set to null, so nothing can read them as adopted-but-empty. What replaces them is `plausible_cut_band` below, which asserts strictly less. Deriving a real cut-point is OPEN WORK, specified on checklist row E41 and not done here.",
     "vocabulary": {
       "settled_inert": "the interval's UPPER bound is below settled_inert_ci_high_below_pct -- we looked, over enough entries, and the arm is dead",
       "settled_reachable": "the interval's LOWER bound is at or above settled_reachable_ci_low_at_or_above_pct -- we looked and the arm fires",
@@ -661,6 +689,16 @@
     },
     "three_states_never_collapsed": "`unsettled` is NOT `unmeasured` and NOT `inert`, and this is the whole point of the flag: today an `inert` on n=8 and an `inert` on n=127 are the same word. `unmeasured`/`not_measured` says we could not look; `settled_inert` says we looked and it is dead; `unsettled` says we looked and cannot tell. Collapsing the third into either is the class docs/CLAUDE-RULES-CANONICAL.md section 'Collapsed states' and scripts/ci/check_collapsed_states.py exist for. The script's --self-test carries a NON-VACUITY CONTROL -- a cell that MUST come out `unsettled` -- so a flag that had quietly lost its ability to say 'I don't know' would fail rather than look clean.",
     "primary_basis_rule": "The entry-level flag is taken from ONE basis, chosen by a declared rule rather than by whichever reads best: a basis on the CURRENT geometry beats a stale one; then live_entry_conditioned beats backtest_entry_conditioned; then larger n. A `candle_screen` is NEVER primary -- this file's own basis_note records the screen overstating reachability 90.5% vs 33.3% on xrp because entries are filter-selected.",
-    "geometry_field": "`current` / `stale` / `unknown`, never collapsed. cap_R = 0.099/(atr_stop_mult*ATR/entry) and the operative ceiling is min(cap_R, tp_r), so a measurement stops describing its leg the moment either knob moves -- which is exactly what happened to trend_donchian_sol_4h (atr_stop_mult 2.5 -> 1.5) and scha_trend_long_1d (tp_r 50.0 -> 1.5) after 2026-08-16. `unknown` means nobody has checked whether the knobs moved; it is NOT `current`."
+    "geometry_field": "`current` / `stale` / `unknown`, never collapsed. cap_R = 0.099/(atr_stop_mult*ATR/entry) and the operative ceiling is min(cap_R, tp_r), so a measurement stops describing its leg the moment either knob moves -- which is exactly what happened to trend_donchian_sol_4h (atr_stop_mult 2.5 -> 1.5) and scha_trend_long_1d (tp_r 50.0 -> 1.5) after 2026-08-16. `unknown` means nobody has checked whether the knobs moved; it is NOT `current`.",
+    "plausible_cut_band": {
+      "_what": "The band of cut-points still OPEN. A `settled_*` flag is emitted only where the verdict is INVARIANT across this whole band -- i.e. it holds for EVERY cut-point nobody has ruled out -- rather than for one somebody picked. That is why this file can say anything at all while the cut-point is underived: it states only what survives not knowing it.",
+      "reach_cut_upper_pct": 88.4,
+      "reach_cut_upper_anchor": "ANCHORED BY A DIRECT OBSERVATION, not chosen. `uso_trend_1h`'s giveback lever ARMED AND FIRED in production -- pkg-29261c70cb4e41ba, trade 4511, close_reason `giveback_stop`, recorded on that entry as `observed_firing`. Any reachable cut-point that would grade that lever NOT reachable is refuted by the firing itself, so the band cannot extend above the lower bound of its interval, 88.4%. This is the one place in the registry where a lever is graded on the fact that it DID fire rather than on whether it COULD.",
+      "reach_cut_lower_pct": null,
+      "inert_cut_lower_pct": null,
+      "inert_cut_anchor": "[!] THERE IS NO ANCHOR ON THE INERT SIDE, AND THE CONSEQUENCE IS DELIBERATE: with `inert_cut_lower_pct` null, `settled_inert` IS UNREACHABLE -- no entry in this file can currently be graded a settled dead arm, whatever its numbers. A null edge is NOT read as permissive. The inert side has no equivalent of the uso firing: an observation can prove a lever DID fire, but nothing observes a lever failing to fire in a way that bounds the threshold, so the anchor has to come from the derivation in E41 rather than from the corpus.",
+      "consequence_measured_2026_09_22": "Under this band exactly ONE of the eight entries is graded settled: `uso_trend_1h` (ci_low 88.4 >= 88.4). `trend_donchian_xrp_4h` MOVES settled_reachable -> unsettled: its ci_low is 35.9, so its verdict would flip for any reachable cut-point above 35.9% and nothing rules those out. [!] THE MANAGER'S DISPATCH EXPECTED IT TO STAY settled_reachable ('trend_donchian_xrp_4h at 35.9% likewise'). It does not, under invariance across the band, and that disagreement is recorded rather than resolved by a lane -- see E41. Its sample is also the 6 NEWEST of up to 25 rows, truncated and recency-biased, which an interval cannot see.",
+      "what_each_entry_stores": "Every basis carries `settled_reachable_if_reach_cut_at_or_below_pct` (= its CI low) and `settled_inert_if_inert_cut_above_pct` (= its CI high) -- the exact cut-points at which its own verdict flips. Those are facts about the MEASUREMENT, not policy, so they stay valid when the band moves and they are what a derived cut-point gets compared against."
+    }
   }
 }

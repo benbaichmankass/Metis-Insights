@@ -180,12 +180,31 @@ METHODS = {"clopper_pearson": clopper_pearson}
 
 
 def grade(k: Optional[int], n: Optional[int], policy: Dict[str, Any]) -> Dict[str, Any]:
-    """k/n + policy -> {share_pct, ci_low_pct, ci_high_pct, flag}."""
-    inert_cut = float(policy["settled_inert_ci_high_below_pct"])
-    reach_cut = float(policy["settled_reachable_ci_low_at_or_above_pct"])
+    """k/n + policy -> share, interval, the cut-points it flips at, and the flag.
+
+    ⚠️ **THERE IS NO CUT-POINT PAIR HERE ANY MORE.** A first version graded
+    against `settled_inert_ci_high_below_pct: 2.0` and
+    `settled_reachable_ci_low_at_or_above_pct: 10.0`; the operator WITHDREW both
+    as invented (2026-09-22): *"we need data-backed values, not arbitrary ones
+    (otherwise what's the point of the arm in the first place?)"*.
+
+    What replaces them asserts strictly less, and that is the point: a
+    `settled_*` flag is emitted only where the verdict is INVARIANT across the
+    whole band of cut-points that are still open. So the file states only what
+    survives NOT KNOWING the cut-point, and each basis additionally stores the
+    exact value at which its own verdict would flip — which is the input a
+    later derivation needs, and is a fact about the measurement rather than a
+    policy choice.
+    """
+    band = policy["plausible_cut_band"]
+    reach_cut = band.get("reach_cut_upper_pct")
+    inert_cut = band.get("inert_cut_lower_pct")
     if n is None or int(n) <= 0:
         return {"k": k, "n": n, "share_pct": None, "ci_low_pct": None,
-                "ci_high_pct": None, "flag": "not_measured"}
+                "ci_high_pct": None,
+                "settled_reachable_if_reach_cut_at_or_below_pct": None,
+                "settled_inert_if_inert_cut_above_pct": None,
+                "flag": "not_measured"}
     k_i, n_i = int(k), int(n)
     if k_i < 0 or k_i > n_i:
         raise ValueError(f"k={k_i} is not in [0, n={n_i}]")
@@ -198,14 +217,25 @@ def grade(k: Optional[int], n: Optional[int], policy: Dict[str, Any]) -> Dict[st
     if not 0.5 < conf < 1.0:
         raise ValueError(f"confidence {conf!r} must be strictly between 0.5 and 1.0")
     lo, hi = METHODS[method](k_i, n_i, conf)
-    if hi < inert_cut:
+    # INVARIANCE, not a point test. `reach_cut_upper_pct` is the TOP of the band
+    # of still-open reachable cut-points, so `lo >= reach_cut` means the verdict
+    # holds for every cut-point in the band, not merely for one someone picked.
+    # `inert_cut_lower_pct` is null while no anchor exists for the inert side,
+    # and a null band edge makes `settled_inert` UNREACHABLE rather than
+    # defaulting it either way — an undefined threshold is not a permissive one.
+    if inert_cut is not None and hi < float(inert_cut):
         flag = "settled_inert"
-    elif lo >= reach_cut:
+    elif reach_cut is not None and lo >= float(reach_cut):
         flag = "settled_reachable"
     else:
         flag = "unsettled"
     return {"k": k_i, "n": n_i, "share_pct": round(100.0 * k_i / n_i, 1),
             "ci_low_pct": round(lo, 1), "ci_high_pct": round(hi, 1),
+            # The flip points. These are facts about the MEASUREMENT, not policy
+            # choices, so they stay valid when the band moves and they are the
+            # input a derived cut-point gets compared against.
+            "settled_reachable_if_reach_cut_at_or_below_pct": round(lo, 1),
+            "settled_inert_if_inert_cut_above_pct": round(hi, 1),
             "flag": flag}
 
 
@@ -305,10 +335,14 @@ def load() -> Dict[str, Any]:
 def report(registry: Dict[str, Any]) -> None:
     policy = registry["evidence_flag_policy"]
     conf = int(round(float(policy["confidence"]) * 100))
-    print(f"settled-evidence flag — {policy['method']} {conf}% interval; "
-          f"settled_inert when CI high < {policy['settled_inert_ci_high_below_pct']}%, "
-          f"settled_reachable when CI low >= "
-          f"{policy['settled_reachable_ci_low_at_or_above_pct']}%")
+    band = policy["plausible_cut_band"]
+    rc, ic = band.get("reach_cut_upper_pct"), band.get("inert_cut_lower_pct")
+    print(f"settled-evidence flag — {policy['method']} {conf}% interval. NO "
+          f"cut-point is derived; a flag is emitted only where the verdict is "
+          f"INVARIANT across the open band.")
+    print(f"  reachable band top: {rc}%  (settled_reachable needs CI low >= that)")
+    print(f"  inert band edge:    {ic}   "
+          f"({'settled_inert is UNREACHABLE while this is null' if ic is None else 'settled_inert needs CI high < that'})")
     print(f"policy status: {policy['status']}\n")
     hdr = f"{'leg':24} {'basis':34} {'k/n':>8} {'share':>7} {'CI':>16}  flag"
     print(hdr)
@@ -338,9 +372,16 @@ def _self_test() -> int:
     return the two confident values is a rubber stamp, and its output would be
     indistinguishable from the point estimates it replaces.
     """
+    # The LIVE band: reachable top anchored by uso's observed firing, inert edge
+    # null because nothing anchors it.
     pol = {"method": "clopper_pearson", "confidence": 0.95,
-           "settled_inert_ci_high_below_pct": 2.0,
-           "settled_reachable_ci_low_at_or_above_pct": 10.0}
+           "plausible_cut_band": {"reach_cut_upper_pct": 88.4,
+                                  "inert_cut_lower_pct": None}}
+    # A counterfactual band WITH an inert edge, used only to prove the
+    # settled_inert branch is still reachable code rather than dead.
+    pol_inert = {"method": "clopper_pearson", "confidence": 0.95,
+                 "plausible_cut_band": {"reach_cut_upper_pct": 88.4,
+                                        "inert_cut_lower_pct": 2.0}}
     cases = [
         ("n=0 is not_measured, NOT settled_inert", 0, 0, "not_measured"),
         ("0/8 (the gld cell) is UNSETTLED — the non-vacuity control",
@@ -351,15 +392,28 @@ def _self_test() -> int:
         # cut-point. Recorded as a case because the near-miss is the
         # interesting one.
         ("0/127 (the sol_4h backtest cell) is UNSETTLED", 0, 127, "unsettled"),
-        ("0/300 (large n at zero) is settled_inert", 0, 300, "settled_inert"),
+        # ⚠️ THE BAND'S TEETH. Under the LIVE band the inert edge is null, so
+        # even 0 of 300 cannot be graded a settled dead arm. A null threshold is
+        # not a permissive one.
+        ("0/300 is UNSETTLED while the inert edge is null", 0, 300, "unsettled"),
+        # ⚠️ INVARIANCE, not a point test: 54/65 has CI low 71.7, which clears a
+        # 10% cut-point but NOT the top of the open band, so it is unsettled.
+        # The old point-test version graded this settled_reachable.
+        ("54/65 (CI low 71.7) is UNSETTLED under band invariance",
+         54, 65, "unsettled"),
+        # ⚠️ AND SO IS trend_donchian_xrp_4h, against the dispatch's expectation.
+        ("5/6 (CI low 35.9, xrp_4h) is UNSETTLED under band invariance",
+         5, 6, "unsettled"),
         # ⚠️ THE CASE THAT CHANGED THE METHOD. 95% Wilson puts the lower bound
         # on 1/1 at 20.6%, which clears a 10% bar — a flag built to stop
         # overclaiming would have called ONE observation settled.
         ("1/1 is UNSETTLED under Clopper-Pearson (Wilson said reachable)",
          1, 1, "unsettled"),
-        ("30/30 is settled_reachable", 30, 30, "settled_reachable"),
-        ("54/65 is settled_reachable", 54, 65, "settled_reachable"),
-        ("2/37 straddles both cut-points -> UNSETTLED", 2, 37, "unsettled"),
+        # The uso cell: CI low 88.4 == the band top, so its verdict holds for
+        # EVERY still-open cut-point. The only settled cell in the registry.
+        (("30/30 (CI low 88.4, uso) is settled_reachable — invariant across "
+          "the whole band"), 30, 30, "settled_reachable"),
+        ("2/37 is UNSETTLED", 2, 37, "unsettled"),
     ]
     fails = 0
     for label, k, n, want in cases:
@@ -371,14 +425,34 @@ def _self_test() -> int:
             print(f"  ok  [{label}]")
 
     # Every flag must be REACHABLE — a vocabulary value nothing can produce is
-    # already collapsed (the `provenance-consumer-guard` insight).
+    # already collapsed (the `provenance-consumer-guard` insight). `settled_inert`
+    # is unreachable under the LIVE band by design, so it is exercised against the
+    # counterfactual band: the branch must be live code, not dead.
     produced = {grade(k, n, pol)["flag"] for _, k, n, _ in cases}
+    produced.add(grade(0, 300, pol_inert)["flag"])
     if set(FLAGS) - produced:
         print(f"  SELF-TEST FAIL [every flag reachable]: never produced "
               f"{sorted(set(FLAGS) - produced)}")
         fails += 1
     else:
         print("  ok  [every flag in the vocabulary is reachable]")
+
+    # The null inert edge must REFUSE, not default. Same k/n, two bands.
+    if grade(0, 300, pol)["flag"] != "unsettled" or \
+            grade(0, 300, pol_inert)["flag"] != "settled_inert":
+        print("  SELF-TEST FAIL [a null inert edge is read as permissive]")
+        fails += 1
+    else:
+        print("  ok  [a null band edge refuses rather than defaulting]")
+
+    # The stored flip points must be the interval's own endpoints.
+    g = grade(2, 37, pol)
+    if (g["settled_reachable_if_reach_cut_at_or_below_pct"] != g["ci_low_pct"]
+            or g["settled_inert_if_inert_cut_above_pct"] != g["ci_high_pct"]):
+        print("  SELF-TEST FAIL [flip points disagree with the interval]")
+        fails += 1
+    else:
+        print("  ok  [each basis stores the cut-points its verdict flips at]")
 
     # An interval must WIDEN as n shrinks, or it is not measuring what we think.
     if not (grade(0, 8, pol)["ci_high_pct"] > grade(0, 127, pol)["ci_high_pct"]):
@@ -439,7 +513,7 @@ def _self_test() -> int:
     else:
         print("  ok  [an n=0 basis never wins primary over a populated one]")
 
-    total = len(cases) + 7
+    total = len(cases) + 9
     print(f"self-test: {total - fails}/{total} passed")
     return 1 if fails else 0
 
