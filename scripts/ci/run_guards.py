@@ -1227,6 +1227,33 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # ⚠️ A CHECK MUST BE ABLE TO SAY WHEN IT CANNOT SEE ITS SUBJECT. Three
+        # independent instances in the week of 2026-09-22 reported a passing or
+        # quiet state about a thing they could no longer see: check_manager_scope
+        # (identity source archived, roster frozen, PASSED on 38 manager commits),
+        # work_digest (five of six sources `absent`, self-reported healthy), and
+        # check_manager_queue_watch (armed 479h, ~479 firings, ZERO receipts).
+        # That is the collapsed-state rule applied to the CHECKS rather than to
+        # the data they read — check_collapsed_states.py polices producers and
+        # nothing policed the police.
+        #
+        # ⚠️ `when: None` BECAUSE ITS SUBJECT IS THE GUARD FLEET AND THE TREE, and
+        # a diff-scoped version would pass vacuously on nearly every PR — the
+        # reasoning check_soak_registered.py records for running whole-tree.
+        # Measured cost: ~95 file parses plus ~92 `git cat-file -e` calls.
+        #
+        # ⚠️ IT IS REPORT-FIRST BY DESIGN. The 19 already-broken guards are
+        # carried in a dated baseline that may only SHRINK; only a NEW dead or
+        # degraded guard fails. Failing all 19 on day one would red-wall the repo
+        # and get the guard reverted rather than the debt fixed.
+        "name": "guard-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_guard_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_guard_liveness.py"],
+        ],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
