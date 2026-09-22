@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Failure-behaviour fix to scripts/ops/build_strategy_evidence.py (an offline evidence PRODUCER, not a runtime path) plus its tests and the corpus README. No config/, src/, deploy/ or order-path file is touched, and no committed evidence record is modified -- the change is that a failed run now REFUSES to modify one. scripts/ops/**, tests/** and comms/** are all on TIER1_SURFACE."
+  "why": "Two fixes to the OFFLINE evidence corpus and its producer, both Tier-1 by path. (1) scripts/ops/build_strategy_evidence.py now refuses to overwrite a `measured` record with a failed run. (2) scripts/research/regime_debt_matrix.py computes `fidelity`/`omitted_levers` from the argv that actually runs instead of asserting them from a membership set, and the 13 committed records whose CLAIM was wrong are corrected in place -- two keys only, no measured number moved, no harness re-run. No config/, src/, deploy/ or order-path file is touched and nothing that decides what trades is changed; both corrections are strictly in the conservative direction. scripts/ops/**, scripts/research/**, tests/**, comms/** and docs/** are all on TIER1_SURFACE."
 }
