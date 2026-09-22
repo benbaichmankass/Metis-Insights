@@ -1032,6 +1032,47 @@
       "prs": [],
       "blocked_on": [],
       "note": "OPENED 2026-09-22 by the manager. The 2026-09-22 /health-review graded `data_validity` as `watch` and named these figures, but the finding was left in the review JSON and NEVER became a row -- so by the close-out skill's own test it was not filed. This row is that filing. MEASURED LIVE by me at 2026-09-22T09:1x from GET /api/bot/stats, and the numbers have MOVED since the review (paper 264/658 -> 266/661), so this is ongoing, not a stale snapshot: real book pnlCoverage 0.7633 with pnlMeasuredCount 329 / pnlEstimatedCount 20; PAPER book pnlCoverage 0.2235 with pnlMeasuredCount 266 / pnlEstimatedCount 661. [!] WHY THIS IS NOT COSMETIC: under the promotion ladder, Stage 1 (bybit_1 / alpaca_paper) exists to answer exactly one question -- `do the mechanics work, and does REALIZED COST match what the backtest assumed`. A book whose P&L is predominantly ESTIMATED cannot answer a question about REALIZED cost. So Gate 1's instrument may be reading its own reconstruction rather than the venue, and E3's whole point was that the backtests were fee-only and optimistic by an unknown amount. If the paper book that is supposed to check that assumption is itself largely estimated, the check is weaker than anyone has stated. [!] WHAT I DID NOT ESTABLISH, STATED SO NOBODY QUOTES A NUMBER I DID NOT VERIFY: the DENOMINATOR of pnlCoverage. 266/(266+661) = 0.287, which is NOT the 0.2235 the field reports, so coverage is computed over a larger population than measured+estimated -- there is at least a third bucket (plausibly UNVERIFIED per src/runtime/provenance.py, which the rules say is never folded into measured). Do not restate 'the paper book is 78% estimated' until that denominator is read from the code. FIRST TASK OF THIS ROW IS TO ESTABLISH IT. [!] THEN: find out WHY the paper legs' fills are not measured when the real book's are (broker fill records absent for paper accounts? a different write path? an ingest that never ran?), and say whether it is fixable or structural. If structural, the honest outcome is a stated limit on what Gate 1 can conclude -- which is worth more than a fix that is not available."
+    },
+    {
+      "id": "R7",
+      "title": "Finish the corpus — regrade the 40 ungraded legs with the cost stack ON",
+      "phase": "R",
+      "state": "in_flight",
+      "owner": "research lane",
+      "lane": "session_01W2KHBwLh4ouP1b8De2bmfV",
+      "model": "claude-opus-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "DISPATCHED 2026-09-22. Scope of record: PI-20260922-R1-REMAINING-CORPUS. [!] ID NOTE, because this row was nearly minted wrong: I dispatched the lane telling it to call itself R5, WITHOUT CHECKING THE REGISTER FIRST -- and R5 and R6 are both taken (R5 `Read the soak book on a cadence`, R6 `Decide whether the system should trade at all right now`). This is E13's collision check one level up, and I am the one who skipped it. The lane has been told to use R7. MEASURED on main at 0e0a8f3 over comms/strategy_evidence/: 52 records; 12 carry a decision-rule verdict (all generated 2026-09-22, all with cost_stack fees 7.5 / slippage 5.0 / funding 1.0 bps); 40 carry NO verdict (generated 2026-09-13 and 2026-09-16, all with cost_stack NULL). The 40 are UNGRADED, not failing -- the `we could not look` state -- and their existing net_R figures are pre-cost, which is the corpus E3 and R1 existed to invalidate (R1's own result: turning costs on flipped 3 of 11 legs from positive to negative). DELIVERABLE: every leg's record carries a cost stack and a verdict against RULE-D1-STAGE0-NET-OF-FULL-COST (registered 2026-09-22T05:34:08Z, before any run), OR stays `no_harness` with that stated. HARD BOUND: this row produces evidence and does NOT touch config/accounts.yaml or config/strategies.yaml -- a roster change is R8 and Tier-3. Also asked: why do trend_donchian_sol and trend_donchian_sol_prop, both SOL, both 1h, both donchian 20, DISAGREE IN SIGN (-1.0697 over n=56 vs +3.4484 over n=63)? If two configs that look identical produce opposite verdicts that is a finding about the harness or the config, not about SOL."
+    },
+    {
+      "id": "R8",
+      "title": "Converge the real-money rosters on the finished corpus — rule registered BEFORE the numbers land",
+      "phase": "R",
+      "state": "blocked",
+      "owner": "operator + manager",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "R7",
+          "what": "R7 regrades the 40 ungraded legs with the cost stack ON. Until it lands, 21 of the 30 Bybit-tradeable legs have NO verdict, so any roster change would be decided against pre-cost numbers."
+        },
+        {
+          "kind": "operator_decision",
+          "ref": "R8 -- the convergence rule itself",
+          "what": "THE RULE MUST BE REGISTERED BEFORE R7'S NUMBERS ARE READ, or the roster change is a post-hoc rationalisation rather than a decision -- the repo's own Stage-0 discipline applied to the roster. Two parts, and the second is the operator's because it is a RISK call, not a research one: (1) the per-leg bar, which already exists (RULE-D1-STAGE0-NET-OF-FULL-COST + B1's four clauses); (2) a CONCENTRATION BUDGET, which does not exist and cannot be derived from a per-leg bar."
+        }
+      ],
+      "note": "OPERATOR DIRECTIVE 2026-09-22, verbatim: 'there does need to be some convergence here... the state is still representing something that's incorrect, so either the bybit or the breakout accounts need to have the correct adjustments based on the results we see from running those tests.' AGREED. [!] THE INCOHERENCE IS NOT WHAT IT LOOKS LIKE. It is not that prop carries a leg bybit_2 lacks. MEASURED 2026-09-22 over the 30 Bybit-tradeable legs (symbols ending USDT) in config/strategies.yaml: only 9 carry a decision-rule verdict (5 pass, 4 fail); 21 HAVE NEVER BEEN GRADED. The roster reflects HISTORY, not evidence; the prop/bybit asymmetry is a symptom, not the disease. [!] A NAIVE RULE WOULD BE ACTIVELY DANGEROUS, which is why the operator has to set the second half. The 30 legs are 4 families and ONE family is 11 of them: trend_donchian on BTC, ADA, AVAX, ETH x3, SOL x3, XRP. If costs-on leaves most of those positive, `everything that clears the bar goes on the real-money roster` puts THE SAME SIGNAL on up to 7 correlated alts at risk_pct 0.015 each -- ~10% of the book on one strategy, which is one bet sized 9x, not diversification. The pullback family has the same shape (ada +21.58, xrp +16.41, avax +15.68, sol +8.78 pre-cost) AND its ETH member GRADED FAIL. So clearing the bar is NECESSARY AND NOT SUFFICIENT, and the missing half is a per-family / correlation budget. [!] PROP SHOULD NOT CONVERGE TO THE SAME SET AS BYBIT: breakout_1 is bound by the prop firm's account-killer limits (daily-loss $150, static-DD floor $300), which cap concurrent risk units far below bybit_2. The operator's own framing was right -- prop as a SUBSET is expected; prop carrying what bybit_2 lacks is what needed explaining. [!] MIRROR CONSTRAINT, NON-NEGOTIABLE: bybit_portfolio mirrors bybit_2 EXACTLY (tests/test_paper_portfolio_accounts.py asserts ORDERED equality on strategies AND symbols), so every roster edit lands in ONE commit covering both; that mirror is Gate 2's demotion signal. [!] AND THERE IS NO MECHANISM: config/mandates.yaml is ABSENT from origin/main (verified with git cat-file), B5 is `queued` and unbuilt, and scripts/ops/render_daily_brief.py says so already -- 'today: absent -- B5 is not built'. CLAUDE.md's 'THE LADDER IS FULLY AUTOMATED' is an operator GRANT, not a built fact. Until B5 lands every convergence is a manual Tier-3 decision, which is exactly the loop this row sits in."
     }
   ]
 }
