@@ -1,0 +1,6 @@
+{
+  "held_by": "session_012atopaewbCQy8Fn3ex9obD",
+  "branch": "claude/e5-research-result-contract",
+  "claimed_at": "2026-09-22T12:54:58Z",
+  "purpose": "E5: the durable research result contract (schema + shared composite action + guard + two consumers). Tier-1 research tooling, self-landing per the permission tiers."
+}

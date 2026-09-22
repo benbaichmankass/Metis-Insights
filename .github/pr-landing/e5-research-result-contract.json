@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research tooling, CI guards, a GitHub composite action, a new committed research-result store, three research-queue YAMLs and two register files. Tier-1 by the canonical doc's own list (tests/CI, GitHub Actions workflow updates, backtest tooling that does not alter live runtime behavior, validation tooling, docs). Touches NO src/, NO deploy/, NO config/accounts.yaml or config/strategies.yaml, NO order path, NO risk caps, NO live-VM unit file. The two workflows changed are workflow_dispatch research producers, not deploy or trading-path workflows: the change adds two dispatch inputs and one landing job to each, and does not alter what either measures."
+}

@@ -616,16 +616,18 @@
       "id": "E5",
       "title": "Every research workflow lands a durable queryable result",
       "phase": "E",
-      "state": "queued",
+      "state": "landed_unproven",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_012atopaewbCQy8Fn3ex9obD",
       "model": "claude-sonnet-5",
       "ceiling_usd": 35,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12739
+      ],
       "blocked_on": [],
-      "note": "19 of 23 produce an artifact and an issue comment: artifacts expire, comments are not queryable. This is what makes MD-PROMOTE-S1-S2 POSSIBLE AT ALL -- without it there is no evidence record for the mandate to read. One result schema, one committed location, the commit step in the shared composite action rather than re-implemented 19 times."
+      "note": "LANDED, NOT PROVEN -- and the distinction is the row. WHAT LANDED (branch claude/e5-research-result-contract): one result schema (scripts/research/research_result.py, --self-test), one committed greppable location (research/results/<unit>/<run_id>.jsonl -- unit id in the PATH, the comms/strategy_evidence precedent; .jsonl so assert_rows_landed.py reads it verbatim and --min-rows means the fan-out width), the commit step in ONE shared composite action (.github/actions/research-result, which DELEGATES the commit to .github/actions/commit-to-main rather than re-implementing it), a guard with a planted positive and eight negative controls (research-results-guard), and TWO consumers wired: research-exit-head-build.yml and m20-exit-lever-sweep.yml, both of which also now declare research_unit + power_state so the dispatcher can fire them at all. [!] SPLIT 2026-09-22, AND THE REASON IS A REAL CONSTRAINT RATHER THAN A CHOICE: `pr-landing-guard` R5 REFUSES a Tier-1 self-land on any path outside its TIER1_SURFACE allowlist, and `research/queue/**` is outside it (the list has scripts/research/** but no research/**). So the three queue-unit flips that PROVE the unblock ride a SECOND branch, claude/e5-unblock-research-units, declared `landing: hold` with hold_reason `unvouchable_paths` — the guard's own sanctioned route — and need a human merge. The guard was NOT widened to get past this: the one precedent for widening TIER1_SURFACE (MI-242, scripts/backtest_*.py) went through an operator decision record, and doing it unilaterally here would be the cheaper-to-lie-to-than-satisfy move this repo has already paid for. Filed for the operator as PI-20260922-E5-RESEARCH-QUEUE-IS-OUTSIDE-TIER1-SURFACE-SO-NO-LANE-CAN-SELF-LAND-A-QUEUE-FLIP. UNBLOCKS, verified by running the dispatcher (it grades them would_dispatch, where before they were status: blocked): RQ-20260922-003, RQ-20260922-004 (both named m20-exit-lever-sweep.yml) and RQ-20260922-007 (named research-exit-head-build.yml). [!] IT DOES NOT UNBLOCK RQ-20260922-002 OR -010, and the dispatch brief that said seven units ride one blocker was wrong: their blocked_on needs a workflow that COMPUTES their statistic, and this row built the landing surface, not the producer. Nor -001 (per-trade OOS rows) or -006 (config_fingerprint key set), which are different blockers again. RQ-20260922-012 and -013 do not exist on main. WHAT CLOSES THIS ROW (landed_unproven -> done): a named run id of either consumer whose result record is readable on main at research/results/<unit>/<run_id>.jsonl. No dispatch has been run: the emit + validate + guard half is proven in CI and locally against real corpus data, the LANDING half (a nested composite uses: of commit-to-main) is exercised by no CI run because both consumers are workflow_dispatch-only. The other artifact-only research workflows are PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT."
     },
     {
       "id": "E6",
