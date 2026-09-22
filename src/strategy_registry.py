@@ -104,6 +104,37 @@ def load_strategies(path: str = _YAML_PATH) -> list[dict]:
     return result
 
 
+def declared_names(path: str = _YAML_PATH) -> list[str]:
+    """Every key under ``strategies:`` exactly as the FILE spells it.
+
+    E21. This is the raw denominator the health check cross-checks the resolved
+    roster against, so it deliberately does NOT go through ``load_strategies``
+    (no cache, no normalisation, no defaults) — a cross-check that shares the
+    code path it is checking proves nothing. It lives here rather than in
+    ``health.py`` so the repo keeps one module that parses this file; raises on
+    an unreadable file, and the caller decides what that means.
+    """
+    raw = (_load_yaml(path) or {}).get("strategies") or {}
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"strategies.yaml: expected mapping under 'strategies', got {type(raw)}"
+        )
+    return [str(k) for k in raw]
+
+
+def declared_enabled_count(path: str = _YAML_PATH) -> int:
+    """How many declared strategies are not explicitly ``enabled: false``.
+
+    Permissive default, matching every other gate in this repo: a missing
+    ``enabled`` key means enabled.
+    """
+    raw = (_load_yaml(path) or {}).get("strategies") or {}
+    return sum(
+        1 for cfg in raw.values()
+        if not isinstance(cfg, dict) or cfg.get("enabled", True) is not False
+    )
+
+
 def reload_strategies(path: str = _YAML_PATH) -> list[dict]:
     """Re-read the YAML, BYPASSING the module cache.
 

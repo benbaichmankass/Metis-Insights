@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Dispatch instruction to this lane: 'do not merge -- the manager merges.' Opened as a draft PR and held for the manager.",
+  "why": "Tier-2 by path AND by effect: it changes src/runtime/order_monitor.py on the EXIT path of a live real-money system, plus src/runtime/pipeline.py (the module-level STRATEGIES constant), src/runtime/health.py, src/strategy_registry.py and src/units/db/database.py. No order-placement path, no account mode, no strategy params, no risk/sizing -- so it is not Tier-3. The operator approved the work itself on 2026-09-22 ('implement the exit monitor'); the tier declared here is about what the DIFF touches, not about who asked for it."
+}

@@ -520,8 +520,9 @@ def check_strategy_roster(*, path: Optional[str] = None) -> HealthCheck:
     sync, ticks are fresh, the accounts API answers, the DB selects and the
     disk is fine. The snapshot kept reading ``7/7 checks ok`` while the roster
     covered **0 of the 52 strategies routed to a live account** (MEASURED
-    2026-09-22 against ``config/strategies.yaml`` + ``config/accounts.yaml`` at
-    commit ``f3746ab``).
+    2026-09-22 against the strategy registry and the account routing config at
+    commit ``f3746ab`` — the numbers and how to reproduce them are in
+    ``tests/test_e21_exit_roster_resolution.py``).
 
     The three roster states are graded differently on purpose — see
     ``src/runtime/strategy_roster.py``:
@@ -569,16 +570,12 @@ def check_strategy_roster(*, path: Optional[str] = None) -> HealthCheck:
     declared: Optional[int] = None
     enabled: Optional[int] = None
     try:
-        import yaml  # noqa: PLC0415 — optional on the VM image, by design
-        yaml_path = Path(path) if path else (_REPO_ROOT / "config" / "strategies.yaml")
-        with open(yaml_path, "r", encoding="utf-8") as fh:
-            raw = (yaml.safe_load(fh) or {}).get("strategies") or {}
-        if isinstance(raw, dict):
-            declared = len(raw)
-            enabled = sum(
-                1 for cfg in raw.values()
-                if not isinstance(cfg, dict) or cfg.get("enabled", True) is not False
-            )
+        # Through the canonical registry, never a hand-rolled parse here — but
+        # NOT through `load_strategies`, whose result is the very thing being
+        # cross-checked (and which caches).
+        from src.strategy_registry import declared_enabled_count, declared_names
+        declared = len(declared_names(path) if path else declared_names())
+        enabled = declared_enabled_count(path) if path else declared_enabled_count()
     except Exception as exc:  # noqa: BLE001
         # "we could not cross-check" is its own outcome — never reported as
         # agreement, and never as a roster failure either.
