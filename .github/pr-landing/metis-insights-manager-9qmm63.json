@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager register + pipeline rows only. The diff at this head is docs/claude/work/MANAGER-CHECKLIST.json and docs/claude/work/PIPELINE.jsonl, plus this landing paperwork and the arming file -- every path inside TIER1_SURFACE. The earlier `hold_reason: unvouchable_paths` on this file was TRUE of an earlier head, which carried .claude/settings.json; that change landed in #12685 and the reason went stale with it. R14 caught the stale hold, which is the rule working: a hold that outlives its reason is a way of not landing ready work."
+  "why": "Manager register only. The diff at this head is docs/claude/work/MANAGER-CHECKLIST.json plus this landing paperwork and the arming file -- every path inside TIER1_SURFACE. No src/, no config/, no workflow. The branch was restarted from main after #12704 merged and the remote branch was pruned, which is why the declaration had to be written again: a fresh branch carries no paperwork, and pr-landing-guard correctly read state=undeclared rather than inheriting the merged PR's."
 }
