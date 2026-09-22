@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The ops-lane dispatch for 2026-09-22 says in terms: 'Each PR: draft, with .github/pr-landing/<branch-slug>.json declaring its tier honestly, landing: \"hold\", hold_reason: \"operator_asked_to_hold\".' The manager merges; this lane does not.",
+  "why": "Repoints a binding skill's hard completion gate and its review-window anchor off an ARCHIVED file onto two that exist, and widens an output template's status enum. Changed paths: .claude/skills/health-review/SKILL.md, comms/schema/health_review_response.template.json, docs/claude/work/MANAGER-CHECKLIST.json (row E23) -- all inside TIER1_SURFACE (docs/**, comms/**, and the skill, which is documentation this skill's own § 'What you DO write' sanctions editing). No code, no config, no workflow, no src/, no deploy/, and no runtime behaviour changes. The gate is KEPT rather than removed -- only its subject moves -- and the archived backlog is explicitly NOT resurrected, per CLAUDE.md. Measured and recorded rather than fixed: the same gate is broken in /performance-review and /ml-review, because all four named backlog files are absent; repointing those is one PR per skill and is not this one."
+}
