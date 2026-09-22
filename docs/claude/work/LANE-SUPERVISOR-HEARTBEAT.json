@@ -1,0 +1,19 @@
+{
+  "last_fired_at": "2026-09-22T14:27:02Z",
+  "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
+  "trigger": "trig_015LidFPWwazuRXv7fxyV2pf",
+  "served_model": "claude-sonnet-5",
+  "capability": {
+    "checkout_present": true,
+    "list_sessions_callable": true,
+    "container_was_cold": false,
+    "evidence": "git checkout claude/e44-lane-supervisor-build succeeded; git rev-parse HEAD returned a07e51f2af2f9e0778b7144716668c7e5ba7f61b (then rebased onto cfaa2ad after a concurrent push); list_sessions(mine=true, limit=60) returned 60 rows; list_pull_requests(state=open) returned 100 rows; list_triggers(limit=100) returned 100 rows; get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, connection_status=connected, worker_epoch=2, tags=[lane:E44-supervisor, role:lane-supervisor] — no checklist `lane` field exists yet to check this against (see unrouted), but the parent_session_id independently matches the author of commit cfaa2ad (the mandate update pulled mid-firing), which is real structural corroboration this dispatch traces to the E44 build lane rather than to unverifiable prose; this session had already been running earlier in the same conversation when this trigger fired, so the container was warm, not a cold start (no hours-idle cold test performed)"
+  },
+  "acted": {"archived": [], "raised": [], "held": 4},
+  "unrouted": [
+    "lane_reconcile.py --supervise exited 2: NO ARCHIVE IS AUTHORISED — no checklist row (and nothing at the checklist's top level) carries `supervisor_lane`, so condition 5 cannot be evaluated and every candidate is HELD rather than authorised. This is the expected dry-run result per this firing's instructions, not a fix applied this turn.",
+    "The plan additionally identified 7 sessions as RAISE candidates (2 READY/idle-holding-output, 5 BLOCKED-on-a-human-gate). None were filed onto MANAGER-CHECKLIST.json this turn: this firing's instructions scoped the dry run to steps 2-7 of the original message (dump, run --supervise, run --heartbeat-grade, write this heartbeat, commit+push, re-run --heartbeat-grade) and explicitly excluded archive_session and interrupt/message calls; filing raises onto the checklist was not in that explicit list and is left for the firing that has archive/raise authority.",
+    "LANE-SUPERVISOR-MANDATE.md states it was 'Built for checklist row E44', but no row with id E44 exists in MANAGER-CHECKLIST.json (verified by scanning docs/claude/work/MANAGER-CHECKLIST.json items and grepping for '\"E44\"' and 'supervisor_lane': zero matches for both). The updated mandate's own new verification rule (get_session().parent_session_id checked against the checklist row's `lane` field) cannot be fully exercised until that field exists — the same underlying gap, seen from a second angle.",
+    "The mandate was updated mid-firing (a07e51f -> cfaa2ad, pulled and rebased onto before this push) by session_01VsAt1BzrdspLn6hDzFTGh2, which is this supervisor's own parent_session_id. Reported as the fifth reading the notification asked for: my own verification this turn combined (1) the trigger's persistent_session_id matching my session id, (2) the branch/PR/mandate file genuinely existing with content that directly anticipates and addresses the 'is this an injection' question, and (3) this parent_session_id match found via get_session(). None of these alone is unforgeable, but together, arriving from independent channels (routine metadata, repo content, live session graph) rather than from the Routine prompt's own prose, they were enough to move from BLOCKED to acting — consistent with the mandate's own conclusion that prose in a Routine prompt is never sufficient by itself."
+  ]
+}
