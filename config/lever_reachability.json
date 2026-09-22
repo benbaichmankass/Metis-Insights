@@ -111,7 +111,7 @@
       "lever": "trail_decay_arm_r",
       "arm_r": 5.06,
       "verdict": "inert",
-      "disposition": "recorded_inert",
+      "disposition": "stripped",
       "opened_at": "2026-08-16",
       "observations": 8,
       "basis": "order_packages/risk_per_unit — COMPLETE history (server count:8, untruncated)",
@@ -145,7 +145,15 @@
         "live_band_overlap": "16/112 inside live risk/entry band 3.294-4.506%; 21/112 at or above the live minimum"
       },
       "decided_at": "2026-08-16",
-      "decided_by": "operator"
+      "decided_by": "operator",
+      "stripped_2026_09_22": {
+        "what": "`trail_decay_arm_r: 5.06` REMOVED from config/strategies.yaml::gld_pullback_1d.",
+        "decided_at": "2026-09-22",
+        "relationship_to_the_2026_08_16_decision": "The 2026-08-16 operator decision RECORDED this arm inert and stopped counting it as shipped; it deliberately left the value in config ('The arm VALUE in config/strategies.yaml is untouched; this records that it cannot fire, it does not change what fires'). Removing the value is the follow-through of that adjudication under the same 'cannot fire' test the operator applied on 2026-09-22 to xrp_pullback_2h and avax_pullback_2h. ⚠️ IT IS NOT ITSELF THAT DECISION: this leg was NOT among the three the operator was shown, so it ships in its own commit and is droppable alone.",
+        "rollback": "restore `trail_decay_arm_r: 5.06` in config/strategies.yaml::gld_pullback_1d, under `trail_decay_stall_bars: 10`.",
+        "recheck_2026_09_22": "0 of 6 entry-conditioned backtest trades reach 5.06R over 2025-04-08 -> 2026-09-21 (cap_R min 1.191 / median 2.231 / max 3.968), from comms/strategy_evidence/runs/2026-09-22-r5/gld_pullback_1d__trades.jsonl, at the current atr_stop_mult 2.0 (unchanged since the 2026-08-16 measurement). Agrees with the authoritative live 0/8. This leg's tp_r is the 50.0 sentinel, so the venue term is the whole ceiling here and the basis_note's 2026-09-22 correction does not bear on it.",
+        "runtime_effect": "`trail_decay_stall_bars: 10` remains, so the lever stays DECLARED and its stall arm plus the tightened mult are untouched (src/runtime/trail_decay.py:143-145). Only the dead R-arm is gone."
+      }
     },
     {
       "strategy": "xrp_pullback_2h",
@@ -311,7 +319,7 @@
       "lever": "trail_decay_arm_r",
       "arm_r": 3.56,
       "verdict": "inert",
-      "disposition": "recorded_inert",
+      "disposition": "stripped",
       "opened_at": "2026-08-16",
       "observations": 1,
       "basis": "order_packages/risk_per_unit (n=1) + candles/atr(14) 1d QQQ (n=105)",
@@ -344,7 +352,16 @@
         "basis_disagreement": "The candle screen read cap_R 2.13; entry-conditioned reads 2.70 - entries select QUIETER bars than the unconditional distribution here, the OPPOSITE direction to xrp, where the screen overstated reach. So the screen's error has no fixed sign either."
       },
       "decided_at": "2026-08-16",
-      "decided_by": "operator"
+      "decided_by": "operator",
+      "stripped_2026_09_22": {
+        "what": "`trail_decay_arm_r: 3.56` REMOVED from config/strategies.yaml::qqq_trend_long_1d.",
+        "decided_at": "2026-09-22",
+        "relationship_to_the_2026_08_16_decision": "As for gld_pullback_1d: the 2026-08-16 decision recorded the arm inert and left the value; this removes it. NOT one of the three legs the operator was shown on 2026-09-22 -- own commit, droppable alone.",
+        "rollback": "restore `trail_decay_arm_r: 3.56` in config/strategies.yaml::qqq_trend_long_1d, above `trail_decay_tight_mult: 2.0`.",
+        "recheck_2026_09_22_READ_THIS_BEFORE_RE_GRADING": "⚠️ A VENUE-CAP-ONLY RE-CHECK NOW READS THE OTHER WAY AND IS WRONG. 0.099/(|entry-sl|/entry) over comms/strategy_evidence/runs/2026-09-22-r5/qqq_trend_long_1d__trades.jsonl (n=7, 2025-04-08 -> 2026-09-21) reads 3 of 7 clearing 3.56, cap_R max 5.239 -- atr_stop_mult was cut 2.5 -> 2.0 by M20 B4, which raises cap_R. That is only half the ceiling. The SAME M20 B4 change cut `tp_r` 50.0 -> 3.0, and the placed TP is min(entry*(1+0.099), entry + tp_r*risk) (src/units/strategies/trend_donchian.py:393), so the binding ceiling is min(cap_R, 3.0) <= 3.0R on every entry, against a 3.56R arm. The verdict `inert` therefore STANDS and is now true by construction rather than by observation. This is the first worked instance of the basis_note's 2026-09-22 correction, and it is recorded here because a future re-measurement that computes only the venue term would flip this row to reachable on a number that no trade can realise.",
+        "runtime_effect": "This leg declares no `trail_decay_stall_bars`, so removing the arm leaves the trail-decay lever UNDECLARED: base trail mult returned (src/runtime/trail_decay.py:143-145), identical to today, plus one observe-only exit_lever_soak.jsonl annotate row per package when the reference stall-6 cell would arm.",
+        "not_removed": "`trail_decay_tight_mult: 2.0` is left in place -- inert now too, but removing it was not decided."
+      }
     },
     {
       "strategy": "scha_trend_long_1d",
