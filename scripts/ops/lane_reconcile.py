@@ -780,10 +780,20 @@ def _self_test() -> int:
           str(pl))
     # S6b — read from the REGISTER, not hardcoded: no `supervisor_lane` on any
     # row means condition 5 could not be applied, and that is SAID.
+    # S6b — ⚠️ AND IT FAILS CLOSED. If no row names the supervisor we cannot tell
+    # whether a candidate IS the supervisor, so NOTHING may be authorised. An
+    # earlier draft merely reported the gap and kept authorising — the same
+    # defect as reading a missing PR listing as "no open PRs".
     pl = plan({"a": lane("a", COMPLETED)}, rows=[{"id": "X", "lane": None}])
-    t, _ = render_supervise(pl, "t")
-    check("S6b a checklist naming no supervisor says condition 5 is unapplied",
-          pl["supervisor"] is None and "cannot be recognised" in t, t)
+    t, c = render_supervise(pl, "t")
+    check("S6b a checklist naming NO supervisor authorises nothing and exits 2",
+          pl["supervisor"] is None and not pl["authorised"] and c == 2
+          and "cannot be recognised" in t, t)
+    # S6c — the control: S1 already proves a NAMED supervisor still authorises
+    # other lanes, so S6b is not passing on a gate that never authorises.
+    check("S6c ...while a NAMED supervisor still authorises other lanes",
+          [x["lane"] for x in plan({"a": lane("a", COMPLETED)})["authorised"]]
+          == ["a"])
 
     # S7 — an ALREADY-ARCHIVED lane is not re-proposed (the plan must converge).
     check("S7 an already-archived lane is not proposed again",
@@ -1196,7 +1206,18 @@ def archive_plan(sessions: Dict[str, dict], rows: List[dict], now_iso: str,
             continue           # WORKING: not ours to touch, and not a finding
 
         reasons: List[str] = []
-        if sid == supervisor:
+        if supervisor is None:
+            # ⚠️ FAIL CLOSED, NOT OPEN. If no row names the supervisor, we cannot
+            # tell whether THIS lane is the supervisor -- so every candidate is a
+            # possible self-archive and none may be authorised. An earlier draft
+            # of this function merely REPORTED the missing name and carried on
+            # authorising, which is the same defect as reading a missing PR
+            # listing as "no open PRs": a condition that could not be evaluated
+            # was silently treated as satisfied.
+            reasons.append("NO ROW NAMES THE SUPERVISOR — so we cannot rule out "
+                           "that this lane IS the supervisor (condition 5): "
+                           "could not look")
+        elif sid == supervisor:
             reasons.append("IT IS THE SUPERVISOR'S OWN SESSION (condition 5)")
         ih = base["idle_h"]
         if ih is None:
@@ -1223,6 +1244,7 @@ def archive_plan(sessions: Dict[str, dict], rows: List[dict], now_iso: str,
     return {"authorised": authorised, "held": held, "raise": raise_up,
             "pr_evidence": PR_UNKNOWN if owners is None else PR_NONE,
             "wake_evidence": PR_UNKNOWN if wakes is None else PR_NONE,
+            "supervisor_evidence": PR_UNKNOWN if supervisor is None else PR_NONE,
             "idle_hours": idle_hours, "supervisor": supervisor,
             "now": now_iso}
 
@@ -1247,22 +1269,22 @@ def render_supervise(plan: Dict[str, Any], read_at: str) -> Tuple[str, int]:
            f"  archive gate: bucket in {{completed, failed}} AND idle >= "
            f"{plan['idle_hours']:.0f}h AND no open PR AND no pending wake AND "
            f"not the supervisor itself"]
-    if plan["pr_evidence"] == PR_UNKNOWN or plan["wake_evidence"] == PR_UNKNOWN:
+    missing_evidence = [
+        name for name, key in (("the open-PR listing", "pr_evidence"),
+                               ("the Routine listing", "wake_evidence"),
+                               ("the supervisor's own id (no checklist row "
+                                "carries `supervisor_lane`)", "supervisor_evidence"))
+        if plan.get(key) == PR_UNKNOWN]
+    if missing_evidence:
         out.append("")
-        out.append("⛔ NO ARCHIVE IS AUTHORISED: "
-                   + ("the open-PR listing " if plan["pr_evidence"] == PR_UNKNOWN
-                      else "")
-                   + ("and " if plan["pr_evidence"] == PR_UNKNOWN
-                      and plan["wake_evidence"] == PR_UNKNOWN else "")
-                   + ("the Routine listing " if plan["wake_evidence"] == PR_UNKNOWN
-                      else "")
-                   + "was not supplied. 'We could not look' is NOT 'there is "
-                     "none' — an empty plan here would be a clean bill from a "
-                     "read that never happened.")
+        out.append("⛔ NO ARCHIVE IS AUTHORISED — not supplied: "
+                   + "; ".join(missing_evidence)
+                   + ". 'We could not look' is NOT 'there is none'.")
     if plan["supervisor"] is None:
-        out.append("⚠️  NO `supervisor_lane` ON ANY CHECKLIST ROW, so condition 5 "
-                   "could not be applied — the supervisor cannot be recognised "
-                   "and so cannot be protected from archiving itself.")
+        out.append("⚠️  NO `supervisor_lane` ON ANY CHECKLIST ROW. Condition 5 "
+                   "cannot be applied — the supervisor cannot be recognised, so "
+                   "it cannot be protected from archiving ITSELF, and every "
+                   "candidate is therefore HELD rather than authorised.")
     for r in plan["raise"]:
         out.append(f"  ▲ RAISE  {r['lane']}  {r['bucket'].rsplit('_', 1)[-1]}  "
                    f"{_money(r['cost'], r['cost_state'], r['finality'], read_at)}"
@@ -1283,7 +1305,7 @@ def render_supervise(plan: Dict[str, Any], read_at: str) -> Tuple[str, int]:
     out.append(f"  authorised {len(plan['authorised'])} · held "
                f"{len(plan['held'])} · raised {len(plan['raise'])}")
     code = 1 if (plan["authorised"] or plan["raise"]) else 0
-    if plan["pr_evidence"] == PR_UNKNOWN or plan["wake_evidence"] == PR_UNKNOWN:
+    if missing_evidence:
         code = 2
     return "\n".join(out), code
 
@@ -1569,7 +1591,8 @@ def main() -> int:
         if a.json:
             print(json.dumps(plan, indent=2, default=str))
             return 2 if PR_UNKNOWN in (plan["pr_evidence"],
-                                       plan["wake_evidence"]) else (
+                                       plan["wake_evidence"],
+                                       plan["supervisor_evidence"]) else (
                 1 if (plan["authorised"] or plan["raise"]) else 0)
         text, code = render_supervise(plan, read_at)
         print(text)
