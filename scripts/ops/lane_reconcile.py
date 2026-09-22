@@ -614,6 +614,24 @@ def _self_test() -> int:
     check("O2c an UNRECORDED spend is not a finding — absent is not wrong",
           not o["unmarked_spend"])
 
+    # O2d — THE BASELINE MUST NOT BE A SILENT HOLE. A grandfathered id is
+    # exempt AND COUNTED; any other id carrying the same bare number is not.
+    # Without the second half the escape hatch could quietly widen to
+    # everything and every run would still print "0 findings".
+    bl = sorted(SPEND_MARKER_BASELINE)[0] if SPEND_MARKER_BASELINE else None
+    if bl:
+        o = offline_findings([{"id": bl, "state": "done", "spend_usd": 1.0},
+                              {"id": "NOT-BASELINED", "state": "done",
+                               "spend_usd": 1.0}])
+        check("O2d a baselined id is exempt, a new one with the same shape is not",
+              [u["id"] for u in o["unmarked_spend"]] == ["NOT-BASELINED"],
+              str(o["unmarked_spend"]))
+        check("O2e ...and the exemption is COUNTED, never silent",
+              o["grandfathered_spend"] == 1, str(o))
+        text, _ = render_offline(o)
+        check("O2f ...and the debt count is printed on every run",
+              "spend-marker debt: 1 of" in text, text)
+
     # O3 — zero in_flight while unblocked rows are queued.
     o = offline_findings([{"id": "A", "state": "queued", "blocked_on": []}])
     text, code = render_offline(o)
@@ -646,6 +664,42 @@ def _self_test() -> int:
 # --------------------------------------------------------------------------
 # The OFFLINE half — what needs NO session state, so CI can run it
 # --------------------------------------------------------------------------
+#: The rows carrying a BARE `spend_usd` when this rule was written (2026-09-22),
+#: grandfathered by id.
+#:
+#: ⚠️ THIS IS AN ESCAPE HATCH AND IT IS THE `check_soak_registered.py` PATTERN
+#: ON PURPOSE, not a quiet exemption. What makes it acceptable is that it is
+#: NOT SILENT: each name is a visible line in a file, in the diff, under a
+#: comment saying the list may only SHRINK, and the count prints on every run —
+#: so a growing number is visible without anyone auditing this file. A reviewer
+#: sees a deliberate act.
+#:
+#: ⚠️ WHY GRANDFATHER AT ALL RATHER THAN JUST FAILING. All 15 were written
+#: before the rule existed, and the fix is a SCHEMA change (`spend_usd` becoming
+#: an object carrying the read time and the finality) that touches the checklist's
+#: consumers. Failing on them today would put a red line on every PR over rows
+#: their authors cannot fix, which is the guard-that-gets-deleted-rather-than-
+#: fixed reasoning `check_pr_queue_watch.py` records. New rows are held to the
+#: rule from here.
+SPEND_MARKER_BASELINE = frozenset((
+    "A1",
+    "A3",
+    "A3b",
+    "A8",
+    "A9",
+    "B1",
+    "B2",
+    "E10",
+    "E11",
+    "E13",
+    "E15",
+    "E16",
+    "E3",
+    "E9",
+    "R1",
+))
+
+
 def offline_findings(rows: List[dict]) -> Dict[str, Any]:
     """The subset of the invariant derivable from the CHECKLIST ALONE.
 
@@ -678,9 +732,13 @@ def offline_findings(rows: List[dict]) -> Dict[str, Any]:
     # the row says so nowhere. Accepted shapes: a string carrying `running` or
     # `final`, or an object stating both. A bare number is refused.
     unmarked_spend = []
+    grandfathered = 0
     for r in rows:
         v = r.get("spend_usd")
         if v is None:
+            continue
+        if r.get("id") in SPEND_MARKER_BASELINE:
+            grandfathered += 1
             continue
         if isinstance(v, (int, float)):
             unmarked_spend.append({
@@ -700,6 +758,8 @@ def offline_findings(rows: List[dict]) -> Dict[str, Any]:
                     for r in rows
                     if r.get("state") == "queued" and not (r.get("blocked_on") or [])]
     return {"no_lane": no_lane, "unmarked_spend": unmarked_spend,
+            "grandfathered_spend": grandfathered,
+            "baseline_size": len(SPEND_MARKER_BASELINE),
             "in_flight": len(in_flight), "dispatchable": dispatchable}
 
 
@@ -709,7 +769,10 @@ def render_offline(res: Dict[str, Any]) -> Tuple[str, int]:
            f"  rows in_flight: {res['in_flight']}   "
            f"in_flight with NO lane: {len(res['no_lane'])}   "
            f"spend recorded without a read-state: {len(res['unmarked_spend'])}   "
-           f"unblocked and queued: {len(res['dispatchable'])}"]
+           f"unblocked and queued: {len(res['dispatchable'])}",
+           f"  spend-marker debt: {res.get('grandfathered_spend', 0)} of "
+           f"{res.get('baseline_size', 0)} baselined row(s) still carry a bare "
+           f"number — this list may only SHRINK"]
     for n in res["no_lane"]:
         out.append(f"  ✗ [{n['id']}] state claims a lane and names none — "
                    f"{n['title']}")

@@ -1,0 +1,104 @@
+# The lane watchdog — the involuntary half of E20
+
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-22` ·
+> registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+>
+> Created 2026-09-22 by the E20 lane (`session_011xpvJ2MQgd4jmKkdfg6gzV`).
+
+`scripts/ops/lane_reconcile.py` answers, in one screen, whether every checklist
+row claiming a lane has a lane that is breathing, and what the live lanes are
+costing. **It has to be RUN**, and that is the weakness its own draft admitted:
+
+> *"asking is still voluntary" is reason (5), the one that killed `DUE.md`.*
+
+## Why the mechanism is a separate scheduled SESSION and not a CI guard
+
+**Two designs were tried and measured before this one.**
+
+1. **A CI guard deriving lane liveness from git.** Flag an `in_flight` row whose
+   lane has not committed for N hours. **MEASURED 2026-09-22 against live
+   session state: 5 of the 7 lanes in `status_bucket` WORKING had never
+   committed anything at all.** Commit recency does not separate a working lane
+   from a dead one, so that guard would have redded five healthy lanes. Killed
+   on measurement.
+
+2. **A CI guard on the offline half.** `--offline` genuinely runs anywhere, and
+   the part of it that matters — *zero rows `in_flight` while unblocked rows are
+   queued* — is a fact about **the manager's** behaviour. Failing a
+   contributor's PR over it would punish the one actor who cannot fix it, which
+   is the reasoning `check_pr_queue_watch.py` records for refusing to fail PRs
+   on backlog size, and the way a guard gets deleted rather than fixed.
+
+What is left is the honest answer: **the state lives behind MCP tools
+(`list_sessions`), which no CI runner can reach**, so the watcher must be a
+session. A Routine firing into **the manager's own session** is what exists
+today and is not enough — a manager can skip its own reminder, and that is
+exactly reason (5). So the watchdog is a Routine that fires into a **FRESH
+session**, on a schedule, whoever is managing. The manager cannot skip it
+because the manager is not in the path.
+
+## The Routine
+
+Created 2026-09-22 with `create_trigger`:
+
+- **fresh session per firing** (`create_new_session_on_fire: true`) — so it is
+  independent of whoever holds the manager role
+- **`claude-haiku-4-5-20251001`** — the work is one dump, one script run and one
+  ping. This is the `Sweep dispatch, log reads, extraction` row of the manager
+  skill's model table.
+- **every 6 hours**. Not 2: the conditions it watches (a walled lane, a finished
+  lane still open) persist for **days** when nobody looks — the measured instance
+  sat 72.8 hours — so a 6-hour cadence catches them at a fraction of the cost,
+  and a desensitising alarm is its own P1 in
+  `docs/CLAUDE-RULES-CANONICAL.md`.
+- **it reports only when there is a finding.** A quiet run says nothing. An
+  `accruing`-equivalent that pinged on every pass would be the alarm fatigue
+  that rule already names.
+
+## The prompt (verbatim — this file is the source of record)
+
+It lives here rather than only inside the Routine so it is reviewable in the
+diff, reproducible if the Routine is lost, and changeable through a PR:
+
+```text
+You are the LANE WATCHDOG for benbaichmankass/Metis-Insights. You are NOT the
+manager and you do not do items. One job, then stop.
+
+1. Read docs/claude/work/LANE-WATCHDOG-PROMPT.md and this repo's CLAUDE.md
+   section "How work is organised".
+2. Call list_sessions(mine=true, limit=60) and write the JSON to a file.
+3. Run: python3 scripts/ops/lane_reconcile.py --sessions <that file>
+4. If it exits 0, STOP. Say nothing, ping nobody, commit nothing — a quiet run
+   is the expected state and an alarm on every pass is the alarm fatigue
+   docs/CLAUDE-RULES-CANONICAL.md calls a P1 in its own right.
+5. If it exits 1, do exactly these, in order, and nothing else:
+   a. Post the reconciliation to the operator via the send-ping system-action
+      (open a `system-action` labelled issue, `action: send-ping`). Lead with
+      the loudest line: a WALLED lane, then a lane over ceiling, then a
+      finished-but-open lane.
+   b. For any row whose lane is dead while the row still says `in_flight`,
+      append ONE pipeline row via docs/claude/work/PIPELINE.jsonl naming the
+      row, the lane, the lane's own post_turn_summary, and a due_when — unless
+      a row for that lane already exists, in which case add nothing.
+   c. STOP. Do NOT dispatch a lane, do NOT clear a permission prompt (only a
+      human may — firing a trigger at a blocked lane answers the prompt on the
+      operator's behalf), do NOT archive another session, and do NOT fix
+      whatever the dead lane was working on. Surfacing it IS the job.
+6. Exit code 2 means the read did not happen. Say THAT — it is not "all clear".
+```
+
+## What this does NOT do
+
+- **It does not supervise.** It reports the record of supervision, the same
+  honest limit `check_manager_scope.py` R6 states about itself.
+- **It does not clear a wall.** A `BLOCKED` lane needs a human click.
+  `fire_trigger` is refused there and that refusal is correct.
+- **It does not archive anything.** Archiving another manager's lane is the
+  manager's call; the watchdog's job ends at making it impossible to miss.
+
+## How to stop it
+
+`list_triggers` to find it by name (`lane-watchdog`), then `delete_trigger`, or
+`update_trigger(enabled: false)` to pause it. If it is ever deleted, the
+invariant goes back to being voluntary — which is the state this file exists to
+record, so say so rather than letting it lapse quietly.
