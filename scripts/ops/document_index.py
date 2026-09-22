@@ -326,6 +326,30 @@ STATUS_EXPLICIT: Dict[str, Tuple[str, str, str]] = {
         "evidence closing BL-20260816-CORPUS-CONFLICT-REDERIVE-RUNS-THE-STALE-BRANCH-EXTRACTOR; "
         "goes historical once the dispatched-sha stamp lands",
     ),
+    # Written 2026-09-22 by the E24 OPS lane, the same session that took every
+    # measurement in it, so the status is ESTABLISHED rather than inferred. Each
+    # figure was read this session against a stated population, and every
+    # NEGATIVE carries a positive control on the same call shape and credential:
+    # the six GitHub security-API 403s are controlled by six 200s, and the four
+    # `sshd` journal 400s are controlled by a 200 on `ict-web-api.service` -- so
+    # "we could not look" is demonstrated, not assumed. No other rung can see
+    # it: rule 1 does not import it, rule 2's ACTIVE_DOCS does not enforce it,
+    # it is not a skill, not `history`, and it declares itself neither dead nor
+    # superseded -- so without this entry it reads `unknown`, which is the ONE
+    # thing it is not, because `unknown` means NOBODY HAS CHECKED.
+    # ⚠️ It goes `superseded` the moment a LATER breach sweep lands. This is a
+    # point-in-time sweep with short windows by construction (the activity and
+    # workflow-run feeds are page-capped at ~13.5 h and ~10.4 h), so leaving it
+    # `live` past its successor would let a reader quote a stale all-clear about
+    # a repo that moves this fast -- the exact trap the register exists to end.
+    "docs/security/breach-sweep-2026-09-22.md": (
+        "live",
+        "read:E24-lane-authored-and-measured-it-2026-09-22",
+        "the stated breach-check negative the /health-review skill requires and "
+        "the 2026-09-22 review could not produce; verdict `watch` -- 2 of 5 "
+        "sources swept clean, 1 partial, 2 `could_not_look` with named reasons; "
+        "superseded by the next sweep, and its windows are short by construction",
+    ),
     "docs/claude/TASK-PRIORITY-2026-09-07.md": (
         "live",
         "read:MI-162-opened-it-anchored-to-the-current-cycle-priority",
