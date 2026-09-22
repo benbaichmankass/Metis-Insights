@@ -190,3 +190,36 @@ largest single run $0.0987, against a **$10/month** cap. Two gates hold outside
 this directory — the burst workflow's ledger preflight and its `GPU_BURST_ARMED`
 arm gate — plus `--max-gpu-dispatches-per-run` here, because the ledger cap is
 *monthly* and cannot bound a loop inside one run.
+
+## `blocked/` — pre-registered questions with no instrument yet
+
+⚠️ **A question whose instrument does not exist is not a JOB.** `validate()`
+requires `run.workflow` and `lands.store` on every entry, unconditionally, and
+it is right to: this directory is a *dispatch* queue, and the dispatcher fires
+workflows. A unit that names no workflow cannot be dispatched, so admitting one
+here would make the queue's own census unreadable — `tests/test_research_queue.py`
+fails the whole file set on it, which is the correct behaviour and is how this
+subdirectory came to exist (PR #12706).
+
+So a question that is fully pre-registered — hypothesis, population, decision
+rule, power — but whose **measurement does not exist yet** lives in
+`research/queue/blocked/<id>.yaml` instead. Same schema, same id format, same
+filename-equals-id rule. `load_queue()` globs `*.yaml` NON-recursively, so
+these are outside the dispatched population by construction rather than by a
+flag anyone has to remember to set.
+
+**Each one carries a `blocked_on` block naming what must exist and a
+`clears_when`.** Promoting one back is a `git mv` into this directory's parent
+plus filling in `run.workflow` / `lands.store` — at which point the validator
+and the test start holding it to the full contract, which is the point.
+
+⚠️ **This is a waiting room, and keeping it from becoming a graveyard is not
+yet mechanical.** Each unit's `blocked_on` states a `clears_when`, and where the
+blocker is already filed it names the row —
+`RQ-20260922-001` → `PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH`. The others
+name a checklist row (E5/C2) or a source path instead, which is weaker: a
+checklist row has no `due_when`, so **nothing puts those on a clock today** and
+they rest on someone choosing to look in here. That is stated rather than
+papered over; giving every entry a dated `PI-` row is the obvious next step and
+is deliberately not done by the PR that created this directory, which was
+scoped to writing questions, not to building their follow-through.

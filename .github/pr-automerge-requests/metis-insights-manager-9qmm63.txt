@@ -9,3 +9,8 @@ B2 two lanes without a single commit between them.
 Round 4 (2026-09-21): the spends in round 3 were ALSO mid-flight. Corrected
 after archiving every lane -- ~$1,142, not ~$860. Same error twice in one day,
 the second time inside the commit describing it.
+
+Round 5 (2026-09-22): three lanes dispatched (eng/R1, ops/E19, health-review);
+R1 and R3 unblocked because E3 landed; four duplicate row-pairs marked; E19's
+fix merged and its row moved to landed_unproven on the observation, not the
+merge.
