@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The ops-lane dispatch for 2026-09-22 says in terms: 'Each PR: draft, with .github/pr-landing/<branch-slug>.json declaring its tier honestly, landing: \"hold\", hold_reason: \"operator_asked_to_hold\".' The manager merges; this lane does not.",
+  "why": "Two `note`/`state`/`lane`/`blocked_on` field edits on two rows of docs/claude/work/MANAGER-CHECKLIST.json, recording a live observation and unblocking a typed edge. No code, no config, no workflow, no src/, no deploy/ -- the single changed path (plus this declaration) is inside TIER1_SURFACE under docs/**. NOTHING WAS WRITTEN TO THE FLEET: the observation came from a read-only GET through the token-gated /api/diag/* relay (issue #12708, run 35695727461). E19 moves landed_unproven -> done because its effect was OBSERVED, not because it merged; E17's blocked_on empties because the read it waited on was taken, and its note records that the read REFUTES the premise E17's chosen fix was selected on -- E17 itself stays `queued` and Tier-3, and nothing is armed here."
+}

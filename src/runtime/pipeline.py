@@ -292,6 +292,8 @@ def _report_pipeline_outcome(result: Dict[str, Any], signal: Dict[str, Any]) -> 
 
 logger = logging.getLogger(__name__)
 
+from src.runtime.strategy_roster import resolve_roster  # noqa: E402
+
 
 
 def _multi_account_dispatch_enabled(settings: dict) -> bool:
@@ -338,20 +340,28 @@ def _signal_carries_full_sltp(signal: Dict[str, Any]) -> bool:
 
 # Ordered list of strategies tried in multiplexed mode; first actionable signal wins.
 # Source of truth is config/strategies.yaml (S-007). Order in the YAML determines
-# multiplexer priority. Falls back to the original hardcoded list if the registry
-# cannot be loaded (e.g. missing pyyaml in a minimal deploy environment).
-def _strategies_from_registry() -> list:
-    try:
-        from src.strategy_registry import load_strategies
-        return [s["name"] for s in load_strategies()]
-    except Exception as exc:
-        logger.warning("pipeline: registry unavailable, using hardcoded STRATEGIES list: %s", exc)
-        # S-012 PR C3: hardcoded fallback matches the production roster
-        # in config/strategies.yaml after PR B1.
-        return ["turtle_soup", "vwap"]
-
-
-STRATEGIES = _strategies_from_registry()
+# multiplexer priority.
+#
+# ⚠️ **THERE IS NO VALUE FALLBACK, AND REMOVING IT IS THE POINT (E21,
+# 2026-09-22, operator-approved).** This read used to resolve a failed registry
+# load to the literal ``["turtle_soup", "vwap"]`` under a comment asserting the
+# pair "matches the production roster in config/strategies.yaml after PR B1".
+# MEASURED 2026-09-22 by parsing ``config/strategies.yaml`` (55 declared) and
+# ``config/accounts.yaml`` (11 accounts) at commit ``f3746ab``: **52 distinct
+# strategies are routed to at least one ``mode: live`` account and the fallback
+# covered 0 of them** — ``turtle_soup`` is ``execution: shadow``; ``vwap`` is
+# ``enabled: false`` AND ``execution: shadow``; neither is routed to any live
+# account. *Field beats comment.*
+#
+# ``resolve_roster()`` returns a STATE as well as names, so "we could not read
+# the roster" and "the roster is these names" are no longer the same value.
+# ``STRATEGY_ROSTER`` is the one consumers should branch on; ``STRATEGIES``
+# stays as the plain list for the many call sites that only iterate it, and it
+# is EMPTY on an unreadable registry — the entry side opens nothing rather than
+# opening the wrong thing. The exit half does NOT gate on this (an open package
+# is monitored because it is open) — see ``order_monitor.exit_population``.
+STRATEGY_ROSTER = resolve_roster()
+STRATEGIES = list(STRATEGY_ROSTER.names)
 
 # Per-strategy risk allocation was REMOVED 2026-06-29 (operator directive:
 # sizing is the RiskManager's sole responsibility; a strategy carries no risk
