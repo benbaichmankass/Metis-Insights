@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # wiring: scripts/ci/run_guards.py (stated-population-guard)
-"""A quantitative claim in a doc or a backlog row must state its population.
+"""A quantitative claim in a doc must state its population.
+
+⚠️ 2026-09-22 (E45): this used to read "in a doc **or a backlog row**". The four
+review backlogs are archived; the register-row half of the rule is now
+`claim-basis-guard`, re-pointed at `docs/claude/work/MANAGER-CHECKLIST.json` and
+`docs/claude/work/PIPELINE.jsonl`. This guard keeps the docs half, unchanged.
 
 GATE 0 item **G4**. `docs/CLAUDE-RULES-CANONICAL.md` § "Always state the
 population" is binding prose with no enforcement; this is the enforcement.
@@ -73,13 +78,40 @@ from pathlib import Path
 
 WATCHED_SUFFIXES = (".md",)
 WATCHED_PREFIXES = ("docs/",)
-WATCHED_FILES = (
-    "docs/claude/health-review-backlog.json",
-    "docs/claude/performance-review-backlog.json",
-    "docs/claude/ml-review-backlog.json",
-    "docs/claude/RECURRENCE-LEDGER.json",
-    "docs/claude/OPEN-ITEMS.json",
-)
+#: Watched files BEYOND the glob above. Every entry must exist.
+#:
+#: ⚠️ PRUNED 2026-09-22 (E45), AND THE PRUNE IS A CORRECTION OF SOMEBODY ELSE'S
+#: READING, SO IT IS WRITTEN OUT. This tuple used to name five registers:
+#:   docs/claude/{health,performance,ml}-review-backlog.json
+#:   docs/claude/RECURRENCE-LEDGER.json
+#:   docs/claude/OPEN-ITEMS.json
+#: All five were ARCHIVED by the 2026-09-21 operating reset. Because they were
+#: this module's ONLY module-level repo-path constants,
+#: `scripts/ci/check_guard_liveness.py` classified `stated-population-guard`
+#: **dead** — one of eight — and the E45 row came in carrying an instruction to
+#: retire it.
+#:
+#: ⚠️ IT IS NOT DEAD, AND RETIRING IT WOULD HAVE REMOVED THE ONLY MECHANICAL
+#: FLOOR UNDER § "Always state the population". VERIFIED BY RUNNING IT,
+#: 2026-09-22, against a planted diff adding `docs/zz-probe.md` containing
+#: *"Coverage is 42.9% of the fleet and that is the headline."* — exit **1**,
+#: naming the file and line. Its real population is the GLOB below
+#: (`WATCHED_PREFIXES` x `WATCHED_SUFFIXES` = every added line in a `docs/**.md`
+#: file in the PR diff), which the liveness instrument cannot see because a glob
+#: is not a path constant. It is registered in `scripts/ci/run_guards.py` as
+#: `stated-population-guard` and runs on every PR.
+#:
+#: That is the CONVERSE of the limit `check_guard_liveness.py` states about
+#: itself — *"`live` HERE MEANS ITS SUBJECT EXISTS, NEVER THAT IT WORKS"*. The
+#: other direction (a glob-scoped guard reading `dead` while grading fine) is
+#: filed against that instrument. The five names are pruned so the classification
+#: stops being wrong; the guard keeps grading exactly what it graded before.
+#:
+#: ⚠️ EVERY ENTRY HERE MUST EXIST. A watched file that is not in the tree cannot
+#: contribute a line to any diff, so it is not a narrower population — it is a
+#: dead constant that misreports what this guard covers. Leave it empty rather
+#: than aspirational.
+WATCHED_FILES: tuple[str, ...] = ()
 
 #: A percentage. This is the claim shape that needs a population.
 _PCT = re.compile(r"\b\d{1,3}(?:\.\d+)?\s?%")
@@ -181,14 +213,23 @@ def _self_test() -> int:
 
     cases = [
         # REAL bad claims from 2026-08-26
-        ("a bare percentage in a backlog row is caught",
-         diff("docs/claude/health-review-backlog.json",
+        # ⚠️ 2026-09-22 (E45): this case used to plant
+        # `docs/claude/health-review-backlog.json`, archived by the reset. The
+        # REGISTER-ROW half of this rule did not vanish with it — it moved to
+        # `claim-basis-guard`, re-pointed the same day at
+        # `MANAGER-CHECKLIST.json` and `PIPELINE.jsonl`, which grades a row's
+        # whole prose rather than one added line. Keeping a second watcher on
+        # those files would double-report the same line, and this repo's
+        # documented failure mode is the alarm nobody reads. So the fixture
+        # moves to a doc, and the coverage moves to a different owner.
+        ("a bare percentage in a doc row is caught",
+         diff("docs/claude/WORKPLAN-y.md",
               '"detail": "32.6% of closes land beyond the stop"'), True),
         ("a bare percentage in a doc is caught",
          diff("docs/claude/WORKPLAN-x.md", "vwap overshoots on 44.2% of closes"), True),
         # REAL good claims from the same session
         ("the corrected form, with n, passes",
-         diff("docs/claude/health-review-backlog.json",
+         diff("docs/claude/WORKPLAN-y.md",
               '"detail": "65 of 147 measured closes (44.2%) landed past the stop"'), False),
         ("a slash denominator passes",
          diff("docs/claude/WORKPLAN-x.md", "bybit_2/vwap 65/147 = 44.2%"), False),
