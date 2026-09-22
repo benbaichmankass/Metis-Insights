@@ -165,14 +165,76 @@ def test_an_open_pr_has_no_terminal():
 
 
 @pytest.mark.parametrize("state", list(rec.RECONCILE_STATES))
-def test_every_declared_state_is_reachable(state):
+def test_every_declared_state_is_reachable(state, tmp_path, monkeypatch, capsys):
     """A declared state nothing can produce is a dead claim."""
+    def _absent():
+        # `register_absent` is decided in main() rather than in the pure core,
+        # because it is a fact about the FILE and reconcile() never sees one.
+        missing = tmp_path / "nope" / "OPEN-PRS.json"
+        monkeypatch.setattr(rec.opr, "RECORD_PATH", missing)
+        rc = rec.main(["--repo", "o/r"])
+        out = capsys.readouterr().out
+        assert rc == 0, "an absent register is not a failed run"
+        return {"state": out.split("state=")[1].split(" ")[0]}
+
     reachable = {
         rec.RECONCILED: lambda: rec.reconcile(_doc(1), {1: _merged(1)}),
         rec.NO_CHANGE: lambda: rec.reconcile(_doc(1), {1: _open(1)}),
         rec.COULD_NOT_LOOK: lambda: rec.reconcile(_doc(1), None, "x"),
+        rec.REGISTER_ABSENT: _absent,
     }
     assert reachable[state]()["state"] == state
+
+
+def test_an_absent_register_is_not_an_empty_one(tmp_path, monkeypatch, capsys):
+    """⚠️ THE E29 REGRESSION, and it is the distinction rather than the crash.
+
+    Before 2026-09-22 `main()` hit `AttributeError: 'NoneType' object has no
+    attribute 'get'` on an absent record — 6 of 6 runs red on `main`, and not
+    one of them said the file was missing. Asserting only "it no longer
+    crashes" would be satisfied by returning `no_change`, which is the WORSE
+    outcome: a job that exits clean having silently done nothing. So both arms
+    are asserted, against each other.
+    """
+    missing = tmp_path / "nope" / "OPEN-PRS.json"
+    monkeypatch.setattr(rec.opr, "RECORD_PATH", missing)
+    assert rec.main(["--repo", "o/r"]) == 0
+    absent_out = capsys.readouterr().out
+    assert f"state={rec.REGISTER_ABSENT}" in absent_out
+    assert "NOT an empty register" in absent_out
+
+    # POSITIVE CONTROL: a register that EXISTS and is empty is a different
+    # state and says a different thing. Without this the test above passes on
+    # any code path that happens to print the word "absent".
+    present = tmp_path / "OPEN-PRS.json"
+    present.write_text('{"open_prs": [], "settled_prs": []}', encoding="utf-8")
+    monkeypatch.setattr(rec.opr, "RECORD_PATH", present)
+    assert rec.main(["--repo", "o/r"]) == 0
+    empty_out = capsys.readouterr().out
+    assert f"state={rec.NO_CHANGE}" in empty_out
+    assert rec.REGISTER_ABSENT not in empty_out
+
+
+def test_read_record_state_separates_absent_from_unreadable(tmp_path):
+    """The loader's own three states, at the source of the collapse."""
+    import scripts.ops.open_pr_record as opr
+
+    assert opr.read_record_state(tmp_path / "gone.json") == (None, opr.RECORD_ABSENT)
+
+    bad = tmp_path / "bad.json"
+    bad.write_text("{ not json", encoding="utf-8")
+    assert opr.read_record_state(bad) == (None, opr.RECORD_UNREADABLE)
+
+    good = tmp_path / "good.json"
+    good.write_text('{"open_prs": []}', encoding="utf-8")
+    doc, state = opr.read_record_state(good)
+    assert state == opr.RECORD_READ and doc == {"open_prs": []}
+
+    # The legacy two-state shape still behaves as its callers expect: only an
+    # UNREADABLE file is `readable=False`. This is the collapse itself, pinned
+    # so a future edit has to mean it.
+    assert opr.read_record(tmp_path / "gone.json") == (None, True)
+    assert opr.read_record(bad) == (None, False)
 
 
 def test_an_unparseable_record_is_could_not_look_never_no_change():
