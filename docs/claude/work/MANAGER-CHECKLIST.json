@@ -338,16 +338,16 @@
       "id": "C5",
       "title": "Write the first ten pre-registered research questions",
       "phase": "C",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "operator + manager",
-      "lane": null,
+      "lane": "session_01AHNgatHswZsemNiP8aSXCk",
       "model": "claude-opus-5",
-      "ceiling_usd": null,
+      "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier. [!] ⚠️ DUPLICATE OF R4 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
+      "note": "The only item in this plan that builds nothing - and the only one that produces knowledge. Each carries hypothesis / population / instrument / decision_rule / cost / tier. [!] ⚠️ DUPLICATE OF R4 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] DISPATCHED 2026-09-22 to the RESEARCH lane, with the twin to be killed in the same push. Precondition met: R1 merged (f3746ab), so the questions are written against an instrument that prices the full cost stack."
     },
     {
       "id": "D1",
@@ -493,16 +493,16 @@
       "id": "R2",
       "title": "Cut the fleet to what passes",
       "phase": "R",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "manager",
-      "lane": null,
+      "lane": "session_017aScqdVcFoXxqffMcsf5Ge",
       "model": null,
-      "ceiling_usd": null,
+      "ceiling_usd": 35,
       "spend_usd": null,
-      "tier": 1,
+      "tier": 3,
       "prs": [],
       "blocked_on": [],
-      "note": "Not a separate judgement: under the standing mandates this is MD-DEMOTE-S1-OFF firing on R1's output. R2 is the OBSERVATION that it fired correctly. Failing legs keep running on the SOAK book, which is what it is for. Expect a much smaller live roster -- that is the point: 55 legs producing 71 closes a week is WHY nothing can be graded. [!] UNBLOCKED 2026-09-22: R1 merged as f3746ab. The edge is discharged by the merge."
+      "note": "Not a separate judgement: under the standing mandates this is MD-DEMOTE-S1-OFF firing on R1's output. R2 is the OBSERVATION that it fired correctly. Failing legs keep running on the SOAK book, which is what it is for. Expect a much smaller live roster -- that is the point: 55 legs producing 71 closes a week is WHY nothing can be graded. [!] UNBLOCKED 2026-09-22: R1 merged as f3746ab. The edge is discharged by the merge. [!] DISPATCHED 2026-09-22, OPERATOR APPROVED THE CRITERION: 'cut the legs that don't clear the bar'. MEASURED by the manager on main via check_roster_promotion_evidence.py --population -- the four are breakout_1/eth_pullback_prop_2h, bybit_2/trend_donchian, bybit_2/eth_pullback_2h (all C4, rule verdict `fail`) and bybit_2/fvg_range_15m. [!] ⚠️ THE FOURTH IS A DIFFERENT KIND OF CUT and the row must keep saying so: fvg_range_15m fails ALL FOUR clauses because coverage_state is `no_harness` -- nothing routes it to a harness. That is a statement about US, not about the strategy. Still a correct cut (no harness, no record, no book) but it comes back by BUILDING THE HARNESS, not by the strategy improving. [!] TWO COUPLINGS the lane is fenced on: bybit_portfolio mirrors bybit_2 EXACTLY (CI-enforced) so three of the four cuts must be mirrored in the same commit or Gate 2's demotion signal drifts; and NO open position is on any of the four today (measured 06:22Z -- only two open account-wide, both alpaca_live), which the lane must re-verify immediately before pushing and STOP if that changed."
     },
     {
       "id": "R3",
@@ -523,16 +523,16 @@
       "id": "R4",
       "title": "Write the first ten pre-registered research questions",
       "phase": "R",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "operator + manager",
-      "lane": null,
+      "lane": "session_01AHNgatHswZsemNiP8aSXCk",
       "model": null,
-      "ceiling_usd": null,
+      "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets. [!] ⚠️ DUPLICATE OF C5 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] UNBLOCKED 2026-09-22: R1 merged as f3746ab. The edge is discharged by the merge."
+      "note": "Only after R1-R3: a question answered against a broken instrument wastes the answer. Sources in priority order: (1) for each surviving leg, the single assumption most likely wrong; (2) the SOAK BOOK, which the operator named explicitly as part of the research flow; (3) exit geometry, which has the most prior work and least resolution -- tp_r: 50 sentinels mean the venue clamp sets most targets. [!] ⚠️ DUPLICATE OF C5 — same work (write the first ten pre-registered research questions) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push. [!] UNBLOCKED 2026-09-22: R1 merged as f3746ab. The edge is discharged by the merge. [!] DISPATCHED 2026-09-22 to the RESEARCH lane, with the twin to be killed in the same push. Precondition met: R1 merged (f3746ab), so the questions are written against an instrument that prices the full cost stack."
     },
     {
       "id": "R5",
@@ -849,7 +849,7 @@
       "phase": "E",
       "state": "landed_unproven",
       "owner": "build lane",
-      "lane": "session_0178qqSNhbW9vpQbREtc4drS",
+      "lane": "session_01SYRbqoX6Zw3v1FCySG4Kvz",
       "model": "claude-sonnet-5",
       "ceiling_usd": 25,
       "spend_usd": null,
@@ -858,7 +858,7 @@
         12702
       ],
       "blocked_on": [],
-      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first. [!] DISPATCHED 2026-09-22 as the OPS lane. It is E17's blocker, and E17 is the fix for a funded prop account receiving nothing -- so this is the prop track's first move, not a side quest. [!] FIX MERGED as 5837dc2 — and it was NOT a secret. The lane read the FAILED JOB LOG rather than the workflow source: the SSH+curl round-trip to the VM SUCCEEDED and the run died one step later on ModuleNotFoundError: No module named 'scripts', because the issues-triggered path never ran actions/checkout. git log -p dates it — the scripts.* import landed 2026-09-13 (a45d360) with no checkout, so EVERY BATCHED DIAG REQUEST HAS BEEN BROKEN FOR NINE DAYS, while the workflow_dispatch path (which imports nothing) kept working and made it look intermittent. [!] CLOSING THIS ROW MEANS a real diag round-trip observed returning content -- a log_file or journalctl request that comes back with real text. Merged is not that. It is also E17's blocker, so that observation is the gate on the prop fix too."
+      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first. [!] DISPATCHED 2026-09-22 as the OPS lane. It is E17's blocker, and E17 is the fix for a funded prop account receiving nothing -- so this is the prop track's first move, not a side quest. [!] FIX MERGED as 5837dc2 — and it was NOT a secret. The lane read the FAILED JOB LOG rather than the workflow source: the SSH+curl round-trip to the VM SUCCEEDED and the run died one step later on ModuleNotFoundError: No module named 'scripts', because the issues-triggered path never ran actions/checkout. git log -p dates it — the scripts.* import landed 2026-09-13 (a45d360) with no checkout, so EVERY BATCHED DIAG REQUEST HAS BEEN BROKEN FOR NINE DAYS, while the workflow_dispatch path (which imports nothing) kept working and made it look intermittent. [!] CLOSING THIS ROW MEANS a real diag round-trip observed returning content -- a log_file or journalctl request that comes back with real text. Merged is not that. It is also E17's blocker, so that observation is the gate on the prop fix too. [!] DISPATCHED 2026-09-22 to the OPS lane as item 1 of 4. OPERATOR CHOSE THIS ORDER EXPLICITLY when asked which the idle lane should take: E19 -> E24 -> E22 -> E23. One PR per item, so a lane that stops early loses nothing. [!] ITEM 1 BECAUSE IT IS THE ONLY THING BLOCKING E17, and E17 is the funded prop account that received zero tickets in three weeks. The lane is told to read arbitration_fanout_soak while it has the relay open -- that read IS what E17 needs."
     },
     {
       "id": "E20",
@@ -879,61 +879,61 @@
       "id": "E21",
       "title": "The exit monitor's registry-failure fallback covers 0 of 52 routed-live legs",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "operator + build lane",
-      "lane": null,
+      "lane": "session_014LSHstYGrXDTZnNW5kgjn8",
       "model": null,
-      "ceiling_usd": null,
+      "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "MEASURED 2026-09-22 by parsing config/strategies.yaml (55 declared) + config/accounts.yaml (11 accounts) at 0d3ab95: 52 distinct strategies are routed to at least one `mode: live` account. src/runtime/pipeline.py:349-351 returns the hardcoded fallback ['turtle_soup','vwap'] whenever load_strategies() raises. NEITHER name is routed to any live account -- turtle_soup is `execution: shadow`, vwap is `enabled: false` + `execution: shadow`. The set difference is 52 of 52. [!] THIS IS NOT ONLY AN ENTRY-SIDE LIST. `STRATEGIES` is what the EXIT half iterates: run_exit_evaluation_tick calls _load_strategies(None) -> pipeline.STRATEGIES, then get_order_packages_by_strategy per name. On the fallback, every open package belonging to the other 52 legs receives NO monitor() call -- no trailing amend, no stale-exit, no giveback stop, no exit head. Open REAL-MONEY positions would sit unmanaged until a broker-side bracket or the reconciler caught them. [!] THE TRIGGER IS REACHABLE. STRATEGIES is a module-level constant evaluated once at import and the fallback fires on ANY load_strategies() exception -- a malformed config/strategies.yaml being the live one. ict-git-sync pulls main every ~5 min, so a YAML syntax error landing on main reaches the live trader inside ~5 minutes. [!] AND IT IS SILENT. One logger.warning at import. None of the health snapshot's 7 checks (service, git_drift, git_fetch, tick, accounts_api, db, disk) would go red -- the process is alive, ticking, in sync, and the DB answers. The snapshot keeps reading `7/7 checks ok`. [!] FIELD BEATS COMMENT: the comment at pipeline.py:350 asserts the fallback `matches the production roster in config/strategies.yaml after PR B1`. Measured today it matches 0 of 52 -- the same shape as the trainer flock comment fixed in de20550. [!] SECOND, SEPARATE COLLAPSE at order_monitor.py:124-126: _load_strategies returns [] on exception, and the tick then returns {} summaries -- `we could not resolve the strategy list` and `no strategy had anything open` are indistinguishable downstream. [!] PROPOSED FIX, not applied (Tier-2, and /health-review may not touch src/): (1) delete the VALUE fallback -- on registry failure raise, or return a sentinel callers must branch on; a trader that cannot read its own roster must not silently run a two-name one. (2) Make the exit half's population open-package-driven (SELECT DISTINCT strategy FROM order_packages WHERE status='open') UNION the roster, so an open position is monitored because it IS OPEN, never because it appears in a list. (3) Add a health check comparing len(STRATEGIES) against the enabled count in strategies.yaml. [!] REFUTED HYPOTHESIS, recorded so it is not re-derived: the TLT position open on alpaca_live (id 5924, pattern tlt_pullback_1h, opened 2026-09-18) belongs to a leg A6/#12673 pulled from the alpaca_live ROSTER on 2026-09-21, and is NOT stranded -- exit evaluation iterates the strategies.yaml registry, not account rosters, and tlt_pullback_1h is still enabled there (r-block updated 05:29Z). Roster removal does not strand an open position; registry FAILURE would strand all of them."
+      "note": "MEASURED 2026-09-22 by parsing config/strategies.yaml (55 declared) + config/accounts.yaml (11 accounts) at 0d3ab95: 52 distinct strategies are routed to at least one `mode: live` account. src/runtime/pipeline.py:349-351 returns the hardcoded fallback ['turtle_soup','vwap'] whenever load_strategies() raises. NEITHER name is routed to any live account -- turtle_soup is `execution: shadow`, vwap is `enabled: false` + `execution: shadow`. The set difference is 52 of 52. [!] THIS IS NOT ONLY AN ENTRY-SIDE LIST. `STRATEGIES` is what the EXIT half iterates: run_exit_evaluation_tick calls _load_strategies(None) -> pipeline.STRATEGIES, then get_order_packages_by_strategy per name. On the fallback, every open package belonging to the other 52 legs receives NO monitor() call -- no trailing amend, no stale-exit, no giveback stop, no exit head. Open REAL-MONEY positions would sit unmanaged until a broker-side bracket or the reconciler caught them. [!] THE TRIGGER IS REACHABLE. STRATEGIES is a module-level constant evaluated once at import and the fallback fires on ANY load_strategies() exception -- a malformed config/strategies.yaml being the live one. ict-git-sync pulls main every ~5 min, so a YAML syntax error landing on main reaches the live trader inside ~5 minutes. [!] AND IT IS SILENT. One logger.warning at import. None of the health snapshot's 7 checks (service, git_drift, git_fetch, tick, accounts_api, db, disk) would go red -- the process is alive, ticking, in sync, and the DB answers. The snapshot keeps reading `7/7 checks ok`. [!] FIELD BEATS COMMENT: the comment at pipeline.py:350 asserts the fallback `matches the production roster in config/strategies.yaml after PR B1`. Measured today it matches 0 of 52 -- the same shape as the trainer flock comment fixed in de20550. [!] SECOND, SEPARATE COLLAPSE at order_monitor.py:124-126: _load_strategies returns [] on exception, and the tick then returns {} summaries -- `we could not resolve the strategy list` and `no strategy had anything open` are indistinguishable downstream. [!] PROPOSED FIX, not applied (Tier-2, and /health-review may not touch src/): (1) delete the VALUE fallback -- on registry failure raise, or return a sentinel callers must branch on; a trader that cannot read its own roster must not silently run a two-name one. (2) Make the exit half's population open-package-driven (SELECT DISTINCT strategy FROM order_packages WHERE status='open') UNION the roster, so an open position is monitored because it IS OPEN, never because it appears in a list. (3) Add a health check comparing len(STRATEGIES) against the enabled count in strategies.yaml. [!] REFUTED HYPOTHESIS, recorded so it is not re-derived: the TLT position open on alpaca_live (id 5924, pattern tlt_pullback_1h, opened 2026-09-18) belongs to a leg A6/#12673 pulled from the alpaca_live ROSTER on 2026-09-21, and is NOT stranded -- exit evaluation iterates the strategies.yaml registry, not account rosters, and tlt_pullback_1h is still enabled there (r-block updated 05:29Z). Roster removal does not strand an open position; registry FAILURE would strand all of them. [!] DISPATCHED 2026-09-22, OPERATOR APPROVED: 'implement the exit monitor'. [!] THE LANE IS GIVEN A LIVE WORKED EXAMPLE, measured 2026-09-22T06:22Z: an OPEN REAL-MONEY position on alpaca_live, pattern tlt_pullback_1h, opened 2026-09-18 -- on a leg A6 (#12673) REMOVED from that account's roster on 2026-09-21. A position open on a leg its account no longer rosters, for four days. Its `r` block refreshes, but that may be the API computing on read rather than monitor() running, and the lane must establish WHICH -- only one of them is exit management."
     },
     {
       "id": "E22",
       "title": "The health snapshot reports 7/7 ok while structurally unable to see the failure that happened",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01SYRbqoX6Zw3v1FCySG4Kvz",
       "model": null,
       "ceiling_usd": null,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "MEASURED 2026-09-22T05:30Z from /api/bot/health/latest (snapshot ts 05:16:31Z): status ok, summary `7/7 checks ok`, action_required false. The seven checks are service, git_drift, git_fetch, tick, accounts_api, db, disk. The accounts_api check's OWN detail string reads: `all 8 recorded broker-API accounts ok (1 manual-bridge skipped: breakout_1; 2 dry/shelved skipped: ib_live, oanda_practice)`. [!] breakout_1 IS THE FUNDED PROP ACCOUNT THAT RECEIVED ZERO TICKETS FOR THREE WEEKS (row E16, measured 21 of 21). The account check EXCLUDES it by construction -- it is the one account skipped -- and no check among the seven asks whether signals, intents or tickets are still being PRODUCED. The surface the operator looks at was green throughout the failure and would be green through the next one. [!] CROSS-CHECKED against /api/bot/accounts/balances: breakout_1 balance null, open_positions null, api_ok false. The DATA is honest (null, not 0 -- the repo's own render rule followed correctly). The defect is that nothing GRADES it: an account permanently api_ok:false is indistinguishable from one that just went dark. [!] COMPLEMENTS E18, does not duplicate it. E18 builds the missing detector (intents produced vs tickets received). This row is narrower and cheaper: the EXISTING all-clear counts a structurally-skipped account toward 7/7. [!] PROPOSED FIX (Tier-1, reporting only, no runtime path): (a) report skipped accounts as a distinct state in the summary line -- `7/7 ok, 3 accounts NOT CHECKED` rather than folding them into ok; (b) add a per-routed-account last-ticket-age check, which is the check whose absence E16 measured."
+      "note": "MEASURED 2026-09-22T05:30Z from /api/bot/health/latest (snapshot ts 05:16:31Z): status ok, summary `7/7 checks ok`, action_required false. The seven checks are service, git_drift, git_fetch, tick, accounts_api, db, disk. The accounts_api check's OWN detail string reads: `all 8 recorded broker-API accounts ok (1 manual-bridge skipped: breakout_1; 2 dry/shelved skipped: ib_live, oanda_practice)`. [!] breakout_1 IS THE FUNDED PROP ACCOUNT THAT RECEIVED ZERO TICKETS FOR THREE WEEKS (row E16, measured 21 of 21). The account check EXCLUDES it by construction -- it is the one account skipped -- and no check among the seven asks whether signals, intents or tickets are still being PRODUCED. The surface the operator looks at was green throughout the failure and would be green through the next one. [!] CROSS-CHECKED against /api/bot/accounts/balances: breakout_1 balance null, open_positions null, api_ok false. The DATA is honest (null, not 0 -- the repo's own render rule followed correctly). The defect is that nothing GRADES it: an account permanently api_ok:false is indistinguishable from one that just went dark. [!] COMPLEMENTS E18, does not duplicate it. E18 builds the missing detector (intents produced vs tickets received). This row is narrower and cheaper: the EXISTING all-clear counts a structurally-skipped account toward 7/7. [!] PROPOSED FIX (Tier-1, reporting only, no runtime path): (a) report skipped accounts as a distinct state in the summary line -- `7/7 ok, 3 accounts NOT CHECKED` rather than folding them into ok; (b) add a per-routed-account last-ticket-age check, which is the check whose absence E16 measured. [!] DISPATCHED 2026-09-22 to the OPS lane as item 3 of 4. OPERATOR CHOSE THIS ORDER EXPLICITLY when asked which the idle lane should take: E19 -> E24 -> E22 -> E23. One PR per item, so a lane that stops early loses nothing."
     },
     {
       "id": "E23",
       "title": "The health-review skill's hard completion gate points at a file the reset archived",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01SYRbqoX6Zw3v1FCySG4Kvz",
       "model": null,
       "ceiling_usd": null,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "MEASURED 2026-09-22: .claude/skills/health-review/SKILL.md names docs/claude/health-review-backlog.json in five places, including the section headed `Draining the backlog -- a HARD COMPLETION GATE (not a sample)` and the Output contract's `backlog_coverage.count_untriaged` MUST be 0. `ls docs/claude/health-review-backlog.json` -> No such file or directory; it was archived by the 2026-09-21 reset. [!] SO THE GATE IS UNSATISFIABLE AND EVERY HEALTH-REVIEW FROM THE RESET ONWARD IS EITHER INCOMPLETE BY ITS OWN CONTRACT OR QUIETLY IGNORING IT. The same file is also the skill's WINDOW anchor (`the newest backlog_drain timestamp`), so the review window has no anchor either -- this review had to open its window at the reset and say so. A binding skill at instruction-hierarchy level 5 instructing something that cannot be done is the defect class the canonical rules already record at `THIS RULE NAMED FIVE OTHER WORDS UNTIL 2026-09-12 AND NOT ONE OF THEM WAS A LEGAL status`. [!] AND THE OUTPUT TEMPLATE HAS THE SAME SHAPE OF GAP: comms/schema/health_review_response.template.json's findings status enum is `ok | watch | concern`, with NO value for `we did not look`. Under a diag outage the template FORCES an unmeasurable dimension to be rendered as a measurement outcome -- exactly the collapse docs/CLAUDE-RULES-CANONICAL.md 'Collapsed states' forbids and scripts/ci/check_collapsed_states.py enforces elsewhere. This review emitted `could_not_look` and declared the deviation rather than comply. [!] PROPOSED FIX (Tier-1): re-point the skill's backlog sections at docs/claude/work/PIPELINE.jsonl + MANAGER-CHECKLIST.json, re-anchor the window on the newest file under comms/reviews/health/, and add `could_not_look` to the template enum -- registering the three-way contract in collapsed-state-guard's CONTRACTS table is the mechanical form."
+      "note": "MEASURED 2026-09-22: .claude/skills/health-review/SKILL.md names docs/claude/health-review-backlog.json in five places, including the section headed `Draining the backlog -- a HARD COMPLETION GATE (not a sample)` and the Output contract's `backlog_coverage.count_untriaged` MUST be 0. `ls docs/claude/health-review-backlog.json` -> No such file or directory; it was archived by the 2026-09-21 reset. [!] SO THE GATE IS UNSATISFIABLE AND EVERY HEALTH-REVIEW FROM THE RESET ONWARD IS EITHER INCOMPLETE BY ITS OWN CONTRACT OR QUIETLY IGNORING IT. The same file is also the skill's WINDOW anchor (`the newest backlog_drain timestamp`), so the review window has no anchor either -- this review had to open its window at the reset and say so. A binding skill at instruction-hierarchy level 5 instructing something that cannot be done is the defect class the canonical rules already record at `THIS RULE NAMED FIVE OTHER WORDS UNTIL 2026-09-12 AND NOT ONE OF THEM WAS A LEGAL status`. [!] AND THE OUTPUT TEMPLATE HAS THE SAME SHAPE OF GAP: comms/schema/health_review_response.template.json's findings status enum is `ok | watch | concern`, with NO value for `we did not look`. Under a diag outage the template FORCES an unmeasurable dimension to be rendered as a measurement outcome -- exactly the collapse docs/CLAUDE-RULES-CANONICAL.md 'Collapsed states' forbids and scripts/ci/check_collapsed_states.py enforces elsewhere. This review emitted `could_not_look` and declared the deviation rather than comply. [!] PROPOSED FIX (Tier-1): re-point the skill's backlog sections at docs/claude/work/PIPELINE.jsonl + MANAGER-CHECKLIST.json, re-anchor the window on the newest file under comms/reviews/health/, and add `could_not_look` to the template enum -- registering the three-way contract in collapsed-state-guard's CONTRACTS table is the mechanical form. [!] DISPATCHED 2026-09-22 to the OPS lane as item 4 of 4. OPERATOR CHOSE THIS ORDER EXPLICITLY when asked which the idle lane should take: E19 -> E24 -> E22 -> E23. One PR per item, so a lane that stops early loses nothing."
     },
     {
       "id": "E24",
       "title": "The mandatory security stated-negative could not be produced, and was not faked",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01SYRbqoX6Zw3v1FCySG4Kvz",
       "model": null,
       "ceiling_usd": null,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "The health-review skill is explicit that a clean breach check must be a STATED VERIFICATION and that an empty security finding is a review failure. MEASURED 2026-09-22: 0 of the 5 declared sweep sources were swept. Host auth signals are blocked behind /api/diag/* (3 of 3 probes -> HTTP 401 missing_token, the vm-diag-snapshot relay being down per E19). The four GitHub-side sources (secret scanning, external-actor activity, repo/supply-chain mutations, Actions anomalies) were not run inside this lane's $40 ceiling. [!] THIS ROW EXISTS BECAUSE THE ALTERNATIVE WAS TO WRITE `no breach detected`, WHICH WOULD HAVE BEEN THE FABRICATED REASSURING VALUE the collapsed-states rule forbids. The review reports security as `could_not_look`, not `ok`. [!] PROPOSED FIX (Tier-1): the four GitHub-side sources need no VM access and no DIAG token -- only the MCP session. They should be their own cheap standing lane rather than riding a review that can be budget-truncated, since truncation currently takes the security sweep with it every time."
+      "note": "The health-review skill is explicit that a clean breach check must be a STATED VERIFICATION and that an empty security finding is a review failure. MEASURED 2026-09-22: 0 of the 5 declared sweep sources were swept. Host auth signals are blocked behind /api/diag/* (3 of 3 probes -> HTTP 401 missing_token, the vm-diag-snapshot relay being down per E19). The four GitHub-side sources (secret scanning, external-actor activity, repo/supply-chain mutations, Actions anomalies) were not run inside this lane's $40 ceiling. [!] THIS ROW EXISTS BECAUSE THE ALTERNATIVE WAS TO WRITE `no breach detected`, WHICH WOULD HAVE BEEN THE FABRICATED REASSURING VALUE the collapsed-states rule forbids. The review reports security as `could_not_look`, not `ok`. [!] PROPOSED FIX (Tier-1): the four GitHub-side sources need no VM access and no DIAG token -- only the MCP session. They should be their own cheap standing lane rather than riding a review that can be budget-truncated, since truncation currently takes the security sweep with it every time. [!] DISPATCHED 2026-09-22 to the OPS lane as item 2 of 4. OPERATOR CHOSE THIS ORDER EXPLICITLY when asked which the idle lane should take: E19 -> E24 -> E22 -> E23. One PR per item, so a lane that stops early loses nothing."
     }
   ]
 }
