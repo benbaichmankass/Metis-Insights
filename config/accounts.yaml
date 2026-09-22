@@ -295,7 +295,82 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [trend_donchian, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+                                       # ── R2 CUT, 2026-09-22 (Tier-3, operator
+                                       # instruction "Cut the legs that don't clear
+                                       # the bar"; criterion = B1's four-clause
+                                       # evidence bar, guard
+                                       # scripts/ci/check_roster_promotion_evidence.py).
+                                       # BEFORE (6): trend_donchian, fvg_range_15m,
+                                       #   eth_pullback_2h, xrp_pullback_2h,
+                                       #   trend_donchian_eth_4h, trend_donchian_xrp_4h
+                                       # AFTER  (3): xrp_pullback_2h,
+                                       #   trend_donchian_eth_4h, trend_donchian_xrp_4h
+                                       # MEASURED by running the guard with
+                                       # --population on f3746ab (8/12 of the
+                                       # risk-bearing roster clears the bar):
+                                       #
+                                       # 1. trend_donchian — REMOVED. C4: the
+                                       #    registered rule RULE-D1-STAGE0-NET-OF-FULL-COST
+                                       #    was applied to its evidence record and
+                                       #    returned verdict `fail`. The rule was
+                                       #    registered 2026-09-22T05:34:08Z, strictly
+                                       #    before the run (R1, #12705). It was
+                                       #    execution: live, so this cut DOES stop
+                                       #    real-money order flow on this leg.
+                                       # 2. eth_pullback_2h — REMOVED, same clause,
+                                       #    same rule, verdict `fail`. Also
+                                       #    execution: live, so this cut DOES stop
+                                       #    real-money order flow.
+                                       # 3. fvg_range_15m — REMOVED, AND THIS IS A
+                                       #    DIFFERENT KIND OF CUT. It does not fail
+                                       #    because the rule was applied and said no;
+                                       #    it fails all four clauses because
+                                       #    `coverage_state: no_harness` — NOTHING
+                                       #    ROUTES IT TO A HARNESS, so no number was
+                                       #    ever produced. Per
+                                       #    comms/strategy_evidence/README.md and B1's
+                                       #    own note, that is A STATEMENT ABOUT US,
+                                       #    NOT ABOUT THE STRATEGY. It is still a
+                                       #    correct cut under the plan ("nothing
+                                       #    reaches a book without a committed
+                                       #    evidence record", and no harness means no
+                                       #    record) — but it is REVERSIBLE BY BUILDING
+                                       #    THE HARNESS RATHER THAN BY THE STRATEGY
+                                       #    IMPROVING. The classifier gap is
+                                       #    `regime_debt_matrix.classify()` having no
+                                       #    branch for the fvg_range family at all.
+                                       #    It was already execution: shadow, so no
+                                       #    live order flow changes for this leg.
+                                       #
+                                       # OPEN POSITIONS: none on any of the three.
+                                       # MEASURED by me against the RUNNING process,
+                                       # GET https://ict-bot.duckdns.org/api/bot/positions
+                                       # read 2026-09-22 (r.updatedAt 06:25:27Z): two
+                                       # open positions account-wide, both alpaca_live
+                                       # (TLT/tlt_pullback_1h id 5924, SLV/
+                                       # slv_pullback_1d id 5875). Neither is on a cut
+                                       # leg, so this creates no new orphan of the
+                                       # E21 kind.
+                                       #
+                                       # DELIBERATELY NOT DONE: `execution: shadow` /
+                                       # `mode: dry_run` were NOT used as a substitute.
+                                       # The operator said CUT, and those are a
+                                       # different change under a different guard
+                                       # (scripts/check_dry_run_in_diff.py). Removing a
+                                       # leg from this list is the spelling of "off"
+                                       # that guard does NOT see — which is why B1's
+                                       # roster-membership guard exists.
+                                       #
+                                       # `symbols:` is UNCHANGED on purpose. BTCUSDT
+                                       # now has no leg on this account, exactly as the
+                                       # 2026-09-06 ict_scalp_5m demote left it; the
+                                       # mirror test pins symbols to equality and
+                                       # narrowing them is a wider change than the
+                                       # instruction authorises.
+                                       # ROLLBACK: re-add the three names above to THIS
+                                       # list AND to bybit_portfolio together — the
+                                       # ROSTER-SYNC invariant fails if only one moves.
                                        # ict_scalp_5m DEMOTED from real money 2026-09-06
                                        # (Tier-3, OPERATOR-APPROVED 2026-09-06 in conversation;
                                        # scope: bybit_2 ONLY, no condition attached).
@@ -465,7 +540,32 @@ accounts:
     mode: live                         # demo = paper money; live is correct.
     market_type: linear                # USDT-margined linear perps (mirrors
                                        # bybit_2); set-leverage fires at boot.
-    strategies: [trend_donchian, fvg_range_15m, eth_pullback_2h, xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h]
+                                       # ── R2 CUT, 2026-09-22 — FOLLOWS bybit_2's cut
+                                       # of trend_donchian, fvg_range_15m and
+                                       # eth_pullback_2h. See that account above for
+                                       # the operator instruction, the criterion, the
+                                       # per-leg reasons and the open-position check.
+                                       # BEFORE (6): trend_donchian, fvg_range_15m,
+                                       #   eth_pullback_2h, xrp_pullback_2h,
+                                       #   trend_donchian_eth_4h, trend_donchian_xrp_4h
+                                       # AFTER  (3): xrp_pullback_2h,
+                                       #   trend_donchian_eth_4h, trend_donchian_xrp_4h
+                                       # This is the ROSTER-SYNC invariant, ENFORCED by
+                                       # tests/test_paper_portfolio_accounts.py
+                                       # ::test_bybit_portfolio_mirrors_bybit_2_exactly
+                                       # (ordered equality on `strategies` AND
+                                       # `symbols`). It is not optional bookkeeping:
+                                       # this mirror is Gate 2's DEMOTION SIGNAL, so
+                                       # letting it keep trading legs bybit_2 no longer
+                                       # trades would corrupt the very reading the cut
+                                       # exists to inform.
+                                       # ⚠️ THE SOAK EVIDENCE IS NOT LOST: all three
+                                       # cut legs stay on bybit_1, the full-roster SOAK
+                                       # book, and keep their `execution:` gate in
+                                       # config/strategies.yaml untouched. What ends is
+                                       # their record at the PORTFOLIO risk basis.
+                                       # ROLLBACK: re-add here AND to bybit_2 together.
                                        # MIRRORS bybit_2's real-money roster
                                        # (winners-only).
                                        # ict_scalp_5m REMOVED 2026-09-06 — FOLLOWS
@@ -1419,31 +1519,49 @@ accounts:
       # SCOPE: breakout_1 ONLY. trend_donchian_sol and trend_donchian_eth stay
       # execution: live on their bybit routes and are untouched here.
       # ROLLBACK: re-add the two names above this comment.
-      - eth_pullback_prop_2h           #   ETH pullback swap-robust variant.
-                                       #   ⚠️ execution: **shadow** since 2026-08-23
-                                       #   (Tier-3, operator-approved) — DEMOTED on OOS
-                                       #   net_R -11.78 over a 13,206-bar corpus, carved
-                                       #   out from the "retune first" family disposition
-                                       #   because a prop breach is TERMINAL. This comment
-                                       #   read "execution: live (operator-approved
-                                       #   2026-06-25)" until 2026-08-27; field beats
-                                       #   comment, and strategies.yaml is the field.
-                                       #   CONSEQUENCE, stated because the removal note
-                                       #   below no longer reads correctly on its own:
-                                       #   eth_pullback_2h was dropped from breakout_1 on
-                                       #   2026-07-20 precisely so THIS leg would be the
-                                       #   emitting ETH-pullback leg. With this one at
-                                       #   shadow, **no ETH-pullback leg emits a prop
-                                       #   ticket at all** — the lane is dormant, not
-                                       #   improved. Re-arming means promoting this back
-                                       #   to live on fresh evidence, not re-adding the
-                                       #   worse twin.
-                                       #   At Breakout's real 0.033%/day swap the funded-EV
-                                       #   gate is strong (realised +$421, 12-mo EV +$603
-                                       #   @75.9%, 4/4 folds, break-even swap 0.10%/day = 3x
-                                       #   headroom). The lower-drag, bigger-margin sibling —
-                                       #   now the SOLE ETH-pullback prop leg (see removal below).
-                                       #   docs/research/eth-pullback-prop-swap-aware-2026-06-25.md
+      # ── R2 CUT, 2026-09-22 (Tier-3, operator instruction "Cut the legs
+      # that don't clear the bar"; criterion = B1's four-clause evidence
+      # bar, guard scripts/ci/check_roster_promotion_evidence.py).
+      # BEFORE (3): eth_pullback_prop_2h, trend_donchian_sol_prop,
+      #   trend_donchian_eth_prop
+      # AFTER  (2): trend_donchian_sol_prop, trend_donchian_eth_prop
+      #
+      # eth_pullback_prop_2h — REMOVED. C4: the registered rule
+      # RULE-D1-STAGE0-NET-OF-FULL-COST (registered 2026-09-22T05:34:08Z,
+      # strictly before the run — R1, #12705) was applied to its evidence
+      # record and returned verdict `fail`. MEASURED by me by running the
+      # guard with --population on f3746ab: 8/12 of the risk-bearing roster
+      # clears the bar; this leg is one of the four that do not.
+      #
+      # THIS CUT CHANGES NO ORDER FLOW, and that is worth saying rather than
+      # implying: the leg has been `execution: shadow` since 2026-08-23
+      # (Tier-3, operator-approved, on OOS net_R -11.78), so it was already
+      # emitting no prop ticket. What ends is its ROSTER MEMBERSHIP on a
+      # prop (risk-bearing) account — the thing B1's guard keys on, and the
+      # spelling of "off" that scripts/check_dry_run_in_diff.py does NOT see.
+      #
+      # OPEN POSITIONS: none on this leg. MEASURED against the RUNNING
+      # process, GET https://ict-bot.duckdns.org/api/bot/positions read
+      # 2026-09-22 (r.updatedAt 06:25:27Z): two open positions account-wide,
+      # both alpaca_live (TLT id 5924, SLV id 5875).
+      #
+      # CONSEQUENCE, carried forward from the comment this replaces: no
+      # ETH-pullback leg emits a prop ticket at all. That was ALREADY true
+      # from 2026-08-23's shadow demotion — this cut does not create it and
+      # does not worsen it. Re-arming still means promoting this leg back on
+      # FRESH evidence clearing the four-clause bar, not re-adding the worse
+      # twin (eth_pullback_2h, dropped from this account 2026-07-20).
+      # Prior evidence, preserved because it is what a re-arm would have to
+      # overturn: at Breakout's real 0.033%/day swap the funded-EV gate read
+      # strong (realised +$421, 12-mo EV +$603 @75.9%, 4/4 folds, break-even
+      # swap 0.10%/day = 3x headroom) —
+      # docs/research/eth-pullback-prop-swap-aware-2026-06-25.md. The
+      # four-clause bar is a NET-OF-FULL-COST-STACK test and that record does
+      # not clear it.
+      # ROLLBACK: re-add `- eth_pullback_prop_2h` to this list.
+      #
+      # `symbols: [SOLUSDT, ETHUSDT]` is UNCHANGED — trend_donchian_eth_prop
+      # still trades ETHUSDT.
       # eth_pullback_2h REMOVED from breakout_1 on 2026-07-20 (Tier-3,
       # operator-approved /system-review de-dup): it fires the SAME entries as
       # eth_pullback_prop_2h but is the worse prop leg (+$166 vs +$421 5y, 57% vs
@@ -1451,8 +1569,18 @@ accounts:
       # 3.1x). With both routed here the intent dedup emitted eth_pullback_2h (the
       # worse twin) while the validated eth_pullback_prop_2h stayed quiet; dropping
       # it makes the better variant the emitting ETH-pullback leg + cuts redundant
-      # ETH concentration on the thin-cushion $5k account. eth_pullback_2h stays
-      # execution: live on its bybit_1/bybit_2 routes (unaffected). PB-20260625-001.
+      # ETH concentration on the thin-cushion $5k account. PB-20260625-001.
+      # ⚠️ TWO CLAIMS IN THIS NOTE NO LONGER HOLD, corrected rather than left
+      # to be read as current (field beats comment):
+      #   (a) "makes the better variant the EMITTING ETH-pullback leg" — ended
+      #       2026-08-23 when eth_pullback_prop_2h went execution: shadow, and
+      #       ended again 2026-09-22 when the R2 cut above removed it from this
+      #       roster. NO ETH-pullback leg emits a prop ticket.
+      #   (b) "eth_pullback_2h stays execution: live on its bybit_1/bybit_2
+      #       routes (unaffected)" — true for bybit_1 ONLY as of 2026-09-22.
+      #       The R2 cut removed eth_pullback_2h from bybit_2 (and from the
+      #       bybit_portfolio mirror). Its `execution:` gate is untouched and
+      #       still reads live; what changed is roster membership.
       - trend_donchian_sol_prop        #   SOL swap-robust EXIT variant (Unit C Phase 0,
                                        #   DRAFT Tier-3, 2026-06-29): trend_donchian_sol's
                                        #   entries with tightened exits (trail 3.5 / tp_r 6.0).
