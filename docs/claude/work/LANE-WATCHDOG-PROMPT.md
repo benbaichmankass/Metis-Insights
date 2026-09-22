@@ -58,7 +58,55 @@ exactly reason (5). So the watchdog is a Routine that fires into a **FRESH
 session**, on a schedule, whoever is managing. The manager cannot skip it
 because the manager is not in the path.
 
-## The Routine
+## ⚠️ STATUS: BUILT, CREATED, AND **DISABLED** — IT DOES NOT WORK YET
+
+**Do not read "the Routine exists" as "the watchdog works."** That is the
+distinction this repo has paid for more than any other, and it applies to this
+file's own subject.
+
+`trig_01MFG5cYsTsS1bci279A2TKi` was created 2026-09-22T13:13Z, **smoke-tested by
+firing it once**, and then **DISABLED the same minute**, because the firing
+established by observation that it cannot do its job:
+
+| checked | observed on the fired session (`session_01GyB7Zej9GgVoodnfKz4Re5`) |
+|---|---|
+| a checkout of this repo | **ABSENT** — its `session_context` carries no `sources` at all, so `scripts/ops/lane_reconcile.py` is not on disk and steps 2–3 cannot run |
+| the Claude Code Remote MCP tools | **ABSENT** — `create_trigger` returned a warning in terms: *"this trigger stores no MCP connectors, so the sessions it fires will run without connector (mcp__\*) tools"*, so `list_sessions` — the watchdog's whole basis — is unavailable |
+| the model | served **`claude-sonnet-5`**, not the `claude-haiku-4-5` passed at creation |
+
+⚠️ **THE ABSENCE IS A REAL READING, NOT A GAP IN THE PROJECTION.** `get_session`
+on an ordinary lane *does* return `sources: [{git_repository: …}]` — checked
+against this session's own record in the same minute — so the field is emitted
+when there is a source, and its absence here means there is none. Two
+independent signals agree (the trigger's stored
+`session_request.config.sources` is also `[]`).
+
+**Why it is DISABLED rather than left running.** A watcher that fires every six
+hours, cannot reach its subject, and reports nothing is *exactly* the defect
+class E20 is about — a check whose subject it cannot see, still counted as
+coverage — and it would bill a session per firing to produce it. Leaving it
+enabled would be worse than not having it. **The invariant is therefore still
+voluntary**, which this file exists to record rather than let lapse quietly.
+
+**WHAT THE OPERATOR MUST DO to make it work** (this is the only part that needs a
+human, and it needs one because connectors on a Routine cannot be granted from a
+session that has none to pass through):
+
+1. Open the Routines UI on claude.ai, find `lane-watchdog`, and **attach the
+   Claude Code Remote connector** and **this repository as a source**.
+2. Re-enable it.
+3. Fire it once and confirm the fired session reports either a reconciliation or
+   an explicit *could not look* — never a silent pass.
+
+Tracked in `docs/claude/work/PIPELINE.jsonl` as
+`PI-20260922-THE-LANE-WATCHDOG-ROUTINE-FIRES-SESSIONS-WITH-NO-REPO-AND-NO-MCP-SO-IT-IS-DISABLED-AND-THE-INVARIANT-IS-STILL-VOLUNTARY`,
+with a rerun that checks the Routine's enabled state rather than taking this
+paragraph's word for it.
+
+Until then: **run `scripts/ops/lane_reconcile.py --sessions <dump>` by hand at
+every manager check-in**, as `.claude/skills/manager/SKILL.md` now requires.
+
+## The Routine as configured
 
 Created 2026-09-22 with `create_trigger`:
 
