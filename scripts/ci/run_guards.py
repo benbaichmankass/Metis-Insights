@@ -1246,6 +1246,28 @@ GUARDS: List[Dict[str, Any]] = [
         # carried in a dated baseline that may only SHRINK; only a NEW dead or
         # degraded guard fails. Failing all 19 on day one would red-wall the repo
         # and get the guard reverted rather than the debt fixed.
+        # ⚠️ FRESHNESS BELONGS IN CI, NOT ON A TIMER. The natural fix for a
+        # silent scheduled check — "emit a receipt, and grade receipt freshness"
+        # — IS ALREADY BUILT and is instance #3 of the class:
+        # check_manager_queue_watch.py grades a receipt the Routine has never
+        # written in 479 firings. A scheduled grader can always be the thing that
+        # did not fire. CI cannot: it runs on every push, so its own liveness is
+        # PROVEN BY PRs MERGING AT ALL.
+        #
+        # ⚠️ THE POPULATION IS DERIVED FROM THE TREE, NOT LISTED. Anything
+        # declaring a cadence (workflow `schedule:`, deploy/*.timer) and absent
+        # from CADENCE_REGISTRY FAILS — a hand-maintained list would reintroduce
+        # the bug in new clothes. Measured 2026-09-22: 38 declarations, of which
+        # exactly 1 is gradeable today, which is why it ships REPORT-FIRST with a
+        # shrink-only baseline.
+        "name": "cadence-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_cadence_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_cadence_liveness.py"],
+        ],
+    },
+    {
         "name": "guard-liveness",
         "when": None,
         "steps": [
