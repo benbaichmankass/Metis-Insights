@@ -147,3 +147,39 @@ docs/claude/work/MERGE-QUEUE.json            merge=jsonregister
 # holds an armed clone. union is a git BUILT-IN, so unlike jsonregister it needs
 # no installer and works in a clone that never ran install_merge_driver.sh.
 docs/claude/pending-pings.jsonl             merge=union
+
+# ── docs/claude/work/PIPELINE.jsonl — merge=union, for the same reason ──
+#
+# The follow-through intake is line-delimited JSON with an append-only contract,
+# exactly the shape the pending-pings block above argues for. It was bound to NO
+# driver at all until now — `grep -n PIPELINE .gitattributes` exited 1.
+#
+# MEASURED by the E43 lane 2026-09-22 over the 23 adjacent PIPELINE-touching
+# commit pairs since the 2026-09-21 reset, each simulated as base=A^/ours=A/
+# theirs=B:
+#
+#     no mapping (until now)   23/23 CONFLICT
+#     merge=union               0/23 CONFLICT
+#
+# For comparison, MANAGER-CHECKLIST.json's jsonregister driver refused on 2 of
+# 33 pairs. This file conflicted on every single one, and four more instances
+# were hit by hand on 2026-09-22 alone (#12740, #12742, #12747 and the manager's
+# own branch) — each costing a hand-resolution on the critical path of a merge.
+#
+# ⚠️ THE UNION OBJECTION WAS TESTED, NOT ASSUMED, the same way. union resurrects
+# deletions, so the question is whether a row is ever removed. It is not: 60
+# commits touch this file and ZERO have ever removed a line, and
+# `scripts/ops/pipeline.py::append` opens with mode 'a' and never rewrites. The
+# probe has a positive control — the same measurement over pending-pings.jsonl
+# returns 4 deletions — so the zero is a reading, not a blind spot.
+#
+# ⚠️ WHAT UNION COSTS HERE, STATED. Two sides appending a row with the SAME id
+# both survive. That is deliberate and is NOT a dedupe job for a merge driver:
+# the file is append-only precisely because a repeated id is a later STATE
+# UPDATE of the same item, not a duplicate, and `pipeline.py --check` already
+# reports id collisions (3 grandfathered today). A resolver that folded them
+# would collapse an item's history into its first mention — a mistake the
+# manager made and caught on 2026-09-22 when a hand resolver keyed on id and
+# would have dropped 29 lines from the UNCONFLICTED region of this very file.
+# Verbose-and-true beats short-and-lossy; a lost finding is not recoverable.
+docs/claude/work/PIPELINE.jsonl              merge=union
