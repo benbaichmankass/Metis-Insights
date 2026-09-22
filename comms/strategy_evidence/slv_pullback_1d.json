@@ -3,7 +3,7 @@
   "strategy": "slv_pullback_1d",
   "symbol": "SLV",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:eeab739b6582be49c5c19a8d5ec84c96",
+  "config_fingerprint": "sha256:bb3862777429932bab7d8813a0382351",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

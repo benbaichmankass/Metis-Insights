@@ -3,26 +3,85 @@
   "strategy": "ict_scalp_avax_5m",
   "symbol": "AVAXUSDT",
   "timeframe": "5m",
-  "config_fingerprint": "sha256:dfbfbc5acf3adabf967aa7ea8a36eb04",
+  "config_fingerprint": "sha256:7151bf0d4896c3e408a75a231b87a6f2",
   "basis": "harness_timefolds",
-  "coverage_state": "no_harness",
-  "fidelity": null,
-  "omitted_levers": null,
-  "net_r_oos": null,
-  "expectancy_r_oos": null,
-  "n_trades_oos": null,
-  "folds": null,
-  "fold_detail": null,
-  "folds_positive": null,
+  "coverage_state": "measured",
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": -13.5621,
+  "expectancy_r_oos": -0.052,
+  "n_trades_oos": 261,
+  "folds": 4,
+  "fold_detail": [
+    {
+      "fold": 1,
+      "trades": 65,
+      "net_r": 11.8884,
+      "expectancy_r": 0.1829,
+      "start": "2025-09-22 15:00:00+00:00",
+      "end": "2025-12-06 18:15:00+00:00"
+    },
+    {
+      "fold": 2,
+      "trades": 65,
+      "net_r": -2.9844,
+      "expectancy_r": -0.0459,
+      "start": "2025-12-07 15:10:00+00:00",
+      "end": "2026-03-04 23:40:00+00:00"
+    },
+    {
+      "fold": 3,
+      "trades": 65,
+      "net_r": -9.6726,
+      "expectancy_r": -0.1488,
+      "start": "2026-03-05 02:05:00+00:00",
+      "end": "2026-06-07 00:55:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 66,
+      "net_r": -12.7935,
+      "expectancy_r": -0.1938,
+      "start": "2026-06-07 04:35:00+00:00",
+      "end": "2026-09-21 12:30:00+00:00"
+    }
+  ],
+  "folds_positive": 1,
   "window_days": 365,
-  "fee_bps_roundtrip": null,
-  "cost_stack": null,
-  "net_r_oos_fee_only": null,
-  "decision_rule": null,
+  "fee_bps_roundtrip": 7.5,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 261,
+    "max_drawdown_r": 33.2756,
+    "max_drawdown_at_trade": 256,
+    "final_equity_r": -13.5621,
+    "max_equity_r": 16.8908,
+    "worst_trade_r": -9.3506,
+    "best_trade_r": 1.4508,
+    "worst_day_r": -9.9749,
+    "worst_day_date": "2026-06-07",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-e28/ict_scalp_avax_5m__bt.json"
+  },
+  "net_r_oos_fee_only": 8.3203,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "fail"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T09:27:10.887422+00:00",
+  "generated_at": "2026-09-22T12:58:14.218540+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": null,
-  "error": "regime_debt_matrix.classify() routes nothing for this leg. Its four branches (donchian / trend_lookback|pullback_frac / kc_mult+bb_period / range_lookback+third_frac) do not cover this config. A harness may still EXIST for the family -- backtest_ict_scalp.py does, and nothing routes to it -- so this is a missing classifier branch plus a lever map, not absent infrastructure. The fvg_range branch was added the same way on 2026-09-22 (E25); that is the worked example to copy.",
-  "harness": null
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-e28/ict_scalp_avax_5m__trades.jsonl",
+  "error": null,
+  "harness": "ict_scalp"
 }

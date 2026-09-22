@@ -3,7 +3,7 @@
   "strategy": "turtle_soup",
   "symbol": "BTCUSDT",
   "timeframe": "15m",
-  "config_fingerprint": "sha256:e0a57305d500c90b3deacae16ab9b67d",
+  "config_fingerprint": "sha256:03f17c0dd66e2b08bde82056ed287221",
   "basis": "harness_timefolds",
   "coverage_state": "no_harness",
   "fidelity": null,

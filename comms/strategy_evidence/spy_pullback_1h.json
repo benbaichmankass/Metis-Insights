@@ -3,7 +3,7 @@
   "strategy": "spy_pullback_1h",
   "symbol": "SPY",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:48b003cfbb320274c534508f6c6b1f6d",
+  "config_fingerprint": "sha256:ee692a4519d6e74c321b8b724d466c77",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

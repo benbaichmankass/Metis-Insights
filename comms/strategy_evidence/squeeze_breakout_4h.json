@@ -3,7 +3,7 @@
   "strategy": "squeeze_breakout_4h",
   "symbol": "BTCUSDT",
   "timeframe": "4h",
-  "config_fingerprint": "sha256:1f63117f59519aaf85bfb2f951e7f55d",
+  "config_fingerprint": "sha256:b6195a3f5f171379130a953a7c73baa1",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
