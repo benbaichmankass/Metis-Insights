@@ -1,0 +1,30 @@
+# job=e27-ssh-unit-name target=live ip=141.145.193.91 started=2026-09-22T09:14:37Z
+=== os-release ===
+NAME="Ubuntu"
+VERSION="22.04.5 LTS (Jammy Jellyfish)"
+=== systemctl list-unit-files 'ssh*' ===
+UNIT FILE    STATE    VENDOR PRESET
+ssh.service  enabled  enabled
+ssh@.service static   -
+sshd.service alias    -
+ssh.socket   disabled enabled
+
+4 unit files listed.
+=== systemctl show -p Id -p Names -p LoadState ssh.service ===
+Id=ssh.service
+Names=ssh.service sshd.service
+LoadState=loaded
+ActiveState=active
+=== systemctl show -p Id -p Names -p LoadState sshd.service ===
+Id=ssh.service
+Names=ssh.service sshd.service
+LoadState=loaded
+ActiveState=active
+=== journalctl -u ssh.service -n 3 ===
+2026-09-22T09:14:37+0000 ict-bot-arm sshd[3087740]: Connection closed by 4.155.197.80 port 3074 [preauth]
+2026-09-22T09:14:39+0000 ict-bot-arm sshd[3087744]: Accepted publickey for ubuntu from 4.155.197.80 port 3075 ssh2: RSA SHA256:sX5GRUgEwflySSh5HmUv1IT49rGmE3CA/iCKuVrXoek
+2026-09-22T09:14:39+0000 ict-bot-arm sshd[3087744]: pam_unix(sshd:session): session opened for user ubuntu(uid=1001) by (uid=0)
+=== journalctl -u sshd.service -n 3 ===
+-- No entries --
+=== done ===
+# exit=0 finished=2026-09-22T09:14:39Z
