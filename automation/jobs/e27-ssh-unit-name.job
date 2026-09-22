@@ -1,0 +1,16 @@
+TARGET=live
+---
+set +e
+echo "=== os-release ==="
+grep -E '^(NAME|VERSION)=' /etc/os-release
+echo "=== systemctl list-unit-files 'ssh*' ==="
+systemctl list-unit-files 'ssh*' --no-pager
+echo "=== systemctl show -p Id -p Names -p LoadState ssh.service ==="
+systemctl show -p Id -p Names -p LoadState -p ActiveState ssh.service
+echo "=== systemctl show -p Id -p Names -p LoadState sshd.service ==="
+systemctl show -p Id -p Names -p LoadState -p ActiveState sshd.service
+echo "=== journalctl -u ssh.service -n 3 ==="
+journalctl -u ssh.service -n 3 --no-pager -o short-iso
+echo "=== journalctl -u sshd.service -n 3 ==="
+journalctl -u sshd.service -n 3 --no-pager -o short-iso
+echo "=== done ==="
