@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "why": "E43's merge-driver fix (scripts/ops/merge_json_register.py + tests), rebuilt from main carrying ONLY the lane's five commits. The original branch (#12747) could not merge because the manager had committed a .gitattributes change into it, which manager-scope-guard R2 correctly flags as the manager taking an item \u2014 and no further commit could clear it, since a revert is also a manager commit inside the same graded range. scripts/ops/** is outside TIER1_SURFACE so the guard will not certify a self-land; held for the manager to merge, which is a landing act rather than an item."
+}
