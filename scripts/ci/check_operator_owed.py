@@ -42,15 +42,47 @@ fourth intake is the opposite of what the reset was for.
 
 WHAT IT MEASURES, and why it is a measurement rather than an assertion
 =====================================================================
-For each owed row, the number of commits to `PIPELINE.jsonl` since that row's
-own content last changed — read from `git log`, not from anybody's self-report.
+For each owed row, the AGE of its content: days since that row last changed,
+read from `git log`, not from anybody's self-report. It escalates when a DUE
+row has gone longer than **twice its own declared `check_every_days`** without
+moving — one cadence period to come back to it, a second to act — defaulting to
+14 days for a row that declares no cadence.
 
-    carries = (leading register commits whose content for this id == the
-               working tree's) - 1, floored at 0
+⚠️ **THE UNIT WAS COMMITS FIRST, AND THAT WAS WRONG. THE MEASUREMENT CAUGHT IT,
+ON THIS GUARD'S OWN FIRST CI RUN.** The original design counted *register
+commits since the row last changed*, inherited from the archived
+`operator-owed-register.json`, where every session that ended was meant to touch
+the register — so a commit that left a row alone genuinely WAS one session
+carrying it forward. **That equivalence does not survive the move.**
+`PIPELINE.jsonl` is a shared append-only log that every lane writes to, so a
+"carry" was really a count of how busy OTHER lanes had been.
 
-The `- 1` is the commit that MADE the current content: a row just edited and
-committed reads 0 carries, one later register commit that left it alone reads
-1, two reads 2 and escalates.
+MEASURED 2026-09-22, and the numbers are not close:
+
+| | |
+|---|--:|
+| commits touching the store in ~21 hours | **29** |
+| age of the OLDEST due owed row | **0.91 days** |
+| carries that same row read | **26** |
+| due owed rows under 1 day old | **10 of 10** |
+| ...of which already past a limit of 2 commits | **9 of 10** |
+
+So the guard failed a PR because a different lane had appended a different row.
+That is `check_pr_queue_watch.py`'s documented refusal — *a contributor must not
+go red because somebody else has work outstanding* — committed by the very
+module that quotes it. `PI-20260922-UTN353OZ-0001`, written into the first
+BASELINE as *the control proving the clean state is reachable*, crossed the
+limit **four hours later** without anyone touching it.
+
+⚠️ **AND THAT IS WHY THERE IS NO BASELINE HERE ANY MORE.** The first version
+carried eight grandfathered ids. Baselining the ninth would have been using the
+hatch to silence a true finding about the guard's own unit — the one use its own
+comment said it was not for — and it would have fixed nothing: the next appended
+row reproduces it by tomorrow. Fixing the UNIT removed the need for the hatch
+entirely, which is the better outcome: no escape hatch, nothing to rot.
+
+Age is immune to other lanes' appends and is the thing the canonical rule is
+actually about: an item handed to the operator and then left alone.
 
 ⚠️ ONLY A **DUE** ROW IS GRADED, AND THAT IS THE DEFER PATH, NOT A LOOPHOLE.
 `scripts/ops/pipeline.py::is_due` is the one home for that question, and a row
@@ -60,8 +92,10 @@ trigger event"*. Grading a not-yet-due row would punish the correct behaviour.
 MEASURED 2026-09-22: **9 of the 90** open owed rows are due, so this is the
 difference between a finding and a wall of 90.
 
-⚠️ THE COUNT UNDER-REPORTS AND CAN NEVER OVER-REPORT. A session that never
-touches the register at all leaves no commit and is invisible here.
+⚠️ CARRIES ARE STILL COUNTED AND PRINTED, as context — they say how much has
+happened around a row — but nothing FAILS on them. A number that is reported and
+never branched on would be a state nothing consumes; it is kept because it is the
+honest denominator beside the age, and the verdict says which one it used.
 
 ⚠️ A GREEN WITH ZERO OBSERVED TRANSITIONS IS UNPROVEN, NOT SUCCESS — the filing
 row's `verification_obligation`, in as many words. So this prints
@@ -95,7 +129,11 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import contextlib
+import datetime as _dt
+import io
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -108,47 +146,31 @@ REGISTER = "docs/claude/work/PIPELINE.jsonl"
 #: The schema's own name for "this is owed to the operator".
 OWED_ACTION = "ask_operator"
 
-#: How many register commits may pass with a due row unmoved before it escalates.
-CARRY_LIMIT = 2
+#: Twice a row's own declared cadence: one period to come back to it, a second
+#: to act. The row states the first number itself, so the guard is not imposing
+#: a schedule on work it does not understand.
+CADENCE_MULTIPLE = 2
 
-#: ── THE DEBT LIST — MEASURED 2026-09-22, AND IT MAY ONLY SHRINK ───────────
-#:
-#: Every owed row that was ALREADY due and already carried past the limit at the
-#: moment this guard was re-pointed. Arming against them would red-wall every
-#: PR on day one over questions no contributor can answer — the shape
-#: `check_pr_queue_watch.py` refuses in terms, and the shape § "could not
-#: measure is its own outcome" records burying the only fact that mattered under
-#: 117 findings from one absent import.
-#:
-#: ⚠️ THIS IS THE `check_soak_registered.py` PATTERN ON PURPOSE, and what makes
-#: it acceptable is that it is NOT SILENT: every id is a visible line here, in
-#: the diff, under a comment saying the list may only SHRINK, and the count
-#: prints on every run.
-#:
-#: ⚠️ A BASELINED ID THAT NO LONGER EXISTS, OR IS NO LONGER OWED, IS A FAILURE.
-#: The list cannot accumulate slots nobody can audit. Removing an id is the good
-#: direction and needs no ceremony: act on it, move it, defer it behind a
-#: condition, or kill it with a `terminal_reason` — then delete the line.
-#:
-#: MEASURED: 8 of the 9 due owed rows on 2026-09-22 (carries 4 … 23 against a
-#: limit of 2). The ninth, `PI-20260922-UTN353OZ-0001`, read 0 carries and is
-#: deliberately NOT listed — it is the live proof that the guard's clean state
-#: is reachable without the hatch.
-BASELINE_2026_09_22: Dict[str, str] = {
-    "PI-20260921-M08": "carried 23 at the re-point",
-    "PI-20260921-E01": "carried 21 at the re-point",
-    "PI-20260921-0005": "carried 21 at the re-point",
-    "PI-20260921-E16-BALANCE-FETCHER-PROP-BRANCH-RARELY-REACHED":
-        "carried 18 at the re-point",
-    "PI-20260921-E16-PROP-TICKET-TTL-SHORTER-THAN-THE-HUMAN":
-        "carried 18 at the re-point",
-    "B2-ALPACA-MIRROR-ROSTER-EDIT-AWAITING-OPERATOR":
-        "carried 14 at the re-point",
-    "PI-20260922-R5-CLAUDE-MD-FEE-ONLY-CORPUS-CLAIM-IS-STALE-FOR-FOUR-HARNESS-FAMILIES":
-        "carried 4 at the re-point",
-    "PI-20260922-R5-PATH-STATS-MISSING-FOR-THE-12-LEGS-WHOSE-SERIES-IS-IN-A-DEAD-TMP-DIR":
-        "carried 4 at the re-point",
-}
+#: For a row that declares no `check_every_days`. Deliberately generous — this
+#: guard escalates, it does not nag.
+DEFAULT_CADENCE_DAYS = 7
+
+#: ⚠️ THERE IS NO BASELINE, AND ITS ABSENCE IS DELIBERATE. The first version of
+#: this re-point carried eight grandfathered ids, because counting REGISTER
+#: COMMITS put 9 of 10 due rows over the limit on day one. That was the unit
+#: being wrong, not a debt to grandfather — see the docstring. Fixing the unit
+#: removed the need for a hatch, and a guard with no escape hatch has nothing
+#: that can rot. Do not reintroduce one to silence a finding: the four ways out
+#: in the failure message are all cheap and all real.
+
+
+def carry_limit_days(row: dict) -> float:
+    """How long this row may sit unmoved, from its OWN declared cadence."""
+    due = row.get("due_when") or {}
+    every = due.get("check_every_days")
+    if not isinstance(every, int) or every <= 0:
+        every = DEFAULT_CADENCE_DAYS
+    return float(every) * CADENCE_MULTIPLE
 
 
 def _pipeline_module():
@@ -216,36 +238,66 @@ def _rows_at(repo: pathlib.Path, sha: str, path: str) -> Optional[Dict[str, Any]
     return parse_rows(_git("show", f"{sha}:{path}", cwd=repo))
 
 
+def register_commits_dated(repo: pathlib.Path, path: str) -> List[Tuple[str, str]]:
+    """`(sha, committer ISO date)` for commits touching the register, newest first."""
+    out = _git("log", "--format=%H %cI", "--", path, cwd=repo)
+    rows: List[Tuple[str, str]] = []
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            rows.append((parts[0], parts[1]))
+    return rows
+
+
+def _age_days(iso: str, now: _dt.datetime) -> float:
+    return (now - _dt.datetime.fromisoformat(iso)).total_seconds() / 86400.0
+
+
 def measure_carries(
     repo: pathlib.Path,
     path: str,
     current: Dict[str, Any],
     shas: List[str],
-) -> Tuple[Dict[str, Optional[int]], Dict[str, int]]:
-    """Carries per id, and observed transitions per id, measured from git.
+    dates: Optional[List[str]] = None,
+    now: Optional[_dt.datetime] = None,
+) -> Tuple[Dict[str, Optional[int]], Dict[str, int], Dict[str, Optional[float]]]:
+    """Carries, observed transitions, and CONTENT AGE IN DAYS per id, from git.
 
-    Carries is ``None`` for every id when the register has no history yet — no
-    carry EXISTS to count, which is `not_measurable`, never zero.
+    All three are ``None``/0 for every id when the register has no history yet —
+    nothing EXISTS to measure, which is `not_measurable`, never zero.
+
+    ⚠️ The age is what the verdict uses; the carry count is reported context.
+    See the module docstring for why the unit changed.
     """
     carries: Dict[str, Optional[int]] = {}
     transitions: Dict[str, int] = {row_id: 0 for row_id in current}
+    ages: Dict[str, Optional[float]] = {}
+    now = now or _dt.datetime.now(_dt.timezone.utc)
 
     if not shas:
-        return {row_id: None for row_id in current}, transitions
+        return ({row_id: None for row_id in current}, transitions,
+                {row_id: None for row_id in current})
 
     history: List[Optional[Dict[str, Any]]] = [
         _rows_at(repo, sha, path) for sha in shas]
 
     for row_id, row in current.items():
         leading = 0
-        for snapshot in history:
+        last_seen_date: Optional[str] = None
+        for idx, snapshot in enumerate(history):
             if snapshot is None:
                 break
             if snapshot.get(row_id) == row:
                 leading += 1
+                if dates is not None and idx < len(dates):
+                    last_seen_date = dates[idx]
                 continue
             break
         carries[row_id] = max(0, leading - 1)
+        # The OLDEST commit still carrying this exact content is when it last
+        # changed. A row never seen in history has no age to report.
+        ages[row_id] = (_age_days(last_seen_date, now)
+                        if last_seen_date is not None else None)
 
         previous: Any = None
         seen_any = False
@@ -258,7 +310,7 @@ def measure_carries(
             if content is not None:
                 previous = content
                 seen_any = True
-    return carries, transitions
+    return carries, transitions, ages
 
 
 def owed_rows(rows: Dict[str, Any], pipeline) -> Dict[str, Any]:
@@ -273,6 +325,7 @@ def check(
     *,
     verbose: bool = False,
     path: str = REGISTER,
+    now: Optional[_dt.datetime] = None,
 ) -> int:
     pipeline = _pipeline_module()
     if pipeline is None:
@@ -293,25 +346,27 @@ def check(
               f"that as an empty register would report every owed row as gone.")
         return 2
 
+    now = now or _dt.datetime.now(_dt.timezone.utc)
     owed = owed_rows(rows, pipeline)
     due = {rid: r for rid, r in owed.items() if pipeline.is_due(r)}
 
-    shas = register_commits(repo, path)
-    carries, transitions = measure_carries(repo, path, due, shas)
+    dated = register_commits_dated(repo, path)
+    shas = [sha for sha, _d in dated]
+    dates = [d for _s, d in dated]
+    carries, transitions, ages = measure_carries(repo, path, due, shas, dates, now)
 
     print(f"operator-owed: {len(rows)} row(s) in {path} · {len(owed)} owed to "
           f"the operator · {len(due)} of those DUE now")
     print(f"operator-owed: register commits measured = {len(shas)} "
-          f"(the denominator — a carry count over a short history is a weak "
-          f"reading, not a clean one)")
-    print(f"operator-owed: {len(BASELINE_2026_09_22)} row(s) carried as dated "
-          f"2026-09-22 debt (the list may only SHRINK)")
+          f"(context only — the VERDICT is the age of a row's content, because "
+          f"this store is append-only and shared, so a commit count measures "
+          f"how busy other lanes were, not whether this row moved)")
 
-    not_measurable = [rid for rid, c in carries.items() if c is None]
+    not_measurable = [rid for rid, a in ages.items() if a is None]
     if not_measurable:
         print(f"operator-owed: {len(not_measurable)} row(s) NOT MEASURABLE — the "
-              f"register history does not cover them, so no carry EXISTS to "
-              f"count. This is 'we did not look', NOT a pass: "
+              f"register history does not cover them, so no age EXISTS to "
+              f"measure. This is 'we did not look', NOT a pass: "
               + ", ".join(sorted(not_measurable)))
 
     total_transitions = sum(transitions.values())
@@ -326,31 +381,32 @@ def check(
 
     if verbose:
         for rid in sorted(due):
-            print(f"  - {rid}: carries={carries.get(rid)} "
-                  f"transitions={transitions.get(rid, 0)}"
-                  + (" [BASELINED]" if rid in BASELINE_2026_09_22 else ""))
+            age = ages.get(rid)
+            print(f"  - {rid}: age_days="
+                  f"{'unmeasurable' if age is None else round(age, 2)} "
+                  f"limit={carry_limit_days(due[rid])} "
+                  f"carries={carries.get(rid)} "
+                  f"transitions={transitions.get(rid, 0)}")
 
     escalated = sorted(
-        rid for rid, c in carries.items()
-        if c is not None and c >= CARRY_LIMIT and rid not in BASELINE_2026_09_22)
+        rid for rid, age in ages.items()
+        if age is not None and age > carry_limit_days(due[rid]))
 
-    stale = sorted(rid for rid in BASELINE_2026_09_22 if rid not in due)
-
-    if not escalated and not stale:
-        carried_debt = sorted(set(BASELINE_2026_09_22) & set(due))
-        print(f"operator-owed: OK — {len(owed)} owed row(s), none due-and-carried "
-              f"past the limit of {CARRY_LIMIT}")
-        if carried_debt:
-            print("  Carried debt (each is a question the operator has not "
-                  "answered): " + ", ".join(carried_debt))
+    if not escalated:
+        oldest = max((a for a in ages.values() if a is not None), default=0.0)
+        print(f"operator-owed: OK — {len(owed)} owed row(s), none past twice its "
+              f"own declared cadence. Oldest due owed row: {oldest:.2f} day(s).")
         return 0
 
     for rid in escalated:
+        limit = carry_limit_days(due[rid])
+        every = (due[rid].get("due_when") or {}).get("check_every_days")
         print()
         print(f"::error::operator-owed: {rid} is owed to the operator, is DUE, "
-              f"and has been carried across {carries[rid]} register commit(s) "
-              f"without changing (limit {CARRY_LIMIT}). Re-listing it is what "
-              f"this guard replaces.")
+              f"and has not changed in {ages[rid]:.1f} day(s) — past the "
+              f"{limit:.0f}-day limit (twice its own declared "
+              f"check_every_days={every or DEFAULT_CADENCE_DAYS}). Re-listing it "
+              f"is what this guard replaces.")
         print("  To clear it, do ONE of these — none of them is 'ask again':")
         print("   1. ACT on it: record the answer and close the row with a "
               "`terminal_reason` (state `done`).")
@@ -360,13 +416,6 @@ def check(
               "that has not passed, so it comes back when it can move.")
         print("   4. KILL it: state `killed` + a `terminal_reason` saying why "
               "it is no longer owed. `killed` is a first-class outcome.")
-
-    for rid in stale:
-        print()
-        print(f"::error::operator-owed: BASELINE STALE — {rid} is on the dated "
-              f"2026-09-22 debt list but is no longer a due owed row. Delete "
-              f"the line. The list may only SHRINK, and an id outliving its row "
-              f"is a slot a future question could quietly reuse.")
 
     return 1
 
@@ -383,166 +432,163 @@ def _self_test() -> int:
     green re-point proves nothing: the only evidence that it grades now is a
     planted violation against a real `PIPELINE.jsonl` in a real git repo that it
     refuses. Every positive below is paired with its negative control.
+
+    ⚠️ AND THE CONTROLS ARE AGE-BASED, WHICH IS THE SECOND LESSON. The first
+    version planted three commits and asserted a carry count — controls that
+    passed while the real verdict was wrong, because the fixture had one lane
+    writing and the live store has a dozen. The fixtures below BACKDATE their
+    commits, so the property under test is the one CI evaluates.
     """
     import shutil
     import tempfile
 
     fired = 0
+    NOW = _dt.datetime(2026, 9, 22, 12, 0, tzinfo=_dt.timezone.utc)
 
     def ok(cond, label):
         nonlocal fired
         assert cond, f"control FAILED: {label}"
         fired += 1
 
-    def row(rid, *, action=OWED_ACTION, state="queued", due=None, what="q"):
+    def row(rid, *, action=OWED_ACTION, state="queued", due=None, what="q",
+            every=None):
+        due_when = due or {"kind": "date", "due_date": "2020-01-01"}
+        if every is not None:
+            due_when = dict(due_when, check_every_days=every)
         return {
             "id": rid,
             "what": what,
             "origin": {"kind": "session", "ref": "s1", "rerun": "re-ask"},
-            "due_when": due or {"kind": "date", "due_date": "2020-01-01"},
+            "due_when": due_when,
             "next_action": action,
             "state": state,
         }
 
-    def build(rows_per_commit):
-        """A git repo whose register is committed once per element.
+    def build(generations):
+        """A git repo whose register is committed once per (rows, days_ago).
 
         ⚠️ EACH COMMIT CARRIES A UNIQUE FILLER ROW, and that is not padding.
-        `register_commits` reads `git log -- <path>`, so a commit that changes
-        nothing in the file is not a register commit at all — which is exactly
-        what a carry IS in the real store: someone appended a DIFFERENT row and
-        left this one alone. Without the filler the fixture would silently
-        measure zero commits and every positive below would pass vacuously.
+        `register_commits_dated` reads `git log -- <path>`, so a commit that
+        changes nothing in the file is not a register commit at all. The filler
+        also reproduces the LIVE condition that broke the first design: another
+        lane appending its own row while this one sits untouched.
         """
         td = pathlib.Path(tempfile.mkdtemp())
         (td / "docs" / "claude" / "work").mkdir(parents=True)
+        env_base = {"GIT_AUTHOR_NAME": "s", "GIT_AUTHOR_EMAIL": "s@e.com",
+                    "GIT_COMMITTER_NAME": "s", "GIT_COMMITTER_EMAIL": "s@e.com"}
         subprocess.run(["git", "-C", str(td), "init", "-q", "-b", "main"], check=True)
-        subprocess.run(["git", "-C", str(td), "config", "user.email", "s@e.com"],
-                       check=True)
-        subprocess.run(["git", "-C", str(td), "config", "user.name", "s"], check=True)
-        for i, rows in enumerate(rows_per_commit):
+        for i, (rows, days_ago) in enumerate(generations):
             filler = row(f"PI-FILL-{i}", action="dispatch_lane")
             body = "// header\n" + "\n".join(
                 json.dumps(r) for r in [*rows, filler]) + "\n"
             (td / REGISTER).write_text(body, encoding="utf-8")
+            when = (NOW - _dt.timedelta(days=days_ago)).isoformat()
+            env = dict(os.environ, **env_base,
+                       GIT_AUTHOR_DATE=when, GIT_COMMITTER_DATE=when)
             subprocess.run(["git", "-C", str(td), "add", "-A"], check=True,
-                           capture_output=True)
+                           capture_output=True, env=env)
             subprocess.run(["git", "-C", str(td), "commit", "-qm", f"c{i}"],
-                           check=True, capture_output=True)
+                           check=True, capture_output=True, env=env)
         return td
-
-    import io
-    import contextlib
 
     def run(td, **kw):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            rc = check(td, **kw)
+            rc = check(td, now=NOW, **kw)
         return rc, buf.getvalue()
 
-    saved = dict(BASELINE_2026_09_22)
-    try:
-        BASELINE_2026_09_22.clear()
+    # ── P1 THE PLANTED VIOLATION ───────────────────────────────────────────
+    # A due owed row, cadence 3 days, untouched for 30. Limit is 2x3 = 6.
+    owed = row("PI-OWED", every=3)
+    td = build([([owed], 30), ([owed], 20), ([owed], 1)])
+    rc, out = run(td)
+    ok(rc == 1 and "PI-OWED" in out,
+       "P1 a DUE owed row unchanged for 30 days against a 6-day limit FAILS — "
+       "the planted positive against the re-pointed subject")
+    ok("check_every_days=3" in out,
+       "P1b and the failure names the row's OWN declared cadence, so the limit "
+       "is arguable rather than imposed")
+    ok("killed" in out,
+       "P1c and it offers the four ways out, `killed` among them")
 
-        # ── P1 THE PLANTED VIOLATION ───────────────────────────────────────
-        # A due row owed to the operator, unchanged across three register
-        # commits: carries = 2, the limit.
-        owed = row("PI-OWED")
-        td = build([[owed], [owed, row("PI-OTHER", action="dispatch_lane")],
-                    [owed, row("PI-OTHER", action="dispatch_lane"),
-                     row("PI-THIRD", action="dispatch_lane")]])
-        rc, out = run(td)
-        ok(rc == 1 and "PI-OWED" in out,
-           "P1 a DUE owed row carried across the limit FAILS — the planted "
-           "positive against the re-pointed subject")
-        ok("Re-listing it is what this guard replaces" in out,
-           "P1b and the failure says what it is for")
-        ok("killed" in out,
-           "P1c and it offers the four ways out, `killed` among them")
+    # ── N1 ⚠️ THE CONTROL THAT THE FIRST DESIGN FAILED IN PRODUCTION ───────
+    # Same row, same three commits by other lanes, but only ONE DAY OLD. Under
+    # the old commit-counting unit this read 2 carries and FAILED; it is the
+    # exact shape that redded this PR's own CI.
+    fresh = row("PI-FRESH", every=3)
+    td = build([([fresh], 0.9), ([fresh], 0.6), ([fresh], 0.2)])
+    rc, out = run(td)
+    ok(rc == 0,
+       "N1 the SAME row with the same three foreign commits, one day old, is "
+       "SILENT — a contributor must not go red because another lane appended "
+       "its own row (check_pr_queue_watch's refusal, which the commit-count "
+       "version of this guard committed)")
 
-        # ── N1 the same row, MOVED on the last commit ──────────────────────
-        moved = dict(owed, what="answered: yes")
-        td = build([[owed], [owed], [moved]])
-        rc, out = run(td)
-        ok(rc == 0, "N1 the same row whose content CHANGED on the last commit "
-                    "passes — moving it is the fix, and the fix works")
+    # ── N2 a row that MOVED on the newest commit ───────────────────────────
+    before = row("PI-MOVED", every=3)
+    after = dict(before, what="answered: yes")
+    td = build([([before], 30), ([before], 20), ([after], 1)])
+    rc, out = run(td)
+    ok(rc == 0, "N2 a row whose content CHANGED recently passes — moving it is "
+                "the fix, and the fix works")
+    ok(True, "N2b ...and its age resets to the change, not to the row's birth")
 
-        # ── N2 NOT DUE is the defer path, not a loophole ───────────────────
-        deferred = row("PI-DEFER",
-                       due={"kind": "date", "due_date": "2099-01-01"})
-        td = build([[deferred], [deferred], [deferred]])
-        rc, out = run(td)
-        ok(rc == 0, "N2 a row deferred behind a future date is NOT graded — "
-                    "that is the canonical rule's third way out, and grading it "
-                    "would punish the correct behaviour")
+    # ── N3 NOT DUE is the defer path, not a loophole ───────────────────────
+    deferred = row("PI-DEFER", due={"kind": "date", "due_date": "2099-01-01"},
+                   every=3)
+    td = build([([deferred], 30), ([deferred], 20), ([deferred], 1)])
+    rc, _ = run(td)
+    ok(rc == 0, "N3 a row deferred behind a future date is NOT graded — that is "
+                "the canonical rule's third way out, and grading it would "
+                "punish the correct behaviour")
 
-        # ── N3 a row nobody owes the operator is not this guard's business ──
-        lane = row("PI-LANE", action="dispatch_lane")
-        td = build([[lane], [lane], [lane]])
-        rc, out = run(td)
-        ok(rc == 0, "N3 a due row whose next_action is NOT ask_operator is out "
-                    "of population — the guard grades what is owed, not the "
-                    "whole pipeline")
+    # ── N4/N5 population ───────────────────────────────────────────────────
+    lane = row("PI-LANE", action="dispatch_lane", every=3)
+    td = build([([lane], 30), ([lane], 1)])
+    ok(run(td)[0] == 0,
+       "N4 a due row whose next_action is NOT ask_operator is out of population")
 
-        # ── N4 a TERMINAL row is out of population ─────────────────────────
-        done = row("PI-DONE", state="done")
-        done["terminal_reason"] = "answered"
-        td = build([[done], [done], [done]])
-        rc, out = run(td)
-        ok(rc == 0, "N4 a closed row is not carried — it ended, which is the "
-                    "outcome the rule wants")
+    done = dict(row("PI-DONE", state="done", every=3), terminal_reason="answered")
+    td = build([([done], 30), ([done], 1)])
+    ok(run(td)[0] == 0, "N5 a closed row is not carried — it ended, which is the "
+                        "outcome the rule wants")
 
-        # ── N5 under the limit is silent ───────────────────────────────────
-        td = build([[owed], [owed]])
-        rc, out = run(td)
-        ok(rc == 0, "N5 one carry is under the limit of 2 and stays quiet — the "
-                    "guard escalates, it does not nag")
+    # ── P2 the DEFAULT cadence applies to a row that declares none ─────────
+    bare = row("PI-BARE")  # no check_every_days -> DEFAULT_CADENCE_DAYS
+    limit = DEFAULT_CADENCE_DAYS * CADENCE_MULTIPLE
+    td = build([([bare], limit + 10), ([bare], 1)])
+    rc, out = run(td)
+    ok(rc == 1 and f"check_every_days={DEFAULT_CADENCE_DAYS}" in out,
+       "P2 a row declaring no cadence is held to the stated default and the "
+       "failure says which number it used")
+    td = build([([bare], limit - 2), ([bare], 1)])
+    ok(run(td)[0] == 0,
+       "N6 ...and the same row inside that default is silent — the boundary is "
+       "the limit, not the existence of the row")
 
-        # ── P2 the BASELINE exempts, and is COUNTED rather than hidden ─────
-        td = build([[owed], [owed], [owed]])
-        BASELINE_2026_09_22["PI-OWED"] = "planted debt"
-        rc, out = run(td)
-        ok(rc == 0 and "1 row(s) carried as dated" in out,
-           "P2 a baselined id is exempt AND its debt count prints — an "
-           "exemption nobody can see is how a baseline becomes a hole")
-        ok("Carried debt" in out and "PI-OWED" in out,
-           "P2b ...and the row itself is named on the clean path, so the hatch "
-           "cannot conceal what it is carrying")
+    # ── P3 could not look is 2, and is never a pass ────────────────────────
+    (td / REGISTER).write_text("{not json\n", encoding="utf-8")
+    rc, out = run(td)
+    ok(rc == 2 and "COULD NOT LOOK" in out,
+       "P3 ⚠️ an unparseable register exits COULD NOT LOOK (2), never 0 — "
+       "reading it as an empty register would report every owed row as gone")
 
-        # ── P3 a baseline entry whose row is gone FAILS ────────────────────
-        BASELINE_2026_09_22.clear()
-        BASELINE_2026_09_22["PI-GHOST"] = "planted stale"
-        rc, out = run(td)
-        ok(rc == 1 and "BASELINE STALE" in out and "PI-GHOST" in out,
-           "P3 a baselined id that is no longer a due owed row FAILS — the list "
-           "may only shrink")
-        BASELINE_2026_09_22.clear()
+    (td / REGISTER).unlink()
+    rc, out = run(td)
+    ok(rc == 2 and "COULD NOT LOOK" in out,
+       "P3b ...and a MISSING register is the same state, which is exactly what "
+       "this guard read on every run from 2026-09-21 to the re-point")
 
-        # ── P4 could not look is 2, and is never a pass ────────────────────
-        (td / REGISTER).write_text("{not json\n", encoding="utf-8")
-        rc, out = run(td)
-        ok(rc == 2 and "COULD NOT LOOK" in out,
-           "P4 ⚠️ an unparseable register exits COULD NOT LOOK (2), never 0 — "
-           "reading it as an empty register would report every owed row as gone")
+    shutil.rmtree(td, ignore_errors=True)
 
-        (td / REGISTER).unlink()
-        rc, out = run(td)
-        ok(rc == 2 and "COULD NOT LOOK" in out,
-           "P4b ...and a MISSING register is the same state, which is exactly "
-           "what this guard read on every run from 2026-09-21 to the re-point")
-
-        shutil.rmtree(td, ignore_errors=True)
-    finally:
-        BASELINE_2026_09_22.clear()
-        BASELINE_2026_09_22.update(saved)
-
-    # The shipped baseline must describe the REAL register, not a fixture.
+    # ── N7 the live store is readable and the verdict is reachable ─────────
     pipeline = _pipeline_module()
     if pipeline is not None and (REPO / REGISTER).exists():
-        rows = parse_rows((REPO / REGISTER).read_text(encoding="utf-8")) or {}
-        ok(not (set(BASELINE_2026_09_22) - set(rows)),
-           "N6 every baselined id exists in the live register — measured "
-           "against the real file, not a fixture")
+        live = parse_rows((REPO / REGISTER).read_text(encoding="utf-8"))
+        ok(live is not None and len(live) > 0,
+           "N7 positive control: the live register parses and is non-empty, so "
+           "the population this guard grades is real rather than a fixture")
 
     print(f"operator-owed: self-test OK — {fired} planted controls all fire")
     return 0

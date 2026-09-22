@@ -1663,11 +1663,21 @@ the session, Claude must:
 
    **Enforced by `operator-owed-guard`**
    ([`scripts/ci/check_operator_owed.py`](../scripts/ci/check_operator_owed.py)),
-   which FAILS when a **DUE** owed row has been carried across register commits
-   without a state change — measured from the register's git history, not
-   self-reported. The ways out are act, move, defer behind a condition that has
-   not yet come due, or kill it with a `terminal_reason`; re-listing it is not
-   one of them.
+   which FAILS when a **DUE** owed row has sat unchanged for longer than
+   **twice its own declared `check_every_days`** — measured from the register's
+   git history, not self-reported. The ways out are act, move, defer behind a
+   condition that has not yet come due, or kill it with a `terminal_reason`;
+   re-listing it is not one of them.
+
+   ⚠️ **THE UNIT IS AGE, NOT REGISTER COMMITS, and the first version of this
+   re-point got that wrong.** In the archived register every session that ended
+   was meant to touch the file, so a commit leaving a row alone genuinely WAS
+   one session carrying it. `PIPELINE.jsonl` is a shared append-only log every
+   lane writes to, so that count became a measure of how busy OTHER lanes were:
+   MEASURED 2026-09-22, **29 commits in ~21 hours**, the oldest due owed row
+   **0.91 days** old and reading **26 carries**, with **9 of 10** already past a
+   two-commit limit. The guard failed a PR because a different lane had appended
+   a different row — the thing `check_pr_queue_watch` refuses to do.
 
    ⚠️ **RE-POINTED 2026-09-22 (E45): THIS NAMED A REGISTER THAT NO LONGER
    EXISTS.** Until then the item went in `docs/claude/operator-owed-register.json`,
