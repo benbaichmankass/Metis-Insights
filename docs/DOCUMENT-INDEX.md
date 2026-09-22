@@ -241,6 +241,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/architecture/model-inventory.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
 | `docs/architecture/multi-strategy-architecture-target.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
 | `docs/architecture/oci-block-storage.md` | architecture | unknown | — | never | `dir:architecture-declares-contracts / not-assessed` | — |
+| `docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/archive/2026-09-21-operating-reset/registers/DUE.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/archive/2026-09-21-operating-reset/registers/READOUT.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/archive/2026-09-21-operating-reset/skills/backlog-drain/SKILL.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
