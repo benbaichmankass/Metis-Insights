@@ -38,17 +38,161 @@ The tempting implementations both fail on measurement, so neither is used:
     are not manager-exclusive. `MANAGER-CHECKLIST.json` has at least one false
     positive from a merge union (`claude/system-actions-dispatch-unbound-var`).
 
-What actually identifies the manager is the thing that MAKES it the manager:
-**it holds the lease.** `docs/claude/work/MANAGER-LEASE.json` names the holder,
-it must be pushed to be worth anything ("A CLAIM YOU DID NOT PUSH PROTECTS
-NOTHING"), and its git history is therefore a complete, tamper-evident roster of
-every session that has ever managed. Measured: **3 sessions across 59 revisions
-of that file** (`session_011JWFxuYAaEQKCFCmG6gnHJ`,
-`session_01Nopk1HcpvWBSEbZxEmALkd`, `session_01AYPxs3aDHwv3XBLRF4oK15`).
+Two things identify the manager, and the guard needs BOTH because each one
+answers for a different era of this repo.
+
+  * **It HELD THE LEASE.** `docs/claude/work/MANAGER-LEASE.json` named the
+    holder, it had to be pushed to be worth anything ("A CLAIM YOU DID NOT PUSH
+    PROTECTS NOTHING"), and its git history is a tamper-evident roster of every
+    session that managed while that file was the mechanism. Measured 2026-09-04:
+    3 sessions across 59 revisions. Re-measured **2026-09-22 at --deepen=2000**:
+    **7 sessions across 478 revisions**, 14 lease-holding runs, the last one
+    ending `2026-09-19T10:42:44Z`.
+
+  * **It DISPATCHED.** A commit that newly sets a `MANAGER-CHECKLIST.json` row's
+    `lane` to a session id OTHER THAN THE COMMIT'S OWN is a management act: it
+    hands somebody else the work. That is the verb the manager contract is about
+    ("ONE QUESTION PER LANE, fresh sessions by default"), and it is the only
+    manager act that survived the 2026-09-21 operating reset.
+
+⚠️⚠️ **THE LEASE ALONE WAS THE WHOLE BUG, AND IT REPORTED PASS FOR A DAY.**
+The 2026-09-21 operating reset ARCHIVED `MANAGER-LEASE.json` to
+`docs/archive/2026-09-21-operating-reset/work/MANAGER-LEASE.json`. The file's
+history stayed reachable, so `lease_holders` kept returning the same 7 sessions
+and the guard kept printing a verdict — but **the roster could never grow
+again**, because nothing writes that file any more. MEASURED 2026-09-22:
+`session_01XQhayAHWdrSYv8jN54P2HH` (that day's manager) is NOT on the lease
+roster, so all **38** of its commits graded `not_manager` and were skipped. **31
+of those 38 touch a path off MANAGER_SURFACE** — `config/accounts.yaml` (6
+commits), `src/web/api/routers/work.py` (2), `tests/**` (5), `scripts/ops/**`
+(4), `scripts/ci/**` (1) — exactly the failure this guard was built for, and
+`manager-scope-guard` appeared in the green list on every run.
+
+This is the repo's most-repeated defect class, landing inside the guard written
+to stop its sibling: **a check whose subject was removed, still green, still
+counted as coverage.** Compare the `work_digest` case (five of six sources
+reading `absent` while the digest reported itself healthy) and
+`test_status_enum_single_home`'s positive control going vacuous. So the fix is
+not only a second source — it is § FAIL CLOSED below, which is the half that
+would have caught this one in September and will catch the next reset too.
+
+MEASURING THE DISPATCH RULE, THE WAY THE REJECTED OPTIONS WERE MEASURED
+-----------------------------------------------------------------------
+Population: **635 commits touching `docs/claude/work/MANAGER-CHECKLIST.json`
+reachable from `--all`** on a clone deepened to 2,000 commits (2026-09-22).
+Of those, **12** newly assign a row's `lane` to a session other than their own
+trailer's, and **6** further commits assign a lane while carrying NO trailer.
+
+| | |
+|---|---|
+| sessions the rule names as manager | **1** — `session_01XQhayAHWdrSYv8jN54P2HH`, which IS that day's manager |
+| **false positives** | **0 of 1** |
+| sessions that set a lane ONLY to THEMSELVES | **6**, none admitted — the over-capture `updated_by` would have produced, since a lane session writes that header too |
+| **false negatives vs. the lease roster** | **7 of 7** — and NOT a flaw: see below |
+
+⚠️ **THE 7 FALSE NEGATIVES ARE STRUCTURAL AND THEY ARE WHY BOTH SOURCES STAY.**
+In the PRE-reset schema `lane` held a TEAM NAME, not a session id — measured on
+the archived file: `engineering` 30 · `ops` 29 · `research` 18, and zero session
+ids. So the dispatch signal did not exist before 2026-09-21 and the dispatch
+rule alone would de-attribute the entire pre-reset era, un-grading the 2026-09-02
+manager's 221 commits this guard was written for. The roster is the **UNION**.
+A retired source keeps contributing its history; what it cannot do is grow.
+
+⚠️ **THE DERIVATION IS ONE `git log -p` PASS, AND THE CHEAP FORM WAS CHECKED
+AGAINST THE EXACT ONE RATHER THAN ASSUMED.** `dispatch_observations` reads added
+`"lane": "session_…"` lines out of a single `git log --all -p --unified=0` (3.0s
+over 8.8MB of patch). An exact implementation — reload the whole JSON at every
+commit and diff it against EVERY parent — is committed beside it as
+`dispatch_observations_exact` and runnable as **`--verify-dispatch`**, so this
+claim has a locator instead of being one session's word. Run over the same 635
+commits, the two AGREE COMPLETELY: same 1 dispatcher, same 12 observations, same 6
+self-lane-only sessions, same 6 untrailered commits, zero disagreements. The
+fast one is used; the agreement is the reason it may be.
+
+⚠️ **AND THE COUNTS ARE NOT STANDING PROPERTIES — RE-RUN, DO NOT RE-QUOTE.**
+`--verify-dispatch` run again a few hours later, on a history that had moved:
+**641 revisions, 13 dispatch acts, 7 self-lane-only sessions**, still 1
+dispatcher, still agreeing. The seventh self-assigner is the E20 lane that wrote
+this paragraph setting its own row's `lane` — which is the control firing on its
+own author, and the plainest demonstration that the rule admits DISPATCHERS
+rather than everyone who writes the checklist.
 
 Commits carry `Claude-Session: https://claude.ai/code/session_…` trailers by
 standing attribution rule. So the join is exact: a commit whose trailer names a
-session that has held the lease is a commit the manager wrote.
+session that either held the lease or dispatched a lane is a manager commit.
+
+FAIL CLOSED — A GUARD THAT CANNOT IDENTIFY ITS SUBJECT MUST SAY SO
+------------------------------------------------------------------
+This is the part that matters more than the identity rule, because it is what
+makes the NEXT reset visible instead of silent. Every identity source declares
+the path whose history carries its evidence, and that path's presence at HEAD is
+read on every run. Three states, never collapsed:
+
+  ``live``       — the subject exists at HEAD, so the roster can still GROW.
+  ``retired``    — the subject is ABSENT at HEAD. Its history still contributes
+                   (a manager that stood down is still the author of what it
+                   committed), but it can never learn about a new manager.
+  ``unreadable`` — the subject is there and its history could not be read. *We
+                   could not look*, which is neither of the other two.
+
+  **NO source ``live`` → state ``no_identity_source`` → EXIT 2.** The roster is
+  frozen by construction and every future manager is invisible to R2. This is
+  the 2026-09-21 regression, and `--self-test` plants it.
+
+  **Sources ``live`` but the union roster is EMPTY → ``identity_unresolved`` →
+  EXIT 2.** Nothing to grade against; saying "clean" would be a bill of health
+  from a read that never happened.
+
+⚠️ **EXIT 2, NOT 1, AND THE DISTINCTION IS BINDING.** `docs/CLAUDE-RULES-CANONICAL.md`
+§ "could not measure is its own outcome" requires a guard whose dependency is
+missing to fail DISTINCTLY from a real finding (`check_workflow_shell.py` exits
+2 vs 1) — *"Red while measuring nothing is the same sin as green while measuring
+nothing, and it is worse for trust."* Both are non-zero, so `run_guards.py` reds
+either way; the code says which happened.
+
+WHAT IT NOW BITES — MEASURED BEFORE WIRING, NOT PROMISED
+---------------------------------------------------------
+Replayed over the 38 commits trailered `session_01XQhayAHWdrSYv8jN54P2HH`,
+with every rule applied as it will run (surface, the three exception entries
+active on 2026-09-22, the `CLAUDE.md` hunk rule, the merge-slot carve-out):
+
+| verdict | commits |
+|---|--:|
+| **R2 FAILS** | **18** |
+| off-surface but under an ACTIVE, dated exception | 4 (`config/accounts.yaml` ×6 among them) |
+| per-branch merge-slot claims only — a landing act | 7 |
+| entirely on the manager surface | 7 |
+
+The 18 are the manager building software: `scripts/ops/build_strategy_evidence.py`
+(3), `config/strategies.yaml` (2), `config/lever_reachability.json` (2),
+`src/web/api/routers/work.py` (2), seven `tests/**` files, `scripts/ci/run_guards.py`,
+`scripts/research/regime_debt_matrix.py`. It bites where the building happened,
+which is the same property the original wiring measurement asserted.
+
+⚠️ **AND THE FIX IS NOT TO WIDEN `MANAGER_SURFACE` UNTIL TODAY'S COMMITS PASS.**
+The manager taking items was the DEFECT, not the false positive. `config/`,
+`src/`, `tests/`, `scripts/` stay worker paths and those 31 commits are meant to
+fail. The ONE path added to the surface here is
+`.github/merge-slots/**`, and it is added as the faithful successor of an
+already-argued carve-out whose subject the same reset archived — graded per
+COMMIT by `branch_slot_claim_only`, never admitted wholesale. See
+`MERGE_SLOT_DIR`.
+
+RULE LIVENESS — R6, R7 AND R8 HAVE NO SUBJECT AFTER THE RESET EITHER
+--------------------------------------------------------------------
+Found while fixing R2's identity and reported rather than walked past. R6 reads
+`MANAGER-LEASE.json` + `SESSIONS.json`, R7 reads the lease, R8 reads
+`MERGE-QUEUE.json`. MEASURED 2026-09-22: all three are ABSENT on `origin/main`
+(archived by the same reset). R8 already announced its own absence loudly; R6
+and R7 returned `None` and graded NOTHING, silently — the same shape one level
+down. Every run now prints a RULE LIVENESS block naming each rule's subject and
+whether it is there.
+
+It is reported, not failed: these subjects were retired by an operator-directed
+reset, and failing every contributor's PR over a register the contributor cannot
+restore is the alarm-on-its-own-plumbing failure this document files findings
+about. The coverage loss is real and is tracked in
+`docs/claude/work/PIPELINE.jsonl` with a rerun, not in this paragraph.
 
 ⚠️ THIS IS WHY THE CHECK IS PER-COMMIT AND NOT PER-BRANCH-DIFF. The accused acts
 that hurt most — *"resolved merge conflicts on #10893 and #10888, other sessions'
@@ -243,6 +387,12 @@ it needs no new marker anybody could set.
 
 STATES, NEVER COLLAPSED
 -----------------------
+  ``no_identity_source``     — EVERY identity source's subject is absent at
+                               HEAD, so the manager roster is frozen and can
+                               never grow. FAILS, **exit 2**. The 2026-09-21
+                               regression.
+  ``identity_unresolved``    — a source is live, and the union roster is still
+                               empty. Nothing to grade against. FAILS, exit 2.
   ``not_a_pr``               — no base ref to diff against. Nothing was graded.
                                NOT a pass.
   ``predates_guard``         — the branch was cut before this guard existed and
@@ -340,6 +490,34 @@ LEASE_REL = "docs/claude/work/MANAGER-LEASE.json"
 SESSIONS_REL = "docs/claude/work/SESSIONS.json"
 EXCEPTION_REL = "docs/claude/work/manager-scope-exception.yaml"
 
+#: The manager's ONE register since the 2026-09-21 operating reset, and the
+#: subject of the DISPATCH identity source. A commit that newly sets a row's
+#: `lane` to a session other than its own is a management act — see the module
+#: docstring for the false-positive / false-negative measurement.
+CHECKLIST_REL = "docs/claude/work/MANAGER-CHECKLIST.json"
+
+#: The PER-BRANCH merge-slot claim `scripts/ops/claim_merge_slot.py
+#: --branch-claim` writes, and the faithful successor of the
+#: `session-board.json::merge_slot` carve-out below.
+#:
+#: ⚠️ THIS IS NOT THE SURFACE-WIDENING THE DOCSTRING WARNS AGAINST, AND THE
+#: DIFFERENCE IS THAT THE CARVE-OUT ALREADY EXISTED AND ARGUED ITSELF. R2 and
+#: `check_pr_landing.py` R13 were mutually unsatisfiable for a manager landing
+#: its own register PR until `merge_slot_claim_only` decided the category: a
+#: slot claim naming YOUR OWN branch is a LANDING act, the same category as
+#: `.github/pr-landing/**`, which MANAGER_SURFACE already tolerates. The
+#: 2026-09-21 reset archived `docs/claude/session-board.json` and R13's
+#: PREFERRED route became a file per branch under here
+#: (`.github/pr-landing/README.md`'s warning box). So the carve-out's SUBJECT
+#: moved; its reasoning did not.
+#:
+#: ⚠️ AND IT IS GRADED PER COMMIT, NEVER ADMITTED AS A PATH GLOB, for the same
+#: reason the old one was: listing the directory on MANAGER_SURFACE would admit
+#: a manager writing ANOTHER branch's claim, which is the hole this must not
+#: become. `branch_slot_claim_only` requires the claim to name the branch being
+#: graded and the commit to touch no other claim file.
+MERGE_SLOT_DIR = ".github/merge-slots"
+
 #: R2's ONE carve-out, and it is a carve-out for a single KIND OF EDIT rather
 #: than for a path.
 #:
@@ -390,6 +568,23 @@ MANAGER_SURFACE = [
     "docs/claude/pending-pings.jsonl",
     # Filing what it notices. Permitted unconditionally — see call (3) above.
     "docs/claude/health-review-backlog.json",
+    # ⚠️ THE SAME OPERATOR DECISION, APPLIED TO ITS SURVIVING SUBJECT.
+    # Call (3) is an operator ruling (2026-09-03) that FILING is management —
+    # "filing is the opposite of taking the item" — and it names
+    # `health-review-backlog.json`, which the 2026-09-21 reset ARCHIVED along
+    # with the other three review backlogs. `CLAUDE.md`'s post-reset taxonomy is
+    # exactly two intakes: "A question -> research/queue/<id>.yaml" and "A build
+    # -> a row in MANAGER-CHECKLIST.json". The second is already admitted
+    # (`docs/claude/work/**`, which also carries PIPELINE.jsonl); leaving the
+    # FIRST forbidden would mean a manager that notices a QUESTION must either
+    # stay silent or spawn a session to write down a thing it already knows —
+    # the outcome the operator's ruling explicitly rejected.
+    #
+    # ⚠️ IT IS AN INTAKE, NOT AN ITEM SURFACE, and that is why it is a path
+    # glob rather than a per-commit carve-out: a queue unit is a QUESTION by
+    # construction (`research/queue/README.md`), and answering one is work that
+    # lands in `src/`, `scripts/` or `config/` — all of which stay worker paths.
+    "research/queue/**",
     # Landing and spawning: declaring, arming, relaying. Management verbs.
     ".github/pr-landing/**",
     ".github/pr-automerge-requests/**",
@@ -511,6 +706,227 @@ def lease_holders(root: Path) -> set[str]:
             if isinstance(v, str) and v.startswith("session_"):
                 holders.add(v)
     return holders
+
+
+# --------------------------------------------------------------------------
+# Identity source 2: WHO DISPATCHED?  (the post-reset surface)
+# --------------------------------------------------------------------------
+#: An added `"lane": "session_…"` line in the checklist's patch.
+LANE_ADD = re.compile(r'^\+\s*"lane"\s*:\s*"(session_[A-Za-z0-9]+)"')
+
+#: How far either side of its observed dispatch acts a manager is taken to have
+#: been in office.
+#:
+#: ANCHORED, NOT TUNED, and the anchor is deliberately not the measured
+#: distribution. Measured 2026-09-22 over the 12 dispatch observations (11
+#: same-session consecutive gaps): min 5 · p25 22 · MEDIAN 45 · p75 107 · p90
+#: 287 · MAX 572 minutes. Dispatch is SPARSE — 12 acts across ~21 hours of one
+#: continuous manager session — so any threshold read off that distribution
+#: would fragment ONE shift into several windows and grade its quiet hours
+#: `unattributed`, i.e. NOT GRADED. That is the wrong direction: a window MISS
+#: costs a violation nobody ever sees.
+#:
+#: The anchor is the operating model instead: `CLAUDE.md` § "The daily sync" —
+#: **one session a day with the operator** — so the manager is a day-shift
+#: session and 24 hours is the unit in which "who is managing" is declared. And
+#: a window is CLIPPED by the next session's own dispatch act (a run ends where
+#: another session's observation begins), so a real handover still cuts it short
+#: however generous this is.
+#:
+#: ⚠️ WIDENING CAN ONLY EVER CAUSE MORE COMMITS TO BE GRADED, NEVER FEWER — the
+#: same reasoning `office_windows` records. The error it risks is a false
+#: violation a reader can argue with, not a missed one they never see.
+DISPATCH_GRACE_MINUTES = 1440
+
+
+def dispatch_observations(root: Path) -> tuple[list[tuple[datetime, str]], list[str]]:
+    """(sorted [(when, session)], notes) — every observed DISPATCH act.
+
+    A dispatch act is a commit that ADDS a `lane` naming a session OTHER than
+    the one its own `Claude-Session:` trailer names. Handing work to somebody
+    else is the manager's verb; handing it to yourself is a lane session
+    writing its own row, and the 6 sessions that did only that are measured NOT
+    to be admitted (see the module docstring).
+
+    ⚠️ ONE `git log -p` PASS, AND THE CHEAP FORM IS VALIDATED RATHER THAN
+    ASSUMED. An exact implementation (reload the JSON at each commit, diff
+    against EVERY parent) was run over the same 635-commit population and the
+    two agree completely — same dispatcher, same 12 observations, same 6
+    self-lane-only sessions, same 6 untrailered commits. That agreement is why
+    the 3-second form may be used in CI instead of the multi-minute one.
+    """
+    notes: list[str] = []
+    rc, raw = _git(root, "log", "--all", "--reverse", "--unified=0", "-p",
+                   "--pretty=format:%x00COMMIT%x00%H%x00%aI%x00%B%x00ENDMSG%x00",
+                   "--", CHECKLIST_REL)
+    if rc != 0:
+        return [], [f"{CHECKLIST_REL} history unreadable — no dispatch "
+                    f"observation could be derived (we could not look)"]
+
+    obs: list[tuple[datetime, str]] = []
+    commits = 0
+    untrailered = 0
+    self_only: set[str] = set()
+    for chunk in raw.split("\x00COMMIT\x00")[1:]:
+        head, _sep, patch = chunk.partition("\x00ENDMSG\x00")
+        parts = head.split("\x00")
+        if len(parts) < 3:
+            continue
+        commits += 1
+        when = _parse_ts(parts[1])
+        body = "\x00".join(parts[2:])
+        trailer = SESSION_TRAILER.findall(body)
+        author = trailer[-1] if trailer else None
+        added = set()
+        for line in patch.splitlines():
+            m = LANE_ADD.match(line)
+            if m:
+                added.add(m.group(1))
+        if not added:
+            continue
+        if author is None:
+            untrailered += 1
+            continue
+        other = {a for a in added if a != author}
+        if not other:
+            self_only.add(author)
+            continue
+        if when is not None:
+            obs.append((when, author))
+
+    obs.sort()
+    notes.append(
+        f"dispatch observations derived from {commits} revision(s) of "
+        f"{CHECKLIST_REL} (population: every revision reachable from --all): "
+        f"{len(obs)} act(s) assigning a lane to ANOTHER session, by "
+        f"{len({s for _w, s in obs})} session(s); {len(self_only)} session(s) "
+        f"only ever set a lane to THEMSELVES and are NOT admitted")
+    if untrailered:
+        notes.append(
+            f"⚠️ {untrailered} commit(s) assign a lane while carrying NO "
+            f"`Claude-Session:` trailer, so whoever dispatched there could not "
+            f"be identified. A gap in this source's coverage, not evidence "
+            f"that nobody dispatched.")
+    return obs, notes
+
+
+def dispatch_observations_exact(root: Path) -> tuple[list[tuple[datetime, str]], list[str]]:
+    """The SLOW, EXACT derivation `dispatch_observations` is validated against.
+
+    ⚠️ THIS EXISTS SO THE VALIDATION CLAIM HAS A DURABLE LOCATOR. The module
+    docstring says the one-pass `git log -p` form agrees with an exact one over
+    635 commits; a claim like that is only MEASURED if a later session can
+    re-run it (`docs/CLAUDE-RULES-CANONICAL.md` § "A MEASURED must say WHERE THE
+    MEASUREMENT LIVES" — *"a number whose source cannot be found is not MEASURED,
+    it is INFERRED from an unstated one"*). Run `--verify-dispatch` to re-check
+    the agreement. It takes minutes rather than seconds, which is exactly why it
+    is not the form used in CI.
+
+    The difference that could make them disagree: this RELOADS the whole
+    checklist JSON at every revision and compares each row's `lane` against
+    EVERY parent, so a value already carried by any parent is not a new
+    assignment. The fast form reads added lines out of the first-parent patch, so
+    a merge that re-adds an unchanged lane line would register there and not
+    here. Whether that actually happens in this repo's history is a
+    MEASUREMENT, and this function is what makes it one.
+    """
+    notes: list[str] = []
+    rc, out = _git(root, "log", "--all", "--pretty=%H", "--", CHECKLIST_REL)
+    if rc != 0:
+        return [], [f"{CHECKLIST_REL} history unreadable — nothing compared"]
+    shas = [x for x in out.split() if x]
+
+    def lanes(ref: str) -> Optional[dict[str, str]]:
+        state, doc = _json_at(root, ref, CHECKLIST_REL)
+        if state != "ok":
+            return None
+        found: dict[str, str] = {}
+        for item in (doc.get("items") or []):
+            if not isinstance(item, dict):
+                continue
+            rid, lane = item.get("id"), item.get("lane")
+            if isinstance(rid, str) and isinstance(lane, str) \
+                    and re.fullmatch(r"session_[A-Za-z0-9]+", lane.strip()):
+                found[rid] = lane.strip()
+        return found
+
+    obs: list[tuple[datetime, str]] = []
+    for sha in shas:
+        after = lanes(sha)
+        if after is None:
+            continue
+        author = commit_session(root, sha)
+        if author is None:
+            continue
+        rc, par = _git(root, "log", "-1", "--pretty=%P", sha)
+        prior: dict[str, set[str]] = {}
+        for parent in (par.split() if rc == 0 else []):
+            pl = lanes(parent)
+            if pl:
+                for rid, lane in pl.items():
+                    prior.setdefault(rid, set()).add(lane)
+        newly = {rid: lane for rid, lane in after.items()
+                 if lane not in prior.get(rid, set())}
+        if any(lane != author for lane in newly.values()):
+            when = commit_authored_at(root, sha)
+            if when is not None:
+                obs.append((when, author))
+    obs.sort()
+    notes.append(f"exact derivation over {len(shas)} revision(s) of "
+                 f"{CHECKLIST_REL}: {len(obs)} dispatch act(s) by "
+                 f"{len({s for _w, s in obs})} session(s)")
+    return obs, notes
+
+
+def verify_dispatch(root: Path) -> int:
+    """Re-check the fast derivation against the exact one. 0 == they agree."""
+    fast, fnotes = dispatch_observations(root)
+    exact, enotes = dispatch_observations_exact(root)
+    for n in fnotes + enotes:
+        print(f"  · {n}")
+    fs = {s for _w, s in fast}
+    es = {s for _w, s in exact}
+    print("")
+    print(f"  fast : {len(fast)} observation(s), roster {sorted(fs)}")
+    print(f"  exact: {len(exact)} observation(s), roster {sorted(es)}")
+    print("")
+    if fs == es and len(fast) == len(exact):
+        print("  AGREE — the one-pass form may be used in CI. State the "
+              "population and the counts above when re-quoting this; neither "
+              "is a standing property of the repo.")
+        return 0
+    print(f"  DISAGREE — only in fast: {sorted(fs - es)}. Only in exact: "
+          f"{sorted(es - fs)}. The CI form is the FAST one, so a disagreement "
+          f"means the cheap derivation is wrong and the docstring's validation "
+          f"claim no longer holds. Do not 'fix' this by deleting the check.")
+    return 1
+
+
+def _runs_to_windows(obs: list[tuple[datetime, str]], grace_minutes: int
+                     ) -> tuple[dict[str, list[tuple[datetime, datetime]]], int]:
+    """Contiguous same-session runs of `obs`, each widened by `grace_minutes`.
+
+    `obs` must be sorted by time, so a change of session IS the split: a run
+    ends exactly where another session's own observation begins. Silence never
+    ends a run — only an observable handover does.
+    """
+    runs: list[tuple[str, datetime, datetime]] = []
+    cur: Optional[str] = None
+    lo = hi = None
+    for ts, sess in obs:
+        if sess != cur:
+            if cur is not None:
+                runs.append((cur, lo, hi))
+            cur, lo, hi = sess, ts, ts
+        else:
+            hi = ts
+    if cur is not None:
+        runs.append((cur, lo, hi))
+    grace = timedelta(minutes=grace_minutes)
+    out: dict[str, list[tuple[datetime, datetime]]] = {}
+    for sess, a, b in runs:
+        out.setdefault(sess, []).append((a - grace, b + grace))
+    return out, len(runs)
 
 
 def commit_session(root: Path, sha: str) -> Optional[str]:
@@ -1273,6 +1689,180 @@ def office_windows(root: Path) -> tuple[dict[str, list[tuple[datetime, datetime]
     return windows, notes
 
 
+# --------------------------------------------------------------------------
+# THE ROSTER — the union of every identity source, and its LIVENESS
+# --------------------------------------------------------------------------
+#: The states in which this guard GRADED NOTHING because it could not say who
+#: the manager is. They exit **2**, not 1 — see `exit_code`.
+IDENTITY_FAIL_STATES = ("no_identity_source", "identity_unresolved")
+
+
+def exit_code(state: str, fails: list) -> int:
+    """The process exit code for a verdict. ONE definition, asserted by tests.
+
+    ⚠️ 2 IS NOT 1, AND THE DISTINCTION IS BINDING, per
+    `docs/CLAUDE-RULES-CANONICAL.md` § "could not measure is its own outcome":
+    a guard whose dependency is missing must fail DISTINCTLY from one that found
+    a real defect (`check_workflow_shell.py` exits 2 vs 1). Both are non-zero so
+    `run_guards.py` reds either way; the code says which happened, and a guard
+    that reports its own plumbing as findings teaches every later session to
+    skim past it.
+
+    ⚠️ IT LIVES HERE RATHER THAN INLINE IN `main` SO `--self-test` CAN ASSERT
+    IT. "The guard must FAIL when it cannot identify its subject" is a claim
+    about the EXIT CODE, and a claim only prose makes is the thing this whole
+    unit is about.
+    """
+    if state in IDENTITY_FAIL_STATES:
+        return 2
+    return 1 if fails else 0
+
+
+SRC_LIVE = "live"              # subject present at HEAD: the roster can GROW
+SRC_RETIRED = "retired"        # subject ABSENT at HEAD: history only, frozen
+SRC_UNREADABLE = "unreadable"  # subject present, history unreadable: could not look
+
+#: Each identity source, and the ONE path whose presence at HEAD decides whether
+#: it can still learn about a new manager. Order is documentation only.
+IDENTITY_SOURCES = (
+    ("lease", LEASE_REL,
+     "held the manager lease (pre-2026-09-21 mechanism)"),
+    ("dispatch", CHECKLIST_REL,
+     "assigned a checklist row's lane to another session"),
+)
+
+
+def _subject_state(root: Path, rel: str) -> str:
+    """Is `rel` present at HEAD? `live` / `retired` — never guessed."""
+    rc, _ = _git(root, "cat-file", "-e", f"HEAD:{rel}")
+    return SRC_LIVE if rc == 0 else SRC_RETIRED
+
+
+def manager_roster(root: Path):
+    """(holders, windows, sources, notes) — the UNION of every identity source.
+
+    `sources` is [(name, subject, state, contributed_session_count)], and a
+    source's STATE is what makes this guard's own decay visible: a `retired`
+    source still contributes its history (a manager that stood down is still the
+    author of what it committed) but can never grow. **When no source is `live`
+    the roster is frozen by construction**, every future manager is invisible to
+    R2, and `check` fails with exit 2 rather than printing a verdict — see
+    § FAIL CLOSED in the module docstring for why that is the half of this fix
+    that matters.
+    """
+    notes: list[str] = []
+    holders: set[str] = set()
+    windows: dict[str, list[tuple[datetime, datetime]]] = {}
+    sources: list[tuple[str, str, str, int]] = []
+
+    # -- lease -------------------------------------------------------------
+    lease_state = _subject_state(root, LEASE_REL)
+    lease_ids = lease_holders(root)
+    lwin, lnotes = office_windows(root)
+    notes.extend(lnotes)
+    if lease_state == SRC_LIVE and not lease_ids:
+        lease_state = SRC_UNREADABLE
+    holders |= lease_ids
+    for s, w in lwin.items():
+        windows.setdefault(s, []).extend(w)
+    sources.append(("lease", LEASE_REL, lease_state, len(lease_ids)))
+
+    # -- dispatch ----------------------------------------------------------
+    disp_state = _subject_state(root, CHECKLIST_REL)
+    dobs, dnotes = dispatch_observations(root)
+    notes.extend(dnotes)
+    disp_ids = {s for _w, s in dobs}
+    if disp_state == SRC_LIVE and not dobs:
+        # The register is there and no dispatch has ever been observed in it.
+        # That is a real (and possible) reading of a young register, not an
+        # unreadable one — say so rather than inventing a failure state.
+        notes.append(
+            f"{CHECKLIST_REL} is present and carries NO dispatch act, so the "
+            f"dispatch source contributes no manager. It is still LIVE: a "
+            f"dispatch tomorrow will be seen.")
+    dwin, druns = _runs_to_windows(dobs, DISPATCH_GRACE_MINUTES)
+    holders |= disp_ids
+    for s, w in dwin.items():
+        windows.setdefault(s, []).extend(w)
+    sources.append(("dispatch", CHECKLIST_REL, disp_state, len(disp_ids)))
+    if dobs:
+        notes.append(
+            f"dispatch office windows: {druns} run(s) across {len(disp_ids)} "
+            f"session(s), each widened by {DISPATCH_GRACE_MINUTES}min at both "
+            f"ends and clipped by the next session's own dispatch act")
+
+    for name, subject, state, n in sources:
+        mark = "" if state == SRC_LIVE else "⚠️ "
+        notes.append(f"{mark}identity source `{name}` ({subject}): {state} — "
+                     f"contributes {n} session(s)")
+    return holders, windows, sources, notes
+
+
+#: The rules whose subject the 2026-09-21 reset archived, and the path each one
+#: needs. Printed on EVERY run: a rule that quietly stops grading is the same
+#: defect as a roster that quietly stops growing, one level down.
+RULE_SUBJECTS = (
+    ("R2", (CHECKLIST_REL,), "the manager surface (identity above)"),
+    ("R6", (LEASE_REL, SESSIONS_REL), "supervision freshness"),
+    ("R7", (LEASE_REL,), "heartbeat cadence"),
+    ("R8", (QUEUE_REL,), "the merge queue's one invariant"),
+)
+
+
+def rule_liveness(root: Path) -> list[str]:
+    """One note per rule saying whether its subject exists at HEAD.
+
+    Reported, never failed. These subjects were retired by an operator-directed
+    reset, and failing a contributor's PR over a register they cannot restore is
+    the alarm-on-its-own-plumbing failure `docs/CLAUDE-RULES-CANONICAL.md` files
+    findings about. The coverage loss is carried in the pipeline, not here.
+    """
+    out = ["RULE LIVENESS — a rule whose subject is gone grades NOTHING, and "
+           "silence about that is how a guard keeps counting as coverage:"]
+    for rule, subjects, what in RULE_SUBJECTS:
+        missing = [s for s in subjects if _subject_state(root, s) != SRC_LIVE]
+        if missing:
+            out.append(f"  ⚠️ {rule} ({what}): DEAD — subject absent at HEAD: "
+                       f"{', '.join(missing)}. Nothing is graded by this rule.")
+        else:
+            out.append(f"  · {rule} ({what}): live")
+    return out
+
+
+def branch_slot_claim_only(root: Path, sha: str, path: str,
+                           branch: Optional[str]) -> tuple[bool, str]:
+    """Is this commit's write to `path` a PER-BRANCH merge-slot claim for `branch`?
+
+    The successor of `merge_slot_claim_only` for the route
+    `.github/pr-landing/README.md` calls PREFERRED since the 2026-09-21 reset:
+    `scripts/ops/claim_merge_slot.py --branch-claim` writes one file per branch
+    under `MERGE_SLOT_DIR`. Same category as `.github/pr-landing/**` — merging
+    is management, and so is saying which branch is about to merge.
+
+    Fails closed on everything it cannot establish, and requires the SAME fields
+    the archived carve-out required (`branch`, `held_by`, `claimed_at`) so the
+    two rules cannot disagree about what counts as a claim.
+    """
+    if not branch:
+        return (False, "the branch being graded could not be established, so "
+                       "this claim cannot be shown to be for ITSELF — that is "
+                       "*we could not look*, and it fails closed")
+    state, doc = _json_at(root, sha, path)
+    if state != "ok":
+        return (False, f"the file is {state} at this commit, so no claim can be "
+                       f"read out of it")
+    if doc.get("branch") != branch:
+        return (False, f"`branch` is {doc.get('branch')!r}, not this branch "
+                       f"{branch!r} — a manager may claim the slot for the "
+                       f"branch it is landing, NEVER for another branch")
+    for field in ("held_by", "claimed_at"):
+        if not str(doc.get(field) or "").strip():
+            return (False, f"`{field}` is empty — a claim nobody can attribute "
+                           f"or time out is not a claim")
+    return (True, f"a per-branch merge-slot claim naming this branch "
+                  f"(`{branch}`)")
+
+
 def commit_authored_at(root: Path, sha: str) -> Optional[datetime]:
     """The commit's author timestamp. ⚠️ Author-settable — see office_windows."""
     rc, out = _git(root, "log", "-1", "--pretty=%aI", sha)
@@ -1355,23 +1945,44 @@ def check(root: Path, base: str, today: Optional[str] = None,
     if not shas:
         return ("not_a_pr", [], [f"no commits in {base}..HEAD — nothing graded"])
 
-    holders = lease_holders(root)
+    holders, windows, sources, rnotes = manager_roster(root)
+    notes.extend(rnotes)
+    notes.extend(rule_liveness(root))
+
+    # ── FAIL CLOSED. A guard that cannot identify its subject must say so. ──
+    live = [s for s in sources if s[2] == SRC_LIVE]
+    if not live:
+        return ("no_identity_source", [
+            "IDENTITY: every source this guard derives the manager roster from "
+            "has had its subject REMOVED, so the roster is frozen at "
+            f"{len(holders)} session(s) and CAN NEVER GROW. Every future "
+            "manager grades `not_manager` and R2 reaches nothing.\n"
+            "      -> " + "\n      -> ".join(
+                f"`{n}` needs {p}: {st}" for n, p, st, _c in sources) + "\n"
+            "      This is the 2026-09-21 shape verbatim: the operating reset "
+            f"archived {LEASE_REL} and this guard kept printing a verdict off a "
+            "roster that ended 2026-09-19. A check whose subject was removed, "
+            "still green, still counted as coverage.\n"
+            "      Fix: restore a live source, or add the surface today's "
+            "manager actually writes to IDENTITY_SOURCES — never widen "
+            "MANAGER_SURFACE until the commits pass."], notes)
     if not holders:
-        return ("unattributed", [],
-                [f"no lease holder could be derived from {LEASE_REL}'s history "
-                 f"— authorship could NOT be established, so nothing was "
-                 f"graded. This is 'we did not look', not 'compliant'."])
-    notes.append(f"lease-holder roster (population: all revisions of "
-                 f"{LEASE_REL}): {len(holders)} session(s)")
+        return ("identity_unresolved", [
+            "IDENTITY: "
+            + ", ".join(f"`{n}` ({p}) is {st}" for n, p, st, _c in sources)
+            + " — at least one source is live and the union roster is still "
+              "EMPTY, so there is nothing to grade any commit against. "
+              "Reporting `clean` here would be a bill of health from a read "
+              "that never happened."], notes)
+    notes.append(f"manager roster (UNION of {len(live)} live + "
+                 f"{len(sources) - len(live)} retired source(s)): "
+                 f"{len(holders)} session(s)")
 
     active, exc_notes = load_exceptions(root, today=today)
     notes.extend(exc_notes)
     for e in active:
         notes.append(f"ACTIVE EXCEPTION {e['id']} until {e['expires']}: "
                      f"{', '.join(e['paths'])}")
-
-    windows, wnotes = office_windows(root)
-    notes.extend(wnotes)
 
     graded = 0
     untrailered = 0
@@ -1411,6 +2022,24 @@ def check(root: Path, base: str, today: Optional[str] = None,
                 continue
             if _match(path, [p for e in active for p in e["paths"]]):
                 notes.append(f"EXCEPTED: {short} -> {path}")
+                continue
+
+            if path.startswith(MERGE_SLOT_DIR + "/"):
+                ok_slot, why_slot = branch_slot_claim_only(root, sha, path,
+                                                           branch)
+                if ok_slot:
+                    notes.append(
+                        f"R2 ok: {short} -> {path} is {why_slot} — a LANDING "
+                        f"act, not an item")
+                    continue
+                fails.append(
+                    f"R2 {short}\n"
+                    f"      -> {path}: {why_slot}.\n"
+                    f"      A manager may write {MERGE_SLOT_DIR}/ for EXACTLY "
+                    f"ONE thing — a claim naming its OWN branch, which "
+                    f"check_pr_landing.py R13 requires of every branch that "
+                    f"arms auto-merge. Another branch's claim is not a landing "
+                    f"act; it is reaching into somebody else's merge.")
                 continue
 
             if path == SESSION_BOARD_REL:
@@ -1533,6 +2162,11 @@ def check(root: Path, base: str, today: Optional[str] = None,
 MANAGER = "session_01SELFTESTMANAGER0000"
 WORKER = "session_01SELFTESTWORKER00000"
 
+#: A manager the LEASE HISTORY HAS NEVER HEARD OF — identified only because it
+#: DISPATCHED. This is the 2026-09-21 regression's own shape: the lease was
+#: archived, so every manager after it is invisible to that source forever.
+MANAGER2 = "session_01SELFTESTMANAGER2000"
+
 #: A day AFTER the fixture's lease history places MANAGER in office. Chosen to
 #: echo the live instance: `5504200c` was authored 2026-09-03T06:13:07Z under a
 #: trailer naming a session the register had released the previous evening.
@@ -1614,6 +2248,35 @@ def _claim(root: Path, branch: str, *, held_by: str = MANAGER,
     _write(root, SESSION_BOARD_REL,
            _board({"branch": branch, "held_by": held_by,
                    "claimed_at": claimed_at}, active=active))
+
+
+def _checklist(rows: list[tuple[str, Optional[str]]]) -> str:
+    """One revision of the manager checklist. `rows` is [(id, lane_or_None)].
+
+    A `lane` naming a session OTHER than the committing one is a DISPATCH act
+    and is what `dispatch_observations` reads out of the patch, so the shape of
+    this literal is load-bearing: `LANE_ADD` matches an added
+    `"lane": "session_…"` line, which `json.dumps(indent=2)` produces.
+    """
+    return json.dumps({"schema_version": 2, "items": [
+        {"id": rid, "title": "a row", "state": "in_flight", "lane": lane}
+        for rid, lane in rows]}, indent=2) + "\n"
+
+
+def _archive_lease(root: Path, by: str = MANAGER) -> None:
+    """Delete the lease file, the way the 2026-09-21 operating reset did.
+
+    Its HISTORY survives — which is exactly why the bug was invisible: the
+    roster still resolved, it simply stopped being able to grow.
+    """
+    _run(root, "rm", "-q", LEASE_REL)
+    _commit(root, "reset: archive the manager lease", by)
+
+
+def _dispatch(root: Path, by: str, lane: str, row: str = "X1") -> None:
+    """`by` hands row `row` to `lane`: one DISPATCH observation."""
+    _write(root, CHECKLIST_REL, _checklist([(row, lane)]))
+    _commit(root, f"manager: dispatch {row} to a lane", by)
 
 
 def _fixture(tmp: Path, lease: Optional[str] = None) -> Path:
@@ -1758,6 +2421,152 @@ def self_test() -> int:
         assert "stamps a live worker's session id" in "\n".join(notes), notes
         cases.append(("the trailer's limits are disclosed on a CLEAN run too",
                       st, ""))
+
+        # ================================================================
+        # THE 2026-09-21 REGRESSION. The identity SOURCE was removed and this
+        # guard kept reporting PASS off a roster frozen two days earlier.
+        # ================================================================
+
+        # -- 2f. PLANTED: the lease is ARCHIVED and the manager that came after
+        #    it is identified by DISPATCH instead. Its src/ commit must FAIL.
+        #    ⚠️ THIS IS THE CASE THE WHOLE UNIT EXISTS FOR. With `lease` as the
+        #    only identity source MANAGER2 grades `not_manager`, every one of
+        #    its commits is skipped, and the state is `no_manager_commits` — a
+        #    pass. That is what happened for a day, on 38 real commits, 31 of
+        #    them off the manager surface.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _archive_lease(root)
+        _dispatch(root, MANAGER2, WORKER)
+        _branch(root, "plant-post-reset-manager")
+        _write(root, "src/runtime/orders.py", "x = 2\n")
+        _commit(root, "manager2: tweak the order path", MANAGER2)
+        st, fails, notes = check(root, "main")
+        assert st == "violation", (st, fails, notes)
+        assert "application source" in "\n".join(fails), fails
+        joined = "\n".join(notes)
+        assert "`lease`" in joined and SRC_RETIRED in joined, notes
+        assert "`dispatch`" in joined and SRC_LIVE in joined, notes
+        cases.append(("lease ARCHIVED, manager identified by DISPATCH -> "
+                      "violation (the 2026-09-21 regression)", st,
+                      "\n".join(fails)))
+
+        # -- 2g. PLANTED: NO IDENTITY SOURCE AT ALL. Must FAIL, exit 2.
+        #    The lease is archived and no checklist was ever written, so the
+        #    roster is frozen by construction and every future manager is
+        #    invisible. A guard that cannot identify its subject must SAY so —
+        #    not return a stale roster and carry on, which is what it did.
+        #    ⚠️ IT MUST NOT PASS BY BEING QUIET: this asserts the state, the
+        #    exit code and that the reason NAMES the frozen roster, so a change
+        #    that "fixes" this by reporting a note fails here instead.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _archive_lease(root)
+        _branch(root, "plant-no-identity-source")
+        _write(root, "src/runtime/orders.py", "x = 2\n")
+        _commit(root, "somebody: tweak the order path", MANAGER2)
+        st, fails, notes = check(root, "main")
+        assert st == "no_identity_source", (st, fails, notes)
+        assert fails, "a frozen roster must be a FAILURE, not a note"
+        assert "CAN NEVER GROW" in "\n".join(fails), fails
+        assert exit_code(st, fails) == 2, (
+            "the whole point is that this FAILS, and distinctly from a real "
+            "finding", exit_code(st, fails))
+        cases.append(("every identity subject removed -> no_identity_source "
+                      "(FAILS, exit 2)", st, "\n".join(fails)))
+
+        # -- 2h. PLANTED: a LIVE source that resolves to NOBODY. Must FAIL.
+        #    Distinct from 2g — "the mechanism is gone" and "the mechanism is
+        #    there and answered nothing" are different facts, and only the
+        #    first is fixed by restoring a file.
+        shutil.rmtree(root)
+        root = _fixture(tmp, lease=json.dumps({"schema_version": 1}, indent=2))
+        _archive_lease(root, by=WORKER)
+        _write(root, CHECKLIST_REL, _checklist([("X1", None)]))
+        _commit(root, "worker: a checklist with nobody dispatched", WORKER)
+        _branch(root, "plant-identity-unresolved")
+        _write(root, "src/runtime/orders.py", "x = 2\n")
+        _commit(root, "somebody: tweak the order path", MANAGER2)
+        st, fails, notes = check(root, "main")
+        assert st == "identity_unresolved", (st, fails, notes)
+        assert fails, "an empty roster must be a FAILURE, not a note"
+        assert exit_code(st, fails) == 2, exit_code(st, fails)
+        cases.append(("live source, roster still EMPTY -> identity_unresolved "
+                      "(FAILS, exit 2)", st, "\n".join(fails)))
+
+        # -- 2i. CONTROL: SELF-assignment is NOT dispatch. Must PASS.
+        #    The over-capture `updated_by` would have produced: a LANE session
+        #    writes its own row, including its own `lane`. Measured on real
+        #    history: 6 sessions did exactly that and none of them managed.
+        #    Without this control the dispatch rule would make every lane a
+        #    manager and R2 would red the whole fleet.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _archive_lease(root)
+        _dispatch(root, WORKER, WORKER)          # WORKER claims its OWN row
+        _branch(root, "control-self-assignment")
+        _write(root, "src/runtime/orders.py", "x = 2\n")
+        _commit(root, "worker: tweak the order path", WORKER)
+        holders, _w, _s, _n = manager_roster(root)
+        assert WORKER not in holders, (
+            "a session that assigned a lane to ITSELF must not be admitted to "
+            "the roster — that is the over-capture `updated_by` would produce",
+            sorted(holders))
+        st, fails, notes = check(root, "main")
+        assert st == "no_manager_commits", (st, fails, notes)
+        assert not fails, fails
+        cases.append(("a session assigning a lane to ITSELF is not a manager "
+                      "-> off the roster, its src/ commit not graded", st, ""))
+
+        # -- 2j. CONTROL: the per-branch merge-slot claim. R13's PREFERRED
+        #    route since the reset archived session-board.json. Must PASS.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "claude/mgr-land-demo")
+        _write(root, f"{MERGE_SLOT_DIR}/mgr-land-demo.json", json.dumps(
+            {"branch": "claude/mgr-land-demo", "held_by": MANAGER,
+             "claimed_at": "2026-09-03T08:10:00Z"}, indent=2) + "\n")
+        _commit(root, "manager: claim the per-branch merge slot", MANAGER)
+        st, fails, notes = check(root, "main", branch="claude/mgr-land-demo")
+        assert st == "clean", (st, fails)
+        assert any("LANDING act" in n for n in notes), notes
+        cases.append(("manager writes .github/merge-slots/ for ITS OWN branch "
+                      "-> clean (R13's own requirement)", st, ""))
+
+        # -- 2k. PLANTED: the same directory, claiming SOMEBODY ELSE's branch.
+        #    The carve-out is for landing YOUR OWN work. Must FAIL.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _branch(root, "claude/mgr-land-demo")
+        _write(root, f"{MERGE_SLOT_DIR}/somebody-else.json", json.dumps(
+            {"branch": "claude/somebody-elses-branch", "held_by": MANAGER,
+             "claimed_at": "2026-09-03T08:10:00Z"}, indent=2) + "\n")
+        _commit(root, "manager: claim the slot for another branch", MANAGER)
+        st, fails, _ = check(root, "main", branch="claude/mgr-land-demo")
+        assert st == "violation", (st, fails)
+        assert "not this branch" in "\n".join(fails), fails
+        cases.append(("manager claims ANOTHER branch's per-branch slot -> "
+                      "violation", st, "\n".join(fails)))
+
+        # -- 2l. CONTROL: the RULE LIVENESS block is printed, and it says which
+        #    rules have no subject. R6/R7/R8 returning None in silence is the
+        #    same defect as the frozen roster, one level down.
+        shutil.rmtree(root)
+        root = _fixture(tmp)
+        _archive_lease(root)
+        _dispatch(root, MANAGER2, WORKER)
+        _branch(root, "control-rule-liveness")
+        _write(root, CHECKLIST_REL, _checklist([("X1", WORKER), ("X2", None)]))
+        _commit(root, "manager2: keep the checklist", MANAGER2)
+        st, fails, notes = check(root, "main")
+        assert st == "clean", (st, fails)
+        joined = "\n".join(notes)
+        assert "RULE LIVENESS" in joined, notes
+        for rule in ("R6", "R7", "R8"):
+            assert f"{rule} (" in joined, (rule, notes)
+        assert "DEAD" in joined, notes
+        cases.append(("a rule whose subject is archived is reported DEAD, not "
+                      "silently ungraded", st, ""))
 
         # -- 3. CONTROL: manager commits its own registers. Must PASS. --------
         shutil.rmtree(root)
@@ -2280,6 +3089,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--base", default="origin/main")
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--verify-dispatch", action="store_true",
+                    help="re-check the fast dispatch derivation against the "
+                         "slow exact one (minutes, not seconds) — the durable "
+                         "locator for the docstring's agreement claim")
     ap.add_argument("--today", default=None,
                     help="override today's date (YYYY-MM-DD) for expiry checks")
     args = ap.parse_args()
@@ -2296,6 +3109,11 @@ def main() -> int:
     if args.self_test:
         return self_test()
 
+    if args.verify_dispatch:
+        print("verify-dispatch: fast (one `git log -p`) vs exact (reload the "
+              "JSON at every revision, diff against EVERY parent)")
+        return verify_dispatch(REPO)
+
     predates = guard_existed_at_merge_base(REPO, args.base)
     if predates is False:
         print("manager-scope: undeclared_predates_guard — this branch was cut "
@@ -2307,16 +3125,29 @@ def main() -> int:
     print(f"manager-scope: {state}")
     for n in notes:
         print(f"  · {n}")
+
+    # ⚠️ EXIT 2, NOT 1 — *we could not look* must fail DISTINCTLY from a real
+    # finding, per docs/CLAUDE-RULES-CANONICAL.md § "could not measure is its
+    # own outcome" (check_workflow_shell.py's 2-vs-1 precedent). Both are
+    # non-zero, so run_guards.py reds either way; the code says WHICH happened,
+    # and reporting a plumbing failure as 117 fake findings is the sin that
+    # teaches every later session to skim past this guard.
+    if state in IDENTITY_FAIL_STATES:
+        print()
+        print("THIS GUARD CANNOT IDENTIFY ITS SUBJECT, SO IT GRADED NOTHING:")
+        for f in fails:
+            print(f"  ✗ {f}")
+        return exit_code(state, fails)
+
     if fails:
         print()
         print("THE MANAGER SESSION ONLY MANAGES. These commits do not:")
         for f in fails:
             print(f"  ✗ {f}")
         print()
-        print("  Fix: route the work to a session "
-              "(scripts/ops/session_registry.py), or — for a live incident "
+        print("  Fix: route the work to a session, or — for a live incident "
               f"only — add a named, dated, scoped entry to {EXCEPTION_REL}.")
-        return 1
+        return exit_code(state, fails)
     if state in ("not_a_pr", "unattributed"):
         # Loud, and never rendered the same as a real pass. `unattributed` is
         # the THIRD state MI-106 exists for: it says we could not establish who

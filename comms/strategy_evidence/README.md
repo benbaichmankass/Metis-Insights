@@ -1,6 +1,6 @@
 # `comms/strategy_evidence/` — per-leg OFFLINE edge records
 
-> **Doc status:** `live` · category `lookup` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `lookup` · last verified `2026-09-22` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 One `<leg>.json` per strategy leg, written by
 [`scripts/ops/build_strategy_evidence.py`](../../scripts/ops/build_strategy_evidence.py)
@@ -26,6 +26,28 @@ values, and they answer different questions:
 | `harness_failed` | it ran and broke — **we looked** |
 | `not_attempted` | we did not run it |
 
+## ⚠️ A FAILED RUN CANNOT CLOBBER A `measured` RECORD — and that is new
+
+Until 2026-09-22 it could, and twice it did. With `yfinance` absent from a
+sandbox the producer graded every leg `harness_failed` and **rewrote** the
+committed records for `gld_pullback_1d` and `qqq_trend_long_1d`, nulling
+`net_r_oos`, `n_trades_oos` and `fold_detail`. They survived only because the
+lane read `git diff` before committing (`PI-20260922-E41-0007`).
+
+Why that is worse than losing a number: a `harness_failed` stub **does not read
+as a loss — it reads as a leg nobody ever measured**, which is exactly the
+collapsed state the table above exists to prevent, sitting on the corpus the
+real-money promotion bar reads.
+
+`build_strategy_evidence.py` now **refuses**, loudly on three surfaces (a stderr
+line, a `runs/<date>/<leg>__refused_record.json` sidecar holding the record it
+would have written, and exit code **3**), and leaves the committed record
+**byte-identical**. An unreadable prior record is refused too — *we could not
+look* is not permission.
+
+⚠️ **A SUCCESSFUL re-measure still overwrites normally.** `measured → measured`
+is a different question and the refusal does not touch it.
+
 ## ⚠️ `fidelity` decides what the number is evidence ABOUT
 
 `faithful` means the harness modelled **every** lever the leg's config declares.
@@ -38,9 +60,31 @@ weaker number into evidence; discarding it would throw away a usable one. Where
 that line falls is an operator decision, and leaving it to the consumer means it
 can move later without regenerating anything.
 
-Measured 2026-09-09 over all 52 enabled legs: **29 faithful · 13 approximate ·
-10 unclassifiable**. So `faithful` is **55.8%** of the fleet, not the 98.1% a
-harness-family name-match suggests.
+Measured **2026-09-22**, over all 52 enabled legs: **25 faithful · 26
+approximate · 1 unclassifiable** (`turtle_soup`). So `faithful` is **48.1%** of
+the fleet (25 of 52 enabled; 49.0% of the 51 that route), not the 98.1% a
+harness-family name-match suggests. Re-derive it by importing
+`regime_debt_matrix` and calling `classify()` + `build_harness_cmd()` over every
+enabled leg — no fetch, no harness run. (Was 29 · 13 · 10 = 55.8% on 2026-09-09;
+then 37 · 14 · 1 = 71.2% after E25 routed `fvg_range` and E28 routed the
+eight-leg `ict_scalp_*` family.)
+
+⚠️ **The 37 → 25 step is a CORRECTION, not a regression** (E46 /
+`PI-20260922-E41-0005`). `tp_r` sat in the trend and pullback `PLAIN` sets —
+asserting the harness modelled it — while `build_harness_cmd` passed neither
+`--tp-r` nor the `--tp-cap-pct` that makes it take effect, so those runs modelled
+**no take-profit at all**. 12 legs were claiming `faithful` with
+`omitted_levers: []` against a declared, binding `tp_r`. The grade is now
+computed from the argv that actually runs. The 50R sentinel is still not counted
+as an omission — it cannot be reached — on the same threshold the squeeze branch
+has used since 2026-07-30.
+
+⚠️ **And `faithful` still does NOT mean the LIVE capped TP was modelled.** Live
+places `tp = min(entry*(1+0.099), entry + tp_r*risk)`, so the ~9.9% venue clamp
+binds on **every** trend/pullback leg, sentinel legs included, and no run here
+models it — `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`. Folding
+that in would re-base the whole fleet's history and is deliberately left to its
+own row.
 
 ## ⚠️ `basis` is `harness_timefolds`, NOT purged walk-forward
 

@@ -1,0 +1,2 @@
+E28 row closure -- move MANAGER-CHECKLIST row E28 to `done` after running the closing predicates on main.
+Tier 1, register-only. Self-lands on green.

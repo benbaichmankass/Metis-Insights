@@ -55,18 +55,30 @@ over `load_legs()` -- no fetch, no harness run):
     is the number MI-215 first published. It does not establish that the harness
     accepts a leg's parameters. (Not re-derived on 2026-09-22; carried from
     2026-09-09.)
-  * **43/52 (82.7%)** actually route -- was 42/52 (80.8%) on 2026-09-09.
-    `regime_debt_matrix.classify()` now has FOUR branches (donchian /
-    trend_lookback|pullback_frac / kc_mult+bb_period / range_lookback+third_frac)
-    against a THIRTEEN-family harness fleet. **The nine that still do not route
-    are `turtle_soup` plus the EIGHT-leg `ict_scalp_*` family, and all eight of
-    those are `execution: live`** -- `backtest_ict_scalp.py` exists and nothing
-    routes to it, which is the same defect E25 fixed for fvg_range, at 8x the
-    size. Tracked as PI-20260922-E25-ICT-SCALP-FAMILY-STILL-UNROUTED.
-  * **30/52 (57.7%)** grade `faithful` -- the harness models EVERY lever the
-    leg's config declares (was 29/52, 55.8%). The other 13 grade `approximate`.
+  * **51/52 (98.1%)** actually route -- was 43/52 (82.7%) before E28 added the
+    fifth branch the same day. `regime_debt_matrix.classify()` now has FIVE
+    (donchian / trend_lookback|pullback_frac / kc_mult+bb_period /
+    range_lookback+third_frac / sweep_lookback_bars+mitigation_mode) against a
+    THIRTEEN-family harness fleet. **The one that still does not route is
+    `turtle_soup`.** ⚠️ That this now EQUALS the by-name upper bound above is a
+    coincidence of arithmetic, not the same measurement -- the two would part
+    again the moment a leg matched a family by name without its config being
+    accepted, which is exactly what the upper bound cannot see.
+  * **25/52 (48.1%)** grade `faithful` -- the harness models EVERY lever the
+    leg's config declares. The other **26** of the 51 routed grade `approximate`
+    (25 + 26 = 51; the 52nd is `turtle_soup`, unrouted), and `ict_scalp_xrp_5m`
+    is one of the 26: its `off_cells` is `not_expressible` by this harness
+    (MI-321), so its number is the UNGATED arm.
+    ⚠️ **This read 37/52 (71.2%) until E46 on the same day, and the step down is
+    a CORRECTION.** `tp_r` sat in the trend/pullback `PLAIN` sets asserting the
+    harness modelled it, while `build_harness_cmd` passed neither `--tp-r` nor
+    the `--tp-cap-pct` that makes it take effect -- so 12 legs claimed
+    `faithful` with `omitted_levers: []` against a declared, binding take-profit
+    (`PI-20260922-E41-0005`). The grade is now computed from the argv that
+    actually runs.
 
-**57.7% is the number this record rests on.** Do not quote 98.1%.
+**48.1% is the number this record rests on.** Do not quote 98.1%, and do not
+quote the pre-E46 71.2%.
 
 ⚠️ `fidelity` IS IN THE RECORD, AND THAT IS DELIBERATE
 ------------------------------------------------------
@@ -103,6 +115,32 @@ FOUR COVERAGE STATES, NEVER COLLAPSED
 `no_harness` (nothing routes -- we know) · `harness_failed` (it ran and broke --
 we looked) · `not_attempted` (we did not run it) · `measured`. An empty record
 directory means the producer never ran; it never means the fleet has no edge.
+
+⚠️ AND A FAILED RUN MAY NEVER OVERWRITE A `measured` RECORD (E46, 2026-09-22)
+----------------------------------------------------------------------------
+OBSERVED, not inferred: `yfinance` was absent from a sandbox on 2026-09-22, so
+every leg graded `harness_failed` and this producer REWROTE the committed
+records for `gld_pullback_1d` and `qqq_trend_long_1d`, nulling `net_r_oos`,
+`n_trades_oos` and `fold_detail`. Two real measurements, destroyed by an
+ordinary environment gap; they survived only because the lane read `git diff`
+before committing (`PI-20260922-E41-0007`).
+
+The four states above are only honest while they survive a bad run. A
+`harness_failed` stub written over a measurement does NOT read as a loss -- it
+reads as a leg nobody ever measured, which is this repo's own collapsed state
+("we could not look" rendered identically to "we looked and found nothing")
+sitting on the corpus B1 reads to admit a leg to a REAL-MONEY roster.
+
+So `write_record` REFUSES, and the refusal is loud on three surfaces because a
+tool that quietly declines to update is its own collapsed state: a stderr line,
+a `<leg>__refused_record.json` sidecar beside the run's other output carrying
+the record it would have written, and exit `EXIT_REFUSED_OVERWRITE` (3) from
+`main()`. The committed record comes out BYTE-IDENTICAL -- asserted on the real
+committed artifact in `tests/test_strategy_evidence.py`, with the negative
+control that proves the plant reaches the writer.
+
+⚠️ A SUCCESSFUL re-measure overwrites exactly as before. `measured -> measured`
+is a different question and this guard does not touch it.
 """
 from __future__ import annotations
 
@@ -172,6 +210,18 @@ BASIS = "harness_timefolds"
 
 #: Coverage states. Four, and they answer different questions.
 COVERAGE_STATES = ("measured", "no_harness", "harness_failed", "not_attempted")
+
+#: What `write_record` decided to do about a record already on disk. Three
+#: values, never collapsed -- a `refuse_*` that rendered the same as a `write`
+#: would be a silent skip, which is its own collapsed state.
+OVERWRITE_DECISIONS = ("write", "refuse_measured", "refuse_unreadable")
+
+#: Exit code when at least one refusal fired. NOT 2 -- that is already the
+#: usage error for an unknown leg, and "you asked for a leg that does not
+#: exist" and "this run tried to destroy a measurement" are different findings.
+#: A refusal is loud on stderr AND in the exit code, because a producer whose
+#: only signal is a line of stdout is one `| tail` away from silent.
+EXIT_REFUSED_OVERWRITE = 3
 
 DEFAULT_FOLDS = 4
 DEFAULT_DAYS = 365
@@ -388,13 +438,17 @@ def build_record(name: str, cfg: Dict[str, Any], *, workdir: str,
         rec["coverage_state"] = "no_harness"
         rec["error"] = (
             "regime_debt_matrix.classify() routes nothing for this leg. Its "
-            "four branches (donchian / trend_lookback|pullback_frac / "
-            "kc_mult+bb_period / range_lookback+third_frac) do not cover this "
-            "config. A harness may still EXIST for the family -- "
-            "backtest_ict_scalp.py does, and nothing routes to it -- so this "
-            "is a missing classifier branch plus a lever map, not absent "
-            "infrastructure. The fvg_range branch was added the same way on "
-            "2026-09-22 (E25); that is the worked example to copy."
+            "five branches (donchian / trend_lookback|pullback_frac / "
+            "kc_mult+bb_period / range_lookback+third_frac / "
+            "sweep_lookback_bars+mitigation_mode) do not cover this config. A "
+            "harness may still EXIST for the family, so this is a missing "
+            "classifier branch plus a lever map, not necessarily absent "
+            "infrastructure -- check scripts/backtest_*.py before concluding "
+            "otherwise. The fvg_range branch was added that way on 2026-09-22 "
+            "(E25) and the ict_scalp family the same day (E28); those are the "
+            "worked examples to copy. ⚠️ E28 is the one to read FIRST if the "
+            "harness reads config/strategies.yaml itself, because it had to fix "
+            "that read before the route was sound."
         )
         return rec
 
@@ -493,11 +547,149 @@ def build_record(name: str, cfg: Dict[str, Any], *, workdir: str,
     return rec
 
 
-def write_record(rec: Dict[str, Any], out_dir: Path) -> Path:
+def existing_coverage_state(path: Path) -> str:
+    """What the record ALREADY on disk says, before this run touches it.
+
+    Returns a `COVERAGE_STATES` value, or one of two states that are NOT
+    coverage states and must never be folded into them:
+
+    * ``absent`` -- there is no record at this path.
+    * ``unreadable`` -- there IS one and we could not parse it.
+
+    ⚠️ ``unreadable`` IS NOT ``absent``, and collapsing the two is how this
+    guard would be walked around: "there was no measurement here" and "we could
+    not look at the measurement that is here" are opposite statements, and only
+    one of them makes an overwrite safe. A truncated or half-written
+    `measured` record is exactly the artifact a clobbering run produces, so
+    reading a parse failure as "nothing to protect" would hand the destructive
+    write the one case it most needs refused. Same shape as
+    `src/runtime/exit_anchor.py`'s three-way contract and
+    `docs/CLAUDE-RULES-CANONICAL.md` § "Collapsed states".
+    """
+    if not path.exists():
+        return "absent"
+    try:
+        rec = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "unreadable"
+    if not isinstance(rec, dict):
+        return "unreadable"
+    state = rec.get("coverage_state")
+    if state not in COVERAGE_STATES:
+        # A record whose coverage_state is missing or is a value this producer
+        # never emits is not a record we understand. Treat it as unreadable
+        # rather than as "not measured" -- see the note above.
+        return "unreadable"
+    return state
+
+
+def overwrite_decision(existing: str, incoming: str) -> str:
+    """Decide whether `incoming` may replace the record `existing` describes.
+
+    THE ONE RULE, and its shape is not negotiable (E46 / PI-20260922-E41-0007):
+    **a run that did not measure anything may never overwrite a record that
+    currently reads `measured`.**
+
+    OBSERVED 2026-09-22, not inferred: `yfinance` was absent from a sandbox, so
+    every leg graded `harness_failed`, and the producer rewrote the committed
+    `measured` records for `gld_pullback_1d` and `qqq_trend_long_1d` -- nulling
+    `net_r_oos`, `n_trades_oos` and `fold_detail`. They survived only because
+    the lane read `git diff` before committing.
+
+    Why this is worse than losing a number. `comms/strategy_evidence/` is the
+    corpus B1's four-clause bar reads to decide whether a leg may reach a
+    REAL-MONEY roster, and a `harness_failed` stub does not read as a loss --
+    it reads as a leg nobody ever measured. That is this repo's own collapsed
+    state ("we could not look" rendered identically to "we looked and found
+    nothing") sitting on the promotion path.
+
+    ⚠️ WHAT THIS DELIBERATELY DOES NOT DECIDE: whether a SUCCESSFUL re-measure
+    may overwrite a `measured` record. It may, exactly as before -- that is a
+    different question and E46 was fenced out of it. `measured -> measured`
+    returns ``write``.
+    """
+    if existing == "unreadable":
+        return "refuse_unreadable"
+    if existing == "measured" and incoming != "measured":
+        return "refuse_measured"
+    return "write"
+
+
+def _repo_rel(path: Path) -> str:
+    """Repo-relative when it can be, absolute when it genuinely is elsewhere.
+
+    An absolute sandbox path is a locator that exists on no other machine --
+    the same defect `RUNS_DIR_REL` exists to keep out of `source_run`, and it
+    would be no better inside a refusal note.
+    """
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def _refusal_note(leg: str, decision: str, existing: str, incoming: str,
+                  target: Path) -> str:
+    if decision == "refuse_measured":
+        why = (f"the committed record reads coverage_state={existing!r} and this "
+               f"run produced {incoming!r}, which is not a measurement")
+    else:
+        why = (f"the record at {_repo_rel(target)} could not be read, so whether it holds a "
+               f"measurement is UNKNOWN -- and unknown is not permission")
+    return (f"REFUSED to overwrite {leg}: {why}. The committed record is "
+            f"UNCHANGED, byte for byte.")
+
+
+def write_record(rec: Dict[str, Any], out_dir: Path, *,
+                 refusal_dir: Optional[Path] = None) -> tuple[Optional[Path], str]:
+    """Write one leg's record, or REFUSE and leave the committed bytes alone.
+
+    Returns ``(path, decision)``: `path` is the file written, or ``None`` when
+    nothing was written; `decision` is an `OVERWRITE_DECISIONS` value.
+
+    ⚠️ THE REFUSAL IS LOUD HERE, INSIDE THE WRITER, not only in the caller's
+    return-value handling. A tool that quietly declines to update is its own
+    collapsed state -- indistinguishable from one that updated successfully --
+    so the stderr line and (when `refusal_dir` is given) the sidecar do not
+    depend on any caller remembering to check. `main()` adds the third signal,
+    a non-zero exit.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     p = out_dir / f"{rec['strategy']}.json"
+    existing = existing_coverage_state(p)
+    decision = overwrite_decision(existing, rec.get("coverage_state"))
+    if decision != "write":
+        note = _refusal_note(rec["strategy"], decision, existing,
+                             rec.get("coverage_state"), p)
+        print(f"  !! {note}", file=sys.stderr)
+        # The failure is not thrown away: the record this run WOULD have
+        # written lands beside the run's other output, so its `error` is
+        # readable afterwards rather than existing only in a terminal.
+        if refusal_dir is not None:
+            try:
+                refusal_dir.mkdir(parents=True, exist_ok=True)
+                side = refusal_dir / f"{rec['strategy']}__refused_record.json"
+                side.write_text(json.dumps({
+                    "refusal": {
+                        "decision": decision,
+                        "existing_coverage_state": existing,
+                        "incoming_coverage_state": rec.get("coverage_state"),
+                        "target": _repo_rel(p),
+                        "note": note,
+                        "refused_at": datetime.now(timezone.utc).isoformat(),
+                        "guard": "build_strategy_evidence.overwrite_decision",
+                    },
+                    "would_have_written": rec,
+                }, indent=2) + "\n", encoding="utf-8")
+                print(f"     failure detail: {side}", file=sys.stderr)
+            except OSError as e:  # noqa: BLE001
+                # Losing the sidecar must not turn a refusal into a write, and
+                # must not be silent either.
+                print(f"     (could not write the refusal sidecar: {e})",
+                      file=sys.stderr)
+        return None, decision
     p.write_text(json.dumps(rec, indent=2, sort_keys=False) + "\n", encoding="utf-8")
-    return p
+    return p, decision
 
 
 def load_legs() -> Dict[str, Dict[str, Any]]:
@@ -539,6 +731,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         RUNS_DIR_REL, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     os.makedirs(wd, exist_ok=True)
     counts: Dict[str, int] = {s: 0 for s in COVERAGE_STATES}
+    #: Legs whose committed record this run refused to overwrite. Reported
+    #: separately from `counts`, because a refused leg's coverage_state is a
+    #: true statement about THIS RUN while the file on disk still holds the
+    #: earlier measurement -- folding the two together is what would let the
+    #: summary imply a record now reads `harness_failed` when it does not.
+    refused: List[tuple] = []
 
     for n in names:
         if a.dry_run:
@@ -550,18 +748,31 @@ def main(argv: Optional[List[str]] = None) -> int:
             continue
         rec = build_record(n, legs[n], workdir=wd, days=a.days, folds=a.folds)
         counts[rec["coverage_state"]] += 1
-        write_record(rec, out_dir)
+        _, decision = write_record(rec, out_dir, refusal_dir=Path(wd))
+        if decision != "write":
+            refused.append((n, decision))
         print(f"  {n:34s} {rec['coverage_state']:15s} "
               f"fidelity={str(rec.get('fidelity')):12s} "
-              f"net_r_oos={rec.get('net_r_oos')} n={rec.get('n_trades_oos')}")
+              f"net_r_oos={rec.get('net_r_oos')} n={rec.get('n_trades_oos')}"
+              f"{'  [REFUSED - committed record left intact]' if decision != 'write' else ''}")
 
     total = sum(counts.values())
     print(f"\nstrategy-evidence: {total} leg(s)")
     for s in COVERAGE_STATES:
         print(f"  {s:15s} {counts[s]}")
+    print(f"  {'refused_overwrite':15s} {len(refused)}"
+          "   (this run's state; the committed record is unchanged)")
     # ⚠️ Deliberately NOT an aggregate verdict. This producer states coverage and
     # refuses to say whether the fleet has edge -- that is the consumer's job, and
     # conflating the two is how a producer starts deciding things.
+    if refused:
+        print("\nREFUSED TO OVERWRITE A COMMITTED MEASUREMENT:", file=sys.stderr)
+        for leg, decision in refused:
+            print(f"  {leg:34s} {decision}", file=sys.stderr)
+        print("Nothing was lost. Fix the run (the usual cause is a missing "
+              "feed dependency -- yfinance for the Yahoo lane) and re-run; a "
+              "SUCCESSFUL re-measure still overwrites normally.", file=sys.stderr)
+        return EXIT_REFUSED_OVERWRITE
     return 0
 
 
