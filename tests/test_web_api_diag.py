@@ -230,6 +230,34 @@ def test_journalctl_unknown_unit_400(client, fake_runtime):
     assert resp.json()["detail"]["error"] == "unknown_unit"
 
 
+def test_journalctl_accepts_ssh_service_and_not_the_alias(client, fake_runtime):
+    """E27 — the health-review breach sweep's MANDATORY sshd source.
+
+    Two assertions, and the second is the load-bearing one:
+
+    1. ``ssh.service`` is accepted. Before 2026-09-22 it was not, and neither
+       was any other spelling, so `/health-review`'s § "Security-breach check"
+       source 5 (`journalctl` for sshd/auth) was unsatisfiable on every day
+       since the skill was written -- HTTP 400 `unknown_unit`, measured.
+    2. ``sshd.service`` is still REFUSED. On ict-bot-arm (Ubuntu 22.04.5) that
+       name is a systemd *alias*: `systemctl show` resolves it, but the
+       journal match does not (`journalctl -u sshd.service` -> "-- No
+       entries --"). Allowlisting it would answer HTTP 200 with `lines: []`
+       and `available: true` -- a breach sweep reporting CLEAN having read
+       nothing, which is strictly worse than the 400. A loud refusal is the
+       correct answer for the alias; do not "helpfully" add it.
+    """
+    ok = client.get("/api/diag/journalctl?unit=ssh.service&lines=5",
+                    headers=_bearer(_TOKEN))
+    assert ok.status_code == 200
+    assert ok.json()["unit"] == "ssh.service"
+
+    alias = client.get("/api/diag/journalctl?unit=sshd.service&lines=5",
+                       headers=_bearer(_TOKEN))
+    assert alias.status_code == 400
+    assert alias.json()["detail"]["error"] == "unknown_unit"
+
+
 def test_journalctl_allowlisted_unit_returns_shape(client, fake_runtime):
     # The actual journalctl call may fail in the test env (no journal access),
     # but the route should accept the unit and return a structured response.
