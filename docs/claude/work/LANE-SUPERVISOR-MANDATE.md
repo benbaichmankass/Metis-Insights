@@ -319,6 +319,34 @@ irreversible-looking act stays behind a prompt until a human has read a firing's
 plan, and the three conditions it cannot evaluate keep it inert regardless. When
 archive authority is granted it is added here, deliberately, as a visible line.
 
+### The pre-approval WORKS — and the one wall left is the dispatcher's to avoid
+
+**MEASURED 2026-09-22T14:27:02Z.** Supervisor v4
+(`session_016q3r4r5UF3UnkQxwXFkG6c`) was created with `extra_allowed_tools`
+naming the three session reads. **`external_metadata.pending_actions` is ABSENT
+on it** — so the permission gate that stopped v3 is cleared, and
+`extra_allowed_tools` is the right instrument.
+
+It still walled, on a **different and entirely self-inflicted** cause:
+`status_detail: "embedded instruction contradicts system context; awaiting user
+confirmation"`, `needs_action: "…clarify correct Co-Authored-By line"`. The
+dispatching prompt told it to sign commits as one model while its own harness
+attributes a different one, and it correctly refused to resolve that itself.
+
+⚠️ **SO A DISPATCH MUST NOT PRESCRIBE AN ATTRIBUTION LINE TO THE SUPERVISOR.**
+Tell it to use whatever attribution its own harness specifies. More generally:
+**any instruction in a Routine prompt that contradicts the woken session's own
+system context will wall it**, and a walled supervisor is the failure this whole
+mechanism exists to detect. Keep the prompt to *what to do*, and leave *how this
+session signs, commits and attributes* to the session.
+
+⚠️ **AND NOTE THE PATTERN ACROSS FOUR SESSIONS, because it is the real finding:**
+each wall had a different `status_detail` and they looked like four different
+problems. They were three distinct causes and one measurement artifact, and only
+`pending_actions` — never the prose — distinguished them. **A supervisor is
+fragile on its first turn in a way this document must keep being honest about:
+every cause found so far was in the DISPATCH, not in the design.**
+
 ### What the supervisor itself said about verifying its dispatch, and the rule that follows
 
 Asked whether reading the E44 row in git was enough to satisfy it, the woken
