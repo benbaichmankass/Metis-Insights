@@ -1,8 +1,10 @@
 # R5 — the remaining 40 evidence records, graded against `RULE-D1-STAGE0-NET-OF-FULL-COST`
 
-> **Doc status:** `live` · category `research` · last verified `2026-09-22` ·
-> owned by checklist row **R7** (`docs/claude/work/MANAGER-CHECKLIST.json`).
-> Intake: `PI-20260922-R1-REMAINING-CORPUS`.
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+Owned by checklist row **R7** (`docs/claude/work/MANAGER-CHECKLIST.json`).
+Intake: `PI-20260922-R1-REMAINING-CORPUS`.
+
 > **This document produces EVIDENCE and a PROPOSAL. It changes no roster.**
 > `config/accounts.yaml` and `config/strategies.yaml` are untouched by this lane.
 
