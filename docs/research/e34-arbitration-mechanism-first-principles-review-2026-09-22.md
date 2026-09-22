@@ -1,6 +1,6 @@
 # E34 — the arbitration mechanism, reviewed from the original problem
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-22` · registered in [`docs/DOCUMENT-INDEX.md`](DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 > ⚠️ **TIER 3 SUBJECT MATTER. `landing: hold`, `hold_reason: tier_2_3_needs_approval`.**
 > This lane changed **no runtime behaviour**. No `set-env`, no `config/`, no

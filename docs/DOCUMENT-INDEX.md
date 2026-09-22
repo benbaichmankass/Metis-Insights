@@ -682,7 +682,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/e2-horizon-arm-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e3-barrier-geometry-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e3-joint-lever-screen-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/e34-arbitration-mechanism-first-principles-review-2026-09-22.md` | evidence | live | — | 2026-09-22 | `dir:research-is-measurement / header:status-stamped-by-author` | E34 first-principles review of the arbitration mechanism: the original problem, whether it was solved, and what it costs. Tier-3 subject matter, `landing: hold`. |
+| `docs/research/e34-arbitration-mechanism-first-principles-review-2026-09-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e35-bracket-geometry-sweep-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e35-bracket-is-not-a-decision-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e35-break-attribution-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
