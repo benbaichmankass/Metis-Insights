@@ -3,7 +3,7 @@
   "strategy": "mhg_pullback_1d",
   "symbol": "MHG",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:0ca027e8a228081424ac1f1569c61e1e",
+  "config_fingerprint": "sha256:0caf3a8588bd113fa46ecd2c9a00c1fb",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

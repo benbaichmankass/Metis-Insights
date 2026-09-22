@@ -175,6 +175,41 @@ Tier-1 surface — and note `MI-242` (`ready`, operator-approved 2026-09-10) is 
 standing item to add `scripts/backtest_*.py` to `TIER1_SURFACE`, which would put
 it in reach.
 
+### 5.1 — ADDENDUM 2026-09-22 (checklist row E28): HALF of this is now fixed, and it matters which half
+
+⚠️ **The row id above no longer resolves to anything a session reads.** The four
+review backlogs were retired by the 2026-09-21 operating reset and archived under
+`docs/archive/2026-09-21-operating-reset/`; the intake is now
+`docs/claude/work/PIPELINE.jsonl`. This paragraph is the carrier until something
+re-files it.
+
+**FIXED — the hardcoded config read (§ 3).**
+`backtest_ict_scalp.py::_load_yaml_params(name)` now takes the block that
+`--strategy-name` selects, and RAISES on a name that is not in
+`config/strategies.yaml` rather than serving `ict_scalp_5m`'s block. The default
+argument is still the historical literal, so every existing caller — including
+`mi321_ict_scalp_seam.py`, which calls it with no argument precisely to describe
+a DEFAULT run — is byte-identical, and § 3.1 stands unchanged. It was fixed
+because E28 routes all eight legs to this harness through
+`regime_debt_matrix.classify()`: at the old signature that would have measured
+one leg's config eight times under eight names and written eight
+`coverage_state: "measured"` records, which is worse than the `no_harness` they
+replace — a wrong number reads as evidence and a missing one does not.
+
+**NOT FIXED — `off_cells` / `vol_spec` (§ 3, the `not_expressible` and
+`asymmetric_gate` rows).** No flag was added for either, and none should be
+added for `vol_spec`: `--vol-spec-json` reaches no skip, so forwarding it would
+LABEL a run with the spec while it behaves as if unset. `regime_debt_matrix`
+grades `ict_scalp_xrp_5m` **`approximate`** and names both keys as omitted
+levers, and its committed evidence record therefore measures the **UNGATED**
+arm — the one the live builder's own docstring says fails 2 of 4 folds. Porting
+an off-cell skip into the harness remains the real fix.
+
+⚠️ **And § 4's first bullet still holds after the E28 run.** That run does not
+establish that any previously published `ict_scalp_xrp_5m` number was wrong; it
+establishes what this harness measures today, on a stated population, under a
+decision rule registered before it.
+
 ## 6 — Reproduce
 
 ```bash

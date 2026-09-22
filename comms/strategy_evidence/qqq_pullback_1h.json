@@ -3,7 +3,7 @@
   "strategy": "qqq_pullback_1h",
   "symbol": "QQQ",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:658b753cf2486b1d586be7d7cd44b58f",
+  "config_fingerprint": "sha256:ee7d105c498802a5148f6f1757ccdb64",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

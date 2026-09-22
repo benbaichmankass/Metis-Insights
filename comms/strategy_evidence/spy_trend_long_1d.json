@@ -3,7 +3,7 @@
   "strategy": "spy_trend_long_1d",
   "symbol": "SPY",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:a778acfa912e140fd7092b1fb93c7353",
+  "config_fingerprint": "sha256:1db688ecdaa76146741a1f0b8fcb2e0a",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
