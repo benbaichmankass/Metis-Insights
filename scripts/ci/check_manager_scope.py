@@ -140,6 +140,25 @@ missing to fail DISTINCTLY from a real finding (`check_workflow_shell.py` exits
 nothing, and it is worse for trust."* Both are non-zero, so `run_guards.py` reds
 either way; the code says which happened.
 
+WHAT IT NOW BITES — MEASURED BEFORE WIRING, NOT PROMISED
+---------------------------------------------------------
+Replayed over the 38 commits trailered `session_01XQhayAHWdrSYv8jN54P2HH`,
+with every rule applied as it will run (surface, the three exception entries
+active on 2026-09-22, the `CLAUDE.md` hunk rule, the merge-slot carve-out):
+
+| verdict | commits |
+|---|--:|
+| **R2 FAILS** | **18** |
+| off-surface but under an ACTIVE, dated exception | 4 (`config/accounts.yaml` ×6 among them) |
+| per-branch merge-slot claims only — a landing act | 7 |
+| entirely on the manager surface | 7 |
+
+The 18 are the manager building software: `scripts/ops/build_strategy_evidence.py`
+(3), `config/strategies.yaml` (2), `config/lever_reachability.json` (2),
+`src/web/api/routers/work.py` (2), seven `tests/**` files, `scripts/ci/run_guards.py`,
+`scripts/research/regime_debt_matrix.py`. It bites where the building happened,
+which is the same property the original wiring measurement asserted.
+
 ⚠️ **AND THE FIX IS NOT TO WIDEN `MANAGER_SURFACE` UNTIL TODAY'S COMMITS PASS.**
 The manager taking items was the DEFECT, not the false positive. `config/`,
 `src/`, `tests/`, `scripts/` stay worker paths and those 31 commits are meant to
@@ -539,6 +558,23 @@ MANAGER_SURFACE = [
     "docs/claude/pending-pings.jsonl",
     # Filing what it notices. Permitted unconditionally — see call (3) above.
     "docs/claude/health-review-backlog.json",
+    # ⚠️ THE SAME OPERATOR DECISION, APPLIED TO ITS SURVIVING SUBJECT.
+    # Call (3) is an operator ruling (2026-09-03) that FILING is management —
+    # "filing is the opposite of taking the item" — and it names
+    # `health-review-backlog.json`, which the 2026-09-21 reset ARCHIVED along
+    # with the other three review backlogs. `CLAUDE.md`'s post-reset taxonomy is
+    # exactly two intakes: "A question -> research/queue/<id>.yaml" and "A build
+    # -> a row in MANAGER-CHECKLIST.json". The second is already admitted
+    # (`docs/claude/work/**`, which also carries PIPELINE.jsonl); leaving the
+    # FIRST forbidden would mean a manager that notices a QUESTION must either
+    # stay silent or spawn a session to write down a thing it already knows —
+    # the outcome the operator's ruling explicitly rejected.
+    #
+    # ⚠️ IT IS AN INTAKE, NOT AN ITEM SURFACE, and that is why it is a path
+    # glob rather than a per-commit carve-out: a queue unit is a QUESTION by
+    # construction (`research/queue/README.md`), and answering one is work that
+    # lands in `src/`, `scripts/` or `config/` — all of which stay worker paths.
+    "research/queue/**",
     # Landing and spawning: declaring, arming, relaying. Management verbs.
     ".github/pr-landing/**",
     ".github/pr-automerge-requests/**",
