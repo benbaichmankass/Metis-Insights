@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "TIER-3 BY PATH: the diff edits config/accounts.yaml. It changes NO roster value and no executable config — the only change in that file is a COMMENT, replacing a provenance note this lane raised on #12707 with a short spent-marker now that the note is answered. Approval sought: the MANAGER lands it, same as #12707. This lane does not merge. The rosters are byte-identical to what merged in #12707 (8088bbb7a) and can be diffed to prove it.",
+  "why": "Follow-up to #12707, which MERGED at 08:42:32Z while this lane was preparing the change — so this is a NEW PR off the latest main, not a reuse of the merged branch. Two things: (1) my provenance correction in config/accounts.yaml is now SPENT — the manager landed E25 (#12714, f783ae1c3) before R2, which is exactly the remedy that makes the E25 paragraph true, so the correction is replaced by a spent-marker rather than left standing to become the next stale comment; (2) PI-20260922-R2-FVG-RANGE-15M-... is CLOSED (state done, terminal_reason answered) because the harness it asked for was built, ran, and graded the leg `fail` on the committed record. Also flags one figure that is still unbacked: folds_positive 0 with folds_total NULL, so '0 of 4 folds' has no committed denominator."
+}
