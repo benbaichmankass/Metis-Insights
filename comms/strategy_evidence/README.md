@@ -38,9 +38,13 @@ weaker number into evidence; discarding it would throw away a usable one. Where
 that line falls is an operator decision, and leaving it to the consumer means it
 can move later without regenerating anything.
 
-Measured 2026-09-09 over all 52 enabled legs: **29 faithful · 13 approximate ·
-10 unclassifiable**. So `faithful` is **55.8%** of the fleet, not the 98.1% a
-harness-family name-match suggests.
+Measured **2026-09-22**, after E25 routed `fvg_range` and E28 routed the
+eight-leg `ict_scalp_*` family, over all 52 enabled legs: **37 faithful · 14
+approximate · 1 unclassifiable** (`turtle_soup`). So `faithful` is **71.2%** of
+the fleet, not the 98.1% a harness-family name-match suggests. Re-derive it by
+importing `regime_debt_matrix` and calling `classify()` + `build_harness_cmd()`
+over every enabled leg — no fetch, no harness run. (Was 29 · 13 · 10 = 55.8% on
+2026-09-09.)
 
 ## ⚠️ `basis` is `harness_timefolds`, NOT purged walk-forward
 
