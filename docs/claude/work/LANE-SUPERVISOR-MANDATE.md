@@ -271,6 +271,54 @@ been idle for hours), so it does not close the question; it does mean the
 persistent route is materially better than the fresh-session firing, which never
 had either.
 
+### ⚠️ THE ROOT CAUSE OF THE FIRST-TURN WALL, and how a supervisor must be created
+
+**MEASURED 2026-09-22T14:24:16Z.** The third supervisor
+(`session_01E97DUpVMUudD2LskwpKjJZ`) was given a deliberately minimal,
+do-not-ask prompt and `permission_mode: acceptEdits`, and it walled anyway — but
+this time `get_session` on it named the cause outright, in
+`external_metadata.pending_actions`:
+
+| pending permission request |
+|---|
+| `mcp__…__get_session` |
+| `mcp__…__list_sessions` |
+| `mcp__…__list_triggers` |
+
+**The wall is a permission prompt on the Claude Code Remote MCP tools
+themselves.** `acceptEdits` pre-approves file writes; it does not pre-approve MCP
+tool calls. So the supervisor stalls on the *exact three reads its job consists
+of*, with nobody present to approve them — and `status_bucket` reads `BLOCKED`,
+which is indistinguishable at a glance from the lanes it was built to find.
+
+⚠️ **This was NOT a prompt-quality problem, and two earlier readings in this
+document misdiagnosed it as one.** The first supervisor's injection refusal was a
+real and separate event, but it was not why the design kept failing. Three
+sessions walled on the same gate and only the third exposed it, because
+`post_turn_summary.status_detail` renders the agent's own words
+(*"Let me know how you'd like me to proceed."*) while `pending_actions` renders
+the machine fact. **Read `pending_actions`, not the summary prose** — the prose
+is what made this look like three different problems.
+
+**SO: A SUPERVISOR MUST BE CREATED WITH ITS TOOLS PRE-APPROVED.** `create_session`
+takes `extra_allowed_tools`, and entries the *calling* session does not itself
+hold are dropped, so this cannot widen anyone's grant:
+
+```
+extra_allowed_tools = [
+  "mcp__<claude-code-remote>__list_sessions",
+  "mcp__<claude-code-remote>__get_session",
+  "mcp__<claude-code-remote>__list_triggers",
+  "mcp__github__list_pull_requests",
+  "Bash", "Write", "Edit", "Read",
+]
+```
+
+⚠️ **`archive_session` is deliberately NOT in that list.** The supervisor's one
+irreversible-looking act stays behind a prompt until a human has read a firing's
+plan, and the three conditions it cannot evaluate keep it inert regardless. When
+archive authority is granted it is added here, deliberately, as a visible line.
+
 ### What the supervisor itself said about verifying its dispatch, and the rule that follows
 
 Asked whether reading the E44 row in git was enough to satisfy it, the woken
