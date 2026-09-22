@@ -60,13 +60,31 @@ weaker number into evidence; discarding it would throw away a usable one. Where
 that line falls is an operator decision, and leaving it to the consumer means it
 can move later without regenerating anything.
 
-Measured **2026-09-22**, after E25 routed `fvg_range` and E28 routed the
-eight-leg `ict_scalp_*` family, over all 52 enabled legs: **37 faithful · 14
-approximate · 1 unclassifiable** (`turtle_soup`). So `faithful` is **71.2%** of
-the fleet, not the 98.1% a harness-family name-match suggests. Re-derive it by
-importing `regime_debt_matrix` and calling `classify()` + `build_harness_cmd()`
-over every enabled leg — no fetch, no harness run. (Was 29 · 13 · 10 = 55.8% on
-2026-09-09.)
+Measured **2026-09-22**, over all 52 enabled legs: **25 faithful · 26
+approximate · 1 unclassifiable** (`turtle_soup`). So `faithful` is **48.1%** of
+the fleet (25 of 52 enabled; 49.0% of the 51 that route), not the 98.1% a
+harness-family name-match suggests. Re-derive it by importing
+`regime_debt_matrix` and calling `classify()` + `build_harness_cmd()` over every
+enabled leg — no fetch, no harness run. (Was 29 · 13 · 10 = 55.8% on 2026-09-09;
+then 37 · 14 · 1 = 71.2% after E25 routed `fvg_range` and E28 routed the
+eight-leg `ict_scalp_*` family.)
+
+⚠️ **The 37 → 25 step is a CORRECTION, not a regression** (E46 /
+`PI-20260922-E41-0005`). `tp_r` sat in the trend and pullback `PLAIN` sets —
+asserting the harness modelled it — while `build_harness_cmd` passed neither
+`--tp-r` nor the `--tp-cap-pct` that makes it take effect, so those runs modelled
+**no take-profit at all**. 12 legs were claiming `faithful` with
+`omitted_levers: []` against a declared, binding `tp_r`. The grade is now
+computed from the argv that actually runs. The 50R sentinel is still not counted
+as an omission — it cannot be reached — on the same threshold the squeeze branch
+has used since 2026-07-30.
+
+⚠️ **And `faithful` still does NOT mean the LIVE capped TP was modelled.** Live
+places `tp = min(entry*(1+0.099), entry + tp_r*risk)`, so the ~9.9% venue clamp
+binds on **every** trend/pullback leg, sentinel legs included, and no run here
+models it — `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`. Folding
+that in would re-base the whole fleet's history and is deliberately left to its
+own row.
 
 ## ⚠️ `basis` is `harness_timefolds`, NOT purged walk-forward
 

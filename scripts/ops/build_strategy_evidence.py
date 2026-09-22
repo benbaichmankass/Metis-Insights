@@ -64,13 +64,21 @@ over `load_legs()` -- no fetch, no harness run):
     coincidence of arithmetic, not the same measurement -- the two would part
     again the moment a leg matched a family by name without its config being
     accepted, which is exactly what the upper bound cannot see.
-  * **37/52 (71.2%)** grade `faithful` -- the harness models EVERY lever the
-    leg's config declares (was 30/52, 57.7%). The other **14** of the 51 routed
-    grade `approximate` (37 + 14 = 51; the 52nd is `turtle_soup`, unrouted), and
-    `ict_scalp_xrp_5m` is one of the 14: its `off_cells` is `not_expressible`
-    by this harness (MI-321), so its number is the UNGATED arm.
+  * **25/52 (48.1%)** grade `faithful` -- the harness models EVERY lever the
+    leg's config declares. The other **26** of the 51 routed grade `approximate`
+    (25 + 26 = 51; the 52nd is `turtle_soup`, unrouted), and `ict_scalp_xrp_5m`
+    is one of the 26: its `off_cells` is `not_expressible` by this harness
+    (MI-321), so its number is the UNGATED arm.
+    ⚠️ **This read 37/52 (71.2%) until E46 on the same day, and the step down is
+    a CORRECTION.** `tp_r` sat in the trend/pullback `PLAIN` sets asserting the
+    harness modelled it, while `build_harness_cmd` passed neither `--tp-r` nor
+    the `--tp-cap-pct` that makes it take effect -- so 12 legs claimed
+    `faithful` with `omitted_levers: []` against a declared, binding take-profit
+    (`PI-20260922-E41-0005`). The grade is now computed from the argv that
+    actually runs.
 
-**71.2% is the number this record rests on.** Do not quote 98.1%.
+**48.1% is the number this record rests on.** Do not quote 98.1%, and do not
+quote the pre-E46 71.2%.
 
 ⚠️ `fidelity` IS IN THE RECORD, AND THAT IS DELIBERATE
 ------------------------------------------------------

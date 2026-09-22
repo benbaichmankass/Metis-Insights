@@ -16,6 +16,26 @@ For each `coverage_debt` strategy (config/regime_coverage_exemptions.yaml) it:
 its config declares. The pullback harness exposes the vol-skip / stale-exit /
 trail-vol lever flags, so those variants run faithfully.
 
+⚠️ **AND IT IS COMPUTED FROM THE ARGV, NOT FROM A MEMBERSHIP SET (E46,
+2026-09-22).** A `PLAIN` set is an ASSERTION that the harness accounts for a
+key, and for `tp_r` on trend/pullback that assertion was FALSE: both harnesses
+take `--tp-r`, it is "only consulted when --tp-cap-pct > 0", and
+`build_harness_cmd` passes NEITHER -- so the run models no take-profit at all.
+`qqq_trend_long_1d` recorded `fidelity: faithful` with `omitted_levers: []`
+against a config declaring `tp_r: 3.0` (`PI-20260922-E41-0005`).
+`conditional_omissions()` now reads the command that is actually about to run.
+MEASURED over the 51 routed legs of `config/strategies.yaml` on 2026-09-22:
+`faithful` **37 -> 25**; 13 legs name `tp_r` as omitted, 12 of which previously
+claimed to have modelled it.
+
+⚠️ **`faithful` still does NOT mean the LIVE capped TP was modelled.** Live
+places `tp = min(entry*(1+0.099), entry + tp_r*risk)`, so the ~9.9% venue clamp
+binds on every trend/pullback leg -- the 28 carrying the 50R sentinel included --
+and no run here models it. That is
+`BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`, deliberately NOT
+folded in: doing so would re-base the whole fleet's history, which
+`backtest_trend.py`'s own `--tp-cap-pct` default-off comment refuses.
+
 **Trend harness, updated 2026-08-08 (convergence step (a) of
 `BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE`).** There used to
 be TWO `backtest_trend.py` — this matrix ran the one WITHOUT the M20/M21 levers,
@@ -66,7 +86,7 @@ import os
 import subprocess
 import sys
 
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -212,6 +232,86 @@ _SQZ_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "
 # emitted trade's MFE ever reached tp_r on the sample — which needs a post-run
 # fidelity adjustment in both callers: BL-20260730-SQZ-TPR-EMPIRICAL-CHECK.
 _SQZ_TP_R_NONBINDING = 20.0
+#: Same threshold, applied to EVERY harness rather than only to squeeze. The
+#: alias keeps the historical name reachable (tests and
+#: scripts/check_harness_lever_coupling.py cite it) while the accounting below
+#: stops being squeeze-only. See `_PLAIN_CONDITIONAL_ON_FLAG`.
+_TP_R_NONBINDING = _SQZ_TP_R_NONBINDING
+
+
+def _tp_r_binds(v: Any) -> bool:
+    """Does a declared `tp_r` sit near enough to price to actually be reached?
+
+    A parked sentinel (the fleet's 50R convention) cannot be touched, so a
+    harness with no take-profit path is not omitting anything reachable. A leg
+    declaring `tp_r: 3.0` is a different statement entirely.
+
+    ⚠️ This is the THRESHOLD form of the check, not the empirical one. The
+    stronger form -- no emitted trade's MFE ever reached `tp_r` on the sample --
+    is `BL-20260730-SQZ-TPR-EMPIRICAL-CHECK` and is still open; the harnesses
+    already emit `tp_r_effective_*` for it.
+    """
+    if v is None:
+        return False
+    try:
+        return float(v) < _TP_R_NONBINDING
+    except (TypeError, ValueError):
+        # A tp_r we cannot read is not a tp_r we can certify as parked. Fail
+        # toward `omitted` -- "we could not look" is never permission to claim
+        # `faithful`.
+        return True
+
+
+#: CONFIG KEYS THAT SIT IN A `PLAIN` SET BUT ARE ONLY REALLY MODELLED WHEN THE
+#: RUN PASSES A PARTICULAR FLAG.  {harness: {cfg_key: (required_flag, binds)}}
+#:
+#: ⚠️ WHY THIS EXISTS (E46 / PI-20260922-E41-0005, 2026-09-22). A `PLAIN` set is
+#: an ASSERTION that the harness accounts for a key. For `tp_r` on trend and
+#: pullback that assertion was FALSE: both harnesses take `--tp-r`, but it is
+#: "only consulted when --tp-cap-pct > 0" (backtest_trend.py's own help text)
+#: and `build_harness_cmd` passes NEITHER flag -- so `tp_cap_pct` defaults to
+#: 0.0 and the run models NO take-profit at all. `qqq_trend_long_1d` therefore
+#: recorded `fidelity: faithful` with `omitted_levers: []` against a config
+#: declaring `tp_r: 3.0`, on the corpus the real-money promotion bar reads.
+#:
+#: The fix is that the grade is COMPUTED FROM THE ARGV THAT WAS ACTUALLY BUILT,
+#: not asserted by a membership set: `required_flag` absent from `argv` means
+#: the lever was not modelled, whatever any PLAIN set says. `None` as the flag
+#: means this harness has no way to model it at all (squeeze: the Chandelier
+#: trail is its sole profit-exit). Wire the flag through and the omission
+#: disappears on its own -- nothing here needs editing.
+#:
+#: ⚠️ WHAT THIS DELIBERATELY DOES NOT FIX, because it is a WIDER finding with
+#: its own id: live places `tp = min(entry*(1+0.099), entry + tp_r*risk)`, so
+#: the ~9.9% venue clamp binds on EVERY trend/pullback leg -- including the 28
+#: whose `tp_r` is the 50R sentinel -- and the harness models that for none of
+#: them. `faithful` still does NOT mean "the live capped TP was modelled".
+#: That is BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP, and folding
+#: it in here would silently re-base the whole fleet's history -- exactly what
+#: backtest_trend.py's `--tp-cap-pct` default-off comment refuses.
+_PLAIN_CONDITIONAL_ON_FLAG: Dict[str, Dict[str, tuple]] = {
+    "trend": {"tp_r": ("--tp-cap-pct", _tp_r_binds)},
+    "pullback": {"tp_r": ("--tp-cap-pct", _tp_r_binds)},
+    # backtest_squeeze.py has no take-profit path to enable, so no flag can
+    # carry it. This replaces the hand-rolled special case that used to live in
+    # `build_harness_cmd`'s squeeze branch.
+    "squeeze": {"tp_r": (None, _tp_r_binds)},
+}
+
+
+def conditional_omissions(harness: str, cfg: dict, argv: List[str]) -> List[str]:
+    """Keys the built `argv` did NOT actually carry, despite a PLAIN claim.
+
+    Reads the command that is about to run rather than a membership set -- so a
+    key can no longer claim to be modelled by sitting in the right frozenset.
+    """
+    out: List[str] = []
+    for key, (flag, binds) in _PLAIN_CONDITIONAL_ON_FLAG.get(harness, {}).items():
+        if flag is not None and flag in argv:
+            continue  # the run really did model it
+        if binds(cfg.get(key)):
+            out.append(key)
+    return out
 # FVG range / mean-reversion (scripts/backtest_fvg_range.py) config-key -> harness
 # flag. The harness has existed and been cost-wired the whole time; nothing
 # routed to it, so `fvg_range_15m` — a leg on the REAL-MONEY bybit_2 roster —
@@ -686,8 +786,9 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         for k, flag in _TREND_LEVER_FLAG.items():
             if cfg.get(k) is not None:
                 argv += [flag, str(cfg[k])]
-        omitted = sorted(k for k in cfg
-                         if k not in _TREND_PLAIN and k not in _TREND_LEVER_FLAG)
+        omitted = sorted(set(k for k in cfg
+                             if k not in _TREND_PLAIN and k not in _TREND_LEVER_FLAG)
+                         | set(conditional_omissions("trend", cfg, argv)))
         faithful = not omitted
     elif harness == "squeeze":
         argv = [py, os.path.join(REPO, "scripts/backtest_squeeze.py"),
@@ -697,15 +798,16 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         for k, flag in _SQZ_LEVER_FLAG.items():
             if cfg.get(k) is not None:
                 argv += [flag, str(cfg[k])]
-        omitted = sorted(k for k in cfg
-                         if k not in _SQZ_PLAIN and k not in _SQZ_LEVER_FLAG
-                         and k != "tp_r")
-        # tp_r counts as omitted only when it is near enough to actually bind —
-        # see _SQZ_TP_R_NONBINDING. A missing tp_r is the harness's own default
-        # (trail-only), so it is not an omission either.
-        tp_r = cfg.get("tp_r")
-        if tp_r is not None and float(tp_r) < _SQZ_TP_R_NONBINDING:
-            omitted = sorted(set(omitted) | {"tp_r"})
+        # `tp_r` is excluded from the comprehension and handled by
+        # `conditional_omissions` instead: it counts as omitted only when it is
+        # near enough to actually bind, and a missing tp_r is the harness's own
+        # default (trail-only), so neither is an omission. That used to be a
+        # hand-rolled block here; it is now the same mechanism trend and
+        # pullback use, so the three cannot drift apart.
+        omitted = sorted(set(k for k in cfg
+                             if k not in _SQZ_PLAIN and k not in _SQZ_LEVER_FLAG
+                             and k != "tp_r")
+                         | set(conditional_omissions("squeeze", cfg, argv)))
         faithful = not omitted
     elif harness == "fvg_range":
         # Deliberately does NOT reuse `common`: that list hard-codes
@@ -777,8 +879,9 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         for k, flag in _PB_LEVER_FLAG.items():
             if cfg.get(k) is not None:
                 argv += [flag, str(cfg[k])]
-        omitted = sorted(k for k in cfg
-                         if k not in _PB_PLAIN and k not in _PB_LEVER_FLAG)
+        omitted = sorted(set(k for k in cfg
+                             if k not in _PB_PLAIN and k not in _PB_LEVER_FLAG)
+                         | set(conditional_omissions("pullback", cfg, argv)))
         faithful = not omitted
     return argv, faithful, omitted
 
