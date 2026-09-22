@@ -942,8 +942,12 @@ def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
             # the same 14 days, off the same account, the same venue and the
             # same fills store, which is the positive control that says the
             # venue DOES serve these fills and only this path was missing them.
-            # Paper-book `pnlCoverage` rises 0.2236 -> 0.5293 (bybit_1 alone
-            # 0.197 -> 0.5657) once these rows can reach the sweep.
+            # UPPER BOUND, not a prediction: IF all 365 resolved to a fill,
+            # paper `pnlCoverage` would be 0.5293 (bybit_1 alone 0.5657).
+            # Some fraction will not match -- `exit_from_fills` REFUSES on
+            # qty tolerance and on its open/close window rather than
+            # approximating -- and that fraction was not measured. The
+            # floor is today's 0.2236, because this can only upgrade a row.
             #
             # WHY LEAVING IT NULL IS SUFFICIENT — the rest of the machinery is
             # already built, tuned and running, and needed no change:
