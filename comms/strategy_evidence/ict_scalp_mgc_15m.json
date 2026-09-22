@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "ict_scalp_mgc_15m",
   "symbol": "MGC",
   "timeframe": "15m",
@@ -16,10 +16,13 @@
   "folds_positive": null,
   "window_days": 365,
   "fee_bps_roundtrip": null,
+  "cost_stack": null,
+  "net_r_oos_fee_only": null,
+  "decision_rule": null,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:24:20.047896+00:00",
+  "generated_at": "2026-09-22T09:27:10.887698+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
   "source_run": null,
-  "error": "regime_debt_matrix.classify() routes nothing for this leg. Its three branches (donchian / trend_lookback|pullback_frac / kc_mult+bb_period) do not cover this config. A harness may still EXIST for the family -- backtest_ict_scalp.py and backtest_fvg_range.py both do -- so this is a missing classifier branch plus a lever map, not absent infrastructure.",
+  "error": "regime_debt_matrix.classify() routes nothing for this leg. Its four branches (donchian / trend_lookback|pullback_frac / kc_mult+bb_period / range_lookback+third_frac) do not cover this config. A harness may still EXIST for the family -- backtest_ict_scalp.py does, and nothing routes to it -- so this is a missing classifier branch plus a lever map, not absent infrastructure. The fvg_range branch was added the same way on 2026-09-22 (E25); that is the worked example to copy.",
   "harness": null
 }
