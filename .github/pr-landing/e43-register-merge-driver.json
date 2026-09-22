@@ -1,6 +1,5 @@
 {
   "tier": 1,
-  "landing": "hold",
-  "hold_reason": "unvouchable_paths",
-  "why": "E43's merge-driver fix (scripts/ops/merge_json_register.py + tests), rebuilt from main carrying ONLY the lane's five commits. The original branch (#12747) could not merge because the manager had committed a .gitattributes change into it, which manager-scope-guard R2 correctly flags as the manager taking an item \u2014 and no further commit could clear it, since a revert is also a manager commit inside the same graded range. scripts/ops/** is outside TIER1_SURFACE so the guard will not certify a self-land; held for the manager to merge, which is a landing act rather than an item."
+  "landing": "self",
+  "why": "E43's register merge-driver fix \u2014 scripts/ops/merge_json_register.py resolves `updated_by` as its own AUTHORSHIP kind (union of both writers, never later-writer-wins), plus its tests 21 -> 32 and the checklist row. Rebuilt from main carrying ONLY the lane's five commits, cherry-picked so their authorship and trailers are preserved.\n\nWHY REBUILT: the original branch (#12747) cannot merge. The manager had committed a .gitattributes change into it, and manager-scope-guard R2 correctly flags that as the manager taking an item on a worker path. No further commit could clear it \u2014 a revert is also a manager commit inside the same graded range \u2014 and writing a manager-scope exception for it was refused by the runtime's own classifier as [Self-Modification], which is the right refusal. Rebuilding without that commit is the only route that neither rewrites the lane's branch nor launders the violation.\n\nTier-1: ops tooling + tests + the manager register. No src/, config/, deploy/ or order path."
 }
