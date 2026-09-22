@@ -3,7 +3,7 @@
   "strategy": "iaum_pullback_1d",
   "symbol": "IAUM",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:dfac943e7e7aac04add4d1cb0dbad210",
+  "config_fingerprint": "sha256:7f3f836cd4a5e173b15fa384fcf707aa",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

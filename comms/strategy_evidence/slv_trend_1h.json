@@ -3,7 +3,7 @@
   "strategy": "slv_trend_1h",
   "symbol": "SLV",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:59088dab140e8d29120cf266c7b08ed3",
+  "config_fingerprint": "sha256:8d50ba1b7f1e6ed0ccd1a8487cbaf3b4",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

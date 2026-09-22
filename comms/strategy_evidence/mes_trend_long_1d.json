@@ -3,7 +3,7 @@
   "strategy": "mes_trend_long_1d",
   "symbol": "MES",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:ff10269dd2b73d1033faa08ecb5f7d25",
+  "config_fingerprint": "sha256:e89d5aea3e5cd7d18aff8043736d4d60",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
