@@ -1,0 +1,12 @@
+Doc sweep: file two measured findings — register-id-guard does not run on any PR, and PIPELINE.jsonl is not append-only in practice.
+
+Re-arming. The first run of claude-pr-automerge FAILED, and the cause was an
+ordering race of mine, not a defect: I pushed this arming file and then opened
+the PR myself through the MCP seconds later, so the workflow's find-or-open step
+ran pulls.list BEFORE the PR existed, fell through to pulls.create, and got
+"A pull request already exists". A re-run adopts the open PR instead.
+
+The PR is also no longer a draft. Tier-1 self-landing needs BOTH halves per
+check_pr_landing.py's own docstring — draft:false decides READINESS and this
+file decides LANDING — and claude-pr-automerge refuses a draft outright, so the
+request file alone would have stayed refused.
