@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Explicit operator approval, per docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers. I first declared this Tier-2 (journal write path) and pr-landing-guard correctly answered that the diff touches a path it names Tier-3: src/units/strategies/pairs_executor.py. Declaring the stricter tier rather than arguing the guard down. My own reading, for the operator to weigh: the change alters no trading decision -- entry, exit decision, exit price, exit reason and the close order itself are byte-identical; it stops the close pre-filling the `pnl` COLUMN so the existing broker-truth sweeps can reach the row. If the operator reads that as bookkeeping inside a Tier-3 path rather than strategy logic, it is a Tier-2 approval; either way it does not self-land.",
+  "why": "Tier-3 by path (src/units/strategies/ -- strategy/exit logic surface), bookkeeping-only in substance; see hold_text"
+}
