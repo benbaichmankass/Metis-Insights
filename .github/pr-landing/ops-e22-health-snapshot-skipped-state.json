@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The ops-lane dispatch for 2026-09-22 says in terms: 'Each PR: draft, with .github/pr-landing/<branch-slug>.json declaring its tier honestly, landing: \"hold\", hold_reason: \"operator_asked_to_hold\".' The manager merges; this lane does not.",
+  "why": "DECLARED TIER 2, NOT TIER 1, AND THE UNDER-DECLARATION WAS THE TEMPTING CALL. The change is reporting-only -- no order path, no risk, no strategy, no config, and `status`/`action_required` are deliberately unmoved -- but scripts/write_health_snapshot.py runs ON the live VM under ict-health-snapshot.timer, so this alters what a VM-resident service emits and needs a deploy to take effect. docs/CLAUDE-RULES-CANONICAL.md puts that unit's territory in Tier 2, and calling it Tier 1 because the diff looks harmless is exactly the under-declaration this guard exists to catch. Changed paths: scripts/write_health_snapshot.py (the fix), tests/test_write_health_snapshot.py (5 new tests), docs/claude/work/MANAGER-CHECKLIST.json (row E22). It adds a top-level `not_checked` field and names excluded accounts in the summary line, so `7/7 checks ok` can no longer be said over an account that was skipped by construction. It deliberately does NOT build E18's detector -- that would be a second, drifting implementation of a signal E18 owns -- and the argument for that split is on the row."
+}
