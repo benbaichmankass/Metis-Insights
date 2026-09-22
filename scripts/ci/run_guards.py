@@ -95,6 +95,43 @@ GUARDS: List[Dict[str, Any]] = [
         "when": {"globs": ["config/accounts.yaml", "scripts/check_account_class.py"]},
         "steps": [["python3", "scripts/check_account_class.py", "--list"]],
     },
+    {
+        # E42 — a rostered leg's symbol must be REACHABLE, and the remedy is
+        # always the PULL LIST, never the leg.
+        #
+        # ⚠️ THIS LANDS BEFORE THE FIX IT ANTICIPATES, ON PURPOSE (operator,
+        # 2026-09-22). The union that stops `accounts.yaml::symbols` being a
+        # de-facto third execution gate is held in PR #12736 behind a
+        # shared-resolver change that must go first. Until it merges the pull
+        # list IS the gate, so the operator's standing rule is that any leg
+        # promoted in that window declares its symbol in the SAME PR — and an
+        # unguarded window is exactly what shipping this guard with the union
+        # would have left. The guard reads `src/main.py` to decide which
+        # consequence to print, so its message corrects itself on the day the
+        # union lands instead of waiting for someone to remember.
+        #
+        # `config/instruments.yaml` is in the globs because the third axis
+        # grades against it: deleting a profile can strand a rostered symbol
+        # with neither config file touched. `src/main.py` is in them because
+        # the union-state read is a fact about that file.
+        #
+        # The self-test runs on EVERY invocation, before the tree check — a
+        # guard whose green has never been shown capable of turning red is not
+        # evidence (`check_guard_selftest_coverage.py`).
+        "name": "roster-symbol-reachability",
+        "when": {"globs": [
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+            "config/instruments.yaml",
+            "src/main.py",
+            "scripts/ci/check_roster_symbol_reachability.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_roster_symbol_reachability.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_roster_symbol_reachability.py"],
+        ],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #

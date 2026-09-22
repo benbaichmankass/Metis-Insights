@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "A CI guard script plus its registration in scripts/ci/run_guards.py. Tier-1 by the permission table: CI and validation tooling, no runtime path, no config VALUE changed, no order path, nothing deployed to a VM. It is split out of the held Tier-2 PR #12736 precisely so it can land during the window that PR is held -- the operator's standing rule (any leg promoted while the E42 union is held must declare its symbol in the same PR) is enforced by this guard and by nothing else, and the guard was not on main. Verified before claiming enforcement: `guards` is a REQUIRED status check and config/accounts.yaml is in this guard's globs, and a simulated promotion (avax_pullback_2h onto bybit_2 with AVAXUSDT undeclared) exits 1 naming account, leg and symbol."
+}
