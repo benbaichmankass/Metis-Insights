@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Dispatch instruction to this lane, verbatim: \"Open a **draft** PR with `.github/pr-landing/<branch-slug>.json` declaring `tier: 1`, `landing: \"hold\"`, `hold_reason: \"operator_asked_to_hold\"`.\"",
+  "why": "/health-review output plus four findings filed on the manager checklist. Docs and comms only -- no src/, no config/, no runtime, order path or workflow touched. Tier-1 by surface; held because the dispatch said to hold, and because E21's proposed fix is Tier-2 and is a proposal in a note, not a change."
+}
