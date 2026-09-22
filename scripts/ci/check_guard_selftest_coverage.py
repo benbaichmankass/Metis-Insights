@@ -128,7 +128,23 @@ TESTS_DIR = REPO / "tests"
 # into the required `guards` context by path A. Banked here in the same commit
 # that created it, per this guard's own instruction, so the new control cannot
 # be silently dropped later without lowering a number someone has to justify.
-COVERAGE_FLOOR = 44
+#
+# 44 -> 47 on 2026-09-22 (E45), banked in the same commit that earned it, per
+# this guard's own instruction. THREE guards re-entered the covered set because
+# they were RE-POINTED at subjects that exist post-reset and each now ships a
+# `--self-test` that PLANTS A VIOLATION against its new subject and requires the
+# guard to fail on it: `claim-basis-guard` (11 controls),
+# `soak-registered-guard` (16) and `operator-owed-guard` (14). Their stale
+# exemptions were deleted in the same change.
+#
+# ⚠️ FOUR GUARDS WERE DELETED in that commit — `check_backlog_unresolve.py`,
+# `check_open_items.py`, `check_recurrence_ledger.py` and
+# `check_register_field_loss.py` — which is the case the instruction above is
+# about. They were NOT in the covered set (none was in `run_guards.py`), so the
+# covered COUNT does not fall with them; the population does. Named here rather
+# than left to be inferred from a number that happened not to move. Reasons:
+# docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md
+COVERAGE_FLOOR = 47
 
 _MONEY_BLAST_RADII = {"accounting", "money-at-risk", "money_at_risk"}
 

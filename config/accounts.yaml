@@ -20,11 +20,54 @@
 #                      call the exchange. Default is `live` per the
 #                      Autonomous live-trading rule (see CLAUDE.md).
 #
-# This is the ONLY dry/live toggle in the repo. There is no
-# process-level interlock. There is no strategy-level toggle. There is
-# no .env / profile-level toggle. Per-account `mode` is authoritative;
-# the Telegram /accounts command flips it at runtime via
-# `set_account_dry_run()`.
+# ⚠️ THE PARAGRAPH THAT STOOD HERE UNTIL 2026-09-22 WAS FALSE IN TWO WAYS,
+# and it is the most-read comment in this file about `mode:` — the field the
+# Prime Directive says exactly one path may write. A stale comment on a Tier-3
+# field reads as corroboration; that is the PR #1358 class, where a session
+# disabled a live strategy on the strength of one.
+#
+# It read: "This is the ONLY dry/live toggle in the repo. There is no
+# process-level interlock. There is no strategy-level toggle. There is no
+# .env / profile-level toggle. Per-account `mode` is authoritative; the
+# Telegram /accounts command flips it at runtime via `set_account_dry_run()`."
+#
+#   1. `set_account_dry_run()` DOES NOT EXIST and has not since 2026-06-10.
+#      It was deleted with the `_DRY_RUN_OVERRIDES` dict and the Coordinator
+#      wrapper in commit 278c51845 (#3233), and
+#      tests/test_exchange_rejection_circuit_breaker.py asserts their absence
+#      (`assert not hasattr(_acc, "set_account_dry_run")`). The legacy Telegram
+#      `/accounts dry|live` writer went in #1933. So the sentence named a
+#      SECOND sanctioned writer of `mode:` that does not exist, in the file
+#      whose whole point is that there is one. `src/units/accounts/__init__.py`
+#      has said so in its own module docstring the entire time — this file just
+#      never caught up.
+#
+#   2. "There is no strategy-level toggle" — there IS one, and it is one of the
+#      two declared execution gates. `config/strategies.yaml::execution:
+#      live|shadow` (shipped 2026-05-24, bc8ce1aaa / #1862; 105 declarations
+#      today) folds into the same `effective_dry` resolution inside
+#      `Coordinator.multi_account_execute` (src/core/coordinator.py:1371).
+#      This sentence was true when written on 2026-05-03 and went stale three
+#      weeks later. Telling a reader the strategy gate does not exist is the
+#      more dangerous half: it invites flipping an ACCOUNT to stop one leg.
+#
+# WHAT IS ACTUALLY TRUE, and it is the canonical two-gate model
+# (root CLAUDE.md § "The two execution gates" · docs/CLAUDE-RULES-CANONICAL.md
+# § Prime Directive rule 6):
+#
+#   * TWO declared, default-permissive execution gates, and no third:
+#       - ACCOUNT level — `mode: live | dry_run`, here.
+#       - STRATEGY level — `execution: live | shadow`, in strategies.yaml.
+#     (The M22 pairs sleeve is an isolated order path gated in config/pairs.yaml.)
+#   * There is no process-level interlock, and no .env / profile-level toggle.
+#     `DRY_RUN` and `ALLOW_LIVE_TRADING` were removed; `MODE` is not required.
+#   * EXACTLY ONE PATH MAY WRITE `mode:` — the `set-account-mode` system-action
+#     (scripts/ops/set_account_mode.sh, PR #978), which the OPERATOR controls.
+#     The Telegram kill switch reaches `mode:` only by dispatching that same
+#     wrapper; it does not write this file itself. Any other code path that
+#     writes `mode:` — a runtime override dict, an auto-flipping breaker, a
+#     "safety" default that goes dry on boot — is a Tier-3 violation regardless
+#     of how convenient it looks.
 #
 # ------------------------------------------------------------------
 # account_class — the paper-vs-real-money FUNDING CATEGORY (REQUIRED).

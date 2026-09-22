@@ -159,15 +159,34 @@ NO_SUBJECT = "no_declared_subject"
 #: MERGE-QUEUE.json, session-board.json, RECURRENCE-LEDGER.json and
 #: operator-owed-register.json, and nothing swept the guards that read them.
 BASELINE_2026_09_22 = {
-    # dead — grade NOTHING
-    "check_backlog_unresolve.py": DEAD,
-    "check_claim_basis.py": DEAD,
-    "check_open_items.py": DEAD,
-    "check_operator_owed.py": DEAD,
-    "check_recurrence_ledger.py": DEAD,
-    "check_register_field_loss.py": DEAD,
-    "check_soak_registered.py": DEAD,
-    "check_stated_population.py": DEAD,
+    # ── ALL EIGHT `dead` ENTRIES REMOVED 2026-09-22 (E45, PR #12756) ──────
+    #
+    # 19 -> 11. They were: check_backlog_unresolve, check_claim_basis,
+    # check_open_items, check_operator_owed, check_recurrence_ledger,
+    # check_register_field_loss, check_soak_registered,
+    # check_stated_population.
+    #
+    # ⚠️ REMOVED BECAUSE THEY WERE DISPOSED OF, NOT BECAUSE THE LIST WAS
+    # TIDIED. This module fails on rot in BOTH directions and it named all
+    # eight itself on the first run after the merge — four `BASELINE STALE`
+    # (the guard was retired and its script deleted, with a written reason in
+    # docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md)
+    # and four `BASELINE RECOVERED` (re-pointed at a subject that exists, each
+    # now failing on a violation planted against that new subject in its own
+    # --self-test, because a green re-point proves nothing).
+    #
+    # ⚠️ `check_stated_population.py` RECOVERED AS `no_declared_subject`, NOT
+    # `live`, AND THAT IS THIS INSTRUMENT'S OWN FALSE POSITIVE, CORRECTED.
+    # It was never dead: its graded population is a GLOB over `docs/**.md` in
+    # the PR diff, and it is registered in run_guards.py on every PR. Verified
+    # by running it against a planted diff — exit 1, naming the line. It read
+    # `dead` only because four archived path constants were the only
+    # module-level paths this module can see, which is the CONVERSE of the
+    # limit stated at the top of this file: `live` means the subject exists,
+    # never that the guard works — and `dead` can mean the guard's subject is
+    # a glob this module cannot see. Filed as
+    # PI-20260922-E45-GUARD-LIVENESS-CALLS-A-GLOB-SCOPED-GUARD-DEAD-AND-STATED-POPULATION-WAS-THE-FALSE-POSITIVE.
+    #
     # degraded — grade a silently narrower set
     "check_artifact_caveats.py": DEGRADED,
     "check_automerge_trigger.py": DEGRADED,
@@ -476,10 +495,20 @@ def main() -> int:
             print(f"  ✗ {f}")
         return 1
     print("")
-    print("  No NEW dead or degraded guard, and no baseline entry has recovered "
-          "unnoticed. Read that as 'no regression', never as 'the fleet is "
-          "healthy' — 8 guards grade nothing and 46 are outside this "
-          "instrument's reach.")
+    # ⚠️ COMPUTED, NOT WRITTEN DOWN (E45, 2026-09-22). This sentence used to
+    # read "8 guards grade nothing and 46 are outside this instrument's reach"
+    # as a LITERAL, true on the day it was authored. The eight were then
+    # disposed of and the literal kept printing `8` under a table reading
+    # `dead: 0` — this module asserting, in its own closing line, the opposite
+    # of what it had just measured. That is `field beats comment` applied to a
+    # guard's own output, and the fix is not a better number: it is to take the
+    # number from the measurement so it cannot drift again.
+    dead_n = len([1 for st, _a, _t in result.values() if st == DEAD])
+    blind_n = len([1 for st, _a, _t in result.values() if st == NO_SUBJECT])
+    print(f"  No NEW dead or degraded guard, and no baseline entry has "
+          f"recovered unnoticed. Read that as 'no regression', never as 'the "
+          f"fleet is healthy' — {dead_n} guard(s) grade nothing and {blind_n} "
+          f"are outside this instrument's reach.")
     return 0
 
 
