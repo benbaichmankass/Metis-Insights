@@ -3,7 +3,7 @@
   "strategy": "tqqq_trend_long_1d",
   "symbol": "TQQQ",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:b3415cd1d93afafaff4d5a11001b20a7",
+  "config_fingerprint": "sha256:02b3246945f13f40d0e928cf69de65bb",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

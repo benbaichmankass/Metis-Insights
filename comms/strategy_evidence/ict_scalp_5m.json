@@ -3,7 +3,7 @@
   "strategy": "ict_scalp_5m",
   "symbol": "BTCUSDT",
   "timeframe": "5m",
-  "config_fingerprint": "sha256:9211ffeec3efc7bfd839fae0202b2b15",
+  "config_fingerprint": "sha256:5a810b6b0ee0265a22d51970e8d79fb9",
   "basis": "harness_timefolds",
   "coverage_state": "no_harness",
   "fidelity": null,
