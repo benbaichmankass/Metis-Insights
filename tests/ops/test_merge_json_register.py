@@ -391,3 +391,185 @@ def test_real_register_merge_produces_valid_json():
     bumped = text.replace('"as_of"', '"as_of"', 1)
     out = M.merge(text, bumped, text)
     assert json.loads(out)
+
+
+# ------------------------------------- the authorship half of the header
+
+# ⚠️ WHY THESE EXIST, MEASURED. `updated_by` is in neither TIMESTAMP_KEYS nor
+# COUPLED_WITH until this change, and BOTH sides always stamp it — so two lanes
+# whose row sets are provably disjoint still collided on that one scalar. The
+# E31 lane hit it twice in six minutes and resolved it by hand, naming BOTH
+# sessions in the header because both had written. Measured over the 20 adjacent
+# register-touching commit pairs on origin/main dated 2026-09-22, the driver
+# refused 5; `updated_by` alone was the whole disagreement in 1 of them.
+
+
+def test_updated_by_beside_a_timestamp_resolves_and_NAMES_BOTH_WRITERS():
+    """The bookkeeping case — and the half that is NOT merely "later wins".
+
+    Taking the later side's name alone would leave the file asserting that one
+    session wrote a register carrying two sessions' rows. That is a lie with no
+    expiry and no way for a later reader to detect it, which is why the union is
+    part of the contract rather than a nicety.
+    """
+    base = doc([("A", 1)], updated_at="2026-09-22T10:00:00Z", updated_by="base")
+    ours = doc([("A", 1), ("OURS", 2)],
+               updated_at="2026-09-22T15:46:00Z", updated_by="manager (session_X)")
+    theirs = doc([("A", 1), ("THEIRS", 3)],
+                 updated_at="2026-09-22T11:22:00Z", updated_by="E31 lane (session_Y)")
+    out = json.loads(M.merge(base, ours, theirs))
+
+    assert out["updated_at"] == "2026-09-22T15:46:00Z", "the later clock must win"
+    # Later writer first, so the name heading the list is the one whose
+    # timestamp the header now carries.
+    assert out["updated_by"] == "manager (session_X) + E31 lane (session_Y)"
+    assert set(r["id"] for r in out["items"]) == {"A", "OURS", "THEIRS"}
+
+
+def test_the_union_is_symmetric_on_the_LATER_side_not_on_ours():
+    """Swapping the sides must reorder the names by CLOCK, not by which
+    argument happened to be `ours` — otherwise the header's first name and its
+    timestamp can disagree about who wrote last."""
+    base = doc([("A", 1)], updated_at="2026-09-22T10:00:00Z", updated_by="base")
+    early = doc([("A", 1)], updated_at="2026-09-22T11:00:00Z", updated_by="early")
+    late = doc([("A", 1)], updated_at="2026-09-22T15:00:00Z", updated_by="late")
+    for ours, theirs in ((early, late), (late, early)):
+        out = json.loads(M.merge(base, ours, theirs))
+        assert out["updated_at"] == "2026-09-22T15:00:00Z"
+        assert out["updated_by"] == "late + early"
+
+
+def test_REFUSE_updated_by_divergence_WITH_a_real_row_disagreement():
+    """⚠️ THE CONTROL. The planted case the change must NOT swallow.
+
+    A conflict that differs on `updated_by` AND on a real row is substantive.
+    If this passes clean, the driver was WIDENED rather than sharpened, and the
+    bookkeeping resolution has become a way to auto-resolve row disagreements
+    that happen to travel with a header bump.
+
+    It is not a hypothetical shape: pair f50a25928 -> 4ca43ed4a on origin/main
+    (2026-09-22) is exactly it — `updated_by` divergent AND row R7 edited on
+    both sides — and it still refuses, on the row.
+    """
+    base = doc([("A", 1)], updated_at="2026-09-22T10:00:00Z", updated_by="base")
+    ours = doc([("A", 2)], updated_at="2026-09-22T15:46:00Z", updated_by="manager")
+    theirs = doc([("A", 3)], updated_at="2026-09-22T11:22:00Z", updated_by="E31 lane")
+    with pytest.raises(M.Refuse, match="both sides EDITED"):
+        M.merge(base, ours, theirs)
+
+
+def test_REFUSE_an_unrecognised_scalar_travelling_WITH_updated_by():
+    """The polarity `check_pr_landing.py` and `check_manager_scope.py` both
+    document: an unrecognised scalar keeps refusing. There is no "ignore what
+    you do not recognise" escape, and pairing one with a resolvable key must not
+    smuggle it through."""
+    base = doc([("A", 1)], updated_at="2026-09-22T10:00:00Z",
+               updated_by="base", cycle="one")
+    ours = doc([("A", 1)], updated_at="2026-09-22T15:46:00Z",
+               updated_by="manager", cycle="two")
+    theirs = doc([("A", 1)], updated_at="2026-09-22T11:22:00Z",
+                 updated_by="E31 lane", cycle="three")
+    with pytest.raises(M.Refuse, match="header scalars disagree"):
+        M.merge(base, ours, theirs)
+
+
+def test_updated_by_ALONE_in_the_hunk_still_resolves():
+    """⚠️ THE SHAPE EVERY REAL CONFLICT ACTUALLY HAS, and the one an earlier
+    draft of this change got wrong.
+
+    That draft coupled `updated_by` to `updated_at` and asserted a REFUSE here,
+    reasoning that with no clock in the hunk nothing ranks the two names. It is
+    true that nothing ranks them — and irrelevant, because ranking is not what
+    the field needs. MEASURED on origin/main 2026-09-22: `MANAGER-CHECKLIST.json`
+    stamps `updated_at` at DATE granularity, so two lanes landing the same day
+    write that line IDENTICALLY and git leaves it outside the hunk. BOTH real
+    refusals (9323a0bf9 -> abda697ce, f50a25928 -> 4ca43ed4a) carry `updated_by`
+    and nothing else, so a coupling-only fix moved the refusal count 5 -> 5.
+
+    A union needs no ranking: it states that both sessions wrote, which is the
+    true and complete thing to say. It is also why this is safe where taking the
+    later name would not be — a union cannot lose a fact.
+    """
+    base = doc([("A", 1)], updated_by="base")
+    out = json.loads(M.merge(base, doc([("A", 1), ("OURS", 2)], updated_by="manager"),
+                             doc([("A", 1), ("THEIRS", 3)], updated_by="E31 lane")))
+    assert out["updated_by"] == "manager + E31 lane"
+    assert set(r["id"] for r in out["items"]) == {"A", "OURS", "THEIRS"}
+
+
+def test_the_real_2026_09_22_refusal_shape_resolves():
+    """The measured case rebuilt as a fixture: a DATE-granularity `updated_at`
+    equal on both sides, `updated_by` divergent, row sets disjoint. Verbatim the
+    two values from 9323a0bf9 -> abda697ce."""
+    o_by = "manager (session_01XQ) — main + the E27 lane row"
+    t_by = "manager (session_01XQ) — counted union of origin/main and the E33 lane"
+    base = doc([("A", 1)], updated_at="2026-09-22", updated_by="R7 research lane")
+    ours = doc([("A", 1), ("E27", 2)], updated_at="2026-09-22", updated_by=o_by)
+    theirs = doc([("A", 1), ("E33", 3)], updated_at="2026-09-22", updated_by=t_by)
+    out = json.loads(M.merge(base, ours, theirs))
+    assert out["updated_at"] == "2026-09-22"
+    # ⚠️ The same session under two descriptions is named TWICE. Exact-string
+    # dedupe is deliberate: collapsing on the session id would have to discard
+    # one of the two descriptions, which is the erasure this change exists to
+    # prevent. Verbose and true beats short and lossy.
+    assert out["updated_by"] == o_by + " + " + t_by
+    assert set(r["id"] for r in out["items"]) == {"A", "E27", "E33"}
+
+
+def test_REFUSE_when_updated_by_is_not_a_plain_string():
+    """A shape the splicer does not recognise must REFUSE, not guess. This is
+    the same polarity as the unrecognised-scalar rule: no silent pass-through."""
+    base = '{\n  "updated_by": ["base"],\n  "items": [\n    {"id": "A", "v": 1}\n  ]\n}\n'
+    ours = base.replace('["base"]', '["manager"]')
+    theirs = base.replace('["base"]', '["E31 lane"]')
+    with pytest.raises(M.Refuse, match="header scalars disagree"):
+        M.merge(base, ours, theirs)
+
+
+def test_two_plain_timestamps_are_STILL_resolved_per_line():
+    """⚠️ THE NARROWING CONTROL. Adding `updated_at` to COUPLED_WITH could have
+    routed every hunk containing it through the coupled path, which demands the
+    hunk hold nothing but that group — so `updated_at` + `as_of` with no
+    `updated_by`, resolved per-line by max today, would have started REFUSING.
+    A fix that refuses more than it did is a regression wearing a feature's name.
+    """
+    base = doc([("A", 1)], updated_at="2026-09-22T10:00:00Z", as_of="2026-09-20")
+    ours = doc([("A", 1)], updated_at="2026-09-22T15:00:00Z", as_of="2026-09-21")
+    theirs = doc([("A", 1)], updated_at="2026-09-22T11:00:00Z", as_of="2026-09-22")
+    out = json.loads(M.merge(base, ours, theirs))
+    assert out["updated_at"] == "2026-09-22T15:00:00Z"   # ours is later
+    assert out["as_of"] == "2026-09-22"                  # theirs is later
+
+
+def test_the_author_union_is_idempotent():
+    """A branch that merges `main` twice must not name the same session twice.
+    Without this the header grows by a duplicate on every re-merge, which is the
+    serialization cost this change exists to remove, paid in bytes instead."""
+    base = doc([("A", 1)], updated_at="2026-09-22T10:00:00Z", updated_by="base")
+    ours = doc([("A", 1)], updated_at="2026-09-22T15:00:00Z",
+               updated_by="manager + E31 lane")
+    theirs = doc([("A", 1)], updated_at="2026-09-22T11:00:00Z", updated_by="E31 lane")
+    assert json.loads(M.merge(base, ours, theirs))["updated_by"] == "manager + E31 lane"
+
+
+def test_the_author_union_splices_bytes_and_does_not_renormalise_escapes():
+    """The same property the row merge has, applied to the header line: each
+    retained name keeps its own side's exact escaping. A merge that re-serialised
+    would pick one spelling of the em-dash and re-attribute the other."""
+    base = doc([("A", 1)], updated_at="2026-09-22T10:00:00Z", updated_by="base")
+    ours = doc([("A", 1)], updated_at="2026-09-22T15:00:00Z",
+               updated_by="manager — literal")
+    theirs = doc([("A", 1)], updated_at="2026-09-22T11:00:00Z", updated_by="X")
+    # `doc` uses json.dumps (ensure_ascii default), so OURS carries the ESCAPED
+    # form on the wire. The premise, asserted rather than assumed:
+    assert "\\u2014" in ours and "—" not in ours
+    out = M.merge(base, ours, theirs)
+    assert "\\u2014" in out, "the kept name's escaping was renormalised"
+    assert json.loads(out)["updated_by"] == "manager — literal + X"
+
+
+def test_the_docstring_states_the_authorship_contract():
+    """Criterion 3 again: a reader must be able to learn from the module that a
+    merged header names both writers, or they will read the first name as the
+    only one."""
+    assert "NAME BOTH WRITERS" in M.__doc__
