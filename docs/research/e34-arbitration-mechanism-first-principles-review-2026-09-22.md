@@ -422,3 +422,73 @@ this PR, not as memo prose:
   remains the behaviour on every tick the fan-out declines to dispatch, and that
   is the correct, stated residual rather than a silent one.
 * **`BL-20260821`** — see § 5; nothing will re-ask it until `A8` runs.
+
+---
+
+## 7 — ADDENDUM 2026-09-22T12:33Z — the manager's population read
+
+⚠️ **Added after the body above was written, and kept as a separate section
+rather than folded in**, so a reader can see which claims are mine and which
+arrived later. The manager measured the defect over a population I could not
+reach (`issue_write` 403, § 6); this section says what it changes and what it
+does not.
+
+**MEASURED by the manager**, locator: 400 soak rows,
+2026-09-14T06:30:57Z → 2026-09-22T12:05:01Z, read direct over
+`https://ict-bot.duckdns.org` (Transport A, `log_file?name=arbitration_fanout_soak&lines=400`).
+
+* **PRE-FIX — 392 rows / 194.9 h.** 94 rows graded more than one account;
+  **89 of those 94 show the subtraction.** Times each account was DELETED from
+  a round it had already won: **`bybit_2` 58 · `bybit_portfolio` 58 ·
+  `breakout_1` 57.** By symbol: ETHUSDT 47 · XRPUSDT 23 · SOLUSDT 15 · BTCUSDT 9.
+* **POST-FIX — 8 rows / 2.2 h, 0 multi-account rows, which proves NOTHING.**
+  At the pre-fix rate of 0.482 multi-account rows/hour you would expect ~1.1, so
+  **0 is the modal outcome of a sample too small to contain the case.**
+
+### What it changes
+
+1. **§ 2's evidence base, upgraded — and this is the one that matters.** The
+   body rests on **one** soak row (`2026-09-21T20:30:08Z`, inherited from E33)
+   plus a reading of the source. The mechanism is now measured at **89 of 94
+   contended rows over 194.9 h**. Everything § 2 concludes stands; it is no
+   longer an n=1 claim.
+2. **`E17` IS THE SAME DEFECT FROM THE PROP SIDE, AND THE BODY UNDER-STATES
+   THIS.** § 7's closing list calls `E17` *"unchanged"* and only says
+   `breakout_1` belongs in the widening. **That is too weak.** `breakout_1` was
+   deleted **57** times — statistically indistinguishable from `bybit_2`'s 58 —
+   so *"breakout_1 receives nothing"* is **not a separate prop-account outage**;
+   it is this same allowlist subtraction, and E17's own row already carried the
+   proof (`apply_scope: {breakout_1: "not_allowlisted"}`, its elected leg
+   planned, graded and thrown away). **Recommendation (1) therefore closes E17
+   as well, and E17 should not be worked as a distinct fix.**
+3. **One over-statement in § 3, corrected.** The body says one of the two
+   subtraction branches fires *"on every such tick."* The population says
+   **89 of 94 (94.7%)**, not 94 of 94. The five exceptions are unexplained and
+   I did not see the rows. Read it as *almost every*, and the residual as
+   unestablished rather than zero.
+4. **One item leaves § 6's could-not-establish list.** The widening **was
+   applied and the process re-read it** — post-fix rows exist and are graded as
+   such. What is still NOT established is that it *works*, for the reason the
+   manager states: 8 rows over 2.2 h cannot contain the case.
+
+### What it does not change
+
+* **§ 1 (the origin and the conflation)** — established from git history and
+  the two backlog rows; a soak population cannot bear on it.
+* **§ 3's headline (the audit-emission constraint is solved)** — established by
+  reading `intents.py` and `arbitration_fanout.py` on `main`. Unaffected.
+* **§ 4's recommendation** — unchanged, and better supported: P1's whole value
+  is that it removes the subtraction **by construction**, which is exactly what
+  a post-fix window too small to detect a regression cannot confirm by
+  observation. The widening's unverifiability is an argument *for* P1, not a
+  substitute for it.
+
+### What the addendum makes newly askable
+
+**The post-fix denominator is now a stated, closable question rather than an
+absence.** At 0.482 multi-account rows/hour, distinguishing "fixed" from
+"we have not looked long enough" needs on the order of **a few days**, not
+hours — and the read is already scripted (count rows where
+`rounds_planned[].accounts ⊃ rounds_written[].accounts`). That is the
+observation that would move the widening from `landed_unproven` to `done`, and
+it belongs on whichever row owns the widening.
