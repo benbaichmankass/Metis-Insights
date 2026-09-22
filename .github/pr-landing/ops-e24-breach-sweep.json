@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The ops-lane dispatch for 2026-09-22 says in terms: 'Each PR: draft, with .github/pr-landing/<branch-slug>.json declaring its tier honestly, landing: \"hold\", hold_reason: \"operator_asked_to_hold\".' The manager merges; this lane does not.",
+  "why": "One new evidence document (docs/security/breach-sweep-2026-09-22.md), its one required row in docs/DOCUMENT-INDEX.md, one STATUS_EXPLICIT entry in scripts/ops/document_index.py registering that document's status (document-index-guard R6 failed CI without it: the header and the row agreed with each other, which the guard correctly refuses as evidence, and `unknown` would have been FALSE because it means NOBODY HAS CHECKED), and a note/lane/tier update on row E24 of docs/claude/work/MANAGER-CHECKLIST.json. Every changed path is inside TIER1_SURFACE under docs/**. No code, no config, no workflow, no src/, no deploy/. READ-ONLY THROUGHOUT: every GitHub read was a GET and every host read was a GET through the token-gated /api/diag/* surface -- nothing was written to the fleet, no repo setting was changed, no issue was hidden or closed, and no containment action was taken because none was warranted. The sweep's verdict is `watch`, not `ok`: 2 of 5 declared sources were swept clean, 1 partially, and 2 report `could_not_look` with named reasons rather than being folded into the all-clear. It carries one operator decision (Gap B remedy (a) vs (b)) and no breach attention."
+}

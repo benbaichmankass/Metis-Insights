@@ -164,3 +164,150 @@ def test_prune_history_drops_old(tmp_path):
     removed = whs.prune_history(health_dir, datetime(2026, 6, 4, 6, 30, tzinfo=timezone.utc))
     assert removed == 1
     assert fresh.exists() and not old.exists()
+
+
+# ---------------------------------------------------------------------------
+# E22 — a SKIPPED account must not read as a PASSING one.
+#
+# MEASURED 2026-09-22T05:30Z from /api/bot/health/latest: `status: ok`,
+# `summary: "7/7 checks ok"`, `action_required: false`, while the accounts_api
+# check's own detail read "all 8 recorded broker-API accounts ok (1
+# manual-bridge skipped: breakout_1; 2 dry/shelved skipped: ib_live,
+# oanda_practice)". `breakout_1` is the funded prop account that had received
+# zero tickets for three weeks (row E16, 21 of 21). The exclusion was counted
+# as a pass.
+#
+# These tests key on the CTX lists, not on the detail prose, because the prose
+# is a claim about the check and the ctx is the check's own record.
+# ---------------------------------------------------------------------------
+
+
+def _ctx_checks(*specs):
+    """specs: (name, status, detail, ctx) -> a run_all_checks() stand-in."""
+    return [
+        HealthCheck(name=n, status=s, detail=d, ctx=c)
+        for n, s, d, c in specs
+    ]
+
+
+def test_skipped_accounts_are_named_in_the_summary_not_folded_into_ok(monkeypatch):
+    """The exact 2026-09-22 snapshot must no longer be sayable as a bare all-clear."""
+    monkeypatch.setattr(
+        whs,
+        "run_all_checks",
+        lambda: _ctx_checks(
+            ("service", "ok", "up", None),
+            ("git_drift", "ok", "clean", None),
+            ("git_fetch", "ok", "fresh", None),
+            ("tick", "ok", "recent", None),
+            (
+                "accounts_api",
+                "ok",
+                "all 8 recorded broker-API accounts ok",
+                {
+                    "total": 8,
+                    "skipped": ["breakout_1"],
+                    "shelved": ["ib_live", "oanda_practice"],
+                    "no_data": [],
+                },
+            ),
+            ("db", "ok", "ok", None),
+            ("disk", "ok", "ok", None),
+        ),
+    )
+    p = whs.build_payload(now=datetime(2026, 9, 22, 5, 30, tzinfo=timezone.utc))
+
+    # The count is still honestly 7/7 -- every CHECK passed. What changes is
+    # that the summary can no longer stop there.
+    assert p["summary"].startswith("7/7 checks ok")
+    assert "3 account(s) NOT CHECKED" in p["summary"]
+    for acc in ("breakout_1", "ib_live", "oanda_practice"):
+        assert acc in p["summary"], f"{acc} must be NAMED, not merely counted"
+
+    assert p["not_checked"]["count"] == 3
+    assert p["not_checked"]["accounts"] == ["breakout_1", "ib_live", "oanda_practice"]
+    assert p["not_checked"]["by_check"]["accounts_api"] == {
+        "skipped": ["breakout_1"],
+        "shelved": ["ib_live", "oanda_practice"],
+    }
+    # `no_data: []` is an empty exclusion and must not invent a key.
+    assert "no_data" not in p["not_checked"]["by_check"]["accounts_api"]
+
+
+def test_status_and_action_required_are_deliberately_unmoved(monkeypatch):
+    """A permanently-skipped account must NOT put a standing `watch` on every snapshot.
+
+    This is the refusal, asserted so a later change cannot make it quietly:
+    a manual bridge is skipped on every snapshot for its whole life, so
+    grading the exclusion would desensitise the one surface the operator
+    reads. The remedy for "is that account still being fed?" is the E18
+    detector, not a louder all-clear.
+    """
+    monkeypatch.setattr(
+        whs,
+        "run_all_checks",
+        lambda: _ctx_checks(
+            ("service", "ok", "up", None),
+            ("accounts_api", "ok", "ok", {"skipped": ["breakout_1"]}),
+        ),
+    )
+    p = whs.build_payload()
+    assert p["status"] == "ok"
+    assert p["action_required"] is False
+    assert p["not_checked"]["count"] == 1
+
+
+def test_no_data_counts_as_not_checked(monkeypatch):
+    """`no_data` is "we could not look" and is the dangerous member.
+
+    The accounts_api check subtracts it from its OWN headline
+    (`all {total - len(no_data)} ... ok`), so an account whose reading never
+    arrived passes exactly as quietly as one that was never eligible.
+    """
+    monkeypatch.setattr(
+        whs,
+        "run_all_checks",
+        lambda: _ctx_checks(
+            ("accounts_api", "ok", "all 2 recorded broker-API accounts ok",
+             {"skipped": [], "shelved": [], "no_data": ["bybit_2"]}),
+        ),
+    )
+    p = whs.build_payload()
+    assert p["not_checked"]["accounts"] == ["bybit_2"]
+    assert "1 account(s) NOT CHECKED: bybit_2" in p["summary"]
+
+
+def test_zero_not_checked_is_a_real_measurement_not_a_missing_field(monkeypatch):
+    """Nothing excluded must be DISTINGUISHABLE from a check that emitted no ctx.
+
+    The positive control for the negative: the field is always present, so
+    `count: 0` says "every account was examined", while a check contributing
+    no ctx is visible by its ABSENCE from `by_check` rather than by silence.
+    """
+    monkeypatch.setattr(
+        whs,
+        "run_all_checks",
+        lambda: _ctx_checks(
+            ("accounts_api", "ok", "ok", {"skipped": [], "shelved": [], "no_data": []}),
+            ("disk", "ok", "ok", None),
+        ),
+    )
+    p = whs.build_payload()
+    assert p["not_checked"] == {"accounts": [], "count": 0, "by_check": {}}
+    assert "NOT CHECKED" not in p["summary"]
+    assert p["summary"] == "2/2 checks ok"
+
+
+def test_exclusions_are_deduped_and_unioned_across_checks(monkeypatch):
+    """Two checks excluding the same account must count it ONCE."""
+    monkeypatch.setattr(
+        whs,
+        "run_all_checks",
+        lambda: _ctx_checks(
+            ("accounts_api", "ok", "ok", {"skipped": ["breakout_1"]}),
+            ("tick", "ok", "ok", {"no_data": ["breakout_1", "alpaca_live"]}),
+        ),
+    )
+    p = whs.build_payload()
+    assert p["not_checked"]["accounts"] == ["alpaca_live", "breakout_1"]
+    assert p["not_checked"]["count"] == 2
