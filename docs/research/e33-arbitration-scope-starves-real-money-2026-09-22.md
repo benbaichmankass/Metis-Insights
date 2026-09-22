@@ -1,6 +1,6 @@
 # E33 — the partial `ARBITRATION_FANOUT_ACCOUNTS` allowlist SUBTRACTS `bybit_2` and `bybit_portfolio` from rounds they were already winning
 
-> **Doc status:** `live` · category `research` · last verified `2026-09-22` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 > **TIER 3. NOTHING HERE IS APPLIED.** This document is the measurement and two
 > proposals. The `set-env` was not run, `config/accounts.yaml` and
