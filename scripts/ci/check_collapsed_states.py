@@ -106,6 +106,36 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "strategy_roster.roster_state",
+        "producer": "src/runtime/strategy_roster.py",
+        # The producer OWNS the vocabulary: the three values are module
+        # constants and nowhere else. No `producer_field` -- the literals do
+        # not share a line with the word `state` at their declaration, and
+        # narrowing here would fail for a spelling reason rather than a real
+        # one.
+        "producer_field": "",
+        "consumer_token": (r"\bROSTER_OK\b|\bROSTER_EMPTY\b|"
+                           r"\bROSTER_UNREADABLE\b"),
+        "states": ["ok", "empty", "unreadable"],
+        "why": (
+            "E21, 2026-09-22. THE PAIR THAT MUST NOT COLLAPSE is `empty` vs "
+            "`unreadable`: `config/strategies.yaml declares no strategies` is "
+            "a real measurement of the config, and `we could not read "
+            "config/strategies.yaml` says nothing about the world at all. "
+            "Until 2026-09-22 BOTH -- and every other read failure -- "
+            "resolved to the same hardcoded VALUE, `['turtle_soup','vwap']`, "
+            "behind one logger.warning. MEASURED 2026-09-22 against "
+            "config/strategies.yaml (55 declared) and config/accounts.yaml "
+            "(11 accounts) at f3746ab: 52 distinct strategies are routed to "
+            "at least one `mode: live` account and that fallback covered 0 of "
+            "them, so an unreadable roster silently ran a two-name one whose "
+            "legs are both non-executing. The names alone cannot carry the "
+            "distinction -- `()` is correct for both -- which is why the "
+            "state is a field and why a consumer that reads only `names` is "
+            "the collapse."
+        ),
+    },
+    {
         "name": "digest_liveness.carrier_state",
         # ⚠️ THE PRODUCER IS THE LOOKUP MODULE, AND THE CONSUMER IS THE GUARD.
         #    They were ONE file first and this contract refused it -- correctly:
