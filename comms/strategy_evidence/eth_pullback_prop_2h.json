@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "eth_pullback_prop_2h",
   "symbol": "ETHUSDT",
   "timeframe": "2h",
@@ -8,51 +8,65 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 0.5087,
-  "expectancy_r_oos": 0.0082,
-  "n_trades_oos": 62,
+  "net_r_oos": -2.6137,
+  "expectancy_r_oos": -0.0396,
+  "n_trades_oos": 66,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
-      "trades": 15,
-      "net_r": 5.0588,
-      "expectancy_r": 0.3373,
-      "start": "2025-09-23 00:00:00+00:00",
-      "end": "2025-12-13 12:00:00+00:00"
+      "trades": 16,
+      "net_r": 4.7803,
+      "expectancy_r": 0.2988,
+      "start": "2025-09-26 14:00:00+00:00",
+      "end": "2025-12-15 12:00:00+00:00"
     },
     {
       "fold": 2,
-      "trades": 15,
-      "net_r": -2.9357,
-      "expectancy_r": -0.1957,
-      "start": "2025-12-15 12:00:00+00:00",
-      "end": "2026-03-08 20:00:00+00:00"
+      "trades": 16,
+      "net_r": -5.1497,
+      "expectancy_r": -0.3219,
+      "start": "2025-12-20 16:00:00+00:00",
+      "end": "2026-03-20 08:00:00+00:00"
     },
     {
       "fold": 3,
-      "trades": 15,
-      "net_r": 1.6771,
-      "expectancy_r": 0.1118,
-      "start": "2026-03-17 16:00:00+00:00",
-      "end": "2026-05-28 18:00:00+00:00"
+      "trades": 16,
+      "net_r": 1.7688,
+      "expectancy_r": 0.1106,
+      "start": "2026-03-28 08:00:00+00:00",
+      "end": "2026-06-19 16:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 17,
-      "net_r": -3.2915,
-      "expectancy_r": -0.1936,
-      "start": "2026-06-07 10:00:00+00:00",
-      "end": "2026-09-04 18:00:00+00:00"
+      "trades": 18,
+      "net_r": -4.0131,
+      "expectancy_r": -0.2229,
+      "start": "2026-06-24 06:00:00+00:00",
+      "end": "2026-09-20 08:00:00+00:00"
     }
   ],
   "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "/tmp/tmp.RsNZr5lfkw/eth_pullback_prop_2h__bt.json"
+  },
+  "net_r_oos_fee_only": -0.1254,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "fail"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:21:22.854910+00:00",
+  "generated_at": "2026-09-22T05:34:54.378044+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/ca0a39ea-0ec3-541d-8337-cce28881c2a6/scratchpad/u34_wd/eth_pullback_prop_2h__trades.jsonl",
+  "source_run": "/tmp/tmp.RsNZr5lfkw/eth_pullback_prop_2h__trades.jsonl",
   "error": null,
   "harness": "pullback"
 }
