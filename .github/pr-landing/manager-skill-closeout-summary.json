@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Appends a close-out contract to .claude/skills/manager/SKILL.md on a direct operator instruction: publish the session summary as a page rather than a chat message, and ping only once a seven-point gate is satisfied. Docs only - one skill file, no src/, config/, deploy/, tests, guards or order path. manager-scope reads clean (the skill is manager surface)."
+}

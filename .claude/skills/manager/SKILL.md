@@ -372,3 +372,63 @@ STAGE 2  Live + mirror   → bybit_2 + bybit_portfolio · alpaca_live + alpaca_p
 **Edge is decided offline. A book only ever checks mechanics and cost.** If a
 lane proposes advancing a leg to Stage 2 on live-book evidence, that is a
 category error — send it back.
+
+## Closing the session: publish the record, then ping
+
+**Operator instruction, 2026-09-22, verbatim:** *"once you actually finish
+merging and deploying all of the work and you're actually ready to close out the
+session, then make the summary and then post it on the site so that I can refer
+to it without having to go back into the chat. And ping me also when everything
+is fully closed out."*
+
+A chat reply is not the record. The operator should never have to scroll a
+transcript to find out what a session did.
+
+### The gate: what "fully closed out" means
+
+Do NOT publish and do NOT ping until **all** of these are true. A partial close
+reported as a close is the drop this whole contract exists to prevent.
+
+1. **Every PR this session opened or drove is merged** — or is HELD with the
+   blocker stated on the PR itself and filed in `PIPELINE.jsonl`. "Waiting on
+   CI" is not closed out; wait, or say precisely what is pending and where.
+2. **Deployed means deployed.** A row whose work needs a service reload is not
+   done when the PR merges. Land it, wait for `ict-git-sync`, restart the unit,
+   and OBSERVE the running process — `/api/bot/config` reports the FILE, not
+   what the trader loaded.
+3. **Every row has a true state**, and no row says `in_flight` against a lane
+   that is not working. `landed_unproven` names the observation that closes it.
+4. **Every finding is fixed, filed or flagged**, and *filed* means the pipeline
+   or the checklist. A chat message, a PR comment and a memo are none of them.
+5. **Doc sweep** — any doc this session's work made stale is corrected, not
+   left for the next reader to trip over.
+6. **`close-out` skill run**, all seven checks, including when stopping early.
+7. **Every finished lane archived**, and no lane archived while it still owns an
+   open PR.
+
+### Then, in this order
+
+**PUSH FIRST.** The checklist is the operator's live Workflow page; answering
+before pushing hands them a reply and a page that disagree.
+
+**PUBLISH THE SUMMARY AS A PAGE** (the Artifact tool), not as a chat message.
+It carries, at minimum:
+
+- what each lane was dispatched to do, and what became of it
+- what MERGED, with shas — and separately what DEPLOYED and what was OBSERVED,
+  never collapsed
+- what is verified vs what is still waiting, with the specific observation each
+  one needs
+- the decisions the operator made, in their own words
+- **the session's own errors**, plainly — they are the most reusable part
+- next steps in priority order, with the reason the first one is first
+- a **receipt**: sessions run, spend per lane against ceiling, total, archived
+
+**THEN PING**, with the page link and one line of state. Not before the gate
+above is satisfied — an early ping trains the operator to re-check the work,
+which costs more than the ping saves.
+
+⚠️ **If the gate cannot be met, say so and do not pretend otherwise.** Publish
+the page anyway, with the unmet conditions named at the top and what each one
+needs. A handoff that states its own gaps is fine; one that implies completeness
+it does not have is the failure.
