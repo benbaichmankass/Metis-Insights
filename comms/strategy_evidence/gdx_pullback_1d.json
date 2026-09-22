@@ -3,7 +3,7 @@
   "strategy": "gdx_pullback_1d",
   "symbol": "GDX",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:929538c4cd1aa4278061d9c89a176693",
+  "config_fingerprint": "sha256:32f053d9a28a80484f1f556511d52a36",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

@@ -3,7 +3,7 @@
   "strategy": "ict_scalp_mgc_15m",
   "symbol": "MGC",
   "timeframe": "15m",
-  "config_fingerprint": "sha256:474e49e2b8fe6ff87b1c1abac73ee472",
+  "config_fingerprint": "sha256:cfc8e6b1e8f056aaf9c4f6c4e5047090",
   "basis": "harness_timefolds",
   "coverage_state": "no_harness",
   "fidelity": null,
