@@ -43,21 +43,30 @@ reuses that path wholesale and adds only what was missing: a config fingerprint,
 a time-fold split, and a normalised record. Verified end to end 2026-09-09 --
 `eth_pullback_2h`, 21.7s, 4380 real ETHUSDT 2h bars from `data.binance.vision`.
 
-⚠️ COVERAGE IS 55.8%, NOT 98.1%, AND THE THREE NUMBERS ARE DIFFERENT QUESTIONS
+⚠️ COVERAGE IS 57.7%, NOT 98.1%, AND THE THREE NUMBERS ARE DIFFERENT QUESTIONS
 ------------------------------------------------------------------------------
-Measured over all 52 enabled legs on 2026-09-09:
+MEASURED over all 52 enabled legs in `config/strategies.yaml` on **2026-09-22**
+(re-run of the 2026-09-09 census after E25 added the fvg_range branch; the
+denominator is unchanged at 52, and every figure below is reproducible by
+importing `regime_debt_matrix` and calling `classify()` + `build_harness_cmd()`
+over `load_legs()` -- no fetch, no harness run):
 
   * **51/52 (98.1%)** match a harness family BY NAME -- an UPPER BOUND, and it
     is the number MI-215 first published. It does not establish that the harness
-    accepts a leg's parameters.
-  * **42/52 (80.8%)** actually route: `regime_debt_matrix.classify()` has THREE
-    branches (donchian / trend_lookback|pullback_frac / kc_mult+bb_period)
-    against a THIRTEEN-family harness fleet. `backtest_ict_scalp.py` and
-    `backtest_fvg_range.py` exist and nothing routes to them.
-  * **29/52 (55.8%)** grade `faithful` -- the harness models EVERY lever the
-    leg's config declares. The other 13 grade `approximate`.
+    accepts a leg's parameters. (Not re-derived on 2026-09-22; carried from
+    2026-09-09.)
+  * **43/52 (82.7%)** actually route -- was 42/52 (80.8%) on 2026-09-09.
+    `regime_debt_matrix.classify()` now has FOUR branches (donchian /
+    trend_lookback|pullback_frac / kc_mult+bb_period / range_lookback+third_frac)
+    against a THIRTEEN-family harness fleet. **The nine that still do not route
+    are `turtle_soup` plus the EIGHT-leg `ict_scalp_*` family, and all eight of
+    those are `execution: live`** -- `backtest_ict_scalp.py` exists and nothing
+    routes to it, which is the same defect E25 fixed for fvg_range, at 8x the
+    size. Tracked as PI-20260922-E25-ICT-SCALP-FAMILY-STILL-UNROUTED.
+  * **30/52 (57.7%)** grade `faithful` -- the harness models EVERY lever the
+    leg's config declares (was 29/52, 55.8%). The other 13 grade `approximate`.
 
-**55.8% is the number this record rests on.** Do not quote 98.1%.
+**57.7% is the number this record rests on.** Do not quote 98.1%.
 
 ⚠️ `fidelity` IS IN THE RECORD, AND THAT IS DELIBERATE
 ------------------------------------------------------
@@ -253,11 +262,13 @@ def build_record(name: str, cfg: Dict[str, Any], *, workdir: str,
         rec["coverage_state"] = "no_harness"
         rec["error"] = (
             "regime_debt_matrix.classify() routes nothing for this leg. Its "
-            "three branches (donchian / trend_lookback|pullback_frac / "
-            "kc_mult+bb_period) do not cover this config. A harness may still "
-            "EXIST for the family -- backtest_ict_scalp.py and "
-            "backtest_fvg_range.py both do -- so this is a missing classifier "
-            "branch plus a lever map, not absent infrastructure."
+            "four branches (donchian / trend_lookback|pullback_frac / "
+            "kc_mult+bb_period / range_lookback+third_frac) do not cover this "
+            "config. A harness may still EXIST for the family -- "
+            "backtest_ict_scalp.py does, and nothing routes to it -- so this "
+            "is a missing classifier branch plus a lever map, not absent "
+            "infrastructure. The fvg_range branch was added the same way on "
+            "2026-09-22 (E25); that is the worked example to copy."
         )
         return rec
 
