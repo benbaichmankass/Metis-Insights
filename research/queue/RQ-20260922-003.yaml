@@ -1,0 +1,158 @@
+id: RQ-20260922-003
+title: At what round-trip cost does trend_donchian_eth_prop stop clearing Stage 0?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  trend_donchian_eth_prop is the only risk-bearing leg whose OOS sample is
+  large enough to support a per-trade estimate, and it passes Stage 0 on an
+  expectancy of +0.0422R per trade against a cost stack that is a DEFAULT,
+  not a measurement. How many additional basis points of round-trip cost
+  drive its net_r_oos to <= 0, and is that number inside the plausible range
+  for the Breakout prop venue?
+
+why_this_matters: >-
+  MEASURED, comms/strategy_evidence/trend_donchian_eth_prop.json on main at
+  f3746ab: n_trades_oos 169, net_r_oos +7.1300, net_r_oos_fee_only +13.0478,
+  expectancy_r_oos +0.0422, folds_positive 3 of 4, cost_stack {fees 7.5,
+  slippage 5.0, funding 1.0} bps. So the modelled non-fee stack (6 bps) costs
+  5.9178R over 169 trades — 0.0350R per trade, which is 83% of the leg's
+  entire per-trade edge. The leg survives because 7.13R of margin is left, and
+  that margin is being spent at a rate set by a CONSTANT. Every crypto record
+  in the corpus carries the identical {7.5, 5.0, 1.0}: it is the venue-aware
+  default the harness resolves, not a per-leg observation. A leg on a
+  real-money roster is riding on a number nobody measured for it.
+
+power:
+  expected_n: 169
+  min_detectable_effect: 0.25
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    The comparison is PAIRED — the same 169 OOS trades are re-priced at each
+    cost arm, so the unit is the per-trade difference and the design is
+    one_sample. The floor at d=0.25 is (1.96+0.8416)^2 / 0.25^2 = 125.58, and
+    expected_n = 169 clears it by 43.
+    ⚠️ expected_n is the ACHIEVED count already on the record
+    (`n_trades_oos: 169`), not a target — the distinction
+    BL-20260814/RQ-20260830-002 both record. Re-pricing cannot create or
+    destroy trades, so this is the exact n the arms will compare over unless
+    a cost arm changes which trades the harness takes at all; if it does, read
+    the achieved count off each arm rather than assuming 169.
+    ⚠️ The floor is NECESSARY, NOT SUFFICIENT and errs one-directionally
+    (queue README): trade sequences are autocorrelated, so the true
+    requirement is higher. A null here is underpowered, never "no effect".
+  feasibility:
+    source: none
+    accrual_basis: >-
+      DECLARED, and the reason is a gap in the machinery rather than in the
+      data. n IS observed and committed — `n_trades_oos: 169` in
+      comms/strategy_evidence/trend_donchian_eth_prop.json, generated
+      2026-09-22T05:35:49Z by scripts/ops/build_strategy_evidence.py from the
+      trend harness's own OOS time-folds. It cannot be declared
+      `source: corpus` because `comms/strategy_evidence` is NOT a registered
+      corpus: research_disposition.CORPORA holds exactly e35, m20 and
+      gld_compat (read 2026-09-22), whose counts are bracket-sweep OOS
+      boundaries and are a DIFFERENT measurement from harness_timefolds n.
+      Declaring e35 here would launder one count as the other, which is the
+      substitution the feasibility check exists to catch.
+      WHAT WOULD CHANGE THIS: register comms/strategy_evidence as a corpus
+      keyed (strategy, generated_at) with statistic n_trades_oos. Filed as
+      PI-20260922-STRATEGY-EVIDENCE-IS-NOT-A-REGISTERED-CORPUS.
+
+decision_rule:
+  id: RULE-RQ0922-003-COST-BREAKEVEN
+  registered_at: '2026-09-22'
+  registered_before_run: true
+  statistic: >-
+    breakeven_bps = the smallest fee_bps_roundtrip arm at which this leg's
+    net_r_oos <= 0, read off the arms actually run (7.5 / 15 / 22.5).
+  rule: >-
+    IF breakeven_bps <= 15 — i.e. the leg fails at a doubling of the modelled
+    fee, a level inside ordinary prop-venue variation — the leg is recorded
+    `cost_margin: thin` and R3/D3 (cost fidelity) is REQUIRED to produce a
+    measured realized round-trip cost for breakout_1 before this leg's
+    Stage-0 pass may be cited again for a real-money roster slot. The pass is
+    not withdrawn; its citation is gated on a measurement.
+    IF breakeven_bps > 22.5 — the leg survives a tripling — it is recorded
+    `cost_margin: robust`, its Stage-0 pass stands unconditionally, and this
+    unit closes `no_action_warranted`.
+    IF breakeven_bps falls between, report the value and close
+    `no_action_warranted`; a leg that needs a 2-3x cost error to fail is not
+    a finding.
+  what_it_does_not_do: >-
+    It cuts nothing and flips no gate. Whether breakout_1's roster changes is
+    R2/D2 and Tier-3.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 45
+  basis: >-
+    Runner. m20-exit-lever-sweep.yml fetches its own candles and declares
+    `fee_bps_roundtrip` precisely for this arm — its own input description
+    reads "Set 15 for the fee-SURVIVAL arm". No trainer-resident data, no VM.
+    ⚠️ DECLARED, NOT VERIFIED: this session read the workflow's
+    workflow_dispatch inputs and confirmed `legs` is a free CSV override of a
+    census default, but did NOT confirm the m20 harness resolves the PROP
+    variant `trend_donchian_eth_prop` (as opposed to `trend_donchian_eth`).
+    Check that before firing —
+    `python3 scripts/research/m20_exit_sweep.py --help` and grep its leg
+    resolution. If the prop variant is unresolvable, the fallback arm is
+    e35-bracket-sweep.yml, whose shard plan DOES schedule it (verified
+    2026-09-22).
+
+blocked_on:
+  - what: >-
+      THE QUEUE'S OWN HONESTY STAMP IS NOT IMPLEMENTED ON THIS WORKFLOW.
+      This unit's feasibility declaration grades `accruing`, and
+      scripts/research/dispatch_queue.py REFUSES to fire an `accruing` unit
+      unless it declares `run.inputs.research_unit`, so the producer stamps
+      the label onto every row it lands ("without it 'do not read this as a
+      test result' is a claim the rows cannot carry"). But `m20-exit-lever-sweep.yml`
+      declares no `research_unit` input, and the dispatcher's own note is
+      explicit that `gh workflow run -f <input-the-workflow-never-declared>`
+      ERRORS. MEASURED 2026-09-22 by reading the workflow_dispatch inputs of
+      e35-bracket-sweep.yml, m20-exit-lever-sweep.yml,
+      pullback-frac-cross-leg-sweep.yml, research-exit-head-build.yml and
+      regime-debt-matrix.yml: only e35-bracket-sweep.yml declares
+      `research_unit` (and `power_state`). So an `accruing` or
+      `underpowered` unit can route to exactly one of them. Declaring the
+      input anyway would fail at fire time; omitting it is refused at grade
+      time. The unit is therefore undispatchable as written, and saying so is
+      better than leaving it `queued` to fail on dispatch.
+    ref: PI-20260922-RESEARCH-UNIT-STAMP-ONLY-ON-E35
+    clears_when: >-
+      `m20-exit-lever-sweep.yml` declares `research_unit` (and ideally `power_state`)
+      as workflow_dispatch inputs and stamps them onto the rows it lands, as
+      e35-bracket-sweep.yml already does. Then flip this unit to `queued` and
+      add `research_unit: RQ-20260922-003` to run.inputs.
+
+run:
+  workflow: m20-exit-lever-sweep.yml
+  inputs:
+    legs: trend_donchian_eth_prop
+    fee_bps_roundtrip: '15'
+    split_mode: oos-trades
+    tp_cap_pct: '0.099'
+  note: >-
+    ONE arm per dispatch. The 7.5 baseline is already on the record
+    (net_r_oos +7.1300) and does not need re-running; 22.5 is a second
+    dispatch, fired only if the 15 arm is still positive.
+
+lands:
+  store: docs/research/m20-sweep-corpus.jsonl
+  assert_field: leg
+  min_rows: 1
+  note: >-
+    Store read off the producer's own `git add`, per assert_rows_landed.py's
+    warning that reading a store name off a doc is worse than no assertion.
+
+related:
+  - 'checklist C5 / R4 (this unit is one of the ten)'
+  - 'checklist R3 / D3 (cost fidelity — the measurement this rule can require)'
+last_dispatched_at: null
