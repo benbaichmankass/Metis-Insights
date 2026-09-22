@@ -23,6 +23,8 @@
   "updated_by": "manager (session_01XQhayAHWdrSYv8jN54P2HH)",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
+  "supervisor_lane": "session_01R9WFrBK1sbBcpTYgBmvG1q",
+  "_supervisor_lane_comment": "E44. The lane supervisor's own session id. lane_reconcile.py --supervise reads it as archive condition 5 (the supervisor must never archive itself) and REFUSES TO AUTHORISE ANY ARCHIVE while it is absent -- 'we could not look' is not 'there is no supervisor'. It lives at the top level rather than on a row because which session is the supervisor is a property of THIS REGISTER, not of any one work item: hung off row E44 it would stop protecting anything the day E44 is closed, which is exactly the row that declares it. It is also the value the supervisor checks its own get_session().parent_session_id against, per the mandate's structural verification rule. OBSERVED WORKING 2026-09-22T14:27:02Z: this session completed a firing, read 60 sessions, and pushed docs/claude/work/LANE-SUPERVISOR-HEARTBEAT.json. If it is replaced, update this field in the same change.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
   "states": {
     "queued": "scoped and agreed, nobody started it",
