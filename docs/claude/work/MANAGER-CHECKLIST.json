@@ -548,11 +548,13 @@
       "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        12706
+      ],
       "blocked_on": [
         {
           "kind": "operator_decision",
-          "ref": "PR on branch claude/c5-r4-ten-research-questions (opened draft)",
+          "ref": "PR #12706 (branch claude/c5-r4-ten-research-questions, opened draft)",
           "what": "PR opened with landing: hold, hold_reason: operator_asked_to_hold, per this lane's standing instruction to hold rather than self-land. Needs the manager/operator to review and merge -- until then the ten units exist only on the branch, and scripts/research/dispatch_queue.py on main still sees five job files, not fifteen."
         }
       ],
