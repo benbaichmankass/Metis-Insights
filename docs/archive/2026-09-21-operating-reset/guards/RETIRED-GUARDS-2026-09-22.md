@@ -64,8 +64,13 @@ halves already have owners. Workability of a *build* row is
 enforced by `pipeline-guard` on every PR. Re-pointing this guard would give
 those rules a second owner, which is the drift the reset was for.
 **Blast radius handled in the same change:** `scripts/ci/check_main_tree_health.py`
-ran it as one of three cron probes, so `main-tree-watch.yml` had been reporting
-its "register is MISSING" error hourly; that probe is removed with it.
+ran it as one of three cron probes, so `main-tree-watch.yml` was grading a red
+it could do nothing about; that probe is removed with it. ⚠️ **MEASURED, not
+inferred:** run against `main`'s tree 2026-09-22 the guard exits **1** with
+*"docs/claude/OPEN-ITEMS.json is MISSING"*, and `main-tree-watch.yml` is
+scheduled `37 * * * *`. Read that as *scheduled* hourly, not *fired* hourly —
+that workflow's own header says a cron here is a ceiling on frequency and not a
+promise, and this session did not read its run history.
 `scripts/ci/check_wip_ceiling.py` loaded it to assert `MAX_ITEMS is None` — that
 assertion is dropped, and `check_wip_ceiling` was itself unregistered at the
 reset.
