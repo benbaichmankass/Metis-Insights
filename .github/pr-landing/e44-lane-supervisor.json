@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One row appended to docs/claude/work/MANAGER-CHECKLIST.json (E44 \u2014 the lane-supervision mechanism), recording the operator-ordered archive sweep with its measured figures and scoping the mechanism that must replace the manager's memory. Register only: no src/, no config/, no deploy/, no order path, no test or guard behaviour changed. Manager register work, which is on MANAGER_SURFACE by check_manager_scope.py's own definition."
+}

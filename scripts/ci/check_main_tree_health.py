@@ -38,15 +38,20 @@ are what this file runs.
 
 ⚠️ WHAT THIS CANNOT SEE, SAID HERE RATHER THAN DISCOVERED LATER. Each probe
 below has sub-rules that need a ``--base`` and DO NOT RUN here -- R2/R3 of the
-id guard, and observation-preservation in the open-items guard. Both tools
-already SAY SO in their own output (they print "no base given" rather than a
+id guard. The tool
+already SAYS SO in its own output (they print "no base given" rather than a
 bare OK), so this file does not have to invent the caveat; it must simply not
 overwrite it. A pass here is "the diff-independent rules found nothing", never
 "main is healthy".
 
 THE CALENDAR CLASS IS WHY A CADENCE IS NOT OPTIONAL
 ---------------------------------------------------
-``check_open_items.py``'s 21-day affirmation window crosses on the CALENDAR,
+⚠️ 2026-09-22 (E45): the worked example below is HISTORY. The probe it describes
+was removed when its register was archived, and no probe here covers the
+calendar class today. The reasoning is kept because it is the argument for the
+cadence itself, which still holds.
+
+``check_open_items.py``'s 21-day affirmation window crossed on the CALENDAR,
 with nobody's diff. MEASURED 2026-09-17: ``OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT``
 reached 22 days against a limit of 21, turned ``main`` red with no commit
 having done anything, and stranded ``econ-calendar-produce`` run #1953 -- whose
@@ -89,10 +94,19 @@ PROBES = (
           "here; the tool says so itself."),
     Probe("backlog-refs", ("python3", "scripts/ops/check_backlog_refs.py", "--all"),
           "every tracking id in the tree resolves to a filed row."),
-    Probe("open-items", ("python3", "scripts/ci/check_open_items.py"),
-          "every OPEN-ITEMS row is workable and affirmed inside its window -- "
-          "THE CALENDAR CLASS, which no PR-time check can reach. "
-          "observation-preservation needs a --base and DOES NOT run here."),
+    # ⚠️ REMOVED 2026-09-22 (E45): the third probe was `open-items`, running
+    # `scripts/ci/check_open_items.py` over `docs/claude/OPEN-ITEMS.json`. The
+    # 2026-09-21 reset ARCHIVED that register, so from that date this cron was
+    # reporting `register is MISSING` on every hourly run -- a red that measured
+    # nothing, which § "could not measure is its own outcome" names as the same
+    # sin as a green that measures nothing, and worse for trust. The guard is
+    # retired; see
+    # docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md.
+    #
+    # ⚠️ AND THE CALENDAR CLASS IT COVERED IS NOW UNCOVERED HERE. Nothing in
+    # this file reaches a rule that crosses on the calendar with nobody's diff.
+    # Said rather than quietly dropped: the two probes below are diff-independent
+    # but not calendar-driven, so a pass here is narrower than it was.
 )
 
 
