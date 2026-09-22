@@ -3,7 +3,7 @@
   "strategy": "fvg_range_15m",
   "symbol": "BTCUSDT",
   "timeframe": "15m",
-  "config_fingerprint": "sha256:2d576ef7e5f328499d5220f9c8b35866",
+  "config_fingerprint": "sha256:d3da4e4d4bb72f53abf4fcbc0bcce5a7",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
