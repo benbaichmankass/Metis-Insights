@@ -139,6 +139,46 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # Do not remove without giving the SPA transport another liveness
     # surface first.
     "caddy.service",
+    # 2026-09-22 (E27). The OS sshd unit, here for ONE reason: the
+    # `/health-review` skill lists `journalctl` for sshd/auth as a MANDATORY
+    # breach-sweep source (§ "Security-breach check", source 5 — "VM host
+    # signals (via the diag relay)"), and this allowlist is exact-match, so
+    # that source has been UNSATISFIABLE on every day since the skill was
+    # written. MEASURED 2026-09-22 against the running web-api:
+    # journalctl?unit=ssh / ssh.service / sshd / sshd.service all returned
+    # HTTP 400 `unknown_unit`, against a control of unit=ict-web-api.service
+    # returning 200 with journal lines. There was no spelling that worked.
+    #
+    # ⚠️ THE NAME IS `ssh.service` AND THE ALIAS IS A TRAP. Measured on
+    # ict-bot-arm (Ubuntu 22.04.5 LTS) via the vm-driver relay:
+    #   systemctl list-unit-files 'ssh*' -> ssh.service enabled;
+    #                                       sshd.service alias
+    #   systemctl show ssh.service       -> Id=ssh.service,
+    #                                       Names="ssh.service sshd.service"
+    #   journalctl -u ssh.service  -n 3  -> 3 sshd lines
+    #   journalctl -u sshd.service -n 3  -> "-- No entries --"
+    # systemd resolves the alias for `show`/`is-active`; the JOURNAL MATCH
+    # does NOT — `_SYSTEMD_UNIT` records the Id. So allowlisting the alias
+    # would have returned HTTP 200 with `lines: []` and `available: true`
+    # (rc=0, no stderr), i.e. a breach sweep that reports CLEAN having read
+    # nothing. Do not "also add" sshd.service: a second spelling that
+    # silently answers empty is worse than the 400 it replaces.
+    #
+    # ⚠️ PRIVACY COST, STATED AND ACCEPTED (operator decision, 2026-09-22).
+    # sshd journal lines carry SOURCE IPs and USERNAMES, and everything
+    # holding the diag bearer can now read them. A counts-only summariser and
+    # dropping the skill's requirement were both offered and both declined.
+    # This is a READ route over host logs — it adds no write route and returns
+    # no secrets, so the closed diag-token rotation decision
+    # (docs/reference/diag-access.md) is not reopened by it.
+    #
+    # NOT ours, so the same guard blind spot as caddy.service above: sshd
+    # ships no deploy/*.service of ours, so scripts/check_diag_unit_allowlist.py
+    # never scans it — this line is hand-maintained and nothing flags its
+    # removal. It also now appears in /api/diag/services and /snapshot's
+    # `services` list; that list REPORTS state, it does not assert it, and
+    # nothing should read ssh.service's presence there as a deploy target.
+    "ssh.service",
     "ict-telegram-bot.service",
     # NB: the retired daily-digest unit "ict-heartbeat.service" was removed here
     # (2026-07-26 full-system audit, WS-B). The daily operator digest was retired
