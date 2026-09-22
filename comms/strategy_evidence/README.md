@@ -1,6 +1,6 @@
 # `comms/strategy_evidence/` — per-leg OFFLINE edge records
 
-> **Doc status:** `live` · category `lookup` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `lookup` · last verified `2026-09-22` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 One `<leg>.json` per strategy leg, written by
 [`scripts/ops/build_strategy_evidence.py`](../../scripts/ops/build_strategy_evidence.py)
@@ -25,6 +25,28 @@ values, and they answer different questions:
 | `no_harness` | nothing routes this leg — **we know**, and the record says why |
 | `harness_failed` | it ran and broke — **we looked** |
 | `not_attempted` | we did not run it |
+
+## ⚠️ A FAILED RUN CANNOT CLOBBER A `measured` RECORD — and that is new
+
+Until 2026-09-22 it could, and twice it did. With `yfinance` absent from a
+sandbox the producer graded every leg `harness_failed` and **rewrote** the
+committed records for `gld_pullback_1d` and `qqq_trend_long_1d`, nulling
+`net_r_oos`, `n_trades_oos` and `fold_detail`. They survived only because the
+lane read `git diff` before committing (`PI-20260922-E41-0007`).
+
+Why that is worse than losing a number: a `harness_failed` stub **does not read
+as a loss — it reads as a leg nobody ever measured**, which is exactly the
+collapsed state the table above exists to prevent, sitting on the corpus the
+real-money promotion bar reads.
+
+`build_strategy_evidence.py` now **refuses**, loudly on three surfaces (a stderr
+line, a `runs/<date>/<leg>__refused_record.json` sidecar holding the record it
+would have written, and exit code **3**), and leaves the committed record
+**byte-identical**. An unreadable prior record is refused too — *we could not
+look* is not permission.
+
+⚠️ **A SUCCESSFUL re-measure still overwrites normally.** `measured → measured`
+is a different question and the refusal does not touch it.
 
 ## ⚠️ `fidelity` decides what the number is evidence ABOUT
 
