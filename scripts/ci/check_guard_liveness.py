@@ -495,10 +495,20 @@ def main() -> int:
             print(f"  ✗ {f}")
         return 1
     print("")
-    print("  No NEW dead or degraded guard, and no baseline entry has recovered "
-          "unnoticed. Read that as 'no regression', never as 'the fleet is "
-          "healthy' — 8 guards grade nothing and 46 are outside this "
-          "instrument's reach.")
+    # ⚠️ COMPUTED, NOT WRITTEN DOWN (E45, 2026-09-22). This sentence used to
+    # read "8 guards grade nothing and 46 are outside this instrument's reach"
+    # as a LITERAL, true on the day it was authored. The eight were then
+    # disposed of and the literal kept printing `8` under a table reading
+    # `dead: 0` — this module asserting, in its own closing line, the opposite
+    # of what it had just measured. That is `field beats comment` applied to a
+    # guard's own output, and the fix is not a better number: it is to take the
+    # number from the measurement so it cannot drift again.
+    dead_n = len([1 for st, _a, _t in result.values() if st == DEAD])
+    blind_n = len([1 for st, _a, _t in result.values() if st == NO_SUBJECT])
+    print(f"  No NEW dead or degraded guard, and no baseline entry has "
+          f"recovered unnoticed. Read that as 'no regression', never as 'the "
+          f"fleet is healthy' — {dead_n} guard(s) grade nothing and {blind_n} "
+          f"are outside this instrument's reach.")
     return 0
 
 
