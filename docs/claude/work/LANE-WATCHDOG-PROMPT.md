@@ -1,9 +1,30 @@
 # The lane watchdog — the involuntary half of E20
 
+> **Doc status:** `unknown` · category `unknown` · last verified `never` ·
+> registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+>
+> Created 2026-09-22 by the E20 lane (`session_011xpvJ2MQgd4jmKkdfg6gzV`).
+>
+> ⚠️ **The stamp above is `unknown`, and that is deliberate rather than
+> sloppy.** `document_index.py` does not assess this directory — its only
+> sibling, `docs/claude/work/README.md`, reads the same — so the generator emits
+> `unknown / unknown / never / not-assessed` for this path, and R6 fails any
+> hand-written row the generator would not reproduce while R3 fails a header that
+> disagrees with the row. Claiming `live` here would make the two surfaces
+> disagree, which is the exact failure `DOCUMENT-INDEX.md` exists to stop. The
+> honest reading: nobody has assessed this file's status, and what makes it
+> trustworthy is the Routine it describes existing, not a stamp.
+
 > **Doc status:** `live` · category `instruction` · last verified `2026-09-22` ·
 > registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
 >
 > Created 2026-09-22 by the E20 lane (`session_011xpvJ2MQgd4jmKkdfg6gzV`).
+>
+> ⚠️ Its index row reads `unknown / unknown / never / not-assessed`, and that is
+> the generator's own output rather than a contradiction of the line above:
+> `document_index.py` does not assess this directory — its only sibling,
+> `docs/claude/work/README.md`, reads the same. Said here so the two surfaces do
+> not disagree silently, which is the failure `DOCUMENT-INDEX.md` exists to stop.
 
 `scripts/ops/lane_reconcile.py` answers, in one screen, whether every checklist
 row claiming a lane has a lane that is breathing, and what the live lanes are
