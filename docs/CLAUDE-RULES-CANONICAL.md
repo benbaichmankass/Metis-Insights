@@ -436,21 +436,44 @@ to stop admitting un-workable rows and to give every row an exit.
      tracked at all. Never an open row.
 
 3. **Every row ends, and "open indefinitely" is not a disposition.** A row's
-   `status` is a **closed six-value enum**, enforced whole-file over every review
-   backlog by `claim-basis-guard`. It has ONE home —
+   state is a **closed six-value enum**, enforced whole-file by
+   `claim-basis-guard`. It has ONE home —
    [`scripts/check_claim_basis.py`](../scripts/check_claim_basis.py)`::STATUS_ENUM`
    — and the list below is a MIRROR of it that
    `canonical-doc-coherence` fails on if the two disagree, so this paragraph can
    no longer drift away from what CI accepts:
 
    <!-- status-enum:begin — mirrored from scripts/check_claim_basis.py::STATUS_ENUM; canonical-doc-coherence fails if these disagree. Do not edit by hand; change the enum and re-mirror. -->
-   `open` · `kept_open` · `resolved` · `wont_fix` · `superseded` · `invalid`
+   `queued` · `in_flight` · `blocked` · `landed_unproven` · `done` · `dropped`
    <!-- status-enum:end -->
 
-   **Terminal** is all of them except `open` and `kept_open`. A qualifier
-   ("resolved, but only on paper") belongs in `detail` or in an `updates` entry,
-   **never in `status`** — a free-text status makes the open count uncomputable,
-   which is the whole reason the enum is enforced.
+   ⚠️ **CORRECTED 2026-09-22 (E45): THIS PARAGRAPH NAMED A MECHANISM THAT COULD
+   NOT RUN.** It read *"a row's `status` is a closed six-value enum, enforced
+   whole-file over every review backlog by `claim-basis-guard`"*, listing
+   `open` · `kept_open` · `resolved` · `wont_fix` · `superseded` · `invalid`.
+   Every one of those four review backlogs was ARCHIVED by the 2026-09-21
+   operating reset, and nothing swept the guard that read them: MEASURED on
+   `main` 2026-09-22, `claim-basis-guard` reported *"0 backlog file(s)
+   scanned"*, and it had also been dropped from `scripts/ci/run_guards.py` at
+   the reset, so nothing ran it at all. **The rule survives the reset; its
+   subject moved.** The live register whose open count the operator reads is
+   [`docs/claude/work/MANAGER-CHECKLIST.json`](claude/work/MANAGER-CHECKLIST.json)
+   — it *is* the Workflow page — and its field is `state`. That is what the
+   guard now grades, whole-file, and it additionally fails when the file's own
+   `states` block and the enum disagree (*field beats comment*).
+   `PIPELINE.jsonl`'s own states are owned by
+   [`scripts/ops/pipeline.py`](../scripts/ops/pipeline.py)`::STATES` and
+   enforced by `pipeline-guard` — one enum, one home, deliberately not graded
+   twice.
+
+   **Terminal** is `done` and `dropped`; `landed_unproven` is explicitly NOT
+   terminal (merged is not observed). A qualifier ("done, but only on paper")
+   belongs in `note`, **never in `state`** — a free-text state makes the open
+   count uncomputable, which is the whole reason the enum is enforced.
+
+   ⚠️ **The two notes below are HISTORY about the archived backlogs' `status`
+   field**, kept because they record how this paragraph drifted before, not as
+   instructions about the live register.
 
    ⚠️ **THIS RULE NAMED FIVE OTHER WORDS UNTIL 2026-09-12 AND NOT ONE OF THEM WAS
    A LEGAL `status`** — it read *"Five terminal dispositions … `fixed` ·
@@ -602,33 +625,49 @@ over**, or that it has become futile.
 ### The rule
 
 Anything that soaks — a `*_soak.jsonl` writer, a gate armed in `annotate`
-pending evidence, a fix deployed and awaiting a live sighting — gets a row in
-[`docs/claude/OPEN-ITEMS.json`](docs/claude/OPEN-ITEMS.json) carrying a **`soak`**
-block:
+pending evidence, a fix deployed and awaiting a live sighting — gets an **open
+row in [`docs/claude/work/PIPELINE.jsonl`](claude/work/PIPELINE.jsonl)** whose
+`due_when` carries a CONDITION and whose `what` or `clears_when` names the log:
 
 ```json
-"soak": {
-  "log": "bybit_coverage_soak",
-  "declared_at": "2026-09-02",
-  "ready_when": "verdicts_differ=true",
-  "min_matching": 1
-}
+{"id": "PI-...", "what": "bybit_coverage_soak is accruing",
+ "due_when": {"kind": "observation", "clears_when": "verdicts_differ=true",
+              "check_every_days": 7},
+ "next_action": "check_observation", "state": "queued"}
 ```
 
-* **`ready_when` states what READY means in DATA**, as a `probe_lib` condition —
-  not in elapsed days. `check_every_days` already carries the timer, and the two
-  answer different questions: the timer says *is it time to LOOK?*, the
-  threshold says *is it READY?*. A block with no `ready_when` is **refused** by
-  `scripts/ops/soak_alarm.py::declaration_problems`, because it is a second
-  timer wearing a threshold's name.
-* **`declared_at` is what makes a dead soak detectable at all.** `not_writing`
-  means *no rows SINCE THE SOAK WAS DECLARED*; with no start date that sentence
-  has no meaning, so the block is refused without it.
-* **A review-backlog row is NOT a substitute.** The three backlogs are not
-  due-list sources — `render_due_list.py::SOURCES` reads `open_items`,
-  `soaks`, `operator_owed`, `research_queue`, `probes`, `red_crons` and
-  `unlanded_automation`, and none of them is a backlog. A soak tracked only in
-  a backlog accrues to nobody.
+⚠️ **RE-POINTED 2026-09-22 (E45): THIS RULE NAMED A REGISTER THAT NO LONGER
+EXISTS.** It required a `soak` block in `docs/claude/OPEN-ITEMS.json`, which the
+2026-09-21 operating reset ARCHIVED — and nothing swept the guard that read it.
+MEASURED on `main` 2026-09-22: `soak-registered-guard` printed *"19 soak log(s)
+declared · 0 registered"* and exited **2 (could not look)** on every run, and it
+had also been dropped from `scripts/ci/run_guards.py` at the reset, so nothing
+ran it at all. **The rule survives; its register moved** — to the pipeline,
+which is by definition the intake for anything that must be come back to. No
+fourth register was invented for it.
+
+* **`clears_when` IS the old `ready_when`** — it states what READY means in
+  DATA, not in elapsed days. `check_every_days` already carries the timer, and
+  the two answer different questions: the timer says *is it time to LOOK?*, the
+  condition says *is it READY?*. A `due_when.kind` of `date` carries only the
+  timer, so it does **not** register a soak — that is the same refusal the old
+  `ready_when` rule made, restated on the schema that survived.
+* **A TERMINAL row is not an alarm.** `done`/`killed` rows are excluded: a
+  closed row will never come back for anything.
+* **Naming the soak in `origin.rerun` does NOT register it.** `origin.rerun` is
+  the command that re-reads the finding — a PROBE. A probe reads; an alarm says
+  what ready means. Four of the sixteen 2026-09-02 logs were "mentioned" in a
+  probe command and could answer neither *is it ready* nor *is it dead*.
+* **A review-backlog row is NOT a substitute** — and as of 2026-09-21 there are
+  no review backlogs at all; all four are archived. A soak tracked anywhere but
+  the pipeline accrues to nobody.
+
+⚠️ **`declared_at` HAS NO POST-RESET EQUIVALENT, AND THAT COSTS SOMETHING REAL.**
+It existed so `not_writing` (*no rows SINCE THE SOAK WAS DECLARED*) could be
+told from `accruing`. A pipeline row has no start-date field, so the four-state
+grading below is **not** reconstructed by the re-pointed guard: what CI enforces
+today is REGISTRATION, which is all it ever enforced. Said here rather than
+implied, because the gap is the interesting part.
 
 ### The four states, and why `accruing` must stay quiet
 
@@ -671,6 +710,11 @@ that.
 when a `*_soak.jsonl` log exists in `src/` with no register alarm. It runs over
 the **whole tree, not the diff**: a diff-scoped version would pass vacuously on
 nearly every PR, which is a green that checked nothing.
+
+⚠️ **The four-state grading above is `scripts/ops/soak_alarm.py`, and it is
+STILL READING THE ARCHIVED REGISTER** as of 2026-09-22. Only the registration
+guard was re-pointed by E45. Filed rather than left implied — do not read the
+`ready`/`not_writing`/`unknown`/`accruing` table as something running today.
 
 ⚠️ **Its honest limit, stated rather than hidden.** The pre-2026-09-02 debt —
 **16 soak logs, of which ZERO carried an alarm on that date** — is carried in an
@@ -1590,9 +1634,10 @@ the session, Claude must:
      (drained by `/ml-review`).
 
 6. **Anything you are about to hand to the operator goes in the
-   OPERATOR-OWED REGISTER**
-   ([`docs/claude/operator-owed-register.json`](claude/operator-owed-register.json)),
-   not only in a board comment or a sprint log. Naming it in prose is what
+   FOLLOW-THROUGH PIPELINE**
+   ([`docs/claude/work/PIPELINE.jsonl`](claude/work/PIPELINE.jsonl)) as a row
+   with `next_action: "ask_operator"`,
+   not only in a chat message, a PR comment or a sprint log. Naming it in prose is what
    this rule replaces: on 2026-08-25 three sessions
    (`01X2zMCh`, `qhpxyh`, `018aKyS3`) each closed by handing forward THE SAME
    FOUR ITEMS, with zero state change on any of them — n=3 hand-offs of one
@@ -1618,12 +1663,41 @@ the session, Claude must:
 
    **Enforced by `operator-owed-guard`**
    ([`scripts/ci/check_operator_owed.py`](../scripts/ci/check_operator_owed.py)),
-   which FAILS when an item has been carried across register commits without
-   a state change — measured from the register's git history, not
-   self-reported. Age is a second, independent trip path, because a session
-   that never touches the register leaves no commit to count. The ways out
-   are act, move, defer behind a **named trigger event**, or withdraw;
+   which FAILS when a **DUE** owed row has sat unchanged for longer than
+   **twice its own declared `check_every_days`** — measured from the register's
+   git history, not self-reported. The ways out are act, move, defer behind a
+   condition that has not yet come due, or kill it with a `terminal_reason`;
    re-listing it is not one of them.
+
+   ⚠️ **THE UNIT IS AGE, NOT REGISTER COMMITS, and the first version of this
+   re-point got that wrong.** In the archived register every session that ended
+   was meant to touch the file, so a commit leaving a row alone genuinely WAS
+   one session carrying it. `PIPELINE.jsonl` is a shared append-only log every
+   lane writes to, so that count became a measure of how busy OTHER lanes were:
+   MEASURED 2026-09-22, **29 commits in ~21 hours**, the oldest due owed row
+   **0.91 days** old and reading **26 carries**, with **9 of 10** already past a
+   two-commit limit. The guard failed a PR because a different lane had appended
+   a different row — the thing `check_pr_queue_watch` refuses to do.
+
+   ⚠️ **RE-POINTED 2026-09-22 (E45): THIS NAMED A REGISTER THAT NO LONGER
+   EXISTS.** Until then the item went in `docs/claude/operator-owed-register.json`,
+   archived by the 2026-09-21 operating reset, and the guard's first line
+   returned *"does not exist"* while this paragraph went on citing it as what
+   enforces the rule. The guard had also been dropped from
+   `scripts/ci/run_guards.py` at the reset, so nothing ran it at all.
+   **The subject was chosen by looking, not by preference:** MEASURED
+   2026-09-22, `MANAGER-CHECKLIST.json` carries **0** `blocked_on` edges of kind
+   `operator_decision` (re-pointing there would grade an empty population),
+   while `PIPELINE.jsonl` carries **90** open rows with
+   `next_action: "ask_operator"` — the schema's own name for this. Only rows
+   that are **due** are graded, because a row waiting behind its own condition
+   is exercising the defer path rather than being carried (9 of the 90 on that
+   date). The owner classes below, `snoozed_until`, `automation_path` and
+   `tested_decision_function` were fields of the archived schema and were **not
+   reinvented** — a fourth register is the opposite of what the reset was for.
+   The structural half a pipeline row does carry (a required `due_when`, a
+   required `origin.rerun`, a `terminal_reason` to close) is validated by
+   `scripts/ops/pipeline.py` and enforced by `pipeline-guard`.
 
 The Sprint Wrap-Up Requirements section below restates several of
 these duties at the sprint scope. This subsection restates them at

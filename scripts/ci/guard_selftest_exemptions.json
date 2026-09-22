@@ -1,82 +1,68 @@
 {
- "_doc": "Guards with NO failure-path evidence anywhere, each named, dated and reasoned. Read scripts/ci/check_guard_selftest_coverage.py's docstring before adding one: TWO rules bound this file, and the second is what makes the first enforceable. (1) A guard whose blast_radius is 'accounting' or 'money-at-risk' may not be listed here at all. (2) A guard REACHABLE from run_guards.py may not be listed here whatever it declares -- because blast_radius is written by whoever writes the exemption, so rule 1 alone would be cheaper to lie to than to satisfy. Reachability is a fact about run_guards.py, not a field. An entry naming a guard that has since gained a failure path is flagged STALE and must be deleted, so this file cannot silently pre-approve a regression.",
- "exemptions": [
-  {
-   "guard": "scripts/ci/check_backlog_unresolve.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_board_coherence.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_decision_answer_consumers.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_due_list_token.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_edge_kind_vocabulary.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_manager_checklist_vocabulary.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_manager_queue_watch.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_role_pack_operating_layer.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_soak_registered.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_spec_carrier.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  },
-  {
-   "guard": "scripts/ci/check_uncarried_specs.py",
-   "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
-   "added": "2026-09-21",
-   "blast_radius": "docs",
-   "tracking_id": "A5"
-  }
- ]
+  "_doc": "Guards with NO failure-path evidence anywhere, each named, dated and reasoned. Read scripts/ci/check_guard_selftest_coverage.py's docstring before adding one: TWO rules bound this file, and the second is what makes the first enforceable. (1) A guard whose blast_radius is 'accounting' or 'money-at-risk' may not be listed here at all. (2) A guard REACHABLE from run_guards.py may not be listed here whatever it declares -- because blast_radius is written by whoever writes the exemption, so rule 1 alone would be cheaper to lie to than to satisfy. Reachability is a fact about run_guards.py, not a field. An entry naming a guard that has since gained a failure path is flagged STALE and must be deleted, so this file cannot silently pre-approve a regression.",
+  "exemptions": [
+    {
+      "guard": "scripts/ci/check_board_coherence.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    },
+    {
+      "guard": "scripts/ci/check_decision_answer_consumers.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    },
+    {
+      "guard": "scripts/ci/check_due_list_token.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    },
+    {
+      "guard": "scripts/ci/check_edge_kind_vocabulary.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    },
+    {
+      "guard": "scripts/ci/check_manager_checklist_vocabulary.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    },
+    {
+      "guard": "scripts/ci/check_manager_queue_watch.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    },
+    {
+      "guard": "scripts/ci/check_role_pack_operating_layer.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    },
+    {
+      "guard": "scripts/ci/check_spec_carrier.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    },
+    {
+      "guard": "scripts/ci/check_uncarried_specs.py",
+      "reason": "RETIRED 2026-09-21 by the operating reset. This guard graded the eight-register operating model (the work store, OPEN-ITEMS.json, the four review backlogs, SESSIONS.json, the lease, the merge queue, the coordination board, DUE.*, the constraint readout or the probe register), all archived under docs/archive/2026-09-21-operating-reset/. Its entry is gone from run_guards.py, so it is UNREACHABLE and runs nowhere. The SCRIPT is deliberately left on disk rather than deleted: 30+ live files (src/, tests/, workflows, .github/pr-landing records) still name these paths, and deleting them would break working code to tidy a register. Delete the script and this entry together if that sweep is ever done. Not a waiver of a finding: there is no population left for it to grade.",
+      "added": "2026-09-21",
+      "blast_radius": "docs",
+      "tracking_id": "A5"
+    }
+  ]
 }
