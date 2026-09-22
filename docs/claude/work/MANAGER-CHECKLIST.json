@@ -869,16 +869,18 @@
       "id": "E19",
       "title": "The vm-diag-snapshot relay is failing — every session is blind to the live host",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_0178qqSNhbW9vpQbREtc4drS",
       "model": "claude-sonnet-5",
       "ceiling_usd": 15,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        12702
+      ],
       "blocked_on": [],
-      "note": "FOUND BY THE E16 LANE 2026-09-21 while trying to do its job. Issue #12695 (log_file?name=prop_status_request + journalctl?unit=ict-trader-live) returned 'vm-diag-snapshot run failed. The request parsed fine, so this is an infrastructure failure' (run 35649903349). /api/diag/* returns 401 without the token. [!] THIS IS NOT A NUISANCE -- it is THE canonical autonomy path for live-host reads, and CLAUDE.md's whole access-and-autonomy section rests on it. Every session that needs a journal or a log_file is blind until it is fixed. [!] IT ALREADY COST SOMETHING MEASURABLE: E16 could not confirm which ask-arm fired (it had to INFER it from code plus live ticket rows, and marked the inference as one), and E17 is BLOCKED on it for the arbitration_fanout_soak read. [!] LIKELY CAUSES THE WORKFLOW ITSELF NAMES: VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched against /etc/ict-trader/web-api.env. ⚠️ IF IT IS A SECRET VALUE, THAT IS AN OPERATOR ACTION -- originating a secret value is one of the few genuine human-only steps. Establish WHICH before asking; check the before-asking-the-operator skill first."
+      "note": "PR #12702 open (draft, held per operator_asked_to_hold). ROOT CAUSE ESTABLISHED FROM THE ACTUAL FAILED-RUN LOG (35649903349), not the workflow source: this was never a secret problem. The SSH+curl fetch to the VM SUCCEEDED (diag-multi-output.txt got 6 lines, no curl/ssh error) -- the run then died in local Python post-processing: `from scripts.ops.diag_relay_render import render_section` raised `ModuleNotFoundError: No module named 'scripts'` because the job never ran actions/checkout (confirmed absent across this workflow file's entire git history; the import was added 2026-09-13, a45d360, with no checkout ever added). VM_SSH_KEY and DIAG_READ_TOKEN are both fine -- neither absent nor mismatched. Fix: one added actions/checkout step, reproduced+verified locally (import fails from empty cwd, succeeds once cwd = repo root). E17 stays blocked on this until the PR lands and a real diag round-trip is OBSERVED (merged != deployed != observed) -- not yet true."
     },
     {
       "id": "E20",
