@@ -3,7 +3,7 @@
   "strategy": "fade_breakout_4h",
   "symbol": "BTCUSDT",
   "timeframe": "4h",
-  "config_fingerprint": "sha256:01a8d99c007910a6211de92c7fc41830",
+  "config_fingerprint": "sha256:c2144450e5f46d784ad9144dc515e7d1",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",

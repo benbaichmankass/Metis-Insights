@@ -3,7 +3,7 @@
   "strategy": "trend_donchian_sol",
   "symbol": "SOLUSDT",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:80af06bec668e7d14579d9db8f62f30f",
+  "config_fingerprint": "sha256:84c65f97758c880b08606181bbc079ed",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",
