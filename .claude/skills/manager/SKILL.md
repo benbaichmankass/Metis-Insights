@@ -182,6 +182,59 @@ the lane has produced, then kill or re-scope.** Never interrupt blind — an
 interrupt forfeits everything not yet landed, and cost-per-turn is the wrong
 measure once a lane is running. The right measure is cost per unit *delivered*.
 
+⚠️ **A CEILING NOBODY READS MID-FLIGHT IS NOT A CEILING.** Run
+`scripts/ops/lane_reconcile.py --sessions <a list_sessions dump>` at every
+check-in. It joins the dump to this checklist and prints, in one screen, the
+lanes over ceiling, the finished lanes still open, and the lanes walled on a
+permission prompt. MEASURED 2026-09-22 the first time it was run: **14 lanes
+over ceiling** (B1 at 12.4×, $435.05 against $35) where the row recording the
+problem had said six, because the manager read the numbers before the lanes were
+archived.
+
+⚠️ **A LANE'S SPEND IS FINAL ONLY ONCE THE LANE IS ARCHIVED** (`session_status
+== SESSION_STATUS_ARCHIVED`). `get_session` on a live lane returns a **RUNNING**
+total, and a running total written onto a row reads exactly like a final one —
+the manager made that mistake twice on 2026-09-21, the second time inside the
+commit describing the first. Record it with the read time and the word `running`
+beside it, or read it after archiving. `lane_reconcile` will not print a bare
+figure; do not write one either.
+
+### Archive a lane when its work lands. Do NOT subscribe it to its own PR.
+
+**This is the cheapest control here and it is free.** A lane whose work has
+merged has nothing left to contribute to the PR, and watching one is not free:
+A9 went $37.13 → $50.78 and E16 $25.38 → $56.14 **after** their work merged,
+sitting subscribed to PRs the manager was going to merge anyway.
+
+MEASURED 2026-09-22 across the 60 most recent sessions: **22 sessions whose work
+was finished were not archived, holding $2,088.73 of running spend** — the
+largest single line in the account, bigger than any lane's actual work.
+
+So, at dispatch and at landing:
+
+- **Do not tell a lane to subscribe to its own PR**, and do not leave it idling
+  on CI. The manager merges; the lane stops.
+- **`archive_session` the lane once its PR is merged or its row is closed.** It
+  is reversible (`unarchive_session`), and archiving is also what makes the
+  lane's spend readable as **final**.
+
+⚠️ **A BLOCKED LANE IS THE EXPENSIVE ONE, AND IT LOOKS ALIVE.** `status_bucket`
+`BLOCKED` means the lane is sitting on a permission prompt only a **human** can
+clear — `fire_trigger` is refused there, correctly, because firing would answer
+the prompt on the operator's behalf. **Surface it; never try to clear it.**
+MEASURED 2026-09-22: one such lane (`session_01XYu2vvg9Qgxoqf4jJQyd8i`,
+"ENGINEERING LANE MI-305", spawned 2026-09-18 by the previous manager) had sat
+BLOCKED and idle for **72.8 hours holding $1,343.06** — more than the whole
+13-lane day E20 was filed about — and had **never committed a line**. Nothing was
+looking. That is why the reconciler prints this every run, and why a scheduled
+watchdog runs it independently of whoever is managing
+(`docs/claude/work/LANE-WATCHDOG-PROMPT.md`).
+
+⚠️ **Do not write a rule about which command shapes trip a permission prompt.**
+E20 hypothesised a compound piped `git` command and said in terms that it was a
+hypothesis; `list_sessions` does not expose the pending action, so nobody has
+established it. Surface the condition, and measure before ruling.
+
 ### Record the choice
 
 On the lane's checklist row, record the model, fresh-vs-resume, **and the
