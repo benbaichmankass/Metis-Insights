@@ -148,6 +148,22 @@ def _self_test() -> int:
     have to be exercised or the guard's green means nothing.
     """
     failures = 0
+    # collapsed-state: not_applicable — THIS FILE BRANCHES ON NO POWER STATE AT
+    # ALL, and the match is a token collision rather than a finding. The contract
+    # `research_queue.power_state` keys its consumers on `\bpower_state\b`, which
+    # this module matches because it CARRIES that field through opaquely — a kwarg,
+    # a dict key, a CLI flag, a fixture value — from the dispatcher that computed it
+    # to the committed record, deliberately never reading it. The `not_applicable`
+    # the guard then sees is NOT a power state at all: it is a member of this
+    # module's own `VERDICTS` tuple, an unrelated closed set that happens to share
+    # the word.
+    #
+    # So the true statement is NOT "this site legitimately sees only one state" —
+    # it is that none of the seven is seen here, because a pass-through must not
+    # interpret the label it preserves. `power_state` is the GATE's computed safety
+    # verdict; a second opinion on it, formed in a module with no basis for one, is
+    # exactly the drift the dispatcher's own comment refuses when it declines to let
+    # a unit hand-declare its power state.
     good = {
         "schema_version": 1,
         "research_unit": "RQ-20260922-002",
