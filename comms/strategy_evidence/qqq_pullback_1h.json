@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "qqq_pullback_1h",
   "symbol": "QQQ",
   "timeframe": "1h",
@@ -8,8 +8,8 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 13.1296,
-  "expectancy_r_oos": 0.2735,
+  "net_r_oos": 11.3698,
+  "expectancy_r_oos": 0.2369,
   "n_trades_oos": 48,
   "folds": 4,
   "fold_detail": [
@@ -40,8 +40,8 @@
     {
       "fold": 4,
       "trades": 12,
-      "net_r": -6.6412,
-      "expectancy_r": -0.5534,
+      "net_r": -8.401,
+      "expectancy_r": -0.7001,
       "start": "2026-06-16 18:00:00+00:00",
       "end": "2026-09-14 18:00:00+00:00"
     }
@@ -49,10 +49,24 @@
   "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
+  "cost_stack": {
+    "fees": 0.0,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/qqq_pullback_1h__bt.json"
+  },
+  "net_r_oos_fee_only": 13.3242,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:21.997905+00:00",
+  "generated_at": "2026-09-22T09:27:19.682264+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/qqq_pullback_1h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/qqq_pullback_1h__trades.jsonl",
   "error": null,
   "harness": "pullback"
 }

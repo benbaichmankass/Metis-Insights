@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "spy_trend_long_1d",
   "symbol": "SPY",
   "timeframe": "1d",
@@ -8,29 +8,21 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 4.1128,
-  "expectancy_r_oos": 0.6855,
-  "n_trades_oos": 6,
+  "net_r_oos": 7.1152,
+  "expectancy_r_oos": 1.423,
+  "n_trades_oos": 5,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 1,
-      "net_r": -1.0292,
-      "expectancy_r": -1.0292,
-      "start": "2025-06-10 00:00:00+00:00",
-      "end": "2025-06-10 00:00:00+00:00"
+      "net_r": 6.4365,
+      "expectancy_r": 6.4365,
+      "start": "2025-06-24 00:00:00+00:00",
+      "end": "2025-06-24 00:00:00+00:00"
     },
     {
       "fold": 2,
-      "trades": 1,
-      "net_r": 6.098,
-      "expectancy_r": 6.098,
-      "start": "2025-06-26 00:00:00+00:00",
-      "end": "2025-06-26 00:00:00+00:00"
-    },
-    {
-      "fold": 3,
       "trades": 1,
       "net_r": -1.0379,
       "expectancy_r": -1.0379,
@@ -38,22 +30,44 @@
       "end": "2025-12-24 00:00:00+00:00"
     },
     {
-      "fold": 4,
-      "trades": 3,
-      "net_r": 0.0819,
-      "expectancy_r": 0.0273,
+      "fold": 3,
+      "trades": 1,
+      "net_r": -1.0436,
+      "expectancy_r": -1.0436,
       "start": "2026-01-06 00:00:00+00:00",
+      "end": "2026-01-06 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 2,
+      "net_r": 2.7602,
+      "expectancy_r": 1.3801,
+      "start": "2026-04-14 00:00:00+00:00",
       "end": "2026-08-03 00:00:00+00:00"
     }
   ],
   "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
+  "cost_stack": {
+    "fees": 0.0,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/spy_trend_long_1d__bt.json"
+  },
+  "net_r_oos_fee_only": 7.2835,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:30.915773+00:00",
+  "generated_at": "2026-09-22T09:27:54.686248+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/spy_trend_long_1d__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/spy_trend_long_1d__trades.jsonl",
   "error": null,
   "harness": "trend",
-  "low_n_warning": "n_trades_oos=6 < 10; the pooled number is reported but is not a basis for a verdict."
+  "low_n_warning": "n_trades_oos=5 < 10; the pooled number is reported but is not a basis for a verdict."
 }

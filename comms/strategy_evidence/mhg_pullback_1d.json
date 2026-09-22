@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "mhg_pullback_1d",
   "symbol": "MHG",
   "timeframe": "1d",
@@ -11,51 +11,65 @@
     "trail_decay_stall_bars",
     "trail_decay_tight_mult"
   ],
-  "net_r_oos": 2.2368,
-  "expectancy_r_oos": 0.2033,
-  "n_trades_oos": 11,
+  "net_r_oos": 3.2924,
+  "expectancy_r_oos": 0.3292,
+  "n_trades_oos": 10,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 2,
-      "net_r": 2.5529,
-      "expectancy_r": 1.2764,
-      "start": "2025-09-25 00:00:00+00:00",
-      "end": "2025-11-05 00:00:00+00:00"
+      "net_r": 5.1848,
+      "expectancy_r": 2.5924,
+      "start": "2025-11-05 00:00:00+00:00",
+      "end": "2026-01-22 00:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 2,
-      "net_r": 0.5602,
-      "expectancy_r": 0.2801,
-      "start": "2026-01-22 00:00:00+00:00",
-      "end": "2026-02-06 00:00:00+00:00"
+      "net_r": -2.0415,
+      "expectancy_r": -1.0208,
+      "start": "2026-02-06 00:00:00+00:00",
+      "end": "2026-04-02 00:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 2,
-      "net_r": 2.1922,
-      "expectancy_r": 1.0961,
-      "start": "2026-04-02 00:00:00+00:00",
-      "end": "2026-05-01 00:00:00+00:00"
+      "net_r": 2.3555,
+      "expectancy_r": 1.1778,
+      "start": "2026-05-01 00:00:00+00:00",
+      "end": "2026-06-08 00:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 5,
-      "net_r": -3.0685,
-      "expectancy_r": -0.6137,
-      "start": "2026-06-08 00:00:00+00:00",
+      "trades": 4,
+      "net_r": -2.2064,
+      "expectancy_r": -0.5516,
+      "start": "2026-07-13 00:00:00+00:00",
       "end": "2026-09-03 00:00:00+00:00"
     }
   ],
-  "folds_positive": 3,
+  "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/mhg_pullback_1d__bt.json"
+  },
+  "net_r_oos_fee_only": 3.4384,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:19.301750+00:00",
+  "generated_at": "2026-09-22T09:27:17.047740+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/mhg_pullback_1d__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/mhg_pullback_1d__trades.jsonl",
   "error": null,
   "harness": "pullback"
 }

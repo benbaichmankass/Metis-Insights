@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "slv_trend_1h",
   "symbol": "SLV",
   "timeframe": "1h",
@@ -8,51 +8,65 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 62.2867,
-  "expectancy_r_oos": 1.0927,
-  "n_trades_oos": 57,
+  "net_r_oos": 57.323,
+  "expectancy_r_oos": 0.9883,
+  "n_trades_oos": 58,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 14,
-      "net_r": 8.1517,
-      "expectancy_r": 0.5823,
-      "start": "2025-04-11 14:00:00+00:00",
-      "end": "2025-08-19 15:00:00+00:00"
+      "net_r": 6.7288,
+      "expectancy_r": 0.4806,
+      "start": "2025-04-16 14:00:00+00:00",
+      "end": "2025-08-13 14:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 14,
-      "net_r": 23.0197,
-      "expectancy_r": 1.6443,
-      "start": "2025-08-22 14:00:00+00:00",
-      "end": "2025-12-17 15:00:00+00:00"
+      "net_r": 22.9467,
+      "expectancy_r": 1.639,
+      "start": "2025-08-19 15:00:00+00:00",
+      "end": "2025-12-09 15:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 14,
-      "net_r": 22.7088,
-      "expectancy_r": 1.6221,
-      "start": "2025-12-22 15:00:00+00:00",
-      "end": "2026-05-06 14:00:00+00:00"
+      "net_r": 15.9498,
+      "expectancy_r": 1.1393,
+      "start": "2025-12-17 15:00:00+00:00",
+      "end": "2026-05-01 14:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 15,
-      "net_r": 8.4065,
-      "expectancy_r": 0.5604,
-      "start": "2026-05-15 14:00:00+00:00",
+      "trades": 16,
+      "net_r": 11.6977,
+      "expectancy_r": 0.7311,
+      "start": "2026-05-06 14:00:00+00:00",
       "end": "2026-09-10 14:00:00+00:00"
     }
   ],
   "folds_positive": 4,
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
+  "cost_stack": {
+    "fees": 0.0,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/slv_trend_1h__bt.json"
+  },
+  "net_r_oos_fee_only": 59.9038,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:27.480870+00:00",
+  "generated_at": "2026-09-22T09:27:23.831283+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/slv_trend_1h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/slv_trend_1h__trades.jsonl",
   "error": null,
   "harness": "trend"
 }

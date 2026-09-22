@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "avax_pullback_2h",
   "symbol": "AVAXUSDT",
   "timeframe": "2h",
@@ -12,51 +12,65 @@
     "trail_decay_stall_bars",
     "trail_decay_tight_mult"
   ],
-  "net_r_oos": 15.6777,
-  "expectancy_r_oos": 0.3408,
-  "n_trades_oos": 46,
+  "net_r_oos": 12.6729,
+  "expectancy_r_oos": 0.2816,
+  "n_trades_oos": 45,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 11,
-      "net_r": 21.1025,
-      "expectancy_r": 1.9184,
-      "start": "2025-09-17 16:00:00+00:00",
-      "end": "2025-12-02 04:00:00+00:00"
+      "net_r": 15.3895,
+      "expectancy_r": 1.399,
+      "start": "2025-09-26 18:00:00+00:00",
+      "end": "2025-12-04 22:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 11,
-      "net_r": 1.0706,
-      "expectancy_r": 0.0973,
-      "start": "2025-12-02 22:00:00+00:00",
-      "end": "2026-02-23 10:00:00+00:00"
+      "net_r": 1.0988,
+      "expectancy_r": 0.0999,
+      "start": "2025-12-06 18:00:00+00:00",
+      "end": "2026-03-05 08:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 11,
-      "net_r": 0.5523,
-      "expectancy_r": 0.0502,
-      "start": "2026-02-26 08:00:00+00:00",
-      "end": "2026-05-29 18:00:00+00:00"
+      "net_r": 0.5447,
+      "expectancy_r": 0.0495,
+      "start": "2026-03-11 00:00:00+00:00",
+      "end": "2026-07-09 02:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 13,
-      "net_r": -7.0477,
-      "expectancy_r": -0.5421,
-      "start": "2026-06-20 10:00:00+00:00",
-      "end": "2026-09-11 14:00:00+00:00"
+      "trades": 12,
+      "net_r": -4.3601,
+      "expectancy_r": -0.3633,
+      "start": "2026-07-09 22:00:00+00:00",
+      "end": "2026-09-20 04:00:00+00:00"
     }
   ],
   "folds_positive": 3,
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/avax_pullback_2h__bt.json"
+  },
+  "net_r_oos_fee_only": 14.6629,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:20:38.074786+00:00",
+  "generated_at": "2026-09-22T09:25:49.232876+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/ca0a39ea-0ec3-541d-8337-cce28881c2a6/scratchpad/u34_wd/avax_pullback_2h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/avax_pullback_2h__trades.jsonl",
   "error": null,
   "harness": "pullback"
 }

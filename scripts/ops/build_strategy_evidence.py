@@ -112,7 +112,6 @@ import json
 import os
 import statistics
 import sys
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -123,6 +122,28 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "research"))
 
 OUT_DIR = ROOT / "comms" / "strategy_evidence"
+
+#: Where a run's raw harness output lands, and therefore what `source_run` and
+#: `cost_stack.source` POINT AT. Repo-relative and COMMITTED, deliberately.
+#:
+#: ⚠️ This used to be `tempfile.mkdtemp()`, and every record written before
+#: 2026-09-22 carries a `/tmp/...` path that no longer exists on any machine
+#: (`PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH`, measured over all 52
+#: committed records: 42 name a dead `/tmp` dir, 10 name nothing). Under
+#: `docs/CLAUDE-RULES-CANONICAL.md` § "A MEASURED must say WHERE THE
+#: MEASUREMENT LIVES", a record whose locator cannot be reached is not MEASURED
+#: -- it degrades to INFERRED from an unstated measurement. The per-trade rows
+#: ARE the measurement `net_r_oos` is pooled from, so they belong in the repo
+#: beside the record that cites them.
+#:
+#: `runtime_logs/` is NOT an option: it is gitignored (.gitignore:33), so a
+#: locator under it is exactly as unreachable as `/tmp` to anyone but the
+#: machine that ran it.
+#:
+#: The fetched candle feed (`<leg>__data.csv`) is NOT committed -- it is an
+#: input reproducible from `data.binance.vision` / Yahoo by re-running, not a
+#: measurement -- and is ignored by `comms/strategy_evidence/runs/.gitignore`.
+RUNS_DIR_REL = "comms/strategy_evidence/runs"
 SCHEMA_VERSION = 2
 GENERATOR = "scripts/ops/build_strategy_evidence.py"
 
@@ -387,7 +408,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--days", type=int, default=DEFAULT_DAYS)
     ap.add_argument("--folds", type=int, default=DEFAULT_FOLDS)
     ap.add_argument("--out", default=str(OUT_DIR))
-    ap.add_argument("--workdir", default=None)
+    ap.add_argument("--workdir", default=None,
+                    help="Where harness output lands, and therefore what "
+                         f"source_run points at. Default: {RUNS_DIR_REL}/<UTC-date>/ "
+                         "(repo-relative and committed). A path outside the repo "
+                         "makes source_run unreachable -- see RUNS_DIR_REL.")
     ap.add_argument("--dry-run", action="store_true",
                     help="Classify + grade fidelity only. No fetch, no harness run.")
     a = ap.parse_args(argv)
@@ -400,7 +425,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     out_dir = Path(a.out)
-    wd = a.workdir or tempfile.mkdtemp(prefix="strategy_evidence_")
+    # Repo-relative by default so `source_run` is a locator a later session can
+    # actually reach -- see RUNS_DIR_REL. `--workdir` still accepts anything;
+    # passing a path outside the repo reintroduces the defect knowingly.
+    wd = a.workdir or os.path.join(
+        RUNS_DIR_REL, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    os.makedirs(wd, exist_ok=True)
     counts: Dict[str, int] = {s: 0 for s in COVERAGE_STATES}
 
     for n in names:

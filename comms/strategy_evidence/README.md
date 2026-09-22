@@ -91,6 +91,39 @@ A `schema_version: 1` record (no `cost_stack`/`decision_rule`) means the
 producer has not been re-run against that leg since 2026-09-22 — regenerate it
 rather than reading the old fields as current.
 
+## `source_run` points into `runs/`, and that is a FIX, not decoration (R5/R7, 2026-09-22)
+
+Every record written before 2026-09-22 names a `source_run` under `/tmp` — a
+directory that exists on no machine today. MEASURED by reading all 52 committed
+records on `0e0a8f3`: **42 name a dead `/tmp` path, 10 name nothing at all.**
+Filed as `PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH`.
+
+That is not cosmetic. `docs/CLAUDE-RULES-CANONICAL.md` § "A MEASURED must say
+WHERE THE MEASUREMENT LIVES" is explicit that a number whose source cannot be
+reached **is not MEASURED** — it degrades to INFERRED from an unstated
+measurement. `net_r_oos` is a sum over per-trade rows; if those rows are gone,
+nobody can check the pooling, the fold split, or whether the cost stack was
+actually applied per trade.
+
+So the producer now defaults its workdir to `comms/strategy_evidence/runs/<UTC-date>/`
+and both locators are repo-relative and committed:
+
+| field | points at | what it lets you re-check |
+|---|---|---|
+| `source_run` | `runs/<date>/<leg>__trades.jsonl` | every trade the pooled number sums, with `net_r` **and** `net_r_fee_only` per row |
+| `cost_stack.source` | `runs/<date>/<leg>__bt.json` | the fee/slippage/funding bps the harness actually resolved |
+
+`runtime_logs/` was **not** an option — it is gitignored (`.gitignore:33`), so a
+locator under it is exactly as unreachable as `/tmp` to anyone but the machine
+that ran it. The fetched candle feed (`<leg>__data.csv`) is deliberately **not**
+committed: it is a reproducible input, not a measurement, and no record cites it.
+
+⚠️ **A record can still carry a dead locator, and you should check.** Passing
+`--workdir` a path outside the repo reintroduces the defect. The 12 legs R1 ran
+on 2026-09-22 (`f3746ab`) carry `cost_stack` and a `decision_rule` but still name
+`/tmp/tmp.RsNZr5lfkw` — schema-complete, locator-dead. Re-running the producer
+for a leg is what fixes it.
+
 ## Regenerating
 
 ```bash

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "qqq_trend_long_1d",
   "symbol": "QQQ",
   "timeframe": "1d",
@@ -8,21 +8,29 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 3.4778,
-  "expectancy_r_oos": 0.5796,
-  "n_trades_oos": 6,
+  "net_r_oos": 1.9389,
+  "expectancy_r_oos": 0.277,
+  "n_trades_oos": 7,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 1,
-      "net_r": 4.1304,
-      "expectancy_r": 4.1304,
-      "start": "2025-06-10 00:00:00+00:00",
-      "end": "2025-06-10 00:00:00+00:00"
+      "net_r": 3.6177,
+      "expectancy_r": 3.6177,
+      "start": "2025-06-24 00:00:00+00:00",
+      "end": "2025-06-24 00:00:00+00:00"
     },
     {
       "fold": 2,
+      "trades": 1,
+      "net_r": -1.0262,
+      "expectancy_r": -1.0262,
+      "start": "2025-10-01 00:00:00+00:00",
+      "end": "2025-10-01 00:00:00+00:00"
+    },
+    {
+      "fold": 3,
       "trades": 1,
       "net_r": -1.0152,
       "expectancy_r": -1.0152,
@@ -30,30 +38,36 @@
       "end": "2025-10-24 00:00:00+00:00"
     },
     {
-      "fold": 3,
-      "trades": 1,
-      "net_r": -1.0191,
-      "expectancy_r": -1.0191,
-      "start": "2026-01-27 00:00:00+00:00",
-      "end": "2026-01-27 00:00:00+00:00"
-    },
-    {
       "fold": 4,
-      "trades": 3,
-      "net_r": 1.3817,
-      "expectancy_r": 0.4606,
-      "start": "2026-04-13 00:00:00+00:00",
+      "trades": 4,
+      "net_r": 0.3626,
+      "expectancy_r": 0.0907,
+      "start": "2026-01-27 00:00:00+00:00",
       "end": "2026-08-13 00:00:00+00:00"
     }
   ],
   "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
+  "cost_stack": {
+    "fees": 0.0,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/qqq_trend_long_1d__bt.json"
+  },
+  "net_r_oos_fee_only": 2.0625,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:23.833183+00:00",
+  "generated_at": "2026-09-22T09:27:21.404259+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/qqq_trend_long_1d__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/qqq_trend_long_1d__trades.jsonl",
   "error": null,
   "harness": "trend",
-  "low_n_warning": "n_trades_oos=6 < 10; the pooled number is reported but is not a basis for a verdict."
+  "low_n_warning": "n_trades_oos=7 < 10; the pooled number is reported but is not a basis for a verdict."
 }

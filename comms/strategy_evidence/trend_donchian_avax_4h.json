@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "trend_donchian_avax_4h",
   "symbol": "AVAXUSDT",
   "timeframe": "4h",
@@ -8,51 +8,65 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 4.0668,
-  "expectancy_r_oos": 0.0865,
-  "n_trades_oos": 47,
+  "net_r_oos": 9.692,
+  "expectancy_r_oos": 0.2019,
+  "n_trades_oos": 48,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
-      "trades": 11,
-      "net_r": 15.9278,
-      "expectancy_r": 1.448,
-      "start": "2025-09-22 00:00:00+00:00",
-      "end": "2025-12-01 00:00:00+00:00"
+      "trades": 12,
+      "net_r": 12.6406,
+      "expectancy_r": 1.0534,
+      "start": "2025-10-07 12:00:00+00:00",
+      "end": "2025-12-09 16:00:00+00:00"
     },
     {
       "fold": 2,
-      "trades": 11,
-      "net_r": -2.2014,
-      "expectancy_r": -0.2001,
-      "start": "2025-12-03 20:00:00+00:00",
-      "end": "2026-02-14 08:00:00+00:00"
+      "trades": 12,
+      "net_r": -3.2478,
+      "expectancy_r": -0.2707,
+      "start": "2025-12-15 12:00:00+00:00",
+      "end": "2026-03-04 12:00:00+00:00"
     },
     {
       "fold": 3,
-      "trades": 11,
-      "net_r": -10.1821,
-      "expectancy_r": -0.9256,
-      "start": "2026-02-23 00:00:00+00:00",
-      "end": "2026-05-23 04:00:00+00:00"
+      "trades": 12,
+      "net_r": -3.7484,
+      "expectancy_r": -0.3124,
+      "start": "2026-03-21 20:00:00+00:00",
+      "end": "2026-07-08 00:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 14,
-      "net_r": 0.5225,
-      "expectancy_r": 0.0373,
-      "start": "2026-06-02 12:00:00+00:00",
-      "end": "2026-09-07 12:00:00+00:00"
+      "trades": 12,
+      "net_r": 4.0476,
+      "expectancy_r": 0.3373,
+      "start": "2026-07-23 16:00:00+00:00",
+      "end": "2026-09-20 12:00:00+00:00"
     }
   ],
   "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/trend_donchian_avax_4h__bt.json"
+  },
+  "net_r_oos_fee_only": 11.1978,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:33:32.729743+00:00",
+  "generated_at": "2026-09-22T09:28:48.576542+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/ca0a39ea-0ec3-541d-8337-cce28881c2a6/scratchpad/u34_wd/trend_donchian_avax_4h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/trend_donchian_avax_4h__trades.jsonl",
   "error": null,
   "harness": "trend"
 }
