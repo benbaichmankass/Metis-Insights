@@ -2762,12 +2762,27 @@ strategies:
     model: null
     signal_prefixes: [avax_pullback, avax_pullback_2h]
     enabled: true
-    execution: shadow        # shadow-guard: allow — DEMOTED 2026-07-22 (Tier-3, operator-approved
-                             # same session): 3rd-consecutive-review-confirmed diversified-paper-book
-                             # laggard (this window -$3976.67/7t/14.3%WR; unchanged-negative since
-                             # 07-07/07-10, worst cell in the cohort). Thin n (7 trades) — a 4-6wk
-                             # shadow re-eval is expected before any permanent kill decision, not a
-                             # permanent demotion. ROLLBACK: set back to `live`.
+    execution: live          # RE-PROMOTED shadow -> live 2026-09-22 (Tier-3, operator-approved:
+                             # "wire 2 and investigate the other 2"), ON THE CONDITION THE DEMOTION
+                             # ITSELF SET. Preserved verbatim because it is the reason this is a
+                             # discharge and not an override — DEMOTED 2026-07-22 (Tier-3,
+                             # operator-approved same session): "3rd-consecutive-review-confirmed
+                             # diversified-paper-book laggard (this window -$3976.67/7t/14.3%WR;
+                             # unchanged-negative since 07-07/07-10, worst cell in the cohort).
+                             # Thin n (7 trades) — a 4-6wk shadow re-eval is expected before any
+                             # permanent kill decision, not a permanent demotion."
+                             # THE RE-EVAL: 2 months of shadow, then the R7 corpus (#12720) graded
+                             # it net of the FULL cost stack {fee 7.5, slippage 5.0, funding 1.0}
+                             # bps at net_r_oos +12.6729 over n=45 with 3 of 4 folds positive,
+                             # verdict `pass` against RULE-D1-STAGE0-NET-OF-FULL-COST (registered
+                             # 2026-09-22T05:34:08Z, before the run). The thin-n objection that
+                             # drove the demotion — 7 trades — is answered at 45.
+                             # [!] THE OLD NUMBER AND THE NEW ONE ARE DIFFERENT INSTRUMENTS and
+                             # neither refutes the other: -$3976.67 was a LIVE PAPER-BOOK window,
+                             # +12.6729R is a BACKTEST net of cost. Under the promotion ladder a
+                             # live book never establishes edge, so the backtest is the admissible
+                             # one for this decision — but do not read it as "the 2026-07-22 result
+                             # was wrong". ROLLBACK: set back to `shadow`.
     timeframe: "2h"
     symbols:
       - AVAXUSDT

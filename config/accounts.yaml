@@ -295,18 +295,42 @@ accounts:
     market_type: linear                # PR 3 — Bybit V5 USDT-margined
                                        # linear perpetuals. Was
                                        # spot-margin pre-cutover.
-    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h, avax_pullback_2h, fade_breakout_4h, htf_pullback_trend_2h]
+    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h, avax_pullback_2h]
                                        # ── R8 WIRING, 2026-09-22 (Tier-3, operator
                                        # instruction: "Wire the ones that are 3/4
-                                       # or 4/4"). FOUR LEGS ADDED, each PASSING
+                                       # or 4/4", then after the demotion history
+                                       # was surfaced: "wire 2 and investigate the
+                                       # other 2"). TWO LEGS ADDED, both PASSING
                                        # RULE-D1-STAGE0-NET-OF-FULL-COST on the
-                                       # corpus R7 completed (#12720), and each
+                                       # corpus R7 completed (#12720), and both
                                        # selected on FOLD CONSISTENCY rather than
                                        # on pooled net_R alone:
-                                       #   ada_pullback_2h        4/4 folds +21.93R n=44
-                                       #   avax_pullback_2h       3/4 folds +12.67R n=45
-                                       #   fade_breakout_4h       3/4 folds  +6.11R n=25
-                                       #   htf_pullback_trend_2h  3/4 folds  +2.80R n=80
+                                       #   ada_pullback_2h   4/4 folds +21.93R n=44
+                                       #   avax_pullback_2h  3/4 folds +12.67R n=45
+                                       # [!] ada_pullback_2h carries NO prior
+                                       # demotion. avax_pullback_2h does — demoted
+                                       # 2026-07-22 (Tier-3) on -$3976.67/7t/14.3%WR
+                                       # — but that demotion STATED ITS OWN
+                                       # RE-PROMOTION CONDITION: "Thin n (7 trades)
+                                       # — a 4-6wk shadow re-eval is expected before
+                                       # any permanent kill decision, not a
+                                       # permanent demotion." Two months have passed
+                                       # and the re-eval is +12.6729R over n=45 at
+                                       # 3 of 4 folds positive. The condition is MET
+                                       # on its own terms, which is why this is not
+                                       # an override.
+                                       # [!] TWO MORE 3/4 LEGS WERE STAGED AND ARE
+                                       # NOT WIRED — see row E39. fade_breakout_4h
+                                       # (+6.11R n=25) was demoted 2026-06-01 on
+                                       # "net -86R", and its condition reads
+                                       # "re-promote only on a fresh net-positive
+                                       # LIVE/SHADOW WINDOW" — a backtest is a
+                                       # different instrument and does not satisfy
+                                       # it literally. htf_pullback_trend_2h
+                                       # (+2.80R n=80) was demoted 2026-08-23 on
+                                       # "OOS net_R -13.933 on real money", and that
+                                       # contradiction with the new corpus is
+                                       # unexplained. Both are held pending E39.
                                        # [!] SIX OTHER PASSING LEGS WERE DELIBERATELY
                                        # NOT WIRED. trend_donchian_eth (+21.68R, n=102)
                                        # and sol_pullback_2h (+7.28R, n=16) pass on
@@ -617,9 +641,9 @@ accounts:
     mode: live                         # demo = paper money; live is correct.
     market_type: linear                # USDT-margined linear perps (mirrors
                                        # bybit_2); set-leverage fires at boot.
-    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h, avax_pullback_2h, fade_breakout_4h, htf_pullback_trend_2h]
+    strategies: [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h, avax_pullback_2h]
                                        # ── R8 WIRING, 2026-09-22 — FOLLOWS bybit_2's
-                                       # four additions IDENTICALLY AND IN THE SAME
+                                       # two additions IDENTICALLY AND IN THE SAME
                                        # ORDER, in the same commit. This is not
                                        # tidiness: test_bybit_portfolio_mirrors_
                                        # bybit_2_exactly asserts ORDERED equality on

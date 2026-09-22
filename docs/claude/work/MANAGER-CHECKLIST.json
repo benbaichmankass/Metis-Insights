@@ -1225,6 +1225,36 @@
       "prs": [],
       "blocked_on": [],
       "note": "OPERATOR DIRECTIVE 2026-09-22, part two of the R8 wiring decision: 'For the others, we need to use them as usecases for regime classification - I want to wire them, but we need to be sure we have a working mechanism for determining under what market conditions each strategy trades based on when we expect the strategy to perform well.' [!] THE SIX HELD-BACK LEGS ARE THE USE CASES, and they were held back on FOLD CONSISTENCY rather than on pooled net_R: trend_donchian_eth (+21.6753R, n=102, 1/4 folds), sol_pullback_2h (+7.2808R, n=16, 1/4), trend_donchian_avax_4h (+9.6920R, n=48, 2/4), trend_donchian_ada_4h (+8.5287R, n=38, 2/4), trend_donchian_sol_4h (+4.1648R, n=34, 2/4), trend_donchian_sol (+2.8045R, n=57, 2/4). A leg that earns +21.68R over 102 trades with ONE of four folds positive is not a leg with an edge -- it is a leg that worked in one regime, and the pooled sum cannot say which. [!] THIS IS RQ-20260922-002's QUESTION DECIDING A REAL-MONEY PROMOTION: 'RULE-D1 reads a pooled sum, which is blind to WHERE the R came from.' That unit is already queued and blocked; this row is the BUILD it implies. [!] DELIVERABLE, and the bar is that it must be FALSIFIABLE: a per-leg statement of the market conditions under which the strategy is expected to perform, derived from the fold-level record rather than asserted, plus a way to tell which regime is current. An untestable label ('works in trending markets') is worth nothing -- the test is whether, given a historical window, the mechanism would have called the regime BEFORE the fold's result was known. [!] EXISTING MATERIAL TO START FROM, NOT GREENFIELD: regime_debt_matrix.classify() already routes legs to harnesses on structural params; config/regime_policy.yaml and config/regime_coverage_exemptions.yaml exist; comms/strategy_evidence/*.json now carries fold_detail with per-fold start/end/net_r/trades for all 42 measured legs (R7, #12720), and comms/strategy_evidence/runs/2026-09-22-r5/*__trades.jsonl carries the PER-TRADE series. The fold boundaries plus the per-trade timestamps are the raw material for asking what was true of the market in the folds a leg won versus the folds it lost. [!] IT GATES REAL MONEY: the six legs are wired only when this mechanism can say when each is expected to work."
+    },
+    {
+      "id": "E39",
+      "title": "Re-verify the two held legs: a corpus that says +6.11R and +2.80R against recorded live results of -86R and -13.933R",
+      "phase": "E",
+      "state": "queued",
+      "owner": "research lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-22: 'wire 2 and investigate the other 2'. TWO LEGS HELD OFF bybit_2 pending this row. [!] fade_breakout_4h -- DEMOTED 2026-06-01 (Tier-3, operator): 'no live edge demonstrated -- 16 closed trades, 44% win, net -86R (almost all bybit_1 demo; real-money bybit_2 +1.55/8)', and its condition reads 'Re-promote only on a fresh net-positive LIVE/SHADOW WINDOW'. The R7 corpus grades it +6.1101R over n=25, 3 of 4 folds. A BACKTEST IS A DIFFERENT INSTRUMENT FROM A LIVE/SHADOW WINDOW and does not satisfy that condition literally. [!] htf_pullback_trend_2h -- DEMOTED 2026-08-23 (Tier-3, operator): '4-axis tune discharge found nothing... Baseline itself is OOS net_R -13.933, the worst of the pullback family, and this leg routes to bybit_2 (REAL MONEY)'. The R7 corpus grades it +2.7979R over n=80, 3 of 4 folds. [!] THE QUESTION IS ONE QUESTION COVERING BOTH, and it is not 'which leg is better': WHY DOES THE NEW CORPUS DISAGREE SO VIOLENTLY WITH THE PRIOR MEASUREMENTS, AND WHICH INSTRUMENT IS RIGHT? The benign answer is that the old numbers were LIVE/PAPER P&L and the new ones are BACKTESTS net of cost -- under the ladder a live book never establishes edge, so the backtest is the admissible instrument and both legs promote. THAT ANSWER MUST BE ESTABLISHED, NOT ASSUMED: check whether the -13.933R figure was itself a backtest (the 2026-08-23 note calls it 'baseline OOS net_R', which SOUNDS like a harness number, not live P&L -- if so the benign reading collapses and two harness runs on the same leg disagree by 16.7R). [!] WHY IT MATTERS BEYOND THESE TWO: if a harness can produce -13.933R and +2.7979R for the same leg, that bears on how much weight the OTHER 32 passing records carry, including the two just wired. This row is cheap and its blast radius is the whole corpus."
+    },
+    {
+      "id": "E40",
+      "title": "B1's identity check makes every promotion invalidate its own evidence — the guard has never permitted one",
+      "phase": "B",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "FOUND 2026-09-22 by trying to perform the first promotion since B1 landed. scripts/ci/check_roster_promotion_evidence.py EXITS 1 on avax_pullback_2h -> bybit_2 with `identity FAIL: config_fingerprint sha256:74242b93... != current sha256:84e51624... -- the record is about a different configuration of this leg (STALE)', while C1, C2, C3 and C4 ALL PASS. [!] MEASURED CAUSE, not inferred: I recomputed the fingerprint three ways. The record's digest matches the COMMITTED config EXACTLY (74242b93 == 74242b93). The only field my edit changed is `execution: shadow -> live`. So the flip ALONE moved the digest. build_strategy_evidence.py::config_fingerprint digests the ENTIRE leg config block -- json.dumps(cfg, sort_keys=True) -- which includes the execution gate. [!] THEREFORE ANY PROMOTION INVALIDATES ITS OWN EVIDENCE AT THE MOMENT OF PROMOTION. A leg cannot go shadow -> live without the guard calling its record stale, because the flip changes the thing being fingerprinted. B1 landed 2026-09-21 and this is the first promotion attempted since; the defect has been latent for a day and would have blocked every one. [!] THE FIX IS A CORRECTNESS FIX, NOT A WEAKENING: fingerprint the STRATEGY PARAMETERS the backtest measured, excluding `execution` (and almost certainly `enabled`) -- neither is a strategy property and neither changes what a harness would produce. A moved atr_stop_mult, entry_z or lookback must still invalidate the record, and the guard's own self-test at line 626 ('P6 stale config_fingerprint fails identity', plus 'P6 ...while all four clauses still PASS (so identity is load-bearing)') must keep passing so the failure branch stays proven. [!] TWO WRONG FIXES, NAMED SO THEY ARE NOT TAKEN: (a) regenerating the evidence record after the flip -- it re-runs a backtest to account for a gate change that cannot affect the result, and it teaches the next session that the answer to a guard complaint is to re-roll the evidence; (b) wiring the roster WITHOUT the execution flip -- the fingerprint stays valid and the guard passes, and you get a leg that looks promoted and trades nothing, which is the silent-inert failure mode the missing AVAXUSDT symbol nearly produced the same hour."
     }
   ]
 }
