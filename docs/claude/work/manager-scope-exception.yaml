@@ -103,3 +103,50 @@ exceptions:
 
       VERIFIED, not assumed: all six hook commands re-parsed under `bash -n`
       and the rendered session-start text was read back after the edit.
+
+  - id: MGR-20260921-B2-ROSTER-EDIT
+    status: active
+    expires: "2026-09-24"
+    paths:
+      - "config/accounts.yaml"
+      - "tests/test_paper_portfolio_accounts.py"
+      - "CLAUDE.md"
+    reason: >-
+      OPERATOR APPROVAL, 2026-09-21, asked directly and answered directly: cut
+      `alpaca_portfolio.strategies` to exactly [ief_pullback_1d,
+      slv_pullback_1d], and — on the empty-`alpaca_live` question the B2 lane
+      raised and correctly refused to resolve — equality wins, no exception.
+      The CONTENT of this change is fully operator-approved. The only thing
+      this exception covers is WHO TYPED IT.
+
+      WHY A SESSION COULD NOT DO IT, which is the whole reason an exception is
+      needed. THREE lanes were dispatched for this four-line edit and none
+      committed a single line. Measured from `get_session`: lane one
+      (session_011b88KXF5rUPYPbUWARAtEy) reached $229.13 against a $30 ceiling
+      and ended on "git commit denied by permission rule" with four edits
+      staged in a container that is now gone. Lane two
+      (session_018J9SUp957b1V5xj1mcfTWu) stalled with its pending action
+      readable: a compound, piped git command awaiting an interactive Bash
+      approval nobody was present to give. Lane three
+      (session_01XnDDuqCsFscnUkgTNMTDA9) was dispatched with that shape
+      explicitly avoided and stalled anyway — on `python3 -m pytest
+      tests/test_paper_portfolio_accounts.py -q`, a plain single-purpose
+      command.
+
+      ⚠️ THAT THIRD DATA POINT REFUTES THE MANAGER'S OWN HYPOTHESIS. The
+      "compound/piped command shape" explanation written into
+      PI-20260921-LANE-BLOCKED-ON-AN-UNATTENDED-PERMISSION-PROMPT is WRONG and
+      has been corrected there rather than left standing. What is actually
+      established is narrower and stated as such: some sessions in this
+      environment escalate ordinary Bash commands to an interactive approval
+      that never arrives, and the manager cannot answer it for them.
+
+      So the guard's prescribed remedy — "route the work to a session" — was
+      attempted three times and is structurally unavailable, which is exactly
+      the case this hatch exists for. Leaving it undone would mean an
+      operator decision taken today silently does not happen, which is the
+      failure mode the whole operating reset was for.
+
+      WHAT IT DOES NOT COVER: any other roster, any `mode:` or `execution:`
+      value, anything in `alpaca_live`, and any future config edit. It is this
+      one approved change and the two files that carry its reasoning.
