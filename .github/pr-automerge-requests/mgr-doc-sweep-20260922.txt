@@ -1,0 +1,1 @@
+Doc sweep: file two measured findings — register-id-guard does not run on any PR, and PIPELINE.jsonl is not append-only in practice.
