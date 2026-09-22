@@ -3,7 +3,7 @@
   "strategy": "iwm_trend_long_1d",
   "symbol": "IWM",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:f37035ce532f711384a5487cc249c77a",
+  "config_fingerprint": "sha256:e50b1a963a62ba0a644bd8e9920c9cdb",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

@@ -3,7 +3,7 @@
   "strategy": "htf_pullback_trend_2h",
   "symbol": "BTCUSDT",
   "timeframe": "2h",
-  "config_fingerprint": "sha256:f044ec7918ccf559d9cfc79b4934e110",
+  "config_fingerprint": "sha256:9bbee55ee66baad226ef2cd11835ccf8",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
