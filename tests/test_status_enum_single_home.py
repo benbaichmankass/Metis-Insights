@@ -88,15 +88,65 @@ def test_every_backlog_the_digest_reads_is_enum_guarded():
 
     The guard scanned THREE backlogs while `work_digest` read FOUR, so the
     fourth was the one place a free-text status could land unremarked.
+
+    ⚠️ THE SUBJECT SET WENT EMPTY 2026-09-22 (E29) AND THAT IS WHY THE
+    CONTROL MOVED RATHER THAN BEING DELETED. `work_digest.SOURCES` used to
+    carry four review backlogs; the 2026-09-21 operating reset archived all
+    four, E29 removed them from `SOURCES` (they had been reading `absent` on
+    every run since the reset — the digest was blind to five of its six
+    sources while reporting itself healthy), and the digest now reads exactly
+    one source, the manager checklist, whose path contains no "backlog".
+
+    So the old line `assert digest_backlogs` — a positive control that the
+    digest reads SOME backlog — now fails on a correct change. Three ways to
+    respond and only one of them is honest:
+
+      - delete the assertion  -> the coverage check passes VACUOUSLY forever,
+                                 which is the exact state this file's own
+                                 docstring calls "a check that cannot go red"
+      - keep it as written    -> a true statement about the repo (zero
+                                 backlogs) fails CI, so the test is wrong
+                                 about its own subject
+      - STATE THE EMPTY SET   -> assert it is empty, on purpose, and move the
+                                 positive control to the side that still has
+                                 data. Adding a backlog back to `SOURCES`
+                                 then FAILS here until someone updates this
+                                 test deliberately, which is the review the
+                                 original control existed to force.
+
+    The third is what this does. `we looked and found nothing` is recorded as
+    itself rather than collapsed into `we could not look`.
     """
     from scripts.check_claim_basis import BACKLOGS
-    from scripts.ops.work_digest import SOURCES
+    from scripts.ops.work_digest import RETIRED_SOURCES, SOURCES
+
+    # Positive control, on the side that still holds data: the guard's own
+    # list must be readable, or this test proves nothing about coverage.
+    assert BACKLOGS, "positive control: the enum guard's backlog list is readable"
 
     digest_backlogs = {s.path for s in SOURCES if "backlog" in s.path}
-    assert digest_backlogs, "positive control: the digest must read some backlog"
+
+    # THE COVERAGE PROPERTY, unchanged and still binding the moment a backlog
+    # returns: anything the digest reads must also be enum-guarded.
     assert digest_backlogs <= set(BACKLOGS), (
         "a backlog the digest reads is NOT enum-guarded: "
         f"{sorted(digest_backlogs - set(BACKLOGS))}")
+
+    # THE EMPTY SET, ASSERTED RATHER THAN TOLERATED. This is what makes the
+    # vacuous pass above visible instead of silent.
+    assert digest_backlogs == set(), (
+        "work_digest reads a backlog again: "
+        f"{sorted(digest_backlogs)}. That is not a failure of the code — it "
+        "means this test's stated subject changed. Confirm the new source is "
+        "in check_claim_basis.BACKLOGS and then update this assertion.")
+
+    # And the retired ones are LISTED, not vanished, so "retired on purpose"
+    # stays distinguishable from "disappeared".
+    retired = {path for _label, path in RETIRED_SOURCES}
+    assert retired >= (set(BACKLOGS) & retired), "retired list lost a backlog"
+    assert len(retired) == 5, (
+        f"RETIRED_SOURCES should hold the five registers the reset archived, "
+        f"holds {len(retired)}")
 
 
 def test_terminal_is_derived_from_the_enum_not_listed_beside_it():
