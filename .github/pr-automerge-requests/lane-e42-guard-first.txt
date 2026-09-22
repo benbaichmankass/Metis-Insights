@@ -1,0 +1,7 @@
+E42 guard-first — Tier-1 self-land.
+
+A CI guard script (scripts/ci/check_roster_symbol_reachability.py) plus its
+registration in scripts/ci/run_guards.py. No runtime path, no config value, no
+order path, nothing deployed. Split out of held Tier-2 PR #12736 so the
+operator's standing rule for the hold window is actually enforced during that
+window rather than after it.
