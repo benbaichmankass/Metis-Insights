@@ -47,6 +47,48 @@ incapable firing as `fired_but_incapable`, **not** as `fresh`.
 
 ---
 
+## The live wiring — what exists, so a later session can find or restart it
+
+| | |
+|---|---|
+| supervisor session | **`session_01R9WFrBK1sbBcpTYgBmvG1q`**, also declared as `supervisor_lane` at the TOP LEVEL of [`MANAGER-CHECKLIST.json`](MANAGER-CHECKLIST.json) |
+| Routine | **`trig_01QQEz7pdn5uyyxrZ6QyiWYg`**, cron `29 */6 * * *`, `persist_session: true`, bound by `persistent_session_id` |
+| first scheduled firing | **2026-09-22T18:29Z** |
+| receipt | [`LANE-SUPERVISOR-HEARTBEAT.json`](LANE-SUPERVISOR-HEARTBEAT.json), graded in CI by `lane-supervisor-liveness` |
+
+**OBSERVED 2026-09-22T14:27:02Z** — this is the one claim in this document that is
+neither inferred nor hoped for. That session completed a full firing: it read
+**60 sessions**, 100 open PRs and 100 Routines, ran `--supervise` (exit **2**, gate
+correctly failing closed for want of `supervisor_lane`), held **4** candidates,
+identified **7** raise candidates, and pushed a heartbeat whose
+`--heartbeat-grade` reads **FRESH**. `capability` was `checkout_present: true`,
+`list_sessions_callable: true`, and it reported `container_was_cold: **false**`
+honestly rather than claiming a cold start it had not had.
+
+⚠️ **THE 18:29Z FIRING IS THE COLD TEST, AND IT ANSWERS ITSELF.** By then the
+supervisor will have been idle ~4 hours — long enough for container reclaim,
+which is the one question this design still has open. **No session has to
+remember to check it:**
+
+- comes back capable → the heartbeat says so and stays `fresh`. The route
+  survives cold and the design is settled.
+- comes back bare → it cannot write the heartbeat at all → `stale` within 18h →
+  **CI reds on every PR.**
+- comes back half-capable → it must say so in `capability` →
+  **`fired_but_incapable` → CI reds.**
+
+All three outcomes are visible without anyone looking. That is the whole point of
+building the receipt before trusting the watcher.
+
+⚠️ **If this Routine is gone or the supervisor session is unrecoverable**, recreate
+both from this document: `create_session` with this repo as `source_url`,
+`permission_mode: acceptEdits`, and the `extra_allowed_tools` list in § "THE ROOT
+CAUSE OF THE FIRST-TURN WALL" — **that argument is not optional, and omitting it
+walls the supervisor on its first turn.** Then `create_trigger` with
+`persistent_session_id` and this cron, and update `supervisor_lane`.
+
+---
+
 ## Every firing, in order
 
 1. `git -C <repo> fetch origin main && git checkout main && git pull` — then
