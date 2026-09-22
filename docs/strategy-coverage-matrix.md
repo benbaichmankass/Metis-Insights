@@ -4,12 +4,11 @@
 
 One row per `execution: live` strategy. `regime`: **cell** = has a `config/regime_policy.yaml` entry; **exempt** = permanently regime-gating-N/A (reasoned); **debt** = grandfathered, owed a cell (paid down by Phase-2 / the system-review). `desc` = has a `config/strategy_descriptions.json` entry.
 
-**Coverage:** 4 celled · 9 exempt · **32 in debt** (ceiling 34). The debt count must trend to 0.
+**Coverage:** 4 celled · 9 exempt · **31 in debt** (ceiling 34). The debt count must trend to 0.
 
 | strategy | regime | desc |
 |---|---|---|
 | `ada_pullback_2h` | 🟠 debt | ✅ |
-| `avax_pullback_2h` | 🟠 debt | ✅ |
 | `eth_pullback_2h` | 🟠 debt | ✅ |
 | `gdx_pullback_1d` | 🟠 debt | ✅ |
 | `gld_pullback_1d` | 🟠 debt | ✅ |
