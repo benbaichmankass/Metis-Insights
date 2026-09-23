@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-22",
-  "updated_by": "E41 lane (session_01TVZywdTHMxsrPt3BZptnv9)",
+  "updated_at": "2026-09-23",
+  "updated_by": "manager (session_01XQhayAHWdrSYv8jN54P2HH)",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
