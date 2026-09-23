@@ -52,8 +52,8 @@ incapable firing as `fired_but_incapable`, **not** as `fresh`.
 | | |
 |---|---|
 | supervisor session | **`session_01R9WFrBK1sbBcpTYgBmvG1q`**, also declared as `supervisor_lane` at the TOP LEVEL of [`MANAGER-CHECKLIST.json`](MANAGER-CHECKLIST.json) |
-| Routine | **`trig_01QQEz7pdn5uyyxrZ6QyiWYg`**, cron `29 */6 * * *`, `persist_session: true`, bound by `persistent_session_id` |
-| first scheduled firing | **2026-09-22T18:29Z** |
+| Routine | **`trig_01LFo98oHRUBpoMA6H9ra2QP`**, cron `43 */6 * * *`, `persist_session: true`, bound by `persistent_session_id`. (Its predecessor `trig_01QQEz7pdn5uyyxrZ6QyiWYg` is disabled and kept as the record of the cold-test firing.) |
+| cold start | **PROVEN 2026-09-22T18:32:33Z** — see below |
 | receipt | [`LANE-SUPERVISOR-HEARTBEAT.json`](LANE-SUPERVISOR-HEARTBEAT.json), graded in CI by `lane-supervisor-liveness` |
 
 **OBSERVED 2026-09-22T14:27:02Z** — this is the one claim in this document that is
@@ -65,20 +65,60 @@ identified **7** raise candidates, and pushed a heartbeat whose
 `list_sessions_callable: true`, and it reported `container_was_cold: **false**`
 honestly rather than claiming a cold start it had not had.
 
-⚠️ **THE 18:29Z FIRING IS THE COLD TEST, AND IT ANSWERS ITSELF.** By then the
-supervisor will have been idle ~4 hours — long enough for container reclaim,
-which is the one question this design still has open. **No session has to
-remember to check it:**
+## ⚠️ THE COLD TEST IS ANSWERED — OBSERVED 2026-09-22T18:32:33Z, AND IT PASSES
 
-- comes back capable → the heartbeat says so and stays `fresh`. The route
-  survives cold and the design is settled.
-- comes back bare → it cannot write the heartbeat at all → `stale` within 18h →
-  **CI reds on every PR.**
-- comes back half-capable → it must say so in `capability` →
-  **`fired_but_incapable` → CI reds.**
+**The decisive unknown is closed.** The cron `trig_01QQEz7pdn5uyyxrZ6QyiWYg` fired at
+**18:29:43Z** into a supervisor that had been idle since ~14:27Z. The reading is taken
+from the **receipt it wrote**, not from its session record:
 
-All three outcomes are visible without anyone looking. That is the whole point of
-building the receipt before trusting the watcher.
+| | |
+|---|---|
+| `last_fired_at` | **2026-09-22T18:32:33Z** — advanced past the firing |
+| `capability.checkout_present` | **true** |
+| `capability.list_sessions_callable` | **true** — `list_sessions` returned rows |
+| `capability.container_was_cold` | **true** — `worker_epoch` **2 → 3**, i.e. the container was torn down and re-provisioned |
+
+**So a persistent Claude Code Remote session, woken by a `persistent_session_id` cron
+Routine after hours of idle and a container restart, comes back with its repo checkout
+AND its `mcp__*` tools.** That is what separates design 4 from design 3, which fired
+~480 times with `sources: []` and no tools. The receipt lives on branch
+`claude/e44-supervisor-heartbeat-main` (commit `59840b1`).
+
+⚠️ **AND THE GATE HELD, IN PRODUCTION, ON ITS FIRST UNATTENDED RUN.** The firing found
+no top-level `supervisor_lane` on `main`, **stopped without touching a single session**,
+and wrote a heartbeat saying why. It also refused to report a held count for a plan it
+had not run — *"reporting a held count without running the plan would itself be a
+fabricated number."* That is the fail-closed property working against a live account
+rather than in a self-test.
+
+### Three defects that same firing exposed, recorded rather than smoothed over
+
+1. **The Routine pointed at `main`, where this mandate does not exist.** PR #12753 is
+   unmerged, so `main` has neither this file nor the top-level `supervisor_lane`, and
+   `main`'s E44 row carries a *row-level* `lane` naming the BUILD lane — a different and
+   incompatible version of the same mechanism. A supervisor matching on that field would
+   identify the wrong session. The replacement Routine
+   (**`trig_01LFo98oHRUBpoMA6H9ra2QP`**, cron `43 */6 * * *`) prefers `main` and falls
+   back to the build branch, and reads only the TOP-LEVEL field. The original is
+   **disabled and kept, renamed with the reading that came out of it** — the treatment
+   the two dead watchdogs got, because the record is the evidence.
+2. **A firing ended BLOCKED asking a human to merge its heartbeat.** It opened a branch
+   and waited. A firing that ends waiting on a human has reported nothing, which is the
+   failure this whole mechanism exists to prevent. The replacement prompt forbids opening
+   a PR or requesting a merge and tells it to push to the branch it read the mandate from.
+3. **That firing cost ~$7.40**, against ~$0.15 for the warm one, almost all of it
+   re-reading context. At 4 firings/day an unattended supervisor is not free, and the
+   replacement prompt names the budget and the scope that earns it.
+
+⚠️ **AND A DEFECT IN THIS DOCUMENT'S OWN INSTRUMENT, which the cold test surfaced by
+accident.** At 18:37Z — after a firing that had produced nothing — `--heartbeat-grade`
+still read **`fresh`**, because staleness is cadence x margin = 18h and a *single*
+missed firing is inside that window. The 3x margin is deliberate and stays (one skipped
+run must not red the repo), but the consequence must be stated: **`fresh` means "the
+watcher is broadly alive", NOT "the last scheduled firing did its job".** Answering the
+latter required comparing `last_fired_at` against the expected firing time BY HAND. A
+sixth state — a non-blocking `missed_last_firing`, derived from the cron cadence — is the
+fix, and it is filed rather than built here.
 
 ⚠️ **If this Routine is gone or the supervisor session is unrecoverable**, recreate
 both from this document: `create_session` with this repo as `source_url`,
@@ -137,6 +177,45 @@ exits **2**. *"We could not look"* is not *"there is none"*: an empty archive pl
 built on a missing read is a clean bill from a read that never happened, which is
 the defect class `docs/CLAUDE-RULES-CANONICAL.md` § "Collapsed states" and
 § "Green is not evidence" both name.
+
+### ⚠️ THE GATE'S FIRST UNATTENDED RUN CAUGHT A BUG IN THE GATE — 2026-09-23T18:44Z
+
+**`--supervise` AUTHORISED archiving `session_01VsAt1BzrdspLn6hDzFTGh2`, the E44
+build lane, while that lane owned OPEN PR #12753.** Condition 3 was FALSE for that
+candidate and the matcher reported it true by silence. Executing it would have
+stranded the PR — precisely the failure condition 3 exists to prevent, and the same
+shape as the #12735/#12739 orphaning this document cites.
+
+**What stopped it was the mandate, not the code.** The supervisor verified the PR
+independently with `pull_request_read`, found it open with a body linking to that
+session, and — per § "Every firing, in order" step 6, *"if you believe the plan is
+wrong, file the disagreement and archive nothing"* — **archived nothing and wrote
+the disagreement into its heartbeat.** That instruction is load-bearing; without it
+the bug would have cost a PR on the mechanism's first unattended run.
+
+**ROOT CAUSE, and it is this module's own favourite defect one level deeper than it
+was checking.** `open_pr_owners` distinguished `None` (no dump supplied) from `{}`
+(a dump naming no owners) — but not *a dump whose rows cannot carry the answer*:
+
+- the session-link key reads each PR's `body`, and **`list_pull_requests` returns
+  LISTING rows, which have no `body`** → blind;
+- the fallback key needs a checklist row whose `prs` names the PR, and **row E44's
+  `prs` was empty** → blind.
+
+Two blind keys returning `{}`, which reads exactly like a real negative.
+
+**THE FIX** is `pr_dump_can_answer()`, applying RULE ONE to the instrument itself —
+*prove the probe can find a positive before trusting that it is quiet*. A non-empty
+listing in which **not one row carries a `body`** now returns `could_not_look`,
+authorises nothing, and exits 2 saying the probe was BLIND. An **empty** listing
+remains a real measurement (nothing exists to be owned). Planted as self-tests
+`S4f`–`S4k`, each with its control, because a probe that refuses every dump is as
+useless as one that trusts every silence.
+
+⚠️ **The general lesson, worth more than the fix:** every "positively established"
+condition in this gate is only as good as the dump's ability to express it. When you
+add a condition, ask not just *was the evidence supplied* but *could the evidence
+supplied have shown the opposite*.
 
 ### What it may never do
 

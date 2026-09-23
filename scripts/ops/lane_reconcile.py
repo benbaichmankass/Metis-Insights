@@ -745,6 +745,38 @@ def _self_test() -> int:
     check("S4e an EMPTY PR listing is 'we looked and found none' — authorises",
           plan({"a": lane("a", COMPLETED)}, prs=[], trigs=[])["authorised"])
 
+    # ══ S4f-S4j — THE 2026-09-23 NEAR-MISS, PLANTED AS A TEST.
+    # --supervise AUTHORISED archiving the E44 build lane while it owned OPEN PR
+    # #12753. The dump came from `list_pull_requests`, whose LISTING rows carry no
+    # `body`, so the session-link key was structurally blind; the fallback key
+    # needs a checklist row naming the PR in `prs`, and that row's `prs` was empty.
+    # Both keys blind, and the function returned {} — "we looked and found none".
+    # Only the supervisor refusing the plan stopped the PR being stranded.
+    BODYLESS = [{"number": 12753, "title": "E44", "user": {"login": "someone"}},
+                {"number": 12742, "title": "E20", "user": {"login": "someone"}}]
+    check("S4f a PR listing whose rows carry NO body is NOT a measurement",
+          open_pr_owners(BODYLESS) is None,
+          "it must read could_not_look, not 'no open PRs'")
+    pl = plan({"a": lane("a", COMPLETED)}, prs=BODYLESS, trigs=[])
+    t, c = render_supervise(pl, "t")
+    check("S4g ...so it authorises NOTHING and exits 2 (the near-miss, prevented)",
+          not pl["authorised"] and c == 2 and pl["pr_evidence"] == PR_UNKNOWN, t)
+    check("S4h ...and the render SAYS the probe was blind, not merely 'not supplied'",
+          "BLIND" in t or "blind" in t, t)
+    # S4i — THE CONTROL. One body is enough to make the probe capable again, and
+    # then a lane NOT named in any body is legitimately archivable. Without this,
+    # S4f/S4g would pass on a function that refuses every dump.
+    WITH_BODY = BODYLESS[:1] + [{"number": 12742, "body":
+                                 "see https://claude.ai/code/session_zzzzzzzzzz"}]
+    ok, why = pr_dump_can_answer(WITH_BODY)
+    check("S4i one row with a body makes the probe capable again", ok, why)
+    check("S4j ...and then an unowned lane IS authorised",
+          plan({"a": lane("a", COMPLETED)}, prs=WITH_BODY, trigs=[])["authorised"])
+    # S4k — the empty listing stays a REAL answer, not collateral damage of S4f.
+    ok, why = pr_dump_can_answer([])
+    check("S4k an EMPTY listing is still a real measurement, not blindness",
+          ok and "no open PRs exist" in why, why)
+
     # S5 — condition 4: a bound, enabled Routine with a future firing holds,
     # because the 6h threshold is blind to a cron.
     pl = plan({"a": lane("a", COMPLETED)},
@@ -1088,6 +1120,50 @@ def _idle_hours(sess: dict, now_iso: str) -> Optional[float]:
 SESSION_URL_RE = re.compile(r"(session_[A-Za-z0-9]{10,})")
 
 
+def pr_dump_can_answer(open_prs: List[dict]) -> Tuple[bool, str]:
+    """Can this PR listing attribute a PR to a session AT ALL?
+
+    ⚠️ THIS FUNCTION EXISTS BECAUSE ITS ABSENCE ALMOST STRANDED A PR IN PRODUCTION.
+    OBSERVED 2026-09-23T18:44Z: `--supervise` AUTHORISED archiving
+    `session_01VsAt1BzrdspLn6hDzFTGh2`, the E44 build lane, which owned OPEN PR
+    #12753. Only the supervisor refusing the plan and filing the disagreement (as
+    the mandate requires) stopped it. Condition 3 was FALSE for that candidate and
+    the matcher reported it TRUE-by-silence.
+
+    ⚠️ THE ROOT CAUSE IS THE COLLAPSED STATE THIS MODULE IS OTHERWISE CAREFUL
+    ABOUT, ONE LEVEL DEEPER THAN IT CHECKED. `open_pr_owners` distinguished
+    `None` (no dump supplied) from `{}` (a dump with no owners) — but NOT
+    "a dump whose rows cannot carry the answer". `list_pull_requests` returns
+    LISTING rows, and those rows have no `body`, so the session-link key matched
+    nothing; meanwhile the fallback key needs a checklist row whose `prs` names
+    the PR, and row E44's `prs` was empty. Two keys, both structurally blind, and
+    the function returned `{}` — *we looked and found none* — which reads exactly
+    like a real negative.
+
+    ⚠️ SO THE RULE IS `docs/CLAUDE-RULES-CANONICAL.md` RULE ONE, APPLIED TO THIS
+    INSTRUMENT: *"a negative result needs a denominator… prove the probe can find a
+    positive before trusting that it is quiet."* An empty LIST is a real
+    measurement (we listed, there are no open PRs). A non-empty list in which NOT
+    ONE row carries a `body` is not a measurement at all — it is a blind probe, and
+    it must read `could_not_look`.
+    """
+    if not open_prs:
+        # A genuinely empty listing IS an answer: there are no open PRs, so no
+        # lane can own one. This is the case the self-test's S4e control covers.
+        return True, "the listing is empty — no open PRs exist, so none can be owned"
+    with_body = sum(1 for pr in open_prs
+                    if isinstance(pr, dict) and str(pr.get("body") or "").strip())
+    if with_body == 0:
+        return False, (
+            f"{len(open_prs)} open PR(s) in the listing and NOT ONE carries a "
+            "non-empty `body`, so the session-link key is structurally BLIND. "
+            "A listing call returns rows without bodies; fetch each PR, or pass a "
+            "dump whose rows carry `body`, or supply a checklist whose rows name "
+            "their PRs in `prs`. Refusing to report 'no open PR' from a probe that "
+            "could not have found one.")
+    return True, f"{with_body} of {len(open_prs)} row(s) carry a body"
+
+
 def open_pr_owners(open_prs: Optional[List[dict]],
                    rows: Optional[List[dict]] = None) -> Optional[Dict[str, List[Any]]]:
     """session id -> the open PR numbers it owns, or None when NOBODY LOOKED.
@@ -1107,6 +1183,11 @@ def open_pr_owners(open_prs: Optional[List[dict]],
         PR whose body lost the footer.
     """
     if open_prs is None:
+        return None
+    # ⚠️ A DUMP THAT CANNOT CARRY THE ANSWER IS NOT A MEASUREMENT. See
+    # `pr_dump_can_answer` — this check is what stops the 2026-09-23 near-miss.
+    usable, _why = pr_dump_can_answer(open_prs)
+    if not usable:
         return None
     owners: Dict[str, List[Any]] = {}
     numbers = set()
@@ -1195,6 +1276,8 @@ def archive_plan(sessions: Dict[str, dict], rows: List[dict], now_iso: str,
     than against a live position"*.
     """
     owners = open_pr_owners(open_prs, rows)
+    pr_probe = ("no listing supplied" if open_prs is None
+                else pr_dump_can_answer(open_prs)[1])
     wakes = pending_wakes(triggers, now_iso)
     supervisor = _supervisor_session_id(rows, doc)
 
@@ -1259,6 +1342,7 @@ def archive_plan(sessions: Dict[str, dict], rows: List[dict], now_iso: str,
             "pr_evidence": PR_UNKNOWN if owners is None else PR_NONE,
             "wake_evidence": PR_UNKNOWN if wakes is None else PR_NONE,
             "supervisor_evidence": PR_UNKNOWN if supervisor is None else PR_NONE,
+            "pr_probe": pr_probe,
             "idle_hours": idle_hours, "supervisor": supervisor,
             "now": now_iso}
 
@@ -1301,6 +1385,7 @@ def render_supervise(plan: Dict[str, Any], read_at: str) -> Tuple[str, int]:
                                ("the supervisor's own id (no checklist row "
                                 "carries `supervisor_lane`)", "supervisor_evidence"))
         if plan.get(key) == PR_UNKNOWN]
+    out.append(f"  open-PR probe: {plan.get('pr_probe', '(not reported)')}")
     if missing_evidence:
         out.append("")
         out.append("⛔ NO ARCHIVE IS AUTHORISED — not supplied: "
