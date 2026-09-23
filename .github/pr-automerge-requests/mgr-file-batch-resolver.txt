@@ -1,0 +1,1 @@
+File the batch-resolver hazard: a loop that printed UNHANDLED and then git-added the file anyway, pushing conflict markers into the module every guard run imports.
