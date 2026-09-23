@@ -1,0 +1,1 @@
+E44's lane closed out and stopped, so the row may not keep asserting in_flight. queued (not landed_unproven - nothing of E44 is on main), with the two OBSERVED deliverables, the broken delivery path, and the one decision that is not the manager's to take silently.
