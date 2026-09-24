@@ -46,6 +46,8 @@ account, split per symbol when a page is truncated), and ``GET
 """
 from __future__ import annotations
 
+# wiring: manual-only - a one-question measurement (checklist row D3); a session re-runs it by hand with the two commands in the docstring. The recurring job is D3's later build step, not this script.
+
 import argparse
 import collections
 import glob
@@ -61,6 +63,7 @@ from typing import Any, Dict, List, Optional
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
+from src.config.accounts_loader import load_accounts_dict  # noqa: E402
 from src.runtime.provenance import MEASURED, classify  # noqa: E402
 
 API_BASE = "https://ict-bot.duckdns.org"
@@ -92,10 +95,8 @@ def _curl_json(url: str) -> Any:
 
 
 def pull(out_dir: Path) -> None:
-    import yaml
-
     out_dir.mkdir(parents=True, exist_ok=True)
-    accounts = list((yaml.safe_load(open(REPO / "config/accounts.yaml"))["accounts"]).keys())
+    accounts = list(load_accounts_dict().keys())
     fills: Dict[str, dict] = {}
     pull_log: List[dict] = []
 
@@ -193,9 +194,7 @@ def _boot_ci(entry: List[float], exit_: List[float], reps: int = 4000) -> List[f
 
 
 def measure(in_dir: Path) -> dict:
-    import yaml
-
-    acfg = yaml.safe_load(open(REPO / "config/accounts.yaml"))["accounts"]
+    acfg = load_accounts_dict()
     fills = json.load(open(in_dir / "fills.json"))
     trades = json.load(open(in_dir / "trades.json"))
     pkgs = {p["order_package_id"]: p for p in json.load(open(in_dir / "order_packages.json"))}
@@ -353,15 +352,17 @@ def reprice(slip_by_venue: Dict[str, Optional[float]]) -> List[dict]:
         rec["new_slippage_bps"] = new_bps
         if d.get("coverage_state") != "measured" or d.get("net_r_oos") is None:
             rec["method"] = "not_repriced: no measured net_r_oos"
-            out.append(rec); continue
+            out.append(rec)
+            continue
         if new_bps is None:
             rec["method"] = "not_repriced: venue slippage unmeasurable"
-            out.append(rec); continue
+            out.append(rec)
+            continue
         old_bps = float(cs.get("slippage") or 0)
         sr = d.get("source_run") or ""
         srp = REPO / sr
         if sr and srp.exists():
-            trs = [json.loads(l) for l in open(srp) if l.strip()]
+            trs = [json.loads(line) for line in open(srp) if line.strip()]
             ctrl = round(sum(float(r["net_r"]) for r in trs), 4)
             rec["positive_control"] = {"sum_net_r_at_recorded_bps": ctrl,
                                        "record_net_r_oos": d["net_r_oos"],
@@ -369,7 +370,8 @@ def reprice(slip_by_venue: Dict[str, Optional[float]]) -> List[dict]:
             if not rec["positive_control"]["reproduced"] or old_bps <= 0 or not all(
                     "cost_slippage_r" in r for r in trs):
                 rec["method"] = "not_repriced: positive control failed or no cost_slippage_r"
-                out.append(rec); continue
+                out.append(rec)
+                continue
             slip_r = sum(float(r["cost_slippage_r"]) for r in trs)
             # Second control: every row must satisfy net_r_fee_only = net_r +
             # slippage_r + funding_r, i.e. the cost terms are what they claim.
@@ -392,7 +394,8 @@ def reprice(slip_by_venue: Dict[str, Optional[float]]) -> List[dict]:
             fo = d.get("net_r_oos_fee_only")
             if fo is None:
                 rec["method"] = "not_repriced: no per-trade rows and no fee-only arm"
-                out.append(rec); continue
+                out.append(rec)
+                continue
             diff = float(fo) - float(d["net_r_oos"])
             fund = float(cs.get("funding") or 0)
             net0 = float(d["net_r_oos"])
@@ -412,7 +415,8 @@ def reprice(slip_by_venue: Dict[str, Optional[float]]) -> List[dict]:
                                      "split unknown, and the interval straddles 0 -> undetermined")
                     rec["new_verdict"] = "undetermined"
                     rec["flipped"] = None
-                    out.append(rec); continue
+                    out.append(rec)
+                    continue
                 new = ends[0] if new_bps >= old_bps else ends[1]
                 rec["method"] = ("interval: no per-trade rows; fee-only diff = slippage+funding, "
                                  "split unknown; both ends give the same verdict")
@@ -488,8 +492,10 @@ def analyze(in_dir: Path, out: Path) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("pull"); p.add_argument("--out-dir", required=True, type=Path)
-    a = sub.add_parser("analyze"); a.add_argument("--in-dir", required=True, type=Path)
+    p = sub.add_parser("pull")
+    p.add_argument("--out-dir", required=True, type=Path)
+    a = sub.add_parser("analyze")
+    a.add_argument("--in-dir", required=True, type=Path)
     a.add_argument("--out", required=True, type=Path)
     args = ap.parse_args()
     if args.cmd == "pull":

@@ -17,12 +17,16 @@ python3 scripts/research/realized_slippage.py analyze --in-dir /tmp/d3 --out /tm
 
 ## The answer
 
+<!-- population-ok: every row names its n and account; the % is the CI level -->
+<!-- checked: scripts/research/realized_slippage.py (per_account.*.roundtrip_state in the record) -->
 | venue | real-money basis | round-trip slippage (bps) | 95% CI | verdict |
 |---|---|---|---|---|
 | **Bybit perps** | `bybit_2`: 87 entries (2026-06-29 to 09-24) + 42 sl/tp exits (2026-06-01 to 09-24) | **+0.87** (mean) | **[-0.91, +2.95]** | **MEASURED**. The flat 5.0 is above the CI, so it overstates the cost |
 | Alpaca equities | `alpaca_live`: 3 entries, 0 measured sl/tp exits | none | none | **unmeasurable**: too few fills, and the exit side can't be measured (see below) |
 | IBKR futures | `ib_live` is `dry_run`, 0 fills | none | none | **unmeasurable** |
 | Prop (Breakout) | `breakout_1`: 0 fills in the store | none | none | **unmeasurable** |
+
+<!-- checked: scripts/research/realized_slippage.py -->
 
 **Stage-0 flips under `RULE-D1-STAGE0-NET-OF-FULL-COST`** (`net_r_oos > 0`).
 Only perp legs can be re-priced: 26 of the 27 perp records among the 49
@@ -95,7 +99,8 @@ inference.
 These measure a simulator's fill model, not a market:
 `bybit_1` (Bybit demo) round-trip −0.34 [−2.06, +1.22], n=947 entries / 88
 exits. It agrees with the real `bybit_2`.
-`bybit_portfolio`: 63 entries / 16 exits, below n=20, unmeasurable.
+`bybit_portfolio`: 63 entries / 16 exits, below n=20, unmeasurable
+(checked: scripts/research/realized_slippage.py).
 `alpaca_paper` and `alpaca_portfolio`: entry means +1.4 and +0.3 bps (n=48 and
 60), 0 measured exits.
 `ib_paper`: entry +8.1 bps on 22 maker (limit) fills, 7 exits.
@@ -120,6 +125,8 @@ break-even column.
 
 ## What this could NOT establish
 
+<!-- checked: scripts/research/realized_slippage.py and src/runtime/provenance.py -->
+
 - **Alpaca exit slippage can't be measured by this method, however many trades
   accrue.** No Alpaca sl/tp close carries a MEASURED exit source.
   `exchange_fill` appears only on `exchange_flat_reconciled` closes, which have
@@ -134,6 +141,8 @@ break-even column.
   `ib_paper`, whose entries are maker fills.
 
 ## Follow-ups filed
+
+<!-- checked: scripts/research/realized_slippage.py -->
 
 - `PI-20260924-A87KVAFC-0001` (ask_operator): proposes per-venue values for
   `slippage_bps_roundtrip_for`. Perps **3.0** (the CI upper, rounded up).
