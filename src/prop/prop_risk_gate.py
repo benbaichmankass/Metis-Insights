@@ -133,8 +133,19 @@ def grade_ticket_risk(
     distance_to_dd_floor_usd: Optional[float] = None,
     distance_to_daily_loss_usd: Optional[float] = None,
     status_freshness: Optional[str] = None,
+    open_risk_state: Optional[str] = None,
+    open_loss_to_stop_usd: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Grade one ticket's risk against the account's remaining cushion.
+
+    ``open_risk_state`` (E66) is ``compute_rule_distance``'s
+    ``after_open_risk_state``. ``None`` means the caller did not supply one and
+    keeps the pre-E66 behaviour, for pure callers. ``no_open_positions`` or
+    ``measured`` means the distances passed in ALREADY have the open
+    positions' loss-to-stop subtracted. Any other value (``stop_unknown``,
+    ``unrealized_unreported``, ``unreadable``) makes the cushion UNKNOWN: an
+    open position whose stop we cannot see may still lose any amount, so what
+    is left for a new ticket cannot be stated.
 
     Pure: values in, verdict out. ``status_freshness`` is the four-state string
     ``compute_rule_distance`` already returns (``ok`` / ``stale`` / ``absent`` /
@@ -154,12 +165,13 @@ def grade_ticket_risk(
         }
 
     fresh_ok = status_freshness == "ok"
+    open_risk_ok = open_risk_state in (None, "no_open_positions", "measured")
     known: list[str] = []
     candidates: list[tuple[str, float]] = []
-    if fresh_ok and distance_to_dd_floor_usd is not None:
+    if fresh_ok and open_risk_ok and distance_to_dd_floor_usd is not None:
         known.append("dd_floor")
         candidates.append(("dd_floor", float(distance_to_dd_floor_usd)))
-    if fresh_ok and distance_to_daily_loss_usd is not None:
+    if fresh_ok and open_risk_ok and distance_to_daily_loss_usd is not None:
         known.append("daily_loss")
         candidates.append(("daily_loss", float(distance_to_daily_loss_usd)))
 
@@ -169,6 +181,15 @@ def grade_ticket_risk(
         if not fresh_ok:
             why = (f"the account-status snapshot is {status_freshness or 'unreadable'}"
                    f" — a cushion that cannot be shown to be current is not a cushion")
+        elif not open_risk_ok:
+            why = ({
+                "stop_unknown": "an open position has no journaled stop, so "
+                                "what it can still lose is unknown",
+                "unrealized_unreported": "the snapshot carries no unrealized "
+                                         "P&L, so open positions cannot be "
+                                         "marked to their stops",
+            }.get(str(open_risk_state),
+                  f"the open positions could not be read ({open_risk_state})"))
         else:
             why = ("neither the DD-floor nor the daily-loss distance could be "
                    "derived from the reported snapshot")
@@ -200,6 +221,8 @@ def grade_ticket_risk(
             "state": UNKNOWN, "risk_usd": float(risk_usd), "cushion_usd": None,
             "binding_limit": None, "limits_known": known, "overshoot_usd": None,
             "status_freshness": status_freshness, "reason": why,
+            "open_risk_state": open_risk_state,
+            "open_loss_to_stop_usd": open_loss_to_stop_usd,
             # Explicitly NOT `cushion_usd` — a stale number must never be read
             # as the live one by a consumer that only checks for a value.
             "last_known_cushion_usd": last_known[1] if last_known else None,
@@ -221,12 +244,18 @@ def grade_ticket_risk(
         "limits_known": known,
         "overshoot_usd": round(risk - cushion, 2) if exceeds else None,
         "status_freshness": status_freshness,
+        "open_risk_state": open_risk_state,
+        "open_loss_to_stop_usd": open_loss_to_stop_usd,
         "reason": (
             f"suggested risk ${risk:,.2f} is at or past the remaining "
             f"${cushion:,.2f} to the {binding.replace('_', ' ')} limit"
             if exceeds else
             f"suggested risk ${risk:,.2f} fits inside the remaining "
             f"${cushion:,.2f} to the {binding.replace('_', ' ')} limit"
+        ) + (
+            f" (after ${open_loss_to_stop_usd:,.2f} still at risk to the stops "
+            f"of open positions)"
+            if open_risk_state == "measured" and open_loss_to_stop_usd else ""
         ),
     }
 
@@ -251,11 +280,26 @@ def grade_account_ticket_risk(
         return grade_ticket_risk(
             risk_usd=risk_usd, status_freshness="unreadable",
         )
+    # E66: grade against the cushion AFTER open positions' loss-to-stop. A
+    # reader that did not report the state is `unreadable`, not "flat" — the
+    # absence of the key must not silently restore the pre-E66 optimism.
+    ors = rd.get("after_open_risk_state") or "unreadable"
+    if ors in ("no_open_positions", "measured"):
+        dd = rd.get("distance_to_dd_floor_after_open_risk_usd")
+        daily = rd.get("distance_to_daily_loss_after_open_risk_usd")
+    else:
+        # Passed so the UNKNOWN verdict can quote a last-known figure; it is
+        # an UPPER bound here (open risk not subtracted), and caveat_lines only
+        # quotes it when even that bound is exceeded.
+        dd = rd.get("distance_to_dd_floor_usd")
+        daily = rd.get("distance_to_daily_loss_usd")
     return grade_ticket_risk(
         risk_usd=risk_usd,
-        distance_to_dd_floor_usd=rd.get("distance_to_dd_floor_usd"),
-        distance_to_daily_loss_usd=rd.get("distance_to_daily_loss_usd"),
+        distance_to_dd_floor_usd=dd,
+        distance_to_daily_loss_usd=daily,
         status_freshness=rd.get("status_freshness"),
+        open_risk_state=ors,
+        open_loss_to_stop_usd=rd.get("open_loss_to_stop_usd"),
     )
 
 
@@ -304,6 +348,14 @@ def caveat_lines(verdict: Dict[str, Any]) -> list[str]:
                 "live — but the",
                 "     account can only have moved, and a loss since would make it "
                 "SMALLER.",
+            ]
+        if verdict.get("open_risk_state") == "stop_unknown":
+            out += [
+                "     An OPEN position has no journaled stop. Report its CURRENT "
+                "stop with",
+                '     {"kind":"amend","account_id":…,"symbol":…,"direction":…,'
+                '"sl":<stop>}',
+                "     before adding exposure.",
             ]
         out += [
             "     Send a fresh balance (`bal <balance> <equity>`) before placing, "
@@ -385,6 +437,8 @@ def record_ticket_risk_soak(
             "status_freshness": verdict.get("status_freshness"),
             "last_known_cushion_usd": verdict.get("last_known_cushion_usd"),
             "last_known_exceeded": verdict.get("last_known_exceeded"),
+            "open_risk_state": verdict.get("open_risk_state"),
+            "open_loss_to_stop_usd": verdict.get("open_loss_to_stop_usd"),
             "reason": verdict.get("reason"),
         }
         from src.utils.paths import runtime_logs_dir
