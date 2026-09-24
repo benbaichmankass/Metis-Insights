@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager register update only (docs/claude/work/MANAGER-CHECKLIST.json). Records the 12 lanes dispatched 2026-09-24 (E50-E58, D3, A10, B5), re-points D3 off the dropped D1 (R1/E3/R7 are done; 49 of 52 evidence records carry a cost stack), re-registers E43 so #12759 is attributable, and records two operator decisions verbatim: all five proposed process mandates granted; all five ladder mandates granted with MD-PROMOTE-S1-S2 gated on D3. The config/mandates.yaml change itself is lane B5's PR, not this one. No src/, config/, scripts/ or workflow change."
+  "why": "Manager register + manager contract doc only. docs/claude/work/MANAGER-CHECKLIST.json: states for E51/E57/E58/E60/E61/B5, plus new row E64 (PIPELINE.jsonl merge-conflict build). .claude/skills/manager/SKILL.md: records the operator's 2026-09-24 chain-of-authority directive verbatim in the provenance section, and states that it does not extend to Claude Code permission prompts. No src/, config/, scripts/ or workflow change."
 }

@@ -6,74 +6,72 @@
   "config_fingerprint": "sha256:1db688ecdaa76146741a1f0b8fcb2e0a",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "approximate",
-  "omitted_levers": [
-    "tp_r"
-  ],
-  "net_r_oos": 7.1152,
-  "expectancy_r_oos": 1.423,
-  "n_trades_oos": 5,
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 2.3816,
+  "expectancy_r_oos": 0.2165,
+  "n_trades_oos": 11,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
-      "trades": 1,
-      "net_r": 6.4365,
-      "expectancy_r": 6.4365,
+      "trades": 2,
+      "net_r": 0.9368,
+      "expectancy_r": 0.4684,
       "start": "2025-06-24 00:00:00+00:00",
-      "end": "2025-06-24 00:00:00+00:00"
+      "end": "2025-07-17 00:00:00+00:00"
     },
     {
       "fold": 2,
-      "trades": 1,
-      "net_r": -1.0379,
-      "expectancy_r": -1.0379,
-      "start": "2025-12-24 00:00:00+00:00",
-      "end": "2025-12-24 00:00:00+00:00"
+      "trades": 2,
+      "net_r": -2.0802,
+      "expectancy_r": -1.0401,
+      "start": "2025-08-12 00:00:00+00:00",
+      "end": "2025-08-27 00:00:00+00:00"
     },
     {
       "fold": 3,
-      "trades": 1,
-      "net_r": -1.0436,
-      "expectancy_r": -1.0436,
-      "start": "2026-01-06 00:00:00+00:00",
-      "end": "2026-01-06 00:00:00+00:00"
+      "trades": 2,
+      "net_r": 0.9334,
+      "expectancy_r": 0.4667,
+      "start": "2025-09-11 00:00:00+00:00",
+      "end": "2025-10-24 00:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 2,
-      "net_r": 2.7602,
-      "expectancy_r": 1.3801,
-      "start": "2026-04-14 00:00:00+00:00",
+      "trades": 5,
+      "net_r": 2.5916,
+      "expectancy_r": 0.5183,
+      "start": "2025-12-24 00:00:00+00:00",
       "end": "2026-08-03 00:00:00+00:00"
     }
   ],
-  "folds_positive": 2,
+  "folds_positive": 3,
+  "window_days": 365,
+  "fee_bps_roundtrip": 0.0,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
-    "n": 5,
-    "max_drawdown_r": 2.0815,
-    "max_drawdown_at_trade": 3,
-    "final_equity_r": 7.1152,
-    "max_equity_r": 7.1152,
-    "worst_trade_r": -1.0436,
-    "best_trade_r": 6.4365,
-    "worst_day_r": -1.0436,
-    "worst_day_date": "2026-01-20",
+    "n": 11,
+    "max_drawdown_r": 4.2576,
+    "max_drawdown_at_trade": 8,
+    "final_equity_r": 2.3816,
+    "max_equity_r": 2.3816,
+    "worst_trade_r": -1.0452,
+    "best_trade_r": 1.9769,
+    "worst_day_r": -1.0452,
+    "worst_day_date": "2025-09-02",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
   },
-  "window_days": 365,
-  "fee_bps_roundtrip": 0.0,
   "cost_stack": {
     "fees": 0.0,
     "slippage": 5.0,
     "funding": 0.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-22-r5/spy_trend_long_1d__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-24-e55/spy_trend_long_1d__bt.json"
   },
-  "net_r_oos_fee_only": 7.2835,
+  "net_r_oos_fee_only": 2.7754,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
@@ -81,10 +79,9 @@
     "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T09:27:54.686248+00:00",
+  "generated_at": "2026-09-24T12:45:32.836687+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/spy_trend_long_1d__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/spy_trend_long_1d__trades.jsonl",
   "error": null,
-  "harness": "trend",
-  "low_n_warning": "n_trades_oos=5 < 10; the pooled number is reported but is not a basis for a verdict."
+  "harness": "trend"
 }

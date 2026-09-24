@@ -674,6 +674,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/cross-asset-strategy-scope-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/crypto-edge-audit-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/crypto-finetune-proposals-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/d3-realized-slippage-2026-09-24.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/declare-the-9-cannot-be-valued-yet-2026-08-24.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/digest-cadence-carrier-2026-09-02.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/donchian-stop-gate-is-drawdown-bound-2026-08-23.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -812,6 +813,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/prop-account-silence-2026-09-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-dynamic-exits-faster-banking-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/prop-firm-testing-tool-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/research/prop-state-2026-09-24.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-unblock-sequence-2026-09-12.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e33-arbitration-scope-starves-real-money-2026-09-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e46-qqq-arm-inert-once-the-tp-is-modelled-2026-09-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
