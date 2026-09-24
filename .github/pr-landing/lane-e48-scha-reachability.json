@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Proposes STRIP of scha_trend_long_1d's trail_decay_arm_r (2.00R) from config/strategies.yaml on the operator's own zero test (0/78 entry-conditioned, real ceiling min(cap_R, tp_r)) — config/strategies.yaml is not touched by this PR, only proposed in config/lever_reachability.json and docs/claude/work/PIPELINE.jsonl. Needs the operator's explicit strip/keep/re-arm decision (PI-20260922-E41-0002, next_action ask_operator) before any config/strategies.yaml PR follows.",
+  "why": "config/lever_reachability.json is Tier-2 by path and carries a Tier-3 arm-strip proposal; no operator approval is recorded on main for this change"
+}
