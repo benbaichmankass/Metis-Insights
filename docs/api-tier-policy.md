@@ -19,7 +19,7 @@
 > checks it in CI (diff-scoped, in the `guards` job); `--all` is the standing
 > audit and `--list` prints measured coverage.
 >
-> **Coverage, computed rather than counted: 112 of 112 routes documented (100%).**
+> **Coverage, computed rather than counted: 113 of 113 routes documented (100%).**
 > *Population — every `@router.<verb>("...")` under `src/web/api/routers/`
 > joined to its `APIRouter(prefix=...)`. Verified against the live FastAPI
 > route table (`app.routes`): the enumerator finds exactly those 96 with no
@@ -55,9 +55,21 @@
 
 ## Tier 1 — public read, no session required
 
-Endpoints a consumer hits directly without a JWT. **75 rows in the table below**;
+Endpoints a consumer hits directly without a JWT. **79 rows in the table below**;
 `_check_admin_token` / `_require_diag_token` / `require_session` appear in
 none of them.
+
+⚠️ **That figure read `75` until 2026-09-22 and was stale by THREE before this
+PR touched the section** — re-counted mechanically (lines in this section whose
+first cell opens with an HTTP verb in backticks; the last row covers three
+endpoints, which is why this is a ROW count and not an endpoint count): **78**
+rows before E31, **79** with `GET /api/bot/runtime-config`. So one of the four
+is mine and three were already wrong. Recorded rather than quietly corrected,
+because the paragraph below is a warning about exactly this drift and the
+warning had already failed twice — this is the third. **Only the coverage
+banner above is machine-checked** (`tests/test_check_api_tier_policy.py::
+TestStatedCoverageIsTrue`, which is what caught E31's route); this number is
+not, which is why it rots.
 
 ⚠️ **The previous figure here read *"70 of the 96 routes"* and was wrong in both
 halves** — counted mechanically on 2026-09-09 the section held **76** rows
@@ -162,6 +174,7 @@ the same staleness this paragraph was already written to complain about.
 | `GET /api/bot/shadow/drift` | `routers/shadow.py` | Window-over-window score-distribution drift (KS + PSI) over the same log (S-AI-WS8-PART-3). |
 | `GET /api/bot/signals` | `routers/dashboard.py` | Recent ICT detections from `signal_audit.jsonl`, each with the drawable zones the strategy already logged. |
 | `GET /api/bot/stats` | `routers/dashboard.py` | Aggregated bot stats — pnl24h, totalPnL, openTrades, winRate, status, datasource, vmHealth. Real-money only; paper rides an additive sub-block. |
+| `GET /api/bot/runtime-config` | `routers/runtime_config.py` | **Added E31 (2026-09-22).** Layer 4 of the verification mapping: the roster and per-account gates the RUNNING TRADER HOLDS, from the loaders' own stamps, plus `reload_state` per config file (`current` / `pending_reload` / `unknown`). Read-only — digests two config files and reads `runtime_status.json`; writes nothing and no order path consults it. Tier 1 for the same reason `/api/bot/config` is: it surfaces strategy names, account ids, routed-strategy lists and the dry/live gate — all already public on `/api/bot/config` — and no credential, env-var name or filesystem path. See `docs/reference/verifying-what-is-trading.md`. |
 | `GET /api/bot/strategies` | `routers/strategies.py` | Per-strategy config, live-runtime status, per-account routing, lifetime stats, descriptions, changelog. Config values only — **secrets are not in this surface** (`accounts.yaml` credentials are env-var *names*). |
 | `GET /api/bot/strategies/{name}/review` | `routers/strategy_review.py` | Newest M7 strategy-review packet incl. its action badge (`KILL`/`DEMOTE_SHADOW`/`TUNE`/`HOLD`/`PROMOTE`). **Read-only: a Tier-3 action is *read* here, never enacted.** Name validated `[a-z0-9_]+`. |
 | `GET /api/bot/strategy-reviews` | `routers/strategy_review.py` | The **committed** M7 fleet decision record from `comms/strategy_reviews/` — the day's `INDEX.json` (every strategy graded, the DENOMINATOR) plus `packet_committed` per row. ⚠️ **A DIFFERENT RECORD from `/strategies/{name}/review`**, which reads the gitignored VM path; the two can legitimately disagree, so every response stamps `source`. `read_state` ∈ `index_read`/`absent`/`unreadable` and `freshness` ∈ `fresh`/`stale`/`undateable`/`absent` are never collapsed — counts are `null`, never `0`, when we could not look. **Read-only: a Tier-3 action is *read* here, never enacted.** `date` validated `\d{4}-\d{2}-\d{2}` (no traversal). |

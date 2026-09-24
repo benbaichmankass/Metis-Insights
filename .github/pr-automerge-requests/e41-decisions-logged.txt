@@ -1,0 +1,13 @@
+Arming the self-landing route for PR #12831 (Tier-1, registers only).
+
+Added AFTER the PR opened, per R6. The declaration is
+.github/pr-landing/e41-decisions-logged.json (`landing: "self"`) and the R13
+merge-slot claim is .github/merge-slots/e41-decisions-logged.json, both written
+BEFORE the first push this time -- check_pr_landing.py was run before the PR was
+opened rather than after CI rejected it, which is the remedy for the ~40 minutes
+#12828 burned discovering these files one CI failure at a time.
+
+R6 mandates that this file arrive after the PR exists, so the second push is the
+rule working, not a mistake.
+
+Contents are not read -- the PATH is the signal.

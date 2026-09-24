@@ -224,13 +224,31 @@ and then a 30-minute floor; both were rejected — *"it takes however long it
 takes… I don't want us tracking an arbitrary time limit to measure
 performance."* **Do not report session length as a metric.**
 
-**THE LADDER IS FULLY AUTOMATED — operator grant, 2026-09-21.** Every ladder
-transition, both gates and both directions, fires on evidence with no human in
-the path — **including promotion to a real-money roster**. A **mandate** is an
+**THE LADDER IS AUTHORIZED TO BE FULLY AUTOMATED — operator grant,
+2026-09-21 — AND AS OF 2026-09-24 NOT ONE MANDATE IS GRANTED, SO IN PRACTICE
+EVERY TRANSITION STILL ROUTES TO A HUMAN.** The grant stands; what is missing is
+the mechanism, and the two must not be read as one. A **mandate** is an
 authorization granted once, in advance, in `config/mandates.yaml`. When one
 fires: a realtime ping, then the evidence record in section 1 of the next
 brief. A decision arriving twice in the same shape is raised as *"should this
 become a mandate?"*
+
+⚠️ **This paragraph read "THE LADDER IS FULLY AUTOMATED … with no human in the
+path — including promotion to a real-money roster" from 2026-09-21 until
+2026-09-24, and that was FALSE IN THE FIELD the whole time**: `config/mandates.yaml`
+did not exist anywhere in git, so there was nowhere to record an authorization
+and section 1 of the brief — *"taken under mandate"* — could only ever be empty.
+Ten files referenced the path; only `scripts/ops/render_daily_brief.py` was
+honest about it (*"today: absent — B5 is not built"*). **The store now exists
+with an empty `mandates:` list and five PROPOSED entries the operator has not
+granted.** Corrected rather than quietly fixed because the failure is the one
+this repo pays for most — a doc describing a mechanism that does not exist, read
+as a description of one that does. *Field beats comment.*
+
+⚠️ **A session may PROPOSE a mandate; only the operator GRANTS one.** Moving an
+entry from `proposed:` into `mandates:` is the operator's act. A session writing
+its own authorization is the same failure class as self-landing a PR that grants
+its own next PR — the asymmetry IS the control.
 
 ⚠️ **"If the evidence supports it" is the entire safety property** once nobody
 is in the path: a committed evidence record, named harness, stated n, **net of
@@ -312,6 +330,25 @@ Both default permissive, so omitting either never strands capability. **There is
 no third gate**: never hide a capability behind a default-off `*_ENABLED` flag
 (the pattern that stranded MES). What `accounts.yaml` / `strategies.yaml`
 declare, runs.
+
+⚠️ **`accounts.yaml::symbols` IS NOT A GATE, and it was one until 2026-09-22.**
+The `strategies:` roster is the single source of truth for what an account
+trades; `symbols:` is a **purely additive DATA-PULL list** that legitimately
+names instruments no leg trades. ⚠️ **The count of such entries moves with every
+roster edit — re-run it, never quote it.** It read **21** at midday on
+2026-09-22 and **19** four hours later, because `ada_pullback_2h` joining
+`bybit_2`'s roster turned ADAUSDT from declared-but-untraded into
+declared-and-traded. `python3 scripts/ci/check_roster_symbol_reachability.py`
+prints the current count beside its denominators for exactly that reason.
+
+Until E42 the tick's fetch set came from the pull
+lists **alone**, so a rostered leg whose symbol nobody had declared got no
+candles, no signal and no order while reading as wired — the MES pattern spelled
+as an omission instead of a flag. `_resolve_tick_symbols` now fetches
+`UNION(roster-implied, declared)`. **A symbol missing from a pull list is a bug
+in the PULL LIST, never a reason a rostered leg does not trade** (operator,
+2026-09-22); `roster-symbol-reachability` reports it in those words. Reverse
+only by reopening that decision.
 
 The trader runs 24/7 and never switches itself off — no auto-flip, no breaker
 that toggles mode, no "safety" default that goes dry on boot. Transient issues
