@@ -1,6 +1,6 @@
 # `comms/strategy_evidence/` — per-leg OFFLINE edge records
 
-> **Doc status:** `live` · category `lookup` · last verified `2026-09-22` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `lookup` · last verified `2026-09-24` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 One `<leg>.json` per strategy leg, written by
 [`scripts/ops/build_strategy_evidence.py`](../../scripts/ops/build_strategy_evidence.py)
@@ -60,31 +60,58 @@ weaker number into evidence; discarding it would throw away a usable one. Where
 that line falls is an operator decision, and leaving it to the consumer means it
 can move later without regenerating anything.
 
-Measured **2026-09-22**, over all 52 enabled legs: **25 faithful · 26
-approximate · 1 unclassifiable** (`turtle_soup`). So `faithful` is **48.1%** of
-the fleet (25 of 52 enabled; 49.0% of the 51 that route), not the 98.1% a
+Measured **2026-09-24**, over all 52 enabled legs: **37 faithful · 14
+approximate · 1 unclassifiable** (`turtle_soup`). So `faithful` is **71.2%** of
+the fleet (37 of 52 enabled; 72.5% of the 51 that route), not the 98.1% a
 harness-family name-match suggests. Re-derive it by importing
 `regime_debt_matrix` and calling `classify()` + `build_harness_cmd()` over every
 enabled leg — no fetch, no harness run. (Was 29 · 13 · 10 = 55.8% on 2026-09-09;
 then 37 · 14 · 1 = 71.2% after E25 routed `fvg_range` and E28 routed the
-eight-leg `ict_scalp_*` family.)
+eight-leg `ict_scalp_*` family; then 25 · 26 · 1 = 48.1% on 2026-09-22, E46's
+correction below; **37 · 14 · 1 = 71.2% again from 2026-09-24, E55's fix**,
+the same figure as the pre-E46 reading but for the opposite, now-correct
+reason — read the two steps below in order, they are not the same event.)
 
-⚠️ **The 37 → 25 step is a CORRECTION, not a regression** (E46 /
+⚠️ **STEP 1, 37 → 25 (2026-09-22): A CORRECTION, not a regression** (E46 /
 `PI-20260922-E41-0005`). `tp_r` sat in the trend and pullback `PLAIN` sets —
 asserting the harness modelled it — while `build_harness_cmd` passed neither
 `--tp-r` nor the `--tp-cap-pct` that makes it take effect, so those runs modelled
 **no take-profit at all**. 12 legs were claiming `faithful` with
-`omitted_levers: []` against a declared, binding `tp_r`. The grade is now
-computed from the argv that actually runs. The 50R sentinel is still not counted
-as an omission — it cannot be reached — on the same threshold the squeeze branch
-has used since 2026-07-30.
+`omitted_levers: []` against a declared, binding `tp_r`. E46 made the grade
+computed from the argv that actually runs — which DISCLOSED the omission
+honestly, but the harness still did not model `tp_r` for those 12 legs.
 
-⚠️ **And `faithful` still does NOT mean the LIVE capped TP was modelled.** Live
-places `tp = min(entry*(1+0.099), entry + tp_r*risk)`, so the ~9.9% venue clamp
-binds on **every** trend/pullback leg, sentinel legs included, and no run here
-models it — `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`. Folding
-that in would re-base the whole fleet's history and is deliberately left to its
-own row.
+⚠️ **STEP 2, 25 → 37 (2026-09-24): THE ACTUAL FIX, not another disclosure
+correction** (E55 / `PI-20260924-JN54P2HH-0005`, graded continuation of
+`PI-20260922-E41-0006`). `regime_debt_matrix._tp_r_flags` now forwards
+`--tp-cap-pct`/`--tp-r` — live-parity with the venue TP clamp
+(`src/runtime/tp_venue_cap.py` owns the `0.099` constant) — for every
+trend/pullback leg declaring a readable `tp_r`, so `tp_r` is genuinely
+modelled rather than merely disclosed as omitted. All 41 enabled trend/pullback
+legs declare a numeric `tp_r`; `tp_r` no longer appears in any of their
+`omitted_levers`. 12 of the 13 previously-omitted legs are now `faithful`
+(`xrp_pullback_2h` stays `approximate` on an unrelated lever). **A 50R
+"parked" sentinel is now ALSO modelled** — the old threshold that excused it
+answered a narrower question (worth disclosing the omission) than the one
+that matters now the harness CAN model the cap: the venue PRICE term binds
+regardless of how large `tp_r` is, so a sentinel is not harmlessly
+unreachable once the cap can be modelled at all.
+
+Regenerating every affected record through the harness (never hand-edited)
+flipped **8 of the 41** enabled trend/pullback legs' Stage-0 verdicts.
+VERIFIED against `config/accounts.yaml` (all four real-money rosters read
+explicitly): **none of the 8 are on `bybit_2`, `bybit_portfolio`,
+`alpaca_live` or `alpaca_portfolio` today** — 6 are `execution: shadow` or
+routed only to `bybit_1`, 2 route only to `alpaca_paper` (both Stage-1 soak).
+Filed as `PI-20260924-EDNBNMSG-0001` for whoever next reviews Stage-1
+promotion candidates.
+
+⚠️ **This closes `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP` for
+every leg that declares a `tp_r`** — previously read here as deliberately left
+to its own row because folding it in "would re-base the whole fleet's
+history". E55 measured that re-basing rather than continuing to defer it (the
+8-flip result above). `faithful` now DOES mean the live-capped TP was
+modelled, for every trend/pullback leg with a `tp_r`.
 
 ## ⚠️ `basis` is `harness_timefolds`, NOT purged walk-forward
 
