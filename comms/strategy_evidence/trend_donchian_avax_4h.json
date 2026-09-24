@@ -8,40 +8,40 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": -9.4613,
-  "expectancy_r_oos": -0.1892,
+  "net_r_oos": -9.1414,
+  "expectancy_r_oos": -0.1828,
   "n_trades_oos": 50,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 12,
-      "net_r": -0.9746,
-      "expectancy_r": -0.0812,
+      "net_r": -0.9114,
+      "expectancy_r": -0.076,
       "start": "2025-10-07 12:00:00+00:00",
       "end": "2025-12-09 16:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 12,
-      "net_r": -0.8988,
-      "expectancy_r": -0.0749,
+      "net_r": -0.8204,
+      "expectancy_r": -0.0684,
       "start": "2025-12-15 12:00:00+00:00",
       "end": "2026-03-04 12:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 12,
-      "net_r": -6.2282,
-      "expectancy_r": -0.519,
+      "net_r": -6.1477,
+      "expectancy_r": -0.5123,
       "start": "2026-03-21 20:00:00+00:00",
       "end": "2026-07-08 00:00:00+00:00"
     },
     {
       "fold": 4,
       "trades": 14,
-      "net_r": -1.3597,
-      "expectancy_r": -0.0971,
+      "net_r": -1.2619,
+      "expectancy_r": -0.0901,
       "start": "2026-07-23 16:00:00+00:00",
       "end": "2026-09-20 12:00:00+00:00"
     }
@@ -52,24 +52,24 @@
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
     "n": 50,
-    "max_drawdown_r": 16.6708,
+    "max_drawdown_r": 16.4135,
     "max_drawdown_at_trade": 47,
-    "final_equity_r": -9.4613,
-    "max_equity_r": 2.1563,
-    "worst_trade_r": -1.0746,
-    "best_trade_r": 4.1315,
-    "worst_day_r": -1.0746,
-    "worst_day_date": "2026-09-01",
+    "final_equity_r": -9.1414,
+    "max_equity_r": 2.2031,
+    "worst_trade_r": -1.0668,
+    "best_trade_r": 4.1405,
+    "worst_day_r": -1.0668,
+    "worst_day_date": "2026-03-30",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
   },
   "cost_stack": {
     "fees": 7.5,
-    "slippage": 5.0,
+    "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-24-e55/trend_donchian_avax_4h__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-24-e69/trend_donchian_avax_4h__bt.json"
   },
   "net_r_oos_fee_only": -8.0274,
   "decision_rule": {
@@ -79,9 +79,9 @@
     "verdict": "fail"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-24T12:46:32.553404+00:00",
+  "generated_at": "2026-09-24T17:22:37.923927+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/trend_donchian_avax_4h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-24-e69/trend_donchian_avax_4h__trades.jsonl",
   "error": null,
   "harness": "trend"
 }
