@@ -1,0 +1,82 @@
+{
+  "request_id": "REQ-20260924-E56-health-review",
+  "reviewed_at": "2026-09-24T13:05:00+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-09-22T05:45:00+00:00",
+  "window_end": "2026-09-24T13:05:00+00:00",
+  "overall_assessment": "caution",
+  "findings": {
+    "heartbeat":           {"status": "ok", "note": "MEASURED live 2026-09-24T12:30Z: age_seconds 0.35-21.94 across multiple pulls, tick continuing (tick=37/38)."},
+    "ticks":               {"status": "ok", "note": "last_tick_utc within seconds of every pull this session; bot_ticking=true on /api/bot/runtime-config."},
+    "signals":             {"status": "ok", "note": "audit tail shows *_eval events firing per-strategy every run, e.g. ada_pullback_2h_eval, mgc_trend_1h_eval, mes_trend_long_1d_eval — no strategy_silence observed among sampled ticks."},
+    "orders":              {"status": "ok", "note": "journal order_packages fresh (updated_at within minutes of pull); pairs closes and rejections both show correct plumbing (pkg-* -> trades row via order_package_id/linked_trade_id)."},
+    "trades":              {"status": "ok", "note": "trades table fresh, closed rows carry exit_reason + closed_at; no orphan rows observed in the 300-row sample pulled."},
+    "monitoring":          {"status": "ok", "note": "not separately spot-checked beyond tick/heartbeat cadence this run; no monitoring-tick gap observed in the audit tail sampled."},
+    "sizing":              {"status": "ok", "note": "spot-checked ETHUSDT/SOLUSDT pairs closes and MGC rejections; qty values in line with recent history, no absurd leverage observed."},
+    "api_errors":          {"status": "ok", "note": "all direct + relay diag pulls this session returned 200/valid JSON; no curl exit 7 or 503 encountered."},
+    "state_consistency":   {"status": "ok", "note": "accounts_yaml.resolved dry_run values match strategies_yaml execution values against the live status pull; no drift observed."},
+    "alert_delivery":      {"status": "could_not_look", "note": "AlertsQueue-drain state not checked this run — out of the budgeted scope for this session; no evidence of a stuck queue encountered incidentally."},
+    "strategy_silence":    {"status": "ok", "note": "sampled 20-line audit tail shows evals firing across many symbols/timeframes this run; no enabled strategy observed silent."},
+    "db_integrity":        {"status": "ok", "note": "PRAGMA integrity_check unavailable via relay (known limitation, per skill). Graded from recency: trades/order_packages both updated within minutes of every pull this session."},
+    "data_validity":       {"status": "ok", "note": "spot-checked ~10 trades rows: no negative position_size/pnl, closed rows carry exit_reason+closed_at, timestamps monotonic. Not a full sweep."},
+    "audit_log_freshness": {"status": "ok", "note": "audit?limit=20 returned events logged_at_utc within the same minute as the pull."},
+    "trainer_service":     {"status": "ok", "note": "ict-trainer.timer enabled+active. ict-trainer.service disabled+inactive with ExecMainStatus=0 (expected shape for a timer-triggered oneshot); ActiveEnterTimestamp=n/a is a systemd runtime-state artifact, not evidence of failure. Model/dataset/registry detail is /ml-review's."},
+    "health_snapshot":     {"status": "watch", "note": "the live /api/bot/health/latest cron IS running and healthy (status=ok, 8/8 checks, last snapshot 2026-09-24T12:18:21Z). The SEPARATE .github/workflows/health-snapshot.yml GH Actions cron collects trainer disk% but never grades it — filed as PI-20260924-GKIASQWZ-0001."},
+    "security":            {"status": "ok", "note": "MANDATORY breach sweep run this window — see security_check. No breach detected; one caveat (secret scanning unavailable) stated there, not folded into a false clean."}
+  },
+  "security_check": {
+    "status": "ok",
+    "sources_checked": ["github_secret_scanning", "external_actors", "workflow_secret_collaborator_changes", "actions_anomalies", "vm_auth_journal"],
+    "signals": [
+      {"source": "github_secret_scanning", "detail": "Repository does not have GitHub Advanced Security enabled — could not run the scan. This is a could_not_look on this one source, not a clean result for it.", "severity": "watch", "action_taken": "noted; not actioned further this session"},
+      {"source": "vm_host", "detail": "journalctl?unit=ssh.service&lines=100: one 'Invalid user test123 from 195.178.110.218', connection closed [preauth], never got past pre-auth — routine internet scanner noise. All accepted logins are publickey RSA from 158.178.209.121 (the known trainer VM).", "severity": "watch", "action_taken": "none — not a breach signal, logged as background noise"}
+    ],
+    "note": "MEASURED 2026-09-24, window since 2026-09-22T05:45Z: no external/non-collaborator issue or PR activity encountered while auditing 91 commits/PRs this window; no unexpected workflow-file, secrets, or collaborator changes found in that same audit; no Actions-run anomalies noticed; auth log on the live VM clean apart from routine pre-auth scanner noise. Secret scanning itself is unavailable on this repo (GitHub Advanced Security not enabled) — stated as could_not_look for that one source rather than folded into 'clean'."
+  },
+  "soak_decisions_due": [
+    {"what": "34 shadow models tracked at /api/bot/shadow/stats", "gate_met": "most models have soak_days well past any reasonable shadow window (17-128 days, n=328-9074) — SURFACING that promotion/demotion review is due across the fleet, not computing which pass the ladder's actual criteria", "owner_skill": "/ml-review", "sla_state": "overdue"},
+    {"what": "execution-quality-baseline-v0 and setup-quality-audit-baseline-v0", "gate_met": "score_min == score_max (constant output) across 9074 predictions — flagged for /ml-review to determine whether this is an intentional baseline comparator or a degenerate model", "owner_skill": "/ml-review", "sla_state": "on_time"}
+  ],
+  "new_work_compliance": {
+    "prs_audited": 91,
+    "commits_audited": 91,
+    "findings": [],
+    "note": "91 commits landed on main since the last review (2026-09-22T05:45Z to 2026-09-24T13:05Z, via git log --since on origin/main). 9 touched tier-sensitive paths (config/strategies.yaml, config/accounts.yaml, .github/workflows/*.yml): #12737 and #12725 and #12707 explicitly cite Tier-3 operator approval in their commit messages; #12736 explicitly cites Tier-2 operator approval; #12746 and #12716 are comment-only edits to config/accounts.yaml verified byte-identical-YAML and correctly routed through pr-landing-guard's unvouchable_paths hold (human merge) rather than self-landed despite being Tier-1 in substance; #12739/#12719/#12702 are non-order-path workflow edits (Tier-1). 0 findings — all 9 tier-appropriate and rule-compliant."
+  },
+  "anomalies": [
+    "Trainer VM disk at 91% (4.2G avail), essentially flat vs the 92% flagged in ROADMAP M40 on 2026-08-29, with zero automated alerting on that figure despite it being collected every 6h — filed PI-20260924-GKIASQWZ-0001.",
+    "Root CLAUDE.md's A7/A8 paragraph asserts the 91 OPEN-ITEMS rows and 1,065 archived backlog rows are 'not imported... until A8 runs' — but checklist row A8 shows A8 merged 2026-09-21 (#12679, landed_unproven) and 91 OI-* rows are directly present in PIPELINE.jsonl. Filed PI-20260924-GKIASQWZ-0002 rather than editing CLAUDE.md directly, because the adjacent A3/A7 'not yet scheduled' half of the same paragraph was NOT independently re-verified this session (an initial grep of /api/bot/work/checklist looked like confirmation but turned out to be prose matches inside checklist-row notes, not a live render — caught before being reported as fact).",
+    "The health-review backlog-drive gate's PIPELINE.jsonl half ('every item due and not closed', no domain filter) is not satisfiable by one review-lane's budget once cross-domain items are counted: 91 of the currently-due pipeline items are 'OI-' imports spanning prop/ML/macro/strategy domains, and checklist row A10 exists specifically, and is still unowned, to disposition them as its own bounded sweep. This review's backlog_coverage below is scoped to the technical/pipeline/data-health subset for that reason; filed PI-20260924-GKIASQWZ-0003 so the skill text says this explicitly rather than each review re-deriving it."
+  ],
+  "backlog_drain": [
+    {"item_id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED", "action": "resolved", "note": "verified live: 0 open MGC rows on ib_paper (300-row trades sample); exchange_positions shows ib_paper holds only MHG. 43-lot divergence no longer exists."},
+    {"item_id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION", "action": "invalid", "note": "moot — the SESSION-BRIEF mechanism it asks about was retired by the 2026-09-21 reset; verified by reading current CLAUDE.md in full, no such block exists."},
+    {"item_id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED", "action": "invalid", "note": "same — mechanism retired 2026-09-21, question no longer has a subject."},
+    {"item_id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED", "action": "kept_open", "note": "re-validated: MHG position currently open (22 short, ib_paper); no new over-cover trigger event this window to prove the detection mechanism."},
+    {"item_id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED", "action": "kept_open", "note": "re-validated: still armed on ib_paper; no observed cancellation event this window to prove the decision function against real venue state."},
+    {"item_id": "OI-20260910-ORPHAN-ADOPT-SIZE-GATE-DEPLOYED-AND-HAS-REFUSED-NOTHING", "action": "kept_open", "note": "re-validated: orphan_events.jsonl tail still ends 2026-09-17T01:27Z — no new orphan-adopt events this window, gate remains unexercised."},
+    {"item_id": "OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER", "action": "kept_open", "note": "not verifiable by a review session — needs the operator to confirm they've viewed the rendered SPA page."},
+    {"item_id": "PI-20260922-DIAG-RELAY-ERROR-MESSAGE-NAMES-THE-WRONG-CAUSE", "action": "kept_open", "note": "positive evidence gathered (see main body): the E19 fix holds, both relays completed real round-trips clean this session. The specific deliberate-failure/two-control test its clears_when demands was NOT run (would require breaking live secrets) — kept open rather than closed on partial evidence."}
+  ],
+  "backlog_coverage": {
+    "sources": ["pipeline", "checklist"],
+    "open_at_start": 8,
+    "triaged": 8,
+    "resolved": 1,
+    "fixed_now": 0,
+    "closed_stale": 2,
+    "kept_open": 5,
+    "count_untriaged": 0,
+    "note": "SCOPED, and the scoping is stated rather than silent (see anomalies[] and PI-20260924-GKIASQWZ-0003): open_at_start=8 covers the pipeline.py --due items whose subject is technical/pipeline/data-health/security, all individually identified and driven above. EXCLUDED from this denominator: (a) 91 'OI-' cross-domain imports (prop/ML/macro/strategy) whose disposition is checklist row A10's dedicated, still-unowned job, not this review's; (b) due items whose subject is strategy-tuning/prop/macro, which are /performance-review's and /ml-review's domain and have not run yet this cycle (O1 order: health -> performance -> ml). Checklist surface: 0 open rows owned by 'review lane' besides this row (E56) itself; E34 is a different review-lane row owned by a different, already-running session (arbitration-mechanism review) and is not mine to touch."
+  },
+  "sprint_doc_review": [
+    {"sprint": "(none)", "finding": "No sprint logs were created or touched in git history since the last review (2026-09-22T05:45Z). Consistent with the 2026-09-21 operating reset moving the record-of-work to MANAGER-CHECKLIST.json + PIPELINE.jsonl (CLAUDE.md doc-priority table demotes sprint logs to level 8, context-only). Nothing to review.", "severity": "nit"}
+  ],
+  "recommended_action": "1) Wire a real disk-usage alert for the trainer VM (91%, flat since 92% on 2026-08-29) following the trainer-capture-watch.yml self-tested-alarm pattern — PI-20260924-GKIASQWZ-0001, Tier-1. 2) A10 (checklist, queued, unowned) should be picked up: it is the dedicated sweep for the 91 imported OI- rows, and pairs naturally with fixing CLAUDE.md's stale A7/A8 paragraph (PI-20260924-GKIASQWZ-0002). 3) /performance-review and /ml-review can proceed — this session found no data-surface trust problems: all diag relays (direct + GitHub-issue) round-tripped cleanly with real, fresh data this run, runtime is CURRENT against main HEAD, and the prop journal / broker-reachability surfaces are all fresh and reachable.",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+    "delivered_via": "send-ping",
+    "priority": "normal",
+    "message": "/health-review — caution: diag relays all healthy (real round-trips verified), runtime CURRENT vs main HEAD, prop journal fresh ($94.76 to dd floor), trainer capture healthy but disk 91% unalarmed (filed). 0 concerns, 2 watches. See PI-20260924-GKIASQWZ-0001/0002/0003."
+  }
+}
