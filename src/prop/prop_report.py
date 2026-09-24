@@ -19,6 +19,13 @@ report shapes (auto-detected, or set explicitly via ``kind``):
   operator reports ``open``/``filled`` and the ticket moves on to ``filled``.
   Lifecycle: ``emitted → [placed] → filled → closed`` (the ``placed`` step is
   optional — a market fill goes straight to ``filled``).
+- **amend** (``kind="amend"``, E66 2026-09-24) — the executor MOVED the stop
+  and/or target of a position that is already open. Carries the position
+  identity (``account_id`` + ``symbol`` + ``direction``) and ``sl`` and/or
+  ``tp``; optionally ``fill_id`` to name the row. Writes ONLY those two
+  columns on the open position's newest fill row and appends the before/after
+  to its ``amendments`` trail (``prop_journal.amend_fill_levels``). Refused —
+  never guessed — when no open position matches or more than one does.
 - **account status** (``kind="account_status"``) — balance / equity / day P&L /
   drawdown snapshot. Journaled to ``prop_account_status`` and surfaced on the
   dashboard's rule-distance panel.
@@ -80,6 +87,9 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
             "ok": True, "kind": "account_status", "id": row_id,
             "rule_distance": rule_distance,
         }
+
+    if kind == "amend":
+        return _ingest_amend(account_id, report)
 
     # --- fill / close ---
     status = str(report.get("status") or "closed").strip().lower()
@@ -204,6 +214,88 @@ def ingest_report(report: Dict[str, Any]) -> Dict[str, Any]:
         "ok": True, "kind": "fill", "id": row_id,
         "status": status, "ticket_id": fill.get("ticket_id"),
         "notified": notified,
+    }
+
+
+def _ingest_amend(account_id: str, report: Dict[str, Any]) -> Dict[str, Any]:
+    """Move the journaled stop/target of ONE open prop position (E66).
+
+    The position is resolved through ``find_open_prop_positions`` — the same
+    derivation (newest fill per ``position_key``, status open/filled) the
+    pulse, the SL/TP alert and now the rule distance read — so the row an
+    amend writes is by construction the row the risk read consults.
+
+    Refusal is the honest outcome when the target is ambiguous: writing a stop
+    onto the wrong position would make the risk read confidently wrong, which
+    is worse than a bounced report the operator can re-send with ``fill_id``.
+    """
+    symbol = report.get("symbol")
+    missing = missing_identity_fields({
+        "account_id": account_id, "symbol": symbol,
+        "direction": report.get("direction"),
+    })
+    if missing:
+        raise ValueError(
+            f"amend report is missing {', '.join(missing)} — an amend moves the "
+            f"stop of ONE open position, identified by {IDENTITY_FIELDS}"
+        )
+    sl, tp = report.get("sl"), report.get("tp")
+    for name, v in (("sl", sl), ("tp", tp)):
+        if v is not None:
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                raise ValueError(f"amend {name} must be a number, got {v!r}")
+            if not fv > 0:
+                raise ValueError(f"amend {name} must be a positive price, got {v!r}")
+    if sl is None and tp is None:
+        raise ValueError("amend report needs sl and/or tp (the level you moved)")
+    try:
+        from src.prop.symbol_map import to_bot_symbol
+
+        symbol = to_bot_symbol(symbol) or symbol
+    except Exception as exc:  # noqa: BLE001 — same best-effort as the fill path
+        logger.warning("prop_report: symbol normalise failed for %s: %s", symbol, exc)
+
+    from src.prop.prop_monitor_pulse import find_open_prop_positions
+
+    want_key = position_key({
+        "account_id": account_id, "symbol": symbol,
+        "direction": report.get("direction"),
+    })
+    matches = [p for p in find_open_prop_positions(account_id=account_id)
+               if p.get("key") == want_key]
+    fill_id = report.get("fill_id")
+    if fill_id is not None:
+        try:
+            fill_id = int(fill_id)
+        except (TypeError, ValueError):
+            raise ValueError(f"amend fill_id must be an integer, got {fill_id!r}")
+        matches = [p for p in matches if p.get("fill_id") == fill_id]
+    if not matches:
+        raise ValueError(
+            f"no OPEN position matches {want_key}"
+            + (f" with fill_id {fill_id}" if fill_id is not None else "")
+            + " — an amend only moves the stop of a position the journal holds "
+              "as open. Report the fill (status open) first."
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"{len(matches)} open positions match {want_key} — re-send with "
+            f"fill_id (one of {[p.get('fill_id') for p in matches]})"
+        )
+    target = matches[0]
+    out = prop_journal.amend_fill_levels(
+        target["fill_id"], sl=sl, tp=tp,
+        source={"reason": report.get("reason"), "reported": report},
+    )
+    return {
+        "ok": True, "kind": "amend", "id": target["fill_id"],
+        "ticket_id": target.get("ticket_id"),
+        "sl_before": out.get("sl_before"), "sl": out.get("sl"),
+        "tp_before": out.get("tp_before"), "tp": out.get("tp"),
+        "amendments_count": out.get("amendments_count"),
+        "rule_distance": prop_reconcile.compute_rule_distance(account_id),
     }
 
 

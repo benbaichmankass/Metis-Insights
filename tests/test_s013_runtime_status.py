@@ -28,6 +28,13 @@ def test_build_status_has_schema_v1_and_required_keys(tmp_path):
         strategies_yaml=strategies,
         git_sha="abc1234",
     )
+    # ``schema_version`` stays at 1 across the E31 addition, deliberately.
+    # ``process`` is ADDITIVE — no existing key changed meaning or shape — and
+    # the reader detects it by PRESENCE (``loaded_config.read_process_block``
+    # grades an artifact without it as ``not_written``), which is strictly more
+    # robust than a version a consumer has to know to check. Bumping would
+    # also risk an unknown SPA-side equality check on a live surface for no
+    # gain in what a reader can actually establish.
     assert payload["schema_version"] == 1
     assert set(payload.keys()) == {
         "schema_version",
@@ -36,6 +43,8 @@ def test_build_status_has_schema_v1_and_required_keys(tmp_path):
         "strategies",
         "git_sha",
         "last_tick_utc",
+        # E31 — layer 4: what the PROCESS holds, beside the file views above.
+        "process",
     }
     assert payload["git_sha"] == "abc1234"
     assert payload["last_tick_utc"].endswith("Z")

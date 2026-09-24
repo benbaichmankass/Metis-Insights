@@ -223,6 +223,7 @@ exists to arm CI, and read CI with `get_check_runs`, never `get_status`.
 | `bootstrap-labels.yml` | AUTO / AUTONOMOUS | push (paths: this file) + B-sentinel or `workflow_dispatch` | `.github/triggers/bootstrap-labels` |
 | `branch-protection-sync.yml` | AUTO | push to `main` + workflow_dispatch | — |
 | `health-snapshot.yml` | AUTONOMOUS | A or E (every 6h) | `health-snapshot-trigger` |
+| `dashboard-edge-watch.yml` | AUTONOMOUS | A or E (hourly) | `dashboard-edge-watch-now` |
 | `vm-diag-snapshot.yml` | AUTONOMOUS | A | `vm-diag-request` |
 | `trainer-vm-diag.yml` | AUTONOMOUS | A | `trainer-vm-diag-request` |
 | `vm-web-api-recover.yml` | AUTONOMOUS | A | `vm-web-api-recover` |
@@ -472,6 +473,58 @@ mcp__github__issue_write
 Workflow SSHes, uploads artifact, comments result URL, closes issue.
 
 **Secrets:** `VM_SSH_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+
+---
+
+#### `dashboard-edge-watch.yml`
+
+**Autonomy:** AUTONOMOUS — read-only outside-in probe, no operator approval
+needed.
+
+**Trigger:** Schedule hourly (`12 * * * *`), `workflow_dispatch`, and
+`issues.opened` with label `dashboard-edge-watch-now`.
+
+**Purpose:** E52 — the outside-in probe of the three links in front of
+`ict-web-api-watchdog`'s coverage on the SPA's only path to the API
+(GitHub Pages -> HTTPS -> `ict-bot.duckdns.org` -> Caddy -> `ict-web-api`):
+(1) a cheap ungated `GET /api/health` returns 200 over a chain that verifies;
+(2) days remaining on the served TLS certificate (warn < 14, alert < 7); (3)
+the DuckDNS `A` record for `ict-bot.duckdns.org` still equals the canonical
+live VM IP (`vars.VM_SSH_HOST`, see
+[`docs/runbooks/live-vm-ip-single-source.md`](runbooks/live-vm-ip-single-source.md));
+and (4, optional, always run) the CORS preflight from the Pages origin still
+allows `Authorization` (the same check
+[`docs/runbooks/webapp-https-caddy.md`](runbooks/webapp-https-caddy.md) §
+Verify documents by hand). Runs entirely from the GitHub-hosted runner — no
+SSH, so a wedge that also breaks VM-side monitoring is still observed.
+
+**Collapsed-state contract:** every check grades into `ok` / `warn` / `alert`
+/ `unreachable`, never collapsed — "the probe did not run" (DNS timeout,
+socket refused, an uncaught exception mid-check) is its own state and is
+never folded into `ok`. Every run uploads a JSON receipt artifact
+(`dashboard-edge-watch-receipt-<run_id>`, 7-day retention) so "ran and found
+healthy" stays distinguishable from "did not run" even when the alert path
+itself is silent. See `scripts/ops/dashboard_edge_watch.py`'s module
+docstring for the full contract; `--self-test` plants an expired-cert fixture,
+a wrong-IP fixture, a non-200 fixture and a missing-`Authorization`-header
+fixture and asserts each produces its alert, with no network. Job fails
+(red in the Actions UI) whenever the overall verdict is not `ok`, alongside
+a Telegram ping and a deduped `dashboard-edge-watch-alert`-labelled issue
+(opened once, commented on while still broken, auto-closed on recovery) — the
+same shape as `macro-producer-liveness.yml`. Also watched by
+`claude-run-failure-alert.yml` — a silent watchdog is worse than none.
+
+**MCP trigger (autonomous, Pattern A):**
+```
+mcp__github__issue_write
+  title: "[dashboard-edge-watch] on-demand probe"
+  body: ""
+  labels: ["dashboard-edge-watch-now"]
+```
+
+**Secrets:** `CLAUDE_TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (alert path
+only — the checks themselves need no secret, since the target endpoints are
+public).
 
 ---
 
@@ -1251,6 +1304,7 @@ header before triggering a mutating one).
 | `replay-pregate-nightly.yml` | ML | AUTONOMOUS | cron (daily 04:00) + label / dispatch | Session-independent runner for the ML replay pre-gate (RG3): baselines the shadow-stage regime fleet on the trainer VM and commits the report. |
 | `gpu-burst-train.yml` | ML | AUTONOMOUS | label `gpu-burst-train` | M19 Tier-1 ledger-gated, teardown-guaranteed spot-GPU burst training. Spend-gated against the $10/month cap and appended to `comms/gpu_spend_ledger.json` (surfaced at `/api/bot/gpu/spend`). |
 | `trainer-offload-train.yml` | ML | AUTONOMOUS | label `trainer-offload-train-request` / dispatch | Free-runner offload for OOM-prone ML manifests — the 1-OCPU/6-GB trainer OOM-quarantines the heavy ones, so they train on a hosted runner instead. |
+| `research-loss-detector.yml` | Research | AUTONOMOUS | cron (every 12h at :23) + dispatch | **E57 — makes a research result that did not reach `main` impossible to miss**, independent of any manager session. `scripts/ops/research_loss_detector.py` asks three questions over stated populations: (A) open `automation/*` research PRs older than 6h; (B) runs of every workflow calling `./.github/actions/research-result` (derived from the tree) whose record is not on `main`; (C) research-workflow artifacts expiring within 72h with no landed copy. Alerts the operator's Telegram channel on findings AND on could-not-read. ⚠️ **Each run lands `docs/claude/work/RESEARCH-LOSS-RECEIPT.json`, graded by `check_cadence_liveness.py` on every PR**, so a detector that stops running reds CI instead of reading as "nothing lost". Never merges, closes or re-runs anything. |
 | `research-queue-dispatch.yml` | Research | AUTONOMOUS | cron (daily 06:20) + dispatch | R5 of the research-workflow architecture — the scheduler. Reads `research/queue/*.yaml`, grades each job against the R4 power gate, routes it by its DECLARED resource needs (runner / trainer / GPU / unroutable) and dispatches. ⚠️ **The scheduled run is a DRY RUN** — `fire` defaults to false, so cron reports what it would do and spends nothing; firing is an explicit dispatch. Exits 2 when it could not READ the queue, which is deliberately distinct from an empty one. |
 | `llm-delegate.yml` | Tooling | AUTONOMOUS | dispatch | Bursty LLM worker for delegated, bounded coding/research subtasks. The runner *is* the worker: it starts, does one subtask, and is destroyed. Scope guard: public repo code + docs only. |
 | `m20-capture-census.yml` | Research | AUTONOMOUS | dispatch / push | M20 exit-capture census — the measure-first pass. Applies **no** lever and grades nothing; runs each live leg's config-exact base to size the design work. |

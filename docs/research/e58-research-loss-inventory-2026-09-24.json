@@ -1,0 +1,99 @@
+{
+  "_doc": "E58 inventory — every research/evidence workflow run whose result did or did not reach main, and why. Scope: the R5-blocked landing paths E57 found (research/results/**, runtime_logs/replay_pregate/**, research/queue/**), not the 19 by-design artifact-only workflows tracked separately under checklist item C2 (operator decision 2026-08-27 against wiring R2 into those; see docs/research/evidence-workflow-landing-triage-2026-08-29.md).",
+  "as_of": "2026-09-24T13:00:00Z",
+  "population": {
+    "definition": "Workflows whose committed landing target falls under research/results/**, runtime_logs/replay_pregate/**, or research/queue/** — found by grepping .github/workflows/*.yml and .github/actions/research-result/action.yml for those three path prefixes, then cross-checking every commit-to-main `paths:` value against the same three prefixes (docs/research/** and comms/** targets excluded: those are inside TIER1_SURFACE and were never blocked).",
+    "workflows_in_scope": 4,
+    "workflows": [
+      "research-exit-head-build.yml",
+      "m20-exit-lever-sweep.yml",
+      "research-queue-dispatch.yml",
+      "replay-pregate-nightly.yml"
+    ],
+    "windows": {
+      "since_2026-09-01": "runtime_logs/replay_pregate and research/queue windows below",
+      "since_R1_2026-09-22T18:18:04Z": "R1 = #12739 'E5: one result schema, one committed location, one shared commit step', merged 2026-09-22T18:18:04Z (git log -1 --format=%cI 73cb5f57e)"
+    }
+  },
+  "positive_control": {
+    "method": "docs/CLAUDE-RULES-CANONICAL.md RULE ONE requires a probe to find a positive before its silence is trusted.",
+    "workflow": "e35-bracket-sweep.yml",
+    "lands_to": "docs/research/e35-bracket-corpus.jsonl (inside TIER1_SURFACE's docs/** — never blocked by R5)",
+    "verified": "git log --oneline origin/main -- docs/research/e35-bracket-corpus.jsonl shows 3 landed commits (#10604, #12728, #12780); git show origin/main:docs/research/e35-bracket-corpus.jsonl | wc -l = 8520 lines, read 2026-09-24",
+    "result": "PASS — a workflow that commits to a TIER1_SURFACE path does land; the 3 workflows below that commit to research/results, research/queue and runtime_logs/replay_pregate do not, and that difference is R5's allowlist, not a broken probe."
+  },
+  "workflows_detail": [
+    {
+      "workflow": "research-exit-head-build.yml",
+      "lands_to": "research/results/_unattributed/<run_id>.jsonl via .github/actions/research-result (branch-prefix automation/research-result, PR title 'research result: <unit> (run <id>)')",
+      "runs_since_2026-09-01": "many (dozens), overwhelmingly `build: skipped` (event=issues, no research-exit-head-request label present, or event=issues on an unlabeled/irrelevant issue) or `build: success` before 2026-09-24 with no landing attempt recorded on main — this workflow's `research_result` job only started firing on every trigger from R1 (2026-09-22) onward, per its own header 'if: always() because a FAILED build is itself a result worth landing'",
+      "since_R1_population": 13,
+      "classification": "NO-RESULT-EXPECTED — 13 of 13 (100%)",
+      "measured": "For all 13 runs (35964326810, 35979604926, 35980322052, 35981819756, 35981853449, 35982396299, 35982418069, 35983166835, 35983442279, 35983731519, 35992152280, 35999563824, 35999566185): actions_list/list_workflow_jobs shows the `build` job status=completed conclusion=skipped on every one; actions_get shows each run's triggering issue was UNRELATED to research (e.g. run 35964326810 = 'system-action: pull-and-deploy — land E31/E32 (#12738)', run 35999566185 = '[trainer-diag-request] E56 health-review ...', run 35979604926 = 'system-action: get-env — read ARBITRATION_FANOUT_ACCOUNTS'); git show of each branch's research/results/_unattributed/<id>.jsonl file confirms read_state=producer_failed on all 13.",
+      "root_cause": "ROOT CAUSE, not just an R5 symptom: research-exit-head-build.yml's `on.issues.types: [opened]` trigger has NO label filter — it fires on every issue opened anywhere in the repo (diag-requests, system-actions, manager dispatches, ...). The `build` job's own `if:` correctly requires the `research-exit-head-request` label and skips otherwise, but the downstream `research_result` job ran `if: always()` unconditionally and could not tell 'not applicable (wrong trigger)' from 'ran and genuinely failed' — both read as `needs.build.result != 'success'` to scripts/research/exit_head_result.py, which collapses both into `read_state: producer_failed`. This is the collapsed-states defect class CLAUDE-RULES-CANONICAL.md names (two states sharing one value, the missing one silent). None of the 13 'lost results' were ever real research; R5 blocking their landing (E57's finding) accidentally kept 13 fabricated placeholder rows off main rather than losing 13 real measurements.",
+      "fix": "FIXED in this PR: research-exit-head-build.yml `research_result` job's `if:` now repeats `build`'s own trigger gate (ANDed with always()), so it only runs — landing a real success OR a real producer_failed — when the trigger was actually a research-exit-head request. A mistriggered run now skips both jobs and produces nothing.",
+      "recovery_action": "Closed all 13 open 'research result: unattributed' PRs (#12798, #12803, #12805, #12809, #12810, #12813, #12814, #12819, #12821, #12823, #12827, #12835, #12836) as garbage rather than landing them — landing a fabricated producer_failed placeholder would be worse than the current gap. 2 runs (35999566185, 35999563824) and 1 queued run (36000658979) were already in flight on the OLD workflow version when the fix was written and may still open 1-3 more bogus PRs before the fix reaches main; these are cosmetic (same signature, safe to close on sight) and not decision-relevant.",
+      "rerun_needed": false,
+      "rerun_reason": "Nothing to re-run — no real research-exit-head request was ever dropped. The one genuinely-labeled request in the repo's history (issue #7976, 2026-07-30, 'trend_donchian 1h — per-bar exit panel') is still open and untouched by this bug; it was never dispatched via `issues`, so it is a separate, pre-existing backlog item, not part of this loss."
+    },
+    {
+      "workflow": "m20-exit-lever-sweep.yml",
+      "lands_to": "research/results/** via .github/actions/research-result",
+      "runs_since_2026-09-01": 0,
+      "last_run": "33248507062, completed success, 2026-08-29T10:44:17Z, on main",
+      "classification": "NO-RESULT-EXPECTED — dormant",
+      "measured": "actions_list list_workflow_runs, total_count=55, most recent run created_at=2026-08-29T10:44:17Z; zero runs since 2026-09-01.",
+      "root_cause_check": "Triggers are workflow_dispatch and push only — no `issues` trigger, so it is NOT exposed to the research-exit-head-build defect above. Not touched.",
+      "rerun_needed": false
+    },
+    {
+      "workflow": "research-queue-dispatch.yml",
+      "lands_to": "research/queue/** (last_dispatched_at stamps) via commit-to-main, paths: research/queue",
+      "runs_since_2026-09-01": 25,
+      "since_2026-09-01_breakdown": "23 completed success (2026-09-01 through 2026-09-21, daily 'schedule' runs) + 2 completed cancelled since (2026-09-22T11:50, 2026-09-23T11:50) + 1 more cancelled 2026-09-24T11:57. Two much older 'completed failure' runs exist from 2026-08-30 (33340458710, 33342140520), outside the 2026-09-01 window.",
+      "since_R1_population": 2,
+      "since_R1_detail": "35856839139 (2026-09-23, cancelled, PR #12777 open) and 35996108860 (2026-09-24, cancelled, PR #12829 open). The 2026-09-22T11:50 run (35723722908, PR #12726 open) is 7h before R1 merged and is included below for completeness.",
+      "classification": "RECOVERABLE (open PR, auto-merge already armed) — 3 (#12726, #12777, #12829); GONE but not decision-relevant — 2 (#10534, #10536, closed non-merged 2026-08-31, superseded by 23 subsequent successful stamps)",
+      "measured": "actions_list list_workflow_runs (total_count=34); list_pull_requests state=open shows #12726/#12777/#12829 open on branches automation/research-queue-stamp-{35723722908,35856839139,35996108860}-1; list_pull_requests state=all head=automation/research-queue-stamp-{33340458710,33342140520}-1 shows #10534/#10536 closed (merged=false) 2026-08-31.",
+      "root_cause": "Same R5 allowlist gap E57 found (research/queue/** outside TIER1_SURFACE) — genuine dispatcher runs, no mistrigger bug (workflow_dispatch + schedule only, no `issues` trigger).",
+      "recovery_action": "None needed beyond E57: .github/actions/commit-to-main already arms `gh pr merge --auto --squash` on every one of these PRs, so once pr-landing-guard R5 allowlists research/queue/**, the 3 open stamp PRs merge themselves on their next required-check run — no manual merge, no re-dispatch.",
+      "rerun_needed": false,
+      "rerun_reason": "The two GONE stamps (#10534/#10536) only ever carried `last_dispatched_at` for two research/queue jobs; the dispatcher has since re-stamped successfully 23 times over, so no job's dispatch cadence is actually stale. Not decision-relevant; not re-run."
+    },
+    {
+      "workflow": "replay-pregate-nightly.yml",
+      "lands_to": "runtime_logs/replay_pregate/<dir>/ via commit-to-main, paths: ${{ steps.commit.outputs.dir }}",
+      "runs_since_2026-09-01": "at least 15 'schedule' runs sampled 2026-09-10 through 2026-09-24, ALL conclusion=failure or cancelled at the landing step; git log --oneline origin/main -- runtime_logs/replay_pregate/ returns ZERO commits ever (this store has never landed on main in the retained history)",
+      "since_R1_population": 2,
+      "since_R1_detail": "35841162681 (2026-09-23, PR #12775) and 35978951931 (2026-09-24, PR #12815). E57 cited #12584 (2026-09-19) as the earliest known-open instance; this inventory extends that back to at least 2026-09-13 (run 34749050321, PR #12228) and possibly 2026-09-12 (run 34683288123, PR #11916, conclusion=cancelled) — 13 consecutive nightly runs, all with an open PR, none merged.",
+      "classification": "RECOVERABLE (open PR, auto-merge already armed) — 13: #11916, #12228, #12265, #12297, #12328, #12385, #12529, #12584, #12625, #12666, #12721, #12775, #12815",
+      "measured": "list_pull_requests state=open (page 1, 100 results) + one targeted head query for automation/replay-pregate-34683288123-1 -> #11916; actions_list list_workflow_runs event=schedule shows conclusion=failure on every scheduled run 2026-09-10 through 2026-09-24 except 2026-09-12 (cancelled); git log confirms zero historical commits to runtime_logs/replay_pregate/ on main.",
+      "root_cause_check": "replay-pregate-nightly.yml has a SINGLE job (`pregate`) whose own `if:` gate (schedule OR workflow_dispatch OR a correctly-labeled issue) covers the entire job including the landing step — unlike research-exit-head-build.yml it has no split build/land jobs, so a mistriggered `issues` event skips the whole job and produces no PR. All 13 open PRs are event=schedule (or, for #11916's run, a real attempt that hit `cancelled` at the 38-minute poll deadline) — genuine nightly attempts, not mistriggers. Not touched.",
+      "recovery_action": "None needed beyond E57: auto-merge is already armed on all 13 PRs via commit-to-main; they merge themselves once R5 allowlists runtime_logs/replay_pregate/**.",
+      "rerun_needed": false,
+      "rerun_reason": "Every attempt for every night since at least 2026-09-12 is already sitting on an open, auto-merge-armed branch. Re-running would only produce a 14th unlanded attempt; nothing is missing, everything is blocked."
+    }
+  ],
+  "summary_counts": {
+    "before": {
+      "LANDED": "1 workflow verified (e35-bracket-sweep, positive control; out of scope for R5 since docs/research/** was never blocked)",
+      "PENDING_open_pr_RECOVERABLE": 29,
+      "PENDING_open_pr_RECOVERABLE_breakdown": "13 replay-pregate-nightly + 13 research-exit-head-build (later reclassified, see after) + 3 research-queue-dispatch",
+      "GONE_not_decision_relevant": 2,
+      "NO_RESULT_EXPECTED_dormant_workflow": 1
+    },
+    "after": {
+      "RECOVERABLE_awaiting_E57_only": 16,
+      "RECOVERABLE_breakdown": "13 replay-pregate-nightly (#11916,#12228,#12265,#12297,#12328,#12385,#12529,#12584,#12625,#12666,#12721,#12775,#12815) + 3 research-queue-dispatch (#12726,#12777,#12829)",
+      "RECLASSIFIED_NO_RESULT_EXPECTED_bug_not_loss": 13,
+      "RECLASSIFIED_detail": "All 13 research-exit-head-build 'research result: unattributed' PRs were fabricated placeholders from an unfiltered `issues` trigger, not real lost research (see workflows_detail above). Closed, not merged. Root cause fixed in this PR.",
+      "GONE_not_decision_relevant": 2,
+      "RE_RUN": 0,
+      "RE_RUN_reason": "Nothing both GONE and decision-relevant was found. Every genuinely blocked result (29 PRs across replay-pregate-nightly and research-queue-dispatch) is still sitting on an open, auto-merge-armed branch and will land the moment E57 fixes pr-landing-guard R5 — no data was actually destroyed. The only population that looked like 13 lost results (research-exit-head-build) was traced to a workflow bug that manufactured them from unrelated issues; fixing the trigger was cheaper and more correct than re-running 13 non-existent research questions."
+    }
+  },
+  "not_in_scope_but_related": {
+    "checklist_C2": "19 (as of the 2026-08-29 triage, now ~16 after research-exit-head-build itself started landing) 'artifact-only' research workflows that upload a CI artifact and an issue comment and never attempt to commit anything, by an explicit operator decision (2026-08-27) not to wire R2 assertions into them until each declares its store (R1). These never tried to land, so nothing was 'lost' for them in the R5 sense — see docs/research/evidence-workflow-landing-triage-2026-08-29.md and scripts/ops/evidence_workflow_inventory.py for the current mechanical count. Re-running any of them is C2's job, not E58's.",
+    "e57": "The mechanism fix (pr-landing-guard R5 allowlisting research/results/**, research/queue/**, runtime_logs/replay_pregate/**) is E57's row and is NOT touched by this PR."
+  }
+}
