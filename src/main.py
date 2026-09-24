@@ -7,6 +7,12 @@ import time
 
 from dotenv import load_dotenv
 
+from src.config.symbol_sets import (  # noqa: E402
+    DECLARED,
+    EXCHANGE_DEFAULT_SYMBOL,
+    load_strategies_cfg,
+    resolve_symbols,
+)
 from src.exchange.bybit_connector import BybitConnector
 from src.runtime.heartbeat import write_heartbeat
 from src.runtime.outcomes import Level, report
@@ -667,10 +673,14 @@ def _run_symbol_tick(settings: dict, exchange_client, telegram_client) -> dict:
 # Per-exchange default instrument when a configured account omits the
 # ``symbols`` field in accounts.yaml. Keeps an account trading its natural
 # instrument rather than nothing.
-_EXCHANGE_DEFAULT_SYMBOL = {
-    "bybit": "BTCUSDT",
-    "interactive_brokers": "MES",
-}
+#
+# RE-EXPORT, NOT A SECOND COPY (E42): the values live in
+# ``src.config.symbol_sets.EXCHANGE_DEFAULT_SYMBOL`` with the resolver that
+# applies them. The name is kept because `tests/test_ib_sizing_and_data.py`
+# and `tests/test_roster_symbol_union.py` import it, and because a duplicated
+# literal here is precisely the four-private-copies shape this change exists
+# to remove.
+_EXCHANGE_DEFAULT_SYMBOL = EXCHANGE_DEFAULT_SYMBOL
 
 
 def _resolve_tick_symbols(settings: dict) -> list:
@@ -700,6 +710,7 @@ def _resolve_tick_symbols(settings: dict) -> list:
     try:
         from src.units.accounts import load_accounts
 
+        strategies_cfg = load_strategies_cfg()
         seen: set = set()
         out: list = []
         if primary:
@@ -711,12 +722,21 @@ def _resolve_tick_symbols(settings: dict) -> list:
             strategies = getattr(acct, "strategies", None)
             if strategies is not None and len(strategies) == 0:
                 continue  # explicit opt-out — account trades nothing
-            syms = list(getattr(acct, "symbols", None) or [])
-            if not syms:
-                default = _EXCHANGE_DEFAULT_SYMBOL.get(
-                    str(getattr(acct, "exchange", "") or "").lower()
-                )
-                syms = [default] if default else []
+            # MODE: DECLARED — today's behaviour, unchanged, and pinned here
+            # rather than by default. This site is the one that WANTS `UNION`
+            # (E42: the roster is the single source of truth for what trades),
+            # and flipping this one argument is the whole of PR #12736, which
+            # is HELD for its Tier-2 approval. The operator ordered the
+            # resolver first so the data readers below are already union-aware
+            # when it flips, leaving no window in which a symbol trades while
+            # the position cross-check cannot see it.
+            syms = resolve_symbols(
+                declared=getattr(acct, "symbols", None),
+                roster=getattr(acct, "strategies", None),
+                mode=DECLARED,
+                strategies_cfg=strategies_cfg,
+                exchange=getattr(acct, "exchange", None),
+            )
             for s in syms:
                 s = str(s).strip()
                 if s and s not in seen:
