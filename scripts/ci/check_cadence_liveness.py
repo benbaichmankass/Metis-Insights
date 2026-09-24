@@ -208,6 +208,12 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    network is a guard that reds on an outage). Declared, not graded.
     "alpaca-settlement-soak-watch.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "broker-bracket-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
+    "dashboard-edge-watch.yml": {
+        "receipt": None,
+        "why": "receipt is a per-run upload-artifact (7d retention), deliberately "
+               "not committed to main — hourly cadence would spam the tree; "
+               "liveness is also covered by claude-run-failure-alert.yml",
+    },
     "diag-relay-sweep.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "doc-audit-weekly.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "health-snapshot.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},

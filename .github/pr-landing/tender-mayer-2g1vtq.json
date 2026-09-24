@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register update only (docs/claude/work/MANAGER-CHECKLIST.json): records the operator's 2026-09-24 ~13:05Z popup decisions verbatim (prop sizing: leave flat $75; slippage: Bybit perps 3.0 bps, rest 5.0; MD-PROMOTE-S1-S2 armed for all venues; GPU bursts authorized within the $10/month cap), marks nine finished lanes archived, and adds rows E60 (per-venue slippage build) and E61 (GPU arming). No src/, config/, scripts/ or workflow change."
+}
