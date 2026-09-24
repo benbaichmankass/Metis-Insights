@@ -350,12 +350,40 @@ jobs:
   # would widen the blast radius of the one job that runs untrusted-ish research
   # code for hours. The build stays read-only; only this job writes.
   #
-  # `if: always()` because a FAILED build is itself a result worth landing —
+  # `always()` because a FAILED build is itself a result worth landing —
   # `read_state: producer_failed` is "we looked, and it broke", which is a
   # different and more actionable fact than silence.
+  #
+  # ⚠️ `always()` ALONE IS WRONG, AND WAS WRONG FROM 2026-09-22 TO 2026-09-24.
+  # `on.issues.types: [opened]` above has NO label filter — it fires on EVERY
+  # issue opened anywhere in the repo (a diag-request, a system-action, a
+  # manager dispatch). `build`'s own `if:` correctly SKIPS on such a run, but
+  # `needs.build.result` is then `skipped`, which `exit_head_result.py` cannot
+  # tell apart from a real failure (`build_result != "success"` -> the same
+  # `producer_failed` verdict either way) — the collapsed-states defect
+  # CLAUDE-RULES-CANONICAL.md names: "not applicable" and "ran and broke"
+  # sharing one value, and the missing one (not applicable) is silent, not
+  # loud. MEASURED 2026-09-24 (E58 inventory): of the 13 open
+  # `automation/research-result-*` PRs this workflow had produced, **13 of 13**
+  # trace to `build: skipped` on an unrelated issue (a trainer-diag-request, a
+  # system-action get-env, a manager dispatch, ...) — zero were a real build
+  # that ran and failed. `pr-landing-guard` R5 blocking these from landing
+  # (E57) accidentally kept 13 fabricated "research results" off main; this is
+  # the fix that stops manufacturing them, not a fix that makes them landable.
+  #
+  # So `research_result` now runs `always()` — still catching a real build
+  # failure/cancel/timeout — but ONLY when the trigger was actually a research
+  # request, by repeating `build`'s own gate rather than inventing a second
+  # one that could drift from it.
   research_result:
     needs: [build]
-    if: always()
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'issues' &&
+        (github.event.issue.user.login == github.repository_owner ||
+         github.event.issue.user.login == 'github-actions[bot]') &&
+        contains(github.event.issue.labels.*.name, 'research-exit-head-request')))
     runs-on: ubuntu-latest
     # MUST OUTLAST `commit-to-main`'s `verify-merged` wait (30m default), or the
     # job dies mid-wait and reports a timeout for a PR that was merging fine.
