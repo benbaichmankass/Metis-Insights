@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "E62 measurement only: a new read-only research script (scripts/research/e62_slippage_accrual.py, which reuses D3's realized_slippage.measure unchanged), its committed record under comms/research/e62_equity_futures_slippage/, a research doc plus its DOCUMENT-INDEX row, and two PIPELINE.jsonl appends via scripts/ops/pipeline.py. No src/, no config/, no execution_costs.py, no evidence record, no deploy or VM file. The src/ close-path fix E62 also produced is NOT in this PR; it is a separate held Tier-2 PR."
+}
