@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits scripts/ci/check_pr_landing.py (TIER1_SURFACE widened to research/results/** and runtime_logs/replay_pregate/**, plus the new stamp-only rule for research/queue/*.yaml). R12 forbids a change to the landing route from landing itself by that route, so the manager merges it. The widening is operator-directed 2026-09-24 on checklist row E57.",
+  "why": "Tier-1 CI/tooling (checklist row E57, operator directive 2026-09-24: 'this is a serious gap that needs to be fully resolved - not only rerunning tests whose results were lost, but ensuring we have a mechanism in place to prevent research from being lost'). Widens the pr-landing Tier-1 surface to the two generated research stores, admits research/queue edits only when every changed line is a last_dispatched_at stamp (a decision-rule edit still holds), stops research-exit-head-build landing phantom producer_failed records for every unrelated issue, and adds a scheduled research-loss detector with a CI-graded receipt. No order path, no strategy config, no risk caps, no src/, no deploy/, no VM."
+}

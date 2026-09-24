@@ -37,6 +37,10 @@ name: claude-run-failure-alert
 on:
   workflow_run:
     workflows:
+      # E57 (2026-09-24): the research loss detector. It FAILS DELIBERATELY when
+      # a question could not be read, and its death is otherwise silent until
+      # its receipt goes stale in CI 36h later.
+      - "research-loss-detector"
       # The manager-side queue watcher. ⚠️ ITS SILENCE IS INDISTINGUISHABLE FROM
       # A QUIET QUEUE unless something watches the run itself -- which is the
       # whole failure class it exists for. It also FAILS DELIBERATELY when an
@@ -217,6 +221,14 @@ on:
       #    had already failed twice unobserved when this was measured.
       - alpaca-settlement-soak-watch
       - research-queue-dispatch
+      # ── added with E52: the outside-in probe of the SPA's only path to the
+      #    API (HTTPS / cert expiry / DNS A record / CORS). It already
+      #    self-alerts via Telegram + a deduped issue on a FOUND problem, but
+      #    that path never fires if the RUN ITSELF dies first (checkout,
+      #    setup-python, or an uncaught exception before the probe step
+      #    completes) — the same silent-watchdog gap `macro-producer-liveness`
+      #    is listed here to close.
+      - dashboard-edge-watch
       # ── added 2026-08-31 in the same PR that created it. `due-list` renders
       #    the one surface that answers "what is due right now?", so a silent
       #    failure of it makes every OTHER register invisible at once — the

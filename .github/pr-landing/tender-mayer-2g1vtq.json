@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register update only (docs/claude/work/MANAGER-CHECKLIST.json). Moves E53/E56/E59/D3/A10 to done, with their deliverables verified on main after #12858. Moves E50/E52 to landed_unproven, each naming the observation that closes it. Files E63: a landing:hold PR (#12858) was auto-merged because the branch's arming file survives on main. No src/, config/, scripts/ or workflow change."
+}
