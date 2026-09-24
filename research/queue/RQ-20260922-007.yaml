@@ -1,6 +1,6 @@
 id: RQ-20260922-007
 title: Is trend_donchian's net-negative verdict the leg, or a harness blind to its exit head?
-status: blocked
+status: queued
 cadence: once
 kind: experiment
 
@@ -110,7 +110,25 @@ routing:
     which is a real outcome rather than a failure — but check the registry
     first so a missing model is not misread as a measured null.
 
-blocked_on:
+# ---------------------------------------------------------------------------
+# UNBLOCKED 2026-09-22 by checklist E5 (the durable result contract).
+# The blocker below is kept VERBATIM rather than deleted: a cleared blocker that
+# leaves no trace makes the next reader re-derive why the unit ever stopped.
+# What changed, and it is the whole of what changed:
+#   * `research-exit-head-build.yml` now declares `research_unit` and
+#     `power_state` as workflow_dispatch inputs, so
+#     `scripts/research/dispatch_queue.py` can fire an `accruing` unit at it —
+#     `gh workflow run -f <input-the-workflow-never-declared>` ERRORS, which is
+#     what made this unit undispatchable as written; and
+#   * the run now lands a durable, greppable result record under
+#     `research/results/<unit>/<run_id>.jsonl` carrying the unit id, the
+#     decision rule, the stated population and n, and the verdict beside a
+#     NON-COLLAPSED read-state.
+# ⚠️ WHAT IS *NOT* ESTABLISHED: no dispatch has been run. The emit + validate +
+# guard half is proven (self-tests, in CI); the landing half is proven on the
+# first dispatch, not by the PR that wired it. Do not read `queued` as "this
+# has been shown to work end to end".
+cleared_blocked_on:
   - what: >-
       THE QUEUE'S OWN HONESTY STAMP IS NOT IMPLEMENTED ON THIS WORKFLOW.
       This unit's feasibility declaration grades `accruing`, and
@@ -139,6 +157,7 @@ blocked_on:
 run:
   workflow: research-exit-head-build.yml
   inputs:
+    research_unit: RQ-20260922-007
     harness: backtest_system
     roster: trend_donchian
     symbol: BTCUSDT
@@ -154,16 +173,25 @@ run:
     read from — the exact contamination RQ-20260922-006 exists to detect.
 
 lands:
-  store: docs/research/m20-sweep-corpus.jsonl
-  assert_field: leg
+  store: research/results/RQ-20260922-007/<run_id>.jsonl
+  assert_field: read_state
   min_rows: 1
   note: >-
-    ⚠️ DECLARED FROM THE WORKFLOW'S FAMILY, NOT VERIFIED BY READING ITS OWN
-    `git add`. research-exit-head-build.yml was not opened line-by-line this
-    session. assert_rows_landed.py's docstring is explicit that reading a
-    store name off a doc is worse than no assertion, so confirm the store this
-    workflow actually writes before firing, and correct this block if it
-    differs.
+    ✅ RE-DECLARED 2026-09-22 (E5), AND THE ORIGINAL WAS WRONG — which is why
+    the warning it carried was worth carrying. It read
+    `docs/research/m20-sweep-corpus.jsonl`, "declared from the workflow's family,
+    not verified by reading its own `git add`". VERIFIED this session by reading
+    `research-exit-head-build.yml` line-by-line: that workflow `git add`s
+    NOTHING. It runs `scripts/research/build_intrabar_exit_panel.py` and
+    `scripts/research/analyze_exit_head.py`, uploads the panel + head + VERDICT
+    as a 14-day artifact, and comments on the issue. m20-sweep-corpus.jsonl is
+    the LEVER sweep's store and this workflow never touched it — the exact
+    wrong-store error `assert_rows_landed.py`'s docstring records.
+    The store is now the result record written by
+    `.github/actions/research-result`. The headline numbers (OOS AUC by fold,
+    net-R improvement, the policy trade count, the two-clause verdict) are
+    embedded in its `measurement` block and ARE durable; the full panel remains
+    an expiring artifact and the record says so rather than implying otherwise.
 
 related:
   - 'checklist C5 / R4 (this unit is one of the ten)'

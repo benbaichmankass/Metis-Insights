@@ -1,6 +1,6 @@
 id: RQ-20260922-003
 title: At what round-trip cost does trend_donchian_eth_prop stop clearing Stage 0?
-status: blocked
+status: queued
 cadence: once
 kind: experiment
 
@@ -106,7 +106,25 @@ routing:
     e35-bracket-sweep.yml, whose shard plan DOES schedule it (verified
     2026-09-22).
 
-blocked_on:
+# ---------------------------------------------------------------------------
+# UNBLOCKED 2026-09-22 by checklist E5 (the durable result contract).
+# The blocker below is kept VERBATIM rather than deleted: a cleared blocker that
+# leaves no trace makes the next reader re-derive why the unit ever stopped.
+# What changed, and it is the whole of what changed:
+#   * `m20-exit-lever-sweep.yml` now declares `research_unit` and
+#     `power_state` as workflow_dispatch inputs, so
+#     `scripts/research/dispatch_queue.py` can fire an `accruing` unit at it —
+#     `gh workflow run -f <input-the-workflow-never-declared>` ERRORS, which is
+#     what made this unit undispatchable as written; and
+#   * the run now lands a durable, greppable result record under
+#     `research/results/<unit>/<run_id>.jsonl` carrying the unit id, the
+#     decision rule, the stated population and n, and the verdict beside a
+#     NON-COLLAPSED read-state.
+# ⚠️ WHAT IS *NOT* ESTABLISHED: no dispatch has been run. The emit + validate +
+# guard half is proven (self-tests, in CI); the landing half is proven on the
+# first dispatch, not by the PR that wired it. Do not read `queued` as "this
+# has been shown to work end to end".
+cleared_blocked_on:
   - what: >-
       THE QUEUE'S OWN HONESTY STAMP IS NOT IMPLEMENTED ON THIS WORKFLOW.
       This unit's feasibility declaration grades `accruing`, and
@@ -135,6 +153,7 @@ blocked_on:
 run:
   workflow: m20-exit-lever-sweep.yml
   inputs:
+    research_unit: RQ-20260922-003
     legs: trend_donchian_eth_prop
     fee_bps_roundtrip: '15'
     split_mode: oos-trades

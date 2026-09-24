@@ -1,0 +1,6 @@
+{
+  "held_by": "session_012atopaewbCQy8Fn3ex9obD",
+  "branch": "claude/e5-unblock-research-units",
+  "claimed_at": "2026-09-22T13:05:36Z",
+  "purpose": "E5 follow-on: flip RQ-20260922-003/-004/-007 to queued. landing: hold — research/queue/** is outside TIER1_SURFACE."
+}
