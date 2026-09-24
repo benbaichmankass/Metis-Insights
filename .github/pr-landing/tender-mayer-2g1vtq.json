@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Manager register update only (docs/claude/work/MANAGER-CHECKLIST.json): records the operator's 2026-09-24 ~13:05Z popup decisions verbatim (prop sizing: leave flat $75; slippage: Bybit perps 3.0 bps, rest 5.0; MD-PROMOTE-S1-S2 armed for all venues; GPU bursts authorized within the $10/month cap), marks nine finished lanes archived, and adds rows E60 (per-venue slippage build) and E61 (GPU arming). No src/, config/, scripts/ or workflow change."
+  "landing": "hold",
+  "why": "Manager integration PR. (1) Register: operator 2026-09-24 decisions recorded verbatim + rows E60/E61/E62. (2) FIVE green, Tier-1, self-landing lane PRs folded in by merge because each appends to docs/claude/work/PIPELINE.jsonl and GitHub re-conflicts the rest after every squash: E53 #12846 (roadmap sweep), E56 #12844 (health review), E59 #12848 (prop state), D3 (realized slippage), A10 #12851 (pipeline disposition). Each was CI-green on its own head and declared tier 1 / self. Only PIPELINE.jsonl was resolved by hand (union of lines; one stale A10 re-route of PI-20260924-JN54P2HH-0004 dropped because E50 #12837 closed it done; E59's -0001 row given its stated basis for claim-basis-guard). E54 #12840 is NOT included: it edits the same ROADMAP row as E53 and porting it by hand is item work, so it goes back to its own PR. No src/, config/ or workflow change.",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "The diff carries five lane branches' own .github/pr-landing|merge-slots|pr-automerge-requests files, because it folds those lane PRs in by merge. It changes no guard and no landing rule: it only adds per-branch declaration files that each lane PR already carried on its own head. Held for one operator read per R12."
 }
