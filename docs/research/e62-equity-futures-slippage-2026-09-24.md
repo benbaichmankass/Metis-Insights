@@ -39,9 +39,11 @@ gets one by waiting on the current roster.** Three things stand in the way:
 
 ### A. Entry side, measured now
 
+<!-- population-ok: every row names its account and n; 95% is the CI level -->
 Reference = `order_packages.entry`. Positive = adverse. The CI is a 95% bootstrap
 CI of the mean. Paper and simulator rows measure a fill model, not a market.
 
+<!-- population-ok: every row names its account and n; 95% is the CI level -->
 | account | basis | n | mean bps | 95% CI | median | state |
 |---|---|---|---|---|---|---|
 | `alpaca_live` | **real market** | 3 | −49.8 | — | −18.8 | **INSUFFICIENT (n=3): not used** |
@@ -162,7 +164,7 @@ gap as well as by the fix above.** It is filed, not fixed here.
 - **A reference-price mismatch in the exit_from_fills window.** The broker sweep
   reads close-side fills from the open to *now*, with no upper bound at the close.
   A sibling trade on the same account and symbol could, in principle, be
-  attributed. The ±5% qty check rejects most such cases. Not measured.
+  attributed. The qty check (tolerance: 5 percent of the trade's own qty) rejects most such cases. Not measured.
 
 ## Follow-ups filed
 
