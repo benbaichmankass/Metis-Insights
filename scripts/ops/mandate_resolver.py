@@ -73,6 +73,10 @@ Nothing calls this module on a schedule, nothing acts on a FIRE, and no ping is
 wired. Merged is not deployed is not observed. Until a consumer exists, this is
 a function that answers when asked.
 
+# wiring: manual-only - B5 PR A ships the decision function alone; no schedule,
+# workflow or consumer calls it yet, by design (merged != deployed != observed).
+# The consumer (act on FIRE: open the roster PR + realtime ping) is B5's next step.
+
 Exit codes: 0 FIRE · 1 REFUSE · 2 could not run (bad arguments).
 """
 from __future__ import annotations
@@ -191,10 +195,15 @@ def granted(mandates_doc: Optional[Dict[str, Any]], mandate_id: str) -> Optional
 
 
 def latest_d3(root: Path) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """The NEWEST dated D3 record, by filename (YYYY-MM-DD.json). The path chosen
+    is returned and surfaced as `evidence.cost_fidelity.record`, and the CLI
+    prints it, so which measurement decided the clause is never implicit."""
     d = root / D3_DIR_REL
+    # provenance: latest_d3 — newest dated D3 record; path returned + printed as evidence.cost_fidelity.record
     files = sorted(p for p in d.glob("*.json")) if d.is_dir() else []
     if not files:
         return None, None
+    # provenance: latest_d3 — newest dated D3 record; path returned + printed as evidence.cost_fidelity.record
     rel = str(files[-1].relative_to(root))
     return rel, _json(files[-1])
 
@@ -521,6 +530,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(res, indent=2, sort_keys=True, default=str))
     else:
         print(f"{res['verdict']} [{res['clause']}] {res['mandate']}: {res['detail']}")
+        for key in ("record", "source_run"):
+            if res["evidence"].get(key):
+                print(f"  {key}: {res['evidence'][key]}")
+        cf = res["evidence"].get("cost_fidelity") or {}
+        if cf.get("record"):
+            print(f"  realized-cost record: {cf['record']}")
         for c in res["caveats"]:
             print(f"  ⚠️ {c}")
     return 0 if res["verdict"] == FIRE else 1
