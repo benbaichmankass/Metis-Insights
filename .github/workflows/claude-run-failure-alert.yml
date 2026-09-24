@@ -37,6 +37,10 @@ name: claude-run-failure-alert
 on:
   workflow_run:
     workflows:
+      # E57 (2026-09-24): the research loss detector. It FAILS DELIBERATELY when
+      # a question could not be read, and its death is otherwise silent until
+      # its receipt goes stale in CI 36h later.
+      - "research-loss-detector"
       # The manager-side queue watcher. ⚠️ ITS SILENCE IS INDISTINGUISHABLE FROM
       # A QUIET QUEUE unless something watches the run itself -- which is the
       # whole failure class it exists for. It also FAILS DELIBERATELY when an
