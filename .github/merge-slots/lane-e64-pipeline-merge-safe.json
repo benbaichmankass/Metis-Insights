@@ -1,0 +1,6 @@
+{
+  "held_by": "build lane, session_01Fp1yQRKuy82VcsKDCZMhX8",
+  "branch": "lane/e64-pipeline-merge-safe",
+  "claimed_at": "2026-09-24T16:28:53Z",
+  "purpose": "Lane E64: PIPELINE.jsonl merge-safety re-point (directory, one file per record)"
+}

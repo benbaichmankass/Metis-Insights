@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane E64: docs/tooling only. Re-points docs/claude/work/PIPELINE.jsonl from a single append-only file to a directory of one immutable JSON file per record (scripts/ops/pipeline.py, scripts/ops/migrate_pipeline_to_dir.py) plus the four CI guard scripts that hand-parsed the old file directly (scripts/check_claim_basis.py, scripts/ci/check_soak_registered.py, scripts/ci/check_operator_owed.py, scripts/ops/check_allow_degraded.py), scripts/ops/render_schedule.py's own self-test fixture, and their tests. No src/ runtime code, no config/, no order path, no deploy path. The one src/ reader (src/web/api/routers/work.py) already went through pipeline.py's own functions and needed no change (verified against the live migrated store)."
+}
