@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Edits src/runtime/exchange_accounts.py (BybitFillAccount.key_env_sub/secret_env_sub) and scripts/ops/pull_bybit_transaction_log.py -- src/** is outside TIER1_SURFACE in check_pr_landing.py regardless of content, so this cannot self-land under R5. Read-only capability (no order path, no config/accounts.yaml change, no runtime-service change): the puller only pulls an additional Bybit transaction-log window when a second, OPTIONAL credential pair is present in the environment; when absent (every account's state today) it is a silent no-op. Needs an operator/manager approval to merge, same as #12881.",
+  "why": "Lane E70 gap fix (checklist row E70, operator 2026-09-24 ~18:15Z: 'Merge + fix the gap'). Makes the automated bybit_2 wallet-truth read able to cover both of the account's Bybit sub-account UIDs once the operator supplies a second API key; no second key exists in this system today so the after-fix figure is not yet measurable -- see the PR body."
+}
