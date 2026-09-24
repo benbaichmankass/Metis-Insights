@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-24T12:00:00Z",
-  "updated_by": "session_01XQhayAHWdrSYv8jN54P2HH (manager)",
+  "updated_at": "2026-09-24T12:45:00Z",
+  "updated_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -392,19 +392,13 @@
       "state": "blocked",
       "owner": "build lane",
       "lane": null,
-      "model": "claude-sonnet-5",
-      "ceiling_usd": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 50,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
-      "blocked_on": [
-        {
-          "kind": "work_item",
-          "ref": "D1",
-          "what": "Nothing to compare realized cost against until the harnesses model the full cost stack."
-        }
-      ],
-      "note": "This IS Gate 1, and it is what makes the ladder traversable for slow legs: 'is realized slippage what we assumed?' converges in a handful of trades where expectancy needs 50+. Build only once D1 has given it something to compare to."
+      "blocked_on": [],
+      "note": "RE-POINTED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP: the blocking edge named D1, which was DROPPED 2026-09-22 as a duplicate of R1; R1, E3 and R7 are done, and 49 of 52 comms/strategy_evidence records now carry a cost stack (crypto 7.5/5.0/1.0 bps fee/slip/funding; equities 0.0/5.0/0.0). So the corpus is NOT fee-only any more. What it is: priced on a FLAT 5 bps round-trip slippage that has never been compared against a single real fill. This row is now the D1 residual the 2026-09-24 handoff pointed at. FIRST QUESTION (measurement only): realized round-trip slippage per venue from the fills store, and how many Stage-0 verdicts flip at the measured value. This IS Gate 1, and it is what makes the ladder traversable for slow legs: 'is realized slippage what we assumed?' converges in a handful of trades where expectancy needs 50+. Build only once D1 has given it something to compare to."
     },
     {
       "id": "A9",
@@ -1402,6 +1396,111 @@
       "prs": [],
       "blocked_on": [],
       "note": "OPERATOR-RAISED 2026-09-24, verbatim: 'it just doesn't seem like we've basically spent 24 hours trying to close up something that we were supposed to close up two days ago already... It seems. Like something might be wrong here.' They then chose 'file it as a checklist row' over raising it at the sync.\nMEASURED ON ONE REAL CHANGE (#12828, 2026-09-24): flipping TWO fields in MANAGER-CHECKLIST.json from `in_flight`/`blocked` to `done` required a PR, `.github/pr-landing/<slug>.json`, `.github/pr-automerge-requests/<slug>.txt`, `.github/merge-slots/<slug>.json`, and TWO full CI cycles. `pytest-run` is ~20 minutes and every push restarts it. Wall clock from PR open (11:24:15Z) to merge (11:52Z) was 28 minutes for a 35-line docs diff.\n⚠️ SPLIT THE CAUSE HONESTLY, because most of it was the manager and a fix aimed at the wrong half will not help. Roughly 40 minutes was MY error: I discovered the landing requirements by failing CI twice instead of running `python3 scripts/ci/check_pr_landing.py --base origin/main`, which takes 8 SECONDS and names every missing file at once. That is a discipline problem, addressed in the handoff, NOT something to build around. What remains after removing it is still real: three landing files and a full test suite for a docs-only diff.\nCANDIDATE DIRECTIONS, none decided:\n  (a) a docs-only CI path that skips `pytest-run` when the diff touches no Python -- note `guards` must       still run, since pr-landing-guard and the register guards live there;\n  (b) let the manager batch register updates into ONE PR per day instead of one per closure;\n  (c) collapse the three landing files into one, or derive the merge-slot claim from the declaration.\n[!] A CHEAP, SEPARABLE FIX WORTH DOING WHATEVER ELSE IS CHOSEN: pr-landing-guard's R13 failure message tells you to write `docs/claude/session-board.json`, which the 2026-09-21 operating reset ARCHIVED and which CLAUDE.md says not to resurrect. The route that works is `.github/merge-slots/<branch>.json` (MI-280, 2026-09-12), documented ~20 lines below the stale remedy in the guard's own source. That message cost a CI cycle on 2026-09-24 and will cost the next session one too. guard-liveness already baselines check_pr_landing.py as DEGRADED with session-board.json among its absent subjects, so the repo knows the subject is gone -- what nobody noticed is that the REMEDY TEXT still points at it.\n[!] NOT ESTABLISHED: whether `pytest-run` can be skipped safely for a docs-only diff. Nobody has checked what in that suite reads docs/ or the registers -- `check_manager_checklist_vocabulary` and `pipeline --check` both do, and both live in `guards`, not `pytest-run`. Establish it before building (a)."
+    },
+    {
+      "id": "E50",
+      "title": "arbitration_fanout_soak has written nothing since 2026-09-23T01:52Z at mode apply — find the cause, and make a broken soak distinguishable from an idle one",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 60,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope of record: PI-20260924-JN54P2HH-0004. Precondition for E17 and for all prop work (R-G): breakout_1 cannot be diagnosed on a soak that cannot be read. FRESH, opus: the call site is intent_multiplexer.py, on the live order-election path. One question: WHY is it silent. Tier-1 if the fix is observability-only; anything touching election behaviour is held for the operator. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+    },
+    {
+      "id": "E51",
+      "title": "Guard remedies that cannot be performed since the reset — check_allow_degraded resolves ids against archived backlogs; pr-landing-guard R13 names the archived session-board.json",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "One question: which CI guards tell a session to do something that the 2026-09-21 reset made impossible? Known instances: check_allow_degraded (no new `# allow-degraded:` can be written anywhere) and pr-landing-guard R13 (remedy names docs/claude/session-board.json; working route is .github/merge-slots/ via claim_merge_slot.py). This is the separable cheap win inside E49. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+    },
+    {
+      "id": "E52",
+      "title": "Nothing watches Caddy, the TLS cert expiry, or the DuckDNS record — three of the six ways the only live dashboard dies",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Outside-in probe from a GitHub runner: HTTPS reachability of ict-bot.duckdns.org, days-to-expiry of the served cert, DNS A record == the live VM. Must alert through the channel existing watchers already use, and must distinguish did-not-run from ran-and-found-healthy (collapsed-state rule). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+    },
+    {
+      "id": "E53",
+      "title": "Roadmap status sweep — no in-progress milestone has been updated since 2026-08-31",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "FABLE, fresh: E11 validated grep-and-classify sweeps on Fable, and this is one, verifiable against git log / merged PRs / this checklist. Doc-only (ROADMAP.md). Every status change cites a sha or PR. Must precede the O1 reviews so they grade against a true roadmap. Known: M40 R1 landed as #12739 and the roadmap does not say so. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+    },
+    {
+      "id": "E54",
+      "title": "The R5 research-queue dispatcher has NEVER fired — read one real dry-run against today's queue and establish whether its three spend gates hold",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Handoff E-A / M40 R5. The daily 06:20Z cron passes no --fire by design until a session reads a dry-run against live queue contents and observes the three spend gates (ledger preflight vs the $10/month GPU cap, GPU_BURST_ARMED, --max-gpu-dispatches-per-run). Arming is Tier-2: the lane PREPARES and HOLDS; the manager takes it to the operator. CPU/VM/Actions work is not under the GPU cap. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+    },
+    {
+      "id": "E55",
+      "title": "The trend/pullback evidence harness does not model tp_r, so a record can measure a counterfactual no-TP leg — model it and count the verdict flips",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope of record: PI-20260924-JN54P2HH-0005 (graded continuation of PI-20260922-E41-0006; clearing one clears both). Pre-stated prediction from -0006: with the TP modelled, qqq_trend_long_1d arm-present vs arm-absent should AGREE. Evidence corpus only: no config/strategies.yaml or accounts.yaml edit. The corpus B1 reads for real-money promotion is at stake, so a positive control and a flip count are the deliverable. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+    },
+    {
+      "id": "E56",
+      "title": "/health-review — the first of the three reviews (O1), run on its skill",
+      "phase": "E",
+      "state": "queued",
+      "owner": "review lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "O1 order: health -> performance -> ml. Performance waits on D3 (realized cost). The review will also establish whether the diag relay the reviews need is working (handoff O2) — a broken relay is a finding to file with the failing run, not a reason to stop. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     }
   ]
 }
