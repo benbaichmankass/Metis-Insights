@@ -1,0 +1,1 @@
+arm auto-merge for lane/e61-arm-gpu-bursts (E61, PI-20260924-5V6UVR9J-0002): Tier-1, .github/workflows/gpu-burst-train.yml status_only read mode, no spend path touched.
