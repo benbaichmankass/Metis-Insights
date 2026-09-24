@@ -1,9 +1,0 @@
-Arm the self-land route for claude/mandate-store-b5 (PR #12818).
-
-Tier 1: a new config file that GRANTS NOTHING (mandates: [] — the five entries
-sit under a separate `proposed:` key that no consumer reads as authorization),
-plus a CLAUDE.md correction.
-
-Pushed AFTER the PR was opened and un-drafted, per PI-20260923-JN54P2HH-0002:
-a PR opened through this route receives no required checks until something is
-pushed to it afterwards. This push is that something.
