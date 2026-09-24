@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One appended record in docs/claude/work/PIPELINE.jsonl plus this declaration and a merge-slot claim. NO src/, NO config/, NO scripts/, NO tests/, NO .github/workflows/. It files a finding and changes no behaviour: E27 merged in #12729 and cannot be deployed, because `restart-bot-service` restarts ict-trader-live.service while E27's change is served by ict-web-api.service, and scripts/ops/restart_web_api.sh exists but is in neither the allowlist doc nor system-actions.yml. Manager surface (docs/claude/work/**), Tier-1 by the permission table."
+}

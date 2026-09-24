@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "two appended records in docs/claude/work/PIPELINE.jsonl, nothing else. Manager surface; filing is the act of NOT taking the item. The two findings it files are both in WORKER paths (.gitattributes, and a guard that does not yet exist), and neither is touched here."
+}

@@ -113,10 +113,40 @@ class TestTheProbesAreRealAndDeclareTheirLimits:
         for p in M.PROBES:
             assert not any(a.startswith("--base") for a in p.argv), p.name
 
-    def test_the_calendar_class_is_covered(self):
-        """check_open_items' 21-day window crosses with nobody's diff, so no
-        PR-time check can reach it. It is the reason a cadence is not optional."""
-        assert any("check_open_items.py" in " ".join(p.argv) for p in M.PROBES)
+    def test_the_calendar_class_is_NOT_covered_and_that_is_asserted(self):
+        """⚠️ INVERTED 2026-09-22 (E45), and the inversion is the point.
+
+        This test used to assert the opposite: that some probe runs
+        `check_open_items.py`, whose 21-day affirmation window crosses on the
+        CALENDAR with nobody's diff, which no PR-time check can reach. That is
+        still the reason a cadence is not optional — and the probe is GONE,
+        because its register (`docs/claude/OPEN-ITEMS.json`) was archived by the
+        2026-09-21 reset, so it had been reporting `register is MISSING` on
+        every hourly run.
+
+        Three ways to respond and only one is honest:
+
+          - delete the test          -> the loss becomes invisible, which is how
+                                        a coverage gap turns into folklore
+          - keep it as written       -> a true statement about the repo (no
+                                        calendar probe exists) fails CI forever
+          - STATE THE GAP            -> assert it, on purpose, so re-adding a
+                                        calendar probe FAILS here until someone
+                                        updates this test deliberately
+
+        The third. `we looked and found nothing` is recorded as itself.
+        """
+        calendar_probes = [p for p in M.PROBES
+                           if "check_open_items.py" in " ".join(p.argv)]
+        assert calendar_probes == [], (
+            "a calendar-class probe is back in main-tree-watch: "
+            f"{[p.name for p in calendar_probes]}. That is good news, not a "
+            "failure — confirm it grades a register that exists and then update "
+            "this test to assert coverage again.")
+
+        # Positive control on the side that still holds data: this file's
+        # subject must be readable, or the assertion above proves nothing.
+        assert M.PROBES, "positive control: main-tree-watch still runs probes"
 
 
 class TestItRefusesToClaimMainIsHealthy:

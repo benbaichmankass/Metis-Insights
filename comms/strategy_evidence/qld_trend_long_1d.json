@@ -3,7 +3,7 @@
   "strategy": "qld_trend_long_1d",
   "symbol": "QLD",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:153491b42aaa898c84f90f457dd3814e",
+  "config_fingerprint": "sha256:79e9593ea0da62e2a3328b8c4120e035",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

@@ -3,7 +3,7 @@
   "strategy": "ief_pullback_1d",
   "symbol": "IEF",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:882d3a309a328b25ba34223c155ee762",
+  "config_fingerprint": "sha256:c234ed8115c12bc23afbe28422650282",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",

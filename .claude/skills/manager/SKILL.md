@@ -182,6 +182,59 @@ the lane has produced, then kill or re-scope.** Never interrupt blind — an
 interrupt forfeits everything not yet landed, and cost-per-turn is the wrong
 measure once a lane is running. The right measure is cost per unit *delivered*.
 
+⚠️ **A CEILING NOBODY READS MID-FLIGHT IS NOT A CEILING.** Run
+`scripts/ops/lane_reconcile.py --sessions <a list_sessions dump>` at every
+check-in. It joins the dump to this checklist and prints, in one screen, the
+lanes over ceiling, the finished lanes still open, and the lanes walled on a
+permission prompt. MEASURED 2026-09-22 the first time it was run: **14 lanes
+over ceiling** (B1 at 12.4×, $435.05 against $35) where the row recording the
+problem had said six, because the manager read the numbers before the lanes were
+archived.
+
+⚠️ **A LANE'S SPEND IS FINAL ONLY ONCE THE LANE IS ARCHIVED** (`session_status
+== SESSION_STATUS_ARCHIVED`). `get_session` on a live lane returns a **RUNNING**
+total, and a running total written onto a row reads exactly like a final one —
+the manager made that mistake twice on 2026-09-21, the second time inside the
+commit describing the first. Record it with the read time and the word `running`
+beside it, or read it after archiving. `lane_reconcile` will not print a bare
+figure; do not write one either.
+
+### Archive a lane when its work lands. Do NOT subscribe it to its own PR.
+
+**This is the cheapest control here and it is free.** A lane whose work has
+merged has nothing left to contribute to the PR, and watching one is not free:
+A9 went $37.13 → $50.78 and E16 $25.38 → $56.14 **after** their work merged,
+sitting subscribed to PRs the manager was going to merge anyway.
+
+MEASURED 2026-09-22 across the 60 most recent sessions: **22 sessions whose work
+was finished were not archived, holding $2,088.73 of running spend** — the
+largest single line in the account, bigger than any lane's actual work.
+
+So, at dispatch and at landing:
+
+- **Do not tell a lane to subscribe to its own PR**, and do not leave it idling
+  on CI. The manager merges; the lane stops.
+- **`archive_session` the lane once its PR is merged or its row is closed.** It
+  is reversible (`unarchive_session`), and archiving is also what makes the
+  lane's spend readable as **final**.
+
+⚠️ **A BLOCKED LANE IS THE EXPENSIVE ONE, AND IT LOOKS ALIVE.** `status_bucket`
+`BLOCKED` means the lane is sitting on a permission prompt only a **human** can
+clear — `fire_trigger` is refused there, correctly, because firing would answer
+the prompt on the operator's behalf. **Surface it; never try to clear it.**
+MEASURED 2026-09-22: one such lane (`session_01XYu2vvg9Qgxoqf4jJQyd8i`,
+"ENGINEERING LANE MI-305", spawned 2026-09-18 by the previous manager) had sat
+BLOCKED and idle for **72.8 hours holding $1,343.06** — more than the whole
+13-lane day E20 was filed about — and had **never committed a line**. Nothing was
+looking. That is why the reconciler prints this every run, and why a scheduled
+watchdog runs it independently of whoever is managing
+(`docs/claude/work/LANE-WATCHDOG-PROMPT.md`).
+
+⚠️ **Do not write a rule about which command shapes trip a permission prompt.**
+E20 hypothesised a compound piped `git` command and said in terms that it was a
+hypothesis; `list_sessions` does not expose the pending action, so nobody has
+established it. Surface the condition, and measure before ruling.
+
 ### Record the choice
 
 On the lane's checklist row, record the model, fresh-vs-resume, **and the
@@ -319,3 +372,63 @@ STAGE 2  Live + mirror   → bybit_2 + bybit_portfolio · alpaca_live + alpaca_p
 **Edge is decided offline. A book only ever checks mechanics and cost.** If a
 lane proposes advancing a leg to Stage 2 on live-book evidence, that is a
 category error — send it back.
+
+## Closing the session: publish the record, then ping
+
+**Operator instruction, 2026-09-22, verbatim:** *"once you actually finish
+merging and deploying all of the work and you're actually ready to close out the
+session, then make the summary and then post it on the site so that I can refer
+to it without having to go back into the chat. And ping me also when everything
+is fully closed out."*
+
+A chat reply is not the record. The operator should never have to scroll a
+transcript to find out what a session did.
+
+### The gate: what "fully closed out" means
+
+Do NOT publish and do NOT ping until **all** of these are true. A partial close
+reported as a close is the drop this whole contract exists to prevent.
+
+1. **Every PR this session opened or drove is merged** — or is HELD with the
+   blocker stated on the PR itself and filed in `PIPELINE.jsonl`. "Waiting on
+   CI" is not closed out; wait, or say precisely what is pending and where.
+2. **Deployed means deployed.** A row whose work needs a service reload is not
+   done when the PR merges. Land it, wait for `ict-git-sync`, restart the unit,
+   and OBSERVE the running process — `/api/bot/config` reports the FILE, not
+   what the trader loaded.
+3. **Every row has a true state**, and no row says `in_flight` against a lane
+   that is not working. `landed_unproven` names the observation that closes it.
+4. **Every finding is fixed, filed or flagged**, and *filed* means the pipeline
+   or the checklist. A chat message, a PR comment and a memo are none of them.
+5. **Doc sweep** — any doc this session's work made stale is corrected, not
+   left for the next reader to trip over.
+6. **`close-out` skill run**, all seven checks, including when stopping early.
+7. **Every finished lane archived**, and no lane archived while it still owns an
+   open PR.
+
+### Then, in this order
+
+**PUSH FIRST.** The checklist is the operator's live Workflow page; answering
+before pushing hands them a reply and a page that disagree.
+
+**PUBLISH THE SUMMARY AS A PAGE** (the Artifact tool), not as a chat message.
+It carries, at minimum:
+
+- what each lane was dispatched to do, and what became of it
+- what MERGED, with shas — and separately what DEPLOYED and what was OBSERVED,
+  never collapsed
+- what is verified vs what is still waiting, with the specific observation each
+  one needs
+- the decisions the operator made, in their own words
+- **the session's own errors**, plainly — they are the most reusable part
+- next steps in priority order, with the reason the first one is first
+- a **receipt**: sessions run, spend per lane against ceiling, total, archived
+
+**THEN PING**, with the page link and one line of state. Not before the gate
+above is satisfied — an early ping trains the operator to re-check the work,
+which costs more than the ping saves.
+
+⚠️ **If the gate cannot be met, say so and do not pretend otherwise.** Publish
+the page anyway, with the unmet conditions named at the top and what each one
+needs. A handoff that states its own gaps is fine; one that implies completeness
+it does not have is the failure.

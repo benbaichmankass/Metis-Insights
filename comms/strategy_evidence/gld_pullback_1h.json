@@ -3,11 +3,13 @@
   "strategy": "gld_pullback_1h",
   "symbol": "GLD",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:8ff2b78c3c2adad48d4c307eadf1b50e",
+  "config_fingerprint": "sha256:d15ced72f6fd3889ca9b310b8ee5347a",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "faithful",
-  "omitted_levers": [],
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "tp_r"
+  ],
   "net_r_oos": 16.0186,
   "expectancy_r_oos": 0.286,
   "n_trades_oos": 56,

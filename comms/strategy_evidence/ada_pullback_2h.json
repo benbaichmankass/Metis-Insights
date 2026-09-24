@@ -3,11 +3,13 @@
   "strategy": "ada_pullback_2h",
   "symbol": "ADAUSDT",
   "timeframe": "2h",
-  "config_fingerprint": "sha256:95f8d6667780fbce7ef6ab9fead1fc7e",
+  "config_fingerprint": "sha256:ae0e198c7d2d39ba1775daf91a2b2211",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "faithful",
-  "omitted_levers": [],
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "tp_r"
+  ],
   "net_r_oos": 21.9344,
   "expectancy_r_oos": 0.4985,
   "n_trades_oos": 44,

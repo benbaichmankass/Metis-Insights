@@ -313,6 +313,25 @@ no third gate**: never hide a capability behind a default-off `*_ENABLED` flag
 (the pattern that stranded MES). What `accounts.yaml` / `strategies.yaml`
 declare, runs.
 
+⚠️ **`accounts.yaml::symbols` IS NOT A GATE, and it was one until 2026-09-22.**
+The `strategies:` roster is the single source of truth for what an account
+trades; `symbols:` is a **purely additive DATA-PULL list** that legitimately
+names instruments no leg trades. ⚠️ **The count of such entries moves with every
+roster edit — re-run it, never quote it.** It read **21** at midday on
+2026-09-22 and **19** four hours later, because `ada_pullback_2h` joining
+`bybit_2`'s roster turned ADAUSDT from declared-but-untraded into
+declared-and-traded. `python3 scripts/ci/check_roster_symbol_reachability.py`
+prints the current count beside its denominators for exactly that reason.
+
+Until E42 the tick's fetch set came from the pull
+lists **alone**, so a rostered leg whose symbol nobody had declared got no
+candles, no signal and no order while reading as wired — the MES pattern spelled
+as an omission instead of a flag. `_resolve_tick_symbols` now fetches
+`UNION(roster-implied, declared)`. **A symbol missing from a pull list is a bug
+in the PULL LIST, never a reason a rostered leg does not trade** (operator,
+2026-09-22); `roster-symbol-reachability` reports it in those words. Reverse
+only by reopening that decision.
+
 The trader runs 24/7 and never switches itself off — no auto-flip, no breaker
 that toggles mode, no "safety" default that goes dry on boot. Transient issues
 route through `RiskManager` per-trade: the account stays live and individual

@@ -95,6 +95,77 @@ GUARDS: List[Dict[str, Any]] = [
         "when": {"globs": ["config/accounts.yaml", "scripts/check_account_class.py"]},
         "steps": [["python3", "scripts/check_account_class.py", "--list"]],
     },
+    {
+        # E42 — a rostered leg's symbol must be REACHABLE, and the remedy is
+        # always the PULL LIST, never the leg.
+        #
+        # ⚠️ THIS LANDS BEFORE THE FIX IT ANTICIPATES, ON PURPOSE (operator,
+        # 2026-09-22). The union that stops `accounts.yaml::symbols` being a
+        # de-facto third execution gate is held in PR #12736 behind a
+        # shared-resolver change that must go first. Until it merges the pull
+        # list IS the gate, so the operator's standing rule is that any leg
+        # promoted in that window declares its symbol in the SAME PR — and an
+        # unguarded window is exactly what shipping this guard with the union
+        # would have left. The guard reads `src/main.py` to decide which
+        # consequence to print, so its message corrects itself on the day the
+        # union lands instead of waiting for someone to remember.
+        #
+        # `config/instruments.yaml` is in the globs because the third axis
+        # grades against it: deleting a profile can strand a rostered symbol
+        # with neither config file touched. `src/main.py` is in them because
+        # the union-state read is a fact about that file.
+        #
+        # The self-test runs on EVERY invocation, before the tree check — a
+        # guard whose green has never been shown capable of turning red is not
+        # evidence (`check_guard_selftest_coverage.py`).
+        "name": "roster-symbol-reachability",
+        "when": {"globs": [
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+            "config/instruments.yaml",
+            "src/main.py",
+            "scripts/ci/check_roster_symbol_reachability.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_roster_symbol_reachability.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_roster_symbol_reachability.py"],
+        ],
+    },
+    {
+        # E42 — ONE definition of "which symbols does this account concern".
+        # Five sites derived it privately; four were known and the fifth
+        # (`account_ib_venue_session`) was found by this very self-test's
+        # bypass control rather than by reading.
+        #
+        # The self-test is the guard: it carries the planted bypass (both
+        # directions, plus a verified-not-presence-only exemption) and asserts
+        # over the REAL config that DECLARED and UNION still agree — so the day
+        # a roster and a pull list diverge, CI says so instead of a data sweep
+        # quietly skipping a symbol that is trading.
+        "name": "symbol-resolver-guard",
+        "when": {"globs": [
+            "src/config/symbol_sets.py",
+            "scripts/ci/check_symbol_resolver.py",
+            "src/main.py",
+            "src/units/accounts/clients.py",
+            "src/runtime/exchange_accounts.py",
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+        ]},
+        # Invoked by PATH, not `-m`: `-m src.config.symbol_sets` makes the
+        # MODULE the registry's "runner", and every runner needs a
+        # RUNNER_REMEDY entry answering "what does the operator install?"
+        # — a question repo code has no true answer to
+        # (`tests/ci/test_run_guards_runner_absent.py` caught that). And the
+        # CONTROLS live in this script rather than in the module, because a
+        # file that claims coverage in this registry while asserting nothing
+        # itself is the presence-only marker `new-table-wiring-guard` already
+        # cost us (`check_guard_selftest_coverage.py` caught THAT). Both
+        # corrections are written up in the script's own docstring.
+        "steps": [["python3", "scripts/ci/check_symbol_resolver.py",
+                   "--self-test"]],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
@@ -111,6 +182,15 @@ GUARDS: List[Dict[str, Any]] = [
     # them is a lookup rather than an excavation.
     #
     # Removed: artifact-validity-guard, backlog-unresolve-guard, board-coherence, capability-pull-guard, checklist-routing-age-guard, constraint-readout-guard, daily-brief-guard, decision-answer-consumers, decision-answers-guard, demote-budget-guard, digest-liveness-guard, due-list-guard, due-list-token-guard, error-feed-digest-guard, manager-checklist-vocabulary-guard, manager-lease-guard, manager-queue-watch-guard, manager-tooling-selftests, one-live-workplan, open-items-guard, operator-owed-guard, pr-queue-watch-guard, priority-fallback-distribution, probe-guard, recurrence-ledger-guard, register-field-loss-guard, register-id-guard, register-reserialization-guard, role-pack-operating-layer, rows-landed-guard, scope-overlap-guard, session-brief-guard, session-registry-guard, soak-registered-guard, spec-carrier-guard, stale-in-flight-guard, sunset-disposition-guard, uncarried-spec-guard, wip-ceiling-guard, work-digest-source-coverage
+    #
+    # ⚠️ 2026-09-22 (E45): `operator-owed-guard` and `soak-registered-guard` are
+    # BACK, below, re-pointed at subjects that exist post-reset; `claim-basis-guard`
+    # is back with them (it had been dropped from this registry earlier and is
+    # not in the list above). `backlog-unresolve-guard`, `open-items-guard`,
+    # `recurrence-ledger-guard` and `register-field-loss-guard` are now RETIRED
+    # for good and their scripts deleted — see
+    # `docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md`
+    # for the reason each one carries.
     # ─────────────────────────────────────────────────────────────────────
     {
         # SALVAGED FROM THREE REMOVED GOVERNANCE ENTRIES, 2026-09-21.
@@ -138,6 +218,47 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ops/pipeline.py", "--self-test"],
             ["python3", "scripts/ops/pipeline.py", "--check"],
+        ],
+    },
+    # ─────────────────────────────────────────────────────────────────────
+    # E45, 2026-09-22 — THREE GUARDS RE-ARMED AFTER BEING RE-POINTED.
+    #
+    # All three were dropped from this registry by the 2026-09-21 reset because
+    # their subjects were archived, and all three are named in
+    # `docs/CLAUDE-RULES-CANONICAL.md` — the #1 doc — as what ENFORCES a binding
+    # rule. A canonical doc naming a mechanism that no longer runs is the
+    # folklore failure that document has its own section about, so the choice
+    # was re-point or retire, and the operator chose re-point for these three.
+    #
+    # Each one now grades a subject that EXISTS in the post-reset world, and
+    # each ships a `--self-test` that PLANTS A VIOLATION against that new
+    # subject and requires the guard to fail on it. A green re-point proves
+    # nothing: these three spent a month green-or-quiet while grading zero rows,
+    # which is the whole defect.
+    # ─────────────────────────────────────────────────────────────────────
+    {
+        "name": "claim-basis-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/check_claim_basis.py", "--self-test"],
+            ["python3", "scripts/check_claim_basis.py",
+             "--base", "origin/{base_ref}"],
+        ],
+    },
+    {
+        "name": "soak-registered-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_soak_registered.py", "--self-test"],
+            ["python3", "scripts/ci/check_soak_registered.py"],
+        ],
+    },
+    {
+        "name": "operator-owed-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_operator_owed.py", "--self-test"],
+            ["python3", "scripts/ci/check_operator_owed.py"],
         ],
     },
     {
@@ -199,6 +320,13 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_pending_pings_render.py"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py", "--self-test"],
             ["python3", "scripts/ci/check_workflow_failure_swallow.py"],
+            # E45, 2026-09-22: the --self-test proves BOTH calls — a live
+            # PIPELINE.jsonl row id PASSES (it could not be written before the
+            # re-point) and a bad one FAILS as UNRESOLVED rather than as "no id
+            # named". A guard that accepts everything is the same defect as one
+            # that grades nothing, and this one printed OK while being
+            # unsatisfiable.
+            ["python3", "scripts/ops/check_allow_degraded.py", "--self-test"],
             ["python3", "scripts/ops/check_allow_degraded.py"],
             ["python3", "scripts/ops/check_research_index.py", "--list"],
             ["python3", "scripts/ops/check_workflow_shell.py"],
@@ -1227,6 +1355,86 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # ⚠️ A CHECK MUST BE ABLE TO SAY WHEN IT CANNOT SEE ITS SUBJECT. Three
+        # independent instances in the week of 2026-09-22 reported a passing or
+        # quiet state about a thing they could no longer see: check_manager_scope
+        # (identity source archived, roster frozen, PASSED on 38 manager commits),
+        # work_digest (five of six sources `absent`, self-reported healthy), and
+        # check_manager_queue_watch (armed 479h, ~479 firings, ZERO receipts).
+        # That is the collapsed-state rule applied to the CHECKS rather than to
+        # the data they read — check_collapsed_states.py polices producers and
+        # nothing policed the police.
+        #
+        # ⚠️ `when: None` BECAUSE ITS SUBJECT IS THE GUARD FLEET AND THE TREE, and
+        # a diff-scoped version would pass vacuously on nearly every PR — the
+        # reasoning check_soak_registered.py records for running whole-tree.
+        # Measured cost: ~95 file parses plus ~92 `git cat-file -e` calls.
+        #
+        # ⚠️ IT IS REPORT-FIRST BY DESIGN. The 19 already-broken guards are
+        # carried in a dated baseline that may only SHRINK; only a NEW dead or
+        # degraded guard fails. Failing all 19 on day one would red-wall the repo
+        # and get the guard reverted rather than the debt fixed.
+        # ⚠️ FRESHNESS BELONGS IN CI, NOT ON A TIMER. The natural fix for a
+        # silent scheduled check — "emit a receipt, and grade receipt freshness"
+        # — IS ALREADY BUILT and is instance #3 of the class:
+        # check_manager_queue_watch.py grades a receipt the Routine has never
+        # written in 479 firings. A scheduled grader can always be the thing that
+        # did not fire. CI cannot: it runs on every push, so its own liveness is
+        # PROVEN BY PRs MERGING AT ALL.
+        #
+        # ⚠️ THE POPULATION IS DERIVED FROM THE TREE, NOT LISTED. Anything
+        # declaring a cadence (workflow `schedule:`, deploy/*.timer) and absent
+        # from CADENCE_REGISTRY FAILS — a hand-maintained list would reintroduce
+        # the bug in new clothes. Measured 2026-09-22: 38 declarations, of which
+        # exactly 1 is gradeable today, which is why it ships REPORT-FIRST with a
+        # shrink-only baseline.
+        "name": "cadence-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_cadence_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_cadence_liveness.py"],
+        ],
+    },
+    {
+        "name": "guard-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_guard_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_guard_liveness.py"],
+        ],
+    },
+    {
+        "name": "research-results-guard",
+        # Fires on the store, on the schema owner, on the guard itself and on
+        # the producing surfaces. The OWNER is in the trigger set deliberately
+        # (same posture as risk-basis-agreement): changing what a result MUST
+        # carry has to re-grade every committed record, which is the direction
+        # the drift actually travels.
+        "when": {"globs": [
+            "research/results/**",
+            "scripts/research/research_result.py",
+            "scripts/research/exit_head_result.py",
+            "scripts/research/m20_sweep_result.py",
+            "scripts/ci/check_research_results.py",
+            ".github/actions/research-result/action.yml",
+        ]},
+        # SELF-TESTS FIRST, and all three of them, because each owns a
+        # different failure path and a green from one says nothing about the
+        # others: the SCHEMA refuses a collapsed verdict/read_state, the two
+        # MAPPINGS refuse to hand the schema something it would reject, and the
+        # GUARD catches a record filed under the wrong unit — which is
+        # admissible to the schema and still unfindable. A guard that reports a
+        # clean scan needs an exercised failure path, or "0 problems" cannot be
+        # told from "stopped matching".
+        "steps": [
+            ["python3", "scripts/research/research_result.py", "--self-test"],
+            ["python3", "scripts/research/exit_head_result.py", "--self-test"],
+            ["python3", "scripts/research/m20_sweep_result.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_results.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_results.py"],
+        ],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
@@ -1459,6 +1667,26 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_lever_reachability.py", "--self-test"],
             ["python3", "scripts/ci/check_lever_reachability.py"],
+        ],
+    },
+    {
+        "name": "lever-evidence-flag-guard",
+        # The sibling of lever-reachability-guard, and it grades what that one
+        # cannot: reachability pins `arm_r` to config, so a verdict stays
+        # "current" while its DENOMINATOR goes unexamined. `gld_pullback_1d`
+        # carried `inert` / `recorded_inert` -- "no observed entry could reach
+        # the arm" -- on 0 of 8, whose exact 95% upper bound is 36.9%.
+        #
+        # The self-test runs on EVERY invocation for the same reason its
+        # siblings' do, and one of its cases is a NON-VACUITY control: a cell
+        # that must come out `unsettled`. A flag that had quietly lost the
+        # ability to say "I don't know" would otherwise look clean while
+        # rubber-stamping every verdict it grades.
+        "when": {"globs": ["config/lever_reachability.json",
+                           "scripts/ops/lever_evidence_flag.py"]},
+        "steps": [
+            ["python3", "scripts/ops/lever_evidence_flag.py", "--self-test"],
+            ["python3", "scripts/ops/lever_evidence_flag.py", "--check"],
         ],
     },
     {

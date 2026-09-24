@@ -145,11 +145,54 @@ def _date_filter(df: pd.DataFrame, start: Optional[str],
     return df[mask].reset_index(drop=True)
 
 
-def _load_yaml_params() -> Dict[str, Any]:
+#: The leg whose ``config/strategies.yaml`` block a caller gets when it does not
+#: say which one it wants. Kept as the historical literal so every existing
+#: caller — and ``scripts/research/mi321_ict_scalp_seam.py``, which calls
+#: ``_load_yaml_params()`` with no argument to describe a DEFAULT run — is
+#: byte-identical.
+DEFAULT_CFG_KEY = "ict_scalp_5m"
+
+
+def _load_yaml_params(name: str = DEFAULT_CFG_KEY) -> Dict[str, Any]:
+    """The ``config/strategies.yaml`` block for leg *name*, minus the keys the
+    unit does not consume.
+
+    ⚠️ **This used to read ``ict_scalp_5m`` unconditionally, for every leg**, and
+    that is the defect this signature fixes. MI-321 measured it
+    (`docs/research/ict-scalp-seam-2026-09-18.md` § 3): seven of the eight live
+    ``ict_scalp_*`` legs run through their own block live, ``--strategy-name``
+    relabelled the emitted rows without rerouting the read, and a default run is
+    faithful to exactly THREE legs — ``ict_scalp_5m``, ``ict_scalp_sol_5m``,
+    ``ict_scalp_avax_5m``, the three that differ from that block in 0 consumable
+    keys.
+
+    It matters now because ``scripts/research/regime_debt_matrix.py`` routes all
+    eight legs here (E28). Routing them at the old signature would have measured
+    ``ict_scalp_5m``'s config eight times under eight names and written eight
+    ``coverage_state: "measured"`` records — which is strictly WORSE than the
+    ``no_harness`` state it replaced, because a wrong number reads as evidence
+    and a missing one does not.
+
+    An UNKNOWN name raises. It does not fall back to ``DEFAULT_CFG_KEY``: a
+    silent fallback is precisely the collapse above, and *"the leg is not in the
+    config"* and *"the leg's config is what ict_scalp_5m declares"* are opposite
+    statements.
+    """
     try:
-        cfg = load_strategy_config().get("ict_scalp_5m", {}) or {}
+        all_cfg = load_strategy_config()
     except Exception:
-        cfg = {}
+        # Config unreadable — the unit's own defaults are the honest answer, and
+        # they are the same answer this function has always given here.
+        return {}
+    cfg = all_cfg.get(name)
+    if cfg is None:
+        raise KeyError(
+            f"--strategy-name {name!r} is not a key in config/strategies.yaml. "
+            f"It selects the parameter block this harness runs, so an unknown "
+            f"name cannot be silently served {DEFAULT_CFG_KEY!r}'s block. Pass a "
+            f"declared leg, or --ignore-yaml to run the unit's own defaults."
+        )
+    cfg = dict(cfg) or {}
     # Strip fields the unit doesn't consume.
     for k in ("enabled", "model", "signal_prefixes", "symbols", "risk_pct", "shadow_model_ids"):
         cfg.pop(k, None)
@@ -665,6 +708,23 @@ def run_backtest(
                     "funding_windows": round(cb["funding_windows"], 3),
                     "entry": t.entry, "sl": t.sl, "risk": t.risk,
                     "outcome": t.outcome,
+                    # Two ALIASES of fields this row already carries, under the
+                    # names the rest of the evidence corpus uses. The four
+                    # `scripts/backtest_{trend,pullback,squeeze,fvg_range}.py`
+                    # harnesses emit `exit_reason` and a top-level `mfe_r`; this
+                    # one emits `outcome` and buries MFE in `meta`. Same facts,
+                    # different spelling — so a consumer reading the corpus
+                    # uniformly (B6's barrier arithmetic over `runs/*/*__trades
+                    # .jsonl`, RQ-20260922-012's fold-recency question) got a
+                    # KeyError on exactly the eight ict_scalp legs and nothing
+                    # else. Additive: `outcome` and `meta.mfe_r` are unchanged,
+                    # so the E0 exit-head builder and component_edge_report.py
+                    # read what they always read.
+                    # `mfe_r` is None when the excursion could not be computed
+                    # (no entry/risk on the simulated exit) — an explicit null,
+                    # never a 0.0 that would read as "the trade never moved".
+                    "exit_reason": t.outcome,
+                    "mfe_r": t.meta.get("mfe_r"),
                     "confidence": t.confidence,
                     # The LIVE order_package meta (sweep_level/sweep_extreme/
                     # displacement_body_to_range/fvg_low/fvg_high/fvg_size/
@@ -1130,7 +1190,11 @@ def main(argv: List[str]) -> int:
               file=sys.stderr)
         return 1
 
-    cfg_overrides = {} if args.ignore_yaml else _load_yaml_params()
+    try:
+        cfg_overrides = {} if args.ignore_yaml else _load_yaml_params(args.strategy_name)
+    except KeyError as exc:
+        print(f"ERROR: {exc.args[0]}", file=sys.stderr)
+        return 2
     vol_spec = None
     if args.vol_spec_json:
         try:

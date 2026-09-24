@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one row's spend_usd and one paragraph of its note on docs/claude/work/MANAGER-CHECKLIST.json. Manager surface only. No code, no guards, no config, no runtime surface."
+}

@@ -53,7 +53,7 @@ def test_a_mirror_that_drifts_either_way_is_a_finding(tmp_path, monkeypatch):
     assert extra and "does NOT accept" in extra[0], extra
 
     monkeypatch.setattr(c, "_mirrored_status_enum",
-                        lambda: enforced - {"invalid"})
+                        lambda: enforced - {sorted(enforced)[0]})
     missing = c.check_status_enum_mirror()
     assert missing and "omits" in missing[0], missing
 
@@ -149,16 +149,34 @@ def test_every_backlog_the_digest_reads_is_enum_guarded():
         f"holds {len(retired)}")
 
 
-def test_terminal_is_derived_from_the_enum_not_listed_beside_it():
-    """A hand-written second list goes stale silently; a derived one cannot."""
+def test_the_backlog_terminal_set_is_decoupled_and_says_so():
+    """⚠️ RENAMED AND REWRITTEN 2026-09-22 (E45), and the reason is the point.
+
+    It used to assert `BACKLOG_TERMINAL == set(STATUS_ENUM) - BACKLOG_NON_TERMINAL`
+    — a real property while `STATUS_ENUM` WAS the review backlogs' `status`
+    vocabulary. `claim-basis-guard` has been re-pointed at the live registers,
+    so that enum is now the CHECKLIST's `state` vocabulary: a different field on
+    a different file. Left as written, the derivation would have silently made
+    every backlog status terminal.
+
+    A derived list cannot go stale and a hand-written one can, so decoupling is
+    a REAL cost and is accepted only because the archived field can no longer
+    move: nothing writes those four backlogs, so there is no enum for the
+    literal to drift from. This test pins exactly that — the literal equals the
+    LAST MEASURED contents (2026-09-12, 1,803 rows across all four backlogs) and
+    is disjoint from the live enum, which is what makes the decoupling visible
+    rather than accidental.
+    """
     from scripts.check_claim_basis import STATUS_ENUM
     from scripts.ops.work_digest import BACKLOG_NON_TERMINAL, BACKLOG_TERMINAL
 
-    assert BACKLOG_TERMINAL == set(STATUS_ENUM) - BACKLOG_NON_TERMINAL
-    assert BACKLOG_TERMINAL <= set(STATUS_ENUM), (
-        "a terminal value the field cannot hold is an unreachable predicate")
-    assert BACKLOG_NON_TERMINAL < set(STATUS_ENUM)
+    assert BACKLOG_TERMINAL == {"resolved", "wont_fix", "superseded", "invalid"}
+    assert BACKLOG_NON_TERMINAL == {"open", "kept_open"}
     assert BACKLOG_TERMINAL, "positive control: the terminal set is not empty"
+    assert not (BACKLOG_TERMINAL & set(STATUS_ENUM)), (
+        "the archived backlog vocabulary and the live checklist enum now share "
+        "a value — if a register is being reused, this decoupling needs "
+        "revisiting deliberately rather than silently")
 
 
 # ⚠️ REMOVED 2026-09-21 by the operating reset: `test_no_row_in_any_guarded_backlog_carries_an_off_enum_status`.

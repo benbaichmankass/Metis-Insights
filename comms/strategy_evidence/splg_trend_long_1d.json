@@ -3,7 +3,7 @@
   "strategy": "splg_trend_long_1d",
   "symbol": "SPLG",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:fd58a8d225bca5a640b5728dd7c4aceb",
+  "config_fingerprint": "sha256:980728e032b43ccd38a70cf3b19fd0a1",
   "basis": "harness_timefolds",
   "coverage_state": "harness_failed",
   "fidelity": null,

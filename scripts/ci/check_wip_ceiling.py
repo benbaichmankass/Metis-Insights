@@ -20,10 +20,16 @@ flight, which is the condition the redesign exists to end.
 
 Carrying everything is not the same as everything being open. The registry may
 hold hundreds of objects while at most 8 are being worked. A guard that confused
-the two would re-introduce exactly the eviction rule that was reversed, so the
-self-test below asserts ``check_open_items.MAX_ITEMS is None`` — if a future
-change caps the register believing it is implementing "the ceiling", this fails
-and says why.
+the two would re-introduce exactly the eviction rule that was reversed.
+
+⚠️ **2026-09-22 (E45): the self-test's cross-check for that is GONE, and the
+rule is not.** It asserted ``check_open_items.MAX_ITEMS is None``; that guard's
+register was archived by the 2026-09-21 reset and the guard is retired. There is
+no post-reset register with a cap to conflate — ``PIPELINE.jsonl`` is
+append-only and uncapped by construction, ``MANAGER-CHECKLIST.json`` carries no
+ceiling field — so the assertion was dropped rather than re-pointed. The
+paragraph above is kept because the REASONING is what a future session needs;
+the ``OPEN-ITEMS.json`` reference in it is history.
 
 WHAT COUNTS
 -----------
@@ -342,28 +348,21 @@ def _self_test() -> int:
     check("a quoted lifecycle still reads",
           _lifecycle("lifecycle: 'waiting'  # on the operator\n"), "waiting")
 
-    # ⚠️ The conflation guard. This is the whole reason it is here.
-    try:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "_coi", REPO_ROOT / "scripts" / "ci" / "check_open_items.py")
-        coi = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(coi)
-        good = coi.MAX_ITEMS is None
-        ok &= good
-        if good:
-            outcome = "PASS"
-        else:
-            outcome = (
-                f"FAIL got={coi.MAX_ITEMS!r} — the in-flight SET is capped at 8; "
-                "the REGISTER is not. Capping the register re-introduces the "
-                "eviction rule the operator reversed on 2026-08-26, which told "
-                "sessions to delete knowledge to satisfy a rule nothing enforced.")
-        print("  self-test (THE REGISTER STAYS UNCAPPED — "
-              f"check_open_items.MAX_ITEMS is None): {outcome}")
-    except Exception as e:  # pragma: no cover
-        ok = False
-        print(f"  self-test (register-stays-uncapped cross-check): FAIL {e}")
+    # ⚠️ THE CONFLATION CROSS-CHECK IS GONE, 2026-09-22 (E45), AND THE RULE
+    # IT DEFENDED IS NOT. It loaded `scripts/ci/check_open_items.py` and
+    # asserted `MAX_ITEMS is None` -- "the in-flight SET is capped at 8; the
+    # REGISTER is not", so nobody re-introduces the eviction rule the operator
+    # reversed on 2026-08-26, which told sessions to delete knowledge to satisfy
+    # a rule nothing enforced. That guard read `docs/claude/OPEN-ITEMS.json`,
+    # archived by the 2026-09-21 reset, and is retired; see
+    # docs/archive/2026-09-21-operating-reset/guards/RETIRED-GUARDS-2026-09-22.md.
+    #
+    # The assertion is dropped rather than re-pointed because there is no
+    # post-reset register with a cap to conflate: `PIPELINE.jsonl` is
+    # append-only and uncapped by construction, and `MANAGER-CHECKLIST.json`
+    # carries no ceiling field. Stated here so the next reader meets the reason
+    # instead of the absence. (This module was itself unregistered from
+    # `run_guards.py` at the reset -- `wip-ceiling-guard` is in its removed list.)
 
     print("wip-ceiling self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1

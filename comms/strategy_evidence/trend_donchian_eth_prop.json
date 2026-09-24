@@ -3,11 +3,13 @@
   "strategy": "trend_donchian_eth_prop",
   "symbol": "ETHUSDT",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:6f554919ce1d2a40a07715b5a4ad49f0",
+  "config_fingerprint": "sha256:4c821e711e677f3412ae6937b3cae5c6",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "faithful",
-  "omitted_levers": [],
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "tp_r"
+  ],
   "net_r_oos": 7.13,
   "expectancy_r_oos": 0.0422,
   "n_trades_oos": 169,

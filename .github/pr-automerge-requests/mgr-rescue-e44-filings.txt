@@ -1,0 +1,1 @@
+Five findings existed ONLY on claude/e44-lane-supervisor-build, whose PR (#12752) is dirty on five paths. Nothing reads a branch. Imported verbatim onto main so they survive independently of whether that PR ever lands.

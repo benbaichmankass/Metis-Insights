@@ -261,10 +261,22 @@ class TestCoverageStatesStayDistinct:
 
     def test_an_unroutable_leg_still_reports_no_harness(self):
         """The negative control: the state must remain reachable, or the guard is
-        checking a value nothing can produce. `ict_scalp_*` is the live example —
-        eight legs, a harness that exists, and no branch."""
+        checking a value nothing can produce.
+
+        ⚠️ This control named `ict_scalp_5m` until E28 routed that family, and
+        the swap is the point rather than a chore — a negative control anchored
+        to ONE leg stops being a control the moment that leg is fixed, and would
+        then fail as a false alarm about `no_harness` instead of reporting that
+        its example was spent. It now asks the roster which enabled legs are
+        unrouted and asserts the state is still reachable, naming `turtle_soup`
+        as today's instance rather than depending on it being the only one."""
         import yaml
         S = yaml.safe_load(
             open(os.path.join(REPO, "config/strategies.yaml"))
         )["strategies"]
-        assert rdm.classify(S["ict_scalp_5m"]) is None
+        unrouted = sorted(n for n, c in S.items()
+                          if isinstance(c, dict) and c.get("enabled")
+                          and rdm.classify(c) is None)
+        assert unrouted, "no enabled leg is unrouted — `no_harness` is now unreachable"
+        assert "turtle_soup" in unrouted
+        assert rdm.classify(S["turtle_soup"]) is None
