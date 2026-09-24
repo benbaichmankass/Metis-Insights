@@ -68,6 +68,28 @@ on:
         description: "Entry-selectivity floor imposed on EVERY leg, replacing its config-declared min_confidence. Empty = config-exact (each leg keeps its own). The surviving arm of SRQ-20260618-003: the 15bps run showed halving the trade COUNT does not clear the fee band, leaving 'raise the edge per trade' untested. Note an explicit 0 is NOT empty — it imposes a zero floor on legs that declare one."
         required: false
         default: ''
+      # ⚠️ THESE TWO EXIST SO THE QUEUE CAN FIRE THIS WORKFLOW AT ALL.
+      # `scripts/research/dispatch_queue.py` REFUSES to fire a unit graded
+      # `accruing` unless the unit declares `run.inputs.research_unit`, and
+      # `gh workflow run -f <input-the-workflow-never-declared>` ERRORS — so a
+      # workflow without the input is undispatchable for exactly the units that
+      # most need the safety label. MEASURED 2026-09-22 across the five sweep
+      # workflows: only `e35-bracket-sweep.yml` declared them, which is why
+      # RQ-20260922-003 and RQ-20260922-004 both sat `blocked` naming this file.
+      research_unit:
+        description: >-
+          Queue unit id that dispatched this run (RQ-...). Stamped onto the
+          per-leg result records. Empty means NOT QUEUE-DISPATCHED — never
+          "this was only a test".
+        required: false
+        default: ""
+      power_state:
+        description: >-
+          That unit's R4 power verdict, supplied by the dispatcher rather than
+          by hand. `accruing` means the unit declared up front that it cannot
+          answer yet, so its numbers must never be read as a test result.
+        required: false
+        default: ""
       without_declared_levers:
         description: "LEVER-OFF ARM. CSV of declared levers (stale_stop,giveback_stop,trail_decay,vol_trail) to REMOVE from each leg's config-exact base, measuring ONE cell that puts each back at the leg's own live values. Empty = the ordinary arm. This is the only way to grade a SHIPPED lever: the shipped lever IS the base, so a normal cell reproducing it measures the base against itself — 31 of 860 corpus rows are exactly that, all-zero deltas labelled `is_oos_fail`/`insufficient_base` (BL-20260813-SWEEP-GRADES-SHIPPED-LEVERS-AGAINST-THEMSELVES). trail_geometry is not offerable: trail_mult has no OFF state."
         required: false
@@ -803,3 +825,129 @@ jobs:
           done
           echo "::error::could not push the corpus to '$TARGET' after 4 attempts"
           exit 1
+
+  # ---------------------------------------------------------------- landing
+  # ⚠️ THE `corpus` JOB ABOVE LANDS THE ROWS; IT DOES NOT LAND A RESULT, AND ON
+  # A DEFAULT-BRANCH DISPATCH IT DOES NOT LAND THEM ON `main` EITHER — it
+  # retargets to `claude/m20-sweep-corpus`, a branch its own comment says never
+  # merges. So before this job the only queryable output of a sweep on `main`
+  # was nothing at all: a PR comment and an expiring artifact. That is the
+  # defect checklist row E5 closes, and the one RQ-20260922-003 and
+  # RQ-20260922-004 both name.
+  #
+  # This job does NOT touch the corpus and does not re-run the sweep. It
+  # re-extracts this run's rows into a THROWAWAY corpus so it can summarize
+  # exactly what this run produced, then lands ONE RECORD PER DISPATCHED LEG on
+  # `main`. A separate job because `commit-to-main` requires a PAT checkout, and
+  # the sweep shards stay credential-free.
+  #
+  # `if: always()` because a failed or partial sweep is itself a result worth
+  # landing: a dropped leg becomes a visible `no_data` record instead of an
+  # absence nobody can distinguish from a leg nobody asked for.
+  research_result:
+    needs: [plan, sweep, corpus]
+    if: always()
+    runs-on: ubuntu-latest
+    # MUST OUTLAST `commit-to-main`'s `verify-merged` wait (30m default).
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # REQUIRED by `.github/actions/commit-to-main`: it pushes with a bare
+          # `git push origin`, so it uses whatever credential the CHECKOUT
+          # configured. Under the default GITHUB_TOKEN the PR it opens never
+          # receives its required checks and auto-merge waits forever.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # ⚠️ `continue-on-error` IS DELIBERATE AND IS BRANCHED ON, not swallowed:
+      # when every shard died there is nothing to download, and that is exactly
+      # the case this job exists to make visible. The step below reads the
+      # absence and emits `producer_failed` per dispatched leg.
+      - uses: actions/download-artifact@v4
+        id: fetch
+        continue-on-error: true
+        with:
+          pattern: exit-lever-sweep-*
+          path: sweep_out
+          merge-multiple: false
+      - name: Summarize THIS RUN into one record per dispatched leg
+        id: derive
+        env:
+          SWEEP_RESULT: ${{ needs.sweep.result }}
+          LEG_PLAN: ${{ needs.plan.outputs.legs }}
+        run: |
+          set -euo pipefail
+          # A THROWAWAY corpus, NOT `docs/research/m20-sweep-corpus.jsonl`. The
+          # extractor merges-and-supersedes into whatever corpus it is given, so
+          # pointing it at the committed one here would make this summary read
+          # every historical run's rows as if they were this run's — and would
+          # dirty a file this job has no business writing.
+          mkdir -p rr
+          : > rr/run_corpus.jsonl
+          if [ -d sweep_out ]; then
+            python3 scripts/research/m20_corpus_extract.py \
+              --in sweep_out --corpus rr/run_corpus.jsonl | tee rr/extract.out
+          else
+            echo "::warning::no sweep artifacts downloaded — every dispatched leg will grade producer_failed/no_data, which is the point of this job."
+          fi
+          # The DISPATCHED population, read off the plan job rather than off the
+          # rows: a leg that died before writing a row must still get a record,
+          # or a dropped leg is indistinguishable from one nobody asked for.
+          LEGS="$(python3 - <<'PY'
+          import json, os
+          raw = os.environ.get("LEG_PLAN") or "[]"
+          try:
+              plan = json.loads(raw)
+          except json.JSONDecodeError:
+              plan = []
+          names = []
+          for item in plan if isinstance(plan, list) else []:
+              if isinstance(item, dict):
+                  name = item.get("leg")
+              else:
+                  name = item
+              if isinstance(name, str) and name:
+                  names.append(name)
+          print(",".join(names))
+          PY
+          )"
+          echo "dispatched legs: ${LEGS:-<none — falling back to the observed set>}"
+          # NO `|| true`. A load-bearing step may not swallow its own failure.
+          python3 scripts/research/m20_sweep_result.py \
+            --corpus rr/run_corpus.jsonl \
+            --out rr/records.jsonl \
+            --legs "${LEGS}" \
+            --sweep-result "${SWEEP_RESULT}"
+
+      - name: Land the per-leg results on main
+        uses: ./.github/actions/research-result
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          research-unit: ${{ inputs.research_unit }}
+          power-state: ${{ inputs.power_state }}
+          # ⚠️ MIRRORED FROM `scripts/research/m20_sweep_result.py`, whose
+          # DECISION_RULE_ID / DECISION_RULE_REGISTERED_AT constants are the one
+          # home. Registered in source before any run.
+          decision-rule-id: RULE-M20-EXIT-LEVER-IS-OOS-GATE
+          decision-rule-registered-at: '2026-09-22'
+          # Per-leg parts; the shared fields come from the flags above so they
+          # cannot disagree between rows of one run.
+          records-file: rr/records.jsonl
+          # ⚠️ `min-rows` IS THE FAN-OUT WIDTH, not 1. A run that landed fewer
+          # records than it dispatched legs FAILS here rather than grading green
+          # on a partial result.
+          min-rows: ${{ steps.derive.outputs.min_rows }}
+          # Unused when `records-file` is set (each part carries its own), but
+          # the action requires them; the per-leg values win.
+          verdict: not_applicable
+          read-state: not_attempted
+          population: per-leg; see each record
+          n: 'null'
+          artifact-store: docs/research/m20-sweep-corpus.jsonl
+          tool: scripts/research/m20_corpus_extract.py + scripts/research/m20_sweep_result.py

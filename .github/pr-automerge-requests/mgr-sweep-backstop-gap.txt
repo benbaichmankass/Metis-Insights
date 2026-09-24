@@ -1,0 +1,1 @@
+File the supervision gap the 24h idle exposed: the hourly lane-sweep Routine fires into an INTERACTIVE session, so all 25 firings queued behind the human instead of running - and last_run reads SUCCEEDED for every one. The route itself is fine; the binding is the defect.
