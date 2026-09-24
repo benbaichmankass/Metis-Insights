@@ -1327,29 +1327,39 @@ def _record_position_read_observation(obs: Dict[str, Any]) -> None:
 
 
 def _bybit_configured_symbols(account: Dict[str, Any]) -> list:
-    """Return the account's configured instrument list for the per-symbol
-    position cross-check (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND).
+    """Return the account's instrument list for the per-symbol position
+    cross-check (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND).
 
-    Prefers the ``symbols`` key already on the passed cfg dict (the reverse
-    reconciler's cfgs carry it). Falls back to loading it from
-    ``accounts.yaml`` by ``account_id`` for callers that hand-build a
-    reduced cfg (e.g. ``order_monitor._build_account_client``). Best-effort:
-    any failure returns ``[]`` so the cross-check simply no-ops rather than
-    raising — the primary settleCoin read is unaffected.
+    Since E42 (2026-09-22) this is ``src.config.symbol_sets`` in ``UNION``
+    mode — the declared ``symbols:`` pull list PLUS every symbol the account's
+    rostered strategies trade — rather than a private read of the declared
+    list. The precedence is unchanged and is pinned by
+    ``TestRosterCrossCheckAlreadyExists``: a NON-EMPTY ``symbols`` on the
+    passed cfg wins (the reverse reconciler's cfgs carry it), while an EMPTY or
+    absent one falls through to ``accounts.yaml`` by ``account_id`` — so a
+    caller still cannot switch this cross-check off by handing in an empty
+    roster, which is MI-222's structural correction.
+
+    Best-effort: any failure degrades to the declared list (the pre-E42
+    behaviour) so the cross-check narrows rather than raises — the primary
+    settleCoin read is unaffected.
     """
-    syms = account.get("symbols")
-    if isinstance(syms, (list, tuple)) and syms:
-        return list(syms)
+    # MODE: UNION (E42). This list is the denominator of a POSITION
+    # cross-check, and a position can exist on any symbol the account's roster
+    # trades — grading it against the declared pull list rather than the
+    # roster would reintroduce `BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND` one
+    # level up: a live symbol the settleCoin page omitted, on a leg whose
+    # symbol nobody remembered to declare, would be invisible to the very
+    # check that exists to catch it. Costs one REST call per symbol the page
+    # did not return, which is the cheaper side of reporting a live position
+    # as absent.
     aid = account.get("account_id")
-    if not aid:
-        return []
     try:
-        from src.config.accounts_loader import load_accounts_dict
-        cfg = load_accounts_dict().get(aid) or {}
-        resolved = cfg.get("symbols")
-        return list(resolved) if isinstance(resolved, (list, tuple)) else []
-    except Exception:  # noqa: BLE001
-        return []
+        from src.config.symbol_sets import UNION, symbols_for_account_id
+        return symbols_for_account_id(str(aid or ""), mode=UNION, cfg=account)
+    except Exception:  # noqa: BLE001  — FAIL-SAFE: best-effort cross-check denominator; the declared list is the pre-E42 behaviour, so this degrades rather than raising into the position read
+        syms = account.get("symbols")  # symbol-set: the DEGRADED fallback of the routed call two lines up, not a private derivation
+        return list(syms) if isinstance(syms, (list, tuple)) else []
 
 
 def _bybit_book_key(raw: Any) -> Any:
@@ -1920,7 +1930,26 @@ def account_ib_venue_session(
     client = ib_read_client_for(account)
     if client is None:
         return None
-    sym = symbol or (account.get("symbols") or [None])[0] or account.get("symbol")
+    # MODE: UNION (E42). This picks ONE representative instrument to ask the
+    # venue about its session, and the declared entries stay first under the
+    # union — so for every account that declares anything this is byte-identical
+    # to the old `(account.get("symbols") or [None])[0]`. What it fixes is the
+    # account that declares NOTHING but rosters a leg: that used to fall through
+    # to `account.get("symbol")` or None and ask the venue about nothing.
+    # FOUND BY THE BYPASS CONTROL IN `symbol_sets._self_test`, not by reading —
+    # it is a fifth private derivation the original four-site list missed, which
+    # is the argument for the control rather than an argument against it.
+    # Calls the resolver DIRECTLY rather than borrowing
+    # `_bybit_configured_symbols`: this is the IB path, and routing an IB read
+    # through a bybit-named helper is the kind of thing that reads as a bug to
+    # the next person even when it computes the right answer.
+    try:
+        from src.config.symbol_sets import UNION, symbols_for_account_id
+        _resolved = symbols_for_account_id(
+            str(account.get("account_id") or ""), mode=UNION, cfg=account)
+    except Exception:  # noqa: BLE001  — FAIL-SAFE: representative-instrument pick; falls back to the pre-E42 expression below
+        _resolved = list(account.get("symbols") or [])  # symbol-set: DEGRADED fallback of the routed call directly above
+    sym = symbol or (_resolved[0] if _resolved else None) or account.get("symbol")
     try:
         return client.venue_session_detail(sym)
     except Exception as exc:  # noqa: BLE001  # allow-silent: logged; None = "could not look", the caller's documented degraded state
@@ -2178,7 +2207,10 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
         # absent rather than as unprotected, which is the quieter failure and
         # therefore the worse one. Cross-check every CONFIGURED symbol the page
         # did not return.
-        for sym in (account.get("symbols") or []):
+        # MODE: UNION (E42) — same reasoning as `_bybit_configured_symbols`,
+        # and routed through the same resolver so the two halves of this
+        # cross-check cannot drift apart in their denominator.
+        for sym in _bybit_configured_symbols(account):
             if not sym or sym in seen:
                 continue
             try:

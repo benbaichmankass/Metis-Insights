@@ -166,6 +166,17 @@
         ],
         "primary_basis": "live_entry_conditioned_2026_08_16",
         "flag": "unsettled"
+      },
+      "strip_HELD_2026_09_22": {
+        "headline": "THE STRIP WAS DISPATCHED FOR THIS LEG AND IS NOT TAKEN. The evidence it rests on was measured on a stop geometry this leg no longer runs, and on the geometry it runs today the arm CAN fire.",
+        "what_changed": "`atr_stop_mult` on this leg was cut 2.5 -> 1.5 by commit 892c9a2c8 (#10450), which landed on main 2026-08-30; the config comment dates the re-check itself to 2026-08-29 ('M20 e35 re-check 2026-08-29: cell sm1.5 (path_b_wf_pass, wf 5/6, d_net_r +27.7150); was 2.5'). Both dates are AFTER the 2026-08-16 measurements, which is what the finding turns on; the landing date is given here because the comment's date is the sweep's, not the merge's. Every measurement in this entry is dated 2026-08-16 and therefore predates it. risk_per_unit = atr_stop_mult * ATR, so cap_R = 0.099/(risk/entry) scales by 2.5/1.5 = 1.667x -- the ceiling this leg trades under rose by two thirds after the numbers above were taken.",
+        "measured_2026_09_22": "Entry-conditioned cap_R = 0.099/(|entry - sl|/entry) over the leg's own emitted trades AT atr_stop_mult 1.5 -- comms/strategy_evidence/runs/2026-09-22-r5/trend_donchian_sol_4h__trades.jsonl, n=34, 2025-09-22 -> 2026-09-21: 4 of 34 reachable (11.8%), cap_R min 1.177 / median 3.367 / MAX 6.459 against the 5.57R arm. By year: 2025 1/9, 2026 3/25.",
+        "why_this_matters": "The dispatched basis was 'LIVE entry-conditioned 0/16 (population COMPLETE) and backtest 0/127 across every year 2023-2026 ... the arm needs risk/entry <= 1.777%; the leg's lowest-vol entry ever observed is 2.292%'. Under atr_stop_mult 1.5 that same lowest-vol entry re-prices to 2.292% * 0.6 = 1.375%, which CLEARS the 1.777% the arm needs. The 'out of range, not near-miss' statement was true and is no longer.",
+        "consequence": "'Cannot fire' is not established for this leg today, so stripping it would remove a lever that fires on roughly one entry in eight -- the same error as stripping scha_trend_long_1d, which the dispatch explicitly forbade. Held for the operator.",
+        "caveat": "The new figure is a BACKTEST entry-conditioned basis over 12 months, not the authoritative live order_packages population, and the r5 run models no take-profit (this leg's tp_r is the 50.0 sentinel, so the venue term is the whole ceiling regardless). INFERRED, not measured: re-scaling the 2026-08-16 LIVE population's cap_R by 1.667 puts its max at 7.20 (was 4.3193) and its median at 2.97 (was 1.781), i.e. at least the best live entries would now clear 5.57 -- but those entries were taken under the old stop and a different stop changes which trades exist, so this is a consistency check on the backtest figure, not a second measurement.",
+        "verdict_untouched": "`verdict` stays `unmeasured` and `disposition` stays `queued_tier3`. This block records a measurement and a HOLD; deciding the row is Tier-3 and the operator's.",
+        "clarified_test_2026_09_22": "OPERATOR CLARIFICATION 2026-09-22, verbatim: \"I only wanted to strip the arm where it can't produce a result, it should stay where it can produce one.\" The test is therefore ZERO, not rare -- not 'is the arm high' and not 'does it rarely fire'. THE CLARIFICATION NAMED THIS LEG AS A STRIP, on the basis 'LIVE 0/16 (COMPLETE) AND backtest 0/127 ... zero on both bases'. IT IS STILL HELD, and the clarification is the reason it must be: both of those zeros were measured on 2026-08-16 at atr_stop_mult 2.5, and the leg has run 1.5 since 892c9a2c8 (#10450) landed 2026-08-30. On the geometry it runs TODAY the measured answer is 4 of 34 (11.8%), cap_R max 6.459 against the 5.57 arm -- NOT zero. Applying the operator's own test to a current measurement says do not strip it; applying it to the stale one says strip it. Only the operator can retire their own evidence, so this stays held rather than being decided by a lane in either direction.",
+        "what_would_settle_it": "A live entry-conditioned pull for this leg restricted to packages opened AFTER 2026-08-30, i.e. under atr_stop_mult 1.5 -- the authoritative order_packages/risk_per_unit basis on the current geometry. The backtest figure above is a THIRD basis and is what is available without a relay; it should not be read as the live one."
       }
     },
     {
@@ -173,7 +184,7 @@
       "lever": "trail_decay_arm_r",
       "arm_r": 5.06,
       "verdict": "inert",
-      "disposition": "recorded_inert",
+      "disposition": "stripped",
       "opened_at": "2026-08-16",
       "observations": 8,
       "basis": "order_packages/risk_per_unit — COMPLETE history (server count:8, untruncated)",
@@ -243,6 +254,14 @@
         ],
         "primary_basis": "live_entry_conditioned_2026_08_16",
         "flag": "unsettled"
+      },
+      "stripped_2026_09_22": {
+        "what": "`trail_decay_arm_r: 5.06` REMOVED from config/strategies.yaml::gld_pullback_1d.",
+        "decided_at": "2026-09-22",
+        "relationship_to_the_2026_08_16_decision": "The 2026-08-16 operator decision RECORDED this arm inert and stopped counting it as shipped; it deliberately left the value in config ('this records that it cannot fire, it does not change what fires'). Removing the value is the follow-through. IN SCOPE BY CLARIFICATION, NOT BY THE ORIGINAL ANSWER: this leg was not among the three the operator was shown, and it was first shipped in a deliberately separable commit for that reason. OPERATOR CLARIFICATION 2026-09-22, verbatim: \"I only wanted to strip the arm where it can't produce a result, it should stay where it can produce one.\" The test is therefore ZERO, not rare -- not 'is the arm high' and not 'does it rarely fire'. `inert` is this file's own word for 'measured; no observed entry could reach the arm' -- i.e. zero -- so the clarified test reaches this leg and the separation is no longer needed.",
+        "rollback": "restore `trail_decay_arm_r: 5.06` in config/strategies.yaml::gld_pullback_1d, under `trail_decay_stall_bars: 10`.",
+        "recheck_2026_09_22": "0 of 6 entry-conditioned backtest trades reach 5.06R over 2025-04-08 -> 2026-09-21 (cap_R min 1.191 / median 2.231 / max 3.968), from comms/strategy_evidence/runs/2026-09-22-r5/gld_pullback_1d__trades.jsonl, at the current atr_stop_mult 2.0 (unchanged since the 2026-08-16 measurement). Agrees with the authoritative live 0/8. This leg's tp_r is the 50.0 sentinel, so the venue term is the whole ceiling here and the basis_note's 2026-09-22 correction does not bear on it.",
+        "runtime_effect": "`trail_decay_stall_bars: 10` remains, so the lever stays DECLARED and its stall arm plus the tightened mult are untouched (src/runtime/trail_decay.py:143-145). Only the dead R-arm is gone."
       }
     },
     {
@@ -397,6 +416,16 @@
         ],
         "primary_basis": "live_entry_conditioned_COMPLETE_2026_08_16",
         "flag": "unsettled"
+      },
+      "strip_CONSIDERED_AND_HELD_2026_09_22": {
+        "evidence_shown_to_the_operator": "LIVE order_packages/risk_per_unit, COMPLETE population n=37 -> 2 reachable (5.4%) [live_entry_conditioned_COMPLETE_2026_08_16]; BACKTEST entry-conditioned n=204, 2023-01-06 -> 2026-07-17 -> 12 reachable (5.9%) [backtest_entry_conditioned_2026_08_16]. Two independent populations agreeing to 0.5pp.",
+        "verdict_left_as_measured": "`verdict` stays `vol_conditional` deliberately. That is what the 2026-08-16 entry geometry measured -- 2 of 37 live entries COULD have armed it -- and re-grading it to `inert` on today's evidence would overwrite a measurement with a later inference. The block below is where the later finding lives.",
+        "inert_by_construction_since_2026_08_23": "MEASURED 2026-09-22 from config + code, not from a journal: `tp_r` on this leg was cut 50.0 -> 3.0 on 2026-08-23 (Tier-3, operator-approved, comment in config/strategies.yaml), and the placed TP is min(entry*(1+0.099), entry + tp_r*risk) at src/units/strategies/htf_pullback_trend_2h.py:351. So the highest MFE a trade can print before its TP fills is min(cap_R, 3.0) <= 3.0R on EVERY entry, against a 4.49R arm -- the arm cannot fire regardless of vol, which is strictly stronger than the 5.4%/5.9% it was stripped on. The 2/37 reaching entries both predate that tp_r change.",
+        "runtime_effect": "This leg declares no `trail_decay_stall_bars`, so removing the arm leaves the trail-decay lever UNDECLARED: `resolve_trail_mult` returns the base trail mult (src/runtime/trail_decay.py:143-145, `declared = tight > 0 and (arm_r > 0 or stall > 0)`). That is byte-identical to today's order path, because the arm could not fire. The undeclared branch does additionally write ONE observe-only annotate row to runtime_logs/exit_lever_soak.jsonl per package when the reference stall-6 cell would arm; that path never touches an order and is wrapped in a bare except.",
+        "not_removed": "`trail_decay_tight_mult: 2.5` is left in place. With no arming condition it is now inert as well, but removing it was not the decision taken and is not done here.",
+        "HEADLINE": "THE STRIP WAS MADE AND THEN REVERTED IN THE SAME SESSION, BEFORE ANYTHING MERGED. `trail_decay_arm_r: 4.49` was removed on 2026-09-22 under the first reading of the operator's decision and RESTORED the same day under their clarification. The arm stands in config/strategies.yaml exactly as before; nothing about this leg changed. This block is retained as the record of what was considered and why it was not done.",
+        "why_reverted": "OPERATOR CLARIFICATION 2026-09-22, verbatim: \"I only wanted to strip the arm where it can't produce a result, it should stay where it can produce one.\" The test is therefore ZERO, not rare -- not 'is the arm high' and not 'does it rarely fire'. This leg's measured answer is NOT zero: 2 of 37 live entries (5.4%, COMPLETE population) and 12 of 204 backtest entries (5.9%) could reach the arm. It produces a result, rarely. Its verdict is `vol_conditional`, which this file's own legend calls 'a real design choice, not a default' -- so removing the arm would be MAKING that design decision by deletion. The leg is also on bybit_2, REAL MONEY.",
+        "status": "HELD pending a separate operator answer. The question -- whether a lever that fires on ~5% of entries earns its declare -- is with the operator, not with a lane. PI-20260922-E41-0004."
       }
     },
     {
@@ -404,7 +433,7 @@
       "lever": "trail_decay_arm_r",
       "arm_r": 3.56,
       "verdict": "inert",
-      "disposition": "recorded_inert",
+      "disposition": "stripped",
       "opened_at": "2026-08-16",
       "observations": 1,
       "basis": "order_packages/risk_per_unit (n=1) + candles/atr(14) 1d QQQ (n=105)",
@@ -488,6 +517,15 @@
         ],
         "primary_basis": "live_entry_conditioned_2026_08_16",
         "flag": "unsettled"
+      },
+      "stripped_2026_09_22": {
+        "what": "`trail_decay_arm_r: 3.56` REMOVED from config/strategies.yaml::qqq_trend_long_1d.",
+        "decided_at": "2026-09-22",
+        "relationship_to_the_2026_08_16_decision": "The 2026-08-16 operator decision RECORDED this arm inert and stopped counting it as shipped; it deliberately left the value in config ('this records that it cannot fire, it does not change what fires'). Removing the value is the follow-through. IN SCOPE BY CLARIFICATION, NOT BY THE ORIGINAL ANSWER: this leg was not among the three the operator was shown, and it was first shipped in a deliberately separable commit for that reason. OPERATOR CLARIFICATION 2026-09-22, verbatim: \"I only wanted to strip the arm where it can't produce a result, it should stay where it can produce one.\" The test is therefore ZERO, not rare -- not 'is the arm high' and not 'does it rarely fire'. `inert` is this file's own word for 'measured; no observed entry could reach the arm' -- i.e. zero -- so the clarified test reaches this leg and the separation is no longer needed.",
+        "rollback": "restore `trail_decay_arm_r: 3.56` in config/strategies.yaml::qqq_trend_long_1d, above `trail_decay_tight_mult: 2.0`.",
+        "recheck_2026_09_22_READ_THIS_BEFORE_RE_GRADING": "⚠️ A VENUE-CAP-ONLY RE-CHECK NOW READS THE OTHER WAY AND IS WRONG. 0.099/(|entry-sl|/entry) over comms/strategy_evidence/runs/2026-09-22-r5/qqq_trend_long_1d__trades.jsonl (n=7, 2025-04-08 -> 2026-09-21) reads 3 of 7 clearing 3.56, cap_R max 5.239 -- atr_stop_mult was cut 2.5 -> 2.0 by M20 B4, which raises cap_R. That is only half the ceiling. The SAME M20 B4 change (commit 91de68b9c, #10419, landed 2026-08-29) cut `tp_r` 50.0 -> 3.0, and the placed TP is min(entry*(1+0.099), entry + tp_r*risk) (src/units/strategies/trend_donchian.py:393), so the binding ceiling is min(cap_R, 3.0) <= 3.0R on every entry, against a 3.56R arm. The verdict `inert` therefore STANDS and is now true by construction rather than by observation. This is the first worked instance of the basis_note's 2026-09-22 correction, and it is recorded here because a future re-measurement that computes only the venue term would flip this row to reachable on a number that no trade can realise.",
+        "runtime_effect": "This leg declares no `trail_decay_stall_bars`, so removing the arm leaves the trail-decay lever UNDECLARED: base trail mult returned (src/runtime/trail_decay.py:143-145), identical to today, plus one observe-only exit_lever_soak.jsonl annotate row per package when the reference stall-6 cell would arm.",
+        "not_removed": "`trail_decay_tight_mult: 2.0` is left in place -- inert now too, but removing it was not decided."
       }
     },
     {
@@ -572,6 +610,13 @@
         ],
         "primary_basis": "backtest_entry_conditioned_2026_08_16",
         "flag": "unsettled"
+      },
+      "tp_r_ceiling_2026_09_22": {
+        "headline": "⚠️ THIS ROW'S '83.1% reachable' IS STALE, AND IN THE DIRECTION THAT MATTERS: on the geometry the leg runs today the arm looks INERT. Recorded, NOT acted on -- the 2026-09-22 dispatch named this leg as one that must NOT be stripped, so this is a flag for the operator and nothing here changes a value.",
+        "what_changed": "Two Tier-3 changes landed after the 2026-08-16 measurements, both carrying the comment 'M20 B4 bracket geometry: cell tp1.5_sm3 (wf_pass, wf 4/6)': `tp_r` 50.0 -> 1.5 and `atr_stop_mult` 2.5 -> 3.0. Both landed in commit 91de68b9c (#10419, 'M20 B4: declare validated bracket geometry on 8 legs (Tier-3, operator-approved)') on 2026-08-29 -- after the 2026-08-16 measurements this row records. Read from config/strategies.yaml on 2026-09-22 and dated from git.",
+        "the_arithmetic": "The placed TP is min(entry*(1+0.099), entry + tp_r*risk) (src/units/strategies/trend_donchian.py:393), so the ceiling in R is min(cap_R, tp_r) = min(cap_R, 1.5). The declared arm is 2.00R. 1.5 < 2.00 on every entry, so the take-profit fills before the since-entry peak can reach the arm and the R-arm cannot fire -- barring a bar that gaps clean through the resting TP to >= 2.0R, which is not a protection anyone declared. Independently, atr_stop_mult 2.5 -> 3.0 lowers cap_R by 1/1.2 on its own.",
+        "what_this_does_NOT_say": "It does NOT say the 83.1% figure was wrong. 54/65 was measured correctly against the VENUE ceiling on 2026-08-16, when this leg still carried tp_r: 50.0 and the venue term was the whole ceiling. The finding is that the ceiling acquired a second, lower term, and this file's basis_note did not model it until today.",
+        "verdict_untouched": "`verdict` stays `unmeasured` and `disposition` stays `queued_tier3`; no value in config/strategies.yaml was touched. Re-grading this row needs a re-measurement against min(cap_R, tp_r) on the current geometry, which is Tier-3 work the operator has not commissioned."
       }
     },
     {

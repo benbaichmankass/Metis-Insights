@@ -32,6 +32,14 @@ CURRENT for the value actually declared, and has been DISPOSED of:
 4. an ``unmeasured`` entry states WHY, and cannot be the resting state of a
    value someone just changed.
 
+⚠️ **A LEG THAT NO LONGER DECLARES THE GATE LEAVES THE DENOMINATOR.** Removing
+``trail_decay_arm_r`` from a leg drops it out of ``declared_gates``, so nothing
+here checks its entry any more. That is deliberate — the guard asserts that a
+DECLARED gate has a current measurement, not that every measurement ever taken
+still describes a live declare — but it means a stripped leg's entry is only as
+honest as the session that wrote it. ``disposition: "stripped"`` exists so the
+entry says so in a word rather than leaving a stale ``queued_tier3`` behind.
+
 ⚠️ **THIS IS NOT A PRESENCE-ONLY MARKER.** The `arm_r` match is what makes it
 expensive to lie to: satisfying the guard by editing the registry means
 restating the measured numbers next to the new value, which is the review the
@@ -89,8 +97,25 @@ VERDICTS = {"reachable", "inert", "vol_conditional", "unmeasured"}
 # lever that may not fire"; `recorded_inert` = "we established it CANNOT fire and
 # stopped counting it as shipped". A future reader must be able to tell a
 # deliberate non-decision from a decision, and one enum value cannot carry both.
-DISPOSITIONS = {"ok", "queued_tier3", "accepted_risk", "recorded_inert"}
-DISPOSITIONS_REQUIRING_DATE = {"queued_tier3", "accepted_risk", "recorded_inert"}
+# `stripped` (added 2026-09-22) is the second CLOSED terminal state, and it is
+# added for the same reason `recorded_inert` was: the enum had no value for the
+# outcome and every existing one states something FALSE about it. The operator's
+# 2026-09-22 Tier-3 decision was to REMOVE the arm from the legs where it cannot
+# fire, so the config stops declaring a protection that does not exist. After
+# that removal the leg no longer appears in `declared_gates` at all, and its
+# registry entry survives as a retained MEASUREMENT ARCHIVE -- the measurements
+# are expensive and re-arming the leg would otherwise have to re-derive them.
+#
+# Why not reuse one: `ok` asserts the lever is fine AS DECLARED (it is no longer
+# declared); `queued_tier3` says a decision is PENDING (it was taken);
+# `accepted_risk` says the arm was knowingly LEFT live, the opposite act; and
+# `recorded_inert` says we established it cannot fire AND left the value in
+# place -- the distinction between recording a dead lever and removing it is
+# exactly what a later reader needs, and one value cannot carry both.
+DISPOSITIONS = {"ok", "queued_tier3", "accepted_risk", "recorded_inert",
+                "stripped"}
+DISPOSITIONS_REQUIRING_DATE = {"queued_tier3", "accepted_risk",
+                               "recorded_inert", "stripped"}
 VERDICTS_REQUIRING_DISPOSITION = {"inert", "vol_conditional"}
 
 
@@ -239,6 +264,8 @@ def _self_test() -> int:
         ("inert no disposition", base_cfg, reg(verdict="inert"), "requires an explicit"),
         ("queued without date", base_cfg,
          reg(verdict="inert", disposition="queued_tier3"), "requires `opened_at`"),
+        ("stripped without date", base_cfg,
+         reg(verdict="inert", disposition="stripped"), "requires `opened_at`"),
         ("unmeasured without reason", base_cfg,
          reg(verdict="unmeasured"), "must say why"),
         ("verdict over zero observations", base_cfg,
