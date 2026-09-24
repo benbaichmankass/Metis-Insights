@@ -247,9 +247,20 @@ CADENCE_REGISTRY: dict[str, dict] = {
 #: source file is gone — a baseline that outlives its subject accumulates slots
 #: nobody audits. Every `no_receipt` here is one declared-output-path away from
 #: being gradeable; that is what shrinking it looks like.
+#: ⚠️ REGISTERED AFTER THE BASELINE DATE, so NOT part of it. Found by E57
+#: (2026-09-24): the baseline below is DERIVED from CADENCE_REGISTRY, so every
+#: entry registered after 2026-09-22 silently became "baselined" -- and a
+#: baselined receipt that goes STALE only fails under `--strict`. A new
+#: registration therefore bought no freshness enforcement at all, and the list
+#: that "may only shrink" grew with every addition. Name every later entry here.
+REGISTERED_AFTER_BASELINE: frozenset[str] = frozenset({
+    "research-loss-detector.yml",   # E57, 2026-09-24
+})
+
 BASELINE_2026_09_22: dict[str, str] = {
     name: (NO_RECEIPT if spec["receipt"] is None else FRESH)
     for name, spec in CADENCE_REGISTRY.items()
+    if name not in REGISTERED_AFTER_BASELINE
 }
 
 
