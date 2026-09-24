@@ -1,7 +1,7 @@
 {
   "_comment": "M31 P1 — reachability of every declared R-threshold exit lever against its own leg's TP cap. A lever arming at `arm_r` R cannot fire when arm_r > cap_R = 0.099/(risk/entry). Enforced by scripts/ci/check_lever_reachability.py: the registry `arm_r` must equal config/strategies.yaml, so changing an arm without re-measuring FAILS CI. Design: docs/design/position-telemetry-DESIGN.md. Finding: BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP (PR #9588). THIS FILE RECORDS MEASUREMENTS AND DISPOSITIONS — it changes no behaviour and no value; every arm_r correction is Tier-3 and the operator's.",
   "schema_version": 1,
-  "updated_at": "2026-08-18",
+  "updated_at": "2026-09-24",
   "verdict_legend": {
     "reachable": "measured; observed cap_R clears arm_r on the large majority of entries",
     "vol_conditional": "measured; SOME entries clear it and some cannot — a real design choice, not a default",
@@ -532,12 +532,11 @@
       "strategy": "scha_trend_long_1d",
       "lever": "trail_decay_arm_r",
       "arm_r": 2.0,
-      "verdict": "unmeasured",
+      "verdict": "inert",
       "disposition": "queued_tier3",
       "opened_at": "2026-08-16",
-      "unmeasured_reason": "No entry-conditioned pull yet. The candle screen reads cap_R p50 2.22 vs arm 2.00 (73.6% reach) — the arm sits just below the median ceiling, so this is the leg most sensitive to which basis is used and least safe to grade off the screen.",
-      "basis": null,
-      "measured_at": null,
+      "basis": "backtest entry-conditioned, REAL ceiling min(cap_R, tp_r) — scripts/ops/build_strategy_evidence.py --strategy scha_trend_long_1d --days 6000, which forwards --tp-cap-pct 0.099 --tp-r 1.5 into scripts/backtest_trend.py via the E55-fixed scripts/research/regime_debt_matrix.py::_tp_r_flags(). Committed run: comms/strategy_evidence/runs/2026-09-24-e48/.",
+      "measured_at": "2026-09-24",
       "live_parity_p80_resweep_2026_08_16": {
         "p80_arm_r": null,
         "verdict": "skipped_thin",
@@ -606,9 +605,24 @@
             "flag": "not_measured",
             "settled_reachable_if_reach_cut_at_or_below_pct": null,
             "settled_inert_if_inert_cut_above_pct": null
+          },
+          {
+            "basis_id": "backtest_entry_conditioned_2026_09_24",
+            "kind": "backtest_entry_conditioned",
+            "geometry": "current",
+            "k": 0,
+            "n": 78,
+            "source": "this entry's backtest_entry_conditioned_2026_09_24 block",
+            "note": "The REAL ceiling min(cap_R, tp_r) on the geometry this leg runs today. Supersedes backtest_entry_conditioned_2026_08_16 as the leg's evidence — that basis is kept, `geometry: stale`, as a measurement archive, not deleted.",
+            "share_pct": 0.0,
+            "ci_low_pct": 0.0,
+            "ci_high_pct": 4.6,
+            "settled_reachable_if_reach_cut_at_or_below_pct": 0.0,
+            "settled_inert_if_inert_cut_above_pct": 4.6,
+            "flag": "unsettled"
           }
         ],
-        "primary_basis": "backtest_entry_conditioned_2026_08_16",
+        "primary_basis": "backtest_entry_conditioned_2026_09_24",
         "flag": "unsettled"
       },
       "tp_r_ceiling_2026_09_22": {
@@ -616,7 +630,57 @@
         "what_changed": "Two Tier-3 changes landed after the 2026-08-16 measurements, both carrying the comment 'M20 B4 bracket geometry: cell tp1.5_sm3 (wf_pass, wf 4/6)': `tp_r` 50.0 -> 1.5 and `atr_stop_mult` 2.5 -> 3.0. Both landed in commit 91de68b9c (#10419, 'M20 B4: declare validated bracket geometry on 8 legs (Tier-3, operator-approved)') on 2026-08-29 -- after the 2026-08-16 measurements this row records. Read from config/strategies.yaml on 2026-09-22 and dated from git.",
         "the_arithmetic": "The placed TP is min(entry*(1+0.099), entry + tp_r*risk) (src/units/strategies/trend_donchian.py:393), so the ceiling in R is min(cap_R, tp_r) = min(cap_R, 1.5). The declared arm is 2.00R. 1.5 < 2.00 on every entry, so the take-profit fills before the since-entry peak can reach the arm and the R-arm cannot fire -- barring a bar that gaps clean through the resting TP to >= 2.0R, which is not a protection anyone declared. Independently, atr_stop_mult 2.5 -> 3.0 lowers cap_R by 1/1.2 on its own.",
         "what_this_does_NOT_say": "It does NOT say the 83.1% figure was wrong. 54/65 was measured correctly against the VENUE ceiling on 2026-08-16, when this leg still carried tp_r: 50.0 and the venue term was the whole ceiling. The finding is that the ceiling acquired a second, lower term, and this file's basis_note did not model it until today.",
-        "verdict_untouched": "`verdict` stays `unmeasured` and `disposition` stays `queued_tier3`; no value in config/strategies.yaml was touched. Re-grading this row needs a re-measurement against min(cap_R, tp_r) on the current geometry, which is Tier-3 work the operator has not commissioned."
+        "verdict_untouched": "SUPERSEDED 2026-09-24 (row E48): the construction argument recorded here on 2026-09-22 is now backed by a measurement. `verdict` moved unmeasured -> inert and `basis`/`observations`/`measured_at` are populated at the top of this entry; `disposition` stays `queued_tier3` because the arm decision itself (strip/keep/re-arm) is still the operator's — see operator_zero_test_2026_09_24. This sentence is kept rather than deleted so a reader of this block's history does not have to re-derive that it was left open on purpose."
+      },
+      "observations": 78,
+      "ceiling_r_min": 0.897,
+      "ceiling_r_median": 1.5,
+      "ceiling_r_max": 1.5,
+      "reach_share_pct": 0.0,
+      "reach_count": "0/78",
+      "note": "[!] THE STALE 83.1% (54/65) IS REPLACED. That figure graded cap_R alone (the venue cap) — the whole ceiling only while tp_r carried the 50.0 sentinel. On the geometry this leg runs TODAY (tp_r 1.5, atr_stop_mult 3.0) the placed TP is min(entry*(1+0.099), entry + tp_r*risk) (src/units/strategies/trend_donchian.py:393), so the REAL ceiling is min(cap_R, tp_r) = min(cap_R, 1.5) on every entry. MEASURED, not just derived: 78 entry-conditioned backtest trades, 2010-01-08 -> 2026-08-17 (scripts/ops/build_strategy_evidence.py --days 6000, the E55-fixed harness). 0 of 78 reach the declared 2.00R arm — 0.0%, uniform across every one of the 17 years sampled (no era concentrates the failures the way the stale cap_R-only measurement did). cap_R alone (the old, now-superseded method) still reads 54/78 reachable at arm 2.0 (median cap_R 2.383) — reproducing the stale methodology's 54-trade numerator almost exactly (54/65 then, 54/78 now, more data) and confirming the 83.1% was correctly measured for what it graded, just against the wrong ceiling for the geometry live today. On 71/78 entries tp_r itself is the binding constraint (ceiling == 1.5 == tp_r exactly); on the other 7, cap_R binds even tighter than tp_r (ceiling as low as 0.897). Either way, every single entry's ceiling sits below the 2.00R arm — see backtest_entry_conditioned_2026_09_24 for the full breakdown and probe_validation_2026_09_24 for the positive/negative controls run before this number was trusted. LIVE BASIS: not re-pulled this session (no relay dispatch attempted, out of this lane's scope) — the last live read (live_basis_probe_2026_08_16, 2026-08-16) found zero order_packages for this leg, looked_and_found_nothing, not re-verified today and not assumed still true. See operator_zero_test_2026_09_24 for the proposed disposition.",
+      "backtest_entry_conditioned_2026_09_24": {
+        "basis": "backtest entry-conditioned, REAL ceiling min(cap_R, tp_r) via --emit-trades, config-exact, --tp-cap-pct 0.099 --tp-r 1.5 (E55/#12853-fixed harness — scripts/research/regime_debt_matrix.py's build_harness_cmd now forwards both flags for every trend/pullback leg with a readable tp_r; before E55 tp_r was never modelled and backtest_entry_conditioned_2026_08_16 below is the artifact of that gap).",
+        "basis_caveat": "Entry-conditioned and large-n, drawn from the BACKTEST book, not the authoritative live order_packages/risk_per_unit population — same caveat as the 2026-08-16 block, now on the current geometry instead of the stale one.",
+        "command": "python3 scripts/ops/build_strategy_evidence.py --strategy scha_trend_long_1d --days 6000 --workdir comms/strategy_evidence/runs/2026-09-24-e48 --out comms/strategy_evidence/runs/2026-09-24-e48",
+        "committed_run": "comms/strategy_evidence/runs/2026-09-24-e48/ (scha_trend_long_1d__trades.jsonl, scha_trend_long_1d__bt.json)",
+        "measured_at": "2026-09-24",
+        "changes_nothing": "verdict now reflects this measurement (moved from unmeasured to inert, mechanically, per the verdict_legend's own definition of `inert`); resolving the queued_tier3 arm decision (strip/keep/re-arm) remains the operator's call — see operator_zero_test_2026_09_24.",
+        "n": 78,
+        "span": "2010-01-08 -> 2026-08-17 (entry_time of first/last trade)",
+        "ceiling_formula": "ceiling_r = |tp_price - entry| / risk, where tp_price = min(entry*(1+0.099), entry + tp_r*risk) for a long — the exact identity scripts/backtest_trend.py uses to compute its own reported tp_r_effective_* (verified by reading the source, not re-derived: scripts/backtest_trend.py line ~501-507).",
+        "reach_count": "0/78",
+        "reach_share_pct": 0.0,
+        "ceiling_r_min": 0.897,
+        "ceiling_r_median": 1.5,
+        "ceiling_r_max": 1.5,
+        "tp_r_binds_count": "71/78 (ceiling == tp_r == 1.5 exactly); on the remaining 7 the venue cap_R binds even tighter than tp_r (ceiling down to 0.897).",
+        "era_note": "0/N in EVERY one of the 17 sampled years (2010-2026), 0 exceptions — unlike the stale cap_R-only reading, which concentrated its 11 failures in high-vol years (2020 2/6, 2022 1/3, 2026 1/3) and passed the rest. tp_r 1.5 dominates cap_R on 71/78 entries, so the result does not depend on which year or vol regime is sampled — it is a property of the declared geometry, confirmed on real entries rather than assumed from the algebra alone.",
+        "comparison_to_stale_method": "Computing cap_R ALONE (the pre-E55, venue-cap-only method that produced the stale 83.1%) on these SAME 78 trades reads 54/78 = 69.2% (median cap_R 2.383) — the identical 54-trade numerator the 2026-08-16 measurement found on 65 trades, now on a 13-trade-larger population. This corroborates both measurements: the old one was computed correctly for the ceiling it graded, and this session's cap_R arithmetic reproduces it.",
+        "clopper_pearson_95pct_ci": "[0.0%, 4.6%] on 0/78 (scripts.ops.lever_evidence_flag.clopper_pearson(0, 78, 0.95)) — the tightest interval of any basis in this registry. The registry's evidence_flag_policy currently has NO inert-side cut-point (plausible_cut_band.inert_cut_lower_pct is null, by deliberate E41 design — see that block), so this basis's own flag still reads `unsettled`, not `settled_inert`, despite the tight interval; that is a property of the UNDERIVED policy, not of this measurement. See evidence.bases below for the computed grade."
+      },
+      "probe_validation_2026_09_24": {
+        "why": "The E41 lane's own bar, restated in row E48's note: validate the reachability probe against legs whose answers are already known before trusting it on scha. E41 cited uso_trend_1h 55/55 = 100% (matching `reachable`) and gld_pullback_1d 0/6 (matching `inert`) as its two controls, computed 2026-09-22 by an ad-hoc measurement not committed as a script. This session re-derives the same two controls with the SAME ceiling formula used on scha above, applied to the E55 corpus already committed at comms/strategy_evidence/runs/2026-09-24-e55/.",
+        "positive_control_uso_trend_1h": {
+          "setup": "tp_r 4.0 (config/strategies.yaml), tested arm 1.0 (giveback_min_mfe_r, this leg's own declared reach-gate, already verdict=reachable/disposition=ok on a live 30/30 basis measured 2026-08-16 — used here only as a KNOWN answer to validate the ceiling arithmetic, not re-adjudicated).",
+          "source": "comms/strategy_evidence/runs/2026-09-24-e55/uso_trend_1h__trades.jsonl (committed by E55/#12853)",
+          "result": "56/56 reach ceiling >= 1.0 (100.0%) — ceiling min 2.053, median/max 4.0 (tp_r binds on every trade; cap_R never gets close to binding tighter). MATCHES the known `reachable` verdict.",
+          "population_note": "E41's own precedent number was 55/55, not 56/56; the corpus was regenerated by E55 two days later (2026-09-24) and gained one trade at the recent edge of the window. Same verdict (100% reachable) either way — the 1-trade difference is dataset recency, not a probe discrepancy."
+        },
+        "negative_control_gld_pullback_1d": {
+          "setup": "tp_r 50.0 (the no-real-TP sentinel; config/strategies.yaml carries tp_intent.mode: none for this leg), tested against arm 5.06 — this leg's FORMER trail_decay_arm_r, stripped from config/strategies.yaml by PR #12737 (E41, landed 2026-09-24) but retained in this registry as a measurement archive (disposition: stripped) with a known live-basis answer: 0 of 8 (then re-checked 0 of 6), 2026-08-16 / 2026-09-22.",
+          "source": "comms/strategy_evidence/runs/2026-09-24-e55/gld_pullback_1d__trades.jsonl (committed by E55/#12853)",
+          "result": "0/7 reach ceiling >= 5.06 (0.0%) — ceiling min 1.191, median 2.476, max 3.898 (tp_r 50 never binds; cap_R is the real ceiling throughout, same as it was live). MATCHES the known `inert` verdict.",
+          "population_note": "This is a BACKTEST population (n=7, one-year window), not the LIVE population E41's 0/6 cited — different basis, same direction. Not claimed as a reproduction of the live count, only as confirming the ceiling arithmetic gives the correct sign on a leg whose live answer is already settled."
+        },
+        "conclusion": "Both controls agree with their known verdicts under this session's ceiling formula (min(cap_R, tp_r), the same identity scripts/backtest_trend.py places its TP at). Applied to scha_trend_long_1d above with the same formula, same code path, same source data convention."
+      },
+      "operator_zero_test_2026_09_24": {
+        "the_test": "As stated by the operator 2026-09-22 and restated on this row 2026-09-24 ('re-measure it properly, then decide — do not strip on this'): the operator's own wording elsewhere on this registry is 'strip the arms entirely — remove the reach-gate parameter from the legs where it CANNOT FIRE' and, clarified the same day, 'I only wanted to strip the arm where it can't produce a result, it should stay where it can produce one.' THE TEST IS ZERO, NOT RARE.",
+        "applied": "0/78 (0.0%, CI [0.0%, 4.6%]) on the REAL ceiling, uniform across all 17 sampled years, corroborated against the cap_R-only reading (54/78) that produced the now-superseded 83.1%, and against two independent known-answer controls (uso_trend_1h 56/56, gld_pullback_1d 0/7). This is a clean zero under the operator's own test — not a near-miss, not vol-conditional: tp_r 1.5 caps every entry's ceiling below the 2.00R arm by construction, and 78 real historical entries confirm the construction holds with no exception.",
+        "proposed_disposition": "STRIP — remove `trail_decay_arm_r: 2.0` from scha_trend_long_1d in config/strategies.yaml, the same action already taken on gld_pullback_1d and qqq_trend_long_1d (PR #12737/E41) for the identical reason: a declared, Tier-3-approved lever that cannot fire is decoration, indistinguishable from one that simply has not triggered yet (BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP).",
+        "what_stripping_does_not_change": "Per src/runtime/trail_decay.py:139-145 (established in the E41 lane, re-cited not re-derived here): `arm_r = _f(...) or 0.0`, guarded by `arm_r > 0` on every use, so removing the key deactivates the R-arm rather than falling back to a worse default. scha_trend_long_1d has no `trail_decay_stall_bars` declared either, so it is already on the UNDECLARED trail-decay branch today and would be after the strip too — this leg still trades its entry, stop and TP unchanged either way.",
+        "what_this_row_does_not_do": "Tier-3: this is a PROPOSAL, not a landed change. No value in config/strategies.yaml is touched by this measurement. The strip requires the operator's explicit approval, same as every other arm decision on this registry — filed as PI-20260922-E41-0002 (routed, this update) with next_action ask_operator."
       }
     },
     {
