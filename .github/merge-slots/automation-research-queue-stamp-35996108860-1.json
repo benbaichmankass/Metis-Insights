@@ -1,0 +1,6 @@
+{
+  "held_by": "lane/e73-research-pr-sweep (rebasing+landing stale research-queue stamp PR #12829, superseding #12777/#12726)",
+  "branch": "automation/research-queue-stamp-35996108860-1",
+  "claimed_at": "2026-09-24T20:52:09Z",
+  "purpose": "R2 sweep: rebase onto current main, reapply this run's last_dispatched_at stamp so the two older duplicate stamps can be closed."
+}
