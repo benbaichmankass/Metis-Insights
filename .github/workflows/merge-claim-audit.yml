@@ -1,5 +1,56 @@
 name: merge-claim-audit
 
+# ⚠️ RETIRED 2026-09-22 (E29) — THE PROTOCOL IT MEASURES NO LONGER EXISTS.
+#
+#   This detector audits the merge-slot claim protocol on the Claude
+#   Coordination Board. The 2026-09-21 operating reset RETIRED that board:
+#   `docs/claude/board-pointer.json` moved to
+#   `docs/archive/2026-09-21-operating-reset/registers/board-pointer.json`,
+#   and CLAUDE.md lists the coordination board among the retired registers
+#   with "Do not resurrect them."
+#
+#   ⚠️ IT DID NOT GO QUIET WHEN THE BOARD DID — IT WENT RED, ON EVERY PR.
+#   `scripts/ci/board_pointer.py --self-test` fails its last check ("the
+#   SHIPPING pointer parses") because the pointer is gone, and the step is
+#   `... --self-test || exit 1`. MEASURED 2026-09-22 by running that self-test
+#   on this checkout: `could_not_check — docs/claude/board-pointer.json does
+#   not exist — the board cannot be resolved`. So every merged PR got a red
+#   `audit` check reporting a board retirement rather than anything about that
+#   PR. The row: E29 in docs/claude/work/MANAGER-CHECKLIST.json.
+#
+#   ⚠️ WHY RETIRED RATHER THAN REPAIRED, and the repair WAS available:
+#   `board_pointer.py` accepts `board_state: "retired"`, so committing a
+#   tombstone pointer would make the self-test pass and this job emit
+#   `could_not_check` cleanly forever. That is a workflow that runs on every
+#   merge to say "there is no board" — the measurement is over. This job's
+#   stated purpose was to build ONE number ("how often, and whether an
+#   unclaimed merge ever coincides with a real collision") in order to decide
+#   whether to enforce. With no board, that number can never be collected and
+#   the enforcement question it was feeding is moot.
+#
+#   ⚠️ THE TRIGGER IS COMMENTED OUT RATHER THAN THE FILE DELETED, for two
+#   reasons: the rationale below is the record of a DECISION (why this measures
+#   instead of gating) and is worth more than the job; and
+#   `scripts/ci/check_workflow_catalog.py` pins every workflow file against a
+#   row in docs/github-actions-workflows.md in both directions. Re-arming is
+#   one uncomment plus a live board pointer. `workflow_dispatch` is kept so the
+#   decision can be re-opened by hand rather than by editing a trigger.
+#
+#   ⚠️ NOT FIXED HERE, NAMED SO IT IS NOT RE-DERIVED: five more workflows still
+#   resolve through the same absent pointer — board-heartbeat.yml,
+#   board-post.yml, board-rotate.yml, scope-overlap-audit.yml and pr-close.yml.
+#   NONE of them is red, and the reason is NOT that they are healthy: MEASURED
+#   2026-09-22 by parsing each file's `on:` block, board-heartbeat and
+#   scope-overlap-audit are `workflow_dispatch` ONLY, and board-post and
+#   board-rotate fire only on a push touching `automation/board-posts/**` or
+#   `automation/board-requests/**` — paths nothing writes now that the board is
+#   retired. So they are DORMANT, not working. `board_pointer.py --self-test`
+#   fails on this checkout, so each would go red the moment it was dispatched.
+#   That is one decision about the board family, not five patches, and it is
+#   filed rather than taken here.
+#
+# ── the original rationale, unchanged ────────────────────────────────────
+#
 # NON-BLOCKING post-merge detector for the coordination-board merge-slot protocol.
 #
 # WHY THIS SHAPE, and why NOT a required status check (decided 2026-08-20 with the
@@ -42,8 +93,12 @@ name: merge-claim-audit
 # confident accusation built on an unasserted denominator (diagnostic-provenance sub-class C).
 
 on:
-  pull_request_target:
-    types: [closed]
+  # RETIRED 2026-09-22 — see the header. Uncomment to re-arm, but the board
+  # pointer has to exist first or this is red on every merge again.
+  # pull_request_target:
+    # types: [closed]
+
+  workflow_dispatch:
 
 permissions:
   contents: read

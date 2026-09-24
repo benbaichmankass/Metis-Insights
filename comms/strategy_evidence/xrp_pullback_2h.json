@@ -3,11 +3,12 @@
   "strategy": "xrp_pullback_2h",
   "symbol": "XRPUSDT",
   "timeframe": "2h",
-  "config_fingerprint": "sha256:c29b0c70c34a4420ec20154b09009e32",
+  "config_fingerprint": "sha256:8ad85cb1f2a2a7dacbebac2b4729bb48",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",
   "omitted_levers": [
+    "tp_r",
     "trail_decay_arm_r",
     "trail_decay_tight_mult"
   ],

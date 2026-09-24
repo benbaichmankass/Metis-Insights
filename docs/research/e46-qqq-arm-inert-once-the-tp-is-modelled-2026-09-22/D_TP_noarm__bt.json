@@ -1,0 +1,73 @@
+{
+  "strategy": "trend_donchian",
+  "symbol": "QQQ",
+  "timeframe": "1h",
+  "params": {
+    "donchian": 30,
+    "atr_stop_mult": 2.0,
+    "trail_mult": 4.0,
+    "min_confidence": 0.0,
+    "trail_decay_arm_r": 0.0,
+    "trail_decay_stall_bars": 0,
+    "trail_decay_tight_mult": 2.0
+  },
+  "total_trades": 8,
+  "fee_bps_roundtrip": 0.0,
+  "slippage_bps_roundtrip": 5.0,
+  "funding_bps_per_window": 0.0,
+  "data_start": "2025-04-09 00:00:00+00:00",
+  "data_end": "2026-09-22 00:00:00+00:00",
+  "run_date": "2026-09-22",
+  "tp_r_effective_n": 8,
+  "tp_r_effective_median": 3.0,
+  "tp_r_effective_min": 2.584,
+  "tp_r_effective_max": 3.0,
+  "rr_floor_state": "off",
+  "rr_min_n": 8,
+  "rr_min_p10": 0.02,
+  "rr_min_median": 2.461,
+  "rr_min_p90": 2.771,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 50.0,
+  "total_r": 5.6091,
+  "net_total_r": 5.4666,
+  "net_total_r_long": 5.4666,
+  "net_total_r_short": 0,
+  "net_expectancy_r": 0.6833,
+  "net_total_r_fee_only": 5.6091,
+  "net_expectancy_r_fee_only": 0.7011,
+  "mean_cost_r": {
+    "fee_r": 0.0,
+    "slippage_r": 0.01781,
+    "funding_r": 0.0,
+    "total_cost_r": 0.01781,
+    "funding_windows": 64.875
+  },
+  "trades_long": 8,
+  "trades_short": 0,
+  "avg_win_r": 2.185,
+  "max_mfe_r": 2.983,
+  "max_drawdown_r": 2.0341,
+  "by_outcome": {
+    "take_profit": 3,
+    "stop": 3,
+    "trail_stop": 1,
+    "timeout": 1
+  },
+  "by_year": {
+    "2025": {
+      "trades": 3,
+      "net_r": 4.9405
+    },
+    "2026": {
+      "trades": 5,
+      "net_r": 0.5261
+    }
+  },
+  "bar_minutes": 1440.0,
+  "position_days": 121.0,
+  "capital_days": 121.0,
+  "mean_bars_held": 15.125,
+  "net_r_per_position_day": 0.0452,
+  "net_r_per_capital_day": 0.0452
+}

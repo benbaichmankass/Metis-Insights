@@ -1,58 +1,89 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "ada_pullback_2h",
   "symbol": "ADAUSDT",
   "timeframe": "2h",
-  "config_fingerprint": "sha256:95f8d6667780fbce7ef6ab9fead1fc7e",
+  "config_fingerprint": "sha256:ae0e198c7d2d39ba1775daf91a2b2211",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "faithful",
-  "omitted_levers": [],
-  "net_r_oos": 21.5841,
-  "expectancy_r_oos": 0.5139,
-  "n_trades_oos": 42,
+  "fidelity": "approximate",
+  "omitted_levers": [
+    "tp_r"
+  ],
+  "net_r_oos": 21.9344,
+  "expectancy_r_oos": 0.4985,
+  "n_trades_oos": 44,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
-      "trades": 10,
-      "net_r": 8.7798,
-      "expectancy_r": 0.878,
-      "start": "2025-09-22 22:00:00+00:00",
-      "end": "2025-12-28 20:00:00+00:00"
+      "trades": 11,
+      "net_r": 8.8743,
+      "expectancy_r": 0.8068,
+      "start": "2025-09-26 14:00:00+00:00",
+      "end": "2026-01-03 16:00:00+00:00"
     },
     {
       "fold": 2,
-      "trades": 10,
-      "net_r": 3.5185,
-      "expectancy_r": 0.3519,
-      "start": "2026-01-03 16:00:00+00:00",
-      "end": "2026-03-20 06:00:00+00:00"
+      "trades": 11,
+      "net_r": 2.717,
+      "expectancy_r": 0.247,
+      "start": "2026-01-14 22:00:00+00:00",
+      "end": "2026-03-28 16:00:00+00:00"
     },
     {
       "fold": 3,
-      "trades": 10,
-      "net_r": 9.8592,
-      "expectancy_r": 0.9859,
-      "start": "2026-03-28 08:00:00+00:00",
-      "end": "2026-07-06 18:00:00+00:00"
+      "trades": 11,
+      "net_r": 6.8378,
+      "expectancy_r": 0.6216,
+      "start": "2026-04-18 04:00:00+00:00",
+      "end": "2026-07-15 20:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 12,
-      "net_r": -0.5734,
-      "expectancy_r": -0.0478,
-      "start": "2026-07-09 06:00:00+00:00",
-      "end": "2026-09-11 14:00:00+00:00"
+      "trades": 11,
+      "net_r": 3.5053,
+      "expectancy_r": 0.3187,
+      "start": "2026-07-22 00:00:00+00:00",
+      "end": "2026-09-19 08:00:00+00:00"
     }
   ],
-  "folds_positive": 3,
+  "folds_positive": 4,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 44,
+    "max_drawdown_r": 7.6467,
+    "max_drawdown_at_trade": 35,
+    "final_equity_r": 21.9344,
+    "max_equity_r": 23.9443,
+    "worst_trade_r": -1.0978,
+    "best_trade_r": 11.448,
+    "worst_day_r": -1.0978,
+    "worst_day_date": "2026-07-01",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/ada_pullback_2h__bt.json"
+  },
+  "net_r_oos_fee_only": 24.2975,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:20:15.567391+00:00",
+  "generated_at": "2026-09-22T09:25:23.397934+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/ca0a39ea-0ec3-541d-8337-cce28881c2a6/scratchpad/u34_wd/ada_pullback_2h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/ada_pullback_2h__trades.jsonl",
   "error": null,
   "harness": "pullback"
 }

@@ -65,7 +65,7 @@ If a stage is added, removed, or reordered, also update the top-level diagram be
 
 **Files:** `src/exchange/bybit_connector.py`, `src/exchange/binance_connector.py`, `src/exchange/ib_connector.py` (`IBMarketData`), `src/runtime/market_data.py` (`connector_for_symbol`), `src/runtime/liquidity_state.py`
 
-**Inputs:** Per-tick request from `src/main.py` (default tick interval 60s, configurable via `TICK_INTERVAL_SECONDS`); the active symbol set (BTCUSDT + MES today) from the multi-symbol orchestrator; per-symbol configuration from `config/strategies.yaml` + `config/instruments.yaml`.
+**Inputs:** Per-tick request from `src/main.py` (default tick interval 60s, configurable via `TICK_INTERVAL_SECONDS`); the active symbol set from the multi-symbol orchestrator (`src/main.py::_resolve_tick_symbols` — the UNION of every trading account's roster-implied symbols and its declared `symbols:` pull list; **23 symbols** measured over `config/` on 2026-09-22, not the 2 this line used to name); per-symbol configuration from `config/strategies.yaml` + `config/instruments.yaml`.
 
 **Outputs:** OHLCV candles (default 5-minute bars) and current tick prices held in cached market-data state, available to all downstream stages within the tick — fetched **per symbol**.
 

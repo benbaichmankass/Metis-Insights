@@ -53,7 +53,7 @@ def test_a_mirror_that_drifts_either_way_is_a_finding(tmp_path, monkeypatch):
     assert extra and "does NOT accept" in extra[0], extra
 
     monkeypatch.setattr(c, "_mirrored_status_enum",
-                        lambda: enforced - {"invalid"})
+                        lambda: enforced - {sorted(enforced)[0]})
     missing = c.check_status_enum_mirror()
     assert missing and "omits" in missing[0], missing
 
@@ -88,27 +88,95 @@ def test_every_backlog_the_digest_reads_is_enum_guarded():
 
     The guard scanned THREE backlogs while `work_digest` read FOUR, so the
     fourth was the one place a free-text status could land unremarked.
+
+    ⚠️ THE SUBJECT SET WENT EMPTY 2026-09-22 (E29) AND THAT IS WHY THE
+    CONTROL MOVED RATHER THAN BEING DELETED. `work_digest.SOURCES` used to
+    carry four review backlogs; the 2026-09-21 operating reset archived all
+    four, E29 removed them from `SOURCES` (they had been reading `absent` on
+    every run since the reset — the digest was blind to five of its six
+    sources while reporting itself healthy), and the digest now reads exactly
+    one source, the manager checklist, whose path contains no "backlog".
+
+    So the old line `assert digest_backlogs` — a positive control that the
+    digest reads SOME backlog — now fails on a correct change. Three ways to
+    respond and only one of them is honest:
+
+      - delete the assertion  -> the coverage check passes VACUOUSLY forever,
+                                 which is the exact state this file's own
+                                 docstring calls "a check that cannot go red"
+      - keep it as written    -> a true statement about the repo (zero
+                                 backlogs) fails CI, so the test is wrong
+                                 about its own subject
+      - STATE THE EMPTY SET   -> assert it is empty, on purpose, and move the
+                                 positive control to the side that still has
+                                 data. Adding a backlog back to `SOURCES`
+                                 then FAILS here until someone updates this
+                                 test deliberately, which is the review the
+                                 original control existed to force.
+
+    The third is what this does. `we looked and found nothing` is recorded as
+    itself rather than collapsed into `we could not look`.
     """
     from scripts.check_claim_basis import BACKLOGS
-    from scripts.ops.work_digest import SOURCES
+    from scripts.ops.work_digest import RETIRED_SOURCES, SOURCES
+
+    # Positive control, on the side that still holds data: the guard's own
+    # list must be readable, or this test proves nothing about coverage.
+    assert BACKLOGS, "positive control: the enum guard's backlog list is readable"
 
     digest_backlogs = {s.path for s in SOURCES if "backlog" in s.path}
-    assert digest_backlogs, "positive control: the digest must read some backlog"
+
+    # THE COVERAGE PROPERTY, unchanged and still binding the moment a backlog
+    # returns: anything the digest reads must also be enum-guarded.
     assert digest_backlogs <= set(BACKLOGS), (
         "a backlog the digest reads is NOT enum-guarded: "
         f"{sorted(digest_backlogs - set(BACKLOGS))}")
 
+    # THE EMPTY SET, ASSERTED RATHER THAN TOLERATED. This is what makes the
+    # vacuous pass above visible instead of silent.
+    assert digest_backlogs == set(), (
+        "work_digest reads a backlog again: "
+        f"{sorted(digest_backlogs)}. That is not a failure of the code — it "
+        "means this test's stated subject changed. Confirm the new source is "
+        "in check_claim_basis.BACKLOGS and then update this assertion.")
 
-def test_terminal_is_derived_from_the_enum_not_listed_beside_it():
-    """A hand-written second list goes stale silently; a derived one cannot."""
+    # And the retired ones are LISTED, not vanished, so "retired on purpose"
+    # stays distinguishable from "disappeared".
+    retired = {path for _label, path in RETIRED_SOURCES}
+    assert retired >= (set(BACKLOGS) & retired), "retired list lost a backlog"
+    assert len(retired) == 5, (
+        f"RETIRED_SOURCES should hold the five registers the reset archived, "
+        f"holds {len(retired)}")
+
+
+def test_the_backlog_terminal_set_is_decoupled_and_says_so():
+    """⚠️ RENAMED AND REWRITTEN 2026-09-22 (E45), and the reason is the point.
+
+    It used to assert `BACKLOG_TERMINAL == set(STATUS_ENUM) - BACKLOG_NON_TERMINAL`
+    — a real property while `STATUS_ENUM` WAS the review backlogs' `status`
+    vocabulary. `claim-basis-guard` has been re-pointed at the live registers,
+    so that enum is now the CHECKLIST's `state` vocabulary: a different field on
+    a different file. Left as written, the derivation would have silently made
+    every backlog status terminal.
+
+    A derived list cannot go stale and a hand-written one can, so decoupling is
+    a REAL cost and is accepted only because the archived field can no longer
+    move: nothing writes those four backlogs, so there is no enum for the
+    literal to drift from. This test pins exactly that — the literal equals the
+    LAST MEASURED contents (2026-09-12, 1,803 rows across all four backlogs) and
+    is disjoint from the live enum, which is what makes the decoupling visible
+    rather than accidental.
+    """
     from scripts.check_claim_basis import STATUS_ENUM
     from scripts.ops.work_digest import BACKLOG_NON_TERMINAL, BACKLOG_TERMINAL
 
-    assert BACKLOG_TERMINAL == set(STATUS_ENUM) - BACKLOG_NON_TERMINAL
-    assert BACKLOG_TERMINAL <= set(STATUS_ENUM), (
-        "a terminal value the field cannot hold is an unreachable predicate")
-    assert BACKLOG_NON_TERMINAL < set(STATUS_ENUM)
+    assert BACKLOG_TERMINAL == {"resolved", "wont_fix", "superseded", "invalid"}
+    assert BACKLOG_NON_TERMINAL == {"open", "kept_open"}
     assert BACKLOG_TERMINAL, "positive control: the terminal set is not empty"
+    assert not (BACKLOG_TERMINAL & set(STATUS_ENUM)), (
+        "the archived backlog vocabulary and the live checklist enum now share "
+        "a value — if a register is being reused, this decoupling needs "
+        "revisiting deliberately rather than silently")
 
 
 # ⚠️ REMOVED 2026-09-21 by the operating reset: `test_no_row_in_any_guarded_backlog_carries_an_off_enum_status`.

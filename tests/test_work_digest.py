@@ -426,7 +426,33 @@ def _mini_repo(tmp_path, monkeypatch):
     monkeypatch.setattr(wd, "REPO_ROOT", repo)
     import scripts.ops.work_phase_ping as wpp
     monkeypatch.setattr(wpp, "REPO_ROOT", repo)
+    _declare_fixture_sources(monkeypatch)
     return repo, run
+
+
+def _declare_fixture_sources(monkeypatch):
+    """Give the MECHANICS tests their own registers, independent of the roster.
+
+    ⚠️ WHY, and it is a defect these tests had rather than a convenience. Until
+    2026-09-22 the differ tests bound directly to
+    `docs/claude/health-review-backlog.json` and `docs/claude/OPEN-ITEMS.json`
+    — two registers the 2026-09-21 operating reset ARCHIVED. When `SOURCES` was
+    cut to the one surviving register, six of them broke loudly, which is fine
+    — but `test_editing_a_backlog_row_without_closing_it_is_activity` went
+    VACUOUS AND STAYED GREEN, because it asserts `events == []` and a path
+    nothing watches satisfies that for entirely the wrong reason.
+
+    A test of the differ must not be able to pass because its fixture stopped
+    being read, so the fixture registers are declared HERE and the shipping
+    roster is asserted separately by
+    `test_sources_are_the_live_registers_and_no_archived_one`.
+    """
+    monkeypatch.setattr(wd, "SOURCES", wd.SOURCES + (
+        wd.Source("health backlog", "docs/claude/health-review-backlog.json",
+                  "status", wd.BACKLOG_TERMINAL, False, "filed", "removed"),
+        wd.Source("open-items register", "docs/claude/OPEN-ITEMS.json",
+                  None, frozenset(), True, "filed", "CLEARED"),
+    ))
 
 
 def _write(repo, rel, items):
@@ -452,11 +478,30 @@ def _sha(repo):
 # Restore it from git history if the register ever returns.
 
 
-def test_sources_cover_the_registers_the_operator_actually_uses():
+def test_sources_are_the_live_registers_and_no_archived_one():
+    """The roster, asserted in BOTH directions.
+
+    This test used to require `docs/claude/OPEN-ITEMS.json`, and that is the
+    half that rotted: the 2026-09-21 operating reset archived it along with all
+    four review backlogs, so five of the digest's six declared sources read
+    `absent` on every run from the reset onward while the digest reported
+    itself healthy. Requiring a specific dead register is how a roster test
+    outlives the roster, so what is pinned now is the LIVE surface plus the
+    rule that an archived one may not come back unnoticed.
+    """
     declared = {s.path for s in wd.SOURCES}
-    for required in ("docs/claude/work/MANAGER-CHECKLIST.json",
-                     "docs/claude/OPEN-ITEMS.json"):
-        assert required in declared, f"{required} is where decisions land"
+    assert "docs/claude/work/MANAGER-CHECKLIST.json" in declared, (
+        "the manager checklist is THE register under the reset's operating "
+        "model — a digest that does not read it reports on nothing")
+
+    resurrected = [path for _, path in wd.RETIRED_SOURCES if path in declared]
+    assert not resurrected, (
+        f"an ARCHIVED register is declared as a live source: {resurrected}. "
+        f"It reads `absent` forever, which looks exactly like a quiet register.")
+
+    # And the live half still cannot fall behind: any review backlog that
+    # actually exists on disk must be read. Vacuous today by construction —
+    # there are none — and it re-arms the moment one returns.
     backlogs = {p.as_posix()[len(_ROOT.as_posix()) + 1:]
                 for p in (_ROOT / "docs" / "claude").glob("*-review-backlog.json")}
     assert backlogs <= declared, (

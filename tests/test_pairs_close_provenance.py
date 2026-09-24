@@ -164,10 +164,96 @@ def test_the_close_writes_nothing_different_apart_from_notes(monkeypatch):
     payload = _run_close(monkeypatch, outcome="revert", entry=100.0, last_px=110.0)
     assert payload["status"] == "closed"
     assert payload["exit_price"] == 110.0
-    assert payload["pnl"] == pytest.approx(20.0)          # (110-100) * 2.0 long
-    assert payload["pnl_percent"] == pytest.approx(10.0)
+    # ⚠️ THIS USED TO ASSERT `pnl == 20.0` — (110-100) * 2.0 long — AND THAT
+    # ASSERTION WAS PINNING THE DEFECT E30 FOUND. Writing a local pnl here put
+    # the row OUTSIDE both broker-truth sweeps, which select on `pnl IS NULL`,
+    # so it could never be refined to a fill. See
+    # `test_the_close_leaves_pnl_null_so_the_broker_sweeps_can_see_the_row`.
+    assert payload["pnl"] is None
+    assert payload["pnl_percent"] is None
     assert set(payload) == {"status", "exit_price", "exit_reason", "closed_at",
                             "pnl", "pnl_percent", "notes"}
+
+
+# ==========================================================================
+# E30 — the pairs close must not pre-empt the PnL-resolution contract.
+# Checklist row E30; observation PI-20260922-54WQNHJX-0001 in PIPELINE.jsonl.
+# ==========================================================================
+
+def test_the_close_leaves_pnl_null_so_the_broker_sweeps_can_see_the_row(
+    monkeypatch,
+):
+    """The behavioural half: a pairs close is written UNPRICED.
+
+    MEASURED on the live journal 2026-09-22 (full `trades` table, n=6,059, via
+    /api/diag/journal): **0 of 365** `pairs_*` closes have ever classified
+    MEASURED, while 48 non-pairs closes on the SAME account (`bybit_1`), the
+    same venue and the same fills store resolved to `exchange_fill` in the
+    preceding 14 days. The venue serves these fills; this path wrote a pnl at
+    close time and thereby removed its own rows from the sweep that reads them.
+    """
+    payload = _run_close(monkeypatch, outcome="revert", entry=100.0, last_px=110.0)
+    assert payload["pnl"] is None, (
+        "a non-NULL pnl at close time puts the row outside both broker-truth "
+        "sweeps FOREVER — they select on `pnl IS NULL`"
+    )
+    assert payload["pnl_percent"] is None
+    # The price is still recorded, and still honestly stamped: the broker sweep
+    # overwrites BOTH together if a fill lands, and if none ever does the local
+    # fallback prices the row from this exact value — today's outcome. So the
+    # change can upgrade a row and can never downgrade one.
+    assert payload["exit_price"] == 110.0
+    assert json.loads(payload["notes"])["exit_price_source"] == "candle_at_close"
+
+
+def test_both_broker_truth_sweeps_still_gate_on_pnl_is_null():
+    """The coupling half, stated so a future edit meets it.
+
+    The behavioural test above is only meaningful because `pnl IS NULL` is what
+    admits a row to the sweeps. That predicate lives in `order_monitor`, not
+    here, so a change there would silently strand this fix. Read the source
+    rather than trusting the comment (*field beats comment*).
+    """
+    import re
+
+    om = (REPO / "src" / "runtime" / "order_monitor.py").read_text()
+    for fn in ("_sweep_pending_pnl_from_bybit", "_sweep_local_pnl_for_unpriced"):
+        start = om.index(f"def {fn}(")
+        body = om[start:om.index("\ndef ", start + 1)]
+        select = body[body.index('"SELECT'):body.index("LIMIT")]
+        assert re.search(r"AND pnl IS NULL", select), (
+            f"{fn} no longer selects on `pnl IS NULL`. The pairs close leaves "
+            f"pnl NULL precisely so this sweep can see it — re-check "
+            f"pairs_executor._close_pair before changing this scope."
+        )
+
+
+def test_a_priced_row_is_excluded_by_that_predicate_and_an_unpriced_one_is_not(
+    tmp_path,
+):
+    """A positive AND a negative control, run against real sqlite.
+
+    A negative result needs a denominator: asserting only that the unpriced row
+    is selected would pass against a predicate that selects everything.
+    """
+    import sqlite3
+
+    db = sqlite3.connect(tmp_path / "t.sqlite")
+    db.execute(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, status TEXT, "
+        "is_backtest INTEGER, pnl REAL)"
+    )
+    db.execute("INSERT INTO trades VALUES (1, 'closed', 0, NULL)")   # as written now
+    db.execute("INSERT INTO trades VALUES (2, 'closed', 0, 20.0)")   # as written before
+    got = {r[0] for r in db.execute(
+        "SELECT id FROM trades WHERE status = 'closed' "
+        "AND COALESCE(is_backtest, 0) = 0 AND pnl IS NULL"
+    )}
+    db.close()
+    assert got == {1}, (
+        f"expected only the unpriced row to be sweepable, got {got} — "
+        f"the predicate must EXCLUDE the priced row or the fix is vacuous"
+    )
 
 
 def test_notes_go_through_the_capped_writer_not_a_char_slice():

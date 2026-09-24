@@ -1,0 +1,2 @@
+E28 -- route the eight ict_scalp_* legs to backtest_ict_scalp.py and grade them.
+Tier 1: research tooling, tests, evidence records, register files. Self-lands on green.

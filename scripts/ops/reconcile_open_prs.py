@@ -38,8 +38,19 @@ manufacture completeness nobody established, and would be byte-indistinguishable
 from the real row it imitates. An open PR with no row must keep FAILING — that
 finding is the check's entire reason to exist.
 
-THREE STATES, NEVER COLLAPSED
------------------------------
+FOUR STATES, NEVER COLLAPSED
+----------------------------
+  ``register_absent``  `docs/claude/work/OPEN-PRS.json` IS NOT THERE. Added
+                      2026-09-22 (E29), because until then this case was not a
+                      state at all: `open_pr_record.read_record()` reports an
+                      absent file as `(None, readable=True)`, so the code below
+                      took the happy path and died on
+                      `AttributeError: 'NoneType' object has no attribute
+                      'get'` — 6 of 6 runs red on `main`, none of them saying
+                      the file was gone. ⚠️ **ABSENT IS NOT EMPTY.** An empty
+                      register means a session recorded nothing; an absent one
+                      means there is no register. Exit 0, because a reconciler
+                      with nothing to reconcile has not failed.
   ``reconciled``      at least one row's PR is no longer open; those rows were
                       MOVED to `settled_prs[]` and the record was rewritten.
   ``no_change``       every recorded row's PR is still open. Nothing to do.
@@ -109,7 +120,16 @@ RECONCILE_STATES_REGISTERED_WITH_GUARD = False
 RECONCILED = "reconciled"
 NO_CHANGE = "no_change"
 COULD_NOT_LOOK = "could_not_look"
-RECONCILE_STATES = (RECONCILED, NO_CHANGE, COULD_NOT_LOOK)
+#: ⚠️ ADDED 2026-09-22 (E29), AND IT IS A FOURTH STATE RATHER THAN A FLAVOUR OF
+#: `could_not_look`, deliberately. "The register is ABSENT" and "the register is
+#: present and we could not read it" are opposite findings with opposite
+#: remedies: the first is answered by deciding whether the register should
+#: exist, the second by fixing whatever corrupted it. Folding them together is
+#: the same collapse this module already refuses between `could_not_look` and
+#: `no_change`, one level further out — and until this landed the absent case
+#: was not even a state, it was an `AttributeError` on line 269.
+REGISTER_ABSENT = "register_absent"
+RECONCILE_STATES = (RECONCILED, NO_CHANGE, COULD_NOT_LOOK, REGISTER_ABSENT)
 
 API = "https://api.github.com"
 
@@ -259,12 +279,29 @@ def main(argv=None) -> int:
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
 
-    doc, readable = opr.read_record()
-    if not readable:
+    doc, read_state = opr.read_record_state()
+    if read_state == opr.RECORD_UNREADABLE:
         print("::error::reconcile-open-prs: OPEN-PRS.json could not be parsed. "
               "WE COULD NOT LOOK — this is not evidence that nothing had merged.")
         print(f"reconcile-open-prs: state={COULD_NOT_LOOK}")
         return 4
+    if read_state == opr.RECORD_ABSENT:
+        # ⚠️ NOT an error, and NOT `could_not_look`. The file is not there, we
+        # know it is not there, and saying so is the whole finding. Exit 0: a
+        # reconciler with no register to reconcile has not failed, it has
+        # nothing to do — and a red X here says "this job is broken" when the
+        # true statement is "this job is obsolete".
+        print(f"reconcile-open-prs: state={REGISTER_ABSENT} — "
+              f"{opr.RECORD_PATH} does not exist. This is NOT an empty register "
+              f"and NOT 'nothing had merged': there is no register at all. The "
+              f"2026-09-21 operating reset archived it to "
+              f"docs/archive/2026-09-21-operating-reset/work/OPEN-PRS.json, and "
+              f"this workflow is RETIRED (E29). Nothing was moved, nothing was "
+              f"stamped, and no row was invented to fill the gap.")
+        if a.json:
+            print(json.dumps({"state": REGISTER_ABSENT, "moved": [],
+                              "record_path": str(opr.RECORD_PATH)}, indent=2))
+        return 0
 
     prs = [r.get("pr") for r in (doc.get("open_prs") or [])
            if isinstance(r, dict) and isinstance(r.get("pr"), int)]

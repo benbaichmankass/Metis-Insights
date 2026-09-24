@@ -1,0 +1,1 @@
+Close-out: give seven checklist rows a TRUE state so the operator's Workflow page stops showing archived lanes as live.

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "state/prs/blocked_on/note on seven rows of docs/claude/work/MANAGER-CHECKLIST.json. Manager surface, no code, no guards, no config, no runtime surface. Close-out check 3: no row may assert in_flight with nobody behind it."
+}

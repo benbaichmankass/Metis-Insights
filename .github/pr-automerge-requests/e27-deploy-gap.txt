@@ -1,0 +1,5 @@
+e27-deploy-gap — Tier-1 pipeline filing, self-landing.
+Armed 2026-09-22 by the manager after pr-landing-guard R6 correctly refused a
+`landing: "self"` declaration with no route behind it: "A readiness
+declaration lands nothing on its own — that is precisely how 7 green PRs sat
+unmerged on 2026-09-03."

@@ -1,11 +1,11 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "ict_scalp_mgc_15m",
   "symbol": "MGC",
   "timeframe": "15m",
-  "config_fingerprint": "sha256:474e49e2b8fe6ff87b1c1abac73ee472",
+  "config_fingerprint": "sha256:cfc8e6b1e8f056aaf9c4f6c4e5047090",
   "basis": "harness_timefolds",
-  "coverage_state": "no_harness",
+  "coverage_state": "harness_failed",
   "fidelity": null,
   "omitted_levers": null,
   "net_r_oos": null,
@@ -16,10 +16,14 @@
   "folds_positive": null,
   "window_days": 365,
   "fee_bps_roundtrip": null,
+  "path_stats": null,
+  "cost_stack": null,
+  "net_r_oos_fee_only": null,
+  "decision_rule": null,
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:24:20.047896+00:00",
+  "generated_at": "2026-09-22T13:07:45.632685+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
   "source_run": null,
-  "error": "regime_debt_matrix.classify() routes nothing for this leg. Its three branches (donchian / trend_lookback|pullback_frac / kc_mult+bb_period) do not cover this config. A harness may still EXIST for the family -- backtest_ict_scalp.py and backtest_fvg_range.py both do -- so this is a missing classifier branch plus a lever map, not absent infrastructure.",
-  "harness": null
+  "error": "fetch failed: RuntimeError: yfinance returned no rows for GC=F (yfinance==1.7.0); venue_state=serving, interval_state=window_exceeds_intraday_limit -- GC=F at interval=15m returns rows over 5d and none over the requested window, so the ticker and the symbol map are FINE and the WINDOW is the problem. Yahoo serves ~60d of 5m/15m and ~730d of 60m. The remedy is a shorter --days, or a feed that serves this interval over the full history -- NOT a symbol-map change.",
+  "harness": "ict_scalp"
 }

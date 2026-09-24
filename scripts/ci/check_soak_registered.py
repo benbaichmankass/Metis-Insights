@@ -55,14 +55,54 @@ Two further properties keep the hatch from rotting:
     appears in every CI log and a growing number is visible without anyone
     auditing the file.
 
+⚠️ RE-POINTED 2026-09-22 (E45) — THE OLD REGISTER WAS ARCHIVED AND NOBODY SWEPT
+------------------------------------------------------------------------------
+Until this change the register was `docs/claude/OPEN-ITEMS.json`, which the
+2026-09-21 operating reset ARCHIVED. `registered_soak_logs` returned
+`"OPEN-ITEMS.json is missing"` and the guard exited 2 on every run — honest
+about not looking, and grading nothing at all. MEASURED on `main` 2026-09-22
+before the re-point: `19 soak log(s) declared · 0 registered · 16 carried as
+pre-2026-09-02 debt`, exit 2. A rule whose executable half cannot see its
+subject is prose, and § "A soak must carry its own alarm" was still naming this
+file as what enforces it.
+
+The post-reset taxonomy has exactly three intakes — `research/queue/<id>.yaml`
+for questions, `docs/claude/work/MANAGER-CHECKLIST.json` for builds, and
+`docs/claude/work/PIPELINE.jsonl` for anything that needs picking up later. A
+soak is the third by definition: it is a thing that must be COME BACK TO. So the
+register is now `PIPELINE.jsonl`, and no fourth register was invented for it.
+
 WHAT "REGISTERED" MEANS, AND WHY IT IS NOT "MENTIONED"
 ------------------------------------------------------
-A row in `docs/claude/OPEN-ITEMS.json` carrying a `soak` block whose `log`
-names this soak. A probe command mentioning the name does NOT count: a probe
-READS a soak, an alarm says what READY means and can tell a dead soak from a
-patient one. Four of the sixteen logs were "mentioned" and none of them could
-answer either question — which is precisely why counting mentions would make
-this guard pass while changing nothing.
+An OPEN row in `docs/claude/work/PIPELINE.jsonl` (state `queued`/`due`/`routed`)
+whose `due_when.kind` is `observation` or `event`, carrying a non-empty
+`due_when.clears_when`, with the soak's name in the row's `what` or in that
+`clears_when`.
+
+Each clause is one half of the original rule, mapped onto the schema that
+survived the reset:
+
+  * **`clears_when` IS `ready_when`** — it states what READY means in DATA. A
+    row whose `due_when.kind` is `date` carries only a TIMER, and the old rule
+    refused exactly that: *"a block with no `ready_when` is refused … because it
+    is a second timer wearing a threshold's name."* `check_every_days` still
+    carries the timer, alongside.
+  * **A TERMINAL row is not an alarm.** `done`/`killed` rows are excluded: a
+    closed row will never come back for anything.
+  * **`origin.rerun` DOES NOT COUNT, and that is the same refusal as before.**
+    `origin.rerun` is the command that REGENERATES the finding — a READER,
+    which is precisely what "mentioned in a probe command" was. Four of the
+    sixteen 2026-09-02 logs were "mentioned" that way and could answer neither
+    *is it ready* nor *is it dead*. Counting mentions would make this guard pass
+    while changing nothing, so only `what` and `clears_when` are scanned.
+
+⚠️ `declared_at` HAS NO POST-RESET FIELD AND IS NOT FAKED. The old block carried
+it so `soak_alarm.py` could tell `not_writing` (no rows SINCE IT WAS DECLARED)
+from `accruing`. A pipeline row has no equivalent, so this guard does not claim
+to grade deadness — it grades REGISTRATION, which is all it ever graded. The
+four-state grading in `scripts/ops/soak_alarm.py` still reads the archived
+register and is a separate, still-dead surface; it is filed rather than silently
+implied to work here.
 
 Exit codes: 0 clean · 1 an unregistered, unbaselined soak (or a stale baseline
 entry) · 2 we could not look.
@@ -76,11 +116,22 @@ import re
 import sys
 from pathlib import Path
 
-_REGISTER = Path("docs/claude/OPEN-ITEMS.json")
+_REGISTER = Path("docs/claude/work/PIPELINE.jsonl")
 _SCAN_ROOTS = ("src",)
+
+#: An OPEN pipeline row can still come back for something. A terminal one cannot.
+_OPEN_STATES = ("queued", "due", "routed")
+
+#: `due_when` kinds that carry a CONDITION. `date` is a bare timer and is the
+#: shape the original rule refused as "a second timer wearing a threshold's name".
+_CONDITION_KINDS = ("observation", "event")
 
 #: A soak log name as it appears in a writer: `"<name>_soak.jsonl"`.
 _LOG_RE = re.compile(r'["\']([a-z0-9_]+_soak)\.jsonl["\']')
+
+#: The same name as it appears in a REGISTER row, where it is prose rather than
+#: a quoted filename — with or without the `.jsonl` suffix.
+_REGISTER_LOG_RE = re.compile(r"\b([a-z0-9_]+_soak)(?:\.jsonl)?\b")
 
 #: ── THE DEBT LIST — MEASURED 2026-09-02, AND IT MAY ONLY SHRINK ───────────
 #:
@@ -152,17 +203,39 @@ def registered_soak_logs(root: Path) -> tuple[set[str], str | None]:
     if not p.is_file():
         return set(), f"{_REGISTER} is missing"
     try:
-        items = json.loads(p.read_text(encoding="utf-8"))["items"]
-    except Exception as exc:  # noqa: BLE001
-        return set(), f"{_REGISTER} did not parse: {type(exc).__name__}: {exc}"
+        text = p.read_text(encoding="utf-8")
+    except OSError as exc:  # noqa: BLE001
+        return set(), f"{_REGISTER} unreadable: {type(exc).__name__}: {exc}"
 
     names: set[str] = set()
-    for row in items:
-        soak = row.get("soak") if isinstance(row, dict) else None
-        if isinstance(soak, dict):
-            log = str(soak.get("log") or "").strip()
-            if log:
-                names.add(log[:-6] if log.endswith(".jsonl") else log)
+    for lineno, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        # The store is append-only JSONL with a `//` header block. A blank or
+        # comment line is not a row; a line that does not parse is a state we
+        # could not read, which must NOT be reported as "nothing is registered".
+        if not line or line.startswith("//"):
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError as exc:
+            return set(), (f"{_REGISTER}:{lineno} did not parse: "
+                           f"{type(exc).__name__}: {exc}")
+        if not isinstance(row, dict):
+            continue
+        if row.get("state") not in _OPEN_STATES:
+            continue
+        due = row.get("due_when")
+        if not isinstance(due, dict) or due.get("kind") not in _CONDITION_KINDS:
+            continue
+        clears = str(due.get("clears_when") or "").strip()
+        if not clears:
+            continue
+        # `what` + `clears_when` ONLY. `origin.rerun` is the regeneration
+        # command — a reader — and counting it would re-admit the "mentioned in
+        # a probe" case this guard exists to refuse.
+        hay = f"{row.get('what') or ''} {clears}"
+        for m in _REGISTER_LOG_RE.finditer(hay):
+            names.add(m.group(1))
     return names, None
 
 
@@ -178,16 +251,18 @@ def check(root: Path) -> tuple[int, list[str]]:
     for name in unregistered:
         where = ", ".join(sorted(declared[name])[:3])
         problems.append(
-            f"SOAK NOT REGISTERED: `{name}` is declared in {where} and no row in "
-            f"{_REGISTER} carries a `soak` block naming it.\n"
-            f"    A soak nobody registered accrues to NOBODY: the review backlogs "
-            f"are not due-list sources, so nothing will surface it when it is "
-            f"ready and nothing will notice if it stops writing.\n"
-            f"    FIX: add a `soak` block to the row that owns this work — "
-            f"{{log, declared_at, ready_when, min_matching}}. `ready_when` states "
-            f"what READY means in DATA (a `probe_lib` condition such as "
-            f"`verdicts_differ=true`), never in elapsed days; `check_every_days` "
-            f"already carries the timer.")
+            f"SOAK NOT REGISTERED: `{name}` is declared in {where} and no OPEN "
+            f"row in {_REGISTER} names it behind a condition.\n"
+            f"    A soak nobody registered accrues to NOBODY: nothing will "
+            f"surface it when it is ready, and the waiting never ends because "
+            f"nothing was ever asked to come back for it.\n"
+            f"    FIX: file it with `scripts/ops/pipeline.py` — an OPEN row "
+            f"whose `due_when.kind` is `observation` or `event`, whose "
+            f"`clears_when` states what READY means IN DATA (never in elapsed "
+            f"days — `check_every_days` already carries the timer), and whose "
+            f"`what` or `clears_when` names `{name}`. Naming it only in "
+            f"`origin.rerun` does NOT register it: that is the command that "
+            f"re-reads the soak, which is a probe, not an alarm.")
 
     stale = sorted(set(BASELINE) - set(declared))
     for name in stale:
@@ -243,93 +318,138 @@ def _self_test() -> int:
         assert cond, f"control FAILED: {label}"
         fired += 1
 
-    def plant(logs, register_soaks, *, baseline=None):
+    def row(name, *, state="queued", kind="observation", clears="rows>=1",
+            where="what"):
+        """One pipeline row, shaped so each clause of the rule can be planted."""
+        r = {
+            "id": f"PI-{name}-{state}-{kind}-{where}",
+            "what": "a soak is accruing",
+            "origin": {"kind": "session", "ref": "s1",
+                       "rerun": f"tail runtime_logs/{name}.jsonl"},
+            "due_when": {"kind": kind, "clears_when": clears},
+            "next_action": "check_observation",
+            "state": state,
+        }
+        if kind == "date":
+            r["due_when"] = {"kind": "date", "due_date": "2026-10-01"}
+        if where == "what":
+            r["what"] = f"the {name} soak is accruing"
+        elif where == "clears_when" and r["due_when"].get("clears_when") is not None:
+            r["due_when"]["clears_when"] = f"{name}.jsonl has >= 30 rows"
+        elif where == "rerun_only":
+            r["what"] = "a soak is accruing"
+        return r
+
+    def plant(logs, register_rows, *, baseline=None, raw=None):
         """Build a fake tree. Returns (rc, problems) under a patched BASELINE."""
         td = Path(tempfile.mkdtemp())
         (td / "src/runtime").mkdir(parents=True)
         for i, name in enumerate(logs):
             (td / f"src/runtime/w{i}.py").write_text(
                 f'SOAK_LOG_NAME = "{name}.jsonl"\n', encoding="utf-8")
-        (td / "docs/claude").mkdir(parents=True)
-        (td / _REGISTER).write_text(json.dumps({"items": [
-            {"id": f"OI-{n}", "soak": {"log": n, "declared_at": "2026-09-02",
-                                       "ready_when": "x=1", "min_matching": 1}}
-            for n in register_soaks]}), encoding="utf-8")
+        (td / _REGISTER.parent).mkdir(parents=True, exist_ok=True)
+        body = raw if raw is not None else (
+            "// PIPELINE.jsonl — append-only. Schema: scripts/ops/pipeline.py\n"
+            + "\n".join(json.dumps(r) for r in register_rows) + "\n")
+        (td / _REGISTER).write_text(body, encoding="utf-8")
         global BASELINE
         saved = BASELINE
         BASELINE = dict.fromkeys(baseline or [], "pre-2026-09-02")
         try:
-            return check(td)
+            return check(td), td
         finally:
             BASELINE = saved
 
-    # ⚠️ THE CONTROL THAT MATTERS: the guard must find a POSITIVE. A guard that
-    # only ever reports clean is indistinguishable from one that scans nothing —
+    # ── THE PLANTED VIOLATION AGAINST THE NEW SUBJECT ─────────────────────
+    # ⚠️ RE-POINTED 2026-09-22 (E45). A GREEN RE-POINT PROVES NOTHING: this
+    # guard spent the post-reset period exiting 2 against an archived register
+    # and grading nothing, so the only evidence that it grades now is that it
+    # FAILS on a violation planted in `docs/claude/work/PIPELINE.jsonl`.
     # RULE ONE: show the probe can find a positive before trusting it is quiet.
-    rc, probs = plant(["new_soak"], [])
+    (rc, probs), _ = plant(["new_soak"], [])
     ok(rc == 1 and any("SOAK NOT REGISTERED" in p for p in probs),
-       "a NEW soak writer with no register row FAILS the guard — this is the "
-       "planted positive, and without it a permanently-green guard would be "
-       "indistinguishable from one that scans nothing")
+       "P1 a soak writer with NO pipeline row FAILS — the planted positive "
+       "against the re-pointed subject")
     ok(any("`new_soak`" in p for p in probs),
-       "and the failure NAMES the soak, so the fix is actionable without a hunt")
-    ok(any("ready_when" in p for p in probs),
-       "and it names the field that carries the threshold, not just 'add a row'")
+       "P1b and the failure NAMES the soak, so the fix needs no hunt")
+    ok(any("clears_when" in p for p in probs),
+       "P1c and it names the field that carries the threshold")
 
-    rc, _ = plant(["new_soak"], ["new_soak"])
-    ok(rc == 0, "the same soak WITH a register block passes — the fix works")
+    # ⚠️ THE CLAUSE THAT CARRIES THE ORIGINAL RULE: a row that only READS the
+    # soak is a probe, not an alarm. `origin.rerun` is the regeneration
+    # command, so a soak named ONLY there is still unregistered.
+    (rc, probs), _ = plant(["probe_soak"], [row("probe_soak", where="rerun_only")])
+    ok(rc == 1 and any("probe_soak" in p for p in probs),
+       "P2 a soak named ONLY in `origin.rerun` is NOT registered — that is the "
+       "'mentioned in a probe command' case, which could answer neither *is it "
+       "ready* nor *is it dead*")
 
-    rc, _ = plant(["old_soak"], [], baseline=["old_soak"])
-    ok(rc == 0, "a pre-existing soak on the dated debt list passes")
+    # A `date` due_when is a bare TIMER. The original rule refused exactly this
+    # shape: a second timer wearing a threshold's name.
+    (rc, probs), _ = plant(["timer_soak"], [row("timer_soak", kind="date")])
+    ok(rc == 1 and any("timer_soak" in p for p in probs),
+       "P3 a row due on a DATE only does not register a soak — `clears_when` "
+       "states what READY means in data; a date says only when to look")
 
-    rc, probs = plant(["old_soak", "new_soak"], [], baseline=["old_soak"])
+    (rc, probs), _ = plant(["empty_soak"], [row("empty_soak", clears="  ")])
+    ok(rc == 1 and any("empty_soak" in p for p in probs),
+       "P4 an empty `clears_when` does not register it either — presence of the "
+       "key is not a threshold")
+
+    (rc, probs), _ = plant(["closed_soak"], [row("closed_soak", state="done")])
+    ok(rc == 1 and any("closed_soak" in p for p in probs),
+       "P5 a TERMINAL row is not an alarm — a `done` row will never come back "
+       "for anything, so it cannot be what makes the waiting end")
+
+    # ── the negatives: the fix actually works, both ways of naming it ──────
+    (rc, _), _ = plant(["new_soak"], [row("new_soak", where="what")])
+    ok(rc == 0, "N1 an OPEN observation row naming the soak in `what` passes")
+
+    (rc, _), _ = plant(["new_soak"],
+                       [row("new_soak", kind="event", where="clears_when")])
+    ok(rc == 0, "N2 ...and naming it in `clears_when` passes too, .jsonl suffix "
+                "and all — the register and the writer spell it differently and "
+                "neither is wrong")
+
+    (rc, _), _ = plant(["old_soak"], [], baseline=["old_soak"])
+    ok(rc == 0, "N3 a pre-existing soak on the dated debt list passes")
+
+    (rc, probs), _ = plant(["old_soak", "new_soak"], [], baseline=["old_soak"])
     ok(rc == 1 and len([p for p in probs if "NOT REGISTERED" in p]) == 1
        and "new_soak" in probs[0],
-       "⚠️ a baselined soak does NOT excuse a new one beside it — the debt list "
-       "grandfathers exactly the names on it and nothing else. This is the "
-       "control against the baseline quietly becoming a blanket exemption")
+       "P6 ⚠️ a baselined soak does NOT excuse a new one beside it — the debt "
+       "list grandfathers exactly the names on it and nothing else")
 
-    rc, probs = plant([], [], baseline=["ghost_soak"])
+    (rc, probs), _ = plant([], [], baseline=["ghost_soak"])
     ok(rc == 1 and any("STALE BASELINE" in p for p in probs),
-       "a BASELINE entry whose writer is gone FAILS — the list may only shrink, "
-       "and a name outliving its writer is a slot a future soak could reuse")
+       "P7 a BASELINE entry whose writer is gone FAILS — the list may only "
+       "shrink, and a name outliving its writer is a slot a future soak reuses")
 
-    # `.jsonl` on the registered name must not break the match, and a probe
-    # command MENTIONING a soak must not count as registering it.
-    td = Path(tempfile.mkdtemp())
-    (td / "src/runtime").mkdir(parents=True)
-    (td / "src/runtime/w.py").write_text('P = "x_soak.jsonl"\n', encoding="utf-8")
-    (td / "docs/claude").mkdir(parents=True)
-    (td / _REGISTER).write_text(json.dumps({"items": [
-        {"id": "A", "soak": {"log": "x_soak.jsonl"}}]}), encoding="utf-8")
-    ok("x_soak" in registered_soak_logs(td)[0],
-       "a `log` written with the .jsonl suffix still matches — the register and "
-       "the writer spell it differently and neither is wrong")
-
-    (td / _REGISTER).write_text(json.dumps({"items": [
-        {"id": "A", "probe": {"cmd": ["probe_soak.py", "--path", "name=x_soak"]}}]}),
-        encoding="utf-8")
-    ok(registered_soak_logs(td)[0] == set(),
-       "⚠️ a probe command MENTIONING a soak does NOT register it. A probe is a "
-       "READER; an alarm says what READY means and can tell a dead soak from a "
-       "patient one. Four of the sixteen live soaks were 'mentioned' this way "
-       "and could answer neither question — counting mentions would make this "
-       "guard pass while changing nothing")
-
-    # An unreadable register is COULD NOT LOOK, never "nothing is registered".
-    (td / _REGISTER).write_text("{not json", encoding="utf-8")
-    rc, probs = check(td)
+    # ── could not look, never 'nothing is registered' ──────────────────────
+    (rc, probs), _ = plant(["x_soak"], [], raw="{not json\n")
     ok(rc == 2 and any("could not look" in p for p in probs),
-       "⚠️ an unreadable register exits COULD NOT LOOK (2), never 1 — reading it "
-       "as 'nothing is registered' would fail every soak in the tree on a JSON "
-       "typo, which is the collapse this whole family of code exists to refuse")
+       "P8 ⚠️ an unparseable register line exits COULD NOT LOOK (2), never 1 — "
+       "reading it as 'nothing is registered' would fail every soak in the tree "
+       "on one bad line, the collapse this family of code exists to refuse")
+
+    td = Path(tempfile.mkdtemp())
+    (td / "src").mkdir(parents=True)
+    rc, probs = check(td)
+    ok(rc == 2 and any("missing" in p for p in probs),
+       "P9 ...and a MISSING register is the same state — which is exactly what "
+       "this guard read on every run between 2026-09-21 and this re-point")
+
+    # A comment line and a blank line are not rows, and must not be read as one.
+    (rc, _), _ = plant(["new_soak"], [row("new_soak")])
+    ok(rc == 0, "N4 the `//` header block and blank lines are skipped, not "
+                "parsed as rows")
 
     # The live tree's own baseline must be accurate, or the guard ships lying
     # about the debt it carries.
     live_declared = set(declared_soak_logs(Path(".")))
     if live_declared:
         ok(not (set(BASELINE) - live_declared),
-           "the shipped BASELINE names no soak that is absent from this tree — "
+           "N5 the shipped BASELINE names no soak absent from this tree — "
            "measured against the real repo, not a fixture")
 
     print(f"soak-registered: self-test OK — {fired} planted controls all fire")

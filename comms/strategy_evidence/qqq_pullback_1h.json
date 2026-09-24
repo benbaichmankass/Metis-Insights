@@ -1,15 +1,15 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "qqq_pullback_1h",
   "symbol": "QQQ",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:658b753cf2486b1d586be7d7cd44b58f",
+  "config_fingerprint": "sha256:ee7d105c498802a5148f6f1757ccdb64",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 13.1296,
-  "expectancy_r_oos": 0.2735,
+  "net_r_oos": 11.3698,
+  "expectancy_r_oos": 0.2369,
   "n_trades_oos": 48,
   "folds": 4,
   "fold_detail": [
@@ -40,19 +40,48 @@
     {
       "fold": 4,
       "trades": 12,
-      "net_r": -6.6412,
-      "expectancy_r": -0.5534,
+      "net_r": -8.401,
+      "expectancy_r": -0.7001,
       "start": "2026-06-16 18:00:00+00:00",
       "end": "2026-09-14 18:00:00+00:00"
     }
   ],
   "folds_positive": 2,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 48,
+    "max_drawdown_r": 11.1824,
+    "max_drawdown_at_trade": 31,
+    "final_equity_r": 11.3698,
+    "max_equity_r": 19.9726,
+    "worst_trade_r": -1.0841,
+    "best_trade_r": 13.6537,
+    "worst_day_r": -1.0841,
+    "worst_day_date": "2025-12-31",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
+  "cost_stack": {
+    "fees": 0.0,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/qqq_pullback_1h__bt.json"
+  },
+  "net_r_oos_fee_only": 13.3242,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:21.997905+00:00",
+  "generated_at": "2026-09-22T09:27:19.682264+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/qqq_pullback_1h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/qqq_pullback_1h__trades.jsonl",
   "error": null,
   "harness": "pullback"
 }

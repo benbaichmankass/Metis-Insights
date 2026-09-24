@@ -1,6 +1,6 @@
 # `comms/strategy_evidence/` — per-leg OFFLINE edge records
 
-> **Doc status:** `live` · category `lookup` · last verified `2026-09-09` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `lookup` · last verified `2026-09-22` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md)
 
 One `<leg>.json` per strategy leg, written by
 [`scripts/ops/build_strategy_evidence.py`](../../scripts/ops/build_strategy_evidence.py)
@@ -26,6 +26,28 @@ values, and they answer different questions:
 | `harness_failed` | it ran and broke — **we looked** |
 | `not_attempted` | we did not run it |
 
+## ⚠️ A FAILED RUN CANNOT CLOBBER A `measured` RECORD — and that is new
+
+Until 2026-09-22 it could, and twice it did. With `yfinance` absent from a
+sandbox the producer graded every leg `harness_failed` and **rewrote** the
+committed records for `gld_pullback_1d` and `qqq_trend_long_1d`, nulling
+`net_r_oos`, `n_trades_oos` and `fold_detail`. They survived only because the
+lane read `git diff` before committing (`PI-20260922-E41-0007`).
+
+Why that is worse than losing a number: a `harness_failed` stub **does not read
+as a loss — it reads as a leg nobody ever measured**, which is exactly the
+collapsed state the table above exists to prevent, sitting on the corpus the
+real-money promotion bar reads.
+
+`build_strategy_evidence.py` now **refuses**, loudly on three surfaces (a stderr
+line, a `runs/<date>/<leg>__refused_record.json` sidecar holding the record it
+would have written, and exit code **3**), and leaves the committed record
+**byte-identical**. An unreadable prior record is refused too — *we could not
+look* is not permission.
+
+⚠️ **A SUCCESSFUL re-measure still overwrites normally.** `measured → measured`
+is a different question and the refusal does not touch it.
+
 ## ⚠️ `fidelity` decides what the number is evidence ABOUT
 
 `faithful` means the harness modelled **every** lever the leg's config declares.
@@ -38,9 +60,31 @@ weaker number into evidence; discarding it would throw away a usable one. Where
 that line falls is an operator decision, and leaving it to the consumer means it
 can move later without regenerating anything.
 
-Measured 2026-09-09 over all 52 enabled legs: **29 faithful · 13 approximate ·
-10 unclassifiable**. So `faithful` is **55.8%** of the fleet, not the 98.1% a
-harness-family name-match suggests.
+Measured **2026-09-22**, over all 52 enabled legs: **25 faithful · 26
+approximate · 1 unclassifiable** (`turtle_soup`). So `faithful` is **48.1%** of
+the fleet (25 of 52 enabled; 49.0% of the 51 that route), not the 98.1% a
+harness-family name-match suggests. Re-derive it by importing
+`regime_debt_matrix` and calling `classify()` + `build_harness_cmd()` over every
+enabled leg — no fetch, no harness run. (Was 29 · 13 · 10 = 55.8% on 2026-09-09;
+then 37 · 14 · 1 = 71.2% after E25 routed `fvg_range` and E28 routed the
+eight-leg `ict_scalp_*` family.)
+
+⚠️ **The 37 → 25 step is a CORRECTION, not a regression** (E46 /
+`PI-20260922-E41-0005`). `tp_r` sat in the trend and pullback `PLAIN` sets —
+asserting the harness modelled it — while `build_harness_cmd` passed neither
+`--tp-r` nor the `--tp-cap-pct` that makes it take effect, so those runs modelled
+**no take-profit at all**. 12 legs were claiming `faithful` with
+`omitted_levers: []` against a declared, binding `tp_r`. The grade is now
+computed from the argv that actually runs. The 50R sentinel is still not counted
+as an omission — it cannot be reached — on the same threshold the squeeze branch
+has used since 2026-07-30.
+
+⚠️ **And `faithful` still does NOT mean the LIVE capped TP was modelled.** Live
+places `tp = min(entry*(1+0.099), entry + tp_r*risk)`, so the ~9.9% venue clamp
+binds on **every** trend/pullback leg, sentinel legs included, and no run here
+models it — `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`. Folding
+that in would re-base the whole fleet's history and is deliberately left to its
+own row.
 
 ## ⚠️ `basis` is `harness_timefolds`, NOT purged walk-forward
 
@@ -90,6 +134,39 @@ clear `scripts/ci/check_roster_promotion_evidence.py`'s C3/C4 clauses:
 A `schema_version: 1` record (no `cost_stack`/`decision_rule`) means the
 producer has not been re-run against that leg since 2026-09-22 — regenerate it
 rather than reading the old fields as current.
+
+## `source_run` points into `runs/`, and that is a FIX, not decoration (R5/R7, 2026-09-22)
+
+Every record written before 2026-09-22 names a `source_run` under `/tmp` — a
+directory that exists on no machine today. MEASURED by reading all 52 committed
+records on `0e0a8f3`: **42 name a dead `/tmp` path, 10 name nothing at all.**
+Filed as `PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH`.
+
+That is not cosmetic. `docs/CLAUDE-RULES-CANONICAL.md` § "A MEASURED must say
+WHERE THE MEASUREMENT LIVES" is explicit that a number whose source cannot be
+reached **is not MEASURED** — it degrades to INFERRED from an unstated
+measurement. `net_r_oos` is a sum over per-trade rows; if those rows are gone,
+nobody can check the pooling, the fold split, or whether the cost stack was
+actually applied per trade.
+
+So the producer now defaults its workdir to `comms/strategy_evidence/runs/<UTC-date>/`
+and both locators are repo-relative and committed:
+
+| field | points at | what it lets you re-check |
+|---|---|---|
+| `source_run` | `runs/<date>/<leg>__trades.jsonl` | every trade the pooled number sums, with `net_r` **and** `net_r_fee_only` per row |
+| `cost_stack.source` | `runs/<date>/<leg>__bt.json` | the fee/slippage/funding bps the harness actually resolved |
+
+`runtime_logs/` was **not** an option — it is gitignored (`.gitignore:33`), so a
+locator under it is exactly as unreachable as `/tmp` to anyone but the machine
+that ran it. The fetched candle feed (`<leg>__data.csv`) is deliberately **not**
+committed: it is a reproducible input, not a measurement, and no record cites it.
+
+⚠️ **A record can still carry a dead locator, and you should check.** Passing
+`--workdir` a path outside the repo reintroduces the defect. The 12 legs R1 ran
+on 2026-09-22 (`f3746ab`) carry `cost_stack` and a `decision_rule` but still name
+`/tmp/tmp.RsNZr5lfkw` — schema-complete, locator-dead. Re-running the producer
+for a leg is what fixes it.
 
 ## Regenerating
 

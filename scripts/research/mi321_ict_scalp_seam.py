@@ -15,8 +15,17 @@ FEEDS that function:
 
   * the **WINDOW** — the harness slides a `window_size`-bar slice; the live
     builder fetches `limit=200`. This is MI-319's declared-minimum class.
-  * the **CONFIG** — the harness reads ONE hardcoded YAML block; the live fleet
+  * the **CONFIG** — the harness read ONE hardcoded YAML block; the live fleet
     runs EIGHT legs, seven of them through a variant builder reading their own.
+    ⚠️ **PAST TENSE SINCE 2026-09-22 (E28): the hardcoding is FIXED** —
+    `backtest_ict_scalp.py::_load_yaml_params(name)` now takes the block
+    `--strategy-name` selects and RAISES on an unknown name. What this tool
+    still measures is unchanged and still worth measuring: it describes a
+    DEFAULT run (it calls `_load_yaml_params()` with no argument), i.e. what a
+    caller gets when it does NOT say which leg it means. The `not_expressible`
+    / `asymmetric_gate` verdicts on `off_cells` / `vol_spec` are NOT fixed by
+    E28 and stand exactly as recorded — no flag was added for either, and
+    `regime_debt_matrix` grades `ict_scalp_xrp_5m` `approximate` naming both.
   * the **GATES OUTSIDE THE UNIT** — the live variant builder applies an
     off-cell regime suppression that `order_package` knows nothing about.
 
@@ -86,7 +95,10 @@ UNIT = _REPO_ROOT / "src" / "units" / "strategies" / "ict_scalp.py"
 BUILDERS = _REPO_ROOT / "src" / "runtime" / "strategy_signal_builders.py"
 STRATEGIES_YAML = _REPO_ROOT / "config" / "strategies.yaml"
 
-# The one block the harness reads, hardcoded in `_load_yaml_params`.
+# The block `_load_yaml_params` serves when the caller names no leg — its
+# DEFAULT since E28 (2026-09-22), a hardcode before it. Mirrors
+# `backtest_ict_scalp.DEFAULT_CFG_KEY`; this tool deliberately keeps its own
+# literal so a change to that constant shows up as a disagreement here.
 HARNESS_CFG_KEY = "ict_scalp_5m"
 # The keys `_load_yaml_params` strips before handing cfg to the unit.
 HARNESS_STRIPS = ("enabled", "model", "signal_prefixes", "symbols",

@@ -106,7 +106,6 @@ from src.utils.work_facts import (  # noqa: E402
     CEILING_ENFORCED,
     CEILING_STATE,
 )
-from scripts.check_claim_basis import STATUS_ENUM  # noqa: E402
 from scripts.ops.work_phase_ping import (  # noqa: E402
     PING_WORTHY,
     _field,
@@ -511,9 +510,19 @@ class Source(NamedTuple):
 #: the digest stops reporting a real transition).
 BACKLOG_NON_TERMINAL = frozenset({"open", "kept_open"})
 
-#: A terminal `status` on a review backlog, derived from the ONE home of that
-#: vocabulary: `scripts/check_claim_basis.py::STATUS_ENUM`, which CI enforces
-#: whole-file over every backlog this module reads.
+#: A terminal `status` on a review backlog.
+#:
+#: ⚠️ DECOUPLED 2026-09-22 (E45), AND THE REASON MATTERS. This used to be
+#: DERIVED from `scripts/check_claim_basis.py::STATUS_ENUM`, when that enum was
+#: the four review backlogs' `status` vocabulary. Those four backlogs are
+#: ARCHIVED under `docs/archive/2026-09-21-operating-reset/`, and that guard has
+#: been re-pointed at the live registers, so its enum is now the CHECKLIST's
+#: `state` vocabulary — a different field on a different file. Continuing to
+#: derive from it would have silently made every backlog status "terminal".
+#: The six values below are the LAST MEASURED contents of the archived field
+#: (2026-09-12, 1,803 rows across all four backlogs) and are historical by
+#: construction: nothing writes them any more, so there is no enum for them to
+#: drift from. That is why a literal is correct here and was not before.
 #:
 #: ⚠️ THIS SET USED TO CARRY FOUR MEMBERS THE FIELD CANNOT HOLD, and the comment
 #: above it asserted the opposite of what the files say. It read "the on-disk
@@ -534,7 +543,9 @@ BACKLOG_NON_TERMINAL = frozenset({"open", "kept_open"})
 #: free text. Tracked at
 #: BL-20260912-THE-BACKLOG-DISPOSITION-FIELD-HAS-NO-ENUM-AND-HAS-DRIFTED-TO-35-VALUES-INCLUDING-FREE-TEXT
 #: and deliberately NOT fixed here — a second vocabulary is a second migration.
-BACKLOG_TERMINAL = frozenset(STATUS_ENUM) - BACKLOG_NON_TERMINAL
+BACKLOG_TERMINAL = frozenset({
+    "resolved", "wont_fix", "superseded", "invalid",
+}) - BACKLOG_NON_TERMINAL
 
 #: A checklist item reaching one of these is a decision the operator wants.
 #: `queued` and `triage` are deliberately absent: scoping an item is work in
@@ -545,19 +556,39 @@ CHECKLIST_EVENTS = frozenset({
     "in_flight", "landed_unproven", "done", "blocked", "dropped",
 })
 
+#: Registers the 2026-09-21 operating reset ARCHIVED, with the ref that moved
+#: them. They are listed rather than deleted because the difference between
+#: *"this register was retired on purpose"* and *"this register vanished"* is
+#: the only thing self-test 10 can still tell us about them, and a source that
+#: simply disappears from `SOURCES` takes that distinction with it.
+#:
+#: ⚠️ MEASURED 2026-09-22: every one of these read `absent` on every run from
+#: the reset onward, so the digest had been PERMANENTLY BLIND to five of its
+#: six sources while reporting itself healthy — and `--self-test` had been
+#: failing check 10 on all five, which is what made `work-digest` red on 6 of
+#: 6 runs on `main` (E29). The rows live at
+#: docs/archive/2026-09-21-operating-reset/registers/.
+RETIRED_SOURCES: tuple[tuple[str, str], ...] = (
+    ("open-items register", "docs/claude/OPEN-ITEMS.json"),
+    ("health backlog", "docs/claude/health-review-backlog.json"),
+    ("performance backlog", "docs/claude/performance-review-backlog.json"),
+    ("ml backlog", "docs/claude/ml-review-backlog.json"),
+    ("research backlog", "docs/claude/research-review-backlog.json"),
+)
+
+#: ⚠️ ONE SOURCE, AND THAT IS THE REPORTABLE FACT RATHER THAN A DIMINISHED
+#: DIGEST. The reset's whole shape is "one register" (CLAUDE.md § How work is
+#: organised), and `MANAGER-CHECKLIST.json` is it, so the digest now watches
+#: exactly the surface the operating model says work lives on.
+#:
+#: ⚠️ WHAT IS NOT COVERED, STATED RATHER THAN IMPLIED: `docs/claude/work/
+#: PIPELINE.jsonl` is the OTHER live surface the reset created, and this digest
+#: DOES NOT READ IT. It is append-only JSONL rather than a keyed JSON register,
+#: so `_items_at()` cannot diff it as-is. Until that lands, a pipeline item
+#: coming due produces NO ping — filed, not forgotten.
 SOURCES: tuple[Source, ...] = (
     Source("manager checklist", "docs/claude/work/MANAGER-CHECKLIST.json",
            "state", CHECKLIST_EVENTS, True, "added", "removed"),
-    Source("open-items register", "docs/claude/OPEN-ITEMS.json",
-           None, frozenset(), True, "filed", "CLEARED"),
-    Source("health backlog", "docs/claude/health-review-backlog.json",
-           "status", BACKLOG_TERMINAL, False, "filed", "removed"),
-    Source("performance backlog", "docs/claude/performance-review-backlog.json",
-           "status", BACKLOG_TERMINAL, False, "filed", "removed"),
-    Source("ml backlog", "docs/claude/ml-review-backlog.json",
-           "status", BACKLOG_TERMINAL, False, "filed", "removed"),
-    Source("research backlog", "docs/claude/research-review-backlog.json",
-           "status", BACKLOG_TERMINAL, False, "filed", "removed"),
 )
 
 #: Per-source read grades. NEVER collapsed — `no_changes` on a source we could
@@ -1033,7 +1064,7 @@ def _self_test() -> int:
     from one that always passes. Each check here has a positive control."""
     ok = True
 
-    def check(n: int, label: str, passed: bool, detail: str = "") -> None:
+    def check(n: int | str, label: str, passed: bool, detail: str = "") -> None:
         nonlocal ok
         ok &= passed
         print(f"  self-test {n} ({label}): {'PASS' if passed else f'FAIL {detail}'}")
@@ -1104,6 +1135,21 @@ def _self_test() -> int:
     }
     check(11, "every review backlog on disk is read", on_disk <= declared,
           f"unread: {sorted(on_disk - declared)}")
+
+    # 11a-11b: the RETIREMENT is checked in both directions, because a list of
+    # dead paths that nothing asserts against is a comment, not a record.
+    #
+    # ⚠️ 11b is the one that matters and it is deliberately a FAILURE, not a
+    # warning. If an archived register reappears on disk, the digest is once
+    # again blind to a live surface while every other check stays green —
+    # exactly the state this module sat in from 2026-09-21 to 2026-09-22.
+    readded = [path for _, path in RETIRED_SOURCES if path in declared]
+    check("11a", "no retired source is silently back in SOURCES", not readded,
+          str(readded))
+    resurrected = [path for _, path in RETIRED_SOURCES
+                   if (REPO_ROOT / path).exists()]
+    check("11b", "no retired register has reappeared unwatched on disk",
+          not resurrected, str(resurrected))
 
     # 12: the per-source read grades ship even when nothing was attempted — a
     # key that vanishes makes a consumer branch on absence, and absence is not

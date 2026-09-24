@@ -1,9 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "fade_breakout_4h",
   "symbol": "BTCUSDT",
   "timeframe": "4h",
-  "config_fingerprint": "sha256:01a8d99c007910a6211de92c7fc41830",
+  "config_fingerprint": "sha256:c2144450e5f46d784ad9144dc515e7d1",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",
@@ -51,12 +51,41 @@
     }
   ],
   "folds_positive": 3,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 25,
+    "max_drawdown_r": 5.0547,
+    "max_drawdown_at_trade": 25,
+    "final_equity_r": 6.1101,
+    "max_equity_r": 11.1648,
+    "worst_trade_r": -1.1273,
+    "best_trade_r": 4.7934,
+    "worst_day_r": -1.1273,
+    "worst_day_date": "2026-08-13",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
+  "cost_stack": {
+    "fees": 7.5,
+    "slippage": 5.0,
+    "funding": 1.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/fade_breakout_4h__bt.json"
+  },
+  "net_r_oos_fee_only": 7.5831,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-13T03:21:45.796385+00:00",
+  "generated_at": "2026-09-22T09:26:13.952324+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/claude-0/-home-user-Metis-Insights/ca0a39ea-0ec3-541d-8337-cce28881c2a6/scratchpad/u34_wd/fade_breakout_4h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/fade_breakout_4h__trades.jsonl",
   "error": null,
   "harness": "trend"
 }

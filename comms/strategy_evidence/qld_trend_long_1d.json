@@ -1,25 +1,25 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "strategy": "qld_trend_long_1d",
   "symbol": "QLD",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:153491b42aaa898c84f90f457dd3814e",
+  "config_fingerprint": "sha256:79e9593ea0da62e2a3328b8c4120e035",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 6.7188,
-  "expectancy_r_oos": 2.2396,
+  "net_r_oos": 6.8986,
+  "expectancy_r_oos": 2.2995,
   "n_trades_oos": 3,
   "folds": 3,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 1,
-      "net_r": 4.0194,
-      "expectancy_r": 4.0194,
-      "start": "2025-06-10 00:00:00+00:00",
-      "end": "2025-06-10 00:00:00+00:00"
+      "net_r": 4.1992,
+      "expectancy_r": 4.1992,
+      "start": "2025-06-24 00:00:00+00:00",
+      "end": "2025-06-24 00:00:00+00:00"
     },
     {
       "fold": 2,
@@ -39,12 +39,41 @@
     }
   ],
   "folds_positive": 2,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 3,
+    "max_drawdown_r": 1.0079,
+    "max_drawdown_at_trade": 2,
+    "final_equity_r": 6.8986,
+    "max_equity_r": 6.8986,
+    "worst_trade_r": -1.0079,
+    "best_trade_r": 4.1992,
+    "worst_day_r": -1.0079,
+    "worst_day_date": "2026-02-03",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
   "window_days": 365,
   "fee_bps_roundtrip": 0.0,
+  "cost_stack": {
+    "fees": 0.0,
+    "slippage": 5.0,
+    "funding": 0.0,
+    "unit": "bps_roundtrip (funding: bps per funding window)",
+    "source": "comms/strategy_evidence/runs/2026-09-22-r5/qld_trend_long_1d__bt.json"
+  },
+  "net_r_oos_fee_only": 6.9225,
+  "decision_rule": {
+    "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
+    "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
+    "registered_at": "2026-09-22T05:34:08Z",
+    "verdict": "pass"
+  },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-16T19:14:20.608818+00:00",
+  "generated_at": "2026-09-22T09:27:18.361515+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/strategy_evidence_omm3li18/qld_trend_long_1d__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/qld_trend_long_1d__trades.jsonl",
   "error": null,
   "harness": "trend",
   "low_n_warning": "n_trades_oos=3 < 10; the pooled number is reported but is not a basis for a verdict."
