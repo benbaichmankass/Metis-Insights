@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register update only (docs/claude/work/MANAGER-CHECKLIST.json). Records the 12 lanes dispatched 2026-09-24 (E50-E58, D3, A10, B5), re-points D3 off the dropped D1 (R1/E3/R7 are done; 49 of 52 evidence records carry a cost stack), re-registers E43 so #12759 is attributable, and records two operator decisions verbatim: all five proposed process mandates granted; all five ladder mandates granted with MD-PROMOTE-S1-S2 gated on D3. The config/mandates.yaml change itself is lane B5's PR, not this one. No src/, config/, scripts/ or workflow change."
+}
