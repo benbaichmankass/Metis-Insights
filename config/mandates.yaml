@@ -1,0 +1,166 @@
+# config/mandates.yaml — the standing-authorization store (plan item B5)
+#
+# CREATED 2026-09-24. Until this file existed, `CLAUDE.md` asserted that "THE
+# LADDER IS FULLY AUTOMATED ... including promotion to a real-money roster"
+# while the store that would hold a single mandate DID NOT EXIST anywhere in
+# git. Ten files referenced it. `scripts/ops/render_daily_brief.py` was the
+# only honest one -- its line 38 reads "config/mandates.yaml (today: absent --
+# B5 is not built)".
+#
+# THE CONSEQUENCE WAS STRUCTURAL, NOT BEHAVIOURAL, and it is why this file
+# matters more than its length suggests:
+#   * section 1 of the daily brief -- "taken under mandate" -- could only ever
+#     be empty;
+#   * EVERY Tier-2/3 decision necessarily routed to the operator, not by policy
+#     but by the absence of anywhere to record an authorization;
+#   * so a manager could not "ask for a mandate" even when it noticed it should,
+#     because there was no landing place for the answer.
+#
+# ── WHAT A MANDATE IS, AND IS NOT ─────────────────────────────────────────────
+#
+# A mandate is an authorization the OPERATOR grants ONCE, IN ADVANCE, so a
+# recurring decision of a known shape stops being asked. When one fires: a
+# realtime ping, then the evidence record in section 1 of the next brief.
+#
+# ⚠️ A MANDATE IS NOT A THIRD EXECUTION GATE. It does not decide what RUNS --
+# `accounts.yaml::mode` and `strategies.yaml::execution` remain the only two,
+# per CLAUDE.md § "The two execution gates". A mandate decides what may be
+# CHANGED WITHOUT ASKING. Do not let anything here grow into a run/no-run gate.
+#
+# ⚠️ "IF THE EVIDENCE SUPPORTS IT" IS THE ENTIRE SAFETY PROPERTY once nobody is
+# in the path: a committed evidence record, a named harness, a stated n, NET OF
+# THE FULL COST STACK, clearing a rule registered BEFORE the run. A claim in a
+# PR body is not a record.
+#
+# ── SCHEMA ────────────────────────────────────────────────────────────────────
+#
+# Consumers read the top-level `mandates:` list (see
+# scripts/ops/render_daily_brief.py::mandates_view and its test, which uses
+# `- id: ... / grants: ...`). Each granted entry carries:
+#
+#   id:                 stable identifier, MD-<SHORT-NAME>
+#   grants:             what it authorizes, in a word the brief can print
+#   granted_by:         who granted it (an operator, named)
+#   granted_at:         ISO date of the grant
+#   fires_when:         the CONDITION, written so it can be checked rather than
+#                       interpreted. If you cannot write a checkable condition,
+#                       the decision is not ready to be a mandate.
+#   never:              the explicit carve-outs. Every mandate has some.
+#   evidence_required:  what must be committed when it fires.
+#   blocked_until:      optional -- a precondition that must land first.
+#
+# ── THE GRANTED LIST IS DELIBERATELY EMPTY ────────────────────────────────────
+#
+# Nothing below is granted. The five candidates live under `proposed:` where a
+# consumer will NOT read them as authorizations. Moving one into `mandates:` is
+# the operator's act, not a session's.
+#
+# ⚠️ A SESSION MUST NEVER PROMOTE ITS OWN PROPOSAL. Writing an authorization for
+# yourself is the same failure class as a session self-landing a PR that grants
+# its own next PR -- the asymmetry IS the control. A manager proposes here and
+# says so in the daily sync; the operator grants.
+
+mandates: []
+
+# ── PROPOSED, NOT GRANTED ─────────────────────────────────────────────────────
+#
+# Derived from decision shapes that ACTUALLY REPEATED in
+# session_01XQhayAHWdrSYv8jN54P2HH (2026-09-21 -> 24), not invented. CLAUDE.md's
+# rule is "a decision arriving twice in the same shape is raised as 'should this
+# become a mandate?'" -- that manager never raised one across three days and
+# four operator popups, which is the miss this file's existence is meant to stop
+# repeating.
+
+proposed:
+  - id: MD-OBSERVABILITY-IN-A-GATED-PATH
+    grants: land_without_asking
+    proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
+    proposed_at: '2026-09-24'
+    recurrence: 3 times on 2026-09-24 alone (PRs #12738, #12735, #12748)
+    fires_when: >-
+      A PR is complete and CI-green, its landing declaration is held only for
+      tier, and its diff changes NO order path, NO account roster, NO risk cap
+      and NO sizing -- it adds or changes a read surface, a stamp, a column's
+      write timing, or a register.
+    never: >-
+      Never when the diff touches config/accounts.yaml strategies rosters,
+      config/strategies.yaml execution, config/pairs.yaml, any risk cap, or any
+      file under src/ reached by the order path. Tier is declared by
+      pr-landing-guard, and a disagreement resolves to the STRICTER tier.
+    evidence_required: >-
+      The post-merge observation named in the PR body, taken and recorded --
+      not "will verify later".
+
+  - id: MD-DEPLOY-AN-APPROVED-MERGE
+    grants: deploy_and_verify
+    proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
+    proposed_at: '2026-09-24'
+    recurrence: >-
+      Every Tier-2 merge. Asked as a separate question on #12738 when the
+      operator had already said "merge, restart, verify".
+    fires_when: >-
+      A merge the operator already approved needs pull-and-deploy and the
+      post-state read. CLAUDE.md defines Tier 2 as "ship and verify the post
+      state", so the deploy was never a separate decision -- asking again
+      splits one approval into two.
+    never: >-
+      Never a restart-bot-service that races ict-git-sync; use pull-and-deploy
+      so the restart is guaranteed to load the intended commit. Never a deploy
+      of something NOT already approved.
+    evidence_required: >-
+      The deploy run id and wrapper exit code, plus a read of
+      /api/bot/runtime-config showing git_sha containing the merge and
+      reload_state `current`.
+
+  - id: MD-DERISK-ONLY-ROSTER-CUT
+    grants: derisk_only
+    proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
+    proposed_at: '2026-09-24'
+    fires_when: >-
+      A leg on a real-money roster FAILS B1's four-clause evidence bar and the
+      change REMOVES it. Cut only.
+    never: >-
+      NEVER an addition. This exists because CI is asymmetric in the wrong
+      direction: check_dry_run_in_diff.py guards turning a leg OFF and NOTHING
+      guards turning one ON, which CLAUDE.md names as the mechanical cause of
+      the roster going 36 -> 55 while every memo said cut. A mandate that
+      allowed additions would widen exactly the hole.
+    evidence_required: >-
+      The failing evidence record, named harness, stated n, net of the full
+      cost stack.
+
+  - id: MD-STRIP-A-ZERO-MEASURED-LEVER
+    grants: strip_inert_lever
+    proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
+    proposed_at: '2026-09-24'
+    recurrence: E41's shape (gld, qqq trail_decay arms).
+    fires_when: >-
+      A declared lever measures EXACTLY zero reach over a population above a
+      registered floor, and removing it changes no live order-path behaviour.
+    never: >-
+      Never a lever measuring small-but-nonzero; never one whose population is
+      below the registered floor; never one on a leg whose evidence record is
+      unreadable or cites a source_run absent from the repo.
+    evidence_required: >-
+      The reachability record with its population stated, and the regenerated
+      evidence record -- regenerated by the harness, never hand-edited.
+
+  - id: MD-PREFER-THE-VERIFIABLE-SIDE
+    grants: resolve_stale_branch_conflict
+    proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
+    proposed_at: '2026-09-24'
+    recurrence: >-
+      The #12737 near-miss, where a stale branch would have imported an
+      unverifiable measurement into the promotion corpus through an ordinary
+      merge conflict.
+    fires_when: >-
+      A merge conflict in comms/strategy_evidence/ or a measurement register
+      where ONE side cites a source_run that does not exist in the repo and the
+      other cites one that does, with a row count matching its stated n.
+    never: >-
+      Never when BOTH sides are verifiable -- that is a real disagreement and
+      goes to the operator. Never hand-edit a record's numbers to match a
+      config; regenerate or escalate.
+    evidence_required: >-
+      The ls-tree output showing which source_run exists, and the row count of
+      the surviving side's trades file against its stated n.
