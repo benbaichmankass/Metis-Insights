@@ -80,13 +80,24 @@ def test_credentials_and_category_resolved_per_account(accounts_yaml):
         secret_env="BYBIT_API_SECRET_1",
         category="linear",
         symbols=("BTCUSDT", "ETHUSDT"),
+        # E70: a second, optional sub-account credential pair, ALWAYS derived
+        # by naming convention (never a config/accounts.yaml field) — see
+        # BybitFillAccount's docstring.
+        key_env_sub="BYBIT_API_KEY_1_SUB",
+        secret_env_sub="BYBIT_API_SECRET_1_SUB",
     )
     # portfolio uses BYBIT_API_KEY_3 → BYBIT_API_SECRET_3.
     assert by_id["bybit_portfolio"].secret_env == "BYBIT_API_SECRET_3"
     assert by_id["bybit_portfolio"].symbols == ("BTCUSDT", "XRPUSDT")
+    assert by_id["bybit_portfolio"].key_env_sub == "BYBIT_API_KEY_3_SUB"
+    assert by_id["bybit_portfolio"].secret_env_sub == "BYBIT_API_SECRET_3_SUB"
     # spot market_type resolves category "spot"; explicit api_secret_env wins.
     assert by_id["bybit_spot"].category == "spot"
     assert by_id["bybit_spot"].secret_env == "MY_EXPLICIT_SECRET"
+    # bybit_2 (real money, the account this feature exists for): the derived
+    # sub-account names match the convention documented on the dataclass.
+    assert by_id["bybit_2"].key_env_sub == "BYBIT_API_KEY_2_SUB"
+    assert by_id["bybit_2"].secret_env_sub == "BYBIT_API_SECRET_2_SUB"
 
 
 def test_missing_config_returns_empty(tmp_path):

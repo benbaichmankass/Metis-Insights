@@ -41,6 +41,19 @@ class BybitFillAccount:
     coverage: they were enumerated, dialled on the wrong host, and failed 100%
     of every run (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED). Enumerating an
     account is not the same as being able to reach it.
+
+    ``key_env_sub`` / ``secret_env_sub`` (E70, 2026-09-24) name a SECOND,
+    OPTIONAL credential pair by convention (``<key_env>_SUB`` /
+    ``<secret_env>_SUB``) for an account whose Bybit trading history spans
+    TWO distinct sub-account UIDs — a single API key belongs to one UID and
+    cannot see the other's transaction log (BL-20260831, ``bybit_2``: the
+    live wallet-truth pull reproduces one sub-account, ``MAIN -1.52``, to the
+    cent, and cannot see the other, ``SUB -261.01``). These names are ALWAYS
+    populated (no ``config/accounts.yaml`` schema change — the convention is
+    derived, not declared), so an account with no second key simply never has
+    those env vars set; the puller checks presence and no-ops if absent. This
+    keeps the capability entirely in ``src/``/``scripts/`` rather than adding a
+    Tier-3 ``config/accounts.yaml`` surface for a credential NAME.
     """
 
     account_id: str
@@ -49,6 +62,8 @@ class BybitFillAccount:
     category: str
     symbols: tuple[str, ...]
     demo: bool = False
+    key_env_sub: str = ""
+    secret_env_sub: str = ""
 
 
 def _secret_env_for(key_env: str) -> str:
@@ -120,6 +135,8 @@ def live_bybit_fill_accounts(
                 category=category,
                 symbols=symbols,
                 demo=account_is_demo(cfg),
+                key_env_sub=f"{key_env}_SUB",
+                secret_env_sub=_secret_env_for(f"{key_env}_SUB"),
             )
         )
     return out
