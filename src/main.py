@@ -7,6 +7,12 @@ import time
 
 from dotenv import load_dotenv
 
+from src.config.symbol_sets import (  # noqa: E402
+    EXCHANGE_DEFAULT_SYMBOL,
+    load_strategies_cfg,
+    UNION,
+    resolve_symbols,
+)
 from src.exchange.bybit_connector import BybitConnector
 from src.runtime.heartbeat import write_heartbeat
 from src.runtime.outcomes import Level, report
@@ -676,10 +682,14 @@ def _run_symbol_tick(settings: dict, exchange_client, telegram_client) -> dict:
 # Per-exchange default instrument when a configured account omits the
 # ``symbols`` field in accounts.yaml. Keeps an account trading its natural
 # instrument rather than nothing.
-_EXCHANGE_DEFAULT_SYMBOL = {
-    "bybit": "BTCUSDT",
-    "interactive_brokers": "MES",
-}
+#
+# RE-EXPORT, NOT A SECOND COPY (E42): the values live in
+# ``src.config.symbol_sets.EXCHANGE_DEFAULT_SYMBOL`` with the resolver that
+# applies them. The name is kept because `tests/test_ib_sizing_and_data.py`
+# and `tests/test_roster_symbol_union.py` import it, and because a duplicated
+# literal here is precisely the four-private-copies shape this change exists
+# to remove.
+_EXCHANGE_DEFAULT_SYMBOL = EXCHANGE_DEFAULT_SYMBOL
 
 
 def _strategy_config_for_symbols() -> dict:
@@ -765,7 +775,7 @@ def _resolve_tick_symbols(settings: dict) -> list:
     try:
         from src.units.accounts import load_accounts
 
-        strategies_cfg = _strategy_config_for_symbols()
+        strategies_cfg = load_strategies_cfg()
         seen: set = set()
         out: list = []
         if primary:
@@ -777,16 +787,24 @@ def _resolve_tick_symbols(settings: dict) -> list:
             strategies = getattr(acct, "strategies", None)
             if strategies is not None and len(strategies) == 0:
                 continue  # explicit opt-out — account trades nothing
-            syms = list(getattr(acct, "symbols", None) or [])
-            if not syms:
-                default = _EXCHANGE_DEFAULT_SYMBOL.get(
-                    str(getattr(acct, "exchange", "") or "").lower()
-                )
-                syms = [default] if default else []
-            # ADDITIVE, never subtractive: the roster's own symbols join the
-            # declared ones. Appended AFTER them so the declared list keeps
-            # its ordering and this can only ever lengthen the result.
-            syms = syms + _symbols_for_account(acct, strategies_cfg)
+            # MODE: UNION — flipped here by PR #12736 on the operator's Tier-2
+            # approval, 2026-09-24. The roster is the single source of truth for
+            # what trades, so the tick fetches UNION(roster-implied, declared)
+            # and a leg can no longer trade against a stale pull list.
+            # ⚠️ ORDERING, and it is load-bearing: #12748 landed first
+            # (efb150cf3) so every data reader — the Bybit position and order
+            # cross-checks, the funding puller, the IB venue session — was
+            # ALREADY union-aware before this flip. Without that, this line
+            # would turn 'the leg does not trade' into 'the leg TRADES while
+            # the naked-position cross-check cannot see it', which is the
+            # window the operator explicitly declined.
+            syms = resolve_symbols(
+                declared=getattr(acct, "symbols", None),
+                roster=getattr(acct, "strategies", None),
+                mode=UNION,
+                strategies_cfg=strategies_cfg,
+                exchange=getattr(acct, "exchange", None),
+            )
             for s in syms:
                 s = str(s).strip()
                 if s and s not in seen:

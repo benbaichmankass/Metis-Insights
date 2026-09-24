@@ -5,11 +5,21 @@ dashboard's Settings tab. Tier 1 (no session — see
 ``docs/api-tier-policy.md``).
 
 Reads ``config/accounts.yaml`` and ``config/strategies.yaml`` directly
-from disk and overlays the live per-account dry/live state from
+from disk and overlays the per-account dry/live state from
 ``runtime_logs/runtime_status.json`` (which the pipeline writes per
 tick — see ``src/web/runtime_status.py``). The web API process and
 the pipeline process are separate; the runtime-status file is the
-only signal the API has into Telegram-driven runtime overrides.
+only channel between them.
+
+⚠️ **THIS ENDPOINT IS LAYER 5 OF THE VERIFICATION MAPPING — THE FILE — AND
+UNTIL 2026-09-22 ITS ``note`` CLAIMED OTHERWISE.** The note read
+*"live_per_account is the pipeline's runtime view"*. It is not: the pipeline
+computes that value by re-parsing ``config/accounts.yaml``, so it reports the
+file, exactly as the honestly-named ``yaml_mode`` does. The field name was
+right and the prose was wrong (*field beats comment*). Corrected under E31;
+the missing capability was then BUILT rather than the claim merely deleted —
+``GET /api/bot/runtime-config`` is layer 4, the state the process holds. See
+``docs/reference/verifying-what-is-trading.md``.
 
 **Secret handling.** Allowlist for accounts (we only surface fields
 in ``_ACCOUNT_PUBLIC_FIELDS``) and recursive denylist for
@@ -255,10 +265,15 @@ def build_config(
             "halted": os.path.exists(h_path),
             "live_per_account": live_per_account,
             "note": (
-                "yaml_mode is the static config; live_per_account is the "
-                "pipeline's runtime view (per-account mode flips via the "
-                "set-account-mode system-action land here — the only "
-                "sanctioned mode-write wire). Empty when the pipeline "
+                "BOTH FIELDS REPORT THE FILE ON THIS VM, NOT THE RUNNING "
+                "PROCESS. yaml_mode is config/accounts.yaml::mode read by "
+                "this API; live_per_account is the same field read by the "
+                "trading process (src/web/runtime_status.py::"
+                "_read_live_per_account parses config/accounts.yaml on every "
+                "tick). The pipeline WRITING it is not the pipeline USING it. "
+                "For the gates the process actually holds — and whether the "
+                "file has moved since it loaded them — call "
+                "GET /api/bot/runtime-config (E31). Empty when the pipeline "
                 "hasn't written a status snapshot yet."
             ),
         },

@@ -78,6 +78,14 @@ def live_bybit_fill_accounts(
     nothing rather than crashing.
     """
     out: list[BybitFillAccount] = []
+    # Loaded ONCE for the whole sweep rather than per account: it is the same
+    # file for every row, and re-reading it per account turns a config read
+    # into an N-times-per-sweep cost for no benefit.
+    try:
+        from src.config.symbol_sets import load_strategies_cfg
+        _strategies_cfg = load_strategies_cfg()
+    except Exception:  # noqa: BLE001  — FAIL-SAFE, and only in the widening direction: {} makes UNION degrade to DECLARED, never narrower
+        _strategies_cfg = {}
     for account_id, cfg in load_accounts_dict(path).items():
         if str(cfg.get("exchange", "")).lower() != "bybit":
             continue
@@ -86,8 +94,24 @@ def live_bybit_fill_accounts(
         key_env = str(cfg.get("api_key_env") or "BYBIT_API_KEY")
         secret_env = str(cfg.get("api_secret_env") or _secret_env_for(key_env))
         category = "linear" if str(cfg.get("market_type", "")).lower() == "linear" else "spot"
-        raw_symbols = cfg.get("symbols") or []
-        symbols = tuple(str(s) for s in raw_symbols) if isinstance(raw_symbols, list) else ()
+        # MODE: UNION (E42). Bybit serves funding PER CONTRACT and
+        # `pull_exchange_funding.py` passes this tuple straight through, so a
+        # rostered symbol missing from the declared pull list accrues funding
+        # this sweep never pulls — and the cost stack is then wrong, by an
+        # unmeasured amount, on a leg that is genuinely trading. Degrades to
+        # the declared list (never to empty) if the resolver cannot load.
+        try:
+            from src.config.symbol_sets import UNION, resolve_symbols
+            resolved = resolve_symbols(
+                declared=cfg.get("symbols"),
+                roster=cfg.get("strategies"),
+                mode=UNION,
+                strategies_cfg=_strategies_cfg,
+            )
+        except Exception:  # noqa: BLE001  — FAIL-SAFE: falls back to the declared list below, which IS the pre-E42 behaviour, so a resolver fault cannot narrow the sweep
+            raw = cfg.get("symbols") or []
+            resolved = [str(x) for x in raw] if isinstance(raw, list) else []
+        symbols = tuple(resolved)
         out.append(
             BybitFillAccount(
                 account_id=str(account_id),

@@ -132,6 +132,40 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_roster_symbol_reachability.py"],
         ],
     },
+    {
+        # E42 — ONE definition of "which symbols does this account concern".
+        # Five sites derived it privately; four were known and the fifth
+        # (`account_ib_venue_session`) was found by this very self-test's
+        # bypass control rather than by reading.
+        #
+        # The self-test is the guard: it carries the planted bypass (both
+        # directions, plus a verified-not-presence-only exemption) and asserts
+        # over the REAL config that DECLARED and UNION still agree — so the day
+        # a roster and a pull list diverge, CI says so instead of a data sweep
+        # quietly skipping a symbol that is trading.
+        "name": "symbol-resolver-guard",
+        "when": {"globs": [
+            "src/config/symbol_sets.py",
+            "scripts/ci/check_symbol_resolver.py",
+            "src/main.py",
+            "src/units/accounts/clients.py",
+            "src/runtime/exchange_accounts.py",
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+        ]},
+        # Invoked by PATH, not `-m`: `-m src.config.symbol_sets` makes the
+        # MODULE the registry's "runner", and every runner needs a
+        # RUNNER_REMEDY entry answering "what does the operator install?"
+        # — a question repo code has no true answer to
+        # (`tests/ci/test_run_guards_runner_absent.py` caught that). And the
+        # CONTROLS live in this script rather than in the module, because a
+        # file that claims coverage in this registry while asserting nothing
+        # itself is the presence-only marker `new-table-wiring-guard` already
+        # cost us (`check_guard_selftest_coverage.py` caught THAT). Both
+        # corrections are written up in the script's own docstring.
+        "steps": [["python3", "scripts/ci/check_symbol_resolver.py",
+                   "--self-test"]],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
@@ -1367,6 +1401,37 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_guard_liveness.py", "--self-test"],
             ["python3", "scripts/ci/check_guard_liveness.py"],
+        ],
+    },
+    {
+        "name": "research-results-guard",
+        # Fires on the store, on the schema owner, on the guard itself and on
+        # the producing surfaces. The OWNER is in the trigger set deliberately
+        # (same posture as risk-basis-agreement): changing what a result MUST
+        # carry has to re-grade every committed record, which is the direction
+        # the drift actually travels.
+        "when": {"globs": [
+            "research/results/**",
+            "scripts/research/research_result.py",
+            "scripts/research/exit_head_result.py",
+            "scripts/research/m20_sweep_result.py",
+            "scripts/ci/check_research_results.py",
+            ".github/actions/research-result/action.yml",
+        ]},
+        # SELF-TESTS FIRST, and all three of them, because each owns a
+        # different failure path and a green from one says nothing about the
+        # others: the SCHEMA refuses a collapsed verdict/read_state, the two
+        # MAPPINGS refuse to hand the schema something it would reject, and the
+        # GUARD catches a record filed under the wrong unit — which is
+        # admissible to the schema and still unfindable. A guard that reports a
+        # clean scan needs an exercised failure path, or "0 problems" cannot be
+        # told from "stopped matching".
+        "steps": [
+            ["python3", "scripts/research/research_result.py", "--self-test"],
+            ["python3", "scripts/research/exit_head_result.py", "--self-test"],
+            ["python3", "scripts/research/m20_sweep_result.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_results.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_results.py"],
         ],
     },
     {
