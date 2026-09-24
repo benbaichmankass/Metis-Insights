@@ -757,7 +757,21 @@ def slot_claim_state(root: Path, base: str, branch: str) -> tuple[bool, str]:
 
     path = root / SESSION_BOARD
     if not path.exists():
-        return (False, f"{SESSION_BOARD} does not exist")
+        # ⚠️ E51, 2026-09-24: the legacy file is PERMANENTLY absent post-reset
+        # (archived under docs/archive/2026-09-21-operating-reset/registers/,
+        # CLAUDE.md says do not resurrect it), so this branch now fires on
+        # EVERY failed claim attempt. Discarding `branch_detail` here used to
+        # bury the real reason the per-branch route failed behind a dead
+        # path's absence — the reader saw only "session-board.json does not
+        # exist" with no way to act on it. Keep the real reason, and name the
+        # route that actually works instead of implying this dead file should
+        # be recreated.
+        return (False, f"{branch_detail}. (The legacy {SESSION_BOARD} route is "
+                       f"RETIRED by the 2026-09-21 operating reset and must not "
+                       f"be resurrected — its absence is not itself the problem.) "
+                       f"Write {_branch_slot_rel(branch)} instead: "
+                       f"`python3 scripts/ops/claim_merge_slot.py --branch-claim "
+                       f"--branch {branch} --held-by <session>`")
     if not _added_or_modified(root, base, SESSION_BOARD):
         return (False, f"neither route was taken: {branch_detail}, and "
                        f"{SESSION_BOARD} is unchanged from `{base}` — this branch "
@@ -1316,7 +1330,7 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
             if not ok:
                 fails.append(
                     f"R13 {decl_rel} arms the landing route while this branch does "
-                    f"not hold the merge slot in {SESSION_BOARD}: {detail}. Arming "
+                    f"not hold the merge slot: {detail}. Arming "
                     f"is not a request to merge, it IS the merge — "
                     f"`claude-pr-automerge.yml` enables auto-merge and GitHub lands "
                     f"the PR on green with no further act by anybody. "
@@ -1333,9 +1347,12 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                     f"one; it does NOT serialize — a committed claim reaches no "
                     f"other session until this branch merges, "
                     f"BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE.) "
-                    f"Set `merge_slot` "
-                    f"in {SESSION_BOARD} to this branch (`held_by`, `branch`, "
-                    f"`claimed_at`) and commit it alongside the arming file. "
+                    f"Fix: `python3 scripts/ops/claim_merge_slot.py --branch-claim "
+                    f"--branch {branch} --held-by <session>` writes "
+                    f"{_branch_slot_rel(branch)} — commit it alongside the arming "
+                    f"file. (The legacy `merge_slot` field in {SESSION_BOARD} is "
+                    f"RETIRED by the 2026-09-21 operating reset; that file must "
+                    f"not be resurrected.) "
                     + _board_claim_sentence())
     else:  # landing == "hold"
         # R10 — the bite.
@@ -1667,6 +1684,43 @@ def self_test() -> int:
                 bad += 1
             else:
                 print(f"self-test: positive control '{name}' passes (state={state})")
+
+    # ---- E51 (2026-09-24): R13's remedy must not dead-end on the archived
+    # docs/claude/session-board.json. Before this fix, `slot_claim_state`
+    # discarded the branch route's own failure `detail` the moment
+    # `SESSION_BOARD` was absent, and returned only "<path> does not exist" —
+    # a message with no performable remedy, since CLAUDE.md forbids
+    # resurrecting that file. On the real repo this is not a corner case: the
+    # file has been permanently absent since the 2026-09-21 reset, so this
+    # branch fires on EVERY failed claim attempt.
+    with tempfile.TemporaryDirectory() as td:
+        root = _sandbox(Path(td), tier1_only=True)
+        (root / SESSION_BOARD).unlink()  # simulate the archived (real-repo) state
+        _commit(root)
+        ok, detail = slot_claim_state(root, "main", "claude/demo")
+        if ok:
+            print("::error::self-test FAILED — E51: slot_claim_state reported "
+                  "TRUE with no claim of any kind on the branch.")
+            bad += 1
+        elif SESSION_BOARD in detail and "RETIRED" not in detail:
+            print(f"::error::self-test FAILED — E51: with {SESSION_BOARD} "
+                  f"absent, the failure detail still points at it as if it "
+                  f"were a route to satisfy, not a retired one: {detail!r}")
+            bad += 1
+        elif "claim_merge_slot.py --branch-claim" not in detail:
+            print(f"::error::self-test FAILED — E51: the failure detail names "
+                  f"no performable remedy: {detail!r}")
+            bad += 1
+        elif ".github/merge-slots" not in detail:
+            print(f"::error::self-test FAILED — E51: the branch route's own "
+                  f"failure reason (why {_branch_slot_rel('claude/demo')} is "
+                  f"absent) was dropped from the message: {detail!r}")
+            bad += 1
+        else:
+            print("self-test: E51 — R13's remedy on a permanently-archived "
+                  "session-board.json names the live branch-claim route and "
+                  "keeps the branch route's own failure reason "
+                  f"(detail={detail!r})")
 
     # ---- E57: research landing surfaces ------------------------------------
     # Each case is (name, branch-side edit to the queue unit or None, extra
