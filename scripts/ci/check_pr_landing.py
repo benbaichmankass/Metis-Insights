@@ -1708,8 +1708,10 @@ def self_test() -> int:
             g("checkout", "-q", "main")
             (root / "research/queue").mkdir(parents=True, exist_ok=True)
             (root / "research/queue/RQ-SELFTEST-001.yaml").write_text(_unit, encoding="utf-8")
-            g("add", "-A"); g("commit", "-qm", "seed a queue unit")
-            g("checkout", "-q", "claude/demo"); g("merge", "-q", "--no-edit", "main")
+            g("add", "-A")
+            g("commit", "-qm", "seed a queue unit")
+            g("checkout", "-q", "claude/demo")
+            g("merge", "-q", "--no-edit", "main")
             if unit_edit is not None:
                 (root / "research/queue/RQ-SELFTEST-001.yaml").write_text(
                     unit_edit, encoding="utf-8")

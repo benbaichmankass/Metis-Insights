@@ -1,0 +1,134 @@
+name: research-loss-detector
+
+# E57 (2026-09-24) — a research result that did not reach `main` must be
+# impossible to miss, and the check must not depend on a manager session being
+# alive to ask. Operator directive, verbatim: "this is a serious gap that needs
+# to be fully resolved - not only rerunning tests whose results were lost, but
+# ensuring we have a mechanism in place to prevent research from being lost".
+#
+# WHAT IT ASKS (scripts/ops/research_loss_detector.py owns the logic and the
+# populations; this file only schedules, alerts and lands the receipt):
+#   A. open `automation/*` research PRs older than 6h (stuck, not landed)
+#   B. runs of every workflow calling ./.github/actions/research-result whose
+#      record is not on main (derived from the tree, not a hand list)
+#   C. research-workflow artifacts expiring within 72h with no landed copy
+#
+# COLLAPSED STATES. "The detector could not look" is NEVER "nothing lost":
+#   * a question it could not read ALERTS, and fails this run;
+#   * the detector not running at all is caught by the RECEIPT. Every run lands
+#     docs/claude/work/RESEARCH-LOSS-RECEIPT.json on main, and
+#     scripts/ci/check_cadence_liveness.py grades its age on EVERY PR — so a
+#     detector that stops firing reds CI within three missed windows instead of
+#     going quiet. That is why the receipt is committed, not uploaded.
+#
+# ALERTS go to the operator channel over the same TELEGRAM_BOT_TOKEN /
+# TELEGRAM_CHAT_ID path `guards.yml` and `claude-run-failure-alert.yml` use.
+# It alerts on findings and on could-not-read; a clean run is silent and its
+# receipt is the evidence it ran.
+#
+# BLAST RADIUS. Reads the PR list, Actions runs/jobs/artifacts and git; writes
+# ONE receipt file through commit-to-main. It never merges, closes, re-runs or
+# comments on anything. Tier-1: no order path, no config, no src/, no VM.
+
+on:
+  schedule:
+    - cron: "23 6,18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: research-loss-detector
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    # MUST OUTLAST commit-to-main's verify-merged wait (30m default).
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: question C searches commit messages on main for the
+          # run ids of expiring artifacts. A shallow clone would report every
+          # older landing as "no landed copy".
+          fetch-depth: 0
+          # REQUIRED by commit-to-main: a PR pushed with GITHUB_TOKEN never
+          # receives its required checks, so the receipt would never land.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run the detector
+        id: detect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          git fetch --no-tags origin main
+          # NOT `set -e` around the detector: exit 1 (findings) and 2 (could
+          # not read) are ANSWERS, and the receipt + alert below must still
+          # happen for both. The code is carried forward and graded at the end.
+          python3 scripts/ops/research_loss_detector.py \
+            --ref origin/main --write-receipt --alert-out /tmp/research-loss-alert.txt \
+            | tee /tmp/research-loss.txt
+          rc=${PIPESTATUS[0]}
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### research-loss-detector (exit ${rc})"
+            echo '```'
+            cat /tmp/research-loss.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Alert the operator channel
+        if: always() && steps.detect.outputs.rc != '0'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RC: ${{ steps.detect.outputs.rc }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "::error::Telegram secrets not configured — a research-loss alert could NOT be delivered."
+            exit 1
+          fi
+          if [ -s /tmp/research-loss-alert.txt ]; then
+            MSG="$(cat /tmp/research-loss-alert.txt)"
+          else
+            MSG="🔴 RESEARCH LOSS DETECTOR exited ${RC} and wrote no alert text — the detector itself broke. Not 'nothing lost'."
+          fi
+          MSG="${MSG}
+          ${RUN_URL}"
+          # --fail: a rejected send is a FAILED step, not a quiet one.
+          curl -sS --fail --max-time 30 -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MSG}" > /dev/null
+
+      - name: Land the receipt on main
+        if: always() && steps.detect.outputs.rc != ''
+        uses: ./.github/actions/commit-to-main
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/RESEARCH-LOSS-RECEIPT.json
+          message: "chore(research): research-loss-detector receipt for run ${{ github.run_id }}"
+          pr-title: "chore(research): research-loss-detector receipt (auto)"
+          pr-body: >-
+            Automated receipt from research-loss-detector (run ${{ github.run_id }}).
+            Its age is graded by check_cadence_liveness.py, so a detector that
+            stops running reds CI rather than going quiet.
+          branch-prefix: automation/research-loss-receipt
+          verify-merged: "true"
+
+      - name: A question it could not read fails the run
+        if: always() && steps.detect.outputs.rc == '2'
+        run: |
+          echo "::error::research-loss-detector could not read at least one question — see the summary. This is NOT a clean result."
+          exit 1

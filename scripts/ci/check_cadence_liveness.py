@@ -181,6 +181,16 @@ CADENCE_REGISTRY: dict[str, dict] = {
         "why": "commits its own watch file back to main, so the last commit "
                "touching it IS the receipt — no new artifact needed",
     },
+    # ── E57 (2026-09-24): the research loss detector. Its receipt is written
+    #    by the detector itself on every run and landed through commit-to-main,
+    #    so a detector that stops firing goes STALE here and reds CI rather
+    #    than leaving "no alert" to be read as "nothing lost".
+    "research-loss-detector.yml": {
+        "receipt": "docs/claude/work/RESEARCH-LOSS-RECEIPT.json",
+        "why": "the detector writes the receipt on every run and commits it "
+               "back through commit-to-main; the last commit touching it IS "
+               "the receipt",
+    },
     # ── workflows that COMMIT BACK, so a receipt is derivable from git and
     #    just has not been declared yet. Measured 2026-09-22: 9 of the 18
     #    scheduled workflows contain a commit-to-main / git push step. Naming
