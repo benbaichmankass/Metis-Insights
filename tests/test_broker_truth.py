@@ -98,3 +98,71 @@ def test_committed_ledger_is_valid():
     assert s["present"] is True
     assert s["count"] == 1
     assert s["accounts"][0]["realized_usd"] == -262.52
+
+
+# --------------------------------------------------------------- staleness
+# This ledger has no scheduled producer — it is upserted only by a reviewed
+# `reconcile_netting_pnl.py --emit-ledger` run from an operator export — so
+# `as_of_age_days` / `stale` are the only signal a reader gets that
+# `realized_usd` may no longer reflect the account (E70, 2026-09-24: bybit_2's
+# own `as_of` sat at 2026-07-13, 73 days stale, with nothing in the API shape
+# saying so).
+
+def test_fresh_record_is_not_stale(tmp_path):
+    import datetime as dt
+    p = _write(tmp_path, {"accounts": [
+        {"account_id": "bybit_2", "realized_usd": -262.52, "as_of": "2026-07-13"},
+    ]})
+    now = dt.datetime(2026, 7, 20, tzinfo=dt.timezone.utc)  # 7 days later
+    rec = broker_truth.summarize_broker_truth(p, account_id="bybit_2", now=now)["accounts"][0]
+    assert rec["as_of_age_days"] == 7
+    assert rec["stale"] is False
+
+
+def test_record_older_than_the_threshold_is_stale(tmp_path):
+    import datetime as dt
+    p = _write(tmp_path, {"accounts": [
+        {"account_id": "bybit_2", "realized_usd": -262.52, "as_of": "2026-07-13"},
+    ]})
+    now = dt.datetime(2026, 9, 24, tzinfo=dt.timezone.utc)  # 73 days later
+    rec = broker_truth.summarize_broker_truth(p, account_id="bybit_2", now=now)["accounts"][0]
+    assert rec["as_of_age_days"] == 73
+    assert rec["stale"] is True
+    assert broker_truth.STALE_THRESHOLD_DAYS < 73
+
+
+def test_iso_timestamp_as_of_is_also_aged(tmp_path):
+    """`as_of` is either a bare date or an ISO timestamp (both appear in the repo)."""
+    import datetime as dt
+    p = _write(tmp_path, {"accounts": [
+        {"account_id": "bybit_2", "realized_usd": -1.0, "as_of": "2026-07-13T00:00:00Z"},
+    ]})
+    now = dt.datetime(2026, 7, 15, tzinfo=dt.timezone.utc)
+    rec = broker_truth.summarize_broker_truth(p, account_id="bybit_2", now=now)["accounts"][0]
+    assert rec["as_of_age_days"] == 2
+
+
+def test_missing_or_garbled_as_of_is_unknown_age_not_fresh(tmp_path):
+    """An unknown age must never collapse into `stale: False` — that would read
+    as a clean bill of health for a figure whose age nobody could establish."""
+    p = _write(tmp_path, {"accounts": [
+        {"account_id": "no_as_of", "realized_usd": 1.0},
+        {"account_id": "bad_as_of", "realized_usd": 2.0, "as_of": "not-a-date"},
+    ]})
+    s = broker_truth.summarize_broker_truth(p)
+    for rec in s["accounts"]:
+        assert rec["as_of_age_days"] is None
+        assert rec["stale"] is None
+
+
+def test_committed_ledger_is_now_stale():
+    """RULE ONE, run against the live committed artifact rather than asserted:
+    bybit_2's broker-truth as_of is 2026-07-13 with no scheduled refresh, so as
+    of any `now` after the threshold this must read `stale: True`, not silently
+    pass as current."""
+    import datetime as dt
+    now = dt.datetime(2026, 9, 24, tzinfo=dt.timezone.utc)
+    rec = broker_truth.summarize_broker_truth(account_id="bybit_2", now=now)["accounts"][0]
+    assert rec["as_of"] == "2026-07-13"
+    assert rec["as_of_age_days"] == 73
+    assert rec["stale"] is True
