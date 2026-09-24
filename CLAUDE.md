@@ -224,13 +224,31 @@ and then a 30-minute floor; both were rejected — *"it takes however long it
 takes… I don't want us tracking an arbitrary time limit to measure
 performance."* **Do not report session length as a metric.**
 
-**THE LADDER IS FULLY AUTOMATED — operator grant, 2026-09-21.** Every ladder
-transition, both gates and both directions, fires on evidence with no human in
-the path — **including promotion to a real-money roster**. A **mandate** is an
+**THE LADDER IS AUTHORIZED TO BE FULLY AUTOMATED — operator grant,
+2026-09-21 — AND AS OF 2026-09-24 NOT ONE MANDATE IS GRANTED, SO IN PRACTICE
+EVERY TRANSITION STILL ROUTES TO A HUMAN.** The grant stands; what is missing is
+the mechanism, and the two must not be read as one. A **mandate** is an
 authorization granted once, in advance, in `config/mandates.yaml`. When one
 fires: a realtime ping, then the evidence record in section 1 of the next
 brief. A decision arriving twice in the same shape is raised as *"should this
 become a mandate?"*
+
+⚠️ **This paragraph read "THE LADDER IS FULLY AUTOMATED … with no human in the
+path — including promotion to a real-money roster" from 2026-09-21 until
+2026-09-24, and that was FALSE IN THE FIELD the whole time**: `config/mandates.yaml`
+did not exist anywhere in git, so there was nowhere to record an authorization
+and section 1 of the brief — *"taken under mandate"* — could only ever be empty.
+Ten files referenced the path; only `scripts/ops/render_daily_brief.py` was
+honest about it (*"today: absent — B5 is not built"*). **The store now exists
+with an empty `mandates:` list and five PROPOSED entries the operator has not
+granted.** Corrected rather than quietly fixed because the failure is the one
+this repo pays for most — a doc describing a mechanism that does not exist, read
+as a description of one that does. *Field beats comment.*
+
+⚠️ **A session may PROPOSE a mandate; only the operator GRANTS one.** Moving an
+entry from `proposed:` into `mandates:` is the operator's act. A session writing
+its own authorization is the same failure class as self-landing a PR that grants
+its own next PR — the asymmetry IS the control.
 
 ⚠️ **"If the evidence supports it" is the entire safety property** once nobody
 is in the path: a committed evidence record, named harness, stated n, **net of
