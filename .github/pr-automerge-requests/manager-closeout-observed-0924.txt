@@ -1,0 +1,13 @@
+Arm the self-land route for claude/manager-closeout-observed-0924.
+
+Tier 1, register-only (MANAGER-CHECKLIST.json + PIPELINE.jsonl). Declared in
+.github/pr-landing/manager-closeout-observed-0924.json; slot claimed via the
+per-branch route in .github/merge-slots/.
+
+ORDERING IS DELIBERATE. This file is pushed AFTER PR #12799 was opened and
+un-drafted, not before. Pushing the arming file first is what produced the
+#12764 race (the workflow's find-or-open ran pulls.list before the PR existed),
+and a PR opened by claude-pr-automerge receives no required checks until
+something is pushed to it afterwards -- PI-20260923-JN54P2HH-0002, measured
+across all six PRs this session opened through that route. This push is that
+something: it arms the route and attaches the required suite in one act.
