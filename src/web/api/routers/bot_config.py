@@ -77,11 +77,20 @@ _HALT_FLAG_PATH = None
 
 # Account fields the endpoint is allowed to surface. Anything outside
 # this set (notably ``api_key_env`` / ``api_secret_env``) is dropped.
-# ``symbols`` (2026-06-11): the per-account instrument list is the
-# canonical "what does the system trade" enumeration — consumers
+# ``symbols`` (2026-06-11): the per-account DATA-PULL list — consumers
 # (the Svelte SPA — the only live consumer since 2026-09-01) derive their symbol selectors from
 # it instead of hardcoding, so a new instrument shows up without an app
 # change.
+# ⚠️ CORRECTED 2026-09-22 (E42): this comment used to call it "the canonical
+# 'what does the system trade' enumeration". It is not, and reading it that way
+# is what made it a de-facto execution gate for four months. ``strategies`` is
+# the roster and is the single source of truth for what trades; ``symbols`` is
+# an ADDITIVE pull list that legitimately names instruments no leg trades (21
+# such entries on 2026-09-22). A selector built from it is therefore a
+# SUPERSET of the traded set, and a rostered symbol absent from it is a bug in
+# the pull list — never a reason the leg does not trade.
+# The field name is kept deliberately: renaming it would break the SPA, which
+# reads it from this endpoint and lives in another repo.
 _ACCOUNT_PUBLIC_FIELDS = frozenset({
     "type", "exchange", "market_type", "strategies", "symbols", "risk",
     "enabled",
