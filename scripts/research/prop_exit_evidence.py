@@ -35,6 +35,9 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 sys.path.insert(0, str(REPO / "scripts" / "research"))
 import regime_debt_matrix as rdm  # noqa: E402
+# Percentiles are IMPORTED, never re-derived (RESEARCH-CAPABILITY-INDEX: two
+# definitions of p80 drift silently). Nearest-rank, no interpolation.
+from m31_mfe_parity import _pct  # noqa: E402
 import importlib.util as _ilu  # noqa: E402
 
 # Load the CANONICAL harness by path: a bare `import backtest_trend` resolves to
@@ -94,15 +97,6 @@ def _strip_pairs(argv: List[str], flags: set) -> List[str]:
 
 def _strip(argv: List[str]) -> List[str]:
     return _strip_pairs(argv, _EXIT_FLAGS)
-
-
-def _pct(xs: List[float], q: float) -> Optional[float]:
-    if not xs:
-        return None
-    s = sorted(xs)
-    k = (len(s) - 1) * q
-    lo, hi = int(k), min(int(k) + 1, len(s) - 1)
-    return round(s[lo] + (s[hi] - s[lo]) * (k - lo), 3)
 
 
 def _walk(df: pd.DataFrame, idx: Dict[pd.Timestamp, int], t: Dict[str, Any]) -> Dict[str, Any]:
@@ -230,7 +224,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                                "--emit-trades", emit, "--json", jout]
             _run(argv_g)
             bt = json.load(open(jout))
-            trades = [json.loads(l) for l in open(emit) if l.strip()]
+            trades = [json.loads(ln) for ln in open(emit) if ln.strip()]
             mism = 0
             for t in trades:
                 w = _walk(df, idx, t)
@@ -328,13 +322,13 @@ def decide(res: Dict[str, Any]) -> Dict[str, Any]:
         out["candidates"][k] = {"per_leg": checks, "R5": r5, "eligible": eligible}
 
     def acct_rpcd(g):
-        num = sum(res["legs"][l]["geometries"][g]["net_r"] for l in res["legs"])
-        den = sum(res["legs"][l]["geometries"][g]["capital_days"] for l in res["legs"])
+        num = sum(res["legs"][lg]["geometries"][g]["net_r"] for lg in res["legs"])
+        den = sum(res["legs"][lg]["geometries"][g]["capital_days"] for lg in res["legs"])
         return num / den if den else float("-inf")
     elig = [k for k, v in out["candidates"].items() if v["eligible"]]
     out["account_net_r_per_capital_day"] = {g: round(acct_rpcd(g), 4) for g in ("B0", "B1", "B2", "B3")}
     out["recommended"] = max(elig, key=acct_rpcd) if elig else None
-    out["b0_fails_R1_on"] = [l for l, L in res["legs"].items() if L["geometries"]["B0"]["net_r"] <= 0]
+    out["b0_fails_R1_on"] = [lg for lg, L in res["legs"].items() if L["geometries"]["B0"]["net_r"] <= 0]
     return out
 
 

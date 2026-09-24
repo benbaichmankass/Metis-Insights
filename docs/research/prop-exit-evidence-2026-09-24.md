@@ -109,7 +109,7 @@ Three findings matter more than the geometry verdict:
    **12 of 51** SOL trades. Its effective level is 4.4R (ETH) and 3.8R (SOL), not the 6R the
    YAML says, because the 9.9% price cap binds. On ETH those TP fills are the edge: B0 nets
    +28.0R, and every tighter TP loses most of it.
-2. **What is long is the time in market.** B0 holds p50 **26.5 h** / p90 **119 h (5.0 days)** /
+2. **What is long is the time in market.** B0 holds p50 **27 h** / p90 **119 h (5.0 days)** /
    max **302 h (12.6 days)** on ETH, and p50 31 h / p90 128 h (5.3 days) / max 389 h (16.2 days)
    on SOL. Tighter TPs cut p90 to 3–4 days, but only by giving back the ETH edge.
 3. **At $75 risk, no exit geometry makes the account survivable.** P(breach within 25 trades)
@@ -135,6 +135,7 @@ INFERRED means derived by arithmetic, with the assumption stated.
   than ticketed).
 - **Positive control 1:** T0 (the record's own argv) reproduces the E55 records exactly. ETH:
   n 170, net 8.8346R, maxDD 13.2061R. SOL: n 65, net 4.5902R.
+- **Percentiles** are nearest-rank, imported from `m31_mfe_parity._pct` (never re-derived).
 - **Positive control 2:** each trade's MFE was re-walked from the candles and compared with the
   harness's own `mfe_r`. **0 mismatches across all 12 leg×geometry runs.** The bars-to-MFE and
   bars-to-level figures come from that same walk.
@@ -147,15 +148,15 @@ B0. The population is M's own entry set.
 
 | leg | n | MFE p25 | p50 | p75 | p90 | ≥1R | ≥1.5R | ≥2R | ≥3R | ≥ B0's TP (median level) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| ETH | 54 | 0.25 | 0.77 | 2.37 | 9.20 | 44% | 37% | 30% | 20% | 18.5% (5.0R) |
-| SOL | 34 | 0.47 | 1.54 | 3.80 | 5.33 | 62% | 53% | 44% | 38% | 29.4% (3.8R) |
+| ETH | 54 | 0.25 | 0.76 | 2.46 | 9.27 | 44% | 37% | 30% | 20% | 18.5% (5.0R) |
+| SOL | 34 | 0.40 | 1.53 | 3.92 | 5.48 | 62% | 53% | 44% | 38% | 29.4% (3.7R) |
 
 Time to reach a level, in 1h bars (the trades that reached it):
 
 | leg | bars to MFE p50 / p90 | 1R p50 / p90 | 1.5R | 2R | 3R |
 |---|---|---|---|---|---|
-| ETH | 4.5 / 259.5 | 2.5 / 30.7 | 10.5 / 59.5 | 14 / 66 | 48 / 90 |
-| SOL | 23.5 / 130.4 | 10 / 52 | 17 / 82.9 | 27 / 87.8 | 41 / 94.8 |
+| ETH | 4 / 282 | 3 / 31 | 14 / 58 | 15 / 74 | 48 / 90 |
+| SOL | 20 / 131 | 10 / 52 | 14 / 82 | 27 / 91 | 41 / 96 |
 
 **(b) As the E55 records measure it (T0: trail plus stale-exit, TP 6R capped),** from the
 committed `runs/2026-09-24-e55/*_prop__trades.jsonl`. MFE here is truncated by the trail.
@@ -163,8 +164,8 @@ A TP fill counts as reaching every level up to its effective TP.
 
 | leg | n | p25 | p50 | p75 | p90 | ≥1R | ≥1.5R | ≥2R | ≥3R | bars to MFE p50 / p90 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| ETH | 170 | 0.24 | 0.70 | 1.36 | 2.50 | 37% | 25% | 17% | 9.4% | 3 / 14 |
-| SOL | 65 | 0.40 | 1.10 | 1.84 | 3.01 | 52% | 34% | 25% | 12% | 10 / 42.6 |
+| ETH | 170 | 0.24 | 0.70 | 1.36 | 2.49 | 37% | 25% | 17% | 9.4% | 3 / 14 |
+| SOL | 65 | 0.40 | 1.10 | 1.84 | 3.05 | 52% | 34% | 25% | 12% | 10 / 43 |
 
 Read (a) for prop and (b) for Bybit. **T0 cannot run on breakout_1**, because nothing trails the
 stop there.
@@ -176,7 +177,7 @@ MEASURED. Folds are 4 equal calendar windows, with trades assigned by entry time
 | leg | geo | n | net R | fee-only R | maxDD R | R per capital-day | hold p50 / p90 (h) | fold net R | folds > 0 |
 |---|---|---|---|---|---|---|---|---|---|
 | ETH | T0 *(ref)* | 170 | 8.83 | 14.76 | 13.21 | 0.101 | 12 / 23 | 1.21, 10.02, −1.99, −0.41 | 2 |
-| ETH | **B0** | 100 | **28.03** | 33.36 | 12.10 | **0.142** | 26.5 / 119 | −0.57, 18.70, 14.67, −4.77 | 2 |
+| ETH | **B0** | 100 | **28.03** | 33.36 | 12.10 | **0.142** | 27 / 119 | −0.57, 18.70, 14.67, −4.77 | 2 |
 | ETH | B1 TP 2R | 122 | 0.88 | 5.81 | 13.82 | 0.006 | 15 / 74 | 3.05, 6.49, −2.54, −6.13 | 2 |
 | ETH | B2 TP 3R | 112 | −4.10 | 0.95 | 17.17 | −0.025 | 19 / 82 | 1.96, 2.28, −2.77, −5.57 | 2 |
 | ETH | B3 ladder | 112 | −9.82 | −4.77 | 20.81 | −0.059 | 19 / 82 | 1.56, 0.06, −5.42, −6.01 | 2 |
