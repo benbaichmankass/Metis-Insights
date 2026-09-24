@@ -100,7 +100,7 @@ Evidence the mechanism is the one at work (same pull):
 | population | held < 6h | held ≥ 6h |
 |---|---|---|
 | `ib_paper` sl/tp closes that resolved `ib_execution` | **7 of 8** | **0 of 10** |
-| Alpaca sl/tp/giveback closes since the Alpaca fills reader existed | 0 rows | 37 rows, 0 MEASURED |
+| Alpaca sl/tp/giveback closes since the Alpaca fills reader landed (#8111, 2026-07-31) | 0 rows | 30 rows, 0 MEASURED |
 
 The 4 Alpaca closes held < 6h (all `recorded_exit_price`) are from June and July,
 before the Alpaca fills reader existed. They are not a counter-example.
