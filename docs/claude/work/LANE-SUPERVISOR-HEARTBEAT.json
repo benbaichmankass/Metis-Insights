@@ -1,5 +1,5 @@
 {
-  "last_fired_at": "2026-09-24T12:45:29Z",
+  "last_fired_at": "2026-09-24T18:44:58Z",
   "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
   "trigger": "trig_01LFo98oHRUBpoMA6H9ra2QP",
   "served_model": "claude-sonnet-5",
@@ -7,15 +7,13 @@
     "checkout_present": true,
     "list_sessions_callable": true,
     "container_was_cold": false,
-    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 732c27e, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=11, connection_status=connected, cumulative cost_usd=70.33; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 100 rows (100/100 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading"
+    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 5721d0f, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=13, connection_status=connected, cumulative cost_usd=107.80; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 83 rows (83/83 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading"
   },
-  "acted": {"archived": [], "raised": [], "held": 0},
+  "acted": {"archived": [], "raised": [], "held": 2},
   "unrouted": [
     "STEP 1 structural verification passed again: top-level supervisor_lane on claude/e44-lane-supervisor-build's MANAGER-CHECKLIST.json still names session_01R9WFrBK1sbBcpTYgBmvG1q (this session).",
-    "Busier firing than the last two: 0 authorised, 0 held, 7 RAISE candidates (3 READY holding uncollected output at idle 0.0-0.1h -- session_011zU73V1WZfwZi8gKiASqWz/E56, session_01E1T63y1YmRKGv5vj8GCdPo/E51, session_01Ljhs6sFAdWHdMDhJpL5aBP/'Metis-Insights manager handoff'; 4 BLOCKED on a human permission prompt at idle 0.0-0.1h -- session_01J4W8rC8qYJBAFLa87KVAFC/D3, session_012TvrmHEEpsUErE5V6Uvr9J/E54, session_019mw6kFz9EL3AuHL1AUT4ff/E50, session_01Eb8vuX7rp913gNUxbMf86H/B5).",
-    "NONE of the 7 were filed onto the checklist, and this is now a SYSTEMIC instance of the same gap flagged at 18:44Z and 06:44Z, not an isolated one. Checked MANAGER-CHECKLIST.json directly for each id the session title implies: E56, E51, E54 and E50 DO NOT EXIST as rows at all (no item with that id anywhere in the file). D3 and B5 DO exist but both have `lane: null` (D3 state=blocked, B5 state=queued) -- same as E30 in the prior two firings. The seventh (session_01Ljhs6sFAdWHdMDhJpL5aBP, titled 'Metis-Insights manager handoff') has no id-shaped title at all, so there is no row to even look for.",
-    "Per the mandate ('If no row names the lane, that is itself the finding: say so in the heartbeat under unrouted'), none were force-filed. But three consecutive firings hitting the identical class of gap, now covering 7 sessions across 6 nominal rows (4 of which do not even exist), is worth escalating past a per-firing note: either these lanes were dispatched without ever being given a checklist row / lane claim, or something is failing to write the `lane` field when a lane is dispatched or a row is created. Recommend the build lane or manager investigate the dispatch path itself rather than waiting for a fourth identical heartbeat entry.",
-    "Also noted purely for visibility, not action: this supervisor session's own cumulative cost_usd is now $70.33 (up from ~$55 two firings ago), because it is a single persistent session whose context grows every firing. The routine's own name now states 'a clean firing costs $27.39 MEASURED' as a per-firing marginal cost. Whether that growth curve is acceptable for a standing 6-hourly watcher is a design question for whoever owns E44's budget, not something to be decided here.",
+    "0 authorised, 2 held (both correctly, each owns a real open PR: session_01Fp1yQRKuy82VcsKDCZMhX8 owns #12876, session_01915exWeKESx3y9tjToJhYE owns #12880 -- both also idle < 6h independently), 6 raised.",
+    "Same systemic gap as the last 3 firings (18:44Z, 06:44Z, 12:44Z), 4th consecutive occurrence, none filed: checklist rows E48, E66, E70, E62 (implied by 4 of the 6 raise-candidate titles) DO NOT EXIST at all; B5 (session_01RRE7S69NA4Q95KD1aX1Fz1, titled 'B5 (respawn)') exists but STILL has lane: null even after being respawned; the sixth (session_01Ljhs6sFAdWHdMDhJpL5aBP, 'Metis-Insights manager handoff', $270.97, idle 0.2h) again has no id-shaped title. Not repeating the full analysis from the 12:44Z heartbeat -- see that entry for detail. This heartbeat only confirms the pattern is still live and growing (now 13 distinct sessions across 4 firings hitting the same unfileable-raise condition), and that B5 specifically was respawned without the gap being fixed.",
     "No coordination-board hook fired this turn."
   ]
 }
