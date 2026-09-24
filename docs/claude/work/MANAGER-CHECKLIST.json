@@ -1605,13 +1605,13 @@
       "state": "queued",
       "owner": "research lane",
       "lane": null,
-      "model": "claude-sonnet-5",
-      "ceiling_usd": 30,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "OPERATOR 2026-09-24 ~13:15Z, verbatim: \"the 5.0 assumption is a working artifact until we get evidence backed numbers, which also need to be in our to do list\". 5.0 bps is a WORKING ARTIFACT for these venues, not a measurement. D3 (PI-20260924-A87KVAFC-0002) found two blockers. (1) ACCRUAL: alpaca_live has n=3 real entries; ib_live is dry_run with 0 fills. (2) STRUCTURAL, and accrual will not fix it: across all Alpaca accounts there are 0 sl/tp closes whose exit_price_source is MEASURED. sl_cross exits are ESTIMATED; exchange_fill appears only on exchange_flat_reconciled closes. So the fix needs the sl_cross close path to resolve its exit price from the fills store, as the Bybit path does. That is likely a src/ change; tier to be decided when scoped. DONE WHEN: a committed per-venue realized-slippage record exists for equities and futures, at a stated n and CI, AND slippage_bps_roundtrip_for uses it. Queued, not dispatched: pacing. It is sequenced after E60 lands."
+      "note": "WAVE 2, operator-directed 2026-09-24 ~15:50Z. Opus: the structural fix (resolve the sl_cross exit price from the fills store) is in the close path, so it is order-path-adjacent. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. OPERATOR 2026-09-24 ~13:15Z, verbatim: \"the 5.0 assumption is a working artifact until we get evidence backed numbers, which also need to be in our to do list\". 5.0 bps is a WORKING ARTIFACT for these venues, not a measurement. D3 (PI-20260924-A87KVAFC-0002) found two blockers. (1) ACCRUAL: alpaca_live has n=3 real entries; ib_live is dry_run with 0 fills. (2) STRUCTURAL, and accrual will not fix it: across all Alpaca accounts there are 0 sl/tp closes whose exit_price_source is MEASURED. sl_cross exits are ESTIMATED; exchange_fill appears only on exchange_flat_reconciled closes. So the fix needs the sl_cross close path to resolve its exit price from the fills store, as the Bybit path does. That is likely a src/ change; tier to be decided when scoped. DONE WHEN: a committed per-venue realized-slippage record exists for equities and futures, at a stated n and CI, AND slippage_bps_roundtrip_for uses it. Queued, not dispatched: pacing. It is sequenced after E60 lands."
     },
     {
       "id": "E63",
@@ -1642,6 +1642,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "MEASURED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP: of 9 green lane PRs, each squash merge re-conflicted the rest ONLY on docs/claude/work/PIPELINE.jsonl (E53, E56, E54, E59, D3, A10, E55 twice, E60, E51). Each re-resolve costs a ~20-minute CI cycle, and it forced an integration PR (#12858) that pr-landing-guard R12 had to hold. GitHub server-side merges do not honour .gitattributes merge drivers, so a union driver does not help. Options: one file per item (docs/claude/work/pipeline/<id>.jsonl), or per-session shard files that pipeline.py reads as one store. Must keep pipeline.py --check, pipeline-guard and render_section_0 working, and keep append-only semantics."
+    },
+    {
+      "id": "E65",
+      "title": "Prop exits: produce the evidence that graduates the ExitPlan exit ladder (P4) on prop first — the MFE distribution is the blocker",
+      "phase": "E",
+      "state": "queued",
+      "owner": "research lane",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "WAVE 2, operator-directed 2026-09-24 ~15:50Z (\"start wave 2 with prop exits and E62\"). Scope from the 2026-09-24 handoff R-G, and the operator's TP directive: \"part of active management was to stop using unrealistic TPs, but that's extra important for prop as I can't always execute the instructions in realtime\". On prop, an unreachable TP means unbounded time-in-market on a manually bridged account with a static DD floor. The mechanism already soaks (/api/bot/exit-ladder/soak); graduating it is P4 and backtest-gated. The deliverable is EVIDENCE plus a Tier-3 PROPOSAL, not a config change. Current TP on the open ETH short #44 = 5.56R. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     }
   ]
 }
