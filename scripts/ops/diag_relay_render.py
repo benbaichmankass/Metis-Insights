@@ -49,6 +49,29 @@ Partitioning on TYPE covers envelopes nobody has written yet.
 
 ⚠️ **The truncation still happens.** This does not make a large response fit;
 it changes WHAT SURVIVES it, and says so in the marker.
+
+A LIST IS CUT AT WHOLE ELEMENTS, AND THE MARKER SAYS WHICH ONES SURVIVED
+------------------------------------------------------------------------
+Until 2026-09-24 the bulk was cut with ``json.dumps(bulk)[:remaining]`` — a
+character slice that kept the FIRST elements of every list and ended mid-row,
+while the marker said only that the container was "cut". On a TAIL endpoint
+(``log_file``, ``journalctl``, ``audit`` — all oldest → newest) the elements
+that survive a head cut are the OLDEST, so the last row a reader can see is
+not the latest row, and nothing said so.
+
+MEASURED (E50, ``PI-20260924-JN54P2HH-0004``): issue #12820 read
+``log_file?name=arbitration_fanout_soak`` (the default 100-line tail; its
+``limit=40`` is not a parameter the endpoint takes). 149,082 bytes were cut to
+fit, 35 of the 100 rows survived, and the 35th — ``2026-09-23T01:52:51Z`` —
+was reported as the newest row. It was recorded as *"the soak has written
+nothing for 32 hours while armed"*, filed high-severity, and blocked E17. A
+direct read of the same file shows **65 rows** written inside that "silent"
+window. The soak never stopped; the transport hid its newest 65 rows.
+
+So a list is now cut at a whole-element boundary (what is shown is valid JSON,
+never a half row), and the marker states, per container, **how many elements
+of how many survived and that the final element is not among them** — the one
+fact the #12820 reader needed and could not see.
 """
 from __future__ import annotations
 
@@ -119,14 +142,93 @@ def render_section(payload: str, budget: int) -> str:
         f"before trusting any row below. Re-request this path alone for the "
         f"full result.)_"
     )
-    remaining = budget - len(head) - len(marker)
+    # Room for the per-container accounting, which is written after the body
+    # is fitted (its text depends on how much survived).
+    remaining = budget - len(head) - len(marker) - _ACCOUNTING_RESERVE * len(bulk)
     if remaining <= 0:
         # The certification alone fills the budget. That is the right thing to
         # keep: rows without their denominator are what this module exists to
         # stop shipping.
-        return head + marker
-    body = json.dumps(bulk, indent=2, default=str)[:remaining]
-    return head + "\n" + body + marker
+        return head + marker + _accounting(
+            [(k, v, 0) for k, v in bulk.items()])
+    body, shown = fit_bulk(bulk, remaining)
+    return head + "\n" + body + marker + _accounting(shown)
+
+
+#: Bytes held back per container for its accounting line.
+_ACCOUNTING_RESERVE = 400
+
+
+def fit_bulk(bulk: dict, budget: int) -> Tuple[str, list]:
+    """Fit *bulk* into *budget* bytes, cutting LISTS AT WHOLE ELEMENTS.
+
+    Returns ``(body, shown)`` where ``shown`` is ``[(key, value, n_shown)]`` in
+    the envelope's own key order. A list keeps its first ``n_shown`` elements
+    (the envelope's order is preserved, never re-sorted, because the renderer
+    cannot know whether a list is oldest-first or newest-first — it SAYS what
+    it kept instead of guessing). A dict that does not fit whole is shown as a
+    character-cut fragment after the valid JSON, and counted as 0 whole
+    entries, which is what it is.
+    """
+    kept: dict = {}
+    shown: list = []
+    fragments: list = []
+
+    def size(d: dict) -> int:
+        return len(json.dumps(d, indent=2, default=str))
+
+    for key, value in bulk.items():
+        if size({**kept, key: value}) <= budget:
+            kept[key] = value
+            shown.append((key, value, len(value)))
+            continue
+        if isinstance(value, list):
+            lo, hi = 0, len(value)
+            while lo < hi:  # largest k whose whole-element prefix fits
+                mid = (lo + hi + 1) // 2
+                if size({**kept, key: value[:mid]}) <= budget:
+                    lo = mid
+                else:
+                    hi = mid - 1
+            kept[key] = value[:lo]
+            shown.append((key, value, lo))
+        else:
+            room = budget - size(kept) - len(key) - 8
+            if room > 0:
+                fragments.append(
+                    f'"{key}" (FRAGMENT, cut mid-object): '
+                    + json.dumps(value, indent=2, default=str)[:room])
+            shown.append((key, value, 0))
+    body = json.dumps(kept, indent=2, default=str)
+    if fragments:
+        body += "\n" + "\n".join(fragments)
+    return body, shown
+
+
+def _accounting(shown: list) -> str:
+    """One line per container: how many elements of how many are shown.
+
+    ⚠️ This is the line the #12820 reader needed. It says in words that the
+    FINAL element is not shown, because on a tail endpoint the final element
+    is the newest one — and "the last row I can see" reads as "the latest
+    row" unless something says otherwise.
+    """
+    lines = []
+    for key, value, n in shown:
+        total = len(value) if isinstance(value, (list, dict)) else 0
+        kind = "element(s)" if isinstance(value, list) else "key(s)"
+        if n >= total:
+            lines.append(f"`{key}`: all {total} {kind} shown.")
+            continue
+        cut = total - n
+        lines.append(
+            f"`{key}`: ONLY THE FIRST {n} of {total} {kind} are shown; the "
+            f"LAST {cut} — including the final one — are NOT. If this list "
+            f"is chronological oldest→newest (log_file, journalctl and audit "
+            f"tails are), the NEWEST {cut} entries are the ones cut: the last "
+            f"entry visible here is NOT the latest. Re-request with a smaller "
+            f"`lines`/`limit` to see the tail.")
+    return "\n_(" + " ".join(lines) + ")_" if lines else ""
 
 
 def _self_test() -> int:
@@ -162,6 +264,38 @@ def _self_test() -> int:
           "ignored_unknown_column" not in old)
     check("control: the OLD head-truncation drops the total",
           '"total": 37' not in old)
+
+    # THE #12820 SHAPE (E50): a TAIL endpoint, chronological oldest→newest,
+    # over budget. The reader must be told that the newest rows were cut.
+    log = {"name": "arbitration_fanout_soak", "present": True,
+           "size_bytes": 1413493,
+           "lines": [json.dumps({"logged_at_utc": f"2026-09-23T{h:02d}:00:00",
+                                 "pad": "x" * 300}) for h in range(24)]}
+    lbudget = 4000
+    check("control: the tail fixture is over budget",
+          len(json.dumps(log, indent=2)) > lbudget)
+    out5 = render_section(json.dumps(log), lbudget)
+    newest = "2026-09-23T23:00:00"
+    check("the newest row is genuinely cut (else the next check proves nothing)",
+          newest not in out5)
+    check("the marker SAYS the final element is not shown",
+          "including the final one — are NOT" in out5
+          and "of 24 element(s)" in out5)
+    check("rows are cut at whole elements — every shown row is complete",
+          '"lines": [' in out5 and out5.count('logged_at_utc') ==
+          int(out5.split("ONLY THE FIRST ")[1].split(" ")[0]))
+    check("it still fits the budget (plus the accounting it owes the reader)",
+          len(out5) <= lbudget + 1200)
+    # NEGATIVE CONTROL — the pre-E50 renderer cut `json.dumps(bulk)[:n]`,
+    # which says nothing about how many rows survived or which end was lost.
+    old5 = json.dumps({"lines": log["lines"]}, indent=2)[:lbudget]
+    check("control: the OLD bulk cut carries no element count",
+          "of 24" not in old5 and "final" not in old5)
+
+    # Everything fits after hoisting: accounting says so, nothing is claimed cut.
+    shown_all = fit_bulk({"rows": [1, 2, 3]}, 10_000)[1]
+    check("fit_bulk keeps a list whole when it fits",
+          shown_all == [("rows", [1, 2, 3], 3)])
 
     # Under budget: untouched, no marker.
     small = json.dumps({"total": 1, "rows": [{"a": 1}]})
