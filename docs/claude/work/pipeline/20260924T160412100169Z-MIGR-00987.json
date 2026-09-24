@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260906-ONE-REPEATING-STRATEGY-BUILDER-EXCEPTION-IS-47-PERCENT-OF-THE-ENTIRE-OPERATOR-ERROR-FEED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-ONE-REPEATING-STRATEGY-BUILDER-EXCEPTION-IS-47-PERCENT-OF-THE-ENTIRE-OPERATOR-ERROR-FEED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-ONE-REPEATING-STRATEGY-BUILDER-EXCEPTION-IS-47-PERCENT-OF-THE-ENTIRE-OPERATOR-ERROR-FEED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "ict_scalp_mgc_15m 'no candle data' accounts for 87 of 184 operator-visible ERROR+ rows -- the alarm-fatigue shape the repo has already paid for twice"
+}

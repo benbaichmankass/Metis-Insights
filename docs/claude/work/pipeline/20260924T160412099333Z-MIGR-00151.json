@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either (a) the one-off cancel-stale-tpsl-legs system-action is run against bybit_1 XRPUSDT and a follow-up bybit-bracket-audit shows coverage back within the 0.5% epsilon of position size, AND a structural fix keeps it there (close/reduce cancels or amends the leg it sized, so coverage tracks the position); or (b) an explicit, recorded decision that add-only leg drift is acceptable on paper accounts, with the real-money guard named. Detection alone does not close this item.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-BYBIT1-XRP-LEG-OVERACCUM-WORSENING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [bybit] bybit_1 XRPUSDT resting SL legs are DIVERGING from the position, not merely stale — 444.7% -> 830% over-coverage in 41 minutes, with the remediation still unbuilt"
+}

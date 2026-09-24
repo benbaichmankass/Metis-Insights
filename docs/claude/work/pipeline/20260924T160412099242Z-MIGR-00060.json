@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "A ping is CONFIRMED to have arrived in @ict_cluade_bot AND NOT in the trader chat. !! DELIVERY IS NOT THE CRITERION AND MUST NOT BE READ AS ONE. Pings have been delivering throughout -- one enqueued 20:58:49Z on 2026-09-01 was confirmed delivered, to the TRADER chat, while the operator watched the new bot and correctly reported nothing arrived. So 'the ping went out' and 'the drain reported success' clear NOTHING here; the claim is SEPARATION. !! NOR IS THE STARTUP LOG SUFFICIENT ALONE. isolated=True proves which TOKEN the bridge resolved, which is necessary and genuinely new -- but a token is not a conversation, and in a DM the chat_id is the OPERATOR's own id (365546917) for every bot by construction, so the VM side cannot distinguish the two chats even in principle. The last hop is observable only on the operator's phone. Clearing needs BOTH: (a) the startup line reads token=TELEGRAM_CLAUDE_BOT_SECRET[dedicated] ... isolated=True, AND (b) a human confirms which conversation it appeared in. Either half alone leaves this open.",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] !! CORRECTED 2026-09-12 BY session_013iSqp4LsU1eq8K326eUtgj (MI-279 U5) -- THE SET-ENV HAS HAPPENED AND THIS SUMMARY SAID IT WAS OUTSTANDING. Do not re-quote the closing sentence preserved below; a session reading it would go and ask the operator for a Tier-2 they have already granted. MEASURED on the live VM at 2026-09-12T18:16:37Z (ict-claude-bridge.service, pid 1777212, a process started TODAY): 'claude ping route -> claude: token=TELEGRAM_CLAUDE_BOT_SECRET[dedicated] chat=TELEGRAM_CHAT_ID[fallback] deliverable=True isolated=True own_chat=False'. That is clause (a) of clears_when, verbatim, and it is MET -- against the isolated=False the row was opened on. All three units are active (ict-telegram-bot, ict-claude-bridge, ict-claude-decision-bot). !! THE ROW DOES NOT CLEAR: clause (b) needs a HUMAN to say which conversation the ping appeared in, and the row's own text explains why no VM-side read can substitute -- in a DM the chat_id is the operator's own id (365546917) for every bot by construction. 'chat=TELEGRAM_CHAT_ID[fallback]' is therefore EXPECTED and is NOT a defect; do not file it as one. === THE ORIGINAL SUMMARY FOLLOWS AND IS PRESERVED AS THE RECORD OF WHAT WAS TRUE WHEN THE ROW WAS OPENED: The dedicated Claude bot (@ict_cluade_bot) is CONFIGURED and its drain is FIXED and DEPLOYED, and pings still land in the TRADER chat. #10674 is merged (5c45ca52) and live on the VM (1bae542a); the bridge now resolves via claude_route() and at 21:37:08Z logged isolated=False with its own WARNING naming the missing key. What remains is one Tier-2 set-env putting TELEGRAM_CLAUDE_BOT_SECRET in the VM .env -- which this session could NOT dispatch (issue_write create -> 403) and which needs an operator OK it does not have."
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "BOTH, and they are DIFFERENT facts - say WHICH you cleared rather than clearing the row on the easier one. (1) THE TICK HOOKS ARE OBSERVED RUNNING ON THE FLEET: /api/diag/log_file?name=losing_streak_observed_state and ?name=starved_account_observed_state each return present:true carrying a __last_check__ stamp NEWER than the running trader's process start, with at least one account graded. That proves the hook is reached and the latch file is writable - the two silent import/permission failures - and nothing more. (2) A REAL ALERT IS OBSERVED END TO END: a WARN from either detector is found in /api/bot/logs?level=error or on /api/bot/notifications, AND its verdict is checked against the underlying data rather than taken on trust. !! A GREEN TEST SUITE CLEARS NEITHER HALF: 62 tests pass and 10 mutation checks all caught, and a harness cannot reach a tick hook, a latch file or a Telegram chat - which is precisely why this row exists beside a green PR. !! MERGING CLEARS NOTHING and DEPLOYING CLEARS ONLY (1), and only once /api/diag/version shows the merge commit as git_sha AND git_sha_on_disk. !! A QUIET PERIOD IS NOT EVIDENCE FOR EITHER HALF, AND THE TWO DETECTORS FAIL QUIET DIFFERENTLY. The streak detector SHOULD fire today (bybit_1 was graded streak_active from live data at build time), so continued silence from it is a DEFECT rather than a healthy fleet - if (1) is met and no bybit_1 WARN appears while the streak still stands, that is the OPPOSITE finding and clears this row",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by E18 (the detector the operator asked for, all accounts) and E17. EVIDENCE: MANAGER-CHECKLIST.json: E18 queued, E17 blocked.",
+  "what": "[LOUD] The losing-streak and starved-account detectors are BUILT; neither has ever fired on the fleet, and a detector that has never fired reads identically to one that cannot run"
+}

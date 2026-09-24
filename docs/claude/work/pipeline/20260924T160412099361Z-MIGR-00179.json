@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Both rules are either merged into docs/CLAUDE-RULES-CANONICAL.md with the incident citations, or explicitly declined with a reason recorded here.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260809-THIRD-CASE-AND-UNTESTED-BRANCH-RULES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260809-THIRD-CASE-AND-UNTESTED-BRANCH-RULES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260809-THIRD-CASE-AND-UNTESTED-BRANCH-RULES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Promote two rules to canonical: the THIRD-CASE rule, and 'a green suite over an untested branch is not evidence'"
+}

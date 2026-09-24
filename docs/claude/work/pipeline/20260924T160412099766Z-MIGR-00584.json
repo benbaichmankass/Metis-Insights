@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "append_row PRINTS its top duplicate candidates on EVERY file, not only when one clears the refusal threshold -- so the filer sees a 0.544 near-miss and decides, which is the decision the docstring already asks them to make ('If it is a DUPLICATE, drop yours... If it is a RECURRENCE, say so'). The refusal threshold itself should NOT simply be lowered to 0.544: that number is one observation, and a lower refusal turns a near-miss into a hard block on legitimate sibling rows, which is worse than the current silence. Separating INFORM from REFUSE is what the evidence supports. VERIFIED BY: re-running the simulation in this row -- rebuild the backlog without BL-20260908-ALPACA-PROTECTIVE-COVERAGE-IS-GRADED-BY-SIDE-NEVER-BY-QUANTITY, file it, and assert the 0.544 candidate is SHOWN. A unit test over a fixture is not sufficient on its own, because the finding is about what a real 1499-row corpus scores; pin the real pair. NOT SUFFICIENT: raising or lowering SIMILAR_REFUSE_SCORE alone, or adding another override -- the filer being shown nothing is the defect, not the number.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-DUPLICATE-PRE-CHECK-SCORES-A-CONFIRMED-DUPLICATE-AT-0-POINT-544-AGAINST-A-0-POINT-65-REFUSAL-SO-IT-ACCEPTS-IT-SILENTLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-DUPLICATE-PRE-CHECK-SCORES-A-CONFIRMED-DUPLICATE-AT-0-POINT-544-AGAINST-A-0-POINT-65-REFUSAL-SO-IT-ACCEPTS-IT-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-DUPLICATE-PRE-CHECK-SCORES-A-CONFIRMED-DUPLICATE-AT-0-POINT-544-AGAINST-A-0-POINT-65-REFUSAL-SO-IT-ACCEPTS-IT-SILENTLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] append_row's duplicate pre-check scored a CONFIRMED duplicate at 0.544 against its 0.65 refusal threshold, so it accepted the row silently and showed the filer nothing — the anti-duplicate mechanism the operator asked for did not fire on the case it exists for"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-COMMITTED-STORE-DECISION-REQUEST-TEST-DRAWS-ITS-EXPECTED-VALUE-FROM-THE-LIVE-WORK-STORE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-COMMITTED-STORE-DECISION-REQUEST-TEST-DRAWS-ITS-EXPECTED-VALUE-FROM-THE-LIVE-WORK-STORE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-COMMITTED-STORE-DECISION-REQUEST-TEST-DRAWS-ITS-EXPECTED-VALUE-FROM-THE-LIVE-WORK-STORE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "test_the_committed_store_declares_at_least_one_real_decision_request asserts the LIVE store currently carries at least one decision request, so answering the last open question turns pytest-run red on a correct production state"
+}

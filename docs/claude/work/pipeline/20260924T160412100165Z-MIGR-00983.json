@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-EVERY-IDLE-SESSION-IS-ORPHANED-ZERO-OF-79-HAVE-A-LIVE-OWNER-AND-32-NAME-NO-WORK-AT-ALL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-EVERY-IDLE-SESSION-IS-ORPHANED-ZERO-OF-79-HAVE-A-LIVE-OWNER-AND-32-NAME-NO-WORK-AT-ALL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-EVERY-IDLE-SESSION-IS-ORPHANED-ZERO-OF-79-HAVE-A-LIVE-OWNER-AND-32-NAME-NO-WORK-AT-ALL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Operator directive: no session works without ownership. Measured the same day — of 79 idle sessions ZERO have a live owner, 76 are orphaned, 2 are not in the registry at all, and 32 name neither a checklist item nor a work object"
+}

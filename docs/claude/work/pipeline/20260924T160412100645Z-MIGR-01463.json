@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "An over-limit `limit` either CLAMPS to the cap (returning the cap's worth of rows) or returns an explicit error naming the cap. `rows: [], count: 0` for an over-limit request -- indistinguishable from `there is no data` -- is the defect.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E32-ORDER-PACKAGES-OVER-LIMIT-RETURNS-ZERO-ROWS-INDISTINGUISHABLY-FROM-NO-DATA",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01SVqDYb7UMYjzNqZrdLdDjt, checklist rows E31+E32, PR #12738 branch claude/e31-runtime-loaded-config",
+    "rerun": "for n in 200 201 250; do curl -s \"https://ict-bot.duckdns.org/api/bot/order-packages?limit=$n\" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get(\"count\"))'; done # 200 must not return 200 while 201 returns 0"
+  },
+  "state": "done",
+  "terminal_reason": "A10 2026-09-24: clears_when MET: an over-limit request now returns an explicit error naming the cap. EVIDENCE: MEASURED 2026-09-24 against https://ict-bot.duckdns.org: /api/bot/order-packages?limit=200 -> rows; ?limit=201 -> HTTP 422 {'msg': 'Input should be less than or equal to 200', 'ctx': {'le': 200}}. The second defect it mentions (stale newest row) was not re-checked.",
+  "what": "MEASURED 2026-09-22 BY BISECTION against the live API: limits 50/100/200 return 50/100/200 rows; limits 201 and 250 return `rows: []` with `count: 0`. Not an error and not a clamp. [!] THIS IS THE COLLAPSED-STATE CLASS on a read surface the SPA uses (docs/CLAUDE-RULES-CANONICAL.md § 'Collapsed states'): an over-limit request is INDISTINGUISHABLE from an empty decision log, and the empty reading is the reassuring one, so a caller that guesses a limit too high silently concludes the system decided nothing. [!] SECOND, SEPARATE DEFECT FOUND IN THE SAME PULL and deliberately not split out, because a fix pass should see both: the newest /api/bot/order-packages row read 2026-09-18T15:16:46Z while closed trades existed from 2026-09-22 -- FOUR DAYS STALE. The decision-level surface is not tracking what the system is doing. Layer 3 of docs/reference/verifying-what-is-trading.md is marked PARTIALLY BROKEN on exactly these two measurements."
+}

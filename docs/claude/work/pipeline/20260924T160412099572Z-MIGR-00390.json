@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "RESOLVED when a read of /api/diag/bybit_open_orders and the trader's own symbol-scoped sweep report the SAME leg count and summed qty for the same position within one sweep interval, demonstrated on a symbol where they currently disagree (bybit_1/ETHUSDT is the recorded instance), AND the payload names which read served each symbol's legs so a future divergence is attributable rather than merely absent. A code citation does not close it: the defect is that the route already LOOKS like it cross-checks.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-BYBIT-OPEN-ORDERS-UNDER-REPORTS-LEGS-FOR-A-SYMBOL-THE-PAGE-DOES-RETURN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-BYBIT-OPEN-ORDERS-UNDER-REPORTS-LEGS-FOR-A-SYMBOL-THE-PAGE-DOES-RETURN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-BYBIT-OPEN-ORDERS-UNDER-REPORTS-LEGS-FOR-A-SYMBOL-THE-PAGE-DOES-RETURN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/diag/bybit_open_orders reports FEWER resting legs than the venue holds for a symbol its settleCoin page DOES return — 3.02 across 7 vs the trader's 9.33 across 9, same position, 9s apart"
+}

@@ -49,17 +49,38 @@ register forever without anyone noticing, and 951 rows prove it could. Here,
 coming due puts an item on the operator's page and it STAYS there until it is
 routed. If that property is ever removed, this is the eight registers again.
 
-APPEND-ONLY JSONL, AND WHY IT IS NOT A JSON ARRAY
---------------------------------------------------
+ONE FILE PER RECORD, AND WHY IT IS NOT ONE SHARED JSONL FILE
+--------------------------------------------------------------
 The archived registers were JSON arrays, and a shared array is what produced
 their merge conflicts: two sessions editing different rows collide on the same
-bytes. This store is **JSONL, append-only**. A state change is a NEW LINE, not
-an edit, so two sessions appending concurrently produce a file that merges
-cleanly by construction.
+bytes. The first version of THIS module fixed that by making the store
+**append-only JSONL** -- a state change is a new LINE, not an edit -- and that
+was still wrong, one level down: every writer's new line lands at the SAME
+end-of-file position, so two concurrent PRs each appending one record still
+touch the same bytes and conflict on merge. MEASURED 2026-09-24 (lane E64):
+of 9 green lane PRs, each squash merge re-conflicted every OTHER open PR, and
+ONLY on this file -- GitHub's server-side merge does not honour
+`.gitattributes` merge drivers, so a union driver cannot fix it either.
 
-**The current state of an item is its LAST record.** `load()` folds the log;
-`read_log()` returns it raw. That also gives the audit trail for free -- how an
-item reached `killed` is in the file, not lost to an overwrite.
+⚠️ **RE-POINTED 2026-09-24 (E64): the store is now a DIRECTORY,
+`docs/claude/work/pipeline/`, one immutable JSON file per RECORD.** A state
+change is a brand-new file with a unique name, never an edit to an existing
+one. Two branches each adding a differently-named file is an ordinary git
+merge with nothing to reconcile -- there is no shared tail left to collide on.
+The property this module has always promised -- **the current state of an
+item is its LAST record; nothing is ever edited in place** -- is unchanged;
+only how "last" is computed moved, from position in one file to sorted
+filenames (`{iso-timestamp}-{random}.json`, so lexicographic order is
+chronological order). `read_log()` still returns every record, raw, for the
+audit trail; `load()` still folds to the current state per id.
+
+⚠️ **A pre-existing flat `PIPELINE.jsonl` FILE is still read**, using the
+original line-based parser (`_read_legacy_jsonl`), if `store` happens to point
+at one -- this is a migration safety net, not a second live format: the
+committed store is migrated to the directory in the same change that shipped
+this paragraph (see `scripts/ops/migrate_pipeline_to_dir.py`), and nothing
+after that migration writes the flat file again. `append()` mirrors the same
+branch so a caller mid-transition cannot silently start a second store.
 
 ⚠️ **A PARSE FAILURE IS NOT A MISSING ROW.** A malformed line is reported as
 `unreadable`, never skipped silently, because "we could not read it" and "it is
@@ -132,12 +153,20 @@ import os
 import re
 import sys
 import tempfile
+import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-STORE = Path("docs/claude/work/PIPELINE.jsonl")
+#: ⚠️ RE-POINTED 2026-09-24 (E64): a DIRECTORY, not a file -- see the module
+#: docstring's "ONE FILE PER RECORD" section for why. Every caller that reads
+#: this constant and passes it straight to `read_log()` / `append()` needs no
+#: change: both dispatch on whether the path is a file or a directory.
+STORE = Path("docs/claude/work/pipeline")
+
+#: Extension for one record file under STORE.
+RECORD_SUFFIX = ".json"
 
 ORIGIN_KINDS = ("audit", "review", "session", "deploy", "research", "operator")
 DUE_KINDS = ("observation", "date", "event")
@@ -188,10 +217,25 @@ class LoadResult:
     """
 
     items: dict[str, dict] = field(default_factory=dict)
-    unreadable: list[tuple[int, str]] = field(default_factory=list)
+    #: Each entry: (location, reason) -- location is `"line N"` for a legacy
+    #: flat-file store or a record filename for the directory store. A string
+    #: in both cases so callers never have to branch on which backend this is.
+    unreadable: list[tuple[str, str]] = field(default_factory=list)
+    #: Every successfully-parsed record, RAW and in read order -- i.e. before
+    #: folding to the last-per-id state. Most callers want `items` (the
+    #: current state); this is for the rarer caller that has to reproduce
+    #: "was this id EVER in state X", such as a guard scanning every record a
+    #: soak was ever mentioned in rather than only its current one.
+    raw: list[dict] = field(default_factory=list)
+    #: id -> the location (filename under the store, or "line N" for a legacy
+    #: flat file) that currently holds that id's LATEST record. For a caller
+    #: that needs to date a row's current content -- e.g. `git log -1 -- that
+    #: file` now answers "when did this row last change", which used to
+    #: require diffing many historical snapshots of one shared file.
+    sources: dict[str, str] = field(default_factory=dict)
     records: int = 0
-    #: Each entry: {"id", "line", "reason"} -- an id where the record at
-    #: `line` does NOT look like a state change of the record it displaced.
+    #: Each entry: {"id", "at", "reason"} -- an id where the record `at`
+    #: does NOT look like a state change of the record it displaced.
     #: Populated by `read_log()` as it folds, so detecting this costs no
     #: extra pass over the store.
     collisions: list[dict] = field(default_factory=list)
@@ -352,19 +396,14 @@ def _identity_mismatches(prior: dict, new: dict) -> list[str]:
     return out
 
 
-def read_log(store: Path = STORE) -> LoadResult:
-    """Read every record, folding to the LAST per id. Never drops a bad line.
-
-    ⚠️ Also flags a COLLISION the moment a record displaces a prior one under
-    the same id without looking like its state change (`_identity_mismatches`)
-    -- see the module docstring's "SIXTH FAILURE MODE". This costs no extra
-    pass: the fold already visits every record once.
+def _read_legacy_jsonl(store: Path) -> LoadResult:
+    """The original single-file reader. Kept for a pre-migration flat file
+    (see the module docstring's "ONE FILE PER RECORD" section) -- not a
+    second live format, a migration safety net.
     """
     res = LoadResult()
-    if not store.exists():
-        return res
-    for lineno, raw in enumerate(store.read_text().splitlines(), start=1):
-        line = raw.strip()
+    for lineno, raw_line in enumerate(store.read_text().splitlines(), start=1):
+        line = raw_line.strip()
         if not line or line.startswith("//"):
             continue
         try:
@@ -372,19 +411,66 @@ def read_log(store: Path = STORE) -> LoadResult:
             if not isinstance(rec, dict) or not isinstance(rec.get("id"), str):
                 raise ValueError("record is not an object carrying a string id")
         except Exception as exc:  # noqa: BLE001 — the message is the payload
-            res.unreadable.append((lineno, f"{type(exc).__name__}: {exc}"))
+            res.unreadable.append((f"line {lineno}", f"{type(exc).__name__}: {exc}"))
             continue
         res.records += 1
+        res.raw.append(rec)
         prior = res.items.get(rec["id"])
         if prior is not None:
             mismatches = _identity_mismatches(prior, rec)
             if mismatches:
                 res.collisions.append({
                     "id": rec["id"],
-                    "line": lineno,
+                    "at": f"line {lineno}",
                     "reason": "; ".join(mismatches),
                 })
         res.items[rec["id"]] = rec
+        res.sources[rec["id"]] = f"line {lineno}"
+    return res
+
+
+def read_log(store: Path = STORE) -> LoadResult:
+    """Read every record, folding to the LAST per id. Never drops a bad one.
+
+    Dispatches on what `store` actually is: a pre-existing flat FILE is read
+    with the legacy line-based parser (`_read_legacy_jsonl`); anything else
+    (missing, or a directory) is read as the current one-file-per-record
+    store, in filename order -- filenames are timestamp-prefixed, so sorted
+    order is chronological order, the same "last record wins" contract the
+    flat file gave by line position.
+
+    ⚠️ Also flags a COLLISION the moment a record displaces a prior one under
+    the same id without looking like its state change (`_identity_mismatches`)
+    -- see the module docstring's "SIXTH FAILURE MODE". This costs no extra
+    pass: the fold already visits every record once.
+    """
+    if store.is_file():
+        return _read_legacy_jsonl(store)
+
+    res = LoadResult()
+    if not store.exists():
+        return res
+    for path in sorted(store.glob(f"*{RECORD_SUFFIX}")):
+        try:
+            rec = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(rec, dict) or not isinstance(rec.get("id"), str):
+                raise ValueError("record is not an object carrying a string id")
+        except Exception as exc:  # noqa: BLE001 — the message is the payload
+            res.unreadable.append((path.name, f"{type(exc).__name__}: {exc}"))
+            continue
+        res.records += 1
+        res.raw.append(rec)
+        prior = res.items.get(rec["id"])
+        if prior is not None:
+            mismatches = _identity_mismatches(prior, rec)
+            if mismatches:
+                res.collisions.append({
+                    "id": rec["id"],
+                    "at": path.name,
+                    "reason": "; ".join(mismatches),
+                })
+        res.items[rec["id"]] = rec
+        res.sources[rec["id"]] = path.name
     return res
 
 
@@ -392,8 +478,17 @@ def load(store: Path = STORE) -> LoadResult:
     return read_log(store)
 
 
+def _record_filename(now: datetime | None = None) -> str:
+    """A filename for one NEW record: timestamp-prefixed so sorted directory
+    order is chronological order, random-suffixed so two sessions writing in
+    the same instant still never collide -- no coordination required, which
+    is the entire point (see the module docstring)."""
+    now = now or datetime.now(timezone.utc)
+    return f"{now.strftime('%Y%m%dT%H%M%S%f')}Z-{uuid.uuid4().hex[:8]}{RECORD_SUFFIX}"
+
+
 def append(item: dict, store: Path = STORE, *, intent: str) -> dict:
-    """Validate, then append one record. Atomic and never rewrites history.
+    """Validate, then write one NEW record file. Never rewrites history.
 
     `intent` is REQUIRED -- there is deliberately no default, because the
     caller having to say which it means is the fix. Two values:
@@ -409,6 +504,13 @@ def append(item: dict, store: Path = STORE, *, intent: str) -> dict:
     Neither path re-derives what "plausibly a state change" means locally --
     that definition lives once, in `_identity_mismatches`, so this function
     and `read_log()`'s own collision detector can never drift apart on it.
+
+    ⚠️ Writes a brand-new, uniquely-named file (`_record_filename()`), never
+    an edit to an existing one -- this is the actual merge-safety property:
+    two concurrent callers each produce a differently-named file, so there is
+    nothing for git to reconcile. If `store` is a pre-existing flat file
+    (migration transition), the legacy single-file append is used instead, so
+    a caller mid-transition cannot silently start a second store.
     """
     validate(item)
     if intent not in ("new", "update"):
@@ -443,12 +545,23 @@ def append(item: dict, store: Path = STORE, *, intent: str) -> dict:
                 f"PI-20260921-0002 already was."
             )
 
-    store.parent.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n"
-    with open(store, "a", encoding="utf-8") as fh:
-        fh.write(line)
+    if store.is_file():
+        line = json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n"
+        with open(store, "a", encoding="utf-8") as fh:
+            fh.write(line)
+            fh.flush()
+            os.fsync(fh.fileno())
+        return item
+
+    store.mkdir(parents=True, exist_ok=True)
+    name = _record_filename()
+    payload = json.dumps(item, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    tmp = store / f".{name}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(payload)
         fh.flush()
         os.fsync(fh.fileno())
+    os.replace(tmp, store / name)  # atomic: no reader ever sees a partial file
     return item
 
 
@@ -603,8 +716,8 @@ def render_section_0(res: LoadResult, today: date | None = None) -> list[str]:
             f"section is INCOMPLETE and the counts below are a floor, not a total.",
             "",
         ]
-        for lineno, why in res.unreadable[:10]:
-            L.append(f"> - line {lineno}: {why}")
+        for loc, why in res.unreadable[:10]:
+            L.append(f"> - {loc}: {why}")
         L.append("")
     rows = due(res.items.values(), today)
     if not rows:
@@ -620,6 +733,79 @@ def render_section_0(res: LoadResult, today: date | None = None) -> list[str]:
         )
     L.append("")
     return L
+
+
+def _check_git_merge_safety(check) -> None:
+    """RULE ONE's positive control for the whole re-point: prove, with plain
+    git (no merge driver, no `-Xtheirs`), that two branches each appending
+    one record merge cleanly in EITHER order. This is the actual property
+    lane E64 exists to buy -- the flat-file predecessor failed exactly this
+    scenario in production (9 green PRs, every squash re-conflicting every
+    other one on this file, verbatim in the module docstring above).
+    """
+    import shutil
+    import subprocess
+
+    def git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", *args], cwd=str(cwd), capture_output=True, text=True)
+
+    def base(**over: Any) -> dict:
+        item = {
+            "id": "PI-1",
+            "what": "one line",
+            "origin": {"kind": "audit", "ref": "#1",
+                       "rerun": "python3 scripts/ci/run_guards.py --all"},
+            "due_when": {"kind": "observation", "clears_when": "x",
+                         "check_every_days": 7},
+            "next_action": "check_observation",
+            "state": "queued",
+        }
+        item.update(over)
+        return item
+
+    if shutil.which("git") is None:
+        check("git merge-safety control (skipped -- no git on PATH)", True)
+        return
+
+    for order in ("a-then-b", "b-then-a"):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            git("init", "-q", "-b", "main", cwd=repo)
+            git("config", "user.email", "test@example.invalid", cwd=repo)
+            git("config", "user.name", "pipeline self-test", cwd=repo)
+
+            store = repo / "docs" / "claude" / "work" / "pipeline"
+            append(base(id="BASE"), store, intent="new")
+            git("add", "-A", cwd=repo)
+            git("commit", "-q", "-m", "base record", cwd=repo)
+
+            git("checkout", "-q", "-b", "branch-a", cwd=repo)
+            append(base(id="A", what="branch A's finding"), store, intent="new")
+            git("add", "-A", cwd=repo)
+            git("commit", "-q", "-m", "branch A appends one record", cwd=repo)
+
+            git("checkout", "-q", "main", cwd=repo)
+            git("checkout", "-q", "-b", "branch-b", cwd=repo)
+            append(base(id="B", what="branch B's finding"), store, intent="new")
+            git("add", "-A", cwd=repo)
+            git("commit", "-q", "-m", "branch B appends one record", cwd=repo)
+
+            git("checkout", "-q", "main", cwd=repo)
+            first, second = (
+                ("branch-a", "branch-b") if order == "a-then-b"
+                else ("branch-b", "branch-a")
+            )
+            r1 = git("merge", "--no-edit", first, cwd=repo)
+            r2 = git("merge", "--no-edit", second, cwd=repo)
+            check(f"git merge-safety control ({order}): both merges succeed "
+                  f"with NO conflict (plain git, no merge driver)",
+                  r1.returncode == 0 and r2.returncode == 0)
+
+            res = read_log(store)
+            check(f"git merge-safety control ({order}): all three records "
+                  f"survive the merge, none displaced",
+                  set(res.items) == {"BASE", "A", "B"})
 
 
 # ─────────────────────────────────────────────────────────────── self-test ──
@@ -705,23 +891,26 @@ def _selftest() -> int:
     check("…and a routed item is still DUE (its owner is being tracked)",
           {i["id"] for i in due(pool, t)} == {"A", "B"})
 
-    print("— append-only round trip, and the unreadable line —")
+    print("— one file per record, and the unreadable record —")
     with tempfile.TemporaryDirectory() as td:
-        store = Path(td) / "P.jsonl"
+        store = Path(td) / "pipeline"
         append(base(id="X"), store, intent="new")
         append(base(id="X", state="routed", routed_to="A7"), store, intent="update")
         append(base(id="Y"), store, intent="new")
         res = read_log(store)
         check("two records for one id fold to the LAST (append-only state)",
               res.items["X"]["state"] == "routed")
-        check("…and the raw log kept BOTH (the audit trail survives)",
-              res.records == 3 and len(res.items) == 2)
+        check("…and the raw log kept BOTH (the audit trail survives, as "
+              "separate files -- nothing is ever edited in place)",
+              res.records == 3 and len(res.items) == 2
+              and len(list(store.glob(f"*{RECORD_SUFFIX}"))) == 3)
 
-        store.write_text(store.read_text() + "{not json\n" + "[1,2]\n")
+        (store / "zz-malformed.json").write_text("{not json\n", encoding="utf-8")
+        (store / "zz-not-an-object.json").write_text("[1,2]\n", encoding="utf-8")
         res2 = read_log(store)
-        check("⚠️ a malformed line is REPORTED, never skipped silently",
+        check("⚠️ a malformed record file is REPORTED, never skipped silently",
               len(res2.unreadable) == 2)
-        check("…a JSON array line is also unreadable (it carries no id)",
+        check("…a JSON array file is also unreadable (it carries no id)",
               any("id" in why or "object" in why for _, why in res2.unreadable))
         check("…the good items still load (partial read is not total failure)",
               len(res2.items) == 2)
@@ -733,25 +922,30 @@ def _selftest() -> int:
               "(negative control)",
               "COULD NOT BE PARSED" not in "\n".join(render_section_0(res, t)))
 
-        empty = read_log(Path(td) / "missing.jsonl")
+        empty = read_log(Path(td) / "missing")
         check("a missing store is readable-and-empty, not an error",
               empty.healthy and not empty.items)
 
+        legacy = Path(td) / "legacy.jsonl"
+        legacy.write_text('{"not": "an id-bearing dict but still valid json"}\n')
+        check("⚠️ a pre-existing FLAT FILE is still read (migration safety "
+              "net) via the legacy line-based parser, not the directory one",
+              len(read_log(legacy).unreadable) == 1)
+
     print("— validation is enforced on the WRITE path, not just on read —")
     with tempfile.TemporaryDirectory() as td:
-        store = Path(td) / "P.jsonl"
+        store = Path(td) / "pipeline"
         try:
             append(base(state="killed"), store, intent="new")
         except PipelineError:
             check("append() refuses an invalid item", True)
         else:
             check("append() refuses an invalid item", False)
-        check("…and wrote NOTHING when it refused",
-              not store.exists() or store.read_text() == "")
+        check("…and wrote NOTHING when it refused", not store.exists())
 
     print("— NEW: two DIFFERENT findings must never share an id —")
     with tempfile.TemporaryDirectory() as td:
-        store = Path(td) / "P.jsonl"
+        store = Path(td) / "pipeline"
         append(base(id="COLL"), store, intent="new")
 
         try:
@@ -792,22 +986,26 @@ def _selftest() -> int:
         check("…but intent='update' WITH matching identity is accepted "
               "(negative control)",
               read_log(store).items["COLL"]["state"] == "routed")
-        check("…and the store still carries ALL THREE records — refused "
-              "writes never landed, accepted ones are never edited in place",
-              len(store.read_text().strip().splitlines()) == 2)
+        check("…and the store still carries ALL THREE records as separate "
+              "files — refused writes never landed, accepted ones are never "
+              "edited in place",
+              len(list(store.glob(f"*{RECORD_SUFFIX}"))) == 2)
 
     print("— NEW: --check reports a collision instead of silently folding it —")
     with tempfile.TemporaryDirectory() as td:
         # Manufacture the exact live defect directly (bypassing append()'s
         # own refusal, the way an out-of-band write already did on main):
-        # two DIFFERENT findings filed under the SAME id.
-        store = Path(td) / "P.jsonl"
+        # two DIFFERENT findings filed under the SAME id, as two files that
+        # sort in the order they're meant to fold.
+        store = Path(td) / "pipeline"
+        store.mkdir()
         a = base(id="X", what="finding A", origin={"kind": "audit", "ref": "#1",
                                                      "rerun": "python3 a.py"})
         b = base(id="X", what="finding B",
                  origin={"kind": "session", "ref": "sess_2",
                          "rerun": "python3 b.py"})
-        store.write_text(json.dumps(a) + "\n" + json.dumps(b) + "\n")
+        (store / "0001-a.json").write_text(json.dumps(a), encoding="utf-8")
+        (store / "0002-b.json").write_text(json.dumps(b), encoding="utf-8")
         res = read_log(store)
         check("read_log() flags the id as a collision, not a clean fold",
               len(res.collisions) == 1 and res.collisions[0]["id"] == "X")
@@ -815,7 +1013,7 @@ def _selftest() -> int:
               "collisions are reported ALONGSIDE the fold, not instead of it",
               res.items["X"]["what"] == "finding B")
 
-        clean = Path(td) / "clean.jsonl"
+        clean = Path(td) / "clean"
         append(base(id="Y"), clean, intent="new")
         append(base(id="Y", state="routed", routed_to="A7"), clean,
                intent="update")
@@ -834,14 +1032,16 @@ def _selftest() -> int:
         # A GRANDFATHERED collision stays green (CI cannot rewrite
         # append-only history to repair PI-20260921-0002) but is still
         # reported loudly, never as "clean".
-        graveyard = Path(td) / "grandfathered.jsonl"
+        graveyard = Path(td) / "grandfathered"
+        graveyard.mkdir()
         gid = next(iter(GRANDFATHERED_COLLISIONS))
         ga = base(id=gid, what="finding A",
                   origin={"kind": "audit", "ref": "#1", "rerun": "python3 a.py"})
         gb = base(id=gid, what="finding B",
                   origin={"kind": "session", "ref": "sess_2",
                           "rerun": "python3 b.py"})
-        graveyard.write_text(json.dumps(ga) + "\n" + json.dumps(gb) + "\n")
+        (graveyard / "0001-a.json").write_text(json.dumps(ga), encoding="utf-8")
+        (graveyard / "0002-b.json").write_text(json.dumps(gb), encoding="utf-8")
         out2 = io.StringIO()
         with contextlib.redirect_stdout(out2):
             rc2 = _check(graveyard)
@@ -853,6 +1053,10 @@ def _selftest() -> int:
         check("…and the collision is named in the output regardless "
               "(loud, not silently passed)",
               gid in out2.getvalue())
+
+    print("— POSITIVE CONTROL: two branches each appending one record merge "
+          "cleanly with plain git (the actual property this re-point buys) —")
+    _check_git_merge_safety(check)
 
     print()
     if failures:
@@ -881,8 +1085,8 @@ def _check(store: Path) -> int:
         print(f"\n::error::pipeline: {len(res.unreadable)} UNREADABLE record(s) — "
               f"a store that cannot be fully read must never render as an empty "
               f"or healthy pipeline.")
-        for lineno, why in res.unreadable:
-            print(f"  line {lineno}: {why}")
+        for loc, why in res.unreadable:
+            print(f"  {loc}: {why}")
     if bad:
         print(f"\n::error::pipeline: {len(bad)} INVALID item(s) — each names the "
               f"field and the failure reason it maps to.")
@@ -907,7 +1111,7 @@ def _check(store: Path) -> int:
         for c in res.collisions:
             tag = ("GRANDFATHERED -- pre-existing, see GRANDFATHERED_COLLISIONS"
                    if c["id"] in GRANDFATHERED_COLLISIONS else "NEW")
-            print(f"  {c['id']} at line {c['line']}: {c['reason']} [{tag}]")
+            print(f"  {c['id']} at {c['at']}: {c['reason']} [{tag}]")
 
     if res.unreadable or bad or new_collisions:
         return 1

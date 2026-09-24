@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "scripts/ci/check_guard_liveness.py exists on main AND exits 0 with BASELINE_2026_09_22 holding none of the eight E45 names",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E45-GUARD-LIVENESS-BASELINE-MUST-SHRINK-BY-EIGHT-ONCE-PR-12742-LANDS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E45 / PR #12756",
+    "rerun": "git cat-file -e origin/main:scripts/ci/check_guard_liveness.py && python3 scripts/ci/check_guard_liveness.py"
+  },
+  "state": "done",
+  "terminal_reason": "DONE in the same PR that filed it. #12742 merged (f01bcc6 era), so scripts/ci/check_guard_liveness.py reached main and this branch's merge of main brought it in. OBSERVED, not assumed: the guard named all eight itself on the first run after the merge -- 4 BASELINE STALE (retired, scripts deleted) and 4 BASELINE RECOVERED (re-pointed; check_stated_population recovered as no_declared_subject, which is this instrument's own false positive, corrected in the comment). All eight entries removed: baseline 19 -> 11, dead 8 -> 0, live 30 -> 34, and the guard exits 0. Its --self-test still passes, including P5 (a baseline entry naming a guard that no longer exists FAILS).",
+  "what": "E45 (PR #12756) disposed of all 8 guards check_guard_liveness.py baselines as `dead`, but that script is NOT on main -- it is on PR #12742, open and mergeable_state `blocked` when read 2026-09-22T14:40Z. So BASELINE_2026_09_22 must lose all 8 entries once #12742 lands, and this is not optional: the baseline fails on rot in BOTH directions. The 4 retired guards (check_backlog_unresolve, check_open_items, check_recurrence_ledger, check_register_field_loss) will read BASELINE STALE because the scripts are deleted; the 4 kept ones (check_claim_basis, check_soak_registered, check_operator_owed, check_stated_population) will read BASELINE RECOVERED because their subjects exist or their path constants are pruned. 8 of 8 entries come out either way, which is the shrink the E45 row asked for. Whichever of #12742 and #12756 merges SECOND owns the edit; if #12742 merges second its author must drop the 8 before pushing, or main goes red on its own guard."
+}

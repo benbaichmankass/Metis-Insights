@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A fan-out package's adjudicated exit is DECLARED in one place that the analyses share, with the reasoning recorded, and any published before/after rate names which rule it used. [!] SORTING IN ONE CALLER CLOSES NOTHING -- two callers already sort, differently, and the shared builder is still undefined for the next one. [!] NOR DOES PICKING THE SELECTION THAT GIVES THE NICEST NUMBER, and the range is recorded here precisely so that choice cannot be made quietly later. [!] AND A LATER RUN WHERE THE THREE SELECTIONS HAPPEN TO AGREE DOES NOT CLOSE IT: they agree whenever no fan-out package has divergent closes, which is a property of that week's population and not of the code.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-WHICH-FANOUT-ROW-IS-ROWS-0-MOVES-THE-STOP-OUT-ADJUDICATION-AND-SWINGS-THE-HEADLINE-DID-BY-10-POINTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-WHICH-FANOUT-ROW-IS-ROWS-0-MOVES-THE-STOP-OUT-ADJUDICATION-AND-SWINGS-THE-HEADLINE-DID-BY-10-POINTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-WHICH-FANOUT-ROW-IS-ROWS-0-MOVES-THE-STOP-OUT-ADJUDICATION-AND-SWINGS-THE-HEADLINE-DID-BY-10-POINTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] On a fan-out package, which sibling row gets adjudicated is input order — and it swings the e35 stop-rate difference-in-differences from 17.9pp to 28.2pp on identical data, entirely through the control arm"
+}

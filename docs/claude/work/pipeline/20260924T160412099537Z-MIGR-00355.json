@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either (a) atr_stop_mult moves WITH the target so that tp_r <= cap_r at typical entry ATR for XRPUSDT 2h, verified by re-reading cap_r from the soak on a NEW order package (not the current one), or (b) tp_r is set to a value that actually fits under cap_r, or (c) the leg is explicitly declared trail-exited and the target key removed rather than left at an unplaceable value. A row that merely re-states the current number does NOT close this: the test is that a soak row for a fresh entry shows expectation_state='declared', never 'clamped'. Any change here is Tier-3 and needs explicit operator approval.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-XRP-DECLARED-TARGET-EXCEEDS-VENUE-CAP",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-XRP-DECLARED-TARGET-EXCEEDS-VENUE-CAP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-XRP-DECLARED-TARGET-EXCEEDS-VENUE-CAP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] xrp_pullback_2h declares tp_r 3.0 but the venue clamps it to 0.687 R — the leg moved sentinel -> CLAMPED, not sentinel -> declared, and it is on real money"
+}

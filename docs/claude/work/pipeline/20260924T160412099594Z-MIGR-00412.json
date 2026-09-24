@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The assertion must be demonstrably able to FAIL: a planted control in which the run's rows are absent from the shared ref must produce `pending_merge` (non-zero), and the same control must return `landed` once the branch is merged — so it is not merely always-failing. Shipped as tests/test_e35_landing_assertion_run_scoped.py, whose load-bearing case PINS the old vacuous predicate's wrong-but-actual behaviour so a revert fails loudly. NOT closed by the fix alone: the SIBLING SWEEP is unaudited — m20-exit-lever-sweep.yml writes an equally cumulative corpus and may assert the same way. This row closes when the sibling has been READ and either found run-scoped or fixed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260830-E35-LANDING-ASSERTION-IS-VACUOUS-ON-A-CUMULATIVE-CORPUS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-E35-LANDING-ASSERTION-IS-VACUOUS-ON-A-CUMULATIVE-CORPUS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-E35-LANDING-ASSERTION-IS-VACUOUS-ON-A-CUMULATIVE-CORPUS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] e35-bracket-sweep's landing assertion was satisfied by HISTORY, not by the run — it reported `landed` on a run whose rows were all on an unmerged side branch, and could never fail"
+}

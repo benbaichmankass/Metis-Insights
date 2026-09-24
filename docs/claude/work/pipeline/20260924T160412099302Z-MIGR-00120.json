@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) verdicts.json carries a per-leg frame fingerprint - row count AND first/last bar timestamp AND a content hash, all three, so a truncated frame and a shifted one stay distinguishable - propagated to the corpus row the way fee_bps_roundtrip is, RECORDED and deliberately ABSENT from measurement_key, with a mismatch reported when two rows share a key and differ on frames; or (b) a recorded decision that the structural gap is accepted, naming the observation that would reopen it. Adding the fingerprint TO measurement_key does not satisfy this - the row states why (it would stop a re-run ever superseding an older row).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260812-SWEEP-CORPUS-RECORDS-NO-FRAME-FINGERPRINT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260812-SWEEP-CORPUS-RECORDS-NO-FRAME-FINGERPRINT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260812-SWEEP-CORPUS-RECORDS-NO-FRAME-FINGERPRINT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The M20 sweep corpus records every CONFIG axis of a measurement (split, tp_cap, fee, regime book, trades floor, confidence floor) but NOT the DATA it ran on — structural gap, NO observed instance: the 0.20 arm reproduced the 15bps control on 3 of 3 legs across a 50-minute frame-refetch gap"
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "ALREADY CLEARED 2026-09-12 -- all three clauses, see observation (merged 7b8b6b51d; deployed, proven by ancestry against VM sha 4636c27aa; and OBSERVED with 6 of 6 legs `resized` and 4 of 4 still-resting legs read back off the venue at the declared size, including on real-money bybit_2). RETAINED ONLY SO THE EVIDENCE IS NOT LOST BETWEEN SESSIONS; prune it at the next review. [!] DO NOT REOPEN IT FOR THE FULLY-CONSUMED-PARENT QUESTION -- that is a different and unmet question tracked at BL-20260909-INTENT-REDUCE-FULLY-CONSUMED-PARENT-LEAVES-ITS-TRACKED-LEG-RESTING, and reusing a settled row for it would make a cleared observation look pending. === THE ORIGINAL CRITERION FOLLOWS: THREE PARTS, and they are different facts -- say WHICH you cleared rather than clearing the row on the easiest. (1) #11604 is MERGED, or explicitly rejected; sitting un-actioned settles nothing, and if it is still open the useful action is to tell the operator it needs a merge click, NOT to re-ask for the approval, which was already given. (2) DEPLOYED -- /api/diag/version shows the merge commit as git_sha AND git_sha_on_disk with restart_pending false. A merge alone clears this NOT AT ALL. (3) OBSERVED, and this is the only one that matters: a reduce fires after that restart on a Bybit account under BYBIT_TPSL_MODE=partial, and the SHRUNK row's tracked leg is read back off /api/diag/bybit_open_orders at the row's NEW position_size. Record the trade id, the order id, the size before and the size after.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "A10 2026-09-24: Its own clears_when reads 'ALREADY CLEARED 2026-09-12 -- all three clauses' (merged 7b8b6b51d, deployed, 6 of 6 legs observed resized incl. bybit_2), retained only as an evidence carrier. EVIDENCE: clears_when text in the store.",
+  "what": "[LOUD] MI-227 (Tier-2, operator-approved 2026-09-09, WO-20260909-DECISION-INTENT-REDUCE-ORPHANS-A-PROTECTIVE-LEG, chosen: resize_and_invariant) makes an intent-reduce resize the SHRUNK parent row's OWN tracked Bybit Partial-tpsl leg to that row's new size, and adds INV-PROTECT-LEG-MATCHES-ROW to scripts/ops/system_invariants.py. Audit F-36: apply_intent_reduce_partial_close decremented position_size and never touched the leg, leaving a reduce-only stop 101.82x the row it protects (bybit_1/ADAUSDT trade 5417, 628.0 vs 63943.0, measured 2026-09-09T16:47Z) while the symbol reconciled to the exchange EXACTLY -- which is why every symbol-level check passed. Class incidence 21 of 1000 journal rows, 3 on real-money bybit_2. !! THE OVERSIZED LEGS THAT ALREADY REST ARE NOT REMEDIATED AND MUST NOT BE: the approval is for the code path that resizes on the NEXT reduce, and BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG is what happened the one time this class was auto-remediated. !! AND ONE PREMISE OF THE FIX IS UNVERIFIED AGAINST THE VENUE: that Bybit accepts qty on an amend of a Partial-tpsl conditional leg comes from the V5 API contract, not from a call -- verifying it means placing one, which the building session was not permitted to do."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) the 4 rows are explained by a named code path that moves order_packages.sl or the venue stop without syncing the open leg's trades.stop_loss — naming the path and showing it on one of these four trade ids, after which this closes as closed_answered if the path is correct behaviour; OR (b) if no such path exists, a reproduction showing an open leg's trades.stop_loss left stale after a landed amend, and the sync fixed, with the fix demonstrated to FIRE on that reproduction and to stay silent when the leg legitimately closed before the amend (a guard shown only on the negative case is not shown). Reading the code again without adjudicating one of the four ids does NOT close this. The 42 unadjudicated rows are explicitly out of scope — they are not claimed as defects here.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-TRADES-STOP-LOSS-CAN-UNDERSTATE-THE-LEVEL-RESTING-AT-THE-VENUE-AND-POSITIONS-READS-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-TRADES-STOP-LOSS-CAN-UNDERSTATE-THE-LEVEL-RESTING-AT-THE-VENUE-AND-POSITIONS-READS-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-TRADES-STOP-LOSS-CAN-UNDERSTATE-THE-LEVEL-RESTING-AT-THE-VENUE-AND-POSITIONS-READS-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] On 4 closed trades the exit price sits within 5bp of order_packages.sl while trades.stop_loss still carries the ENTRY stop — the row understated the level actually resting at the venue, and /api/bot/positions reads that row"
+}

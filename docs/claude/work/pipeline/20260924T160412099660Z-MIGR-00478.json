@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) execute.modify_open_order's alpaca branch identifies the amending trade's OWN legs (trades.sl_order_id / tp_order_id, which requires the leg-id writer that does not exist yet -- both are NULL on live rows 5266 and 5414) and patches only those, AND an amend on a multi-row Alpaca symbol is OBSERVED leaving the sibling's legs untouched on a real venue read; OR (b) the operator rules that symbol-scoped amend is the intended Alpaca semantics, which must be RECORDED as a decision rather than left looking like a bug nobody fixed. A green harness clears neither -- a harness cannot reach the Alpaca venue.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-ALPACA-MODIFY-PROTECTIVE-IS-SYMBOL-SCOPED-SO-ONE-TRADES-AMEND-REWRITES-A-SIBLINGS-STOP",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-ALPACA-MODIFY-PROTECTIVE-IS-SYMBOL-SCOPED-SO-ONE-TRADES-AMEND-REWRITES-A-SIBLINGS-STOP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-ALPACA-MODIFY-PROTECTIVE-IS-SYMBOL-SCOPED-SO-ONE-TRADES-AMEND-REWRITES-A-SIBLINGS-STOP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] AlpacaClient.modify_protective takes a symbol and no trade identity, so on a multi-row symbol one trade's trailing amend rewrites whichever sibling's protective legs happen to rest there"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A reader asking 'what is open on a prop account' can get the answer WITHOUT re-deriving the grouping — EITHER a read surface that reports open POSITIONS (find_open_prop_positions' output exposed on a route, or a documented field on /api/bot/prop/status), OR the prop_fills read surface carrying an explicit caveat naming position_key as the arbiter. Verified by a session obtaining the open-position count from that surface and getting 0 for breakout_1 today where the raw status filter gives 18. Explicitly NOT sufficient: a comment added to prop_fills' table docstring in the code, since the sessions that hit this are reading the HTTP surface, not the module.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-PROP-FILL-ROW-STATUS-READS-AS-POSITION-STATE-AND-IS-WRONG-18-TO-0",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-PROP-FILL-ROW-STATUS-READS-AS-POSITION-STATE-AND-IS-WRONG-18-TO-0",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-PROP-FILL-ROW-STATUS-READS-AS-POSITION-STATE-AND-IS-WRONG-18-TO-0'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Filtering prop_fills on status open/filled reports 18 open rows where the code sees 0 open positions — the row status is a report record, not position state, and nothing on the read surface says so"
+}

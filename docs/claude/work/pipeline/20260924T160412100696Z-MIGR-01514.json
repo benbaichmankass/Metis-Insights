@@ -1,0 +1,23 @@
+{
+  "a10_note": "E44's own findings (archive gate, heartbeat grade, sweep binding, PR attribution). EVIDENCE: MANAGER-CHECKLIST.json 2026-09-24: E44 queued (#12752, #12753, #12765).",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a --supervise run over a real list_pull_requests dump either reports the open-PR probe as capable (rows carry bodies) and correctly attributes at least one PR to its lane, OR reports BLIND and authorises nothing. The failing state is authorising an archive for a lane that owns an open PR.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260923-HDZFTGH2-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01VsAt1BzrdspLn6hDzFTGh2, checklist row E44, PR #12753",
+    "rerun": "python3 scripts/ops/lane_reconcile.py --self-test 2>&1 | grep -E 'S4[f-k]' # all six must PASS. Then, against a real dump: dump list_pull_requests to a file and run --supervise; if the render's 'open-PR probe:' line says BLIND and the exit is 2, the guard is working. If it authorises an archive for a lane that owns an open PR, this has regressed."
+  },
+  "routed_to": "E44",
+  "severity": "high",
+  "state": "routed",
+  "terminal_reason": null,
+  "tier": 1,
+  "what": "OBSERVED 2026-09-23T18:44Z on the E44 archive gate's FIRST UNATTENDED RUN, and it is a near-miss worth more than the fix. `lane_reconcile.py --supervise` AUTHORISED archiving session_01VsAt1BzrdspLn6hDzFTGh2 (the E44 build lane, FAILED, idle 24.0h, $207.47) while that lane OWNED OPEN PR #12753. Archive condition 3 ('owns no open PR, positively established') was FALSE for that candidate and the matcher reported it TRUE BY SILENCE. Executing it would have stranded the PR -- the exact failure condition 3 exists to prevent and the same shape as the #12735/#12739 orphaning the mandate cites. WHAT STOPPED IT WAS THE MANDATE, NOT THE CODE: the supervisor verified the PR independently via pull_request_read, found it open with a body linking to that session, and per the mandate's 'if you believe the plan is wrong, file the disagreement and archive nothing' it archived nothing and wrote the disagreement into its heartbeat. That instruction is load-bearing and should not be weakened. ROOT CAUSE is the collapsed-state defect this module is otherwise careful about, one level deeper than it checked: open_pr_owners distinguished None (no dump supplied) from {} (a dump naming no owners) but NOT from 'a dump whose rows cannot carry the answer'. The session-link key reads each PR's `body` and list_pull_requests returns LISTING rows with no body, so it was blind; the fallback key needs a checklist row whose `prs` names the PR and row E44's prs was empty, so it was blind too. Two blind keys returning {}, which reads exactly like a real negative. FIXED in PR #12753 by pr_dump_can_answer(), applying RULE ONE to the instrument itself -- prove the probe can find a positive before trusting its silence. A non-empty listing where NOT ONE row carries a body now returns could_not_look, authorises nothing, and exits 2 saying the probe was BLIND; an EMPTY listing stays a real measurement. Self-tests 64 -> 78, S4f-S4k, each planted with its control because a probe that refuses every dump is as useless as one that trusts every silence. STILL OPEN AND WHY THIS ROW EXISTS: the fix makes the gate fail closed, which means the open-PR condition is now UNSATISFIABLE from a plain list_pull_requests dump -- so the supervisor can never authorise an archive until someone supplies bodies (fetch each PR) or populates each row's `prs`. That is the safe direction but it leaves the archive half inert, and the next lane should close it deliberately rather than discover it."
+}

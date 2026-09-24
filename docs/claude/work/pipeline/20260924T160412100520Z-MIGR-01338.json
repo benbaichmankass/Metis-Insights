@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "GET /api/bot/prop/fills shows the open breakout_1 position carrying a non-null sl equal to the live terminal stop, and the report-back template in a newly emitted ticket asks for sl.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#1-flow-applied-rounds--tickets--fills",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_1&limit=5' | python3 -c \"import json,sys;[print(f['id'],f['status'],f['sl']) for f in json.load(sys.stdin)['fills']]\""
+  },
+  "state": "queued",
+  "what": "The prop journal cannot compute open risk: fill #44 (breakout_1 ETH short 1.3 @ 2666.11) has sl null, and the operator's stop move 2736.00 -> 2711.10 is recorded nowhere in prop_fills/tickets/status (MEASURED 2026-09-24). compute_rule_distance subtracts no open loss-to-stop, so a second ticket grades within_cushion while ~$68 is still at risk. Tier-1/2: make sl a field of the placed/amend report-back template and the ingest, and record #44's stop."
+}

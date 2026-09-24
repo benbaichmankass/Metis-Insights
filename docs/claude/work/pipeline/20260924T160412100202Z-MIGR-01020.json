@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260908-THE-WEDGE-LEDGERS-VANISH-CLOCK-READS-A-CHANGED-CLASSIFICATION-AS-A-DISAPPEARED-POSITION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-THE-WEDGE-LEDGERS-VANISH-CLOCK-READS-A-CHANGED-CLASSIFICATION-AS-A-DISAPPEARED-POSITION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-THE-WEDGE-LEDGERS-VANISH-CLOCK-READS-A-CHANGED-CLASSIFICATION-AS-A-DISAPPEARED-POSITION'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "close_wedge_standing.observe() refreshes `last_seen` ONLY on a `broker_cancel_wedged` reading, so when the classifier flips to any other state while the position stays wedged the entry ages untouched and sweep_vanished retires it as `vanished_unattributed` -- a paged 'the position disappeared and nothing explains it' for a position that never moved"
+}

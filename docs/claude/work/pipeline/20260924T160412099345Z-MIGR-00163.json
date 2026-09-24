@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A running trader never reports 'paused'.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-HEARTBEAT-PAUSED-WHILE-TICKING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [liveness] status reads 'paused' while the trader is actively ticking — heartbeat starves during a long tick"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A LIVE ADOPT IS OBSERVED DECLINING -- a trades row with setup_type='adopted_orphan' and strategy_name='orphan_adopt' (the bare state) for a position where a price-matching candidate package DID exist, read from the live journal. That is the backlog row's own bar and it says so in terms: 'not by a unit test, which cannot reproduce the venue state that produces a candidate package'. !! A GREEN TEST SUITE CLEARS NOTHING: 24 tests pass and both load-bearing properties are mutation-checked, and a harness cannot reach a venue -- which is precisely why this row exists beside the green PR. !! MERGING CLEARS NOTHING -- that is what this row already records. !! THE DEPLOY IS A SEPARATE, WEAKER FACT AND IT IS ALREADY CLEARED -- do not spend a cycle re-reading it: /api/diag/version read git_sha 55f082e66 at 2026-09-10T17:06:06Z (see observation), which clears the DEPLOY half ONLY. Say WHICH half you cleared. What is outstanding is the paragraph above this one, and only that. !! A QUIET PERIOD IS NOT EVIDENCE EITHER: the refusal is rare by construction, so 'no refusals seen' cannot distinguish a working gate from an inert one -- establish that adopts are still HAPPENING at all before reading zero refusals as anything. !! IF A REFUSAL IS OBSERVED AND THE POSITION IS THEN FLATTENED, that does NOT clear this row and is the far more valuable finding -- the refused/no-candidate distinction failed somewhere -- so write it into observation and keep the row open.",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260910-ORPHAN-ADOPT-SIZE-GATE-DEPLOYED-AND-HAS-REFUSED-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260910-ORPHAN-ADOPT-SIZE-GATE-DEPLOYED-AND-HAS-REFUSED-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260910-ORPHAN-ADOPT-SIZE-GATE-DEPLOYED-AND-HAS-REFUSED-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "The orphan-adopt size gate is MERGED and DEPLOYED, and has refused nothing -- three different facts, and only the third is still open"
+}

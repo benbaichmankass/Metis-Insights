@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "RESOLVED when the merge-protocol guidance states explicitly that any elapsed-time or duration claim used in a merge decision must be derived from timestamps, with the failure mode named (inferring from issued waits). A note that merely says 'be careful about timing' does not close this -- the failure was confident precision, not carelessness.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260822-ELAPSED-TIME-INFERRED-FROM-ISSUED-SLEEPS-NOT-A-CLOCK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260822-ELAPSED-TIME-INFERRED-FROM-ISSUED-SLEEPS-NOT-A-CLOCK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260822-ELAPSED-TIME-INFERRED-FROM-ISSUED-SLEEPS-NOT-A-CLOCK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A session reported a CI overrun that never happened, having inferred elapsed time from the sleeps it had ISSUED rather than reading a clock"
+}

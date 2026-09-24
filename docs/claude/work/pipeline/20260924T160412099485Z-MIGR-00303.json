@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Truncate the 62 over-cap descriptions to <=100 chars, moving the rationale into a YAML comment above each entry where length is unconstrained, and add an assertion inside the sync step that fails the run when any DECLARED description exceeds the cap -- so a violation surfaces at edit time rather than at some future recreation. Do NOT close by observing that the bootstrap currently passes: it passes because the labels already exist, which is the definition of a latent fault. Cheap positive control: create then delete a throwaway label with an over-cap description and confirm the run goes red before the fix and green after.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260820-LABEL-DESCRIPTIONS-EXCEED-GITHUB-CAP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-LABEL-DESCRIPTIONS-EXCEED-GITHUB-CAP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-LABEL-DESCRIPTIONS-EXCEED-GITHUB-CAP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 62 of 79 label descriptions in bootstrap-labels.yml exceed the 100-char GitHub cap the file itself documents; harmless today only because the sync loop is get-then-skip, so deleting any one of them makes its recreation 422 and turns the bootstrap red"
+}

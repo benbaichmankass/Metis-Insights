@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either the prop branch is reached unconditionally for a declared prop account (and that is shown by a test exercising all three states), or an operator decision records that the two bypass paths are acceptable and says why. ⚠️ A passing test of the ONE reachable state clears nothing -- that state already works.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-E16-BALANCE-FETCHER-PROP-BRANCH-RARELY-REACHED",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "E16 build lane session_012DyVaL6CpsTxEwHBs9MEcB, PR #12696 'Filed for follow-ups' item 3, 2026-09-21. Read from the code, not inferred from behaviour.",
+    "rerun": "Read src/core/coordinator.py::_default_balance_fetcher in full and enumerate which branches reach src/prop/prop_balance.py::prop_sizing_balance."
+  },
+  "state": "queued",
+  "what": "src/core/coordinator.py::_default_balance_fetcher reaches prop_sizing_balance in only one of three states: cached_balance_usd is checked first and returns before the prop branch, and an account absent from live_balances takes branch 3 and never consults prop_balance at all. So the stale-balance sizing gate is weaker than prop_balance's own docstring implies.",
+  "why_it_matters": "The gate is the reason it is considered safe for the prop status ask to go quiet while the book is flat -- the argument is 'sizing refuses on a stale balance, so nothing trades off a number nobody measured.' If the refusal is reachable in only one of three states, that argument is weaker than it reads, on a FUNDED account with an $87.34 cushion to an account-killer floor."
+}

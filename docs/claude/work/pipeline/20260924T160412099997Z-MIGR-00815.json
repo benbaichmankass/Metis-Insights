@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260823-ALPACA-LIVE-CANNOT-PLACE-AN-ORDER-AT-ITS-FUNDING-LEVEL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-LIVE-CANNOT-PLACE-AN-ORDER-AT-ITS-FUNDING-LEVEL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-LIVE-CANNOT-PLACE-AN-ORDER-AT-ITS-FUNDING-LEVEL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "alpaca_live has refused 317 of 318 orders in its entire recorded life (99.7%) — 16 live strategies route to an account that cannot size a single whole share, and both alarms are switched off"
+}

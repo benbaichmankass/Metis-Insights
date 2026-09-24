@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Before the clientId collision is repaired: establish what markprice_local would produce for ib_paper against exchange truth (requires the ib_paper exchange-position read to work, or an equivalent broker-side read), and confirm the multiplier handling that produced BL-20260807's $119,490. Then either (a) restore the fallback WITH its provenance label surfaced and a bound on the estimate, or (b) leave it declaring 'unavailable' deliberately and record THAT as the intended state rather than as a bug. Closing this row by making the number appear again, without either establishing its correctness or declaring it an estimate, is the failure mode this row exists to prevent.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-REPAIRING-THE-UPNL-MASK-RE-EXPOSES-A-FABRICATION-PATH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-REPAIRING-THE-UPNL-MASK-RE-EXPOSES-A-FABRICATION-PATH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-REPAIRING-THE-UPNL-MASK-RE-EXPOSES-A-FABRICATION-PATH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ib_paper uPnL currently reads 'unavailable' because of a SEPARATE defect, and that defect is the only thing suppressing a mark-price fallback with a known fabrication history — fixing the mask without fixing provenance re-opens BL-20260807"
+}

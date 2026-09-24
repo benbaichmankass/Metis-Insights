@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies; a producer-side field in build_strategy_evidence.py, which the harness-wiring lane (E7) touches. EVIDENCE: MEASURED 2026-09-24: no key matching sd/std/var/disp across comms/strategy_evidence/*.json.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Each measured evidence record carries a per-trade dispersion statistic (sd of per-trade net_r over the OOS folds) alongside expectancy_r_oos.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-EVIDENCE-RECORDS-CARRY-NO-PER-TRADE-DISPERSION",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist C5/R4 research lane, session_01AHNgatHswZsemNiP8aSXCk, branch claude/c5-r4-ten-research-questions",
+    "rerun": "python3 -c \"import json,glob; print(sorted({k for f in glob.glob('comms/strategy_evidence/*.json') for k in json.load(open(f))}))\"  # look for any dispersion key"
+  },
+  "routed_to": "E7 (evidence producer): per-trade sd of net_r over the OOS folds on every measured record",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "comms/strategy_evidence/*.json carries expectancy_r_oos and a pooled net_r_oos but NO per-trade dispersion field, so no standardised effect size can be computed from a record. MEASURED 2026-09-22 over all 12 risk-bearing records: no sd/stdev/var key on any of them. Consequence: a research unit asking about a per-trade edge must declare min_detectable_effect in sd units it cannot convert to R, or fabricate an sd. RQ-20260922-005 and RQ-20260922-009 both hit this and both say so rather than inventing a number; RQ-20260922-009's required_n arithmetic is INFERRED from an assumed sd of order 1R and is unverifiable until this lands."
+}

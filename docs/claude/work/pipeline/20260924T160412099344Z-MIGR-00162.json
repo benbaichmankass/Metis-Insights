@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when the count of workflows carrying a bare `issues:` ON-trigger falls materially below the 87 measured 2026-09-02 (baseline 85 at filing on 2026-08-06) — the mechanism being a shared dispatcher that fans out to handlers rather than 87 workflows each waking on every issue — AND a run-count read over a window that CONTAINS at least one labelled issue shows the per-issue run fan-out reduced. STATE THE ABSOLUTE COUNT, NEVER THE SHARE: the share fell 85% -> 68.5% between those two dates purely because 27 unrelated workflows were added, while the blast radius of one issue GREW. Re-run: count files matching `^\\s{2,4}issues:\\s*$` under .github/workflows/, with vm-diag-snapshot/system-actions/trainer-vm-diag/prop-report as the positive control and guards/board-post/pr-opener as the negative one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260806-ISSUE-TRIGGER-FANOUT-77PCT-OF-ALL-RUNS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260806-ISSUE-TRIGGER-FANOUT-77PCT-OF-ALL-RUNS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260806-ISSUE-TRIGGER-FANOUT-77PCT-OF-ALL-RUNS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [ci][Tier-1] 85 of 100 workflows carry an `issues:` trigger, so ONE issue creates up to 85 workflow runs — 275,328 runs (77% of all Actions runs this repo has ever produced) are issue-triggered, and ~29 of every 30 are immediately skipped"
+}

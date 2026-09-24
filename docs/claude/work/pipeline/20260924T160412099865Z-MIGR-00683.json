@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The unattributable share is reduced by a durable surface rather than by a re-grade -- the closing order's stop_order_type / cancel_type persisted at close time and BRANCHED on by a reader (the sibling health row on account_bybit_raw_order_history). Cleared when this attribution is re-run on a later window and the unattributable_price + contaminated buckets are materially smaller, with both counts reported. NOT cleared by widening the recovery tolerance: those two buckets are invariant to it, which is exactly why they are the finding.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-FOR-55-PERCENT-OF-WINNERS-THAT-MISSED-TARGET-THE-MECHANISM-THAT-STOPPED-THE-RUN-IS-NOT-IN-THE-JOURNAL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-FOR-55-PERCENT-OF-WINNERS-THAT-MISSED-TARGET-THE-MECHANISM-THAT-STOPPED-THE-RUN-IS-NOT-IN-THE-JOURNAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-FOR-55-PERCENT-OF-WINNERS-THAT-MISSED-TARGET-THE-MECHANISM-THAT-STOPPED-THE-RUN-IS-NOT-IN-THE-JOURNAL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] 55% of the winners that fell short of their declared target carry an unattributable or contaminated exit label, so what stopped the run is not recorded"
+}

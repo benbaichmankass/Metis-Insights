@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A session works at least one `sunset` row to a recorded disposition in docs/claude/SUNSET-DISPOSITIONS.json, and the row is observed to DROP OFF the next render of DUE.md. Record which candidate and which disposition. !! A DISPOSITION IS NOT A RETIREMENT and this row must not be read as asking for one: retiring a strategy leg is Tier-3, `retire_proposed` is the furthest a session may take one alone, and 'keep' closes a row exactly as legitimately as 'retire_proposed'. The gap being closed is that NOBODY LOOKED. !! THE SOURCE RENDERING ROWS DOES NOT CLEAR THIS -- that is a deploy. The observable is a disposition being WRITTEN. !! AND IF ALL NINE ARE DISPOSITIONED THE ROW CLEARS EVEN IF NOTHING IS RETIRED; a fleet where every candidate was examined and kept is the success case, not a failure to act.",
+    "kind": "observation",
+    "last_checked": "2026-09-06"
+  },
+  "id": "OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "E3's retirement candidates now REACH a session. scripts/ops/render_due_list.py gained a `sunset` source: every `retire_candidate` in the newest comms/sunset/<date>/INDEX.json with no row in docs/claude/SUNSET-DISPOSITIONS.json. Measured on the 2026-09-01 pass: 10 candidates, 1 dispositioned (strategy:turtle_soup), so NINE now appear on DUE.md. Before this they appeared nowhere a session was required to look -- E3's machinery all shipped and ZERO of the 32 role packs referenced any of it, so candidates accumulated on a cadence with nobody made to look."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-AUTOMERGE-RELAY-RACE-RECURRED-THREE-TIMES-IN-ONE-NIGHT-AND-SESSIONS-CLOSE-AND-REOPEN-PRS-TO-ESCAPE-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-AUTOMERGE-RELAY-RACE-RECURRED-THREE-TIMES-IN-ONE-NIGHT-AND-SESSIONS-CLOSE-AND-REOPEN-PRS-TO-ESCAPE-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-AUTOMERGE-RELAY-RACE-RECURRED-THREE-TIMES-IN-ONE-NIGHT-AND-SESSIONS-CLOSE-AND-REOPEN-PRS-TO-ESCAPE-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "RECURRENCE: the automerge relay beats pr-opener on every Tier-1 PR — three instances in one night — and the workaround sessions reach for is closing and reopening the PR"
+}

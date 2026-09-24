@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. Do NOT widen the window into a blocking wait on the live path without a bound — the point of the verification is that it is cheap and honest.\n2. Make PendingCancel its OWN state rather than folding it into cancel_not_effective. `still_present` currently conflates 'the broker refused / did nothing' with 'the broker ACCEPTED and is working on it' — two different facts with different correct responses (investigate vs wait). This is the collapsed-states rule applied to the ops layer: a `cancel_pending` verdict should exit 0 with a clear 're-verify, do not re-issue' instruction.\n3. Exit code should reflect that distinction, since the issue comment renders exit != 0 as a red FAILED and that is what a reader acts on.\n4. Add the post-check the session had to do by hand: a short bounded re-read (or an explicit instruction naming /api/diag/ib_open_orders) so the operator is not left to invent the verification step.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-CANCEL-IB-ORDER-VERIFY-WINDOW-TOO-SHORT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] cancel-ib-order reports cancel_not_effective + exit 1 for a cancel that DOES complete moments later — correct at the instant it checks, wrong as a final verdict, and it invites a blind retry"
+}

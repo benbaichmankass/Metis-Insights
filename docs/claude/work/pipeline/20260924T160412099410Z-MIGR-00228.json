@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. [MET 2026-08-16, verified live 2026-08-23 — /api/diag/ib_open_orders returned read_state='orders_read' with 4 resting ib_paper legs and read_state='could_not_look' with count=null for ib_live, the three-state contract behaving as designed] ADD AN IB OPEN-ORDERS READ SURFACE FIRST (Tier-1, no order path). Without it none of the fixes below can be verified and the next occurrence is equally invisible. Safe to ship alone.\n2. Make protection TRADE-attributable, not symbol-attributable: persist the placed OCA group + leg ids onto the trade row (the columns already exist for Bybit) and have place_protective cancel only the CALLING trade's own legs.\n3. [MET 2026-08-16 — protection_coverage returns stop_qty and target_qty SEPARATELY beside the back-compat covered_qty, classifying each leg through _protective_leg_side with the STOP family tested FIRST so a 'STP LMT' cannot manufacture target coverage; has_protective_orders keeps the combined test deliberately, that being its own question, and its docstring now forbids naked-detection use] Make has_protective_orders return COVERED QUANTITY (or None when unconfirmable) instead of a boolean and compare to the exchange position size - the PR #8000 Bybit shape. Skip rather than guess when coverage is ungradeable.\n4. Reconcile the detection/cancellation scope asymmetry explicitly: both read reqAllOpenOrders, or document the difference as intentional WITH the restart-stacking consequence stated.\n5. [RESOLVED 2026-08-23, was HELD — the ope …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Why the MGC take-profit never fired: IB protective-leg DETECTION is account-wide+boolean while CANCELLATION is session-scoped+symbol-wide - no trade owns its bracket, and nothing can verify one exists"
+}

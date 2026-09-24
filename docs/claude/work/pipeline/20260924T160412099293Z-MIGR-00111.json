@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "THREE PARTS, and they are different facts — say WHICH you cleared. (1) THE READ IS COMPLETE: a bybit_2 position_read_state_soak row whose rows_seen covers every book the venue holds, verified against an INDEPENDENT venue read taken the same minute, on a symbol carrying TWO non-zero hedge books. (2) could_not_look IS EXPRESSIBLE: a read that did not fetch a symbol's second book increments could_not_look_count instead of silently reading 0. (3) OBSERVED ON THE FLEET: the previously-invisible book appears in /api/bot/positions and the naked-protection sweep is observed GRADING it. [!] CLAUSE (1) IS CURRENTLY UNREACHABLE FROM A SESSION AND THAT IS THE FIRST THING TO FIX: /api/diag/exchange_positions takes account_id ONLY — no symbol parameter exists anywhere on the diag surface for positions, and appending &symbol=ETHUSDT returns a BYTE-IDENTICAL payload (the unknown parameter is accepted and ignored), so a session that did not compare the two responses would clear the criterion on nothing. A read-only `symbol=` parameter would make this row checkable; it is src/** and therefore Tier-2. [!] MI-283's dedupe fix CLEARS NONE OF THIS — different path, different account, and its own row is OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP. [!] A GREEN TEST SUITE CLEARS NOTHING: a fixture cannot reproduce a venue page returning fewer rows than the account holds, which IS the mechanism. [!] AND IF THE OPERATOR FLATTENS OR BRACKETS THE POSITION, th",
+    "kind": "observation",
+    "last_checked": "2026-09-13"
+  },
+  "id": "OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] bybit_2's settle-coin page returns one row per symbol and the symbol-scoped backfill skips any symbol it listed, so a hedge symbol's SECOND book is never read at all — operator-raised on a REAL-MONEY naked ETHUSDT short, and no repo surface can establish whether that book is still open"
+}

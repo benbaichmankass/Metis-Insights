@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "config/strategies.yaml comments at the tp_r entries for trend_donchian/fade_breakout_4h/squeeze_breakout_4h mention the short-branch clamp explicitly, OR the operator confirms the existing wording is good enough.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260527-002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260527-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260527-002'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] config/strategies.yaml comments on tp_r=50.0 still say 'effectively-unreachable sentinel' without mentioning the 2026-05-27 short-branch clamp"
+}

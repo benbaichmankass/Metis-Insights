@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-SILENT-EMPTY-GUARD-READS-13-PERCENT-OF-ITS-CLASS-AND-55-SUPPRESSIONS-SIT-WHERE-IT-CANNOT-FIRE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-SILENT-EMPTY-GUARD-READS-13-PERCENT-OF-ITS-CLASS-AND-55-SUPPRESSIONS-SIT-WHERE-IT-CANNOT-FIRE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-SILENT-EMPTY-GUARD-READS-13-PERCENT-OF-ITS-CLASS-AND-55-SUPPRESSIONS-SIT-WHERE-IT-CANNOT-FIRE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "silent-empty-guard protects 4 path prefixes plus 3 named files while the defect class it names lives overwhelmingly outside them, and 55 allow-silent overrides have been written in files the guard never reads -- meaning authors suppressed a guard that would never have fired. That marker misplacement is the cheapest available proof of a guard-scope/concept mismatch."
+}

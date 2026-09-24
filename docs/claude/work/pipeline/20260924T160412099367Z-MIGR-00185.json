@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "One of the row's three options is CHOSEN AND IMPLEMENTED - (a) move the durable slot off the merge-gated path, (b) delete merge_slot from the schema, or (c) scope it explicitly to non-PR claims - and the two prior lapse items are closed by pointing at that choice rather than at a behaviour. A decision recorded without implementation does not close it: the field stays in the state the row calls worse than no field, and re-filing the exhortation is what the row forbids.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-MERGE-SLOT-MIRROR-UNWRITABLE-PRE-MERGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The merge_slot durable mirror is structurally unwritable for a claim on the PR that carries it, so 'remember to mirror it' cannot be the fix"
+}

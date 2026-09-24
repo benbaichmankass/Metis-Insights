@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO PARTS, and the second is the one that actually protects a session. (1) The measurement is re-run and either confirms or refutes the monotonic fall-off on a later window (a second population, not the same one re-read). (2) THE CONSEQUENCE IS ABSORBED WHERE IT BITES: any clears_when clause or guard that grades a cadence against its DECLARED slot is rewritten to grade against the observed distribution, or to grade only that the cadence DELIVERED at all. ⚠️ DO NOT 'FIX' THIS BY TIGHTENING CRONS — declaring `*/30` to get hourly delivery is cargo-culting against an unverified cause and would make the shortfall worse if throttling is per-repo. ⚠️ AND IF THE OPERATOR DECIDES the sub-6-hourly cadences should move onto the VM's own timer (as the hourly digest already proposes), this does NOT clear — it CHANGES, and must be recorded as that decision with the consequence stated.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-NOTHING-DECLARED-MORE-OFTEN-THAN-EVERY-SIX-HOURS-DELIVERS-ITS-DECLARED-RATE-AND-EVERY-DAILY-CRON-FIRES-FOUR-TO-FIVE-HOURS-LATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-NOTHING-DECLARED-MORE-OFTEN-THAN-EVERY-SIX-HOURS-DELIVERS-ITS-DECLARED-RATE-AND-EVERY-DAILY-CRON-FIRES-FOUR-TO-FIVE-HOURS-LATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-NOTHING-DECLARED-MORE-OFTEN-THAN-EVERY-SIX-HOURS-DELIVERS-ITS-DECLARED-RATE-AND-EVERY-DAILY-CRON-FIRES-FOUR-TO-FIVE-HOURS-LATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Measured across all 27 scheduled workflows: delivery falls off monotonically with declared frequency (hourly 25%, 2-hourly 37-48%, 3-hourly 62%, 6-hourly 91-100%, daily 100%), and the median cron fires 4-5 HOURS after its declared slot — so no clears_when clause may read a declared minute as a firing minute"
+}

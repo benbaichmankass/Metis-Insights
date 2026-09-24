@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Two points measured before any fix: signal_audit.jsonl size sampled twice at least 24h apart via status-check or /api/diag/log_file, yielding a stated MB/day growth rate over a named window. Then EITHER a rotation timer for signal_audit.jsonl is installed and observed to have rotated at least once (the file shrinks and a dated predecessor appears in the same directory listing on a later status-check), OR a written decision records why unbounded growth is acceptable, carrying the projected date the 45 GB volume reaches 80% at the measured rate. Also resolve whether rsyslog's 819.6 MB RSS is tied to this file, since that was left UNVERIFIED here.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260812-SIGNAL-AUDIT-JSONL-501MB-NO-ROTATION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260812-SIGNAL-AUDIT-JSONL-501MB-NO-ROTATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260812-SIGNAL-AUDIT-JSONL-501MB-NO-ROTATION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] signal_audit.jsonl has grown to 501 MB on the live trader with no rotation timer, while its sibling shadow-prediction log HAS one"
+}

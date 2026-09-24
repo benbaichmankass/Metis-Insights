@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "`banking_mechanism_audit.py --telemetry <live pull>` reports n_invisible = 0 over the enabled+live population, AND at least one telemetry row is OBSERVED on the live fleet carrying an ict_scalp_* strategy with a readable peak_r. ⚠️ A PASSING TEST IS NOT THIS OBSERVATION and neither is reading the merged diff — the hook runs inside a live monitor() tick, so only a real row proves it fires. ⚠️ AND DO NOT CLEAR THIS ON n_invisible = 0 ALONE: that grades the CODE (the hook is present), not the FLEET (a row was produced). Those are the two separate gaps this repo keeps conflating — merged is not deployed and deployed is not observed. Say WHICH of the two you established. ⚠️ If the operator declines Proposal A, this row does NOT clear — it CHANGES: the 9 legs are then deliberately unmeasured, which is a legitimate decision and must be RECORDED as one rather than left looking like a fix that is about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260907-NINE-LIVE-LEGS-EMIT-NO-PEAK-R-TELEMETRY-SO-THEIR-ZERO-N-IS-NOT-AN-ABSENCE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-NINE-LIVE-LEGS-EMIT-NO-PEAK-R-TELEMETRY-SO-THEIR-ZERO-N-IS-NOT-AN-ABSENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-NINE-LIVE-LEGS-EMIT-NO-PEAK-R-TELEMETRY-SO-THEIR-ZERO-N-IS-NOT-AN-ABSENCE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] record_position_telemetry is hooked into only 2 of the live monitor units, so 9 of 44 enabled+live legs emit NO peak-R telemetry at all — and MI-155 grades their n_live=0 identically to legs that genuinely did not trade"
+}
