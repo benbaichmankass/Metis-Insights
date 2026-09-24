@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Creates config/mandates.yaml with an EMPTY `mandates:` list (nothing is granted) plus five clearly-separated `proposed:` entries, and corrects CLAUDE.md's claim that the ladder is fully automated -- which was false in the field because the store did not exist. Tier 1: docs + a new config file that grants NOTHING and that no runtime path reads for a trading decision. The only consumers are read-only reporting surfaces (render_daily_brief.py, api/routers/work.py) which currently read the path as `absent`. ⚠️ Promoting any entry from `proposed:` into `mandates:` would be Tier-3 and is the OPERATOR's act, not a session's -- this PR deliberately does not do it."
+}
