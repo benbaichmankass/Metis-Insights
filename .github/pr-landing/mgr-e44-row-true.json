@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "one row's state/lane/prs/spend_usd/note on docs/claude/work/MANAGER-CHECKLIST.json, plus the two header scalars. Manager surface only. No code, no guards, no config, no runtime surface."
+}

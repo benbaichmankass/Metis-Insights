@@ -1370,6 +1370,37 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "research-results-guard",
+        # Fires on the store, on the schema owner, on the guard itself and on
+        # the producing surfaces. The OWNER is in the trigger set deliberately
+        # (same posture as risk-basis-agreement): changing what a result MUST
+        # carry has to re-grade every committed record, which is the direction
+        # the drift actually travels.
+        "when": {"globs": [
+            "research/results/**",
+            "scripts/research/research_result.py",
+            "scripts/research/exit_head_result.py",
+            "scripts/research/m20_sweep_result.py",
+            "scripts/ci/check_research_results.py",
+            ".github/actions/research-result/action.yml",
+        ]},
+        # SELF-TESTS FIRST, and all three of them, because each owns a
+        # different failure path and a green from one says nothing about the
+        # others: the SCHEMA refuses a collapsed verdict/read_state, the two
+        # MAPPINGS refuse to hand the schema something it would reject, and the
+        # GUARD catches a record filed under the wrong unit — which is
+        # admissible to the schema and still unfindable. A guard that reports a
+        # clean scan needs an exercised failure path, or "0 problems" cannot be
+        # told from "stopped matching".
+        "steps": [
+            ["python3", "scripts/research/research_result.py", "--self-test"],
+            ["python3", "scripts/research/exit_head_result.py", "--self-test"],
+            ["python3", "scripts/research/m20_sweep_result.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_results.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_results.py"],
+        ],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read

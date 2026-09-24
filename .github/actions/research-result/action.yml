@@ -1,0 +1,246 @@
+name: research-result
+description: >
+  Land ONE research result on `main`, in the one schema, at the one committed
+  location — emit, validate, commit, and ASSERT IT LANDED, in a single step a
+  caller adds once.
+
+  WHY THIS IS AN ACTION AND NOT A SNIPPET. MEASURED 2026-09-22 across
+  `.github/workflows/`: the research-producing workflows overwhelmingly end with
+  `actions/upload-artifact` plus a `gh issue comment`. Artifacts EXPIRE and issue
+  comments are NOT queryable, so a result that cost real runner minutes exists
+  only until it doesn't, and no later session can grep for it. Nineteen copies of
+  a landing step is nineteen chances to write the eighteen-field contract wrong;
+  one owner is one chance, and it has a self-tested validator behind it
+  (`scripts/research/research_result.py --self-test`) plus a CI guard over the
+  artifact (`research-results-guard`).
+
+  WHAT THE CALLER GETS, AND THE ORDER MATTERS:
+    1. `research_result.py --emit` builds the record and REFUSES to write an
+       inadmissible one. A landing step that writes a record nobody can match to
+       a pre-registered rule has rebuilt the problem one directory down.
+    2. `.github/actions/commit-to-main` does the commit. That action — not this
+       one — is the single owner of "how a workflow gets a file onto protected
+       `main`", with the PAT, the throwaway branch, the R11/R6/R13 declarations
+       and the bounded `verify-merged` wait. This action does not re-implement
+       any of it and must never start to.
+    3. `scripts/ci/assert_rows_landed.py` re-reads the store FROM `main` and
+       fails if the rows are not there. R2: a job that exits 0 having landed
+       nothing is a FAILED job.
+
+  ⚠️ STEP 2 IS A NESTED COMPOSITE `uses:`, AND IT IS THE ONE MECHANISM HERE THAT
+  NO CI RUN EXERCISES. Both consumers are `workflow_dispatch`-only, so the first
+  real proof of the landing half is the first dispatch — not this file, and not
+  the PR that added it. Said plainly rather than left for a reader to assume:
+  the emit + validate + guard half IS proven (three self-tests, run in CI); the
+  commit + assert half is proven on first dispatch. Do not quote this action as
+  end-to-end verified until a run id can be named.
+
+  Tier-1: research tooling. Writes no config, runs no order path, touches no VM.
+
+inputs:
+  token:
+    description: >
+      PAT with Contents:write + Pull-requests:write, handed straight to
+      `commit-to-main`. The CALLING JOB must also `actions/checkout` with this
+      token, or the PR the landing opens never receives its required checks and
+      auto-merge waits forever — see that action's own line 12.
+    required: true
+  research-unit:
+    description: >
+      The queue unit id (`RQ-YYYYMMDD-NNN`) that dispatched this run.
+
+      ⚠️ EMPTY MEANS NOT-QUEUE-DISPATCHED. It does NOT mean "this was only a
+      test", and it does not waive any other field — a manual run still measured
+      something over some population. Such a result lands under
+      `research/results/_unattributed/`, which is a named state rather than the
+      store root.
+    required: false
+    default: ""
+  power-state:
+    description: >
+      The dispatcher's COMPUTED R4 power verdict, passed through verbatim.
+      `accruing` means the unit declared up front that it cannot answer yet, so
+      these numbers must never be read as a test result. Deliberately not
+      hand-written by a caller: a hand-declared safety label can drift from the
+      verdict the gate actually computed.
+    required: false
+    default: ""
+  decision-rule-id:
+    description: >
+      The id of the rule this result is graded against, REGISTERED BEFORE THE
+      RUN. Required, because matching a result to a pre-registered rule is the
+      entire safety property behind an automated ladder with nobody in the path.
+    required: true
+  decision-rule-registered-at:
+    description: When that rule was registered (ISO date). Required for the same reason.
+    required: true
+  verdict:
+    description: >
+      One of `pass` · `fail` · `no_action_warranted` · `indeterminate` ·
+      `not_applicable`. `not_applicable` is legal ONLY when `read-state` says we
+      could not look; the validator refuses every other combination.
+    required: true
+  read-state:
+    description: >
+      One of `measured` · `no_data` · `producer_failed` · `not_attempted`.
+
+      ⚠️ THIS IS A SEPARATE FIELD FROM `verdict` ON PURPOSE. "We looked and found
+      nothing" is `measured` with `n: 0`; "we could not look" is one of the other
+      three with `n: null`. Collapsing them is the bug
+      `scripts/ci/check_collapsed_states.py` exists for.
+    required: true
+  population:
+    description: >
+      WHAT THIS WAS MEASURED OVER, in a sentence a later session can re-derive
+      from: the rows/filter, the window, the instrument. Not the count — that is
+      `n`. Required by § "Always state the population".
+    required: true
+  n:
+    description: >
+      The denominator, a real integer — or the literal `null` when we could not
+      look. ⚠️ NEVER PASS 0 FOR AN UNMEASURED QUANTITY. A fabricated zero
+      asserts a measured empty sample and drags any aggregate to a value nobody
+      observed. `0` is correct, and meaningful, only with `read-state: measured`.
+    required: true
+  measurement-file:
+    description: >
+      Path to a JSON OBJECT holding the statistic(s) this run produced. Optional
+      — a `producer_failed` result legitimately has none.
+    required: false
+    default: ""
+  artifact-store:
+    description: >
+      The committed store holding the underlying measurement rows — e.g.
+      `docs/research/m20-sweep-corpus.jsonl`. This record POINTS at the
+      measurement; it never copies it, because two stores holding one number is
+      how the two drift. ⚠️ READ THIS OFF THE PRODUCER'S OWN `git add`, never off
+      a doc or a sibling workflow — `assert_rows_landed.py`'s docstring records
+      what naming the wrong store cost last time.
+    required: false
+    default: ""
+  artifact-locator:
+    description: >
+      Enough to find the rows inside that store, or — when the measurement is
+      genuinely unreachable — a plain statement of WHY. An honest "not durably
+      retrievable: <why>" is actionable; a blank is not.
+    required: false
+    default: ""
+  rows-landed:
+    description: Row count this run contributed to `artifact-store`, if known.
+    required: false
+    default: ""
+  tool:
+    description: The script that actually ran (R1's "what ran").
+    required: true
+  note:
+    description: Free text for a caveat the schema has no field for.
+    required: false
+    default: ""
+  min-rows:
+    description: >
+      How many result records must be readable on `main` before this step
+      passes. 1 for a single-verdict run; the fan-out width for a per-leg run,
+      where a result covering fewer legs is a defect rather than a partial
+      success.
+    required: false
+    default: "1"
+
+outputs:
+  path:
+    description: Repo-relative path of the result file this step wrote.
+    value: ${{ steps.emit.outputs.path }}
+  pr:
+    description: The landing PR url (empty when there was nothing to commit).
+    value: ${{ steps.land.outputs.pr }}
+
+runs:
+  using: composite
+  steps:
+    - id: emit
+      shell: bash
+      env:
+        RR_UNIT: ${{ inputs.research-unit }}
+        RR_POWER: ${{ inputs.power-state }}
+        RR_RULE_ID: ${{ inputs.decision-rule-id }}
+        RR_RULE_AT: ${{ inputs.decision-rule-registered-at }}
+        RR_VERDICT: ${{ inputs.verdict }}
+        RR_READ_STATE: ${{ inputs.read-state }}
+        RR_POPULATION: ${{ inputs.population }}
+        RR_N: ${{ inputs.n }}
+        RR_MEASUREMENT: ${{ inputs.measurement-file }}
+        RR_STORE: ${{ inputs.artifact-store }}
+        RR_LOCATOR: ${{ inputs.artifact-locator }}
+        RR_ROWS: ${{ inputs.rows-landed }}
+        RR_TOOL: ${{ inputs.tool }}
+        RR_NOTE: ${{ inputs.note }}
+      run: |
+        set -euo pipefail
+        # NO `|| true` ANYWHERE IN THIS STEP. A load-bearing step may not
+        # swallow its own failure (§ "Green is not evidence", obligation 2) —
+        # and this one is as load-bearing as it gets: if the emit fails quietly
+        # the workflow lands nothing and reports success, which is precisely the
+        # class this whole action exists to end.
+        python3 scripts/research/research_result.py --emit \
+          --research-unit "${RR_UNIT}" \
+          --power-state "${RR_POWER}" \
+          --decision-rule-id "${RR_RULE_ID}" \
+          --decision-rule-registered-at "${RR_RULE_AT}" \
+          --verdict "${RR_VERDICT}" \
+          --read-state "${RR_READ_STATE}" \
+          --population "${RR_POPULATION}" \
+          --n "${RR_N}" \
+          --workflow "${GITHUB_WORKFLOW}" \
+          --run-id "${GITHUB_RUN_ID}" \
+          --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+          --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+          --commit-sha "${GITHUB_SHA}" \
+          --tool "${RR_TOOL}" \
+          --measurement-file "${RR_MEASUREMENT}" \
+          --artifact-store "${RR_STORE}" \
+          --artifact-locator "${RR_LOCATOR}" \
+          --rows-landed "${RR_ROWS}" \
+          --note "${RR_NOTE}"
+
+    # The commit itself is NOT re-implemented here. `commit-to-main` owns every
+    # hard-won detail of landing on a protected branch and this action delegates
+    # to it unchanged — `verify-merged: true` so the step does not exit 0 the
+    # moment a PR merely OPENS, which would make the assertion below read
+    # `pending_merge` on every healthy run and get switched off.
+    - id: land
+      uses: ./.github/actions/commit-to-main
+      with:
+        token: ${{ inputs.token }}
+        paths: ${{ steps.emit.outputs.path }}
+        message: "research result: ${{ inputs.research-unit || 'unattributed' }} run ${{ github.run_id }}"
+        pr-title: "research result: ${{ inputs.research-unit || 'unattributed' }} (run ${{ github.run_id }})"
+        pr-body: |
+          Automated landing of `${{ steps.emit.outputs.path }}`.
+
+          R1 — one results contract. R2 — a run is not done when it exits 0, it
+          is done when its result is readable on `main`.
+
+          * unit: `${{ inputs.research-unit || '(not queue-dispatched)' }}`
+          * decision rule: `${{ inputs.decision-rule-id }}` (registered ${{ inputs.decision-rule-registered-at }})
+          * verdict / read-state: `${{ inputs.verdict }}` / `${{ inputs.read-state }}`
+        branch-prefix: automation/research-result
+        verify-merged: "true"
+
+    - id: assert
+      shell: bash
+      env:
+        RR_PATH: ${{ steps.emit.outputs.path }}
+        RR_MIN_ROWS: ${{ inputs.min-rows }}
+        RR_PUSHED: ${{ steps.land.outputs.branch }}
+      run: |
+        set -euo pipefail
+        # Re-read the store FROM `main`. `--pushed-ref` is what separates
+        # `pending_merge` ("we committed, the merge is owed") from `absent`
+        # ("we produced nothing") — a caller with no branch name collapses the
+        # two, and they have opposite remedies.
+        git fetch --no-tags origin main
+        python3 scripts/ci/assert_rows_landed.py \
+          --store "${RR_PATH}" \
+          --ref origin/main \
+          --field read_state \
+          --min-rows "${RR_MIN_ROWS}" \
+          ${RR_PUSHED:+--pushed-ref "origin/${RR_PUSHED}"}

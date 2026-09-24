@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "five records appended verbatim to docs/claude/work/PIPELINE.jsonl, nothing else. They are already-written findings being moved from an unmerged branch onto main so something reads them. No code, no guards, no config, no runtime surface."
+}
