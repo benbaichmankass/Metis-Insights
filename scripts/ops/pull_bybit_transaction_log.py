@@ -121,23 +121,7 @@ def pull_one_account(
     store_path: Optional[Path] = None,
     client_factory: Callable[..., Any] = _default_client,
     now_ms: Optional[int] = None,
-    sub_id_prefix: str = "",
 ) -> int:
-    """Pull one credential pair's transaction log into ``account_id``'s bucket.
-
-    ``sub_id_prefix`` (E70, 2026-09-24): non-empty when this credential is the
-    SECOND of two sub-account UIDs sharing one logical ``account_id`` (see
-    ``BybitFillAccount.key_env_sub``). ``bybit_transaction_log.txn_id`` is
-    Bybit's own row ``id``, which is scoped to the UID that issued it — TWO
-    DIFFERENT UIDs can legitimately emit the SAME ``id``, and ``upsert_
-    transaction_log``'s ``INSERT OR IGNORE`` would then silently DROP the
-    second UID's row as an apparent re-pull of the first, undercounting the
-    account's wallet-truth by exactly the collided rows. Prefixing the id
-    before storage (``"<prefix>:<id>"``) keeps the two UIDs' rows in
-    disjoint keyspaces while both still land under the SAME ``account_id``,
-    so ``bybit_wallet_truth.compute_wallet_truth`` sums both without any
-    change to that module.
-    """
     import time
 
     end = int(now_ms if now_ms is not None else time.time() * 1000)
@@ -157,17 +141,10 @@ def pull_one_account(
         chunks += 1
         lo = hi
 
-    if sub_id_prefix:
-        for row in rows:
-            rid = row.get("id")
-            if rid is not None:
-                row["id"] = f"{sub_id_prefix}:{rid}"
-
     inserted = upsert_transaction_log(rows, account_id, path=store_path)
     logger.info(
-        "transaction-log: account=%s%s demo=%s days=%d chunks=%d fetched=%d inserted=%d",
-        account_id, f" (sub={sub_id_prefix})" if sub_id_prefix else "",
-        demo, days, chunks, len(rows), inserted,
+        "transaction-log: account=%s demo=%s days=%d chunks=%d fetched=%d inserted=%d",
+        account_id, demo, days, chunks, len(rows), inserted,
     )
     return inserted
 
@@ -191,7 +168,6 @@ def main(argv: list[str]) -> int:
         return 2
 
     ok, failed, skipped, total = 0, [], [], 0
-    sub_pulled, sub_failed = [], []
     for acct in accounts:
         key = os.environ.get(acct.key_env)
         secret = os.environ.get(acct.secret_env)
@@ -216,36 +192,14 @@ def main(argv: list[str]) -> int:
             continue
         ok += 1
 
-        # E70, 2026-09-24: a SECOND Bybit sub-account UID sharing this same
-        # logical account_id (see BybitFillAccount.key_env_sub). Purely
-        # additive and OPTIONAL -- no env vars set is the normal case for
-        # every account today, so this is a silent no-op, never a warning.
-        sub_key = os.environ.get(acct.key_env_sub) if acct.key_env_sub else None
-        sub_secret = os.environ.get(acct.secret_env_sub) if acct.secret_env_sub else None
-        if sub_key and sub_secret:
-            try:
-                total += pull_one_account(
-                    acct.account_id, sub_key, sub_secret,
-                    demo=acct.demo, days=args.days, store_path=store,
-                    sub_id_prefix=acct.key_env_sub,
-                )
-                sub_pulled.append(acct.account_id)
-            except Exception as exc:  # noqa: BLE001 — same isolation as the primary pull
-                logger.error(
-                    "account=%s SUB-ACCOUNT FAILED (%s): %s",
-                    acct.account_id, acct.key_env_sub, exc,
-                )
-                sub_failed.append(acct.account_id)
-
     summary = {
         "ok": ok, "failed": failed, "skipped": skipped,
         "accounts": len(accounts), "inserted": total,
-        "sub_accounts_pulled": sub_pulled, "sub_accounts_failed": sub_failed,
     }
     logger.info("transaction-log done — %s", summary)
     if args.json:
         print(json.dumps(summary))
-    return 1 if (failed or sub_failed) else 0
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
