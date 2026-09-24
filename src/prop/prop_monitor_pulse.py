@@ -153,8 +153,20 @@ def find_open_prop_positions(
             int((now - opened_dt).total_seconds() // 60)
             if opened_dt is not None else None
         )
+        # WHICH stop, in precedence order (E66, 2026-09-24). The fill's own
+        # `sl` is what the executor REPORTED is on the terminal (at placement,
+        # or moved later via a `kind: amend` report); the ticket's `sl` is only
+        # what the bot INSTRUCTED. Until E66 the ticket won whenever one was
+        # linked, so a stop the operator had moved could never reach the
+        # alert/pulse even once journaled. Both stay visible, and `sl_source`
+        # says which one `sl` is — a consumer computing RISK must use
+        # `fill_sl` only (see prop_reconcile.compute_open_risk).
+        fill_sl, fill_tp = f.get("sl"), f.get("tp")
+        ticket_sl = (tk or {}).get("sl")
+        ticket_tp = (tk or {}).get("tp")
         out.append({
             "key": key,
+            "fill_id": f.get("id"),
             "account_id": f.get("account_id"),
             "symbol": f.get("symbol"),
             "direction": f.get("direction"),
@@ -162,8 +174,14 @@ def find_open_prop_positions(
             "entry_price": f.get("entry_price"),
             "ticket_id": tid,
             "entry": (tk or {}).get("entry") if tk else f.get("entry_price"),
-            "sl": (tk or {}).get("sl") if tk else f.get("sl"),
-            "tp": (tk or {}).get("tp") if tk else f.get("tp"),
+            "sl": fill_sl if fill_sl is not None else ticket_sl,
+            "tp": fill_tp if fill_tp is not None else ticket_tp,
+            "sl_source": ("fill" if fill_sl is not None
+                          else "ticket" if ticket_sl is not None else None),
+            "fill_sl": fill_sl,
+            "fill_tp": fill_tp,
+            "ticket_sl": ticket_sl,
+            "ticket_tp": ticket_tp,
             "opened_at": opened_at,
             "age_minutes": age_minutes,
             "status": status,
