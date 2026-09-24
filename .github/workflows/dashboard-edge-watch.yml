@@ -1,0 +1,252 @@
+name: dashboard-edge-watch
+
+# E52 — nothing watches Caddy, the TLS cert expiry, or the DuckDNS record:
+# three of the six ways the ONLY live consumer of the bot API (the Svelte SPA
+# on GitHub Pages, CLAUDE.md, operator decision 2026-09-01) can go dark.
+#
+# `ict-web-api-watchdog` watches the FastAPI process itself. Nothing watches
+# the three links IN FRONT of it: Caddy (`caddy.service` is not an `ict-*`
+# unit), the Let's Encrypt cert Caddy renews automatically (a renewal
+# failure is silent until the cert actually expires), and the DuckDNS A
+# record (lapses if nothing pings it, or can drift off the live VM's IP
+# after a migration and nothing would say so).
+#
+# WHY OUTSIDE-IN / OFF-VM:
+#   A GitHub-hosted runner is outside the failure domain being watched, so a
+#   wedge that ALSO breaks VM-side monitoring (Caddy hung, the box
+#   firewalled, the instance down) is still observed from here. See
+#   scripts/ops/dashboard_edge_watch.py for the full check contract
+#   (four never-collapsed states per check: ok / warn / alert / unreachable
+#   -- "the probe did not run" is its own state, never folded into "ok").
+#
+# WHY TIER-1 / SELF-LANDING:
+#   Pure outbound HTTPS/TLS/DNS reads from a GitHub-hosted runner against a
+#   PUBLIC endpoint. No SSH, no VM touch, no secret needed for the checks
+#   themselves (Telegram secrets are only for the alert path, same as every
+#   sibling watcher below).
+#
+# Triggers:
+#   1. schedule          — hourly, offset off :00 so it does not compete with
+#                          every other hourly cron for runner queueing.
+#   2. workflow_dispatch — operator "Run workflow".
+#   3. issues.opened w/ label `dashboard-edge-watch-now` — the Claude-driven
+#      path (a web session can't dispatch a workflow, but can open a
+#      labelled issue). Owner / github-actions-authored only.
+#
+# Registered in docs/github-actions-workflows.md and in
+# claude-run-failure-alert.yml's watched list ("a silent watchdog is worse
+# than none" — macro-producer-liveness's own rationale, copied here).
+
+on:
+  schedule:
+    - cron: "12 * * * *"
+  workflow_dispatch:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dashboard-edge-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'dashboard-edge-watch-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # Canonical live-VM IP source: docs/runbooks/live-vm-ip-single-source.md
+      # — the `VM_SSH_HOST` repo variable, same fallback literal every other
+      # live-VM workflow falls back to. Never a literal invented here.
+      VM_SSH_HOST: ${{ vars.VM_SSH_HOST || '141.145.193.91' }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run the edge-watch probe
+        # continue-on-error so the alerting steps below still run on a finding
+        # (same shape as macro-producer-liveness.yml's check step).
+        id: probe
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          python3 scripts/ops/dashboard_edge_watch.py \
+            --host ict-bot.duckdns.org \
+            --expected-ip "${VM_SSH_HOST}" \
+            --dashboard-origin https://benbaichmankass.github.io \
+            --check-cors \
+            --json \
+            --out /tmp/edge-watch-receipt.json \
+            | tee /tmp/edge-watch-summary.txt
+          rc=$?
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          overall=$(python3 -c "import json; print(json.load(open('/tmp/edge-watch-receipt.json'))['overall_state'])" 2>/dev/null || echo "unreachable")
+          echo "overall=${overall}" >> "$GITHUB_OUTPUT"
+          {
+            echo "summary<<__S__"
+            python3 -c "
+          import json
+          d = json.load(open('/tmp/edge-watch-receipt.json'))
+          bad = [c for c in d['checks'].values() if c and c.get('state') != 'ok']
+          if not bad:
+              print('all checks ok (https 200, cert healthy, DNS matches live VM, CORS preflight allows Authorization)')
+          else:
+              for c in bad:
+                  print(f\"{c['check']} [{c['state']}] {c.get('detail','')}\".strip())
+          " 2>/dev/null || echo "receipt unreadable — probe did not complete cleanly"
+            echo "__S__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload receipt artifact
+        # Always runs, whatever the probe's own exit code — this is the
+        # "did not run" vs "ran and found healthy" distinguisher the
+        # collapsed-state rule requires: an empty/absent artifact is itself
+        # the finding that the run never completed.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-edge-watch-receipt-${{ github.run_id }}
+          path: |
+            /tmp/edge-watch-receipt.json
+            /tmp/edge-watch-summary.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Telegram alert (only when not healthy)
+        if: steps.probe.outputs.overall != 'ok'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EDGE_SUMMARY: ${{ steps.probe.outputs.summary }}
+          EDGE_OVERALL: ${{ steps.probe.outputs.overall }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PYTHONPATH=. python scripts/notify_session.py alert \
+            --summary "🚨 Dashboard edge-watch ${EDGE_OVERALL} — ${EDGE_SUMMARY}" \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
+
+      - name: Open / update alert issue (only when not healthy)
+        if: steps.probe.outputs.overall != 'ok'
+        uses: actions/github-script@v7
+        env:
+          EDGE_SUMMARY: ${{ steps.probe.outputs.summary }}
+          EDGE_OVERALL: ${{ steps.probe.outputs.overall }}
+        with:
+          script: |
+            const label = 'dashboard-edge-watch-alert';
+            const summary = process.env.EDGE_SUMMARY || 'a dashboard-edge-watch check is not healthy';
+            const overall = process.env.EDGE_OVERALL || 'alert';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            try {
+              await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: label });
+            } catch (e) {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: label, color: 'd93f0b',
+                description: 'The outside-in dashboard-edge-watch probe (HTTPS / cert expiry / DNS A record / CORS) is not reporting ok.',
+              });
+            }
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: label, per_page: 10,
+            });
+            const body =
+              `🚨 **dashboard-edge-watch — ${overall.toUpperCase()}**\n\n` +
+              `${summary}\n\n` +
+              `This is the outside-in probe of the SPA's path to the API ` +
+              `(GitHub Pages -> HTTPS -> ict-bot.duckdns.org -> Caddy -> ict-web-api). ` +
+              `Check \`caddy\` service state on the live VM, the Let's Encrypt cert ` +
+              `(\`sudo certbot certificates\` or Caddy's own log), and the DuckDNS A ` +
+              `record for \`ict-bot.duckdns.org\`.\n\n` +
+              `Run: ${runUrl}`;
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: `🚨 Dashboard edge-watch ${overall} (${new Date().toISOString().slice(0,10)})`,
+                labels: [label], body,
+              });
+            }
+
+      - name: Auto-resolve alert issue (only when healthy)
+        if: steps.probe.outputs.overall == 'ok'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = 'dashboard-edge-watch-alert';
+            let existing;
+            try {
+              existing = await github.rest.issues.listForRepo({
+                owner: context.repo.owner, repo: context.repo.repo,
+                state: 'open', labels: label, per_page: 10,
+              });
+            } catch (e) {
+              return;
+            }
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            for (const iss of existing.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: iss.number,
+                body: `✅ dashboard-edge-watch recovered — https/cert/dns/cors all ok. Auto-closing.\nRun: ${runUrl}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: iss.number, state: 'closed', state_reason: 'completed',
+              });
+            }
+
+      - name: Reply to trigger issue (issue-driven path)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        env:
+          EDGE_SUMMARY: ${{ steps.probe.outputs.summary }}
+          EDGE_OVERALL: ${{ steps.probe.outputs.overall }}
+        with:
+          script: |
+            const overall = process.env.EDGE_OVERALL || 'unreachable';
+            const summary = process.env.EDGE_SUMMARY || '(no summary)';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const emoji = overall === 'ok' ? '✅' : '🚨';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `${emoji} **dashboard-edge-watch** ran — overall: ${overall}.\n\n${summary}\n\nRun: ${runUrl}`,
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed', state_reason: overall === 'ok' ? 'completed' : 'not_planned',
+            });
+
+      - name: Fail the run when not healthy
+        # Deferred to the end so the alert + issue + artifact steps always run
+        # first. Keeps the scheduled run RED in the Actions UI as a
+        # belt-and-suspenders signal alongside the loud Telegram/issue alert —
+        # same convention as macro-producer-liveness.yml.
+        if: steps.probe.outputs.overall != 'ok'
+        run: |
+          echo "::error::dashboard-edge-watch overall=${{ steps.probe.outputs.overall }} — ${{ steps.probe.outputs.summary }}"
+          exit 1

@@ -217,6 +217,14 @@ on:
       #    had already failed twice unobserved when this was measured.
       - alpaca-settlement-soak-watch
       - research-queue-dispatch
+      # ── added with E52: the outside-in probe of the SPA's only path to the
+      #    API (HTTPS / cert expiry / DNS A record / CORS). It already
+      #    self-alerts via Telegram + a deduped issue on a FOUND problem, but
+      #    that path never fires if the RUN ITSELF dies first (checkout,
+      #    setup-python, or an uncaught exception before the probe step
+      #    completes) — the same silent-watchdog gap `macro-producer-liveness`
+      #    is listed here to close.
+      - dashboard-edge-watch
       # ── added 2026-08-31 in the same PR that created it. `due-list` renders
       #    the one surface that answers "what is due right now?", so a silent
       #    failure of it makes every OTHER register invisible at once — the
