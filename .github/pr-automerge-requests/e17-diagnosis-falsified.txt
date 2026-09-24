@@ -1,0 +1,7 @@
+Arm the self-land route for claude/e17-diagnosis-falsified (PR #12824).
+
+Tier 1, register-only: MANAGER-CHECKLIST.json (E17 -> blocked, diagnosis
+withdrawn) and PIPELINE.jsonl (PI-20260924-JN54P2HH-0004, the dark soak).
+No code, no config, no workflow.
+
+Pushed AFTER the PR was opened and un-drafted (PI-20260923-JN54P2HH-0002).

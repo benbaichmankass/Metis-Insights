@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: MANAGER-CHECKLIST.json (E17's row) and PIPELINE.jsonl (one new finding). No code, no config, no workflow. It WITHDRAWS a diagnosis rather than acting on one -- E17 is moved in_flight -> blocked because three reads taken today falsified the fix it specifies, and a new pipeline row records that the soak E17's evidence comes from has been dark for 32 hours. Nothing was dispatched against the falsified diagnosis: no set-env was run. Tier 1 per CLAUDE.md's table (docs / observability / retrieving and analyzing state)."
+}
