@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-24T13:00:00Z",
+  "updated_at": "2026-09-24T13:10:00Z",
   "updated_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -266,7 +266,7 @@
       "tier": 3,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:35Z by session_01Ljhs6sFAdWHdMDhJpL5aBP, FRESH. OPERATOR DECISIONS 2026-09-24 ~12:40Z, answered in session_01Ljhs6sFAdWHdMDhJpL5aBP with the measurements in front of them: (1) PROCESS MANDATES — GRANTED ALL FIVE: MD-OBSERVABILITY-IN-A-GATED-PATH, MD-DEPLOY-AN-APPROVED-MERGE, MD-DERISK-ONLY-ROSTER-CUT, MD-STRIP-A-ZERO-MEASURED-LEVER, MD-PREFER-THE-VERIFIABLE-SIDE, as written under `proposed:` in config/mandates.yaml at 1665947. (2) LADDER MANDATES — 'Grant all 5, S1->S2 gated': MD-PROMOTE-S0-S1, MD-PROMOTE-S1-S2, MD-DEMOTE-S2-S1, MD-DEMOTE-S1-OFF, MD-KILL-QUESTION all GRANTED; MD-PROMOTE-S1-S2 carries blocked_until = D3 shows realized cost within tolerance of modelled cost, enforced by the resolver, arming automatically when D3 passes. The bar and cap in this row's note (2026-09-21) stand. Deliverable order: (a) a small PR recording the ten grants verbatim in config/mandates.yaml (moves proposed->mandates; adds the five ladder entries with fires_when/never/evidence_required derived from this row and the manager skill); (b) the resolver + ping + section-1 render. B1 (the blocker) is done. OPERATOR GRANT 2026-09-21, verbatim: 'All the ladder decisions can be automated -- that is a standing mandate. Strategies can be promoted to live money without explicit operator approval if the evidence supports the decision. I should just get a ping in realtime of the update and an evidence review in the next daily briefing.' FIVE MANDATES ARE GRANTED: MD-PROMOTE-S0-S1, MD-PROMOTE-S1-S2 (REAL MONEY), MD-DEMOTE-S2-S1, MD-DEMOTE-S1-OFF, MD-KILL-QUESTION. Build config/mandates.yaml + the resolver + the ping + the section-1 evidence render. [!] THE FILE IS NOT CREATED AHEAD OF THE RESOLVER -- a config nothing reads is the 'declared capability with no consumer' antipattern this repo already names. [!] WHAT CARRIES THE SAFETY IS 'if the evidence supports it': a COMMITTED evidence record, named harness, stated n, net of the FULL cost stack, clearing a rule registered before the run. A claim in a PR body is not a record; B1 is what makes that checkable. [!] MD-PROMOTE-S1-S2 MUST NOT ARM UNTIL D1 LANDS -- arithmetic, not caution: the harnesses default slippage and funding to 0.0, so every 'passed the backtest' verdict in today's corpus is fee-only and optimistic by an unknown amount (+0.57R on the one leg measured). The derisk_only mandates carry no such block; they read live measurement, not the corpus. Bounds and the bar's content are operator decisions -- plan open decisions 5 and 6. [!] THE BAR AND THE CAP ARE NOW DECIDED (2026-09-21), so B5 builds against fixed numbers rather than waiting on them. BAR, all three clauses: expectancy > 0 net of the FULL cost stack at n >= 30 closed; positive in a MAJORITY of walk-forward folds; Stage-1 realized cost within a stated tolerance of modelled cost. CAP: total declared risk across AUTO-PROMOTED legs <= 25% of the account's configured risk budget, and NO RATE LIMIT -- a leg-per-week cap was offered and declined, so a batch CAN land in one day and the 25% number is load-bearing on its own. The cap counts auto-promoted legs ONLY; a leg the operator placed by hand does not consume the mandate's budget."
+      "note": "OPERATOR DECISIONS 2026-09-24 ~13:05Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP): S1->S2 GATE -> \"Arm all venues\": MD-PROMOTE-S1-S2 is NOT blocked on per-venue measurement; D3 is treated as satisfied (perps measured realized 0.87 bps <= modelled; equities/futures accepted on the 5.0 assumption). The rest of the bar (n>=30 net of full cost, fold majority, 25% cap) still applies. GPU: the operator authorized GPU bursts \"within the budget constraints as needed\" (the $10/month cap) -- lane E61. DISPATCHED 2026-09-24T12:35Z by session_01Ljhs6sFAdWHdMDhJpL5aBP, FRESH. OPERATOR DECISIONS 2026-09-24 ~12:40Z, answered in session_01Ljhs6sFAdWHdMDhJpL5aBP with the measurements in front of them: (1) PROCESS MANDATES — GRANTED ALL FIVE: MD-OBSERVABILITY-IN-A-GATED-PATH, MD-DEPLOY-AN-APPROVED-MERGE, MD-DERISK-ONLY-ROSTER-CUT, MD-STRIP-A-ZERO-MEASURED-LEVER, MD-PREFER-THE-VERIFIABLE-SIDE, as written under `proposed:` in config/mandates.yaml at 1665947. (2) LADDER MANDATES — 'Grant all 5, S1->S2 gated': MD-PROMOTE-S0-S1, MD-PROMOTE-S1-S2, MD-DEMOTE-S2-S1, MD-DEMOTE-S1-OFF, MD-KILL-QUESTION all GRANTED; MD-PROMOTE-S1-S2 carries blocked_until = D3 shows realized cost within tolerance of modelled cost, enforced by the resolver, arming automatically when D3 passes. The bar and cap in this row's note (2026-09-21) stand. Deliverable order: (a) a small PR recording the ten grants verbatim in config/mandates.yaml (moves proposed->mandates; adds the five ladder entries with fires_when/never/evidence_required derived from this row and the manager skill); (b) the resolver + ping + section-1 render. B1 (the blocker) is done. OPERATOR GRANT 2026-09-21, verbatim: 'All the ladder decisions can be automated -- that is a standing mandate. Strategies can be promoted to live money without explicit operator approval if the evidence supports the decision. I should just get a ping in realtime of the update and an evidence review in the next daily briefing.' FIVE MANDATES ARE GRANTED: MD-PROMOTE-S0-S1, MD-PROMOTE-S1-S2 (REAL MONEY), MD-DEMOTE-S2-S1, MD-DEMOTE-S1-OFF, MD-KILL-QUESTION. Build config/mandates.yaml + the resolver + the ping + the section-1 evidence render. [!] THE FILE IS NOT CREATED AHEAD OF THE RESOLVER -- a config nothing reads is the 'declared capability with no consumer' antipattern this repo already names. [!] WHAT CARRIES THE SAFETY IS 'if the evidence supports it': a COMMITTED evidence record, named harness, stated n, net of the FULL cost stack, clearing a rule registered before the run. A claim in a PR body is not a record; B1 is what makes that checkable. [!] MD-PROMOTE-S1-S2 MUST NOT ARM UNTIL D1 LANDS -- arithmetic, not caution: the harnesses default slippage and funding to 0.0, so every 'passed the backtest' verdict in today's corpus is fee-only and optimistic by an unknown amount (+0.57R on the one leg measured). The derisk_only mandates carry no such block; they read live measurement, not the corpus. Bounds and the bar's content are operator decisions -- plan open decisions 5 and 6. [!] THE BAR AND THE CAP ARE NOW DECIDED (2026-09-21), so B5 builds against fixed numbers rather than waiting on them. BAR, all three clauses: expectancy > 0 net of the FULL cost stack at n >= 30 closed; positive in a MAJORITY of walk-forward folds; Stage-1 realized cost within a stated tolerance of modelled cost. CAP: total declared risk across AUTO-PROMOTED legs <= 25% of the account's configured risk budget, and NO RATE LIMIT -- a leg-per-week cap was offered and declined, so a batch CAN land in one day and the 25% number is load-bearing on its own. The cap counts auto-promoted legs ONLY; a leg the operator placed by hand does not consume the mandate's budget."
     },
     {
       "id": "C1",
@@ -392,7 +392,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: this measurement decides whether MD-PROMOTE-S1-S2 can ever arm (the handoff binds the cost stack to opus). RE-POINTED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP: the blocking edge named D1, which was DROPPED 2026-09-22 as a duplicate of R1; R1, E3 and R7 are done, and 49 of 52 comms/strategy_evidence records now carry a cost stack (crypto 7.5/5.0/1.0 bps fee/slip/funding; equities 0.0/5.0/0.0). So the corpus is NOT fee-only any more. What it is: priced on a FLAT 5 bps round-trip slippage that has never been compared against a single real fill. This row is now the D1 residual the 2026-09-24 handoff pointed at. FIRST QUESTION (measurement only): realized round-trip slippage per venue from the fills store, and how many Stage-0 verdicts flip at the measured value. This IS Gate 1, and it is what makes the ladder traversable for slow legs: 'is realized slippage what we assumed?' converges in a handful of trades where expectancy needs 50+. Build only once D1 has given it something to compare to."
+      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). OPERATOR DECISIONS 2026-09-24 ~13:05Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP): SLIPPAGE -> \"Perps 3.0, rest 5.0\": set slippage_bps_roundtrip_for to 3.0 bps for Bybit perps (measured CI upper 2.95 on bybit_2, n=87 entries / 42 exits), keep 5.0 for Alpaca equities and IBKR futures (unmeasurable). Tier-2, operator-approved; build lane E60, deploy under MD-DEPLOY-AN-APPROVED-MERGE. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: this measurement decides whether MD-PROMOTE-S1-S2 can ever arm (the handoff binds the cost stack to opus). RE-POINTED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP: the blocking edge named D1, which was DROPPED 2026-09-22 as a duplicate of R1; R1, E3 and R7 are done, and 49 of 52 comms/strategy_evidence records now carry a cost stack (crypto 7.5/5.0/1.0 bps fee/slip/funding; equities 0.0/5.0/0.0). So the corpus is NOT fee-only any more. What it is: priced on a FLAT 5 bps round-trip slippage that has never been compared against a single real fill. This row is now the D1 residual the 2026-09-24 handoff pointed at. FIRST QUESTION (measurement only): realized round-trip slippage per venue from the fills store, and how many Stage-0 verdicts flip at the measured value. This IS Gate 1, and it is what makes the ladder traversable for slow legs: 'is realized slippage what we assumed?' converges in a handful of trades where expectancy needs 50+. Build only once D1 has given it something to compare to."
     },
     {
       "id": "A9",
@@ -424,7 +424,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: classification sweep verifiable by each item's own origin.rerun; live-money items routed not killed. OBSERVED ON THE OPERATOR'S PAGE 2026-09-21, in the same screenshot that closed A7: `85 UNROUTED · 93 DUE · 1,168 ITEM(S)`. Those are A8's imported `OI-*` rows, carried rather than killed. [!] THIS IS ONE BOUNDED SWEEP, NOT 85 RUBBER-STAMPS — the plan's own position is that most archived rows should be KILLED EXPLICITLY with a stated reason rather than routed, and a lane that routes all 85 to `ask_operator` or to a new row has done the opposite of the work. Read each, kill with `terminal_reason` by default, and promote by exception with the exception argued. [!] ACCEPTANCE IS A NUMBER ON THE PAGE: unrouted_count() back to a figure the operator can read in one sitting, with the kill reasons in the store, not in a PR body. [!] DO NOT batch-kill on a pattern match — `killed` is a first-class outcome precisely because it is a JUDGEMENT; an 85-row sed is the same non-reading that produced 951 open rows and one `actioned`."
+      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: classification sweep verifiable by each item's own origin.rerun; live-money items routed not killed. OBSERVED ON THE OPERATOR'S PAGE 2026-09-21, in the same screenshot that closed A7: `85 UNROUTED · 93 DUE · 1,168 ITEM(S)`. Those are A8's imported `OI-*` rows, carried rather than killed. [!] THIS IS ONE BOUNDED SWEEP, NOT 85 RUBBER-STAMPS — the plan's own position is that most archived rows should be KILLED EXPLICITLY with a stated reason rather than routed, and a lane that routes all 85 to `ask_operator` or to a new row has done the opposite of the work. Read each, kill with `terminal_reason` by default, and promote by exception with the exception argued. [!] ACCEPTANCE IS A NUMBER ON THE PAGE: unrouted_count() back to a figure the operator can read in one sitting, with the kill reasons in the store, not in a PR body. [!] DO NOT batch-kill on a pattern match — `killed` is a first-class outcome precisely because it is a JUDGEMENT; an 85-row sed is the same non-reading that produced 951 open rows and one `actioned`."
     },
     {
       "id": "E1",
@@ -1400,7 +1400,7 @@
         12837
       ],
       "blocked_on": [],
-      "note": "LANE RESULT 2026-09-24 ($3.60 running at 12:36Z): THE SOAK WAS NEVER DARK. Direct read (diag_fetch.sh, lines=1000) shows 65 rows inside the claimed-silent window; the relay renderer head-cut a 100-row tail (#12820 passed limit=, which log_file ignores) and the 35th-oldest row was read as newest. Reproduced byte-exact (149,082). Fix = renderer cuts lists at whole elements and says which survived (#12837, Tier-1, armed by the manager 12:45Z). Latent risk (record() failures swallowed at DEBUG) filed PI-20260924-L1AUT4FF-0001, Tier-2. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: order-election path. Scope of record: PI-20260924-JN54P2HH-0004. Precondition for E17 and for all prop work (R-G): breakout_1 cannot be diagnosed on a soak that cannot be read. FRESH, opus: the call site is intent_multiplexer.py, on the live order-election path. One question: WHY is it silent. Tier-1 if the fix is observability-only; anything touching election behaviour is held for the operator. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). LANE RESULT 2026-09-24 ($3.60 running at 12:36Z): THE SOAK WAS NEVER DARK. Direct read (diag_fetch.sh, lines=1000) shows 65 rows inside the claimed-silent window; the relay renderer head-cut a 100-row tail (#12820 passed limit=, which log_file ignores) and the 35th-oldest row was read as newest. Reproduced byte-exact (149,082). Fix = renderer cuts lists at whole elements and says which survived (#12837, Tier-1, armed by the manager 12:45Z). Latent risk (record() failures swallowed at DEBUG) filed PI-20260924-L1AUT4FF-0001, Tier-2. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: order-election path. Scope of record: PI-20260924-JN54P2HH-0004. Precondition for E17 and for all prop work (R-G): breakout_1 cannot be diagnosed on a soak that cannot be read. FRESH, opus: the call site is intent_multiplexer.py, on the live order-election path. One question: WHY is it silent. Tier-1 if the fix is observability-only; anything touching election behaviour is held for the operator. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E51",
@@ -1415,7 +1415,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: CI tooling. One question: which CI guards tell a session to do something that the 2026-09-21 reset made impossible? Known instances: check_allow_degraded (no new `# allow-degraded:` can be written anywhere) and pr-landing-guard R13 (remedy names docs/claude/session-board.json; working route is .github/merge-slots/ via claim_merge_slot.py). This is the separable cheap win inside E49. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: CI tooling. One question: which CI guards tell a session to do something that the 2026-09-21 reset made impossible? Known instances: check_allow_degraded (no new `# allow-degraded:` can be written anywhere) and pr-landing-guard R13 (remedy names docs/claude/session-board.json; working route is .github/merge-slots/ via claim_merge_slot.py). This is the separable cheap win inside E49. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E52",
@@ -1430,7 +1430,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: CI/observability workflow. Outside-in probe from a GitHub runner: HTTPS reachability of ict-bot.duckdns.org, days-to-expiry of the served cert, DNS A record == the live VM. Must alert through the channel existing watchers already use, and must distinguish did-not-run from ran-and-found-healthy (collapsed-state rule). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: CI/observability workflow. Outside-in probe from a GitHub runner: HTTPS reachability of ict-bot.duckdns.org, days-to-expiry of the served cert, DNS A record == the live VM. Must alert through the channel existing watchers already use, and must distinguish did-not-run from ran-and-found-healthy (collapsed-state rule). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E53",
@@ -1445,7 +1445,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: E11-validated sweep class, separate weekly pool. FABLE, fresh: E11 validated grep-and-classify sweeps on Fable, and this is one, verifiable against git log / merged PRs / this checklist. Doc-only (ROADMAP.md). Every status change cites a sha or PR. Must precede the O1 reviews so they grade against a true roadmap. Known: M40 R1 landed as #12739 and the roadmap does not say so. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: E11-validated sweep class, separate weekly pool. FABLE, fresh: E11 validated grep-and-classify sweeps on Fable, and this is one, verifiable against git log / merged PRs / this checklist. Doc-only (ROADMAP.md). Every status change cites a sha or PR. Must precede the O1 reviews so they grade against a true roadmap. Known: M40 R1 landed as #12739 and the roadmap does not say so. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E54",
@@ -1460,7 +1460,7 @@
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: dry-run + gate evidence; arming held as Tier-2. Handoff E-A / M40 R5. The daily 06:20Z cron passes no --fire by design until a session reads a dry-run against live queue contents and observes the three spend gates (ledger preflight vs the $10/month GPU cap, GPU_BURST_ARMED, --max-gpu-dispatches-per-run). Arming is Tier-2: the lane PREPARES and HOLDS; the manager takes it to the operator. CPU/VM/Actions work is not under the GPU cap. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: dry-run + gate evidence; arming held as Tier-2. Handoff E-A / M40 R5. The daily 06:20Z cron passes no --fire by design until a session reads a dry-run against live queue contents and observes the three spend gates (ledger preflight vs the $10/month GPU cap, GPU_BURST_ARMED, --max-gpu-dispatches-per-run). Arming is Tier-2: the lane PREPARES and HOLDS; the manager takes it to the operator. CPU/VM/Actions work is not under the GPU cap. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E55",
@@ -1490,7 +1490,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: review lane per the model table. O1 order: health -> performance -> ml. Performance waits on D3 (realized cost). The review will also establish whether the diag relay the reviews need is working (handoff O2) — a broken relay is a finding to file with the failing run, not a reason to stop. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: review lane per the model table. O1 order: health -> performance -> ml. Performance waits on D3 (realized cost). The review will also establish whether the diag relay the reviews need is working (handoff O2) — a broken relay is a finding to file with the failing run, not a reason to stop. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E57",
@@ -1551,14 +1551,46 @@
       "phase": "E",
       "state": "queued",
       "owner": "research lane",
-      "lane": null,
+      "lane": "session_01S6QEBu1xEVd76nMQ3CDmu6",
       "model": "claude-opus-5-5",
       "ceiling_usd": 50,
       "spend_usd": null,
       "tier": 3,
+      "prs": [
+        12848
+      ],
+      "blocked_on": [],
+      "note": "OPERATOR DECISIONS 2026-09-24 ~13:05Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP): PROP SIZING -> \"Leave flat $75\" (chosen over E59's cushion-scaled rule k=0.33/0.5 and over pausing tickets), with the measurement in front of them: $94.76 cushion, 0 full-size stop-outs survivable once #44 stops, and the 2026-08-31 \"enforce\" gate caps nothing. PI-20260924-MQ3CDMU6-0001 is therefore KILLED by operator decision; -0002 (enforce not implemented) was put to the operator as part of the same question. -0003/-0004/-0005 (stop not journaled, /tmp source_runs, baseline residual -$68.70) remain open lane work. Handoff R-G, operator priority (\"our most leveraged pool of capital\", visibly underutilized). Precondition E17 now read as resolved from 2026-09-23 (see E17). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. Analysis + PROPOSALS only; any roster/sizing/risk change is Tier-3 and goes to the operator."
+    },
+    {
+      "id": "E60",
+      "title": "Set per-venue slippage: Bybit perps 3.0 bps, equities/futures 5.0 (operator-approved, D3)",
+      "phase": "E",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_016cjxU99FFSfQUWJCvFrwEA",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "Handoff R-G, operator priority (\"our most leveraged pool of capital\", visibly underutilized). Precondition E17 now read as resolved from 2026-09-23 (see E17). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. Analysis + PROPOSALS only; any roster/sizing/risk change is Tier-3 and goes to the operator."
+      "note": "Operator decision recorded on D3. Opus: slippage_bps_roundtrip_for feeds the live EV scorer. Deploy + verify under MD-DEPLOY-AN-APPROVED-MERGE."
+    },
+    {
+      "id": "E61",
+      "title": "Arm GPU bursts within the $10/month cap (operator-authorized 2026-09-24)",
+      "phase": "E",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01JrouNUK59JKMXMU34WWg1R",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 10,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Needs vars.GPU_BURST_ARMED=1 + GPU_PROVIDER + a provider key (gpu-burst-train.yml:107; runpod_burst.py). Ledger preflight verified refusing over-cap by E54."
     }
   ]
 }
