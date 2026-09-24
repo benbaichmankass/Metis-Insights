@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager register + manager contract doc only. docs/claude/work/MANAGER-CHECKLIST.json: states for E51/E57/E58/E60/E61/B5, plus new row E64 (PIPELINE.jsonl merge-conflict build). .claude/skills/manager/SKILL.md: records the operator's 2026-09-24 chain-of-authority directive verbatim in the provenance section, and states that it does not extend to Claude Code permission prompts. No src/, config/, scripts/ or workflow change."
+  "why": "Manager register only (docs/claude/work/MANAGER-CHECKLIST.json): E60 -> done on the post-deploy observation; E55 and E58 -> done on merge (their deliverables are committed records), including E55's ceiling breach. No src/, config/, scripts/ or workflow change."
 }

@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-24T15:15:00Z",
+  "updated_at": "2026-09-24T15:45:00Z",
   "updated_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -1472,7 +1472,7 @@
       "id": "E55",
       "title": "The trend/pullback evidence harness does not model tp_r, so a record can measure a counterfactual no-TP leg — model it and count the verdict flips",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_014QFYLHEvRPsPqDeDNBnMSg",
       "model": "claude-sonnet-5",
@@ -1481,7 +1481,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: a harness is not an order path; positive control + flip count required. Scope of record: PI-20260924-JN54P2HH-0005 (graded continuation of PI-20260922-E41-0006; clearing one clears both). Pre-stated prediction from -0006: with the TP modelled, qqq_trend_long_1d arm-present vs arm-absent should AGREE. Evidence corpus only: no config/strategies.yaml or accounts.yaml edit. The corpus B1 reads for real-money promotion is at stake, so a positive control and a flip count are the deliverable. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "Merged #12853 (93bd060, 15:42Z). The deliverable is the regenerated evidence corpus on main: 8 of 41 Stage-0 verdicts flip, none on a real-money roster, and the pre-registered qqq prediction HELD (E41 strip stands). Follow-up PI-20260924-EDNBNMSG-0001. ⚠️ CEILING BREACH: final spend $106.24 against $40 + $10 (2.1x). It regenerated 41 records through the harness, then re-resolved conflicts twice, and the manager did not catch it mid-flight. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: a harness is not an order path; positive control + flip count required. Scope of record: PI-20260924-JN54P2HH-0005 (graded continuation of PI-20260922-E41-0006; clearing one clears both). Pre-stated prediction from -0006: with the TP modelled, qqq_trend_long_1d arm-present vs arm-absent should AGREE. Evidence corpus only: no config/strategies.yaml or accounts.yaml edit. The corpus B1 reads for real-money promotion is at stake, so a positive control and a flip count are the deliverable. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E56",
@@ -1517,7 +1517,7 @@
       "id": "E58",
       "title": "Inventory every research run whose result never reached main, recover what still exists, re-run what was lost",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "research lane",
       "lane": "session_01Uv7VtA1RmxDRNWNKNG2bgS",
       "model": "claude-sonnet-5",
@@ -1532,7 +1532,7 @@
           "what": "Re-landing needs a landing path that works; the INVENTORY does not wait on it."
         }
       ],
-      "note": "Lane finished ($7.51 against $50). Its PR #12852 is not yet merged, because its landing depended on E57, which has now merged. Manager to merge. DISPATCHED 2026-09-24T12:35Z by session_01Ljhs6sFAdWHdMDhJpL5aBP, FRESH. Recovery half of the operator directive recorded on E57. Population to establish first: every run of every research/evidence workflow since the R1 results contract (#12739) and, separately, since 2026-09-01; for each, is its result on main, in an open PR, in a still-retained Actions artifact, or gone. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "Merged #12852 (e54c068, 15:42Z). Inventory at docs/research/e58-research-loss-inventory-2026-09-24.json; took E57's workflow fix. Final spend $18.13 against $56. Lane finished ($7.51 against $50). Its PR #12852 is not yet merged, because its landing depended on E57, which has now merged. Manager to merge. DISPATCHED 2026-09-24T12:35Z by session_01Ljhs6sFAdWHdMDhJpL5aBP, FRESH. Recovery half of the operator directive recorded on E57. Population to establish first: every run of every research/evidence workflow since the R1 results contract (#12739) and, separately, since 2026-09-01; for each, is its result on main, in an open PR, in a still-retained Actions artifact, or gone. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E43",
@@ -1572,7 +1572,7 @@
       "id": "E60",
       "title": "Set per-venue slippage: Bybit perps 3.0 bps, equities/futures 5.0 (operator-approved, D3)",
       "phase": "E",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_016cjxU99FFSfQUWJCvFrwEA",
       "model": "claude-opus-5-5",
@@ -1581,7 +1581,7 @@
       "tier": 2,
       "prs": [],
       "blocked_on": [],
-      "note": "Merged #12855 (7373971, 15:07Z), operator-approved Tier-2. Deploy dispatched as issue #12864 under MD-DEPLOY-AN-APPROVED-MERGE. Pre-state read at 15:08Z: git_sha 5cf61a841, pid 139823, boot 14:40:31Z, strategies digest b9d95c4c, accounts digest efdec092 (the control). NOT YET OBSERVED: runtime-config git_sha containing 7373971 plus a new boot, with the accounts digest unchanged. Operator decision recorded on D3. Opus: slippage_bps_roundtrip_for feeds the live EV scorer. Deploy + verify under MD-DEPLOY-AN-APPROVED-MERGE."
+      "note": "OBSERVED 2026-09-24T15:10Z after pull-and-deploy (#12864, wrapper exit 0). runtime-config: git_sha 8a86e0fd5 contains 7373971 (git merge-base --is-ancestor exit 0); pid 151913; boot 15:09:20Z (was 139823 at 14:40:31Z); strategies digest b9d95c4c and accounts digest efdec092 both unchanged (E60 touches neither; the accounts digest is the control); verdict CURRENT; bot_ticking true. Final lane spend $5.24. Merged #12855 (7373971, 15:07Z), operator-approved Tier-2. Deploy dispatched as issue #12864 under MD-DEPLOY-AN-APPROVED-MERGE. Pre-state read at 15:08Z: git_sha 5cf61a841, pid 139823, boot 14:40:31Z, strategies digest b9d95c4c, accounts digest efdec092 (the control). NOT YET OBSERVED: runtime-config git_sha containing 7373971 plus a new boot, with the accounts digest unchanged. Operator decision recorded on D3. Opus: slippage_bps_roundtrip_for feeds the live EV scorer. Deploy + verify under MD-DEPLOY-AN-APPROVED-MERGE."
     },
     {
       "id": "E61",
