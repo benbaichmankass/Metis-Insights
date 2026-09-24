@@ -1,0 +1,74 @@
+{
+  "strategy": "htf_pullback_trend_2h",
+  "symbol": "MGC",
+  "timeframe": "2h",
+  "params": {
+    "trend_lookback": 40,
+    "pullback_lookback": 15,
+    "pullback_frac": 0.618,
+    "atr_stop_mult": 1.5,
+    "trail_mult": 4.0,
+    "min_confidence": 0.0
+  },
+  "total_trades": 8,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 5.0,
+  "funding_bps_per_window": 0.0,
+  "data_start": "2025-07-14 00:00:00+00:00",
+  "data_end": "2026-09-24 00:00:00+00:00",
+  "run_date": "2026-09-24",
+  "tp_r_effective_n": 8,
+  "tp_r_effective_median": 2.13,
+  "tp_r_effective_min": 1.291,
+  "tp_r_effective_max": 3.191,
+  "rr_floor_state": "off",
+  "rr_min_n": 8,
+  "rr_min_p10": 0.047,
+  "rr_min_median": 0.728,
+  "rr_min_p90": 1.13,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 50.0,
+  "total_r": 4.088,
+  "net_total_r": 3.8724,
+  "net_total_r_long": 3.4922,
+  "net_total_r_short": 0.3802,
+  "net_expectancy_r": 0.4841,
+  "net_total_r_fee_only": 3.9587,
+  "net_expectancy_r_fee_only": 0.4948,
+  "trades_long": 6,
+  "trades_short": 2,
+  "avg_win_r": 1.9395,
+  "max_mfe_r": 2.831,
+  "mean_cost_r": {
+    "fee_r": 0.01617,
+    "slippage_r": 0.01078,
+    "funding_r": 0.0,
+    "total_cost_r": 0.02694,
+    "funding_windows": 90.75
+  },
+  "max_drawdown_r": 1.7331,
+  "by_outcome": {
+    "stop": 3,
+    "take_profit": 4,
+    "timeout": 1
+  },
+  "by_year": {
+    "2025": {
+      "trades": 3,
+      "net_r": 3.9457
+    },
+    "2026": {
+      "trades": 5,
+      "net_r": -0.0732
+    }
+  },
+  "bar_minutes": 1440.0,
+  "position_days": 165.0,
+  "capital_days": 165.0,
+  "mean_bars_held": 20.625,
+  "net_r_per_position_day": 0.0235,
+  "net_r_per_capital_day": 0.0235,
+  "exit_grain": "leg",
+  "subbar_coverage": null,
+  "subbar_missing_bars": null
+}

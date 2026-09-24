@@ -8,70 +8,70 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": 7.2808,
-  "expectancy_r_oos": 0.4551,
-  "n_trades_oos": 16,
+  "net_r_oos": 4.5091,
+  "expectancy_r_oos": 0.2505,
+  "n_trades_oos": 18,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 4,
-      "net_r": -0.121,
-      "expectancy_r": -0.0303,
-      "start": "2025-09-26 14:00:00+00:00",
-      "end": "2025-10-31 12:00:00+00:00"
+      "net_r": -0.9304,
+      "expectancy_r": -0.2326,
+      "start": "2025-10-11 10:00:00+00:00",
+      "end": "2025-11-05 06:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 4,
-      "net_r": -0.1116,
-      "expectancy_r": -0.0279,
-      "start": "2025-11-06 00:00:00+00:00",
+      "net_r": 2.2425,
+      "expectancy_r": 0.5606,
+      "start": "2025-11-14 16:00:00+00:00",
       "end": "2026-01-19 20:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 4,
-      "net_r": 11.7385,
-      "expectancy_r": 2.9346,
+      "net_r": 5.3983,
+      "expectancy_r": 1.3496,
       "start": "2026-01-30 16:00:00+00:00",
-      "end": "2026-05-28 18:00:00+00:00"
+      "end": "2026-05-14 16:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 4,
-      "net_r": -4.2251,
-      "expectancy_r": -1.0563,
-      "start": "2026-06-07 12:00:00+00:00",
+      "trades": 6,
+      "net_r": -2.2013,
+      "expectancy_r": -0.3669,
+      "start": "2026-05-18 22:00:00+00:00",
       "end": "2026-09-03 00:00:00+00:00"
     }
   ],
-  "folds_positive": 1,
+  "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
-    "n": 16,
+    "n": 18,
     "max_drawdown_r": 4.2251,
-    "max_drawdown_at_trade": 16,
-    "final_equity_r": 7.2808,
-    "max_equity_r": 11.5059,
+    "max_drawdown_at_trade": 18,
+    "final_equity_r": 4.5091,
+    "max_equity_r": 8.7342,
     "worst_trade_r": -1.082,
-    "best_trade_r": 5.3997,
+    "best_trade_r": 3.1338,
     "worst_day_r": -1.082,
     "worst_day_date": "2026-07-26",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
   },
-  "window_days": 365,
-  "fee_bps_roundtrip": 7.5,
   "cost_stack": {
     "fees": 7.5,
     "slippage": 5.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-22-r5/sol_pullback_2h__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-24-e55/sol_pullback_2h__bt.json"
   },
-  "net_r_oos_fee_only": 7.9196,
+  "net_r_oos_fee_only": 5.0584,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
@@ -79,9 +79,9 @@
     "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T09:27:25.578585+00:00",
+  "generated_at": "2026-09-24T12:45:02.607100+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/sol_pullback_2h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/sol_pullback_2h__trades.jsonl",
   "error": null,
   "harness": "pullback"
 }
