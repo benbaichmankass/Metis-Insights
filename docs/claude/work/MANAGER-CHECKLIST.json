@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-24T18:30:00Z",
-  "updated_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP",
+  "updated_at": "2026-09-24T22:40:00Z",
+  "updated_by": "lane session_015rQJ6stNY7ixzRy2NfASk3 (E74)",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -1761,6 +1761,21 @@
         12881
       ],
       "note": "OPERATOR 2026-09-24 ~17:15Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Yes, spawn a lane (Recommended)\". From E67: bybit_2 has 10 closes and 0 winners since 09-08; broker-truth is as_of 2026-07-13; the journal under-records loss about 8x. #12881 is Tier-2 held (it surfaces ledger staleness).\nOPERATOR 2026-09-24 ~18:15Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Merge + fix the gap (Recommended)\", in reply to \"#12881 adds as_of_age_days/stale fields; the ledger has no scheduled producer (a hand snapshot from an operator Bybit CSV); the automated wallet read shows -$49.99/90d but may cover only one of bybit_2's two sub-accounts\". APPROVED: (a) merge #12881 (Tier-2, read-only); (b) the lane then makes the automated wallet-truth read cover BOTH bybit_2 sub-accounts, so the true realized number needs no CSV from the operator."
+    },
+    {
+      "id": "E74",
+      "title": "ML review follow-ups: SOL 15m retrain + drift check, Donchian exit-head silence diagnosis + demote",
+      "phase": "E",
+      "state": "landed_unproven",
+      "owner": "lane",
+      "lane": "session_015rQJ6stNY7ixzRy2NfASk3",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "From E72's ml-review (PR #12903, unmerged). Operator popups in the manager session (session_01Ljhs6sFAdWHdMDhJpL5aBP) ~21:50Z 2026-09-24: sol-regime-15m-lgbm-fc-pcv-v2 'Keep, retrain (Recommended)'; exit-head-donchian-1h-v1 'Investigate + demote (Recommended)'. SOL: retrained via trainer-vm-diag (#12907) -- MEASURED metrics and drift_clean KS/PSI came back BYTE-IDENTICAL to this morning's regular cycle (both trained on the same underlying dataset rows; the market_features v002 SOLUSDT 15m family rebuilds on an alternating-night cadence, not nightly), so drift did NOT clear and this was not a genuine fresh-data test. Not promoted/demoted -- stage untouched. Filed PI-20260924-Y2NFASK3-0001 (diagnose per drift-remediation step 2, this reads as persistent not transient). Donchian: found it has NO ml.registry-store entry at all -- it is exported by the standalone scripts/ml/export_exit_head.py (a hand-run Tier-1 tool, last run 2026-07-12) directly to a flat JSON artifact, never through `python -m ml train`, so `promote-stage`/`gate-check` cannot see it (confirms PI-20260924-JQHBBTOS-0001). The ~53h silence since 2026-09-22T17:06Z is substantially explained (not a crash): of the 3 legs wired to this head (trend_donchian, trend_donchian_sol, trend_donchian_eth), two were already flat before the silence began and the third closed ~86min after it started, none has reopened since -- correcting PI-0001's '~37 missed firings' framing (PI-...-0003 filed). DEMOTED advisory->shadow (operator-approved): patched the artifact's `stage` field in place on the trainer VM (verified read-back) and republished via scripts/ops/publish_trainer_mirror.sh (trainer-vm-diag #12911; publish log confirms rsync to the live VM's mirror path succeeded). Live-served effect not yet observed (no donchian leg is currently open to score) -- PI-...-0002 files the soak-style follow-up. Findings + pipeline rows in comms/reviews/e74-ml-followups-20260924.json, landed Tier-1 directly to main (no code/config touched in git; the demotion itself is VM runtime-artifact state, not a git-tracked file)."
     }
   ]
 }
