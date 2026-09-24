@@ -223,6 +223,7 @@ exists to arm CI, and read CI with `get_check_runs`, never `get_status`.
 | `bootstrap-labels.yml` | AUTO / AUTONOMOUS | push (paths: this file) + B-sentinel or `workflow_dispatch` | `.github/triggers/bootstrap-labels` |
 | `branch-protection-sync.yml` | AUTO | push to `main` + workflow_dispatch | — |
 | `health-snapshot.yml` | AUTONOMOUS | A or E (every 6h) | `health-snapshot-trigger` |
+| `dashboard-edge-watch.yml` | AUTONOMOUS | A or E (hourly) | `dashboard-edge-watch-now` |
 | `vm-diag-snapshot.yml` | AUTONOMOUS | A | `vm-diag-request` |
 | `trainer-vm-diag.yml` | AUTONOMOUS | A | `trainer-vm-diag-request` |
 | `vm-web-api-recover.yml` | AUTONOMOUS | A | `vm-web-api-recover` |
@@ -472,6 +473,58 @@ mcp__github__issue_write
 Workflow SSHes, uploads artifact, comments result URL, closes issue.
 
 **Secrets:** `VM_SSH_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+
+---
+
+#### `dashboard-edge-watch.yml`
+
+**Autonomy:** AUTONOMOUS — read-only outside-in probe, no operator approval
+needed.
+
+**Trigger:** Schedule hourly (`12 * * * *`), `workflow_dispatch`, and
+`issues.opened` with label `dashboard-edge-watch-now`.
+
+**Purpose:** E52 — the outside-in probe of the three links in front of
+`ict-web-api-watchdog`'s coverage on the SPA's only path to the API
+(GitHub Pages -> HTTPS -> `ict-bot.duckdns.org` -> Caddy -> `ict-web-api`):
+(1) a cheap ungated `GET /api/health` returns 200 over a chain that verifies;
+(2) days remaining on the served TLS certificate (warn < 14, alert < 7); (3)
+the DuckDNS `A` record for `ict-bot.duckdns.org` still equals the canonical
+live VM IP (`vars.VM_SSH_HOST`, see
+[`docs/runbooks/live-vm-ip-single-source.md`](runbooks/live-vm-ip-single-source.md));
+and (4, optional, always run) the CORS preflight from the Pages origin still
+allows `Authorization` (the same check
+[`docs/runbooks/webapp-https-caddy.md`](runbooks/webapp-https-caddy.md) §
+Verify documents by hand). Runs entirely from the GitHub-hosted runner — no
+SSH, so a wedge that also breaks VM-side monitoring is still observed.
+
+**Collapsed-state contract:** every check grades into `ok` / `warn` / `alert`
+/ `unreachable`, never collapsed — "the probe did not run" (DNS timeout,
+socket refused, an uncaught exception mid-check) is its own state and is
+never folded into `ok`. Every run uploads a JSON receipt artifact
+(`dashboard-edge-watch-receipt-<run_id>`, 7-day retention) so "ran and found
+healthy" stays distinguishable from "did not run" even when the alert path
+itself is silent. See `scripts/ops/dashboard_edge_watch.py`'s module
+docstring for the full contract; `--self-test` plants an expired-cert fixture,
+a wrong-IP fixture, a non-200 fixture and a missing-`Authorization`-header
+fixture and asserts each produces its alert, with no network. Job fails
+(red in the Actions UI) whenever the overall verdict is not `ok`, alongside
+a Telegram ping and a deduped `dashboard-edge-watch-alert`-labelled issue
+(opened once, commented on while still broken, auto-closed on recovery) — the
+same shape as `macro-producer-liveness.yml`. Also watched by
+`claude-run-failure-alert.yml` — a silent watchdog is worse than none.
+
+**MCP trigger (autonomous, Pattern A):**
+```
+mcp__github__issue_write
+  title: "[dashboard-edge-watch] on-demand probe"
+  body: ""
+  labels: ["dashboard-edge-watch-now"]
+```
+
+**Secrets:** `CLAUDE_TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (alert path
+only — the checks themselves need no secret, since the target endpoints are
+public).
 
 ---
 
