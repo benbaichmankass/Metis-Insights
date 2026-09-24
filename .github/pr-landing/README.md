@@ -9,15 +9,7 @@ Enforced by `pr-landing-guard` (`scripts/ci/check_pr_landing.py`), which runs on
 every PR. Read that file's docstring for the rule-by-rule reasoning; this is the
 operator's-eye summary.
 
-> ### ⚠️ THE MERGE-SLOT CLAIM: USE THE PER-BRANCH ROUTE (2026-09-21)
->
-> **R13's first failure message names `docs/claude/session-board.json`, and the
-> 2026-09-21 operating reset ARCHIVED that file.** It is now at
-> `docs/archive/2026-09-21-operating-reset/registers/session-board.json`, along
-> with `board-pointer.json`, so a session that follows the error text lands on a
-> file that does not exist and a board it cannot resolve.
->
-> **The route that works, and the one R13 itself calls PREFERRED:**
+> ### THE MERGE-SLOT CLAIM: USE THE PER-BRANCH ROUTE
 >
 > ```bash
 > python3 scripts/ops/claim_merge_slot.py --branch-claim \
@@ -25,17 +17,23 @@ operator's-eye summary.
 > ```
 >
 > It writes `.github/merge-slots/<slug>.json`, which cannot conflict with another
-> branch's claim. Commit it in the same push that arms the route. Measured
-> 2026-09-21 on `claude/metis-insights-manager-9qmm63`: R13 went from
-> `session-board.json does not exist` to `OK — state=declared_self_land` on that
-> one command.
+> branch's claim. Commit it in the same push that arms the route.
 >
-> ⚠️ **This note is not the fix.** The guard still names the dead register first,
-> which bites every Tier-1 self-landing PR from here on. Filed as
-> `PI-20260921-0002` in `docs/claude/work/PIPELINE.jsonl` and routed to the E9
-> reader sweep. **Do not "fix" it by weakening R13** — it fails closed on purpose
-> and the loss it guards is real; the remedy TEXT and its ordering are what is
-> wrong.
+> ⚠️ **FIXED 2026-09-24 (E51).** Until then, R13's own failure message told you
+> to satisfy it by writing `merge_slot` into `docs/claude/session-board.json` —
+> a file the 2026-09-21 operating reset had archived (now at
+> `docs/archive/2026-09-21-operating-reset/registers/session-board.json`), so
+> the remedy the guard printed could not be performed. `check_pr_landing.py`'s
+> R13 message (and `slot_claim_state`'s underlying `detail`) now name the
+> per-branch route above and state plainly that the legacy file is retired and
+> must not be resurrected. This note originally filed the bug as
+> `PI-20260921-0002` in `docs/claude/work/PIPELINE.jsonl` — by the time E51
+> looked, that id had been silently overwritten by an unrelated finding
+> through the append-collision defect `docs/claude/work/PIPELINE.jsonl` itself
+> documents (`python3 scripts/ops/pipeline.py --check` lists it as one of 3
+> GRANDFATHERED collisions), so the original filing is no longer readable
+> there. The fix landed directly in code instead; this box is kept short as a
+> pointer, not a workaround.
 
 ## Why this exists
 

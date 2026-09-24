@@ -56,6 +56,15 @@ DEFAULT_FEE_BPS_ROUNDTRIP: float = 7.5
 # liquid crypto perp; a harness flag / caller can override per venue.
 DEFAULT_SLIPPAGE_BPS_ROUNDTRIP: float = 5.0
 
+# Round-trip slippage for crypto PERPS (Bybit linear/inverse), bps of notional.
+# Operator decision 2026-09-24 (checklist E60) on lane D3's committed record
+# comms/research/d3_realized_slippage/2026-09-24.json: bybit_2 (real money)
+# realized +0.868 bps round-trip, 95% bootstrap CI [-0.911, +2.946], n=87 entries /
+# 42 package-referenced exits. 3.0 sits just above the CI's upper bound — measured,
+# not the favourable point estimate. Every non-perp keeps the 5.0 default above
+# (Alpaca/IBKR/fx had no real-money account with n>=20 on both sides in D3).
+PERP_SLIPPAGE_BPS_ROUNDTRIP: float = 3.0
+
 # Perp funding magnitude per 8h window, bps of notional. ~1 bps ≈ BTC's long-run
 # average |funding| per 8h. Directionless drag (see module docstring).
 DEFAULT_FUNDING_BPS_PER_WINDOW: float = 1.0
@@ -112,11 +121,18 @@ def funding_bps_per_window_for(symbol: Any) -> float:
     return DEFAULT_FUNDING_BPS_PER_WINDOW if is_perp(symbol) else 0.0
 
 
-def slippage_bps_roundtrip_for(symbol: Any) -> float:  # noqa: ARG001
-    """Round-trip slippage default. Uniform across venues for now (spread + impact
-    exists everywhere); a per-venue magnitude is a documented refinement. Takes the
-    symbol so the signature is stable when that lands."""
-    return DEFAULT_SLIPPAGE_BPS_ROUNDTRIP
+def slippage_bps_roundtrip_for(symbol: Any) -> float:
+    """Venue-aware round-trip slippage default: ``PERP_SLIPPAGE_BPS_ROUNDTRIP``
+    (3.0) for a crypto perp — classified by ``is_perp``, i.e. instruments.yaml
+    ``category ∈ {linear, inverse}``, else the ``*USDT`` heuristic — and
+    ``DEFAULT_SLIPPAGE_BPS_ROUNDTRIP`` (5.0) for everything else: Alpaca
+    equities/ETFs, IBKR dated futures, fx, and an empty/unclassifiable symbol.
+
+    Evidence: D3 record ``comms/research/d3_realized_slippage/2026-09-24.json``
+    (bybit_2 realized +0.868 bps, CI95 [-0.911, +2.946], n=87/42); operator
+    decision 2026-09-24, checklist E60. Non-perp venues are UNMEASURED in that
+    record, so they keep the prior default rather than borrowing the perp figure."""
+    return PERP_SLIPPAGE_BPS_ROUNDTRIP if is_perp(symbol) else DEFAULT_SLIPPAGE_BPS_ROUNDTRIP
 
 
 def resolve_cost_policy(
