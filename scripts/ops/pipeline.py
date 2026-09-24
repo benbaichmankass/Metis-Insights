@@ -932,6 +932,31 @@ def _selftest() -> int:
               "net) via the legacy line-based parser, not the directory one",
               len(read_log(legacy).unreadable) == 1)
 
+    print("— a resurrected flat file next to the directory store is caught —")
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td) / "docs" / "claude" / "work"
+        store = root / "pipeline"
+        append(base(id="X"), store, intent="new")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = _check(store)
+        check("PLANTED DEFECT: a resurrected sibling PIPELINE.jsonl FAILS "
+              "_check(), never silently ignored",
+              _resurrected_legacy_file(store) is None)
+        check("…(negative control) no sibling file, and _check() proceeds "
+              "to the ordinary verdict", rc == 0)
+
+        (root / "PIPELINE.jsonl").write_text(
+            json.dumps(base(id="Y")) + "\n", encoding="utf-8")
+        out2 = io.StringIO()
+        with contextlib.redirect_stdout(out2):
+            rc2 = _check(store)
+        check("PLANTED DEFECT: _check() now FAILS with the sibling file "
+              "present, never printing a clean verdict over it",
+              rc2 == 1 and "exists ALONGSIDE" in out2.getvalue())
+        check("…and the failure NAMES the fix (the migration script)",
+              "migrate_pipeline_to_dir.py" in out2.getvalue())
+
     print("— validation is enforced on the WRITE path, not just on read —")
     with tempfile.TemporaryDirectory() as td:
         store = Path(td) / "pipeline"
@@ -1068,8 +1093,44 @@ def _selftest() -> int:
     return 0
 
 
+def _resurrected_legacy_file(store: Path) -> Path | None:
+    """The sibling flat file, if `store` is a directory AND that file exists.
+
+    ⚠️ THE HAZARD THIS CATCHES (found in review, 2026-09-24, the day of the
+    E64 re-point): at least 6 lane PRs were already appending to the OLD flat
+    file when this migration merged. Each one now hits a modify/delete
+    conflict on `docs/claude/work/PIPELINE.jsonl` (deleted here, modified by
+    them) -- and a hand-resolved conflict can easily choose to KEEP the file.
+    That resurrects a flat `PIPELINE.jsonl` sitting right next to the new
+    directory, and nothing reads it: `read_log(store)` only uses the legacy
+    parser when `store` itself IS a file, so a directory-store call ignores
+    it completely. `--check` would report `clean` while any row filed there
+    is invisible to `due()`/`render_section_0()` forever -- exactly the loss
+    class this module exists to prevent, recreated one level up.
+    """
+    if not store.is_dir():
+        return None
+    legacy = store.parent / "PIPELINE.jsonl"
+    return legacy if legacy.exists() else None
+
+
 def _check(store: Path) -> int:
     """Validate every item in the real store. Used by the guard."""
+    legacy = _resurrected_legacy_file(store)
+    if legacy is not None:
+        print(f"::error::pipeline: {legacy} exists ALONGSIDE the directory "
+              f"store {store} -- a resurrected flat file (e.g. from a "
+              f"hand-resolved modify/delete git conflict) is silently "
+              f"invisible to read_log(): it only uses the legacy parser when "
+              f"`store` itself IS a file. Any row appended there is LOST -- "
+              f"due() never sees it and this very check would otherwise "
+              f"stay green. Fix: run "
+              f"`python3 scripts/ops/migrate_pipeline_to_dir.py --apply` to "
+              f"move its records into {store} (it is safe to re-run: it "
+              f"only migrates records not already present, matched on full "
+              f"content), which also deletes {legacy}.")
+        return 1
+
     res = read_log(store)
     bad: list[str] = []
     for item_id, item in sorted(res.items.items()):

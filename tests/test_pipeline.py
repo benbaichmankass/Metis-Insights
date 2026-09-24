@@ -124,6 +124,26 @@ def test_a_store_that_cannot_be_fully_read_fails_the_check(tmp_path):
     assert P._check(store) == 1
 
 
+def test_a_resurrected_flat_file_beside_the_directory_fails_the_check(tmp_path):
+    """PLANTED DEFECT, found in review the day this module shipped (E64):
+    at least 6 lane PRs were still appending to the OLD flat file when this
+    migration merged, so each hits a modify/delete conflict on it -- and a
+    hand-resolved conflict can easily choose to KEEP the file. That
+    resurrects a flat PIPELINE.jsonl beside the new directory, and
+    `read_log(store)` (directory-shaped `store`) never looks at a SIBLING
+    file -- it would silently drop every row filed there while `--check`
+    kept reporting clean. This must be refused outright."""
+    store = tmp_path / "docs" / "claude" / "work" / "pipeline"
+    P.append(_item(id="X"), store, intent="new")
+    assert P._check(store) == 0, "negative control: no sibling file, clean check"
+
+    legacy = store.parent / "PIPELINE.jsonl"
+    legacy.write_text(json.dumps(_item(id="Y")) + "\n", encoding="utf-8")
+    assert P._check(store) == 1, (
+        "a resurrected sibling flat file must fail the check, never pass "
+        "silently while ignoring rows filed there")
+
+
 def test_a_preexisting_flat_file_is_still_read_as_a_migration_safety_net(tmp_path):
     """The directory is the live format; a flat file is read too, so a
     caller that has not migrated yet (or a rollback) is not silently
