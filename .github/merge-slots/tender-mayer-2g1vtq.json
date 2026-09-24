@@ -1,6 +1,6 @@
 {
-  "held_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP (manager)",
+  "held_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP",
   "branch": "claude/tender-mayer-2g1vtq",
-  "claimed_at": "2026-09-24T15:42:36Z",
-  "purpose": "Register: E55/E58/E60 done"
+  "claimed_at": "2026-09-24T17:49:48Z",
+  "purpose": "manager register: 17:15Z operator decisions + wave-2 lanes"
 }

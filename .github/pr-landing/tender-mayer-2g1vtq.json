@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager register only (docs/claude/work/MANAGER-CHECKLIST.json): E60 -> done on the post-deploy observation; E55 and E58 -> done on merge (their deliverables are committed records), including E55's ceiling breach. No src/, config/, scripts/ or workflow change."
+  "why": "Manager register only (docs/claude/work/MANAGER-CHECKLIST.json). It records the operator's 2026-09-24 ~17:10-17:15Z popup decisions verbatim (E48 strip, E66 merge+deploy, R12 read delegated to the manager, B5 grant all 10, gld wait for E62, donchian resweep, bybit_2 ledger), the wave-2 lane ids, spend and states, the E66 deploy observation, and new rows E69/E70. No src/, config/, scripts/ or workflow change."
 }
