@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-24T13:10:00Z",
+  "updated_at": "2026-09-24T14:00:00Z",
   "updated_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -383,7 +383,7 @@
       "id": "D3",
       "title": "Cost-fidelity job — weekly realized-vs-modelled cost per Stage-1 leg",
       "phase": "D",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01J4W8rC8qYJBAFLa87KVAFC",
       "model": "claude-opus-5-5",
@@ -392,7 +392,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). OPERATOR DECISIONS 2026-09-24 ~13:05Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP): SLIPPAGE -> \"Perps 3.0, rest 5.0\": set slippage_bps_roundtrip_for to 3.0 bps for Bybit perps (measured CI upper 2.95 on bybit_2, n=87 entries / 42 exits), keep 5.0 for Alpaca equities and IBKR futures (unmeasurable). Tier-2, operator-approved; build lane E60, deploy under MD-DEPLOY-AN-APPROVED-MERGE. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: this measurement decides whether MD-PROMOTE-S1-S2 can ever arm (the handoff binds the cost stack to opus). RE-POINTED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP: the blocking edge named D1, which was DROPPED 2026-09-22 as a duplicate of R1; R1, E3 and R7 are done, and 49 of 52 comms/strategy_evidence records now carry a cost stack (crypto 7.5/5.0/1.0 bps fee/slip/funding; equities 0.0/5.0/0.0). So the corpus is NOT fee-only any more. What it is: priced on a FLAT 5 bps round-trip slippage that has never been compared against a single real fill. This row is now the D1 residual the 2026-09-24 handoff pointed at. FIRST QUESTION (measurement only): realized round-trip slippage per venue from the fills store, and how many Stage-0 verdicts flip at the measured value. This IS Gate 1, and it is what makes the ladder traversable for slow legs: 'is realized slippage what we assumed?' converges in a handful of trades where expectancy needs 50+. Build only once D1 has given it something to compare to."
+      "note": "Merged via #12845 -> #12858. The measurement record comms/research/d3_realized_slippage/2026-09-24.json is on main. Final spend $6.41 against $50. Follow-ups: E60 (perps 3.0 bps) and E62 (evidence for equities/futures). LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). OPERATOR DECISIONS 2026-09-24 ~13:05Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP): SLIPPAGE -> \"Perps 3.0, rest 5.0\": set slippage_bps_roundtrip_for to 3.0 bps for Bybit perps (measured CI upper 2.95 on bybit_2, n=87 entries / 42 exits), keep 5.0 for Alpaca equities and IBKR futures (unmeasurable). Tier-2, operator-approved; build lane E60, deploy under MD-DEPLOY-AN-APPROVED-MERGE. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: this measurement decides whether MD-PROMOTE-S1-S2 can ever arm (the handoff binds the cost stack to opus). RE-POINTED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP: the blocking edge named D1, which was DROPPED 2026-09-22 as a duplicate of R1; R1, E3 and R7 are done, and 49 of 52 comms/strategy_evidence records now carry a cost stack (crypto 7.5/5.0/1.0 bps fee/slip/funding; equities 0.0/5.0/0.0). So the corpus is NOT fee-only any more. What it is: priced on a FLAT 5 bps round-trip slippage that has never been compared against a single real fill. This row is now the D1 residual the 2026-09-24 handoff pointed at. FIRST QUESTION (measurement only): realized round-trip slippage per venue from the fills store, and how many Stage-0 verdicts flip at the measured value. This IS Gate 1, and it is what makes the ladder traversable for slow legs: 'is realized slippage what we assumed?' converges in a handful of trades where expectancy needs 50+. Build only once D1 has given it something to compare to."
     },
     {
       "id": "A9",
@@ -415,7 +415,7 @@
       "id": "A10",
       "title": "Dispose of the 85 unrouted rows section 0 is reporting",
       "phase": "A",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "ceiling_usd": 25,
       "spend_usd": null,
@@ -424,7 +424,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: classification sweep verifiable by each item's own origin.rerun; live-money items routed not killed. OBSERVED ON THE OPERATOR'S PAGE 2026-09-21, in the same screenshot that closed A7: `85 UNROUTED · 93 DUE · 1,168 ITEM(S)`. Those are A8's imported `OI-*` rows, carried rather than killed. [!] THIS IS ONE BOUNDED SWEEP, NOT 85 RUBBER-STAMPS — the plan's own position is that most archived rows should be KILLED EXPLICITLY with a stated reason rather than routed, and a lane that routes all 85 to `ask_operator` or to a new row has done the opposite of the work. Read each, kill with `terminal_reason` by default, and promote by exception with the exception argued. [!] ACCEPTANCE IS A NUMBER ON THE PAGE: unrouted_count() back to a figure the operator can read in one sitting, with the kill reasons in the store, not in a PR body. [!] DO NOT batch-kill on a pattern match — `killed` is a first-class outcome precisely because it is a JUDGEMENT; an 85-row sed is the same non-reading that produced 951 open rows and one `actioned`."
+      "note": "Merged via #12851 -> #12858. MEASURED on main after merge with pipeline.py --stats: see the due/unrouted figures in the manager's commit message. Final spend $14.65 against $25 (Fable). One stale A10 record was dropped in integration: its re-route of -0004, which E50 had closed. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: classification sweep verifiable by each item's own origin.rerun; live-money items routed not killed. OBSERVED ON THE OPERATOR'S PAGE 2026-09-21, in the same screenshot that closed A7: `85 UNROUTED · 93 DUE · 1,168 ITEM(S)`. Those are A8's imported `OI-*` rows, carried rather than killed. [!] THIS IS ONE BOUNDED SWEEP, NOT 85 RUBBER-STAMPS — the plan's own position is that most archived rows should be KILLED EXPLICITLY with a stated reason rather than routed, and a lane that routes all 85 to `ask_operator` or to a new row has done the opposite of the work. Read each, kill with `terminal_reason` by default, and promote by exception with the exception argued. [!] ACCEPTANCE IS A NUMBER ON THE PAGE: unrouted_count() back to a figure the operator can read in one sitting, with the kill reasons in the store, not in a PR body. [!] DO NOT batch-kill on a pattern match — `killed` is a first-class outcome precisely because it is a JUDGEMENT; an 85-row sed is the same non-reading that produced 951 open rows and one `actioned`."
     },
     {
       "id": "E1",
@@ -1389,7 +1389,7 @@
       "id": "E50",
       "title": "arbitration_fanout_soak has written nothing since 2026-09-23T01:52Z at mode apply — find the cause, and make a broken soak distinguishable from an idle one",
       "phase": "E",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_019mw6kFz9EL3AuHL1AUT4ff",
       "model": "claude-opus-5-5",
@@ -1400,7 +1400,7 @@
         12837
       ],
       "blocked_on": [],
-      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). LANE RESULT 2026-09-24 ($3.60 running at 12:36Z): THE SOAK WAS NEVER DARK. Direct read (diag_fetch.sh, lines=1000) shows 65 rows inside the claimed-silent window; the relay renderer head-cut a 100-row tail (#12820 passed limit=, which log_file ignores) and the 35th-oldest row was read as newest. Reproduced byte-exact (149,082). Fix = renderer cuts lists at whole elements and says which survived (#12837, Tier-1, armed by the manager 12:45Z). Latent risk (record() failures swallowed at DEBUG) filed PI-20260924-L1AUT4FF-0001, Tier-2. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: order-election path. Scope of record: PI-20260924-JN54P2HH-0004. Precondition for E17 and for all prop work (R-G): breakout_1 cannot be diagnosed on a soak that cannot be read. FRESH, opus: the call site is intent_multiplexer.py, on the live order-election path. One question: WHY is it silent. Tier-1 if the fix is observability-only; anything touching election behaviour is held for the operator. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "Merged #12837 (37cf483, 13:21Z). NOT YET OBSERVED: the next diag relay comment that truncates a list must show the new \"ONLY THE FIRST n of N\" marker. Final spend $4.08 against $60. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). LANE RESULT 2026-09-24 ($3.60 running at 12:36Z): THE SOAK WAS NEVER DARK. Direct read (diag_fetch.sh, lines=1000) shows 65 rows inside the claimed-silent window; the relay renderer head-cut a 100-row tail (#12820 passed limit=, which log_file ignores) and the 35th-oldest row was read as newest. Reproduced byte-exact (149,082). Fix = renderer cuts lists at whole elements and says which survived (#12837, Tier-1, armed by the manager 12:45Z). Latent risk (record() failures swallowed at DEBUG) filed PI-20260924-L1AUT4FF-0001, Tier-2. DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH opus-5-5: order-election path. Scope of record: PI-20260924-JN54P2HH-0004. Precondition for E17 and for all prop work (R-G): breakout_1 cannot be diagnosed on a soak that cannot be read. FRESH, opus: the call site is intent_multiplexer.py, on the live order-election path. One question: WHY is it silent. Tier-1 if the fix is observability-only; anything touching election behaviour is held for the operator. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E51",
@@ -1421,7 +1421,7 @@
       "id": "E52",
       "title": "Nothing watches Caddy, the TLS cert expiry, or the DuckDNS record — three of the six ways the only live dashboard dies",
       "phase": "E",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "build lane",
       "lane": "session_01VCCktutb7TTY31txRL5eXB",
       "model": "claude-sonnet-5",
@@ -1430,13 +1430,13 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: CI/observability workflow. Outside-in probe from a GitHub runner: HTTPS reachability of ict-bot.duckdns.org, days-to-expiry of the served cert, DNS A record == the live VM. Must alert through the channel existing watchers already use, and must distinguish did-not-run from ran-and-found-healthy (collapsed-state rule). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "Merged #12849 (6cf103d). NOT YET OBSERVED: the first scheduled dashboard-edge-watch run and its receipt. Final spend $7.06 against $30. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: CI/observability workflow. Outside-in probe from a GitHub runner: HTTPS reachability of ict-bot.duckdns.org, days-to-expiry of the served cert, DNS A record == the live VM. Must alert through the channel existing watchers already use, and must distinguish did-not-run from ran-and-found-healthy (collapsed-state rule). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E53",
       "title": "Roadmap status sweep — no in-progress milestone has been updated since 2026-08-31",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_016esXb8N3RvmZycrDXJStcA",
       "model": "claude-fable-5-1",
@@ -1445,7 +1445,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: E11-validated sweep class, separate weekly pool. FABLE, fresh: E11 validated grep-and-classify sweeps on Fable, and this is one, verifiable against git log / merged PRs / this checklist. Doc-only (ROADMAP.md). Every status change cites a sha or PR. Must precede the O1 reviews so they grade against a true roadmap. Known: M40 R1 landed as #12739 and the roadmap does not say so. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "Merged via #12858 (e537982, 2026-09-24T13:53Z). The deliverable is the roadmap edit plus docs/research/roadmap-status-sweep-2026-09-24.json, verified present on main. Fable lane, final spend $11.09 against a $20 ceiling. E54 (#12840) edits the same M40 row and is re-applied separately. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH fable: E11-validated sweep class, separate weekly pool. FABLE, fresh: E11 validated grep-and-classify sweeps on Fable, and this is one, verifiable against git log / merged PRs / this checklist. Doc-only (ROADMAP.md). Every status change cites a sha or PR. Must precede the O1 reviews so they grade against a true roadmap. Known: M40 R1 landed as #12739 and the roadmap does not say so. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E54",
@@ -1481,7 +1481,7 @@
       "id": "E56",
       "title": "/health-review — the first of the three reviews (O1), run on its skill",
       "phase": "E",
-      "state": "in_flight",
+      "state": "done",
       "owner": "review lane",
       "lane": "session_011zU73V1WZfwZi8gKiASqWz",
       "model": "claude-sonnet-5",
@@ -1490,7 +1490,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: review lane per the model table. O1 order: health -> performance -> ml. Performance waits on D3 (realized cost). The review will also establish whether the diag relay the reviews need is working (handoff O2) — a broken relay is a finding to file with the failing run, not a reason to stop. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
+      "note": "Merged via #12858. comms/reviews/health/2026-09-24-health-review.json is on main. Final spend $7.52 against $40. LANE FINISHED + ARCHIVED 2026-09-24 ~12:56Z (PR awaiting merge; manager drives). DISPATCHED 2026-09-24T12:2xZ by session_01Ljhs6sFAdWHdMDhJpL5aBP. FRESH sonnet: review lane per the model table. O1 order: health -> performance -> ml. Performance waits on D3 (realized cost). The review will also establish whether the diag relay the reviews need is working (handoff O2) — a broken relay is a finding to file with the failing run, not a reason to stop. Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP."
     },
     {
       "id": "E57",
@@ -1549,7 +1549,7 @@
       "id": "E59",
       "title": "Prop (breakout_1): is it receiving tickets now, what is the honest baseline, and what does the ruleset allow — sizing against a ~$95 DD cushion first",
       "phase": "E",
-      "state": "queued",
+      "state": "done",
       "owner": "research lane",
       "lane": "session_01S6QEBu1xEVd76nMQ3CDmu6",
       "model": "claude-opus-5-5",
@@ -1560,7 +1560,7 @@
         12848
       ],
       "blocked_on": [],
-      "note": "OPERATOR DECISIONS 2026-09-24 ~13:05Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP): PROP SIZING -> \"Leave flat $75\" (chosen over E59's cushion-scaled rule k=0.33/0.5 and over pausing tickets), with the measurement in front of them: $94.76 cushion, 0 full-size stop-outs survivable once #44 stops, and the 2026-08-31 \"enforce\" gate caps nothing. PI-20260924-MQ3CDMU6-0001 is therefore KILLED by operator decision; -0002 (enforce not implemented) was put to the operator as part of the same question. -0003/-0004/-0005 (stop not journaled, /tmp source_runs, baseline residual -$68.70) remain open lane work. Handoff R-G, operator priority (\"our most leveraged pool of capital\", visibly underutilized). Precondition E17 now read as resolved from 2026-09-23 (see E17). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. Analysis + PROPOSALS only; any roster/sizing/risk change is Tier-3 and goes to the operator."
+      "note": "Merged via #12848 -> #12858. docs/research/prop-state-2026-09-24.{md,json} are on main. Final spend $4.20 against $50. Operator decision on -0001: leave the flat $75. -0003/-0004/-0005 stay open in the pipeline. OPERATOR DECISIONS 2026-09-24 ~13:05Z (popups in session_01Ljhs6sFAdWHdMDhJpL5aBP): PROP SIZING -> \"Leave flat $75\" (chosen over E59's cushion-scaled rule k=0.33/0.5 and over pausing tickets), with the measurement in front of them: $94.76 cushion, 0 full-size stop-outs survivable once #44 stops, and the 2026-08-31 \"enforce\" gate caps nothing. PI-20260924-MQ3CDMU6-0001 is therefore KILLED by operator decision; -0002 (enforce not implemented) was put to the operator as part of the same question. -0003/-0004/-0005 (stop not journaled, /tmp source_runs, baseline residual -$68.70) remain open lane work. Handoff R-G, operator priority (\"our most leveraged pool of capital\", visibly underutilized). Precondition E17 now read as resolved from 2026-09-23 (see E17). Dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP. Analysis + PROPOSALS only; any roster/sizing/risk change is Tier-3 and goes to the operator."
     },
     {
       "id": "E60",
@@ -1606,6 +1606,21 @@
       "prs": [],
       "blocked_on": [],
       "note": "OPERATOR 2026-09-24 ~13:15Z, verbatim: \"the 5.0 assumption is a working artifact until we get evidence backed numbers, which also need to be in our to do list\". 5.0 bps is a WORKING ARTIFACT for these venues, not a measurement. D3 (PI-20260924-A87KVAFC-0002) found two blockers. (1) ACCRUAL: alpaca_live has n=3 real entries; ib_live is dry_run with 0 fills. (2) STRUCTURAL, and accrual will not fix it: across all Alpaca accounts there are 0 sl/tp closes whose exit_price_source is MEASURED. sl_cross exits are ESTIMATED; exchange_fill appears only on exchange_flat_reconciled closes. So the fix needs the sl_cross close path to resolve its exit price from the fills store, as the Bybit path does. That is likely a src/ change; tier to be decided when scoped. DONE WHEN: a committed per-venue realized-slippage record exists for equities and futures, at a stated n and CI, AND slippage_bps_roundtrip_for uses it. Queued, not dispatched: pacing. It is sequenced after E60 lands."
+    },
+    {
+      "id": "E63",
+      "title": "A landing: \"hold\" PR was auto-merged anyway — the per-branch arming file survives on main, so every later PR from that branch is pre-armed",
+      "phase": "E",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 20,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OBSERVED 2026-09-24 by session_01Ljhs6sFAdWHdMDhJpL5aBP. #12858 declared landing \"hold\" with hold_reason changes_landing_machinery (pr-landing-guard R12: exit 0, state=declared_hold). github-actions[bot] merged it anyway at 13:53:00Z. Cause (INFERRED, to verify): .github/pr-automerge-requests/tender-mayer-2g1vtq.txt had landed on main with #12838, and claude-pr-automerge appears to key on the file existing on the branch, ignoring whether it changed vs main and ignoring the landing declaration. Consequence: a branch that has self-landed once stays armed for every later PR. That PR can be a Tier-2/3 hold, which is exactly the case R12 and the hold reasons exist for. The content that merged was the intended content and CI was green, so no damage this time; the control failed silently. FIX: the automerge workflow must refuse when the landing declaration says hold, and arming files should be deleted on merge. Verify the cause against the workflow before building. Tier-1 (CI)."
     }
   ]
 }
