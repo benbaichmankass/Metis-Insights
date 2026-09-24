@@ -400,7 +400,7 @@ def _self_test() -> int:
            {"number": 4, "head": {"ref": "claude/x"},
             "created_at": "2026-09-01T00:00:00Z", "title": "not automation"}]
 
-    def fake(path: str, repo: str, key: Optional[str], limit: int = 1000) -> list:
+    def fake(path: str, *_args: Any, **_kw: Any) -> list:
         if path.startswith("pulls?"):
             return prs
         if path.startswith("pulls/3/files"):
@@ -412,7 +412,7 @@ def _self_test() -> int:
     # A non-research-prefixed automation PR touching research paths IS research.
     prs[2]["head"]["ref"] = "automation/data-commit-3-1"
 
-    def fake2(path: str, repo: str, key: Optional[str], limit: int = 1000) -> list:
+    def fake2(path: str, *_args: Any, **_kw: Any) -> list:
         if path.startswith("pulls?"):
             return prs
         return [{"filename": "docs/research/some-corpus.jsonl"}]
