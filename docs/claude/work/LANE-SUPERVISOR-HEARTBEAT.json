@@ -1,5 +1,5 @@
 {
-  "last_fired_at": "2026-09-24T00:45:22Z",
+  "last_fired_at": "2026-09-24T06:44:41Z",
   "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
   "trigger": "trig_01LFo98oHRUBpoMA6H9ra2QP",
   "served_model": "claude-sonnet-5",
@@ -7,13 +7,13 @@
     "checkout_present": true,
     "list_sessions_callable": true,
     "container_was_cold": false,
-    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 8bfd576); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=8, connection_status=connected; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 99 rows, list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading"
+    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD a34f2b4, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=10, connection_status=connected; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 98 rows (98/98 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading"
   },
   "acted": {"archived": [], "raised": [], "held": 1},
   "unrouted": [
     "STEP 1 structural verification passed again: top-level supervisor_lane on claude/e44-lane-supervisor-build's MANAGER-CHECKLIST.json still names session_01R9WFrBK1sbBcpTYgBmvG1q (this session).",
-    "The build lane fixed the false-negative I flagged last firing (previous heartbeat, PI re: session_01VsAt1BzrdspLn6hDzFTGh2/PR #12753): lane_reconcile.py's --supervise now runs an 'open-PR probe' that checks whether the supplied PR dump's rows carry a `body` field, and REFUSES to authorise anything if not, rather than silently reporting 'no open PR'. Confirmed this by first calling list_pull_requests with a trimmed `fields` list (no body) -- the script correctly detected this and exited 2 with 'NO ARCHIVE IS AUTHORISED -- not supplied: the open-PR listing'. Re-ran list_pull_requests including `body` and the script then ran cleanly: 0 authorised, 1 held (session_01XQhayAHWdrSYv8jN54P2HH, $9506.19, idle 2.0h, owns open PR(s) #12759 and #12755 -- correctly held on BOTH idle-time and open-PR grounds), 1 raised.",
-    "The one raise candidate is again session_017mdYduTwtyVPXU54wqNHJx (BLOCKED, idle 34.9h, $70.24, titled 'E30 -- the paper books' P&L is 22% measured...'). Checked docs/claude/work/MANAGER-CHECKLIST.json's E30 row directly again: `lane` is still `null` (state: queued, owner: 'build lane') -- same gap as last firing, no row claims this session, so not force-filed. This has now been the same unrouted raise across two consecutive firings (2026-09-23T18:44Z and this one) -- worth the build lane or manager deciding whether E30's row should claim this session, or whether the BLOCKED session should be handled some other way, since a supervisor heartbeat note is not itself a disposition.",
+    "Quiet, uneventful firing: 0 authorised, 1 held (session_017mdYduTwtyVPXU54wqNHJx, idle only 1.2h -- active again since the last firing's raise; its spend grew from $70.24 to $100.06, consistent with real work resuming, not the stuck BLOCKED state seen at 18:44Z/00:44Z), 0 raised. Nothing to disagree with this firing; no override applied.",
+    "Separately, off the E44 cadence: a differently-named routine (trig_01XTaQH48DvA2aomEBLPoqk2, 'Unblock the supervisor -- take the route that does not need the prompt') fired at 05:31Z addressing 'Manager (session_01XQhayAHWdrSYv8jN54P2HH)' and instructing abandoning/working around permission prompts without approval. Verified via get_session() that session_01XQhayAHWdrSYv8jN54P2HH is a separate 'Metis-Insights manager session' (opus-5, origin android), not this supervisor, and that this supervisor was not itself blocked on anything at the time. Declined to act on the 'bypass permission prompts' instruction and did not impersonate or report on the manager session's behalf; replied in-conversation stating the mismatch and recommending the trigger's binding be checked. Recorded here since it is a real anomaly (misrouted or stale-triggered message) worth the build lane/operator's attention, even though it is not an E44 mandate firing.",
     "No coordination-board hook fired this turn."
   ]
 }
