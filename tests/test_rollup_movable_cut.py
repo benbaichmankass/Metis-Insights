@@ -174,7 +174,15 @@ def test_measured_state_2026_08_17():
     # is the check that the new column was classified rather than just absorbed.
     assert len(cut.get("movable", [])) == 7
     assert {i[3] for i in cut["movable"]} == {"bracket_geometry"}
-    assert len(cut.get("no_sweep_path", [])) == 4
+    #
+    # E65 (2026-09-24, PR #12868): 4 -> 2. The `exit_ladder` cells on
+    # trend_donchian_eth_prop and trend_donchian_sol_prop RESOLVED to
+    # `honest_negative` -- graded on the prop bracket by
+    # scripts/research/prop_exit_evidence.py (the 1.5R rung is worse than the
+    # same bracket without it on both legs). The two that remain:
+    # squeeze_breakout_4h exit_ladder (blocked:no_harness_levers) and
+    # trend_donchian_eth_prop regime_flip_exit (pending).
+    assert len(cut.get("no_sweep_path", [])) == 2
     assert {i[3] for i in cut["no_sweep_path"]} == {"exit_ladder", "regime_flip_exit"}
 
 
@@ -192,9 +200,9 @@ def test_internal_keys_are_not_printed_as_buckets():
     # The cut must not be rendered as gate-kind rows...
     assert not re.search(r"^\s+\d+\s+_?movable\b", text, re.M)
     assert not re.search(r"^\s+\d+\s+_?no_sweep_path\b", text, re.M)
-    # ...while the measured count IS rendered, and reads 0 rather than 4.
+    # ...while the measured count IS rendered (2 since E65; see above).
     assert "MOVABLE BY A SESSION: 7" in text
-    assert "NO SWEEP PATH AT ALL: 4" in text
+    assert "NO SWEEP PATH AT ALL: 2" in text
 
 
 def test_the_cut_is_NOT_inside_the_partition():
