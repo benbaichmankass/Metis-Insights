@@ -12,40 +12,40 @@
     "exit_head_model",
     "exit_head_threshold"
   ],
-  "net_r_oos": 2.9552,
-  "expectancy_r_oos": 0.0405,
+  "net_r_oos": 4.6017,
+  "expectancy_r_oos": 0.063,
   "n_trades_oos": 73,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 18,
-      "net_r": 8.4733,
-      "expectancy_r": 0.4707,
+      "net_r": 8.8066,
+      "expectancy_r": 0.4893,
       "start": "2025-09-28 16:00:00+00:00",
       "end": "2025-12-18 13:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 18,
-      "net_r": -2.4029,
-      "expectancy_r": -0.1335,
+      "net_r": -2.0508,
+      "expectancy_r": -0.1139,
       "start": "2025-12-25 15:00:00+00:00",
       "end": "2026-03-28 13:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 18,
-      "net_r": -7.4652,
-      "expectancy_r": -0.4147,
+      "net_r": -7.111,
+      "expectancy_r": -0.3951,
       "start": "2026-04-04 10:00:00+00:00",
       "end": "2026-07-14 12:00:00+00:00"
     },
     {
       "fold": 4,
       "trades": 19,
-      "net_r": 4.35,
-      "expectancy_r": 0.2289,
+      "net_r": 4.9569,
+      "expectancy_r": 0.2609,
       "start": "2026-07-18 17:00:00+00:00",
       "end": "2026-09-21 08:00:00+00:00"
     }
@@ -56,13 +56,13 @@
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
     "n": 73,
-    "max_drawdown_r": 24.0473,
+    "max_drawdown_r": 22.9479,
     "max_drawdown_at_trade": 61,
-    "final_equity_r": 2.9552,
-    "max_equity_r": 13.9512,
-    "worst_trade_r": -1.6448,
-    "best_trade_r": 10.7893,
-    "worst_day_r": -2.1915,
+    "final_equity_r": 4.6017,
+    "max_equity_r": 14.2155,
+    "worst_trade_r": -1.5416,
+    "best_trade_r": 10.8155,
+    "worst_day_r": -2.1655,
     "worst_day_date": "2025-10-21",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
@@ -70,10 +70,10 @@
   },
   "cost_stack": {
     "fees": 7.5,
-    "slippage": 5.0,
+    "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-24-e55/trend_donchian__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-25/trend_donchian__bt.json"
   },
   "net_r_oos_fee_only": 9.5712,
   "decision_rule": {
@@ -83,9 +83,9 @@
     "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-24T12:45:37.481457+00:00",
+  "generated_at": "2026-09-25T10:28:26.389885+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/trend_donchian__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian__trades.jsonl",
   "error": null,
   "harness": "trend"
 }

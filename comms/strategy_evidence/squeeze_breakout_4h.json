@@ -8,68 +8,68 @@
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": -0.4874,
-  "expectancy_r_oos": -0.0487,
+  "net_r_oos": -0.4022,
+  "expectancy_r_oos": -0.0402,
   "n_trades_oos": 10,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 2,
-      "net_r": -1.7232,
-      "expectancy_r": -0.8616,
+      "net_r": -1.7035,
+      "expectancy_r": -0.8518,
       "start": "2025-11-26 16:00:00+00:00",
       "end": "2026-01-12 00:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 2,
-      "net_r": 0.9986,
-      "expectancy_r": 0.4993,
+      "net_r": 1.0143,
+      "expectancy_r": 0.5071,
       "start": "2026-01-25 04:00:00+00:00",
       "end": "2026-04-01 00:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 2,
-      "net_r": 4.0193,
-      "expectancy_r": 2.0096,
+      "net_r": 4.0365,
+      "expectancy_r": 2.0183,
       "start": "2026-04-17 08:00:00+00:00",
       "end": "2026-06-01 04:00:00+00:00"
     },
     {
       "fold": 4,
       "trades": 4,
-      "net_r": -3.7821,
-      "expectancy_r": -0.9455,
+      "net_r": -3.7495,
+      "expectancy_r": -0.9374,
       "start": "2026-06-30 08:00:00+00:00",
       "end": "2026-09-13 20:00:00+00:00"
     }
   ],
   "folds_positive": 2,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
     "n": 10,
-    "max_drawdown_r": 3.7821,
+    "max_drawdown_r": 3.7495,
     "max_drawdown_at_trade": 10,
-    "final_equity_r": -0.4874,
-    "max_equity_r": 3.2947,
-    "worst_trade_r": -1.101,
-    "best_trade_r": 4.334,
-    "worst_day_r": -1.101,
+    "final_equity_r": -0.4022,
+    "max_equity_r": 3.3473,
+    "worst_trade_r": -1.0861,
+    "best_trade_r": 4.345,
+    "worst_day_r": -1.0861,
     "worst_day_date": "2026-01-12",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
   },
-  "window_days": 365,
-  "fee_bps_roundtrip": 7.5,
   "cost_stack": {
     "fees": 7.5,
-    "slippage": 5.0,
+    "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-22-r5/squeeze_breakout_4h__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-25/squeeze_breakout_4h__bt.json"
   },
   "net_r_oos_fee_only": -0.0227,
   "decision_rule": {
@@ -79,9 +79,9 @@
     "verdict": "fail"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T09:27:55.726149+00:00",
+  "generated_at": "2026-09-25T10:27:59.447915+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/squeeze_breakout_4h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-25/squeeze_breakout_4h__trades.jsonl",
   "error": null,
   "harness": "squeeze"
 }
