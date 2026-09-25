@@ -296,25 +296,68 @@ mandates:
     # `blocked_until`, so this field is the arming switch and clearing it is the
     # operator's act, not a lane's.
     #
-    # ⚠️ AND THE OPERATOR SHOULD KNOW THAT THE NAMED ROW NO LONGER EXISTS AS
-    # NAMED -- stated here rather than resolved, because resolving it is a
-    # decision, not a transcription. Checklist row D1 reads `dropped`, killed
-    # 2026-09-22 as a DUPLICATE of R1 ("R1 and D1 ARE THE SAME WORK"); R1 reads
-    # `done`. Row D3's note records that 49 of 52 comms/strategy_evidence
-    # records now carry a cost stack and "the corpus is NOT fee-only any more",
-    # but that it is priced on a FLAT 5 bps round-trip slippage. That is a read
-    # of the checklist on 2026-09-25, not a re-measurement of the corpus by the
-    # session that wrote this line. So the block's SUBSTANCE may already be
-    # satisfied by R1 while the block as WRITTEN can never clear, since a
-    # dropped row cannot land. Two things follow and neither is a lane's to
-    # pick: whether R1 discharges D1's block, and what replaces this text.
+    # ⚠️ THE BLOCK NO LONGER NAMES A ROW ID, AND THAT IS THE POINT. It used to
+    # read "D1 lands"; checklist row D1 reads `dropped`, killed 2026-09-22 as a
+    # DUPLICATE of R1 ("R1 and D1 ARE THE SAME WORK"), and R1 reads `done`. A
+    # dropped row can never land, so the block as WRITTEN could never clear --
+    # while its SUBSTANCE was arguably already discharged by R1. That is a
+    # decision, not a transcription, so the lane that found it stated it here
+    # and verified the substance separately in
+    # docs/research/d1-cost-stack-verification-2026-09-25.md (merged #12928).
+    #
+    # OPERATOR (Ben), 2026-09-25, popup answered in the manager session
+    # session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: **"Adopt text + fix the 24"**
+    # -- adopt that memo's § 4 replacement text, correcting its counts to the
+    # read-time measurement. THE MANDATE STAYS BLOCKED: `blocked_until` remains
+    # truthy, the resolver still REFUSES, and clearing it is still the
+    # operator's act. What changed is that the condition is now CHECKABLE --
+    # two artifacts a session can read (a pipeline item's `state`, and a
+    # checklist row's own done-when observation) instead of a row id that can
+    # be `dropped` out from under it.
+    #
+    # ⚠️ AND IT DISTINGUISHES STALE FROM DANGEROUS, deliberately. The original
+    # text was written when the number in question was 0.0 -- a silently
+    # zeroed cost term producing a fee-only, optimistically-biased verdict.
+    # That specific failure is FIXED for every harness path backing the current
+    # corpus (§ 1(a)-(c) of the memo). The residual (a) gap is the OPPOSITE
+    # sign: the stale perp records carry the higher pre-E60 5.0 bps against the
+    # decided 3.0 bps, i.e. they over-charge cost. Do not re-read "blocked" as
+    # "still zero-cost".
+    #
+    # ⚠️ THE `TODAY:` COUNTS BELOW ARE A MEASUREMENT, NOT A CONSTANT -- re-run
+    # them, never quote them. Measured 2026-09-25 by this lane over all 52
+    # comms/strategy_evidence/*.json records, classifying venue with
+    # execution_costs.is_perp and comparing each perp record's
+    # cost_stack.slippage against execution_costs.slippage_bps_roundtrip_for:
+    # 28 perp records, 1 excluded as `no_harness` (turtle_soup), so 27
+    # re-priceable, of which 22 stale at 5.0 bps and 5 fresh at 3.0 bps. The
+    # memo's § 4 said 24 of 27; E39 (#12919) regenerated fade_breakout_4h and
+    # htf_pullback_trend_2h at 3.0 bps on 2026-09-25 AFTER the memo's stated
+    # population (origin/main at 05aeeb284), so 22 is the read-time figure and
+    # 24 was already stale when the memo merged. This is exactly why the
+    # clause's OPERATIVE condition is "zero records differ" / the pipeline
+    # item's `state`, and the count is only context.
     blocked_until: >-
-      D1 lands -- the backtest harnesses stop defaulting slippage and funding to
-      0.0 and the promotion corpus is re-run net of the full cost stack. Until
-      then every "passed the backtest" verdict is fee-only and optimistic by an
-      unknown amount, measured once at +0.57R on htf_pullback_trend_2h, and
-      arming this mandate would route real money on numbers already known to be
-      wrong in the favourable direction.
+      BOTH of the following are checkable, not this row id. (a) Zero
+      comms/strategy_evidence/*.json records for a Bybit-perp leg (symbol
+      matching execution_costs.is_perp) carry a cost_stack.slippage that
+      differs from execution_costs.slippage_bps_roundtrip_for(symbol) at read
+      time -- equivalently, pipeline item PI-20260924-JCVFRWEA-0001 (or
+      whatever id supersedes it) reads state done or killed, not queued. TODAY
+      (2026-09-25, re-measured -- see the note above): 22 of 27 re-priceable
+      perp records still carry the pre-E60 flat 5.0bps default against the
+      decided 3.0bps (conservative, not optimistic, but unchecked). (b) A
+      committed realized-slippage record exists for Alpaca equities and/or
+      IBKR futures -- i.e. checklist row E62's own done-when has fired at
+      least once (an Alpaca sl-family close carries
+      exit_price_source=exchange_fill) -- so the 5.0bps basis those legs'
+      records carry is either confirmed by a measurement or explicitly
+      reaffirmed as the working assumption by the operator, not merely
+      unexamined. TODAY: E62 is landed_unproven; no such close has been
+      observed yet. Until both (a) and (b) hold, MD-PROMOTE-S1-S2's
+      cost-tolerance clause (bar.cost_tolerance_bps: 0.0, "realized may not
+      exceed modelled") is being evaluated against a modelled number nobody
+      has re-checked is still current, on at least one venue in play.
     fires_when: >-
       A leg already on the Stage-1 soak roster for its exchange has a committed
       Stage-0 evidence record that passes B1's four clauses and its identity
