@@ -78,6 +78,7 @@ the field, this rule follows it with no edit.
 
 Let `M` = the record's `cost_stack.slippage` and `[lo, hi]` = the cell's CI.
 
+<!-- population-ok: 95% is the CI level; the population is each cell's own n, stated in every record row -->
 | verdict | condition | meaning |
 |---|---|---|
 | `insufficient_n` | either side below `N_FLOOR` | no verdict, keep accruing |

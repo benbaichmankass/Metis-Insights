@@ -165,8 +165,8 @@ def run(in_dir: Path, as_of: datetime) -> dict:
             groups[(r["strategy"], r["account_id"])]["exit"].append(r["bps"])
 
     rosters = {a: set(c.get("strategies") or []) for a, c in acfg.items()}
-    legs = sorted({k[0] for k in groups if k[0]} |
-                  {p.stem for p in EVIDENCE_DIR.glob("*.json")})
+    # provenance: EVIDENCE_DIR — the UNION of every committed evidence record and every leg with fills, not a newest pick; its size is published as population.legs_reported
+    legs = sorted({k[0] for k in groups if k[0]} | {p.stem for p in EVIDENCE_DIR.glob("*.json")})
     per_leg: Dict[str, dict] = {}
     for leg in legs:
         rec = _record(leg)
