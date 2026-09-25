@@ -1,0 +1,4817 @@
+{
+ "registration": "docs/research/e38-regime/REGISTRATION.yaml",
+ "registration_id": "E38-REGIME-2026-09-25",
+ "generated_at": "2026-09-25T13:46:09+00:00",
+ "generated_by": "scripts/research/e38_regime_classification.py",
+ "fixture_read": false,
+ "candle_provenance": {
+  "ADAUSDT": {
+   "rows": 481,
+   "first_open": "2025-06-01 00:00:00+00:00",
+   "last_open": "2026-09-24 00:00:00+00:00",
+   "sha256_close": "cf5a3ef9d8a327f2"
+  },
+  "AVAXUSDT": {
+   "rows": 481,
+   "first_open": "2025-06-01 00:00:00+00:00",
+   "last_open": "2026-09-24 00:00:00+00:00",
+   "sha256_close": "81c734155f1e5e97"
+  },
+  "BTCUSDT": {
+   "rows": 481,
+   "first_open": "2025-06-01 00:00:00+00:00",
+   "last_open": "2026-09-24 00:00:00+00:00",
+   "sha256_close": "662282b0748d400c"
+  },
+  "ETHUSDT": {
+   "rows": 481,
+   "first_open": "2025-06-01 00:00:00+00:00",
+   "last_open": "2026-09-24 00:00:00+00:00",
+   "sha256_close": "a67b121efbfa352a"
+  },
+  "GDX": null,
+  "GLD": null,
+  "IAUM": null,
+  "IEF": null,
+  "IWM": null,
+  "MES": null,
+  "MGC": null,
+  "MHG": null,
+  "QLD": null,
+  "QQQ": null,
+  "SCHA": null,
+  "SLV": null,
+  "SOLUSDT": {
+   "rows": 481,
+   "first_open": "2025-06-01 00:00:00+00:00",
+   "last_open": "2026-09-24 00:00:00+00:00",
+   "sha256_close": "7a6a040f8c04813f"
+  },
+  "SPY": null,
+  "TLT": null,
+  "TQQQ": null,
+  "USO": null,
+  "XRPUSDT": {
+   "rows": 481,
+   "first_open": "2025-06-01 00:00:00+00:00",
+   "last_open": "2026-09-24 00:00:00+00:00",
+   "sha256_close": "5a46458ba674f80a"
+  }
+ },
+ "current_features": {
+  "ADAUSDT": {
+   "as_of": "2026-09-25 00:00:00+00:00",
+   "rv20": 0.040477,
+   "er20": 0.25889
+  },
+  "AVAXUSDT": {
+   "as_of": "2026-09-25 00:00:00+00:00",
+   "rv20": 0.061801,
+   "er20": 0.378662
+  },
+  "BTCUSDT": {
+   "as_of": "2026-09-25 00:00:00+00:00",
+   "rv20": 0.022583,
+   "er20": 0.207796
+  },
+  "ETHUSDT": {
+   "as_of": "2026-09-25 00:00:00+00:00",
+   "rv20": 0.024159,
+   "er20": 0.258085
+  },
+  "SOLUSDT": {
+   "as_of": "2026-09-25 00:00:00+00:00",
+   "rv20": 0.036471,
+   "er20": 0.25263
+  },
+  "XRPUSDT": {
+   "as_of": "2026-09-25 00:00:00+00:00",
+   "rv20": 0.041228,
+   "er20": 0.162707
+  }
+ },
+ "not_measured_records": [
+  {
+   "leg": "ict_scalp_mgc_15m",
+   "coverage_state": "harness_failed"
+  },
+  {
+   "leg": "splg_trend_long_1d",
+   "coverage_state": "harness_failed"
+  },
+  {
+   "leg": "turtle_soup",
+   "coverage_state": "no_harness"
+  }
+ ],
+ "legs": [
+  {
+   "leg": "ada_pullback_2h",
+   "symbol": "ADAUSDT",
+   "timeframe": "2h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/ada_pullback_2h__trades.jsonl",
+   "n_trades": 57,
+   "net_r_oos": 19.2473,
+   "folds": 4,
+   "folds_positive": 4,
+   "family": "secondary",
+   "n_with_features": 57,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-11 22:00:00+00:00",
+      "end": "2025-12-28 20:00:00+00:00",
+      "trades": 14,
+      "net_r": 4.946,
+      "won": true,
+      "mean_rv20": 0.04699,
+      "mean_er20": 0.2728
+     },
+     {
+      "fold": 2,
+      "start": "2026-01-03 16:00:00+00:00",
+      "end": "2026-03-28 08:00:00+00:00",
+      "trades": 14,
+      "net_r": 2.3524,
+      "won": true,
+      "mean_rv20": 0.04316,
+      "mean_er20": 0.1824
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-28 16:00:00+00:00",
+      "end": "2026-07-09 06:00:00+00:00",
+      "trades": 14,
+      "net_r": 8.4158,
+      "won": true,
+      "mean_rv20": 0.03161,
+      "mean_er20": 0.2457
+     },
+     {
+      "fold": 4,
+      "start": "2026-07-15 00:00:00+00:00",
+      "end": "2026-09-24 16:00:00+00:00",
+      "trades": 15,
+      "net_r": 3.5331,
+      "won": true,
+      "mean_rv20": 0.03719,
+      "mean_er20": 0.2096
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.04044,
+     "median_losers": 0.04218,
+     "n_winners": 19,
+     "n_losers": 38
+    },
+    "er20": {
+     "median_winners": 0.14097,
+     "median_losers": 0.20484,
+     "n_winners": 19,
+     "n_losers": 38
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": -0.1735,
+     "p_iid": 0.20038,
+     "p_circular": 0.2281
+    },
+    "er20": {
+     "rho": -0.0943,
+     "p_iid": 0.48645,
+     "p_circular": 0.4386
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 14
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 28,
+       "train_rho": -0.2515,
+       "threshold": 0.043206,
+       "on_side": "<",
+       "test_n": 14,
+       "on_n": 12,
+       "gated_net_r": 10.546,
+       "ungated_net_r": 8.4158,
+       "improvement_r": 2.1302
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": -0.2731,
+       "threshold": 0.042425,
+       "on_side": "<",
+       "test_n": 15,
+       "on_n": 13,
+       "gated_net_r": 5.4723,
+       "ungated_net_r": 3.5331,
+       "improvement_r": 1.9392
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": 4.0694,
+     "folds_improved": 2,
+     "sum_gated_net_r": 16.0183,
+     "sum_ungated_net_r": 11.9489,
+     "pass": true
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 14
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 28,
+       "train_rho": -0.0862,
+       "threshold": 0.194062,
+       "on_side": "<",
+       "test_n": 14,
+       "on_n": 7,
+       "gated_net_r": 6.6427,
+       "ungated_net_r": 8.4158,
+       "improvement_r": -1.7731
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": -0.0766,
+       "threshold": 0.194062,
+       "on_side": "<",
+       "test_n": 15,
+       "on_n": 8,
+       "gated_net_r": 6.2544,
+       "ungated_net_r": 3.5331,
+       "improvement_r": 2.7213
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": 0.9482,
+     "folds_improved": 1,
+     "sum_gated_net_r": 12.8971,
+     "sum_ungated_net_r": 11.9489,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.408,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "avax_pullback_2h",
+   "symbol": "AVAXUSDT",
+   "timeframe": "2h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/avax_pullback_2h__trades.jsonl",
+   "n_trades": 57,
+   "net_r_oos": -1.3981,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "n_with_features": 57,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-08 14:00:00+00:00",
+      "end": "2025-11-21 18:00:00+00:00",
+      "trades": 14,
+      "net_r": 8.3931,
+      "won": true,
+      "mean_rv20": 0.0596,
+      "mean_er20": 0.3614
+     },
+     {
+      "fold": 2,
+      "start": "2025-11-28 18:00:00+00:00",
+      "end": "2026-02-07 08:00:00+00:00",
+      "trades": 14,
+      "net_r": 0.1576,
+      "won": true,
+      "mean_rv20": 0.03665,
+      "mean_er20": 0.2631
+     },
+     {
+      "fold": 3,
+      "start": "2026-02-15 14:00:00+00:00",
+      "end": "2026-06-06 10:00:00+00:00",
+      "trades": 14,
+      "net_r": -1.7364,
+      "won": false,
+      "mean_rv20": 0.03079,
+      "mean_er20": 0.149
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-20 10:00:00+00:00",
+      "end": "2026-09-21 18:00:00+00:00",
+      "trades": 15,
+      "net_r": -8.2124,
+      "won": false,
+      "mean_rv20": 0.03046,
+      "mean_er20": 0.1618
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.04049,
+     "median_losers": 0.03401,
+     "n_winners": 18,
+     "n_losers": 39
+    },
+    "er20": {
+     "median_winners": 0.3065,
+     "median_losers": 0.19302,
+     "n_winners": 18,
+     "n_losers": 39
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.2569,
+     "p_iid": 0.05109,
+     "p_circular": 0.0526
+    },
+    "er20": {
+     "rho": 0.1313,
+     "p_iid": 0.32777,
+     "p_circular": 0.386
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 14
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 28,
+       "train_rho": 0.1966,
+       "threshold": 0.045214,
+       "on_side": ">=",
+       "test_n": 14,
+       "on_n": 3,
+       "gated_net_r": -2.8715,
+       "ungated_net_r": -1.7364,
+       "improvement_r": -1.1351
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": 0.1051,
+       "threshold": 0.041212,
+       "on_side": ">=",
+       "test_n": 15,
+       "on_n": 3,
+       "gated_net_r": -0.8765,
+       "ungated_net_r": -8.2124,
+       "improvement_r": 7.3359
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": 6.2008,
+     "folds_improved": 1,
+     "sum_gated_net_r": -3.748,
+     "sum_ungated_net_r": -9.9488,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 14
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 28,
+       "train_rho": -0.155,
+       "threshold": 0.335952,
+       "on_side": "<",
+       "test_n": 14,
+       "on_n": 13,
+       "gated_net_r": -2.8933,
+       "ungated_net_r": -1.7364,
+       "improvement_r": -1.1569
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": 0.0308,
+       "threshold": 0.241945,
+       "on_side": ">=",
+       "test_n": 15,
+       "on_n": 6,
+       "gated_net_r": -2.1369,
+       "ungated_net_r": -8.2124,
+       "improvement_r": 6.0755
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": 4.9186,
+     "folds_improved": 1,
+     "sum_gated_net_r": -5.0302,
+     "sum_ungated_net_r": -9.9488,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.408,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "eth_pullback_2h",
+   "symbol": "ETHUSDT",
+   "timeframe": "2h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/eth_pullback_2h__trades.jsonl",
+   "n_trades": 62,
+   "net_r_oos": -1.7386,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "n_with_features": 62,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-30 10:00:00+00:00",
+      "end": "2025-12-04 20:00:00+00:00",
+      "trades": 15,
+      "net_r": -0.7964,
+      "won": false,
+      "mean_rv20": 0.03689,
+      "mean_er20": 0.2077
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-13 12:00:00+00:00",
+      "end": "2026-03-17 16:00:00+00:00",
+      "trades": 15,
+      "net_r": -1.762,
+      "won": false,
+      "mean_rv20": 0.03592,
+      "mean_er20": 0.2407
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-20 08:00:00+00:00",
+      "end": "2026-06-16 06:00:00+00:00",
+      "trades": 15,
+      "net_r": 4.8379,
+      "won": true,
+      "mean_rv20": 0.02547,
+      "mean_er20": 0.2465
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-19 16:00:00+00:00",
+      "end": "2026-09-20 08:00:00+00:00",
+      "trades": 17,
+      "net_r": -4.0181,
+      "won": false,
+      "mean_rv20": 0.02665,
+      "mean_er20": 0.2394
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03056,
+     "median_losers": 0.03104,
+     "n_winners": 18,
+     "n_losers": 44
+    },
+    "er20": {
+     "median_winners": 0.18276,
+     "median_losers": 0.17436,
+     "n_winners": 18,
+     "n_losers": 44
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.1071,
+     "p_iid": 0.40546,
+     "p_circular": 0.4355
+    },
+    "er20": {
+     "rho": -0.1138,
+     "p_iid": 0.37206,
+     "p_circular": 0.371
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 15,
+       "train_rho": -0.45,
+       "threshold": 0.036089,
+       "on_side": "<",
+       "test_n": 15,
+       "on_n": 5,
+       "gated_net_r": 3.4888,
+       "ungated_net_r": -1.762,
+       "improvement_r": 5.2508
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 30,
+       "train_rho": -0.1813,
+       "threshold": 0.037373,
+       "on_side": "<",
+       "test_n": 15,
+       "on_n": 14,
+       "gated_net_r": 5.8834,
+       "ungated_net_r": 4.8379,
+       "improvement_r": 1.0455
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 45,
+       "train_rho": -0.044,
+       "threshold": 0.032759,
+       "on_side": "<",
+       "test_n": 17,
+       "on_n": 14,
+       "gated_net_r": -3.7115,
+       "ungated_net_r": -4.0181,
+       "improvement_r": 0.3066
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 6.6029,
+     "folds_improved": 3,
+     "sum_gated_net_r": 5.6607,
+     "sum_ungated_net_r": -0.9422,
+     "pass": true
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 15,
+       "train_rho": -0.2429,
+       "threshold": 0.169005,
+       "on_side": "<",
+       "test_n": 15,
+       "on_n": 7,
+       "gated_net_r": -2.3645,
+       "ungated_net_r": -1.762,
+       "improvement_r": -0.6025
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 30,
+       "train_rho": -0.2227,
+       "threshold": 0.175195,
+       "on_side": "<",
+       "test_n": 15,
+       "on_n": 6,
+       "gated_net_r": 2.1571,
+       "ungated_net_r": 4.8379,
+       "improvement_r": -2.6808
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 45,
+       "train_rho": -0.0839,
+       "threshold": 0.181385,
+       "on_side": "<",
+       "test_n": 17,
+       "on_n": 10,
+       "gated_net_r": -0.9381,
+       "ungated_net_r": -4.0181,
+       "improvement_r": 3.08
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -0.2033,
+     "folds_improved": 1,
+     "sum_gated_net_r": -1.1455,
+     "sum_ungated_net_r": -0.9422,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.392,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "eth_pullback_prop_2h",
+   "symbol": "ETHUSDT",
+   "timeframe": "2h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/eth_pullback_prop_2h__trades.jsonl",
+   "n_trades": 70,
+   "net_r_oos": -3.5233,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "n_with_features": 70,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-30 10:00:00+00:00",
+      "end": "2025-12-15 12:00:00+00:00",
+      "trades": 17,
+      "net_r": 2.1202,
+      "won": true,
+      "mean_rv20": 0.03661,
+      "mean_er20": 0.1967
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-20 16:00:00+00:00",
+      "end": "2026-03-20 08:00:00+00:00",
+      "trades": 17,
+      "net_r": -4.5221,
+      "won": false,
+      "mean_rv20": 0.03592,
+      "mean_er20": 0.2515
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-28 08:00:00+00:00",
+      "end": "2026-06-19 16:00:00+00:00",
+      "trades": 17,
+      "net_r": 2.5208,
+      "won": true,
+      "mean_rv20": 0.02526,
+      "mean_er20": 0.2638
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-24 06:00:00+00:00",
+      "end": "2026-09-22 08:00:00+00:00",
+      "trades": 19,
+      "net_r": -3.6422,
+      "won": false,
+      "mean_rv20": 0.02602,
+      "mean_er20": 0.2394
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03005,
+     "median_losers": 0.0316,
+     "n_winners": 21,
+     "n_losers": 49
+    },
+    "er20": {
+     "median_winners": 0.12824,
+     "median_losers": 0.19427,
+     "n_winners": 21,
+     "n_losers": 49
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": -0.0311,
+     "p_iid": 0.80062,
+     "p_circular": 0.9
+    },
+    "er20": {
+     "rho": -0.1329,
+     "p_iid": 0.26887,
+     "p_circular": 0.3429
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 17,
+       "train_rho": -0.5221,
+       "threshold": 0.035212,
+       "on_side": "<",
+       "test_n": 17,
+       "on_n": 6,
+       "gated_net_r": -1.4738,
+       "ungated_net_r": -4.5221,
+       "improvement_r": 3.0483
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 34,
+       "train_rho": -0.2578,
+       "threshold": 0.036968,
+       "on_side": "<",
+       "test_n": 17,
+       "on_n": 15,
+       "gated_net_r": 4.0246,
+       "ungated_net_r": 2.5208,
+       "improvement_r": 1.5038
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 51,
+       "train_rho": -0.1939,
+       "threshold": 0.032759,
+       "on_side": "<",
+       "test_n": 19,
+       "on_n": 15,
+       "gated_net_r": -2.7822,
+       "ungated_net_r": -3.6422,
+       "improvement_r": 0.86
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 5.4121,
+     "folds_improved": 3,
+     "sum_gated_net_r": -0.2314,
+     "sum_ungated_net_r": -5.6435,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 17,
+       "train_rho": -0.4485,
+       "threshold": 0.169005,
+       "on_side": "<",
+       "test_n": 17,
+       "on_n": 7,
+       "gated_net_r": -2.3168,
+       "ungated_net_r": -4.5221,
+       "improvement_r": 2.2053
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 34,
+       "train_rho": -0.2764,
+       "threshold": 0.180545,
+       "on_side": "<",
+       "test_n": 17,
+       "on_n": 8,
+       "gated_net_r": 0.6214,
+       "ungated_net_r": 2.5208,
+       "improvement_r": -1.8994
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 51,
+       "train_rho": -0.1512,
+       "threshold": 0.181385,
+       "on_side": "<",
+       "test_n": 19,
+       "on_n": 10,
+       "gated_net_r": 0.5991,
+       "ungated_net_r": -3.6422,
+       "improvement_r": 4.2413
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 4.5472,
+     "folds_improved": 2,
+     "sum_gated_net_r": -1.0963,
+     "sum_ungated_net_r": -5.6435,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.37,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "fade_breakout_4h",
+   "symbol": "BTCUSDT",
+   "timeframe": "4h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/fade_breakout_4h__trades.jsonl",
+   "n_trades": 27,
+   "net_r_oos": -16.0919,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "n_with_features": 27,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-11-03 08:00:00+00:00",
+      "end": "2025-12-23 12:00:00+00:00",
+      "trades": 6,
+      "net_r": -5.2571,
+      "won": false,
+      "mean_rv20": 0.02264,
+      "mean_er20": 0.2397
+     },
+     {
+      "fold": 2,
+      "start": "2026-01-02 12:00:00+00:00",
+      "end": "2026-03-13 00:00:00+00:00",
+      "trades": 6,
+      "net_r": -6.5693,
+      "won": false,
+      "mean_rv20": 0.02769,
+      "mean_er20": 0.2676
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-25 08:00:00+00:00",
+      "end": "2026-05-26 12:00:00+00:00",
+      "trades": 6,
+      "net_r": 3.2915,
+      "won": true,
+      "mean_rv20": 0.01821,
+      "mean_er20": 0.1986
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-12 08:00:00+00:00",
+      "end": "2026-09-15 12:00:00+00:00",
+      "trades": 9,
+      "net_r": -7.557,
+      "won": false,
+      "mean_rv20": 0.01872,
+      "mean_er20": 0.2453
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.02151,
+     "median_losers": 0.02075,
+     "n_winners": 5,
+     "n_losers": 22
+    },
+    "er20": {
+     "median_winners": 0.11124,
+     "median_losers": 0.17527,
+     "n_winners": 5,
+     "n_losers": 22
+    }
+   },
+   "verdict": "insufficient_n"
+  },
+  {
+   "leg": "fvg_range_15m",
+   "symbol": "BTCUSDT",
+   "timeframe": "15m",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/fvg_range_15m__trades.jsonl",
+   "n_trades": 17,
+   "net_r_oos": -9.6953,
+   "folds": 4,
+   "folds_positive": 0,
+   "family": "secondary",
+   "n_with_features": 17,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-11-05 08:15:00+00:00",
+      "end": "2025-12-17 10:30:00+00:00",
+      "trades": 4,
+      "net_r": -0.9548,
+      "won": false,
+      "mean_rv20": 0.02303,
+      "mean_er20": 0.2583
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-24 03:30:00+00:00",
+      "end": "2026-03-25 20:45:00+00:00",
+      "trades": 4,
+      "net_r": -1.0685,
+      "won": false,
+      "mean_rv20": 0.0262,
+      "mean_er20": 0.2413
+     },
+     {
+      "fold": 3,
+      "start": "2026-04-24 10:45:00+00:00",
+      "end": "2026-06-19 21:15:00+00:00",
+      "trades": 4,
+      "net_r": -1.755,
+      "won": false,
+      "mean_rv20": 0.01744,
+      "mean_er20": 0.3308
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-30 22:45:00+00:00",
+      "end": "2026-08-27 03:30:00+00:00",
+      "trades": 5,
+      "net_r": -5.917,
+      "won": false,
+      "mean_rv20": 0.01604,
+      "mean_er20": 0.1905
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.02131,
+     "median_losers": 0.01662,
+     "n_winners": 6,
+     "n_losers": 11
+    },
+    "er20": {
+     "median_winners": 0.1563,
+     "median_losers": 0.29115,
+     "n_winners": 6,
+     "n_losers": 11
+    }
+   },
+   "verdict": "insufficient_n"
+  },
+  {
+   "leg": "gdx_pullback_1d",
+   "symbol": "GDX",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/gdx_pullback_1d__trades.jsonl",
+   "n_trades": 10,
+   "net_r_oos": 3.7824,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for GDX not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "gld_pullback_1d",
+   "symbol": "GLD",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/gld_pullback_1d__trades.jsonl",
+   "n_trades": 7,
+   "net_r_oos": 7.5984,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for GLD not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "gld_pullback_1h",
+   "symbol": "GLD",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/gld_pullback_1h__trades.jsonl",
+   "n_trades": 59,
+   "net_r_oos": 16.9757,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for GLD not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "htf_pullback_trend_2h",
+   "symbol": "BTCUSDT",
+   "timeframe": "2h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/htf_pullback_trend_2h__trades.jsonl",
+   "n_trades": 86,
+   "net_r_oos": -4.9333,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "n_with_features": 86,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-30 10:00:00+00:00",
+      "end": "2026-01-06 08:00:00+00:00",
+      "trades": 21,
+      "net_r": 1.1929,
+      "won": true,
+      "mean_rv20": 0.02092,
+      "mean_er20": 0.204
+     },
+     {
+      "fold": 2,
+      "start": "2026-01-07 02:00:00+00:00",
+      "end": "2026-03-28 08:00:00+00:00",
+      "trades": 21,
+      "net_r": -0.7492,
+      "won": false,
+      "mean_rv20": 0.02834,
+      "mean_er20": 0.2398
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-30 20:00:00+00:00",
+      "end": "2026-06-24 02:00:00+00:00",
+      "trades": 21,
+      "net_r": -1.1314,
+      "won": false,
+      "mean_rv20": 0.01882,
+      "mean_er20": 0.2964
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-25 08:00:00+00:00",
+      "end": "2026-09-23 12:00:00+00:00",
+      "trades": 23,
+      "net_r": -4.2456,
+      "won": false,
+      "mean_rv20": 0.01812,
+      "mean_er20": 0.2264
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.01939,
+     "median_losers": 0.02151,
+     "n_winners": 27,
+     "n_losers": 59
+    },
+    "er20": {
+     "median_winners": 0.16145,
+     "median_losers": 0.17073,
+     "n_winners": 27,
+     "n_losers": 59
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": -0.061,
+     "p_iid": 0.58404,
+     "p_circular": 0.4302
+    },
+    "er20": {
+     "rho": -0.2137,
+     "p_iid": 0.0495,
+     "p_circular": 0.1279
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 21,
+       "train_rho": -0.2351,
+       "threshold": 0.022896,
+       "on_side": "<",
+       "test_n": 21,
+       "on_n": 8,
+       "gated_net_r": 3.9016,
+       "ungated_net_r": -0.7492,
+       "improvement_r": 4.6508
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": -0.0916,
+       "threshold": 0.023222,
+       "on_side": "<",
+       "test_n": 21,
+       "on_n": 19,
+       "gated_net_r": 0.9408,
+       "ungated_net_r": -1.1314,
+       "improvement_r": 2.0722
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 63,
+       "train_rho": -0.1019,
+       "threshold": 0.022003,
+       "on_side": "<",
+       "test_n": 23,
+       "on_n": 19,
+       "gated_net_r": -0.7965,
+       "ungated_net_r": -4.2456,
+       "improvement_r": 3.4491
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 10.1721,
+     "folds_improved": 3,
+     "sum_gated_net_r": 4.0459,
+     "sum_ungated_net_r": -6.1262,
+     "pass": true
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 21,
+       "train_rho": -0.2871,
+       "threshold": 0.169106,
+       "on_side": "<",
+       "test_n": 21,
+       "on_n": 10,
+       "gated_net_r": -0.1101,
+       "ungated_net_r": -0.7492,
+       "improvement_r": 0.6391
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": -0.2296,
+       "threshold": 0.169916,
+       "on_side": "<",
+       "test_n": 21,
+       "on_n": 8,
+       "gated_net_r": -1.0189,
+       "ungated_net_r": -1.1314,
+       "improvement_r": 0.1125
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 63,
+       "train_rho": -0.2008,
+       "threshold": 0.17689,
+       "on_side": "<",
+       "test_n": 23,
+       "on_n": 15,
+       "gated_net_r": 2.1527,
+       "ungated_net_r": -4.2456,
+       "improvement_r": 6.3983
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 7.1499,
+     "folds_improved": 3,
+     "sum_gated_net_r": 1.0237,
+     "sum_ungated_net_r": -6.1262,
+     "pass": true
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.336,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "iaum_pullback_1d",
+   "symbol": "IAUM",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/iaum_pullback_1d__trades.jsonl",
+   "n_trades": 7,
+   "net_r_oos": 7.6621,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for IAUM not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "ict_scalp_5m",
+   "symbol": "BTCUSDT",
+   "timeframe": "5m",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_5m__trades.jsonl",
+   "n_trades": 193,
+   "net_r_oos": -9.4826,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "n_with_features": 193,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-02 15:10:00+00:00",
+      "end": "2025-12-29 14:55:00+00:00",
+      "trades": 48,
+      "net_r": -3.2446,
+      "won": false,
+      "mean_rv20": 0.02181,
+      "mean_er20": 0.2066
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-31 01:20:00+00:00",
+      "end": "2026-03-16 08:05:00+00:00",
+      "trades": 48,
+      "net_r": 1.9447,
+      "won": true,
+      "mean_rv20": 0.02735,
+      "mean_er20": 0.2607
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-18 22:00:00+00:00",
+      "end": "2026-06-22 17:00:00+00:00",
+      "trades": 48,
+      "net_r": -4.1415,
+      "won": false,
+      "mean_rv20": 0.01948,
+      "mean_er20": 0.2724
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-23 11:55:00+00:00",
+      "end": "2026-09-23 14:10:00+00:00",
+      "trades": 49,
+      "net_r": -4.0412,
+      "won": false,
+      "mean_rv20": 0.01817,
+      "mean_er20": 0.2237
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.02093,
+     "median_losers": 0.02086,
+     "n_winners": 90,
+     "n_losers": 103
+    },
+    "er20": {
+     "median_winners": 0.20468,
+     "median_losers": 0.22407,
+     "n_winners": 90,
+     "n_losers": 103
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.0173,
+     "p_iid": 0.80802,
+     "p_circular": 0.8031
+    },
+    "er20": {
+     "rho": -0.0458,
+     "p_iid": 0.52445,
+     "p_circular": 0.6788
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 48,
+       "train_rho": -0.1235,
+       "threshold": 0.021497,
+       "on_side": "<",
+       "test_n": 48,
+       "on_n": 17,
+       "gated_net_r": -1.4023,
+       "ungated_net_r": 1.9447,
+       "improvement_r": -3.347
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 96,
+       "train_rho": 0.0678,
+       "threshold": 0.022575,
+       "on_side": ">=",
+       "test_n": 48,
+       "on_n": 11,
+       "gated_net_r": -7.8549,
+       "ungated_net_r": -4.1415,
+       "improvement_r": -3.7134
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 144,
+       "train_rho": 0.0137,
+       "threshold": 0.021374,
+       "on_side": ">=",
+       "test_n": 49,
+       "on_n": 14,
+       "gated_net_r": -1.2531,
+       "ungated_net_r": -4.0412,
+       "improvement_r": 2.7881
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -4.2723,
+     "folds_improved": 1,
+     "sum_gated_net_r": -10.5103,
+     "sum_ungated_net_r": -6.238,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 48,
+       "train_rho": -0.0462,
+       "threshold": 0.224069,
+       "on_side": "<",
+       "test_n": 48,
+       "on_n": 25,
+       "gated_net_r": 3.1243,
+       "ungated_net_r": 1.9447,
+       "improvement_r": 1.1796
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 96,
+       "train_rho": -0.076,
+       "threshold": 0.223705,
+       "on_side": "<",
+       "test_n": 48,
+       "on_n": 23,
+       "gated_net_r": -2.6893,
+       "ungated_net_r": -4.1415,
+       "improvement_r": 1.4522
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 144,
+       "train_rho": -0.0398,
+       "threshold": 0.224069,
+       "on_side": "<",
+       "test_n": 49,
+       "on_n": 29,
+       "gated_net_r": -0.03,
+       "ungated_net_r": -4.0412,
+       "improvement_r": 4.0112
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 6.643,
+     "folds_improved": 3,
+     "sum_gated_net_r": 0.405,
+     "sum_ungated_net_r": -6.238,
+     "pass": true
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.227,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "ict_scalp_avax_5m",
+   "symbol": "AVAXUSDT",
+   "timeframe": "5m",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_avax_5m__trades.jsonl",
+   "n_trades": 259,
+   "net_r_oos": -9.134,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "n_with_features": 259,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-27 10:55:00+00:00",
+      "end": "2025-12-17 14:55:00+00:00",
+      "trades": 64,
+      "net_r": 11.7935,
+      "won": true,
+      "mean_rv20": 0.05167,
+      "mean_er20": 0.2792
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-23 08:50:00+00:00",
+      "end": "2026-03-06 08:10:00+00:00",
+      "trades": 64,
+      "net_r": -0.3881,
+      "won": false,
+      "mean_rv20": 0.03887,
+      "mean_er20": 0.2864
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-08 12:25:00+00:00",
+      "end": "2026-06-07 14:45:00+00:00",
+      "trades": 64,
+      "net_r": -15.8908,
+      "won": false,
+      "mean_rv20": 0.02744,
+      "mean_er20": 0.1484
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-08 21:05:00+00:00",
+      "end": "2026-09-24 14:45:00+00:00",
+      "trades": 67,
+      "net_r": -4.6486,
+      "won": false,
+      "mean_rv20": 0.03214,
+      "mean_er20": 0.221
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03689,
+     "median_losers": 0.0349,
+     "n_winners": 129,
+     "n_losers": 130
+    },
+    "er20": {
+     "median_winners": 0.23862,
+     "median_losers": 0.18849,
+     "n_winners": 129,
+     "n_losers": 130
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.094,
+     "p_iid": 0.13089,
+     "p_circular": 0.3436
+    },
+    "er20": {
+     "rho": 0.0861,
+     "p_iid": 0.16628,
+     "p_circular": 0.2934
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 64,
+       "train_rho": 0.2446,
+       "threshold": 0.04637,
+       "on_side": ">=",
+       "test_n": 64,
+       "on_n": 16,
+       "gated_net_r": -0.803,
+       "ungated_net_r": -0.3881,
+       "improvement_r": -0.4149
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 128,
+       "train_rho": 0.1306,
+       "threshold": 0.041779,
+       "on_side": ">=",
+       "test_n": 64,
+       "on_n": 0,
+       "gated_net_r": 0.0,
+       "ungated_net_r": -15.8908,
+       "improvement_r": 15.8908
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 192,
+       "train_rho": 0.1509,
+       "threshold": 0.03755,
+       "on_side": ">=",
+       "test_n": 67,
+       "on_n": 12,
+       "gated_net_r": -0.959,
+       "ungated_net_r": -4.6486,
+       "improvement_r": 3.6896
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 19.1655,
+     "folds_improved": 2,
+     "sum_gated_net_r": -1.762,
+     "sum_ungated_net_r": -20.9275,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 64,
+       "train_rho": 0.0893,
+       "threshold": 0.238624,
+       "on_side": ">=",
+       "test_n": 64,
+       "on_n": 42,
+       "gated_net_r": 3.4012,
+       "ungated_net_r": -0.3881,
+       "improvement_r": 3.7893
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 128,
+       "train_rho": 0.0817,
+       "threshold": 0.268445,
+       "on_side": ">=",
+       "test_n": 64,
+       "on_n": 24,
+       "gated_net_r": -9.3727,
+       "ungated_net_r": -15.8908,
+       "improvement_r": 6.5181
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 192,
+       "train_rho": 0.1078,
+       "threshold": 0.238624,
+       "on_side": ">=",
+       "test_n": 67,
+       "on_n": 23,
+       "gated_net_r": -3.9281,
+       "ungated_net_r": -4.6486,
+       "improvement_r": 0.7205
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 11.0279,
+     "folds_improved": 3,
+     "sum_gated_net_r": -9.8996,
+     "sum_ungated_net_r": -20.9275,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.196,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "ict_scalp_eth_15m",
+   "symbol": "ETHUSDT",
+   "timeframe": "15m",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_eth_15m__trades.jsonl",
+   "n_trades": 117,
+   "net_r_oos": 9.1219,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "n_with_features": 117,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-26 05:45:00+00:00",
+      "end": "2025-12-05 16:00:00+00:00",
+      "trades": 29,
+      "net_r": 7.1824,
+      "won": true,
+      "mean_rv20": 0.03636,
+      "mean_er20": 0.1998
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-09 12:30:00+00:00",
+      "end": "2026-03-10 00:30:00+00:00",
+      "trades": 29,
+      "net_r": 8.7818,
+      "won": true,
+      "mean_rv20": 0.03569,
+      "mean_er20": 0.2471
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-10 14:45:00+00:00",
+      "end": "2026-06-09 04:45:00+00:00",
+      "trades": 29,
+      "net_r": -1.8081,
+      "won": false,
+      "mean_rv20": 0.02589,
+      "mean_er20": 0.2208
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-11 17:30:00+00:00",
+      "end": "2026-09-17 12:00:00+00:00",
+      "trades": 30,
+      "net_r": -5.0342,
+      "won": false,
+      "mean_rv20": 0.02761,
+      "mean_er20": 0.2549
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03165,
+     "median_losers": 0.03061,
+     "n_winners": 45,
+     "n_losers": 72
+    },
+    "er20": {
+     "median_winners": 0.1456,
+     "median_losers": 0.21582,
+     "n_winners": 45,
+     "n_losers": 72
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.0542,
+     "p_iid": 0.55454,
+     "p_circular": 0.6239
+    },
+    "er20": {
+     "rho": -0.0883,
+     "p_iid": 0.34197,
+     "p_circular": 0.4103
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 29,
+       "train_rho": 0.0276,
+       "threshold": 0.032743,
+       "on_side": ">=",
+       "test_n": 29,
+       "on_n": 21,
+       "gated_net_r": 8.4448,
+       "ungated_net_r": 8.7818,
+       "improvement_r": -0.337
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 58,
+       "train_rho": 0.0758,
+       "threshold": 0.035082,
+       "on_side": ">=",
+       "test_n": 29,
+       "on_n": 3,
+       "gated_net_r": 0.5796,
+       "ungated_net_r": -1.8081,
+       "improvement_r": 2.3877
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 87,
+       "train_rho": 0.1261,
+       "threshold": 0.031654,
+       "on_side": ">=",
+       "test_n": 30,
+       "on_n": 11,
+       "gated_net_r": -4.2479,
+       "ungated_net_r": -5.0342,
+       "improvement_r": 0.7863
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 2.837,
+     "folds_improved": 2,
+     "sum_gated_net_r": 4.7765,
+     "sum_ungated_net_r": 1.9395,
+     "pass": true
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 29,
+       "train_rho": 0.2183,
+       "threshold": 0.214868,
+       "on_side": ">=",
+       "test_n": 29,
+       "on_n": 11,
+       "gated_net_r": -0.2904,
+       "ungated_net_r": 8.7818,
+       "improvement_r": -9.0722
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 58,
+       "train_rho": 0.0078,
+       "threshold": 0.181927,
+       "on_side": ">=",
+       "test_n": 29,
+       "on_n": 16,
+       "gated_net_r": 0.1422,
+       "ungated_net_r": -1.8081,
+       "improvement_r": 1.9503
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 87,
+       "train_rho": 0.0146,
+       "threshold": 0.198786,
+       "on_side": ">=",
+       "test_n": 30,
+       "on_n": 15,
+       "gated_net_r": -6.6793,
+       "ungated_net_r": -5.0342,
+       "improvement_r": -1.6451
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -8.767,
+     "folds_improved": 1,
+     "sum_gated_net_r": -6.8275,
+     "sum_ungated_net_r": 1.9395,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.289,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "ict_scalp_sol_15m",
+   "symbol": "SOLUSDT",
+   "timeframe": "15m",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_15m__trades.jsonl",
+   "n_trades": 132,
+   "net_r_oos": 4.8605,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "n_with_features": 132,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-26 12:15:00+00:00",
+      "end": "2025-12-23 12:15:00+00:00",
+      "trades": 33,
+      "net_r": 5.3053,
+      "won": true,
+      "mean_rv20": 0.04259,
+      "mean_er20": 0.1899
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-24 15:45:00+00:00",
+      "end": "2026-03-19 23:30:00+00:00",
+      "trades": 33,
+      "net_r": 2.7746,
+      "won": true,
+      "mean_rv20": 0.03639,
+      "mean_er20": 0.2693
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-25 16:30:00+00:00",
+      "end": "2026-06-22 14:15:00+00:00",
+      "trades": 33,
+      "net_r": -0.0707,
+      "won": false,
+      "mean_rv20": 0.02712,
+      "mean_er20": 0.2154
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-24 11:45:00+00:00",
+      "end": "2026-09-11 20:00:00+00:00",
+      "trades": 33,
+      "net_r": -3.1487,
+      "won": false,
+      "mean_rv20": 0.02555,
+      "mean_er20": 0.2763
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03068,
+     "median_losers": 0.03085,
+     "n_winners": 70,
+     "n_losers": 62
+    },
+    "er20": {
+     "median_winners": 0.19182,
+     "median_losers": 0.19916,
+     "n_winners": 70,
+     "n_losers": 62
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.0872,
+     "p_iid": 0.31797,
+     "p_circular": 0.6894
+    },
+    "er20": {
+     "rho": 0.0547,
+     "p_iid": 0.52985,
+     "p_circular": 0.6212
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 33,
+       "train_rho": -0.1174,
+       "threshold": 0.038205,
+       "on_side": "<",
+       "test_n": 33,
+       "on_n": 18,
+       "gated_net_r": 0.1041,
+       "ungated_net_r": 2.7746,
+       "improvement_r": -2.6705
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 66,
+       "train_rho": 0.0004,
+       "threshold": 0.037946,
+       "on_side": ">=",
+       "test_n": 33,
+       "on_n": 6,
+       "gated_net_r": 4.2438,
+       "ungated_net_r": -0.0707,
+       "improvement_r": 4.3145
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 99,
+       "train_rho": 0.1188,
+       "threshold": 0.03325,
+       "on_side": ">=",
+       "test_n": 33,
+       "on_n": 5,
+       "gated_net_r": -3.182,
+       "ungated_net_r": -3.1487,
+       "improvement_r": -0.0333
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 1.6107,
+     "folds_improved": 1,
+     "sum_gated_net_r": 1.1659,
+     "sum_ungated_net_r": -0.4448,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 33,
+       "train_rho": 0.2719,
+       "threshold": 0.133914,
+       "on_side": ">=",
+       "test_n": 33,
+       "on_n": 22,
+       "gated_net_r": -0.8755,
+       "ungated_net_r": 2.7746,
+       "improvement_r": -3.6501
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 66,
+       "train_rho": 0.0084,
+       "threshold": 0.209682,
+       "on_side": ">=",
+       "test_n": 33,
+       "on_n": 11,
+       "gated_net_r": 2.7898,
+       "ungated_net_r": -0.0707,
+       "improvement_r": 2.8605
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 99,
+       "train_rho": 0.0996,
+       "threshold": 0.181032,
+       "on_side": ">=",
+       "test_n": 33,
+       "on_n": 19,
+       "gated_net_r": -1.4473,
+       "ungated_net_r": -3.1487,
+       "improvement_r": 1.7014
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 0.9118,
+     "folds_improved": 2,
+     "sum_gated_net_r": 0.467,
+     "sum_ungated_net_r": -0.4448,
+     "pass": true
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.273,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "ict_scalp_sol_5m",
+   "symbol": "SOLUSDT",
+   "timeframe": "5m",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_sol_5m__trades.jsonl",
+   "n_trades": 259,
+   "net_r_oos": -8.8634,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "n_with_features": 259,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-25 22:50:00+00:00",
+      "end": "2025-12-04 15:35:00+00:00",
+      "trades": 64,
+      "net_r": -4.9915,
+      "won": false,
+      "mean_rv20": 0.04452,
+      "mean_er20": 0.2117
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-05 11:40:00+00:00",
+      "end": "2026-03-10 00:20:00+00:00",
+      "trades": 64,
+      "net_r": 3.9262,
+      "won": true,
+      "mean_rv20": 0.03602,
+      "mean_er20": 0.2526
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-10 14:50:00+00:00",
+      "end": "2026-06-17 19:20:00+00:00",
+      "trades": 64,
+      "net_r": -5.8149,
+      "won": false,
+      "mean_rv20": 0.02735,
+      "mean_er20": 0.1997
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-18 13:35:00+00:00",
+      "end": "2026-09-24 08:25:00+00:00",
+      "trades": 67,
+      "net_r": -1.9832,
+      "won": false,
+      "mean_rv20": 0.02735,
+      "mean_er20": 0.2536
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03479,
+     "median_losers": 0.03325,
+     "n_winners": 129,
+     "n_losers": 130
+    },
+    "er20": {
+     "median_winners": 0.22399,
+     "median_losers": 0.22062,
+     "n_winners": 129,
+     "n_losers": 130
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.0215,
+     "p_iid": 0.73743,
+     "p_circular": 0.6641
+    },
+    "er20": {
+     "rho": 0.0393,
+     "p_iid": 0.52715,
+     "p_circular": 0.5444
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 64,
+       "train_rho": 0.24,
+       "threshold": 0.042584,
+       "on_side": ">=",
+       "test_n": 64,
+       "on_n": 20,
+       "gated_net_r": -2.2507,
+       "ungated_net_r": 3.9262,
+       "improvement_r": -6.1769
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 128,
+       "train_rho": 0.0121,
+       "threshold": 0.040713,
+       "on_side": ">=",
+       "test_n": 64,
+       "on_n": 0,
+       "gated_net_r": 0.0,
+       "ungated_net_r": -5.8149,
+       "improvement_r": 5.8149
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 192,
+       "train_rho": 0.0101,
+       "threshold": 0.037688,
+       "on_side": ">=",
+       "test_n": 67,
+       "on_n": 5,
+       "gated_net_r": 2.6431,
+       "ungated_net_r": -1.9832,
+       "improvement_r": 4.6263
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 4.2643,
+     "folds_improved": 2,
+     "sum_gated_net_r": 0.3924,
+     "sum_ungated_net_r": -3.8719,
+     "pass": true
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 64,
+       "train_rho": 0.1042,
+       "threshold": 0.221577,
+       "on_side": ">=",
+       "test_n": 64,
+       "on_n": 42,
+       "gated_net_r": -2.9606,
+       "ungated_net_r": 3.9262,
+       "improvement_r": -6.8868
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 128,
+       "train_rho": -0.0448,
+       "threshold": 0.228224,
+       "on_side": "<",
+       "test_n": 64,
+       "on_n": 43,
+       "gated_net_r": -10.5941,
+       "ungated_net_r": -5.8149,
+       "improvement_r": -4.7792
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 192,
+       "train_rho": 0.0566,
+       "threshold": 0.221577,
+       "on_side": ">=",
+       "test_n": 67,
+       "on_n": 33,
+       "gated_net_r": -0.0504,
+       "ungated_net_r": -1.9832,
+       "improvement_r": 1.9328
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -9.7332,
+     "folds_improved": 1,
+     "sum_gated_net_r": -13.6051,
+     "sum_ungated_net_r": -3.8719,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.196,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "ict_scalp_xrp_15m",
+   "symbol": "XRPUSDT",
+   "timeframe": "15m",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_xrp_15m__trades.jsonl",
+   "n_trades": 129,
+   "net_r_oos": 4.0783,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "n_with_features": 129,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-25 16:45:00+00:00",
+      "end": "2025-12-07 16:15:00+00:00",
+      "trades": 32,
+      "net_r": 3.8038,
+      "won": true,
+      "mean_rv20": 0.03742,
+      "mean_er20": 0.1626
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-09 14:00:00+00:00",
+      "end": "2026-03-03 14:30:00+00:00",
+      "trades": 32,
+      "net_r": 5.1692,
+      "won": true,
+      "mean_rv20": 0.03963,
+      "mean_er20": 0.2676
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-03 19:00:00+00:00",
+      "end": "2026-06-12 15:45:00+00:00",
+      "trades": 32,
+      "net_r": 0.2593,
+      "won": true,
+      "mean_rv20": 0.0214,
+      "mean_er20": 0.1803
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-18 03:15:00+00:00",
+      "end": "2026-09-18 13:30:00+00:00",
+      "trades": 33,
+      "net_r": -5.154,
+      "won": false,
+      "mean_rv20": 0.02813,
+      "mean_er20": 0.2418
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.0273,
+     "median_losers": 0.0286,
+     "n_winners": 68,
+     "n_losers": 61
+    },
+    "er20": {
+     "median_winners": 0.20432,
+     "median_losers": 0.18321,
+     "n_winners": 68,
+     "n_losers": 61
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.022,
+     "p_iid": 0.80482,
+     "p_circular": 0.7442
+    },
+    "er20": {
+     "rho": 0.0829,
+     "p_iid": 0.34767,
+     "p_circular": 0.3721
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 32,
+       "train_rho": 0.1126,
+       "threshold": 0.037296,
+       "on_side": ">=",
+       "test_n": 32,
+       "on_n": 11,
+       "gated_net_r": 0.0507,
+       "ungated_net_r": 5.1692,
+       "improvement_r": -5.1185
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 64,
+       "train_rho": 0.0006,
+       "threshold": 0.036852,
+       "on_side": ">=",
+       "test_n": 32,
+       "on_n": 0,
+       "gated_net_r": 0.0,
+       "ungated_net_r": 0.2593,
+       "improvement_r": -0.2593
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 96,
+       "train_rho": -0.06,
+       "threshold": 0.028772,
+       "on_side": "<",
+       "test_n": 33,
+       "on_n": 22,
+       "gated_net_r": -6.6811,
+       "ungated_net_r": -5.154,
+       "improvement_r": -1.5271
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -6.9049,
+     "folds_improved": 0,
+     "sum_gated_net_r": -6.6304,
+     "sum_ungated_net_r": 0.2745,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 32,
+       "train_rho": 0.2875,
+       "threshold": 0.144846,
+       "on_side": ">=",
+       "test_n": 32,
+       "on_n": 21,
+       "gated_net_r": 6.2417,
+       "ungated_net_r": 5.1692,
+       "improvement_r": 1.0725
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 64,
+       "train_rho": 0.1691,
+       "threshold": 0.159283,
+       "on_side": ">=",
+       "test_n": 32,
+       "on_n": 19,
+       "gated_net_r": -0.2277,
+       "ungated_net_r": 0.2593,
+       "improvement_r": -0.487
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 96,
+       "train_rho": 0.0995,
+       "threshold": 0.166931,
+       "on_side": ">=",
+       "test_n": 33,
+       "on_n": 23,
+       "gated_net_r": -2.2879,
+       "ungated_net_r": -5.154,
+       "improvement_r": 2.8661
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 3.4516,
+     "folds_improved": 2,
+     "sum_gated_net_r": 3.7261,
+     "sum_ungated_net_r": 0.2745,
+     "pass": true
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.276,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "ict_scalp_xrp_5m",
+   "symbol": "XRPUSDT",
+   "timeframe": "5m",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_xrp_5m__trades.jsonl",
+   "n_trades": 243,
+   "net_r_oos": -0.9172,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "n_with_features": 243,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-25 19:45:00+00:00",
+      "end": "2025-12-12 09:15:00+00:00",
+      "trades": 60,
+      "net_r": -0.1038,
+      "won": false,
+      "mean_rv20": 0.03729,
+      "mean_er20": 0.1565
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-16 14:20:00+00:00",
+      "end": "2026-03-09 03:00:00+00:00",
+      "trades": 60,
+      "net_r": -1.6095,
+      "won": false,
+      "mean_rv20": 0.0395,
+      "mean_er20": 0.27
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-10 00:20:00+00:00",
+      "end": "2026-06-06 15:00:00+00:00",
+      "trades": 60,
+      "net_r": -9.818,
+      "won": false,
+      "mean_rv20": 0.02053,
+      "mean_er20": 0.1636
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-07 04:35:00+00:00",
+      "end": "2026-09-23 14:05:00+00:00",
+      "trades": 63,
+      "net_r": 10.6141,
+      "won": true,
+      "mean_rv20": 0.02882,
+      "mean_er20": 0.2462
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.02676,
+     "median_losers": 0.0266,
+     "n_winners": 127,
+     "n_losers": 116
+    },
+    "er20": {
+     "median_winners": 0.18553,
+     "median_losers": 0.17057,
+     "n_winners": 127,
+     "n_losers": 116
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.1096,
+     "p_iid": 0.09139,
+     "p_circular": 0.2016
+    },
+    "er20": {
+     "rho": 0.0799,
+     "p_iid": 0.20998,
+     "p_circular": 0.2058
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 60,
+       "train_rho": 0.2756,
+       "threshold": 0.03704,
+       "on_side": ">=",
+       "test_n": 60,
+       "on_n": 16,
+       "gated_net_r": -1.1285,
+       "ungated_net_r": -1.6095,
+       "improvement_r": 0.481
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 120,
+       "train_rho": 0.1058,
+       "threshold": 0.034052,
+       "on_side": ">=",
+       "test_n": 60,
+       "on_n": 0,
+       "gated_net_r": 0.0,
+       "ungated_net_r": -9.818,
+       "improvement_r": 9.818
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 180,
+       "train_rho": 0.0939,
+       "threshold": 0.026453,
+       "on_side": ">=",
+       "test_n": 63,
+       "on_n": 36,
+       "gated_net_r": 13.4762,
+       "ungated_net_r": 10.6141,
+       "improvement_r": 2.8621
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 13.1611,
+     "folds_improved": 3,
+     "sum_gated_net_r": 12.3477,
+     "sum_ungated_net_r": -0.8134,
+     "pass": true
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 60,
+       "train_rho": 0.1164,
+       "threshold": 0.131522,
+       "on_side": ">=",
+       "test_n": 60,
+       "on_n": 48,
+       "gated_net_r": -3.3257,
+       "ungated_net_r": -1.6095,
+       "improvement_r": -1.7162
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 120,
+       "train_rho": -0.0083,
+       "threshold": 0.190854,
+       "on_side": "<",
+       "test_n": 60,
+       "on_n": 41,
+       "gated_net_r": -7.9394,
+       "ungated_net_r": -9.818,
+       "improvement_r": 1.8786
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 180,
+       "train_rho": 0.0648,
+       "threshold": 0.165509,
+       "on_side": ">=",
+       "test_n": 63,
+       "on_n": 39,
+       "gated_net_r": 9.99,
+       "ungated_net_r": 10.6141,
+       "improvement_r": -0.6241
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -0.4617,
+     "folds_improved": 1,
+     "sum_gated_net_r": -1.2751,
+     "sum_ungated_net_r": -0.8134,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.202,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "ief_pullback_1d",
+   "symbol": "IEF",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/ief_pullback_1d__trades.jsonl",
+   "n_trades": 3,
+   "net_r_oos": 3.4623,
+   "folds": 3,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for IEF not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "iwm_trend_long_1d",
+   "symbol": "IWM",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/iwm_trend_long_1d__trades.jsonl",
+   "n_trades": 8,
+   "net_r_oos": 2.1071,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for IWM not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "mes_trend_long_1d",
+   "symbol": "MES",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/mes_trend_long_1d__trades.jsonl",
+   "n_trades": 5,
+   "net_r_oos": -1.0012,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for MES not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "mgc_pullback_1d",
+   "symbol": "MGC",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/mgc_pullback_1d__trades.jsonl",
+   "n_trades": 8,
+   "net_r_oos": 3.8725,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for MGC not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "mgc_trend_1h",
+   "symbol": "MGC",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/mgc_trend_1h__trades.jsonl",
+   "n_trades": 118,
+   "net_r_oos": 25.612,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for MGC not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "mhg_pullback_1d",
+   "symbol": "MHG",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/mhg_pullback_1d__trades.jsonl",
+   "n_trades": 10,
+   "net_r_oos": 4.0986,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for MHG not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "qld_trend_long_1d",
+   "symbol": "QLD",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/qld_trend_long_1d__trades.jsonl",
+   "n_trades": 9,
+   "net_r_oos": 2.9844,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for QLD not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "qqq_pullback_1h",
+   "symbol": "QQQ",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/qqq_pullback_1h__trades.jsonl",
+   "n_trades": 55,
+   "net_r_oos": 10.8351,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for QQQ not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "qqq_trend_long_1d",
+   "symbol": "QQQ",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/qqq_trend_long_1d__trades.jsonl",
+   "n_trades": 8,
+   "net_r_oos": 5.2971,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for QQQ not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "scha_trend_long_1d",
+   "symbol": "SCHA",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/scha_trend_long_1d__trades.jsonl",
+   "n_trades": 7,
+   "net_r_oos": -0.0717,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for SCHA not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "slv_pullback_1d",
+   "symbol": "SLV",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/slv_pullback_1d__trades.jsonl",
+   "n_trades": 11,
+   "net_r_oos": 2.4842,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for SLV not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "slv_trend_1h",
+   "symbol": "SLV",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/slv_trend_1h__trades.jsonl",
+   "n_trades": 68,
+   "net_r_oos": 53.1431,
+   "folds": 4,
+   "folds_positive": 4,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for SLV not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "sol_pullback_2h",
+   "symbol": "SOLUSDT",
+   "timeframe": "2h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/sol_pullback_2h__trades.jsonl",
+   "n_trades": 18,
+   "net_r_oos": 4.5949,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "primary",
+   "n_with_features": 18,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-11 10:00:00+00:00",
+      "end": "2025-11-05 06:00:00+00:00",
+      "trades": 4,
+      "net_r": -0.9194,
+      "won": false,
+      "mean_rv20": 0.05107,
+      "mean_er20": 0.1724
+     },
+     {
+      "fold": 2,
+      "start": "2025-11-14 16:00:00+00:00",
+      "end": "2026-01-19 20:00:00+00:00",
+      "trades": 4,
+      "net_r": 2.259,
+      "won": true,
+      "mean_rv20": 0.03137,
+      "mean_er20": 0.2505
+     },
+     {
+      "fold": 3,
+      "start": "2026-01-30 16:00:00+00:00",
+      "end": "2026-05-14 16:00:00+00:00",
+      "trades": 4,
+      "net_r": 5.416,
+      "won": true,
+      "mean_rv20": 0.03574,
+      "mean_er20": 0.2062
+     },
+     {
+      "fold": 4,
+      "start": "2026-05-18 22:00:00+00:00",
+      "end": "2026-09-03 00:00:00+00:00",
+      "trades": 6,
+      "net_r": -2.1607,
+      "won": false,
+      "mean_rv20": 0.02606,
+      "mean_er20": 0.2846
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.0329,
+     "median_losers": 0.03352,
+     "n_winners": 7,
+     "n_losers": 11
+    },
+    "er20": {
+     "median_winners": 0.25884,
+     "median_losers": 0.35048,
+     "n_winners": 7,
+     "n_losers": 11
+    }
+   },
+   "verdict": "insufficient_n"
+  },
+  {
+   "leg": "spy_pullback_1h",
+   "symbol": "SPY",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/spy_pullback_1h__trades.jsonl",
+   "n_trades": 61,
+   "net_r_oos": -14.0702,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for SPY not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "spy_trend_long_1d",
+   "symbol": "SPY",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/spy_trend_long_1d__trades.jsonl",
+   "n_trades": 11,
+   "net_r_oos": 2.3816,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for SPY not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "squeeze_breakout_4h",
+   "symbol": "BTCUSDT",
+   "timeframe": "4h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/squeeze_breakout_4h__trades.jsonl",
+   "n_trades": 10,
+   "net_r_oos": -0.4022,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "n_with_features": 10,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-11-26 16:00:00+00:00",
+      "end": "2026-01-12 00:00:00+00:00",
+      "trades": 2,
+      "net_r": -1.7035,
+      "won": false,
+      "mean_rv20": 0.01893,
+      "mean_er20": 0.1868
+     },
+     {
+      "fold": 2,
+      "start": "2026-01-25 04:00:00+00:00",
+      "end": "2026-04-01 00:00:00+00:00",
+      "trades": 2,
+      "net_r": 1.0143,
+      "won": true,
+      "mean_rv20": 0.03173,
+      "mean_er20": 0.2351
+     },
+     {
+      "fold": 3,
+      "start": "2026-04-17 08:00:00+00:00",
+      "end": "2026-06-01 04:00:00+00:00",
+      "trades": 2,
+      "net_r": 4.0365,
+      "won": true,
+      "mean_rv20": 0.01594,
+      "mean_er20": 0.2544
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-30 08:00:00+00:00",
+      "end": "2026-09-13 20:00:00+00:00",
+      "trades": 4,
+      "net_r": -3.7495,
+      "won": false,
+      "mean_rv20": 0.01794,
+      "mean_er20": 0.2425
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.01793,
+     "median_losers": 0.01688,
+     "n_winners": 3,
+     "n_losers": 7
+    },
+    "er20": {
+     "median_winners": 0.10444,
+     "median_losers": 0.15531,
+     "n_winners": 3,
+     "n_losers": 7
+    }
+   },
+   "verdict": "insufficient_n"
+  },
+  {
+   "leg": "tlt_pullback_1d",
+   "symbol": "TLT",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/tlt_pullback_1d__trades.jsonl",
+   "n_trades": 8,
+   "net_r_oos": -3.6069,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for TLT not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "tlt_pullback_1h",
+   "symbol": "TLT",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/tlt_pullback_1h__trades.jsonl",
+   "n_trades": 94,
+   "net_r_oos": -6.7285,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for TLT not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "tqqq_trend_long_1d",
+   "symbol": "TQQQ",
+   "timeframe": "1d",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/tqqq_trend_long_1d__trades.jsonl",
+   "n_trades": 12,
+   "net_r_oos": -0.1104,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for TQQQ not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "trend_donchian",
+   "symbol": "BTCUSDT",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian__trades.jsonl",
+   "n_trades": 73,
+   "net_r_oos": 4.6017,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "n_with_features": 73,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-28 16:00:00+00:00",
+      "end": "2025-12-18 13:00:00+00:00",
+      "trades": 18,
+      "net_r": 8.8066,
+      "won": true,
+      "mean_rv20": 0.02201,
+      "mean_er20": 0.2096
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-25 15:00:00+00:00",
+      "end": "2026-03-28 13:00:00+00:00",
+      "trades": 18,
+      "net_r": -2.0508,
+      "won": false,
+      "mean_rv20": 0.0262,
+      "mean_er20": 0.2347
+     },
+     {
+      "fold": 3,
+      "start": "2026-04-04 10:00:00+00:00",
+      "end": "2026-07-14 12:00:00+00:00",
+      "trades": 18,
+      "net_r": -7.111,
+      "won": false,
+      "mean_rv20": 0.01831,
+      "mean_er20": 0.264
+     },
+     {
+      "fold": 4,
+      "start": "2026-07-18 17:00:00+00:00",
+      "end": "2026-09-21 08:00:00+00:00",
+      "trades": 19,
+      "net_r": 4.9569,
+      "won": true,
+      "mean_rv20": 0.01839,
+      "mean_er20": 0.2626
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.01976,
+     "median_losers": 0.02087,
+     "n_winners": 21,
+     "n_losers": 52
+    },
+    "er20": {
+     "median_winners": 0.16958,
+     "median_losers": 0.17527,
+     "n_winners": 21,
+     "n_losers": 52
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": -0.0019,
+     "p_iid": 0.9857,
+     "p_circular": 1.0
+    },
+    "er20": {
+     "rho": -0.0974,
+     "p_iid": 0.40986,
+     "p_circular": 0.2603
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 18,
+       "train_rho": -0.445,
+       "threshold": 0.022864,
+       "on_side": "<",
+       "test_n": 18,
+       "on_n": 9,
+       "gated_net_r": 1.6473,
+       "ungated_net_r": -2.0508,
+       "improvement_r": 3.6981
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 36,
+       "train_rho": -0.0812,
+       "threshold": 0.022854,
+       "on_side": "<",
+       "test_n": 18,
+       "on_n": 16,
+       "gated_net_r": -7.548,
+       "ungated_net_r": -7.111,
+       "improvement_r": -0.437
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 54,
+       "train_rho": 0.04,
+       "threshold": 0.020842,
+       "on_side": ">=",
+       "test_n": 19,
+       "on_n": 8,
+       "gated_net_r": -5.1258,
+       "ungated_net_r": 4.9569,
+       "improvement_r": -10.0827
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -6.8216,
+     "folds_improved": 1,
+     "sum_gated_net_r": -11.0265,
+     "sum_ungated_net_r": -4.2049,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 18,
+       "train_rho": 0.1146,
+       "threshold": 0.169304,
+       "on_side": ">=",
+       "test_n": 18,
+       "on_n": 9,
+       "gated_net_r": -2.7294,
+       "ungated_net_r": -2.0508,
+       "improvement_r": -0.6786
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 36,
+       "train_rho": 0.0889,
+       "threshold": 0.169304,
+       "on_side": ">=",
+       "test_n": 18,
+       "on_n": 11,
+       "gated_net_r": -8.1505,
+       "ungated_net_r": -7.111,
+       "improvement_r": -1.0395
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 54,
+       "train_rho": -0.0828,
+       "threshold": 0.170245,
+       "on_side": "<",
+       "test_n": 19,
+       "on_n": 8,
+       "gated_net_r": 8.9753,
+       "ungated_net_r": 4.9569,
+       "improvement_r": 4.0184
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 2.3003,
+     "folds_improved": 1,
+     "sum_gated_net_r": -1.9046,
+     "sum_ungated_net_r": -4.2049,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.363,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_ada_4h",
+   "symbol": "ADAUSDT",
+   "timeframe": "4h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e69/trend_donchian_ada_4h__trades.jsonl",
+   "n_trades": 46,
+   "net_r_oos": -8.6081,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "primary",
+   "n_with_features": 46,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-01 08:00:00+00:00",
+      "end": "2025-12-15 12:00:00+00:00",
+      "trades": 11,
+      "net_r": 0.4442,
+      "won": true,
+      "mean_rv20": 0.04619,
+      "mean_er20": 0.2691
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-25 20:00:00+00:00",
+      "end": "2026-02-25 12:00:00+00:00",
+      "trades": 11,
+      "net_r": -3.1116,
+      "won": false,
+      "mean_rv20": 0.04411,
+      "mean_er20": 0.2457
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-16 04:00:00+00:00",
+      "end": "2026-06-14 20:00:00+00:00",
+      "trades": 11,
+      "net_r": -5.3201,
+      "won": false,
+      "mean_rv20": 0.02888,
+      "mean_er20": 0.2178
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-18 12:00:00+00:00",
+      "end": "2026-09-21 08:00:00+00:00",
+      "trades": 13,
+      "net_r": -0.6206,
+      "won": false,
+      "mean_rv20": 0.03792,
+      "mean_er20": 0.2044
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03581,
+     "median_losers": 0.04026,
+     "n_winners": 13,
+     "n_losers": 33
+    },
+    "er20": {
+     "median_winners": 0.24317,
+     "median_losers": 0.24077,
+     "n_winners": 13,
+     "n_losers": 33
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.0576,
+     "p_iid": 0.70323,
+     "p_circular": 0.7174
+    },
+    "er20": {
+     "rho": -0.0456,
+     "p_iid": 0.76782,
+     "p_circular": 0.7826
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 11
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 22,
+       "train_rho": -0.0254,
+       "threshold": 0.042268,
+       "on_side": "<",
+       "test_n": 11,
+       "on_n": 10,
+       "gated_net_r": -4.2877,
+       "ungated_net_r": -5.3201,
+       "improvement_r": 1.0324
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 33,
+       "train_rho": 0.116,
+       "threshold": 0.038443,
+       "on_side": ">=",
+       "test_n": 13,
+       "on_n": 7,
+       "gated_net_r": -3.7819,
+       "ungated_net_r": -0.6206,
+       "improvement_r": -3.1613
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": -2.1289,
+     "folds_improved": 1,
+     "sum_gated_net_r": -8.0696,
+     "sum_ungated_net_r": -5.9407,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 11
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 22,
+       "train_rho": -0.485,
+       "threshold": 0.253467,
+       "on_side": "<",
+       "test_n": 11,
+       "on_n": 6,
+       "gated_net_r": -6.2956,
+       "ungated_net_r": -5.3201,
+       "improvement_r": -0.9755
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 33,
+       "train_rho": 0.014,
+       "threshold": 0.252468,
+       "on_side": ">=",
+       "test_n": 13,
+       "on_n": 4,
+       "gated_net_r": -1.4588,
+       "ungated_net_r": -0.6206,
+       "improvement_r": -0.8382
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": -1.8137,
+     "folds_improved": 0,
+     "sum_gated_net_r": -7.7544,
+     "sum_ungated_net_r": -5.9407,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.005,
+   "min_detectable_abs_rho": 0.404,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_avax_4h",
+   "symbol": "AVAXUSDT",
+   "timeframe": "4h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e69/trend_donchian_avax_4h__trades.jsonl",
+   "n_trades": 50,
+   "net_r_oos": -9.1414,
+   "folds": 4,
+   "folds_positive": 0,
+   "family": "primary",
+   "n_with_features": 50,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-07 12:00:00+00:00",
+      "end": "2025-12-09 16:00:00+00:00",
+      "trades": 12,
+      "net_r": -0.9114,
+      "won": false,
+      "mean_rv20": 0.05344,
+      "mean_er20": 0.3341
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-15 12:00:00+00:00",
+      "end": "2026-03-04 12:00:00+00:00",
+      "trades": 12,
+      "net_r": -0.8204,
+      "won": false,
+      "mean_rv20": 0.03944,
+      "mean_er20": 0.2824
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-21 20:00:00+00:00",
+      "end": "2026-07-08 00:00:00+00:00",
+      "trades": 12,
+      "net_r": -6.1477,
+      "won": false,
+      "mean_rv20": 0.02939,
+      "mean_er20": 0.203
+     },
+     {
+      "fold": 4,
+      "start": "2026-07-23 16:00:00+00:00",
+      "end": "2026-09-20 12:00:00+00:00",
+      "trades": 14,
+      "net_r": -1.2619,
+      "won": false,
+      "mean_rv20": 0.02923,
+      "mean_er20": 0.1738
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03306,
+     "median_losers": 0.03296,
+     "n_winners": 13,
+     "n_losers": 37
+    },
+    "er20": {
+     "median_winners": 0.22493,
+     "median_losers": 0.22056,
+     "n_winners": 13,
+     "n_losers": 37
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.2036,
+     "p_iid": 0.15718,
+     "p_circular": 0.26
+    },
+    "er20": {
+     "rho": 0.1969,
+     "p_iid": 0.16988,
+     "p_circular": 0.26
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 12
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 24,
+       "train_rho": 0.1661,
+       "threshold": 0.039892,
+       "on_side": ">=",
+       "test_n": 12,
+       "on_n": 0,
+       "gated_net_r": 0.0,
+       "ungated_net_r": -6.1477,
+       "improvement_r": 6.1477
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 36,
+       "train_rho": 0.2835,
+       "threshold": 0.035342,
+       "on_side": ">=",
+       "test_n": 14,
+       "on_n": 1,
+       "gated_net_r": -1.0203,
+       "ungated_net_r": -1.2619,
+       "improvement_r": 0.2416
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": 6.3893,
+     "folds_improved": 2,
+     "sum_gated_net_r": -1.0203,
+     "sum_ungated_net_r": -7.4096,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 12
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 24,
+       "train_rho": 0.173,
+       "threshold": 0.297816,
+       "on_side": ">=",
+       "test_n": 12,
+       "on_n": 4,
+       "gated_net_r": 0.8371,
+       "ungated_net_r": -6.1477,
+       "improvement_r": 6.9848
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 36,
+       "train_rho": 0.2726,
+       "threshold": 0.231511,
+       "on_side": ">=",
+       "test_n": 14,
+       "on_n": 5,
+       "gated_net_r": -5.2083,
+       "ungated_net_r": -1.2619,
+       "improvement_r": -3.9464
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": 3.0384,
+     "folds_improved": 1,
+     "sum_gated_net_r": -4.3712,
+     "sum_ungated_net_r": -7.4096,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.005,
+   "min_detectable_abs_rho": 0.388,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_eth",
+   "symbol": "ETHUSDT",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_eth__trades.jsonl",
+   "n_trades": 107,
+   "net_r_oos": 16.1835,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "primary",
+   "n_with_features": 107,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-26 17:00:00+00:00",
+      "end": "2025-12-29 02:00:00+00:00",
+      "trades": 26,
+      "net_r": 12.3136,
+      "won": true,
+      "mean_rv20": 0.03545,
+      "mean_er20": 0.177
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-30 08:00:00+00:00",
+      "end": "2026-03-18 14:00:00+00:00",
+      "trades": 26,
+      "net_r": 5.7198,
+      "won": true,
+      "mean_rv20": 0.03694,
+      "mean_er20": 0.2688
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-26 05:00:00+00:00",
+      "end": "2026-06-18 15:00:00+00:00",
+      "trades": 26,
+      "net_r": -0.432,
+      "won": false,
+      "mean_rv20": 0.02524,
+      "mean_er20": 0.258
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-23 06:00:00+00:00",
+      "end": "2026-09-21 00:00:00+00:00",
+      "trades": 29,
+      "net_r": -1.4179,
+      "won": false,
+      "mean_rv20": 0.02613,
+      "mean_er20": 0.2374
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03029,
+     "median_losers": 0.0309,
+     "n_winners": 38,
+     "n_losers": 69
+    },
+    "er20": {
+     "median_winners": 0.20172,
+     "median_losers": 0.17206,
+     "n_winners": 38,
+     "n_losers": 69
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.0288,
+     "p_iid": 0.76592,
+     "p_circular": 0.7944
+    },
+    "er20": {
+     "rho": 0.0234,
+     "p_iid": 0.81262,
+     "p_circular": 0.785
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 26,
+       "train_rho": -0.3258,
+       "threshold": 0.035202,
+       "on_side": "<",
+       "test_n": 26,
+       "on_n": 10,
+       "gated_net_r": 10.4968,
+       "ungated_net_r": 5.7198,
+       "improvement_r": 4.777
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 52,
+       "train_rho": -0.1668,
+       "threshold": 0.036521,
+       "on_side": "<",
+       "test_n": 26,
+       "on_n": 25,
+       "gated_net_r": 0.6301,
+       "ungated_net_r": -0.432,
+       "improvement_r": 1.0621
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 78,
+       "train_rho": 0.0762,
+       "threshold": 0.032232,
+       "on_side": ">=",
+       "test_n": 29,
+       "on_n": 8,
+       "gated_net_r": -3.9843,
+       "ungated_net_r": -1.4179,
+       "improvement_r": -2.5664
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 3.2727,
+     "folds_improved": 2,
+     "sum_gated_net_r": 7.1426,
+     "sum_ungated_net_r": 3.8699,
+     "pass": true
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 26,
+       "train_rho": 0.1685,
+       "threshold": 0.209766,
+       "on_side": ">=",
+       "test_n": 26,
+       "on_n": 14,
+       "gated_net_r": 5.9502,
+       "ungated_net_r": 5.7198,
+       "improvement_r": 0.2304
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 52,
+       "train_rho": 0.0171,
+       "threshold": 0.214326,
+       "on_side": ">=",
+       "test_n": 26,
+       "on_n": 9,
+       "gated_net_r": 4.2304,
+       "ungated_net_r": -0.432,
+       "improvement_r": 4.6624
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 78,
+       "train_rho": 0.16,
+       "threshold": 0.200901,
+       "on_side": ">=",
+       "test_n": 29,
+       "on_n": 10,
+       "gated_net_r": -6.8884,
+       "ungated_net_r": -1.4179,
+       "improvement_r": -5.4705
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -0.5777,
+     "folds_improved": 2,
+     "sum_gated_net_r": 3.2922,
+     "sum_ungated_net_r": 3.8699,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.005,
+   "min_detectable_abs_rho": 0.269,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_eth_4h",
+   "symbol": "ETHUSDT",
+   "timeframe": "4h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_eth_4h__trades.jsonl",
+   "n_trades": 44,
+   "net_r_oos": 10.167,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "n_with_features": 44,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-01 08:00:00+00:00",
+      "end": "2025-12-29 00:00:00+00:00",
+      "trades": 11,
+      "net_r": 1.207,
+      "won": true,
+      "mean_rv20": 0.03586,
+      "mean_er20": 0.1803
+     },
+     {
+      "fold": 2,
+      "start": "2026-01-13 20:00:00+00:00",
+      "end": "2026-03-27 08:00:00+00:00",
+      "trades": 11,
+      "net_r": -1.8018,
+      "won": false,
+      "mean_rv20": 0.03998,
+      "mean_er20": 0.2558
+     },
+     {
+      "fold": 3,
+      "start": "2026-04-05 20:00:00+00:00",
+      "end": "2026-06-05 12:00:00+00:00",
+      "trades": 11,
+      "net_r": -3.6533,
+      "won": false,
+      "mean_rv20": 0.02199,
+      "mean_er20": 0.2432
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-14 20:00:00+00:00",
+      "end": "2026-09-18 12:00:00+00:00",
+      "trades": 11,
+      "net_r": 14.4151,
+      "won": true,
+      "mean_rv20": 0.02728,
+      "mean_er20": 0.2449
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.02874,
+     "median_losers": 0.02996,
+     "n_winners": 15,
+     "n_losers": 29
+    },
+    "er20": {
+     "median_winners": 0.18913,
+     "median_losers": 0.17206,
+     "n_winners": 15,
+     "n_losers": 29
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.0114,
+     "p_iid": 0.93871,
+     "p_circular": 0.9773
+    },
+    "er20": {
+     "rho": 0.0538,
+     "p_iid": 0.73053,
+     "p_circular": 0.6818
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 11
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 22,
+       "train_rho": 0.0446,
+       "threshold": 0.036457,
+       "on_side": ">=",
+       "test_n": 11,
+       "on_n": 0,
+       "gated_net_r": 0.0,
+       "ungated_net_r": -3.6533,
+       "improvement_r": 3.6533
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 33,
+       "train_rho": 0.0739,
+       "threshold": 0.031792,
+       "on_side": ">=",
+       "test_n": 11,
+       "on_n": 3,
+       "gated_net_r": 3.0418,
+       "ungated_net_r": 14.4151,
+       "improvement_r": -11.3733
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": -7.72,
+     "folds_improved": 1,
+     "sum_gated_net_r": 3.0418,
+     "sum_ungated_net_r": 10.7618,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 11
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 22,
+       "train_rho": 0.0107,
+       "threshold": 0.206146,
+       "on_side": ">=",
+       "test_n": 11,
+       "on_n": 5,
+       "gated_net_r": 2.7103,
+       "ungated_net_r": -3.6533,
+       "improvement_r": 6.3636
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 33,
+       "train_rho": 0.244,
+       "threshold": 0.204647,
+       "on_side": ">=",
+       "test_n": 11,
+       "on_n": 3,
+       "gated_net_r": -1.136,
+       "ungated_net_r": 14.4151,
+       "improvement_r": -15.5511
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": -9.1875,
+     "folds_improved": 1,
+     "sum_gated_net_r": 1.5743,
+     "sum_ungated_net_r": 10.7618,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.46,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_eth_prop",
+   "symbol": "ETHUSDT",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_eth_prop__trades.jsonl",
+   "n_trades": 169,
+   "net_r_oos": 11.3093,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "n_with_features": 169,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-26 17:00:00+00:00",
+      "end": "2025-12-17 14:00:00+00:00",
+      "trades": 42,
+      "net_r": 4.1817,
+      "won": true,
+      "mean_rv20": 0.03613,
+      "mean_er20": 0.1886
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-18 13:00:00+00:00",
+      "end": "2026-03-23 11:00:00+00:00",
+      "trades": 42,
+      "net_r": 8.4946,
+      "won": true,
+      "mean_rv20": 0.03587,
+      "mean_er20": 0.2429
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-26 05:00:00+00:00",
+      "end": "2026-06-18 15:00:00+00:00",
+      "trades": 42,
+      "net_r": -2.7642,
+      "won": false,
+      "mean_rv20": 0.02524,
+      "mean_er20": 0.258
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-20 05:00:00+00:00",
+      "end": "2026-09-23 14:00:00+00:00",
+      "trades": 43,
+      "net_r": 1.3972,
+      "won": true,
+      "mean_rv20": 0.02649,
+      "mean_er20": 0.2404
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03002,
+     "median_losers": 0.03053,
+     "n_winners": 56,
+     "n_losers": 113
+    },
+    "er20": {
+     "median_winners": 0.17876,
+     "median_losers": 0.17746,
+     "n_winners": 56,
+     "n_losers": 113
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.023,
+     "p_iid": 0.76562,
+     "p_circular": 0.8462
+    },
+    "er20": {
+     "rho": -0.0113,
+     "p_iid": 0.88131,
+     "p_circular": 0.929
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": -0.2345,
+       "threshold": 0.033969,
+       "on_side": "<",
+       "test_n": 42,
+       "on_n": 19,
+       "gated_net_r": 1.5714,
+       "ungated_net_r": 8.4946,
+       "improvement_r": -6.9232
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 84,
+       "train_rho": 0.0139,
+       "threshold": 0.034667,
+       "on_side": ">=",
+       "test_n": 42,
+       "on_n": 4,
+       "gated_net_r": -1.1391,
+       "ungated_net_r": -2.7642,
+       "improvement_r": 1.6251
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 126,
+       "train_rho": 0.0179,
+       "threshold": 0.031557,
+       "on_side": ">=",
+       "test_n": 43,
+       "on_n": 12,
+       "gated_net_r": -2.6303,
+       "ungated_net_r": 1.3972,
+       "improvement_r": -4.0275
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -9.3256,
+     "folds_improved": 1,
+     "sum_gated_net_r": -2.198,
+     "sum_ungated_net_r": 7.1276,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": -0.0925,
+       "threshold": 0.214326,
+       "on_side": "<",
+       "test_n": 42,
+       "on_n": 24,
+       "gated_net_r": 7.5231,
+       "ungated_net_r": 8.4946,
+       "improvement_r": -0.9715
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 84,
+       "train_rho": -0.0992,
+       "threshold": 0.206146,
+       "on_side": "<",
+       "test_n": 42,
+       "on_n": 23,
+       "gated_net_r": -2.8862,
+       "ungated_net_r": -2.7642,
+       "improvement_r": -0.122
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 126,
+       "train_rho": -0.0148,
+       "threshold": 0.200901,
+       "on_side": "<",
+       "test_n": 43,
+       "on_n": 30,
+       "gated_net_r": 5.3572,
+       "ungated_net_r": 1.3972,
+       "improvement_r": 3.96
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 2.8665,
+     "folds_improved": 1,
+     "sum_gated_net_r": 9.9941,
+     "sum_ungated_net_r": 7.1276,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.242,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_sol",
+   "symbol": "SOLUSDT",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol__trades.jsonl",
+   "n_trades": 59,
+   "net_r_oos": 4.4579,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "primary",
+   "n_with_features": 59,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-28 22:00:00+00:00",
+      "end": "2025-12-27 21:00:00+00:00",
+      "trades": 14,
+      "net_r": -0.2207,
+      "won": false,
+      "mean_rv20": 0.04183,
+      "mean_er20": 0.1993
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-29 00:00:00+00:00",
+      "end": "2026-03-23 11:00:00+00:00",
+      "trades": 14,
+      "net_r": -0.1314,
+      "won": false,
+      "mean_rv20": 0.03679,
+      "mean_er20": 0.2629
+     },
+     {
+      "fold": 3,
+      "start": "2026-04-04 15:00:00+00:00",
+      "end": "2026-06-20 04:00:00+00:00",
+      "trades": 14,
+      "net_r": -2.951,
+      "won": false,
+      "mean_rv20": 0.02641,
+      "mean_er20": 0.2324
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-26 06:00:00+00:00",
+      "end": "2026-09-21 08:00:00+00:00",
+      "trades": 17,
+      "net_r": 7.761,
+      "won": true,
+      "mean_rv20": 0.0261,
+      "mean_er20": 0.2626
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03293,
+     "median_losers": 0.02946,
+     "n_winners": 18,
+     "n_losers": 41
+    },
+    "er20": {
+     "median_winners": 0.24189,
+     "median_losers": 0.19218,
+     "n_winners": 18,
+     "n_losers": 41
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.1835,
+     "p_iid": 0.16468,
+     "p_circular": 0.1525
+    },
+    "er20": {
+     "rho": 0.0354,
+     "p_iid": 0.78782,
+     "p_circular": 0.7288
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 14
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 28,
+       "train_rho": 0.3651,
+       "threshold": 0.037262,
+       "on_side": ">=",
+       "test_n": 14,
+       "on_n": 2,
+       "gated_net_r": -0.4102,
+       "ungated_net_r": -2.951,
+       "improvement_r": 2.5408
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": 0.32,
+       "threshold": 0.032185,
+       "on_side": ">=",
+       "test_n": 17,
+       "on_n": 4,
+       "gated_net_r": -0.9877,
+       "ungated_net_r": 7.761,
+       "improvement_r": -8.7487
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": -6.2079,
+     "folds_improved": 1,
+     "sum_gated_net_r": -1.3979,
+     "sum_ungated_net_r": 4.81,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 14
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 28,
+       "train_rho": 0.1888,
+       "threshold": 0.20933,
+       "on_side": ">=",
+       "test_n": 14,
+       "on_n": 7,
+       "gated_net_r": 0.6,
+       "ungated_net_r": -2.951,
+       "improvement_r": 3.551
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": 0.2095,
+       "threshold": 0.20933,
+       "on_side": ">=",
+       "test_n": 17,
+       "on_n": 9,
+       "gated_net_r": -2.5593,
+       "ungated_net_r": 7.761,
+       "improvement_r": -10.3203
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": -6.7693,
+     "folds_improved": 1,
+     "sum_gated_net_r": -1.9593,
+     "sum_ungated_net_r": 4.81,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.005,
+   "min_detectable_abs_rho": 0.358,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_sol_4h",
+   "symbol": "SOLUSDT",
+   "timeframe": "4h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e69/trend_donchian_sol_4h__trades.jsonl",
+   "n_trades": 35,
+   "net_r_oos": -2.796,
+   "folds": 4,
+   "folds_positive": 1,
+   "family": "primary",
+   "n_with_features": 35,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-01 08:00:00+00:00",
+      "end": "2025-12-09 16:00:00+00:00",
+      "trades": 8,
+      "net_r": -1.6865,
+      "won": false,
+      "mean_rv20": 0.04475,
+      "mean_er20": 0.2134
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-18 16:00:00+00:00",
+      "end": "2026-02-23 00:00:00+00:00",
+      "trades": 8,
+      "net_r": 6.385,
+      "won": true,
+      "mean_rv20": 0.03472,
+      "mean_er20": 0.3143
+     },
+     {
+      "fold": 3,
+      "start": "2026-02-25 16:00:00+00:00",
+      "end": "2026-05-16 04:00:00+00:00",
+      "trades": 8,
+      "net_r": -3.7965,
+      "won": false,
+      "mean_rv20": 0.0298,
+      "mean_er20": 0.1295
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-14 20:00:00+00:00",
+      "end": "2026-09-21 08:00:00+00:00",
+      "trades": 11,
+      "net_r": -3.698,
+      "won": false,
+      "mean_rv20": 0.02753,
+      "mean_er20": 0.2532
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.02613,
+     "median_losers": 0.02989,
+     "n_winners": 8,
+     "n_losers": 27
+    },
+    "er20": {
+     "median_winners": 0.19319,
+     "median_losers": 0.16774,
+     "n_winners": 8,
+     "n_losers": 27
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.216,
+     "p_iid": 0.21168,
+     "p_circular": 0.4571
+    },
+    "er20": {
+     "rho": 0.1902,
+     "p_iid": 0.26907,
+     "p_circular": 0.3429
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 8
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 16,
+       "train_rho": -0.1971,
+       "threshold": 0.038869,
+       "on_side": "<",
+       "test_n": 8,
+       "on_n": 7,
+       "gated_net_r": -2.7627,
+       "ungated_net_r": -3.7965,
+       "improvement_r": 1.0338
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 24,
+       "train_rho": 0.0791,
+       "threshold": 0.034353,
+       "on_side": ">=",
+       "test_n": 11,
+       "on_n": 3,
+       "gated_net_r": -2.6264,
+       "ungated_net_r": -3.698,
+       "improvement_r": 1.0716
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": 2.1054,
+     "folds_improved": 2,
+     "sum_gated_net_r": -5.3891,
+     "sum_ungated_net_r": -7.4945,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 8
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 16,
+       "train_rho": 0.0382,
+       "threshold": 0.226125,
+       "on_side": ">=",
+       "test_n": 8,
+       "on_n": 1,
+       "gated_net_r": -1.0368,
+       "ungated_net_r": -3.7965,
+       "improvement_r": 2.7597
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 24,
+       "train_rho": 0.193,
+       "threshold": 0.183579,
+       "on_side": ">=",
+       "test_n": 11,
+       "on_n": 4,
+       "gated_net_r": -3.6984,
+       "ungated_net_r": -3.698,
+       "improvement_r": -0.0004
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": 2.7593,
+     "folds_improved": 1,
+     "sum_gated_net_r": -4.7352,
+     "sum_ungated_net_r": -7.4945,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.005,
+   "min_detectable_abs_rho": 0.459,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_sol_prop",
+   "symbol": "SOLUSDT",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl",
+   "n_trades": 65,
+   "net_r_oos": 5.1885,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "n_with_features": 65,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-28 22:00:00+00:00",
+      "end": "2025-12-18 13:00:00+00:00",
+      "trades": 16,
+      "net_r": 1.4251,
+      "won": true,
+      "mean_rv20": 0.04329,
+      "mean_er20": 0.1965
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-27 21:00:00+00:00",
+      "end": "2026-03-23 11:00:00+00:00",
+      "trades": 16,
+      "net_r": -0.5916,
+      "won": false,
+      "mean_rv20": 0.03648,
+      "mean_er20": 0.2606
+     },
+     {
+      "fold": 3,
+      "start": "2026-04-04 15:00:00+00:00",
+      "end": "2026-06-26 06:00:00+00:00",
+      "trades": 16,
+      "net_r": -1.8667,
+      "won": false,
+      "mean_rv20": 0.02716,
+      "mean_er20": 0.2232
+     },
+     {
+      "fold": 4,
+      "start": "2026-07-02 10:00:00+00:00",
+      "end": "2026-09-21 08:00:00+00:00",
+      "trades": 17,
+      "net_r": 6.2217,
+      "won": true,
+      "mean_rv20": 0.02578,
+      "mean_er20": 0.265
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.03219,
+     "median_losers": 0.03063,
+     "n_winners": 22,
+     "n_losers": 43
+    },
+    "er20": {
+     "median_winners": 0.21286,
+     "median_losers": 0.19218,
+     "n_winners": 22,
+     "n_losers": 43
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": 0.0479,
+     "p_iid": 0.70623,
+     "p_circular": 0.6
+    },
+    "er20": {
+     "rho": -0.0111,
+     "p_iid": 0.93591,
+     "p_circular": 0.9077
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 16,
+       "train_rho": 0.0941,
+       "threshold": 0.039761,
+       "on_side": ">=",
+       "test_n": 16,
+       "on_n": 5,
+       "gated_net_r": 3.2103,
+       "ungated_net_r": -0.5916,
+       "improvement_r": 3.8019
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 32,
+       "train_rho": 0.3035,
+       "threshold": 0.037614,
+       "on_side": ">=",
+       "test_n": 16,
+       "on_n": 1,
+       "gated_net_r": 1.1393,
+       "ungated_net_r": -1.8667,
+       "improvement_r": 3.006
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 48,
+       "train_rho": 0.2493,
+       "threshold": 0.032796,
+       "on_side": ">=",
+       "test_n": 17,
+       "on_n": 5,
+       "gated_net_r": -2.4659,
+       "ungated_net_r": 6.2217,
+       "improvement_r": -8.6876
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": -1.8797,
+     "folds_improved": 2,
+     "sum_gated_net_r": 1.8837,
+     "sum_ungated_net_r": 3.7634,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": true,
+       "train_n": 16,
+       "train_rho": 0.1618,
+       "threshold": 0.230843,
+       "on_side": ">=",
+       "test_n": 16,
+       "on_n": 5,
+       "gated_net_r": 0.0023,
+       "ungated_net_r": -0.5916,
+       "improvement_r": 0.5939
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 32,
+       "train_rho": 0.1074,
+       "threshold": 0.20933,
+       "on_side": ">=",
+       "test_n": 16,
+       "on_n": 7,
+       "gated_net_r": 2.1096,
+       "ungated_net_r": -1.8667,
+       "improvement_r": 3.9763
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 48,
+       "train_rho": 0.1355,
+       "threshold": 0.200579,
+       "on_side": ">=",
+       "test_n": 17,
+       "on_n": 11,
+       "gated_net_r": 2.823,
+       "ungated_net_r": 6.2217,
+       "improvement_r": -3.3987
+      }
+     ],
+     "n_evaluated": 3,
+     "sum_improvement_r": 1.1715,
+     "folds_improved": 2,
+     "sum_gated_net_r": 4.9349,
+     "sum_ungated_net_r": 3.7634,
+     "pass": true
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.383,
+   "verdict": "no_regime_signal"
+  },
+  {
+   "leg": "trend_donchian_xrp_4h",
+   "symbol": "XRPUSDT",
+   "timeframe": "4h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_xrp_4h__trades.jsonl",
+   "n_trades": 16,
+   "net_r_oos": 8.9428,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "n_with_features": 16,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-10-07 12:00:00+00:00",
+      "end": "2025-12-15 12:00:00+00:00",
+      "trades": 4,
+      "net_r": 4.1357,
+      "won": true,
+      "mean_rv20": 0.03925,
+      "mean_er20": 0.1711
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-31 16:00:00+00:00",
+      "end": "2026-01-29 12:00:00+00:00",
+      "trades": 4,
+      "net_r": 3.4209,
+      "won": true,
+      "mean_rv20": 0.03314,
+      "mean_er20": 0.2214
+     },
+     {
+      "fold": 3,
+      "start": "2026-02-05 08:00:00+00:00",
+      "end": "2026-06-02 12:00:00+00:00",
+      "trades": 4,
+      "net_r": 2.6869,
+      "won": true,
+      "mean_rv20": 0.02992,
+      "mean_er20": 0.172
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-18 12:00:00+00:00",
+      "end": "2026-09-15 16:00:00+00:00",
+      "trades": 4,
+      "net_r": -1.3007,
+      "won": false,
+      "mean_rv20": 0.02783,
+      "mean_er20": 0.2444
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.02562,
+     "median_losers": 0.02911,
+     "n_winners": 6,
+     "n_losers": 10
+    },
+    "er20": {
+     "median_winners": 0.23927,
+     "median_losers": 0.16379,
+     "n_winners": 6,
+     "n_losers": 10
+    }
+   },
+   "verdict": "insufficient_n"
+  },
+  {
+   "leg": "uso_trend_1h",
+   "symbol": "USO",
+   "timeframe": "1h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/uso_trend_1h__trades.jsonl",
+   "n_trades": 56,
+   "net_r_oos": 25.8924,
+   "folds": 4,
+   "folds_positive": 2,
+   "family": "secondary",
+   "verdict": "not_attempted",
+   "reason": "daily candles for USO not reachable this session (non-USDT symbol: yfinance not installed, Yahoo returned 429)"
+  },
+  {
+   "leg": "xrp_pullback_2h",
+   "symbol": "XRPUSDT",
+   "timeframe": "2h",
+   "source_run": "comms/strategy_evidence/runs/2026-09-25/xrp_pullback_2h__trades.jsonl",
+   "n_trades": 57,
+   "net_r_oos": 12.7923,
+   "folds": 4,
+   "folds_positive": 3,
+   "family": "secondary",
+   "n_with_features": 57,
+   "n_dropped_no_history": 0,
+   "fold_level": {
+    "n_folds": 4,
+    "verdict": "insufficient_n",
+    "folds": [
+     {
+      "fold": 1,
+      "start": "2025-09-30 00:00:00+00:00",
+      "end": "2025-11-25 16:00:00+00:00",
+      "trades": 14,
+      "net_r": 5.1195,
+      "won": true,
+      "mean_rv20": 0.0388,
+      "mean_er20": 0.1746
+     },
+     {
+      "fold": 2,
+      "start": "2025-12-05 00:00:00+00:00",
+      "end": "2026-02-28 14:00:00+00:00",
+      "trades": 14,
+      "net_r": 1.6678,
+      "won": true,
+      "mean_rv20": 0.03989,
+      "mean_er20": 0.2679
+     },
+     {
+      "fold": 3,
+      "start": "2026-03-05 10:00:00+00:00",
+      "end": "2026-06-03 08:00:00+00:00",
+      "trades": 14,
+      "net_r": 8.0582,
+      "won": true,
+      "mean_rv20": 0.02093,
+      "mean_er20": 0.1468
+     },
+     {
+      "fold": 4,
+      "start": "2026-06-06 10:00:00+00:00",
+      "end": "2026-09-22 06:00:00+00:00",
+      "trades": 15,
+      "net_r": -2.0532,
+      "won": false,
+      "mean_rv20": 0.02863,
+      "mean_er20": 0.2502
+     }
+    ]
+   },
+   "won_vs_lost": {
+    "rv20": {
+     "median_winners": 0.02676,
+     "median_losers": 0.03156,
+     "n_winners": 23,
+     "n_losers": 34
+    },
+    "er20": {
+     "median_winners": 0.17597,
+     "median_losers": 0.19855,
+     "n_winners": 23,
+     "n_losers": 34
+    }
+   },
+   "trade_level": {
+    "rv20": {
+     "rho": -0.0305,
+     "p_iid": 0.81802,
+     "p_circular": 0.8246
+    },
+    "er20": {
+     "rho": -0.0979,
+     "p_iid": 0.47155,
+     "p_circular": 0.6491
+    }
+   },
+   "walk_forward": {
+    "rv20": {
+     "feature": "rv20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 14
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 28,
+       "train_rho": -0.3875,
+       "threshold": 0.04063,
+       "on_side": "<",
+       "test_n": 14,
+       "on_n": 14,
+       "gated_net_r": 8.0582,
+       "ungated_net_r": 8.0582,
+       "improvement_r": 0.0
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": -0.2385,
+       "threshold": 0.032555,
+       "on_side": "<",
+       "test_n": 15,
+       "on_n": 12,
+       "gated_net_r": -3.3153,
+       "ungated_net_r": -2.0532,
+       "improvement_r": -1.2621
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": -1.2621,
+     "folds_improved": 0,
+     "sum_gated_net_r": 4.7429,
+     "sum_ungated_net_r": 6.005,
+     "pass": false
+    },
+    "er20": {
+     "feature": "er20",
+     "folds": [
+      {
+       "fold": 2,
+       "evaluated": false,
+       "train_n": 14
+      },
+      {
+       "fold": 3,
+       "evaluated": true,
+       "train_n": 28,
+       "train_rho": 0.0602,
+       "threshold": 0.205272,
+       "on_side": ">=",
+       "test_n": 14,
+       "on_n": 5,
+       "gated_net_r": 1.5653,
+       "ungated_net_r": 8.0582,
+       "improvement_r": -6.4929
+      },
+      {
+       "fold": 4,
+       "evaluated": true,
+       "train_n": 42,
+       "train_rho": -0.0458,
+       "threshold": 0.188534,
+       "on_side": "<",
+       "test_n": 15,
+       "on_n": 7,
+       "gated_net_r": 1.5921,
+       "ungated_net_r": -2.0532,
+       "improvement_r": 3.6453
+      }
+     ],
+     "n_evaluated": 2,
+     "sum_improvement_r": -2.8476,
+     "folds_improved": 1,
+     "sum_gated_net_r": 3.1574,
+     "sum_ungated_net_r": 6.005,
+     "pass": false
+    }
+   },
+   "alpha_corrected": 0.0014705882352941176,
+   "min_detectable_abs_rho": 0.408,
+   "verdict": "no_regime_signal"
+  }
+ ]
+}

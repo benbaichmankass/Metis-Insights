@@ -685,6 +685,8 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/e0-exit-census-live-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e1-exogenous-panel-preconditions-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e2-feature-information-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/e38-regime-classification-2026-09-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/e38-regime/RESULTS.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e2-gate-decision-and-sol-clustering-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e2-horizon-arm-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/e3-barrier-geometry-2026-08-20.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
