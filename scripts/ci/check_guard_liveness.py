@@ -191,6 +191,13 @@ BASELINE_2026_09_22 = {
     "check_artifact_caveats.py": DEGRADED,
     "check_automerge_trigger.py": DEGRADED,
     "check_canonical_doc_coherence.py": DEGRADED,
+    # E64 (2026-09-24): PIPELINE.jsonl became docs/claude/work/pipeline/, a
+    # directory. `_LEGACY_PIPELINE_FILE` in check_claim_basis.py deliberately
+    # keeps the old flat-file path so `git show <base-ref>:...` can still grade
+    # a PR whose base predates the migration -- it is read via a base ref, never
+    # the working tree, so it never needs to exist at HEAD. That is a real
+    # degraded subject by this instrument's own count, not a bug in the guard.
+    "check_claim_basis.py": DEGRADED,
     "check_impossibility_claims.py": DEGRADED,
     "check_manager_scope.py": DEGRADED,
     "check_pr_landing.py": DEGRADED,

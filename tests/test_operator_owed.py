@@ -16,7 +16,7 @@ import subprocess
 
 import pytest
 
-from scripts.ci.check_operator_owed import check, record_ages, register_commits
+from scripts.ci.check_operator_owed import check, record_ages
 from scripts.ops import pipeline
 from src.runtime.operator_owed import (
     ALL_OWNER_CLASSES,
