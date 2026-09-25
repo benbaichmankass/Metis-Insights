@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-INTENT-REDUCE-FULLY-CONSUMED-PARENT-LEAVES-ITS-TRACKED-LEG-RESTING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-INTENT-REDUCE-FULLY-CONSUMED-PARENT-LEAVES-ITS-TRACKED-LEG-RESTING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-INTENT-REDUCE-FULLY-CONSUMED-PARENT-LEAVES-ITS-TRACKED-LEG-RESTING'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-227 fixed the PARTIALLY consumed half of audit F-36 and deliberately left the FULLY consumed half: when an intent-reduce consumes a parent row entirely, that row closes at size 0 and its own tracked Bybit Partial-tpsl leg is left resting. There is no resize for zero -- clearing such a leg would be a CANCEL, which the operator's 2026-09-09 approval explicitly withholds. The residual is now COUNTED (`legs_left_resting_on_closed_rows` on the reduce audit row's notes) rather than invisible; what is missing is a decision about what should clear it."
+}

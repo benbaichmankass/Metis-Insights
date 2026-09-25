@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) Every DECIDED close path stamps exit_price_source at the point of close, with the same three-state discipline exit_anchor uses — a monitor-derived level is NOT a fill and must not be stamped as one (see BL-20260824-RECORDED-EXIT-PRICE-OUTNUMBERS-ALL-BROKER-TRUTH-COMBINED). (2) Unverified share of DECIDED closes falls below 10% on trades opened after the fix deploys — measured on that cohort only, never back-filled, since a zero stamped onto an old row asserts an observation nobody made. (3) A test pins that each decided path writes a stamp. Tier-2: it changes what the monitor records at close.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Strategy-DECIDED exits carry less provenance than janitor closes — 27.0% measured vs 52.0%, with 41.8% of decided closes carrying no stamp at all; vwap_cross is 22.9% of real-money closes and 65.7% of it is unstamped"
+}

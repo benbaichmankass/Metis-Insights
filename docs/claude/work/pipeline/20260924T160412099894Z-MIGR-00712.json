@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "`observed_n_by_leg` accepts a config scope (e.g. feasibility.observed_where: {split_target_oos: 60}) and counts only rows matching it, verified by a test that a pre-raise row does not satisfy a post-raise scope. ⚠️ The 'must not deadlock' half of the original criterion is NO LONGER the test — leniency removed it — but a scoped check with no matching rows must still resolve to a RUNNABLE state, or re-introducing config-scoping would re-introduce the block by the back door.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260831-FEASIBILITY-OBSERVATIONS-ARE-BLIND-TO-RUN-CONFIG",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260831-FEASIBILITY-OBSERVATIONS-ARE-BLIND-TO-RUN-CONFIG",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-FEASIBILITY-OBSERVATIONS-ARE-BLIND-TO-RUN-CONFIG'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] research_queue.observed_n_by_leg keeps the BEST achieved n per leg with no notion of the run configuration that produced it, so a corpus-grounded feasibility check counts observations from a DIFFERENT config as evidence about the one about to run — and on a raise it deadlocks the unit that would produce the new evidence."
+}

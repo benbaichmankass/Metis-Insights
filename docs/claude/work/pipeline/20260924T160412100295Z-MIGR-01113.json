@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-LIVE-PER-ACCOUNT-IS-A-PROJECTION-OF-ACCOUNTS-YAML-MODE-WHILE-ITS-OWN-NOTE-CALLS-IT-THE-PIPELINES-RUNTIME-VIEW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260913-LIVE-PER-ACCOUNT-IS-A-PROJECTION-OF-ACCOUNTS-YAML-MODE-WHILE-ITS-OWN-NOTE-CALLS-IT-THE-PIPELINES-RUNTIME-VIEW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-LIVE-PER-ACCOUNT-IS-A-PROJECTION-OF-ACCOUNTS-YAML-MODE-WHILE-ITS-OWN-NOTE-CALLS-IT-THE-PIPELINES-RUNTIME-VIEW'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "/api/bot/config::trading_mode.live_per_account folds ONE of the executor's THREE dry terms, so it cannot show a dry fold — and it has already been cited twice as the runtime view corroborating that an account is live"
+}

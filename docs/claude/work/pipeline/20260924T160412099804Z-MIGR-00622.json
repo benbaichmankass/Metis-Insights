@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "THREE PARTS, different facts — say WHICH you cleared. (1) The startup failure's CAUSE is ESTABLISHED by reading the run's own error text (the run page's annotation / check-suite conclusion `startup_failure`), NOT by a third guess — two are already refuted above and a third untested hypothesis filed as a cause would be worse than the open question. (2) A run of ranking-key-ab.yml is OBSERVED reaching a JOB — total_jobs > 0 on a real run, whatever that job then concludes. !! A workflow_dispatch run that also fails at startup clears nothing; !! and the file merely being edited clears nothing, because it parses today. (3) Its RESULTS are dispositioned: either the harness produced the evidence the research docs credit it with (say which run), or it is recorded that it did not and those docs are corrected. !! IF THE OPERATOR DECIDES the harness is finished and should be REMOVED, that clears this row too and must be RECORDED as a decision rather than left looking like a fix about to happen — a deleted workflow stops the 38/hour immediately. !! DO NOT CLEAR ON THE RUNS GOING QUIET: they stop when the workflow is deleted OR when pushes stop, and only one of those is a repair. || [!] CLAUSE (1) IS NARROWED, NOT MET, by MI-280 U122. What is now ESTABLISHED FROM GITHUB'S OWN WORKFLOW RECORD is the FACT that GitHub has never parsed this file (name returns the path, state=active) — not the REASON. Three hypotheses are now refuted with positive controls (input count: system-actions 14 parse …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-RANKING-KEY-AB-HAS-3393-RUNS-AND-THE-MEASURED-WINDOW-IS-100-PERCENT-STARTUP-FAILURE-WITH-ZERO-JOBS-AND-NOTHING-PAGES-ON-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-RANKING-KEY-AB-HAS-3393-RUNS-AND-THE-MEASURED-WINDOW-IS-100-PERCENT-STARTUP-FAILURE-WITH-ZERO-JOBS-AND-NOTHING-PAGES-ON-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-RANKING-KEY-AB-HAS-3393-RUNS-AND-THE-MEASURED-WINDOW-IS-100-PERCENT-STARTUP-FAILURE-WITH-ZERO-JOBS-AND-NOTHING-PAGES-ON-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ranking-key-ab.yml fails at startup on every run — 3,393 completed runs, 100/100 failure with zero jobs in the measured window, ~38/hour, absent from the failure-alert watch list"
+}

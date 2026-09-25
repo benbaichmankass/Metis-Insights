@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) A lever-OFF sweep runs over these nine (leg, lever) pairs at live parity (--tp-cap-pct 0.099, --without-declared-lever <lever>) and the rows land in the corpus. (2) Each of the nine cells' `ref` records the OFF-arm result -- the d_net_r_OOS, the verdict, and base_trades_OOS -- so a reader can see whether the shipped lever earns its place, the same way the 22 already-swept pairs do. (3) Any cell whose OFF arm shows the shipped lever is WORSE than its absence is raised to the operator as a Tier-3 disposition question; the row is NOT closed by silently re-grading a live cell. (4) A cell whose OFF arm returns `insufficient_base` is recorded as such -- 'we could not grade it' is a third state and must not read as 'the lever is fine'.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-NINE-SHIPPED-LEVERS-NEVER-GRADED-AGAINST-THEIR-OWN-ABSENCE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 6 SHIPPED levers have no lever-OFF row — never graded against their own absence (was filed as 9; 2 were never gradeable and 1 was a stale matrix cell)"
+}

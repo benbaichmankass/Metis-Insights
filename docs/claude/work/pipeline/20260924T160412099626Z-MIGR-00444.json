@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "BOTH observable, in either order: (1) `config/instruments.yaml` AVAXUSDT `max_qty` is no longer reachable as a fallback ceiling for an account whose demo/production flag differs from the venue the value was measured on — demonstrated by a test in which a non-demo bybit account resolving AVAXUSDT on a MISSED live lookup does NOT receive the demo-measured 22000 (it must grade `could_not_look`, or receive a separately-measured production ceiling); and (2) `scripts/ci/run_guards.py --base main` is green on the PR carrying that change. Re-reading or re-wording the YAML comment does NOT satisfy this row — the comment already exists and is precisely what this row says is insufficient.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260903-AVAX-VENUE-MAX-CEILING-MEASURED-ON-DEMO-BUT-SYMBOL-SCOPED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-AVAX-VENUE-MAX-CEILING-MEASURED-ON-DEMO-BUT-SYMBOL-SCOPED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-AVAX-VENUE-MAX-CEILING-MEASURED-ON-DEMO-BUT-SYMBOL-SCOPED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] AVAXUSDT max_qty=22000 is measured on Bybit's DEMO venue but stored symbol-scoped, so it would silently become a production fallback ceiling if AVAX is ever added to bybit_2"
+}

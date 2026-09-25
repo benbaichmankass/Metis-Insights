@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A SCHEDULED run of pr-queue-watch.yml is observed in which `Land the receipt on main` FAILS and `Report the verdict` still RUNS -- read off that run's step conclusions, never inferred from the workflow source. !! A GREEN RUN CLEARS NOTHING: on a run where the receipt lands, the verdict step would have run anyway, so it proves only that nothing was broken that day. The observation needed is the co-occurrence. !! AND A PASSING TEST CLEARS NOTHING EITHER: tests/test_pr_queue_watch_reports_always.py asserts the condition is present in the YAML, which is precisely what a harness CAN check, which is why it is not the criterion. Separately, the RESIDUAL above (step 10's manager-state observation still being skippable) is either fixed or given its own row before this one closes.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-PR-QUEUE-ESCALATION-IS-SKIPPED-WHENEVER-THE-RECEIPT-STEP-FAILS-AND-FIVE-REAL-PAGES-WERE-SWALLOWED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-PR-QUEUE-ESCALATION-IS-SKIPPED-WHENEVER-THE-RECEIPT-STEP-FAILS-AND-FIVE-REAL-PAGES-WERE-SWALLOWED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-PR-QUEUE-ESCALATION-IS-SKIPPED-WHENEVER-THE-RECEIPT-STEP-FAILS-AND-FIVE-REAL-PAGES-WERE-SWALLOWED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pr-queue-watch's `Report the verdict` carried no `if: always()`, so the escalation was SKIPPED whenever the unrelated receipt step failed -- 5 of 38 scheduled runs computed a TRUE escalation that never reached the channel"
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Every comms/strategy_evidence/*.json carries a source_run (and cost_stack.source) that a session with no memory of the producing run can actually reach -- a committed artifact path, a workflow run id, or an explicit 'not durably retrievable: <why>' -- OR the field is documented as deliberately ephemeral with the reason stated in the record.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-5GAYXBX5-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Pfa2shVwLhbdof5GayXBX5, checklist row E25, observed while producing comms/strategy_evidence/fvg_range_15m.json",
+    "rerun": "python3 -c \"import json,glob; [print(f, json.load(open(f)).get('source_run')) for f in sorted(glob.glob('comms/strategy_evidence/*.json'))]\"   # every record whose source_run is an unreachable session-local path"
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Duplicate of PI-20260922-R5-PATH-STATS-MISSING-FOR-THE-12-LEGS-WHOSE-SERIES-IS-IN-A-DEAD-TMP-DIR (routed to B6 today), which names the same 12 records and the decision they need. EVIDENCE: MEASURED 2026-09-24: 12 of 52 comms/strategy_evidence/*.json carry a /tmp source_run — the same set as the R5 row.",
+  "what": "THE EVIDENCE RECORDS' OWN LOCATORS POINT INTO /tmp, WHICH docs/CLAUDE-RULES-CANONICAL.md EXPLICITLY REFUSES. That doc's 'A MEASURED must say WHERE THE MEASUREMENT LIVES' section says a number whose source cannot be found is not MEASURED but INFERRED from an unstated one, and requires either a reachable locator or an explicit 'MEASURED (source not durably retrievable: <why>)'. MEASURED 2026-09-22 by reading the committed records: comms/strategy_evidence/eth_pullback_2h.json and trend_donchian.json (both written by R1's 2026-09-22 corpus re-run) carry source_run '/tmp/tmp.RsNZr5lfkw/<leg>__trades.jsonl', and fvg_range_15m.json written by this session carries '/tmp/claude-0/e25wd/fvg_range_15m__trades.jsonl'; cost_stack.source has the same shape. Those directories do not survive the session that made them, so the per-trade rows behind every pooled net_r_oos -- the numbers scripts/ci/check_roster_promotion_evidence.py grades a real-money roster against -- cannot be re-read or re-audited by anyone. NOT introduced by E25: it is the producer's default (build_strategy_evidence.py: wd = a.workdir or tempfile.mkdtemp(...)), so it is every record's condition, and this row is filed rather than fixed because changing where the corpus lands is a decision about what gets committed, across all ~43 routable legs and both lanes' records, not a one-leg edit."
+}

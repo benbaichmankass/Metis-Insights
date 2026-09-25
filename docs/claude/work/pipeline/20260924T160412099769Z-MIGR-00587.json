@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "EITHER an instance is OBSERVED where the size actually caused a problem (name the tool and what it did) and the row-scoped markers are built, OR it is recorded as accepted. [!] DO NOT 'FIX' THIS BY SHRINKING THE REFUSAL TO A STUB — that trades a transient large file for a register a mistaken `git add -A` can destroy, which is worse than the defect the size came from fixing.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-A-REFUSED-REGISTER-MERGE-NOW-WRITES-A-FILE-TWICE-THE-SIZE-OF-AN-8MB-BACKLOG",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-A-REFUSED-REGISTER-MERGE-NOW-WRITES-A-FILE-TWICE-THE-SIZE-OF-AN-8MB-BACKLOG",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-REFUSED-REGISTER-MERGE-NOW-WRITES-A-FILE-TWICE-THE-SIZE-OF-AN-8MB-BACKLOG'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] the merge driver's refusal inlines both sides, so refusing the health backlog writes ~16 MB into the working tree"
+}

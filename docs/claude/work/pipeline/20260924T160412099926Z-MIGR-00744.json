@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260806-ALLOCATOR-REGRET-VARIANT-PAIR-ARTIFACT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260806-ALLOCATOR-REGRET-VARIANT-PAIR-ARTIFACT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260806-ALLOCATOR-REGRET-VARIANT-PAIR-ARTIFACT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "[soak][Tier-1] allocator_soak regret is dominated by real-vs-prop VARIANT pairs, so mean_regret / disagree_pct do not measure strategy selection"
+}

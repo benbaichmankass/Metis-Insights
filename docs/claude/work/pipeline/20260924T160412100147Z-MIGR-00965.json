@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-FIFTEEN-LONG-HELD-CLOSES-STAY-SILENT-AFTER-MI-128-BECAUSE-THEIR-CLOSE-IS-ALREADY-OUTSIDE-THE-WINDOW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-FIFTEEN-LONG-HELD-CLOSES-STAY-SILENT-AFTER-MI-128-BECAUSE-THEIR-CLOSE-IS-ALREADY-OUTSIDE-THE-WINDOW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-FIFTEEN-LONG-HELD-CLOSES-STAY-SILENT-AFTER-MI-128-BECAUSE-THEIR-CLOSE-IS-ALREADY-OUTSIDE-THE-WINDOW'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-128 is forward-only by operator condition, so 15 long-held closes remain pnl-NULL with NO pnl_source key permanently — recorded so the residual is tracked rather than rediscovered, NOT as a request to back-fill"
+}

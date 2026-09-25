@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-JOURNAL-VENUE-AUDIT-READS-THE-VERY-LIST-THE-POSITION-IS-MISSING-FROM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-JOURNAL-VENUE-AUDIT-READS-THE-VERY-LIST-THE-POSITION-IS-MISSING-FROM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-JOURNAL-VENUE-AUDIT-READS-THE-VERY-LIST-THE-POSITION-IS-MISSING-FROM'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/ops/journal_venue_audit.py was built 2026-09-08 (MI-177) to find journal-vs-venue position divergences fleet-wide, and it reads the venue via _diag(\"exchange_positions\") at line 128 — which serves account_open_positions, the SAME account-wide list that a live real-money position was found missing from on 2026-09-09. bybit_2 held ETHUSDT 0.04 long unprotected for five days while journal trade 5471 recorded it closed on a stop the venue never fired; it is absent from that venue list AND from \"trades WHERE status='open'\", so it is outside both lists every protective sweep anchors to. HAD THIS AUDIT BEEN ON AN HOURLY CADENCE SINCE THE DAY IT WAS WRITTEN IT WOULD HAVE REPORTED bybit_2 CLEAN ON EVERY RUN. Two separate defects are easy to conflate here and must not be: (a) nothing invokes it — its own header declares manual-only, deliberately not on a cadence — and (b) it is structurally blind, which a schedule does not fix. Fixing only (a) is actively HARMFUL: it converts an unread book into a green light, which is worse than no detector. Its JOURNAL side is correct and hard-won (the /api/diag/journal LIMIT<=1000 cap, the /api/bot/positions hardcoded LIMIT 50 with no truncation flag, and the /api/diag/exposure uncapped-SUM cross-check that makes journal_read_state=complete an assertion) and should be reused, not rebuilt."
+}

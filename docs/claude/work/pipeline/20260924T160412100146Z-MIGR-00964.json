@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-LOCAL-PNL-BROKER-DEFER-GRACE-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-BYBIT-CLOSE-HAS-NO-GRACE-AT-ALL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-LOCAL-PNL-BROKER-DEFER-GRACE-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-BYBIT-CLOSE-HAS-NO-GRACE-AT-ALL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-LOCAL-PNL-BROKER-DEFER-GRACE-KEYS-ON-THE-OPEN-SO-A-LONG-HELD-BYBIT-CLOSE-HAS-NO-GRACE-AT-ALL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The _LOCAL_PNL_BROKER_DEFER_MS grace that stops local compute pre-empting fee-accurate broker truth is measured from created_at, so for any position held longer than the grace it is already spent at the moment of close"
+}

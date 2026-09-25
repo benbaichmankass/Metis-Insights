@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "_cancel_error_capture (or its consumer) distinguishes IBKR INFORMATIONAL codes - 202 at minimum - from genuine rejections, so a 202 renders as a successful cancel rather than retCode 1 / 'venue REFUSED'; and the 10147 note is emitted ONLY when the captured code is 10147. A test asserts both: a captured 202 does not render as a refusal, and a captured non-10147 refusal does not print the 10147 sentence.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-CANCEL-IB-ORDER-CLASSIFIES-202-CANCEL-CONFIRMATION-AS-A-REFUSAL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] cancel-ib-order labels IBKR 202 (the cancel CONFIRMATION) as \"venue REFUSED\", and cites 10147 whatever code arrived"
+}

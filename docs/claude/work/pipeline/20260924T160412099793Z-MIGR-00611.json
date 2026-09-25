@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "excursion_regime's observation window is DECLARED rather than inherited from input order -- rows explicitly ordered or the window passed in -- and the fan-out close spread is reported beside the result. [!] THE TWO BUILDERS CURRENTLY AGREEING DOES NOT CLOSE THIS: that is the observation that makes it a fragility rather than an error, and it is exactly what would stop being true on a re-ordered input. [!] NOR DOES SORTING IN ONE CALLER -- the control arm already does, and the shared function is still undefined for the next one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-EXCURSION-REGIME-WINDOWS-ON-ROWS-0-CLOSE-AND-WHICH-ROW-IS-ROWS-0-IS-ITERATION-ORDER-ON-A-FANOUT-PACKAGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-EXCURSION-REGIME-WINDOWS-ON-ROWS-0-CLOSE-AND-WHICH-ROW-IS-ROWS-0-IS-ITERATION-ORDER-ON-A-FANOUT-PACKAGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-EXCURSION-REGIME-WINDOWS-ON-ROWS-0-CLOSE-AND-WHICH-ROW-IS-ROWS-0-IS-ITERATION-ORDER-ON-A-FANOUT-PACKAGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] excursion_regime's observation window ends at rows[0]'s close on packages whose fan-out rows close up to 30.9h apart, and rows[0] is input order rather than a declared choice"
+}

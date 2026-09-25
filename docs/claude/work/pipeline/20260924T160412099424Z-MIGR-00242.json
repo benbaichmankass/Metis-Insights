@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Every exit_head_ml verdict states the block unit it was cut on, and the matrix does not compare a pooled verdict against a per-leg one without saying so.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-EXIT-HEAD-EVIDENCE-MIXED-POOLED-AND-PER-LEG-BLOCKS-WITH-NOTHING-SAYING-WHICH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-EXIT-HEAD-EVIDENCE-MIXED-POOLED-AND-PER-LEG-BLOCKS-WITH-NOTHING-SAYING-WHICH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-EXIT-HEAD-EVIDENCE-MIXED-POOLED-AND-PER-LEG-BLOCKS-WITH-NOTHING-SAYING-WHICH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] docs/research/m20-exit-head-rounds.jsonl mixed FAMILY-POOLED and PER-LEG E1 block cuts in one file with no field distinguishing them — 17 of 23 rows pooled — inviting exactly the incomparable-evidence comparison the repo already documents as invalid."
+}

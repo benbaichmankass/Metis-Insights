@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The tool grades a cell against the claim it actually makes: a `--path {a,b}` selector (or a per-cell path carried in from the sweep) choosing between `beats(...)` and the Path B claim (net_R up in both windows, drawdown RECORDED not gated), with the path named in the output so a verdict states which test produced it. `split_sensitive` must then describe stability of THAT verdict. NOT sufficient: documenting the caveat -- the field name is what misleads, and a reader filtering on it will not have read the docstring.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-SPLIT-DISPERSION-HAS-NO-PATH-B-MODE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-SPLIT-DISPERSION-HAS-NO-PATH-B-MODE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-SPLIT-DISPERSION-HAS-NO-PATH-B-MODE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `m20_split_dispersion` grades on PATH A only, so on a Path B cell it returns `pass_fraction: 0.0` and `split_sensitive: false` — and filtering on that boolean reads the stability of a FAILURE as evidence of a pass"
+}

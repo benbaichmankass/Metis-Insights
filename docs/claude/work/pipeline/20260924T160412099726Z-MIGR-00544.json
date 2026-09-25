@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "R14 (and R5, which shares `changed_paths`) DISTINGUISHES an empty changed-set from a surveyed-and-clean one, and is OBSERVED doing so: running `check_pr_landing.py` on a tree with uncommitted changes and an empty committed diff must report something like `no changed paths — nothing to grade (did you forget to commit?)` and must NOT emit the 'every changed path IS inside TIER1_SURFACE … declare landing: self and arm it' remedy. ⚠️ VERIFY BY RUNNING IT ON AN UNCOMMITTED TREE, not by reading the diff — this defect is invisible to a committed-tree run, which is exactly why it survived. ⚠️ A test asserting the new message on a synthetic empty list is NECESSARY BUT NOT SUFFICIENT: the failure only appears when a real working tree has changes the guard cannot see, so the check must exercise that shape. ⚠️ AND DO NOT 'fix' this by making changed_paths fall back to including uncommitted work — that would make the guard grade something CI never grades, which is a different and worse wrongness; the fix is to report the absence, not to invent a denominator.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-PR-LANDING-R14-FIRES-VACUOUSLY-ON-AN-EMPTY-DIFF-AND-TELLS-YOU-TO-SELF-LAND",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-PR-LANDING-R14-FIRES-VACUOUSLY-ON-AN-EMPTY-DIFF-AND-TELLS-YOU-TO-SELF-LAND",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-PR-LANDING-R14-FIRES-VACUOUSLY-ON-AN-EMPTY-DIFF-AND-TELLS-YOU-TO-SELF-LAND'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pr-landing-guard R14 reports 'every changed path IS inside TIER1_SURFACE' over ZERO paths on an uncommitted tree, and its remedy text tells you to declare landing: self and arm it"
+}

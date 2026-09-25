@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) a week with no further TLS-verify failures, closing it as a transient GitHub incident with the date range recorded; or (b) if it persists, a documented way for a session to distinguish infra-red from real-red WITHOUT opening the job log, since opening the log is the step a rushed session skips.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260812-ACTIONS-RUNNER-TLS-VERIFY-FAILS-AS-RED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260812-ACTIONS-RUNNER-TLS-VERIFY-FAILS-AS-RED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260812-ACTIONS-RUNNER-TLS-VERIFY-FAILS-AS-RED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] GitHub Actions runners intermittently fail git over TLS ('server certificate verification failed'), and the job reports conclusion=failure indistinguishable from a real test/guard failure"
+}

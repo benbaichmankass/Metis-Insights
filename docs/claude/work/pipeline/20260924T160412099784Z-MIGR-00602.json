@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) A merge that invokes the jsonregister driver leaves ZERO new untracked files in the repository root — verified by running a real conflicting merge and diffing `git status --porcelain` before and after, not by reading the script. (2) The question in the action is ANSWERED on the record: whether the driver or git itself creates `.merge_file_*`. If it is git, say so and close (b) as not-applicable — the ignore rule is then the whole remedy and pretending otherwise leaves a row nobody can finish. ⚠️ DO NOT close this on the `.gitignore` line alone: that hides the files from `git add`, which is the near-miss this row is about, and does not stop them accumulating.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-JSONREGISTER-MERGE-DRIVER-LEAVES-SCRATCH-FILES-IN-THE-REPO-ROOT-AND-A-ROUTINE-GIT-ADD-A-SWEEPS-THEM-INTO-A-COMMIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-JSONREGISTER-MERGE-DRIVER-LEAVES-SCRATCH-FILES-IN-THE-REPO-ROOT-AND-A-ROUTINE-GIT-ADD-A-SWEEPS-THEM-INTO-A-COMMIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-JSONREGISTER-MERGE-DRIVER-LEAVES-SCRATCH-FILES-IN-THE-REPO-ROOT-AND-A-ROUTINE-GIT-ADD-A-SWEEPS-THEM-INTO-A-COMMIT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The jsonregister merge driver leaves `.merge_file_*` scratch files in the REPO ROOT, untracked and unignored, so a routine `git add -A` commits them — 18 of them reached a pushed branch today and only `pr-landing-guard` R5 stopped them"
+}

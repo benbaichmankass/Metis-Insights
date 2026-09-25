@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A rejected row states WHY it has no measured basis rather than omitting the key, and margin_basis.kind is registered in collapsed-state-guard's CONTRACTS so a future state added to the producer without a consumer fails CI. The check: re-run the diag #9053 query and every one of the 8 newest rows should name a kind — none should be silent.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-MARGIN-BASIS-ABSENCE-IS-A-COLLAPSED-STATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-MARGIN-BASIS-ABSENCE-IS-A-COLLAPSED-STATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-MARGIN-BASIS-ABSENCE-IS-A-COLLAPSED-STATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] notes.margin_basis absent collapses THREE states — 'sizing never computed a basis', 'account is off the margin path', and 'the stamp is broken' — so the field cannot verify the fix it was added to verify"
+}

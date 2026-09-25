@@ -1,0 +1,22 @@
+{
+  "a10_note": "Still applies (all 14 still open) and closing them is E29's cleanup (it retired the workflow). EVIDENCE: MEASURED 2026-09-24 via list_pull_requests: 14 open PRs with head automation/reconcile-open-prs-* (#12451, 12456, 12459, 12466, 12469, 12474, 12477, 12484, 12486, 12489, 12493, 12498, 12502, 12511).",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Zero open PRs with an automation/reconcile-open-prs-* head ref, each closed one carrying a recorded disposition. ⚠️ `killed` is the expected terminal shape here, not `done`.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-RECONCILE-OPEN-PRS-14-STRANDED-PRS-NEED-CLOSING-NOT-MERGING",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E29 build lane (session_01AX7C1vHqCEnh4EyqLnm5p8), PR #12719, 2026-09-22",
+    "rerun": "List open PRs and filter head refs matching automation/reconcile-open-prs-*. Re-verify the two claims before acting: `git diff --stat main <branch>` for the revert risk, and diff the branch's docs/claude/work/OPEN-PRS.json against docs/archive/2026-09-21-operating-reset/work/OPEN-PRS.json for the payload claim. ⚠️ Do not close on the strength of this text -- the archive comparison is the reason it is safe."
+  },
+  "routed_to": "E29 (landed_unproven): close the 14 automation/reconcile-open-prs-* PRs unmerged with a recorded disposition",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "14 open automation/reconcile-open-prs-* PRs (#12451…#12511, opened 2026-09-17T15:30Z … 2026-09-18T04:47Z) are stranded by a workflow E29 retired in PR #12719. THEY MUST BE CLOSED UNMERGED, and it is measured rather than assumed: (1) every branch is cut from a PRE-RESET main -- `git diff --stat main <branch>` gives 1,055 files / 315,876 deletions on the newest (#12511) and 1,190 / 394,616 on the oldest (#12451), so merging ANY ONE reverts the operating reset wholesale; (2) nothing is lost -- their only payload is docs/claude/work/OPEN-PRS.json (the job's `paths:` names that file alone) and it is strictly STALER than the archived copy (branch 9 open / 114 settled vs archive 12 / 118; the one number the branch has that the archive's open_prs lacks, #12400, sits in the archive's settled_prs, i.e. already reconciled); (3) the known drop hazard does NOT apply -- sweep_stale_automation_prs.py warns that closing a WORK-DIGEST PR drops queued pending-pings.jsonl rows, and these carry no ping payload. Each close should record a disposition: open_pr_record.py grades a closed_unmerged row with none as `undispositioned`.",
+  "why_it_matters": "These are not inert. They are open, mergeable-looking PRs whose merge would silently revert the 2026-09-21 operating reset -- the single largest change on main this cycle. Leaving 14 of them in the queue is a live footgun for any session or automation that merges by label, by age or in bulk, and it is also 14 of the 50 open PRs obscuring the real queue."
+}

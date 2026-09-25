@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when the 1821/1835 branches reach outcomes.jsonl and a real firing is OBSERVED in /api/bot/logs?level=error - not when the code merely ships (a fix that is deployed and a fix that works are indistinguishable from every surface we have). Closing on a code change alone does not count.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-IB-PLACE-PROTECTIVE-KNOWS-IT-JUST-OVER-COVERED-A-POSITION-AND-TELLS-ONLY-THE-JOURNAL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-IB-PLACE-PROTECTIVE-KNOWS-IT-JUST-OVER-COVERED-A-POSITION-AND-TELLS-ONLY-THE-JOURNAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-IB-PLACE-PROTECTIVE-KNOWS-IT-JUST-OVER-COVERED-A-POSITION-AND-TELLS-ONLY-THE-JOURNAL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] place_protective detects that it has just left a position OVER-COVERED across disjoint OCA groups and says so with logger.error only — src/units/accounts/ib_client.py cannot reach outcomes at all, so the one moment with full context reaches no human surface"
+}

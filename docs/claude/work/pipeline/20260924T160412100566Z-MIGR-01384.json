@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "EITHER (a) a run of replay-pregate-nightly completes all 22 heads and its report lands under runtime_logs/replay_pregate/ ON MAIN -- both halves, because the commit-back has never once worked and a green run that commits nothing would leave the header's claim still false; OR (b) the operator decides the trainer's memory is not going to be increased and the fleet run is re-scoped to fit it (fewer heads per run, or batched across runs), and that decision is RECORDED as a decision rather than left looking like a repair that is about to happen. [!] A PARTIAL RUN DOES NOT CLEAR THIS however many heads it salvages -- salvage is the failure being survived, not the failure being fixed. [!] NEITHER DOES THE TRANSPORT REPAIR, which is already proven and is a DIFFERENT fact: #4390 held the connection for 30 minutes with zero transport failures and the workflow was still red. [!] AND DO NOT CLEAR THIS ON A QUIET ALARM. The workflow is in claude-run-failure-alert.yml's watch list, so it pages nightly; the pages going quiet would mean it stopped RUNNING, not that it started passing. Read the run history.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by checklist C3/E6 ('Unblock replay-pregate'), which owns the trainer-memory decision. EVIDENCE: MANAGER-CHECKLIST.json: C3 queued, E6 queued (same work, see PI-20260922-CHECKLIST-CARRIES-FOUR-TASKS-TWICE).",
+  "what": "[LOUD] replay-pregate-nightly's nightly red is NOT a network fault and NOT an OOM kill -- the trainer VM is out of memory and swap-thrashing, and the fleet run cannot finish. MEASURED on run #4390 (workflow_dispatch, 2026-09-02, the first run with the detach+poll repair): `free -m` on the trainer read total 5909 / used 5508 / free 70 / available 204 MB, with 4095 MB of 8191 MB swap consumed. Both OOM greps -- `dmesg -T` and `journalctl --since -2h` -- returned EMPTY, so nothing was killed; the driver is alive and crawling. It scored 10 of 22 heads in 30 minutes and was still going."
+}

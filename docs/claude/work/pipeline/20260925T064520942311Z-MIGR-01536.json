@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) The held E62 Tier-2 PR (broker-pnl grace and window keyed on the close) is merged AND deployed AND OBSERVED: at least one post-deploy Alpaca sl_cross or giveback_stop close carries exit_price_source 'exchange_fill', and an ib_paper sl_cross held >= 6h carries 'ib_execution'. (2) Then, on each re-run: when a REAL-money venue (alpaca_live; ib_live once it has a roster) reports roundtrip_state 'measured' in scripts/research/realized_slippage.py (>= 20 entries AND >= 20 package-referenced exits), file the proposed slippage_bps_roundtrip_for value for that venue as an ask_operator item (the CI upper, rounded up, as D3 did for perps). Do NOT change execution_costs.py defaults from this item.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-BOFCWBO7-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "session_01Unv4EErU84GXjyboFcwbo7, checklist row E62, branch lane/e62-equity-futures-slippage",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/e62 && python3 scripts/research/e62_slippage_accrual.py --in-dir /tmp/e62 --as-of <pull time> --out /tmp/e62/out.json"
+  },
+  "state": "queued",
+  "what": "[cost-model] Equities and futures slippage stay on the assumed 5.0 bps (operator 2026-09-24: 'a working artifact until we get evidence backed numbers'). E62 root-caused D3's structural blocker (0 MEASURED Alpaca sl/tp exits). _sweep_local_pnl_for_unpriced measured its 6h broker defer from the OPEN. Any close held >= 6h was therefore priced from the verdict before the hourly fills pull landed, and the broker sweep never looked (ib_paper sl/tp: 7 of 8 held < 6h MEASURED, 0 of 10 held >= 6h). The fix is a held Tier-2 PR. Forecast after it deploys (exact Poisson 95% CI on the 60-day rate): alpaca_live reaches 20 entries around 2027-03-13 [2026-12-11 .. 2027-12-31]. alpaca_live round trips arrive at about 1 per 60 days, so n=20 comes no earlier than about 2027-04 even at the CI upper. ib_live never accrues: it is dry_run with an empty roster, and only a Tier-3 roster decision starts it. Simulators: ib_paper reaches n=20 exits around 2026-11-12, alpaca_paper around 2026-12-13. This supersedes the structural half of PI-20260924-A87KVAFC-0002."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "SUPERSEDED BY THE OPERATOR REFRAME - this row no longer resolves by adding a reward-to-risk floor, and MUST NOT be closed by one. It closes as part of M20's active-management build, whose specification already owns it (docs/design/exit-mechanism-construction-PROCESS.md): (1) a bracket carries an EXPECTATION at entry - 'where do we expect this to exit, and why' becomes a required output of the entry decision, replacing tp_r: 50.0 on all 29 legs; (2) revision is conditioned on the strategy's OWN thesis - state where the move is expected to exhaust, and if price nears the target while the exhaustion condition has not fired, EXTEND. 'Extend the target' has NO implementation anywhere in the harness or the live monitor today, and that missing capability is what this finding is actually about; (3) amending a resting level costs nothing while exiting early costs 0.082-0.163 R against a fee-free mean edge of +0.1376 R (XRP) / +0.1167 R (SOL), which is the direct argument against the refuse-the-signal option. ACCEPTANCE TEST, operator-directed ('Fix forward means applying the infra we are about to build to the open trades'): the two currently-open sub-1 positions - XRP trade 4934 on bybit_2 (REAL MONEY) and the ada_pullback_2h leg - are the FIRST trades the bracket-revision capability is applied to when it lands. They are neither left to run on the geometry they were given nor hand-re-cut now. If the capability cannot state where those two are expected to exit and revise their levels a …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-TP-CLAMP-HAS-NO-SL-REFERENCE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The 9.9% TP sentinel clamp is applied with NO reference to the SL distance, so a high-ATR instrument gets a target NEARER than its stop (R:R < 1) and nothing checks, refuses, or reports it - live on real money right now - REFRAMED: the real defect is that 29 of 52 enabled legs place the exchange's rejection threshold as their target, and the remedy is M20's active-management build, NOT a reward-to-risk floor"
+}

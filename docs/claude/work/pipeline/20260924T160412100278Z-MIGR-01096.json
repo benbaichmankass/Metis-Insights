@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260912-RECONCILER-FILLED-IS-29-PERCENT-OF-CLOSES-AND-NAMES-NO-MECHANISM-BECAUSE-THE-RECONCILER-WATCHES-THE-ENTRY-ORDER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-RECONCILER-FILLED-IS-29-PERCENT-OF-CLOSES-AND-NAMES-NO-MECHANISM-BECAUSE-THE-RECONCILER-WATCHES-THE-ENTRY-ORDER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-RECONCILER-FILLED-IS-29-PERCENT-OF-CLOSES-AND-NAMES-NO-MECHANISM-BECAUSE-THE-RECONCILER-WATCHES-THE-ENTRY-ORDER'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "reconciler_filled is 28.6% of closed trades and 31% of winners, and it can never name an exit mechanism because the reconciler watches the ENTRY order"
+}

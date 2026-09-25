@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The measurement half is already DONE and recorded in this row's resolution field (HOLD-AT-2.5; re-sweep on the converged engine plus per-trade attribution; config deliberately unchanged). What keeps it open is the row's other half, VERIFIED still outstanding 2026-08-25: src/runtime/trail_decay.py and src/runtime/trail_vol.py both still carry 'Harness reference: ... scripts/backtest_trend.py / scripts/backtest_pullback.py' - the engine the fidelity pipeline never runs. Closes when both docstrings cite the live-faithful harness instead, confirmed by reading the two files, at which point the recorded resolution stands as written.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A LIVE armed Tier-3 trail lever (trend_donchian trail_decay_arm_r 6.49) was tuned on the harness whose trail uses a ROLLING ATR, while the live monitor trails off the FROZEN entry ATR"
+}

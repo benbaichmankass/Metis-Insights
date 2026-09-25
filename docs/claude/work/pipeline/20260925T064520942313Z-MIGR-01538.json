@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "GET /api/bot/prop/status?account_id=breakout_1 shows after_open_risk_state 'measured' (or 'no_open_positions' if #44 closed), and /prop/fills shows #44 with non-null sl equal to the terminal stop.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-BOEZJAFZ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "deploy",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/12869 (lane E66)",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1' | python3 -c \"import json,sys;d=json.load(sys.stdin);r=d.get('rule_distance',d);print(r.get('after_open_risk_state'),r.get('open_loss_to_stop_usd'),r.get('distance_to_dd_floor_after_open_risk_usd'))\""
+  },
+  "state": "queued",
+  "what": "POST-DEPLOY of PR #12869 (E66): record fill #44's CURRENT terminal stop via the prop-report workflow, body {\"kind\":\"amend\",\"account_id\":\"breakout_1\",\"symbol\":\"ETHUSDT\",\"direction\":\"short\",\"sl\":<current terminal stop; 2711.10 per E59>}. NEVER before deploy: main's ingest has no amend kind and would journal it as a CLOSED fill (status defaults to closed), hiding #44 from the pulse/alert/risk read. Check #44 is still open first. Until sent, every new breakout_1 ticket grades cushion_unknown (intended)."
+}

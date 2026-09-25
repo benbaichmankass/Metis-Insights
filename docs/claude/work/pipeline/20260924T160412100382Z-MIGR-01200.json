@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "PR #12686 merges to main AND a --check / --self-test run on main's own copy confirms: the PI-20260921-0002 collision is still reported (not silenced) and no NEW collision has been introduced by the merge itself.",
+    "kind": "event"
+  },
+  "id": "PI-20260921-M04",
+  "loud": true,
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager, 2026-09-21) -- found while resolving the E9 merge; caused by this same session",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import pipeline;r=pipeline.read_log();print('records',r.records,'items',len(r.items))\"; # FINDING STILL APPLIES while records>items for reasons other than genuine state changes, and while append() accepts an existing id carrying unrelated content without complaint"
+  },
+  "routed_to": "PR #12686 (branch claude/pipeline-collision-guard-m04, session session_01YUnvQssdGXkpjB2MRkddF3) -- the manager merges per this lane's dispatch instruction ('DO NOT MERGE -- the manager merges'). Mark done only after merge and the clears_when observation above. [!] RECORD REPAIRED AT MERGE by the manager: the lane's update had rewritten `what` and repointed `origin.ref` at its own session and PR, which made a legitimate state change indistinguishable from a displaced finding -- and THIS BRANCH'S OWN NEW CHECK FLAGGED IT, on its own record, which is the best possible evidence that the check works. `origin` is where the finding came from; the lane's PR belongs here in routed_to.",
+  "state": "routed",
+  "what": "pipeline.append() HAS NO ID COLLISION CHECK, SO ONE FINDING CAN SILENTLY DISPLACE ANOTHER AND THE STORE STILL READS `clean`. MEASURED 2026-09-21, and it is not hypothetical -- the manager session did it. The store's design is APPEND-ONLY with LAST-RECORD-WINS, which is correct for a STATE CHANGE to a known item and is what gives the audit trail for free. But nothing distinguishes 'a new state for item X' from 'a DIFFERENT finding that happens to reuse X's id'. Two sessions filing concurrently both mint the next free number from the store they each read at start, and neither can see the other. Observed: main carried PI-20260921-0002 (a board-pointer reader finding, filed by session_011Z18XADmiW1npvEeHm5nCP in #12676); the manager appended a pr-landing-guard finding under the same id; load() folded 8 records to 4 items and the FIRST finding vanished from items, due() and render_section_0 entirely. Concurrently the E9 lane minted its OWN 0002/0003/0004/0005 on its branch for four further different findings, so the same collision was queued up three more times behind a merge. [!] `--check` REPORTED `clean -- 4 item(s) validated over 8 record(s), 0 unreadable` THROUGHOUT. That is the serious half: the store cannot distinguish 'this item is gone' from 'this item was never filed', which is the exact collapsed-state class scripts/ci/check_collapsed_states.py enforces against repo-wide, occurring inside the module built to stop findings being dropped. A displaced row is a DROPPED FINDING that looks like a healthy store. [!] DO NOT fix it by making ids opaque (a uuid) and stopping there -- the readable dated id is worth keeping and the real defect is the missing check. append() should refuse an id already present whose record is not plausibly a state change of it, and the caller should have to say which it means. Allocation needs an answer too: two sessions that cannot see each other will keep picking the same next number."
+}

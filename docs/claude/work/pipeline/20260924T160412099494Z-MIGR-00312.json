@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "p90 bars-held for every scalp and pullback leg falls within 3x its backtested horizon, and declared-bracket exits rise above 50% of closes for those families.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Every mean-reversion and scalp leg is held 10-100x its own bar horizon — 15m scalps to 11 days, 5m scalps to 41h at p90 — the exact class BYBIT_TPSL_MODE=full caused in June, now with a different mechanism"
+}

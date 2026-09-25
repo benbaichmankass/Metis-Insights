@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260827-TRAINER-SCHEDULE-IS-UNDECLARED-THE-VM-IS-A-PET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260827-TRAINER-SCHEDULE-IS-UNDECLARED-THE-VM-IS-A-PET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260827-TRAINER-SCHEDULE-IS-UNDECLARED-THE-VM-IS-A-PET'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "8 of the trainer's systemd units exist ONLY on the box and not in deploy/trainer/ -- including ict-trainer.timer, the daily training cycle itself, so the core schedule cannot be reviewed and does not survive the VM"
+}

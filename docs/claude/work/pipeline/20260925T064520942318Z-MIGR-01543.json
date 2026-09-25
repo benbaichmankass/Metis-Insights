@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "due_date": "2026-10-08",
+    "kind": "date"
+  },
+  "id": "PI-20260924-2S8DXGTZ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "MANAGER-CHECKLIST.json#E67 (/performance-review, session_01HUMdsBGKWKBmNC2S8DxGtz)",
+    "rerun": "python3 -c \"import json; lines=open('comms/claude_strategy_scores.jsonl').readlines(); ts=[json.loads(l).get('reviewed_at') for l in lines if l.strip()]; print('newest reviewed_at:', max(t for t in ts if t))\""
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": "1",
+  "what": "[performance] SCOPE LIMITATION, stated rather than silently dropped: this run (E67, dispatched specifically to answer 3 real-money/promotion-evidence questions on a $40 ceiling) did NOT complete the performance-review skill's full per-decision grading pass -- pulling and grading every order package since the last review's reviewed_at (2026-09-08T10:50:51Z per comms/claude_strategy_scores.jsonl, a 16-day window) across all ~55 strategies, appending to comms/claude_strategy_scores.jsonl, the M13 insights cross-check, the diversified paper-book tracker snapshot, and the recurring real-money allocation benchmark. What WAS done instead: a scoped, verified pass on the real-money + prop roster (9 legs) and the Stage-1 promotion-candidate population, which is what the dispatch asked for, plus the strategy-refinement-queue.json hard-completion-gate drain (all 3 open SRQ items re-validated). Nothing in comms/claude_strategy_scores.jsonl was appended this run -- the file's newest reviewed_at is UNCHANGED at 2026-09-08, so the NEXT full /performance-review's window will correctly still start there rather than silently skipping 2026-09-08..2026-09-24. Filed so a future review (or the operator) can decide whether to run the full pass now or fold it into the next regularly-scheduled one, rather than this gap going unrecorded the way the 951-row backlog did before the pipeline existed."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "OBSERVABLE: `m20_coverage_rollup.py --done-condition` prints a movable count that is a MEASURED cut -- every cell it calls movable has a sweep arm a session could actually invoke -- and names any cell whose status implies a remedy that does not exist, with the route that does. Closes when that holds AND the claim is checked against the sweep/harness surfaces by a test rather than by a constant a session maintains by hand (a hardcoded list goes stale exactly the way the '4 movable' figure did). Does NOT close by correcting the number in a doc, a ping, or a roadmap entry: three of those already carried the wrong figure while the tool kept emitting it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-ROLLUP-CALLS-A-CELL-MOVABLE-WHEN-NO-SWEEP-PATH-EXISTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] m20_coverage_rollup called 4 done-condition cells 'movable by a session' when ZERO were: never_attempted prints 'no sweep has been run' for levers that have no sweep arm to run"
+}

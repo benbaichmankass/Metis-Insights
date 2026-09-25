@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "BOTH, and they are different facts - say WHICH you cleared. (1) The un-carried-spec COUNT is MEASURED and reported with a stated classifier and a positive control (WO-20260906-COUNT-THE-UN-CARRIED-SPECS). Until then nobody knows whether the 14-day case was a one-off or a population. (2) A MECHANISM makes an un-carried spec visible WITHOUT a session thinking of it - see BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK - and it has been run over the EXISTING tree, not only armed for new artifacts. !! DO NOT CLEAR BECAUSE A SESSION IS RUNNING. A session being spawned is exactly the state that looked fine on 2026-08-23. !! DO NOT CLEAR ON ANOTHER MEMO. The failure class is a well-written artifact nothing points at; an eighth document restating the diagnosis makes this row MORE true. !! IF THE OPERATOR DECIDES the count is not worth measuring, this row does not clear - it CHANGES: that is a legitimate decision and must be RECORDED as one rather than left looking like work about to start.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by A7 (the pipeline) and the plan's two-category taxonomy: an un-carried spec is now by definition a memo, and the checklist/queue are the only carriers. EVIDENCE: CLAUDE.md § 'Two categories'; A7 done.",
+  "what": "[LOUD] A finished, operator-directive-carrying session prompt sat undispatched 14 days; the thesis was re-derived seven times and built zero"
+}

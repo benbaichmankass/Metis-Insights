@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) `tp_geometry` is DEFINED in the matrix's `legend` alongside the status values, including what an ABSENT value means — and absence must be given an explicit name (e.g. `unrecorded`) rather than left as null, so 'we did not look' is sayable. (2) Cells whose evidence post-dates the 2026-08-10 cutover AND whose ref names a live-parity run are stamped `live_parity`; cells whose ref predates it are stamped `no_take_profit`. Where the ref does not establish either, the cell is stamped `unrecorded` — NOT guessed from the date alone, since a date is a proxy and this row exists because a proxy was trusted. (3) A guard asserts that every cell carries one of the defined values, so a new cell cannot be added silent. It must ship with a planted-omission self-test. (4) The roll-up reports geometry coverage as a fraction the way `rCoverage`/`pnlCoverage` do, so a reader sees the denominator instead of inferring completeness from the marked cells.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] tp_geometry is set on 10 of 416 coverage cells (2.4%) and documented in neither _doc nor legend — the field that exists to stop one specific wrong inference cannot stop it"
+}

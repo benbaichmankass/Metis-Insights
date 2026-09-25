@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A backtest run for at least ONE clamping live leg is RETAINED durably (a committed --emit-trades artifact, or an equivalent under comms/research/) AND an exit-location comparison is computed against that leg's MEASURED-provenance live trades in R, STATING both n's. [!] The comparison must report the live n AFTER provenance filtering, never the raw closed-trade count — at 33.5% the difference is a factor of three and is the whole question of whether the comparison has power. [!] NOT SUFFICIENT: landing a run of the CURRENT calibrator, which still answers the outcome-distribution question (that is the parent row's own finding and is not superseded here). [!] NOT SUFFICIENT: adding exit_price to the --emit-trades row — gross_r already carries exit location, so that is a convenience and not the blocker; treating it as the fix would leave the retention gap untouched. [!] If the operator decides backtest runs should NOT be retained in-repo, this row does not close — it CHANGES: the exit-location gap is then permanently unmeasurable by this route, which is a legitimate decision and must be RECORDED as one with that consequence stated.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-THE-BACKTEST-VS-LIVE-EXIT-COMPARISON-IS-BLOCKED-ON-RETENTION-NOT-MEASURABILITY-AND-THE-CALIBRATOR-NEEDS-A-QUERY-NOT-AN-INSTRUMENT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260908-THE-BACKTEST-VS-LIVE-EXIT-COMPARISON-IS-BLOCKED-ON-RETENTION-NOT-MEASURABILITY-AND-THE-CALIBRATOR-NEEDS-A-QUERY-NOT-AN-INSTRUMENT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-THE-BACKTEST-VS-LIVE-EXIT-COMPARISON-IS-BLOCKED-ON-RETENTION-NOT-MEASURABILITY-AND-THE-CALIBRATOR-NEEDS-A-QUERY-NOT-AN-INSTRUMENT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] Both halves of a backtest-vs-live exit-location comparison already exist in the same unit (R) — the backtest half is emitted as gross_r and retained NOWHERE, so the gap is unquantifiable today for want of a kept run, not for want of an instrument"
+}

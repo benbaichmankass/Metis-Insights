@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "CORRECTED 2026-09-17 (MI-280 U116) -- the original criteria are preserved below and TWO of their premises are refuted in `detail`; read that first. WHAT NOW CLEARS THIS: a real merge is OBSERVED being refused by predicted_register_integrity before it lands -- i.e. manager_preflight (or the merge duty it serves) grades `predicted_register_integrity` FAIL on a branch that would have duplicated an id, and the merge does not happen. [!] A GREEN TEST SUITE CLEARS NOTHING: 18 pytest cases and 86 preflight self-test cases pass, 8 planted defects were each caught, and none of that reaches a real merge. [!] NOR DOES THE REAL-INCIDENT FIXTURE, which grades a merge that already happened. [!] AND THE CHECK MUST BE RUN AGAINST THE BASE AS OF THE MERGE, not as of CI -- a run against a stale base reproduces exactly the blindness measured in `detail` (3), and would look identical to a working check. === THE ORIGINAL CRITERIA FOLLOW AND ARE PRESERVED AS THE RECORD OF WHAT WAS ASKED FOR: EITHER register-id-guard's verdict on `main` reaches a session or the operator WITHOUT somebody stumbling on it -- i.e. a red push-to-main guards run is routed somewhere a human or a session is required to look (docs/claude/DUE.md's red_main_runs source is the obvious carrier and is itself unproven, per OI-20260913-THE-DEFAULT-BRANCH-RED-READER-IS-DEPLOYED-AND-HAS-NEVER-QUERIED-THE-ACTIONS-API) -- OR the duplication is prevented at the merge, which needs something GitHub can actually run server-side. [!] THAT  …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-GITHUBS-SQUASH-MERGE-CANNOT-RUN-THE-ROW-AWARE-REGISTER-DRIVER-SO-UNION-DUPLICATES-AN-IDENTICAL-ROW-ONTO-MAIN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-GITHUBS-SQUASH-MERGE-CANNOT-RUN-THE-ROW-AWARE-REGISTER-DRIVER-SO-UNION-DUPLICATES-AN-IDENTICAL-ROW-ONTO-MAIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-GITHUBS-SQUASH-MERGE-CANNOT-RUN-THE-ROW-AWARE-REGISTER-DRIVER-SO-UNION-DUPLICATES-AN-IDENTICAL-ROW-ONTO-MAIN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A squash-merge of a register-touching PR duplicated a byte-identical row onto main and made register-id-guard red there; the repo's row-aware merge driver is LOCAL-only and cannot run server-side"
+}

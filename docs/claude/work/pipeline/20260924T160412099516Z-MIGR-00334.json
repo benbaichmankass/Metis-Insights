@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Staged, and each stage independently verifiable. (1) The price axis lands in all three venue coverage reads, sharing broker_bracket_reconcile's comparator and tick table — this also closes BL-20260820-PROTECTION-COVERAGE-IS-PRICE-BLIND criterion 4 and its criterion-5 Alpaca half. (2) Breach detection ships in annotate and soaks against the three live controls available TODAY: MGC 4773 must grade breached on the target side, MES 4350 diverged on the stop side, and MHG 4796 within on both — a build that flags all three is as broken as one that flags none, the same discriminating-run discipline that validated the offline detector. (3) The stop side flips to apply only after that soak is reviewed, with the 2-observation confirm reused so a single bad bar cannot close a position, alerts rate-limited per (account, symbol, state) since the condition can hold for days, and the close booking the MARKET while the soak records that the declared level was passed at time T — writing the declared level as the exit price would be the anchorless-estimate class again. (4) The target side needs NO separate decision — the operator settled it on 2026-08-23 (both sides close, on thesis-validity grounds); it ships behind the same apply flip, sequenced after the stop side only for urgency. Reviewing the soak means confirming the implementation fires correctly, NOT re-litigating whether to act.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-EXIT-SWEEP-CANNOT-INFER-A-BREACHED-BRACKET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-EXIT-SWEEP-CANNOT-INFER-A-BREACHED-BRACKET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-EXIT-SWEEP-CANNOT-INFER-A-BREACHED-BRACKET'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The live sweep cannot tell that a declared bracket ALREADY got passed while the position stayed open — operator-directed: it needs the price axis and a should-have-fired inference"
+}

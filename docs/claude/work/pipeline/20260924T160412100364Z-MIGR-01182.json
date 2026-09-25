@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either the SessionStart hook in .claude/settings.json no longer names docs/claude/board-pointer.json, or the board machinery (board-heartbeat/board-post/board-rotate/merge-claim-audit/scope-overlap-audit workflows, board_pointer.py, check_board_coherence.py, coordination-board.md, board-body-template.md) has been disarmed/retired the way constraint-readout.yml and scope-overlap-audit.yml's schedules already were, so the count of LIVE (non-comment, non-historical) readers goes to zero or the hook is corrected to match reality.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "E9 / this PR (build lane, session_01JVPxS3XjMyiN3J3HpQPkNq)",
+    "rerun": "git grep -lI 'board-pointer.json' -- ':!docs/archive/**'"
+  },
+  "state": "queued",
+  "what": "10 files still read docs/claude/board-pointer.json, which the reset archived. CORRECTED (E9, this PR): the original rerun command (a Python glob over .py/.yml/.yaml/.md) undercounts because it excludes .json — it misses `.claude/settings.json`, which is the highest-impact instance of this whole class: its SessionStart hook text is injected into EVERY session's context on boot (verified: fired in this session's own transcript, quoting docs/claude/board-pointer.json by name) and instructs every session, including this one, to resolve a board number that no longer exists (`scripts/ci/board_pointer.py --number` returns `could_not_check ... does not exist`, verified this session). A git-grep-based rerun (extension-agnostic) finds 22 tracked non-archive files referencing the string, not 10; after excluding .gitattributes (a path listing, not a reader), two historical .github/pr-landing/*.json records, and this pipeline's own prior entry, 18 are live board machinery/docs/tests plus the two live diag relays (comments only, already noted) plus `.claude/settings.json`."
+}

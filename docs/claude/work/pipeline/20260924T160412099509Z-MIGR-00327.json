@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either (a) shorting is enabled broker-side on the Alpaca live account AND the short book earns a forward record (it is currently 0-for-7, -$4,254 on alpaca_portfolio), or (b) a short gate refuses the signal at the coordinator with a logged cause for any account whose broker reports shorting_enabled false — so the refusal is attributable from the journal rather than from a venue error. (b) is Tier-3 order-path work and is worth doing regardless of (a). Closed when a non-shorting account can be shown, from the journal, to refuse a short with a named cause before placement.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `shorting_enabled` is read on the diag surface and consumed by NOTHING on the order path — flipping alpaca_live to live would send 60.1% of its flow to a broker that cannot fill it"
+}

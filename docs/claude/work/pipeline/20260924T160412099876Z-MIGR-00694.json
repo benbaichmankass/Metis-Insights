@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Any analysis publishing a PACKAGE-level rate states how many of its units repeat an account_id, and says whether it kept or dropped them. [!] NOT SUFFICIENT: grouping on order_package_id and assuming the members are one fan-out -- that is the defect. [!] ALSO NOT SUFFICIENT: dropping them silently; the count is load-bearing (16 of 110 here, and 10 of 10 in one DiD cell) and belongs in the output. [!] AND AN HONEST NEGATIVE CLOSES IT for a given population: if a study's units carry no account repeat, saying so with the number is a completed check.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260913-ORDER-PACKAGE-ID-IS-NOT-A-FANOUT-KEY-16-OF-110-MULTI-ROW-PACKAGES-REPEAT-AN-ACCOUNT-AND-CARRY-6-OF-7-DISAGREEMENTS-IN-ONE-DID-CELL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260913-ORDER-PACKAGE-ID-IS-NOT-A-FANOUT-KEY-16-OF-110-MULTI-ROW-PACKAGES-REPEAT-AN-ACCOUNT-AND-CARRY-6-OF-7-DISAGREEMENTS-IN-ONE-DID-CELL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-ORDER-PACKAGE-ID-IS-NOT-A-FANOUT-KEY-16-OF-110-MULTI-ROW-PACKAGES-REPEAT-AN-ACCOUNT-AND-CARRY-6-OF-7-DISAGREEMENTS-IN-ONE-DID-CELL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] 16 of 110 multi-row order packages hold two trades for the SAME account, so they cannot be one cross-account fan-out — and all 10 that reach U15's cells land in control_post, carrying 6 of its 7 package disagreements"
+}

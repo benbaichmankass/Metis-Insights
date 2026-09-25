@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. Add a fourth state (`partially_filled`) carrying the filled qty, and surface it in the close's retMsg so a monitor retry's log says the size changed.\n2. Read `filled`/`remaining` explicitly rather than inferring from `status`.\n3. Separately, MEASURE IB futures fill latency on an open venue before treating 6s as validated -- it is a chosen value, not a measured one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-IB-CLOSE-CANCEL-IGNORES-PARTIAL-FILL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] _cancel_own_close_order has no PARTIAL-fill state: a close order half-filled at the 6s deadline reads as fully 'cancelled'"
+}

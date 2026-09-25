@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Each of the four legs carries a current M7 packet and an operator decision (kill / demote to shadow / hold with a stated reason).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] slv_trend_1h: 0 wins in 13 closed trades over 30d, -5,374.59 paper, and it is the only large loser whose loss is well MEASURED (coverage 0.77) — a KILL/DEMOTE candidate with credible evidence"
+}

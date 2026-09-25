@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "IBClient supports STK/ETF contracts (tested), the chosen ETF strategies run on ib_paper end-to-end (real paper fills journaled), and account_compat_matrix has scored ib_paper for them — OR a documented decision not to pursue it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260707-IBKR-STK-ETF-SUPPORT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260707-IBKR-STK-ETF-SUPPORT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260707-IBKR-STK-ETF-SUPPORT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] Scope + build IBKR equity/ETF (STK) contract support so the alpaca ETF strategies can also run on ib_paper (2nd paper venue / future IBKR ETF real-money route)"
+}

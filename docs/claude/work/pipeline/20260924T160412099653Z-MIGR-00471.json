@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "scripts/ops/session_registry.py::register REFUSES (or loudly warns on) a spawn whose named work_object path does not resolve to a file on origin/main, AND that refusal is OBSERVED firing once against a deliberately bad path (a planted-negative control) as well as passing on a good one. ⚠️ A green registration is NOT the observation: today every registration is green and the check does not exist, so 'register ran and did not complain' is indistinguishable from the current state. ⚠️ AND FIXING THE TWO KNOWN INSTANCES BY HAND CLOSES NOTHING - both were already fixed by hand, by the sessions that hit them, which is precisely why the class survived to recur.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A sub-session dispatch names a work object path that does not exist, and calls it the contract"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "src/web/api/routers/performance.py applies exclude_reduce_leg_predicate, AND /api/bot/performance?window=30d returns byte-identical aggregates before and after the change — the no-op result is the proof it is a pure narrowing against today's data rather than a silent restatement of the book. Consider trades_closed.py in the same change, where reduce legs currently surface to the SPA as closes with realizedPnl null.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-PERFORMANCE-ENDPOINT-DOES-NOT-APPLY-THE-REDUCE-LEG-PREDICATE-WRITTEN-FOR-IT-AND-RELIES-ON-A-ONE-SHOT-CLEANUP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-PERFORMANCE-ENDPOINT-DOES-NOT-APPLY-THE-REDUCE-LEG-PREDICATE-WRITTEN-FOR-IT-AND-RELIES-ON-A-ONE-SHOT-CLEANUP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-PERFORMANCE-ENDPOINT-DOES-NOT-APPLY-THE-REDUCE-LEG-PREDICATE-WRITTEN-FOR-IT-AND-RELIES-ON-A-ONE-SHOT-CLEANUP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/bot/performance never applies exclude_reduce_leg_predicate — its correctness against phantom-PnL reduce legs rests on `pnl IS NOT NULL` plus a historical one-shot cleanup, which is the exact case the predicate's own docstring says that filter does NOT catch"
+}
