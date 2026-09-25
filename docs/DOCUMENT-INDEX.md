@@ -825,6 +825,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/pullback-stop-retune-and-capr-2026-08-23.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/qld-tqqq-examined-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/r-metric-contamination-2026-09-02.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/reachable-take-profit-proposal-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/reads-everything-convergence-status-2026-07-16.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/real-money-0for13-attribution-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
