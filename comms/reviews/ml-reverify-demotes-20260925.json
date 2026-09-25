@@ -1,0 +1,117 @@
+{
+  "request_id": "w4-ml-reverify-demotes",
+  "reviewed_at": "2026-09-25T13:35:00+00:00",
+  "reviewer": "claude",
+  "session": "session_01UoURb4jJYwDhCwD9fNL9Sc",
+  "window_start": "2026-09-01T22:31:50+00:00",
+  "window_end": "2026-09-25T13:35:00+00:00",
+  "_window_note": "window_start = oldest row in the retained live shadow_predictions.jsonl (/api/bot/shadow/stats log_coverage.oldest_retained, read 2026-09-25T13:23Z); no model prediction older than this can be joined to a trade. window_end = the time this re-check was written.",
+  "_template_scope_note": "Targeted re-verify of two models, not a full /ml-review. The template fields trainer_findings, model_status (fleet-wide), experiments_proposed, backlog_drain and claude_channel_ping are deliberately left out: this lane covers only the two models in model_verdicts[], and the manager relays the result. The next full /ml-review owns the fleet-wide fields.",
+  "scope": "Re-check of the two Tier-3 demote proposals in E72 (#12903, comms/reviews/ml-review-20260924-210245.json): btc-regime-15m-lgbm-fc-pcv-v2 and sol-regime-15m-lgbm-fc-pcv-v2, both at advisory. The operator chose 'Re-verify first'. Read and analyze only (Tier 1). No model stage or registry entry was changed. The manager takes any demotion to the operator.",
+  "rubric": ".claude/skills/ml-review/SKILL.md (promotion/demotion + unified-confidence influence) and .claude/skills/drift-remediation/SKILL.md, which is the binding process when a demote is proposed on drift.",
+  "sources": {
+    "live_drift": "GET /api/bot/shadow/drift?model_id=<id>, defaults reference_days=30 current_days=7, read 2026-09-25T13:23Z via scripts/ops/diag_fetch.sh (direct HTTPS)",
+    "live_stats": "GET /api/bot/shadow/stats?model_id=<id>, read 2026-09-25T13:23Z",
+    "live_trade_scores": "GET /api/bot/trades/scores?limit=200&include_open=false, read 2026-09-25T13:25Z. Covers the 200 most recent closed trades, opened 2026-09-16T22:02Z to 2026-09-25T11:11Z",
+    "live_closed_trades": "GET /api/bot/trades/closed?since=2026-08-01&include_paper=true&include_demo=true, paged 0..1000, 1098 rows, read 2026-09-25T13:26Z",
+    "live_gate_audit": "GET /api/diag/audit_query?event=regime_hard_gate|regime_ml_vol_shadow&symbol=BTCUSDT|SOLUSDT&since=2026-09-01T00:00:00Z, read 2026-09-25T13:3xZ",
+    "trainer_stage_guard_gate_check": "trainer-vm-diag #12955 (run 36140816688), 2026-09-25T13:28Z",
+    "trainer_per_trade_attribution": "trainer-vm-diag #12959 (run 36141171019), 2026-09-25T13:28Z. Same functions stage-guard uses: ml.promotion.attribution.load_closed_trades + join_scores_to_trades",
+    "trainer_data_freshness": "The trainer's trade_journal.db copy has mtime 2026-09-25 05:00 and newest closed trade at 04:40:51Z. Its shadow log ends 2026-09-25T04:55:09Z. So trainer-side numbers are about 8.5h behind the live endpoints.",
+    "failed_relays": "#12956 and #12957 failed (a heredoc indent bug, then a missing PYTHONPATH). Both were superseded by #12959. No data from them is used here."
+  },
+  "how_these_heads_influence_orders": {
+    "mark": "MEASURED from code and the live audit; the conclusions are INFERRED from those",
+    "channel_1_vol_hard_gate": "src/runtime/intents.py regime hard gate. With REGIME_ML_VERDICT_MODE=use (ROADMAP M16 says it has been live for BTC since 2026-06-28; I did not read the VM env this session), the advisory head's vol label replaces the frozen label, and config/regime_policy.yaml::trend_vol OFF-cells may DROP an intent. The effect only reduces trading: an intent is dropped only when vol_enforced = vol_gated AND the label is ML-sourced. A frozen-fallback label never enforces. So demoting a head REMOVES blocks and can never block anything new.",
+    "channel_2_advisory_downsize": "src/runtime/advisory_sizing.py. The per-strategy advisory_policy defaults to 'annotate' (logs only, no resize). grep -rn advisory_policy config/ returned 0 lines (the same grep for trend_vol returns config/regime_policy.yaml, so the probe works), so I read this as annotate-only: no order effect.",
+    "channel_3_conviction_c_reg": "src/runtime/conviction_inputs.py: c_reg flows only when a regime_alignment calibrator exists, and conviction sizing is applied only on bybit_1 (demo) per ROADMAP M16. Not verified this session. At most, it touches the demo account.",
+    "btc_measured_influence": "regime_hard_gate rows for BTCUSDT since 2026-09-01: 213. Of these, 16 have vol_enforced=true, meaning the head's label caused the drop: 14 trend_donchian long + 2 ict_scalp_5m short. The other 197 are trend-axis (ADX) drops, and those do not depend on the ML label.",
+    "sol_measured_influence": "regime_hard_gate rows for SOLUSDT: 0 since 2026-09-01, and 0 over the table's full history (query with no since filter). The SOL head does resolve labels: 243 regime_ml_vol_shadow rows since 2026-09-01, all model_id=sol-regime-15m-lgbm-fc-pcv-v2. But no trend_vol OFF-cell names a SOL strategy (the cells name trend_donchian, ict_scalp_5m and squeeze_breakout_4h). The probe is shown to work: the same query on BTCUSDT returns 213 rows. INFERRED: the SOL head's 'advisory' stage currently has no measured order effect through the vol gate, and every SOL trade in the population is on bybit_1 (demo). So the E72 premise that it is 'ADVISORY, so it influences orders' does not hold for SOL."
+  },
+  "model_verdicts": [
+    {
+      "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+      "current_stage": "advisory",
+      "verdict": "hold",
+      "verdict_detail": "The demote case does NOT hold on today's evidence. The drift is real and persistent: drift_clean has failed on two consecutive days. But every regime-appropriate capability gate passes. The 0-for-8 turns out to be every real-money BTC trade since the log starts, and the model did not cause any of them. Demoting would remove the 16 blocks the head made on OFF-cells that were written up as money-losing, and would stop none of the 8 losses. Per drift-remediation, an interim demote is only for a head that is 'actively harmful now', and none of today's evidence shows harm. Route the drift to diagnosis, not to demotion.",
+      "drift": {
+        "live_endpoint": "KS=0.2435 (significant), PSI=0.0382 (no_change). Reference n=1735 (window start 2026-08-19, but the retained log only begins 2026-09-01T22:31Z, so the reference in practice is 09-01 to 09-18). Current n=701 (09-18 to 09-25). Score mean 0.9649 -> 0.9392, stdev 0.0764 -> 0.0996. MEASURED /api/bot/shadow/drift, read 2026-09-25T13:23Z.",
+        "trainer_gate": "drift_clean FAIL: KS=0.2573 > 0.2, PSI=0.0452 <= 0.25 (trainer-vm-diag #12955).",
+        "E72": "Endpoint KS 0.2147, PSI 0.0316. Gate KS 0.2334.",
+        "changed": "KS went up on both instruments (endpoint +0.029, gate +0.024). PSI is still no_change. The shift is concentrated in the tail: top-class confidence is slightly lower and more spread out. Note the score is max(predict_proba), i.e. confidence. It is not P(win), and it is not a class label.",
+        "triage_per_drift_remediation": "Not transient: drift_clean still fails after the 2026-09-25T00:56Z retrain. Not a capability failure either: live_regime_discrimination, non_degenerate, oos_edge, cross_run_stability and sample_sufficiency all pass. Root cause not diagnosed this session. Candidates: the input regime mix shifting, versus the daily-artifact churn inside the 30-day reference window."
+      },
+      "live_discrimination": {
+        "regime_axis_RG4": "live_regime_discrimination AUC=0.714 (pass, >= 0.55). E72: 0.736. So -0.022. MEASURED #12955. This is the regime-appropriate live check, and for a regime head it carries the live track record (gates.py).",
+        "trade_win_axis_real_money": "n=8, win_rate 0.0, AUC undefined (no wins), brier_lift -0.8403. Population: closed, non-backtest, non-demo, trusted-pnl trades whose open window contains a btc-regime prediction with a matching symbol. That is 396 trusted of 481 closed non-demo rows in the trainer DB, then filtered to BTCUSDT. MEASURED #12959. Identical to E72 (n=8, 0.0, -0.84032): no new real-money BTC trade has closed since 2026-09-11.",
+        "trade_win_axis_all_accounts": "n=85, win_rate 0.412, AUC 0.432, brier_lift -0.293. Population: the same join with include_demo=True, so 1638 trusted of 2068 closed rows (mostly bybit_1 demo). MEASURED #12959. Not in E72.",
+        "axis_caveat": "ml/promotion/stage_guard.py::_demote_triggers suppresses brier_lift and AUC as demote triggers for regime heads, because the regime score against trade win is the WRONG AXIS (MB-20260630-001). The score is top-class confidence, whatever the class. brier_lift=-0.84 against baseline_brier=0.0 is arithmetic from an all-loss sample (0.8403 = mean(score^2) at win=0), not a calibration finding. Stage-guard's own demote reason today is drift only."
+      },
+      "zero_for_eight_rederived": {
+        "is_8_the_whole_population": "Yes, for its stated population. Of the 1098 closed rows since 2026-08-01, 25 are BTCUSDT on bybit_2 (non-demo). Of those, exactly 8 opened on or after 2026-09-01T22:31Z, when the retained shadow log begins, and all 8 joined. The 17 earlier bybit_2 BTC trades cannot be scored because the log was rotated. bybit_portfolio BTC trades (28) have isDemo=true, so the default attribution excludes them. The window is 2026-09-01 to 2026-09-11; none since. The trainer (#12959) and live (/api/bot/trades/closed) ids agree: 5312, 5316, 5369, 5409, 5429, 5450, 5591, 5675.",
+        "rows": "6x ict_scalp_5m (2 short, 4 long) and 2x trend_donchian long, all bybit_2. pnl -5.51, -5.50, -3.19, -2.75, -4.26, -4.05, -3.98, -0.83 (sum -30.06 USD). Exits: 6 sl, 2 reconciler_filled. The reconciler closes are a separate health-review item and are not scored here.",
+        "did_the_model_cause_them": "No. The join is time window plus symbol. It records that the head SCORED BTC while each trade was open. It does not record that the head acted on that trade. The head's only real-money path (channel 1) can only DROP intents, and a frozen-fallback label never enforces a vol drop. So with the head demoted, all 8 would still have been taken. At each entry the head's label (regime_ml_vol_shadow row at the same minute) was 'calm' in 8 of 8. The frozen label was 'volatile' in 6 of 8 (5312, 5369, 5409, 5429, 5591, 5675). The most the model can be charged with is NOT blocking these: a 'volatile' label in a trending or chop regime would have dropped them under the current OFF-cells. I did not retrieve the trend regime at entry (regime_shadow_gate returned 0 rows for this window), so I cannot say which of the 8 a 'volatile' label would have blocked.",
+        "weight": "Weak evidence against the model: n=8, on the wrong axis per the code, and made of trades it did not cause. If anything it bears on whether the head should block MORE, which demotion makes impossible."
+      },
+      "gate_check": "ready=false, blocking=[live_parity, drift_clean], same as E72. oos_edge +0.25165 on macro_f1 over 5 purged WF-CV folds (E72 +0.25065). non_degenerate pass via the imbalance-aware alternative (min per-class F1 0.209). labels_accruing 2370/2396. live_parity insufficient_data: 14 rows since the 2026-09-25T00:56Z artifact (E72: 17). See PI-20260925-D9FNL9SC-0001: this gate appears structurally unable to reach its 20-row floor for a daily-retrained head.",
+      "stage_guard": "action=demote, reason 'score-distribution drift verdict is significant', the same trigger as E72 (#12955).",
+      "consequence_of_demote": "It removes the 16 ML-enforced drops since 2026-09-01 (14 trend_donchian long, 2 ict_scalp_5m short, BTCUSDT) and puts those cells back on permissive. It does not affect the 197 trend-axis drops."
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+      "current_stage": "advisory",
+      "verdict": "hold",
+      "verdict_detail": "The demote case does NOT hold, and it is close to moot. The drift persists (KS just over 0.2, PSI moderate but under 0.25), and all capability gates pass. More decisive: the head has made 0 vol-gate drops over the full audit history, because no OFF-cell names a SOL strategy, and every SOL trade scored is on the bybit_1 demo account. A demote would change nothing measurable on real money, and holding costs nothing measurable either. The live issue is not this head's quality. It is that 'advisory' currently buys this head no gate to act on. That is a policy question (should SOL strategies get trend_vol cells?), and it is Tier-3 and out of this lane.",
+      "drift": {
+        "live_endpoint": "KS=0.2224 (significant), PSI=0.2147 (moderate). Reference n=1734, current n=698 (same windows as BTC). Score mean 0.8267 -> 0.7727. MEASURED /api/bot/shadow/drift, read 2026-09-25T13:23Z.",
+        "trainer_gate": "drift_clean FAIL: KS=0.2241 > 0.2, PSI=0.2233 <= 0.25 (#12955).",
+        "E72": "Endpoint KS 0.2201, PSI 0.2127. Gate KS 0.2153, PSI 0.1956.",
+        "changed": "Roughly flat on the endpoint (KS +0.002, PSI +0.002). The gate went up (KS +0.009, PSI +0.028), so PSI is now 0.027 below its 0.25 threshold.",
+        "triage_per_drift_remediation": "Persistent drift-only. No capability gate fails. Not diagnosed this session."
+      },
+      "live_discrimination": {
+        "regime_axis_RG4": "live_regime_discrimination AUC=0.651 (pass, >= 0.55). E72: 0.664. So -0.013. MEASURED #12955. Still the weakest of the regime heads, as in E72.",
+        "trade_win_axis_real_money": "n=0. There are no non-demo SOLUSDT closed trades: all 247 SOLUSDT closed rows since 2026-08-01 are bybit_1, isDemo=true. Unchanged from E72's 'no live trades yet'.",
+        "trade_win_axis_all_accounts": "n=104, win_rate 0.442, AUC 0.524, brier_lift -0.138. Population: include_demo=True, 1638 trusted of 2068 closed rows. MEASURED #12959. Not in E72. Wrong axis for a regime head (see the BTC entry).",
+        "live_endpoint_cross_check": "/api/bot/trades/scores (200 most recent closed trades, all accounts): 43 SOLUSDT trades joined to this head, all bybit_1 demo."
+      },
+      "gate_check": "ready=false, blocking=[live_parity, drift_clean], same as E72. oos_edge +0.23273 (E72 +0.23532). non_degenerate min per-class F1 0.359. labels_accruing 2367/2393. live_parity insufficient_data: 13 rows since the 2026-09-25T01:18Z artifact (E72: 14).",
+      "stage_guard": "action=demote, reason drift significant. attribution=null because no non-demo trades (#12955).",
+      "consequence_of_demote": "No measured real-money effect: 0 SOL vol-gate drops ever, and 0 non-demo SOL trades. Possibly a c_reg input on bybit_1 (demo), not verified."
+    }
+  ],
+  "what_changed_since_E72": [
+    "BTC drift is a little worse (endpoint KS 0.2147 -> 0.2435; gate KS 0.2334 -> 0.2573). PSI is still no_change.",
+    "SOL drift is roughly flat on the endpoint. The gate PSI rose 0.1956 -> 0.2233.",
+    "RG4 live regime AUC slipped slightly on both: BTC 0.736 -> 0.714, SOL 0.664 -> 0.651. Both still pass 0.55.",
+    "OOS edge is essentially unchanged: BTC +0.25065 -> +0.25165, SOL +0.23532 -> +0.23273.",
+    "The BTC 0-for-8 is byte-identical to E72's: the same 8 trades. No real-money BTC trade has closed since 2026-09-11, so it is 14 days stale, not 'recent'.",
+    "NEW, not in E72: the 8 are every real-money BTC trade in the retained-log window, and the head could not have caused any of them (its only real-money path can only block).",
+    "NEW: BTC's actual order influence is 16 vol-gate drops since 2026-09-01. SOL's is 0, ever.",
+    "NEW: a broader all-accounts trade-win join (BTC n=85, SOL n=104). It is the wrong axis, but no longer n=8/n=0.",
+    "E72 expected live_parity to be 'self-clearing in hours'. It did not clear (BTC 17 -> 14, SOL 14 -> 13), apparently because the trainer's shadow-log sync lags the daily retrain. Filed as PI-20260925-D9FNL9SC-0001."
+  ],
+  "promotion_recommendations": [],
+  "_promotion_recommendations_note": "Neither E72 demote is re-proposed. Both models: HOLD at advisory and send the persistent drift to drift-remediation diagnosis. That means a dataset/feature audit and a regime-mix check, fixed as a NEW version if needed. The live artifact is not touched. The re-check that would reopen the demote: stage-guard's drift trigger plus a regime-appropriate capability failure (live_regime_discrimination below 0.55, or oos_edge <= 0), or evidence that the head's 16 BTC OFF-cell drops were net-harmful. That last would need the counterfactual P&L of the dropped intents, which is not measured here.",
+  "findings_filed": [
+    "PI-20260925-D9FNL9SC-0001: live_parity is structurally stuck at insufficient_data for daily-retrained heads (trainer shadow-log sync ~05:00 UTC vs retrain ~01:00 UTC gives at most ~17 rows against a 20-row floor)."
+  ],
+  "findings_for_manager_not_filed": [
+    "SOL head has no vol-gate OFF-cell to act on (0 regime_hard_gate rows for SOLUSDT, ever), so its 'advisory' stage is currently inert on real money. Whether to author SOL trend_vol cells is a Tier-3 regime-selectivity decision, so this is flagged here rather than filed as work.",
+    "The drift root cause is undiagnosed for both heads. The drift-remediation skill says to diagnose it. That is a separate lane (trainer dataset audit), outside this Tier-1 re-verify's scope and ceiling."
+  ],
+  "not_verified_this_session": [
+    "The VM value of REGIME_ML_VERDICT_MODE. Inferred as 'use' because regime_hard_gate rows carry vol_label_source=ml and vol_enforced=true, which the code only emits when mode == 'use'.",
+    "The trend regime at entry for the 8 BTC trades.",
+    "Whether c_reg feeds conviction sizing on bybit_1 for either head.",
+    "The counterfactual P&L of the 16 BTC intents the head dropped."
+  ],
+  "overall_assessment": "caution",
+  "operator_attention_required": true,
+  "recommended_action": "BTC: hold (do not demote). SOL: hold (a demote would be a no-op on real money). Diagnose the persistent KS drift on both under drift-remediation. Fix the live_parity sync lag (PI-20260925-D9FNL9SC-0001) so gate-check can ever report ready for these heads.",
+  "anomalies": [
+    "live_parity is insufficient_data on both heads for the 2nd consecutive day (BTC 17 -> 14, SOL 14 -> 13 rows vs a 20 floor). Traced to the trainer shadow-log sync lagging the daily retrain. Filed as PI-20260925-D9FNL9SC-0001.",
+    "sol-regime-15m-lgbm-fc-pcv-v2 is at an order-influencing stage but has 0 regime_hard_gate rows across the full audit history: no trend_vol OFF-cell names a SOL strategy.",
+    "trainer-vm-diag #12956 and #12957 failed on this session's own command bugs (a here-doc terminator inside the indented cmd block; no PYTHONPATH for a /tmp script). The relay was fine. #12959 superseded both."
+  ]
+}
