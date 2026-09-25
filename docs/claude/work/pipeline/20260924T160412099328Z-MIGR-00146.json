@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "vix_term_backtest.py's SP500/DJIA legs read a non-rolling source or a pinned window, so the size read is reproducible across dates; OR the item is closed as won't-fix because the span disclosure is deemed sufficient and no consumer depends on the absolute magnitudes.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260802-VIXTERM-ROLLING-WINDOW-SPAN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [research][reproducibility] vix_term_backtest SP500/DJIA Sharpe is a function of run-date because FRED's series are rolling 10y windows"
+}

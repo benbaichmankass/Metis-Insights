@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Zero ErrCode 10001 rejections on this leg over 30 days, AND a submit-path record (log line or diag field) that names which source resolved the lot rule and whether a ceiling was found -- so a future 'no rejections' reading can be told apart from 'the clamp is still inert and the sizer happened to stay under the cap'. The second clause is load-bearing: 22 of 22 accepted orders were already under the cap without any clamp firing, so absence of rejections alone proves nothing.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-AVAX-SCALP-SIZES-ABOVE-THE-VENUE-MAXIMUM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ict_scalp_avax_5m sized ~34,000 AVAX against a venue maximum of 22,000 and was exchange-rejected 20 times — the sizer has no venue-max clamp on this path"
+}

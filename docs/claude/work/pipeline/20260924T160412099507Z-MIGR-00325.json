@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "RESOLVED when breakout_1 routes exactly one variant per (strategy, symbol), OR the operator records that running both is intended with the dedup mechanism named and verified. A count of tickets alone does not close this -- the dedup question must be answered from the code path.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-PROP-ACCOUNT-RUNS-BOTH-BASE-AND-PROP-VARIANT-OF-THE-SAME-LEG",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-PROP-ACCOUNT-RUNS-BOTH-BASE-AND-PROP-VARIANT-OF-THE-SAME-LEG",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-PROP-ACCOUNT-RUNS-BOTH-BASE-AND-PROP-VARIANT-OF-THE-SAME-LEG'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] breakout_1 routes BOTH trend_donchian_{sol,eth} AND their _prop variants, all live, same symbol and timeframe, with contradictory exit geometry"
+}

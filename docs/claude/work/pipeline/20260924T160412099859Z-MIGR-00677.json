@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Tier-3 -- the remedy is a funding or risk/sizing decision and the operator makes it. Clears when EITHER the account is funded or its sizing basis changed such that a placement becomes arithmetically possible and one is OBSERVED, OR the operator RECORDS the decision not to, at which point OI-20260831 must be restated as closed-by-decision rather than left open as a soak. PLUS an invariant asserting that a mode:live, account_class:real_money account whose every routed signal refuses for the SAME cause over N days is reported as STRUCTURALLY UNABLE TO TRADE, distinct from signalled_never_placed. NOT SUFFICIENT: waiting -- 40 of 40 over 27 days with a deterministic cause is not a soak accruing, it is a condition standing.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-ALPACA-LIVE-CANNOT-SIZE-A-SINGLE-SHARE-SO-ITS-OPEN-ITEM-IS-UNREACHABLE-NOT-PENDING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] alpaca_live's only routed real-money leg is refused at sizing on every signal -- sized_qty=0 at a 200.10 balance under whole-share rounding, with TLT trading near 82 -- so OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED is waiting for a first placement that cannot occur. That row should be re-stated as blocked on a funding or sizing decision rather than left looking like a soak in progress."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260910-A-MANAGER-READ-THREE-DIRTY-PRS-AS-A-NEW-WEDGE-CLASS-AND-NEARLY-FILED-IT-THE-THIRD-OCCURRENCE-OF-A-CLASS-CLAUDEMD-ALREADY-RESTATES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-A-MANAGER-READ-THREE-DIRTY-PRS-AS-A-NEW-WEDGE-CLASS-AND-NEARLY-FILED-IT-THE-THIRD-OCCURRENCE-OF-A-CLASS-CLAUDEMD-ALREADY-RESTATES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-A-MANAGER-READ-THREE-DIRTY-PRS-AS-A-NEW-WEDGE-CLASS-AND-NEARLY-FILED-IT-THE-THIRD-OCCURRENCE-OF-A-CLASS-CLAUDEMD-ALREADY-RESTATES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "RECURRENCE (third) of BL-20260830-ZERO-CHECK-RUNS-READ-AS-CI-NOT-STARTED-NOT-AS-MERGE-CONFLICT: a manager read three merge-conflicted PRs in one evening as a NEW 'branch wedge' failure class, closed two of them on that false evidence, and came one commit from filing the phantom class as a backlog row — with the corrective paragraph verbatim in its own context window the whole time"
+}

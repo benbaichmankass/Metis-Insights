@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BOTH halves, because either alone leaves the failure silent. (a) The three paths resolve from an anchor that does not depend on CWD (repo root via `__file__`, or the existing canonical resolver if one fits). (b) A register that CANNOT BE READ is distinguishable from one that is EMPTY -- the brief must say which, rather than rendering a confident 'nothing due'. Verified by rendering from a DIFFERENT working directory and seeing the brief either resolve correctly or announce that it could not look; a passing render from the repo root proves nothing, since that is the path that already works.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-SESSION-BRIEF-LOADS-ITS-REGISTERS-CWD-RELATIVE-AND-EMPTY-READS-AS-CLEAR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-SESSION-BRIEF-LOADS-ITS-REGISTERS-CWD-RELATIVE-AND-EMPTY-READS-AS-CLEAR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-SESSION-BRIEF-LOADS-ITS-REGISTERS-CWD-RELATIVE-AND-EMPTY-READS-AS-CLEAR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] render_session_brief resolves its three registers CWD-relative and swallows the miss, so a brief rendered from the wrong directory says 'nothing is due'"
+}

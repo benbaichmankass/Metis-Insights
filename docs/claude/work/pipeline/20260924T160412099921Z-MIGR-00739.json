@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260730-M3-GATE-TESTS-TRACKING-NOT-USEFULNESS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-M3-GATE-TESTS-TRACKING-NOT-USEFULNESS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-M3-GATE-TESTS-TRACKING-NOT-USEFULNESS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "[macro/M1][gate] the operator-approved M1 gate tests whether the model TRACKS the survey, not whether it is USEFUL — and the best-tracking kind is worse than a random walk"
+}

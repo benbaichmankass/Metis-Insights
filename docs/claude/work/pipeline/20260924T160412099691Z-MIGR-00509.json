@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(a) Survey `--merged`/`--no-merged` across scripts/, .github/ and .claude/skills/ WITH A POSITIVE CONTROL (show the probe finds a known occurrence) and report the count, zero being a valid and useful answer; and (b) where any is used to decide whether work is on main, replace it with a test that survives squash-merge - the PR state for that head (search_pull_requests head:<branch>), or a content/tree comparison - and record which was chosen. If the survey finds NO uses, close this as documentation only: the value is then the recorded trap, not a code change. NOT sufficient: asserting the idiom is fine because a spot check happened to agree - the two measured cases here both agreed with the WRONG answer until the PR was read.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-GIT-BRANCH-MERGED-CANNOT-SEE-A-SQUASH-MERGE-SO-IT-REPORTS-A-LANDED-BRANCH-AS-UNMERGED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-GIT-BRANCH-MERGED-CANNOT-SEE-A-SQUASH-MERGE-SO-IT-REPORTS-A-LANDED-BRANCH-AS-UNMERGED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-GIT-BRANCH-MERGED-CANNOT-SEE-A-SQUASH-MERGE-SO-IT-REPORTS-A-LANDED-BRANCH-AS-UNMERGED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `git branch -r --merged` reports every squash-merged branch as UNMERGED, and this repo squash-merges everything"
+}

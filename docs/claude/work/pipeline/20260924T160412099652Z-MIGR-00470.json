@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) a 5m and/or 15m ict_scalp exit-head artifact is trained and published to runtime_logs/trainer_mirror/exit_head/ AND a soak row is observed with decision_state != not_scored and a non-null model_id (i.e. the in-distribution guard actually admitted a leg); OR (b) a recorded decision that no scalp head will be trained, which is a legitimate outcome and must be written down as a DECISION rather than left looking like a soak about to start. ⚠️ Do NOT close this on the consumer existing -- that is the half MI-150 delivered and is not what this row tracks. ⚠️ And note (a) is necessary but not sufficient for ARMING: arming additionally needs evidence surviving re-partitioning and is blocked by the 2026-08-23 SHIP BLOCKED operator decision.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-NO-SCALP-EXIT-HEAD-ARTIFACT-IS-PUBLISHED-SO-THE-NEW-CONSUMER-CANNOT-SCORE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-NO-SCALP-EXIT-HEAD-ARTIFACT-IS-PUBLISHED-SO-THE-NEW-CONSUMER-CANNOT-SCORE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-NO-SCALP-EXIT-HEAD-ARTIFACT-IS-PUBLISHED-SO-THE-NEW-CONSUMER-CANNOT-SCORE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The ict_scalp exit-head consumer shipped and cannot score any of its 8 legs — the live mirror publishes only 1h artifacts and every scalp leg is 5m/15m"
+}

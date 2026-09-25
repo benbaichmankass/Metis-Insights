@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "position_size records a never-collapsed size basis alongside the existing margin_basis — at minimum `risk_bound` / `margin_bound` / `not_applicable` (the futures branch, where no cap is computed: we did not look, which is not 'risk governed') / `unknown` — persisted on the trade row, registered with collapsed-state-guard, and read by at least one consumer. A stamp with no reader reproduces the exact defect `provenance-consumer-guard` was built for. No change to the arithmetic: the label must never be able to move the number, the same discipline the margin_basis kind already follows.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-SIZE-BASIS-CANNOT-SAY-WHETHER-RISK-OR-MARGIN-BOUND-THE-TRADE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-SIZE-BASIS-CANNOT-SAY-WHETHER-RISK-OR-MARGIN-BOUND-THE-TRADE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-SIZE-BASIS-CANNOT-SAY-WHETHER-RISK-OR-MARGIN-BOUND-THE-TRADE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A trade sized to its intended risk and a trade clamped to the margin ceiling are indistinguishable from the stored row — the collapsed state is 'which term bound the size'"
+}

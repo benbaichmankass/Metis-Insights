@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "UNCHANGED IN KIND, SHARPENED BY THE ESCALATION. Either (a) the journal rows are reconciled to the venue quantity — for the current instance that means trade 5531 disposed of by an OPERATOR decision, not by a session — or (b) an IB-side journal-vs-venue divergence detector EXISTS and reports on this position, i.e. the netting-attribution reconciler covers interactive_brokers. ⚠️ A later read that happens to agree does NOT clear it, and neither does the position closing — that makes the divergence unobservable rather than resolved. ⚠️ AND THE OVER-COVER PAGE GOING QUIET CLEARS NOTHING: it keys on DISJOINT OCA GROUPS, so it falls silent the moment one group is cancelled while the journal is still wrong.",
+    "kind": "observation",
+    "last_checked": "2026-09-13"
+  },
+  "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "resolved: verified live 2026-09-24T12:3x via E56 health-review -- journal?table=trades&limit=300 shows 0 open MGC rows on ib_paper, and /api/diag/exchange_positions shows ib_paper holds exactly one open position (MHG short 22.0), no MGC. The described 43-lot journal/venue divergence no longer exists on current live state.",
+  "what": "[LOUD] ⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, not one lot — and a live 43-lot protective STOP rests against the unbacked row. The original 2026-08-26 reading (journal 51 vs venue 50) is preserved in `detail` as the record of what was true then."
+}

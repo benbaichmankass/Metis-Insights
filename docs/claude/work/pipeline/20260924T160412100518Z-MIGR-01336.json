@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "The operator decides the DD-budget sizing proposal (approve with a stated k, amend, or decline with reason), recorded on this item. If approved: a prop_ticket_risk_soak row read via /api/diag/log_file?name=prop_ticket_risk_soak shows a ticket whose emitted risk_usd is below the nominal $75 because of the DD budget.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#2-sizing-vs-the-floor-the-urgent-part",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1' | python3 -m json.tool"
+  },
+  "state": "queued",
+  "what": "[TIER-3, PROP REAL MONEY] breakout_1 sizes every ticket at a flat $75 (config risk_pct 1.5% x account_size_usd $5,000, config/accounts.yaml breakout_1, read 2026-09-24; population: every ticket breakout_1 emits) against a $94.76 DD-floor cushion (MEASURED 2026-09-24T09:38Z snapshot): 1 full-size stop-out survivable now, 0 after the open ETH short #44 stops (~$24.94 left). Proposal (not applied): risk_usd = min(1.5% x live balance, k x (cushion - open loss-to-stop - $2)), k=0.33, skip+page below $10. Exact config/code and arithmetic in docs/research/prop-state-2026-09-24.md section 2."
+}

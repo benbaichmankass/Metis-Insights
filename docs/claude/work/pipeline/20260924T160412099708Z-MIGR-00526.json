@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) a guard that fails a PR whose diff changes the TYPE of an existing value in any docs/claude/work/*.json register row — not just id uniqueness, which check_register_ids already covers — and is observed FAILING on a deliberately-flattened test row, not merely registered; OR (b) `last_observed` is given a declared shape and the 56 null rows are reconciled to it, so a scalar assignment is a type error rather than a silent overwrite. ⚠️ NOT SUFFICIENT: a note in the cadence Routine or in CLAUDE.md telling a manager to be careful — this pass already carried a written warning about registers being append-only and about not taking a side in a merge, and neither covers an in-place field overwrite by the register's own maintainer. ⚠️ ALSO NOT SUFFICIENT: my own value-level assertion, which lives in a throwaway script in one session's context and protects nothing after this turn.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-MANAGER-OVERWROTE-A-STRUCTURED-LAST-OBSERVED-WITH-A-SCALAR-AND-THE-LOSS-PROOF-WAS-BLIND-TO-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-MANAGER-OVERWROTE-A-STRUCTURED-LAST-OBSERVED-WITH-A-SCALAR-AND-THE-LOSS-PROOF-WAS-BLIND-TO-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-MANAGER-OVERWROTE-A-STRUCTURED-LAST-OBSERVED-WITH-A-SCALAR-AND-THE-LOSS-PROOF-WAS-BLIND-TO-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A routine manager reconcile wrote a bare timestamp over SESSIONS.json's structured `last_observed`, destroying nine `manager_verdict` records — and the loss check passed because it tested KEY PRESENCE, not value shape"
+}

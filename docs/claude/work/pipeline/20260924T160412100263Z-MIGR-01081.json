@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260911-NOTHING-ALARMED-ON-SIXTEEN-CONSECUTIVE-LOSING-DAYS-AND-THE-OPERATOR-FOUND-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-NOTHING-ALARMED-ON-SIXTEEN-CONSECUTIVE-LOSING-DAYS-AND-THE-OPERATOR-FOUND-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-NOTHING-ALARMED-ON-SIXTEEN-CONSECUTIVE-LOSING-DAYS-AND-THE-OPERATOR-FOUND-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "bybit_1 ran 16 consecutive losing days (2026-08-27..09-11, -$36,997, maxDD $36,997) and no monitor fired. The operator raised it, not the system. There is no sustained-losing-streak or drawdown-from-peak detector anywhere in the fleet. This is owed regardless of how the decline is attributed -- OI-20260911 states it as a separate clause that must not be folded into the attribution."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A writer for each guarded register that CANNOT produce a row the guard rejects, modelled on backlog_append.py: (a) docs/claude/OPEN-ITEMS.json - and it must fix the round-trip problem or own the splice itself, so no caller ever hand-edits it again; (b) docs/claude/work/MANAGER-CHECKLIST.json; (c) .github/pr-landing/<slug>.json, which can DERIVE the slug from the branch rather than having the author retype it. VERIFY BY PLANTING: for each writer, attempt a row the corresponding guard rejects and show the writer REFUSES it at write time - a passing guard on a well-formed row proves nothing, since that is the case that already works. !! DO NOT WEAKEN ANY GUARD. The guards are the only reason these classes are visible at all; the fix is upstream of them. !! AND DO NOT BUILD A SCAFFOLD THAT ONLY EMITS A TEMPLATE - a template the author edits by hand reintroduces exactly the omissions measured above. The writer must validate what it is about to write. SEPARATELY AND SMALLER: scripts/ops/manager_lease.py has --commit but its help says 'never pushes', while the lease's own canonical rule is 'a claim you did not PUSH protects nothing - another session reads origin, not your working tree'. A tool that stops one step short of its own doc's requirement is a trap; either it pushes, or it says loudly that the lease is not yet protecting anything.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-EVERY-REGISTER-WRITE-IS-A-GUESS-THEN-A-CI-ROUND-TRIP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-EVERY-REGISTER-WRITE-IS-A-GUESS-THEN-A-CI-ROUND-TRIP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-EVERY-REGISTER-WRITE-IS-A-GUESS-THEN-A-CI-ROUND-TRIP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The operating-layer registers are guarded but not scaffolded, so every write is discovered wrong by CI ~2 minutes later"
+}

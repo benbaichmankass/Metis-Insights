@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A bybit_coverage_soak row is OBSERVED on bybit_1 carrying verdicts_differ: true -- read off the live diag surface (/api/diag/log_file?name=bybit_coverage_soak), not from a test fixture. !! A GREEN TEST SUITE CLEARS NOTHING HERE: #10746 carries 623 lines of re-armed unit tests and none of them is a live row. !! NOR DOES ELAPSED TIME: this row's check_every_days governs how often a session must LOOK, never when the soak may be declared finished. !! AND AN EMPTY LOG IS NOT A NEGATIVE until the arm has been read back off /proc/<MainPID>/environ -- before that, zero rows means the gate is off, which is the state it is deliberately in. If the arm IS confirmed and the log is still empty after a full sweep cycle, that is the OPPOSITE finding -- the writer is not writing -- and it clears this row into a defect, not into a pass.",
+    "kind": "observation",
+    "last_checked": "2026-09-17"
+  },
+  "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] #10746 ships a soak at runtime_logs/bybit_coverage_soak.jsonl whose rows are the ONLY declared evidence for the operator's conditional widening of the graded-coverage gate to bybit_portfolio and then bybit_2 (REAL MONEY) -- and until this row, that soak was registered NOWHERE. The PR proposes a health-review-backlog row instead, and the backlog is NOT a due-list source (scripts/ops/render_due_list.py::SOURCES reads open_items, operator_owed, research_queue, probes, red_crons, unlanded_automation -- no backlog). So the soak would have accrued, or failed to accrue, and surfaced to nobody."
+}

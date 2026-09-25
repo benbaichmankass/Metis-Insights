@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) the backlog guards detect a whole-file re-serialization and say so explicitly — e.g. when the added-line count exceeds some large fraction of the file, report 'this looks like a reformat, not N new rows' and grade against the PARSED rows rather than the diff lines, so the message names the real cause; or (b) a guard fails a PR that re-serializes a backlog with different json.dumps options, pointing at scripts/ops/backlog_append.py, which already carries a style-detection candidate list for exactly this and is the tool a session should be reaching for. (a) is the more useful of the two because it fixes the misleading MESSAGE, which is the costly part. Verified by a test that reformats a fixture backlog and asserts the guard's output names the reformat rather than listing rows.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-A-BACKLOG-REFORMAT-COLLAPSES-A-DIFF-SCOPED-GUARDS-GRANDFATHERING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-A-BACKLOG-REFORMAT-COLLAPSES-A-DIFF-SCOPED-GUARDS-GRANDFATHERING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-A-BACKLOG-REFORMAT-COLLAPSES-A-DIFF-SCOPED-GUARDS-GRANDFATHERING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A whole-file reformat of a backlog silently converts every diff-scoped backlog guard from grandfathered to whole-tree, and the failure names the wrong cause"
+}

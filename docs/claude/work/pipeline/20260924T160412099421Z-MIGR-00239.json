@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) Decide whether the E1 gate should report POWER alongside its verdict -- e.g. trades-per-fold and the minimum detectable effect at u folds -- so that 'underpowered' and 'the head does not help' stop sharing the single status `honest_negative`. That is the finding's actionable half and it is a vocabulary/reporting change, not a gate change. (2) DONE for 2h (see the UPDATE: refutes book size, leaves ETH unproven). DONE for 4h too (ETH fails; book size refuted again). DONE for 15m (a positive failed; ETH story ended). Remaining: the 5m scalp stratum — re-run (2h pullback, 4h donchian, 15m/5m scalp) at LIVE PARITY so ETH-vs-control can be compared at one geometry beyond the single trend_donchian 1h family; the eth_prop ref already identifies this as the test that would settle the scalp-scoping question, and it is the same run that would settle (a). (3) Blocked on BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED item (3): until exit_head rounds emit a committed artifact, every figure above is parsed out of PROSE in the matrix refs rather than read from a measurement file, and 16 of 36 cells state no n_oos at all.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-EXIT-HEAD-E1-GATE-IS-90-PERCENT-PREDICTED-BY-OOS-BOOK-SIZE-NOT-SYMBOL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-EXIT-HEAD-E1-GATE-IS-90-PERCENT-PREDICTED-BY-OOS-BOOK-SIZE-NOT-SYMBOL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-EXIT-HEAD-E1-GATE-IS-90-PERCENT-PREDICTED-BY-OOS-BOOK-SIZE-NOT-SYMBOL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] exit_head_ml: NEITHER symbol NOR book size explains the E1 verdict — both refuted on held-out strata; ETH 2/3 vs non-ETH 4/11 (p=0.38) across 3 live-parity families"
+}

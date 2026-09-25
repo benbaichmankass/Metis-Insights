@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) the operator/team explicitly accepts staying on the <0.16 pin as the standing policy, OR (b) ruff 0.16+ is adopted with all 8228 residuals fixed-or-suppressed (operator-hold paths routed correctly) and the pin bumped, with ruff-lint green on both paths.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260723-RUFF-016-DEFAULT-RULESET-EXPANSION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ruff 0.16.0 default-ruleset expansion turned the required ruff-lint check red repo-wide (8228 pre-existing hits); pinned <0.16 as the interim hold"
+}

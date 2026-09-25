@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Prove the mechanism first by reading the same account twice in one run - once through the long-lived readonly client and once through a freshly built one - and diffing the sets; a difference confined to orders cancelled by another client confirms it. Then either the read client refreshes its order book so a cancelled order stops filtering as active, or account_ib_open_orders builds a fresh client per call. Whichever is chosen, the check that ends this row is behavioural: cancel an order via one client and assert /api/diag/ib_open_orders stops returning it, verified on the live fleet.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-DIAG-IB-OPEN-ORDERS-SERVES-A-STALE-MONOTONIC-ORDER-VIEW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/diag/ib_open_orders keeps returning orders that were cancelled - the read surface built to CHECK protection claims over-reports them"
+}

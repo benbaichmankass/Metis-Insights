@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still open (a DECIDED on the pairs sleeve's loader stamp); E36 is the pairs-sleeve build row. EVIDENCE: Rerun reads runtime_logs/runtime_status.json, a VM file not in the repo — unverifiable here. MANAGER-CHECKLIST.json: E36 queued.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER config/pairs.yaml carries a loader stamp in runtime_status.json's `process` block so its reload_state is readable like the other two, OR a DECIDED records that the pairs sleeve is deliberately out of layer 4 and on what basis -- and docs/reference/verifying-what-is-trading.md says which.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E31-LAYER-4-COVERS-TWO-CONFIG-FILES-AND-THE-PAIRS-SLEEVE-IS-NOT-ONE-OF-THEM",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01SVqDYb7UMYjzNqZrdLdDjt, checklist rows E31+E32, PR #12738 branch claude/e31-runtime-loaded-config",
+    "rerun": "python3 -c \"import json; b=json.load(open('runtime_logs/runtime_status.json'))['process']; print(sorted(k for k in b if k.endswith('_yaml')))\"   # today: accounts_yaml, strategies_yaml -- pairs_yaml absent"
+  },
+  "routed_to": "E36 (pairs sleeve): add config/pairs.yaml to the runtime_status loader stamps, or record why not",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "E31 (PR #12738) makes the process's loaded state readable for config/accounts.yaml and config/strategies.yaml ONLY. [!] config/pairs.yaml IS NOT COVERED, and it is the one most worth noting: the M22 market-neutral pairs sleeve is an ISOLATED 2-leg order path (src.units.strategies.pairs_executor.run_pairs_tick, called once per tick from src/main.py, NOT via multi_account_execute) and its execution gate lives in that file. So a `current` verdict from verify_running_roster.py says nothing whatever about whether the pairs sleeve's gate on the VM is the one the process is running. config/regime_policy.yaml and the env-var surface are uncovered for the same reason and with lower stakes. [!] FILED RATHER THAN BUILT because widening the stamp to a third loader is a separate change against a separate order path, and E31's scope fence was explicit. The gap is stated in docs/reference/verifying-what-is-trading.md § 'What we still cannot see' item 5 so it is not read as covered."
+}

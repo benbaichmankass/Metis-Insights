@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Enough real bybit_2 htf_pullback_trend_2h trades accrue to form a meaningful track record, at which point a /performance-review can evaluate the live edge and decide keep/tune/remove independent of the contaminated bybit_1 stats.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260630-001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260630-001",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260630-001'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] htf_pullback_trend_2h paper metrics heavily contaminated by June-7 mass reconciliation artifacts — do not judge this strategy on bybit_1 paper PnL"
+}

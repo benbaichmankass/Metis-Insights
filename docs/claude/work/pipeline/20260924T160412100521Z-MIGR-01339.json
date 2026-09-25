@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The rerun command returns no files, AND the two _prop records no longer list tp_r in omitted_levers.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#4-non-reproducible-leg-evidence",
+    "rerun": "grep -lE '\"source_run\": \"/tmp' comms/strategy_evidence/*.json"
+  },
+  "state": "queued",
+  "what": "12 committed evidence records cite a /tmp source_run and cannot be re-derived, incl. BOTH breakout_1 legs (trend_donchian_eth_prop, trend_donchian_sol_prop) and real-money legs on bybit_2 (trend_donchian_eth_4h, trend_donchian_xrp_4h, xrp_pullback_2h) and alpaca_live (iaum/ief/slv_pullback_1d). Both _prop records also carry omitted_levers [tp_r], the lever that defines a _prop twin. Re-run each with its trades file committed under comms/strategy_evidence/runs/."
+}

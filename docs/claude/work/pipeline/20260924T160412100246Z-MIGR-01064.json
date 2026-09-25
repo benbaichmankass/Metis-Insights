@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260910-PR-LANDING-RESOLVES-THE-DECLARATION-BY-BRANCH-SLUG-SO-A-RE-CUT-BRANCH-INHERITS-ITS-MERGED-PRS-LANDING-AND-THE-CHEAPEST-FIX-IS-TO-FALSIFY-THAT-RECORD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-PR-LANDING-RESOLVES-THE-DECLARATION-BY-BRANCH-SLUG-SO-A-RE-CUT-BRANCH-INHERITS-ITS-MERGED-PRS-LANDING-AND-THE-CHEAPEST-FIX-IS-TO-FALSIFY-THAT-RECORD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-PR-LANDING-RESOLVES-THE-DECLARATION-BY-BRANCH-SLUG-SO-A-RE-CUT-BRANCH-INHERITS-ITS-MERGED-PRS-LANDING-AND-THE-CHEAPEST-FIX-IS-TO-FALSIFY-THAT-RECORD'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "check_pr_landing resolves a branch's declaration by BRANCH SLUG (.github/pr-landing/<slug>.json), so a branch RE-CUT from main after its PR merged still carries that merged PR's declaration -- and if the merged PR was a Tier-2 `hold`, R10 refuses any follow-up arming on the same slug. The harness's own guidance says to re-cut the designated branch KEEPING ITS NAME after a merge, so this is reachable from following the documented path, not from doing something unusual. !! THE HAZARD IS THE CHEAPEST FIX, NOT THE REFUSAL: the one-file way past R10 is to rewrite the merged PR's declaration to `tier: 1` / `landing: self`, which satisfies the guard by DESTROYING the record of why that PR was held -- on the one file whose entire job is carrying an attributable landing claim, and which .github/pr-landing/README.md describes as the record a reviewer reads. A guard whose cheapest satisfaction is falsifying the record it protects is the same shape this repo already names for new-table-wiring-guard's presence-only marker ('cheaper to lie to than to satisfy')."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-RELAY-WRITTEN-AUTOMATION-PATHS-MAKE-EVERY-RELAY-USING-PR-UNCERTIFIABLE-FOR-TIER1-SELF-LANDING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-RELAY-WRITTEN-AUTOMATION-PATHS-MAKE-EVERY-RELAY-USING-PR-UNCERTIFIABLE-FOR-TIER1-SELF-LANDING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-RELAY-WRITTEN-AUTOMATION-PATHS-MAKE-EVERY-RELAY-USING-PR-UNCERTIFIABLE-FOR-TIER1-SELF-LANDING'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "pr-landing-guard's TIER1_SURFACE excludes automation/**, so using the board-post / pr-opener relays blocks self-landing and pushes sessions to delete their own audit trail"
+}

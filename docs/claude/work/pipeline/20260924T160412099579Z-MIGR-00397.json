@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) state the update rule where an editor will see it — whether 'Last Updated' tracks the newest ledger row automatically or is a deliberately-curated headline that may lag — and if the former, add it to the canonical-doc-coherence checks so it cannot drift silently; or (b) decide it may lag and say so in the field itself, so a reader does not mistake it for the roadmap's currency. Closing this needs the rule written down, not just one date bumped.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-ROADMAP-LAST-UPDATED-LAGS-ITS-OWN-LEDGER-ROWS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-ROADMAP-LAST-UPDATED-LAGS-ITS-OWN-LEDGER-ROWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-ROADMAP-LAST-UPDATED-LAGS-ITS-OWN-LEDGER-ROWS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ROADMAP.md 'Last Updated' reads 2026-08-23 while four 2026-08-25 ledger rows sit below it"
+}

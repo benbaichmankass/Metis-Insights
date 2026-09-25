@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO PARTS, different facts -- say which you settled. (1) CARRIER: establish what actually invokes scripts/ops/render_daily_brief.py -- a systemd unit, another script, a skill step, or nothing -- and record it. If the answer is NOTHING, that is the valuable finding and it becomes its own row about a generator nobody runs; if it is a carrier that exists, record which and whether it has fired, read from run/receipt history rather than from a schedule declaration. (2) DUPLICATION: decide whether three renderings of one collector is intended. It may well be -- they serve different readers (a due queue, a daily brief, a constraint readout) and they share ONE collector, which is the correct shape; this row does not assert it is a defect. What it asserts is that nobody has stated the intent, so a future retirement plans against an undercount. NOT sufficient for (2): deleting a surface to reduce the count without establishing who read it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-THREE-RENDERERS-OVER-ONE-DUE-COLLECTOR-AND-THE-DAILY-BRIEF-HAS-NO-WORKFLOW-CARRIER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-THREE-RENDERERS-OVER-ONE-DUE-COLLECTOR-AND-THE-DAILY-BRIEF-HAS-NO-WORKFLOW-CARRIER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-THREE-RENDERERS-OVER-ONE-DUE-COLLECTOR-AND-THE-DAILY-BRIEF-HAS-NO-WORKFLOW-CARRIER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Three surfaces render the same due-list collector, and render_daily_brief — one of them — is referenced by no workflow"
+}

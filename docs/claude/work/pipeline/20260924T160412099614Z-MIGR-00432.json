@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "LIVE_BACKLOGS covers every review backlog that exists, AND the coverage cannot silently fall behind again — i.e. either the tuple is derived from a glob of docs/claude/*-review-backlog.json with the hand-enumeration comment updated to say why that is now safe, or a test asserts set(LIVE_BACKLOGS) == set(glob) and FAILS today. ⚠️ Adding the fourth path alone does NOT close this: that is the same hand-maintained list one entry longer, and the next backlog created will reproduce the gap. Verify by planting a non-canonical serialisation in research-review-backlog.json specifically and observing check_live_backlogs exit 1 naming THAT file — the same plant-and-check used to close BL-20260901-NO-PRE-MERGE-GUARD-ON-BACKLOG-ROUND-TRIP, since a guard shown only to pass is indistinguishable from one that cannot fire.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-BACKLOG-ROUND-TRIP-GUARD-COVERS-3-OF-4-LIVE-BACKLOGS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-BACKLOG-ROUND-TRIP-GUARD-COVERS-3-OF-4-LIVE-BACKLOGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-BACKLOG-ROUND-TRIP-GUARD-COVERS-3-OF-4-LIVE-BACKLOGS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The backlog round-trip guard checks 3 of the 4 live review backlogs — research-review-backlog.json is not covered, so the file the guard exists to protect can break unwatched"
+}

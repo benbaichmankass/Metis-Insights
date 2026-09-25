@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) the 10 no-qty-match rows are adjudicated by a SUM-aware matcher whose false-corroboration rate is measured on a planted control -- e.g. partitions drawn from a symbol the population does not contain must NOT corroborate -- and the 8 weak and 5 refuted are individually explained; OR (b) an operator decision that a 25-of-50 adjudication is sufficient for the purpose, RECORDED as a decision with the remainder stated wherever the population is quoted. [!] NOT SUFFICIENT: a partition search reporting matches with no false-positive control -- with enough candidate subsets something always adds up. [!] NOT SUFFICIENT: dropping the unadjudicated rows and quoting the rest, which is what this row exists to prevent.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-HALF-THE-NETTING-ATTRIBUTED-POPULATION-CANNOT-BE-ADJUDICATED-ONE-TO-ONE-AGAINST-THE-VENUE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-HALF-THE-NETTING-ATTRIBUTED-POPULATION-CANNOT-BE-ADJUDICATED-ONE-TO-ONE-AGAINST-THE-VENUE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-HALF-THE-NETTING-ATTRIBUTED-POPULATION-CANNOT-BE-ADJUDICATED-ONE-TO-ONE-AGAINST-THE-VENUE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] 25 of 50 netting_attributed closes have no corroborated one-to-one venue record -- 10 with no qty match at all, 8 weak, 5 refuted, 2 whose window the venue answered empty -- so half the population that carries the largest share of the winner-size collapse is still unadjudicated"
+}

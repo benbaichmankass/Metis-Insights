@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-BACKTEST-FIDELITY-MAKES-30-LIVE-TRADES-A-PRECONDITION-FOR-TRUSTING-OFFLINE-EDGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-BACKTEST-FIDELITY-MAKES-30-LIVE-TRADES-A-PRECONDITION-FOR-TRUSTING-OFFLINE-EDGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-BACKTEST-FIDELITY-MAKES-30-LIVE-TRADES-A-PRECONDITION-FOR-TRUSTING-OFFLINE-EDGE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-218 CONFIRMED SURFACE S3, and the sharpest instance of the doctrine inverted. scripts/research/backtest_fidelity_calibrate.py::agreement holds `MIN_LIVE_N = 30`; below it the verdict is `insufficient-live` and, in the script's own words, 'backtest is a lead, not a result'. Its OWN docstring states the problem it was built to solve: 'we have never MEASURED whether our backtests are right, so we fell back to only trust real live trades — WHICH CAPS EVERY DECISION AT REALITY'S CLOCK'. The implementation then makes 30 LIVE trades a precondition for a leg's OFFLINE evidence being admissible — ~25 weeks at ~1.2 closes/week. So the instrument built to escape reality's clock is reachable only by waiting on it. ⚠️ STATED FAIRLY, THIS IS NOT A SIMPLE DEFECT: measuring backtest<->live fidelity DOES require live trades, and abstaining is honest rather than a silent pass. The finding is narrower and is the part that contradicts canon: a FIDELITY (mechanics) measurement is used as the ADMISSIBILITY GATE ON AN EDGE CLAIM, so a leg with a clean purged-WF-CV oos_edge and 29 live trades has evidence the system will not look at. Evidence: docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md § S3."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "An operator-acked unit-file PR is merged that refreshes the stale Vercel comment and either drops or annotates the legacy DASHBOARD_ORIGIN, AND /api/diag/services reads ict-web-api.service active after that deploy. The post-deploy service read is part of the criterion because this is a unit-file change: a merged edit that crashloops the API is not a fix.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] BL-20260726-WEBAPI-UNIT-STALE-VERCEL-COMMENT"
+}
