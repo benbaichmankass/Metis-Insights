@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "A scheduled research-loss-detector run with nonzero findings (rc=1 or rc=2) both lands a fresh RESEARCH-LOSS-RECEIPT.json commit authored by the workflow (git log shows an author/commit other than the #12857 PR-merge seed) AND its Alert the operator channel / Land the receipt on main steps show conclusion=success rather than skipped -- check after the fix ships and the next ~daily/12h scheduled fire completes.",
+    "kind": "observation"
+  },
+  "id": "PI-20260925-OOFSWEEP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "w4-proof-sweep row E57",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/actions/runs/36097174392/jobs --jq '.jobs[0].steps[] | {name,conclusion}'; git log -1 --format='%H %ci' -- docs/claude/work/RESEARCH-LOSS-RECEIPT.json"
+  },
+  "state": "queued",
+  "what": "research-loss-detector.yml's 'Run the detector' step runs under default bash -e {0}; its own 'set -uo pipefail' (no -e) does not cancel the inherited errexit, so when 'python3 scripts/ops/research_loss_detector.py ... | tee ...' exits 1 (a valid findings answer per the script's own header, not a crash), pipefail makes the pipe return 1 and -e aborts the step before rc=${PIPESTATUS[0]} / echo rc=... >> $GITHUB_OUTPUT ever run. Observed on the detector's only real scheduled run (2026-09-25T05:06:35Z, run 36097174392, which genuinely found 13 stuck automation PRs + 15 unlanded result runs): job conclusion=failure, 'Alert the operator channel' and 'Land the receipt on main' both skipped -- no alert fired, docs/claude/work/RESEARCH-LOSS-RECEIPT.json on main is still the 2026-09-24T13:13:20Z PR-merge seed. This is the exact failure mode E57 exists to close, recurring inside E57's own fix. Location: .github/workflows/research-loss-detector.yml lines ~71-84 ('Run the detector' step)."
+}
