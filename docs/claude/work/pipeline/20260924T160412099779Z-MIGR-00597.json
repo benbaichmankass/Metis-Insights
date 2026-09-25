@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO things, and they are different — say WHICH was done. (1) THE CONTRADICTION IS SETTLED IN THE FILE: `occurrences` and `residual_risk` no longer disagree about whether the escalation trigger has fired, and if the answer is 'it has', the row SAYS SO rather than being quietly reworded to condition on an 11th. Mechanically checkable: the trigger sentence names a number strictly greater than `occurrences`, or names no number and states the condition as met. (2) THE ESCALATION IS EITHER BUILT OR DECLINED ON THE RECORD. Built = a diff-scoped CI guard over analysis scripts in the canonical-db-resolver / diagnostic-provenance family, registered in scripts/ci/run_guards.py, whose findings are CENSUSED first so a residue cannot sit unmeasured (the diagnostic-provenance-guard precedent, where a diff-scoped-only guard let 52 findings sit unchanged for 26 days). Declined = an operator decision recorded as a decision, with the reason, not left looking like work about to start. ⚠️ NOT resolved by a stronger adjective on the ledger row — the row forbids that in its own words. ⚠️ NOT resolved by a green `--self-test`: CI already runs both self-tests and they passed throughout every one of the ten occurrences, because they grade whether the LOOKUPS work, not whether anyone ran them. ⚠️ A count of instances since 2026-08-26 is WELCOME evidence but is not sufficient on its own, and must carry its classifier and a positive control if it is offered.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-RECURRENCE-LEDGERS-LARGEST-CLASS-STANDS-AT-ITS-OWN-ESCALATION-TRIGGER-AND-THE-ESCALATION-WAS-NEVER-BUILT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-RECURRENCE-LEDGERS-LARGEST-CLASS-STANDS-AT-ITS-OWN-ESCALATION-TRIGGER-AND-THE-ESCALATION-WAS-NEVER-BUILT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-RECURRENCE-LEDGERS-LARGEST-CLASS-STANDS-AT-ITS-OWN-ESCALATION-TRIGGER-AND-THE-ESCALATION-WAS-NEVER-BUILT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RC-STORED-FIELD-READ-AS-ITS-NAME records `occurrences: 10` while conditioning its escalation on \"if a 10th instance occurs\" — the trigger is met or off by one, the guard it names does not exist, and CI only self-tests the two lookups rather than requiring anyone to run them"
+}

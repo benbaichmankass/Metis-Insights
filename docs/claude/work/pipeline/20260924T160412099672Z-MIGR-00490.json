@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "MEASURED 2026-09-08 by MI-188b by tracing order_monitor._apply_update's KIND_MODIFY branch (src/runtime/order_monitor.py ~L1237-1470). An applied amend leaves exactly four traces, none durable: (1) db.update_order_package OVERWRITES order_packages.sl/tp in place, no history row; (2) trades.stop_loss/take_profit_1 likewise overwritten; (3) one logger.info -> systemd journal, whose retention this repo has MEASURED at ~30 minutes (CLAUDE.md, work_decision_sweep_receipt row); (4) enqueue_trade_update, a Telegram ping that is drained. VERIFIED ABSENCE, not assumed: zero log_signal_event/log_outcome calls in L1230-1480 (the only log_signal in the file is L6533, a different path). trades.protection_repairs is documented as DELIBERATELY excluding the ordinary trailing amend, and that exclusion is correct — this row is not asking to reverse it. CONSEQUENCE: the amend RATE is unmeasurable. The best available substitute is a LOWER BOUND on PACKAGES built from order_packages.exit_plan (frozen at entry — verified by grep that no update site exists) vs the current sl: 140 of 2098 gradeable packages (6.7%) show a moved stop, ALL 140 favourable (92 raised on longs, 48 lowered on shorts), the other 2369 of 4467 UNGRADEABLE because they predate the exit_plan migration (created 2026-05-02 -> 2026-07-16). N amends on one package collapse to one observation and a there-and-back move is invisible, so this is a floor on packages and not a count of amends. Same class as BL-20260816-TICK-COST-HAS-NO- …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-A-TRAILING-AMEND-HAS-NO-DURABLE-RECORD-SO-ITS-RATE-IS-UNMEASURABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-A-TRAILING-AMEND-HAS-NO-DURABLE-RECORD-SO-ITS-RATE-IS-UNMEASURABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-A-TRAILING-AMEND-HAS-NO-DURABLE-RECORD-SO-ITS-RATE-IS-UNMEASURABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] An applied trailing amend leaves no durable record anywhere — both stop fields are overwritten in place, the only log line goes to a journal measured at ~30min retention, and no audit/outcome event is written — so 'how often does the trail fire' cannot be answered at all"
+}

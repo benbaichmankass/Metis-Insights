@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(a) The heavy lock resolves to ONE machine-level path independent of which checkout is running, in BOTH implementations (python + shell) so they cannot diverge, with the transition sequenced so no window exists in which two live jobs take different files. (b) The acquisition message distinguishes joining the shared queue from creating a private one — e.g. `heavy_lock_acquired` carries the resolved path, so the log line alone is falsifiable; today it is not. (c) A guard or test asserts the property across checkouts rather than asserting a path string. (a) is the operator-gated half; (b) and (c) are Tier-1. Verification: point at a run from a worktree that BLOCKS on a lock held from the canonical clone, and at the log line naming the path it took.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-WORKTREE-RUN-TAKES-A-PRIVATE-HEAVY-LOCK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-WORKTREE-RUN-TAKES-A-PRIVATE-HEAVY-LOCK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-WORKTREE-RUN-TAKES-A-PRIVATE-HEAVY-LOCK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The trainer heavy-job lock path is CHECKOUT-RELATIVE, so a job run from a git worktree takes a PRIVATE mutex, logs heavy_lock_acquired, and serializes against nothing"
+}

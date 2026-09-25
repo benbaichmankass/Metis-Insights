@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-MERGE-UNION-ON-A-WORK-OBJECT-REPORTS-A-CLEAN-MERGE-AND-SILENTLY-DROPS-THE-PROGRESS-ENTRY-IT-EXISTS-TO-PRESERVE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260913-MERGE-UNION-ON-A-WORK-OBJECT-REPORTS-A-CLEAN-MERGE-AND-SILENTLY-DROPS-THE-PROGRESS-ENTRY-IT-EXISTS-TO-PRESERVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-MERGE-UNION-ON-A-WORK-OBJECT-REPORTS-A-CLEAN-MERGE-AND-SILENTLY-DROPS-THE-PROGRESS-ENTRY-IT-EXISTS-TO-PRESERVE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "`merge=union` on docs/claude/work/objects/*.yaml looks like a one-line fix for the progress-block conflicts and is UNSAFE: it exits 0, writes duplicate YAML keys, and a reader then silently loses the other side's progress entry"
+}

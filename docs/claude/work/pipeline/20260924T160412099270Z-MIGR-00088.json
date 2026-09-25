@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "BOTH, and they are different facts — say WHICH you cleared rather than clearing the row on the easier one. (1) SUPPRESSION OBSERVED: after a full cooldown window has elapsed past the stamp, /api/diag/log_file?name=prop_status_request shows breakout_1's `last_request` UNCHANGED while the account is flat, i.e. the ask did not fire. [!] THIS REQUIRES A POSITIVE CONTROL AND IT IS NOT OPTIONAL: silence alone is also what a crashed import looks like. Once #11546 is deployed the control is in the SAME file — `last_verdict: quiescent` with a `last_assessed_at` inside the window proves the module ran and chose not to ask. BEFORE #11546 there is no such control and clause (1) CANNOT be cleared honestly; do not clear it on the stamp alone. (2) THE ASK STILL FIRES WHEN IT SHOULD: an ask is observed for a real trigger — an open prop position, a real (non-suppressed) ticket after the snapshot, or an unreadable read. A change that silences EVERYTHING is a regression that looks identical to success on clause (1), and this clause is the only thing separating them. [!] IF THE OPERATOR IS PINGED ABOUT A QUIESCENT ACCOUNT AFTER THE DEPLOY, that does NOT clear this row and is the more valuable finding — write it into observation and keep the row open. [!] IF THE OPERATOR DECIDES the wall-clock ask should return, this row does NOT clear — it CHANGES: that is a legitimate Tier-2 decision and must be RECORDED as one rather than left looking like an observation about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] MI-214's activity trigger is deployed on the fleet and its SUPPRESSION has never been observed"
+}

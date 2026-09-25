@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "CLOSE when no matrix row's `strategy` names more than one leg (the `*_prop` wildcard included -- a wildcard row has no countable denominator), AND a guard enforces that over ALL rows rather than live-only, so the next bundle cannot be added silently. Removing the contradiction alone does NOT close this -- the bundle is still there.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW-SURVIVES-AND-CONTRADICTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW-SURVIVES-AND-CONTRADICTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-COVERAGE-MATRIX-BUNDLED-ROW-SURVIVES-AND-CONTRADICTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A bundled coverage-matrix row survived the 2026-08-09 per-leg explosion -- one row carrying 8 lever statuses for 4 named legs plus a `*_prop` WILDCARD -- and it CONTRADICTED two legs' own rows on 8/8 and 6/8 cells; the leg-name validator cannot see it because it skips non-live rows"
+}

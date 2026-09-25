@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies; a live instruction, claim or module pointing at something the reset archived is E9's class. EVIDENCE: MEASURED 2026-09-24: docs/CLAUDE-RULES-CANONICAL.md:326 still says 'Enforced by artifact-validity-guard'; run_guards.py:184 lists it under Removed.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "§ 'Green is not evidence' obligation 2 names a guard that appears in run_guards.py's live registry",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E45-GREEN-IS-NOT-EVIDENCE-RULE-2-NAMES-ARTIFACT-VALIDITY-GUARD-WHICH-THE-RESET-REMOVED",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E45 / PR #12756",
+    "rerun": "grep -n 'artifact-validity-guard' docs/CLAUDE-RULES-CANONICAL.md scripts/ci/run_guards.py"
+  },
+  "routed_to": "E9",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "docs/CLAUDE-RULES-CANONICAL.md § 'Green is not evidence' obligation 2 says an intentional exception carries `# allow-degraded: <reason>` inline and is 'Enforced by artifact-validity-guard'. artifact-validity-guard is in the 2026-09-21 reset's own removed list in scripts/ci/run_guards.py, so that named mechanism does not run. The guard that DOES run is scripts/ops/check_allow_degraded.py, re-pointed by E45 at PIPELINE.jsonl. The doc line also omits the two things the annotation actually requires (an id and an until: date). E45 did NOT fix it: the row scoped the doc edit to the three sections it named, and the wind-down instruction was explicit that half-correcting that file is worse than leaving it. This is a fourth mechanism claim in the #1 doc, same class as the three E45 corrected: 1 of 1 named enforcers for this rule is absent from the registry."
+}

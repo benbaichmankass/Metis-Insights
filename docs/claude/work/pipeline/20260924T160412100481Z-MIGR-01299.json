@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Something watches closed trades and alerts when a leg that is NOT on an account's config/accounts.yaml `strategies:` list closes a trade on that account -- OR the operator records a DECIDED that the check is not wanted and why. Reading the list by hand is not it; the point is that nothing watches.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E32-THE-INVERSE-ROSTER-ANOMALY-DETECTOR-IS-NOT-BUILT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01SVqDYb7UMYjzNqZrdLdDjt, checklist rows E31+E32, PR #12738 branch claude/e31-runtime-loaded-config",
+    "rerun": "grep -rn 'not on the account roster\\|roster_anomaly' src/ scripts/ || echo 'still not built'"
+  },
+  "state": "queued",
+  "what": "OPERATOR CORRECTION 2026-09-22, and it is the layer-2 check that is actually worth having: 'the roster is not a behaviour-observable fact, it is a LIST-observable fact... Just because something's not trading doesn't mean it's not on the roster -- it could just be sidelined. The only problem we would notice is if we see something trading that's NOT on the roster.' [!] SO THE CHECK IS AN INVERSE ANOMALY DETECTOR, NOT A CONFIRMATION: alert when a leg NOT on an account's list closes a trade on it. That is a positive assertion, it needs no positive control, and it fires on the case that matters. The confirmation direction cannot work at this trade rate anyway -- MEASURED over the 200 most recent closed trades (closedAt 2026-09-13T20:55:29Z -> 2026-09-22T08:48:49Z, ~9 days): 199 paper, 1 real money. [!] E31 (PR #12738) built LAYER 4, which detects that the process and the FILE have diverged. This row is the different question: whether what the system ROUTES has diverged from the list it holds. Both are named in docs/reference/verifying-what-is-trading.md; only the first is built."
+}

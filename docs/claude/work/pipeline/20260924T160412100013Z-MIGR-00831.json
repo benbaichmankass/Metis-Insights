@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260827-EXIT-COVERAGE-MATRIX-IS-SUBSTANTIALLY-A-POWER-TEST-FLEET-WIDE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260827-EXIT-COVERAGE-MATRIX-IS-SUBSTANTIALLY-A-POWER-TEST-FLEET-WIDE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260827-EXIT-COVERAGE-MATRIX-IS-SUBSTANTIALLY-A-POWER-TEST-FLEET-WIDE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "RECURRENCE, generalised: the M20 coverage matrix grades 468 cells at a MEDIAN OOS base of 33 trades, so 70.3% honest_negative is largely 'we could not tell' rather than 'the lever does not help' -- and the identical finding was filed for ONE lever column 13 days ago and never carried across"
+}

@@ -1,0 +1,22 @@
+{
+  "a10_note": "Still applies (the missing detector); E9's remit is exactly the reader sweep. EVIDENCE: Not re-run (the probe needs a deepened clone); MANAGER-CHECKLIST.json: E9 queued.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either the guard exists and its baseline is declared and shrinking, or the operator has decided not to build it and that decision is recorded. ⚠️ The count falling on its own does NOT clear this: the row is about the MISSING DETECTOR, not about the 40 paths. Re-running the probe and finding fewer is evidence lanes are sweeping by hand, which is the cost this exists to remove.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-ARCHIVED-REGISTERS-STILL-READ-BY-40-PATHS-ACROSS-LIVE-CI-SOURCES",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E29 build lane (session_01AX7C1vHqCEnh4EyqLnm5p8), PR #12719, 2026-09-22",
+    "rerun": "Re-run the archived-and-still-referenced probe, which is the whole measurement: `git diff --no-renames --diff-filter=D --name-only 3ea2777^1 HEAD` for the archived set (⚠️ --no-renames is load-bearing: the reset RENAMED files into docs/archive/, so plain --diff-filter=D returns ZERO and the probe reports a false all-clear), then grep each surviving path across .github/workflows, scripts/ci, scripts/ops and .claude/skills. Positive control: docs/claude/board-pointer.json must appear in the archived set."
+  },
+  "routed_to": "E9",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "MEASURED 2026-09-22 (E29 lane, PR #12719). 289 paths were archived by the 2026-09-21 operating reset and are absent from the tree; 40 of them are STILL NAMED by live sources under .github/workflows, scripts/ci, scripts/ops and .claude/skills. Heaviest fan-out: health-review-backlog.json (31 namers), OPEN-ITEMS.json (25), ml-review-backlog.json (25), performance-review-backlog.json (23), SESSIONS.json (16), research-review-backlog.json (15), board-pointer.json (12). ⚠️ THIS IS NOT THE 137-PATH NUMBER AND MUST NOT BE CONFLATED WITH IT. A raw 'path literal that does not exist' scan is NOT a usable detector: re-running that shape produced 216 and was dominated by noise -- an extension-ordering bug splitting .jsonl as .json, self-test fixture literals, docstring prose, and files the naming workflow PRODUCES (the econ-calendar and macro backfills). The decidable signal is narrower: a path the reset ARCHIVED that a live source still names. PROPOSED REMEDY: one guard keyed on archived-and-still-referenced, shipped REPORT-ONLY against a declared baseline that shrinks -- never blocking, because 40 paths across ~60 files would go red on every PR at once and a guard nobody can go green against gets waived rather than satisfied. WHAT IT WOULD HAVE CAUGHT on 2026-09-21: E23 (health-review's hard completion gate, plus its three unfixed sibling skills), E27, and all three of E29's workflows -- four instances found independently by four lanes in one day.",
+  "why_it_matters": "The reset archived registers and nothing swept their readers. That single defect has now surfaced FOUR times in one day, each time costing a lane most of a session to rediscover from a red check or an unsatisfiable skill gate -- and each lane fixed only its own instance. Without a detector the remaining 40 keep surfacing one at a time, and the ones behind dormant workflows (the board family) will not surface at all until somebody dispatches them."
+}

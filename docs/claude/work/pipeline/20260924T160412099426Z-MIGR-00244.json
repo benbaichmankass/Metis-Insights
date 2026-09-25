@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "`python3 scripts/research/m20_coverage_rollup.py` prints, beside its TP-GEOMETRY COVERAGE figure, a count of `tp_geometry: live_parity` rows in docs/research/m20-exit-head-rounds.jsonl whose matching matrix cell carries no `tp_geometry` stamp — and that count reads 0 on the current artifacts. Verify the check can FAIL by removing one stamp and confirming the line reports 1, so a zero is evidence rather than a probe that found nothing. (The 16-cell DATA gap this row was opened for is already closed — coverage 11/376 -> 32/376 — but the row stays open until the recurrence is enforced, because the same under-count is otherwise silent on the next round.) The check MUST use the sign predicate above, not string equality between status and verdict — string equality is what over-reverted 4 correct stamps when this was first done by hand.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-TP-GEOMETRY-RECORDED-IN-PROSE-WHILE-THE-CONSUMER-READS-A-FIELD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-TP-GEOMETRY-RECORDED-IN-PROSE-WHILE-THE-CONSUMER-READS-A-FIELD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-TP-GEOMETRY-RECORDED-IN-PROSE-WHILE-THE-CONSUMER-READS-A-FIELD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 16 matrix cells were measured at live TP parity and the roll-up counted them as `unrecorded`, because the fact was written in ref prose and in m20-exit-head-rounds.jsonl while geometry_coverage() reads a STRUCTURED `tp_geometry` field."
+}

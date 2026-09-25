@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "CLOSE when the 1d fleet has ONE recorded disposition covering all three lever families -- either a stated alternative evidence standard (with the standard named on the cells it grades) or an explicit terminal 'not gradeable at this standard' status in the matrix legend. Closing the individual cells one at a time under the CURRENT standard does not resolve this, because it cannot happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-M20-DONE-CONDITION-IS-60PCT-ONE-FACT-THE-1D-FLEET-IS-TOO-THIN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] M20's remaining done-condition is not 42 independent tasks -- 25 of the 42 open cells (59.5%) are the 1d fleet, and all three lever families block there for ONE reason: daily bars do not produce enough trades for the OOS standards in use"
+}

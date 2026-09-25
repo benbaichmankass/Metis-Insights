@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260908-READOPT-FLAP-GUARD-CANNOT-SEE-A-NETTING-ATTRIBUTED-FALSE-CLOSE-SO-THE-FLAP-IT-EXISTS-TO-STOP-LOOPS-FREELY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-READOPT-FLAP-GUARD-CANNOT-SEE-A-NETTING-ATTRIBUTED-FALSE-CLOSE-SO-THE-FLAP-IT-EXISTS-TO-STOP-LOOPS-FREELY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-READOPT-FLAP-GUARD-CANNOT-SEE-A-NETTING-ATTRIBUTED-FALSE-CLOSE-SO-THE-FLAP-IT-EXISTS-TO-STOP-LOOPS-FREELY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The re-adopt flap guard's exit_reason allowlist omits netting_attributed, so a strategy row false-closed by the netting reconciler falls straight through with zero flap protection"
+}

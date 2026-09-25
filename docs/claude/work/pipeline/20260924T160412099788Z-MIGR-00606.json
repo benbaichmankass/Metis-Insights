@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BOTH, and they are different facts -- say WHICH you cleared. (1) MEASURED: at least one report committed under comms/reports/ carries backlog_drive.<domain>.count_untriaged for all three domains, read off the committed JSON rather than from the template, so the field is demonstrably in use rather than merely available. (2) An absent count_untriaged on a domain block that EXISTS is a violation in _validate_review_coverage, with the pinning test updated in the same change rather than deleted. [!] NOT sufficient: adding the field to the template -- that is already done and is what made (1) possible. [!] NOT sufficient: a passing test alone; the point of (1) is that a real run writes the number. [!] AND IF THE OPERATOR DECIDES the triage gate should not be this strict, that is a legitimate decision and closes this row -- but it must be RECORDED as one rather than left looking like a tightening about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-TRIAGE-GATE-CANNOT-TELL-AN-UNSTATED-COUNT-FROM-A-ZERO-ONE-UNTIL-REPORTS-CARRY-THE-FIELD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-TRIAGE-GATE-CANNOT-TELL-AN-UNSTATED-COUNT-FROM-A-ZERO-ONE-UNTIL-REPORTS-CARRY-THE-FIELD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-TRIAGE-GATE-CANNOT-TELL-AN-UNSTATED-COUNT-FROM-A-ZERO-ONE-UNTIL-REPORTS-CARRY-THE-FIELD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] --strict now fails a DECLARED triage shortfall, and an OMITTED count_untriaged still passes -- so the cheapest way past the new gate is to not state the number"
+}

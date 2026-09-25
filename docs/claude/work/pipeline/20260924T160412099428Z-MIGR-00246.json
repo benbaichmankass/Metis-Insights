@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either a typed run_id field is added beside `provenance`, or this row is closed as won't-fix on the grounds that the free-text field already carries the information and no consumer needs to group by run. Closing as won't-fix is an acceptable outcome and should be recorded as such.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-EXIT-HEAD-ROUNDS-RUN-IDENTITY-IS-PROSE-NOT-A-FIELD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-EXIT-HEAD-ROUNDS-RUN-IDENTITY-IS-PROSE-NOT-A-FIELD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-EXIT-HEAD-ROUNDS-RUN-IDENTITY-IS-PROSE-NOT-A-FIELD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The rounds file's run identity lives inside the free-text `provenance` string, not a typed field — readable by a human, not by a consumer, and I asserted it was ABSENT by reading the field-name list instead of the values."
+}

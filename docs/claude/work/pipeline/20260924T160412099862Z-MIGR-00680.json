@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Any analysis attributing a stop-out to declared bracket geometry separates exits at the ENTRY-DECLARED stop from exits at an AMENDED stop, using order_packages.exit_plan.stop.price, and states the split. [!] NOT SUFFICIENT: reading trades.stop_loss and assuming it is the declared level -- that is the defect. [!] ALSO NOT SUFFICIENT: excluding trailed stop-outs silently. The count is load-bearing (29% here) and belongs in the output. [!] AND THIS IS NOT MI-188b's row -- that one establishes a trailing amend has no DURABLE RECORD of its rate; this one is that the amend makes an attribution wrong. They compose: the reason the split is hard to audit at scale is the missing record.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-A-TRAILED-STOP-OUT-IS-ATTRIBUTED-TO-THE-DECLARED-GEOMETRY-THAT-DID-NOT-END-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260911-A-TRAILED-STOP-OUT-IS-ATTRIBUTED-TO-THE-DECLARED-GEOMETRY-THAT-DID-NOT-END-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-A-TRAILED-STOP-OUT-IS-ATTRIBUTED-TO-THE-DECLARED-GEOMETRY-THAT-DID-NOT-END-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] 2 of 7 post-e35 stop-outs were ended by a stop a lever had already tightened, one to 0.276 ATR against a declared 2.0 -- reverting atr_stop_mult could not have changed either"
+}

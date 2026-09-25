@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO PARTS, and they are different facts -- say WHICH was cleared. (1) A claude-pr-automerge run is OBSERVED printing a non-fallback opener with NO `could not construct a PAT-authenticated client` warning -- read off the run log, never from the workflow source. Alternatively the PAT branch is DELETED and that removal is recorded as a decision, which closes this row just as legitimately: a branch that never runs is worse than no branch, because a reader assumes it does. (2) The second observation is SETTLED with a positive control -- one bot-opened PR's check runs read at open time AND again after its first push, with both counts recorded, against the REQUIRED-check list read from branch protection. [!] A GREEN RUN OF claude-pr-automerge CLEARS NOTHING: every one of the five runs measured here concluded `success` while emitting the warning -- the fallback is silent by design and success is exactly what the broken state looks like. [!] AND THE SECRET BEING PRESENT CLEARS NOTHING EITHER: the failure is upstream of the token read.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-CLAUDE-PR-AUTOMERGE-CANNOT-CONSTRUCT-ITS-PAT-CLIENT-SO-THE-U2-PREVENTIONS-OPEN-UNDER-A-PAT-BRANCH-IS-INERT-IN-PRODUCTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-CLAUDE-PR-AUTOMERGE-CANNOT-CONSTRUCT-ITS-PAT-CLIENT-SO-THE-U2-PREVENTIONS-OPEN-UNDER-A-PAT-BRANCH-IS-INERT-IN-PRODUCTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-CLAUDE-PR-AUTOMERGE-CANNOT-CONSTRUCT-ITS-PAT-CLIENT-SO-THE-U2-PREVENTIONS-OPEN-UNDER-A-PAT-BRANCH-IS-INERT-IN-PRODUCTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] claude-pr-automerge falls back to GITHUB_TOKEN on every run because `@actions/github` is not resolvable from its script, so #11889's open-under-a-PAT branch has never run"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "At least one intraday ETF cell shows a clean closed-1h-bar entry + bracket fill on alpaca_paper in the journal, with the intraday exit cadence behaving as designed. If entries fire mid-bar or the trail/exit misbehaves, escalate the specific defect to the health-review backlog.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260620-001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260620-001",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260620-001'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] Verify the 6 intraday ETF cells (gld/slv/spy/qqq/tlt/uso _1h) produce live paper fills on alpaca_paper during the next US RTH"
+}

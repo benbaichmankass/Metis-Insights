@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) the compat matrix's standard-kind path is shown to consume account_size_usd — verified by two accounts on the SAME risk_pct and different sizes producing DIFFERENT end_return_mean / survival, which is the exact comparison that fails today; OR (b) it is recorded that the standard-kind verdict is deliberately size-independent, in which case the per-ACCOUNT framing is corrected at every surface that presents it that way and the 11 units are re-expressed as the ~2 distinct verdicts they actually contain. [!] ONLY THEN can the 11 be terminally dispositioned; a terminal verdict written before this is settled does not close OI-20260831-RESEARCH-READ-DEBT, it corrupts it. [!] NOT SUFFICIENT: a fresh gld_compat run — per that row, a newer run converts unread into superseded_unread and GROWS the debt rather than paying it, and would reproduce this defect. [!] NOT SUFFICIENT: fixing ib_live's 'unreadable' size_state, which is a separate and lesser gap (1 UNGRADED of 11) and does not touch the 10 that graded.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-THE-GLD-COMPAT-MATRIX-GRADES-RISK-PCT-NOT-THE-ACCOUNT-SO-ITS-11-UNREAD-UNITS-CANNOT-BE-TERMINALLY-DISPOSITIONED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260908-THE-GLD-COMPAT-MATRIX-GRADES-RISK-PCT-NOT-THE-ACCOUNT-SO-ITS-11-UNREAD-UNITS-CANNOT-BE-TERMINALLY-DISPOSITIONED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-THE-GLD-COMPAT-MATRIX-GRADES-RISK-PCT-NOT-THE-ACCOUNT-SO-ITS-11-UNREAD-UNITS-CANNOT-BE-TERMINALLY-DISPOSITIONED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] alpaca_live ($200.10, REAL MONEY) cannot buy one share of GLD at $419.72 and its per-account compat verdict is ROUTE with survival 1.000 — end_return_mean is a pure function of risk_pct and ignores account size entirely (varies 6,692x with zero effect)"
+}

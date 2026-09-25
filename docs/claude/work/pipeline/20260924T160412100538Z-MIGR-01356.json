@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "THREE things, and a passing test is NONE of them. (a) ARMED: `/api/diag/log_file?name=arbitration_fanout_soak` shows rows with `apply_implemented: true` AND `plan_state: planned` AND `applied: true` -- read the EFFECT (`applied`), never `global_mode`, which is only what was asked for. A row with a non-empty `rounds_planned` and `applied: false` is the STAGED state (the allowlist held it back), which is progress and is NOT this criterion. (b) ROUTED: a `trades` row on an account that the SAME soak row lists in `rounds_applied[*].accounts`, on a symbol where `starved_count` was previously non-zero. This is the only evidence the decision became an ORDER -- a soak row proves the decision and nothing more. (c) THE TIEBREAK BIT: `trend_donchian_sol` (or any prefix-named leg) appearing as a WINNER in the audit -- `/api/diag/audit_query?strategy=trend_donchian_sol`, or a journal row on bybit_1. Measured baseline to compare against: it won 0 of 60 SOLUSDT buy-side ticks 2026-08-01..08-27 and wrote ZERO journal rows on bybit_1 since being routed there 2026-07-07. === NOT EVIDENCE: a quiet sleeve. A tick where no account held a second candidate had no contest to arbitrate, so a clean result there says nothing -- the same trap OI-20260830-BYBIT-HEDGE-MODE's criterion (3) exists to close. Check `starved_count` and `accounts_planned` on the soak rows to confirm a contest actually occurred.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by checklist E17 (blocked), E33 (landed_unproven), E34 and E35 (queued), which own the arbitration fan-out end to end, including the 'never dispatched' fact. EVIDENCE: MANAGER-CHECKLIST.json 2026-09-24: E17 blocked, E33 landed_unproven, E34/E35 queued with the operator's 2026-09-22 directive. PI-20260924-JN54P2HH-0004 carries the current soak reading.",
+  "what": "[LOUD] ⚠️ ARMED ON bybit_1 AS OF 2026-08-31T07:47Z — this row's own ID still reads 'NOT-YET-ARMED' and that half is now STALE. The id is deliberately NOT renamed (CLAUDE.md and several backlog rows link it by name); read this summary, not the id. Per-account arbitration (the fan-out), the evidence-based election, and the name-prefix tiebreak fix are MERGED (12e4a9e), DEPLOYED (live sha 12e4a9eb) and ARMED (ARBITRATION_FANOUT_MODE=apply + ARBITRATION_FANOUT_ACCOUNTS=bybit_1, both confirmed on /proc/<MainPID>/environ, not the .env). What remains UNPROVEN is the only thing that matters: the fan-out has never ELECTED anything and has never ROUTED an order. Armed is not exercised; deployed is not proven."
+}

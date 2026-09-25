@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. The trainer's disk reading is APPENDED somewhere durable, one row per publish or per cadence window — the exposure_soak.jsonl shape — carrying the same uncollapsed {measured,reason} the current block already gets right. Cheapest correct option is a `disk` key on the existing training_cycle.jsonl rows or a sibling jsonl in the mirror; both already rsync to the live VM and are already readable via /api/bot/ml/* and the diag log_file allowlist.\n2. A reader can compute GB/day over a stated window, and reports it BESIDE the number of samples and the window length — a rate over 3 points is not the claim a rate over 300 is.\n3. WITH the rate in hand, the parent row's urgency question is answered one way or the other and recorded: either a projected date the root fills, or a measured statement that it oscillates within a band and does not trend. Either answer closes it; neither may be asserted without the series.\n4. NOT a criterion, stated so it is not mistaken for one: nothing here proposes DELETING anything. Retention for the two uncovered trees (ml/experiments-runs, runtime_logs/m2*_head) is the parent row's criterion 2 and is Tier-2 on the trainer.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-TRAINER-DISK-IS-MEASURED-EVERY-2-MINUTES-AND-ACCUMULATED-NEVER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-TRAINER-DISK-IS-MEASURED-EVERY-2-MINUTES-AND-ACCUMULATED-NEVER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-TRAINER-DISK-IS-MEASURED-EVERY-2-MINUTES-AND-ACCUMULATED-NEVER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The trainer's disk fill RATE is structurally unknowable — the figure is recomputed every ~2 minutes into a file that is overwritten, so every reading is discarded"
+}

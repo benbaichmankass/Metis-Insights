@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Add a two-line interpreter guard at the top of the sweep and the backtest harnesses: if the required third-party imports are unavailable, exit non-zero with the exact venv path to use rather than letting the ImportError escape into a subprocess capture. Also state the venv invocation in the `backtesting` and `exit-refinement` skills, which are what a session reads before dispatching one. DONE when a bare-python3 invocation prints the correct command.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-RESEARCH-HARNESSES-HAVE-NO-VENV-GUARD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-RESEARCH-HARNESSES-HAVE-NO-VENV-GUARD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-RESEARCH-HARNESSES-HAVE-NO-VENV-GUARD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] the sweep and every backtest harness require the repo venv and neither state nor check it — bare python3 fails deep, as a swallowed ImportError"
+}

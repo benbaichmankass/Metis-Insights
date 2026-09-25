@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A RENDER PRODUCED BY THE CRON, WITH A TOKEN, IS OBSERVED GRADING IT -- i.e. docs/claude/DUE.json on `main` carries a `red_main_runs` entry whose `state` is `read`, and EITHER it names at least one workflow (the source found a positive) OR it reports zero rows, which is then a genuine clean negative because the token half is established by the entry existing at all. Record WHICH, and the run that produced it. !! `red_main_runs` STILL ABSENT FROM THE sources ENVELOPE DOES NOT CLEAR THIS AND IS ITSELF THE FINDING: absent means collect() never called it, which is a wiring defect, and it is a DIFFERENT fact from `could_not_read`, which means it was called and had no token. !! A `could_not_read` ENTRY CLEARS NOTHING EITHER -- that is the source correctly saying it could not look, and a due-list that renders it forever is a source deployed into a workflow that cannot feed it. !! THE MERGE CLEARS NOTHING: a merge is not a deploy and a deploy is not a run, and 4f3e0c388 is what OPENED this row. !! A GREEN TEST SUITE CLEARS NOTHING: 17 tests pass in a harness and a harness cannot reach api.github.com -- which is the whole reason this row exists rather than a line in the PR body. !! AND IF THE FIRST REAL RUN NAMES A WORKFLOW THAT IS RED ON THE DEFAULT BRANCH, that is not a defect in this source: it is the condition it was built to route, and the row clears on the OBSERVATION while the red itself becomes somebody's work.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260913-THE-DEFAULT-BRANCH-RED-READER-IS-DEPLOYED-AND-HAS-NEVER-QUERIED-THE-ACTIONS-API",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260913-THE-DEFAULT-BRANCH-RED-READER-IS-DEPLOYED-AND-HAS-NEVER-QUERIED-THE-ACTIONS-API",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260913-THE-DEFAULT-BRANCH-RED-READER-IS-DEPLOYED-AND-HAS-NEVER-QUERIED-THE-ACTIONS-API'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Subject retired by the 2026-09-21 operating reset (render_due_list / DUE.json) and the red-on-main problem itself is owned by E29 (landed_unproven). EVIDENCE: run_guards.py:184 'Removed: ... due-list-guard'; E29 landed_unproven (#12719).",
+  "what": "scripts/ops/render_due_list.py gained `src_red_main_runs` (MI-280 U90 lane, PR #12209, merged 4f3e0c388): the latest COMPLETED push-to-`main` run of each workflow whose conclusion is a real failure, rendered on docs/claude/DUE.md. It exists because `src_red_crons` queries `?event=schedule` and nothing else, so a red on the DEFAULT BRANCH was read by no source at all -- measured: `main` at 2a6c1b24d genuinely carried a duplicated register id, check_register_ids.py exits 1 at that commit with no --base needed, guards.yml carries `push: branches: [main]` with register-id-guard always-on, and the duplicate was nonetheless found by an unrelated PR author tripping over it. !! IT HAS NEVER RUN AGAINST THE REAL ACTIONS API. Its only caller is .github/workflows/due-list.yml on a `50 5 * * *` cron, and it needs a GITHUB_TOKEN; tokenless it returns `could_not_read` by design. 17 tests pass and a harness cannot reach api.github.com."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(a) The gate passes a `capital_delta` result and a test pins it so it cannot silently regress — DONE in this change. (b) The gate is RE-RUN on at least the donchian legs and the resulting Path B verdicts are recorded, so the population a drawdown tolerance would be argued from actually exists; a fix with no re-run leaves the same evidence gap the defect created. (c) Any OTHER caller of a fleet predicate from a sibling sweep is checked for the same argument-shape mismatch — this is the second inherited-fix miss between these two sweeps, so a third is likely and looking once is cheaper than finding it later. NOT sufficient: fixing the line without re-running, which would leave '77/77 fail' standing as if it had been a real assessment.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-E35-PATH-B-UNREACHABLE-RAW-RUNCELL-DICT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-E35-PATH-B-UNREACHABLE-RAW-RUNCELL-DICT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-E35-PATH-B-UNREACHABLE-RAW-RUNCELL-DICT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] e35 bracket sweep: Path B was UNREACHABLE BY CONSTRUCTION — the gate passed a raw `run_cell` dict where `is_path_b_candidate` reads a key `run_cell` never emits, so the predicate answered False for every cell ever gated"
+}

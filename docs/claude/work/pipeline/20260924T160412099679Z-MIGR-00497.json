@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "check_board_coherence.py's R3 description no longer promises that 'prose' is allowed — it says a `#` or `//` comment specifically — AND a planted self-test case asserts the docstring behaviour, so the contract and the code are pinned to each other rather than merely reworded. Closing by making R3 docstring-aware INSTEAD is also acceptable, but only with a self-test proving a docstring that names a retired number passes while `const board = <retired>;` still fails. ⚠️ Rewording the doc alone with no test clears nothing: the two drifted apart silently once already, which is this row.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-BOARD-COHERENCE-R3-GRADES-A-DOCSTRING-AS-EXECUTABLE-CONTRADICTING-ITS-OWN-STATED-CONTRACT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-BOARD-COHERENCE-R3-GRADES-A-DOCSTRING-AS-EXECUTABLE-CONTRADICTING-ITS-OWN-STATED-CONTRACT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-BOARD-COHERENCE-R3-GRADES-A-DOCSTRING-AS-EXECUTABLE-CONTRADICTING-ITS-OWN-STATED-CONTRACT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_board_coherence.py R3 says 'Comments and prose are explicitly ALLOWED and wanted' but grades a PYTHON DOCSTRING as an executable line, so the history it invites cannot be written where it most belongs"
+}

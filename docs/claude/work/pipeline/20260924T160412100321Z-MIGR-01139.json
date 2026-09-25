@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260918-STALE-IN-FLIGHT-RATCHET-RACES-A-REGISTER-MAIN-MUTATES-FASTER-THAN-CI-RUNS-SO-A-PR-FAILS-FOR-ROWS-IT-NEVER-TOUCHED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260918-STALE-IN-FLIGHT-RATCHET-RACES-A-REGISTER-MAIN-MUTATES-FASTER-THAN-CI-RUNS-SO-A-PR-FAILS-FOR-ROWS-IT-NEVER-TOUCHED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260918-STALE-IN-FLIGHT-RATCHET-RACES-A-REGISTER-MAIN-MUTATES-FASTER-THAN-CI-RUNS-SO-A-PR-FAILS-FOR-ROWS-IT-NEVER-TOUCHED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "check_stale_in_flight compares base-vs-head on MANAGER-CHECKLIST.json and work/objects/, which main mutates every ~2.7 min during a burst against a ~5.3 min guards job -- so an open PR reports as ADDING in_flight rows that other PRs have since closed"
+}

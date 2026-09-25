@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Every prop fill row carries an explicit, never-collapsed pnl BASIS — at minimum `gross` / `net_of_commission` / `unknown` (we could not determine it — never silently folded into either) — and the value is derived, not assumed: `(exit - entry) x qty` reproduces gross from the row's own fields, so `stored_pnl - gross` IS the commission and the basis follows from whether that residual is ~0 or ~the venue's bps. Registered with collapsed-state-guard, and READ by at least one consumer (a stamp with no reader is the exact defect provenance-consumer-guard exists to catch). Any aggregate over prop rows must then state its basis or refuse to mix. NO writeback to the existing rows — they are not wrong, they are unlabelled. SEPARATELY: confirm with the operator when and why the reported basis changed around 2026-08-19, since that boundary is currently recorded nowhere and silently splits the series in two.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-PROP-JOURNAL-PNL-DISAGREES-WITH-VENUE-ON-RECENT-ROWS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-PROP-JOURNAL-PNL-DISAGREES-WITH-VENUE-ON-RECENT-ROWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-PROP-JOURNAL-PNL-DISAGREES-WITH-VENUE-ON-RECENT-ROWS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The prop PnL series MIXES gross and net-of-commission rows with nothing marking which — CONFIRMED to the cent against the venue's own commission field"
+}

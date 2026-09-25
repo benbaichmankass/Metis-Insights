@@ -1,0 +1,21 @@
+{
+  "a10_note": "Live order path on real money: the netting reconciler closed live Bybit positions off a flat hedge-book read. No checklist row owns the Bybit hedge-book / netting-reconciler class. EVIDENCE: Cannot establish from a sandbox whether 46e1efb1f (the fix OI-20260917 cites) is on main — the clone is shallow and the object is unreachable; clause (2) needs a netting_attribution_soak read. Not killed on inference.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "THREE PARTS, and they are different facts — say WHICH you cleared rather than clearing the row on the easiest. (1) THE ROOT CAUSE LANDS: _bybit_position_protection selects the book instead of taking rows[0], AND its two collapses are separated — `not rows` on a symbol-scoped call returns None (we could not look) rather than _flat, and more than one LIVE book returns None rather than picking one. (2) THE FIX IS OBSERVED ON THE FLEET, which is a DIFFERENT fact from (1): a netting_attribution_soak row on a hedge-armed symbol carrying a non-zero exchange_qty where the venue holds a position, AND no further netting_attributed -> same-size-adopt pair. [!] A PASSING UNIT TEST CLEARS NEITHER — a fixture cannot reproduce which row Bybit lists first, which is the whole mechanism. [!] AND THE ABSENCE OF NEW ADOPT PAIRS IS NOT SUFFICIENT ALONE: the flap needs a second live position in the sibling book to arise at all, so a quiet week may mean the condition did not occur rather than that it is fixed. Say which you established. (3) THE NINE UNGRADEABLE FLAT READS ARE GRADED, or the soak is given `source` + `position_idx` so they become gradeable and the count is recorded. That count is what a NETTING_ATTRIBUTION_MODE widening decision actually rests on and nobody has it. [!] THE OPEN ETHUSDT POSITION CLOSING DOES NOT CLEAR ANY PART OF THIS. It will close eventually by TP, SL or a strategy exit, and that says nothing about the reconciler. If it closes with an UNEXPLAINED resolution, record ",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT'), indent=2))\""
+  },
+  "routed_to": "ask_operator (Tier-3): needs a checklist row — the Bybit hedge-book/netting-reconciler class (this, OI-20260913-...-HEDGE-BOOK-IS-NEVER-FETCHED, OI-20260917 remeasure) has no owner",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[LOUD] The netting reconciler is closing LIVE Bybit positions because it grades a symbol off get_positions rows[0] and a hedge book reads flat — three provable false closes, one open right now, and real money is in the exposed population"
+}

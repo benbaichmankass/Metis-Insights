@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "/api/diag/tick_cost carries a per-venue fetch cut (e.g. fetchvenue.bybit / .alpaca / .interactive_brokers) whose summed seconds reconcile with sum(fetch.<timeframe>) over the SAME process to within 1% of that sum - the same cross-family check the existing two cuts already pass exactly (measured 2026-08-21, one process started 13:43:00.710052Z, n=281 off-loop passes: fetchby.strategy_monitor_loop 11467.9s vs sum(fetch.*) 11467.9s, delta 0.0s = 0.00% of 11467.9s; counts 1326 misses + 3170 cache_hit = 4496 = fetchby n). hook_names_refused must still read 0, and a session must be able to answer 'what share of fetch.1d is IB?' from one read instead of bounding it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-FETCH-COST-HAS-NO-VENUE-AXIS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-FETCH-COST-HAS-NO-VENUE-AXIS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-FETCH-COST-HAS-NO-VENUE-AXIS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] tick_cost splits candle-fetch cost by timeframe and by consumer, but NOT by venue — so 'how much of fetch.1d is IB?' is unanswerable, and a venue-specific defect can only be bounded"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "FOUR PARTS, and they are different facts -- say WHICH you cleared rather than clearing the row on the easiest. (1) #11903 is MERGED, or explicitly rejected; sitting un-actioned settles nothing, and if it is still open the useful action is to tell the operator it needs a merge decision, NOT to merge it. (2) DEPLOYED -- /api/diag/version shows a git_sha CONTAINING the merge commit (check ANCESTRY with merge-base --is-ancestor, never string equality: main moves fast and the trader pulls every ~5 min) with restart_pending false. A merge alone clears this NOT AT ALL. (3) OBSERVED POSITIVE: a position_read_state_soak row on bybit_1, timestamped after that restart, carrying dropped_symbol_dedupe_count 0 while `emitted` accounts for BOTH books of a two-sided symbol. [!] THE SECOND CLAUSE IS THE DENOMINATOR AND IS NOT OPTIONAL: a zero drop-count on a read where only ONE book was non-zero proves nothing, because the dedupe is not reached then -- that is the same reason bybit_2 reads 0 of 368 today while being fully exposed. Establish that the read saw a two-sided symbol, then report the zero against it. Record both numbers. (4) NO NEW PAIR: no reconciler_filled close followed by a same-order_package_id adopted_orphan after the restart, reported WITH a positive control -- the same probe finding the pre-deploy cases. [!] PAIR ON order_package_id, NEVER ON strategy_name, and that is not a stylistic preference: an adopted_orphan re-adoption carries the ORIGINAL package but a DIFFERENT stra",
+    "kind": "observation",
+    "last_checked": "2026-09-13"
+  },
+  "id": "OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] The Bybit symbol-dedupe repair is PROPOSED (Tier-2, PR #11903) and no fleet read has been observed without the drop"
+}

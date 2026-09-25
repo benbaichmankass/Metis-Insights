@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS, different facts — say WHICH was cleared. (1) A SCHEDULED run of replay-pregate-nightly.yml concludes success AND runtime_logs/replay_pregate/ is non-empty on origin/main carrying that run's artifact. Read the run history and the committed file, never the workflow yaml. (2) The push route is fixed so a run cannot silently discard partial evidence: it must not push straight at protected main with no rebase/retry — route it through .github/actions/commit-to-main like the other producers (⚠️ but see BL-20260911-THE-SHARED-COMMIT-TO-MAIN-LANDING-STEP-IS-THE-LARGEST-SINGLE-CAUSE-OF-DISCARDED-AUTOMATION-OUTPUT first — that path has its own failure mode and porting onto it blind trades one loss for another).\n\n⚠️ A GREEN workflow_dispatch RUN CLEARS NOTHING: the failure class is a nightly cadence that has never once delivered, and dispatch is not that. ⚠️ AND THE DIRECTORY BECOMING NON-EMPTY BY A HAND-COMMIT CLEARS NOTHING EITHER — the artifact must come from a scheduled run.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-REPLAY-PREGATE-NIGHTLY-HAS-ZERO-SUCCESSFUL-RUNS-IN-ITS-ENTIRE-LIFE-AND-25-MONTHS-OF-ML-PREGATE-EVIDENCE-HAS-ACCRUED-TO-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-REPLAY-PREGATE-NIGHTLY-HAS-ZERO-SUCCESSFUL-RUNS-IN-ITS-ENTIRE-LIFE-AND-25-MONTHS-OF-ML-PREGATE-EVIDENCE-HAS-ACCRUED-TO-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-REPLAY-PREGATE-NIGHTLY-HAS-ZERO-SUCCESSFUL-RUNS-IN-ITS-ENTIRE-LIFE-AND-25-MONTHS-OF-ML-PREGATE-EVIDENCE-HAS-ACCRUED-TO-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] replay-pregate-nightly.yml: 77 scheduled runs, 68 failure / 9 cancelled / ZERO success ever, on any event — two and a half months of nightly ML pre-gate evidence accrued to an empty directory and nothing alarmed"
+}

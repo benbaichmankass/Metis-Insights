@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) Decide, per driver, whether its book SHOULD be live-parity. For `m20_flip_replay_sweep` the answer is almost certainly yes — its verdicts feed a matrix column that is read as evidence about live legs — in which case pass `tp_cap_pct` through and re-run, treating the existing 42 negatives as provisional until they reproduce. (2) Whatever is decided, every one of these drivers must STAMP the geometry it ran, using the same four-state derivation now in `m20_exit_head_round.py` (`live_parity_capped` / `live_parity_uncapped` / `NO_TAKE_PROFIT` / `MIXED_capped_and_uncapped_families`), so the next reader can check rather than trust. An unstamped research output is the condition that let 42 cells accumulate silently. (3) Consider a guard asserting that any caller of `base_args` either passes `tp_cap_pct` explicitly or records why it does not — the positional default is what makes this failure silent and repeatable, and it has now recurred in four drivers.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-THREE-SIBLING-SWEEPS-STILL-BUILD-NO-TAKE-PROFIT-BOOKS-AND-STAMP-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 42 of 43 regime_flip_exit negatives were graded on NO-TAKE-PROFIT books: three sibling drivers still call base_args positionally, and none of them stamps a geometry"
+}

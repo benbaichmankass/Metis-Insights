@@ -116,7 +116,13 @@ import re
 import sys
 from pathlib import Path
 
-_REGISTER = Path("docs/claude/work/PIPELINE.jsonl")
+#: ⚠️ RE-POINTED 2026-09-24 (E64): the register moved from a single
+#: append-only JSONL file to a directory, one immutable file per record —
+#: see `scripts/ops/pipeline.py`'s module docstring for why. This constant
+#: keeps its old NAME (read by messages below) but now names the directory;
+#: `registered_soak_logs()` reads it via `pipeline.read_log()` rather than
+#: re-parsing it here, so this guard never has to track the storage format.
+_REGISTER = Path("docs/claude/work/pipeline")
 _SCAN_ROOTS = ("src",)
 
 #: An OPEN pipeline row can still come back for something. A terminal one cannot.
@@ -191,6 +197,25 @@ def declared_soak_logs(root: Path) -> dict[str, set[str]]:
     return out
 
 
+def _pipeline_module():
+    """`scripts/ops/pipeline.py`, or None when it cannot be loaded.
+
+    ⚠️ REUSED, NOT RE-DERIVED — this guard used to hand-parse the register's
+    bytes itself, which is exactly the drift `scripts/ops/pipeline.py`'s own
+    module docstring warns about (one schema, one home). Importing it means
+    a future storage change (like this one) requires touching this file not
+    at all rather than in two places that can silently disagree.
+    """
+    ops = str(Path(__file__).resolve().parents[1] / "ops")
+    if ops not in sys.path:
+        sys.path.insert(0, ops)
+    try:
+        import pipeline  # noqa: PLC0415 — deliberately late and optional
+    except Exception:  # noqa: BLE001
+        return None
+    return pipeline
+
+
 def registered_soak_logs(root: Path) -> tuple[set[str], str | None]:
     """Log names carrying a `soak` block. Returns (names, error-or-None).
 
@@ -199,29 +224,32 @@ def registered_soak_logs(root: Path) -> tuple[set[str], str | None]:
     and never be reported as "nothing is registered" — that would fail every
     soak in the tree on a JSON typo.
     """
+    pipeline = _pipeline_module()
+    if pipeline is None:
+        return set(), "scripts/ops/pipeline.py would not import"
+
     p = root / _REGISTER
-    if not p.is_file():
+    if not p.exists():
         return set(), f"{_REGISTER} is missing"
-    try:
-        text = p.read_text(encoding="utf-8")
-    except OSError as exc:  # noqa: BLE001
-        return set(), f"{_REGISTER} unreadable: {type(exc).__name__}: {exc}"
+
+    res = pipeline.read_log(p)
+    if not res.healthy:
+        locs = ", ".join(f"{loc} ({why})" for loc, why in res.unreadable[:5])
+        return set(), f"{_REGISTER} has {len(res.unreadable)} unreadable record(s): {locs}"
 
     names: set[str] = set()
-    for lineno, line in enumerate(text.splitlines(), 1):
-        line = line.strip()
-        # The store is append-only JSONL with a `//` header block. A blank or
-        # comment line is not a row; a line that does not parse is a state we
-        # could not read, which must NOT be reported as "nothing is registered".
-        if not line or line.startswith("//"):
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError as exc:
-            return set(), (f"{_REGISTER}:{lineno} did not parse: "
-                           f"{type(exc).__name__}: {exc}")
-        if not isinstance(row, dict):
-            continue
+    # ⚠️ SCANS `res.raw` (every RECORD, unfolded), matching the pre-2026-09-24
+    # behaviour byte-for-byte -- NOT `res.items` (the current, folded state).
+    # RULE ONE: verified against the real store before choosing this (a
+    # fold-based rewrite silently DROPPED registrations: `bybit_coverage_soak`
+    # and `ict_scalp_exit_head_soak` are each named in an OLD `queued` record
+    # whose id later moved to `killed`; folding to current state alone would
+    # newly report both as unregistered, a behaviour change this storage
+    # migration has no mandate to make). Whether "ever registered, even by a
+    # now-closed row" is the RIGHT rule is a separate, un-decided question --
+    # filed rather than silently resolved either way; see the pipeline row
+    # this guard cites in its own module docstring update.
+    for row in res.raw:
         if row.get("state") not in _OPEN_STATES:
             continue
         due = row.get("due_when")
@@ -341,17 +369,27 @@ def _self_test() -> int:
         return r
 
     def plant(logs, register_rows, *, baseline=None, raw=None):
-        """Build a fake tree. Returns (rc, problems) under a patched BASELINE."""
+        """Build a fake tree. Returns (rc, problems) under a patched BASELINE.
+
+        The register is `_REGISTER` (a DIRECTORY since the 2026-09-24
+        re-point, lane E64) -- one file per row, written directly rather
+        than via `pipeline.append()` since a self-test fixture is allowed to
+        plant a row shape `append()` itself would refuse (a closed/killed row
+        with no `terminal_reason`, tested elsewhere). `raw`, when given, is
+        written as ONE malformed file, to plant the "could not look" case.
+        """
         td = Path(tempfile.mkdtemp())
         (td / "src/runtime").mkdir(parents=True)
         for i, name in enumerate(logs):
             (td / f"src/runtime/w{i}.py").write_text(
                 f'SOAK_LOG_NAME = "{name}.jsonl"\n', encoding="utf-8")
-        (td / _REGISTER.parent).mkdir(parents=True, exist_ok=True)
-        body = raw if raw is not None else (
-            "// PIPELINE.jsonl — append-only. Schema: scripts/ops/pipeline.py\n"
-            + "\n".join(json.dumps(r) for r in register_rows) + "\n")
-        (td / _REGISTER).write_text(body, encoding="utf-8")
+        (td / _REGISTER).mkdir(parents=True, exist_ok=True)
+        if raw is not None:
+            (td / _REGISTER / "raw.json").write_text(raw, encoding="utf-8")
+        else:
+            for i, r in enumerate(register_rows):
+                (td / _REGISTER / f"{i:04d}.json").write_text(
+                    json.dumps(r), encoding="utf-8")
         global BASELINE
         saved = BASELINE
         BASELINE = dict.fromkeys(baseline or [], "pre-2026-09-02")
@@ -439,10 +477,9 @@ def _self_test() -> int:
        "P9 ...and a MISSING register is the same state — which is exactly what "
        "this guard read on every run between 2026-09-21 and this re-point")
 
-    # A comment line and a blank line are not rows, and must not be read as one.
+    # A well-formed single-row register reads clean.
     (rc, _), _ = plant(["new_soak"], [row("new_soak")])
-    ok(rc == 0, "N4 the `//` header block and blank lines are skipped, not "
-                "parsed as rows")
+    ok(rc == 0, "N4 a single well-formed registered row reads clean")
 
     # The live tree's own baseline must be accurate, or the guard ships lying
     # about the debt it carries.

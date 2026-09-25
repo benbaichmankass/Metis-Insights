@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) the operator approves a Tier-3 trail_mult 3 -> 4 change for tlt_pullback_1h, it merges, and the matrix trail_geometry cell records the live-parity evidence and the new shipped value; or (b) a walk-forward on a window that does NOT share the 2025-07-01 split (or a fresh out-of-window fold) fails to reproduce the edge and the row is closed `resolved_refuted` with those numbers stated; or (c) the operator decides the Path B route is too weak a basis for a real-money parameter change and says so, which closes it as a recorded decision rather than an open question.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] [strategy] tlt_pullback_1h ships trail3 while trail4 passes the walk-forward at LIVE-PARITY geometry, reproduced across three independent runs"
+}

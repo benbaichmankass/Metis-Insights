@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) Measure cap_R per trade for all 6 legs from the live journal and/or the canonical CSVs (scripts/research/m20_ladder_headroom.py already computes cap_r_p10/p50/p90 per leg — extend it to compare against each leg's declared arm_r rather than adding a second definition); (2) for every leg where arm_r exceeds the cap_R the leg actually attains, EITHER re-sweep the arm on a live-parity (0.099) book and propose the corrected value to the operator, OR record the lever as inert so the coverage matrix stops counting it as shipped; (3) add a check (CI guard or declare-time refusal) that a declared R-threshold lever is reachable under the leg's own TP geometry, so this class cannot be re-declared silently; (4) Tier-3: any arm_r change is an operator decision — this item proposes, it does not flip.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-TRAIL-DECAY-ARM-R-SITS-ABOVE-THE-VENUE-TP-CAP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [exit-levers] A declared trail_decay_arm_r can sit ABOVE the R the 9.9% TP cap allows, making the lever silently inert on the live leg"
+}

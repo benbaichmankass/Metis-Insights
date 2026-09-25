@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "work_phase_ping.py either (a) collapses N transitions in one invocation into a single summary ping above some threshold, or (b) refuses/warns above a threshold so a human decides, or (c) records why per-row paging on a bulk edit is correct. Verified by running it over a ref pair containing >20 transitions into a ping-worthy state and observing the queued row count in docs/claude/pending-pings.jsonl.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-WORK-PHASE-PING-TREATS-ACCEPTED-AS-PING-WORTHY-SO-A-BULK-LIFECYCLE-EDIT-PAGES-PER-ROW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-WORK-PHASE-PING-TREATS-ACCEPTED-AS-PING-WORTHY-SO-A-BULK-LIFECYCLE-EDIT-PAGES-PER-ROW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-WORK-PHASE-PING-TREATS-ACCEPTED-AS-PING-WORTHY-SO-A-BULK-LIFECYCLE-EDIT-PAGES-PER-ROW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] work_phase_ping.py pings per-object on `accepted`, so any bulk lifecycle change pages the operator once per row"
+}

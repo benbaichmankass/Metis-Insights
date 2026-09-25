@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. Decide the GRAIN first, and state the volume it implies: per-tick x 27 hooks, vs a per-cadence roll-up carrying each hook's max within the window, vs durable maxima only (smallest, but discards the distribution the exposure-soak lesson says you need).\n2. Whatever the grain, summary maxima must be computed over the whole file, not a page - the reader-side version of the same bias (see exit_interval_soak.read_soak_records).\n3. Preserve the offloop/on-loop segregation in the record; collapsing them would make an off-thread cost read as tick cost, which tick_cost.py's own docstring warns about.\n4. Until then, treat every quoted tick max as a LOWER BOUND over a stated ticks_measured, and do not compare maxima across processes with different sample sizes.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-TICK-COST-MAX-RESETS-EVERY-DEPLOY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-TICK-COST-MAX-RESETS-EVERY-DEPLOY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-TICK-COST-MAX-RESETS-EVERY-DEPLOY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] tick_cost's max_ms and every per-hook max reset on each deploy, so the statistic the module says is load-bearing is systematically under-observed - the same defect just fixed for exit_loop_health"
+}

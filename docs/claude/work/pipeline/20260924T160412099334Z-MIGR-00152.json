@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BLOCKED BY DECLARATION, and that is deliberate. Closes only when a trustworthy close-time exit price AND a per-close leg-state record exist, and the ict_scalp hold-time distribution is re-measured against plausible bracket touches with the population stated. Until then this stays open AND no scalp exit geometry is tuned on the current numbers - that prohibition is part of the row, not advice, because the numbers it would be tuned on are the ones this row says are unmeasurable.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [exits] some ict_scalp legs hold far past any plausible bracket touch -- unexplained, and currently UNMEASURABLE"
+}

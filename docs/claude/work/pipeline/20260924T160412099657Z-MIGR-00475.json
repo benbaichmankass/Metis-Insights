@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "MEASURED 2026-09-07 while building the MI-165 be_floor_r corpus: every `--source yfinance` call from a Claude Code web session fails with `Cookie fetch from fc.yahoo.com failed (SSLError)` then `curl: (35) Recv failure: Connection reset by peer`, and the lane's final line is `ERROR: no candles returned (source attempted: yfinance)`. The venue is NOT down and the symbol is NOT unmapped: Yahoo's own chart endpoint (query1.finance.yahoo.com/v8/finance/chart/<TICKER>) answers HTTP 200 with real bars from the same session using an ordinary User-Agent — verified for GDX (1926 daily bars, 2018-01-02 to 2025-08-29) before it was relied on. It is the yfinance LIBRARY's cookie/crumb handshake that the egress proxy resets, not the data fetch. This is diagnostic-provenance sub-class A (CLAUDE.md): the failure message names a cause — no candles from the venue — that no code path established, and a reader concludes the equity lane is unusable when only the auth dance is. MI-165 worked around it with a direct chart-endpoint reader and said so in its memo rather than silently substituting. RESOLVES WHEN: the yfinance lane either (a) distinguishes the COOKIE stage failure from a real empty-result in its message and exit path — the lane already has a YfFetchFailed/stage vocabulary to hang it on — or (b) falls back to the chart endpoint when the handshake is refused. Either is fine; what must not survive is a stage-1 auth failure rendering as 'the venue returned nothing'.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260907-YFINANCE-LANE-BLOCKED-BY-PROXY-COOKIE-HANDSHAKE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-YFINANCE-LANE-BLOCKED-BY-PROXY-COOKIE-HANDSHAKE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-YFINANCE-LANE-BLOCKED-BY-PROXY-COOKIE-HANDSHAKE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] fetch_backtest_candles.py --source yfinance fails at the COOKIE stage behind the session proxy and reports 'no candles returned', a message naming a fetch that never happened"
+}
