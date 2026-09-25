@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager register only. Records E35 post-deploy read + retired-env removal path, C1/E6 landed, B5 mandate-text + perp-regen outcome, D1 note. No src/, config/, scripts/ or workflow change."
+  "why": "Manager register only. Records the retired ARBITRATION_FANOUT_* env removal on E35 (unset-env #12948/#12949, observed unset via get-env #12950/#12951). No src/, config/, scripts/ or workflow change."
 }
