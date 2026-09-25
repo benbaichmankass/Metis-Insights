@@ -78,11 +78,10 @@ the field, this rule follows it with no edit.
 
 Let `M` = the record's `cost_stack.slippage` and `[lo, hi]` = the cell's CI.
 
-<!-- population-ok: 95% is the CI level; the population is each cell's own n, stated in every record row -->
 | verdict | condition | meaning |
 |---|---|---|
 | `insufficient_n` | either side below `N_FLOOR` | no verdict, keep accruing |
-| **`divergent`** | `lo > M + T` | realized cost is worse than assumed, with 95% confidence |
+| **`divergent`** | `lo > M + T` | realized cost is worse than assumed, with 95% confidence <!-- population-ok: 95% is the CI level; each cell states its own n --> |
 | `consistent` | `hi <= M + T` | realized cost is at or below the assumption, with 95% confidence. This is **the Gate-1 pass** |
 | `inconclusive` | otherwise (the CI straddles `M + T`) | no action, keep accruing |
 | `no_record` | no evidence record for the leg | Gate 1 cannot be read |
