@@ -672,7 +672,10 @@ def _monocle_gate(signal: Dict[str, Any], settings: dict) -> Optional[Dict[str, 
     whole tick, so another account's own winner was dropped for a reason that
     was not its own (XRPUSDT 2026-09-24T15:09Z: ``ict_scalp_xrp_15m`` had acted
     that bar, and the ``xrp_pullback_2h`` round for ``bybit_2`` +
-    ``bybit_portfolio`` went with it); and (2) a round's strategy was never
+    ``bybit_portfolio`` went with it — that round happened to hold an open
+    package of its own since 14:04Z, so no order was lost on THAT tick; the
+    reason was wrong and the next tick need not be so lucky); and (2) a
+    round's strategy was never
     checked against ITS OWN open package, so nothing but the coordinator's
     per-account netting no-op stood between it and a second package while one
     was open — the cross-tick half of E34's double-place question.

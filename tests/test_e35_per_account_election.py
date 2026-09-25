@@ -411,7 +411,9 @@ def test_every_elected_account_gets_exactly_one_package(run):
 def test_the_global_winners_gate_no_longer_drops_another_accounts_round(run):
     """The XRPUSDT 2026-09-24T15:09Z shape: the headline strategy had already
     acted this bar, and the pre-E35 pipeline skipped the WHOLE tick — taking
-    bybit_2 + bybit_portfolio's own winner with it."""
+    bybit_2 + bybit_portfolio's own winner with it. (Live, that round also
+    held its own open package, so no order was lost that tick; here it does
+    not, which is the case the old code got wrong.)"""
     run.gates["same_bar"].add("ict_scalp_eth_15m")
     result, venue = run(_tick())
     assert result["status"] == "multi_account_dispatched"
