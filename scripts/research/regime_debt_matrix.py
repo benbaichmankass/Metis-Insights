@@ -4,7 +4,10 @@ debt roster — the rec #5 follow-up for the strategies the sandbox can't reach.
 
 For each `coverage_debt` strategy (config/regime_coverage_exemptions.yaml) it:
   1. classifies the harness (Donchian trend -> backtest_trend.py; pullback ->
-     backtest_pullback.py; TTM-style BB-inside-KC squeeze -> backtest_squeeze.py)
+     backtest_pullback.py; TTM-style BB-inside-KC squeeze -> backtest_squeeze.py;
+     failed-breakout fade -> backtest_fade.py, keyed on `pierce_min` and checked
+     BEFORE the trend branch since a fade leg also declares `donchian` — see the
+     E39 / `_FADE_PLAIN` comment below)
      and extracts the EXACT live params from config/strategies.yaml,
   2. resolves the candle feed for the symbol — Binance-vision for `*USDT` crypto,
      Yahoo (yfinance) for equities/ETFs, and Yahoo continuous futures for
@@ -249,6 +252,30 @@ _SQZ_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "
 # the threshold `tp_r` is reported as an omitted lever and the row degrades to
 # `approximate`, which correctly blocks cell authoring.
 #
+# Fade (failed-breakout reversion) lever config-key -> the PLAIN set for
+# scripts/backtest_fade.py. E39 (2026-09-25): `classify()` below used to check
+# `"donchian" in cfg` FIRST, and fade_breakout_4h's config declares `donchian`
+# (the channel it fades pierces) — the SAME structural key trend_donchian legs
+# use. So `classify()` returned `"trend"` for it and every "fade_breakout_4h"
+# evidence record ever built (`comms/strategy_evidence/fade_breakout_4h.json`,
+# every run under `comms/strategy_evidence/runs/*/`) measured
+# scripts/backtest_trend.py's CONTINUATION entry (buy the confirmed breakout)
+# against fade's stop/trail/timeout params, not scripts/backtest_fade.py's
+# structurally OPPOSITE reversion entry (fade the FAILED breakout) the live
+# unit (src/units/strategies/fade_breakout_4h.py) actually trades — the same
+# "never wired into classify()" shape as BL-20260730-SQUEEZE-NO-HARNESS, one
+# entry-direction deeper: a wrong-harness silent `measured`, not a
+# `no_harness` refusal. `pierce_min` (checked in `classify()` below BEFORE the
+# `donchian` branch) is the discriminator: MEASURED 2026-09-25 against every
+# enabled leg in `config/strategies.yaml`, exactly ONE leg
+# (`fade_breakout_4h`) declares it, so keying on it cannot silently re-route a
+# leg an earlier/later branch should keep.
+_FADE_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
+               "symbols", "donchian", "atr_period", "atr_stop_buffer",
+               "pierce_min", "trail_mult", "adx_max", "adx_period", "tp_r",
+               "timeout_bars", "min_confidence", "shadow_model_ids",
+               "description", "tp_intent"}
+#
 # 20R is chosen as comfortably beyond any plausible 3.5-ATR-trail exit while
 # still failing loudly if someone sets a real target (e.g. tp_r: 3). The live
 # config is tp_r: 50.0. The STRONGER form of this check is empirical — verify no
@@ -319,6 +346,8 @@ _PLAIN_CONDITIONAL_ON_FLAG: Dict[str, Dict[str, tuple]] = {
     # carry it. This replaces the hand-rolled special case that used to live in
     # `build_harness_cmd`'s squeeze branch.
     "squeeze": {"tp_r": (None, _tp_r_binds)},
+    # backtest_fade.py takes the same --tp-cap-pct/--tp-r pair (E39, 2026-09-25).
+    "fade": {"tp_r": ("--tp-cap-pct", _tp_r_binds)},
 }
 
 
@@ -532,6 +561,16 @@ def annotate_exit_head_replayability(cfg: dict, row: dict, omitted: list[str]) -
 
 
 def classify(cfg: dict) -> str | None:
+    # Checked BEFORE `donchian` below: fade_breakout_4h declares BOTH `donchian`
+    # (the channel it fades pierces) and `pierce_min` (fade-specific: the
+    # minimum pierce depth past that channel that counts as a failed breakout).
+    # `donchian` alone cannot discriminate it from trend_donchian's own legs —
+    # see the `_FADE_PLAIN` comment above for the E39 finding this fixes.
+    # `pierce_min` is carried by exactly ONE leg fleet-wide (measured
+    # 2026-09-25), so checking it first cannot silently re-route a donchian
+    # trend-follower leg into the fade branch.
+    if "pierce_min" in cfg:
+        return "fade"
     if "donchian" in cfg:
         return "trend"
     if "trend_lookback" in cfg or "pullback_frac" in cfg:
@@ -880,6 +919,41 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         omitted = sorted(set(k for k in cfg
                              if k not in _TREND_PLAIN and k not in _TREND_LEVER_FLAG)
                          | set(conditional_omissions("trend", cfg, argv)))
+        faithful = not omitted
+    elif harness == "fade":
+        # Deliberately does NOT reuse `common`: that list hard-codes
+        # `--atr-stop-mult`, which scripts/backtest_fade.py does not accept —
+        # its stop is `--atr-stop-buffer` (ATR beyond the rejection wick), a
+        # structurally different lever. Passing it would abort the subprocess
+        # with "unrecognized arguments" (same reasoning as the fvg_range/
+        # ict_scalp branches below). `--exit-style far` matches the harness
+        # variant validated in docs/audits/fade-breakout-complement-2026-05-24.md
+        # and the `backtesting` skill's own example invocation — the live unit
+        # has no fixed-target exit style to select. No `--adx-min`: the harness
+        # takes only `--adx-max` (chop gate), and fade_breakout_4h declares
+        # only adx_max today.
+        argv = [py, os.path.join(REPO, "scripts/backtest_fade.py"),
+                "--data", csv, "--symbol", symbol, "--resample", resample,
+                "--donchian", str(cfg.get("donchian", 20)),
+                "--atr-period", str(cfg.get("atr_period", 14)),
+                "--atr-stop-buffer", str(cfg.get("atr_stop_buffer", 0.5)),
+                "--pierce-min", str(cfg.get("pierce_min", 0.0)),
+                "--trail-mult", str(cfg.get("trail_mult", 3.0)),
+                "--exit-style", "far",
+                "--min-confidence", str(cfg.get("min_confidence", 0.0)),
+                "--fee-bps-roundtrip", str(fee),
+                "--emit-trades", emit, "--json", jout]
+        if cfg.get("adx_max") is not None:
+            argv += ["--adx-max", str(cfg["adx_max"])]
+        if cfg.get("adx_period") is not None:
+            argv += ["--adx-period", str(cfg["adx_period"])]
+        if cfg.get("timeout_bars") is not None:
+            argv += ["--timeout-bars", str(cfg["timeout_bars"])]
+        # E55-style — model the leg's declared tp_r (the live-capped TP
+        # formula). `[]` when the leg declares no tp_r.
+        argv += _tp_r_flags(cfg)
+        omitted = sorted(set(k for k in cfg if k not in _FADE_PLAIN)
+                         | set(conditional_omissions("fade", cfg, argv)))
         faithful = not omitted
     elif harness == "squeeze":
         argv = [py, os.path.join(REPO, "scripts/backtest_squeeze.py"),
