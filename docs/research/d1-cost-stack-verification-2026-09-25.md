@@ -1,8 +1,9 @@
 # D1 cost-stack verification — is the promotion block's substance satisfied?
 
-> **Doc status:** `live` · category `research` · written 2026-09-25 by lane
-> `lane/d1-verify-cost-stack` (session dispatched from
-> session_01Ljhs6sFAdWHdMDhJpL5aBP).
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+Written 2026-09-25 by lane `lane/d1-verify-cost-stack` (session dispatched
+from session_01Ljhs6sFAdWHdMDhJpL5aBP).
 
 ## Why this exists
 
