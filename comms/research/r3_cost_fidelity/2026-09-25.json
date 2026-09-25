@@ -1,0 +1,2502 @@
+{
+ "question": "R3: per leg, is realized round-trip slippage the one its Stage-0 record assumed?",
+ "rule": {
+  "id": "RULE-R3-GATE1-COST-FIDELITY-v1",
+  "doc": "docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md",
+  "n_floor_per_side": 10,
+  "tolerance_bps": 0.0,
+  "tolerance_source": "MD-PROMOTE-S1-S2.bar.cost_tolerance_bps in config/mandates.yaml",
+  "venue_floor": 20
+ },
+ "generated_by": "scripts/research/r3_cost_fidelity.py (reuses realized_slippage.measure)",
+ "as_of": "2026-09-25T13:23:21+00:00",
+ "population": {
+  "trades_rows": 6168,
+  "measured_rows": 1585,
+  "entry_rows": 1257,
+  "package_referenced_exit_rows": 162,
+  "legs_reported": 55,
+  "cells": 83,
+  "excluded_counts": {
+   "exit_not_measured": 1355,
+   "exit_measured_no_reference:pairs_half_open_cleanup": 1,
+   "exit_measured_no_reference:pairs_revert": 6,
+   "exit_measured_no_reference:pairs_stop": 6,
+   "exit_measured_no_reference:reconciler_filled": 223,
+   "exit_measured_no_reference:giveback_stop": 1,
+   "exit_measured_no_reference:exchange_flat_reconciled": 49,
+   "exit_measured_no_reference:intent_reduce_executed": 8,
+   "exit_measured_no_reference:stuck_strategy_watchdog": 4,
+   "exit_measured_no_reference:exit_head": 10,
+   "exit_measured_no_reference:stale_stop": 7,
+   "exit_measured_no_reference:operator_flatten_reconciled": 6,
+   "exit_measured_no_reference:exit_coverage_no_strategy": 1,
+   "exit_measured_no_reference:backfill_closed_pnl_recovery": 21,
+   "exit_measured_no_reference:vwap_cross": 35,
+   "exit_measured_no_reference:time_decay": 1,
+   "exit_measured_no_reference:adopted_orphan_disappeared": 17,
+   "unknown_account": 270
+  }
+ },
+ "leg_verdict_counts": {
+  "insufficient_n": 51,
+  "consistent": 4
+ },
+ "per_venue": {
+  "alpaca_equities|market": {
+   "n_entry": 3,
+   "n_exit": 0,
+   "n": 0,
+   "modelled_bps": 5.0,
+   "threshold_bps": 5.0,
+   "entry_mean": -49.801,
+   "verdict": "insufficient_n",
+   "why": "entry n=3, exit n=0; need >= 10 each",
+   "venue": "alpaca_equities",
+   "basis": "market",
+   "accounts": [
+    "alpaca_live"
+   ],
+   "modelled_is_current_default_for": "SPY",
+   "enough_n_at_venue_floor": false,
+   "venue_floor": 20
+  },
+  "alpaca_equities|simulator": {
+   "n_entry": 111,
+   "n_exit": 0,
+   "n": 0,
+   "modelled_bps": 5.0,
+   "threshold_bps": 5.0,
+   "entry_mean": 0.9,
+   "verdict": "insufficient_n",
+   "why": "entry n=111, exit n=0; need >= 10 each",
+   "venue": "alpaca_equities",
+   "basis": "simulator",
+   "accounts": [
+    "alpaca_paper",
+    "alpaca_portfolio"
+   ],
+   "modelled_is_current_default_for": "SPY",
+   "enough_n_at_venue_floor": false,
+   "venue_floor": 20
+  },
+  "bybit_perps|market": {
+   "n_entry": 89,
+   "n_exit": 42,
+   "n": 42,
+   "modelled_bps": 3.0,
+   "threshold_bps": 3.0,
+   "entry_mean": 0.02,
+   "exit_mean": 1.118,
+   "roundtrip_mean": 1.138,
+   "ci95": [
+    -0.751,
+    3.114
+   ],
+   "verdict": "inconclusive",
+   "venue": "bybit_perps",
+   "basis": "market",
+   "accounts": [
+    "bybit_2"
+   ],
+   "modelled_is_current_default_for": "BTCUSDT",
+   "enough_n_at_venue_floor": true,
+   "venue_floor": 20
+  },
+  "bybit_perps|simulator": {
+   "n_entry": 1032,
+   "n_exit": 113,
+   "n": 113,
+   "modelled_bps": 3.0,
+   "threshold_bps": 3.0,
+   "entry_mean": -0.269,
+   "exit_mean": 1.171,
+   "roundtrip_mean": 0.902,
+   "ci95": [
+    -1.212,
+    3.288
+   ],
+   "verdict": "inconclusive",
+   "venue": "bybit_perps",
+   "basis": "simulator",
+   "accounts": [
+    "bybit_1",
+    "bybit_portfolio"
+   ],
+   "modelled_is_current_default_for": "BTCUSDT",
+   "enough_n_at_venue_floor": true,
+   "venue_floor": 20
+  },
+  "ibkr_futures|simulator": {
+   "n_entry": 22,
+   "n_exit": 7,
+   "n": 7,
+   "modelled_bps": 5.0,
+   "threshold_bps": 5.0,
+   "entry_mean": 8.126,
+   "exit_mean": 14.052,
+   "verdict": "insufficient_n",
+   "why": "entry n=22, exit n=7; need >= 10 each",
+   "venue": "ibkr_futures",
+   "basis": "simulator",
+   "accounts": [
+    "ib_paper"
+   ],
+   "modelled_is_current_default_for": "MES",
+   "enough_n_at_venue_floor": false,
+   "venue_floor": 20
+  }
+ },
+ "per_leg": {
+  "ada_pullback_2h": {
+   "symbol": "ADAUSDT",
+   "record": "comms/strategy_evidence/ada_pullback_2h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "cells": [
+    {
+     "n_entry": 19,
+     "n_exit": 3,
+     "n": 3,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 2.138,
+     "exit_mean": -19.422,
+     "verdict": "insufficient_n",
+     "why": "entry n=19, exit n=3; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 9,
+     "n_exit": 3,
+     "n": 3,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 3.285,
+     "exit_mean": 0.696,
+     "verdict": "insufficient_n",
+     "why": "entry n=9, exit n=3; need >= 10 each",
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 3,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -6.775,
+     "exit_mean": 0.152,
+     "verdict": "insufficient_n",
+     "why": "entry n=3, exit n=1; need >= 10 each",
+     "account_id": "bybit_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "avax_pullback_2h": {
+   "symbol": "AVAXUSDT",
+   "record": "comms/strategy_evidence/avax_pullback_2h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 11,
+     "n_exit": 2,
+     "n": 2,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 3.293,
+     "exit_mean": 0.868,
+     "verdict": "insufficient_n",
+     "why": "entry n=11, exit n=2; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "eth_pullback_2h": {
+   "symbol": "ETHUSDT",
+   "record": "comms/strategy_evidence/eth_pullback_2h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 18,
+     "n_exit": 3,
+     "n": 3,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 0.413,
+     "exit_mean": 6.248,
+     "verdict": "insufficient_n",
+     "why": "entry n=18, exit n=3; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 13,
+     "n_exit": 5,
+     "n": 5,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -0.92,
+     "exit_mean": 3.195,
+     "verdict": "insufficient_n",
+     "why": "entry n=13, exit n=5; need >= 10 each",
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 9,
+     "n_exit": 4,
+     "n": 4,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -0.485,
+     "exit_mean": 31.96,
+     "verdict": "insufficient_n",
+     "why": "entry n=9, exit n=4; need >= 10 each",
+     "account_id": "bybit_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "eth_pullback_prop_2h": {
+   "symbol": "ETHUSDT",
+   "record": "comms/strategy_evidence/eth_pullback_prop_2h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 9.715,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "fade_breakout_4h": {
+   "symbol": "BTCUSDT",
+   "record": "comms/strategy_evidence/fade_breakout_4h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 0,
+     "n_exit": 1,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "exit_mean": 0.008,
+     "verdict": "insufficient_n",
+     "why": "entry n=0, exit n=1; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "fvg_range_15m": {
+   "symbol": "BTCUSDT",
+   "record": "comms/strategy_evidence/fvg_range_15m.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null,
+    "why": "no measured fills"
+   },
+   "action": "none: keep accruing"
+  },
+  "gdx_pullback_1d": {
+   "symbol": "GDX",
+   "record": "comms/strategy_evidence/gdx_pullback_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_options_paper",
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -2.518,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -2.921,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "gld_pullback_1d": {
+   "symbol": "GLD",
+   "record": "comms/strategy_evidence/gld_pullback_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 2.278,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 1.506,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "gld_pullback_1h": {
+   "symbol": "GLD",
+   "record": "comms/strategy_evidence/gld_pullback_1h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 4,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.936,
+     "verdict": "insufficient_n",
+     "why": "entry n=4, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 5,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.066,
+     "verdict": "insufficient_n",
+     "why": "entry n=5, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "htf_pullback_trend_2h": {
+   "symbol": "BTCUSDT",
+   "record": "comms/strategy_evidence/htf_pullback_trend_2h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 12,
+     "n_exit": 2,
+     "n": 2,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -0.079,
+     "exit_mean": 0.222,
+     "verdict": "insufficient_n",
+     "why": "entry n=12, exit n=2; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 3,
+     "n_exit": 2,
+     "n": 2,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -1.204,
+     "exit_mean": 0.458,
+     "verdict": "insufficient_n",
+     "why": "entry n=3, exit n=2; need >= 10 each",
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "iaum_pullback_1d": {
+   "symbol": "IAUM",
+   "record": "comms/strategy_evidence/iaum_pullback_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_live",
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -131.417,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_live",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -1.697,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "ict_scalp_5m": {
+   "symbol": "BTCUSDT",
+   "record": "comms/strategy_evidence/ict_scalp_5m.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 19,
+     "n_exit": 5,
+     "n": 5,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -1.344,
+     "exit_mean": 0.952,
+     "verdict": "insufficient_n",
+     "why": "entry n=19, exit n=5; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 24,
+     "n_exit": 22,
+     "n": 22,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -0.704,
+     "exit_mean": 0.479,
+     "roundtrip_mean": -0.225,
+     "ci95": [
+      -2.53,
+      2.127
+     ],
+     "verdict": "consistent",
+     "record_overcharges": true,
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 27,
+     "n_exit": 8,
+     "n": 8,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -1.363,
+     "exit_mean": 0.773,
+     "verdict": "insufficient_n",
+     "why": "entry n=27, exit n=8; need >= 10 each",
+     "account_id": "bybit_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "consistent",
+    "from_account": "bybit_2",
+    "basis": "market"
+   },
+   "action": "Gate-1 cost clause PASSES"
+  },
+  "ict_scalp_avax_5m": {
+   "symbol": "AVAXUSDT",
+   "record": "comms/strategy_evidence/ict_scalp_avax_5m.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 73,
+     "n_exit": 28,
+     "n": 28,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -1.604,
+     "exit_mean": 0.47,
+     "roundtrip_mean": -1.134,
+     "ci95": [
+      -4.131,
+      2.13
+     ],
+     "verdict": "consistent",
+     "record_overcharges": true,
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "consistent",
+    "from_account": "bybit_1",
+    "basis": "simulator"
+   },
+   "action": "Gate-1 cost clause PASSES"
+  },
+  "ict_scalp_eth_15m": {
+   "symbol": "ETHUSDT",
+   "record": "comms/strategy_evidence/ict_scalp_eth_15m.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 29,
+     "n_exit": 7,
+     "n": 7,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 0.583,
+     "exit_mean": -0.816,
+     "verdict": "insufficient_n",
+     "why": "entry n=29, exit n=7; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "ict_scalp_mgc_15m": {
+   "symbol": "MGC",
+   "record": "comms/strategy_evidence/ict_scalp_mgc_15m.json",
+   "record_stage0_verdict": null,
+   "modelled_slippage_bps": null,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "ib_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 15,
+     "n_exit": 3,
+     "n": 3,
+     "modelled_bps": null,
+     "threshold_bps": null,
+     "entry_mean": 7.625,
+     "exit_mean": 1.455,
+     "verdict": "insufficient_n",
+     "why": "entry n=15, exit n=3; need >= 10 each",
+     "account_id": "ib_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "ibkr_futures"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "ict_scalp_sol_15m": {
+   "symbol": "SOLUSDT",
+   "record": "comms/strategy_evidence/ict_scalp_sol_15m.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 33,
+     "n_exit": 7,
+     "n": 7,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 0.851,
+     "exit_mean": 1.553,
+     "verdict": "insufficient_n",
+     "why": "entry n=33, exit n=7; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "ict_scalp_sol_5m": {
+   "symbol": "SOLUSDT",
+   "record": "comms/strategy_evidence/ict_scalp_sol_5m.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 53,
+     "n_exit": 17,
+     "n": 17,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -2.223,
+     "exit_mean": 0.462,
+     "roundtrip_mean": -1.761,
+     "ci95": [
+      -3.698,
+      0.505
+     ],
+     "verdict": "consistent",
+     "record_overcharges": true,
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "consistent",
+    "from_account": "bybit_1",
+    "basis": "simulator"
+   },
+   "action": "Gate-1 cost clause PASSES"
+  },
+  "ict_scalp_xrp_15m": {
+   "symbol": "XRPUSDT",
+   "record": "comms/strategy_evidence/ict_scalp_xrp_15m.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 24,
+     "n_exit": 3,
+     "n": 3,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -1.243,
+     "exit_mean": -2.086,
+     "verdict": "insufficient_n",
+     "why": "entry n=24, exit n=3; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "ict_scalp_xrp_5m": {
+   "symbol": "XRPUSDT",
+   "record": "comms/strategy_evidence/ict_scalp_xrp_5m.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 32,
+     "n_exit": 10,
+     "n": 10,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -0.086,
+     "exit_mean": -0.714,
+     "roundtrip_mean": -0.8,
+     "ci95": [
+      -3.592,
+      2.118
+     ],
+     "verdict": "consistent",
+     "record_overcharges": true,
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "consistent",
+    "from_account": "bybit_1",
+    "basis": "simulator"
+   },
+   "action": "Gate-1 cost clause PASSES"
+  },
+  "ief_pullback_1d": {
+   "symbol": "IEF",
+   "record": "comms/strategy_evidence/ief_pullback_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_live",
+    "alpaca_paper",
+    "alpaca_portfolio"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -1.604,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -1.604,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "iwm_trend_long_1d": {
+   "symbol": "IWM",
+   "record": "comms/strategy_evidence/iwm_trend_long_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper",
+    "ib_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -15.84,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -15.519,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "mes_trend_long_1d": {
+   "symbol": "MES",
+   "record": "comms/strategy_evidence/mes_trend_long_1d.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "ib_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -5.239,
+     "exit_mean": 33.143,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=1; need >= 10 each",
+     "account_id": "ib_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "ibkr_futures"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "mgc_pullback_1d": {
+   "symbol": "MGC",
+   "record": "comms/strategy_evidence/mgc_pullback_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "ib_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 3,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 8.033,
+     "verdict": "insufficient_n",
+     "why": "entry n=3, exit n=0; need >= 10 each",
+     "account_id": "ib_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "ibkr_futures"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "mgc_trend_1h": {
+   "symbol": "MGC",
+   "record": "comms/strategy_evidence/mgc_trend_1h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "ib_paper"
+   ],
+   "cells": [],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null,
+    "why": "no measured fills"
+   },
+   "action": "none: keep accruing"
+  },
+  "mhg_pullback_1d": {
+   "symbol": "MHG",
+   "record": "comms/strategy_evidence/mhg_pullback_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "ib_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 3,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 15.177,
+     "verdict": "insufficient_n",
+     "why": "entry n=3, exit n=0; need >= 10 each",
+     "account_id": "ib_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "ibkr_futures"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "pairs_bnb_btc_a": {
+   "symbol": null,
+   "record": null,
+   "record_stage0_verdict": null,
+   "modelled_slippage_bps": null,
+   "current_default_bps": null,
+   "on_rosters_now": [],
+   "cells": [
+    {
+     "n_entry": 117,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": null,
+     "threshold_bps": null,
+     "entry_mean": -1.852,
+     "verdict": "insufficient_n",
+     "why": "entry n=117, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "pairs_bnb_btc_b": {
+   "symbol": null,
+   "record": null,
+   "record_stage0_verdict": null,
+   "modelled_slippage_bps": null,
+   "current_default_bps": null,
+   "on_rosters_now": [],
+   "cells": [
+    {
+     "n_entry": 115,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": null,
+     "threshold_bps": null,
+     "entry_mean": 0.197,
+     "verdict": "insufficient_n",
+     "why": "entry n=115, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "pairs_sol_eth_a": {
+   "symbol": null,
+   "record": null,
+   "record_stage0_verdict": null,
+   "modelled_slippage_bps": null,
+   "current_default_bps": null,
+   "on_rosters_now": [],
+   "cells": [
+    {
+     "n_entry": 141,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": null,
+     "threshold_bps": null,
+     "entry_mean": -0.011,
+     "verdict": "insufficient_n",
+     "why": "entry n=141, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "pairs_sol_eth_b": {
+   "symbol": null,
+   "record": null,
+   "record_stage0_verdict": null,
+   "modelled_slippage_bps": null,
+   "current_default_bps": null,
+   "on_rosters_now": [],
+   "cells": [
+    {
+     "n_entry": 141,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": null,
+     "threshold_bps": null,
+     "entry_mean": -0.085,
+     "verdict": "insufficient_n",
+     "why": "entry n=141, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "qld_trend_long_1d": {
+   "symbol": "QLD",
+   "record": "comms/strategy_evidence/qld_trend_long_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.758,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "qqq_pullback_1h": {
+   "symbol": "QQQ",
+   "record": "comms/strategy_evidence/qqq_pullback_1h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 8,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.623,
+     "verdict": "insufficient_n",
+     "why": "entry n=8, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 8,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.337,
+     "verdict": "insufficient_n",
+     "why": "entry n=8, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "qqq_trend_long_1d": {
+   "symbol": "QQQ",
+   "record": "comms/strategy_evidence/qqq_trend_long_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper",
+    "ib_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 8.847,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 9.394,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "scha_trend_long_1d": {
+   "symbol": "SCHA",
+   "record": "comms/strategy_evidence/scha_trend_long_1d.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -0.474,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "slv_pullback_1d": {
+   "symbol": "SLV",
+   "record": "comms/strategy_evidence/slv_pullback_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_live",
+    "alpaca_options_paper",
+    "alpaca_paper",
+    "alpaca_portfolio"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -18.812,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_live",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 4,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -3.412,
+     "verdict": "insufficient_n",
+     "why": "entry n=4, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -12.291,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "slv_trend_1h": {
+   "symbol": "SLV",
+   "record": "comms/strategy_evidence/slv_trend_1h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_options_paper",
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 8,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 1.793,
+     "verdict": "insufficient_n",
+     "why": "entry n=8, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 7,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -1.008,
+     "verdict": "insufficient_n",
+     "why": "entry n=7, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "sol_pullback_2h": {
+   "symbol": "SOLUSDT",
+   "record": "comms/strategy_evidence/sol_pullback_2h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 10,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 1.173,
+     "verdict": "insufficient_n",
+     "why": "entry n=10, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "splg_trend_long_1d": {
+   "symbol": "SPLG",
+   "record": "comms/strategy_evidence/splg_trend_long_1d.json",
+   "record_stage0_verdict": null,
+   "modelled_slippage_bps": null,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null,
+    "why": "no measured fills"
+   },
+   "action": "none: keep accruing"
+  },
+  "spy_pullback_1h": {
+   "symbol": "SPY",
+   "record": "comms/strategy_evidence/spy_pullback_1h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -0.339,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 7,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.537,
+     "verdict": "insufficient_n",
+     "why": "entry n=7, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "spy_trend_long_1d": {
+   "symbol": "SPY",
+   "record": "comms/strategy_evidence/spy_trend_long_1d.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper",
+    "ib_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.517,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.353,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "squeeze_breakout_4h": {
+   "symbol": "BTCUSDT",
+   "record": "comms/strategy_evidence/squeeze_breakout_4h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 4,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -1.556,
+     "verdict": "insufficient_n",
+     "why": "entry n=4, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 0,
+     "n_exit": 1,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "exit_mean": 5.694,
+     "verdict": "insufficient_n",
+     "why": "entry n=0, exit n=1; need >= 10 each",
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 0,
+     "n_exit": 3,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "exit_mean": 20.284,
+     "verdict": "insufficient_n",
+     "why": "entry n=0, exit n=3; need >= 10 each",
+     "account_id": "ib_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "ibkr_futures"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "tlt_pullback_1d": {
+   "symbol": "TLT",
+   "record": "comms/strategy_evidence/tlt_pullback_1d.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper",
+    "ib_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 31.946,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 3,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 21.388,
+     "verdict": "insufficient_n",
+     "why": "entry n=3, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "tlt_pullback_1h": {
+   "symbol": "TLT",
+   "record": "comms/strategy_evidence/tlt_pullback_1h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 1,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 0.825,
+     "verdict": "insufficient_n",
+     "why": "entry n=1, exit n=0; need >= 10 each",
+     "account_id": "alpaca_live",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 2,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -0.298,
+     "verdict": "insufficient_n",
+     "why": "entry n=2, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 9,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 1.745,
+     "verdict": "insufficient_n",
+     "why": "entry n=9, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "tqqq_trend_long_1d": {
+   "symbol": "TQQQ",
+   "record": "comms/strategy_evidence/tqqq_trend_long_1d.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null,
+    "why": "no measured fills"
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian": {
+   "symbol": "BTCUSDT",
+   "record": "comms/strategy_evidence/trend_donchian.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 10,
+     "n_exit": 4,
+     "n": 4,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -2.646,
+     "exit_mean": 2.055,
+     "verdict": "insufficient_n",
+     "why": "entry n=10, exit n=4; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 11,
+     "n_exit": 4,
+     "n": 4,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -4.906,
+     "exit_mean": 1.295,
+     "verdict": "insufficient_n",
+     "why": "entry n=11, exit n=4; need >= 10 each",
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 6,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -3.015,
+     "exit_mean": 0.204,
+     "verdict": "insufficient_n",
+     "why": "entry n=6, exit n=1; need >= 10 each",
+     "account_id": "bybit_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_ada_4h": {
+   "symbol": "ADAUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_ada_4h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 22,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -1.362,
+     "verdict": "insufficient_n",
+     "why": "entry n=22, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_avax_4h": {
+   "symbol": "AVAXUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_avax_4h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 21,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 1.621,
+     "exit_mean": -0.4,
+     "verdict": "insufficient_n",
+     "why": "entry n=21, exit n=1; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_eth": {
+   "symbol": "ETHUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_eth.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 15,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 6.996,
+     "exit_mean": 0.255,
+     "verdict": "insufficient_n",
+     "why": "entry n=15, exit n=1; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_eth_4h": {
+   "symbol": "ETHUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_eth_4h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "cells": [
+    {
+     "n_entry": 10,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 1.048,
+     "verdict": "insufficient_n",
+     "why": "entry n=10, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 11,
+     "n_exit": 2,
+     "n": 2,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 0.068,
+     "exit_mean": 2.469,
+     "verdict": "insufficient_n",
+     "why": "entry n=11, exit n=2; need >= 10 each",
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 8,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 1.762,
+     "verdict": "insufficient_n",
+     "why": "entry n=8, exit n=0; need >= 10 each",
+     "account_id": "bybit_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_eth_prop": {
+   "symbol": "ETHUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_eth_prop.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "breakout_1"
+   ],
+   "cells": [],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null,
+    "why": "no measured fills"
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_sol": {
+   "symbol": "SOLUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_sol.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 7,
+     "n_exit": 2,
+     "n": 2,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -2.652,
+     "exit_mean": 2.657,
+     "verdict": "insufficient_n",
+     "why": "entry n=7, exit n=2; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_sol_4h": {
+   "symbol": "SOLUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_sol_4h.json",
+   "record_stage0_verdict": "fail",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1"
+   ],
+   "cells": [
+    {
+     "n_entry": 14,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 1.917,
+     "verdict": "insufficient_n",
+     "why": "entry n=14, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_sol_prop": {
+   "symbol": "SOLUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_sol_prop.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "breakout_1"
+   ],
+   "cells": [],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null,
+    "why": "no measured fills"
+   },
+   "action": "none: keep accruing"
+  },
+  "trend_donchian_xrp_4h": {
+   "symbol": "XRPUSDT",
+   "record": "comms/strategy_evidence/trend_donchian_xrp_4h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "cells": [
+    {
+     "n_entry": 3,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 10.998,
+     "verdict": "insufficient_n",
+     "why": "entry n=3, exit n=0; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 5,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 11.798,
+     "exit_mean": 0.309,
+     "verdict": "insufficient_n",
+     "why": "entry n=5, exit n=1; need >= 10 each",
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 3,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -0.034,
+     "exit_mean": 2.272,
+     "verdict": "insufficient_n",
+     "why": "entry n=3, exit n=1; need >= 10 each",
+     "account_id": "bybit_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "uso_trend_1h": {
+   "symbol": "USO",
+   "record": "comms/strategy_evidence/uso_trend_1h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 5.0,
+   "current_default_bps": 5.0,
+   "on_rosters_now": [
+    "alpaca_paper"
+   ],
+   "cells": [
+    {
+     "n_entry": 9,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": 1.685,
+     "verdict": "insufficient_n",
+     "why": "entry n=9, exit n=0; need >= 10 each",
+     "account_id": "alpaca_paper",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "alpaca_equities"
+    },
+    {
+     "n_entry": 10,
+     "n_exit": 0,
+     "n": 0,
+     "modelled_bps": 5.0,
+     "threshold_bps": 5.0,
+     "entry_mean": -3.885,
+     "verdict": "insufficient_n",
+     "why": "entry n=10, exit n=0; need >= 10 each",
+     "account_id": "alpaca_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "alpaca_equities"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  },
+  "xrp_pullback_2h": {
+   "symbol": "XRPUSDT",
+   "record": "comms/strategy_evidence/xrp_pullback_2h.json",
+   "record_stage0_verdict": "pass",
+   "modelled_slippage_bps": 3.0,
+   "current_default_bps": 3.0,
+   "on_rosters_now": [
+    "bybit_1",
+    "bybit_2",
+    "bybit_portfolio"
+   ],
+   "cells": [
+    {
+     "n_entry": 13,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 0.539,
+     "exit_mean": 1.133,
+     "verdict": "insufficient_n",
+     "why": "entry n=13, exit n=1; need >= 10 each",
+     "account_id": "bybit_1",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S1",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 13,
+     "n_exit": 2,
+     "n": 2,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": -0.085,
+     "exit_mean": 0.649,
+     "verdict": "insufficient_n",
+     "why": "entry n=13, exit n=2; need >= 10 each",
+     "account_id": "bybit_2",
+     "account_class": "real_money",
+     "basis": "market",
+     "stage": "S2",
+     "venue": "bybit_perps"
+    },
+    {
+     "n_entry": 9,
+     "n_exit": 1,
+     "n": 1,
+     "modelled_bps": 3.0,
+     "threshold_bps": 3.0,
+     "entry_mean": 0.442,
+     "exit_mean": 0.954,
+     "verdict": "insufficient_n",
+     "why": "entry n=9, exit n=1; need >= 10 each",
+     "account_id": "bybit_portfolio",
+     "account_class": "paper",
+     "basis": "simulator",
+     "stage": "S2-mirror",
+     "venue": "bybit_perps"
+    }
+   ],
+   "leg": {
+    "verdict": "insufficient_n",
+    "from_account": null,
+    "basis": null
+   },
+   "action": "none: keep accruing"
+  }
+ },
+ "e62": {
+  "done_when": "an Alpaca sl-family close carries exit_price_source=exchange_fill",
+  "sl_family": [
+   "giveback_stop",
+   "sl",
+   "sl_cross"
+  ],
+  "observed": false,
+  "counts_only_closes_after": "2026-09-24T18:18:38+00:00",
+  "hits": [],
+  "pre_deploy_exchange_fill_sl_family_closes": [
+   {
+    "trade_id": 6134,
+    "account_id": "alpaca_paper",
+    "strategy": "uso_trend_1h",
+    "symbol": "USO",
+    "exit_reason": "giveback_stop",
+    "closed_at": "2026-09-24T16:22:27.779684+00:00"
+   }
+  ],
+  "alpaca_sl_family_closes_since_deploy": 0,
+  "alpaca_closes_any_reason_since_deploy": 0,
+  "their_exit_price_source": {},
+  "deploy": "2026-09-24T18:18:38+00:00",
+  "forecast": {
+   "basis": "Alpaca sl-family closes over the last 60d (the #12878 fix applies to every Alpaca account, paper included); exact Poisson 95% interval on the rate. HEADLINE = legs on each account's CURRENT roster (alpaca_portfolio was cut 14 -> 2 on 2026-09-21, so the all-legs rate overstates the forward rate). INFERRED that a post-deploy sl-family close resolves to exchange_fill, which is exactly what is unobserved",
+   "current_roster": {
+    "closes_in_window": 16,
+    "rate_per_day": 0.2667,
+    "rate_ci95_per_day": [
+     0.1524,
+     0.433
+    ],
+    "expected_days_to_first": 3.8,
+    "p_at_least_one_in_7d": 0.845,
+    "p_at_least_one_in_7d_at_ci_low": 0.656
+   },
+   "all_legs_upper_bound": {
+    "closes_in_window": 35,
+    "rate_per_day": 0.5833,
+    "rate_ci95_per_day": [
+     0.4063,
+     0.8113
+    ],
+    "expected_days_to_first": 1.7,
+    "p_at_least_one_in_7d": 0.983,
+    "p_at_least_one_in_7d_at_ci_low": 0.942
+   },
+   "alpaca_positions_open_now": 15
+  }
+ }
+}
