@@ -25,7 +25,7 @@ placeholder-data anti-pattern MI-157 already cost this repo once, just with
 real numbers instead of flat ones -- and it would immediately go stale (crypto
 in particular needs refreshing far more often than a git history should
 carry). So this is the "committed manifest pointing to durable storage"
-half of row E4's requirement: ``data/CORPUS-MANIFEST.json`` is committed and
+half of row E4's requirement: ``docs/reference/corpus-manifest.json`` is committed and
 states exact coverage (symbol, timeframe, rows, start, end, source, and any
 disclosed gap); the CSVs themselves are fetched on demand -- by a developer
 running this script, or by a CI job that runs it before a harness -- and stay
@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import importlib.util
 import json
 import subprocess
 import sys
@@ -51,7 +50,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 FETCHER = REPO / "scripts" / "ops" / "fetch_backtest_candles.py"
-MANIFEST_PATH = REPO / "data" / "CORPUS-MANIFEST.json"
+MANIFEST_PATH = REPO / "docs" / "reference" / "corpus-manifest.json"
 
 # (symbol, timeframe) -> (source, bybit-style interval code, trailing days).
 # Every pair a rostered leg trades, per config/strategies.yaml x
@@ -104,9 +103,11 @@ PROXY_WRITE_NAME = {"MGC": "GC_F", "MES": "ES_F", "MHG": "HG_F"}
 def roster_pairs() -> set[tuple[str, str]]:
     """Recompute (symbol, timeframe) straight from the live config, so a
     caller can verify PAIRS above has not drifted from the actual roster."""
-    import yaml
-    strat = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())["strategies"]
-    acc = yaml.safe_load((REPO / "config" / "accounts.yaml").read_text())["accounts"]
+    sys.path.insert(0, str(REPO))
+    from src.config.accounts_loader import load_accounts_dict
+    from src.units.strategies import load_strategy_config
+    strat = load_strategy_config()
+    acc = load_accounts_dict()
     rostered = {s for a in acc.values() for s in (a.get("strategies") or [])}
     pairs = set()
     for name in rostered:

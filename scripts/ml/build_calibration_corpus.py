@@ -25,15 +25,6 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
 
-# --- canonical (symbol, timeframe) -> candle-file resolver -----------------
-# THE ONE WAY this wrapper gets candles: scripts/ops/backtest_data_source.py.
-# See docs/reference/backtest-data-loading.md.
-import importlib.util as _ilu  # noqa: E402
-_spec = _ilu.spec_from_file_location(
-    "_backtest_data_source", str(_REPO / "scripts" / "ops" / "backtest_data_source.py"))
-_backtest_data_source = _ilu.module_from_spec(_spec)
-_spec.loader.exec_module(_backtest_data_source)  # noqa: E402
-
 # (slug, script) — each script already supports --data/--emit-trades.
 # ict_scalp calls the LIVE order_package() (best fidelity); the others mirror it.
 HARNESSES: list[tuple[str, str]] = [
@@ -48,27 +39,12 @@ HARNESSES: list[tuple[str, str]] = [
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--data", default=None,
-                    help="Candle file forwarded to every harness. Default: "
-                         "resolved from --symbol via the canonical resolver; "
-                         "REFUSES rather than silently reaching the fixture.")
+    ap.add_argument("--data", default="data/backtest_candles.csv")
     ap.add_argument("--out-dir", default="artifacts/calibration/corpus")
-    ap.add_argument("--symbol", default=None)
+    ap.add_argument("--symbol", default="BTCUSDT")
     ap.add_argument("--extra", default="",
                     help="extra args passed verbatim to every harness")
     args = ap.parse_args()
-
-    # --- data-source resolution (row E4, docs/claude/work/MANAGER-CHECKLIST.json)
-    _src = _backtest_data_source.resolve_or_refuse(
-        args.symbol, None, args.data,
-        legacy_default="data/backtest_candles.csv")
-    if not _src.ok:
-        print(_backtest_data_source.refusal_message(
-            _src, harness="build_calibration_corpus.py",
-            legacy_default="data/backtest_candles.csv"), file=sys.stderr)
-        return 2
-    args.data = _src.path
-    print(_src.provenance_line(), file=sys.stderr)
 
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,6 @@
 # Backtest data loading — the one way to get candles
 
-> **Doc status:** `live` · category `lookup` · last verified `2026-09-25` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `lookup` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
 Row **E4** (`docs/claude/work/MANAGER-CHECKLIST.json`). The problem this closes:
 the default candle fixture (`data/backtest_candles.csv`) is 5,001 rows spanning
@@ -65,7 +65,7 @@ instead of silently running against it.
 
 Every `(symbol, timeframe)` pair a rostered leg trades
 (`config/strategies.yaml` × `config/accounts.yaml`) needs its own real
-history for `resolve_data` to find. **`data/CORPUS-MANIFEST.json`** is the
+history for `resolve_data` to find. **`docs/reference/corpus-manifest.json`** is the
 committed, stated-coverage record: for each pair, its source, row count,
 start/end timestamps, and (when absent) an honest `gap` reason.
 
@@ -100,7 +100,7 @@ disk (never from a fetch log's claims — RULE ONE, *read the field*).
 
 ### Coverage as of 2026-09-25
 
-Built from `data/CORPUS-MANIFEST.json`, itself rebuilt from the fetched
+Built from `docs/reference/corpus-manifest.json`, itself rebuilt from the fetched
 files on disk. 46 of 47 rostered pairs covered; one honest gap.
 
 | symbols | timeframes | rows (typical) | span | source |
@@ -115,7 +115,7 @@ files on disk. 46 of 47 rostered pairs covered; one honest gap.
 | MES (proxy `ES_F`) | 1d | ~2,500 | ~10 years | Yahoo Finance chart API, `ES=F` |
 | MHG (proxy `HG_F`) | 1d | ~2,500 | ~10 years | Yahoo Finance chart API, `HG=F` |
 
-Exact per-pair rows/start/end: `data/CORPUS-MANIFEST.json` (rebuild with
+Exact per-pair rows/start/end: `docs/reference/corpus-manifest.json` (rebuild with
 `fetch_backtest_corpus.py`, not by hand — RULE ONE again).
 
 ## The guards

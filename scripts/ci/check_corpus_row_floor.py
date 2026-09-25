@@ -21,7 +21,7 @@ named. A CENSUS, not a sample: the guard states how many files it counted
 alongside how many failed, so a run that counted nothing can never read as a
 clean pass (RULE ONE — always state the population).
 
-``data/CORPUS-MANIFEST.json`` (docs/reference/backtest-data-loading.md), when
+``docs/reference/corpus-manifest.json`` (docs/reference/backtest-data-loading.md), when
 present, is cross-checked too: a manifest entry whose claimed ``rows`` does
 not match the file's ACTUAL row count fails the run under a separate finding
 — a stale manifest is a documentation defect of exactly the class RULE ONE
@@ -46,7 +46,6 @@ import csv
 import json
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -56,7 +55,7 @@ DEFAULT_FLOOR = 500
 # scripts/research/m20_fleet_exit_sweep.py::resolve_data reads natively.
 CANDLE_NAME_RE = re.compile(
     r"^data/[A-Za-z0-9]+_(?:5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|1w)\.csv$")
-MANIFEST_PATH = REPO / "data" / "CORPUS-MANIFEST.json"
+MANIFEST_PATH = REPO / "docs" / "reference" / "corpus-manifest.json"
 
 
 def _rel(path: Path) -> str:
@@ -121,7 +120,7 @@ def check_manifest(root: Path, floor: int) -> tuple[list[str], list[str]]:
     still agrees with a file that happens to be present on disk (e.g. right
     after a fresh fetch, or the sanctioned fixture).
     """
-    manifest_path = root / "data" / "CORPUS-MANIFEST.json"
+    manifest_path = root / "docs" / "reference" / "corpus-manifest.json"
     if not manifest_path.exists():
         return [], []
     try:
@@ -162,6 +161,7 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
         (d / "data").mkdir()
+        (d / "docs" / "reference").mkdir(parents=True)
         thin = d / "data" / "ZZZTEST_5m.csv"
         with thin.open("w", newline="") as f:
             w = csv.writer(f)
@@ -206,7 +206,7 @@ def self_test() -> int:
             failures.append("ALLOW-LIST: an explicitly allowed thin file was still flagged")
 
         # manifest/file mismatch detection
-        (d / "data" / "CORPUS-MANIFEST.json").write_text(json.dumps({
+        (d / "docs" / "reference" / "corpus-manifest.json").write_text(json.dumps({
             "pairs": [{"file": "data/ZZZTEST_1h.csv", "rows": 9999}]
         }))
         mism, _ = check_manifest(d, DEFAULT_FLOOR)
@@ -214,7 +214,7 @@ def self_test() -> int:
             failures.append("MANIFEST MISMATCH: a false row count in the manifest was not caught")
 
         # a manifest that agrees must NOT be flagged
-        (d / "data" / "CORPUS-MANIFEST.json").write_text(json.dumps({
+        (d / "docs" / "reference" / "corpus-manifest.json").write_text(json.dumps({
             "pairs": [{"file": "data/ZZZTEST_1h.csv", "rows": 600}]
         }))
         mism2, below_mf2 = check_manifest(d, DEFAULT_FLOOR)
@@ -222,7 +222,7 @@ def self_test() -> int:
             failures.append(f"MANIFEST MISMATCH: a CORRECT manifest was flagged: {mism2 or below_mf2}")
 
         # a disclosed gap (rows=0, a stated reason, no file) is honest, not a lie
-        (d / "data" / "CORPUS-MANIFEST.json").write_text(json.dumps({
+        (d / "docs" / "reference" / "corpus-manifest.json").write_text(json.dumps({
             "pairs": [{"file": "data/ZZZTEST_NOPE_1d.csv", "rows": 0,
                       "gap": "fetch returned no rows"}]
         }))
@@ -233,7 +233,7 @@ def self_test() -> int:
         # the manifest's DECLARED row count is the primary signal (the CSV
         # itself is normally absent from a checkout -- gitignored, fetched on
         # demand), so a thin DECLARATION must fail even with no file present.
-        (d / "data" / "CORPUS-MANIFEST.json").write_text(json.dumps({
+        (d / "docs" / "reference" / "corpus-manifest.json").write_text(json.dumps({
             "pairs": [{"file": "data/ZZZTEST_NOFILE_1d.csv", "rows": 12}]
         }))
         _, below_mf4 = check_manifest(d, DEFAULT_FLOOR)
@@ -281,7 +281,7 @@ def main(argv=None) -> int:
               f"timeframe) pair(s); {len(manifest_below)} declare fewer than "
               f"{args.floor} rows.")
     else:
-        print("corpus-row-floor: no data/CORPUS-MANIFEST.json found.")
+        print("corpus-row-floor: no docs/reference/corpus-manifest.json found.")
 
     if mismatches:
         print(f"\ncorpus-row-floor: FAIL — {len(mismatches)} CORPUS-MANIFEST.json "

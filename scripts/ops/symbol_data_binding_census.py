@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-# wiring: gated - registered in scripts/ci/run_guards.py as of row E4
-# (docs/claude/work/MANAGER-CHECKLIST.json, 2026-09-25). It was deliberately
-# NOT gated before that: on the day it was written 15 sites reported, so
-# gating on it would have redded every PR. That is the
-# diagnostic-provenance-guard sequence (census -> drain -> gate), not an
-# oversight -- the drain (BL-20260912-FIFTEEN-MORE-HARNESSES...) landed in
-# the same change that flips main()'s exit code, so the count reaching 0 and
-# the gate arming happen together and the class cannot silently come back.
+# wiring: manual-only - a CENSUS, run on demand and quoted in a backlog row or
+# a review. STILL NOT registered in scripts/ci/run_guards.py as of row E4
+# (docs/claude/work/MANAGER-CHECKLIST.json, 2026-09-25): row E4 drained 16 of
+# the 17 sites BL-20260912-FIFTEEN-MORE-HARNESSES... named, but
+# scripts/ml/build_calibration_corpus.py -- the 17th -- sits outside
+# scripts/ci/check_pr_landing.py's TIER1_SURFACE (scripts/ml/** is not on it),
+# so wiring it could not self-land in the same PR without either widening that
+# guard's allowlist (which fires R12 and forces a human-read hold on the PR
+# that does it) or holding this whole PR for one file. Deferred rather than
+# either. main()'s exit code DOES already reflect the count (this module was
+# changed to fail closed at >0 sites, in case a future session gates it before
+# reading this note) -- what is missing is only the run_guards.py
+# registration, held until a follow-up PR lands the 17th site and the count is
+# genuinely 0. See docs/reference/backtest-data-loading.md.
 """How many harnesses let `--symbol` be a LABEL over a defaulted data file?
 
 THE SHAPE

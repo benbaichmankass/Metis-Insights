@@ -258,7 +258,7 @@ def refusal_message(res: Resolution, *, harness: str,
                 f"  the fixture still works as the fast smoke path -- say so "
                 f"explicitly: --data {legacy_default}"
             )
-        lines.append(f"  or name a real instrument: --symbol <SYMBOL>")
+        lines.append("  or name a real instrument: --symbol <SYMBOL>")
         lines.append(f"  or point {env_var} at the file you want.")
         return "\n".join(lines)
     lines = [
