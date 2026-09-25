@@ -17,10 +17,20 @@ rather than a docstring::
 fixture, exit 0. The span is verbatim the one the backlog row names.
 
 ⚠️ THE BACK-COMPAT CASES ARE THE POINT OF HALF THIS FILE. A refusal is easy; a
-refusal that does not break the 251 existing `--data` call sites, the fleet-wide
-`BACKTEST_DATA_PATH` knob, or an invocation that names no symbol at all is the
-actual requirement. Each of those is asserted here in its own test, so a future
-tightening that breaks one fails loudly instead of quietly stranding a harness.
+refusal that does not break the 251 existing `--data` call sites or the
+fleet-wide `BACKTEST_DATA_PATH` knob is the actual requirement. Each of those
+is asserted here in its own test, so a future tightening that breaks one
+fails loudly instead of quietly stranding a harness.
+
+⚠️ ONE CASE THAT WAS DELIBERATELY BACK-COMPAT UNTIL 2026-09-25 IS NOT ANY
+MORE: an invocation naming no symbol AND no data used to keep reaching the
+fixture unchanged ("nothing to contradict"). `docs/claude/work/
+MANAGER-CHECKLIST.json` row E4 named that exact path as the live defect --
+"anything falling back to it produces a confident answer about nothing" --
+and required that reaching the fixture BY DEFAULT become impossible while the
+fixture itself stays available as an explicit choice. See
+`test_bare_invocation_now_refuses_instead_of_reaching_the_fixture` and
+`test_allow_implicit_default_is_the_documented_opt_in_escape_hatch` below.
 """
 from __future__ import annotations
 
@@ -92,11 +102,25 @@ def test_a_symbol_with_a_matching_file_resolves_to_it(data_dir):
     assert r.path.endswith("SOLUSDT_1h.csv")
 
 
-def test_no_symbol_requested_keeps_the_legacy_default_unchanged(data_dir):
-    """The caller expressed no opinion, so there is nothing to contradict. This
-    is what keeps every existing symbol-less invocation byte-identical."""
+def test_bare_invocation_now_refuses_instead_of_reaching_the_fixture(data_dir):
+    """E4 (docs/claude/work/MANAGER-CHECKLIST.json): no --symbol and no --data
+    used to silently return LEGACY_DEFAULT ("nothing to contradict"), which is
+    precisely how a bare invocation reached the 5,001-row/3.5-day-of-2022 BTC
+    fixture BY DEFAULT. That is now REFUSED; the fixture stays reachable only
+    as an explicit choice."""
     r = BDS.resolve_or_refuse(None, "1h", None, legacy_default="data/btc.csv",
                               data_dir=data_dir, env={})
+    assert r.state == BDS.REFUSED
+    assert r.path is None
+    assert not r.ok
+    msg = BDS.refusal_message(r, harness="x.py", legacy_default="data/btc.csv")
+    assert "--data data/btc.csv" in msg
+
+
+def test_allow_implicit_default_is_the_documented_opt_in_escape_hatch(data_dir):
+    """A caller that wants the pre-E4 contract on purpose can still get it."""
+    r = BDS.resolve_or_refuse(None, "1h", None, legacy_default="data/btc.csv",
+                              data_dir=data_dir, env={}, allow_implicit_default=True)
     assert r.state == BDS.LEGACY_DEFAULT and r.path == "data/btc.csv"
 
 

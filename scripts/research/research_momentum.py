@@ -12,6 +12,7 @@ alongside the others. Research only (Tier-1), reads OHLCV CSV/Parquet.
 """
 from __future__ import annotations
 import argparse
+from pathlib import Path
 import json
 import os
 import sys
@@ -21,6 +22,8 @@ from typing import Any, Dict, List
 import pandas as pd
 
 FEE_BPS_ROUNDTRIP = 7.5
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass
@@ -169,11 +172,21 @@ def summarize(trades: List[Trade], params: Dict[str, Any], df: pd.DataFrame) -> 
     }
 
 
+# --- canonical (symbol, timeframe) -> candle-file resolver -----------------
+# THE ONE WAY this harness gets candles: scripts/ops/backtest_data_source.py.
+# See docs/reference/backtest-data-loading.md.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location(
+    "_backtest_data_source", str(_REPO_ROOT / "scripts" / "ops" / "backtest_data_source.py"))
+_backtest_data_source = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_backtest_data_source)  # noqa: E402
+
+
 def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(description='Time-series momentum / MA-cross backtest (net-of-fee).')
-    p.add_argument('--data', default=os.environ.get('BACKTEST_DATA_PATH', 'data/backtest_candles.csv'))
+    p.add_argument('--data', default=None)
     p.add_argument('--timeframe', default='1d')
-    p.add_argument('--symbol', default='BTCUSDT')
+    p.add_argument('--symbol', default=None)
     p.add_argument('--resample', default=None)
     p.add_argument('--start', default=None)
     p.add_argument('--end', default=None)
@@ -187,6 +200,19 @@ def main(argv: List[str]) -> int:
     p.add_argument('--long-only', action='store_true')
     p.add_argument('--json', dest='json_out', default=None)
     a = p.parse_args(argv)
+    # --- data-source resolution (row E4, docs/claude/work/MANAGER-CHECKLIST.json)
+    _src = _backtest_data_source.resolve_or_refuse(
+        a.symbol, a.timeframe, a.data,
+        legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
+    if not _src.ok:
+        print(_backtest_data_source.refusal_message(
+            _src, harness="research_momentum.py",
+            legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv")),
+            file=sys.stderr)
+        return 2
+    a.data = _src.path
+    a.symbol = a.symbol or "BTCUSDT"
+    print(_src.provenance_line(), file=sys.stderr)
 
     df = _load(a.data)
     if a.resample:

@@ -1092,6 +1092,20 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # MANAGER-CHECKLIST.json row E4. The row-count axis of the same
+        # defect candle-fixture-variance-guard catches on the price-variance
+        # axis: a real, moving series that is still too THIN to measure
+        # anything against. `when: None` for the same reason as its sibling
+        # -- the defect is defined by docs/reference/corpus-manifest.json's content,
+        # not by which file happened to change.
+        "name": "corpus-row-floor-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_corpus_row_floor.py", "--self-test"],
+            ["python3", "scripts/ci/check_corpus_row_floor.py"],
+        ],
+    },
+    {
         "name": "json-extract-guard",
         "when": {"regex": r"\.py$|\.sh$"},
         "steps": [["python3", "scripts/ci/check_json_extract_guarded.py", "--verbose"]],

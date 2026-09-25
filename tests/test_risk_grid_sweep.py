@@ -164,6 +164,11 @@ def test_grid_refuses_when_live_cannot_be_resolved():
     """
     proc = subprocess.run(
         [sys.executable, str(HARNESS), "--risk-pct", "grid",
+         # E4 (docs/claude/work/MANAGER-CHECKLIST.json): --data is no longer
+         # implicit, so this test names the fixture explicitly to reach the
+         # risk-account refusal under test rather than the (now earlier)
+         # data-source refusal.
+         "--data", "data/backtest_candles.csv",
          "--risk-account", "no_such_account_xyz"],
         capture_output=True, text=True, timeout=300, cwd=str(REPO))
     assert proc.returncode == 1, proc.stdout[-2000:]
