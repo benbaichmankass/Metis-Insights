@@ -52,6 +52,21 @@ def _run(tmp_path: Path, *, key: str = "ARBITRATION_FANOUT_MODE",
         shim.write_text("#!/usr/bin/env bash\nexit 0\n")
     shim.chmod(0o755)
 
+    # Shim `sudo` too. On a real `sudo` (present + passwordless on CI
+    # runners, e.g. GitHub-hosted ubuntu-latest), it resolves commands via
+    # its OWN secure_path, which does not see our PATH-prepended `bin_dir` —
+    # so `sudo systemctl ...` would silently escape the systemctl shim above
+    # and hit whatever real systemctl is on the box. This fake `sudo` just
+    # strips leading flags (only `-n` is ever passed here) and execs the
+    # rest, so it still resolves through THIS process's PATH.
+    sudo_shim = bin_dir / "sudo"
+    sudo_shim.write_text(
+        "#!/usr/bin/env bash\n"
+        "while [[ \"$1\" == -* ]]; do shift; done\n"
+        "exec \"$@\"\n"
+    )
+    sudo_shim.chmod(0o755)
+
     env = dict(os.environ)
     env["PATH"] = f"{bin_dir}:{env['PATH']}"
     env["REPO_DIR"] = str(tmp_path)
