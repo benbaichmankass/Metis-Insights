@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260906-BACKTEST-HARNESSES-RUN-NO-TAKE-PROFIT-BY-DEFAULT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260906-BACKTEST-HARNESSES-RUN-NO-TAKE-PROFIT-BY-DEFAULT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-BACKTEST-HARNESSES-RUN-NO-TAKE-PROFIT-BY-DEFAULT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "11 of 15 backtest harnesses never model the live TP cap and the other 4 default it OFF"
+}

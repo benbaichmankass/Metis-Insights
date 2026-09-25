@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER claude-pr-automerge no longer opens PRs (it adopts only, and says so when there is none to adopt), OR a bot-opened PR is demonstrated running its required checks after some specific action, with the run ids. [!] CORRECTING THE PROSE ALONE DOES NOT CLOSE THIS -- the trap is created by a push ORDER that is easy to get wrong under time pressure, and CLAUDE.md already warns about it in the paragraph whose remedy is wrong. [!] AND A LATER PR THAT HAPPENS TO MERGE DOES NOT CLOSE IT unless it was OPENED BY THE BOT: a PR opened by a session merges fine and proves nothing about this class.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-A-PR-OPENED-BY-CLAUDE-PR-AUTOMERGE-NEVER-RUNS-ITS-PULL-REQUEST-CHECKS-AND-THE-DOCUMENTED-ONE-COMMIT-REMEDY-DOES-NOT-WORK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-A-PR-OPENED-BY-CLAUDE-PR-AUTOMERGE-NEVER-RUNS-ITS-PULL-REQUEST-CHECKS-AND-THE-DOCUMENTED-ONE-COMMIT-REMEDY-DOES-NOT-WORK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-PR-OPENED-BY-CLAUDE-PR-AUTOMERGE-NEVER-RUNS-ITS-PULL-REQUEST-CHECKS-AND-THE-DOCUMENTED-ONE-COMMIT-REMEDY-DOES-NOT-WORK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A PR that claude-pr-automerge OPENS can never satisfy its required checks — its pull_request workflows never fire, and CLAUDE.md's 'push one ordinary commit' remedy was measured not to recover them"
+}

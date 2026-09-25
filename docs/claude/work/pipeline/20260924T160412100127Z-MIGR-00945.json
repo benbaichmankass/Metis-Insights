@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-SUNSET-PASS-HAS-NO-EVER-CLOSED-SOURCE-SO-11-OF-52-LEGS-ARE-UNGRADEABLE-ON-LIFETIME-EVIDENCE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-SUNSET-PASS-HAS-NO-EVER-CLOSED-SOURCE-SO-11-OF-52-LEGS-ARE-UNGRADEABLE-ON-LIFETIME-EVIDENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-SUNSET-PASS-HAS-NO-EVER-CLOSED-SOURCE-SO-11-OF-52-LEGS-ARE-UNGRADEABLE-ON-LIFETIME-EVIDENCE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "After MI-126 the sunset pass no longer manufactures a zero — it now has NO lifetime measurement at all for 11 of 52 enabled legs, because /api/bot/performance is not an 'ever closed' oracle"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A dispatch whose NDJSON delta exceeds the issue-comment budget reports `truncated: true` with an accurate `more_available`, OR the delta is delivered as a run artifact with only the summary plus a link in the comment — either settles it. Verified on a REAL oversized run, not a unit test, by comparing the emitted row count against the row count recoverable from the comment. The fallback grader's docstring claim that this action avoids the size wall 'entirely' is corrected in the same change.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-GRADE-CLOSED-TRADES-REPORTS-TRUNCATED-FALSE-WHILE-THE-ISSUE-COMMENT-DROPS-60-PERCENT-OF-THE-DELTA",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-GRADE-CLOSED-TRADES-REPORTS-TRUNCATED-FALSE-WHILE-THE-ISSUE-COMMENT-DROPS-60-PERCENT-OF-THE-DELTA",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-GRADE-CLOSED-TRADES-REPORTS-TRUNCATED-FALSE-WHILE-THE-ISSUE-COMMENT-DROPS-60-PERCENT-OF-THE-DELTA'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] grade-closed-trades' own `_delta_summary` says `truncated: false` while GitHub renders only the last 50000 bytes of the comment — the reader receives 66 of 165 rows under a banner asserting nothing was truncated"
+}

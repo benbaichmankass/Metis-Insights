@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "The repo-relative pending_claude_pings inbox enumerates 0 on a status-check read taken AFTER the PR #7635 drain-sweep deployed, quoted here with the date. The code fix is already in by the row's own resolution field - this row is open ONLY on that post-deploy verification, so citing the code or the PR does not close it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] BL-20260726-CLAUDE-PING-INBOX-SPLIT-BRAIN"
+}

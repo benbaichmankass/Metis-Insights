@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies, still routed to E12 (queued). EVIDENCE: MEASURED 2026-09-24: 28 queued checklist rows carry no PR (rerun command).",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either a mechanism exists that ties a checklist row's state to the PR that resolved it -- demonstrated by making a merged PR name a still-`queued` id and seeing something fail -- or the manager contract states plainly that the register's state is hand-maintained and MAY be stale in both directions, so a reader checks git before dispatching. Verified by running the demonstration, not by reading a diff. A one-off correction of E10 does NOT clear this; E10 is already corrected and the mechanism is what is missing.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260921-M06",
+  "loud": false,
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager, 2026-09-21) -- found by dispatching a lane against a stale row",
+    "rerun": "python3 -c \"import json,subprocess;d=json.load(open('docs/claude/work/MANAGER-CHECKLIST.json'));q=[i['id'] for i in d['items'] if i['state']=='queued' and not i.get('prs')];print('queued rows carrying no PR:',q)\"; git log --oneline -40 main | grep -iE 'E1[0-9]|A[1-9]|B[1-9]'; # FINDING STILL APPLIES if any id in the first list appears in the second as already landed"
+  },
+  "routed_to": "checklist row E12 (docs/claude/work/MANAGER-CHECKLIST.json) — promoted to a build row the same day it was filed, because the plan's taxonomy has exactly two categories and this is a build. Leaving it in the pipeline alone would have made it the 405th memo.",
+  "state": "routed",
+  "what": "A CHECKLIST ROW WAS NOT MOVED OFF `queued` BY THE PR THAT RESOLVED IT, AND THE REGISTER THEREFORE LIED TOWARD MORE WORK. MEASURED 2026-09-21: row E10 read `queued` while its fix was already merged in #12676 -- the same PR the session handoff described as 'A7's pipeline + close-out contract + E10'. The manager read the ROW, dispatched a lane against it, and the lane correctly reported there was nothing to do. Cost $0.93, which is small; the mechanism is not. [!] THIS IS THE MIRROR OF THE FAILURE THE WHOLE RESET IS ABOUT. The reset's concern is work that silently stops; this is work that silently RESTARTS, and both come from the same root -- the register's state is maintained by hand, by whoever remembers, and nothing ties a row's state to the PR that changed it. A row stuck at `queued` past its fix costs a duplicate dispatch; the same gap in the other direction is a row marked `done` that nobody did. [!] THE CHECKLIST HAS NO `prs` DISCIPLINE EITHER: E10's `prs` array was empty although #12676 carried its fix, so even a reader who doubted the state had nothing to follow. [!] CANDIDATE FIX, not prescribed: a guard that fails when a merged PR's body or commits name a checklist id whose row is still `queued`. That is checkable from git alone and needs no new register."
+}

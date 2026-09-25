@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A real `render_due_list` run emits one of PROBE-REPORT-STALE, PROBE-REPORT-UNDATEABLE or PROBE-CADENCE-UNKNOWN and the emitted row's stamped `[observed <ts>, <age> ago]` matches the probe report actually on disk. A self-test pass is NOT this — the 26 self-test cases already cover all three.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-PROBE-STALENESS-GRADING-ONLY-EVER-READ-FRESH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-PROBE-STALENESS-GRADING-ONLY-EVER-READ-FRESH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-PROBE-STALENESS-GRADING-ONLY-EVER-READ-FRESH'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Subject retired by the 2026-09-21 operating reset: render_due_list.py / DUE.md are retired; due-list-guard removed. EVIDENCE: scripts/ci/run_guards.py:184 'Removed: ... due-list-guard, due-list-token-guard'; CLAUDE.md lists DUE.* as archived.",
+  "what": "render_due_list now grades the probe report's AGE against the cadence parsed from probes.yml, emitting PROBE-REPORT-STALE / PROBE-REPORT-UNDATEABLE / PROBE-CADENCE-UNKNOWN. Live it has only ever read `fresh`. The three non-fresh verdicts are deployed and have never been emitted by a real run."
+}

@@ -1,0 +1,21 @@
+{
+  "a10_note": "The four units that showed the defect no longer exist, so there is no instance to re-observe; the code-order question is C1's (research-queue schema + guard). EVIDENCE: MEASURED 2026-09-24: research/queue/ has no RQ-20260922-001/002/006/010; dispatch_queue.py prints 0 `invalid` rows over 11 units and `not_due status=blocked` for 003/004/007 — a negative with no positive control, so not claimed as fixed.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "dispatch_queue.py short-circuits on status before schema validation, or emits a distinct outcome (e.g. `blocked`) for a unit whose status is blocked, so `deliberately parked` and `malformed` are distinguishable in the census.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-DISPATCHER-REPORTS-A-BLOCKED-UNIT-AS-INVALID",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist C5/R4 research lane, session_01AHNgatHswZsemNiP8aSXCk, branch claude/c5-r4-ten-research-questions",
+    "rerun": "python3 scripts/research/dispatch_queue.py   # compare the outcome column against each unit's `status:` field"
+  },
+  "routed_to": "C1",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "dispatch_queue.py validates run.workflow BEFORE it reads status, so a unit that is DELIBERATELY blocked with run.workflow: null reports `invalid -- run.workflow is required`, identically to a malformed job. OBSERVED 2026-09-22 on this branch: RQ-20260922-001/002/006/010 are all status: blocked with a named blocker and all four print `invalid`, while RQ-20260922-003/004/007 (blocked, but carrying a workflow) correctly print `not_due status=blocked`. Two states sharing one value, and the dangerous one is 'this job is malformed' -- a census reading invalid=4 teaches the next reader to skim past it (the alarm-fatigue class this repo grades P1)."
+}

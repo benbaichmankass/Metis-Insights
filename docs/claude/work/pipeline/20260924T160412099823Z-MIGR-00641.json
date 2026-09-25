@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A session picking up unowned work can tell, FROM THE FIELD IT ROUTES ON, that MI-216's deliverable is already merged -- e.g. its checklist `state` reads something other than `ready` (its object is `waiting` on an operator decision, which is the accurate reading and is already recorded on WO-20260901-PHASE-F), or the row's note leads with the merged PR. !! THE CHECKLIST IS THE MANAGER'S REGISTER AND THIS ROW DOES NOT EDIT IT -- that is why this is filed rather than fixed, and a worker silently restating another item's state is the failure this repo has already paid for on the lease and the session registry. !! FIXING MI-216'S ROW ALONE DOES NOT CLEAR THIS. One corrected row is one row; what this asks is whether the NEXT `ready`/unowned row whose work has landed is distinguishable from one whose work has not. If the answer is 'only by a session reading the code first', say so and record it -- that is a legitimate finding and a legitimate cost, and it should be RECORDED rather than left looking like a convention about to change. !! THE INCIDENCE IS UNDER-MEASURED AND A SWEEP NEEDS THE CLONE DEEPENED FIRST (`git fetch --deepen=2000`): at ~42% recall, an id-prefix probe cannot clear a row, only flag one. Do NOT publish the 11 as a count of stale rows. !! AND A GREEN GUARD CLEARS NOTHING HERE: no guard reads checklist `state` against merged history today, and building one that keys on the id-prefix convention would inherit that 42% recall -- it would grade `could_not_look` for most …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260918-A-CHECKLIST-ROW-READS-READY-AND-UNOWNED-WHILE-ITS-DELIVERABLE-IS-MERGED-ON-MAIN-SO-IT-ROUTES-THE-NEXT-SESSION-INTO-A-REBUILD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260918-A-CHECKLIST-ROW-READS-READY-AND-UNOWNED-WHILE-ITS-DELIVERABLE-IS-MERGED-ON-MAIN-SO-IT-ROUTES-THE-NEXT-SESSION-INTO-A-REBUILD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260918-A-CHECKLIST-ROW-READS-READY-AND-UNOWNED-WHILE-ITS-DELIVERABLE-IS-MERGED-ON-MAIN-SO-IT-ROUTES-THE-NEXT-SESSION-INTO-A-REBUILD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] MI-216 reads `state: ready` / `owner: null` / 'ROUTE IT' while its producer has been merged since 2026-09-10 with real records on disk - I picked it as my next unit and nearly rebuilt it"
+}

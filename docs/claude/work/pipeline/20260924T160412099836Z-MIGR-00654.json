@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "walk-forward + account_compat run; either a Tier-3 proposal PR opened or a documented reject",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260707-MGC-PULLBACK-1H-WALKFORWARD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260707-MGC-PULLBACK-1H-WALKFORWARD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] mgc_pullback_1h — proper walk-forward + account_compat_matrix, then propose as a new intraday strategy variant (the strongest intraday lead)"
+}

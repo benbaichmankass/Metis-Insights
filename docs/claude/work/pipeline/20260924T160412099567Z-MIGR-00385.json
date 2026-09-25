@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) record the procedure rule where a session will read it before merging — the session-coordination skill's merge protocol and the merge-guard deny message both enumerate merge preconditions and neither mentions the draft flag; or (b) establish that the required workflows can skip the ready_for_review type so the flip does not re-arm the gate, and say why if they cannot. Closing this needs one of those two, not just this row.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-READY-FOR-REVIEW-RERUNS-REQUIRED-CHECKS-AND-BLOCKS-THE-MERGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-READY-FOR-REVIEW-RERUNS-REQUIRED-CHECKS-AND-BLOCKS-THE-MERGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-READY-FOR-REVIEW-RERUNS-REQUIRED-CHECKS-AND-BLOCKS-THE-MERGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Marking a draft PR ready re-runs the required checks on the UNCHANGED head sha, and the resulting 405 is indistinguishable from a real red"
+}

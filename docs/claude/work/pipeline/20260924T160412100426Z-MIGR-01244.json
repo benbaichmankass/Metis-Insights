@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A Tier-1 PR declaring `landing: \"self\"` with the route armed is OBSERVED merging with no session having called the merge API on it — i.e. a manager states, before the fact, that it is leaving that PR alone for a stated interval, and it merges anyway. A merged self-land PR that any session hand-merged does NOT clear this, and neither does a green CI run.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-JN54P2HH-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager, 2026-09-22), PR #12744 and its two comments",
+    "rerun": "python3 - <<'EOF'\n# List Tier-1 PRs that declared landing:self and were merged, and ask WHO merged each.\n# The actor field cannot answer it (relay and session share a login), so the check is procedural:\n# find a merged Tier-1 self-land PR whose merge NO session in that window claims in its transcript.\nEOF\ngit log --oneline origin/main -- .github/pr-automerge-requests/ | head -20"
+  },
+  "state": "queued",
+  "what": "THE TIER-1 SELF-LAND ROUTE IS UNCONFIRMED, and the one PR that could have settled it today was destroyed as evidence by the manager. #12744 was Tier-1, `landing: \"self\"`, automerge armed, merge slot claimed, mergeable_state clean with green CI at 13:47Z and still unmerged at 13:55Z. The E42 lane flagged it and DELIBERATELY did not hand-merge, reasoning that establishing whether the route is broken is worth more than the merge. The manager then hand-merged it at 14:15:55Z during a queue sweep without reading that reasoning, and the merge API returned a success response rather than the 405 an already-merged PR returns. A later lane report concluded the route 'landed on its own' and is therefore fine; that is NOT established, and it is the dangerous direction to be wrong in. WHY THE OBVIOUS CHECK CANNOT ANSWER IT: `merged_by` reads `benbaichmankass` whether the automerge relay or a session merged, so the actor field cannot distinguish them. WHAT IS ESTABLISHED: the DELAY has a mundane explanation — a merge commit pushed at ~13:50Z restarted CI and the route correctly waits for green on the current head. That explains the wait; it does not show the route would have fired. WHY IT MATTERS BEYOND ONE PR: if the route is broken, every Tier-1 PR in this repo is quietly routing through a human — which is the exact failure .github/pr-landing/README.md records (seven green PRs sitting unmerged on 2026-09-03) and says it was built to end. It would be invisible in any view that only counts merged PRs."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "closed_pnl_from_fills is either deleted, or given a docstring that names fills_pnl.exit_from_fills as the live path and states why this one still exists — so no future reader can repeat the inference this row made. Closed when the module can no longer be read as evidence that IB broker truth is unread.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-IB-BROKER-PNL-READER-HAS-NO-CALLER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] exchange_fills_ib.closed_pnl_from_fills has ZERO production callers, so IBKR's own realizedPNL is pulled hourly into the store and never read — 0 of 33 ib_paper closed trades have ever carried a broker-sourced pnl"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A recorded comparison of eth_pullback_2h's realised expectancy on bybit_1 over the soak window (clock started 2026-06-11T16:20Z, per next_action) against the k-fold expectation, stating n_closed AND the pnl provenance coverage of that window, plus an explicit keep/tune/drop verdict. A verdict with no stated n and no stated coverage does not close this - the comparison IS the deliverable, and an expectancy over unmeasured pnl is not one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260611-M15-2",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260611-M15-2",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260611-M15-2'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] eth_pullback_2h demo soak review — compare first weeks of bybit_1 fills against the k-fold expectation"
+}

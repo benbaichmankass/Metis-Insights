@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Observable: the sweep SUMMARY header carries a warning whenever the leg's base OOS n is below MIN_OOS_TRADES, not below a separate constant -- e.g. by deriving the banner threshold FROM the floor rather than declaring it independently, so the two cannot drift apart again. Two acceptable outcomes: (a) the banner fires at the floor and the 20-24 band is flagged; or (b) the two thresholds are deliberately kept distinct AND the header states the floor alongside the OOS n, so a reader can see the gap without knowing the constant. NOT resolution: raising _THIN_OOS_TRADES to 25 by hand and leaving two independent literals free to diverge on the next floor change.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-SWEEP-THIN-OOS-BANNER-MISSES-THE-GRADING-FLOOR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-SWEEP-THIN-OOS-BANNER-MISSES-THE-GRADING-FLOOR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-SWEEP-THIN-OOS-BANNER-MISSES-THE-GRADING-FLOOR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] m20_fleet_exit_sweep's THIN OOS banner fires at 20 trades but the gradeability floor is 25, so a leg with 20-24 OOS trades prints a full delta table under NO warning while nothing in it was graded"
+}

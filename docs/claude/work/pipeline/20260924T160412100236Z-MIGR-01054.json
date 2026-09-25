@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-THE-CLOSED-FLAT-INVARIANT-CANNOT-REPORT-A-VIOLATION-AND-ITS-ZERO-IS-NOT-EVIDENCE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-THE-CLOSED-FLAT-INVARIANT-CANNOT-REPORT-A-VIOLATION-AND-ITS-ZERO-IS-NOT-EVIDENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-THE-CLOSED-FLAT-INVARIANT-CANNOT-REPORT-A-VIOLATION-AND-ITS-ZERO-IS-NOT-EVIDENCE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The one mechanism that can independently contradict 'this trade is closed' is structurally incapable of reporting a violation, via THREE composing defects: it reads a FAILED exchange read as flat, it covers about half its own timeline by arithmetic, and it writes where nobody can look at a level that never pages. Its 14.7-day zero is not evidence of anything."
+}

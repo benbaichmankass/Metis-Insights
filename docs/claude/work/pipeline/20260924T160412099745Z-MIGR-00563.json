@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The landing step distinguishes and survives its two failure modes. Concretely: (a) a generated-artifact PR that conflicts because main moved is REGENERATED against the new main and retried, rather than timing out and being closed — an artifact recomputable from main is exactly the case where rebase-and-retry is safe; and (b) a rate-limit refusal is retried with backoff past the window rather than consuming the run, AND is reported DISTINGUISHABLY from a substantive failure so that a red pr-queue-watch means the queue is unworked and nothing else.\n\nCLEARS WHEN: a scheduled run is observed hitting one of these conditions and still landing its artifact on main — read the run log and the committed file. ⚠️ A QUIET WEEK CLEARS NOTHING: both sub-causes need main to be busy (or GitHub to be throttling) to arise at all, so an absence of failures may mean the condition did not occur. Establish that artifacts were being produced across the window before reading zero losses as a fix. ⚠️ AND CLOSING THE CONFLICTED PRs BY HAND, however well-reasoned, IS NOT A FIX — that is what has been happening and the cadence regenerates the loss.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-THE-SHARED-COMMIT-TO-MAIN-LANDING-STEP-IS-THE-LARGEST-SINGLE-CAUSE-OF-DISCARDED-AUTOMATION-OUTPUT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-THE-SHARED-COMMIT-TO-MAIN-LANDING-STEP-IS-THE-LARGEST-SINGLE-CAUSE-OF-DISCARDED-AUTOMATION-OUTPUT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-SHARED-COMMIT-TO-MAIN-LANDING-STEP-IS-THE-LARGEST-SINGLE-CAUSE-OF-DISCARDED-AUTOMATION-OUTPUT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The shared commit-to-main landing step — not the crons — is the largest single cause of discarded automation output: nine workflows on one day produced their artifact and then failed to land it, and today's due-list, constraint readout and error-feed digest exist only as abandoned branches"
+}

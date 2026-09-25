@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260721-ICTSCALP-ALTCOIN-PAPER-SOAK-CHECK'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "Check live paper performance of ict_scalp_sol_5m / _xrp_5m / _avax_5m on bybit_1 against the M27 Batch-1 backtest — gate for real-money promotion"
+}

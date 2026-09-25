@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS. (1) The transient_market_data_unavailable volume is reduced at source OR aggregated — a repeated fetch failure on one (symbol, timeframe) should roll up with a count rather than emitting one row per attempt, the same latching discipline this repo already applies to target_naked and stop_over_cover. ⚠️ DO NOT FIX THIS BY SUPPRESSING THE CLASS: MGC 15m failing 274 times on the frame driving a live 35-lot position is a real signal, and silencing it would be strictly worse than the occlusion. (2) Establish whether the MGC fetch failures have a single cause (an IB pacing/session condition on that contract) and whether exit evaluation was actually degraded for that position — which needs the monitor-blindness record over an UNtruncated window.\n\nCLEARS WHEN: the warn feed's top class is under ~25% of rows AND the reviewable window extends materially past 5.2 days, measured the same way. ⚠️ A QUIET MARKET-DATA WEEK CLEARS NOTHING — establish that fetches were still being attempted before reading a drop in failures as a fix.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-78-PERCENT-OF-THE-WARN-FEED-IS-ONE-MARKET-DATA-CLASS-AND-IT-TRUNCATES-THE-REVIEWABLE-WINDOW-TO-FIVE-DAYS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-78-PERCENT-OF-THE-WARN-FEED-IS-ONE-MARKET-DATA-CLASS-AND-IT-TRUNCATES-THE-REVIEWABLE-WINDOW-TO-FIVE-DAYS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-78-PERCENT-OF-THE-WARN-FEED-IS-ONE-MARKET-DATA-CLASS-AND-IT-TRUNCATES-THE-REVIEWABLE-WINDOW-TO-FIVE-DAYS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 781 of 1000 WARN+ rows (78.1%) are transient_market_data_unavailable — MGC alone is 403 (40.3%), on the 15m frame driving an open 35-lot position's exit evaluation — and the volume caps the reviewable warn window at 5.2 days"
+}

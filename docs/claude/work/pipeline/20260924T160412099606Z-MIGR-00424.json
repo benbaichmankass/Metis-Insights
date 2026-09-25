@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The filter covers every conclusion that means THE RUN DID NOT DO ITS WORK (at minimum `startup_failure` and `action_required`), the comment states the ACTUAL un-covered set rather than an example of it, AND the added coverage is SHOWN to fire -- a run forced to `startup_failure` (e.g. a deliberately invalid workflow on a scratch branch) produces the alert. ⚠️ Do NOT close on the `if:` expression being widened: a filter that has only ever been evaluated against `success` is indistinguishable from one that cannot fire, which is the same standard BL-20260901-NO-PRE-MERGE-GUARD-ON-BACKLOG-ROUND-TRIP was held to.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-RUN-FAILURE-ALERT-MISSES-STARTUP-FAILURE-AND-ACTION-REQUIRED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-RUN-FAILURE-ALERT-MISSES-STARTUP-FAILURE-AND-ACTION-REQUIRED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-RUN-FAILURE-ALERT-MISSES-STARTUP-FAILURE-AND-ACTION-REQUIRED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] claude-run-failure-alert fires on only 3 of GitHub's ~7 run conclusions, so a workflow that never STARTS (startup_failure) is silent"
+}

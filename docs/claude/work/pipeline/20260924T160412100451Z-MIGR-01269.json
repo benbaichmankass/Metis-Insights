@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER check_allow_degraded.py resolves ids against a register that still exists (most likely docs/claude/work/PIPELINE.jsonl, whose ids are `PI-`-prefixed and which check_backlog_refs.REF does not match), OR a DECIDED records that no new `# allow-degraded:` annotation may be written and the guard's message says that instead of naming a remedy nobody can perform. Re-check by running the rerun command: a non-empty register list, or a PI- id resolving, closes it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-ALLOW-DEGRADED-GUARD-IS-UNSATISFIABLE-SINCE-THE-RESET-ARCHIVED-EVERY-BACKLOG-IT-RESOLVES-IDS-AGAINST",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01PDnYMJCPBohXArAKpUceZm, checklist row E42, branch lane/e42-shared-symbol-resolver",
+    "rerun": "python3 -c \"import sys,glob; sys.path.insert(0,'scripts/ops'); from check_backlog_refs import REPO, BACKLOG_GLOB, filed_ids; print('registers:', glob.glob(str(REPO/BACKLOG_GLOB)), 'ids:', len(filed_ids()))\"   # an EMPTY register list means no new BL-/MB-/FU- id can be filed anywhere check_allow_degraded.py would resolve it"
+  },
+  "routed_to": "unrouted -- needs a checklist row; same family as PI-20260921-0002 (archived registers still read by live CI paths)",
+  "state": "queued",
+  "what": "MEASURED 2026-09-22 while landing the E42 shared symbol resolver. scripts/ops/check_allow_degraded.py requires every `# allow-degraded:` annotation to carry (a) a backlog id that RESOLVES to a filed row and (b) an unexpired `until:`. Its id universe comes from check_backlog_refs.filed_ids(), which globs `docs/claude/*backlog*.json` -- and the 2026-09-21 operating reset ARCHIVED all four review backlogs, so that glob now returns an EMPTY LIST (verified by running it). [!] THE CONSEQUENCE: no NEW `# allow-degraded:` annotation can be written anywhere in the repo, because there is no register left to file its id in. The live intake is docs/claude/work/PIPELINE.jsonl and its ids are `PI-`-prefixed, which check_backlog_refs.REF (`\\b(?:BL|MB|FU)-\\d{8}-...`) does not match at all. [!] HOW IT PRESENTED, which is the part worth keeping: it does NOT present as a broken guard. It presents as four ordinary findings against your own new code, with a remedy line -- 'file the row' -- that cannot be performed. A session that does not stop to check the register will either invent a plausible-looking BL- id (which then resolves to nothing and is a dangling reference forever) or weaken the guard. Both are worse than the annotation. [!] WHAT THIS LANE DID INSTEAD, so the next session has the precedent: avoided the marker. The four fail-safe fallbacks in src/runtime/exchange_accounts.py and src/units/accounts/clients.py are now commented `# noqa: BLE001  -- FAIL-SAFE: <reason>` with the reasoning in prose. That is honest and passes, but it is a WORKAROUND -- it means genuinely degraded paths stop being enumerable by the guard that exists to enumerate them, which is the silence this guard was built to prevent. So the guard is not merely inconvenient; every session that meets it quietly shrinks its population. [!] NOT FIXED HERE because it is nobody's Tier-1 five-minute change: pointing REF at PIPELINE.jsonl means deciding whether a pipeline row is the right owner for a degradation exception (it has due_when and origin.rerun, which is arguably a BETTER fit than a backlog row ever was), and that is a call about the operating model rather than a regex edit."
+}

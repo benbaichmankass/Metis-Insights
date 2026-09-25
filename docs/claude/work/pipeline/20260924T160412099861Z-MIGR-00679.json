@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A rate computed over `trades` rows for a question about PRICE behaviour states its distinct order_package count beside its row count, OR is computed per package. [!] A GUARD IS PROBABLY THE WRONG SHAPE HERE and is not what this row asks for: the row count is the right denominator for questions about ACCOUNTS (exposure, per-account PnL, routing) and the wrong one only for questions about the PRICE PATH, and no checker can read which question is being asked. What is owed is that the distinction is stated where rates are produced. [!] CLEARING THIS BY ADDING A PACKAGE COUNT TO ONE MEMO IS NOT SUFFICIENT -- name the surfaces that compute such rates. ⚠️ CLAUSE 1 IS PARTIALLY PAID AS OF 2026-09-12 (MI-278 U19) AND THE ROW STAYS OPEN — two surfaces of the 21 U12 measured now state both denominators. THE ONE U12 NAMED AS MOST LOAD-BEARING IS DONE: stop_width_counterfactual_2026_09_11.py::dose_response now emits `per_package` beside its per-row keys, PROVEN ADDITIVE by loading the pre-patch and post-patch functions side by side over one population and comparing key by key — every pre-existing key identical, only the two new keys appear, so no published figure moved. THE RE-DERIVATION U12 ASKED FOR: on the `tightened_to_2_from_2.5` cell the Fisher p goes from ~0 (reported 0.0) on ROWS to 0.021 on PACKAGES — pre 0/17 -> 0/7, post 12/15=0.800 -> 5/7=0.714, inflation 1.889x pre and 2.143x post. The conclusion SURVIVES and its strength does not, which is the robustness shape this row itsel …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-A-RATE-PER-TRADE-ROW-COUNTS-ACCOUNT-FANOUT-AS-INDEPENDENT-AND-INFLATES-N-UNEQUALLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] Every before/after rate computed per trades row counts account fan-out as independent observations, inflating n 1.27-1.64x and UNEQUALLY between arms"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. Measure the probe-timeout rate over a WARM window of at least 30 minutes (n>1 process, not a single post-restart burst) -- the honest denominator is timeouts per connect(), not timeouts per minute.\n2. Establish whether attempt 1 EVER succeeds on this relay; if it effectively never does, the 5s first attempt is pure latency and IB_PROBE_TIMEOUT_S should be retuned (Tier-2 env flip) or the first attempt shortened, rather than left as a tax paid on every call.\n3. Decide the log level deliberately: a condition firing on every connect is either normal (and should not be logged per-occurrence at all) or abnormal (and must not sit at INFO). It is currently logged as if it were rare, which is what let it run unnoticed.\n4. Do NOT 'fix' this by widening the retry -- that is what hid it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-IB-LIVENESS-PROBE-TIMES-OUT-EVERY-CONNECT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-IB-LIVENESS-PROBE-TIMES-OUT-EVERY-CONNECT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-IB-LIVENESS-PROBE-TIMES-OUT-EVERY-CONNECT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] IBClient liveness probe attempt 1/2 times out on essentially EVERY connect -- 14 times in 89s -- burning ~5s of dead wait per IB call; the retry saves it, so nothing alarms"
+}

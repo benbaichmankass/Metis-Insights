@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Per-account exposure multiples are observable without a declared ceiling, and the operator has either set caps from observed data or explicitly decided the fleet runs uncapped.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260808-GROSS-EXPOSURE-CAP-INERT-AND-UNOBSERVABLE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260808-GROSS-EXPOSURE-CAP-INERT-AND-UNOBSERVABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-GROSS-EXPOSURE-CAP-INERT-AND-UNOBSERVABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Gross-exposure governance is phase 1 of 2 — the ceiling VALUES were explicitly deferred, and the observability gap is why phase 2 stalled"
+}

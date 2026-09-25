@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Two independent fixes, both wanted. (1) DOC: system-actions.md and the confirmation guidance must state that a run conclusion of failure does NOT mean the action did not run, and that the authoritative signal is the 'Wrapper exit code:' line in the run log — especially before re-dispatching any MUTATING action. (2) WORKFLOW: make the comment-back step resilient (retry on 5xx, and/or continue-on-error so a comment failure cannot mark a successful action red). Do NOT resolve this by making the workflow retry the ACTION on a comment failure — that is the double-apply bug this row exists to prevent.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-SYSTEM-ACTION-RUN-CONCLUSION-CAN-BE-FAILURE-AFTER-THE-ACTION-SUCCEEDED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A system-action run can report conclusion=failure AFTER the action succeeded — re-running on that signal double-applies it"
+}

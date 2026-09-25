@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-THE-OFFLINE-EDGE-BUILDER-CANNOT-GRADE-ANY-EQUITY-OR-FUTURES-LEG-BECAUSE-YFINANCE-IS-NOT-IN-REQUIREMENTS-TXT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260913-THE-OFFLINE-EDGE-BUILDER-CANNOT-GRADE-ANY-EQUITY-OR-FUTURES-LEG-BECAUSE-YFINANCE-IS-NOT-IN-REQUIREMENTS-TXT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-THE-OFFLINE-EDGE-BUILDER-CANNOT-GRADE-ANY-EQUITY-OR-FUTURES-LEG-BECAUSE-YFINANCE-IS-NOT-IN-REQUIREMENTS-TXT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "build_strategy_evidence.py routes all 19 equity/ETF and 5 futures legs through yfinance, which is in requirements-backtest.txt and requirements-test.txt but NOT requirements.txt — so on a runtime install the equity half of the fleet fails with a bare ModuleNotFoundError"
+}

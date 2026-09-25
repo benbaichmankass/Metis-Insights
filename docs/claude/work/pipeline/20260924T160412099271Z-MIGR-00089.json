@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "TWO CLAUSES NOW, AND THEY ARE DIFFERENT FACTS - say WHICH you cleared rather than clearing the row on the easier one. (1) DISPOSITION: each of the six carries a RECORDED operator disposition - approved, rejected, or deferred-with-a-reason - written into the backlog row it corresponds to. THIS CLAUSE IS MET as of 2026-09-09T23:5xZ; see the observation for the six row ids. It is kept in the text rather than deleted so a reader can see what was asked and what discharged it. (2) CARRIAGE: every APPROVED proposal is either BUILT-AND-OBSERVED on the fleet, or carried by its own named row that a session will read without this one. Clause (2) was ADDED 2026-09-09 when clause (1) was met with four of six unbuilt - because a row that discharged there would vacate the session brief for precisely the work it exists to stop losing, which is the audit's own 'do X first so we can scope Y' finding applied to this row. PARTIAL PROGRESS DOES NOT CLEAR THIS ROW: say WHICH of the six are carried and leave it open while any is neither built nor carried. AN APPROVAL IS NOT A BUILD, A MERGE IS NOT A DEPLOY, AND A DEPLOY IS NOT AN OBSERVATION - F-36 is merged and has never run on a live reduce, which is exactly the state clause (2) refuses to accept as done. THE AUDIT REPORT BEING PUBLISHED CLEARS NOTHING - the report existed on 2026-09-09 and that is the state this row describes, not its resolution. A FINDING BEING FIXED BY A LATER SESSION THAT NEVER SAW THIS AUDIT STILL COUNTS - record it, because",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] MI-225's audit produced 6 money-at-risk proposals the operator must decide, and the audit completing hands them to nobody"
+}

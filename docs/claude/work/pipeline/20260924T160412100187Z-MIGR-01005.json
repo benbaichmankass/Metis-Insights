@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260906-THE-EARNED-TRUST-LINCHPIN-HAS-NEVER-BEEN-RUN-AND-GRADES-THE-WRONG-QUANTITY-FOR-EXIT-LOCATION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-THE-EARNED-TRUST-LINCHPIN-HAS-NEVER-BEEN-RUN-AND-GRADES-THE-WRONG-QUANTITY-FOR-EXIT-LOCATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-THE-EARNED-TRUST-LINCHPIN-HAS-NEVER-BEEN-RUN-AND-GRADES-THE-WRONG-QUANTITY-FOR-EXIT-LOCATION'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/research/backtest_fidelity_calibrate.py calls itself 'the earned-trust linchpin (P0)' and has produced ZERO artifacts in its lifetime -- and even once run it grades OUTCOME agreement (win-rate + realised-R), not exit LOCATION, which is what ML-2's claim is about"
+}

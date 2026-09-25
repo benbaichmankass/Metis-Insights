@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Two things, and the FIRST is Tier-1 and must come first. (1) MEASURE the collision on BTCUSDT: over the shared-position history, how much of each leg's attributed PnL is exclusive vs shared, and how often did one leg's exit move the other's position? Until that number exists, every per-strategy BTCUSDT figure is quoted with the caveat. (2) DECIDE the separation (Tier-3, operator-gated): route the two legs to accounts that do not net against each other, arm hedge mode for the pair (BYBIT_HEDGE_MODE_SYMBOLS exists and is deliberately EMPTY - the plumbing is not the switch, and switching a venue's position mode is itself Tier-3), or accept one live BTCUSDT leg per netting account as policy. Closing this by demoting either leg does NOT satisfy it: that removes the collision from one account and leaves it standing on the other two, and leaves the attribution question unanswered for whichever leg remains.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-BTCUSDT-POSITION",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-BTCUSDT-POSITION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-BTCUSDT-POSITION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ict_scalp_5m and trend_donchian both trade BTCUSDT live on one-way-netting Bybit accounts, so two strategies share ONE exchange position and neither one's per-strategy PnL is an exclusive measurement"
+}

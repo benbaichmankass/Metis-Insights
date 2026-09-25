@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) No unmarked byte-identical pnl cluster remains across sibling rows — a residual cluster that differs beyond 2dp is a rounding collision and does NOT count; and (2) the P1.x fidelity trust map has been re-run post-exclusion, so the affected leg carries a verdict computed over a population that no longer contains duplicated pnl.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260806-DUPLICATE-PNL-NETTED-SIBLING-ROWS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Duplicate netted pnl on sibling rows — $24.3k across 31 paper rows poisoning the calibration set + ML labels (real-money exposure bounded at $45.52)"
+}

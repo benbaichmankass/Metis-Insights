@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260903-RELAY-OPENED-PRS-START-WITH-ZERO-CHECKS-AND-NEED-A-HAND-MADE-COMMIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-RELAY-OPENED-PRS-START-WITH-ZERO-CHECKS-AND-NEED-A-HAND-MADE-COMMIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-RELAY-OPENED-PRS-START-WITH-ZERO-CHECKS-AND-NEED-A-HAND-MADE-COMMIT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Every PR opened through .github/workflows/pr-opener.yml starts with ZERO check runs and stays ungradeable until a human-credentialled actor pushes an extra commit. MEASURED 2026-09-03 on three separate PRs from one session -- #10918, #10923 and #10933 -- each returning `get_check_runs total_count: 0` after the relay opened it, and each needing a hand-made EMPTY commit to become gradeable. POPULATION: 3 of 3 relay-opened PRs this session; 3 of 3 needed the workaround. The cause is documented in pr-opener.yml's own header: the PR is opened by github-actions[bot] under GITHUB_TOKEN, which fires no `pull_request` event, and the bot's own results commit fires no `push` event either."
+}

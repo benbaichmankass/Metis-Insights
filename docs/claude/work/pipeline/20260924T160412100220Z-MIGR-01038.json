@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-DEFAULT-PROMOTION-PROFILE-REQUIRES-A-7-DAY-CALENDAR-SOAK-AND-200-LIVE-TRADES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-DEFAULT-PROMOTION-PROFILE-REQUIRES-A-7-DAY-CALENDAR-SOAK-AND-200-LIVE-TRADES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-DEFAULT-PROMOTION-PROFILE-REQUIRES-A-7-DAY-CALENDAR-SOAK-AND-200-LIVE-TRADES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-218 CONFIRMED SURFACE S2, and the highest-leverage one found. ml/promotion/gates.py:228 picks `regime_classifier_thresholds()` if `is_regime_classifier(entry)` else a bare `GateThresholds()`. The regime profile sets `require_shadow_soak=False` (WS-1 de-soak, operator-approved 2026-07-26) and `min_trades=5`. EVERY OTHER HEAD lands on the default, where BOTH are REQUIRED: `require_shadow_soak=True` @ `shadow_soak_days=7.0` — a literal 'N days at stage', which CLAUDE-RULES-CANONICAL.md § 'Promotion evidence' clause 3 names verbatim as 'a policy artifact, not evidence' — and `min_trades=200` LIVE trades, which at the ~1.2 closes/week the operator cites is ~3.2 YEARS. ⚠️ CANON SAYS THIS IS 'mechanically guarded: tests/ml/test_gates.py asserts that no required gate UNDER THE REGIME-CLASSIFIER PROFILE is a calendar-time edge gate'. That is TRUE and it is SCOPED TO ONE PROFILE. The default profile — used by every non-regime head, including trade-outcome and exit heads — is not covered by that assertion. This is the M7 fact pattern one level up: the rule is binding, the guard is real, and the guard does not reach the surface. Evidence: docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md § S2."
+}

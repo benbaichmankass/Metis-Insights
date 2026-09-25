@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies; a decision_rule precision/power clause is C1's schema work. EVIDENCE: Not re-run (a full producer run). MANAGER-CHECKLIST.json: C1 queued.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER build_strategy_evidence.py pins the measurement window so a re-run on a later date is reproducible (a fixed --end, or the window recorded and honoured), OR decision_rule carries a power/precision clause (a minimum n, or an interval that a near-zero net_r_oos fails to clear) so a leg inside the noise band returns a distinct third state instead of a crisp pass/fail, OR D1's owner records a DECIDED that a date-sensitive verdict is acceptable and says why.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-R5-STAGE0-VERDICT-FLIPS-ON-A-9-DAY-WINDOW-SHIFT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01W2KHBwLh4ouP1b8De2bmfV, checklist row R7, branch claude/r5-remaining-corpus-cost-stack",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --strategy squeeze_breakout_4h --strategy trend_donchian_sol   # then compare net_r_oos and decision_rule.verdict against the committed record and against comms/strategy_evidence/runs/2026-09-22-r5/*__trades.jsonl. A verdict that differs again while config_fingerprint is unchanged means the instability is still present."
+  },
+  "routed_to": "C1 (decision_rule schema): pin the window or add a minimum-n / interval clause",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "MEASURED 2026-09-22 by the R5 lane by re-running scripts/ops/build_strategy_evidence.py over the 40 legs R1 had not covered and diffing every record against its committed predecessor. POPULATION: the 30 legs that graded `measured` in both the committed run (2026-09-13/16) and this one (2026-09-22). RESULT: config_fingerprint is IDENTICAL on 40 of 40, so no config moved, and the cost code did not change in the window (git log --since=2026-09-10 over backtest_trend/pullback/squeeze + regime_debt_matrix = two commits, neither touching cost resolution) -- yet 2 of the 30 FLIPPED THE SIGN OF THEIR VERDICT on nothing but a 9-day shift of the rolling 365-day window. squeeze_breakout_4h: +0.5994 `pass` -> -0.4874 `fail` (n 9->10). trend_donchian_sol: -1.0697 `fail` -> +2.8045 `pass` (n 56->57). [!] WHY THIS IS A DEFECT AND NOT MERELY VARIANCE: window_days=365 is measured BACKWARD FROM THE RUN DATE, so the same leg with the same config is a different measurement every day, and nothing in the record says so -- a consumer reading decision_rule.verdict cannot tell a robust pass from one that read fail last week. RULE-D1-STAGE0-NET-OF-FULL-COST is a strict `net_r_oos > 0` test with no minimum-n and no interval, so a leg sitting near zero gets a crisp verdict out of what is, at these n, noise. squeeze_breakout_4h sits at n=10, exactly the producer's own MIN_TRADES_FOR_POOLED floor, and it is `execution: live`. [!] THIS IS NOT A REQUEST TO WIDEN OR LOWER THE BAR and must not be read as one -- the canonical rule against moving a floor to manufacture a verdict stands, and the fix runs the other way: make the instrument REPRODUCIBLE, and make `inside the noise band` a state the record can express, per CLAUDE-RULES-CANONICAL 'Collapsed states'. [!] IT BLOCKS ACTING ON THE TWO OPERATOR QUESTIONS THIS LANE ANSWERED: trend_donchian_sol_4h (+4.1648, n=34, down from +8.9882 nine days earlier) and htf_pullback_trend_2h (+2.7979, n=80) both pass, and neither should be promoted while the verdict that would authorize it moves this much. Write-up: docs/research/R5-REMAINING-CORPUS-COST-STACK-2026-09-22.md FINDING 2 and proposal P1."
+}

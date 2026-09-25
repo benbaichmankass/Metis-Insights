@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "OBSERVABLE: for a leg whose registry row carries NO entry-conditioned basis, the corpus alone yields cap_R median/min/max/n and a reach share against that leg's arm_r, without dispatching a relay. Demonstrate on a leg that currently has none — reproducing a leg that already has a bespoke block proves only that the join works where the answer was already known.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260816-REACHABILITY-REGISTRY-IGNORES-THE-CORPUS-TP-REACH-IT-KEEPS-RE-MEASURING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] config/lever_reachability.json has been buying entry-conditioned cap_R one leg at a time via bespoke relays, while m20-sweep-corpus already carries the same measurement for 34 legs and nothing reads it"
+}
