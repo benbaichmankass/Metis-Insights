@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "supported_symbols() loads config symbols on its FIRST call regardless of time.monotonic(), with a test that monkeypatches monotonic() to a small value.",
+    "kind": "event"
+  },
+  "id": "PI-20260925-HJPL5ABP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01Ljhs6sFAdWHdMDhJpL5aBP, E35 post-merge test run",
+    "rerun": "python3 -c \"import time;print(time.monotonic())\"; grep -n \"_config_symbols_state\\|_CONFIG_SYMBOLS_TTL_S\" src/runtime/intents.py  # bug holds while the sentinel is at=0.0 compared against monotonic()"
+  },
+  "state": "queued",
+  "what": "[bug] src/runtime/intents.py::supported_symbols() caches config-derived symbols in _config_symbols_state = {'at': 0.0, ...} and refreshes only when time.monotonic() - at > _CONFIG_SYMBOLS_TTL_S (60s). time.monotonic() is time-since-boot on Linux, so for the first 60s after a machine boots the empty cache counts as FRESH and only the static SUPPORTED_SYMBOLS base (BTCUSDT, MES, MGC, MHG) is accepted: every StrategyIntent on ETHUSDT/SOL/XRP/equities raises ValueError. OBSERVED 2026-09-25 ~08:43Z by the manager: tests/test_e35_per_account_election.py failed on a just-restarted container (monotonic ~40s) with 'StrategyIntent.symbol must be one of [BTCUSDT, MES, MGC, MHG]; got ETHUSDT', and passed 325/325 on rerun at monotonic > 60s. Live exposure: a trader started within 60s of a VM reboot refuses non-base intents for up to a minute (the VM normally has long uptime, so this bites only after a reboot). Fix: a None/-inf sentinel (or 'loaded' flag) so the first call always loads. Tier-2 (order-path read), small."
+}
