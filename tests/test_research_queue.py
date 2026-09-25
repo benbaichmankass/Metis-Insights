@@ -13,6 +13,7 @@ state nothing tests is a state nothing produces.
 from __future__ import annotations
 
 import contextlib
+import copy
 import json
 import subprocess
 import sys
@@ -923,3 +924,129 @@ def test_the_runnable_set_and_the_disposition_refusal_cover_the_same_states():
             "the front-end guard the operator originally asked for lives here: "
             "an experiment that declares no statistical expectation, or whose "
             "declaration cannot be checked, is still refused entry")
+
+
+# --------------------------------------------------------------------------
+# 10. W4 — the honesty stamp on m20-exit-lever-sweep.yml / research-exit-
+#     head-build.yml, and the three units it unblocks
+#
+# WHY THIS SECTION EXISTS. RQ-20260922-003/004/007 sat `blocked` naming
+# PI-20260922-RESEARCH-UNIT-STAMP-ONLY-ON-E35: their feasibility declaration
+# grades `accruing`, and `grade_power` (§ 9, test_accruing_requires_the_unit
+# _to_thread_its_own_identity) REFUSES an accruing unit that has not threaded
+# `run.inputs.research_unit` back to ITSELF — but the two workflows these
+# three units dispatch to did not declare the input at all, so declaring it
+# anyway would ERROR at `gh workflow run -f <undeclared-input>` (dispatcher's
+# own comment, scripts/research/dispatch_queue.py `_fire`). #12739 (E5)
+# landed the input + the stamp-through on both workflows for every consumer,
+# not only e35-bracket-sweep.yml. This section pins that the three units
+# were actually unblocked BY that landing, and that removing the stamp still
+# refuses them — the negative control the front-door leniency depends on
+# (§ 9's own comment: "leniency at the front door is only safe because of
+# strictness at the reading").
+# --------------------------------------------------------------------------
+_W4_UNBLOCKED_UNITS = (
+    ("RQ-20260922-003", ".github/workflows/m20-exit-lever-sweep.yml"),
+    ("RQ-20260922-004", ".github/workflows/m20-exit-lever-sweep.yml"),
+    ("RQ-20260922-007", ".github/workflows/research-exit-head-build.yml"),
+)
+
+
+def _load_w4_unit(unit_id: str):
+    jobs, err = load_queue(QUEUE_DIR)
+    assert err is None, err
+    matches = [j for j in jobs if j.id == unit_id]
+    assert matches, f"{unit_id} is not in the committed queue at {QUEUE_DIR}"
+    return matches[0]
+
+
+@pytest.mark.parametrize("unit_id,workflow_path", _W4_UNBLOCKED_UNITS)
+def test_w4_the_workflow_declares_research_unit_and_power_state(unit_id, workflow_path):
+    """The stamp the blocked_on text demanded — mirrors
+    test_the_workflow_passes_the_env_the_extractor_reads's string-check
+    approach, since there is no way to execute the YAML here."""
+    wf = (REPO / workflow_path).read_text()
+    assert "research_unit:" in wf, f"{workflow_path} declares no research_unit input"
+    assert "power_state:" in wf, f"{workflow_path} declares no power_state input"
+    # `inputs.research_unit` / `inputs.power_state` must actually reach the
+    # landing step, or the declaration is decorative (a `blocked_on` label
+    # with no reader, § "the honesty stamp" in research_queue.py's ACCRUING
+    # docstring).
+    assert "inputs.research_unit" in wf
+    assert "inputs.power_state" in wf
+
+
+@pytest.mark.parametrize("unit_id,workflow_path", _W4_UNBLOCKED_UNITS)
+def test_w4_unit_is_queued_and_threads_its_own_identity(unit_id, workflow_path):
+    job = _load_w4_unit(unit_id)
+    assert job.valid, f"{unit_id}: {job.errors}"
+    assert job.status == "queued", (
+        f"{unit_id} must be flipped to queued once its blocker clears; "
+        f"got status={job.status!r}"
+    )
+    declared = ((job.raw.get("run") or {}).get("inputs") or {}).get("research_unit")
+    assert declared == unit_id, (
+        f"{unit_id} must declare run.inputs.research_unit: {unit_id} so the "
+        f"producer stamps the label onto the rows it lands; got {declared!r}"
+    )
+    assert (job.raw.get("run") or {}).get("workflow") == workflow_path.rsplit("/", 1)[-1]
+
+
+@pytest.mark.parametrize("unit_id,_wf", _W4_UNBLOCKED_UNITS)
+def test_w4_unit_grades_accruing_and_is_runnable(unit_id, _wf):
+    """The exact verdict the blocked_on text predicted ("This unit's
+    feasibility declaration grades `accruing`") once the stamp exists."""
+    job = _load_w4_unit(unit_id)
+    power = grade_power(job.raw)
+    route = grade_route(job.raw)
+    assert power.state == ACCRUING, f"{unit_id}: power={power.state} — {power.reason}"
+    assert power.runnable
+    assert route.runnable, f"{unit_id}: route={route.state} — {route.reason}"
+
+
+@pytest.mark.parametrize("unit_id,_wf", _W4_UNBLOCKED_UNITS)
+def test_w4_negative_control_stripping_the_stamp_refuses_the_real_unit(unit_id, _wf):
+    """THE NEGATIVE CONTROL. Not the synthetic fixture in § 9 — the REAL,
+    committed entry, with only `run.inputs.research_unit` removed. If this
+    ever grades runnable, the front-door leniency for `accruing` (§ 9) has
+    silently lost its back-stop on the exact three units this PR unblocks.
+    """
+    job = _load_w4_unit(unit_id)
+    stripped = copy.deepcopy(job.raw)
+    stripped["run"]["inputs"].pop("research_unit", None)
+    power = grade_power(stripped)
+    assert power.state == UNVERIFIABLE, (
+        f"{unit_id} without its research_unit stamp must be refused, not "
+        f"run — got {power.state} ({power.reason})"
+    )
+    assert not power.runnable
+    assert "research_unit" in power.reason
+
+
+@pytest.mark.parametrize("unit_id,_wf", _W4_UNBLOCKED_UNITS)
+def test_w4_negative_control_a_mismatched_identity_is_also_refused(unit_id, _wf):
+    """A copy-paste of another unit's stamp is the likely real-world slip
+    (§ 9's synthetic version of this same check) — pinned here against the
+    real entries too."""
+    job = _load_w4_unit(unit_id)
+    swapped = copy.deepcopy(job.raw)
+    swapped["run"]["inputs"]["research_unit"] = "RQ-SOMEONE-ELSE"
+    power = grade_power(swapped)
+    assert power.state == UNVERIFIABLE
+    assert not power.runnable
+
+
+@pytest.mark.parametrize("unit_id,_wf", _W4_UNBLOCKED_UNITS)
+def test_w4_dispatcher_dry_run_selects_the_unit(unit_id, _wf):
+    """End-to-end against the REAL committed queue (dry run only — no
+    `--fire`, so this cannot dispatch anything or spend runner minutes)."""
+    proc = _run_dispatcher("--queue-dir", str(QUEUE_DIR), "--only", unit_id, "--json")
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    rows = [r for r in payload["decisions"] if r["id"] == unit_id]
+    assert len(rows) == 1, f"expected exactly one decision row for {unit_id}, got {rows}"
+    row = rows[0]
+    assert row["outcome"] == "would_dispatch", (
+        f"{unit_id} should be selected on a dry run; got {row}"
+    )
+    assert row["power_state"] == ACCRUING

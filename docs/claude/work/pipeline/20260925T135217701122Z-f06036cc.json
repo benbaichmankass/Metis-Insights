@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "action.yml declares a `records-file` input, threads it as `--records-file` into the `research_result.py --emit` call, and a dispatched m20-exit-lever-sweep.yml / research-exit-head-build.yml run is observed landing ONE ROW PER DISPATCHED LEG on main (not one generic row) — or this is found to already work some other way this session missed.",
+    "kind": "observation"
+  },
+  "id": "PI-20260925-MBPDTTBI-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "W4 (claude/w4-rq-honesty-stamp, PR #12962) — unblocking RQ-20260922-003/004/007",
+    "rerun": "grep -n 'records-file\\|records_file' .github/actions/research-result/action.yml scripts/research/research_result.py"
+  },
+  "state": "queued",
+  "what": "`.github/actions/research-result/action.yml` declares no `records-file` input, but m20-exit-lever-sweep.yml's `research_result` job (line ~941) passes `records-file: rr/records.jsonl` to it expecting per-leg records. GH Actions silently ignores an undeclared `with:` input, so `research_result.py --emit` runs WITHOUT --records-file and emits one generic record (`verdict: not_applicable`, `read-state: not_attempted`, `population: per-leg; see each record`, `n: null`) instead of one row per dispatched leg. MEASURED 2026-09-25 by reading action.yml's `inputs:` block (token, research-unit, power-state, decision-rule-id, decision-rule-registered-at, verdict, read-state, population, n, measurement-file, artifact-store, artifact-locator, rows-landed, tool, note, min-rows — no records-file) against scripts/research/research_result.py's `--records-file` CLI flag, which the action's `emit` step never passes through. Likely self-catching in practice (min-rows is set to the fan-out width, so a single generic row should fail assert_rows_landed's min-rows check) but not verified end-to-end — found while unblocking RQ-20260922-003/004/007 (W4), out of that lane's scope to fix (no src/ order-path changes, ceiling $12)."
+}
