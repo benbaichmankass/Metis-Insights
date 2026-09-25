@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/MANAGER-CHECKLIST.json (state/note only, on the 32 landed_unproven rows) + one new docs/claude/work/pipeline/*.json defect record. No src/, config/, or workflow files touched. Every state change is backed by a live read performed this session (public API, GitHub Actions/PRs, or local git) per RULE ONE -- Tier-1 by path and by content, dispatched as a Wave-4 lane by the manager (session_01Ljhs6sFAdWHdMDhJpL5aBP) with a Tier-1/$25 ceiling and no hold instruction, so self-landing per the standing Tier-1 convention (docs/CLAUDE-RULES-CANONICAL.md permission tiers: Tier-1 merges once validated, no operator OK needed)."
+}
