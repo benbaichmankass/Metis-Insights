@@ -118,7 +118,7 @@ def _load(path: str) -> List[Dict[str, Any]]:
     with open(path, encoding="utf-8") as fh:
         doc = json.load(fh)
     lines = doc["lines"] if isinstance(doc, dict) else doc
-    return [json.loads(l) if isinstance(l, str) else l for l in lines]
+    return [json.loads(ln) if isinstance(ln, str) else ln for ln in lines]
 
 
 def main(argv: Optional[List[str]] = None) -> int:
