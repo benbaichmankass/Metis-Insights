@@ -403,11 +403,12 @@ def _starved_account_banners() -> List[Dict[str, Any]]:
                     "kind": "starved_account",
                     "message": f"{aid} is taking no trades — starved by arbitration",
                     "detail": (
-                        f"It held a candidate and lost the symbol "
+                        f"It elected a winner and was given no dispatch round "
                         f"{st.get('starved')} time(s) and routed nothing, over "
                         f"{st.get('gradeable_rows')} gradeable soak row(s). Its "
                         "legs are signalling; no journal row, ticket or refusal "
-                        "exists for this. Check ARBITRATION_FANOUT_ACCOUNTS."
+                        "exists for this. Since E35 this is a routing defect — "
+                        "read per_account on arbitration_fanout_soak (v4)."
                     ),
                     "since": st.get("updated_at"),
                 })
@@ -418,9 +419,9 @@ def _starved_account_banners() -> List[Dict[str, Any]]:
                     "message": "Arbitration starvation cannot be measured",
                     "detail": (
                         "arbitration_fanout_soak.jsonl could not be read, so "
-                        "whether any account is being starved is UNKNOWN. Most "
-                        "likely ARBITRATION_FANOUT_MODE=off, which switches the "
-                        "measurement itself off. This is not a report that no "
+                        "whether any account is being starved is UNKNOWN. The "
+                        "writer has no off switch since E35, so the file is "
+                        "missing or broken. This is not a report that no "
                         "account is starved."
                     ),
                     "since": st.get("updated_at"),

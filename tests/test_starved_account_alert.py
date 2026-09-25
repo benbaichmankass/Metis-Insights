@@ -228,7 +228,10 @@ def test_alert_is_WARN_not_CRITICAL_and_states_its_population():
     body = S.describe("breakout_1", g["breakout_1"], window_hours=24)
     assert "[WARN]" in body and "CRITICAL" not in body
     assert "Population:" in body
-    assert "ARBITRATION_FANOUT_ACCOUNTS" in body
+    # E35: the allowlist the body used to point at is retired; it must not be
+    # named as a remedy, and the body must point at the v4 soak instead.
+    assert "ARBITRATION_FANOUT_ACCOUNTS" not in body
+    assert "v4" in body
 
 
 # ── knobs ─────────────────────────────────────────────────────────────────

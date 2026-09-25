@@ -55,78 +55,109 @@ from src.runtime.strategy_monocle import (  # noqa: E402
 )
 from src.runtime.order_bridge import signal_key_for_signal  # noqa: E402
 
-def _fanout_apply_rounds(signal):
-    """The per-account dispatch rounds, or ``[]`` when the fan-out is not armed.
+#: The signal key ``intent_multiplexer`` writes its per-account dispatch rounds
+#: under (``intent_multiplexer.ACCOUNT_ROUNDS_KEY`` — spelled here rather than
+#: imported so this module does not pull the whole strategy stack in at import
+#: time; ``tests/test_e35_per_account_election.py`` pins the two equal).
+ACCOUNT_ROUNDS_KEY = "account_rounds"
 
-    ``apply_rounds`` is written ONLY by
-    ``intent_multiplexer._attach_fanout_plan`` and ONLY when
-    ``ARBITRATION_FANOUT_MODE=apply`` AND at least one electing account is on
-    the ``ARBITRATION_FANOUT_ACCOUNTS`` allowlist. At the shipped ``annotate``
-    default the key is absent and this returns ``[]``, so the caller takes the
-    unchanged single-dispatch path byte-for-byte.
+#: Tick-level context the pipeline stamps on the HEADLINE signal after the
+#: builder ran, which every round's package must also carry.
+_SHARED_TICK_META_KEYS = ("news", "account_election")
 
-    Fail-**closed**: any malformed plan returns ``[]`` and falls back to the
-    global-winner dispatch. Losing the fan-out costs a starved account one
-    tick — the state the system is already in — whereas acting on a plan we
-    could not read is a live order on unverified routing.
 
-    ⚠️ **THE VALIDATION LIVES IN ``arbitration_fanout.accepted_rounds``, NOT
-    HERE, AND THAT IS THE POINT.** This function used to carry its own copy of
-    the field checks, so the reader's contract was stated in one module and the
-    writer's projection in another — and they disagreed, silently, from
-    2026-08-31 to 2026-09-12: the writer emitted ``{strategy, accounts}`` and
-    this reader demanded ``side``/``entry``/``sl``/``tp``, so it returned ``[]``
-    on **every** tick and the fan-out dispatched nothing on any account while
-    the soak recorded ``applied: true``. One shared validator, consulted by
-    both sides, is what makes that particular drift unrepresentable rather than
-    merely unlikely. The behaviour is unchanged — all-or-nothing, fail-closed.
+def _dispatch_rounds(signal):
+    """``([(round_signal, account_scope | None), ...], outcomes)`` for one tick.
+
+    E35 (Tier-3, 2026-09-25). The multiplexer elects PER ACCOUNT and writes one
+    round per distinct elected strategy under :data:`ACCOUNT_ROUNDS_KEY`, each
+    carrying that strategy's OWN rendered signal and the accounts that elected
+    it. Each becomes ONE package, dispatched with ``account_scope`` = those
+    accounts — so an account that elected strategy B never also receives the
+    package for strategy A that it merely declares (that would be two packages
+    on one account in one tick, i.e. the double-place E34 asked about).
+
+    Three shapes, never collapsed:
+
+    * key ABSENT — the builder does not elect per account (legacy multiplexer,
+      a ``STRATEGY=`` override) OR the election was unavailable this tick
+      (``meta.account_election.state == "unavailable"``, logged at ERROR by
+      the writer). ONE unscoped round: the signal itself, i.e. the global-
+      winner dispatch — the pre-fan-out routing, never worse than it.
+    * key present and ``[]`` — we looked and no account elected a dispatchable
+      winner. No round; the caller reports ``no_account_elected``.
+    * key present with rounds — the per-account routing.
+
+    ⚠️ **NO ALL-OR-NOTHING.** The retired fan-out reader voided the whole plan
+    on one malformed round and fell back to the global dispatch, so a refusal
+    and "nothing to fan out" were the same ``[]`` (E34 § 2, path 1). Here a
+    malformed round is dropped ALONE, with an outcome row saying why, and the
+    others still dispatch. A plan naming one account in two rounds is refused
+    outright — :func:`arbitration_fanout.accounts_in_more_than_one_round`.
     """
-    try:
-        from src.runtime.arbitration_fanout import accepted_rounds
-        plan = ((signal or {}).get("meta") or {}).get("arbitration_fanout") or {}
-        return accepted_rounds(plan.get("apply_rounds") or [])
-    except Exception:  # noqa: BLE001 — an unreadable plan is "no fan-out"
-        logger.debug("arbitration_fanout: apply_rounds unreadable", exc_info=False)
-        return []
-
-
-def _round_order_package(signal, round_, settings):
-    """Build ONE round's OrderPackage from the ELECTED strategy's own geometry.
-
-    Deliberately NOT ``_signal_to_order_package`` with a patched strategy name:
-    that would carry the GLOBAL winner's entry/sl/tp under a different
-    strategy's name — placing one strategy's trade under another's label, which
-    is worse than the starvation this fixes. Every price here comes from the
-    elected candidate.
-    """
-    from src.core.coordinator import OrderPackage
-
-    try:
-        meta = dict((signal or {}).get("meta") or {})
-        meta["strategy_name"] = str(round_["strategy"])
-        # The tick's plan is shared context, not this round's decision — strip
-        # it so a package can never be mistaken for carrying its own fan-out.
-        meta.pop("arbitration_fanout", None)
-        meta["arbitration_fanout_round"] = {
-            "strategy": str(round_["strategy"]),
-            "accounts": list(round_["accounts"]),
-        }
-        return OrderPackage(
-            strategy=str(round_["strategy"]),
-            symbol=str((signal or {}).get("symbol") or settings.get("SYMBOL") or "BTCUSDT"),
-            direction=str(round_["side"]),
-            entry=float(round_["entry"]),
-            sl=float(round_["sl"]),
-            tp=float(round_["tp"]),
-            confidence=float(round_.get("confidence") or 0.0),
-            meta=meta,
+    meta = (signal or {}).get("meta") or {}
+    rounds = (signal or {}).get(ACCOUNT_ROUNDS_KEY)
+    if rounds is None:
+        _ae = meta.get("account_election") if isinstance(meta, dict) else None
+        if isinstance(_ae, dict) and _ae.get("state") == "unavailable":
+            logger.error(
+                "account_election unavailable (%s) — dispatching the GLOBAL "
+                "winner %s to every account that declares it",
+                _ae.get("reason"), meta.get("strategy_name"),
+            )
+        return [(signal, None)], []
+    from src.runtime.arbitration_fanout import accounts_in_more_than_one_round
+    outcomes = []
+    dup = accounts_in_more_than_one_round(rounds)
+    if dup:
+        logger.error(
+            "dispatch: accounts %s named by more than one round — refusing "
+            "every round this tick (would double-place)", dup,
         )
-    except Exception:  # noqa: BLE001 — a bad round is skipped, never guessed at
-        logger.warning(
-            "arbitration_fanout: could not build package for round %r — skipping",
-            (round_ or {}).get("strategy"), exc_info=False,
-        )
-        return None
+        return [], [{"status": "refused", "reason": "double_round_accounts",
+                     "accounts": dup}]
+    shared = {
+        k: meta[k] for k in _SHARED_TICK_META_KEYS
+        if isinstance(meta, dict) and k in meta
+    }
+    out = []
+    for r in rounds:
+        try:
+            rsig = dict(r["signal"])
+            rsig["meta"] = {**dict(rsig.get("meta") or {}), **shared}
+            scope = frozenset(str(a) for a in r["accounts"])
+            ok = (
+                bool(scope)
+                and rsig.get("side") in ("buy", "sell")
+                and _signal_carries_full_sltp(rsig)
+            )
+        except Exception:  # noqa: BLE001 — a malformed round is dropped, alone
+            rsig, scope, ok = {}, frozenset(), False
+        if not ok:
+            logger.warning(
+                "dispatch: dropping malformed round %r",
+                (r or {}).get("strategy") if isinstance(r, dict) else r,
+            )
+            outcomes.append({
+                "status": "refused", "reason": "malformed_round",
+                "strategy": (r or {}).get("strategy") if isinstance(r, dict) else None,
+                "accounts": sorted(scope),
+            })
+            continue
+        out.append((rsig, scope))
+    return out, outcomes
+
+
+def _round_outcome(result, rsig, scope):
+    """One compact row per dispatch round for ``result['round_outcomes']``."""
+    return {
+        "strategy": ((rsig or {}).get("meta") or {}).get("strategy_name"),
+        "accounts": sorted(scope) if scope is not None else None,
+        "status": (result or {}).get("status"),
+        "reason": (result or {}).get("reason"),
+        **({"order_package_id": result["order_package_id"]}
+           if (result or {}).get("order_package_id") else {}),
+    }
 
 
 _OUTCOME_LEVEL_BY_STATUS: Dict[str, Level] = {
@@ -627,6 +658,216 @@ def skip_reason(signal: dict) -> str:
     return "no_signal"
 
 
+def _monocle_gate(signal: Dict[str, Any], settings: dict) -> Optional[Dict[str, Any]]:
+    """The four per-STRATEGY dispatch gates, for ONE signal. ``None`` = pass.
+
+    Returns the ``status: skipped`` result the caller reports and records, or
+    ``None`` when the signal may be dispatched. The gates, in order: open
+    package, same-bar debounce, refusal cooldown, empty-sizing brake.
+
+    ⚠️ **E35 — RUN ONCE PER DISPATCH ROUND, KEYED ON THAT ROUND'S STRATEGY.**
+    Until 2026-09-25 these ran once per tick on the GLOBAL winner, before the
+    fan-out dispatched rounds for OTHER strategies. Two defects followed, both
+    measured on the live soak/journal: (1) the global winner's gate SKIPPED the
+    whole tick, so another account's own winner was dropped for a reason that
+    was not its own (XRPUSDT 2026-09-24T15:09Z: ``ict_scalp_xrp_15m`` had acted
+    that bar, and the ``xrp_pullback_2h`` round for ``bybit_2`` +
+    ``bybit_portfolio`` went with it); and (2) a round's strategy was never
+    checked against ITS OWN open package, so nothing but the coordinator's
+    per-account netting no-op stood between it and a second package while one
+    was open — the cross-tick half of E34's double-place question.
+    Extracted verbatim from ``run_pipeline``; only ``signal`` is now a
+    parameter instead of the tick's headline.
+    """
+    # Strategy-monocle gate (one open package per strategy
+    # globally, regardless of how many accounts follow it).
+    # Per the operator directive 2026-05-03: a strategy
+    # that already has an open package focuses on
+    # *monitoring + updating* that package until SL/TP
+    # hits or the strategy decides to close. Pre-fix every
+    # actionable tick stacked a new package, so VWAP
+    # accumulated 10+ open packages with the operator's
+    # accounts unable to keep up.
+    _gate_strategy = (
+        (signal.get("meta") or {}).get("strategy_name")
+        or signal.get("strategy")
+    )
+    _existing_open = _has_open_package_for_strategy(
+        _gate_strategy, signal.get("symbol")
+    )
+    if _existing_open is not None:
+        logger.info(
+            "strategy_monocle: skipping dispatch — strategy=%s "
+            "already has open package %s",
+            _gate_strategy, _existing_open,
+        )
+        result = {
+            "status": "skipped",
+            "reason": "open_package_exists",
+            "strategy": _gate_strategy,
+            "open_package_id": _existing_open,
+            "signal": signal,
+        }
+        return result
+    # Bar-close debounce — one entry attempt per CLOSED bar
+    # (PERF-20260601-001). The open-package gate above only blocks
+    # while a package is *open*; when one closes mid-bar (the
+    # reconciler records an exchange-side SL/TP fire) the gate frees
+    # and the strategy re-fires its still-valid breakout on the next
+    # tick — within the SAME bar. On the 2 h trend_donchian this
+    # stacked 9 packages in ~1 h on 2026-06-01 and flooded the
+    # journal with ``intent_noop`` rejection rows (the intent layer
+    # no-ops the duplicate while a net position is held), skewing
+    # per-strategy stats. Suppress a second actionable dispatch for
+    # the same strategy+symbol inside the same timeframe bucket as
+    # the package it already created this bar. Kill-switch:
+    # ``STRATEGY_BAR_DEBOUNCE_DISABLED``.
+    _same_bar = _same_bar_entry_for_strategy(
+        _gate_strategy, symbol=signal.get("symbol")
+    )
+    if _same_bar is not None:
+        logger.info(
+            "strategy_monocle: skipping dispatch — strategy=%s "
+            "already acted this bar (bar=%ds, last_pkg=%s @ %s)",
+            _gate_strategy, _same_bar["bar_seconds"],
+            _same_bar["order_package_id"], _same_bar["last_created_at"],
+        )
+        try:
+            log_signal({
+                "event": "bar_debounce_blocked",
+                "strategy": _gate_strategy,
+                "symbol": signal.get("symbol"),
+                "side": signal.get("side"),
+                "bar_seconds": _same_bar["bar_seconds"],
+                "last_package_id": _same_bar["order_package_id"],
+                "last_created_at": _same_bar["last_created_at"],
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "strategy_monocle: bar-debounce audit emit failed",
+            )
+        result = {
+            "status": "skipped",
+            "reason": "same_bar_reentry_debounce",
+            "strategy": _gate_strategy,
+            "last_package_id": _same_bar["order_package_id"],
+            "bar_seconds": _same_bar["bar_seconds"],
+            "signal": signal,
+        }
+        return result
+    # Refusal cooldown — second strategy_monocle gate. Prevents
+    # the dispatcher from re-firing the same signal every tick
+    # when the most recent attempt was internally refused
+    # (``sized_qty=0`` from RiskManager → log_rejection_to_journal
+    # ``status='rejected'``). 2026-05-10 produced 20 such rows
+    # in 1 h on bybit_2/vwap because the open-package gate above
+    # only catches outstanding live positions, not refused
+    # ones. Cooldown defaults to 300 s (~one 5 m candle); the
+    # most common transient cause of refusal is Bybit V5
+    # returning ``availableToBorrow=0`` (S-056 / S-058) and
+    # repopulating on the exchange's cadence rather than ours.
+    # Operator override: ``STRATEGY_REFUSAL_COOLDOWN_SECONDS``.
+    _recent_refusal = _recent_refusal_for_strategy(
+        _gate_strategy, symbol=signal.get("symbol")
+    )
+    if _recent_refusal is not None:
+        logger.info(
+            "strategy_monocle: skipping dispatch — strategy=%s "
+            "refused %.0fs ago (cooldown=%ds, last_pkg=%s)",
+            _gate_strategy,
+            _recent_refusal["age_seconds"],
+            _recent_refusal["cooldown_seconds"],
+            _recent_refusal["order_package_id"],
+        )
+        # Land a dedicated audit row so the operator can
+        # reconstruct cooldown cadence without grepping the
+        # info-level pipeline.log. Best-effort — never let
+        # an audit failure bypass the gate.
+        try:
+            log_signal({
+                "event": "cooldown_blocked",
+                "strategy": _gate_strategy,
+                "symbol": signal.get("symbol"),
+                "side": signal.get("side"),
+                "age_seconds": _recent_refusal["age_seconds"],
+                "cooldown_seconds": _recent_refusal["cooldown_seconds"],
+                "last_refused_package_id": _recent_refusal["order_package_id"],
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "strategy_monocle: cooldown audit emit failed",
+            )
+        result = {
+            "status": "skipped",
+            "reason": "recent_refusal_cooldown",
+            "strategy": _gate_strategy,
+            "last_refused_package_id": _recent_refusal["order_package_id"],
+            "cooldown_age_seconds": _recent_refusal["age_seconds"],
+            "signal": signal,
+        }
+        return result
+    # Empty-sizing brake — the LAST gate before dispatch
+    # (BL-20260905). The three gates above are each bounded by
+    # something other than "did the last attempt size anything":
+    # the open-package gate frees when the package terminalises,
+    # the refusal cooldown needs status='rejected' inside 300 s,
+    # and the bar debounce needs a resolvable timeframe. So an
+    # EMPTY ``sized_qty_by_account`` — no account reached the
+    # sizer at all — had no ceiling of its own: on 2026-06-01
+    # ``mes_trend_long_1d`` minted SEVEN packages in 49 minutes
+    # from ONE daily signal (one entry_time, one donchian_hi),
+    # each carrying ``{}`` and each orphaned unexecuted. Nothing
+    # reached a venue, but seven phantom packages per occurrence
+    # pollute the order-package data the M7 review packets grade
+    # strategies on.
+    #
+    # Refuse the SAME signal once, keyed on its identity rather
+    # than on a clock, and SAY WHY — the recorded cause is logged
+    # and journaled on every block. Suppressing the re-emission
+    # without naming the cause would trade a noisy failure for a
+    # silent one.
+    _signal_key = signal_key_for_signal(signal, settings)
+    _empty_sizing = _empty_sizing_refusal_for_signal(
+        _gate_strategy, _signal_key, symbol=signal.get("symbol"),
+    )
+    if _empty_sizing is not None:
+        logger.warning(
+            "strategy_monocle: skipping dispatch — strategy=%s "
+            "already refused this signal for an empty sizing map "
+            "(pkg=%s, refused_at=%s): %s",
+            _gate_strategy,
+            _empty_sizing["order_package_id"],
+            _empty_sizing["refused_at"],
+            _empty_sizing["cause"],
+        )
+        try:
+            log_signal({
+                "event": "empty_sizing_refused",
+                "strategy": _gate_strategy,
+                "symbol": signal.get("symbol"),
+                "side": signal.get("side"),
+                "cause": _empty_sizing["cause"],
+                "signal_key": _empty_sizing["signal_key"],
+                "refused_package_id": _empty_sizing["order_package_id"],
+                "refused_at": _empty_sizing["refused_at"],
+            })
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "strategy_monocle: empty-sizing audit emit failed",
+            )
+        result = {
+            "status": "skipped",
+            "reason": "empty_sizing_refused",
+            "strategy": _gate_strategy,
+            "cause": _empty_sizing["cause"],
+            "signal_key": _empty_sizing["signal_key"],
+            "refused_package_id": _empty_sizing["order_package_id"],
+            "signal": signal,
+        }
+        return result
+    return None
+
+
 def run_pipeline(
     settings: dict,
     exchange_client: Any = None,
@@ -850,206 +1091,57 @@ def run_pipeline(
                 # no longer places orders — it refuses, so there is no
                 # divergent live path to fall through to.)
 
-                # Strategy-monocle gate (one open package per strategy
-                # globally, regardless of how many accounts follow it).
-                # Per the operator directive 2026-05-03: a strategy
-                # that already has an open package focuses on
-                # *monitoring + updating* that package until SL/TP
-                # hits or the strategy decides to close. Pre-fix every
-                # actionable tick stacked a new package, so VWAP
-                # accumulated 10+ open packages with the operator's
-                # accounts unable to keep up.
-                _gate_strategy = (
-                    (signal.get("meta") or {}).get("strategy_name")
-                    or signal.get("strategy")
+                _sig_pkg = signal.get("signal_package")
+                _allocator = bool(
+                    _centralized_allocator_enabled(settings)
+                    and _sig_pkg is not None
+                    and getattr(_sig_pkg, "is_actionable", False)
                 )
-                _existing_open = _has_open_package_for_strategy(
-                    _gate_strategy, signal.get("symbol")
-                )
-                if _existing_open is not None:
-                    logger.info(
-                        "strategy_monocle: skipping dispatch — strategy=%s "
-                        "already has open package %s",
-                        _gate_strategy, _existing_open,
-                    )
-                    result = {
+                # E35: one dispatch round per DISTINCT strategy an account
+                # elected, each scoped to exactly the accounts that elected
+                # it. A builder that does not elect per account (the legacy
+                # multiplexer, a STRATEGY= override) yields ONE unscoped round
+                # — the signal itself — which is byte-for-byte the old path.
+                # The typed allocator (default off) still routes the headline.
+                if _allocator:
+                    _dispatch, _round_outcomes = [(signal, None)], []
+                else:
+                    _dispatch, _round_outcomes = _dispatch_rounds(signal)
+                _passed = []
+                for _rsig, _scope in _dispatch:
+                    _gate = _monocle_gate(_rsig, settings)
+                    if _gate is None:
+                        _passed.append((_rsig, _scope))
+                        continue
+                    _report_pipeline_outcome(_gate, _rsig)
+                    _round_outcomes.append(_round_outcome(_gate, _rsig, _scope))
+                if _dispatch and not _passed:
+                    if len(_dispatch) == 1 and len(_round_outcomes) == 1:
+                        # One round, gated: exactly the pre-E35 early return.
+                        return _gate
+                    return {
                         "status": "skipped",
-                        "reason": "open_package_exists",
-                        "strategy": _gate_strategy,
-                        "open_package_id": _existing_open,
+                        "reason": "all_rounds_gated",
+                        "round_outcomes": _round_outcomes,
                         "signal": signal,
                     }
-                    _report_pipeline_outcome(result, signal)
-                    return result
-                # Bar-close debounce — one entry attempt per CLOSED bar
-                # (PERF-20260601-001). The open-package gate above only blocks
-                # while a package is *open*; when one closes mid-bar (the
-                # reconciler records an exchange-side SL/TP fire) the gate frees
-                # and the strategy re-fires its still-valid breakout on the next
-                # tick — within the SAME bar. On the 2 h trend_donchian this
-                # stacked 9 packages in ~1 h on 2026-06-01 and flooded the
-                # journal with ``intent_noop`` rejection rows (the intent layer
-                # no-ops the duplicate while a net position is held), skewing
-                # per-strategy stats. Suppress a second actionable dispatch for
-                # the same strategy+symbol inside the same timeframe bucket as
-                # the package it already created this bar. Kill-switch:
-                # ``STRATEGY_BAR_DEBOUNCE_DISABLED``.
-                _same_bar = _same_bar_entry_for_strategy(
-                    _gate_strategy, symbol=signal.get("symbol")
-                )
-                if _same_bar is not None:
-                    logger.info(
-                        "strategy_monocle: skipping dispatch — strategy=%s "
-                        "already acted this bar (bar=%ds, last_pkg=%s @ %s)",
-                        _gate_strategy, _same_bar["bar_seconds"],
-                        _same_bar["order_package_id"], _same_bar["last_created_at"],
-                    )
-                    try:
-                        log_signal({
-                            "event": "bar_debounce_blocked",
-                            "strategy": _gate_strategy,
-                            "symbol": signal.get("symbol"),
-                            "side": signal.get("side"),
-                            "bar_seconds": _same_bar["bar_seconds"],
-                            "last_package_id": _same_bar["order_package_id"],
-                            "last_created_at": _same_bar["last_created_at"],
-                        })
-                    except Exception:  # noqa: BLE001
-                        logger.exception(
-                            "strategy_monocle: bar-debounce audit emit failed",
-                        )
-                    result = {
-                        "status": "skipped",
-                        "reason": "same_bar_reentry_debounce",
-                        "strategy": _gate_strategy,
-                        "last_package_id": _same_bar["order_package_id"],
-                        "bar_seconds": _same_bar["bar_seconds"],
-                        "signal": signal,
-                    }
-                    _report_pipeline_outcome(result, signal)
-                    return result
-                # Refusal cooldown — second strategy_monocle gate. Prevents
-                # the dispatcher from re-firing the same signal every tick
-                # when the most recent attempt was internally refused
-                # (``sized_qty=0`` from RiskManager → log_rejection_to_journal
-                # ``status='rejected'``). 2026-05-10 produced 20 such rows
-                # in 1 h on bybit_2/vwap because the open-package gate above
-                # only catches outstanding live positions, not refused
-                # ones. Cooldown defaults to 300 s (~one 5 m candle); the
-                # most common transient cause of refusal is Bybit V5
-                # returning ``availableToBorrow=0`` (S-056 / S-058) and
-                # repopulating on the exchange's cadence rather than ours.
-                # Operator override: ``STRATEGY_REFUSAL_COOLDOWN_SECONDS``.
-                _recent_refusal = _recent_refusal_for_strategy(
-                    _gate_strategy, symbol=signal.get("symbol")
-                )
-                if _recent_refusal is not None:
-                    logger.info(
-                        "strategy_monocle: skipping dispatch — strategy=%s "
-                        "refused %.0fs ago (cooldown=%ds, last_pkg=%s)",
-                        _gate_strategy,
-                        _recent_refusal["age_seconds"],
-                        _recent_refusal["cooldown_seconds"],
-                        _recent_refusal["order_package_id"],
-                    )
-                    # Land a dedicated audit row so the operator can
-                    # reconstruct cooldown cadence without grepping the
-                    # info-level pipeline.log. Best-effort — never let
-                    # an audit failure bypass the gate.
-                    try:
-                        log_signal({
-                            "event": "cooldown_blocked",
-                            "strategy": _gate_strategy,
-                            "symbol": signal.get("symbol"),
-                            "side": signal.get("side"),
-                            "age_seconds": _recent_refusal["age_seconds"],
-                            "cooldown_seconds": _recent_refusal["cooldown_seconds"],
-                            "last_refused_package_id": _recent_refusal["order_package_id"],
-                        })
-                    except Exception:  # noqa: BLE001
-                        logger.exception(
-                            "strategy_monocle: cooldown audit emit failed",
-                        )
-                    result = {
-                        "status": "skipped",
-                        "reason": "recent_refusal_cooldown",
-                        "strategy": _gate_strategy,
-                        "last_refused_package_id": _recent_refusal["order_package_id"],
-                        "cooldown_age_seconds": _recent_refusal["age_seconds"],
-                        "signal": signal,
-                    }
-                    _report_pipeline_outcome(result, signal)
-                    return result
-                # Empty-sizing brake — the LAST gate before dispatch
-                # (BL-20260905). The three gates above are each bounded by
-                # something other than "did the last attempt size anything":
-                # the open-package gate frees when the package terminalises,
-                # the refusal cooldown needs status='rejected' inside 300 s,
-                # and the bar debounce needs a resolvable timeframe. So an
-                # EMPTY ``sized_qty_by_account`` — no account reached the
-                # sizer at all — had no ceiling of its own: on 2026-06-01
-                # ``mes_trend_long_1d`` minted SEVEN packages in 49 minutes
-                # from ONE daily signal (one entry_time, one donchian_hi),
-                # each carrying ``{}`` and each orphaned unexecuted. Nothing
-                # reached a venue, but seven phantom packages per occurrence
-                # pollute the order-package data the M7 review packets grade
-                # strategies on.
-                #
-                # Refuse the SAME signal once, keyed on its identity rather
-                # than on a clock, and SAY WHY — the recorded cause is logged
-                # and journaled on every block. Suppressing the re-emission
-                # without naming the cause would trade a noisy failure for a
-                # silent one.
-                _signal_key = signal_key_for_signal(signal, settings)
-                _empty_sizing = _empty_sizing_refusal_for_signal(
-                    _gate_strategy, _signal_key, symbol=signal.get("symbol"),
-                )
-                if _empty_sizing is not None:
-                    logger.warning(
-                        "strategy_monocle: skipping dispatch — strategy=%s "
-                        "already refused this signal for an empty sizing map "
-                        "(pkg=%s, refused_at=%s): %s",
-                        _gate_strategy,
-                        _empty_sizing["order_package_id"],
-                        _empty_sizing["refused_at"],
-                        _empty_sizing["cause"],
-                    )
-                    try:
-                        log_signal({
-                            "event": "empty_sizing_refused",
-                            "strategy": _gate_strategy,
-                            "symbol": signal.get("symbol"),
-                            "side": signal.get("side"),
-                            "cause": _empty_sizing["cause"],
-                            "signal_key": _empty_sizing["signal_key"],
-                            "refused_package_id": _empty_sizing["order_package_id"],
-                            "refused_at": _empty_sizing["refused_at"],
-                        })
-                    except Exception:  # noqa: BLE001
-                        logger.exception(
-                            "strategy_monocle: empty-sizing audit emit failed",
-                        )
-                    result = {
-                        "status": "skipped",
-                        "reason": "empty_sizing_refused",
-                        "strategy": _gate_strategy,
-                        "cause": _empty_sizing["cause"],
-                        "signal_key": _empty_sizing["signal_key"],
-                        "refused_package_id": _empty_sizing["order_package_id"],
-                        "signal": signal,
-                    }
-                    _report_pipeline_outcome(result, signal)
-                    return result
                 try:
                     from src.core.coordinator import Coordinator
                     coord = Coordinator()
-                    _sig_pkg = signal.get("signal_package")
                     _sized_qty: dict = {}
-                    if (
-                        _centralized_allocator_enabled(settings)
-                        and _sig_pkg is not None
-                        and getattr(_sig_pkg, "is_actionable", False)
-                    ):
+                    multi_results: list = []
+                    if not _passed:
+                        # We looked and no account elected a dispatchable
+                        # winner (or every round was malformed). NOT a gate
+                        # and NOT "nothing wanted to trade" — the headline was
+                        # actionable. Counted, never silent.
+                        result = {
+                            "status": "skipped",
+                            "reason": "no_account_elected",
+                            "round_outcomes": _round_outcomes,
+                            "signal": signal,
+                        }
+                    elif _allocator:
                         # S7: typed dispatch path — allocator computes qty;
                         # multi_account_execute_typed handles per-account
                         # dispatch. Per-account RiskManager still runs.
@@ -1083,49 +1175,55 @@ def run_pipeline(
                                 "sized_qty_by_account", {}
                             )
                     else:
-                        pkg = _signal_to_order_package(signal, settings)
-                        _rounds = _fanout_apply_rounds(signal)
-                        if _rounds:
-                            # Per-account arbitration fan-out. One dispatch
-                            # round per DISTINCT elected strategy, each scoped
-                            # to the accounts that elected it — so an account
-                            # whose own candidate lost the GLOBAL election is
-                            # no longer dropped by `pkg.strategy in assigned`
-                            # and silenced without a journal row.
-                            multi_results = []
-                            _sized_qty = {}
-                            with _phase("dispatch"):
-                                for _round in _rounds:
-                                    _rp = _round_order_package(
-                                        signal, _round, settings
-                                    )
-                                    if _rp is None:
-                                        continue
-                                    multi_results.extend(
-                                        coord.multi_account_execute(
-                                            _rp,
-                                            account_scope=frozenset(
-                                                _round["accounts"]
-                                            ),
+                        _dispatched = 0
+                        with _phase("dispatch"):
+                            for _rsig, _scope in _passed:
+                                # Each round in its own try: one bad round
+                                # must not take the others down with it (the
+                                # pre-E35 reader voided the WHOLE plan).
+                                try:
+                                    pkg = _signal_to_order_package(_rsig, settings)
+                                    if _scope is None:
+                                        _res = coord.multi_account_execute(pkg)
+                                    else:
+                                        _res = coord.multi_account_execute(
+                                            pkg, account_scope=_scope,
                                         )
+                                except Exception as _round_exc:  # noqa: BLE001
+                                    logger.exception(
+                                        "dispatch round failed: strategy=%s: %s",
+                                        (_rsig.get("meta") or {}).get("strategy_name"),
+                                        _round_exc,
                                     )
-                                    _sized_qty.update(
-                                        (_rp.meta or {}).get(
-                                            "sized_qty_by_account", {}
-                                        )
-                                    )
-                        else:
-                            with _phase("dispatch"):
-                                multi_results = coord.multi_account_execute(pkg)
-                            _sized_qty = (pkg.meta or {}).get(
-                                "sized_qty_by_account", {}
+                                    _round_outcomes.append(_round_outcome(
+                                        {"status": "failed_dispatch",
+                                         "reason": f"multi_account_execute: {_round_exc}"},
+                                        _rsig, _scope,
+                                    ))
+                                    continue
+                                _dispatched += 1
+                                multi_results.extend(_res or [])
+                                _sized_qty.update(
+                                    (pkg.meta or {}).get("sized_qty_by_account", {})
+                                )
+                                _round_outcomes.append(_round_outcome(
+                                    {"status": "dispatched",
+                                     "order_package_id": (pkg.meta or {}).get(
+                                         "order_package_id")},
+                                    _rsig, _scope,
+                                ))
+                        if not _dispatched:
+                            raise RuntimeError(
+                                f"every dispatch round failed ({len(_passed)})"
                             )
-                    result = {
-                        "status": "multi_account_dispatched",
-                        "multi_account_results": multi_results,
-                        "order": signal,
-                        "sized_qty_by_account": _sized_qty,
-                    }
+                    if _passed:
+                        result = {
+                            "status": "multi_account_dispatched",
+                            "multi_account_results": multi_results,
+                            "order": signal,
+                            "sized_qty_by_account": _sized_qty,
+                            "round_outcomes": _round_outcomes,
+                        }
                 except Exception as exc:  # noqa: BLE001
                     logger.exception(
                         "multi-account dispatch failed: %s", exc,
