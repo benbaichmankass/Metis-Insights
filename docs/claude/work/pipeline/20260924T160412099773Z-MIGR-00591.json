@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER a relay run returns a 200 with rows for /api/bot/db/table/trades (i.e. the route is genuinely reachable again, which also needs the host mint path from BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE), OR the two entries are removed from BOTH allowlists in vm-diag-snapshot.yml AND the 'these are unauthenticated GET reads' comment is corrected, so a caller is told the truth at request time. [!] CORRECTING ONLY THE COMMENT DOES NOT CLOSE THIS -- the request still fails, it just fails with better documentation somewhere the caller is not reading. [!] A 401 IS NOT EVIDENCE OF ANYTHING BY ITSELF: it is what a correct gate returns to an anonymous caller. Any future re-check must carry the positive control (a known-good /api/bot/* path in the SAME relay run), or it cannot tell this apart from a broken relay.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-RELAY-ALLOWLISTS-DB-TABLE-AND-DB-TABLES-UNDER-A-COMMENT-THAT-STOPPED-BEING-TRUE-ON-2026-09-09-SO-BOTH-401",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-RELAY-ALLOWLISTS-DB-TABLE-AND-DB-TABLES-UNDER-A-COMMENT-THAT-STOPPED-BEING-TRUE-ON-2026-09-09-SO-BOTH-401",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-RELAY-ALLOWLISTS-DB-TABLE-AND-DB-TABLES-UNDER-A-COMMENT-THAT-STOPPED-BEING-TRUE-ON-2026-09-09-SO-BOTH-401'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] vm-diag-snapshot allowlists the two Data Explorer routes under an in-workflow comment saying they are unauthenticated — require_session landed on them 2026-09-09 and both now 401 through the relay, which is the ONLY path past the journal's 1000-row tail cap"
+}

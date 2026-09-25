@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either (a) the three workflows take a PER-REQUEST concurrency group (e.g. group: system-actions-${{ github.event.issue.number }}) so queued dispatches cannot evict one another, verified by opening 4 issues back-to-back and observing 4 result comments — verified by the COMMENTS and the venue/journal effect, never by the runs reporting success, since the failure mode is a run that never starts; or (b) if serialisation is genuinely required, the workflow detects its own cancellation and posts a 'this request was dropped, re-dispatch it' comment, so a silent drop becomes a loud one. Documentation alone does not close this: BL-20260611-002 was closed on a documentation-shaped criterion and the defect recurred twice more.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260830-CONCURRENCY-PENDING-CANCEL-IS-A-CLASS-ACROSS-THREE-WORKFLOWS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-CONCURRENCY-PENDING-CANCEL-IS-A-CLASS-ACROSS-THREE-WORKFLOWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-CONCURRENCY-PENDING-CANCEL-IS-A-CLASS-ACROSS-THREE-WORKFLOWS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE, 3rd workflow: a concurrency group with cancel-in-progress:false SILENTLY CANCELS the pending run — hit system-actions today and dropped 2 of 4 REAL-MONEY position-mode switches; BL-20260611-002 is marked resolved while its own last update says otherwise and its resolution criteria were never met"
+}

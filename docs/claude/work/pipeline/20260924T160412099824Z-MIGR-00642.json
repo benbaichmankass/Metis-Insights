@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A manager takes an R13 merge slot for its own branch WITHOUT tripping check_manager_scope, on a PR other than the one that changes this -- either because the guard admits the per-branch path, or because CLAUDE.md's manager guidance names the shared field as the manager route and says why the per-branch one is unavailable. !! A GREEN SELF-TEST CLEARS NOTHING: the guard's harness cannot reproduce a manager commit against a live lease register, which is the condition. !! AND 'the manager stopped using merge slots' DOES NOT CLEAR IT -- R13 requires a claim from any armed self-land, so that outcome means Tier-1 manager work stops self-landing, which is the failure.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260919-A-MANAGER-CANNOT-USE-THE-PER-BRANCH-MERGE-SLOT-CLAIM-CLAUDE-MD-TELLS-IT-TO-USE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260919-A-MANAGER-CANNOT-USE-THE-PER-BRANCH-MERGE-SLOT-CLAIM-CLAUDE-MD-TELLS-IT-TO-USE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260919-A-MANAGER-CANNOT-USE-THE-PER-BRANCH-MERGE-SLOT-CLAIM-CLAUDE-MD-TELLS-IT-TO-USE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] CLAUDE.md tells a manager to take R13's merge slot via the PER-BRANCH route (.github/merge-slots/<slug>.json, claim_merge_slot.py --branch-claim), on measured conflict grounds: 39 of the last 40 commits touching the shared session-board merge_slot field moved it, so a shared claim is a near-certain conflict that restarts CI, while R13's own docstring says the shared field never serialized anything anyway. BUT '.github/merge-slots/**' IS NOT ON check_manager_scope.py's MANAGER_SURFACE, and 'merge-slots' appears ZERO times in that guard (positive control: '.github/pr-landing/**' and '.github/pr-automerge-requests/**' are both there, adjacent, in the same list). So a manager following CLAUDE.md's recommendation fails R2 as 'doing an item instead of managing'. MEASURED, not inferred: PR #12580 commit a3400032 failed exactly that way."
+}

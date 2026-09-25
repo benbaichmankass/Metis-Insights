@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A cell row states, in a field rather than in prose, whether its baseline already contained its own lever, and a consumer branches on it -- verified by a planted control showing the field can read all three values. Renaming the verdict alone does not close this: without the field, a future consumer still cannot tell the 192 genuine no-ops from the 10 structural zeros.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] once a lever is DECLARED on a leg the sweep's baseline already contains it, so a re-sweep returns exactly-zero deltas under `tie_no_improvement` -- byte-identical to a lever that was measured and does nothing"
+}

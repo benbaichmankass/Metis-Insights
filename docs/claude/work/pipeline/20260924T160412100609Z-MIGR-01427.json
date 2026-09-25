@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "BOTH, and they are different facts — say WHICH you cleared rather than clearing the row on the easier one. (1) THE INSTRUMENT: OI-20260908's root cause LANDS AND IS OBSERVED on the fleet, and the winner-size decomposition is RE-RUN over a window opened after that deploy, reporting whether the netting_attributed winner-R fall persists or vanishes. !! RE-RUNNING IT OVER THE SAME WINDOW CLEARS NOTHING — the contaminated rows are the same rows. (2) THE MAGNITUDE: a measured-provenance winner population of n >= 30 in BOTH eras, or an explicit operator decision that the direction is enough to act on and the magnitude will not be pursued. !! (2) MAY BE UNOBTAINABLE FOR THE PRE ERA AND THAT IS THE POINT: pre-era coverage was 16.5% and that window has passed, so if the answer is 'the magnitude is permanently unrecoverable', RECORD THAT as the finding rather than leaving the row looking like a measurement about to happen. !! A GREEN TEST CLEARS NOTHING — the script has no network and a harness cannot reach a venue. !! NEITHER DOES A PARAMETER CHANGE: MI-277 proposes none, and acting on the regime reading is a separate operator decision that answers neither clause. !! AND IF THE BOOK RECOVERS ON ITS OWN, that does NOT clear this row and is the more valuable finding — a regime that reverts is evidence about the diagnosis, so write it into observation and keep the row open.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by OI-20260917-THE-NETTING-POST-FIX-REMEASURE-..., whose instrument is exactly this row's clause (1) and which is dated to 2026-10-01 today. EVIDENCE: Both rows name the winner-R decomposition; the later one carries the instrument and the n arithmetic.",
+  "what": "[LOUD] The winner-size collapse is an R collapse with every in-system mechanism refuted; its MAGNITUDE spans -38.5% to -81.4% and rests on n=15 measured pre-era winners"
+}

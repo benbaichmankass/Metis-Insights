@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO OBSERVABLE CONDITIONS, and they are different facts — say which you cleared rather than closing the row on the easier one.\n\n(1) THE DRAFT TRAP. A PR is observed reaching `merged: true` where ALL of: its branch carries a `.github/pr-landing/*.json` with `landing: \"self\"`; the PR was opened by the `claude-pr-automerge` workflow (NOT pr-opener); and NO human flipped its draft flag — verified by reading the PR's timeline for a `ready_for_review` event and finding none, never by asking whether anyone remembers clicking. Name the PR number. ⚠️ #11006 DOES NOT CLEAR THIS: it only exists because #10993 was closed and reopened by hand, which is the workaround, not the fix. What clears it is the NEXT web session opening a self-land PR and it landing with no rescue.\n\n(2) THE TITLE. A squash commit on `main` from such a PR is observed whose subject describes the CHANGE rather than whichever commit happened to be at HEAD when the relay first ran. Read `git log origin/main` for it. ⚠️ A PR that never received a second push cannot clear this — its title is trivially correct — so the qualifying observation is a PR that was pushed to AFTER the relay opened it.\n\n⚠️ NEITHER IS CLEARED BY A CODE CHANGE ALONE. Editing claude-pr-automerge.yml to refresh the title, or teaching check_pr_landing.py R6 to fail on a draft, is a DEPLOY — this repo's standing distinction — and the row stays open until a real PR is seen going through. ⚠️ AND A DECISION NOT TO FIX IT CLOSES THIS ROW TOO, recorded as a  …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260904-A-TIER-1-SELF-LAND-PR-OPENED-BY-PR-OPENER-IS-A-DRAFT-AND-CAN-NEVER-SELF-LAND-FROM-A-WEB-SESSION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260904-A-TIER-1-SELF-LAND-PR-OPENED-BY-PR-OPENER-IS-A-DRAFT-AND-CAN-NEVER-SELF-LAND-FROM-A-WEB-SESSION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260904-A-TIER-1-SELF-LAND-PR-OPENED-BY-PR-OPENER-IS-A-DRAFT-AND-CAN-NEVER-SELF-LAND-FROM-A-WEB-SESSION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] a web session's Tier-1 self-land PR is opened as a DRAFT by pr-opener, and claude-pr-automerge refuses to un-draft a PR it did not open — so the PR is green, clean, declared self-land, and cannot land"
+}

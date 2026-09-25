@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A stuck-branch report is OBSERVED on a surface a session reaches without being told to look — a committed receipt whose generated_at comes from a run whose EVENT is `schedule` (read the run history, never the file's existence, because a workflow_dispatch writes a byte-identical artifact), or a due-list source that grades the count. [!] THE PROBE PASSING ITS --self-test CLEARS NOTHING: it has always passed, and the 181 branches were invisible throughout — the defect is the absent CALLER, not the probe. [!] A ONE-OFF MANUAL RUN CLEARS NOTHING EITHER: that is exactly what produced the 181 figure, and it is the state this row describes. [!] THE REPORT MUST PAGE ON A TRANSITION, NOT ON THE STANDING COUNT — 181 rows every run is the desensitised alarm this repo already pays for, so a carrier that re-reports the backlog every time is not a pass. [!] AND IF THE OPERATOR DECIDES STRANDED AUTOMATION BRANCHES ARE NOT WORTH A CARRIER, this row does not clear — it CHANGES: record that as a decision with its consequence stated (the count keeps growing and nobody sees it) rather than leaving it looking like a carrier about to be built. [!] STILL OWED AS OF 2026-09-12: exactly the scheduled-run observation above. The carrier is deployed, not proven, and the `probes` cron is `20 5 * * *` — which this repo has measured firing ~4h50m LATE, so read the run history rather than the clock.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-STUCK-BRANCH-PROBE-IS-WIRED-TO-NOTHING-SO-181-STRANDED-AUTOMATION-BRANCHES-ARE-SEEN-BY-NOBODY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-STUCK-BRANCH-PROBE-IS-WIRED-TO-NOTHING-SO-181-STRANDED-AUTOMATION-BRANCHES-ARE-SEEN-BY-NOBODY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-STUCK-BRANCH-PROBE-IS-WIRED-TO-NOTHING-SO-181-STRANDED-AUTOMATION-BRANCHES-ARE-SEEN-BY-NOBODY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] stuck_automation_branches.py runs on nobody's schedule while 181 automation branches sit stranded"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "An open backlog row whose fix has already landed is SURFACED to a session by something other than that session happening to run `git log` on the right file — and the surfacing is OBSERVED acting at least once, naming which row and which landed change. [!] NOT satisfied by a memo, by a convention added to a skill, or by a reminder in CLAUDE.md: both instances here were produced by sessions that had read all of those. [!] NOT satisfied by a check that merely asks whether a fix CITES its row — instance (2) cited it three times and changed nothing. [!] AND NOT satisfied by bulk-flipping rows to `resolved`: in instance (2) `open` is the CORRECT status and what was missing is an in-place update, so a remedy that can only flip status would make the record worse while looking like progress.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-A-LANDED-FIX-LEAVES-ITS-BACKLOG-ROW-OPEN-SO-THE-ROW-RECRUITS-THE-NEXT-SESSION-INTO-REBUILDING-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-A-LANDED-FIX-LEAVES-ITS-BACKLOG-ROW-OPEN-SO-THE-ROW-RECRUITS-THE-NEXT-SESSION-INTO-REBUILDING-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-LANDED-FIX-LEAVES-ITS-BACKLOG-ROW-OPEN-SO-THE-ROW-RECRUITS-THE-NEXT-SESSION-INTO-REBUILDING-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A PR that fixes a finding does not update the row, so the row stays `open` — and an open row is not merely wrong, it actively recruits the next session into rebuilding what already exists"
+}

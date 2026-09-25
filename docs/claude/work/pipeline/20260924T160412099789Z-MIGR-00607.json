@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) Every NEW corpus row carries the dispatched sha and the Actions run id, null where genuinely unavailable, verified by reading a row written by a real dispatched run rather than by a fixture. (2) A test asserts `measurement_key` is UNCHANGED by the addition, with a negative control that fails if the new keys are folded into it. (3) `scripts/research/m20_corpus_schema_census.py` gains a third, AUTHORITATIVE boundary basis that reads the row's own dispatched sha, and its output distinguishes rows graded from the sha from rows still graded from the two guessed boundaries. ⚠️ DO NOT close this by stamping the existing 20 rows: their cause is not established and recording one would be a fabricated measurement. ⚠️ DO NOT close it on the census alone — the census REPORTS the ambiguity, it does not remove it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-SWEEP-CORPUS-RECORDS-NO-DISPATCHED-SHA-SO-A-MISSING-FIELD-CANNOT-BE-TOLD-FROM-ONE-THE-EXTRACTOR-COULD-NOT-EMIT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A corpus row missing a field cannot be told from one whose extractor could not emit it — the corpus records no dispatched sha, and `run_id` is a timestamp, so a row cannot be joined to the workflow run that wrote it"
+}

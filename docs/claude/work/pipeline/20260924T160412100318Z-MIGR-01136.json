@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260918-SCRIPTS-ON-SYS-PATH-SHADOWS-THE-ML-PACKAGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260918-SCRIPTS-ON-SYS-PATH-SHADOWS-THE-ML-PACKAGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260918-SCRIPTS-ON-SYS-PATH-SHADOWS-THE-ML-PACKAGE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "m20_fleet_exit_sweep inserts <repo>/scripts at sys.path[0] on import, after which scripts/ml shadows the real top-level ml package and any later import of src.runtime.pipeline dies on 'No module named ml.datasets'"
+}

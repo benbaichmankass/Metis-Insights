@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260831-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW-OR-ITS-SUB-ACCOUNT-STITCH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW-OR-ITS-SUB-ACCOUNT-STITCH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW-OR-ITS-SUB-ACCOUNT-STITCH'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The live wallet-truth path shipped in #10532 WORKS but does NOT yet supersede comms/broker_truth_ledger.json for bybit_2, for TWO independent reasons — and neither was visible until the first live pull. Do not switch journalTrust over on the strength of the pull succeeding."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A route-level test exists for EVERY /api/diag/* route whose accessor takes keyword-only parameters, asserting the accessor receives those parameters through a run_account_read stub that accepts POSITIONAL ARGS ONLY -- i.e. a stub that reproduces loop.run_in_executor's contract, so a kwargs regression raises in the test exactly as it does live. Verified by a POSITIVE CONTROL: revert the functools.partial in one such route and observe the test FAIL; a suite that stays green under that revert has not been fixed, it has been re-verified as blind. NOT SUFFICIENT: accessor-level tests (they cannot reach the seam by construction, which is the finding); a green `guards` or `pytest-run` (both were green while the route raised on every request); or fixing this one route (tests/test_diag_closed_pnl_route_wiring.py covers it, and the class remains open for every other route with a keyword-only accessor).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-A-DIAG-ROUTE-PASSED-KWARGS-THROUGH-A-POSITIONAL-ONLY-EXECUTOR-HOP-AND-ONLY-A-LIVE-REQUEST-COULD-CATCH-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-A-DIAG-ROUTE-PASSED-KWARGS-THROUGH-A-POSITIONAL-ONLY-EXECUTOR-HOP-AND-ONLY-A-LIVE-REQUEST-COULD-CATCH-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-A-DIAG-ROUTE-PASSED-KWARGS-THROUGH-A-POSITIONAL-ONLY-EXECUTOR-HOP-AND-ONLY-A-LIVE-REQUEST-COULD-CATCH-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] An accessor-level test suite cannot reach a diag route's executor-hop wiring, so a route that raises TypeError on EVERY request shipped green"
+}

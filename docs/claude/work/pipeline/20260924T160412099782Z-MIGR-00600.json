@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) `/api/bot/logs?limit=1000` with NO level filter returns a window WIDER than one tick — measured by reading the returned `timestamp` span against the live endpoint, not by reading the code. Today that span is 13 ms; any fix must be demonstrated against a real trader, since the defect only appears when one source out-writes the others. (2) EITHER a `level=error` query is shown to scan beyond the newest `max(limit, _LOG_TAIL)` rows per source — demonstrated by planting a known error row older than that boundary and retrieving it — OR the response carries the scanned window and a truncation flag, and a consumer is shown reading it. ⚠️ A GREEN TEST CLEARS NOTHING: a fixture chooses how many rows each source holds, and the defect is a production write-rate imbalance. ⚠️ AND DO NOT CLOSE THIS BY RAISING `_LOG_TAIL`: a bigger window is still a window, and the next busy tick restores the defect.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-API-BOT-LOGS-TAKES-A-TAIL-PER-SOURCE-AND-FILTERS-AFTERWARDS-SO-THE-UNFILTERED-FEED-IS-THIRTEEN-MILLISECONDS-WIDE-AND-A-QUIET-ERROR-QUERY-IS-A-WINDOW-NOT-A-NEGATIVE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-API-BOT-LOGS-TAKES-A-TAIL-PER-SOURCE-AND-FILTERS-AFTERWARDS-SO-THE-UNFILTERED-FEED-IS-THIRTEEN-MILLISECONDS-WIDE-AND-A-QUIET-ERROR-QUERY-IS-A-WINDOW-NOT-A-NEGATIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-API-BOT-LOGS-TAKES-A-TAIL-PER-SOURCE-AND-FILTERS-AFTERWARDS-SO-THE-UNFILTERED-FEED-IS-THIRTEEN-MILLISECONDS-WIDE-AND-A-QUIET-ERROR-QUERY-IS-A-WINDOW-NOT-A-NEGATIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/bot/logs takes a TAIL PER SOURCE and applies the level filter afterwards, so the unfiltered feed is 13 MILLISECONDS wide and `level=error` returning [] is a statement about a window, not about the fleet — and the returned count being below the cap does NOT establish non-truncation"
+}

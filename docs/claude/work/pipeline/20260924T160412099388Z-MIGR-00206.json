@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Closable when a check flags `grep -q <literal>` (and equivalents) used as an INPUT-PROVENANCE test in scripts/{ml,research,ops}/, demonstrated the way the other guards self-test: plant a probe that greps for a bad value, see it flagged; plant one that asserts a positive match plus a non-zero exit code, see it pass. Absent a new check, closable when diagnostic-provenance-guard's --all run over those directories reports zero absence-tests AND that count is shown to be a real denominator (a planted positive is detected), so a clean result is not just an empty scan.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-GUARDS-THAT-TEST-FOR-THE-ABSENCE-OF-A-WRONG-ANSWER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-GUARDS-THAT-TEST-FOR-THE-ABSENCE-OF-A-WRONG-ANSWER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-GUARDS-THAT-TEST-FOR-THE-ABSENCE-OF-A-WRONG-ANSWER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A guard that greps for the bad value reads a CRASH as a pass; pair it with a stale artifact and it certifies the previous run"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-A-PR-CLOSED-UNMERGED-WITH-NO-RECORDED-DISPOSITION-BLOCKS-EVERY-RECONCILE-PR-AND-THE-FAILURE-NAMES-THE-WRONG-GUARD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-A-PR-CLOSED-UNMERGED-WITH-NO-RECORDED-DISPOSITION-BLOCKS-EVERY-RECONCILE-PR-AND-THE-FAILURE-NAMES-THE-WRONG-GUARD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-A-PR-CLOSED-UNMERGED-WITH-NO-RECORDED-DISPOSITION-BLOCKS-EVERY-RECONCILE-PR-AND-THE-FAILURE-NAMES-THE-WRONG-GUARD'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "One PR closed unmerged with no recorded disposition makes EVERY reconcile-open-prs PR unmergeable, and the CI failure names `session-registry-guard`, which is not where the defect is"
+}

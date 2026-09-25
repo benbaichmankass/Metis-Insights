@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The workflow instruction states the precondition explicitly - restart the branch from the default branch only once the previous PR has MERGED, and check that rather than assuming it - and pairs it with the verification that actually settles the question: after a push, confirm the content is present on origin/main (or that the PR is open and its head carries the commit), never treat a successful push as a landing. Ends when a session following the written steps cannot lose a commit this way without something saying so.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-RESTART-THE-BRANCH-FROM-MAIN-SILENTLY-DISCARDS-AN-UNMERGED-PR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-RESTART-THE-BRANCH-FROM-MAIN-SILENTLY-DISCARDS-AN-UNMERGED-PR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-RESTART-THE-BRANCH-FROM-MAIN-SILENTLY-DISCARDS-AN-UNMERGED-PR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The documented 'restart your branch from the default branch' step discards the previous PR when it has not merged yet, and a successful push looks identical"
+}

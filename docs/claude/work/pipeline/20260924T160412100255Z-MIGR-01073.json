@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260910-TWELVE-COMPAT-LANDING-PRS-WERE-CLOSED-AS-SUPERSEDED-ON-A-ROW-COUNT-AND-TWO-CARRIED-THE-ONLY-ALPACA-LIVE-VERDICTS-FOR-TWO-REAL-MONEY-LEGS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-TWELVE-COMPAT-LANDING-PRS-WERE-CLOSED-AS-SUPERSEDED-ON-A-ROW-COUNT-AND-TWO-CARRIED-THE-ONLY-ALPACA-LIVE-VERDICTS-FOR-TWO-REAL-MONEY-LEGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-TWELVE-COMPAT-LANDING-PRS-WERE-CLOSED-AS-SUPERSEDED-ON-A-ROW-COUNT-AND-TWO-CARRIED-THE-ONLY-ALPACA-LIVE-VERDICTS-FOR-TWO-REAL-MONEY-LEGS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "gld-compat landing PRs were closed as superseded on a ROW COUNT, which is not a subset test for an append-only per-run corpus - 22 measured rows discarded, and they were the only alpaca_live verdicts for two legs added to a real-money roster the same day"
+}

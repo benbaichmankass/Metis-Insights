@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "alpaca_live has PLACED at least one real order for tlt_pullback_1h and the outcome has been read back from exchange truth — either a fill that reconciles, or a refusal whose logged cause is understood and is not the expected side-filter/cash-clamp path. A journalled would-be trade is NOT a placement. A soak row is NOT a placement. Read trade_journal.db::trades for account_id=alpaca_live with a status other than 'rejected'. ⚠️ EXTENDED BY OPERATOR DIRECTIVE 2026-08-31 (end-of-day wrap): the bar is a COMPLETE ROUND TRIP — ONE ENTRY AND ITS EXIT — not merely a first fill. An entry alone proves only half the plumbing this leg exists to test: it shows an order can reach the venue, and says nothing about whether the exit path works on a CASH book, whether the close reconciles against exchange truth, or whether T+1 then binds the NEXT buy — which is the whole reason the settlement gate was armed first. BOTH must be observed: (a) a trades row for account_id=alpaca_live with status other than 'rejected', AND (b) that same row reaching status='closed' with an exit whose pnlProvenance is measured or estimated, NOT fabricated or unverified. ⚠️ TRANSCRIPTION CAVEAT, flagged rather than silently resolved: the directive arrived by voice as \"one trim and one string\", which is garbled. It is read here as ONE TRADE, ENTRY AND EXIT. If a different thing was meant — e.g. one entry and one STOP, or one trade per SYMBOL — correct this row rather than working around it.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by A6 (#12673): tlt_pullback_1h was pulled off alpaca_live on 2026-09-21; the leg this row waits to see trade is no longer on the roster. EVIDENCE: MEASURED config/accounts.yaml 2026-09-24: alpaca_live strategies=[ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d]. CLAUDE.md § promotion ladder records A6 pulling tlt_pullback_1h and _1d.",
+  "what": "[LOUD] alpaca_live now ROUTES REAL MONEY for the first time since 2026-07-15 — tlt_pullback_1h, Tier-3 operator-approved 2026-08-31. It is ROUTED and has never PLACED AN ORDER. Those are different facts and only the second is proof the account trades."
+}

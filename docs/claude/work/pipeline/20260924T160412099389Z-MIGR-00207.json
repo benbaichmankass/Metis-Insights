@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Closable when a real `pull-and-deploy` system-action issue comment either (a) shows the post-deploy version assertion RUNNING and matching the deployed SHA, or (b) surfaces the skip as an explicit WARN in the COMMENT BODY -- not only in the log tail -- so an operator reading the comment cannot mistake the run for verified. Verify by reading the comment on the next deploy, not by reading the script.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-DEPLOY-SKIPS-ITS-OWN-POST-DEPLOY-VERSION-ASSERTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-DEPLOY-SKIPS-ITS-OWN-POST-DEPLOY-VERSION-ASSERTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-DEPLOY-SKIPS-ITS-OWN-POST-DEPLOY-VERSION-ASSERTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pull-and-deploy silently skips the post-deploy version assertion when DIAG_READ_TOKEN is unset, and still reports success"
+}

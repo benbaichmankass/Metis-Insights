@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "BOTH halves. (a) INSTANCE: #10666 merges and deploys, and a subsequent extended-hours close on an Alpaca equity position is OBSERVED succeeding -- read from the journal / the close-failure banner, not from a passing test. A test is not an observation of the live path. (b) CLASS: an executable check exists that fails when a position-flattening path does not go through the qty_available gate -- so a third close path cannot silently repeat this a third time. Closing on (a) alone re-creates exactly the state this row is filed about: the 2026-07 row was closed on its instance and the sibling path stayed broken for seven weeks.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-ALPACA-EXT-HOURS-QTY-AVAILABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-ALPACA-EXT-HOURS-QTY-AVAILABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-ALPACA-EXT-HOURS-QTY-AVAILABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE: the qty_available-gated flatten was only ever wired into the RTH path, so the extended-hours close still races share release"
+}

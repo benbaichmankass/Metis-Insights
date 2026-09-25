@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) a landing declaration can express 'certified, waiting its turn behind #N' WITHOUT claiming a human must decide and WITHOUT the PR having to rewrite its own declaration to land — demonstrated by a real PR that lands under that declaration unchanged; OR (b) an explicit recorded decision that `hold` covers both senses deliberately, AND R9 is extended to verify the named PR's state (refusing a `depends_on_unmerged_pr` hold whose PR is already merged, or was never open). [!] A doc line alone resolves NEITHER: the ambiguity is in the closed vocabulary the guard enforces, not in prose about it. [!] And a passing self-test resolves nothing — check_pr_landing.py's own positive controls already pass on `declared_hold` today, which is why the collapse was invisible until a PR had to live inside it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-PR-LANDING-HOLD-COLLAPSES-A-DECISION-IS-OWED-WITH-A-TURN-IS-OWED-SO-A-QUEUED-PR-MUST-LIE-TO-LAND",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-PR-LANDING-HOLD-COLLAPSES-A-DECISION-IS-OWED-WITH-A-TURN-IS-OWED-SO-A-QUEUED-PR-MUST-LIE-TO-LAND",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-PR-LANDING-HOLD-COLLAPSES-A-DECISION-IS-OWED-WITH-A-TURN-IS-OWED-SO-A-QUEUED-PR-MUST-LIE-TO-LAND'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_pr_landing.py's `landing: \"hold\"` collapses 'a human must decide' with 'this must wait its turn' — so a certified Tier-1 PR queued behind another has to rewrite its own declaration to land honestly"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-GUARDS-ARE-BEING-WRITTEN-AS-BANS-ON-ASKING-A-QUESTION-WHICH-SUPPRESSES-THE-SYMPTOM-AND-LEAVES-THE-MISUNDERSTANDING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-GUARDS-ARE-BEING-WRITTEN-AS-BANS-ON-ASKING-A-QUESTION-WHICH-SUPPRESSES-THE-SYMPTOM-AND-LEAVES-THE-MISUNDERSTANDING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-GUARDS-ARE-BEING-WRITTEN-AS-BANS-ON-ASKING-A-QUESTION-WHICH-SUPPRESSES-THE-SYMPTOM-AND-LEAVES-THE-MISUNDERSTANDING'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "OPERATOR-RAISED 2026-09-09, verbatim: \"you keep adding guards in the shape of forbidding questions from being asked - this is incorrect. the problem isn't the question, it's the underlying misunderstanding of infra and processes, and not asking questions isn't what fixes that - it just makes it more likely that you will f****** again in the future because you're not asking the right question. so when I'm upset about isn't that you're asking the same question over and over again. it's that you don't understand how the system works. that's what we need to fix here, not the question\". INSTANCE: the manager's MI-215 dispatch brief and checklist note read 'DO NOT RE-ASK THE WINDOW/FLOOR QUESTION IN ANY FORM'. The same session had, hours earlier, put a four-option decision to the operator in which ALL FOUR options rested on a false model of how this system establishes evidence — and then 'prevented' the recurrence by banning the question rather than by conveying the model. WHY IT IS WORSE THAN A NO-OP: a question-ban removes the one signal that a session does not understand something, so the misunderstanding survives and surfaces later as a DIFFERENT wrong action that nobody saw coming. It also trains sessions not to surface the very confusions the operator most wants surfaced. THE CORRECT SHAPES, all of which this repo already uses elsewhere: (a) enforce the RULE the misunderstanding violates (here: a gate producing a STRATEGY verdict must source edge from offline evidence) rather than a phrase; (b) make the SURFACE state the basis of its own output, the diagnostic-provenance discipline; (c) put the MODEL in the brief so a session can reason from it and disagree with it. ⚠️ NOTE THE LEGITIMATE NEIGHBOUR AND DO NOT OVER-CORRECT INTO IT: constraining an ACTION with its reason stated ('propose, never enact'; 'do not restore the pre-2026-08-14 flat bail, because the static DD floor binds while flat') is NOT this defect — it is a tier rule or a stated hazard, and it explains itself. The defect is specifically forbidding an INQUIRY."
+}

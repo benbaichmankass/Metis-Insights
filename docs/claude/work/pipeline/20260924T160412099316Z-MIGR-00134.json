@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Each item addressed individually as time/priority allows; item 1 must be resolved before oanda_practice (or any OANDA account) flips off dry_run.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260707-ALPACA-PIPELINE-AUDIT-FOLLOWUPS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260707-ALPACA-PIPELINE-AUDIT-FOLLOWUPS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260707-ALPACA-PIPELINE-AUDIT-FOLLOWUPS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Minor / lower-priority findings from the full Alpaca-pipeline audit — logged, not blocking"
+}

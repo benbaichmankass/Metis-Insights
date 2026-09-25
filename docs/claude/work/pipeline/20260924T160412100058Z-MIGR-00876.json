@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260831-THREE-DIFFERENT-W-NUMBER-SEQUENCES-COLLIDE-AND-ONE-POINTS-AT-A-REFUTED-DESIGN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-THREE-DIFFERENT-W-NUMBER-SEQUENCES-COLLIDE-AND-ONE-POINTS-AT-A-REFUTED-DESIGN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-THREE-DIFFERENT-W-NUMBER-SEQUENCES-COLLIDE-AND-ONE-POINTS-AT-A-REFUTED-DESIGN'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "`W<n>` is used as a work-item label by at least THREE unrelated enumerations in this repo, so a bare W-number is ambiguous — and one collision already sent a session's commits, docs and ROADMAP row pointing at a design that was refuted and deliberately not built."
+}

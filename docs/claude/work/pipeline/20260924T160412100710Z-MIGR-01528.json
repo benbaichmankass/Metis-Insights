@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-01",
+    "kind": "date"
+  },
+  "id": "PI-20260924-E57-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E57",
+    "rerun": "curl -sS \"https://api.github.com/repos/benbaichmankass/Metis-Insights/actions/workflows/e35-bracket-sweep.yml/runs?per_page=20\" | python3 -c \"import json,sys;[print(r['id'],r['event'],r['created_at'],r['conclusion']) for r in json.load(sys.stdin)['workflow_runs']]\""
+  },
+  "state": "queued",
+  "what": "[research-producer] e35-bracket-sweep is dispatched TWICE within the same minute and the second landing always conflicts. MEASURED: run pairs 35723781826/35723788659 (2026-09-22, landed #12728, stranded #12730) and 35856911508/35856916993 (2026-09-23, landed #12780, stranded #12781). The stranded twin conflicts on docs/research/e35-bracket-corpus-history.jsonl, so GitHub runs NO pull_request checks on it and it can never auto-merge. Either the dispatcher double-fires (research-queue-dispatch + another trigger) or a unit is registered twice. Wasted runner time daily, and a stuck PR the detector will flag every run."
+}

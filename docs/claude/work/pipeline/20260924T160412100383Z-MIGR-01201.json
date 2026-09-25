@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "config/accounts.yaml::alpaca_portfolio.strategies == ['ief_pullback_1d', 'slv_pullback_1d'] AND the pytest rerun above is fully green",
+    "kind": "observation"
+  },
+  "id": "B2-ALPACA-MIRROR-ROSTER-EDIT-AWAITING-OPERATOR",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "operator",
+    "ref": "docs/claude/work/MANAGER-CHECKLIST.json row B2, decided 2026-09-21",
+    "rerun": "python3 -m pytest tests/test_paper_portfolio_accounts.py -q"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "B2 invariant LANDED BUT NOT SATISFIED, deliberately. tests/test_paper_portfolio_accounts.py::test_alpaca_portfolio_mirrors_alpaca_live_exactly_minus_proxies is RED on purpose: the strict-equality invariant (operator-decided 2026-09-21) is in the tree; the config edit that satisfies it is not, because removing 12 legs from config/accounts.yaml::alpaca_portfolio.strategies is not Tier-1 and this lane had no operator OK. MEASURED 2026-09-21 by parsing config/accounts.yaml: alpaca_live 3 legs (2 after the iaum proxy carve-out), alpaca_portfolio 14, surplus 12. THE ASK: replace that `strategies:` list with exactly [ief_pullback_1d, slv_pullback_1d]; no `symbols:` edit is required, verified by running the suite against a patched copy (6 pass / 1 env-skip). Until it lands, Gate 2's Alpaca demotion signal still cannot be read off the mirror's aggregate — the invariant NAMES the gap, it does not close it."
+}

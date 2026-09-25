@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "OPERATOR DECISION, one per lever -- this row is a QUEUE, not a recommendation to bulk-remove. For each: either (a) remove the declared keys from config/strategies.yaml with the measured numbers in the commit message, or (b) keep it with a stated reason (e.g. the IS gain is judged to reflect a regime the OOS window under-samples), recorded on the matrix cell so the next session does not re-raise it.\nDO NOT close this row on a walk-forward alone: the walk-forward was already run and these are its IS/OOS verdicts. What would legitimately change the answer is a LONGER OOS window or a per-year fold split, neither of which exists yet for these legs.\nREFUSED as evidence: any re-measurement made WITHOUT --without-declared-lever.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-FIVE-SHIPPED-LEVERS-MEASURED-OOS-NEGATIVE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-FIVE-SHIPPED-LEVERS-MEASURED-OOS-NEGATIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-FIVE-SHIPPED-LEVERS-MEASURED-OOS-NEGATIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 5 shipped exit levers measured NET-NEGATIVE out-of-sample by the lever-OFF arm -- removal is a Tier-3 call, queued for the operator"
+}

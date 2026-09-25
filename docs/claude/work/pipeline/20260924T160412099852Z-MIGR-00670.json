@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Over a 30d window of at least 20 closed trades, no per-strategy expectancyR exceeds a stated plausible bound without an explicit outlier annotation, and the real-money totalR sign matches its totalPnl sign.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260821-R-AND-DOLLARS-DISAGREE-IN-SIGN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] expectancyR and dollar PnL disagree in SIGN on multiple legs — trend_donchian_ada_4h reports 62.6R expectancy, ict_scalp_5m reports +34.84R on real money against -$0.54"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260908-NETTING-SOAK-EXCHANGE-QTY-ZERO-COLLAPSES-GENUINELY-FLAT-WRONG-BOOK-AND-COULD-NOT-LOOK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-NETTING-SOAK-EXCHANGE-QTY-ZERO-COLLAPSES-GENUINELY-FLAT-WRONG-BOOK-AND-COULD-NOT-LOOK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-NETTING-SOAK-EXCHANGE-QTY-ZERO-COLLAPSES-GENUINELY-FLAT-WRONG-BOOK-AND-COULD-NOT-LOOK'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "netting_attribution_soak's exchange_qty: 0.0 collapses three states — venue genuinely flat, we read the wrong hedge book, and the position list came back empty — so a reviewer cannot tell a correct attribution from a catastrophic one"
+}

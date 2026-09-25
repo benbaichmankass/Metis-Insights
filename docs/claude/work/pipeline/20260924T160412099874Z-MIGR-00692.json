@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS, and they are different facts -- say which. (1) THE SCOPING RULE IS FIXED WHERE IT IS USED: a session excluding or flagging netting contamination keys on the notes stamp AND the soak, not on exit_reason alone, and says so; scripts/research/netting_position_size_basis.py --soak is the reference implementation. (2) THE EVIDENCE STOPS BEING DROPPABLE: netting_attribution_basis and netting_attributed_qty are added to json_notes._DEFAULT_PROTECTED [Tier-2], OR the partial branch gains a durable marker outside `notes` -- the argument closed_by_operator already makes in that tuple's own comment, that the FLAG is what a consumer branches on so the flag is what must survive. !! (2) DOES NOT RECOVER THE ROWS ALREADY SHED and must not be reported as if it did -- it stops the next ones. !! RE-RUNNING THE INSTRUMENT CLEARS NOTHING. It has been run; another reading of 6 is the expected result. !! A SMALLER COUNT ON A LATER PULL IS NOT PROGRESS EITHER: the journal is a 1000-row tail and the soak a 1000-line tail, so both populations roll off by construction. Report the denominators or do not report the count. !! AND IF THE OPERATOR DECIDES THE PARTIAL BRANCH SHOULD NOT REWRITE position_size AT ALL, this row does not clear -- it CHANGES: that is a legitimate Tier-2 order-path decision and must be RECORDED as one with its consequence stated (the netted sibling then keeps its full size, which is the 451x divergence BL-20260801 exists to stop).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-NETTING-ATTRIBUTION-REWRITES-POSITION-SIZE-ON-A-ROW-THAT-STAYS-OPEN-SO-THE-EXIT-REASON-FILTER-EVERY-ANALYSIS-USES-CANNOT-SEE-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] _netting_apply_close's PARTIAL branch rewrites position_size and leaves the row OPEN, so it closes later as sl/sl_cross/reconciler_filled — invisible to the exit_reason='netting_attributed' filter MI-277 A6, U9 and U16 all scope by; and the notes stamp that would reveal it is droppable"
+}

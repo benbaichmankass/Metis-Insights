@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "THE OBSERVABLE CONDITION IS A LOGGED `could_not_look` ON A LIVE ORDER, NOT A MERGE. Specifically, ALL THREE: (1) a real order-path decision on the fleet is observed emitting the resolved venue-max state, with `could_not_look` distinguishable from `absent` on an operator-readable surface — read it off the trader journal or a diag log tail, never off a unit test; (2) a test exists that exercises the RESOLUTION with NO monkeypatch of `_resolve_venue_lot_rule`, and it is shown to FAIL against the pre-fix resolver (a mutation check — a green test proves nothing here, since the current suite is green through all three occurrences); (3) `ict_scalp_avax_5m` places on bybit_1 across a window containing at least one order that previously would have exceeded the cap, with ZERO venue rejections carrying ErrCode 10001 / 'exceeds maximum limit'. ⚠️ MERGING A FIX DOES NOT CLOSE THIS ROW. BL-20260810 was marked `resolved` on exactly that basis and the defect recurred twice; a fourth occurrence closed on a merge would be the same mistake a third time. ⚠️ NOR DOES A QUIET REJECT FEED: zero rejections is only evidence if the leg actually TRADED in the window — an idle strategy and a fixed one produce identical silence, so state the population (orders placed, window, account) alongside the zero.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-AVAX-VENUE-MAX-CLAMP-INERT-WHEN-THE-LIVE-LOOKUP-MISSES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] THIRD occurrence: the AVAX venue-max clamp is a silent no-op whenever the live lot-rule lookup misses, because venue_max=None collapses three different answers"
+}

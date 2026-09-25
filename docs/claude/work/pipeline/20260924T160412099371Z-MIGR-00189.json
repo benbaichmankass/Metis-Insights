@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A gate or verdict surface reads capture_ratio, and the fleet re-evaluation under the widened objective is recorded in the coverage matrix.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-EXIT-GATE-BLIND-TO-CAPTURE-AND-CAPITAL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] M20's gate optimises net_R and maxDD only -- the TWO metrics that measure the operator's actual complaint (MFE capture ratio, capital efficiency) are both computed in-repo and read by ZERO gates"
+}

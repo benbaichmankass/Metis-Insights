@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Real Breakout swap confirmed (≈0.033%/day or corrected) AND >=10-20 closed prop ETH trades compared to the EV projection, with a documented keep/tune/drop decision per leg.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260625-001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260625-001",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260625-001'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] Monitor the two newly-live ETH pullback legs on breakout_1 (confirm the real swap rate + the edge holds live)"
+}

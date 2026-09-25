@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "PB-20260824-JOINT-GRID-OMITS-THE-LIVE-STOP-SO-TARGET-EFFECT-IS-UNSEPARABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260824-JOINT-GRID-OMITS-THE-LIVE-STOP-SO-TARGET-EFFECT-IS-UNSEPARABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260824-JOINT-GRID-OMITS-THE-LIVE-STOP-SO-TARGET-EFFECT-IS-UNSEPARABLE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The e35 bracket joint grid walks atr_stop_mult {1.5, 2.0, 3.0, 3.5} and OMITS the live value 2.5 on all four clamp-dominated donchian 4h legs (eth/xrp/ada/sol). Every joint cell therefore changes the stop AND the target together, so 'does declaring a target at the geometry we actually run help?' is unmeasured — measured 2026-08-24 over 1,540 joint cells with a book. The per-leg deltas in docs/research/bracket-target-reachability-2026-08-24.md section 4 (sol_4h helps at 4/4 stops, ada_4h hurts at 3/4) are all joint-change results and must not be quoted as target-only effects."
+}

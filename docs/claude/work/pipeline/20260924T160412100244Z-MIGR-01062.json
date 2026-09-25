@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-STRATEGY-EVIDENCE-RECORDS-HAVE-NO-STALENESS-TRIGGER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-STRATEGY-EVIDENCE-RECORDS-HAVE-NO-STALENESS-TRIGGER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-STRATEGY-EVIDENCE-RECORDS-HAVE-NO-STALENESS-TRIGGER'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/ops/build_strategy_evidence.py (MI-216) ships `# wiring: manual-only`, so a per-leg offline edge record in comms/strategy_evidence/ goes STALE SILENTLY the moment that leg's config changes. The record carries a `config_fingerprint` precisely so a moved config is DETECTABLE -- but nothing currently COMPARES it. Detectable and detected are different facts, and only the first shipped. ⚠️ THIS IS THE SAME FAILURE CLASS THE PRODUCER EXISTS TO FIX, ONE LEVEL UP: MI-215 found the M7 gate grading edge off live closes because no offline artifact existed; an offline artifact that quietly describes a configuration the leg no longer has would be worse, because it reads as evidence. ⚠️ AND THE NATURAL TRIGGER IS NOT A CLOCK. An edge record does not decay with time -- the underlying history only grows -- it decays when config/strategies.yaml moves. A nightly cron would refetch a year of candles for 52 legs to keep records nobody had yet asked for, while STILL missing a config change made five minutes after it ran."
+}

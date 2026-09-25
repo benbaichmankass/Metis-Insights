@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-PROVENANCE-GRADES-THE-PRICE-AND-HAS-NO-QUANTITY-AXIS-SO-IS-MEASURED-RETURNS-TRUE-FOR-A-ROW-WHOSE-QUANTITY-WAS-MANUFACTURED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260913-PROVENANCE-GRADES-THE-PRICE-AND-HAS-NO-QUANTITY-AXIS-SO-IS-MEASURED-RETURNS-TRUE-FOR-A-ROW-WHOSE-QUANTITY-WAS-MANUFACTURED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-PROVENANCE-GRADES-THE-PRICE-AND-HAS-NO-QUANTITY-AXIS-SO-IS-MEASURED-RETURNS-TRUE-FOR-A-ROW-WHOSE-QUANTITY-WAS-MANUFACTURED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "src/runtime/provenance.py — the repo's single owner of 'is this number measured or manufactured?' — reasons only about the exit PRICE; PnL is price x quantity and two live rows are graded `measured` on an assigned quantity"
+}

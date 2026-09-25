@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "BOTH, and they are DIFFERENT FACTS -- say WHICH you cleared rather than clearing on the easier one. (1) WRITER OBSERVED: a live soak row with fanout_schema: 3 and apply_state: 'dispatchable' whose rounds_applied[0] carries side/entry/sl/tp. (2) DISPATCH OBSERVED: a JOURNAL ROW on bybit_1 carrying meta.arbitration_fanout_round, whose entry/sl/tp match that round rather than the global winner's. [!] (1) DOES NOT IMPLY (2) AND MUST NOT BE USED FOR IT. Per MI-282's sharpening of WO-20260912-UNBLOCK-THE-PROP-ACCOUNT-IT-IS-STARVED, rounds_applied is a claim about the PLAN, not about dispatch -- that exact conflation is what this repair fixes, and re-making it one level up would be the same error in the analysis instead of the code. [!] A GREEN TEST SUITE CLEARS NOTHING: the suite passed 93/93 across the entire 12 days the defect was live, because each side of the seam was self-consistent. The added writer-satisfies-reader assertion and its negative control make the drift unrepresentable in the harness; a harness still cannot reach the fleet. [!] THE MERGE AND THE DEPLOY ARE ALREADY DONE AND CLEAR NOTHING -- they are the state this row describes, not its resolution. [!] IF THE FIRST CONTESTED TICK GRADES apply_state: 'refused_by_dispatcher', that does NOT clear this row and is the MORE VALUABLE finding: the projection is still wrong and a WARNING/ERROR naming the missing fields will be in the trader journal. Write it into observation and keep the row open. [!] AND IF THE OPERATOR DE",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by E17/E33/E35 and PI-20260924-JN54P2HH-0004 (the soak has written nothing for 32h while armed), which carry the current fan-out facts. EVIDENCE: MANAGER-CHECKLIST.json: E17 blocked, E35 queued; PI-20260924-JN54P2HH-0004 routed to E17 today.",
+  "what": "[LOUD] The arbitration fan-out's apply path is repaired and deployed, and it has STILL never dispatched a single round"
+}

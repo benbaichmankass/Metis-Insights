@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "`python -m ml list-models` returns exit-head-donchian-1h-v1 with a stage, and stage-guard evaluates it — verified from the command's output, not from a registry file edit. ⚠️ This is Tier-3 (it changes what governs an order-influencing artifact) so it needs an operator decision, and it is blocked in practice until the drift reader is fixed: a gate whose drift input is permanently `insufficient_data` cannot honestly grade a new enrolee either.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-FOUR-EXIT-HEAD-ARTIFACTS-ARE-ABSENT-FROM-THE-REGISTRY-AND-ONE-OF-THEM-IS-ADVISORY-AND-CAN-CLOSE-A-LIVE-TRADE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#BL-20260908-FOUR-EXIT-HEAD-ARTIFACTS-ARE-ABSENT-FROM-THE-REGISTRY-AND-ONE-OF-THEM-IS-ADVISORY-AND-CAN-CLOSE-A-LIVE-TRADE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-FOUR-EXIT-HEAD-ARTIFACTS-ARE-ABSENT-FROM-THE-REGISTRY-AND-ONE-OF-THEM-IS-ADVISORY-AND-CAN-CLOSE-A-LIVE-TRADE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] exit-head-donchian-1h-v1 is stage `advisory` and can close a live trade, yet it and 3 sibling exit heads appear in NONE of the 96 registry rows — so stage-guard, gate-check and every registry census are blind to the 4th live-influencing model"
+}

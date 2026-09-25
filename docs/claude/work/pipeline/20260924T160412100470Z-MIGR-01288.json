@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Every research-PRODUCING workflow (one that computes a verdict or a measurement, as distinct from an ops/deploy/relay workflow that merely uploads a log) either calls .github/actions/research-result or carries an inline comment saying why its output needs no durable result record. CHECKED ON MAIN, never on a branch.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_012atopaewbCQy8Fn3ex9obD, checklist row E5, branch claude/e5-research-result-contract",
+    "rerun": "python3 - <<'PY'\nimport pathlib,re\nwf=sorted(pathlib.Path('.github/workflows').glob('*.yml'))\nart=[p for p in wf if 'upload-artifact' in p.read_text()]\nrr=[p for p in wf if 'actions/research-result' in p.read_text()]\nprint(f'upload-artifact workflows: {len(art)}; wired to research-result: {len(rr)}')\nprint('NOT wired:', sorted(p.name for p in set(art)-set(rr)))\nPY\n# The denominator is deliberately the artifact-producing set, not a typed list of 19: a typed list goes stale the moment a workflow is added, and this row is about a class."
+  },
+  "routed_to": "checklist row E5",
+  "state": "queued",
+  "what": "E5 landed the result contract with TWO consumers wired, not nineteen, and that was the deliberate scope: a landed mechanism with two working consumers beats nineteen half-wired ones. WHAT LANDED: scripts/research/research_result.py (the schema owner, --self-test), scripts/ci/check_research_results.py (research-results-guard, --self-test with a planted positive and eight negative controls), .github/actions/research-result (the one shared emit+commit+assert step, delegating the commit to .github/actions/commit-to-main rather than re-implementing it), research/results/ (the committed store, one file per (unit, run), greppable by unit id), and the two per-producer mappings scripts/research/exit_head_result.py and scripts/research/m20_sweep_result.py, each with its own --self-test. WIRED: research-exit-head-build.yml and m20-exit-lever-sweep.yml. NOT WIRED: every other artifact-producing research workflow -- re-derive the list with origin.rerun rather than trusting a typed count here. [!] WHAT IS NOT ESTABLISHED, stated so a later session does not read this row as wider than it is: NO DISPATCH HAS BEEN RUN. The emit + validate + guard half is proven by self-tests that run in the required `guards` context, and was additionally exercised end to end against real committed data locally (a synthetic exit_head.json through exit_head_result.py -> research_result.py -> the guard -> assert_rows_landed.check, and 64 real m20-sweep-corpus rows through m20_sweep_result.py -> a 3-record file -> the guard -> a min_rows=4 assertion correctly reading `absent`). The LANDING half -- the nested `uses: ./.github/actions/commit-to-main` inside a composite action, and the resulting PR reaching main -- is exercised by NO CI run, because both consumers are workflow_dispatch-only. First dispatch is what proves it. Do not quote the mechanism as end-to-end verified until a run id can be named."
+}

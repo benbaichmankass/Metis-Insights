@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO PARTS, different facts -- say WHICH you cleared. (1) COVERAGE: a measured re-run of `open_pr_record.py --strict --open-prs <live list>` grades completeness=recorded, OR the operator decides the register is deliberately scoped to a subset and that decision is RECORDED -- in which case the file's own 'Every open PR must have a row' sentence must be corrected in the same change, because leaving it would keep this row true forever. A decision to scope it narrower is a legitimate outcome and clears this clause. (2) VISIBILITY: the completeness grade becomes reachable without a human remembering to pass --open-prs -- i.e. something that CAN fetch the live list (a workflow with a token, or the manager's check-in duty made explicit) runs it and the result lands where a successor reads it. !! CLEARING (1) WITHOUT (2) IS THE WEAKER HALF AND WILL SILENTLY ROT: rows written today decay as PRs open and merge, and nothing would report the decay -- which is how it reached 56. !! A GREEN `--strict` RUN CLEARS NOTHING: completeness is excluded from that exit code by design, so rc=0 is the state this row describes. !! AND A `not_observed` GRADE IS NOT A NEGATIVE -- it means nobody supplied live truth. Read the number, never the exit code.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-OPEN-PR-HANDOFF-RECORD-COVERS-11-OF-67-OPEN-PRS-AND-ITS-COMPLETENESS-GRADE-IS-UNREACHABLE-FROM-CI",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-OPEN-PR-HANDOFF-RECORD-COVERS-11-OF-67-OPEN-PRS-AND-ITS-COMPLETENESS-GRADE-IS-UNREACHABLE-FROM-CI",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-OPEN-PR-HANDOFF-RECORD-COVERS-11-OF-67-OPEN-PRS-AND-ITS-COMPLETENESS-GRADE-IS-UNREACHABLE-FROM-CI'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] OPEN-PRS.json covers 11 of 67 open PRs, and the check that would say so cannot run where it matters"
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A scheduled `probes` workflow run has completed AND docs/claude/PROBES.json shows probe_actions_log returning `pass` or `fail` — a GRADED verdict — for at least one of its two rows, read from the committed results file rather than from a local self-test. A `could_not_run` does NOT clear this; it is the failure signal. Nor does a green CI self-test, which is what the reader already passes against a fake server.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Subject retired by the 2026-09-21 operating reset: probes.yml's schedule was commented out and probe-guard removed from run_guards.py. EVIDENCE: scripts/ci/run_guards.py:184 lists probe-guard under 'Removed'; PI-20260921-E01 records probes.yml as disarmed at the reset.",
+  "what": "[LOUD] Three new probe SOURCES shipped (probe_file / probe_api / probe_actions_log) taking coverage 3 -> 7 probed. probe_actions_log has NEVER run against the real GitHub Actions API — its controls run against a fake server, so its first scheduled `probes` run is its real verification."
+}

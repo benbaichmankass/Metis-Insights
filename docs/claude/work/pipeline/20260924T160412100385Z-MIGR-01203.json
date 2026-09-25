@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either a lane is observed completing a commit+push having been dispatched with the mitigation in place AND the refused shape is named from evidence rather than inferred, or the permission configuration is changed so the prompt cannot arise unattended. ⚠️ A lane that happens to succeed proves nothing on its own -- lanes succeeded all day while this was happening; the clearing evidence must name what was refused.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-LANE-BLOCKED-ON-AN-UNATTENDED-PERMISSION-PROMPT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Manager session_01XQhayAHWdrSYv8jN54P2HH, 2026-09-21. Read from get_session on session_011b88KXF5rUPYPbUWARAtEy (status_detail: '4 edits staged; git commit denied by permission rule') and session_018J9SUp957b1V5xj1mcfTWu (pending_action, raw_command quoted above).",
+    "rerun": "Call get_session on a lane that reports status_bucket SESSION_STATUS_BUCKET_BLOCKED and read external_metadata.pending_action.raw_command."
+  },
+  "routed_to": "Checklist row E20, cause (3). ⚠️ THE COMMAND-SHAPE EXPLANATION IS A HYPOTHESIS AND MUST BE TESTED BEFORE IT BECOMES A DISPATCH RULE: other lanes committed and pushed all day, so whatever is refused is not universal. Establish which shapes are refused, with a positive control that shows the probe can see an ALLOWED command too -- a rule written from a guess is the category of error this repo keeps paying for. [!] ⚠️ THE COMMAND-SHAPE HYPOTHESIS IS REFUTED, by the next data point after it was written. A third lane (session_01XnDDuqCsFscnUkgTNMTDA9) was dispatched with compound and piped git commands explicitly forbidden, and stalled anyway -- on `python3 -m pytest tests/test_paper_portfolio_accounts.py -q`, a plain single-purpose command with no pipe, no `&&` and no redirect. So 'compound/piped shapes are refused' is FALSE and is WITHDRAWN rather than left standing as a plausible-sounding guess. [!] WHAT IS ACTUALLY ESTABLISHED IS NARROWER: some sessions in this environment escalate ORDINARY Bash commands to an interactive approval that never arrives, and the parent cannot answer it for them. Whether that is per-session, time-of-day, or classifier state is NOT established -- the three blocked lanes were all created later in the day than the lanes that succeeded, which is a correlation and not a cause. [!] THE WORK WAS NOT LEFT UNDONE: the manager applied B2's approved edit directly under manager-scope exception MGR-20260921-B2-ROSTER-EDIT, which argues itself and names this refutation. THIS ROW STAYS OPEN -- it is about the dispatch mechanism, not about B2, and nothing here has fixed it.",
+  "state": "routed",
+  "what": "A dispatched lane can stop on an interactive Bash permission prompt in a session nobody is watching, and spend its entire budget there. MEASURED 2026-09-21 on checklist row B2: the first lane reached $229.13 against a $30 ceiling and committed nothing, ending on 'git commit denied by permission rule'; the re-dispatch stalled at the same wall with its pending action readable as a COMPOUND, PIPED git command (`git fetch origin main 2>&1 | tail -5 && git merge origin/main --no-edit 2>&1 | tail -60`).",
+  "why_it_matters": "It converts a four-line, fully-specified, operator-approved config edit into two dead lanes and $229, and it is silent: the lane reports `need_input` to a parent that is not watching for it, so the money is spent before anyone knows there is a question. It also means a lane's ceiling does not bound the damage, because the spend is not going into work."
+}

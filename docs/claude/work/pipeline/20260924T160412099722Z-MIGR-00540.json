@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The manager-cadence Routine's prompt no longer instructs the fire_trigger session_id comparison as the delivery signal, AND states the get_session IDLE->RUNNING check together with its own limit -- that absence of a transition is NOT evidence of non-delivery. Verified by reading the Routine's prompt back through list_triggers or update_trigger and quoting the new text. !! IT DOES NOT CLEAR ON A SINGLE SUCCESSFUL POKE: that is already filed as BL-20260902-AN-IDLE-CLOUD-SUB-SESSION-IS-RESUMABLE-VIA-A-SESSION-BOUND-ROUTINE-NOT-UNREACHABLE and proves the CHANNEL, never the CHECK. !! IT DOES NOT CLEAR BY DELETING THE CHECK with nothing in its place -- a manager with no delivery signal at all is the state that produced the MI-37 double-respawn. !! AND IT DOES NOT CLEAR ON A CI GUARD: none is possible, because the Routine prompt is not a repo file.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-THE-DOCUMENTED-POKE-VERIFICATION-CHECK-FAILS-EVERY-SUCCESSFUL-POKE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-THE-DOCUMENTED-POKE-VERIFICATION-CHECK-FAILS-EVERY-SUCCESSFUL-POKE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-THE-DOCUMENTED-POKE-VERIFICATION-CHECK-FAILS-EVERY-SUCCESSFUL-POKE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The manager cadence's own poke-verification check -- compare fire_trigger's returned session_id against persistent_session_id -- returns a MISMATCH on every call including ones that demonstrably delivered, so following it reports 100% of pokes as failed"
+}

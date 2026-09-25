@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. A target-EXCESS grader exists on the IB broker-naked sweep, mirroring _emit_stop_over_cover_alert: it compares target_qty against size in the `>` direction and pages when the excess exceeds the same margin the stop side uses. It must be DETECT-ONLY -- BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG (resolved, critical) is the record of what automatic remediation of this class did, and that argument is unchanged by the leg being a target rather than a stop.\n2. It is OBSERVED firing on a real instance, not only in a harness -- a page naming the account, symbol, target_qty, size and the disjoint group names. A green self-test clears clause 2 not at all: a harness cannot reach a venue, and this row exists because a live 200% sat unreported.\n3. The page must NOT be a second copy of the stop page's cooldown. Use the shared _cooldown_admits latch (CLAUDE.md records that copy-pasting that latch is how the per-PROCESS time.monotonic() defect that put 202 CRITICALs on the operator's channel would return).\n[!] CLAUSE 1 ALONE DOES NOT CLOSE THIS ROW. Shipped and exercised are different states, and this repo pays for collapsing them.\n[!] AND ORDER 6 GOING AWAY CLOSES NOTHING. If the stray leg is cancelled or turns out to be a stale ghost, the instance disappears and the DETECTOR GAP remains -- record that outcome in `observation` and keep the row open.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260913-IB-TARGET-SIDE-EXCESS-IS-UNGRADED-SO-A-POSITION-CARRYING-DOUBLE-ITS-TAKE-PROFIT-QUANTITY-IN-DISJOINT-OCA-GROUPS-PAGES-NOBODY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260913-IB-TARGET-SIDE-EXCESS-IS-UNGRADED-SO-A-POSITION-CARRYING-DOUBLE-ITS-TAKE-PROFIT-QUANTITY-IN-DISJOINT-OCA-GROUPS-PAGES-NOBODY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-IB-TARGET-SIDE-EXCESS-IS-UNGRADED-SO-A-POSITION-CARRYING-DOUBLE-ITS-TAKE-PROFIT-QUANTITY-IN-DISJOINT-OCA-GROUPS-PAGES-NOBODY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] IB coverage is two-sided for SHORTFALL and one-sided for EXCESS: stop_qty is graded in both directions, target_qty only for `< size`, so a position holding DOUBLE its take-profit quantity across disjoint OCA groups trips nothing -- measured live on ib_paper/MES at 200%"
+}

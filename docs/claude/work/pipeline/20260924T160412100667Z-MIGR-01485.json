@@ -1,0 +1,23 @@
+{
+  "a10_note": "Still applies (the #1 canonical doc binds sessions to archived mechanisms); E9's class. EVIDENCE: MEASURED 2026-09-24: docs/CLAUDE-RULES-CANONICAL.md:1758-1768 still name session-coordination, session-board.json and issue #6927; origin/main:docs/claude/session-board.json absent; .claude/skills/session-coordination absent.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "docs/CLAUDE-RULES-CANONICAL.md no longer directs sessions to docs/claude/session-board.json, the session-coordination skill, or coordination board issue #6927 as BINDING steps -- verified by the grep in origin.rerun (a historical mention marked superseded is fine).",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-HDZFTGH2-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01VsAt1BzrdspLn6hDzFTGh2, checklist row E44, PR #12753",
+    "rerun": "grep -n 'session-board.json|session-coordination|issues/6927' docs/CLAUDE-RULES-CANONICAL.md ; git cat-file -e origin/main:docs/claude/session-board.json ; ls .claude/skills/session-coordination # closed when the canonical doc no longer BINDS sessions to mechanisms that are archived and absent from main"
+  },
+  "routed_to": "E9",
+  "severity": "medium",
+  "state": "routed",
+  "terminal_reason": null,
+  "tier": 1,
+  "what": "OBSERVED 2026-09-22 by the E44 lane during the mandatory session-start read. docs/CLAUDE-RULES-CANONICAL.md -- the document that BOTH it and the root CLAUDE.md rank FIRST in the instruction hierarchy -- still carries a section headed `Multi-session coordination (2026-06-28, binding; live-board step added 2026-07-22)` whose step 0 orders every session to read and post to GitHub issue #6927 `before your first substantive tool call`, whose step 2 makes mirroring into `docs/claude/session-board.json::merge_slot` a precondition of EVERY `merge_pull_request` call, and which names `.claude/skills/session-coordination/SKILL.md` as `the binding operational workflow`. MEASURED the same session: `git cat-file -e origin/main:docs/claude/session-board.json` -> path does not exist in origin/main; `.claude/skills/session-coordination` -> no such directory, it sits under docs/archive/2026-09-21-operating-reset/skills/ with nine archived siblings. The root CLAUDE.md and the SessionStart hook both state these are retired and that NOTHING reads them. So the TOP of the instruction hierarchy orders every session to do three impossible things. This is the same shape as the defect this very document records at 2026-09-12 -- the backlog rule that named five `status` words CI rejects, where the #1 doc gave an instruction the system refuses. ITS GUARD CANNOT SEE IT: canonical-doc-coherence mirrors only the Document Priority list, which agrees between the two files; the coordination section is outside its scope. NOT FIXED HERE because E44 is a lane-supervision build and rewriting a binding section of the #1 canonical doc is its own change with its own review -- but it is cheap, and it misleads every session that reads it, which is all of them."
+}

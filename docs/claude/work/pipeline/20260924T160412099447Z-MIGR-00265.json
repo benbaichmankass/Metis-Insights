@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(a) lever-reachability-guard (or a sibling) FAILS on an exit_head_* declare placed on a unit whose code cannot read it, with a test that fails on an ict_scalp leg carrying the three keys; AND (b) the five ict_scalp exit_head_ml cells carry an explicit note that shipping is blocked on IMPLEMENTATION in the ict_scalp unit, not on approval, so no future session reads them as ready; AND (c) a recorded decision on whether the ict_scalp unit SHOULD gain an exit-head consumer at all -- the measured edge is real and currently unreachable, so 'implement it' is a legitimate answer and this row must not be closed by merely relabelling the cells.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-EXIT-HEAD-LEVER-HAS-NO-CONSUMER-IN-ICT-SCALP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-EXIT-HEAD-LEVER-HAS-NO-CONSUMER-IN-ICT-SCALP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-EXIT-HEAD-LEVER-HAS-NO-CONSUMER-IN-ICT-SCALP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 5 of the 6 `passed_unshipped` exit_head_ml cells are ict_scalp legs, and ict_scalp has NO exit-head code — the lever cannot run there, and lever-reachability-guard does not cover it"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "PR #12881 merges (Tier-2 approval granted or refused) AND EITHER comms/broker_truth_ledger.json gets a fresh as_of via a new reconcile_netting_pnl.py --emit-ledger run, OR the operator answers OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW (permanent hand-maintenance vs. a sub-account-join lane), which determines what refreshing this ledger even means going forward.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-ZROYCDY4-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #12881 (lane/e70-bybit2-broker-truth), checklist row E70",
+    "rerun": "curl -sS \"https://ict-bot.duckdns.org/api/bot/pnl/broker-truth?account_id=bybit_2\" # check as_of / re-derive age; and scripts/ops/diag_fetch.sh 'bybit_wallet_truth?account_id=bybit_2&days=90' for the live-path figure"
+  },
+  "state": "queued",
+  "what": "[E70] bybit_2's committed broker-truth ledger (comms/broker_truth_ledger.json) is 73 days stale (as_of=2026-07-13, MEASURED via GET /api/bot/pnl/broker-truth read 2026-09-24) and stays stale after this lane -- PR #12881 only makes the staleness VISIBLE (adds as_of_age_days/stale to the API + journalTrust note), it does not refresh realized_usd. The PR itself is held (landing: hold, tier_2_3_needs_approval) because it touches src/** per check_pr_landing.py's TIER2_PATHS, so it needs an operator/manager approval to merge. The best currently obtainable automated figure is GET /api/diag/bybit_wallet_truth?account_id=bybit_2&days=90 -> measured_api, realized_usd=-49.99 over 2026-06-26..2026-09-24 (758 rows), read 2026-09-24T17:20:06Z -- but per the separately-open OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW (routed to the operator today by a different lane, not duplicated here) that path may be scoped to only one of bybit_2's two Bybit sub-accounts and should be read as a floor, not a reconciled total."
+}

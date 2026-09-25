@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A written decision in the operating-layer schema design saying whether a `kind: object` edge names the TARGET or the target's DELIVERABLE, and the store + scripts/ops/constraint_readout.py both reflecting it -- verified by `holds_on_waiting_targets` in docs/claude/CONSTRAINT.json becoming either empty or individually justified, rather than a standing caveat. ⚠️ The caveat disappearing because no object happens to be `waiting` that day does NOT close this: the ambiguity is structural, so it closes on the schema decision, not on a quiet reading.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-AN-OBJECT-EDGE-TO-A-WAITING-TARGET-PROPAGATES-A-HOLD-THE-DELIVERY-DOES-NOT-JUSTIFY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-AN-OBJECT-EDGE-TO-A-WAITING-TARGET-PROPAGATES-A-HOLD-THE-DELIVERY-DOES-NOT-JUSTIFY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-AN-OBJECT-EDGE-TO-A-WAITING-TARGET-PROPAGATES-A-HOLD-THE-DELIVERY-DOES-NOT-JUSTIFY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A blocked_on object edge is graded by the target's lifecycle, but `waiting` covers both 'not delivered' and 'delivered, awaiting an observation' — so a delivered capability keeps propagating a false hold downstream"
+}

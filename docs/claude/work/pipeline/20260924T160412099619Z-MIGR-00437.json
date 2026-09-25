@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "EITHER (a) the guard distinguishes 'this diff made the brief stale' from 'the brief went stale because the register cadence advanced', and says which in its verdict -- a third verdict value, not a suppression, since both still need a re-render; OR (b) the guard's error text names the cadence roll as a candidate cause so a reader is not sent hunting their diff; OR (c) a session reproduces this and establishes the frequency is low enough that the current message is fine, and records THAT -- an explicit no-change decision is a legitimate close. ⚠️ NOT satisfied by making the guard advisory or by pinning the render to a fixed date: the brief being current is the whole mechanism (`OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION`), and a brief that stops tracking the cadence is a brief that stops being true.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260902-SESSION-BRIEF-GUARD-CAN-TURN-A-PR-RED-FROM-THE-CLOCK-ALONE-NOT-FROM-ITS-DIFF",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-SESSION-BRIEF-GUARD-CAN-TURN-A-PR-RED-FROM-THE-CLOCK-ALONE-NOT-FROM-ITS-DIFF",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-SESSION-BRIEF-GUARD-CAN-TURN-A-PR-RED-FROM-THE-CLOCK-ALONE-NOT-FROM-ITS-DIFF'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] session-brief-guard went red on PR #10705 with NO change to the PR and no change to main -- the UTC date rolled, two monitoring rows came DUE on their own cadence, and the rendered brief stopped matching"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "A PASS IS OBSERVED BEING SHORTENED BY THE BREAKER, end to end on the fleet, and it is THREE facts -- say WHICH you cleared rather than clearing the row on the easiest. (1) DEPLOYED: /api/diag/version reports a git_sha that CONTAINS the merge commit (check ANCESTRY, not string equality -- main moves fast and the trader pulls every ~5 min). (2) ARMED: EXIT_LOOP_IB_BREAKER_DISABLED read off /proc/<MainPID>/environ via get-env and found ABSENT (or explicitly falsy). !! NEVER OFF THE .env, which says only what the NEXT restart picks up. !! AN UNSET VALUE IS THE ARMED STATE, so 'the key is not there' is the PASS here, not a failed read -- which is exactly why the key was added to get_env.py::ALLOWED_KEYS in the same change. (3) EXERCISED: an exit-interval soak row is observed carrying ib_breaker.state='armed' with tripped=true and skipped>0 -- read off /api/bot/exit-interval/soak or /api/diag/log_file?name=exit_interval_soak. Record that row's pass_ms beside the n it skipped: the predicted shape is ~35s rather than n x 29s. !! A GREEN TEST SUITE CLEARS NOTHING. 27 assertions pass and both load-bearing properties are mutation-checked, and a harness cannot reach a wedged IB queue -- which IS the condition. !! MERGING CLEARS NOTHING: a merge is not a deploy and a deploy is not an observed pass. !! A QUIET WINDOW IS NOT EVIDENCE EITHER, and it is the likeliest reading to get wrong. The trip is rare by construction, so 'no skips seen' cannot distinguish a working breaker from an inert o",
+    "kind": "observation",
+    "last_checked": "2026-09-13"
+  },
+  "id": "OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] R2, the per-pass IB circuit breaker, is armed by default and has never skipped a package -- and the 60s promise is NOT thereby fixed"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "docs/research/exit-capture-deepdive-2026-07-30.md is rewritten with BOTH corrections folded in - the TPSL premise and the leak's actual mechanism - after the close-time exit-price measurement lands. Sequenced behind BL-20260730-SCALP-LONG-HOLDS-UNEXPLAINED. A correction note appended to the still-wrong doc does not close it: the row says the doc is wrong in two independent ways, so a partial fix leaves a doc that is still wrong and now also looks corrected.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-IN-A-SECOND-WAY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-IN-A-SECOND-WAY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-EXITCAPTURE-DEEPDIVE-WRONG-IN-A-SECOND-WAY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [docs] exit-capture-deepdive doc is wrong on its TPSL premise AND on the leak's actual mechanism"
+}

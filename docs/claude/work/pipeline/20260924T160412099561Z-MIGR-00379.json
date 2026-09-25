@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. A fetch failure must not abort the deploy silently. Either retry the fetch once (a ref-lock race is resolved by the next attempt, as this occurrence demonstrates), or let the script CONTINUE to the restart-decision gate — the gate reads deployed_sha.txt against the worktree and does not need the fetch to have succeeded to notice that the running processes are stale.\n2. A FAILED deploy must be loud. `ict-git-sync.service` entering `failed` is currently visible only to someone who reads /api/diag/services or the unit journal; nothing alerts. Note this is the same shape as the over-cover detector before 2026-08-25 — correctly detected, reaching no surface a human reads.\n3. Do NOT 'fix' this by making the fetch non-fatal without also reaching the gate: swallowing the error and proceeding to a hard-reset against a stale ref would be worse than the abort.\n4. Establish whether `git fetch --prune` or a ref-lock retry is the cleaner remedy. Not investigated here.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-GIT-FETCH-REF-LOCK-RACE-ABORTS-THE-DEPLOY-UPSTREAM-OF-ITS-OWN-STALE-CODE-GATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-GIT-FETCH-REF-LOCK-RACE-ABORTS-THE-DEPLOY-UPSTREAM-OF-ITS-OWN-STALE-CODE-GATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-GIT-FETCH-REF-LOCK-RACE-ABORTS-THE-DEPLOY-UPSTREAM-OF-ITS-OWN-STALE-CODE-GATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A concurrent-fetch ref-lock race makes `git fetch` exit non-zero, which aborts deploy_pull_restart.sh BEFORE its restart-decision gate — so the worktree advances and the live processes keep running stale code"
+}

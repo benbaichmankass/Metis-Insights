@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A CI guard fails when a module under src/ writes a runtime_logs/*_state.json or *_alerts.jsonl path that has no _LOG_FILES entry, unless the writer carries an explicit `# read-surface: none - <reason>` marker. THREE REQUIREMENTS, each from a mistake this repo has already made and none of them optional: (1) THE MARKER MUST BE VERIFIED, NOT PRESENCE-ONLY — it must name something checkable, because new-table-wiring-guard's presence-only `# data-wiring:` marker made the cheapest way to silence a real finding be to name a table that does not exist, and a guard cheaper to lie to than to satisfy is worse than no guard. (2) IT MUST SHIP WITH A SELF-TEST PROVING IT FAILS on a planted writer with no allowlist entry — a guard whose failure path has never executed is a deploy, not a check. (3) IT MUST STATE ITS DENOMINATOR: how many writer sites it scanned, so a guard that silently stops matching (a renamed path helper, a new write idiom) reads as a shrinking population rather than as continued green. ⚠️ NOT SUFFICIENT: adding another name to _LOG_FILES. That is what was done all five times, and it is why there were five. ⚠️ NOT SUFFICIENT: extending the allowlist-vs-CLAUDE.md coherence test, which by construction cannot see an unlisted writer.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-NO-WRITER-SIDE-GUARD-STOPS-A-PAGING-INPUT-SHIPPING-WITHOUT-A-READ-SURFACE-AND-ITS-ONLY-CARRIER-IS-A-RESOLVED-ROW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-NO-WRITER-SIDE-GUARD-STOPS-A-PAGING-INPUT-SHIPPING-WITHOUT-A-READ-SURFACE-AND-ITS-ONLY-CARRIER-IS-A-RESOLVED-ROW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-NO-WRITER-SIDE-GUARD-STOPS-A-PAGING-INPUT-SHIPPING-WITHOUT-A-READ-SURFACE-AND-ITS-ONLY-CARRIER-IS-A-RESOLVED-ROW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Nothing PREVENTS a file that decides whether the operator is paged from shipping with no diag read surface — this is the recurrence half of a FIFTH instance, and its only written carrier is a row already marked `resolved`"
+}

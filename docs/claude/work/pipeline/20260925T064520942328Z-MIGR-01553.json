@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a session reads the baseline-scoring code and either confirms the constant scores are by design (close this as a doc/tagging fix) or finds a real defect (route to a fix); AND the non_degenerate spread-vs-constant-value coincidence is explained or shown to be a metric bug.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-JQHBBTOS-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane E72 /ml-review, session_01PrCFC3J9gYv64gJqHBBtos, comms/reviews/ml-review-20260924-210245.json",
+    "rerun": "read ml/configs/ and the trainer code path that computes each baseline's score + the non_degenerate gate's spread calculation (grep for 'non_degenerate' under ml/ and src/); re-pull api/bot/shadow/stats?model_id=<baseline> and api/bot/shadow/drift?model_id=setup-quality-baseline-v0 to confirm the pattern still holds."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "Two anomalies in the 3 'baseline' shadow models named as flat-score after 128 days (execution-quality-baseline-v0, setup-quality-audit-baseline-v0, setup-quality-baseline-v0). (a) MEASURED via api/bot/shadow/stats (read 2026-09-24T20:45Z): execution-quality-baseline-v0 and setup-quality-audit-baseline-v0 emit a LITERALLY constant score (score_min == score_max == score_mean to 15 decimal places) over 9229 logged predictions / 128.67 soak days -- consistent with them being intentional fixed reference points (the beats_baseline gate's denominator; gate-check's attribution carries 'baseline_brier': 0.0 for one such comparison), not necessarily a bug, but NOT VERIFIED against the manifest/code this session. Separately, gate-check's 'non_degenerate' gate for execution-quality-baseline-v0 (trainer-vm-diag #12902) reports 'live score spread = 0.201663 (collapsed output if ~0)' passing threshold 1e-6 -- but 0.201663 is numerically identical to the model's constant score magnitude (0.2016627518083191), which reads as the gate reporting the CONSTANT VALUE, not an actual dispersion measure, for a model whose true spread is exactly 0. Not confirmed as a bug this session -- flagged for someone to read scripts under ml/ that compute the non_degenerate gate's 'spread' for this family of model. (b) setup-quality-baseline-v0 is NOT frozen (score range -0.2003 to -0.1422, a real but narrow ~0.058 spread) and its own drift_clean gate FAILS hard: KS=0.6118 against a 0.2 threshold (the worst drift-clean KS measured in this review, worse even than the two advisory demote candidates) -- a 'baseline' reference drifting this much undermines any gate computed against it as a denominator."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "account_compat_matrix.py has been run against the roster as it stands, under breakout.yaml, and its EV + survival verdict is recorded against each live leg — with the run predating any further routing change rather than following it. Closed when a reader can tell, from the record, that every leg currently routed to breakout_1 was evaluated under that account's own rules AT ITS CURRENT CONCENTRATION.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-PROP-ROSTER-COMPAT-MATRIX-UNVERIFIED",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-PROP-ROSTER-COMPAT-MATRIX-UNVERIFIED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-PROP-ROSTER-COMPAT-MATRIX-UNVERIFIED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] breakout_1 is down to TWO live legs of one strategy family and no compat matrix has been verified for the roster as it now stands"
+}

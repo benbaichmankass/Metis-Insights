@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "ALL THREE, each observable: (1) `grep -n 'resample)' scripts/research/m21_entry_sweep.py scripts/research/m21_entry_head_round.py` returns NO base_args call — both pass a 6th positional tp_cap_pct — AND each file's --tp-cap-pct argparse default is 0.099, mirroring m20_flip_replay_sweep.py; (2) an M21 sweep run emits `tp_geometry: live_parity_capped` for a donchian/pullback leg, produced by calling m20_fleet_exit_sweep.tp_geometry_for rather than a re-derived label — the same A/B that verified the M20 fix (relay #9534) shows the capped and uncapped arms differ in TRADE COUNT, not just in verdict, which is what proves the cap reached the harness; (3) the count this row could not establish is established: the number of the 27 M21 decision cells (23 shipped + 4 passed_unshipped) that sit on a LIVE_TP_CAPPED_FAMILIES leg, derived from M21's own row->leg mapping and NOT from classify() over the matrix's composite `strategy` labels. A restated figure with no stated mapping does not close this.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-M21-ENTRY-SWEEPS-STILL-CALL-BASE-ARGS-POSITIONALLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Both M21 entry sweeps drop the live TP cap; the M21 matrix has 27 DECISION cells and no geometry tracking"
+}

@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies; stays routed as filed (small, bounded). EVIDENCE: MEASURED 2026-09-24: .github/workflows/vm-diag-snapshot.yml:812 still says 'The request parsed fine, so this is an infrastructure failure'.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A deliberately-failed diag relay run whose comment names the step that actually failed. ⚠️ Verify with BOTH controls: break the VM leg and break the post-processing leg, and check the comment distinguishes them. A single failure mode proves nothing -- the current message is 'right' for one of the two by accident.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-DIAG-RELAY-ERROR-MESSAGE-NAMES-THE-WRONG-CAUSE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E19 ops lane (session_0178qqSNhbW9vpQbREtc4drS), PR #12702, 2026-09-22. It read the failed job log rather than the workflow source, which is what surfaced this -- the manager's dispatch told it to, after the manager had itself published a wrong hypothesis from a workflow file the day before.",
+    "rerun": "Open the auto-comment on a failed vm-diag-snapshot run and compare its named cause against the job log's actual failing step."
+  },
+  "routed_to": "Small and bounded: the failure comment should distinguish WHERE the run died rather than assert a cause. The SSH/curl step succeeding is already observable in the job log, so the comment can say 'the VM round-trip completed; the failure is in post-processing' instead of pointing at secrets. ⚠️ Do NOT simply delete the secrets hint -- absent/mismatched secrets IS a real failure mode for this relay; the defect is asserting it without checking which step failed. Three states, not one: VM unreachable / VM reached and post-processing failed / could not determine.",
+  "state": "routed",
+  "what": "vm-diag-snapshot.yml's failure comment confidently names the WRONG cause. On run 35649903349 it said 'The request parsed fine, so this is an infrastructure failure' and suggested VM_SSH_KEY / DIAG_READ_TOKEN unset or mismatched. MEASURED from the job log by the E19 lane: the SSH+curl round-trip to the VM SUCCEEDED (6 lines returned, no curl/ssh error), and the run died one step later in pure local Python -- ModuleNotFoundError: No module named 'scripts', because the issues-triggered path never ran actions/checkout. No secret was ever involved.",
+  "why_it_matters": "An error message that names a wrong cause with confidence is worse than a generic one: it sends the reader to the one class of fix a session CANNOT perform (originating a secret value is operator-only), so the honest response to it is to stop and ask a human. It cost a real measurement -- the E16 lane could not read prop_status_request's cadence state and had to INFER which ask-arm fired -- and the batched path had been broken since 2026-09-13 (a45d360 added the scripts.* import with no checkout), nine days, with nobody diagnosing it because the message looked authoritative."
+}

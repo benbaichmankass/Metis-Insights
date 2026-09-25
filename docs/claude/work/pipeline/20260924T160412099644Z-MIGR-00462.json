@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) an append_open_item() helper beside backlog_append.py that round-trips OPEN-ITEMS.json's exact bytes and REFUSES rather than falling back to a default — the refusal is the feature, per backlog_append.py's own docstring — and CLAUDE.md's session-end bullet points at it the way it already points at backlog_append.py; OR (b) OPEN-ITEMS.json is re-serialised ONCE to a json.dumps-reproducible style in a dedicated PR that touches nothing else (so the one unavoidable whole-file diff is isolated and reviewable), after which the ordinary idiom is safe.\n\nClosing requires a demonstration, not an assertion: append a throwaway row through the chosen path and show git diff --numstat reports insertions only. A green open-items-guard does NOT close this — it passed on the 1,148-line reformat.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-OPEN-ITEMS-JSON-HAS-NO-APPEND-HELPER-AND-ITS-SERIALISATION-IS-NOT-REPRODUCIBLE-BY-JSON-DUMPS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-OPEN-ITEMS-JSON-HAS-NO-APPEND-HELPER-AND-ITS-SERIALISATION-IS-NOT-REPRODUCIBLE-BY-JSON-DUMPS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-OPEN-ITEMS-JSON-HAS-NO-APPEND-HELPER-AND-ITS-SERIALISATION-IS-NOT-REPRODUCIBLE-BY-JSON-DUMPS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] docs/claude/OPEN-ITEMS.json is the one register EVERY session must edit and it has no append helper — a naive read-append-write reformats all 1,148 lines, the exact trap backlog_append.py was built to close one file over"
+}

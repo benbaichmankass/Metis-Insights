@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A PR opened by the automerge route either (a) reliably receives the required suite without a follow-up push, or (b) is DETECTED and reported when it has not -- e.g. the workflow asserts, after opening, that the required contexts are present on the head sha and fails loudly if they are not. [!] `open the PR first, then push` IS NOT A FIX. It is the workaround this manager used, it is already written into an arming file for a different reason, and it is a procedure a session must remember -- this repo's own record on `reminder is not a mechanism` (MI-15, twice) is why that is not accepted. [!] NOR does 'the manager will notice': the whole finding is that it is indistinguishable from normal waiting.",
+    "kind": "event"
+  },
+  "id": "PI-20260923-JN54P2HH-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager), 2026-09-23 -- found while closing out, because two of my own PRs would not land",
+    "rerun": "For any open PR from the automerge route: mcp__github__pull_request_read method=get_check_runs. TWO runs named `watch` and `open-and-automerge` and nothing else means the required suite never attached. [!] DO NOT use get_status -- this repo reports through check runs, and get_status returns total_count 0 with state `pending` on a perfectly healthy PR, which is a false positive for this finding. [!] AND DO NOT read `mergeable_state: blocked` as evidence either way: it is the same value a healthy in-flight PR shows."
+  },
+  "routed_to": "unrouted -- small, and it silently strands self-landing PRs",
+  "state": "queued",
+  "what": "A PR OPENED BY THE `claude-pr-automerge` WORKFLOW GETS NO REQUIRED CHECKS UNTIL SOMETHING IS PUSHED TO IT AFTERWARDS, AND IT LOOKS EXACTLY LIKE A PR WAITING ON CI. MEASURED 2026-09-23 over all SIX PRs this manager session opened through that route (#12766, #12767, #12786, #12787, #12788, #12789) -- the population is stated because the pattern is the evidence: the four that carry the full required suite (guards, pytest-run, pytest-collect, repo-inventory) each received a commit AFTER the PR was already open. The two that did not (#12788, #12789) carry exactly TWO check runs, `watch` and `open-and-automerge`, both of which are push-triggered on the branch rather than pull_request-triggered. The required suite never attached, so auto-merge waits on checks that will never arrive. [!] THE FAILURE MODE IS SILENCE. `mergeable_state` reads `blocked`, which is the SAME value a PR shows while its checks are legitimately still running. Nothing distinguishes 'waiting for CI' from 'CI was never going to run'. #12788 and #12789 sat this way for 45+ minutes and would have sat indefinitely. This is the same collapse as the E31 `dirty`-with-zero-checks case the lane sweep already warns about, one layer over: there the state was wrong, here the state is right and MEANS something different than it reads. [!] THE LIKELY MECHANISM, stated as a hypothesis because it was NOT directly verified: GitHub does not fire `pull_request` workflows for a PR opened by GITHUB_TOKEN (github-actions[bot]), to prevent recursive workflow runs. If that is the cause it is documented GitHub behaviour and not a repo bug -- but the repo's self-land route depends on it not biting, and it does. Whoever takes this should CONFIRM the mechanism before fixing it; the observation above stands either way."
+}
