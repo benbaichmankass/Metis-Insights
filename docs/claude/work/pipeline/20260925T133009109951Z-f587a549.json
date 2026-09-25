@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "diag log_file (or a dedicated endpoint) returns report-30d.json from the VM, OR R4's reporter is retired in favour of scripts/ops/r4_demotion_gate.py's workflow summary and the unit is removed",
+    "kind": "event"
+  },
+  "id": "PI-20260925-WCUZRAA3-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_019G7L8J95UnqMw1WCUZraA3 (B3 lane, branch claude/w4-b3-demotion-gate)",
+    "rerun": "scripts/ops/diag_fetch.sh 'log_file?name=research_results_gate' -- expect unknown_log_file today; and scripts/ops/diag_fetch.sh 'journalctl?unit=ict-research-results-gate&lines=40' for the fire cadence"
+  },
+  "state": "queued",
+  "what": "R4's observe-only report (runtime_logs/research_results_gate/report-{7d,30d}.json, written by ict-research-results-gate on the live VM -- journalctl confirms writes 2026-09-25 10:46Z/11:40Z/11:46Z/12:52Z) is NOT in /api/diag/log_file's allowlist, so no session can read the file R4 exists to produce: written-never-read. B3 lane had to reproduce R4 from GET /api/bot/performance instead (same _aggregate, same verdict function). Also: the 'once a day' timer fired 4 times in ~2h on 2026-09-25 -- unexplained (deploy restarts + Persistent=true is the likely cause, NOT verified)."
+}

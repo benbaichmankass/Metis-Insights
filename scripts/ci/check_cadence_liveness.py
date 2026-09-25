@@ -195,6 +195,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    just has not been declared yet. Measured 2026-09-22: 9 of the 18
     #    scheduled workflows contain a commit-to-main / git push step. Naming
     #    the output path for each is the obvious next shrink of this file.
+    "r4-demotion-gate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch); a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
     "econ-calendar-produce.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "econ-event-study.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "macro-producer-liveness.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
