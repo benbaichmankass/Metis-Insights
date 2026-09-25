@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/research findings doc + docs/DOCUMENT-INDEX.md registration + docs/claude/work/pipeline/*.json records only (two intent=update appends, two new items, all via scripts/ops/pipeline.py's validated append()). No runtime, order-path, or config touched; config/mandates.yaml is explicitly NOT edited -- the replacement blocked_until text is a proposal in this PR body only, for the operator to grant."
+}
