@@ -1447,6 +1447,28 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "research-queue-decision-rule-guard",
+        # Checklist C1: a NEW research/queue unit must pre-register a
+        # decision_rule; an existing one is grandfathered. Diff-scoped on the
+        # queue directories themselves — unlike pr-landing-guard, the property
+        # this checks (does a unit added HERE carry a decision_rule) is a
+        # function of the files a queue-touching PR adds, so a PR that leaves
+        # the queue alone has nothing to grade.
+        #
+        # Self-test first: its failure path REFUSES a unit, so a guard that
+        # started over-refusing existing, grandfathered work would be worse
+        # than the gap it closes.
+        "when": {"globs": ["research/queue/**"]},
+        "steps": [
+            ["python3", "scripts/ci/check_research_queue_decision_rule.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_research_queue_decision_rule.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         "name": "collapsed-state-guard",
         "when": {"regex": r"\.py$"},
         # Self-test FIRST, so a guard that silently stopped matching cannot read
