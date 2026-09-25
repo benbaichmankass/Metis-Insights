@@ -153,6 +153,34 @@ created the record. This sentence travels with the grant, in the note R15 prints
 on every admission, so a reader of a landed Tier-2 PR meets it rather than
 having to find it here.
 
+AND ONE TIER-3 SHAPE LANDS ON A MANDATE (R16, 2026-09-25)
+----------------------------------------------------------
+Operator decision, 2026-09-25 ("Build auto-land route"), against pipeline item
+`PI-20260925-WCUZRAA3-0002`: B3 (#12963) made the Stage-2 DEMOTION decision
+automatic, but nothing could LAND it, so the ladder was *"decided + proposed
+automatically, landed by hand"*.
+
+A third `landing:` value — `"mandate"` — routes a PR to
+`scripts/ci/check_mandate_autoland.py`, which admits EXACTLY ONE diff shape:
+removals of legs from `strategies:` rosters in `config/accounts.yaml`, each
+carrying a committed mirror-window record and a firing record naming a GRANTED
+`derisk_only` mandate, the live account and its mirror cut together, authored by
+`.github/workflows/r4-demotion-gate.yml` and by no session. Read that module's
+docstring for the eight clauses and for what they do NOT establish.
+
+⚠️ **R4 IS UNCHANGED AND IS NOT WEAKENED.** `landing: "self"` at tier 3 still
+fails R4 outright, and no record, marker or mandate buys one. R16 is a
+DIFFERENT route whose separation property is stronger than R15's: the
+authorization is `config/mandates.yaml`, which the operator grants and which the
+diff MAY NOT CONTAIN; the decision is re-derived by `mandate_resolver` over the
+MERGE-BASE configs; and the edit may only ever REMOVE exposure. A wrong verdict
+on this route takes a leg off a real-money book. A wrong verdict on the route
+R4 bars puts one on.
+
+⚠️ **AND IT IS BUILT, NOT ARMED.** A8 of that module requires `autoland: true`
+on the granted mandate entry, and no entry carries it. Arming is the operator's
+act — the same asymmetry that makes granting a mandate theirs.
+
 AND THE ROUTE MAY NOT LAND A CHANGE TO ITSELF (R12)
 ---------------------------------------------------
 A PR that edits the landing machinery is Tier-1 by the canonical doc's own list
@@ -219,6 +247,9 @@ STATES, NEVER COLLAPSED
   ``declared_self_land``          — Tier-1, armed, diff inside the Tier-1
                                     surface. Lands itself on green.
   ``declared_hold``               — a typed, verified reason to stay held.
+  ``declared_mandate_autoland``   — Tier-3, the one mandate-authorized shape,
+                                    every clause of `check_mandate_autoland`
+                                    verified. Lands itself on green.
   ``declared_needs_approval``     — Tier-2/3, correctly not armed.
 
 Run standalone with ``--base origin/main``, or ``--self-test`` to plant each
@@ -239,6 +270,7 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import board_pointer  # noqa: E402
+import check_mandate_autoland as autoland  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -1222,9 +1254,11 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
     # R1 / R2 / R3
     if tier not in (1, 2, 3):
         fails.append(f"R1 {decl_rel} `tier` is {tier!r}; must be 1, 2 or 3.")
-    if landing not in ("self", "hold"):
+    if landing not in ("self", "hold", autoland.LANDING_VALUE):
         fails.append(f"R2 {decl_rel} `landing` is {landing!r}; must be "
-                     f'"self" (lands itself on green) or "hold" (a human merges).')
+                     f'"self" (lands itself on green), "hold" (a human merges), or '
+                     f'"{autoland.LANDING_VALUE}" (the one mandate-authorized Tier-3 shape — '
+                     f"see scripts/ci/check_mandate_autoland.py).")
     if len(why) < MIN_TEXT:
         fails.append(
             f"R3 {decl_rel} `why` is {len(why)} chars; needs at least {MIN_TEXT}. "
@@ -1360,6 +1394,37 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                     f"RETIRED by the 2026-09-21 operating reset; that file must "
                     f"not be resurrected.) "
                     + _board_claim_sentence())
+    elif landing == autoland.LANDING_VALUE:
+        # R16 — the mandate auto-land route. See the module docstring above and
+        # `scripts/ci/check_mandate_autoland.py` for the eight clauses.
+        #
+        # ⚠️ EVERY CLAUSE IS DELEGATED, NONE IS RESTATED HERE. Two copies of a
+        # safety rule is one copy that goes stale, and this file already carries
+        # the repo's worked example of that (`_board_claim_sentence`, whose
+        # hardcoded literal went false in twenty hours).
+        if tier != 3:
+            fails.append(
+                f"R16 {decl_rel} declares `landing: \"{autoland.LANDING_VALUE}\"` at tier "
+                f"{tier}. A Stage-2 roster edit is Tier-3 by TIER3_PATHS "
+                f"(config/accounts.yaml), and declaring it lower is under-declaring the "
+                f"one thing this route puts at stake. Tier-1 and Tier-2 work lands by "
+                f"`self` and its own rules.")
+        if armed:
+            fails.append(
+                f"R16 this branch ARMS the ordinary auto-merge route ({arm_rel} is "
+                f"added/modified) while declaring `landing: \"{autoland.LANDING_VALUE}\"`. "
+                f"The mandate route arms itself from "
+                f"{autoland.WORKFLOW_REL} and is graded by THIS check; the request file "
+                f"would route the same merge past a different gate. One route, or none.")
+        ok, afails, anotes = autoland.verdict(root, base, branch, decl, changed, slug)
+        fails.extend(afails)
+        notes.extend(anotes)
+        if ok:
+            notes.append(
+                "R16 ADMISSIBLE — a mandate-authorized, removal-only Stage-2 roster cut. "
+                "⚠️ What this establishes and what it does not is stated in "
+                "scripts/ci/check_mandate_autoland.py's docstring; it travels with the "
+                "grant rather than living only there.")
     else:  # landing == "hold"
         # R10 — the bite.
         if armed:
@@ -1432,9 +1497,12 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
                 f"dependency a reader can clear.")
 
     if fails:
-        return ("undeclared" if landing == "self" else "declared_hold", fails, notes)
+        return ("undeclared" if landing in ("self", autoland.LANDING_VALUE)
+                else "declared_hold", fails, notes)
     if landing == "self":
         return ("declared_self_land", [], notes)
+    if landing == autoland.LANDING_VALUE:
+        return ("declared_mandate_autoland", [], notes)
     return ("declared_needs_approval" if tier != 1 else "declared_hold", [], notes)
 
 
@@ -2031,10 +2099,49 @@ def self_test() -> int:
             else:
                 print(f"self-test: '{name}' correctly refused")
 
+    # ── R16, the mandate auto-land route ───────────────────────────────────
+    # ⚠️ THE CLAUSES ARE NOT RE-PLANTED HERE, DELIBERATELY. They belong to
+    # `check_mandate_autoland.py`, whose own suite carries them — including the
+    # POSITIVE control (an admissible cut that LANDS), which needs a fixture
+    # with real rosters, evidence and bot-authored commits that this sandbox
+    # does not build. `run_guards.py` runs BOTH `--self-test`s, and
+    # `check_selftest_wiring.py` verifies that wiring rather than trusting it.
+    # What is planted here is only what THIS file decides: the tier, the
+    # one-route rule, and that the delegation actually happens.
+    r16_plants = {
+        "R16 `landing: \"mandate\"` declared at tier 1": (
+            lambda r: _declare(r, tier=1, landing=autoland.LANDING_VALUE,
+                               why="a roster cut declared as though it were docs work"),
+            "at tier 1"),
+        "R16 the mandate route ALSO arming the ordinary auto-merge route": (
+            lambda r: (_declare(r, tier=3, landing=autoland.LANDING_VALUE,
+                                why="a mandate-authorized Stage-2 roster cut, double-armed"),
+                       _arm(r)),
+            "ARMS the ordinary auto-merge route"),
+        "R16 the mandate route on an ordinary SESSION branch (delegation happens)": (
+            lambda r: _declare(r, tier=3, landing=autoland.LANDING_VALUE,
+                               why="a session branch claiming the automation route"),
+            "A7 branch"),
+    }
+    for name, (plant, needle) in r16_plants.items():
+        with tempfile.TemporaryDirectory() as td:
+            root = _sandbox(Path(td))
+            plant(root)
+            _commit(root)
+            state, fails, _ = check(root, "main", "claude/demo")
+            if not any(needle in f for f in fails):
+                print(f"::error::self-test FAILED — planted '{name}' and no failure "
+                      f"mentioned {needle!r}. state={state} fails={fails}")
+                bad += 1
+            else:
+                print(f"self-test: '{name}' correctly refused")
+
     if bad:
         return 1
     print(f"self-test OK — {len(positives) + 3} positive controls hold and all "
-          f"{len(plants) + len(r15_plants)} planted defects fail the guard")
+          f"{len(plants) + len(r15_plants) + len(r16_plants)} planted defects fail "
+          f"the guard (R16's own clauses are planted in "
+          f"check_mandate_autoland.py --self-test, which run_guards.py runs too)")
     return 0
 
 
