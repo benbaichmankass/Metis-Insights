@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "PR #12958 is merged and the fix is deployed to the live VM.",
+    "kind": "event"
+  },
+  "id": "PI-20260925-HJPL5ABP-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01Ljhs6sFAdWHdMDhJpL5aBP, E35 post-merge test run",
+    "rerun": "python3 -c \"import time;print(time.monotonic())\"; grep -n \"_config_symbols_state\\|_CONFIG_SYMBOLS_TTL_S\" src/runtime/intents.py  # bug holds while the sentinel is at=0.0 compared against monotonic()"
+  },
+  "routed_to": "PR #12958 (branch claude/w4-boot-window-symbols) -- manager to get operator OK and merge",
+  "state": "routed",
+  "what": "[bug] src/runtime/intents.py::supported_symbols() caches config-derived symbols in _config_symbols_state = {'at': 0.0, ...} and refreshes only when time.monotonic() - at > _CONFIG_SYMBOLS_TTL_S (60s). time.monotonic() is time-since-boot on Linux, so for the first 60s after a machine boots the empty cache counts as FRESH and only the static SUPPORTED_SYMBOLS base (BTCUSDT, MES, MGC, MHG) is accepted: every StrategyIntent on ETHUSDT/SOL/XRP/equities raises ValueError. OBSERVED 2026-09-25 ~08:43Z by the manager: tests/test_e35_per_account_election.py failed on a just-restarted container (monotonic ~40s) with 'StrategyIntent.symbol must be one of [BTCUSDT, MES, MGC, MHG]; got ETHUSDT', and passed 325/325 on rerun at monotonic > 60s. Live exposure: a trader started within 60s of a VM reboot refuses non-base intents for up to a minute (the VM normally has long uptime, so this bites only after a reboot). Fix: a None/-inf sentinel (or 'loaded' flag) so the first call always loads. Tier-2 (order-path read), small. UPDATE 2026-09-25 (lane claude/w4-boot-window-symbols, Tier-2, ceiling $12): confirmed live-VM exposure is real but narrow -- time.monotonic() tracks time-since-boot at the kernel level, so a bare ict-trader-live.service restart does NOT reset it; only an actual VM reboot re-opens the ~60s window. Reproduced with a new regression test (monkeypatches time.monotonic() to 5.0, asserts every accounts.yaml-declared symbol is accepted on the first-ever call) -- failed against the pre-fix code, passes after. Fixed by defaulting the cache state's \"at\" field to None instead of 0.0. Ran tests/test_supported_symbols_config_driven.py (6) + test_multi_strategy_intents.py (30) + test_roster_symbol_union.py (10) + test_mgc_mhg_pullback_1d.py (16): 82 passed, 0 failed. Grepped src/ for the same monotonic-TTL-at-0.0-sentinel pattern (positive control: matches the pre-fix line in intents.py); the only other real hit is src/web/api/routers/market_ws.py:84 (last_fetch.get(sym, 0.0) compared against time.monotonic() inside the candle-stream loop) -- same defect class, much smaller blast radius (skips one poll, self-corrects next loop iteration, not a validation gate), NOT fixed here (out of this lane's scope) and flagged in the PR body instead of filed as a separate pipeline row. PR: https://github.com/benbaichmankass/Metis-Insights/pull/12958 (branch claude/w4-boot-window-symbols) -- Tier-2, landing held per .github/pr-landing/w4-boot-window-symbols.json; CI must go green, then the manager gets the operator's OK and merges."
+}
