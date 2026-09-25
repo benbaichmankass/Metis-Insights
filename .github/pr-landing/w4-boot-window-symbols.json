@@ -1,5 +1,7 @@
 {
   "tier": 2,
   "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 order-path read (StrategyIntent symbol validation, PI-20260925-HJPL5ABP-0001) — needs the operator's OK before the manager merges.",
   "why": "PI-20260925-HJPL5ABP-0001: order-path read (StrategyIntent symbol validation). Tier-2 — CI green then hold for the manager to get the operator's OK and merge."
 }
