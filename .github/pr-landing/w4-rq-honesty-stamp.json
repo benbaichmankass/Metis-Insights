@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "research/queue/*.yaml (flip 3 blocked units to queued + declare run.inputs.research_unit, now that #12739 already put the honesty-stamp inputs on both target workflows), tests/test_research_queue.py (new W4 tests incl. a negative control), and docs/claude/work/PIPELINE.jsonl (one filed finding). No src/, no config/, no order path, no deploy/, no live-VM runtime file -- Tier-1 by path (research/tests/docs allowlist)."
+}

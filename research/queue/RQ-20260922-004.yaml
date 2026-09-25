@@ -1,6 +1,6 @@
 id: RQ-20260922-004
 title: Does xrp_pullback_2h's Stage-0 pass hold once the two levers its harness omits are simulated?
-status: blocked
+status: queued
 cadence: once
 kind: experiment
 
@@ -95,31 +95,14 @@ routing:
     its own candles; no VM, no trainer-resident data. Verified by reading the
     workflow's workflow_dispatch inputs, 2026-09-22.
 
-blocked_on:
-  - what: >-
-      THE QUEUE'S OWN HONESTY STAMP IS NOT IMPLEMENTED ON THIS WORKFLOW.
-      This unit's feasibility declaration grades `accruing`, and
-      scripts/research/dispatch_queue.py REFUSES to fire an `accruing` unit
-      unless it declares `run.inputs.research_unit`, so the producer stamps
-      the label onto every row it lands ("without it 'do not read this as a
-      test result' is a claim the rows cannot carry"). But `m20-exit-lever-sweep.yml`
-      declares no `research_unit` input, and the dispatcher's own note is
-      explicit that `gh workflow run -f <input-the-workflow-never-declared>`
-      ERRORS. MEASURED 2026-09-22 by reading the workflow_dispatch inputs of
-      e35-bracket-sweep.yml, m20-exit-lever-sweep.yml,
-      pullback-frac-cross-leg-sweep.yml, research-exit-head-build.yml and
-      regime-debt-matrix.yml: only e35-bracket-sweep.yml declares
-      `research_unit` (and `power_state`). So an `accruing` or
-      `underpowered` unit can route to exactly one of them. Declaring the
-      input anyway would fail at fire time; omitting it is refused at grade
-      time. The unit is therefore undispatchable as written, and saying so is
-      better than leaving it `queued` to fail on dispatch.
-    ref: PI-20260922-RESEARCH-UNIT-STAMP-ONLY-ON-E35
-    clears_when: >-
-      `m20-exit-lever-sweep.yml` declares `research_unit` (and ideally `power_state`)
-      as workflow_dispatch inputs and stamps them onto the rows it lands, as
-      e35-bracket-sweep.yml already does. Then flip this unit to `queued` and
-      add `research_unit: RQ-20260922-004` to run.inputs.
+cleared_blocker: >-
+  PI-20260922-RESEARCH-UNIT-STAMP-ONLY-ON-E35 CLEARED — W4, this session.
+  Same clearance as RQ-20260922-003: `m20-exit-lever-sweep.yml` now declares
+  `research_unit` and `power_state` as workflow_dispatch inputs (landed in
+  #12739) and threads them into every landed row via
+  `.github/actions/research-result`. Flipped to `queued` and
+  `research_unit: RQ-20260922-004` added to run.inputs below, per this
+  unit's own `clears_when`.
 
 run:
   workflow: m20-exit-lever-sweep.yml
@@ -128,6 +111,7 @@ run:
     levers: trail_decay
     split_mode: oos-trades
     tp_cap_pct: '0.099'
+    research_unit: RQ-20260922-004
   note: >-
     The lever-OFF arm is a SECOND dispatch with
     `without_declared_levers: trail_decay` and no `levers`. Two arms, two

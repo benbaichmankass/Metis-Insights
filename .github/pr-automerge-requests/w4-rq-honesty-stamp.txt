@@ -1,0 +1,2 @@
+W4 -- RQ honesty stamp. Opt-in marker for claude-pr-automerge.yml.
+Tier-1 self-land per .github/pr-landing/w4-rq-honesty-stamp.json.
