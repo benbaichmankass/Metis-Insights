@@ -135,12 +135,17 @@ SUPPORTED_SYMBOLS: frozenset[str] = frozenset({"BTCUSDT", "MES", "MGC", "MHG"})
 # failure leaves the cached set empty and validation falls back to the
 # static base — never *narrower* than the pre-config-driven behaviour.
 _CONFIG_SYMBOLS_TTL_S = 60.0
-_config_symbols_state: Dict[str, Any] = {"at": 0.0, "symbols": frozenset()}
+# ``"at": None`` (never populated) rather than ``0.0`` — a monotonic clock
+# under the TTL (a just-booted host or fresh container; PI-20260925-HJPL5ABP-0001)
+# would otherwise satisfy ``now - 0.0 <= TTL`` on the very first call and read
+# the never-populated cache as fresh, silently narrowing validation to the
+# static base for that window.
+_config_symbols_state: Dict[str, Any] = {"at": None, "symbols": frozenset()}
 
 
 def _reset_config_symbols_cache() -> None:
     """Test hook — force the next ``supported_symbols()`` to re-read config."""
-    _config_symbols_state["at"] = 0.0
+    _config_symbols_state["at"] = None
     _config_symbols_state["symbols"] = frozenset()
 
 
@@ -161,7 +166,8 @@ def supported_symbols() -> frozenset[str]:
     it. Widening a whitelist cannot strand a leg; narrowing one can.
     """
     now = time.monotonic()
-    if now - _config_symbols_state["at"] > _CONFIG_SYMBOLS_TTL_S:
+    at = _config_symbols_state["at"]
+    if at is None or now - at > _CONFIG_SYMBOLS_TTL_S:
         symbols: set = set()
         accounts: Dict[str, Any] = {}
         try:

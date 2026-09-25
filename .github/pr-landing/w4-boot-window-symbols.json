@@ -1,0 +1,5 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "why": "PI-20260925-HJPL5ABP-0001: order-path read (StrategyIntent symbol validation). Tier-2 — CI green then hold for the manager to get the operator's OK and merge."
+}
