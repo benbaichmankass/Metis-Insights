@@ -41,6 +41,10 @@ on:
       # a question could not be read, and its death is otherwise silent until
       # its receipt goes stale in CI 36h later.
       - "research-loss-detector"
+      # B3 (2026-09-25): the R4 demotion gate. A scheduled run that dies
+      # silently means the Stage-2 demotion signal is not being read at all,
+      # which looks exactly like "nothing needed demoting".
+      - r4-demotion-gate
       # The manager-side queue watcher. ⚠️ ITS SILENCE IS INDISTINGUISHABLE FROM
       # A QUIET QUEUE unless something watches the run itself -- which is the
       # whole failure class it exists for. It also FAILS DELIBERATELY when an

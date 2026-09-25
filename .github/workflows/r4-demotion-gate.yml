@@ -1,0 +1,117 @@
+# R4 as the DEMOTION gate (checklist row B3) — the enforcing runner.
+#
+# Once a day, after the VM's observe-only R4 reporter (ict-research-results-gate,
+# 07:12Z), read the SAME per-leg rollup R4 reads — GET /api/bot/performance
+# (real money = perStrategy, mirror = paperPortfolio) — and run
+# scripts/ops/r4_demotion_gate.py --apply. It can only REMOVE a leg from a
+# Stage-2 roster (bybit_2 / alpaca_live and their mirrors), only on R4
+# `would_block` with negative R, and only when scripts/ops/mandate_resolver.py
+# says the granted mandate MD-DEMOTE-S2-S1 FIRES. See the script's docstring for
+# the mechanism (a roster cut, never `execution: shadow`) and why.
+#
+# WHAT IT DOES ON A FIRE: pushes a branch carrying the roster cut plus its
+# evidence (comms/mandate_evidence/mirror_window/, comms/mandate_firings/),
+# opens a NON-draft PR, and opens a `system-action` send-ping issue so the
+# operator gets the realtime ping the mandate's evidence_required names.
+#
+# ⚠️ WHAT IT DOES NOT DO: MERGE. The PR declares `landing: hold`. The landing
+# machinery (pr-landing-guard) has no route yet for a mandate-authorized
+# roster edit to self-land, and adding one is a changes_landing_machinery
+# decision for the operator — not something this workflow grants itself.
+# Until that exists the demotion is DECIDED and PROPOSED automatically and
+# LANDED by a human merge.
+#
+# On a run where nothing fires it changes nothing and exits 0; the step
+# summary carries the per-leg verdict table either way.
+name: r4-demotion-gate
+
+on:
+  schedule:
+    - cron: "41 7 * * *"
+  workflow_dispatch:
+    inputs:
+      window:
+        description: "performance window (the declared demotion window)"
+        default: "30d"
+      apply:
+        description: "true = enforce (open the PR on a FIRE); false = dry run"
+        default: "true"
+
+concurrency:
+  group: r4-demotion-gate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WINDOW: ${{ github.event.inputs.window || '30d' }}
+      APPLY: ${{ github.event.inputs.apply || 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -q pyyaml
+
+      - name: Fetch the R4 input (GET /api/bot/performance)
+        run: |
+          set -euo pipefail
+          curl -fsS -m 60 --retry 3 --retry-delay 5 \
+            "https://ict-bot.duckdns.org/api/bot/performance?window=${WINDOW}" -o perf.json
+          python3 -c "import json;d=json.load(open('perf.json'));assert 'perStrategy' in d and 'paperPortfolio' in d, 'not a performance payload'"
+
+      - name: Run the gate
+        id: gate
+        run: |
+          set -euo pipefail
+          flag=""; [ "$APPLY" = "true" ] && flag="--apply"
+          PYTHONPATH=. python3 scripts/ops/r4_demotion_gate.py --perf-json perf.json \
+            --window "$WINDOW" $flag --json > gate.json
+          python3 -c "import json,sys;sys.path.insert(0,'scripts/ops');import r4_demotion_gate as g;print(g.render(json.load(open('gate.json'))))" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          n=$(python3 -c "import json;print(len(json.load(open('gate.json'))['demoted']))")
+          echo "demoted=$n" >> "$GITHUB_OUTPUT"
+
+      - name: Open the demotion PR and the realtime ping
+        if: steps.gate.outputs.demoted != '0' && env.APPLY == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch="automation/r4-demotion-${{ github.run_id }}"
+          slug="${branch//\//-}"
+          legs=$(python3 -c "import json;print(', '.join(d['leg'] for d in json.load(open('gate.json'))['demoted']))")
+          mkdir -p .github/pr-landing
+          python3 - "$slug" "$legs" <<'PY'
+          import json, sys
+          slug, legs = sys.argv[1], sys.argv[2]
+          json.dump({"tier": 3, "landing": "hold", "hold_reason": "tier_2_3_needs_approval",
+                     "hold_text": f"MD-DEMOTE-S2-S1 FIRED for {legs}; no self-land route exists "
+                                  "for a mandate-authorized roster cut, so a human merges",
+                     "why": "automated Stage-2 roster cut under a granted derisk_only mandate"},
+                    open(f".github/pr-landing/{slug}.json", "w"), indent=2)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add .github/pr-landing/"$slug".json
+          git commit -m "MD-DEMOTE-S2-S1: R4 demotes ${legs} from Stage 2 (${WINDOW} window)"
+          git push -u origin "$branch"
+          body=$(python3 -c "import json;d=json.load(open('gate.json'));print('R4 demotion gate FIRED under MD-DEMOTE-S2-S1 (run ${{ github.run_id }}).\n\n\`\`\`\n'+json.dumps({'demoted':d['demoted'],'refused':d['refused'],'written':d['written']},indent=2)+'\n\`\`\`\n\nEvidence: comms/mandate_evidence/mirror_window/ and comms/mandate_firings/ in this diff.')")
+          gh pr create --base main --head "$branch" \
+            --title "MD-DEMOTE-S2-S1: demote ${legs} (R4, ${WINDOW})" --body "$body"
+          gh issue create --label system-action \
+            --title "send-ping: R4 demotion gate fired" \
+            --body "$(printf 'action: send-ping\npriority: high\nmessage: R4 demotion gate FIRED (MD-DEMOTE-S2-S1): %s off Stage 2, %s window. PR opened by run %s; roster unchanged until it merges.\nreason: MD-DEMOTE-S2-S1 evidence_required names a realtime ping' "$legs" "$WINDOW" "${{ github.run_id }}")"

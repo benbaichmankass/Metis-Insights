@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator decides whether a mandate FIRE may self-land (and the route is built and observed once), OR states that a human merge stays the control",
+    "kind": "event"
+  },
+  "id": "PI-20260925-WCUZRAA3-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_019G7L8J95UnqMw1WCUZraA3 (B3 lane)",
+    "rerun": "grep -n 'mandate' scripts/ci/check_pr_landing.py -- expect no route keyed on a comms/mandate_firings record; and read the landing declaration an r4-demotion-gate run writes (tier 3, landing hold)"
+  },
+  "state": "queued",
+  "what": "No landing route exists for a MANDATE-AUTHORIZED roster edit. MD-DEMOTE-S2-S1 is granted (config/mandates.yaml) and B3's workflow (.github/workflows/r4-demotion-gate.yml) opens the demotion PR automatically, but pr-landing-guard only lets Tier-1 or recorded-approval Tier-2 self-land, so the cut still waits on a human merge -- the ladder is 'decided + proposed automatically, landed by hand'. Building the route is a changes_landing_machinery decision (R12) for the operator."
+}
