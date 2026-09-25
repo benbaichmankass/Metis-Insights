@@ -77,8 +77,30 @@ def _record(leg, cfg, *, slippage=5.0, n=56, folds_net=(4.8583, 2.2583, 8.3058, 
     }
 
 
-D3 = {"venue_roundtrip_bps_used": {"bybit_perps": 0.868, "alpaca_equities": None,
-                                   "ibkr_futures": None}}
+def _r3(verdicts=None, *, modelled=5.0, as_of="2026-09-25T13:23:21+00:00"):
+    """A record in the shape `scripts/research/r3_cost_fidelity.py` writes.
+
+    `verdicts` maps leg -> the rule's per-leg verdict string, or to a full
+    `{"verdict": ..., "from_account": ..., "basis": ...}` block when a test
+    cares about the deciding cell. `modelled` is what R3 says it GRADED
+    against, which the resolver cross-checks against the committed record.
+    """
+    if verdicts is None:
+        # The shape of the real 2026-09-25 record: the perp leg has a market
+        # cell that decided, the equity leg has no measured exits at all.
+        verdicts = {LEG: "consistent", EQ_LEG: "insufficient_n"}
+    per_leg = {}
+    for leg, v in verdicts.items():
+        block = dict(v) if isinstance(v, dict) else {
+            "verdict": v,
+            "from_account": "bybit_2" if leg == LEG else None,
+            "basis": "market" if leg == LEG else None,
+        }
+        per_leg[leg] = {"modelled_slippage_bps": modelled, "leg": block}
+    return {"as_of": as_of, "rule": {"id": mr.R3_RULE_ID}, "per_leg": per_leg}
+
+
+R3_DATED = f"{mr.R3_DIR_REL}/2026-09-25.json"
 
 
 def _w(root: Path, rel: str, data, as_yaml=False):
@@ -89,7 +111,9 @@ def _w(root: Path, rel: str, data, as_yaml=False):
 
 @pytest.fixture
 def repo(tmp_path):
-    def build(mandates=None, accounts=None, records=None, d3=D3, firings=(), mirror=None):
+    def build(mandates=None, accounts=None, records=None, r3=..., firings=(), mirror=None):
+        if r3 is ...:
+            r3 = _r3()
         _w(tmp_path, mr.MANDATES_REL, mandates or MANDATES, as_yaml=True)
         _w(tmp_path, mr.ACCOUNTS_REL, accounts or ACCOUNTS, as_yaml=True)
         _w(tmp_path, mr.STRATEGIES_REL, {"strategies": {LEG: LEG_CFG, EQ_LEG: EQ_CFG}}, as_yaml=True)
@@ -100,8 +124,8 @@ def repo(tmp_path):
             if rec.get("source_run"):
                 (tmp_path / rec["source_run"]).parent.mkdir(parents=True, exist_ok=True)
                 (tmp_path / rec["source_run"]).write_text("{}\n")
-        if d3 is not None:
-            _w(tmp_path, f"{mr.D3_DIR_REL}/2026-09-24.json", d3)
+        if r3 is not None:
+            _w(tmp_path, R3_DATED, r3)
         for i, f in enumerate(firings):
             _w(tmp_path, f"{mr.FIRINGS_DIR_REL}/{i}.json", f)
         if mirror is not None:
@@ -124,7 +148,11 @@ def test_fire_s1_to_s2_proposes_live_and_mirror(repo):
     assert res["proposal"]["roster_add"] == {"bybit_2": [LEG], "bybit_portfolio": [LEG]}
     assert res["proposal"]["writes_nothing"] is True
     assert res["caveats"] == []  # perps are measured, no placeholder caveat
-    assert res["evidence"]["cost_fidelity"]["realized_bps"] == 0.868
+    cf = res["evidence"]["cost_fidelity"]
+    assert cf["verdict"] == "consistent"          # the Gate-1 pass, per leg
+    assert cf["from_account"] == "bybit_2" and cf["basis"] == "market"
+    assert cf["record"] == R3_DATED and cf["rule"] == mr.R3_RULE_ID
+    assert cf["basis_of_comparison"] == "MEASURED"
     # 1 auto leg on a 5-leg roster = 20% <= 25%
     assert res["evidence"]["cap"]["auto_promoted_after"] == 1
     assert res["evidence"]["cap"]["roster_after"] == 5
@@ -133,9 +161,14 @@ def test_fire_s1_to_s2_proposes_live_and_mirror(repo):
 def test_fire_equity_leg_carries_the_provisional_cost_caveat(repo):
     res = _s1s2(repo(), leg=EQ_LEG, account="alpaca_live")
     assert res["verdict"] == "FIRE", res
-    assert res["caveats"] == [mr.PROVISIONAL_CAVEAT]
     assert "E62" in res["caveats"][0] and "PLACEHOLDER" in res["caveats"][0]
-    assert res["evidence"]["cost_fidelity"]["basis"] == "PROVISIONAL"
+    assert res["caveats"][0] == mr.PROVISIONAL_CAVEAT
+    # ...and a SECOND caveat naming the state R3 is actually in, so a reader is
+    # never told "provisional" without being told there is no verdict either.
+    assert len(res["caveats"]) == 2
+    assert "insufficient_n" in res["caveats"][1]
+    assert "NO DECISIVE COST-FIDELITY VERDICT" in res["caveats"][1]
+    assert res["evidence"]["cost_fidelity"]["basis_of_comparison"] == "PROVISIONAL"
 
 
 def test_fire_s0_to_s1(repo):
@@ -302,13 +335,99 @@ def test_refuse_not_soaked(repo):
     _refused(_s1s2(repo(accounts=accts)), "R-NOT-SOAKED")
 
 
-def test_refuse_cost_fidelity_when_realized_exceeds_modelled(repo):
-    d3 = {"venue_roundtrip_bps_used": {"bybit_perps": 6.0}}
-    _refused(_s1s2(repo(d3=d3)), "R-COST-FIDELITY")
+def test_refuse_promotion_on_a_divergent_r3_verdict(repo):
+    res = _s1s2(repo(r3=_r3({LEG: "divergent"})))
+    _refused(res, "R-COST-FIDELITY")
+    assert "divergent" in res["detail"]
+    assert res["evidence"]["cost_fidelity"]["verdict"] == "divergent"
 
 
-def test_refuse_cost_fidelity_when_perps_unmeasured(repo):
-    _refused(_s1s2(repo(d3=None)), "R-COST-FIDELITY")
+def test_refuse_promotion_on_an_inconclusive_r3_verdict(repo):
+    # The CI straddles the threshold: the measurement exists and cannot decide.
+    res = _s1s2(repo(r3=_r3({LEG: "inconclusive"})))
+    _refused(res, "R-COST-FIDELITY")
+    assert "inconclusive" in res["detail"]
+
+
+def test_insufficient_n_does_not_fire_and_consistent_does(repo):
+    """The negative control: ONE field differs between these two runs.
+
+    Without the FIRE half, a resolver that refused every promotion outright
+    would pass the refusal half, which is the whole reason this is one test.
+    """
+    assert _s1s2(repo(r3=_r3({LEG: "consistent"})))["verdict"] == "FIRE"
+    res = _s1s2(repo(r3=_r3({LEG: "insufficient_n"})))
+    _refused(res, "R-COST-FIDELITY")
+    assert "insufficient_n" in res["detail"]
+
+
+def test_refuse_promotion_on_a_no_record_r3_verdict(repo):
+    _refused(_s1s2(repo(r3=_r3({LEG: "no_record"}))), "R-COST-FIDELITY")
+
+
+def test_refuse_promotion_when_the_leg_is_absent_from_the_r3_record(repo):
+    # "graded and found too few fills" and "never graded" are different facts;
+    # both refuse, and the detail says which.
+    res = _s1s2(repo(r3=_r3({EQ_LEG: "consistent"})))
+    _refused(res, "R-COST-FIDELITY")
+    assert "carries no entry" in res["detail"]
+
+
+def test_refuse_promotion_when_a_verdict_is_outside_the_rules_vocabulary(repo):
+    res = _s1s2(repo(r3=_r3({LEG: "probably_fine"})))
+    _refused(res, "R-COST-FIDELITY")
+    assert "not one of" in res["detail"]
+
+
+def test_refuse_promotion_when_no_r3_record_is_committed(repo):
+    res = _s1s2(repo(r3=None))
+    _refused(res, "R-COST-FIDELITY")
+    assert mr.R3_DIR_REL in res["detail"]
+
+
+def test_refuse_promotion_on_a_verdict_graded_against_a_different_record(repo):
+    # The record was regenerated at 5.0 bps; R3 graded it at 3.0. The verdict
+    # answers a question about a record that no longer exists.
+    res = _s1s2(repo(r3=_r3({LEG: "consistent"}, modelled=3.0)))
+    _refused(res, "R-COST-FIDELITY")
+    assert "has since changed" in res["detail"]
+    assert res["evidence"]["cost_fidelity"]["stale"]
+
+
+def test_a_stale_verdict_on_a_provisional_venue_still_names_itself_in_a_caveat(repo):
+    # A stale verdict folds into the same "no decisive measurement" state as a
+    # missing one, so the promotion rests on the placeholder -- and SAYS so.
+    res = _s1s2(repo(r3=_r3({EQ_LEG: "consistent"}, modelled=3.0)),
+                leg=EQ_LEG, account="alpaca_live")
+    assert res["verdict"] == "FIRE", res
+    assert len(res["caveats"]) == 2 and "has since changed" in res["caveats"][1]
+    assert res["evidence"]["cost_fidelity"]["stale"]
+
+
+def test_a_divergent_verdict_bites_on_a_provisional_venue_too(repo):
+    # The placeholder is a FALLBACK, not an exemption: it applies only while no
+    # decisive verdict exists. Before this change the provisional branch
+    # returned early and never looked at a measurement at all.
+    res = _s1s2(repo(r3=_r3({EQ_LEG: "divergent"})), leg=EQ_LEG, account="alpaca_live")
+    _refused(res, "R-COST-FIDELITY")
+    assert "divergent" in res["detail"]
+
+
+def test_the_newest_dated_record_decides_and_a_pull_log_is_not_a_record(repo):
+    """Regression: the producer writes three files per run into this directory.
+
+    A bare `*.json` glob sorts `<date>__fills_pull_log.json` last and picks it.
+    That is what the D3 reader this replaces actually did against the committed
+    tree, and because the pull log is a JSON *list* the clause then refused with
+    "cannot compare" no matter what the measurement said.
+    """
+    root = repo(r3=_r3({LEG: "divergent"}))            # the OLDER record
+    _w(root, f"{mr.R3_DIR_REL}/2026-09-26.json", _r3({LEG: "consistent"}))
+    _w(root, f"{mr.R3_DIR_REL}/2026-09-27__fills_pull_log.json",
+       [{"account_id": "bybit_1", "count": 1000}])     # sorts last, is not a record
+    res = _s1s2(root)
+    assert res["verdict"] == "FIRE", res
+    assert res["evidence"]["cost_fidelity"]["record"].endswith("2026-09-26.json")
 
 
 def test_refuse_equity_record_costed_below_the_placeholder(repo):
@@ -358,15 +477,39 @@ def test_refuse_demotion_without_a_mirror_record(repo):
     _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=repo(accounts=accts)), "R-RECORD-MISSING")
 
 
-def test_s1_off_fires_on_divergence_and_refuses_within_tolerance(repo):
-    fired = mr.resolve(LEG, "S1", "OFF", "bybit_1",
-                       root=repo(d3={"venue_roundtrip_bps_used": {"bybit_perps": 9.0}}))
+def test_s1_off_fires_on_a_divergent_verdict(repo):
+    fired = mr.resolve(LEG, "S1", "OFF", "bybit_1", root=repo(r3=_r3({LEG: "divergent"})))
     assert fired["verdict"] == "FIRE", fired
     assert fired["proposal"]["roster_remove"] == {"bybit_1": [LEG]}
+    assert fired["evidence"]["cost_fidelity"]["verdict"] == "divergent"
 
 
-def test_s1_off_refuses_within_tolerance(repo):
+def test_s1_off_refuses_on_a_consistent_verdict(repo):
     _refused(mr.resolve(LEG, "S1", "OFF", "bybit_1", root=repo()), "R-COST-FIDELITY")
+
+
+@pytest.mark.parametrize("verdict", ["insufficient_n", "inconclusive", "no_record"])
+def test_s1_off_refuses_on_anything_that_is_not_divergent(repo, verdict):
+    """The mandate's own `never:`: "could not measure" must not read as
+    "diverged". Under a per-leg rule those words ARE `insufficient_n` and
+    `inconclusive`, and demoting on either takes a leg off its soak book on the
+    strength of a measurement that said it could not decide."""
+    res = mr.resolve(LEG, "S1", "OFF", "bybit_1", root=repo(r3=_r3({LEG: verdict})))
+    _refused(res, "R-COST-FIDELITY")
+    assert verdict in res["detail"] and "does not support a demotion" in res["detail"]
+
+
+def test_s1_off_refuses_when_there_is_no_verdict_to_read(repo):
+    res = mr.resolve(LEG, "S1", "OFF", "bybit_1", root=repo(r3=None))
+    _refused(res, "R-RECORD-MISSING")
+    assert "not 'diverged'" in res["detail"]
+
+
+def test_s1_off_refuses_on_a_stale_verdict(repo):
+    res = mr.resolve(LEG, "S1", "OFF", "bybit_1",
+                     root=repo(r3=_r3({LEG: "divergent"}, modelled=3.0)))
+    _refused(res, "R-COST-FIDELITY")
+    assert "has since changed" in res["detail"]
 
 
 def test_cli_exit_codes(repo):
@@ -375,6 +518,42 @@ def test_cli_exit_codes(repo):
                     "--root", str(root)]) == 0
     assert mr.main(["--leg", LEG, "--from", "S1", "--to", "S2", "--account", "bybit_1",
                     "--root", str(root)]) == 1
+
+
+def test_the_verdict_vocabulary_matches_the_producer_that_owns_it():
+    """`scripts/research/r3_cost_fidelity.py` OWNS the five verdict strings; this
+    module mirrors them. A mirror with no assertion drifts silently and, worse,
+    fails OPEN in one direction: a renamed verdict stops matching `R3_CONSISTENT`
+    (safe, refuses) but also stops matching `R3_DIVERGENT`, so a demotion that
+    should fire would quietly stop firing. Compare them instead of trusting the
+    copy."""
+    sys.path.insert(0, str(REPO / "scripts" / "research"))
+    import r3_cost_fidelity as r3src
+
+    assert mr.R3_VERDICTS == {r3src.CONSISTENT, r3src.DIVERGENT, r3src.INCONCLUSIVE,
+                              r3src.INSUFFICIENT, r3src.NO_RECORD}
+    assert (mr.R3_CONSISTENT, mr.R3_DIVERGENT) == (r3src.CONSISTENT, r3src.DIVERGENT)
+    assert mr.R3_RULE_ID == r3src.RULE_ID and mr.R3_RULE_DOC == r3src.RULE_DOC
+
+
+def test_the_reader_finds_a_positive_in_the_COMMITTED_r3_record():
+    """RULE ONE: prove the probe can find a positive before trusting its silence.
+
+    Every other test here grades a fixture this file wrote, so all of them would
+    still pass if the committed record's shape and the reader's expectations had
+    drifted apart. This one reads the real artifact. It pins the SHAPE (a dated
+    record is found, a leg in it resolves to a verdict in the rule's vocabulary,
+    a leg not in it does not) and deliberately NOT the verdict VALUE, which
+    moves every time the measurement is re-run.
+    """
+    rel, doc = mr.latest_r3(REPO)
+    assert rel and mr.DATED_RECORD.match(Path(rel).name), rel
+    graded = sorted((doc or {}).get("per_leg") or {})
+    assert graded, f"{rel} grades no legs"
+    hit = mr.r3_leg_verdict(graded[0], REPO)
+    assert hit["verdict"] in mr.R3_VERDICTS, hit        # the positive
+    miss = mr.r3_leg_verdict("definitely_not_a_leg", REPO)
+    assert miss["verdict"] is None and "carries no entry" in miss["why"]  # the negative
 
 
 def test_real_repo_refuses_rather_than_crashing():

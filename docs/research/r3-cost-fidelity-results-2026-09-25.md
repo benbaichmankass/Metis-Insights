@@ -49,9 +49,10 @@ CI upper is +3.11. The point estimate moved from +0.87 to +1.14. Two new
 +12.2 bps) and trade 6136 (`xrp_pullback_2h`, +11.3 bps); the rows file has
 both. Under this rule the venue reads `inconclusive`, not `consistent`. That
 is not a demotion. It means the 3.0 figure is not established at 95%
-confidence either way. `mandate_resolver._cost_fidelity` reads D3's venue
-POINT estimate (0.868 in the committed D3 record), so it would pass the venue.
-The proposal below closes that gap.
+confidence either way. `mandate_resolver._cost_fidelity` read D3's venue
+POINT estimate (0.868 in the committed D3 record), so it would have passed the
+venue. That gap is closed by the change described below, which SHIPPED on
+2026-09-25 (branch `lane/r3-resolver-cost-fidelity`).
 
 ## Per leg: the verdicts
 
@@ -136,22 +137,42 @@ accrues nothing until a Tier-3 roster decision.
   equities or IBKR futures at any n. This record reports them as
   `insufficient_n` with 0 exits.
 
-## Proposed (Tier-2, NOT shipped): the resolver reads this rule
+## SHIPPED 2026-09-25 (was "Proposed, NOT shipped"): the resolver reads this rule
 
-`scripts/ops/mandate_resolver.py` evaluates the cost clause off D3's venue
+> ⚠️ **This section described a proposal until 2026-09-25.** It is kept in place,
+> rewritten, rather than deleted, because the paragraph above points at it. The
+> change was written on branch `lane/r3-resolver-cost-fidelity` and HELD for the
+> operator (Tier-3: it edits `config/mandates.yaml`). **Merged is not deployed is
+> not observed** — read this as "the diff exists and CI graded it", not as "the
+> resolver is doing this in production"; nothing calls the resolver on a schedule
+> in any case.
+
+`scripts/ops/mandate_resolver.py` evaluated the cost clause off D3's venue
 **point estimate**, both for `MD-PROMOTE-S1-S2` (`_cost_fidelity`) and for
-`MD-DEMOTE-S1-OFF` (`_demote_s1_off`). With `T = 0.0` that has two problems.
-It can promote on a venue whose CI straddles the model (today's perps). It can
-also demote every leg on a venue at once on noise, as soon as a new D3 point
-estimate lands above modelled. The proposal makes both read the newest R3
-record's per-leg verdict instead:
+`MD-DEMOTE-S1-OFF` (`_demote_s1_off`). With `T = 0.0` that had two problems.
+It could promote on a venue whose CI straddles the model (today's perps). It
+could also demote every leg on a venue at once on noise, as soon as a new D3
+point estimate landed above modelled. Both now read the newest committed dated
+R3 record's per-leg verdict instead:
 - promote only on `consistent`;
 - demote only on `divergent`;
 - refuse on `insufficient_n`, `inconclusive` or `no_record`.
 
-The equities/futures PROVISIONAL branch is unchanged, so the operator's
-"arm all venues" decision stands. The diff is in the lane's final message
-and on checklist row R3. It was validated in a scratch worktree:
-`tests/test_mandate_resolver.py` 45 passed with its tests updated. It also
-needs the matching `fires_when` wording in `config/mandates.yaml`, which is
-the operator's text.
+The equities/futures PROVISIONAL branch keeps the operator's "arm all venues"
+decision, with one tightening: the 5.0 bps placeholder floor is checked FIRST
+and is never weakened by a measurement, but a `divergent` verdict now REFUSES
+on those venues too, where the old branch returned early and never looked. The
+matching `fires_when` wording landed in `config/mandates.yaml` in the same PR;
+no bar value, no cap and no `blocked_until` changed.
+
+⚠️ **AND IT FIXED A DEFECT THIS DOC DID NOT KNOW ABOUT.** `latest_d3` globbed
+`*.json` over a directory into which the producer writes THREE artifacts per
+run — `<date>.json`, `<date>__fills_pull_log.json` and `<date>__rows.jsonl`.
+The pull log sorts last, so `latest_d3` returned it; it is a JSON *list*, so the
+resolver's `_json` returned `None`, so `realized` was always `None`. MEASURED
+2026-09-25 by running the merged `latest_d3` against the committed tree.
+**Both cost clauses were therefore inert** — refusing with "cannot compare" /
+"could not measure" whatever the measurement said. It failed CLOSED, so no
+promotion was ever wrongly fired on it, but the 0.868 figure quoted earlier in
+this doc as what the resolver "reads" was never actually reached. The R3 reader
+matches a strict `YYYY-MM-DD.json` and carries a regression test.
