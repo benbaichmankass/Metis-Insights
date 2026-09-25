@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "W4 exit-head-triage investigation: docs/pipeline only (docs/claude/work/PIPELINE.jsonl rows via scripts/ops/pipeline.py schema -- one new finding filed, one prior row's registry-gap half closed with a code-verified disposition). No src/, config/, or runtime code touched in git. Answers the three dispatched questions about exit-head-donchian-1h-v1 (loading/influence, registry-gap root cause, silence root cause) with fresh live-VM measurements (vm-diag-snapshot issue #12953, read 2026-09-25T13:25Z) plus independent code reads (src/runtime/exit_head_shadow.py, src/runtime/exit_head_apply.py, scripts/ml/export_exit_head.py, ml/registry/model_registry.py). No model stage, config, or registry change made by this lane -- the Tier-3 demote (advisory->shadow) it reports on was already executed and operator-approved by a prior lane (E74)."
+}

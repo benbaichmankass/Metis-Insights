@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "live_parity reads pass or fail (not insufficient_data) for a daily-retrained regime head on a gate-check run. That needs either a sync of the shadow log that reaches >= 20 rows past the retrain (~4.7h at 838s cadence), or a gate that measures parity over the rows the previous artifact served.",
+    "kind": "observation"
+  },
+  "id": "PI-20260925-D9FNL9SC-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "session_01UoURb4jJYwDhCwD9fNL9Sc, W4 ML re-verify (comms/reviews/ml-reverify-demotes-20260925.json)",
+    "rerun": "trainer-vm-diag: cd /home/ubuntu/ict-trading-bot && .venv/bin/python -m ml gate-check btc-regime-15m-lgbm-fc-pcv-v2 --db data/trade_journal.db --datasets-root datasets-out | grep -A6 live_parity ; tail -c 400 runtime_logs/shadow_predictions.jsonl -- the finding holds while live_parity reads insufficient_data with value < 20 AND the shadow log's last row is < ~5h after the artifact's training run."
+  },
+  "state": "queued",
+  "what": "live_parity (a REQUIRED gate in ml gate-check) is structurally capped below its own 20-row floor for any DAILY-RETRAINED head, so it reads insufficient_data every time. The gate counts live shadow rows scored since the current artifact's training run, but the trainer's copy of runtime_logs/shadow_predictions.jsonl is only as fresh as the last sync_trainer_data.sh run. MEASURED on trainer-vm-diag #12959 (2026-09-25): the trainer shadow log ends 2026-09-25T04:55:09Z, while btc-regime-15m-lgbm-fc-pcv-v2 retrained at 00:56:21Z and sol-regime-15m-lgbm-fc-pcv-v2 at 01:18:12Z. That is 3.98h, and 3.98h x 3600 / 838s cadence = ~17 rows at most. Observed: 14 and 13 rows (#12955). E72 (#12902, 2026-09-24) saw 17 and 14. That is 4 of 4 reads below 20. INFERRED from those 4 reads: no daily-retrained advisory or shadow head can ever clear live_parity, so no such head can reach ready:true for shadow->advisory. Not yet checked: whether a sync runs later in the day (the 04:55 end suggests one sync around 05:00 UTC)."
+}
