@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either a terminal value distinguishing superseded/duplicate/abandoned from completed exists and the two named rows are re-pointed at it, OR an operator decision records that `done`+prose is deliberate — in which case the two facts are knowingly collapsed and that must be written down rather than left looking like an oversight.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-LIFECYCLE-HAS-NO-TERMINAL-VALUE-FOR-SUPERSEDED-OR-DUPLICATE-SO-A-KNOWN-DUPLICATE-MUST-BE-MARKED-DONE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-LIFECYCLE-HAS-NO-TERMINAL-VALUE-FOR-SUPERSEDED-OR-DUPLICATE-SO-A-KNOWN-DUPLICATE-MUST-BE-MARKED-DONE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-LIFECYCLE-HAS-NO-TERMINAL-VALUE-FOR-SUPERSEDED-OR-DUPLICATE-SO-A-KNOWN-DUPLICATE-MUST-BE-MARKED-DONE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The work store's `lifecycle` vocabulary has no terminal value meaning superseded / duplicate / abandoned, so a known duplicate has to be marked `done` — a false claim of completion"
+}

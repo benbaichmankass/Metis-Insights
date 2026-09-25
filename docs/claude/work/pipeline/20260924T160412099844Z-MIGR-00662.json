@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "POPULATION: the 2 ALPACA-ONLY arm-declaring legs — gld_pullback_1d (GLD, n=112) and scha_trend_long_1d (SCHA, n=65), measured entry-conditioned 2010-03-26 to 2026-06-12 (relay #9710). qqq_trend_long_1d is excluded: it also routes to ib_paper, where a ~10% NBBO rule may make the cap correct. Closes on EITHER (a) a recorded paper-account result showing Alpaca REFUSES a take-profit further than 9.9% of entry, which closes this as correct-as-is with the evidence attached; or (b) Alpaca accepts it AND the cap resolution is made route-aware with operator approval, verified by reading a live order package on an Alpaca-routed leg whose tp is no longer clamped to entry*1.099. A code change alone does NOT close it — the check is a real order package with an un-clamped tp, because the clamp lives in a signal builder that runs before per-account routing, so a fix applied at the wrong layer would look correct in diff and change nothing. Reading more documentation does NOT close it either: the open question is an undocumented API validation, which only an order attempt reveals.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260816-BYBIT-TP-CAP-BINDS-ON-ALPACA-AND-IB-LEGS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] _TP_SENTINEL_CAP_PCT is a Bybit ErrCode 10001 workaround applied unconditionally; on the ALPACA-ONLY legs (GLD, SCHA) no venue is known to require it"
+}

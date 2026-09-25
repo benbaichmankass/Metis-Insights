@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either (a) establish the mechanism (in particular whether the delete/recreate of a branch name is implicated) and add a detector that FAILS rather than renders-as-green when a PR has zero check runs past a threshold age — the existing remedy is a manual workflow_dispatch, which only helps a session that thinks to look; or (b) if no mechanism can be established across occurrences, ship the detector anyway, since the failure mode is 'a required check silently did not run' and that is indistinguishable from green to every consumer including the merge button. Closing on 'could not reproduce' alone is not sufficient — that is what happened after the first two occurrences.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260824-PR-CI-NOT-ATTACHING-RECURRED-ON-A-DELETED-THEN-RECREATED-BRANCH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-PR-CI-NOT-ATTACHING-RECURRED-ON-A-DELETED-THEN-RECREATED-BRANCH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-PR-CI-NOT-ATTACHING-RECURRED-ON-A-DELETED-THEN-RECREATED-BRANCH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] BL-20260730-PR-CI-NOT-ATTACHING recurred on PR #10215 (2026-08-24), the third recorded occurrence after the original and the 2026-08-07 PR #8608 re-confirmation. Measured: branch claude/bracket-expectations-exit-ctjaiq was pushed at ~09:55Z to head adebefe and PR #10215 was opened as a draft against main at ~09:55Z; 27 minutes later the PR had total_count 0 check runs, and listing workflow runs for that branch showed NO run of any kind against adebefe — the newest pull_request-event run was 08:48:57Z against the PRE-RESTART head 19bfd89. The three required workflows (guards/pytest-run/pytest-collect) all declare pull_request types [opened, synchronize, reopened, ready_for_review] branches [main], so drafts are not excluded and 'opened' should have fired. Dispatching all three via workflow_dispatch on the same ref produced runs immediately AND they attached as PR check runs (total_count 0 -> 3), confirming the workflows and the ref are fine and only the pull_request delivery was lost. SECOND DATA POINT, same PR, same session: a subsequent REAL commit (9001876, not an empty one) pushed to the branch produced no pull_request run either — zero runs against BOTH adebefe and 9001876, with the newest pull_request-event run on the branch still 08:37:55Z against the pre-restart head 19bfd89. So on this branch BOTH the opened AND the synchronize delivery were lost, which matches the #8608 signature exactly rather than being a one-off on the open, and means a session that pushes a fix to a silently-CI-less PR gets no signal from that push either."
+}

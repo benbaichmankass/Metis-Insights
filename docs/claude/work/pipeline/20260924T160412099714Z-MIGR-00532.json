@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A prop sizing refusal for a stale/absent balance is OBSERVED reaching the operator — a row in outcomes.jsonl / /api/bot/logs?level=error, or a /api/bot/notifications banner, naming the account and carrying prop_balance's own refusal_message text — read off the live surface, not from a test. ⚠️ A GREEN TEST CLEARS NOTHING: the refusal path is already exercised in tests and the gap is which channel the message reaches. ⚠️ AND A JOURNALED order_packages ROW IS NOT SUFFICIENT — that is precisely the current behaviour and the thing being reported as inadequate. ALTERNATIVELY the operator DECIDES that a silently non-trading prop account needs no alert, which clears this row as a RECORDED decision stating the accepted consequence (breakout_1 can stop trading indefinitely with the only evidence being a journalctl line), rather than being left looking like a fix about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A prop account blocked from trading by a stale balance stops trading with NO operator-facing signal — the refusal is journaled and logged, and the ping that exists for exactly this is on a different branch"
+}

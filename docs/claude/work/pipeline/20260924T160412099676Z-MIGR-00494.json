@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) an escalation is OBSERVED firing — a distinct, louder signal (not another copy of the same request) raised after N unanswered asks, seen in outcomes.jsonl / /api/bot/logs?level=error or as a distinct /api/bot/notifications banner, with the unanswered-streak count carried in it; OR (b) an operator decision is RECORDED that an unanswered balance ask needs no escalation, stating the accepted consequence — that breakout_1's breach cushion may be computed off an arbitrarily old snapshot and that the account cannot be reconciled on a live basis. Explicitly NOT sufficient: the operator answering once and status_freshness returning to 'fresh'. That clears the CONDITION and says nothing about what happens the next time an ask goes unanswered, which is what this row is about.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-PROP-BALANCE-ASK-NEVER-ESCALATES-WHEN-UNANSWERED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The prop balance ask fires correctly every 12h and has gone unanswered for 8.5 days at identical volume — nothing escalates, and the breach cushion is computed off the stale snapshot meanwhile"
+}

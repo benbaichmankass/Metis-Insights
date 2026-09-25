@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER a classifier is built whose POSITIVE CONTROL passes — it must find both rows named in the detail — with its precision measured and stated on a named sample, and its output surfaced somewhere a session reads without being told to look; OR the operator decides the hygiene is not worth a mechanism and that is RECORDED as a decision with its consequence stated (sessions keep re-deriving landed fixes), rather than left looking like a detector about to be built. [!] A COUNT DOES NOT CLEAR THIS — 248, 46 and 43 are already measured and are exactly what this row says not to act on. [!] AND AN AUTOMATIC STATUS FLIP DOES NOT CLEAR IT EITHER: it would close rows whose criteria are unmet, which is the failure these two rows are deliberately avoiding by staying open.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-A-BACKLOG-ROW-WHOSE-FIX-HAS-LANDED-CARRIES-NO-RECORD-OF-IT-AND-THE-OBVIOUS-DETECTOR-FAILS-ITS-OWN-POSITIVE-CONTROL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-A-BACKLOG-ROW-WHOSE-FIX-HAS-LANDED-CARRIES-NO-RECORD-OF-IT-AND-THE-OBVIOUS-DETECTOR-FAILS-ITS-OWN-POSITIVE-CONTROL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-BACKLOG-ROW-WHOSE-FIX-HAS-LANDED-CARRIES-NO-RECORD-OF-IT-AND-THE-OBVIOUS-DETECTOR-FAILS-ITS-OWN-POSITIVE-CONTROL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] an open backlog row whose fix has already landed says nothing about it, and the three classifiers I measured for finding them all fail or are unusably noisy"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Every exit-relevant harness flag maps to a matrix column or a recorded n/a with a reason, AND the proximity-to-target lever exists and has been swept. STATE OF THE TWO HALVES as of 2026-09-12. (2) IS SATISFIED: the lever is `--rr-floor` and its sweep is docs/research/e35-rr-floor-walkforward-2026-08-20.md, 19 legs x 3 cells = 57 leg-cell rows (established by the 2026-09-02 update). (1) IS RECORDED AND MECHANICALLY CHECKED but NOT MET: docs/research/exit-lever-map.json carries a curated verdict for all 26 exit-relevant candidates across the five harnesses the matrix's own rows route to — 19 mapped, 3 recorded n/a with reasons, and **4 that need a column**: --rr-floor, --be-floor-r, --sim-breakeven, --be-arm-on-touch. SO THE ROW CLOSES WHEN those four are each either given a lever column in docs/research/exit-refinement-coverage.json or moved to `recorded_na` with a reason, and `python3 scripts/ops/exit_lever_map.py` reports **0** in `needs_column`. That is a schema change to a 765 KB artifact read by `matrix-corpus-agreement` and `matrix-config-agreement`, so it is an operator/manager decision, not a drain-session edit. ⚠️ Do NOT close by re-labelling a gap as an n/a to reach zero — each of the four carries its evidence in the map, and `--sim-breakeven` in particular simulates a LIVE mechanism (monitor_breakeven_sl), which is what distinguishes it from `--timeout-bars`. ⚠️ Do NOT re-derive the count by hand: three hand answers (21/8/3, then 3, then 4) disagreed only because ea …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-EXIT-LEVER-SPACE-UNDER-ENUMERATED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] the coverage matrix's 8 lever columns are not the lever space: 21 exit-relevant harness flags exist, 3 have no column at all, and the operator's near-TP-reversal case has NO lever anywhere"
+}

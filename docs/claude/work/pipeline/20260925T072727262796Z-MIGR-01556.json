@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "operator decides demote (live->shadow) or keep for trend_donchian_{ada,avax,sol}_4h on bybit_1",
+    "kind": "event"
+  },
+  "id": "PI-20260924-TJTOJHYE-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "comms/strategy_evidence/trend_donchian_{ada,avax,sol}_4h.json @ branch lane/e69-donchian-resweep (lane E69)",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --strategy trend_donchian_ada_4h --strategy trend_donchian_avax_4h --strategy trend_donchian_sol_4h --days 365 --folds 4"
+  },
+  "state": "queued",
+  "what": "E69 corrected resweep (SRQ-20260618-001, E67/PR#12875 pending item): trend_donchian_{ada,avax,sol}_4h on bybit_1 (Stage-1 paper soak) re-measured through the E55 tp_r-fixed harness + E60 venue-correct 3.0bps Bybit-perp slippage (was still 5.0bps in the E55-generated records, which predate E60's merge). All three still fail Stage-0 net of the full cost stack (fee 7.5 + slippage 3.0 + funding 1.0bps/window): ada_4h net_r_oos=-8.6081 n=46 WR=28.3% folds_positive=1/4; avax_4h net_r_oos=-9.1414 n=50 WR=26.0% folds_positive=0/4; sol_4h net_r_oos=-2.796 n=35 WR=22.9% folds_positive=1/4 (window 2025-10-01..2026-09-21, 365d). Per RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE (registered 2026-09-24T17:22:00Z, before this run), all three PROPOSE DEMOTE (live->shadow). Proposal only -- Tier-3, needs explicit operator approval; no config/ edit made by this item. Evidence: comms/strategy_evidence/trend_donchian_{ada,avax,sol}_4h.json and comms/strategy_evidence/runs/2026-09-24-e69/*__trades.jsonl (branch lane/e69-donchian-resweep)."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. `_probe_liveness` returns a THREE-STATE result — `ok` / `timed_out` / `disconnected` — instead of a bare bool, so the caller can branch on which failure occurred. Registering it with `collapsed-state-guard` is the natural home.\n2. A peer-close does NOT open the breaker for the full cooldown. The minimum honest change: allow ONE immediate reconnect attempt on `disconnected` before tripping, so the common case costs a reconnect rather than 120s of fleet blindness. It MUST stay bounded — an unbounded retry against a wedged gateway is the failure class the breaker exists for.\n3. Re-measure the episode count over a comparable window and quote it with its denominator. The claim to beat: 74 episodes / 235 failures over 2026-08-20T07:01Z–2026-08-25T09:28Z.\n4. The monitor-blindness consequence is checked, not assumed: confirm an open IB position's dynamic exit runs through a peer-close episode after the change.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-IB-BREAKER-CANNOT-TELL-A-PEER-CLOSE-FROM-A-WEDGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The IB circuit breaker treats a PEER-CLOSE identically to a WEDGE and suppresses ALL IB calls for 120s — for the one condition a reconnect clears in milliseconds. 74 episodes in 5.4 days, each blinding every IB leg and short-circuiting the monitor on an OPEN position"
+}

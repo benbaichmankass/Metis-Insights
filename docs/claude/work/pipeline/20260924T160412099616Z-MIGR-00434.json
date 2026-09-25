@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "RESOLVED when an unauthenticated GET of /api/bot/db/tables against the live host returns 401/403 rather than 200 -- demonstrated against the live host, not asserted from a diff -- which is Phase H attaching require_session to the read surface. NOT satisfied by the table allowlist alone (that narrows WHICH tables an unauthenticated caller reaches, from 22 to 21, and was never intended to close this). NOT satisfied by DASHBOARD_API_TOKEN being set, because that token gates only the devices routes today. Re-opens if a later change makes any db-explorer route reachable without a session again.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED-INCLUDING-2-3M-SIGNAL-ROWS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED-INCLUDING-2-3M-SIGNAL-ROWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-DB-EXPLORER-SERVES-21-MORE-TABLES-UNAUTHENTICATED-INCLUDING-2-3M-SIGNAL-ROWS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The DB explorer's device_tokens exposure was one table of 22; the other 21 -- 2,301,022 signals rows, 5,313 trades, 29,848 balance_snapshots -- remain world-readable unauthenticated on a public host"
+}

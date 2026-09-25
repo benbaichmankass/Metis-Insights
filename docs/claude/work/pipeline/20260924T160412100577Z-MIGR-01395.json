@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "TWO PARTS, and they are different facts -- say WHICH you cleared rather than clearing the row on the easier one.\n(1) The consumer is OBSERVED RUNNING on the fleet: at least one row in runtime_logs/ict_scalp_exit_head_soak.jsonl (/api/diag/log_file?name=ict_scalp_exit_head_soak), read from the LIVE VM, carrying mode=annotate. ⚠️ A passing unit test is NOT this observation and neither is reading the merged diff -- 93 assertions pass in tests/test_exit_head_apply_parity.py + tests/test_ict_scalp_exit_head_consumer.py and a harness cannot reach the VM. Expect decision_state=not_scored on every row; that CONFIRMS the tf guard is refusing correctly and is the clause-(1) evidence, not a failure.\n(2) The ARTIFACT gap is dispositioned -- either a 5m/15m ict_scalp exit-head artifact is published to the mirror and observed admitting a leg (a soak row with decision_state != not_scored and a non-null model_id), OR the operator decides no scalp head will be trained, which is a legitimate outcome and must be RECORDED as a decision rather than left looking like a soak about to start. ⚠️ DO NOT CLEAR (2) ON A QUIET LOG: an all-not_scored file is the EXPECTED state and says nothing about whether anyone intends to train the head.\n⚠️ THIS ROW DOES NOT TRACK ARMING. Arming is Tier-3, runs into the 2026-08-23 SHIP BLOCKED decision above, and needs fresh evidence that survives re-partitioning -- not a wiring fix.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: No owner and no money path: an annotate-only consumer that cannot score until a 5m/15m exit head exists, and the M20 exit-head programme is parked behind E8 by the plan. EVIDENCE: MANAGER-CHECKLIST.json: E8 blocked.",
+  "what": "[LOUD] MI-150 shipped the M20 exit-head consumer into `ict_scalp` (annotate-only, disarmed) -- the wiring MI-146 identified as the only passed-gate work blocked on missing code. ⚠️ IT CANNOT SCORE A SINGLE LEG TODAY, AND THAT IS THE POINT OF THIS ROW. Measured 2026-09-06 on /api/diag/shadow_stats (last_seen 10:00:01Z): the live mirror publishes exactly TWO exit_head artifacts -- exit-head-donchian-1h-v1 (advisory) and exit-head-donchian-peak-1h-v1 (shadow), count 52 each -- and BOTH are `1h`, while all 8 ict_scalp legs are 5m or 15m. maybe_score_exit_head's in-distribution tf guard therefore fail-closes on every one of them and the consumer records `decision_state: not_scored`. The blocker MOVED from missing code to missing artifact; it did not clear, and a soak that stays empty here is EXPECTED rather than broken."
+}

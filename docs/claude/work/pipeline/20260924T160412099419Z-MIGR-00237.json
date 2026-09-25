@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) The measured trade rate (IWM 65 trades / 6,028 calendar days = 3.94 entries/year; SPLG 72 / 6,023 = 4.37) and the measured time in market (IWM 2,546 of 6,028 calendar days = 42.2%; SPLG 2,863 of 6,023 = 47.5%) are recorded where a future session meets the constraint -- beside the legs' matrix cells or in the M20 memo -- so nobody re-derives 'the window is thin' as a data or accrual problem a third time. (2) An explicit decision is recorded on what evidence standard applies to a ~4-trade/year leg, given per-leg OOS >= 25 leaves ~32 as the ceiling and pooling is already ruled out: either the standard is met as-is and these legs are simply always near the floor, or the fleet is declared ungradeable to that standard and the reason is written down. It must NOT stay implicit. (3) The SCHA frame's provenance is established -- which builder writes it, on what cadence -- or SCHA is added to the builder list. A live leg trading a frame no documented job refreshes is a staleness risk independent of M20. (4) Any future claim about a leg's trade count states whether it is a BACKTEST or LIVE count; conflating them is what produced the wrong answer here.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-1D-EQUITY-LEGS-TRADE-4-PER-YEAR-SO-PER-LEG-OOS-25-CONSUMES-6-YEARS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The 1d equity legs produce ~4 backtest entries/year over 16.5 years of data — the OOS window is capped by the STRATEGY'S TRADE RATE, not by data depth or live accrual"
+}

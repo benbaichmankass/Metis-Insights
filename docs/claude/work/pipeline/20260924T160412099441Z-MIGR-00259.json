@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "`scripts/ci/check_collapsed_states.py` CONTRACTS contains prop_status.status_freshness; the guard fails if any of ok/stale/absent/unchecked is removed from the producer or left unbranched by a consumer; guard self-test covers the failure path.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-PROP-STATUS-FRESHNESS-NOT-REGISTERED-WITH-COLLAPSED-STATE-GUARD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-PROP-STATUS-FRESHNESS-NOT-REGISTERED-WITH-COLLAPSED-STATE-GUARD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-PROP-STATUS-FRESHNESS-NOT-REGISTERED-WITH-COLLAPSED-STATE-GUARD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The four-state prop `status_freshness` shipped in #9334 is NOT in collapsed-state-guard's CONTRACTS table, so the guard that exists to stop exactly this class of field from collapsing does not watch it"
+}

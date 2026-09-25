@@ -1659,12 +1659,22 @@ def elect_from_gated(
     *,
     symbol: str = "BTCUSDT",
     intents_before_gate: Optional[int] = None,
+    annotate: bool = True,
 ) -> DesiredPosition:
     """Elect one ``DesiredPosition`` from an ALREADY-GATED candidate tuple.
 
-    **Pure** — no audit emission, no policy load, no env read. Safe to call
-    repeatedly within one tick (once per account / per book), which
-    ``aggregate_intents`` is not.
+    No ``regime_hard_gate`` emission, no policy load, no env read — so it is
+    safe to call repeatedly within one tick (once per account / per book),
+    which ``aggregate_intents`` is not.
+
+    ⚠️ **IT WAS DOCUMENTED AS "PURE" UNTIL 2026-09-25 AND WAS NOT.** Both
+    election branches call ``annotate_conviction_arbitration``, which appends a
+    row to ``runtime_logs/conviction_arbitration.jsonl``. Called once per
+    account, that soak gains one row per account per tick for the same
+    decision — the conviction-soak twin of the ``regime_hard_gate`` double
+    count the gate/elect split exists to prevent. ``annotate=False`` skips it;
+    every per-account election passes it (E35), so the tick's ONE global
+    election is the only one that writes the observe-only row.
 
     ``candidates`` must already be filtered to ``symbol`` and already have had
     the regime router applied by ``gate_intents``. This function does NOT
@@ -1766,13 +1776,14 @@ def elect_from_gated(
         # P3 conviction arbitration — OBSERVE-ONLY (design § 3.4, no gate). Log
         # what conviction-weighted reinforcement WOULD pick vs today's max-qty
         # winner; the decision below is unchanged. Fail-permissive.
-        annotate_conviction_arbitration(
-            same_side,
-            symbol=norm_symbol,
-            resolution="same_direction",
-            actual_winner_strategy=winner.strategy,
-            actual_target_qty=float(winner.target_qty),
-        )
+        if annotate:
+            annotate_conviction_arbitration(
+                same_side,
+                symbol=norm_symbol,
+                resolution="same_direction",
+                actual_winner_strategy=winner.strategy,
+                actual_target_qty=float(winner.target_qty),
+            )
         # The reason string must not label the sentinel as a measured max —
         # "max target_qty=0.0" reads as a size comparison that picked the
         # winner, and neither half of that is true on the live path
@@ -1826,13 +1837,14 @@ def elect_from_gated(
     # P3 conviction arbitration — OBSERVE-ONLY (design § 3.4, no gate). Log what
     # the higher-conviction intent WOULD have been vs today's priority winner;
     # the priority decision below is unchanged. Fail-permissive.
-    annotate_conviction_arbitration(
-        non_flat,
-        symbol=norm_symbol,
-        resolution="priority_conflict",
-        actual_winner_strategy=winner.strategy,
-        actual_target_qty=float(target_qty),
-    )
+    if annotate:
+        annotate_conviction_arbitration(
+            non_flat,
+            symbol=norm_symbol,
+            resolution="priority_conflict",
+            actual_winner_strategy=winner.strategy,
+            actual_target_qty=float(target_qty),
+        )
     return DesiredPosition(
         symbol=norm_symbol,
         side=winner.side,

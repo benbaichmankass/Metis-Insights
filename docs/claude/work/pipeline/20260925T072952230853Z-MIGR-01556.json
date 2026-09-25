@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "the operator confirms KEEP HELD or overrides with a promotion decision for either leg",
+    "kind": "event"
+  },
+  "id": "PI-20260925-REVERIFY-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "MANAGER-CHECKLIST.json#E39",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --strategy fade_breakout_4h --strategy htf_pullback_trend_2h ; then read comms/strategy_evidence/{fade_breakout_4h,htf_pullback_trend_2h}.json -- decision_rule.verdict"
+  },
+  "state": "queued",
+  "what": "[research] OPERATOR DECISION -- E39's two held bybit_2 (REAL MONEY) legs, fade_breakout_4h and htf_pullback_trend_2h, both re-measured net of the full cost stack (fee 7.5 + slippage 3.0 + funding 1.0 bps roundtrip) on the current harness (post-E55 tp_r fix, post-E60 slippage decision, and post this row's own fade-harness-classification fix). BOTH FAIL their re-promotion bar. htf_pullback_trend_2h: net_r_oos -4.9333R, n=86, folds_positive 1/4 -- fails RULE-D1-STAGE0-NET-OF-FULL-COST outright, confirming (not contradicting) the 2026-08-23 demotion; the intermediate +2.7979R reading some notes cite was itself a harness bug (E55, uncapped TP), now corrected. fade_breakout_4h: net_r_oos -16.0919R, n=27, folds_positive 1/4, fidelity faithful (0 omitted levers) -- the PREVIOUSLY COMMITTED evidence for this leg (every corpus run before this one, always POSITIVE, +3.4-6.1R) measured the WRONG STRATEGY: regime_debt_matrix.classify() routed it to scripts/backtest_trend.py (breakout CONTINUATION) instead of scripts/backtest_fade.py (failed-breakout REVERSION, what the live unit actually trades) because both declare a `donchian` key and classify() checked that branch first. Fixed in this PR (keyed on `pierce_min`, unique to this leg fleet-wide); the corrected number is deeply negative and directionally consistent with the leg's own 2026-06-01 live demotion (-86R), not the buggy backtest. PROPOSAL: KEEP BOTH HELD (execution: shadow) on bybit_2 -- do not re-promote either leg. This is a proposal only; the row asks the operator to confirm or override."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260911-THE-MFE-INSTRUMENT-THAT-WOULD-ATTRIBUTE-THE-BREAK-ARRIVED-EIGHT-DAYS-AFTER-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-THE-MFE-INSTRUMENT-THAT-WOULD-ATTRIBUTE-THE-BREAK-ARRIVED-EIGHT-DAYS-AFTER-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-MFE-INSTRUMENT-THAT-WOULD-ATTRIBUTE-THE-BREAK-ARRIVED-EIGHT-DAYS-AFTER-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MFE-at-stop is the quantity that separates 'the stop is too tight' from 'the entries stopped working', and it is the second half of OI-20260911's own clears_when. It cannot be computed for the 2026-08-30 break because record_position_telemetry only reached most legs on 2026-09-07 via MI-164 -- eight days after the event it was needed for. The instrument exists now; it did not exist when it mattered."
+}

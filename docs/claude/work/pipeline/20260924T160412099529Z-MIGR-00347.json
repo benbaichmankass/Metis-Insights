@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The rule is stated where a session will actually hit it — a line in `docs/CLAUDE-RULES-CANONICAL.md` under the verification rules: a backgrounded or piped command's reported exit code is the LAST element of the pipeline, so redirect (`> file 2>&1`) and echo the real `$?` into the file rather than piping, and never pre-filter a long-running run's output at capture time. Resolution requires the rule to be written down, not merely remembered — this row exists because remembering it twice did not work.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-BACKGROUND-TASK-RC-IS-THE-PIPELINE-NOT-THE-COMMAND",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-BACKGROUND-TASK-RC-IS-THE-PIPELINE-NOT-THE-COMMAND",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-BACKGROUND-TASK-RC-IS-THE-PIPELINE-NOT-THE-COMMAND'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A background task's completion notification reports the PIPELINE's exit code, so `pytest … | tail` completes as 'exit code 0' while 12 tests are failing"
+}

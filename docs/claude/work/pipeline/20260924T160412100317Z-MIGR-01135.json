@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260918-THE-MANAGER-BRANCH-ACCUMULATED-36-COMMITS-SO-THE-CHECKLIST-THE-OPERATOR-READS-MISSED-21-ITEMS-AND-THE-LEASE-LAPSED-FROM-ORIGINS-VIEW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260918-THE-MANAGER-BRANCH-ACCUMULATED-36-COMMITS-SO-THE-CHECKLIST-THE-OPERATOR-READS-MISSED-21-ITEMS-AND-THE-LEASE-LAPSED-FROM-ORIGINS-VIEW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260918-THE-MANAGER-BRANCH-ACCUMULATED-36-COMMITS-SO-THE-CHECKLIST-THE-OPERATOR-READS-MISSED-21-ITEMS-AND-THE-LEASE-LAPSED-FROM-ORIGINS-VIEW'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "RECURRENCE: a manager's own PR sat `dirty` for 14.5h, which fires NO CI and so pages nobody, while the operator's Workflow page missed 21 checklist items and origin's lease read lapsed"
+}

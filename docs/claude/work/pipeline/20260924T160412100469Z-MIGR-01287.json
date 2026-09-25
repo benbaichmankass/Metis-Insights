@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A MECHANISM refuses a non-append edit to docs/claude/work/PIPELINE.jsonl -- a guard in run_guards.py that reads the DIFF and fails on any hunk that is not a pure tail append. [!] A RULE IN PROSE DOES NOT CLEAR THIS: the append-only contract is already stated in the file's own header, in scripts/ops/pipeline.py's docstring and in CLAUDE.md, and it was violated anyway by three separate commits in one day. [!] NOR DOES pipeline.py --check: it validates each RECORD and reports id collisions; it never reads the file's edit history, so a deleted row is invisible to it -- which is exactly how this went unnoticed. [!] AND IF THE OPERATOR DECIDES a curated store is preferable to an append-only one, this row does NOT clear -- it CHANGES: the collision detector, the merge=union binding and the `killed`-with-a-reason discipline all rest on append-only, so that would be a real design decision and must be RECORDED as one.",
+    "kind": "event"
+  },
+  "id": "PI-20260922-JN54P2HH-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager), doc sweep during close-out 2026-09-22",
+    "rerun": "for c in $(git log --format=%H -20 -- docs/claude/work/PIPELINE.jsonl); do git show --format= -U0 $c -- docs/claude/work/PIPELINE.jsonl | grep '^@@'; done   # every hunk must be a pure tail append; a deletion or a mid-file insert is the violation"
+  },
+  "routed_to": "unrouted -- needs a lane",
+  "state": "queued",
+  "what": "MEASURED 2026-09-22 over a STATED POPULATION -- the five most recent commits touching docs/claude/work/PIPELINE.jsonl, read as -U0 hunks. TWO of the five break the append-only contract the file's own header declares. (1) 308b75b6c is 7 insertions AND ONE DELETION: hunk `@@ -1250 +1249,0 @@` REMOVES the row PI-20260922-MANAGER-SCOPE-R6-R7-R8-HAVE-NO-SUBJECT-AFTER-THE-RESET-SO-THREE-OF-FOUR-RULES-GRADE-NOTHING. Append-only has one terminal move -- append a `killed`/`done` record WITH a terminal_reason -- and deleting the line instead is the exact failure the contract exists to stop: the row stops being mentioned rather than ending. (2) d5cf1b38b writes THREE separate hunks at 1255, 1263 and 1267, i.e. mid-file inserts, not a tail append. [!] NOT RESTORED BY THE MANAGER, DELIBERATELY: the deleted row is about R6/R7/R8 grading nothing, which checklist row E45 has since worked (#12756 merged, row `done`), so the delete may have been a resolution done the wrong way rather than a loss. Re-appending it as `killed` with a stated terminal_reason is probably right, and that is a judgement for whoever picks this up with E45's evidence in hand -- not a blind revert. [!] THE COST IS NOT HYPOTHETICAL: `merge=union` is bound to this file precisely because it is append-only, and a mid-file insert shifts every line after it, which is what made E5's union resolution on PR #12739 fail its own assertion and need a hand-built resolver."
+}

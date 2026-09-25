@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "check_roster_promotion_evidence.py's clause C3 (or a new C3b) compares a record's cost_stack.slippage/funding against the CURRENT execution_costs venue-aware defaults for its symbol, not merely checking presence -- verified by the rerun command above reporting 0 stale records once PI-20260924-JCVFRWEA-0001 closes, AND by reading a manufactured stale-record test case in the guard's self_test() failing C3.",
+    "kind": "event"
+  },
+  "id": "PI-20260925-41YPPGWO-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/d1-cost-stack-verification-2026-09-25.md",
+    "rerun": "python3 -c \"import json,glob; from src.runtime.execution_costs import slippage_bps_roundtrip_for as f; stale=[json.load(open(p))['leg'] for p in glob.glob('comms/strategy_evidence/*.json') for d in [json.load(open(p))] if d.get('cost_stack') and d.get('symbol') and d['cost_stack']['slippage'] != f(d['symbol'])]; print(len(stale), stale)\""
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "[health] scripts/ci/check_roster_promotion_evidence.py's clause C3 checks that a comms/strategy_evidence/*.json record's cost_stack is PRESENT and its three components (fees/slippage/funding) are resolved numbers -- it does NOT check that cost_stack.slippage matches execution_costs.slippage_bps_roundtrip_for(symbol) AT READ TIME. FOUND 2026-09-25 by lane/d1-verify-cost-stack while verifying D1's substance (docs/research/d1-cost-stack-verification-2026-09-25.md section 3, point 4): 24 of 52 evidence records carry a stale, pre-E60 slippage value (5.0bps instead of the decided 3.0bps for Bybit perps) and STILL PASS clause C3 today, because C3 only checks presence/resolvedness, not currency. This means a leg's promotion verdict can be graded against a cost figure the operator has since superseded, with the guard reporting green. Today's 24 stale records happen to be stale in the conservative direction (see PI-20260924-JCVFRWEA-0001), so this is not currently a live danger, but the guard gap is structural: nothing stops a future stale-in-the-OPTIMISTIC-direction record from also passing C3 unnoticed. Fix shape: add a C3b check comparing record['cost_stack']['slippage'] (and funding, where is_perp) against the current execution_costs.slippage_bps_roundtrip_for/funding_bps_per_window_for for record['symbol'], failing (or warning) on mismatch."
+}

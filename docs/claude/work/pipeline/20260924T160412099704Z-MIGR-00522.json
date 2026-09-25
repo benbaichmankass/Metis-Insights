@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) /api/bot/trades/closed returns pagination/population metadata a caller can assert on — at minimum the total matching row count for the requested class filter, so `len(rows)` being capped at `limit` is distinguishable from the population being that size; OR (b) the route rejects/warns when include_paper=true is combined with a client-side class filter, OR (c) at minimum, docs/reference/bot-api-reference.md carries an explicit warning on this route stating that include_paper=true NARROWS the real-money set and that the real-money population must be obtained by paging the DEFAULT call. VERIFIED BY: a live pull demonstrating the caller can tell 15-of-a-window from 15-of-a-population without already knowing the answer. NOT sufficient: a docstring in the router (the misreading happened at the API consumer, not in the code).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-INCLUDE-PAPER-TRUE-NARROWS-THE-REAL-MONEY-POPULATION-AND-A-SESSION-REPORTED-15-FOR-447",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-INCLUDE-PAPER-TRUE-NARROWS-THE-REAL-MONEY-POPULATION-AND-A-SESSION-REPORTED-15-FOR-447",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-INCLUDE-PAPER-TRUE-NARROWS-THE-REAL-MONEY-POPULATION-AND-A-SESSION-REPORTED-15-FOR-447'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Filtering /api/bot/trades/closed?include_paper=true to accountClass=='real_money' yields a WINDOW, not the real-money population — the default already excludes paper, so the flag NARROWS the real-money row count from 447 to 15, and a session reported the 15 as the population"
+}

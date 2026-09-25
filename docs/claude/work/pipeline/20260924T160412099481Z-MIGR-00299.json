@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Basis for the counts above: scripts/ops/exit_path_coverage.py run 2026-08-18 against the live journal, 34 open non-backtest rows, self-test 7/7 with planted controls. RESOLVED when either (a) the price_only count is driven down by operator-approved declares plus the pullback-family mechanism work, or (b) the operator records a decision that price-only is the intended posture for a named subset, with that subset carried in the audit as an accepted exclusion rather than a finding. Progress is measurable by re-running the audit: it prints by_verdict and the cause split.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 22 of 34 open trades can close ONLY by price reaching a level fixed at entry - no path closes them on anything learned since"
+}

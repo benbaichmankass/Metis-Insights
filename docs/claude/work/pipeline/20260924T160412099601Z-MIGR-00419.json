@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "GRANDFATHERED_UNREAD is EMPTY and `python3 scripts/ci/check_collapsed_states.py --strict` exits 0 — each of the 4 contracts having gained a real branching consumer or a per-file collapsed-state annotation naming a declared state. Additionally: `_states_in` credits an imported constant name as evidence, verified by a test that a consumer branching only via constants satisfies its contract. A passing default run is NOT the criterion — that is what the grandfather list buys.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260831-COLLAPSED-STATE-GUARD-SATISFIED-ITSELF-SO-ITS-CENTRAL-CHECK-WAS-VACUOUS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-COLLAPSED-STATE-GUARD-SATISFIED-ITSELF-SO-ITS-CENTRAL-CHECK-WAS-VACUOUS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-COLLAPSED-STATE-GUARD-SATISFIED-ITSELF-SO-ITS-CENTRAL-CHECK-WAS-VACUOUS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] collapsed-state-guard's unread-state check could not fire for 19 of its 20 contracts, because a contract's own registry entry counted as a consumer of itself. Turning the check on for the first time surfaced 4 genuine findings at once. Fixed by excluding the registry file; 3 pre-existing findings are grandfathered and reported, not failed."
+}

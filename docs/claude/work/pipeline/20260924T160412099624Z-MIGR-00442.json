@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) the registers move to one-file-per-row under a directory, as the work store already did, with the aggregate JSON generated for consumers that need it; OR (b) a git merge driver registered in .gitattributes merges these files BY ROW ID -- union on id, refusing on a genuine same-id divergence -- so two appends never conflict textually. [!] (b) MUST ASSERT BOTH WAYS, not just count: every id present on either side present in the output, AND the counts reconcile. A count can reconcile by luck while a row is lost, which is why the manual resolutions this week asserted per-id membership. [!] DO NOT CLOSE THIS BY ASKING SESSIONS TO MERGE MORE CAREFULLY. Careful manual resolution is what is happening now and it costs a round trip per PR per merge.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-FIVE-MONOLITHIC-JSON-REGISTERS-RECONFLICT-EVERY-SIBLING-PR-ON-EVERY-MERGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The append-mostly registers are single JSON files, so each merge invalidates every sibling PR's resolve — and the repo already solved this once"
+}

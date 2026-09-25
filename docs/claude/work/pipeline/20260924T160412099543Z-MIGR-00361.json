@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "All four steps complete and the account has placed at least one real fill that reconciles against exchange truth. Do NOT close this on the deposit alone.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260824-ALPACA-LIVE-GOLIVE-SEQUENCE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-ALPACA-LIVE-GOLIVE-SEQUENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-ALPACA-LIVE-GOLIVE-SEQUENCE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] alpaca_live go-live: the operator elected to fund it, and funding is the LAST step of three, not the first"
+}

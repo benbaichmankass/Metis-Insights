@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Pairs beta/spread estimation is stabilized (robust/longer-lookback beta or a sanity guard that skips a tick with an implausible beta/risk_spread) and validated on the pairs backtest harness; risk_spread stays in a plausible band across the soak; the #6549 clamp becomes a never-triggered backstop rather than a load-bearing fix.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260716-PAIRS-BETA-INSTABILITY",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260716-PAIRS-BETA-INSTABILITY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260716-PAIRS-BETA-INSTABILITY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Pairs sleeve: unstable rolling OLS beta on a 15-bar lookback blows up risk_spread -> exploded SL/TP (clamp #6549 band-aids the symptom, not the beta)"
+}

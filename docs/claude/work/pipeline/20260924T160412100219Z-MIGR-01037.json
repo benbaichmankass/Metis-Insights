@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-CHECK-D-IS-BLIND-TO-A-GATE-DECLARED-AS-A-DATA-FIELD-NOT-A-BRANCH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-CHECK-D-IS-BLIND-TO-A-GATE-DECLARED-AS-A-DATA-FIELD-NOT-A-BRANCH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-CHECK-D-IS-BLIND-TO-A-GATE-DECLARED-AS-A-DATA-FIELD-NOT-A-BRANCH'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-218 measurement finding, and the LIMIT ON ITS OWN COUNT. check_soak_doctrine.py check D (#11529) detects an accrual-gated verdict as CONTROL FLOW: an `if` whose test reads a live/calendar name and whose body assigns a verdict. It is therefore structurally blind to a gate declared as a DATA FIELD. Measured: ml/promotion/gates.py carries `require_shadow_soak: bool = True` @ `shadow_soak_days: float = 7.0` and `min_trades: int = 200` (LIVE trades) on the DEFAULT GateThresholds profile, and `_gate_shadow_soak` returns `GateResult(..., required=th.require_shadow_soak)` — a constructor argument, no branch. Pass A (check D's algorithm over ALL 8,464 functions in 1,058 files, not its 1-entry GATE_SURFACES map) and Pass B (widened constants AND a widened verdict predicate) BOTH miss it; it was found by READING. ⚠️ THIS IS WHY MI-218's count is reported as `lower_bound` and NOT `measured` — how many more data-shaped gates exist cannot be bounded from inside the instrument. Not a defect in check D's algorithm, which Pass A confirmed has no blind spot of its own shape (7 hits, 1 surface, nothing else across the tree); it is a missing SECOND detector shape. Evidence: docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A FIELD-LEVEL loss proof exists as a committed, re-runnable script (not a throwaway in one session's context -- the sibling row names that as explicitly insufficient) and is OBSERVED failing on a deliberately-reverted test row. Its shape, because this is the part that matters: for every id present in either parent, compare the merge result against BOTH parents and the merge base, and FAIL when a side that changed a field is not carried -- including the two cases an id-set check cannot express, `result == ours and result != theirs` and the reverse. [!] AN ID-SET / ROW-COUNT CHECK DOES NOT SATISFY THIS and must stop being cited as a merge proof; it passed on the very merge that lost three rows' edits. [!] A TYPE-CHANGE GUARD DOES NOT SATISFY THIS EITHER -- see why_it_matters; no type changed here. [!] NOR DOES merge.jsonregister BEING ARMED: it WAS armed, the file IS covered by it, and the loss happened anyway at the point the conflicted result was staged. Whether the driver refused and the staging overrode it, or the driver resolved it badly, is NOT established here and is worth establishing before anyone relies on the driver as the protection. [!] AND DO NOT CLOSE THIS BY FIXING THE THREE ROWS -- they are already repaired on claude/mi275-stop-width-counterfactual by a field-level union that carries both sides, verified. The open defect is that nothing but an ad-hoc check caught it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-A-UNION-BY-ID-SET-PROOF-IS-BLIND-TO-A-MERGE-THAT-DROPS-A-FIELD-AND-IT-IS-THE-REMEDY-EVERY-LANE-IS-TOLD-TO-USE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-A-UNION-BY-ID-SET-PROOF-IS-BLIND-TO-A-MERGE-THAT-DROPS-A-FIELD-AND-IT-IS-THE-REMEDY-EVERY-LANE-IS-TOLD-TO-USE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-A-UNION-BY-ID-SET-PROOF-IS-BLIND-TO-A-MERGE-THAT-DROPS-A-FIELD-AND-IT-IS-THE-REMEDY-EVERY-LANE-IS-TOLD-TO-USE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260909: a union-by-ID-SET merge proof passed 225/225/225 while three SESSIONS.json rows silently lost the other side's edits — and id-set union is the remedy the board tells every lane to use"
+}

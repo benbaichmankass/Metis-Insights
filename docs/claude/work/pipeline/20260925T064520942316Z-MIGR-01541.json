@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "The operator decides (promote gld_pullback_1h to alpaca_live under MD-PROMOTE-S1-S2, or explicitly declines) OR E62 lands a measured equities slippage figure that changes this leg's cost_stack and the verdict is re-read against it.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-2S8DXGTZ-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "MANAGER-CHECKLIST.json#E67 (/performance-review, session_01HUMdsBGKWKBmNC2S8DxGtz)",
+    "rerun": "python3 -c \"import json,yaml; accts=yaml.safe_load(open('config/accounts.yaml'))['accounts']; real=set(); [real.update(a.get('strategies',[])) for a in accts.values() if a.get('account_class') in ('real_money','prop')]; d=json.load(open('comms/strategy_evidence/gld_pullback_1h.json')); print('gld_pullback_1h in real-money roster:', 'gld_pullback_1h' in real); print(d['decision_rule']['verdict'], d['n_trades_oos'], d['folds_positive'], d['folds'], d['cost_stack'])\""
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "3",
+  "what": "[performance] gld_pullback_1h (Stage-1, alpaca_paper only, execution=live) is the ONLY Stage-1 leg in today's corpus that clears the FULL three-clause S1->S2 promotion bar (operator, 2026-09-21: expectancy>0 net of full cost stack at n>=30 closed; positive in a MAJORITY of walk-forward folds; Stage-1 realized cost within tolerance of modelled cost). MEASURED against comms/strategy_evidence/gld_pullback_1h.json, generated_at 2026-09-24, harness=pullback, coverage_state=measured, fidelity=faithful (omitted_levers=[]): decision_rule.verdict=pass, net_r_oos=16.9757, expectancy_r_oos=0.2877, n_trades_oos=59, folds_positive=3/4. Fold detail: fold1 net_r 0.7281 (14 trades), fold2 net_r 12.5702 (14), fold3 net_r 4.2197 (14), fold4 net_r -0.5423 (17, MOST RECENT, slightly negative) -- so the edge is majority-positive but its most recent fold has softened, worth the operator's eye even though it clears the mechanical bar. POPULATION CHECKED: all execution=live strategies in config/strategies.yaml NOT already on a real_money/prop account roster in config/accounts.yaml (i.e. genuinely Stage-1), n=53 candidates; only this one clears n>=30 AND folds_positive>folds/2 AND decision_rule.verdict=pass simultaneously. 17 other Stage-1 legs pass the Stage-0 headline verdict but fail n>=30 or fold-majority (near-misses, listed in comms/reviews/performance-review-20260924-e67.json). LABEL: gld_pullback_1h's cost_stack.slippage is 5.0 bps -- the PROVISIONAL equities/futures assumption E62 is still measuring (operator, 2026-09-24 ~13:15Z: 'a working artifact until we get evidence backed numbers'), NOT a measured figure the way the Bybit-perp 3.0bps (E60/D3) is. So the D3 cost-tolerance clause of the bar is accepted on that assumption, not verified against a real GLD fill. This is a Tier-3 promotion decision (S1->S2, real money) -- PROPOSED here, NOT enacted. MD-PROMOTE-S1-S2 is a PROPOSED, not GRANTED, mandate (config/mandates.yaml `mandates: []` verified empty this session; B5's checklist row is `state: blocked` on a stuck permission prompt) -- so even if this cleared the bar, nothing auto-promotes it today regardless; this needs an explicit operator decision either way."
+}

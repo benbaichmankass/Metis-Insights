@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "THREE PARTS, and they are different facts — say WHICH you cleared rather than clearing the row on the easiest. (1) DETECTOR OBSERVED: an alpaca_partial_stop_coverage row is found on an operator-readable surface (/api/bot/logs?level=error or /api/bot/notifications) carrying a size and a stop_qty that DIFFER, on a real fleet position. Read the log row, never the merged diff. ⚠️ A GREEN CI RUN CLEARS NOTHING — 23 assertions pass in tests/test_alpaca_protection_coverage_quantity.py and a harness cannot reach the live monitor tick. ⚠️ AND A SWEEP REPORTING covered=N CLEARS NOTHING EITHER: grading every position covered is the detector working while nothing is partially naked, which is the healthy case and not an observation of it discriminating. (2) THE STANDING TLT CONDITION IS DISPOSITIONED — OWNED BY MI-179 (WO-20260908-RE-ARM-PROTECTION-FOR-THE-56-NAKED, PR #11330), NOT BY THIS ROW, so do not act on the position from here; a second session re-arming the same live book is how BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG happened. What clears it: trade 5414's 56 shares carry a resting stop (verified as stop_qty >= size on /api/diag/alpaca_open_orders, never from a repair call's return value), or the position is closed, or an operator records a decision to leave it uncovered. ⚠️ IF IT SIMPLY DISAPPEARS WITH NO ATTRIBUTION, record THAT rather than clearing on it — an unexplained resolution is not evidence the mechanism works, the mistake the PROTECTION_REAS",
+    "kind": "observation",
+    "last_checked": "2026-09-11"
+  },
+  "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] Alpaca protective coverage is graded as a QUANTITY now (detection only) — and the position that exposed it is STILL 56 shares naked"
+}

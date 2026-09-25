@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER assess/starved_account_alert can report a fan-out-caused starvation (an account present in rounds_planned and absent from rounds_written) as a distinct, alertable state -- NOT by folding it into starved_count, which is a different population -- OR a lane/operator explicitly kills the row with a stated reason, which ARBITRATION_FANOUT_MODE=annotate (E33 option (c)) would be a valid ground for, since it removes the mechanism that produces the unreportable state.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-FANOUT-STARVATION-INVISIBLE-TO-ASSESS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01W2xuf1sayMSq7hP8f1n5Vr, checklist row E33, branch lane/e33-per-account-arbitration-scope",
+    "rerun": "Re-take ONE diag read with issue_write working: log_file?name=arbitration_fanout_soak&lines=200 as the ONLY path in the issue. Count rows where set(rounds_planned[].accounts) strictly contains set(rounds_written[].accounts) while starved_count == 0. Any such row is an instance."
+  },
+  "state": "queued",
+  "what": "arbitration_fanout.assess grades `starved` against the GLOBAL election and knows nothing of ARBITRATION_FANOUT_ACCOUNTS, so starvation CAUSED BY THE FAN-OUT ITSELF is invisible to starved_accounts, starved_count and therefore to src/runtime/starved_account_alert.py, which reads them. MEASURED on the live soak row 2026-09-21T20:30:08.586710Z ETHUSDT (diag-request issue #12708, run 35695727461, read 2026-09-22T06:38:27Z): per_account.bybit_2.state `routed`, per_account.bybit_portfolio.state `routed`, starved_accounts [], starved_count 0 -- ON THE VERY TICK rounds_planned[0].accounts [bybit_1, bybit_2, bybit_portfolio] was written out as rounds_written[0].accounts [bybit_1] and both accounts were dropped from the dispatch. `routed` is true of the global path and FALSE of the path that actually ran. bybit_2 is real money. [!] The only field pair that makes the condition sayable is rounds_planned vs rounds_written, and NO alert reads that pair. Same defect class as E22 and E31: a reading surface structurally unable to express the state that matters. [!] FOUND BY the E33 lane while measuring the fan-out's scope defect; NOT FIXED THERE, deliberately -- E33's deliverable is the routing proposal and this is a separate observability change. Fixing the routing (E33 (a) or (c)) makes this condition rare but does NOT make it reportable, so this row survives either."
+}

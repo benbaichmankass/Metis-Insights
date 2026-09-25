@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) DONE -- the guard reports `checked` and `NOT CHECKED` as SEPARATE counts and never sums them (the sum is the number that misled); real-tree output is now '235 live cell(s) checked ... NOT CHECKED ...: 141 of 376 live cell(s) across 3 of 8 column(s)'. (2) DONE -- a corpus-less lever column that is NOT declared in `CORPUS_EXEMPT_LEVERS` FAILS, so the fix is a declared contract rather than a hardcoded skip and the next lever shipping without an evidence store is caught; a DECLARED exemption that has since gained corpus rows also FAILS, so an exemption cannot outlive its reason. Both new paths were proven to fire by planting them (rc=1 each), and `test_summary_never_folds_unreachable_cells_into_the_checked_count` was proven load-bearing by planting the fold-back regression (rc=1) then restoring. (3) OPEN -- decide whether `m20_exit_head_round.py` should emit corpus rows. Until it does, the 36 resolved `exit_head_ml` cells (27 honest_negative, 6 passed_unshipped, 2 shipped_gate_failed, 1 shipped) rest on relay-issue refs alone, and that is the precondition for answering operator decisions (a) and (d) on this lever.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-CORPUS-AGREEMENT-COUNTS-141-UNCHECKABLE-CELLS-AS-CHECKED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] matrix-corpus-agreement reported 376 live cells as 'checked' when 141 of 376 (37.5%) sat in lever columns holding ZERO corpus rows"
+}

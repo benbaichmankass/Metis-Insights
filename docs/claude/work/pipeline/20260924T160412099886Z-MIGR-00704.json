@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Observable: the non-scalp legs that returned honest_negative in the pre-fix E1 re-run are re-run at live-parity TP (the driver now DEFAULTS to it, so this is a re-run and not a code change), and the scalp-scoping question is answered against that population -- either 'the read holds at correct geometry' or 'it does not'. The comparison must state its geometry on BOTH sides; a mixed-geometry table would reproduce the exact error this row exists to prevent. Scale note: this is a fleet-wide re-run and the DISPOSITION of anything it promotes is Tier-3. NOT resolution: treating the single trend_donchian_eth_prop candidate as having settled it in either direction.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260814-EXIT-HEAD-SCALP-SCOPING-IS-GEOMETRY-CONDITIONED",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260814-EXIT-HEAD-SCALP-SCOPING-IS-GEOMETRY-CONDITIONED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260814-EXIT-HEAD-SCALP-SCOPING-IS-GEOMETRY-CONDITIONED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] The 'exit_head_ml only works on ict_scalp' read was formed entirely on NO-TAKE-PROFIT books -- the first round run at live-parity TP returned a non-scalp candidate at equal AUC"
+}

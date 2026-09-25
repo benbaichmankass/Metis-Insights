@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260831-E35-MONTHLY-JOB-TARGETS-AN-N-BELOW-ITS-OWN-POWER-FLOOR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-E35-MONTHLY-JOB-TARGETS-AN-N-BELOW-ITS-OWN-POWER-FLOOR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-E35-MONTHLY-JOB-TARGETS-AN-N-BELOW-ITS-OWN-POWER-FLOOR'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "RQ-20260830-002 declares expected_n=50 against a power floor of 49.06, so 8 of its 9 healthy legs grade underpowered by 0.06-3.06 trades — the monthly re-validation is near-vacuous by construction, not by evidence"
+}

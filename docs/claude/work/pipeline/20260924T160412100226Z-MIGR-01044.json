@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-THE-SANCTIONED-INTENT-LAYER-ROLLBACK-IS-A-78-PERCENT-CAPABILITY-OUTAGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-THE-SANCTIONED-INTENT-LAYER-ROLLBACK-IS-A-78-PERCENT-CAPABILITY-OUTAGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-THE-SANCTIONED-INTENT-LAYER-ROLLBACK-IS-A-78-PERCENT-CAPABILITY-OUTAGE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The documented rollback MULTI_STRATEGY_INTENT_LAYER=false routes signal generation to a second, parallel builder registry holding 16 of 55 strategies, so exercising it would silently stop 35 of 45 execution:live legs (78%), each logged as an ordinary logger.warning and skipped. No test asserts the two registries agree."
+}

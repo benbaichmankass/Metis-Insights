@@ -1,0 +1,3 @@
+Follow-up to E18 (PR #12922) — files PI-20260925-BN2S6RQZ-0002 (the
+claude-pr-automerge branch-glob gap this exact branch will hit). Tier-1,
+docs-only.

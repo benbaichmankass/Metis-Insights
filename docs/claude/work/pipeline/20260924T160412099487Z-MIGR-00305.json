@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Closed when each of the four carries an incidence figure with a stated denominator, or an explicit 'could not measure, because <reason>'.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260820-EXCHANGE-FILLS-IB-DELEGATE-FINDINGS-NOT-DATA-VERIFIED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-EXCHANGE-FILLS-IB-DELEGATE-FINDINGS-NOT-DATA-VERIFIED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-EXCHANGE-FILLS-IB-DELEGATE-FINDINGS-NOT-DATA-VERIFIED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The four src/runtime/exchange_fills_ib.py findings are CODE-verified only - none has been checked against the live exchange-fills store, so their real-world incidence is unknown"
+}

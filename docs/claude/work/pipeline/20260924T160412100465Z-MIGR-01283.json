@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "check_backlog_refs either resolves PI- ids or states in its docstring that they are out of scope and why",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E45-CHECK-BACKLOG-REFS-REF-DOES-NOT-MATCH-PI-IDS-SO-THE-LIVE-INTAKE-IS-INVISIBLE-TO-IT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "E45 / PR #12756",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ops');from check_backlog_refs import REF,filed_ids;print(len(filed_ids()), REF.findall('PI-20260922-X-Y'))\""
+  },
+  "state": "queued",
+  "what": "scripts/ops/check_backlog_refs.py::REF matches (BL|MB|FU)-\\d{8}-... only, and filed_ids() reads docs/claude/*backlog*.json (archived) plus comms/follow_ups.json. MEASURED 2026-09-22: the universe is 29 ids, ALL FU-, against a live intake of 1210 PIPELINE.jsonl rows of which 753 are open -- so 0 of 753 open rows are citable through that module, and PI- ids are invisible to the repo's reference checker entirely. E45 fixed the consequence LOCALLY in check_allow_degraded.py (its own id shape + the pipeline in its universe) and deliberately did NOT widen the shared REF: check_backlog_refs --all sweeps docs, scripts, .github, config and src, so teaching it PI- would make every PI- mentioned in prose anywhere a reference it must resolve, on a probe main-tree-watch.yml runs on a cadence. That is the decision to take: widen REF and accept the sweep, or declare PI- deliberately out of that guard's scope and say so in its docstring. Today it is neither, which is the drift."
+}

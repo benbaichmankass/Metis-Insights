@@ -869,9 +869,13 @@ class Coordinator:
             unchanged and is evaluated first. ``None`` (the default) is
             byte-for-byte the pre-2026-08-31 behaviour.
 
-            This is the per-account arbitration fan-out's dispatch handle
-            (``ARBITRATION_FANOUT_MODE=apply``). The global election picks ONE
-            winner per symbol before any account is consulted, so an account
+            This is the per-account election's dispatch handle (E35,
+            2026-09-25: ``pipeline._dispatch_rounds`` passes each round's
+            electing accounts; it was the ``ARBITRATION_FANOUT_MODE=apply``
+            fan-out's until then). It is LOAD-BEARING for no-double-place: a
+            package for strategy A must not reach an account that declares A
+            but elected B this tick. Historically: the global election picked
+            ONE winner per symbol before any account was consulted, so an account
             running its own candidate on that symbol is dropped here by
             ``pkg.strategy in assigned`` and produces no order package at all —
             invisible to the journal AND to every per-account detector
@@ -1158,7 +1162,7 @@ class Coordinator:
                     f"strategy_not_assigned: {pkg.strategy} not in "
                     f"{sorted(str(a) for a in assigned)}"
                 )
-            # Per-account arbitration fan-out (ARBITRATION_FANOUT_MODE=apply).
+            # Per-account election round scope (E35; pipeline._dispatch_rounds).
             # LAST, and NARROWING ONLY: every rule above has already passed, so
             # this can subtract an account from the eligible set but can never
             # add one. `None` = no fan-out in play = unchanged behaviour.

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The repo's own guidance and prompts stop recommending `git reset --hard origin/main` as the sync idiom and use `git checkout main && git pull --ff-only` instead — checked by grepping the instruction surfaces, not by asserting it. ⚠️ NOT SUFFICIENT: another reminder, in any document or wake prompt, that one should check the current branch first. That is precisely what was tried between instance 1 and instance 2 and it failed within the hour; a row closed on a restatement would be closing on the thing already measured not to work. ⚠️ ALSO NOT SUFFICIENT: 'no further instances observed' — the second instance was harmless by luck, so absence of DAMAGE is not absence of the behaviour, and only the harmful case is visible.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-RESET-HARD-ORIGIN-MAIN-ON-A-FEATURE-BRANCH-TWICE-IN-50-MINUTES-AND-THE-WRITTEN-REMINDER-DID-NOT-HOLD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-RESET-HARD-ORIGIN-MAIN-ON-A-FEATURE-BRANCH-TWICE-IN-50-MINUTES-AND-THE-WRITTEN-REMINDER-DID-NOT-HOLD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-RESET-HARD-ORIGIN-MAIN-ON-A-FEATURE-BRANCH-TWICE-IN-50-MINUTES-AND-THE-WRITTEN-REMINDER-DID-NOT-HOLD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `git reset --hard origin/main` run while standing on a feature branch, twice in ~50 minutes by the same session — the second time AFTER writing the reminder against it on main"
+}

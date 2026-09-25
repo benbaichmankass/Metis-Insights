@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "EITHER CLAUDE.md's 'The real-money promotion mandate does not arm until D1 lands' paragraph is corrected to scope its fee-only claim to the harness families that actually lack a bps cost model (backtest_orb.py, src/backtest/backtester.py, xsec_momentum's funding term), OR the operator records a DECIDED that the arming block stands for a different stated reason, OR D1 lands and the paragraph is retired with it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-R5-CLAUDE-MD-FEE-ONLY-CORPUS-CLAIM-IS-STALE-FOR-FOUR-HARNESS-FAMILIES",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01W2KHBwLh4ouP1b8De2bmfV, checklist row R7, branch claude/r5-remaining-corpus-cost-stack",
+    "rerun": "sed -n '72,82p' scripts/backtest_trend.py   # does main() still resolve unset --slippage/--funding to venue-aware defaults?  then:  python3 -c \"import json;d=json.load(open('comms/strategy_evidence/htf_pullback_trend_2h.json'));print(d['cost_stack'], d['net_r_oos'], d['net_r_oos_fee_only'])\"   # a non-null cost_stack with slippage and funding > 0 is the corpus contradicting the CLAUDE.md sentence"
+  },
+  "state": "queued",
+  "what": "FOUND 2026-09-22 by the R5 lane while regrading the 40 uncovered evidence records. CLAUDE.md states, as the condition blocking the real-money promotion mandate: 'the harnesses default slippage and funding to 0.0, so today's corpus is fee-only and optimistic by an unknown amount (+0.57R on the one leg measured)'. MEASURED: that is FALSE for the four families scripts/ops/build_strategy_evidence.py reaches (trend / pullback / squeeze / fvg_range). Their CLI path resolves unset --slippage/--funding to the venue-aware defaults before writing the --json summary (scripts/backtest_trend.py:74-76), so all 42 legs now carrying a cost_stack show fees 7.5 / slippage 5.0 / funding 1.0 bps and a net_r_oos already net of all three -- and net_r_oos_fee_only, now on the record, makes the size of the correction readable PER LEG (it ranges from +0.04R on scha_trend_long_1d to +9.35R on tlt_pullback_1h), so 'optimistic by an unknown amount' is no longer true either. The MODULE GLOBALS do default to 0.0, which is what the sentence is reading, but that path is taken only by a DIRECT run_backtest() caller (the lever unit tests) and by no evidence-producing run -- 'read the field, not the prose about it', one level in. [!] IT IS STILL TRUE for the three harnesses E3 filed as having no bps cost model at all: backtest_orb.py, src/backtest/backtester.py and xsec_momentum's funding term (PI-20260921-E3-* rows). So the paragraph is not wrong so much as UNSCOPED, and the fix is a scope, not a deletion. [!] WHY I FILED IT INSTEAD OF EDITING IT, stated so the next reader does not treat the omission as an oversight: that sentence is the stated ARMING CONDITION for a mandate that routes REAL MONEY. Correcting the evidence is a research lane's job; deciding what arms that mandate is not, and a lane quietly rewriting its own gating condition is the exact shape the tier boundary exists to refuse. OPERATOR/MANAGER DECISION. Write-up: docs/research/R5-REMAINING-CORPUS-COST-STACK-2026-09-22.md FINDING 1."
+}

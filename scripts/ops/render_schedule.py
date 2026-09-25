@@ -396,9 +396,8 @@ def _self_test() -> int:
             json.dumps({"sessions": [{"id": "daily-sync", "title": "Daily sync",
                                        "cadence": "once per day", "source": "CLAUDE.md"}]}),
             encoding="utf-8")
-        (r / "docs" / "claude" / "work" / "PIPELINE.jsonl").write_text(
-            json.dumps(base_item(id="D2", next_action="ask_operator")) + "\n",
-            encoding="utf-8")
+        pipeline.append(base_item(id="D2", next_action="ask_operator"),
+                        r / _PIPELINE_STORE, intent="new")
         (r / ".github" / "workflows").mkdir(parents=True)
         (r / ".github" / "workflows" / "x.yml").write_text(
             "name: x\non:\n  schedule:\n    - cron: '0 0 * * *'\n", encoding="utf-8")

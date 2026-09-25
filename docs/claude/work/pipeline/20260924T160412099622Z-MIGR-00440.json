@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) the operator answers the status question for ict_scalp_avax_5m -- hold honest_negative, or re-grade on the larger book -- and the answer is written onto the cell with its date, so the 'QUEUED' state is discharged rather than aged; OR (b) the cell is re-graded from ONE agreed parameterization (same fold-mode, same tp_geometry, same book, arm count recorded) and the matrix records that run. ⚠️ Closing this by re-running once and taking whichever verdict comes back does NOT satisfy it -- that is the same single-partition mistake the parent row's 4-arm screen showed to be insufficient, and this cell has never had a 4-arm screen at all. ⚠️ Nor does 'the lever cannot ship on ict_scalp anyway' close it: that answers a different question.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260902-AVAX-SCALP-EXIT-HEAD-NEGATIVE-CONTRADICTED-AND-UNANSWERED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-AVAX-SCALP-EXIT-HEAD-NEGATIVE-CONTRADICTED-AND-UNANSWERED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-AVAX-SCALP-EXIT-HEAD-NEGATIVE-CONTRADICTED-AND-UNANSWERED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ict_scalp_avax_5m/exit_head_ml is recorded honest_negative, its own cell carries the counter-evidence that the negative did not survive a larger book, and the question has read 'QUEUED for the operator' for 19 days"
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "The command in origin.rerun prints NOTHING against .claude/settings.json -- i.e. the hooks name no archived register and no retired skill. Verified by RUNNING it, not by reading a diff. A partial cleanup that leaves any of the 22 does not clear this, because a session cannot tell which of the instructions it was just given are the live ones.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-M05",
+  "loud": true,
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/archived-register-readers-fable-probe.md (E11 Fable probe, merged #12681); re-counted independently by session_01XQhayAHWdrSYv8jN54P2HH before filing",
+    "rerun": "grep -oE '(board-pointer|session-board|OPEN-ITEMS|health-review-backlog|performance-review-backlog|ml-review-backlog|research-review-backlog|system-review|delegate-work|MANAGER-LEASE|SESSIONS\\.json|duty)' .claude/settings.json | sort | uniq -c | sort -rn; # FINDING STILL APPLIES while this prints any line. Expected clear state: no output."
+  },
+  "routed_to": "THE OPERATOR, via section 2 of the next daily brief. Not delegable: .claude/ is harness configuration, an agent editing it is refused [Self-Modification], and that refusal is correct and was not worked around. What is needed is either the operator making the edit or an explicit grant naming .claude/settings.json, the way the spawn-provenance grant named manager/SKILL.md.",
+  "state": "routed",
+  "what": "EVERY SESSION IN THIS REPO IS TOLD, BEFORE ITS FIRST TOOL CALL, TO USE FILES THE RESET ARCHIVED. .claude/settings.json's SessionStart, PreToolUse and Stop hooks carry 22 references to archived paths and retired skills -- COUNTED 2026-09-21 by the manager, independently of the report that raised it: session-board x6, board-pointer x6, /system-review x4, health-review-backlog x2, performance-review-backlog, ml-review-backlog, `duty`, `delegate-work`. [!] THIS IS THE MOST EXPENSIVE INSTANCE OF THE ORPHAN CLASS FOUND SO FAR, because it is not a degraded check a session might never run -- it is the FIRST THING EVERY SESSION READS, and it instructs them to register on a coordination board that does not exist and to file findings into backlogs nothing reads. It is a live tax on every lane this manager spawns. [!] IT IS ALSO PLAUSIBLY A CONTRIBUTING CAUSE OF PI-20260921-0004: three of six lanes opened by questioning whether their task was injected, and one named the hook text specifically as part of what made the session look wrong -- a startup block issuing confident instructions about absent files is exactly the shape of a prompt-injection tell. That link is PLAUSIBLE AND NOT ESTABLISHED; the stall reproduced for other reasons too and the hooks were never isolated as a variable. [!] THE OPERATOR MUST DO THIS ONE OR EXPLICITLY GRANT IT. .claude/settings.json is harness configuration and an agent editing it is refused [Self-Modification] -- the manager confirmed that refusal twice today on the adjacent .claude/skills path. The operator's 2026-09-21 grant covered the spawn-provenance fix specifically and is NOT being stretched to cover this: an approval in one context does not extend to the next."
+}

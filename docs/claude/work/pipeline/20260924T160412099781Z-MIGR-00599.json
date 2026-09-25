@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The fix for the INSTANCE is shipped separately and is not this row's subject. This row closes when the CLASS cannot recur silently: EITHER (a) a CI check fails a diff-scoped checker that reads `--base` as a content ref without deriving `merge-base(HEAD, base)` — with a planted control in BOTH directions and a stated exemption for three-dot ranges, which are already correct; OR (b) the four candidates above are each hand-read and recorded as defective-and-fixed or correct-with-the-reason, AND the shared helper that derives the comparison point has ONE owner that new guards import rather than re-deriving. ⚠️ Fixing the four by hand WITHOUT (a) or the shared owner closes nothing — that is exactly what happened four times to register-field-loss, on the same day, before it recurred in a fifth file. ⚠️ And do NOT close on the count: '19 of 24' is the flag-bearing population, not the defect population, and the 4 is a candidate set from a weak classifier.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-TIP-NOT-MERGE-BASE-DEFECT-RECURRED-IN-A-GUARD-SHIPPED-HOURS-AFTER-ITS-FOURTH-FIX-AND-REDDENED-A-PR-FOR-DOING-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-TIP-NOT-MERGE-BASE-DEFECT-RECURRED-IN-A-GUARD-SHIPPED-HOURS-AFTER-ITS-FOURTH-FIX-AND-REDDENED-A-PR-FOR-DOING-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-TIP-NOT-MERGE-BASE-DEFECT-RECURRED-IN-A-GUARD-SHIPPED-HOURS-AFTER-ITS-FOURTH-FIX-AND-REDDENED-A-PR-FOR-DOING-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] backlog-unresolve-guard graded against main's TIP and reported a branch that changed NOTHING as a silent re-opening — the same defect register-field-loss has been fixed for four times, reproduced in a new guard the same day"
+}

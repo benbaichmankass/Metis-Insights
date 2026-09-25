@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies; a live instruction, claim or module pointing at something the reset archived is E9's class. EVIDENCE: MEASURED 2026-09-24: docs/CLAUDE-RULES-CANONICAL.md:1164,1648,1651 still name docs/claude/*-review-backlog.json.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "no live instruction in CLAUDE-RULES-CANONICAL.md routes a session to a path absent at HEAD",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E45-SESSION-END-RECONCILIATION-STILL-ROUTES-SESSIONS-TO-THREE-ARCHIVED-BACKLOGS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E45",
+    "rerun": "grep -n 'review-backlog.json' docs/CLAUDE-RULES-CANONICAL.md | head"
+  },
+  "routed_to": "E9",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "docs/CLAUDE-RULES-CANONICAL.md § Session-end reconciliation, item 5, still tells every session to log leftovers to docs/claude/{health,performance,ml}-review-backlog.json. All three were archived by the 2026-09-21 reset. E45 deliberately did NOT fix it: the row scoped the doc edit to the three claims that name a MECHANISM, and this is a pointer to a register. It is a live instruction in the #1 doc that cannot be followed, and the post-reset answer is PIPELINE.jsonl. 3 of 3 named paths are absent at HEAD."
+}

@@ -42,6 +42,8 @@
 #   grants:             what it authorizes, in a word the brief can print
 #   granted_by:         who granted it (an operator, named)
 #   granted_at:         ISO date of the grant
+#   source:             where the operator's answer is recorded, so a later
+#                       session can check the grant instead of trusting it
 #   fires_when:         the CONDITION, written so it can be checked rather than
 #                       interpreted. If you cannot write a checkable condition,
 #                       the decision is not ready to be a mandate.
@@ -49,33 +51,66 @@
 #   evidence_required:  what must be committed when it fires.
 #   blocked_until:      optional -- a precondition that must land first.
 #
-# ── THE GRANTED LIST IS DELIBERATELY EMPTY ────────────────────────────────────
+# The FIVE LADDER mandates carry three further fields, because
+# `scripts/ops/mandate_resolver.py` reads them as the machine-checkable form of
+# `fires_when` (added here 2026-09-24 with the grants; the resolver landed in
+# #12873 and this comment is the schema catching up to the field):
 #
-# Nothing below is granted. The five candidates live under `proposed:` where a
-# consumer will NOT read them as authorizations. Moving one into `mandates:` is
-# the operator's act, not a session's.
+#   direction:          `add_risk` | `derisk_only`. Anything else REFUSES.
+#   bar:                min_n_closed / expectancy_gt / fold_majority /
+#                       cost_tolerance_bps. A mandate with no `bar:` REFUSES --
+#                       "a mandate with no bar is not a mandate".
+#   cap:                basis / max_auto_share. Required for `add_risk`.
 #
-# ⚠️ A SESSION MUST NEVER PROMOTE ITS OWN PROPOSAL. Writing an authorization for
-# yourself is the same failure class as a session self-landing a PR that grants
-# its own next PR -- the asymmetry IS the control. A manager proposes here and
-# says so in the daily sync; the operator grants.
-
-mandates: []
-
-# ── PROPOSED, NOT GRANTED ─────────────────────────────────────────────────────
+# ⚠️ THE FIVE PROCESS MANDATES DELIBERATELY CARRY NO `direction:`. They do not
+# act on a roster, so the resolver has nothing to measure for them -- and its
+# fail-closed behaviour is exactly right: asked to evaluate one, it REFUSES with
+# "direction=None is not add_risk|derisk_only". Do not add a direction to a
+# process mandate to quiet that; the refusal is the feature.
 #
-# Derived from decision shapes that ACTUALLY REPEATED in
-# session_01XQhayAHWdrSYv8jN54P2HH (2026-09-21 -> 24), not invented. CLAUDE.md's
-# rule is "a decision arriving twice in the same shape is raised as 'should this
-# become a mandate?'" -- that manager never raised one across three days and
-# four operator popups, which is the miss this file's existence is meant to stop
-# repeating.
+# ── THE GRANTED LIST — TEN MANDATES, GRANTED 2026-09-24 ───────────────────────
+#
+# OPERATOR (Ben), 2026-09-24 ~17:15Z, popup answered in the manager session
+# session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: **"Grant all 10 as written"** --
+# the five process mandates that sat under `proposed:` here, plus the five
+# ladder mandates defined in docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3. The
+# answer is recorded on checklist row B5 in docs/claude/work/MANAGER-CHECKLIST.json
+# (merged in #12885), which is the durable record this file's `source:` fields
+# point at.
+#
+# "AS WRITTEN" IS LOAD-BEARING. Every condition below is carried verbatim from
+# the text the operator was shown -- the five `proposed:` entries as they stood
+# at 1665947, and § 5.3 including its arming block. Nothing was widened, and
+# where § 5.3 leaves a number unstated this file says so in place rather than
+# quietly choosing a comfortable one (see MD-PROMOTE-S1-S2 `bar.cost_tolerance_bps`).
+#
+# ⚠️ A SESSION MUST NEVER PROMOTE ITS OWN PROPOSAL, AND THIS FILE IS NOT THE
+# EXCEPTION. Writing an authorization for yourself is the same failure class as
+# a session self-landing a PR that grants its own next PR -- the asymmetry IS
+# the control. What happened here is the sanctioned path, and it is worth
+# reading as a worked example: a manager PROPOSED (the five below), the operator
+# GRANTED in a popup, the manager RECORDED the verbatim answer on row B5 and
+# MERGED it, and only then did a lane transcribe it here -- in a PR the lane may
+# not merge. The lane never held the authorization; it only copied a record.
 
-proposed:
+mandates:
+
+  # ── THE FIVE PROCESS MANDATES ──────────────────────────────────────────────
+  #
+  # Moved verbatim from `proposed:` (nothing in fires_when / never /
+  # evidence_required / recurrence is altered); `granted_by`, `granted_at` and
+  # `source` are added, and `proposed_by` / `proposed_at` are kept so the
+  # proposal and the grant stay separately legible.
+
   - id: MD-OBSERVABILITY-IN-A-GATED-PATH
     grants: land_without_asking
     proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
     proposed_at: '2026-09-24'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5.
     recurrence: 3 times on 2026-09-24 alone (PRs #12738, #12735, #12748)
     fires_when: >-
       A PR is complete and CI-green, its landing declaration is held only for
@@ -95,6 +130,11 @@ proposed:
     grants: deploy_and_verify
     proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
     proposed_at: '2026-09-24'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5.
     recurrence: >-
       Every Tier-2 merge. Asked as a separate question on #12738 when the
       operator had already said "merge, restart, verify".
@@ -116,6 +156,11 @@ proposed:
     grants: derisk_only
     proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
     proposed_at: '2026-09-24'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5.
     fires_when: >-
       A leg on a real-money roster FAILS B1's four-clause evidence bar and the
       change REMOVES it. Cut only.
@@ -133,6 +178,11 @@ proposed:
     grants: strip_inert_lever
     proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
     proposed_at: '2026-09-24'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5.
     recurrence: E41's shape (gld, qqq trail_decay arms).
     fires_when: >-
       A declared lever measures EXACTLY zero reach over a population above a
@@ -149,6 +199,11 @@ proposed:
     grants: resolve_stale_branch_conflict
     proposed_by: session_01XQhayAHWdrSYv8jN54P2HH
     proposed_at: '2026-09-24'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5.
     recurrence: >-
       The #12737 near-miss, where a stale branch would have imported an
       unverifiable measurement into the promotion corpus through an ordinary
@@ -164,3 +219,243 @@ proposed:
     evidence_required: >-
       The ls-tree output showing which source_run exists, and the row count of
       the surviving side's trades file against its stated n.
+
+  # ── THE FIVE LADDER MANDATES ───────────────────────────────────────────────
+  #
+  # Defined in docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3 and mirrored in
+  # .claude/skills/manager/SKILL.md § "Standing authorizations". The 2026-09-21
+  # grant, verbatim: "All the ladder decisions can be automated -- that is a
+  # standing mandate. Strategies can be promoted to live money without explicit
+  # operator approval if the evidence supports the decision. I should just get a
+  # ping in realtime of the update and an evidence review in the next daily
+  # briefing."
+  #
+  # ⚠️ NO EXPIRY IS RECORDED ON ANY OF THESE, because none was granted. The
+  # manager skill says "expiry is load-bearing -- an expired mandate stops
+  # authorizing"; writing an `expires:` this file was not given would be a
+  # session inventing the bound of its own authorization, which is the one thing
+  # it may never do. If the operator wants expiry, it is granted, not inferred.
+  #
+  # THE BAR and THE CAP below are the operator's 2026-09-21 decisions, recorded
+  # on checklist row B5 and in § 5.3 "The bar and the cap — DECIDED 2026-09-21":
+  # expectancy > 0 net of the FULL cost stack at n >= 30 closed; positive in a
+  # MAJORITY of walk-forward folds; Stage-1 realized cost within a stated
+  # tolerance of modelled; total declared risk across AUTO-PROMOTED legs <= 25%
+  # of the account's configured risk budget, with NO RATE LIMIT.
+  # <!-- population-ok: a configured ceiling the operator chose, not a measurement -->
+
+  - id: MD-PROMOTE-S0-S1
+    grants: add a leg to the Stage-1 soak book on a passing Stage-0 record
+    direction: add_risk
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5. The underlying
+      grant is the operator's 2026-09-21 ladder mandate, quoted in
+      docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    fires_when: >-
+      A leg not on a Stage-1 soak roster (bybit_1, alpaca_paper, ib_paper) has a
+      committed Stage-0 evidence record at comms/strategy_evidence/<leg>.json
+      that passes B1's four clauses and its identity check, whose source_run is
+      a committed file in the repo, and that clears the bar below. The edit ADDS
+      the leg to that one soak roster and nothing else.
+    never: >-
+      Never a leg whose record is missing, unreadable, or cites a source_run
+      absent from the repo. Never onto a Stage-2 roster -- Stage 2 is reached
+      only through Stage 1. Never when the account's account_class is not
+      `paper`; a class mismatch is config drift the resolver will not paper
+      over. Never past the cap.
+    evidence_required: >-
+      The committed record -- named harness, stated n, decision rule registered
+      before the run, net of the full cost stack -- plus the realtime ping and
+      the section-1 evidence review in the next daily brief.
+    bar:
+      min_n_closed: 30
+      expectancy_gt: 0
+      fold_majority: true
+    cap:
+      basis: uniform_account_risk_pct_share_of_roster
+      max_auto_share: 0.25
+
+  - id: MD-PROMOTE-S1-S2
+    grants: add a leg to a REAL-MONEY roster on Stage-0 evidence plus Stage-1 cost fidelity
+    direction: add_risk
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5. The underlying
+      grant is the operator's 2026-09-21 ladder mandate, quoted in
+      docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    # ⚠️ CARRIED VERBATIM FROM § 5.3, WHICH IS WHY THIS ENTRY IS GRANTED BUT NOT
+    # ARMED. The plan's words: "AND THE PROMOTION MANDATE MUST NOT ARM UNTIL D1
+    # LANDS. THIS IS NOT CAUTION, IT IS ARITHMETIC." The same block is stated in
+    # CLAUDE.md § "The daily sync, and standing authorizations" and in
+    # .claude/skills/manager/SKILL.md. The resolver REFUSES on any truthy
+    # `blocked_until`, so this field is the arming switch and clearing it is the
+    # operator's act, not a lane's.
+    #
+    # ⚠️ AND THE OPERATOR SHOULD KNOW THAT THE NAMED ROW NO LONGER EXISTS AS
+    # NAMED -- stated here rather than resolved, because resolving it is a
+    # decision, not a transcription. Checklist row D1 reads `dropped`, killed
+    # 2026-09-22 as a DUPLICATE of R1 ("R1 and D1 ARE THE SAME WORK"); R1 reads
+    # `done`. Row D3's note records that 49 of 52 comms/strategy_evidence
+    # records now carry a cost stack and "the corpus is NOT fee-only any more",
+    # but that it is priced on a FLAT 5 bps round-trip slippage. That is a read
+    # of the checklist on 2026-09-25, not a re-measurement of the corpus by the
+    # session that wrote this line. So the block's SUBSTANCE may already be
+    # satisfied by R1 while the block as WRITTEN can never clear, since a
+    # dropped row cannot land. Two things follow and neither is a lane's to
+    # pick: whether R1 discharges D1's block, and what replaces this text.
+    blocked_until: >-
+      D1 lands -- the backtest harnesses stop defaulting slippage and funding to
+      0.0 and the promotion corpus is re-run net of the full cost stack. Until
+      then every "passed the backtest" verdict is fee-only and optimistic by an
+      unknown amount, measured once at +0.57R on htf_pullback_trend_2h, and
+      arming this mandate would route real money on numbers already known to be
+      wrong in the favourable direction.
+    fires_when: >-
+      A leg already on the Stage-1 soak roster for its exchange has a committed
+      Stage-0 evidence record that passes B1's four clauses and its identity
+      check, clears the bar below, and whose venue's realized round-trip cost is
+      within bar.cost_tolerance_bps of what the record modelled. The edit ADDS
+      the leg to the Stage-2 account AND to its mirror -- Stage 2 is one stage,
+      and the mirror carries the identical roster.
+    never: >-
+      Never a leg that has not soaked at Stage 1. Never while `blocked_until`
+      stands. Never onto an account whose account_class is not `real_money`.
+      Never past the cap: total declared risk across AUTO-PROMOTED legs may not
+      exceed 25% of the account's configured risk budget. Never on an equities
+      or futures leg whose record modelled LESS than the 5.0 bps provisional
+      slippage -- on those venues there is no measurement to compare against.
+    evidence_required: >-
+      The committed record -- named harness, stated n, decision rule registered
+      before the run, net of the full cost stack -- the realized-cost record it
+      was checked against, the cap arithmetic, the realtime ping, and the
+      section-1 evidence review in the next daily brief.
+    bar:
+      min_n_closed: 30
+      expectancy_gt: 0
+      fold_majority: true
+      # ⚠️ § 5.3 requires clause 3 to be checked against "a stated tolerance"
+      # and STATES NO NUMBER; no operator decision sets one. 0.0 is the
+      # STRICTEST reading -- realized round-trip cost may not exceed what the
+      # record modelled at all -- chosen because an unstated bound must resolve
+      # to the safe side on the mandate that routes real money, not because
+      # anyone decided it. It is INFERRED, not DECIDED, and it is the operator's
+      # to set. Context, MEASURED and recorded on checklist rows D3/E60, not by
+      # this session: perps realized 0.87 bps against a 3.0 bps model, so 0.0
+      # does not block the venue that has a measurement. On alpaca_equities and
+      # ibkr_futures the resolver never reaches this comparison -- it takes the
+      # PROVISIONAL 5.0 bps basis instead (operator, 2026-09-24: "the 5.0
+      # assumption is a working artifact until we get evidence backed numbers").
+      # Checklist row E62 replaces that placeholder.
+      cost_tolerance_bps: 0.0
+    cap:
+      basis: uniform_account_risk_pct_share_of_roster
+      max_auto_share: 0.25
+
+  - id: MD-DEMOTE-S2-S1
+    grants: demote a Stage-2 leg when the mirror goes net-negative net-of-cost
+    direction: derisk_only
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5. The underlying
+      grant is the operator's 2026-09-21 ladder mandate, quoted in
+      docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    fires_when: >-
+      A committed mirror-window record at
+      comms/mandate_evidence/mirror_window/<leg>.json, whose source_run is a
+      committed file in the repo, states net_r_net_of_full_cost < 0 over the
+      window the record declares. The edit REMOVES the leg from the Stage-2
+      account and its mirror and returns it to the Stage-1 soak book. This
+      mandate carries no block: it reads live measurement, not the backtest
+      corpus, and its worst case removes exposure.
+    never: >-
+      Never on a missing or unreadable record, and never on one citing a
+      source_run absent from the repo -- "we could not look" is not a demotion
+      signal. Never on a non-negative window: the evidence must support the
+      demotion, not merely fail to forbid it. Never an addition to a real-money
+      roster under this id.
+    evidence_required: >-
+      The mirror-window record with its n_closed, its stated window and its
+      net-of-full-cost result, plus the realtime ping and the section-1 evidence
+      review in the next daily brief.
+
+  - id: MD-DEMOTE-S1-OFF
+    grants: drop a Stage-1 leg whose realized cost diverges from its harness assumption
+    direction: derisk_only
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5. The underlying
+      grant is the operator's 2026-09-21 ladder mandate, quoted in
+      docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    fires_when: >-
+      The newest committed D3 realized-cost record under
+      comms/research/d3_realized_slippage/ shows the leg's venue charging MORE
+      than the leg's record modelled, by more than bar.cost_tolerance_bps. The
+      edit REMOVES the leg from its Stage-1 soak roster. No block: live
+      measurement, and the worst case removes exposure.
+    never: >-
+      Never when either side of the comparison is unreadable -- an unmeasurable
+      venue shows no divergence, and "could not measure" must not read as
+      "diverged". Never an addition under this id.
+    evidence_required: >-
+      The D3 record that decided it, the leg's modelled cost stack, the
+      tolerance applied, plus the realtime ping and the section-1 evidence
+      review in the next daily brief.
+    bar:
+      # Same unstated-tolerance caveat as MD-PROMOTE-S1-S2, pointing the other
+      # way: here 0.0 is the most trigger-happy setting, so any realized cost
+      # above modelled drops the leg. Accepted because this is `derisk_only` and
+      # Stage 1 is a paper soak -- an over-eager demotion costs an instrument
+      # reading, not money. INFERRED, not DECIDED.
+      cost_tolerance_bps: 0.0
+
+  - id: MD-KILL-QUESTION
+    grants: close a research question that failed its own pre-registered rule
+    direction: derisk_only
+    granted_by: operator (Ben)
+    granted_at: '2026-09-24'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-24 ~17:15Z, verbatim
+      "Grant all 10 as written"; recorded on checklist row B5. The underlying
+      grant is the operator's 2026-09-21 ladder mandate, quoted in
+      docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    fires_when: >-
+      A unit in research/queue/ has run and its result fails the decision rule
+      REGISTERED BEFORE THE RUN. The action closes the question with a stated
+      terminal_reason. CLAUDE.md: "`killed` is a first-class outcome -- closing
+      a dead row with a stated reason is worth more than carrying it."
+    never: >-
+      Never a question whose decision rule was registered after the run, or is
+      absent -- with no pre-registered rule there is nothing to have failed, and
+      closing it is judgement, which no mandate authorizes. Never a question
+      that merely has not run yet, and never one closed for cost or slowness
+      rather than for its result. Never touches a roster.
+    evidence_required: >-
+      The pre-registered rule, the run's result against it, and the
+      terminal_reason recorded on the unit -- plus the realtime ping and the
+      section-1 evidence review in the next daily brief.
+    # ⚠️ THE RESOLVER DOES NOT EVALUATE THIS ONE, deliberately, and refuses with
+    # R-TRANSITION: "MD-KILL-QUESTION acts on research/queue, not on a roster".
+    # It is granted and armed; what is missing is a consumer, not an
+    # authorization. Do not read the refusal as the mandate being withheld.
+
+# ── PROPOSED, NOT GRANTED ─────────────────────────────────────────────────────
+#
+# Empty as of 2026-09-24: all five entries that stood here were GRANTED and now
+# appear above. The key is kept -- not deleted -- because it is where the next
+# proposal lands, and because an absent key and an empty one are different
+# readings. The manager's standing duty is to keep moving repeated decisions out
+# of the daily brief and into this list; CLAUDE.md's rule is that "a decision
+# arriving twice in the same shape is raised as 'should this become a mandate?'"
+#
+# ⚠️ A SESSION MAY PROPOSE HERE. ONLY THE OPERATOR MOVES AN ENTRY UP.
+
+proposed: []

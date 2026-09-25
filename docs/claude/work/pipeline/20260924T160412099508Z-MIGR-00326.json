@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) the scan failure is legible — the swallow logs the offending column/query at ERROR, or re-raises under pytest so the fixture is named directly; OR (b) fixtures build `trades` from the production DDL through one shared helper, so drift is impossible rather than merely detectable. (b) is the stronger fix and the same single-homing move already made for the DB-path resolver and provenance.py.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-FIXTURE-MISSING-A-PRODUCTION-COLUMN-FAILS-SILENTLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A test fixture MISSING a production column fails silently: sqlite's `no such column` is swallowed into a generic scan failure and every behavioural test in the file then misreports as an assertion failure"
+}

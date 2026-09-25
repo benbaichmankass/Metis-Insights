@@ -1,0 +1,61 @@
+{
+  "strategy": "fade_breakout",
+  "symbol": "BTCUSDT",
+  "timeframe": "2h",
+  "params": {
+    "donchian": 20,
+    "atr_stop_buffer": 0.5,
+    "pierce_min": 0.0,
+    "exit_style": "far",
+    "tp_r": 50.0,
+    "trail_mult": 3.5,
+    "adx_max": 20.0,
+    "min_confidence": 0.0
+  },
+  "total_trades": 27,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2025-09-25 00:00:00+00:00",
+  "data_end": "2026-09-23 20:00:00+00:00",
+  "run_date": "2026-09-25",
+  "win_rate_pct": 18.52,
+  "total_r": -13.2525,
+  "trades_long": 14,
+  "trades_short": 13,
+  "total_r_long": -7.7053,
+  "total_r_short": -5.5472,
+  "total_fee_r": 1.4708,
+  "net_total_r": -16.0919,
+  "net_total_r_long": -9.137,
+  "net_total_r_short": -6.9549,
+  "net_expectancy_r": -0.596,
+  "net_total_r_fee_only": -14.7233,
+  "net_expectancy_r_fee_only": -0.5453,
+  "mean_cost_r": {
+    "fee_r": 0.05448,
+    "slippage_r": 0.02179,
+    "funding_r": 0.0289,
+    "total_cost_r": 0.10516,
+    "funding_windows": 4.59259
+  },
+  "avg_win_r": 1.7495,
+  "max_mfe_r": 3.506,
+  "max_drawdown_r": 13.2525,
+  "by_outcome": {
+    "stop": 22,
+    "timeout": 1,
+    "target": 4
+  },
+  "by_year": {
+    "2025": {
+      "trades": 6,
+      "net_r": -5.2571
+    },
+    "2026": {
+      "trades": 21,
+      "net_r": -10.8348
+    }
+  },
+  "consistency": null
+}

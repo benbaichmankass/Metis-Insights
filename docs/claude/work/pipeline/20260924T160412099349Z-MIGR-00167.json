@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either a device is registered and a test push is confirmed delivered, or the operator confirms mobile push is intentionally unused and the row is closed as by-design.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260807-NO-REGISTERED-PUSH-DEVICES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-NO-REGISTERED-PUSH-DEVICES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-NO-REGISTERED-PUSH-DEVICES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [alerting] device_tokens is EMPTY — every FCM push the system emits reaches nobody"
+}

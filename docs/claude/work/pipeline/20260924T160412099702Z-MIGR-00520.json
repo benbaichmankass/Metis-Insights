@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO PARTS. (1) SWEEP: `grep -rn 'is-ancestor\\|log.*--grep' scripts/ .github/` is run and every hit that decides MERGE STATUS is either corrected to the API/subject-line form or annotated as not asking that question. A clean sweep resolves this half — but it must be RUN and its result recorded, since this row explicitly does not claim there are no hits. (2) The correct form is written where a session will actually read it at the point of use — CLAUDE.md § PM-side session capabilities already documents the sibling zero-check-runs and 403 traps, which is the precedent for where this belongs. [!] A row in a 1300-row backlog resolves NOTHING on its own: this class recurs precisely because the lesson lives somewhere nobody reads mid-task, which is the reasoning CLAUDE.md gives for restating the mergeable_state trap inline after it cost two sessions ten minutes each.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-MERGE-BASE-IS-ANCESTOR-REPORTS-NOT-MERGED-FOR-EVERY-SQUASH-MERGED-PR-AND-FAILS-SILENTLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-MERGE-BASE-IS-ANCESTOR-REPORTS-NOT-MERGED-FOR-EVERY-SQUASH-MERGED-PR-AND-FAILS-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-MERGE-BASE-IS-ANCESTOR-REPORTS-NOT-MERGED-FOR-EVERY-SQUASH-MERGED-PR-AND-FAILS-SILENTLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `git merge-base --is-ancestor <pr-head> main` reports NOT MERGED for every squash-merged PR in this repo — a confident, silent false negative, and --grep gives the opposite false positive"
+}

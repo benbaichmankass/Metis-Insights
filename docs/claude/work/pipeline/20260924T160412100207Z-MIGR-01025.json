@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-SHADOW-DEMOTE-CLAIMS-DATA-COLLECTION-WHILE-ZERO-ROUTING-COLLECTS-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-SHADOW-DEMOTE-CLAIMS-DATA-COLLECTION-WHILE-ZERO-ROUTING-COLLECTS-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-SHADOW-DEMOTE-CLAIMS-DATA-COLLECTION-WHILE-ZERO-ROUTING-COLLECTS-NOTHING'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "turtle_soup's `execution: shadow` block says it `logs packages for data`, but it is routed to 0 of 11 accounts so it has logged nothing for 70 days -- the stated benefit of the demote is not being realised"
+}

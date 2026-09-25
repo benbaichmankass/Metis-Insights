@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) make the renderer accept the string form the skill documents (coerce str -> {'summary': s}), or (b) fix the skill prose to state the dict/list shapes and point at the template. EITHER WAY, --strict must fail with a NAMED key and expected type instead of an AttributeError - a validator whose failure mode is a stack trace teaches nothing. Add a fixture test that renders the exact payload shape the skill's prose describes.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-SYSTEM-REPORT-SKILL-SHAPES-CONTRADICT-RENDERER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-SYSTEM-REPORT-SKILL-SHAPES-CONTRADICT-RENDERER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-SYSTEM-REPORT-SKILL-SHAPES-CONTRADICT-RENDERER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The /system-review SKILL documents review_coverage blocks as STRINGS; render_system_report.py --strict requires DICTS and dies on AttributeError"
+}

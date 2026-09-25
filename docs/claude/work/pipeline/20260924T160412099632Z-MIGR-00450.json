@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The lease's freshness on origin/main is bounded by the heartbeat cadence rather than by a PR's merge latency. Candidates, not yet chosen: (a) heartbeat commits directly to main through the existing commit-to-main action, the way other receipts do — the lease is a receipt, not reviewable content, so a PR adds nothing; (b) the reader treats a lease found on a live manager BRANCH as authoritative, which is more complex and re-introduces 'which branch do I trust'; (c) the TTL is widened, which is the wrong direction — it makes a genuinely dead manager block its successor for longer. ⚠️ VERIFY BY MEASUREMENT, NOT BY CODE READING: after the fix, compare origin/main's heartbeat_at against the manager's own clock across at least three heartbeats and state the max lag. ⚠️ AND CHECK THE HISTORICAL QUESTION SEPARATELY: has any takeover ever occurred against a lease whose origin/main copy was stale while its holder was alive? MANAGER-LEASE.json's git history (59 revisions across 3 sessions as of 2026-09-03) is where that is answerable, and a `--force` claim carrying a reason is where it would show.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260903-LEASE-HEARTBEAT-REACHES-ORIGIN-MAIN-ONLY-WHEN-THE-MANAGER-PR-MERGES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-LEASE-HEARTBEAT-REACHES-ORIGIN-MAIN-ONLY-WHEN-THE-MANAGER-PR-MERGES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-LEASE-HEARTBEAT-REACHES-ORIGIN-MAIN-ONLY-WHEN-THE-MANAGER-PR-MERGES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The manager lease heartbeat lands on the manager's BRANCH, so origin/main lags it by however long that PR takes to merge"
+}

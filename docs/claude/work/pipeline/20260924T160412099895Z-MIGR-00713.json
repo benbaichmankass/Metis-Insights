@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (1) gld-compat-matrix.yml gains `research_unit` + `power_state` inputs and its writer stamps them onto every row it emits, verified by a queue-dispatched run whose landed rows carry the unit id — read from the corpus, not from the diff; OR (2) a guard asserts that every workflow named by a `run.workflow` in research/queue/*.yaml whose store is in research_disposition.CORPORA declares the stamp inputs, so the gap announces itself on the commit that creates it rather than in an audit. (2) is the durable half and (1) alone leaves the next route free to repeat it. NOT resolved by a passing unit test: the criterion is a stamped row in a committed corpus.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260831-QUEUE-DISPATCHED-ROWS-CARRY-NO-IDENTITY-ON-THE-ONE-ROUTE-THAT-HAS-EVER-WORKED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260831-QUEUE-DISPATCHED-ROWS-CARRY-NO-IDENTITY-ON-THE-ONE-ROUTE-THAT-HAS-EVER-WORKED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-QUEUE-DISPATCHED-ROWS-CARRY-NO-IDENTITY-ON-THE-ONE-ROUTE-THAT-HAS-EVER-WORKED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] Across ALL THREE registered corpora — 9,744 rows — not one carries research_unit or research_power_state. That includes the 44 gld_compat rows written by the queue's ONE confirmed successful dispatch, and there they are unstampable BY CONSTRUCTION: gld-compat-matrix.yml declares no research_unit input at all."
+}

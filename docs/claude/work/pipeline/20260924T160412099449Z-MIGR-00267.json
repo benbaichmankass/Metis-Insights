@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "/api/diag/log_file?name=tick_cost_soak (or an equivalent durable surface) returns rows spanning at least TWO distinct process_started_utc values, and its summary max/mean are computed over the whole file rather than the returned page -- verified by a live read taken AFTER a trader restart, with the summary's tick count exceeding the in-memory ticks_measured of the then-current process. Until that read exists the row stays open; a merged writer is not sufficient, for the same reason #9614 shipped an account_id column that no code path could populate and passed its tests.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-TICK-COST-HAS-NO-DURABLE-HALF-SO-A-BUSY-MERGE-DAY-CANNOT-BE-MEASURED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-TICK-COST-HAS-NO-DURABLE-HALF-SO-A-BUSY-MERGE-DAY-CANNOT-BE-MEASURED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-TICK-COST-HAS-NO-DURABLE-HALF-SO-A-BUSY-MERGE-DAY-CANNOT-BE-MEASURED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/diag/tick_cost counters are per-PROCESS with no durable sibling, so on a day with frequent merges every read is small-n and the tick regression cannot be measured at a useful sample size"
+}

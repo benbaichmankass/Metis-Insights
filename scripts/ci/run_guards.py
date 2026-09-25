@@ -218,6 +218,12 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ops/pipeline.py", "--self-test"],
             ["python3", "scripts/ops/pipeline.py", "--check"],
+            # E64, 2026-09-24 — the migration off the flat file. Wired for the
+            # same reason: a resurrected flat PIPELINE.jsonl (a lane PR's
+            # modify/delete conflict hand-resolved by keeping it) is caught by
+            # pipeline.py --check above, and the fix this asserts is that
+            # running the migration is always safe to re-run over that state.
+            ["python3", "scripts/ops/migrate_pipeline_to_dir.py", "--self-test"],
         ],
     },
     # ─────────────────────────────────────────────────────────────────────
@@ -334,6 +340,12 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ops/accrual_clock.py", "--all"],
             ["python3", "scripts/ops/column_provenance.py", "--self-test"],
             ["python3", "scripts/ops/strategy_liveness.py", "--self-test"],
+            # E18 — proves all four never-collapsed leg_flow_detector states
+            # (unreadable/no_intents/starved/flowing) are reachable, with a
+            # positive control for the finding itself (the breakout_1 shape:
+            # intents>0, received=0) and for the collapse the module exists
+            # to prevent (unreadable staying apart from starved).
+            ["python3", "scripts/ops/leg_flow_report.py", "--self-test"],
             ["python3", "scripts/ops/soak_alarm.py"],
             ["python3", "scripts/research/target_reachability_report.py"],
             ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],

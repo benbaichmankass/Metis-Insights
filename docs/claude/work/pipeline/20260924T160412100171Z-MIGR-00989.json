@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260906-A-JOB-FILE-MERGED-TO-MAIN-WOULD-RE-EXECUTE-ON-THE-LIVE-VM-AND-NOTHING-STOPS-ONE-LANDING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-A-JOB-FILE-MERGED-TO-MAIN-WOULD-RE-EXECUTE-ON-THE-LIVE-VM-AND-NOTHING-STOPS-ONE-LANDING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-A-JOB-FILE-MERGED-TO-MAIN-WOULD-RE-EXECUTE-ON-THE-LIVE-VM-AND-NOTHING-STOPS-ONE-LANDING'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "vm-driver's contract -- a .job is CONSUMED on push and must never reach main -- lives only in the workflow's own header comment, and nothing enforces it; a PR carrying one to main was opened today"
+}

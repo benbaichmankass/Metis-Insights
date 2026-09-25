@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(a) A written definition of 'heavy' that covers replay/eval jobs as well as train/build, stated in docs/claude/trainer-resource-protocol.md § Rule 1 beside the three-path table. It must be decidable from the source (the guard cannot measure RSS), e.g. 'loads the fleet / iterates every strategy / reads a full dataset into memory' expressed as a resolvable code property — NOT a hand-maintained list, which is what this row exists to avoid repeating. (b) trainer-heavy-lock-guard's classifier extended to that definition, with its DECLARED_LIGHT rationale updated so the registry and the stated rule agree. (c) The replay_pregate* family either locked or declared light under the new definition, with the reason recorded. Verification: point at the definition, at a guard run whose drift pass classifies all four files, and at a planted-regression run proving the extended classifier still fails closed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-HEAVY-IS-UNDEFINED-FOR-REPLAY-AND-EVAL-JOBS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-HEAVY-IS-UNDEFINED-FOR-REPLAY-AND-EVAL-JOBS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-HEAVY-IS-UNDEFINED-FOR-REPLAY-AND-EVAL-JOBS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The trainer queue's definition of 'heavy' is train/build-only, so the replay_pregate* family (4.08 GB measured) is legitimately outside it"
+}

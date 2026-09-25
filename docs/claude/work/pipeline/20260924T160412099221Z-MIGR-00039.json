@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "T+1 settlement is MODELLED in code and the model is shown acting — a would-be order that the account could not settle is refused with a logged cause, observed on a real or replayed case, not merely unit-tested. A passing test is not an observation of the live mechanism. This row does NOT clear on the leg going live, and NOT on the funding decision.",
+    "kind": "observation",
+    "last_checked": "2026-08-31"
+  },
+  "id": "OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] alpaca_live go-live: the T+1 model now EXISTS (PR #10408, merged + deployed 2026-08-29, running at `annotate`). The row stays OPEN because `clears_when` requires the model be SHOWN ACTING, and at `annotate` it binds nothing by construction — so shipping it cannot clear this. Operator settled the fork: CASH, permanently."
+}
