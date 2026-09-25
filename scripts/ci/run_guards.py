@@ -340,6 +340,12 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ops/accrual_clock.py", "--all"],
             ["python3", "scripts/ops/column_provenance.py", "--self-test"],
             ["python3", "scripts/ops/strategy_liveness.py", "--self-test"],
+            # E18 — proves all four never-collapsed leg_flow_detector states
+            # (unreadable/no_intents/starved/flowing) are reachable, with a
+            # positive control for the finding itself (the breakout_1 shape:
+            # intents>0, received=0) and for the collapse the module exists
+            # to prevent (unreadable staying apart from starved).
+            ["python3", "scripts/ops/leg_flow_report.py", "--self-test"],
             ["python3", "scripts/ops/soak_alarm.py"],
             ["python3", "scripts/research/target_reachability_report.py"],
             ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
