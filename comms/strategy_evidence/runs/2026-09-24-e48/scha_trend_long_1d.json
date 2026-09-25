@@ -3,63 +3,63 @@
   "strategy": "scha_trend_long_1d",
   "symbol": "SCHA",
   "timeframe": "1d",
-  "config_fingerprint": "sha256:a6d254b58e8cde878c87e180fd494c93",
+  "config_fingerprint": "sha256:63c25f9a2def667a020c8c1978ed7702",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": -0.0717,
-  "expectancy_r_oos": -0.0102,
-  "n_trades_oos": 7,
+  "net_r_oos": 4.6442,
+  "expectancy_r_oos": 0.0595,
+  "n_trades_oos": 78,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
-      "trades": 1,
-      "net_r": -0.4792,
-      "expectancy_r": -0.4792,
-      "start": "2025-07-01 00:00:00+00:00",
-      "end": "2025-07-01 00:00:00+00:00"
+      "trades": 19,
+      "net_r": 5.1547,
+      "expectancy_r": 0.2713,
+      "start": "2010-01-08 00:00:00+00:00",
+      "end": "2013-07-08 00:00:00+00:00"
     },
     {
       "fold": 2,
-      "trades": 1,
-      "net_r": 1.4889,
-      "expectancy_r": 1.4889,
-      "start": "2025-08-13 00:00:00+00:00",
-      "end": "2025-08-13 00:00:00+00:00"
+      "trades": 19,
+      "net_r": -5.3415,
+      "expectancy_r": -0.2811,
+      "start": "2013-10-14 00:00:00+00:00",
+      "end": "2017-09-13 00:00:00+00:00"
     },
     {
       "fold": 3,
-      "trades": 1,
-      "net_r": 0.1459,
-      "expectancy_r": 0.1459,
-      "start": "2025-12-04 00:00:00+00:00",
-      "end": "2025-12-04 00:00:00+00:00"
+      "trades": 19,
+      "net_r": 2.521,
+      "expectancy_r": 0.1327,
+      "start": "2017-10-02 00:00:00+00:00",
+      "end": "2021-06-08 00:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 4,
-      "net_r": -1.2273,
-      "expectancy_r": -0.3068,
-      "start": "2026-04-13 00:00:00+00:00",
+      "trades": 21,
+      "net_r": 2.31,
+      "expectancy_r": 0.11,
+      "start": "2021-08-27 00:00:00+00:00",
       "end": "2026-08-17 00:00:00+00:00"
     }
   ],
-  "folds_positive": 2,
-  "window_days": 365,
+  "folds_positive": 3,
+  "window_days": 6000,
   "fee_bps_roundtrip": 0.0,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
-    "n": 7,
-    "max_drawdown_r": 2.7186,
-    "max_drawdown_at_trade": 7,
-    "final_equity_r": -0.0717,
-    "max_equity_r": 2.6469,
-    "worst_trade_r": -1.0108,
-    "best_trade_r": 1.4913,
-    "worst_day_r": -1.0108,
-    "worst_day_date": "2026-08-31",
+    "n": 78,
+    "max_drawdown_r": 8.3077,
+    "max_drawdown_at_trade": 37,
+    "final_equity_r": 4.6442,
+    "max_equity_r": 7.3628,
+    "worst_trade_r": -1.0256,
+    "best_trade_r": 1.4918,
+    "worst_day_r": -1.0256,
+    "worst_day_date": "2017-11-08",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
@@ -69,20 +69,19 @@
     "slippage": 5.0,
     "funding": 0.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-25/scha_trend_long_1d__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-24-e48/scha_trend_long_1d__bt.json"
   },
-  "net_r_oos_fee_only": -0.0022,
+  "net_r_oos_fee_only": 5.6171,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
     "registered_at": "2026-09-22T05:34:08Z",
-    "verdict": "fail"
+    "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-25T07:01:27.805110+00:00",
+  "generated_at": "2026-09-24T16:00:16.272797+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-25/scha_trend_long_1d__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-24-e48/scha_trend_long_1d__trades.jsonl",
   "error": null,
-  "harness": "trend",
-  "low_n_warning": "n_trades_oos=7 < 10; the pooled number is reported but is not a basis for a verdict."
+  "harness": "trend"
 }

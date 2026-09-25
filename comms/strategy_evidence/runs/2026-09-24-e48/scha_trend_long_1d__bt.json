@@ -1,0 +1,132 @@
+{
+  "strategy": "trend_donchian",
+  "symbol": "SCHA",
+  "timeframe": "1h",
+  "params": {
+    "donchian": 30,
+    "atr_stop_mult": 3.0,
+    "trail_mult": 4.0,
+    "min_confidence": 0.0,
+    "trail_decay_arm_r": 2.0,
+    "trail_decay_stall_bars": 0,
+    "trail_decay_tight_mult": 2.0
+  },
+  "total_trades": 78,
+  "fee_bps_roundtrip": 0.0,
+  "slippage_bps_roundtrip": 5.0,
+  "funding_bps_per_window": 0.0,
+  "data_start": "2009-11-03 00:00:00+00:00",
+  "data_end": "2026-09-24 00:00:00+00:00",
+  "run_date": "2026-09-24",
+  "tp_r_effective_n": 78,
+  "tp_r_effective_median": 1.5,
+  "tp_r_effective_min": 0.897,
+  "tp_r_effective_max": 1.5,
+  "rr_floor_state": "off",
+  "rr_min_n": 78,
+  "rr_min_p10": 0.077,
+  "rr_min_median": 0.582,
+  "rr_min_p90": 1.712,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 39.74,
+  "total_r": 5.6171,
+  "net_total_r": 4.6445,
+  "net_total_r_long": 4.6445,
+  "net_total_r_short": 0,
+  "net_expectancy_r": 0.0595,
+  "net_total_r_fee_only": 5.6171,
+  "net_expectancy_r_fee_only": 0.072,
+  "mean_cost_r": {
+    "fee_r": 0.0,
+    "slippage_r": 0.01247,
+    "funding_r": 0.0,
+    "total_cost_r": 0.01247,
+    "funding_windows": 103.38462
+  },
+  "trades_long": 78,
+  "trades_short": 0,
+  "avg_win_r": 1.3783,
+  "max_mfe_r": 1.499,
+  "max_drawdown_r": 8.3076,
+  "by_outcome": {
+    "stop": 23,
+    "take_profit": 29,
+    "trail_stop": 26
+  },
+  "by_year": {
+    "2010": {
+      "trades": 5,
+      "net_r": 4.9391
+    },
+    "2011": {
+      "trades": 4,
+      "net_r": -0.9255
+    },
+    "2012": {
+      "trades": 5,
+      "net_r": 0.3481
+    },
+    "2013": {
+      "trades": 6,
+      "net_r": 2.2807
+    },
+    "2014": {
+      "trades": 6,
+      "net_r": -4.4095
+    },
+    "2015": {
+      "trades": 2,
+      "net_r": -0.9602
+    },
+    "2016": {
+      "trades": 6,
+      "net_r": -0.2433
+    },
+    "2017": {
+      "trades": 6,
+      "net_r": -0.7606
+    },
+    "2018": {
+      "trades": 3,
+      "net_r": -0.0242
+    },
+    "2019": {
+      "trades": 6,
+      "net_r": -0.1727
+    },
+    "2020": {
+      "trades": 5,
+      "net_r": 2.7896
+    },
+    "2021": {
+      "trades": 5,
+      "net_r": -0.0518
+    },
+    "2022": {
+      "trades": 3,
+      "net_r": 0.1734
+    },
+    "2023": {
+      "trades": 4,
+      "net_r": 1.0462
+    },
+    "2024": {
+      "trades": 5,
+      "net_r": 0.2784
+    },
+    "2025": {
+      "trades": 3,
+      "net_r": 1.5638
+    },
+    "2026": {
+      "trades": 4,
+      "net_r": -1.2273
+    }
+  },
+  "bar_minutes": 1440.0,
+  "position_days": 1853.0,
+  "capital_days": 1853.0,
+  "mean_bars_held": 23.756,
+  "net_r_per_position_day": 0.0025,
+  "net_r_per_capital_day": 0.0025
+}
