@@ -518,9 +518,21 @@ def check_evidence(root: Path, mb: str, changed: List[str],
 # --------------------------------------------------------------------------
 # A7 — authored by the workflow, not by a session
 # --------------------------------------------------------------------------
-def pr_author_login() -> Tuple[Optional[str], str]:
-    """(login, how). `None` means we could not look — never 'it is the bot'."""
-    path = os.environ.get("GITHUB_EVENT_PATH") or ""
+def pr_author_login(event_path: Optional[str] = None) -> Tuple[Optional[str], str]:
+    """(login, how). `None` means we could not look — never 'it is the bot'.
+
+    ⚠️ `event_path` IS INJECTABLE, AND IT HAD TO BECOME SO. Reading
+    `GITHUB_EVENT_PATH` straight from the environment made this module's own
+    self-test read the AMBIENT payload of whatever PR was running it — so in CI
+    both POSITIVE controls saw that PR's human author and failed A7, while the
+    same suite passed locally where the variable is unset. MEASURED: the
+    `guards` job on PR #12974 (run 36188298373) failed on exactly that, having
+    passed on the same commit locally. An instrument whose verdict depends on
+    the environment it is measured in is not an instrument
+    (docs/CLAUDE-RULES-CANONICAL.md § 'Green is not evidence' — assume the class
+    applies to your instruments, not only to your data). The fixtures now plant
+    their own payload and the production path is unchanged."""
+    path = event_path if event_path is not None else (os.environ.get("GITHUB_EVENT_PATH") or "")
     if not path or not Path(path).is_file():
         return None, f"GITHUB_EVENT_PATH {path!r} is not readable"
     try:
@@ -534,7 +546,8 @@ def pr_author_login() -> Tuple[Optional[str], str]:
 
 
 def check_author(root: Path, mb: str, branch: str, decl: Dict[str, Any],
-                 *, pre_flight: bool = False) -> Tuple[List[str], List[str]]:
+                 *, pre_flight: bool = False, event_path: Optional[str] = None,
+                 in_actions: Optional[bool] = None) -> Tuple[List[str], List[str]]:
     """`pre_flight` is the PRODUCER's own run, inside
     `.github/workflows/r4-demotion-gate.yml`, BEFORE the PR exists — so there is
     no `pull_request.user.login` to read and demanding one would make the
@@ -575,13 +588,15 @@ def check_author(root: Path, mb: str, branch: str, decl: Dict[str, Any],
             f"session wrote part of a real-money roster cut, and the whole point of this route "
             f"is that no session is in the path.")
 
-    login, how = pr_author_login()
+    login, how = pr_author_login(event_path)
+    in_ci = ((os.environ.get("GITHUB_ACTIONS") or "").lower() == "true"
+             if in_actions is None else in_actions)
     if pre_flight and login is None:
         notes.append(f"A7 PR author NOT CHECKED — pre-flight run, no PR exists yet ({how}). "
                      f"The authoritative read is pr-landing-guard R16 on the PR itself, which "
                      f"fails closed on it. Commit authorship above still applied.")
     elif login is None:
-        if (os.environ.get("GITHUB_ACTIONS") or "").lower() == "true":
+        if in_ci:
             fails.append(f"A7 running in GitHub Actions but the PR author could not be read "
                          f"({how}). That is *we could not look*, and this route fails closed on "
                          f"it — the identity of whoever opened the PR is the one check a pushed "
@@ -627,8 +642,9 @@ def check_slot(root: Path, mb: str, changed: List[str], slug: str,
 # the verdict
 # --------------------------------------------------------------------------
 def verdict(root: Path, base: str, branch: Optional[str], decl: Dict[str, Any],
-            changed: List[str], slug: str,
-            *, pre_flight: bool = False) -> Tuple[bool, List[str], List[str]]:
+            changed: List[str], slug: str, *, pre_flight: bool = False,
+            event_path: Optional[str] = None,
+            in_actions: Optional[bool] = None) -> Tuple[bool, List[str], List[str]]:
     """(ok, failures, notes). Every clause runs, so one PR reports every defect."""
     fails: List[str] = []
     notes: List[str] = []
@@ -653,7 +669,8 @@ def verdict(root: Path, base: str, branch: Optional[str], decl: Dict[str, Any],
         f, n = check_evidence(root, mb, changed, removals)
         fails += f
         notes += n
-    f, n = check_author(root, mb, branch, decl, pre_flight=pre_flight)
+    f, n = check_author(root, mb, branch, decl, pre_flight=pre_flight,
+                        event_path=event_path, in_actions=in_actions)
     fails += f
     notes += n
     f, n = check_slot(root, mb, changed, slug, branch)
@@ -784,6 +801,9 @@ def _base_repo(tmp: Path, *, arm: bool = True) -> Path:
     _write(root, MANDATES_REL, _MANDATES.format(arm="    autoland: true" if arm else ""))
     _write(root, ACCOUNTS_REL, _ACCOUNTS.format(leg=LEG))
     _write(root, mr.STRATEGIES_REL, _STRATEGIES)
+    # The planted event payload lives in the work tree; it must never reach the
+    # diff, or A1 would refuse every fixture for a file the fixture invented.
+    _write(root, ".gitignore", ".fixture-event.json\n")
     _run(root, "add", "-A")
     _run(root, "commit", "-qm", "base", env=_BOT_ENV)
     _run(root, "branch", "-f", "mainbase")
@@ -826,13 +846,29 @@ def _paperwork(root: Path, *, run_id: str = RUN_ID, slot: bool = True,
     return decl
 
 
-def _finish(root: Path, decl: dict, *, branch: str = BRANCH,
-            env: Optional[dict] = None) -> Tuple[bool, List[str], List[str]]:
+def _event(root: Path, login: Optional[str]) -> Optional[str]:
+    """A PLANTED GitHub event payload, so no fixture ever reads the ambient one.
+
+    ⚠️ THIS IS THE FIX FOR THE ONE FAILURE THIS SUITE SHIPPED WITH. Passing
+    `None` means *no payload* — the local case — and is NOT the same as a
+    payload naming somebody else; both are exercised below."""
+    if login is None:
+        return ""
+    path = root / ".fixture-event.json"
+    path.write_text(json.dumps({"pull_request": {"user": {"login": login}}}), encoding="utf-8")
+    return str(path)
+
+
+def _finish(root: Path, decl: dict, *, branch: str = BRANCH, env: Optional[dict] = None,
+            author: Optional[str] = BOT_LOGIN, in_actions: bool = True,
+            ) -> Tuple[bool, List[str], List[str]]:
+    event_path = _event(root, author)
     _run(root, "checkout", "-q", "-b", branch)
     _run(root, "add", "-A")
     _run(root, "commit", "-qm", "cut", env=env or _BOT_ENV)
     changed = _changed(root, "mainbase") or []
-    return verdict(root, "mainbase", branch, decl, changed, _slug(branch))
+    return verdict(root, "mainbase", branch, decl, changed, _slug(branch),
+                   event_path=event_path, in_actions=in_actions)
 
 
 def _case(label: str, build, *, expect_ok: bool, expect_clause: Optional[str] = None,
@@ -1042,11 +1078,40 @@ def self_test(quiet: bool = False) -> int:
         _run(root, "add", "-A")
         _run(root, "commit", "-qm", "cut", env=_HUMAN_ENV)
         changed = _changed(root, "mainbase") or []
-        return verdict(root, "mainbase", BRANCH, decl, changed, SLUG, pre_flight=True)
+        return verdict(root, "mainbase", BRANCH, decl, changed, SLUG, pre_flight=True,
+                       event_path="", in_actions=False)
     _case("--pre-flight still refuses a hand-authored commit (it waives only the "
           "PR-author read, which no PR yet has)",
           preflight_still_checks_commits, expect_ok=False, expect_clause="A7",
           results=results, quiet=quiet)
+
+    # ── the PR-AUTHOR clause, which the suite used to inherit from its own
+    # environment. Each case plants its OWN payload; none reads the ambient one.
+    def opened_by_a_person(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), author="benbaichmankass")
+    _case("a PR opened by a PERSON refuses, however bot-authored its commits are (A7)",
+          opened_by_a_person, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def no_payload_in_ci(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), author=None, in_actions=True)
+    _case("an UNREADABLE event payload inside CI fails closed — 'we could not look' "
+          "is not 'it is the bot' (A7)",
+          no_payload_in_ci, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def no_payload_locally(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), author=None, in_actions=False)
+    _case("POSITIVE: outside CI the same cut passes with the PR-author read NOTED as "
+          "unchecked, never silently assumed",
+          no_payload_locally, expect_ok=True, results=results, quiet=quiet)
 
     # ⚠️ THE REGRESSION CONTROL FOR THE ONE REAL DEFECT THIS ROUTE SHIPPED WITH.
     # An earlier draft grouped A8 among the evidence clauses, so an UNARMED

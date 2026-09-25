@@ -124,8 +124,17 @@ def _produce(root: Path) -> dict:
 
 
 def _grade(root: Path, decl: dict):
+    """⚠️ `event_path` / `in_actions` are passed EXPLICITLY, never inherited.
+
+    Reading them from the environment made these cases depend on which PR was
+    running them: under GitHub Actions the ambient `GITHUB_EVENT_PATH` names the
+    HUMAN who opened the PR, so A7 failed here and passed locally. That is the
+    guard's own `pre_flight` path, exercised under the workflow's real
+    conditions — a schedule/dispatch event with no `pull_request` key — and it
+    is stated rather than inherited."""
     changed = autoland._changed(root, "mainbase") or []
-    return autoland.verdict(root, "mainbase", BRANCH, decl, changed, SLUG, pre_flight=True)
+    return autoland.verdict(root, "mainbase", BRANCH, decl, changed, SLUG,
+                            pre_flight=True, event_path="", in_actions=False)
 
 
 # ---------------------------------------------------------------------------
