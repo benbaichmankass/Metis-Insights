@@ -218,6 +218,12 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ops/pipeline.py", "--self-test"],
             ["python3", "scripts/ops/pipeline.py", "--check"],
+            # E64, 2026-09-24 — the migration off the flat file. Wired for the
+            # same reason: a resurrected flat PIPELINE.jsonl (a lane PR's
+            # modify/delete conflict hand-resolved by keeping it) is caught by
+            # pipeline.py --check above, and the fix this asserts is that
+            # running the migration is always safe to re-run over that state.
+            ["python3", "scripts/ops/migrate_pipeline_to_dir.py", "--self-test"],
         ],
     },
     # ─────────────────────────────────────────────────────────────────────

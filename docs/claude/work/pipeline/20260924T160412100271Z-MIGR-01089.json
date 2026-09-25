@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260911-MERGING-MAIN-DROPPED-THREE-SIBLING-LANES-ROWS-FROM-SESSIONS-JSON-AND-THE-FILE-STAYED-VALID-JSON",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-MERGING-MAIN-DROPPED-THREE-SIBLING-LANES-ROWS-FROM-SESSIONS-JSON-AND-THE-FILE-STAYED-VALID-JSON",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-MERGING-MAIN-DROPPED-THREE-SIBLING-LANES-ROWS-FROM-SESSIONS-JSON-AND-THE-FILE-STAYED-VALID-JSON'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Merging main into a branch that touched SESSIONS.json silently DELETED three sibling lanes' rows -- valid JSON, no conflict, no marker"
+}

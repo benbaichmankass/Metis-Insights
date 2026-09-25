@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) the 500 sites are raised to 2000 so one budget governs every trades.notes write — defensible on the evidence above, since no rationale for 500 has ever existed — with a test asserting a single budget and a live read confirming no row regressed; OR (b) 500 is KEPT and a comment at the call sites states the reason it must stay tighter, so the next session does not re-open this. What is NOT acceptable is leaving two undocumented budgets and continuing to protect keys one at a time as each is lost.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260830-NOTES-CAP-SPLIT-500-VS-2000-HAS-NO-STATED-RATIONALE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-NOTES-CAP-SPLIT-500-VS-2000-HAS-NO-STATED-RATIONALE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-NOTES-CAP-SPLIT-500-VS-2000-HAS-NO-STATED-RATIONALE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] trades.notes is capped at TWO budgets — 15 sites at 500, 7 at 2000 — and NO commit has ever justified either; both are ad-hoc char-slice lengths inherited verbatim by a migration whose stated scope was 'only how the blob is encoded'"
+}

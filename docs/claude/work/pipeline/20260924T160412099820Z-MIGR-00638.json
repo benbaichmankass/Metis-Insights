@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) a one-line correction is added wherever this counter is documented as evidence for project-hook liveness (this repo's own prose, if any references it beyond the now-resolved BL-20260820 row), so a future session does not re-cite 'Found 0 total hooks in registry' as proof hooks are inert; or (b) if no such reference survives after BL-20260820's close, record that the population of citing rows is empty and close this row on that basis. Low severity and no code/order-path change either way -- this is a documentation/reasoning hygiene finding, not a functional defect.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-CLAUDE-CODE-LOG-FOUND-0-HOOKS-IN-REGISTRY-MEASURES-PLUGIN-HOOKS-NOT-PROJECT-HOOKS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-CLAUDE-CODE-LOG-FOUND-0-HOOKS-IN-REGISTRY-MEASURES-PLUGIN-HOOKS-NOT-PROJECT-HOOKS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-CLAUDE-CODE-LOG-FOUND-0-HOOKS-IN-REGISTRY-MEASURES-PLUGIN-HOOKS-NOT-PROJECT-HOOKS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The 'Found N total hooks in registry' line in /tmp/claude-code.log measures a PLUGIN hooks registry, not whether project-level .claude/settings.json hooks (SessionStart/PreToolUse) execute -- and was cited as evidence of the opposite by BL-20260820-PROJECT-HOOKS-INERT-ON-WEB"
+}

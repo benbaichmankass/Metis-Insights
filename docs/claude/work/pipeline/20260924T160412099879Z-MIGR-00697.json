@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A retrained ETH regime head (target: eth-regime-5m/15m-lgbm-v1) clears RG4 live robustly (>=0.55 across thresholds, not knife-edge) after its shadow soak, the gated ETH A/B is re-confirmed with that head, and advisory promotion is proposed (Tier-3). Root-cause + replacement-head halves DONE 2026-06-28.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260627-003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260627-003",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260627-003'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] Labeling-gap FIXED (alt datasets now built daily); but ETH regime head is NO_EDGE live (RG4 0.46) -> needs retrain before promotion"
+}

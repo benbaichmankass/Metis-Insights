@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A REAL automation run is OBSERVED emitting `refreshed_after_generated_conflict` and its PR is then MERGED -- read the run log or the resulting merge, never the branch's existence. Say WHICH run. [!] MERGING #12472 CLEARS NOTHING: a merge is not a deploy of a composite action and a deploy is not a firing, which is the distinction that keeps half the rows in this file open. [!] A GREEN TEST SUITE CLEARS NOTHING: 24 tests pass in tests/test_commit_to_main_callers.py and 6 of 6 realistic mutations are caught, and a harness cannot reach a runner -- which is precisely why this row exists beside a green PR. [!] NOR DOES THE REPLAY, however many branches it resolved: it is the strongest available OFFLINE evidence and it is offline, and reporting 30-of-33 as a fleet observation would be exactly the merged-is-not-observed error this register exists to stop. [!] AND THE OPEN-PR COUNT FALLING IS NOT EVIDENCE EITHER, which is the likeliest misread: stale-automation-sweep closes stranded automation PRs, so the pile can shrink for a reason that has nothing to do with this change. Read the state token, not the count. [!] IF A RUN EMITS `failed_conflict_rederive`, that does NOT clear this row and is the MORE VALUABLE finding -- a caller's declared refresh-command does not reproduce its artifact on a runner, which the replay cannot detect. Write it into observation and keep the row open.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260917-THE-GENERATED-CONFLICT-RECOMPUTE-IS-PROVEN-IN-REPLAY-AND-HAS-NEVER-RUN-ON-A-RUNNER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260917-THE-GENERATED-CONFLICT-RECOMPUTE-IS-PROVEN-IN-REPLAY-AND-HAS-NEVER-RUN-ON-A-RUNNER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260917-THE-GENERATED-CONFLICT-RECOMPUTE-IS-PROVEN-IN-REPLAY-AND-HAS-NEVER-RUN-ON-A-RUNNER'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: No owner: #12472 is settled and the automation-PR conflict class is E49's/E29's; nothing on the checklist asks to observe this composite action firing. EVIDENCE: search_pull_requests 2026-09-24: #12472 closed 2026-09-17T20:35Z. MANAGER-CHECKLIST.json: E49 queued, E29 landed_unproven.",
+  "what": "[LOUD] PR #12472 makes commit-to-main RECOMPUTE a generated artifact on conflict instead of aborting, under three ANDed conditions (a refresh-command is declared; EVERY conflicted path is one the caller named in paths:; the recompute exits 0). MEASURED 2026-09-17 over the COMPLETE population of 70 open PRs at origin/main 19e59662, with both controls passing: 56 of 70 (80.0%) were merge-conflicted, 44 of them automation/** -- this action's OWN PRs -- and the blocked paths were led by GENERATED files (DUE.json/DUE.md in 28, ERROR-FEED-DIGEST.json/.md in 23), with 23 error-feed-digest PRs stacked since 2026-09-13. [!] IT IS PROVEN IN REPLAY AND HAS NEVER RUN ON A RUNNER, AND THOSE ARE DIFFERENT FACTS. The replay took the 33 REAL stranded automation branches on origin, reproduced git merge origin/main, applied the resolution and re-probed: 30 CONFLICT -> CLEAN, 3 correctly refused. That exercises the DECISION and the git mechanics; it does NOT exercise the action's shell on a runner, the bash -c of a caller's refresh-command in the Actions environment, or the push-and-extend-deadline path. [!] AND IT IS NOT MERGED: Tier-1 but landing: hold / changes_landing_machinery per R12, so it cannot self-land and waits on a human merge click."
+}

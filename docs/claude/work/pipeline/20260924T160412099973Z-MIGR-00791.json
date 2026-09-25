@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260820-EXIT-LEVER-BREAKEVEN-IS-BELOW-THE-REPO-OWN-FEE-CONSTANT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-EXIT-LEVER-BREAKEVEN-IS-BELOW-THE-REPO-OWN-FEE-CONSTANT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-EXIT-LEVER-BREAKEVEN-IS-BELOW-THE-REPO-OWN-FEE-CONSTANT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The only positive E3 lever cell breaks even at 0.02-0.05 R of extra cost per early exit, while the repo's OWN shared fee constant resolves to 0.08-0.16 R on this instrument — and the same arithmetic puts the leg's fee-free mean edge inside its own round-trip cost"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "GET /api/diag/log_file accepts an offset (or an explicit head/range) so a caller can page a multi-hundred-KB log to its start, mirroring audit_query's existing limit+offset. Demonstrated on exit_lever_soak by BOTH controls: a paged read reaching the file's FIRST record (positive — the record's ts predates the current 1000-record tail window, which begins 2026-08-31T12:03:15Z), and a request beyond the end returning an empty page rather than silently re-serving the tail (negative — an out-of-range page that returns the last 1000 lines is the collapsed state this row exists to prevent, and would be worse than the cap). Raising _MAX_LIMIT alone does NOT close this: it moves the ceiling without making the file pageable, and a 3,897-record file would need it raised again. Tier-2 because it changes a live-VM web-api route; not built by the filing session, which was measurement-only.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-DIAG-LOG-FILE-IS-TAIL-ONLY-AND-HARD-CAPPED-AT-1000-SO-A-MULTI-HUNDRED-KB-SOAK-CANNOT-BE-READ-OVER-ITS-LIFETIME",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-DIAG-LOG-FILE-IS-TAIL-ONLY-AND-HARD-CAPPED-AT-1000-SO-A-MULTI-HUNDRED-KB-SOAK-CANNOT-BE-READ-OVER-ITS-LIFETIME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-DIAG-LOG-FILE-IS-TAIL-ONLY-AND-HARD-CAPPED-AT-1000-SO-A-MULTI-HUNDRED-KB-SOAK-CANNOT-BE-READ-OVER-ITS-LIFETIME'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/diag/log_file is tail-only and hard-capped at 1000 lines with NO offset, so a soak log is unreadable beyond its last 1000 records from any session — exit_lever_soak's 1000-record tail covers only ~25.7% of its estimated lifetime"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BOTH, and they are different facts. (1) The model-to-task rule is written where a manager reads it BEFORE spawning — CLAUDE.md's manager section and docs/claude/work/README.md — naming the model ids and stating that the default is INHERITANCE, so choosing is an ACT. That is carried by WO-20260917-CANONIZE-SPAWN-VS-RESUME-AND-MODEL-TO-TASK. (2) A manager is OBSERVED passing an explicit `model` on a spawn and recording WHY that model fits that unit — in the SESSIONS.json row, so a successor can read the reasoning and not just the value. [!] A CANON EDIT ALONE DOES NOT CLOSE THIS: prose-only has already failed twice on the manager's own duties (MI-15 twice, BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT), which is why clause (2) asks for an observation and not a document. [!] AND A SPAWN-TIME CHECK IS NOT ASKED FOR AND MUST NOT BE INVENTED TO CLOSE THIS: CI cannot read a create_session call, so a guard here would grade the RECORD of a choice rather than the choice — the shape CLAUDE.md already refuses for operator feedback. If someone builds one anyway, it is a separate proposal with its own row.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-A-SPAWNED-LANE-INHERITS-THE-MANAGERS-MODEL-SO-EVERY-LANE-RUNS-ON-OPUS-WITHOUT-ANYONE-CHOOSING-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-A-SPAWNED-LANE-INHERITS-THE-MANAGERS-MODEL-SO-EVERY-LANE-RUNS-ON-OPUS-WITHOUT-ANYONE-CHOOSING-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-A-SPAWNED-LANE-INHERITS-THE-MANAGERS-MODEL-SO-EVERY-LANE-RUNS-ON-OPUS-WITHOUT-ANYONE-CHOOSING-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] create_session's model parameter defaults to the CALLING session's model, so a manager that spawns without passing model gives every lane its own model by accident -- measured both live lanes on 2026-09-17 running claude-opus-5 with no model argument passed"
+}

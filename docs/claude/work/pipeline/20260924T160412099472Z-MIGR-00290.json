@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "ORDER MATTERS. First make the id scan wrap-tolerant (join '-\\n\\s*' before matching, or match across the newline) and prove it with BOTH controls: the regime-selectivity SKILL.md wrapped id must read as FILED, and a planted genuinely-unfiled wrapped id must still FAIL. Only then add '.claude' to SEARCH_DIRS. Adding the directory first is a known false-failure and must not be done. Do NOT resolve this by reflowing the SKILL.md prose -- the document is correct; the scanner is the thing that is wrong.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-BACKLOG-REF-GUARD-SKIPS-DOT-CLAUDE-AND-CANNOT-SEE-A-WRAPPED-ID",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-BACKLOG-REF-GUARD-SKIPS-DOT-CLAUDE-AND-CANNOT-SEE-A-WRAPPED-ID",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-BACKLOG-REF-GUARD-SKIPS-DOT-CLAUDE-AND-CANNOT-SEE-A-WRAPPED-ID'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_backlog_refs does not scan .claude/, and its id regex cannot span a hard-wrapped line — fix the wrap FIRST or adding the dir false-fails a correct skill"
+}

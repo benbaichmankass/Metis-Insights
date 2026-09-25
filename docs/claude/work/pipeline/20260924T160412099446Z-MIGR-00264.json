@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(a) The exit-coverage check grades the BRACKET the trade declared, not merely the presence of a stop — a position whose journal row carries a takeProfit but whose broker OCA group holds no corresponding limit leg is DETECTED and alerted, with a test that fails on the stop-only-105-lot shape measured here; AND (b) trade 4487 reaches a recorded disposition (operator-chosen), noting that a limit at the original TP is marketable today. Detection is the durable half and must not be skipped in favour of only fixing 4487.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-IB-PROTECTION-CHECKS-GRADE-STOPS-ONLY-A-STRIPPED-TP-IS-INVISIBLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-IB-PROTECTION-CHECKS-GRADE-STOPS-ONLY-A-STRIPPED-TP-IS-INVISIBLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-IB-PROTECTION-CHECKS-GRADE-STOPS-ONLY-A-STRIPPED-TP-IS-INVISIBLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] MGC trade 4487 has its stop but NO take-profit leg at the broker — confirmed by rows, and every protection check reads the position as fully covered"
+}

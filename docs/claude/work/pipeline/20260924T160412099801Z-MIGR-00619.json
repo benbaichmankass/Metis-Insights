@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A session that lands a fix is PROMPTED to re-grade the row it fixed, and the prompt is something the session meets rather than something it must remember to run. The cheapest honest shape is a diff-scoped check: a PR whose diff cites a row id in a commit message, PR body or landing record, where that row is still `open` after the PR lands, is SURFACED -- not failed, and never auto-closed. [!] IT MUST NOT AUTO-CLOSE: most criteria in this register demand an observation on the fleet that a merge does not supply, and two of the five rows measured here are exactly that case. An auto-close would have closed both wrongly, which is strictly worse than leaving three open. [!] A COUNT IS NOT A FIX: re-measuring the open-but-met rate proves the class persists and changes nothing -- this row is not cleared by a bigger census. [!] AND CLOSING THESE THREE CLEARS NOTHING EITHER: that is this change, and it is the instance, not the class. [!] If the operator decides the re-grade prompt is not worth building, that is a legitimate outcome and clears this row -- but it must be RECORDED as a decision, with the consequence stated: rows then accumulate in `open` after their fixes land, and the register's open count stops meaning what a reader takes it to mean.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THIS-LANE-FILED-FIVE-ROWS-AND-LEFT-THREE-OPEN-AFTER-THEIR-FIXES-HAD-LANDED-ON-MAIN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THIS-LANE-FILED-FIVE-ROWS-AND-LEFT-THREE-OPEN-AFTER-THEIR-FIXES-HAD-LANDED-ON-MAIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THIS-LANE-FILED-FIVE-ROWS-AND-LEFT-THREE-OPEN-AFTER-THEIR-FIXES-HAD-LANDED-ON-MAIN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A session that files a row and then ships its fix does not close the row -- measured on this lane's own five rows, three of which sat open with their criteria fully met"
+}

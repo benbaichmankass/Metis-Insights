@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "No ROADMAP cell simultaneously lists an item as queued/remaining and as shipped, and a planner can determine what is outstanding for a milestone without cross-checking commits.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-ROADMAP-QUEUED-LISTS-CONTRADICT-SHIPPED-LINES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-ROADMAP-QUEUED-LISTS-CONTRADICT-SHIPPED-LINES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-ROADMAP-QUEUED-LISTS-CONTRADICT-SHIPPED-LINES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ROADMAP.md cells carry STALE forward-looking 'queued/remaining' lists beside later 'Shipped'/'corrected' statements about the SAME items, in the SAME cell — so a planner reading top-down generates work that is already done. It did: 2 of 5 lanes in the 2026-08-14 work plan were already shipped."
+}

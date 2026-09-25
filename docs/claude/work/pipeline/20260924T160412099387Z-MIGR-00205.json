@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A CI guard fails when a file under src/ reads an env var (os.environ.get / os.getenv) that is absent from get_env.py's ALLOWED_KEYS, with a declared exemption list for vars genuinely not worth a read surface (each exemption carrying a one-line reason, verified-not-presence-only in the style of collapsed-state-guard). The guard must ship with a self-test proving it FAILS on a planted unlisted var, and must state its denominator (vars scanned / listed / exempted) so a clean run is a measured clean rather than an empty scan.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-NO-GUARD-FOR-ENV-READ-SURFACE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-NO-GUARD-FOR-ENV-READ-SURFACE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-NO-GUARD-FOR-ENV-READ-SURFACE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Nothing prevents the next env var shipping without a get-env read surface — the recurrence half of the four found on 2026-08-13"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "An approx-based assertion behaves identically alone and in a full run.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260807-PYTEST-APPROX-NUMPY-STUB",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-PYTEST-APPROX-NUMPY-STUB",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-PYTEST-APPROX-NUMPY-STUB'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [test-infra] pytest.approx is unreliable suite-wide when numpy is absent — a truthy sys.modules stub makes it RAISE instead of compare"
+}

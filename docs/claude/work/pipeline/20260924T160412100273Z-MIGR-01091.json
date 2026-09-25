@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260912-THE-SESSION-REGISTRY-CONFIRM-RECORDS-AN-OBSERVATION-THE-CONFIRMING-SESSION-DID-NOT-MAKE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-SESSION-REGISTRY-CONFIRM-RECORDS-AN-OBSERVATION-THE-CONFIRMING-SESSION-DID-NOT-MAKE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-SESSION-REGISTRY-CONFIRM-RECORDS-AN-OBSERVATION-THE-CONFIRMING-SESSION-DID-NOT-MAKE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "`session_registry.py confirm` takes `--observed-source-url` as a caller-supplied string with nothing binding it to the session being confirmed, so a manager can pre-fill a child's own wrong-repo check and the field reads identically either way"
+}

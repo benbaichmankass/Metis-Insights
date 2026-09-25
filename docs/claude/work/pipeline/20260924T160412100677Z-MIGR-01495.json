@@ -1,0 +1,20 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "`merge-claim-audit` no longer posts a red conclusion on a PR that did not touch it -- because it was retired with a stated reason, or because the `|| exit 1` was replaced by the could_not_check path its own header requires. [!] Re-pointing it at the archived board-pointer.json does NOT clear this: that is a green over a detector auditing a dead protocol.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-NW5KGJN8-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Engineering lane session_014LSHstYGrXDTZnNW5kgjn8 (row E21), found while driving PR #12710. Run https://github.com/benbaichmankass/Metis-Insights/actions/runs/35699702783",
+    "rerun": "git cat-file -e origin/main:docs/claude/board-pointer.json   # ABSENT == still broken. Or read any PR's merge-claim-audit check."
+  },
+  "state": "done",
+  "terminal_reason": "A10 2026-09-24: clears_when MET: merge-claim-audit was retired 2026-09-22 with a stated reason (trigger commented out, workflow_dispatch only), so it no longer posts red on PRs. EVIDENCE: MEASURED 2026-09-24: .github/workflows/merge-claim-audit.yml:95-101 'RETIRED 2026-09-22 ... # pull_request_target:' and only workflow_dispatch remains.",
+  "what": "`merge-claim-audit` is STRUCTURALLY RED on every PR since the 2026-09-21 operating reset, for a reason no diff can fix. MEASURED 2026-09-22 from run 35699702783 (job 106654535066) on PR #12710: the job is `pull_request_target`, so it checks out MAIN (logged `git checkout -B main refs/remotes/origin/main`, HEAD 9eb13192b) and never touches the PR branch. Its first step is `python3 scripts/ci/board_pointer.py --self-test || exit 1`, which fails with 'the SHIPPING pointer parses (could_not_check -- docs/claude/board-pointer.json does not exist)'. VERIFIED independently: that path is ABSENT from origin/main (b6e87b2bb) and now lives at docs/archive/2026-09-21-operating-reset/registers/board-pointer.json -- the reset archived the coordination board and this workflow still reads it. [!] THE SHARP PART: the workflow's own header declares 'THREE STATES, NEVER COLLAPSED: claimed / unclaimed / could_not_check', and the step BELOW the self-test handles rc!=0 correctly, emitting `::warning::merge-claim-audit: could_not_check`. The `|| exit 1` on the self-test line kills the job before that branch is reached, so the three-state handling is UNREACHABLE and 'we could not look' renders as a hard red X. The workflow breaks the rule it documents. [!] NOT ESTABLISHED, left open rather than guessed: main's trigger is `pull_request_target: types: [closed]` only, yet this fired at 07:27:51Z on a ready_for_review on an OPEN PR. Establish the real trigger surface before changing it. [!] DISPOSITION IS PROBABLY 'RETIRE IT': the register it audits is archived and the session-start contract forbids recreating it, so re-pointing it at the archive would keep a detector alive for a protocol that no longer exists. The live replacement is the per-branch merge-slot claim. Killing it with a stated reason is likely right -- but that is a CI-owning lane's call, not E21's, and must not be a silent deletion.",
+  "why_it_matters": "A check red on every PR for a reason no PR can fix teaches every session and the operator to skim past a red X -- the alarm-fatigue P1 CLAUDE.md names in its own right, and worse here because the next genuinely-red check on a live-money PR arrives into a feed where red is already normal. [!] IT ALREADY COST SOMETHING: this lane reported 'no red CI' on PR #12710 twice before finding it."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Something must be able to notice a committed artifact that exists only on an unmerged branch, OR the artifact-producing workflow must not be able to leave one behind. Two candidate shapes, neither chosen here: (a) the sweep-corpus workflow fails loudly if its PR is not merged within N hours instead of pushing and forgetting; (b) a periodic check compares artifact branches' committed artifacts against main by CONTENT and alerts on a non-empty difference. Do NOT implement it as an ancestry check -- see the note in `detail`. Closing this by hand-landing one branch is NOT a resolution; that already happened in #9896 and the mechanism is still unguarded.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-AN-UNMERGED-ARTIFACT-BRANCH-SILENCES-A-GUARD-THAT-READS-MAIN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A committed artifact left on an unmerged branch silences every guard that grades against main"
+}

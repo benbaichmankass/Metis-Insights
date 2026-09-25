@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The 11 gld_compat units carry a terminal verdict in the disposition ledger (`actioned` or `no_action_warranted` — `underpowered` is NOT terminal and cannot clear this), AND the 103-vs-117 reconciliation gap is either explained or corrected. ⚠️ NOT sufficient: a newer gld_compat run superseding them — that converts unread into superseded_unread and grows the debt this row tracks rather than paying it. The 256 superseded_unread are deliberately NOT in this row's clears_when: they are BL-20260831-SUPERSEDED-UNREAD-IS-256-AND-NOBODY-HAS-ESTABLISHED-HOW-MUCH-OF-IT-IS-BENIGN's subject and sizing how much of it is benign is that row's job, not a blocker on reading the live 11.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by E5 (result contract) / C2 (corpus) and R4 (pre-registered questions): the pre-reset gld_compat corpus has no consumer under the new research loop. EVIDENCE: MANAGER-CHECKLIST.json: E5 landed_unproven (#12739, #12741), C2 queued, R4 done (#12706).",
+  "what": "[LOUD] The research pipeline's MACHINERY is healthy and its READING is in debt. Measured 2026-08-31T21:0xZ via research_disposition.survey(): 370 units across 3 corpora — 103 dispositioned, 11 UNREAD (live), 256 superseded_unread. The queue itself is idle BY DESIGN (all 5 jobs `not_due`: 2 done, 1 cadence=once already ran, 2 monthly not elapsed), so nothing is stuck — the debt is that output arrives faster than anyone reads it."
+}

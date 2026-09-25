@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Basis: the self-test regression above, observed live while performing the extraction on 2026-08-18, plus the audit output before and after. The per-instance fix is verified by both self-tests (9/9 and 6/6) including a negative control. RESOLVED when a guard asserts the general relationship — that a lever a unit can run is visible to the audits and has a cell in the sweep that grades it — rather than each audit enumerating the shared modules it happens to know about. Until then this row stays open with the instance fixed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-CAPABILITY-AUDITS-GREP-ONE-FILE-AND-MISS-SHARED-LEVERS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Both exit-coverage audits detect capability by grepping ONE module, so extracting a lever to a shared module reads as losing it"
+}

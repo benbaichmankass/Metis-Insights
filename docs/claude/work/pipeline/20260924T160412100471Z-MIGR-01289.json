@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER research/queue/** (and research/** generally, which now also holds research/results/) is added to scripts/ci/check_pr_landing.py::TIER1_SURFACE under an operator decision record, as scripts/backtest_*.py was under MI-242 -- OR the operator states that a queue-status flip is deliberately human-gated, and that reason is written into the guard so the next lane meets it instead of re-deriving it.",
+    "kind": "event"
+  },
+  "id": "PI-20260922-E5-RESEARCH-QUEUE-IS-OUTSIDE-TIER1-SURFACE-SO-NO-LANE-CAN-SELF-LAND-A-QUEUE-FLIP",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_012atopaewbCQy8Fn3ex9obD, checklist row E5, PR #12739",
+    "rerun": "python3 -c \"import sys; sys.path.insert(0,'scripts/ci'); from check_pr_landing import TIER1_SURFACE, _match; print([p for p in ['research/queue/RQ-20260922-003.yaml','research/results/README.md','scripts/research/research_result.py'] if not _match(p, TIER1_SURFACE)])\"   # empty list = research/queue is inside the surface and this row is closed"
+  },
+  "routed_to": "operator (via checklist row E5)",
+  "state": "queued",
+  "what": "MEASURED 2026-09-22 by running scripts/ci/check_pr_landing.py against PR #12739's diff: R5 fails a Tier-1 `landing: self` declaration naming research/queue/RQ-20260922-003.yaml, -004 and -007, because TIER1_SURFACE lists scripts/research/** but NOT research/**. Consequence: a lane that unblocks a research unit -- flipping `status: blocked` to `queued`, which is Tier-1 research bookkeeping by the canonical doc's own examples -- CANNOT self-land that flip, and must either split the PR or hold it for a human. The E5 lane split it (claude/e5-unblock-research-units, landing: hold, hold_reason unvouchable_paths). [!] NOT A BUG IN THE GUARD, AND THE GUARD WAS DELIBERATELY NOT WIDENED. R5's polarity is an ALLOWLIST on purpose -- its own docstring says a path it cannot certify is refused rather than granted by default -- and the single precedent for widening TIER1_SURFACE (MI-242, scripts/backtest_*.py, operator-approved 2026-09-10 via DR-20260908) went through an operator decision precisely so the list does not grow by whoever is inconvenienced. [!] IT IS ALSO NOT COSMETIC: every future lane that unblocks a queue unit hits this, and the cheap way past it is to stop flipping the unit -- which leaves units reading `blocked` after their blocker has cleared, the exact stale-register state the operating reset was about. research/results/** is affected too and is only inside the surface today by the incidental `*.md` glob matching its README."
+}

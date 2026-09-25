@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when either (a) hf_vectorized.replay implements the same `i - latest_idx >= signal_ttl_bars` expiry as hf_solo_sim.simulate, demonstrated by a test that plants a signal and asserts it is still actionable at ttl-1 bars later and not at ttl bars later — AND the change is reported as invalidating prior vectorized results; or (b) an operator/research decision RECORDS that the vectorized engine is 1-bar-TTL by design, at which point the parameter is removed from its signature rather than left raising. Reading the diff is not enough for (a): the test must fail on the current code.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260902-TWO-SIBLING-HF-HARNESSES-DISAGREE-ON-SIGNAL-TTL-SEMANTICS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-TWO-SIBLING-HF-HARNESSES-DISAGREE-ON-SIGNAL-TTL-SEMANTICS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-TWO-SIBLING-HF-HARNESSES-DISAGREE-ON-SIGNAL-TTL-SEMANTICS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [research] hf_vectorized.replay and hf_solo_sim.simulate take the SAME `signal_ttl_bars` parameter and implement DIFFERENT semantics — the vectorized one hardcodes a 1-bar TTL and ignored the argument entirely"
+}

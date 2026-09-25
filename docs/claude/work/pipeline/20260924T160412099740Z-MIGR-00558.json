@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The answered-ness of a decision_request is readable ONE way. Either the two shapes are converged (with the losing shape migrated, not merely deprecated), or a single accessor owns the question and every consumer imports it -- the `src/runtime/provenance.py` pattern this repo already uses for 'is this pnl measured'. Verified by a guard that FAILS on an object carrying the other shape, with its own planted-defect self-test. [!] A DOC SAYING 'use the flat shape' RESOLVES NOTHING -- the repo's own rules record that documenting a convention is not a mechanism, and both shapes are already on main. [!] AND CONVERGING THE SCHEMA DOES NOT DISCHARGE DEFECT (2): that one is a session-discipline failure, already covered by RULE ONE, and is recorded here as a worked instance rather than as a thing to fix in code.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-DECISION-REQUESTS-CARRY-TWO-INCOMPATIBLE-ANSWER-SCHEMAS-SO-A-PROBE-KEYED-ON-ONE-REPORTS-ANSWERED-DECISIONS-AS-OPEN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-DECISION-REQUESTS-CARRY-TWO-INCOMPATIBLE-ANSWER-SCHEMAS-SO-A-PROBE-KEYED-ON-ONE-REPORTS-ANSWERED-DECISIONS-AS-OPEN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-DECISION-REQUESTS-CARRY-TWO-INCOMPATIBLE-ANSWER-SCHEMAS-SO-A-PROBE-KEYED-ON-ONE-REPORTS-ANSWERED-DECISIONS-AS-OPEN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] decision_requests answers live in TWO schemas (flat chosen/verdict vs nested answer:) — a probe keyed on one reports settled decisions as unanswered; measured flat=3 nested=25 unanswered=0"
+}

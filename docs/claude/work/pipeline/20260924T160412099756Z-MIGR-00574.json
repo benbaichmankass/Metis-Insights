@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A scope-overlap comment is OBSERVED on a real PR that changes its OWN `.github/pr-landing/<own-slug>.json` (or the matching arming `.txt`) and does NOT list that path under the live-session section, WHILE A PLANTED POSITIVE CONTROL still does: a PR whose diff touches ANOTHER branch's slug file under the same declared directory must still be reported. [!] BOTH HALVES ARE REQUIRED AND THE CONTROL IS THE LOAD-BEARING ONE -- a matcher that simply stopped reading `.github/pr-landing/` would satisfy the first half alone and would DELETE the true positive this row explicitly says must be kept (a session declaring that directory and then editing somebody else's declaration is a real collision). Without the control, 'the noise stopped' is indistinguishable from 'the check stopped'. [!] A GREEN SELF-TEST CLEARS NOTHING: the audit runs as a GitHub Action against live board comments, so a harness cannot reach the declaration corpus that produces the false positives. [!] AND THE COUNT GOING DOWN IS NOT SUFFICIENT ON ITS OWN, because it also falls when the declaring sessions happen to post a DONE -- read WHICH paths are listed, not how many. [!] IF THE SEPARATE-SECTION VARIANT IS TAKEN INSTEAD of the per-file matcher (see proposed_fix), the criterion CHANGES rather than being met: the per-branch rows then appear as a named, counted class outside the live-collision section, and the two genuinely shared registers (`docs/claude/OPEN-ITEMS.json`, `docs/claude/session-board.json`) must still be …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-SCOPE-OVERLAP-RESOLVES-A-DIRECTORY-DECLARATION-ONTO-PER-BRANCH-FILES-THAT-CANNOT-COLLIDE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-SCOPE-OVERLAP-RESOLVES-A-DIRECTORY-DECLARATION-ONTO-PER-BRANCH-FILES-THAT-CANNOT-COLLIDE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-SCOPE-OVERLAP-RESOLVES-A-DIRECTORY-DECLARATION-ONTO-PER-BRANCH-FILES-THAT-CANNOT-COLLIDE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] scope-overlap-audit matches a DIRECTORY declaration against per-branch files whose whole design is that two branches cannot collide in them — 7 of 11 live-session rows on PR #11896 were structurally impossible collisions"
+}

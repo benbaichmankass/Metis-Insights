@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies, still routed to E14 (queued). EVIDENCE: MEASURED 2026-09-24: python3 scripts/ops/render_daily_brief.py | wc -c -> 627894.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "`python3 scripts/ops/render_daily_brief.py | wc -c` returns a size a person will actually read — measured, with the threshold stated in the fix rather than left to taste — AND section 0 still names every due item, so the shrink came from field discipline or an honest, counted truncation rather than from dropping rows. Verified by RUNNING it against a store that has A8's ~1,150 items in it, not against today's 10.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260921-M07",
+  "loud": true,
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager, 2026-09-21) — first real render of the merged brief",
+    "rerun": "python3 scripts/ops/render_daily_brief.py | wc -c; # FINDING STILL APPLIES above roughly 12000 characters, or whenever section 0's longest row exceeds a few lines"
+  },
+  "routed_to": "checklist row E14 — promoted the same hour it was filed; blocked on A8 so it is sized against the ~1,150-item store rather than today are 11.",
+  "state": "routed",
+  "what": "THE DAILY BRIEF RENDERS AT 42 KB / 140 LINES AND IS THEREFORE UNREADABLE, AND THE MANAGER CAUSED IT. MEASURED 2026-09-21 on the first real render after A3a merged (9751e17): 42,159 characters, of which section 0 is the bulk. The GENERATOR is not at fault — it renders each pipeline item's `what` and `routed_to` verbatim, which is correct behaviour for a store whose fields are sentences. The fault is upstream: this manager wrote paragraph-length `routed_to` essays (one is 90+ words) and multi-hundred-word `what` fields, and section 0 prints them in full. [!] THIS IS A NEAR MISS OF THE EXACT FAILURE A8 WAS WARNED AGAINST. A8's acceptance test was that section 0 must not become a wall of undispositioned rows, and it passed — zero of its 607 promoted rows flood it. Mine is a wall of DISPOSITIONED rows, which is better in kind and identical in effect: an operator who will not read it gets the same nothing either way, and the whole mechanism rests on them reading it daily. [!] IT GETS WORSE, NOT BETTER, ON ITS OWN: A8's import takes the store to ~1,150 items and 87 currently-due, against the 7 rendered here. [!] TWO CANDIDATE FIXES AND THEY ARE NOT EQUIVALENT, so do not just pick one: (a) the brief TRUNCATES per-row text with the full text one click away — cheap, but this repo's rule is that a truncation must never be able to hide, so it needs the count printed beside it; (b) the STORE gets a length discipline — `what` is one sentence, the reasoning lives in the linked artifact. (b) is the real fix and (a) is the mitigation. Prefer (b), and note the validator currently enforces a minimum on these fields and no maximum."
+}

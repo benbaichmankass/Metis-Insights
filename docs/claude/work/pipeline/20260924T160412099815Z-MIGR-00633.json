@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "THE RULE MUST BE CARRIED BY SOMETHING A MANAGER MEETS BEFORE IT DISPATCHES, not by another memo. Clears when BOTH: (a) the spawn-vs-resume test is written into CLAUDE.md's manager section AND docs/claude/work/README.md -- REUSE only when the next unit's inputs live in that session's context AND are not readable from the repo or a named branch; otherwise SPAWN FRESH -- with the measured basis above beside it so it cannot be read as a preference; and (b) a manager is OBSERVED choosing fresh on a unit it would previously have resumed, and saying WHICH limb of the test decided it. [!] (a) ALONE DOES NOT CLEAR IT. This repo's own record is that a reminder is not a mechanism -- the manager-scope rule needed a CI check after a fourth restatement failed. If (b) does not follow, the honest next step is a CHECK (e.g. requiring a resume to record its stated context-dependency, so a resume with none is visible), not a fifth paragraph. [!] DO NOT CLEAR THIS BY BANNING RESUME. Resume is CORRECT when the context is genuinely unrepeatable -- an investigation mid-flight, a measurement whose intermediate state was never landed -- and a blanket ban would force lanes to rebuild state the repo does not hold, which is the opposite waste. [!] AND A QUIET MONTH IS NOT EVIDENCE: the cost is silent by construction, so 'nobody complained' cannot distinguish the rule being followed from the rule being unknown. Read the cache_read delta on a resumed lane before reading any quiet as a pass.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-A-LANE-IS-RESUMED-BY-DEFAULT-SO-A-FRESH-UNIT-PAYS-THE-PREDECESSORS-WHOLE-CONTEXT-AS-CACHE-READS-EVERY-TURN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-A-LANE-IS-RESUMED-BY-DEFAULT-SO-A-FRESH-UNIT-PAYS-THE-PREDECESSORS-WHOLE-CONTEXT-AS-CACHE-READS-EVERY-TURN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-A-LANE-IS-RESUMED-BY-DEFAULT-SO-A-FRESH-UNIT-PAYS-THE-PREDECESSORS-WHOLE-CONTEXT-AS-CACHE-READS-EVERY-TURN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A spawned lane is resumed by default, not started fresh — so a unit that doesn't need the predecessor's context still pays the whole thing back as cache-read tokens every turn"
+}

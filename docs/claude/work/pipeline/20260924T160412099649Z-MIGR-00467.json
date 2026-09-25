@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A reader meeting an exit_head_ml cell learns the CURRENT figures without parsing prose order — either a structured current-figures field on the cell, or a rendered view that puts the newest clause first. NOT resolution: appending one more dated clause saying which clause to believe, which is what this PR had to do and which the next re-measurement re-buries.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-EXIT-HEAD-CELL-REF-IS-APPEND-ONLY-SO-ITS-FIRST-SENTENCE-IS-THE-SUPERSEDED-FIGURE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-EXIT-HEAD-CELL-REF-IS-APPEND-ONLY-SO-ITS-FIRST-SENTENCE-IS-THE-SUPERSEDED-FIGURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-EXIT-HEAD-CELL-REF-IS-APPEND-ONLY-SO-ITS-FIRST-SENTENCE-IS-THE-SUPERSEDED-FIGURE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] An exit_head_ml cell records every re-measurement by APPENDING to one `ref` string, so the FIRST sentence a reader meets is the SUPERSEDED figure set — this produced a false 'two records disagree' finding that blocked PR #11140 for a day."
+}

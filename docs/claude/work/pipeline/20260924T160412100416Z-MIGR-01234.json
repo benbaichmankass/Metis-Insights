@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The operator answers whether a reach-gate that fires on a few percent of entries earns its declare, for xrp_pullback_2h (4.49) and avax_pullback_2h (4.86), and config/lever_reachability.json records the answer -- strip, keep, or re-arm at a reachable value. [!] THE ZERO TEST DOES NOT DECIDE THESE AND RE-RUNNING IT CLEARS NOTHING: both are already measured non-zero, which is exactly why they are here.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E41-0004",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E41",
+    "rerun": "python3 -c \"import json,statistics as st;\\nrows=[json.loads(l) for l in open('comms/strategy_evidence/runs/2026-09-22-r5/avax_pullback_2h__trades.jsonl') if l.strip()];\\ncaps=[0.099/(abs(float(r['entry'])-float(r['sl']))/float(r['entry'])) for r in rows];\\nprint(len(caps), sum(1 for c in caps if c>=4.86))\""
+  },
+  "state": "queued",
+  "what": "[strategy] Two trail-decay arms sit in the gap the operator's 2026-09-22 test does not reach. Their decision was 'strip the arms entirely', clarified the same day to \"I only wanted to strip the arm where it can't produce a result, it should stay where it can produce one\" -- i.e. strip where the measured answer is ZERO. xrp_pullback_2h (arm 4.49) measures 2/37 live COMPLETE (5.4%) and 12/204 backtest (5.9%); avax_pullback_2h (arm 4.86) measures 2/45 (4.4%). Non-zero, so the test does not reach them; but a lever firing on ~5% of entries is a design choice, and xrp's verdict is already `vol_conditional`, which this registry's legend calls 'a real design choice, not a default'. Stripping either would make that choice by deletion. BOTH WERE STRIPPED AND THEN RESTORED inside one session on branch claude/e41-strip-inert-trail-decay-arms, before anything merged; the arms stand unchanged. xrp is on bybit_2, REAL MONEY; avax is `execution: shadow`."
+}

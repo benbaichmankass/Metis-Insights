@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "MECHANICALLY CHECKABLE, on purpose. A test asserts that `update_row(path, rid, fields={'updates': None})` against a row whose `updates` holds >= 1 entry RAISES rather than writing, AND that the file on disk is UNCHANGED afterwards -- the second half matters because a raise after a partial write would still have destroyed the row. PLUS a POSITIVE CONTROL in the same suite: extending `updates` to a LONGER list through the same `fields=` path still succeeds, since forbidding list writes outright would break every disposition this register records and would pass a negative-only suite. PLUS a VACUITY CONTROL showing the assertion can go red -- reconstruct the current permissive behaviour and assert the test fails against it. [!] A GREEN `--check-live` CLEARS NOTHING: the clobbered file round-trips byte-for-byte, which is exactly why this went unnoticed by every existing check. [!] AND DO NOT CLOSE THIS ON THE ONE INSTANCE BEING REPAIRED: the row I clobbered was restored from `main` the same minute; what is owed is the REFUSAL, not the repair.\n\nVERBATIM REPRODUCTION, so a successor re-measures rather than trusting this row (tmpdir, never a live register):\n    from scripts.ops.backlog_append import update_row\n    # row 'BL-1' with updates=[{...},{...}]\n    update_row(p, 'BL-1', fields={'updates': None})\n    # observed 2026-09-17: before 2 -> after None, no exception, no warning\n[!] AND RUN IT AGAINST A COPY: the point of the row is that this call destroys data.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-UPDATE-ROW-ACCEPTS-A-VALUE-THAT-DESTROYS-A-POPULATED-LIST-FIELD-SO-THE-MANDATED-WRITER-CAN-WIPE-A-ROWS-HISTORY-SILENTLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-UPDATE-ROW-ACCEPTS-A-VALUE-THAT-DESTROYS-A-POPULATED-LIST-FIELD-SO-THE-MANDATED-WRITER-CAN-WIPE-A-ROWS-HISTORY-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-UPDATE-ROW-ACCEPTS-A-VALUE-THAT-DESTROYS-A-POPULATED-LIST-FIELD-SO-THE-MANDATED-WRITER-CAN-WIPE-A-ROWS-HISTORY-SILENTLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] update_row accepts a value that DESTROYS a populated list field, so the writer CLAUDE.md mandates can wipe a row's entire history without a word"
+}

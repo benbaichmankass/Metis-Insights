@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Every one of the 10 either no longer references the archived path, or carries a dated note saying why it stays. The COUNT going to zero is the check.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "E9 / PR #12674",
+    "rerun": "python3 -c \"import pathlib;print([p for p in pathlib.Path('.').rglob('*') if p.suffix in {'.py','.yml','.yaml','.md'} and 'docs/archive' not in str(p) and 'board-pointer' in p.read_text(errors='ignore')])\""
+  },
+  "state": "queued",
+  "what": "10 files still read docs/claude/board-pointer.json, which the reset archived. 8 are board machinery that should retire with it; 2 are the live diag relays (comments only). This is the same orphan-reader class as E9 and is its concrete worklist. [!] RE-APPENDED 2026-09-21 TO RESTORE THIS ID TO ITS ORIGINAL FINDING. A later manager session appended a DIFFERENT finding under this same id, which silently became the current state of PI-20260921-0002 and removed this one from due() and section 0 entirely, with `--check` still reporting `clean`. Nothing about this finding changed; only its visibility was restored. The intruding finding now lives at PI-20260921-M01."
+}

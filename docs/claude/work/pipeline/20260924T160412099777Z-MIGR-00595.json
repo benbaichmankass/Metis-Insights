@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER a shared resolver exists that sessions are pointed at and that refuses to write a value where main has moved off the merge-base value, OR a guard reports a row whose status moves BACKWARDS (resolved -> open, or an observation shortening) relative to origin/main and makes the author say why. [!] A DOCUMENTED RULE IS NOT SUFFICIENT and this row should not be closed on prose: the wrong rule is the intuitive one, it arrives under conflict-resolution time pressure, and it produces output that every existing check accepts. [!] NOR IS 'IT WAS CAUGHT THIS TIME' -- it was caught by a habit, not a mechanism, and the habit was mine on the day I happened to print the diff.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-REPLAYING-MY-BRANCHS-REGISTER-EDITS-ONTO-A-MOVED-MAIN-SILENTLY-REVERTS-RESOLUTIONS-ANOTHER-BRANCH-LANDED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-REPLAYING-MY-BRANCHS-REGISTER-EDITS-ONTO-A-MOVED-MAIN-SILENTLY-REVERTS-RESOLUTIONS-ANOTHER-BRANCH-LANDED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-REPLAYING-MY-BRANCHS-REGISTER-EDITS-ONTO-A-MOVED-MAIN-SILENTLY-REVERTS-RESOLUTIONS-ANOTHER-BRANCH-LANDED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Resolving a shared-register conflict by replaying 'mine differs from my base' onto a moved main silently REVERTS rows another branch resolved — valid JSON, guards pass, and only printing the replay catches it"
+}

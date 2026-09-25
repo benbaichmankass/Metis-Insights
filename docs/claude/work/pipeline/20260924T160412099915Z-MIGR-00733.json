@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-DONCHIAN-CELLS-SUPERSEDED-EVIDENCE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "[regime] trend_donchian's 6 live cells rest on evidence SUPERSEDED by the exit head — re-audit via the M20 exit-panel path"
+}

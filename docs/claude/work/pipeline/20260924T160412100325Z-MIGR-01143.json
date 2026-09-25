@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260918-A-TRADES-ROW-IS-NOT-A-FILL-AND-THE-DIAG-JOURNAL-OFFERS-NO-WAY-TO-ASK-FOR-ONLY-FILLS-SO-A-PER-LEG-ROW-COUNT-REVERSES-THE-VERDICT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260918-A-TRADES-ROW-IS-NOT-A-FILL-AND-THE-DIAG-JOURNAL-OFFERS-NO-WAY-TO-ASK-FOR-ONLY-FILLS-SO-A-PER-LEG-ROW-COUNT-REVERSES-THE-VERDICT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260918-A-TRADES-ROW-IS-NOT-A-FILL-AND-THE-DIAG-JOURNAL-OFFERS-NO-WAY-TO-ASK-FOR-ONLY-FILLS-SO-A-PER-LEG-ROW-COUNT-REVERSES-THE-VERDICT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Counting trades rows per leg reports a leg with zero fills as trading — 365 of 999 in-window rows are journalled refusals and 27 are orphan adoptions"
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "--heartbeat-grade reports a state distinct from `fresh` when the most recent EXPECTED firing (derived from the cron cadence) produced no receipt, while still not failing CI on a single missed window.",
+    "kind": "observation"
+  },
+  "id": "PI-20260923-HDZFTGH2-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01VsAt1BzrdspLn6hDzFTGh2, checklist row E44, PR #12753",
+    "rerun": "Take a supervisor whose last heartbeat is older than ONE cadence interval but younger than cadence x3, and run python3 scripts/ops/lane_reconcile.py --heartbeat-grade. If it prints `fresh` while a scheduled firing has demonstrably produced nothing, this still reproduces."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "OBSERVED 2026-09-22T18:37Z, and found by accident while taking the E44 cold reading. The 18:29Z firing had produced NOTHING, and `--heartbeat-grade` still read `fresh` -- because staleness is cadence x margin = 6h x 3 = 18h, and a SINGLE missed firing sits well inside that window. The 3x margin is deliberate and should stay (one skipped run must not red the whole repo, per the alarm-fatigue rule), but the consequence has to be said out loud: `fresh` means 'the watcher is broadly alive', NOT 'the last scheduled firing did its job'. Answering the second question required comparing last_fired_at against the expected firing time BY HAND, which is exactly the voluntary-lookup failure E44 exists to remove. THE FIX, not built here: a SIXTH state -- a non-blocking `missed_last_firing` -- derived from the Routine's own cron cadence, reported loudly and counted but not failing CI, leaving `stale` blocking at 3x. That keeps the anti-fatigue property while making one missed firing visible. NOT fixed in PR #12753 because it changes the guard's declared state contract, which is its own review."
+}

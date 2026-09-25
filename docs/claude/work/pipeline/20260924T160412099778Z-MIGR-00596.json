@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A consumer of /api/bot/trades/closed or /api/bot/performance that is told an account is `known_divergent` is told IN THE SAME RESPONSE when that verdict was established (`as_of`) and how large the divergence is (`realized_usd`), without a second query — i.e. the two fields `journal_trust_for` ALREADY computes reach the wire instead of being dropped at the extraction site. Mechanically checkable: a live GET for an account with a ledger record returns a non-null date beside the state, verified by calling the route rather than by reading the diff. ⚠️ It is NOT resolved by adding a fourth trust state or a staleness threshold — no threshold has been decided and inventing one would be a fabricated denominator; the ask is to surface the date the producer already has. ⚠️ And it is NOT resolved by refreshing the ledger: a fresh export makes today's reading current and leaves the next reader with the same blind spot.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-JOURNALTRUST-DROPS-THE-LEDGERS-AS-OF-AND-MAGNITUDE-AT-BOTH-WIRE-SURFACES-SO-A-61-DAY-OLD-RECONCILIATION-READS-AS-A-FRESH-ONE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-JOURNALTRUST-DROPS-THE-LEDGERS-AS-OF-AND-MAGNITUDE-AT-BOTH-WIRE-SURFACES-SO-A-61-DAY-OLD-RECONCILIATION-READS-AS-A-FRESH-ONE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-JOURNALTRUST-DROPS-THE-LEDGERS-AS-OF-AND-MAGNITUDE-AT-BOTH-WIRE-SURFACES-SO-A-61-DAY-OLD-RECONCILIATION-READS-AS-A-FRESH-ONE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `journal_trust_for` computes `as_of` and `realized_usd` and BOTH read surfaces discard them, so a 61-day-old reconciliation renders byte-identically to one taken today"
+}

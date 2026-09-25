@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-A-ROUTED-DATA-TAKE-PRESCRIBED-A-REWIND-BECAUSE-ONLY-ITS-ROW-SET-WAS-RE-MEASURED-NOT-ITS-DIRECTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-A-ROUTED-DATA-TAKE-PRESCRIBED-A-REWIND-BECAUSE-ONLY-ITS-ROW-SET-WAS-RE-MEASURED-NOT-ITS-DIRECTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-A-ROUTED-DATA-TAKE-PRESCRIBED-A-REWIND-BECAUSE-ONLY-ITS-ROW-SET-WAS-RE-MEASURED-NOT-ITS-DIRECTION'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "A routed partial-take work object prescribed the rewind it was written to prevent, because it told the worker to re-measure the row set but not which side was newer"
+}

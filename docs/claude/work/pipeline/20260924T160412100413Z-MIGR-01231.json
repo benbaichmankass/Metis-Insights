@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The operator decides trend_donchian_sol_4h's arm ON ITS CURRENT GEOMETRY and config/lever_reachability.json records the decision: strip it anyway, leave it, or re-arm it at a reachable value. ⚠️ A DECISION TAKEN ON THE 2026-08-16 NUMBERS DOES NOT CLEAR THIS -- those were measured at atr_stop_mult 2.5 and the leg has run 1.5 since 2026-08-29, which is the whole finding. ⚠️ NOR DOES THE PR MERGING: PR for row E41 deliberately does NOT touch this leg.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E41-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E41",
+    "rerun": "python3 -c \"import json,statistics as st; rows=[json.loads(l) for l in open('comms/strategy_evidence/runs/2026-09-22-r5/trend_donchian_sol_4h__trades.jsonl') if l.strip()]; caps=[0.099/(abs(float(r['entry'])-float(r['sl']))/float(r['entry'])) for r in rows]; print(len(caps), sum(1 for c in caps if c>=5.57), round(min(caps),3), round(st.median(caps),3), round(max(caps),3))\""
+  },
+  "state": "queued",
+  "what": "[strategy] trend_donchian_sol_4h was DISPATCHED for an arm strip on evidence measured at a stop geometry it no longer runs, and the strip was HELD. The operator was shown LIVE 0/16 (COMPLETE) and backtest 0/127; both were taken 2026-08-16, and atr_stop_mult was cut 2.5 -> 1.5 on 2026-08-29 (#10450), which scales cap_R by 1.667x. MEASURED 2026-09-22 on the current geometry: 4 of 34 entry-conditioned backtest trades reach the 5.57R arm (11.8%), cap_R max 6.459, from comms/strategy_evidence/runs/2026-09-22-r5/trend_donchian_sol_4h__trades.jsonl (2025-09-22 -> 2026-09-21). 'Cannot fire' is no longer established for this leg, so stripping it would remove a lever that fires."
+}

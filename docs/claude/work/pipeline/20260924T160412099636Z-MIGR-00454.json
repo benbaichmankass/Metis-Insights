@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "R7's \"previous heartbeat\" is taken from the lease register's history REACHABLE FROM THE COMMIT (all parents), not from `sha~1`: the latest same-holder heartbeat strictly earlier than this commit's own. Evidence must be a plant AND a control in `check_manager_scope.py --self-test`: a manager merge commit whose first parent carries a stale lease blob must grade CLEAN when the register shows on-cadence heartbeats reachable through the second parent, and a genuine >TTL silence must still FAIL — the existing `210min since the previous heartbeat -> violation (R7 only)` case must keep passing unchanged. NOT SUFFICIENT: exempting merge commits from R7 altogether. A manager's merge commit legitimately advances the heartbeat, so exempting it would blind the duty check on the manager's most common commit shape — trading a false positive for a silent false negative, which is the worse of the two.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260904-MANAGER-SCOPE-R7-MEASURES-CADENCE-ALONG-THE-FIRST-PARENT-SO-A-MANAGER-MERGE-INTO-A-WORKER-BRANCH-READS-AS-A-LAPSE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_manager_scope R7 reads the previous heartbeat from `sha~1`, which on a merge commit is the WORKER branch's stale lease blob, so an on-cadence manager grades as silent for hours"
+}

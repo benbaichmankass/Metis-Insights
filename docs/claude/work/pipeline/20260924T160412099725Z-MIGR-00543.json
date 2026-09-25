@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. THE OPERATOR ANSWERS DEC-20260910-EXIT-EVAL-60S-REMEDY. The cause is established; what is owed is a Tier-2 decision. !! DO NOT RE-MEASURE -- the 444 boundaries are a COMPLETE census (ungradeable 0, overlapping 0, unattributed_rows 0), not a sample. 2. IF R1 IS ARMED: the boot_reconcile -> DECOUPLED segment is OBSERVED at ~0s in a /api/diag/journalctl restart window, AND the post-arm restart-gap distribution is re-read off summary.restart_gap over a population of at least ~100 boundaries. !! A SMALLER SAMPLE CANNOT SETTLE IT -- that is exactly the error OI-20260910 made at n=11, and R1's predicted effect (~3s median) is smaller than the day-to-day noise at low n. 3. THE TWO OUTLIERS ARE NOT COVERED BY THIS CAUSE and must not be closed on it: 210.4s (2026-08-26) and 112.6s (2026-09-07) exceed what A+B+C+D can produce, and the journal no longer retains back to either date. Either a THIRD large gap is caught while the journal still holds it and decomposed, or it is recorded that the class is unexplained at 2 of 325. 4. IF THE OPERATOR DECLARES THE RESTART BOUNDARY OUT OF SCOPE for the 60s promise, this row does NOT close silently -- it CHANGES: that is a legitimate decision and must be RECORDED as one with its consequence stated (756 s/day in which no open position's exit is evaluated).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-RESTART-GAP-BREACHES-THE-60S-REQUIREMENT-ON-17-PERCENT-OF-RESTARTS-MAX-210S",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-RESTART-GAP-BREACHES-THE-60S-REQUIREMENT-ON-17-PERCENT-OF-RESTARTS-MAX-210S",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-RESTART-GAP-BREACHES-THE-60S-REQUIREMENT-ON-17-PERCENT-OF-RESTARTS-MAX-210S'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The RESTART GAP breaches the 60s exit-eval requirement on 77 of 442 restarts (17.4%), max 210.4s = 3.5x -- ~10x the within-process breach rate, and it was invisible until MI-230 built the grader"
+}
