@@ -1,5 +1,13 @@
 """Latched alert for an account the arbitration fan-out keeps STARVING.
 
+⚠️ **SINCE E35 (2026-09-25) THIS IS A REGRESSION TRIPWIRE, NOT A CONTEST
+REPORT.** Every account now elects from its own candidates and is routed its own
+winner (``arbitration_fanout`` v4 rows), so an account can no longer lose a
+symbol to another account. A v4 ``starved`` grading means an account ELECTED a
+winner and was placed in NO dispatch round — a defect the design forbids — and
+``starved_persistent`` over a window is the page for it. The allowlist the
+history below blames (``ARBITRATION_FANOUT_ACCOUNTS``) is retired and ignored.
+
 WHY THIS EXISTS (Tier-2, 2026-09-11). ``breakout_1`` — a ``mode: live`` prop
 account — took no trade for **twelve days** while its legs evaluated ~1000
 times each and signalled at a rate **identical to their ``bybit_1`` siblings,
@@ -95,9 +103,10 @@ THE STATES ARE NOT COLLAPSED. Four conditions produce "no alert":
     whose legs stopped signalling entirely vanishes from this file, and that
     is a different problem, not a healthy one.
   * ``soak_unreadable`` — the soak file is absent, empty, or unparseable. We
-    tried and failed. **An absent soak never means nothing is starved** — it
-    most likely means ``ARBITRATION_FANOUT_MODE=off``, under which the
-    measurement itself is switched off.
+    tried and failed. **An absent soak never means nothing is starved.** (Until
+    E35 it most likely meant ``ARBITRATION_FANOUT_MODE=off``; that knob is
+    retired and the v4 writer cannot be switched off, so an unreadable soak now
+    means the file itself is missing or broken.)
   * ``routing`` — observed, and it got orders out.
   * ``starved_persistent`` — the finding.
 
@@ -369,13 +378,14 @@ def describe(account_id: str, a: Dict[str, Any], *, window_hours: int) -> str:
     """The operator-facing body. States the population, always."""
     return (
         f"\U0001F7E1 [WARN] {account_id} is being STARVED by symbol "
-        f"arbitration: it held a candidate and lost the symbol "
+        f"arbitration: it elected a winner and was given no dispatch round "
         f"{a['starved']} time(s) in the last {window_hours}h and routed "
         f"NOTHING. Population: {a['gradeable_rows']} gradeable soak row(s) "
         f"({a['ungradeable_rows']} pre-schema row(s) not graded). Its legs are "
         f"signalling and producing no orders, so no journal row, ticket or "
         f"refusal exists for this — it is invisible to every account detector "
-        f"keyed on the journal. Check ARBITRATION_FANOUT_ACCOUNTS. "
+        f"keyed on the journal. Since E35 this should be impossible — read "
+        f"per_account on the arbitration_fanout_soak rows (v4) for the cause. "
         f"({a['no_winner']} separate no-winner tick(s) are NOT counted here.)"
     )
 
@@ -457,9 +467,9 @@ def run_starved_account_check(
         state["__soak__"] = dict(graded["__soak__"], updated_at=now.isoformat())
         _save_state(state)
         logger.warning(
-            "starved_account_alert: %s unreadable — not grading. An absent "
-            "soak most likely means ARBITRATION_FANOUT_MODE=off, in which "
-            "case the measurement itself is switched off.", _SOAK_FILENAME)
+            "starved_account_alert: %s unreadable — not grading. The v4 "
+            "writer has no off switch (E35), so the file itself is missing "
+            "or broken.", _SOAK_FILENAME)
         return {"checked": False, "reason": "soak_unreadable"}
     state.pop("__soak__", None)
 
