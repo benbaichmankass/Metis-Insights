@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager register only (docs/claude/work/MANAGER-CHECKLIST.json). Records wave 3 (E35, E17+E18, E39, C1+E6, E48 and B5 re-dispatched on the #12737 precedent), E64 merged, E34 found done, C3 killed as the E6 duplicate, and the merges/deploys since #12887. No src/, config/, scripts/ or workflow change."
+  "why": "Manager register + one pipeline bug record. Records E48/B5/E35 merged and deployed on operator approval, E39/E17/E64 done, E18 landed, the D1 verification outcome, and files PI-20260925-HJPL5ABP-0001 (supported_symbols monotonic sentinel). No src/, config/, scripts/ or workflow change."
 }
