@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) #11140 merges AND `exit_head_shadow.maybe_score_exit_head` is observed refusing an out-of-family artifact — a real WARNING line naming both family values on a real row, not a unit test; OR (b) #11140 is closed unmerged and the family check is added to the exit-head guard by another change, verified the same way. ⚠️ A PASSING TEST DOES NOT CLOSE THIS. tests/test_exit_head_apply_parity.py already asserts the unit passes family='ict_scalp'; that asserts a caller's argument, not that the guard ever REFUSED anything. ⚠️ AND DO NOT CLOSE IT ON THE HAZARD STAYING LATENT. 'No collision has occurred' is the expected reading while no donchian-monitor leg is on 5m/15m and no scalp head is published — it is the precondition of the row, not evidence against it. Re-measure the 23-leg / 0-on-5m-or-15m population with monitor_unit_for before asserting the gap is still inert; if that count has changed, the row has become urgent rather than resolved. Now that both live artifacts are confirmed to carry family='donchian', the donchian opt-out #11140 left open on an unread field can be closed on evidence.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-EXIT-HEAD-GUARD-DROPS-THE-FAMILY-CHECK-ITS-SIBLING-ENTRY-HEAD-GUARD-MAKES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-EXIT-HEAD-GUARD-DROPS-THE-FAMILY-CHECK-ITS-SIBLING-ENTRY-HEAD-GUARD-MAKES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-EXIT-HEAD-GUARD-DROPS-THE-FAMILY-CHECK-ITS-SIBLING-ENTRY-HEAD-GUARD-MAKES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The exit-head in-distribution guard gates on tf+symbols and never reads `family`, while the sibling entry-head guard one file over gates on family FIRST — the exporters are near-identical, so this is an omission, not a design choice"
+}

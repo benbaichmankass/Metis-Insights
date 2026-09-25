@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260903-BACKLOG-APPEND-WRITES-ROWS-THAT-REQUIRED-GUARDS-REJECT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-BACKLOG-APPEND-WRITES-ROWS-THAT-REQUIRED-GUARDS-REJECT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-BACKLOG-APPEND-WRITES-ROWS-THAT-REQUIRED-GUARDS-REJECT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/ops/backlog_append.py is the SANCTIONED appender -- CLAUDE.md tells every session to file through it rather than editing by hand -- and it accepted a row that two REQUIRED CI guards then rejected. Measured 2026-09-03 on BL-20260903-SESSIONS-REGISTRY-KEY-IS-SECOND-GRANULAR-AND-COLLIDES: artifact-validity-guard refused severity 'P2' (not in critical|high|medium|low) and claim-basis-guard refused a missing `status` (not in the declared enum). The append itself reported success."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-24",
+    "kind": "date"
+  },
+  "id": "PI-20260924-5V6UVR9J-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E54",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/actions/workflows/research-queue-dispatch.yml/runs --jq '.workflow_runs[] | {event,conclusion,created_at}' | head -20  # confirm schedule+FIRE still firing; grep last_dispatched_at research/queue/*.yaml research/queue/blocked/*.yaml to see which units have real fire history"
+  },
+  "state": "done",
+  "terminal_reason": "This row's only job was to record the correction durably; the correction itself (ROADMAP.md M40 append) lands in the same PR. Nothing further to route -- the dispatcher needs no arming action because it is already armed and has been operating safely (CPU-only) for 25 days. Filed done rather than queued/routed because there is no follow-up action this row itself owns.",
+  "what": "[docs] ROADMAP.md's M40 cell and the archived OI-20260827-RESEARCH-QUEUE-DISPATCHER-NEVER-FIRED both assert the R5 research-queue dispatcher's daily 06:20Z cron 'passes no --fire' and 'must not be armed until a session has read one real dry-run report'. MEASURED 2026-09-24 (E54, this session): that is STALE. .github/workflows/research-queue-dispatch.yml sets FIRE: github.event_name == 'schedule' || inputs.fire == true -- the operator (Ben) armed this personally in commit 8183a387d ('Arm the research-queue cron', 2026-08-30T22:27:50+03:00) and it has fired for real on every scheduled run since. Confirmed via mcp__github__actions_list on research-queue-dispatch.yml: runs #20 through #34 (2026-09-10 through 2026-09-24) all carry event=schedule, and 5 queue units carry a real last_dispatched_at stamp from 2026-08-30/31 (RQ-20260827-001, RQ-20260830-001, RQ-20260830-002, RQ-20260831-001, RQ-20260831-002). Run #34 (id 35996108860) was IN PROGRESS with FIRE=true at the moment of this finding, on a queue byte-identical to the one this session dry-ran locally (git diff f2eca7645..166594733 -- research/queue/ is empty). Today's dry run (python3 scripts/research/dispatch_queue.py --queue-dir research/queue) reports would_dispatch for RQ-20260922-005, -008, -009, all routed to e35-bracket-sweep.yml on route_state=runner (CPU, no GPU) -- a workflow that lands via commit-to-main + assert_rows_landed.py (not an upload-and-land-nothing workflow; verified by grepping the workflow file). The remaining 8 of 11 live-queue units are not_due or status=blocked with stated reasons (grep the dry-run output). No pipeline row anywhere states the corrected fact, so a future session reading ROADMAP.md or the archived OI would relay the false premise again -- which is exactly what happened to E54's own dispatch (session_01Ljhs6sFAdWHdMDhJpL5aBP's brief quoted the stale text verbatim). ROADMAP.md's M40 cell is corrected in the same PR as this pipeline row (append-only, dated correction, per this repo's own convention for that cell) so the two cannot drift."
+}

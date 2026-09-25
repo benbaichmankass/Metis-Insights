@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "THREE separable parts, and each closes on its own: (a) the CPU-only wheel replaces the CUDA build and df shows the reclaim; (b) a written retention policy states when a manifest's dataset pin may be released or re-pinned, and a measurement shows the version count per (symbol, timeframe) bounded by it; (c) the research byproduct trees (experiments-runs, m20_exit_head, m21_entry_head*) are published to a durable store and removed from the box, per BL-20260827-COMPUTE-IS-SOLVED-LANDING-IS-NOT-THREE-INSTANCES. Freeing space without (b) only resets the clock.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260827-TRAINER-DISK-11G-IS-PINNED-DATASET-VERSIONS-NOT-GARBAGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260827-TRAINER-DISK-11G-IS-PINNED-DATASET-VERSIONS-NOT-GARBAGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260827-TRAINER-DISK-11G-IS-PINNED-DATASET-VERSIONS-NOT-GARBAGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The trainer is at 41G/45G with 4.0G free and the GC cannot help: 11G is market_features holding SEVEN pinned versions of one (symbol, timeframe), plus 1.1G of CUDA libraries on a CPU-only box"
+}

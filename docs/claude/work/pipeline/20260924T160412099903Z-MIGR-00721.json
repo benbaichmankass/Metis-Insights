@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "BOTH, and they are different facts — say WHICH you cleared. (1) #11933 is MERGED, or explicitly rejected — either settles it; sitting un-actioned does not, and if it is still open the useful action is to tell the operator it needs a MERGE CLICK, not to re-ask for an approval it is not waiting on. (2) The carriage is repaired: the work object's wrap, or the manager checklist, names the PR that carries the object's done_condition deliverable, so a human working the wrap top-down reaches it. ⚠️ A GREEN CI RUN CLEARS NOTHING — #11933 has been green since 2026-09-13 and that is precisely the state this row describes. ⚠️ NOR DOES RE-RUNNING THE SWEEP: the evidence exists and is complete; re-measuring is the failure mode. ⚠️ AND IF THE OPERATOR DECIDES the two proposals are not worth taking, that CLOSES the object's decision and clears clause (1) — but it must be RECORDED as a decision rather than left looking like work about to start.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-M20-OBJECTS-DONE-CONDITION-DELIVERABLE-IS-CARRIED-BY-ONE-GREEN-UNMERGED-PR-AND-THE-LANES-OWN-WRAP-NAMES-A-DIFFERENT-PR-AS-THE-HIGHEST-VALUE-CLICK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260917-THE-M20-OBJECTS-DONE-CONDITION-DELIVERABLE-IS-CARRIED-BY-ONE-GREEN-UNMERGED-PR-AND-THE-LANES-OWN-WRAP-NAMES-A-DIFFERENT-PR-AS-THE-HIGHEST-VALUE-CLICK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-M20-OBJECTS-DONE-CONDITION-DELIVERABLE-IS-CARRIED-BY-ONE-GREEN-UNMERGED-PR-AND-THE-LANES-OWN-WRAP-NAMES-A-DIFFERENT-PR-AS-THE-HIGHEST-VALUE-CLICK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] PR #11933 carries the ONLY IS/OOS + walk-forward evidence WO-20260912-M20-ACTIVE-TRADE-MANAGEMENT's done_condition asks for, plus both Tier-3 proposals it produced — green on 5 of 5 checks since 2026-09-13T08:22Z, landing: hold, unmerged 5 days — and the lane's own wrap block names #12158 instead as 'THE HIGHEST-VALUE UNBLOCKING ACTION AVAILABLE TO A HUMAN'"
+}

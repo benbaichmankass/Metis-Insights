@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-TOTALPNLMEASURED-SUMS-ESTIMATED-ROWS-SO-THE-BOOKS-SIGN-FLIPS-ON-THE-LABEL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-TOTALPNLMEASURED-SUMS-ESTIMATED-ROWS-SO-THE-BOOKS-SIGN-FLIPS-ON-THE-LABEL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-TOTALPNLMEASURED-SUMS-ESTIMATED-ROWS-SO-THE-BOOKS-SIGN-FLIPS-ON-THE-LABEL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "/api/bot/performance publishes totalPnlMeasured beside pnlMeasuredCount, and the field sums MEASURED AND ESTIMATED rows -- a quantity over 444 rows presented under a label naming the 77. The book's sign flips between the two populations: broker-truth PnL is negative and the headline is positive."
+}

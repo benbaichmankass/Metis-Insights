@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. THE GC'S DOCSTRING IS CORRECTED so the next session does not repeat this. It describes a 15 GB tree of unpinned probe arms; the measured state is 111 of 115 dirs pinned and 0.09 GB reclaimable. Leaving that text is how the inert remedy gets reached for again.\n2. RETENTION EXISTS FOR THE TWO UNCOVERED TREES — `runtime_logs/m2*_head` and `ml/experiments-runs` — or a recorded decision that they are kept indefinitely on purpose. They are 7.0 GB combined with no tool and no policy.\n3. THE FILL RATE IS MEASURED (GB/day over at least a week) so urgency rests on a trend rather than on one 91% reading.\n4. Any deletion is Tier-2, runs report-only first, and states bytes reclaimed against bytes scanned — the GC's own summary shape, which is the right one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-TRAINER-DISK-AT-91PCT-AND-ITS-OWN-GC-RECLAIMS-ALMOST-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-TRAINER-DISK-AT-91PCT-AND-ITS-OWN-GC-RECLAIMS-ALMOST-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-TRAINER-DISK-AT-91PCT-AND-ITS-OWN-GC-RECLAIMS-ALMOST-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Trainer root is at 91% with 4.5 GB left, and `trainer_dataset_gc.py` — the tool written for exactly this — would reclaim 0.09 GB, not gigabytes; at its own 30-day setting it reclaims NOTHING"
+}

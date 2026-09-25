@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A receipt at docs/claude/work/MANAGER-QUEUE-WATCH.json on origin/main whose `generated_at` matches a REAL firing of trig_01TWdAvrwFLe6T9XFoNopTeo -- checked against that Routine's own last_fired_at, not against the file existing. [!] A HAND-WRITTEN RECEIPT CLEARS NOTHING and is actively harmful: it would arm check_manager_queue_watch.py, which then grades freshness against a file no Routine maintains, and the guard would report a healthy watch forever. [!] NOR DOES A workflow_dispatch OR LOCAL RUN of `queue_latency.py --write-receipt` -- the claim is that the ROUTINE can produce it, and a human or a session running the script proves the script works, which was never in doubt. [!] IF THE OPERATOR DECIDES the Routine should be retired or replaced (e.g. folded into the manager tick, which DOES have a persistent session with tools), this does NOT clear -- it CHANGES: the escalation-past-the-manager function is then carried by something else or by nothing, which is a legitimate decision and must be RECORDED as one, together with what then grades the manager's inaction. [!] AND check_manager_queue_watch.py's NEVER_RAN branch should stop being unconditionally benign: it is correct on day one and wrong on day ten. A time-since-Routine-creation term, or any signal that distinguishes 'has not fired yet' from 'has fired 240 times and written nothing', is the minimum.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-MANAGER-QUEUE-WATCH-ROUTINE-HAS-FIRED-HOURLY-FOR-TEN-DAYS-REPORTING-SUCCEEDED-AND-HAS-NEVER-WRITTEN-THE-RECEIPT-THAT-IS-ITS-OWN-STATED-POINT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-MANAGER-QUEUE-WATCH-ROUTINE-HAS-FIRED-HOURLY-FOR-TEN-DAYS-REPORTING-SUCCEEDED-AND-HAS-NEVER-WRITTEN-THE-RECEIPT-THAT-IS-ITS-OWN-STATED-POINT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-MANAGER-QUEUE-WATCH-ROUTINE-HAS-FIRED-HOURLY-FOR-TEN-DAYS-REPORTING-SUCCEEDED-AND-HAS-NEVER-WRITTEN-THE-RECEIPT-THAT-IS-ITS-OWN-STATED-POINT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The Manager Queue Watch Routine fires hourly, reports SUCCEEDED, and has never once produced its mandatory receipt — the watchdog built because 'nothing catches a manager doing nothing' is itself doing nothing, uncaught"
+}

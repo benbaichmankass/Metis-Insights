@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) known_vacuous_problems resolves every entry's `backlog` id against the committed review backlogs and reports a problem when the id is unknown or its status is not open/snoozed; (2) a plant-proven self-test covers BOTH the unknown-id and the closed-id cases, plus a positive control showing an open id still passes; (3) the guard is clean against the current KNOWN_VACUOUS list (empty as of 2026-08-16, so the self-test is what carries the proof, not the live run).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-KNOWN-VACUOUS-OWNER-MAY-BE-A-CLOSED-ROW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-KNOWN-VACUOUS-OWNER-MAY-BE-A-CLOSED-ROW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-KNOWN-VACUOUS-OWNER-MAY-BE-A-CLOSED-ROW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [tooling] KNOWN_VACUOUS attribution is satisfied by a backlog id that may already be CLOSED — the 'owner' of live debt can be a row nobody is watching"
+}

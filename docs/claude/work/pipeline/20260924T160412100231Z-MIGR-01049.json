@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-THE-OPERATOR-ERROR-CHANNEL-IS-91-PERCENT-STANDING-REPEATS-ON-26-CONDITIONS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-THE-OPERATOR-ERROR-CHANNEL-IS-91-PERCENT-STANDING-REPEATS-ON-26-CONDITIONS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-THE-OPERATOR-ERROR-CHANNEL-IS-91-PERCENT-STANDING-REPEATS-ON-26-CONDITIONS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "102 of 112 rows in the operator CRITICAL/ERROR feed are protection-condition re-pages on 26 standing conditions, one of which has re-paged 22 times over 5 days without changing. The durable latch that fixed the previous instance is working correctly -- these repeats come from conditions STANDING for days with no escalation and no disposition path, which is a different defect."
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a session forces a market_features v002 SOLUSDT 15m dataset rebuild immediately before retraining (so before/after use materially different rows), OR runs the dataset-audit/regime-mix-shift diagnosis the drift-remediation skill's step 2 calls for, and reports a real (non-identical) before/after drift comparison.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-Y2NFASK3-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane E74 (/drift-remediation + /model-training), session_015rQJ6stNY7ixzRy2NfASk3, comms/reviews/e74-ml-followups-20260924.json",
+    "rerun": "trainer-vm-diag: `python -m ml gate-check sol-regime-15m-lgbm-fc-pcv-v2 --db data/trade_journal.db --datasets-root datasets-out` for the current drift_clean KS/PSI; `grep -n 'dataset:' -A4 ml/configs/sol-regime-15m-lgbm-fc-pcv-v2.yaml` and the market_features v002 SOLUSDT 15m producer's own build log to confirm the rebuild cadence and force a rebuild before the next retrain attempt, so an 'after' reading reflects genuinely fresh rows."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "sol-regime-15m-lgbm-fc-pcv-v2 (advisory, order-influencing) retrain did NOT clear drift and was not a genuine fresh-data test. MEASURED this session (E74, trainer-vm-diag #12907 run 36067380637): retraining via `python -m ml train ml/configs/sol-regime-15m-lgbm-fc-pcv-v2.yaml` produced metrics BYTE-IDENTICAL to this morning's regular scheduled cycle (run_id 20260924T005521Z vs my manual run_id 20260924T222834Z: accuracy 0.618988218988219, macro_f1 0.5361706607488178, n_train_final 173160 -- all identical), and gate-check's drift_clean KS/PSI were ALSO byte-identical before vs after (ks=0.21609668786709768, psi=0.19701631902085548, both 'significant'/'fail' against the 0.2 KS threshold) -- both runs trained on the SAME underlying dataset rows, consistent with the manifest's own note that this dataset family (market_features v002 SOLUSDT 15m) rebuilds on an 'alternating-night intraday cadence', not nightly. The model has been continuously retrained daily throughout its ~53.8-day advisory soak (since 2026-08-02) without ever clearing drift_clean -- per the drift-remediation skill's own triage rule (transient drift self-heals via the daily retrain; a persistent capability gap does not), this reads as PERSISTENT, not transient, and the skill's step 2 (diagnose: dataset audit for regime-mix shift between the Aug reference window and the Sep current window, or a forecast side-stream staleness check on the fc_* features) was NOT done this session (budget). Not promoted or demoted -- stage left untouched at advisory; the existing demote proposal for this model sits with the operator via E72's PI-20260924-JQHBBTOS-0002 (PR #12903, unmerged at time of writing)."
+}

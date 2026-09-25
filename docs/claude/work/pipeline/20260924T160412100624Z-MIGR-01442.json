@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies; harness cost-model wiring is E7/C4's work ('Wire the 9 orphan backtest harnesses'). EVIDENCE: MEASURED 2026-09-24 by the rerun grep: src/backtest/backtester.py:16-18 still hardcodes taker_fee_pct/maker_fee_pct/slippage_pct; no execution_costs import.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "src/backtest/backtester.py imports execution_costs and its fee/slippage/funding computation is derived from it (fee_bps_roundtrip / slippage_bps_roundtrip / funding_bps_per_window), not a separate pct-based literal set.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260921-E3-BACKTESTER-DUAL-COST-MODEL",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist E3 build lane, session_01HmQgaLfZv9rv7uuWfgA321",
+    "rerun": "grep -n \"taker_fee_pct\\|maker_fee_pct\\|slippage_pct\\|execution_costs\" src/backtest/backtester.py"
+  },
+  "routed_to": "E7",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "checklist E3: src/backtest/backtester.py::ICTBacktester (used by bin/backtest_ict.py, and load_data()/summarize() from it are imported by src/backtest/run_backtest_vwap.py) hardcodes its OWN independent cost model (taker_fee_pct=0.055, maker_fee_pct=0.02, slippage_pct=0.02 at the top of the file) and never imports or consults src/runtime/execution_costs.py -- the exact \"a second cost model is how the two drift\" failure execution_costs.py's own module docstring warns about (P1 section 3.B, the cost-model-single-owner guard family). bin/backtest_ict.py is declared scaffolding-only in its own docstring and has no funding term at all (crypto perp funding never modelled). Not fixed in E3 because changing backtester.py's cost math is a bigger consolidation (rebasing it onto execution_costs.roundtrip_cost_usd) that deserves its own review of whether existing backtester.py consumers depend on the current pct-based numbers."
+}

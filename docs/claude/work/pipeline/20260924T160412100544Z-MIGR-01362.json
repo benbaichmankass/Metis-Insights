@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A scope-overlap comment on a PR from a session that posted its START under a DIFFERENT branch name lists that START under the `mine` attribution (i.e. it is NOT rendered as another session's) — read from the comment body. The proposed fix is a session-suffix match; any fix that achieves the above clears this.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-SCOPE-OVERLAP-ATTRIBUTOR-MISREADS-A-SESSIONS-OWN-START",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-SCOPE-OVERLAP-ATTRIBUTOR-MISREADS-A-SESSIONS-OWN-START",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-SCOPE-OVERLAP-ATTRIBUTOR-MISREADS-A-SESSIONS-OWN-START'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Subject retired by the 2026-09-21 operating reset: scope-overlap-audit's schedule was commented out and scope-overlap-guard removed; the START it attributes was a board post. EVIDENCE: scripts/ci/run_guards.py:184 'Removed: ... scope-overlap-guard'; the board is archived under docs/archive/2026-09-21-operating-reset/registers/.",
+  "what": "[LOUD] scope-overlap-audit works — its FIRST GENUINE catch landed 2026-08-31T17:26Z. But the same comment ALSO reported this session's own board START back at it, because the attributor compares the START's branch to the PR's branch and a session posts ONE START while opening PRs from SEVERAL branches. Read an overlap comment expecting one line of it to be yours."
+}

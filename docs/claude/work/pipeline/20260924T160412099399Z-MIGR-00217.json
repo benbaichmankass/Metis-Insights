@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A review session has RECORDED A DECISION -- either outcome closes this row; silence does not. Observable in one of two forms: (a) ADOPTED -- a line in docs/CLAUDE-RULES-CANONICAL.md (Generation Discipline) or CLAUDE.md (Diagnostic provenance) stating that an ad-hoc analysis payload whose numbers are destined for a canonical doc must first be committed under scripts/research/, AND `python3 scripts/check_diagnostic_provenance.py --all` demonstrably covers that path (run it; a planted mislabelled accessor there must be FLAGGED -- a quiet pass proves nothing, per the positive-control rule); or (b) NOT ADOPTED -- this row closed with an explicit written reason, the expected one being that the friction of committing a throwaway probe is the very thing that makes relays usable and the trade-off is not worth it. NOT resolution: 'be more careful with probe labels'.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-PROBE-COUNTED-TIES-AS-WINS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-PROBE-COUNTED-TIES-AS-WINS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-PROBE-COUNTED-TIES-AS-WINS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A one-off analysis probe (relay #9125) labelled a `<= 0` predicate as 'folds where cond LOWERS maxDD', counting ties as wins - it would have published 'the condition lowers drawdown on most folds', the opposite of the truth"
+}

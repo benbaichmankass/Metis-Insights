@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER, and they are different answers -- say WHICH. (a) FIXED: each of the four either retargets off the default branch the way trainer-offload-train.yml and m20-exit-lever-sweep.yml already do (test the target against ${DEFAULT_BRANCH:-main} and reassign), or routes through .github/actions/commit-to-main. Verified by `python3 scripts/ci/check_workflow_push_target.py` reporting conditional_default 0. (b) ACCEPTED: the operator or a manager decides a latent dispatch-only path is not worth changing on workflows whose real path works, and it is RECORDED as that decision with the board-rotate consequence stated -- a dispatched rotation can leave a created board with no pointer. [!] A GREEN GUARD RUN CLEARS NOTHING: the guard REPORTS this class and deliberately does not fail on it, so `OK` is the expected output while all four are still exposed. [!] AND DISPATCHING ONE TO SEE WHAT HAPPENS IS NOT A DIAGNOSTIC on board-rotate -- a dispatched rotation creates a real successor issue before it reaches the push.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-FOUR-WORKFLOWS-PUSH-AT-THE-DEFAULT-BRANCH-ON-THEIR-DISPATCH-PATH-ONLY-AND-NOTHING-DISTINGUISHES-THAT-FROM-THE-BRANCH-PATH-THAT-WORKS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-FOUR-WORKFLOWS-PUSH-AT-THE-DEFAULT-BRANCH-ON-THEIR-DISPATCH-PATH-ONLY-AND-NOTHING-DISTINGUISHES-THAT-FROM-THE-BRANCH-PATH-THAT-WORKS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-FOUR-WORKFLOWS-PUSH-AT-THE-DEFAULT-BRANCH-ON-THEIR-DISPATCH-PATH-ONLY-AND-NOTHING-DISTINGUISHES-THAT-FROM-THE-BRANCH-PATH-THAT-WORKS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 4 relay workflows push to `github.ref_name`, correct on their branch path and a GH006 refusal on their workflow_dispatch path — LATENT, never exercised, filed as ONE row not four"
+}

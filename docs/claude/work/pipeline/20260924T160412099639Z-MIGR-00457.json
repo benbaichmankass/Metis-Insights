@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER check_manager_scope's MANAGER_SURFACE is widened to the other three backlogs with the widening argued in its docstring the way the health-review entry already is, OR CLAUDE.md's 'filing is permitted with no cap' is narrowed in writing to 'the health-review backlog only, and anything else is routed to a session'. What must NOT persist is the current state where the canonical doc says one thing and the guard enforces another, because a manager reading the doc will keep hitting the refusal and the cheapest way out is to mis-file. [!] A row filed in health-review-backlog ABOUT an ml-review subject does not satisfy this and is the failure mode, not the fix. [!] AND SEPARATELY: the MI-108 local-LLM row still needs filing in ml-review-backlog.json by a SESSION -- this row records the blocker, it does not carry the direction.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260904-MANAGER-MAY-FILE-TO-ONE-BACKLOG-OF-FOUR-SO-A-ROUTED-ITEM-CANNOT-BE-FILED-WHERE-IT-BELONGS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260904-MANAGER-MAY-FILE-TO-ONE-BACKLOG-OF-FOUR-SO-A-ROUTED-ITEM-CANNOT-BE-FILED-WHERE-IT-BELONGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260904-MANAGER-MAY-FILE-TO-ONE-BACKLOG-OF-FOUR-SO-A-ROUTED-ITEM-CANNOT-BE-FILED-WHERE-IT-BELONGS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_manager_scope vouches for health-review-backlog only, so a manager routing an item to ml/performance/research backlog can never actually file it"
+}

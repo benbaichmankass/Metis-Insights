@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "scripts/ci/automerge_arming.py is added to LANDING_MACHINERY, or a comment there records a deliberate, reasoned exclusion",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260924-SZ7MG8W7-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #12870 (E63)",
+    "rerun": "grep -c \"scripts/ci/automerge_arming.py\" scripts/ci/check_pr_landing.py"
+  },
+  "routed_to": null,
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "scripts/ci/automerge_arming.py (the check-run-attachment pure-function gate, sibling of the new automerge_landing_gate.py added for E63) is not listed in check_pr_landing.py's LANDING_MACHINERY, so a change to it could self-land by the very route it decides for -- the same class of gap R12 exists to close, found while fixing E63 (PR #12870) but out of that PR's diff."
+}

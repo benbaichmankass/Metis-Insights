@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either confirmed non-issue (ticket ids are always fresh, no same-id re-emit path exists) and recorded as such, or the upsert COALESCEs order_package_id and a regression test covers re-emit backfill.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260628-PROP-TICKET-UPSERT-NO-OPID-BACKFILL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260628-PROP-TICKET-UPSERT-NO-OPID-BACKFILL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260628-PROP-TICKET-UPSERT-NO-OPID-BACKFILL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] record_ticket upsert can't backfill a NULL order_package_id on re-emit"
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "check_guard_liveness distinguishes a glob-scoped guard from a dead one, or states the limit in its own docstring",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E45-GUARD-LIVENESS-CALLS-A-GLOB-SCOPED-GUARD-DEAD-AND-STATED-POPULATION-WAS-THE-FALSE-POSITIVE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E45",
+    "rerun": "python3 scripts/ci/check_guard_liveness.py | grep -A2 check_stated_population"
+  },
+  "state": "done",
+  "terminal_reason": "A10 2026-09-24: clears_when MET (second arm): check_guard_liveness.py states the glob limit in its own source, names this row, and no longer grades check_stated_population dead. EVIDENCE: MEASURED 2026-09-24: scripts/ci/check_guard_liveness.py:178-188 ('RECOVERED AS no_declared_subject ... its graded population is a GLOB'); run output dead: 0, degraded: 11 (baselined), live: 35.",
+  "what": "scripts/ci/check_guard_liveness.py classifies a guard by its module-level repo-path CONSTANTS, so a guard whose graded population is a GLOB reads dead while grading fine. MEASURED 2026-09-22: check_stated_population.py was 1 of the 8 it called dead; run against a planted diff adding docs/zz-probe.md with a bare 42.9% it exits 1 and names the line, and it is registered in run_guards.py as stated-population-guard on every PR. So 1 of 8 dead verdicts (12.5%) was a false positive, and acting on it would have deleted the only mechanical floor under CLAUDE-RULES-CANONICAL § Always state the population. The instrument states the converse limit about itself (live means its subject exists, never that it works) but not this direction. Fix: report a glob-scoped guard as its own state, or refuse to call dead any guard that is registered in run_guards.py without a run."
+}

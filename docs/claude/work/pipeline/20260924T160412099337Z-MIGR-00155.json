@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) the parity gap is closed and the live volatile share matches the authoring distribution, or (b) the three volatile-keyed cells are re-evaluated against the live label distribution. BOTH are Tier-3 — propose only, operator decides.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [regime] the three volatile-keyed trend_vol cells are dormant IN THE CURRENT CALM STRETCH — NOT structurally: the ML vol label averages 8.92% volatile over 5y and has ranged 0.44%–30.42% monthly"
+}

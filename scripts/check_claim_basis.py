@@ -50,10 +50,16 @@ false-positive rate here is observed at ~0.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import re
 import subprocess
 import sys
+import tarfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "ops"))
+import pipeline as _pipeline  # noqa: E402 — the pipeline store's one reader
 
 #: ⚠️ RE-POINTED 2026-09-22 (E45). The four names below are the ARCHIVED review
 #: backlogs this guard used to read; they are kept in the comment and nowhere
@@ -61,10 +67,19 @@ import sys
 #:   docs/claude/{health,performance,ml,research}-review-backlog.json
 #: All four are under `docs/archive/2026-09-21-operating-reset/`. The live
 #: registers are these two.
+#:
+#: ⚠️ RE-POINTED AGAIN 2026-09-24 (E64). `PIPELINE.jsonl` moved from a single
+#: append-only file to a DIRECTORY (`docs/claude/work/pipeline/`, one file per
+#: record) — see `scripts/ops/pipeline.py`'s module docstring for why. A
+#: single git-show diff no longer applies to it, so it is graded by
+#: `check_new_pipeline_rows()` below instead of through this tuple; this
+#: tuple now carries only the single-file register.
 BACKLOGS = (
     "docs/claude/work/MANAGER-CHECKLIST.json",
-    "docs/claude/work/PIPELINE.jsonl",
 )
+
+#: The pipeline store, graded separately (see the re-point note above).
+PIPELINE_DIR = "docs/claude/work/pipeline"
 
 # Evidence-grade figures: percentages, R-figures, $-totals >= 1,000.
 _CLAIM_RE = re.compile(
@@ -192,6 +207,86 @@ def _git_show(ref: str, path: str) -> str:
     r = subprocess.run(["git", "show", f"{ref}:{path}"],
                        capture_output=True, text=True)
     return r.stdout if r.returncode == 0 else "{}"
+
+
+#: The pre-2026-09-24 (E64) single-file store. A `ref` that predates the
+#: migration has ids living HERE, not under the directory -- see the
+#: docstring below for why both must be checked.
+_LEGACY_PIPELINE_FILE = "docs/claude/work/PIPELINE.jsonl"
+
+
+def _pipeline_ids_at_ref(ref: str, pipeline_dir: str) -> set[str]:
+    """Ids folded from the pipeline store as of `ref` -- BOTH possible shapes.
+
+    ⚠️ Extracts the WHOLE subtree with one `git archive` + in-process fold,
+    rather than one `git show` per record file — the directory holds 1,500+
+    files, and a subprocess per file would make this guard slow enough to be
+    disabled. `_git_show()` above stays a per-file (single-file-register)
+    helper; this is the per-directory equivalent.
+
+    ⚠️ ALSO CHECKS THE LEGACY FLAT FILE, and this is not defensive padding --
+    it is required for this guard's OWN migration commit to be gradeable.
+    `ref` (the PR's base) predates the 2026-09-24 storage re-point for every
+    PR until the migration lands on the base branch, so the DIRECTORY never
+    existed there -- only `PIPELINE.jsonl` did. Checking the directory alone
+    would make every one of the ~1,300 migrated ids read as "NEW" on the
+    migration PR itself (and on any PR based on pre-migration main), which
+    would re-flag every PRE-EXISTING basis-less claim already sitting in the
+    old file as a fresh violation of THIS PR. MEASURED while writing this
+    guard: exactly that happened on the first version, 46 false positives,
+    caught by running it against a real base ref rather than assuming the
+    directory-only read was sufficient.
+    """
+    names: set[str] = set()
+
+    r = subprocess.run(["git", "archive", ref, "--", pipeline_dir],
+                       capture_output=True)
+    if r.returncode == 0 and r.stdout:
+        with tarfile.open(fileobj=io.BytesIO(r.stdout)) as tf:
+            for member in tf.getmembers():
+                if not member.isfile() or not member.name.endswith(".json"):
+                    continue
+                try:
+                    rec = json.loads(tf.extractfile(member).read().decode("utf-8"))
+                except (ValueError, AttributeError):
+                    continue
+                if isinstance(rec, dict) and isinstance(rec.get("id"), str):
+                    names.add(rec["id"])
+
+    legacy_text = _git_show(ref, _LEGACY_PIPELINE_FILE)
+    for rid, _row in _rows(legacy_text).items():
+        names.add(rid)
+
+    return names
+
+
+def check_new_pipeline_rows(base_ref: str, pipeline_dir: str) -> list[str]:
+    """The directory-store equivalent of `check_new_rows()`: an id absent
+    from `base_ref`'s fold, whose CURRENT (folded) row asserts a claim with
+    no basis, fails. Graded per id, not per file -- an id that picked up a
+    second record in the same PR (a `new` file, then an `update` file) is
+    graded once, on its latest content, matching `pipeline.py::load()`.
+    """
+    base_ids = _pipeline_ids_at_ref(base_ref, pipeline_dir)
+    head = _pipeline.read_log(Path(pipeline_dir))
+    failures = []
+    for rid, row in head.items.items():
+        if rid in base_ids:
+            continue  # diff-scoped: only ids NEW since base are held to it
+        text = _row_text(row)
+        claims = _CLAIM_RE.findall(text)
+        if not claims:
+            continue
+        if any(rx.search(text) for rx in _BASIS_RES):
+            continue
+        failures.append(
+            f"{pipeline_dir}: NEW row '{rid}' asserts quantitative evidence "
+            f"({', '.join(claims[:3])}) with NO parseable basis — state the "
+            f"population/denominator/window in the row (canonical rule: "
+            f"'Always state the population'). A number without its basis "
+            f"is not a finding."
+        )
+    return failures
 
 
 # ---------------------------------------------------------------------------
@@ -393,8 +488,80 @@ def _self_test() -> int:
            "N5 the shipped STATUS_ENUM equals the live register's own `states` "
            "block — measured against the real file, not a fixture")
 
-    with tempfile.TemporaryDirectory():
-        pass
+    # ── P7/N6/N7: the PIPELINE DIRECTORY path, planted against a real git
+    # repo (RULE ONE — a green re-point proves nothing until the probe finds
+    # a real positive). 2026-09-24 (E64): PIPELINE.jsonl became a directory,
+    # one file per record, so this guard's grading of it moved from a
+    # single-file git-show diff to `check_new_pipeline_rows()`.
+    import subprocess as _sp
+
+    def _git(*args, cwd):
+        r = _sp.run(["git", *args], cwd=str(cwd), capture_output=True, text=True)
+        assert r.returncode == 0, f"git {args} failed: {r.stdout}{r.stderr}"
+        return r
+
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        _git("init", "-q", "-b", "main", cwd=repo)
+        _git("config", "user.email", "t@example.invalid", cwd=repo)
+        _git("config", "user.name", "self-test", cwd=repo)
+        pdir = repo / "docs" / "claude" / "work" / "pipeline"
+
+        def row(rid, what):
+            return {
+                "id": rid, "what": what,
+                "origin": {"kind": "audit", "ref": "#1", "rerun": "x"},
+                "due_when": {"kind": "observation", "clears_when": "c"},
+                "next_action": "check_observation", "state": "queued",
+            }
+
+        pdir.mkdir(parents=True)
+        (pdir / "0001.json").write_text(json.dumps(row("OLD", "the baseline")))
+        _git("add", "-A", cwd=repo)
+        _git("commit", "-q", "-m", "base", cwd=repo)
+        base_sha = _git("rev-parse", "HEAD", cwd=repo).stdout.strip()
+
+        (pdir / "0002.json").write_text(
+            json.dumps(row("NEW-BAD", "slippage is 3.4% of gross")))
+        _git("add", "-A", cwd=repo)
+        _git("commit", "-q", "-m", "add a claim with no basis", cwd=repo)
+
+        cwd0 = Path.cwd()
+        import os as _os
+        _os.chdir(repo)
+        try:
+            f = check_new_pipeline_rows(base_sha, str(pdir.relative_to(repo)))
+        finally:
+            _os.chdir(cwd0)
+        ok(len(f) == 1 and "NEW-BAD" in f[0],
+           "P7 a NEW record (new file, id absent from base) asserting a claim "
+           "with no basis FAILS, graded from the DIRECTORY, not a git-show diff")
+
+        (pdir / "0003.json").write_text(
+            json.dumps(row("NEW-BAD", "slippage is 3.4% of gross (n=811)")))
+        _os.chdir(repo)
+        try:
+            f2 = check_new_pipeline_rows(base_sha, str(pdir.relative_to(repo)))
+        finally:
+            _os.chdir(cwd0)
+        ok(f2 == [],
+           "N6 ...and once a SECOND record (an update, same id) adds the "
+           "basis, the id's CURRENT folded content passes — graded per id, "
+           "not per file")
+
+        (pdir / "0004.json").write_text(
+            json.dumps(row("OLD", "the baseline, now 42.9% larger")))
+        _os.chdir(repo)
+        try:
+            f3 = check_new_pipeline_rows(base_sha, str(pdir.relative_to(repo)))
+        finally:
+            _os.chdir(cwd0)
+        ok(all("OLD" not in x for x in f3),
+           "N7 ...and an id already present at base is NEVER graded here even "
+           "though it picked up a new claim — that is an update to an "
+           "existing id, not a new row, matching the single-file guard's own "
+           "diff scoping")
+
     print(f"claim-basis: self-test OK — {fired} planted controls all fire")
     return 0
 
@@ -431,9 +598,13 @@ def main() -> int:
         failures.extend(check_new_rows(_git_show(args.base, path), head, path))
         failures.extend(check_status_enum(head, path))
 
+    if Path(PIPELINE_DIR).is_dir():
+        scanned += 1
+        failures.extend(check_new_pipeline_rows(args.base, PIPELINE_DIR))
+
     for f in failures:
         print(f"::error::{f}")
-    print(f"claim-basis-guard: {scanned} register file(s) scanned against "
+    print(f"claim-basis-guard: {scanned} register(s) scanned against "
           f"{args.base}, {len(failures)} finding(s) "
           f"(basis-less new claim rows + off-enum statuses).")
     if scanned == 0:

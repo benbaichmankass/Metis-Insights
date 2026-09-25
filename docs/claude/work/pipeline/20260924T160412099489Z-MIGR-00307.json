@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Closed when a label-triggered run's own output states which flag it ran under, OR the issue body can set it. Not closed by documenting it in a comment nobody reads at trigger time.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260820-OCI-INVENTORY-ISSUE-PATH-CANNOT-REQUEST-FAIL-ON-DRIFT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-OCI-INVENTORY-ISSUE-PATH-CANNOT-REQUEST-FAIL-ON-DRIFT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-OCI-INVENTORY-ISSUE-PATH-CANNOT-REQUEST-FAIL-ON-DRIFT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The oci-inventory issue-label path has no way to request fail_on_drift - a session triggering it by label always gets a plain report, and nothing in the issue tells it so"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A mechanical propagation step, NOT another guard on the producer: when a backlog row is filed against a research tool, the artifacts that tool produced inherit a visible caveat IN THE ARTIFACT. Concretely for the instance -- exit-refinement-coverage.json carries a machine-readable `known_caveats` block naming the rows that condition its verdicts (power, risk basis, quantization), a reader of any cell can see them, and the check that renders the matrix FAILS if a row filed against its producing harness is absent from that block. Fixing the three underlying defects does NOT close this row: the class is the missing propagation, and a fourth defect filed tomorrow must reach the artifact without anyone remembering to carry it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260827-A-DEFECT-FILED-AGAINST-A-PRODUCER-NEVER-REACHES-THE-ARTIFACTS-IT-PRODUCED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260827-A-DEFECT-FILED-AGAINST-A-PRODUCER-NEVER-REACHES-THE-ARTIFACTS-IT-PRODUCED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260827-A-DEFECT-FILED-AGAINST-A-PRODUCER-NEVER-REACHES-THE-ARTIFACTS-IT-PRODUCED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] filed != propagated: three documented harness defects all inherited by the 468-cell M20 coverage matrix, none of them visible in it -- the matrix is read as clean evidence while every caveat sits correctly filed somewhere else"
+}

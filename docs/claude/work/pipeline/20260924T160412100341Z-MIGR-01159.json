@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-ELEVEN-OF-TWENTYONE-OPEN-TRADES-CAN-ONLY-EXIT-AT-A-LEVEL-FIXED-AT-ENTRY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260909-ELEVEN-OF-TWENTYONE-OPEN-TRADES-CAN-ONLY-EXIT-AT-A-LEVEL-FIXED-AT-ENTRY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-ELEVEN-OF-TWENTYONE-OPEN-TRADES-CAN-ONLY-EXIT-AT-A-LEVEL-FIXED-AT-ENTRY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "11 of 21 gradeable open trades can be closed only by price reaching a level fixed at entry; exactly one has a live decision-driven exit. The detector for this already exists and is correct -- what is missing is that nothing runs it."
+}

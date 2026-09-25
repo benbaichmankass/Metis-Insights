@@ -141,7 +141,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
-REGISTER = "docs/claude/work/PIPELINE.jsonl"
+#: ⚠️ RE-POINTED 2026-09-24 (E64): a directory, one file per record, not a
+#: single flat file — see `scripts/ops/pipeline.py`'s module docstring.
+REGISTER = "docs/claude/work/pipeline"
 
 #: The schema's own name for "this is owed to the operator".
 OWED_ACTION = "ask_operator"
@@ -200,117 +202,65 @@ def _git(*args: str, cwd: pathlib.Path) -> str:
 
 
 def register_commits(repo: pathlib.Path, path: str) -> List[str]:
-    """Commit shas that touched the register, newest first."""
+    """Commit shas that touched the register, newest first. Works whether
+    `path` is a file or (since the 2026-09-24 re-point) a directory -- `git
+    log -- <path>` reports commits touching anything under it either way."""
     out = _git("log", "--format=%H", "--", path, cwd=repo)
     return [line.strip() for line in out.splitlines() if line.strip()]
-
-
-def parse_rows(text: str) -> Optional[Dict[str, Any]]:
-    """`{id: row}` from append-only JSONL. ``None`` when it cannot be read.
-
-    ⚠️ LAST WINS. The store is append-only: a row is UPDATED by appending it
-    again under the same id, exactly as `scripts/ops/pipeline.py::load` reads
-    it. Taking the first occurrence would grade a superseded copy and
-    manufacture carries that never happened.
-
-    ⚠️ ``None`` is 'we could not look', never 'the register is empty'. A blank
-    blob or an unparseable line is a read failure; treating it as an empty
-    register would report every owed row as gone.
-    """
-    if not text.strip():
-        return None
-    out: Dict[str, Any] = {}
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("//"):
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError:
-            return None
-        if isinstance(row, dict) and isinstance(row.get("id"), str):
-            out[row["id"]] = row
-    return out
-
-
-def _rows_at(repo: pathlib.Path, sha: str, path: str) -> Optional[Dict[str, Any]]:
-    """The register as of one commit, or None when that revision is unreadable."""
-    return parse_rows(_git("show", f"{sha}:{path}", cwd=repo))
-
-
-def register_commits_dated(repo: pathlib.Path, path: str) -> List[Tuple[str, str]]:
-    """`(sha, committer ISO date)` for commits touching the register, newest first."""
-    out = _git("log", "--format=%H %cI", "--", path, cwd=repo)
-    rows: List[Tuple[str, str]] = []
-    for line in out.splitlines():
-        parts = line.split()
-        if len(parts) == 2:
-            rows.append((parts[0], parts[1]))
-    return rows
 
 
 def _age_days(iso: str, now: _dt.datetime) -> float:
     return (now - _dt.datetime.fromisoformat(iso)).total_seconds() / 86400.0
 
 
-def measure_carries(
+def record_ages(
     repo: pathlib.Path,
     path: str,
-    current: Dict[str, Any],
-    shas: List[str],
-    dates: Optional[List[str]] = None,
+    sources: Dict[str, str],
+    raw: List[Dict[str, Any]],
+    ids: List[str],
     now: Optional[_dt.datetime] = None,
-) -> Tuple[Dict[str, Optional[int]], Dict[str, int], Dict[str, Optional[float]]]:
-    """Carries, observed transitions, and CONTENT AGE IN DAYS per id, from git.
+) -> Tuple[Dict[str, Optional[float]], Dict[str, int]]:
+    """CONTENT AGE IN DAYS, and an observed-record count, per id -- from git.
 
-    All three are ``None``/0 for every id when the register has no history yet —
-    nothing EXISTS to measure, which is `not_measurable`, never zero.
+    ⚠️ RE-POINTED 2026-09-24 (E64): the register moved from one shared
+    append-only file to a directory, one IMMUTABLE file per record
+    (`scripts/ops/pipeline.py`'s module docstring has the full reasoning).
+    That removes the reason the ORIGINAL design here had to diff many
+    historical snapshots of one shared file to find when a row's content
+    last changed: a record file is never edited after it is written, so the
+    commit that ADDED the file currently holding an id's latest record --
+    `sources[id]`, from `pipeline.read_log()` -- already IS the answer. One
+    `git log -1` per due+owed row replaces a full-history walk-and-diff.
 
-    ⚠️ The age is what the verdict uses; the carry count is reported context.
-    See the module docstring for why the unit changed.
+    `None` age means no source file could be resolved, or git has no history
+    for it yet (staged but uncommitted) -- NOT MEASURABLE, never zero.
+
+    The record count (this id's total RAW records, from `pipeline.read_log`'s
+    unfolded stream) replaces the old snapshot-diff "transitions" count: it
+    answers the same question -- has this id ever moved beyond its first
+    filing -- directly from the store, with no git call needed at all.
     """
-    carries: Dict[str, Optional[int]] = {}
-    transitions: Dict[str, int] = {row_id: 0 for row_id in current}
-    ages: Dict[str, Optional[float]] = {}
     now = now or _dt.datetime.now(_dt.timezone.utc)
+    ages: Dict[str, Optional[float]] = {}
+    for row_id in ids:
+        src = sources.get(row_id)
+        if not src:
+            ages[row_id] = None
+            continue
+        rel = f"{path}/{src}" if (repo / path).is_dir() else path
+        out = _git("log", "-1", "--format=%cI", "--", rel, cwd=repo)
+        iso = out.strip().splitlines()[0] if out.strip() else None
+        ages[row_id] = _age_days(iso, now) if iso else None
 
-    if not shas:
-        return ({row_id: None for row_id in current}, transitions,
-                {row_id: None for row_id in current})
-
-    history: List[Optional[Dict[str, Any]]] = [
-        _rows_at(repo, sha, path) for sha in shas]
-
-    for row_id, row in current.items():
-        leading = 0
-        last_seen_date: Optional[str] = None
-        for idx, snapshot in enumerate(history):
-            if snapshot is None:
-                break
-            if snapshot.get(row_id) == row:
-                leading += 1
-                if dates is not None and idx < len(dates):
-                    last_seen_date = dates[idx]
-                continue
-            break
-        carries[row_id] = max(0, leading - 1)
-        # The OLDEST commit still carrying this exact content is when it last
-        # changed. A row never seen in history has no age to report.
-        ages[row_id] = (_age_days(last_seen_date, now)
-                        if last_seen_date is not None else None)
-
-        previous: Any = None
-        seen_any = False
-        for snapshot in history:
-            if snapshot is None:
-                continue
-            content = snapshot.get(row_id)
-            if seen_any and content is not None and content != previous:
-                transitions[row_id] = transitions.get(row_id, 0) + 1
-            if content is not None:
-                previous = content
-                seen_any = True
-    return carries, transitions, ages
+    record_counts: Dict[str, int] = {}
+    for rec in raw:
+        rid = rec.get("id")
+        if isinstance(rid, str):
+            record_counts[rid] = record_counts.get(rid, 0) + 1
+    transitions = {row_id: max(0, record_counts.get(row_id, 1) - 1)
+                   for row_id in ids}
+    return ages, transitions
 
 
 def owed_rows(rows: Dict[str, Any], pipeline) -> Dict[str, Any]:
@@ -340,24 +290,26 @@ def check(
               f"2026-09-21 until the E45 re-point.")
         return 2
 
-    rows = parse_rows(register_path.read_text(encoding="utf-8"))
-    if rows is None:
-        print(f"operator-owed: COULD NOT LOOK — {path} did not parse. Reading "
-              f"that as an empty register would report every owed row as gone.")
+    res = pipeline.read_log(register_path)
+    if not res.healthy:
+        locs = ", ".join(f"{loc} ({why})" for loc, why in res.unreadable[:5])
+        print(f"operator-owed: COULD NOT LOOK — {path} has {len(res.unreadable)} "
+              f"unreadable record(s): {locs}. Reading that as an empty "
+              f"register would report every owed row as gone.")
         return 2
+    rows = res.items
 
     now = now or _dt.datetime.now(_dt.timezone.utc)
     owed = owed_rows(rows, pipeline)
     due = {rid: r for rid, r in owed.items() if pipeline.is_due(r)}
 
-    dated = register_commits_dated(repo, path)
-    shas = [sha for sha, _d in dated]
-    dates = [d for _s, d in dated]
-    carries, transitions, ages = measure_carries(repo, path, due, shas, dates, now)
+    commits_total = len(register_commits(repo, path))
+    ages, transitions = record_ages(repo, path, res.sources, res.raw,
+                                     list(due), now)
 
     print(f"operator-owed: {len(rows)} row(s) in {path} · {len(owed)} owed to "
           f"the operator · {len(due)} of those DUE now")
-    print(f"operator-owed: register commits measured = {len(shas)} "
+    print(f"operator-owed: register commits measured = {commits_total} "
           f"(context only — the VERDICT is the age of a row's content, because "
           f"this store is append-only and shared, so a commit count measures "
           f"how busy other lanes were, not whether this row moved)")
@@ -385,7 +337,6 @@ def check(
             print(f"  - {rid}: age_days="
                   f"{'unmeasurable' if age is None else round(age, 2)} "
                   f"limit={carry_limit_days(due[rid])} "
-                  f"carries={carries.get(rid)} "
                   f"transitions={transitions.get(rid, 0)}")
 
     escalated = sorted(
@@ -465,24 +416,42 @@ def _self_test() -> int:
         }
 
     def build(generations):
-        """A git repo whose register is committed once per (rows, days_ago).
+        """A git repo where each generation is one commit, backdated by
+        `days_ago`.
 
-        ⚠️ EACH COMMIT CARRIES A UNIQUE FILLER ROW, and that is not padding.
-        `register_commits_dated` reads `git log -- <path>`, so a commit that
-        changes nothing in the file is not a register commit at all. The filler
-        also reproduces the LIVE condition that broke the first design: another
-        lane appending its own row while this one sits untouched.
+        ⚠️ RE-POINTED 2026-09-24 (E64): the register is a DIRECTORY of
+        immutable record files, so a "generation" no longer rewrites one
+        shared file -- it writes a NEW file only for a row that is new or
+        whose content CHANGED since it was last written; a row repeated
+        unchanged across generations is simply never re-touched, exactly the
+        real store's invariant (a record file is never edited after it is
+        written). That is what makes `record_ages()` work with one `git log
+        -1` per file instead of a multi-commit snapshot diff: the commit that
+        introduces a row's file already IS the row's last-changed date.
+
+        ⚠️ EACH GENERATION STILL CARRIES A UNIQUE FILLER ROW, and that is not
+        padding: `register_commits()` reads `git log -- <path>`, so a commit
+        that changes nothing under the directory is not a register commit at
+        all. The filler also reproduces the LIVE condition that broke the
+        first design: another lane appending its own row while this one sits
+        untouched.
         """
         td = pathlib.Path(tempfile.mkdtemp())
-        (td / "docs" / "claude" / "work").mkdir(parents=True)
+        store = td / REGISTER
+        store.mkdir(parents=True)
         env_base = {"GIT_AUTHOR_NAME": "s", "GIT_AUTHOR_EMAIL": "s@e.com",
                     "GIT_COMMITTER_NAME": "s", "GIT_COMMITTER_EMAIL": "s@e.com"}
         subprocess.run(["git", "-C", str(td), "init", "-q", "-b", "main"], check=True)
+        last_written: Dict[str, Any] = {}
         for i, (rows, days_ago) in enumerate(generations):
             filler = row(f"PI-FILL-{i}", action="dispatch_lane")
-            body = "// header\n" + "\n".join(
-                json.dumps(r) for r in [*rows, filler]) + "\n"
-            (td / REGISTER).write_text(body, encoding="utf-8")
+            for r in [*rows, filler]:
+                rid = r["id"]
+                if last_written.get(rid) == r:
+                    continue  # unchanged since last written -- no new file
+                (store / f"{i:04d}-{rid}.json").write_text(
+                    json.dumps(r), encoding="utf-8")
+                last_written[rid] = r
             when = (NOW - _dt.timedelta(days=days_ago)).isoformat()
             env = dict(os.environ, **env_base,
                        GIT_AUTHOR_DATE=when, GIT_COMMITTER_DATE=when)
@@ -568,13 +537,13 @@ def _self_test() -> int:
        "the limit, not the existence of the row")
 
     # ── P3 could not look is 2, and is never a pass ────────────────────────
-    (td / REGISTER).write_text("{not json\n", encoding="utf-8")
+    (td / REGISTER / "zz-broken.json").write_text("{not json\n", encoding="utf-8")
     rc, out = run(td)
     ok(rc == 2 and "COULD NOT LOOK" in out,
-       "P3 ⚠️ an unparseable register exits COULD NOT LOOK (2), never 0 — "
+       "P3 ⚠️ an unparseable record exits COULD NOT LOOK (2), never 0 — "
        "reading it as an empty register would report every owed row as gone")
 
-    (td / REGISTER).unlink()
+    shutil.rmtree(td / REGISTER)
     rc, out = run(td)
     ok(rc == 2 and "COULD NOT LOOK" in out,
        "P3b ...and a MISSING register is the same state, which is exactly what "
@@ -585,8 +554,8 @@ def _self_test() -> int:
     # ── N7 the live store is readable and the verdict is reachable ─────────
     pipeline = _pipeline_module()
     if pipeline is not None and (REPO / REGISTER).exists():
-        live = parse_rows((REPO / REGISTER).read_text(encoding="utf-8"))
-        ok(live is not None and len(live) > 0,
+        live = pipeline.read_log(REPO / REGISTER)
+        ok(live.healthy and len(live.items) > 0,
            "N7 positive control: the live register parses and is non-empty, so "
            "the population this guard grades is real rather than a fixture")
 

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260829-ALPACA-MIRROR-DOES-NOT-MIRROR-RISK-PCT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260829-ALPACA-MIRROR-DOES-NOT-MIRROR-RISK-PCT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260829-ALPACA-MIRROR-DOES-NOT-MIRROR-RISK-PCT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "alpaca_live is declared to risk 2.5-3.3x MORE per trade than the paper book that is supposed to be its forward record — the mirror mirrors the roster, not the sizing"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260831-WALLET-TRUTH-REPORTS-THE-WINDOW-ASKED-FOR-NEVER-THE-DATAS-OWN-SPAN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-WALLET-TRUTH-REPORTS-THE-WINDOW-ASKED-FOR-NEVER-THE-DATAS-OWN-SPAN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-WALLET-TRUTH-REPORTS-THE-WINDOW-ASKED-FOR-NEVER-THE-DATAS-OWN-SPAN'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "/api/diag/bybit_wallet_truth reports `window_start_ms` — the bound the CALLER ASKED FOR — and never the earliest row it actually holds. So 'we asked for 200 days' and 'we have 200 days of data' render identically, and the retention question the route exists to inform cannot be answered from it."
+}

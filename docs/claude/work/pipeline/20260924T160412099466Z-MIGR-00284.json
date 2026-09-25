@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Deleting a contract's only real consumer makes `check_collapsed_states.py` FAIL for that contract — demonstrated by planting exactly that deletion and observing the non-zero exit, with the registry entry left in place. A green run with no consumer must be impossible. Reviewing the code alone does not close this: the current code READS as though it enforces consumers, which is why it went unnoticed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-COLLAPSED-STATE-GUARD-REGISTRY-COUNTS-AS-ITS-OWN-CONSUMER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-COLLAPSED-STATE-GUARD-REGISTRY-COUNTS-AS-ITS-OWN-CONSUMER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-COLLAPSED-STATE-GUARD-REGISTRY-COUNTS-AS-ITS-OWN-CONSUMER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] collapsed-state-guard scans its own CONTRACTS registry as a consumer, so registering a contract partly self-satisfies the 'every state is read' check"
+}

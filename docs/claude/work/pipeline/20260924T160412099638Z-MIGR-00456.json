@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "An expired or released manager lease is OBSERVED being acted on by a mechanism rather than by the operator, within one bounded interval of the expiry, and the observation names WHICH lease expiry and WHAT acted. Either outcome counts: (a) `manager_lease.py status` read from origin/main shows a DIFFERENT holder with a heartbeat inside the TTL, and that successor's session id appears in SESSIONS.json or a commit trailer -- i.e. somebody actually took over; or (b) an operator-facing notification is recorded stating that management has stopped and nothing took over. NOT satisfied by: the lease file merely reading `expired` (that is the condition, not a response to it); a green test or self-test (a harness cannot reach the case); `manager_wake.py --assess` returning `no_manager` (that is this row's evidence, and the wake deliberately does nothing with it); or a manager happening to arrive and claim the lease for unrelated reasons with no mechanism attributable -- record WHICH mechanism acted, or the row stays open.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260904-NOTHING-REAPS-A-DEAD-MANAGER-OR-CLAIMS-AN-EXPIRED-LEASE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] an expired manager lease is claimable by anyone and claimed by nobody — nothing reads the expiry and nothing takes over, so a manager that DIES stops management indefinitely"
+}

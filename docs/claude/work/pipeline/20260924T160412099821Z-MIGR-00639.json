@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "FILED AS A RECURRENCE, DELIBERATELY, not a duplicate — backlog_search scored 0.90/0.80/0.80/0.70 against four existing rows (BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH, BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY, BL-20260911-REPLAY-PREGATE-NIGHTLY-HAS-ZERO-SUCCESSFUL-RUNS-IN-ITS-ENTIRE-LIFE-AND-25-MONTHS-OF-ML-PREGATE-EVIDENCE-HAS-ACCRUED-TO-NOTHING, BL-20260908-DISPATCH-NAMES-AN-OPERATOR-ANSWERS-BLOCK-THAT-WAS-NEVER-WRITTEN) and the point is that BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED's underlying defect still has no detector eleven days later, so it keeps recurring in new shapes. That row's own resolution_criteria already names the fix this shape needs too: `scripts/ops/session_registry.py::register` REFUSES (or loudly warns on) a spawn whose named work_object path does not resolve to a file readable from `origin/main` — observed firing once against a deliberately-bad path (a planted-negative control) as well as passing on a good one. This row does not restate that criterion as new; it adds THREE fresh, independent, same-night occurrences as evidence that the detector is still unbuilt and the class is not tapering off. ⚠️ A green registration is still NOT the observation — today every registration is green because the check does not exist. ⚠️ AND FIXING TONIGHT'S THREE INSTANCES BY HAND (closing #12535, reconciling the two WO- files into supersets) CLOSES NOTHING, for the sam …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260918-A-LANE-IS-DISPATCHED-AGAINST-A-WORK-OBJECT-THAT-EXISTS-ONLY-ON-THE-MANAGERS-UNMERGED-BRANCH-SO-EVERY-LANE-CORRECTLY-MEASURES-IT-ABSENT-AND-CREATES-A-DUPLICATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260918-A-LANE-IS-DISPATCHED-AGAINST-A-WORK-OBJECT-THAT-EXISTS-ONLY-ON-THE-MANAGERS-UNMERGED-BRANCH-SO-EVERY-LANE-CORRECTLY-MEASURES-IT-ABSENT-AND-CREATES-A-DUPLICATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260918-A-LANE-IS-DISPATCHED-AGAINST-A-WORK-OBJECT-THAT-EXISTS-ONLY-ON-THE-MANAGERS-UNMERGED-BRANCH-SO-EVERY-LANE-CORRECTLY-MEASURES-IT-ABSENT-AND-CREATES-A-DUPLICATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED, in a new shape: THREE lanes the same night were dispatched against work objects that exist only on a manager's unmerged branch, each correctly measured the object absent from origin/main, and each created a duplicate"
+}

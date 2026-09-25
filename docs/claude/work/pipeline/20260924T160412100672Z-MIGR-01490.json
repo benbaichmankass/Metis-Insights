@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies (.gitattributes claims register-id-guard runs on every PR; it is wired nowhere); E9's class. EVIDENCE: MEASURED 2026-09-24: grep -rl check_register_ids .github/workflows/ scripts/ci/run_guards.py -> empty; control grep -rl run_guards .github/workflows/ -> guards.yml, pr-queue-watch.yml, main-tree-watch.yml.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER `register-id-guard` is wired into something that runs on every PR -- registered in scripts/ci/run_guards.py, or named by a workflow -- OR the two sentences in .gitattributes are corrected to say what is true. Either settles it; leaving the claim standing does not. [!] DO NOT CLEAR BY DELETING THE GUARD. check_register_ids.py is not dead: it has a --self-test and guard-selftest-coverage lists it under `declared --self-test that run_guards.py never invokes`, which is an UNWIRED guard, not a useless one.",
+    "kind": "event",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-JN54P2HH-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager), doc sweep during close-out 2026-09-22",
+    "rerun": "grep -rl check_register_ids .github/workflows/ scripts/ci/run_guards.py; echo '--- positive control (must print guards.yml):'; grep -rl run_guards .github/workflows/"
+  },
+  "routed_to": "E9",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "MEASURED 2026-09-22 with a positive control. .gitattributes lines 32-33 say: \"`scripts/ci/check_register_ids.py` (`register-id-guard`) is that half, AND IT RUNS ON EVERY PR.\" It does not run on any PR. `grep -rl check_register_ids .github/workflows/` returns NOTHING and the script is not in scripts/ci/run_guards.py's GUARDS; the positive control `grep -rl run_guards .github/workflows/` returns guards.yml, pr-queue-watch.yml and main-tree-watch.yml, so the probe can find a wired script. Corroborated independently by the guards run on PR #12739, whose guard-selftest-coverage output lists `scripts/ci/check_register_ids.py  [names no workflow that exists AND references this script]` under \"declared `--self-test` that run_guards.py never invokes, and NOTHING says why\". [!] WHY IT MATTERS MORE THAN A STALE SENTENCE: the paragraph exists to explain why the merge=union binding on the registers is SAFE -- union can reintroduce a deleted row or duplicate an id, and this guard is named as the half that catches it. A reader checking whether the union binding is sound meets a claim of coverage that does not exist, which is the `new-table-wiring-guard` presence-only failure this repo has a guard class for. [!] .gitattributes is a WORKER path, so the manager filed this rather than editing it."
+}

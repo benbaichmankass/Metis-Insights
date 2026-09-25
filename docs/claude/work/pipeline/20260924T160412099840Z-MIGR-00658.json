@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "When an options strategy meets the promotion bar (adequate n, positive expectancy net of debit, healthy lifecycle handling), propose the Tier-3 alpaca_live+alpaca_portfolio options wiring for operator approval. If the soak stays negative or thin, it stays paper-only and the portfolio carries no options.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PRB-20260720-OPTIONS-PORTFOLIO-GRADUATION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] Options in the Alpaca portfolio: ONLY real-money-graduated options strategies (operator decision 2026-07-20) — assess SLV/GDX debit-vertical soak for graduation"
+}

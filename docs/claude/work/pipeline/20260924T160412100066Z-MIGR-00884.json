@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260901-REVIEW-PACKET-WINDOW-AND-EVIDENCE-FLOOR-ARE-INCOMPATIBLE-SO-NO-ACTION-CAN-EVER-FIRE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-REVIEW-PACKET-WINDOW-AND-EVIDENCE-FLOOR-ARE-INCOMPATIBLE-SO-NO-ACTION-CAN-EVER-FIRE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-REVIEW-PACKET-WINDOW-AND-EVIDENCE-FLOOR-ARE-INCOMPATIBLE-SO-NO-ACTION-CAN-EVER-FIRE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The M7 decision packet grades the whole fleet HOLD by construction: a 7-day window cannot reach the n>=20 evidence floor, so 52/52 legs are ungradeable and the cron will re-emit actionable=0 every day"
+}

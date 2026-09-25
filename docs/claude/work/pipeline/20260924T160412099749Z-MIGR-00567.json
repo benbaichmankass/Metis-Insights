@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "[!] CORRECTED 2026-09-12 by MI-282 — CRITERION (a) IS NOT ACHIEVABLE ON THE CURRENT CODE AND ITS STATED HAZARD IS BACKWARDS. A soak row showing breakout_1 in rounds_applied with apply_scope 'allowlisted' PROVES NOTHING about routing: 317 such rows already exist for bybit_1 while nothing dispatched. A NEW STEP (0) PRECEDES EVERYTHING: [Tier-2, code] make _attach_fanout_plan carry the round's geometry into apply_rounds ({**r, 'accounts': [...]}) and fix the seam test — tests/test_arbitration_fanout_seam.py::test_a_plan_written_by_the_multiplexer_is_readable_by_the_pipeline hand-writes plan['apply_rounds'] = plan['rounds'] with the comment '# what apply mode attaches', which is exactly what apply mode does NOT attach, so it passes over this defect. [!] AND THE '(a) WITHOUT (b) CLEARS NOTHING' REASONING IS RIGHT FOR THE WRONG REASON: the next gate is NOT prop_balance_stale. MEASURED — two trend_donchian_eth_prop tickets reached emit_prop_ticket on 2026-09-05 (16:34:52Z, 17:01:01Z), each carrying an order_package_id, with the snapshot ALREADY ~141h stale, so sizing did NOT refuse. PropRiskManager.position_size substitutes the NOMINAL equity when the live balance is unavailable (operator design 2026-06-19, its own docstring). Corroborated by the ticket data: risk_usd census over 163 rows (163 < the 200 limit, so not a truncated page) is 48 at $75.00 and 6 at $25.00, NONE at $71.81 — and $75.00 = 0.015 x $5,000 NOMINAL, not 0.015 x the $4,787.34 snapshot. So 'send a fresh bal or it  …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-ARMING-THE-ARBITRATION-FANOUT-ON-BYBIT1-ALONE-REMOVED-THE-PROP-ACCOUNT-S-ONLY-ROUTE-AND-THE-SOAK-RECORDED-IT-EVERY-TIME",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-ARMING-THE-ARBITRATION-FANOUT-ON-BYBIT1-ALONE-REMOVED-THE-PROP-ACCOUNT-S-ONLY-ROUTE-AND-THE-SOAK-RECORDED-IT-EVERY-TIME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-ARMING-THE-ARBITRATION-FANOUT-ON-BYBIT1-ALONE-REMOVED-THE-PROP-ACCOUNT-S-ONLY-ROUTE-AND-THE-SOAK-RECORDED-IT-EVERY-TIME'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [CORRECTED 2026-09-12] breakout_1 (PROP, mode: live) is STARVED of every order package — by the GLOBAL one-winner-per-symbol election, NOT by the allowlist. The fan-out remedy has never dispatched on any account: apply_rounds drops the geometry its own reader validates, so widening the allowlist is INERT and would manufacture the appearance of a fix"
+}

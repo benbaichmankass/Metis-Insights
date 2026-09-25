@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER the three non-tick readers below resolve their symbol set through the same UNION `_resolve_tick_symbols` now uses (a shared helper, not a fourth copy), OR a DECIDED records that `roster-symbol-reachability` going red in CI is sufficient protection and the readers stay declared-only. Re-check by running the rerun grep and reading each hit.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E42-THE-NON-TICK-READERS-OF-ACCOUNTS-SYMBOLS-STILL-SEE-ONLY-THE-DECLARED-LIST",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01PDnYMJCPBohXArAKpUceZm, checklist row E42, branch lane/e42-roster-symbol-union",
+    "rerun": "grep -rn \"account.get(\\\"symbols\\\")\\|cfg.get(\\\"symbols\\\")\" --include=*.py src/units/accounts/clients.py src/runtime/exchange_accounts.py   # every reader still taking the DECLARED list alone; each one is blind to a rostered symbol the pull list omits"
+  },
+  "routed_to": "unrouted -- needs a checklist row before anyone can work it",
+  "state": "queued",
+  "what": "FOUND 2026-09-22 while implementing E42; NOT fixed in that PR, deliberately, because it widens a Tier-2 change beyond what was dispatched. E42 makes `src/main.py::_resolve_tick_symbols` fetch UNION(roster-implied, declared), so a stale pull list can no longer stop a rostered leg trading. THREE OTHER READERS OF `accounts.yaml::symbols` WERE NOT CHANGED and still take the DECLARED list alone: (1) `src/units/accounts/clients.py::account_bybit_open_orders` -- the per-symbol POSITION cross-check that exists because a settleCoin page can silently OMIT a live symbol (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND); (2) `clients.py::account_bybit_raw_positions` via `_bybit_configured_symbols`, same shape; (3) `src/runtime/exchange_accounts.py::bybit_fill_accounts` -- the live fill/cost sweep. [!] THE CONSEQUENCE IS THE SHARPER HALF OF THE ORIGINAL DEFECT, not a cosmetic one: a rostered symbol absent from the pull list would now TRADE (E42's fix) while remaining invisible to the naked-position cross-check and to the cost sweep. Before E42 it simply did not trade, so the two readers had nothing to miss. That is a real, if narrow, money-at-risk surface and it is the price of the E42 fix, stated rather than hidden. [!] WHAT HOLDS IT SHUT IN THE MEANTIME: `scripts/ci/check_roster_symbol_reachability.py` fails any PR that creates the condition, and it is MEASURED green on the tree today (0 unreachable). So the exposure requires a config edit landing past a red CI, not an unnoticed drift. That is a guard, not a fix. [!] THE RIGHT FIX IS ONE SHARED RESOLVER, not three more unions: a single `symbols_for_account(account) -> list` that both the tick and the data readers call, so the next reader added cannot repeat this. Tier-2 (the Bybit read paths)."
+}

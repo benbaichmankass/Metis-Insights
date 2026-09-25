@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "RECURRING — not closed by a single run. Retire only if the operator drops the real-money-allocation gate. Each run records real_money_allocation_benchmark in the response and refreshes this item's verdict.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#SRQ-20260715-REALMONEY-ALLOC-BENCHMARK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='SRQ-20260715-REALMONEY-ALLOC-BENCHMARK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] [recurring] Real-money allocation benchmark — does a ready-for-live portfolio beat the incumbent live book (bybit-only) on risk-adjusted PnL, incl. regime diversification?"
+}

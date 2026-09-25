@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "RESOLVED when a session can read `trades` rows OPENED BEFORE 2026-08-30 that lie outside the newest 1000 ids -- demonstrated by a pull whose minimum trade id is below the then-current newest-1000 floor, with the id range recorded. Read the IDS, never the route's docstring. NOT sufficient: the route merely ACCEPTING an offset or since parameter -- FastAPI ignores unknown query params silently, which is exactly how this was invisible, so prove it CHANGED the rows returned with a positive control that two different offsets yield different ids. NOT sufficient either: the e35 question being abandoned, which makes the gap unobservable rather than fixed. If the operator decides the pre era is not worth recovering, that CLOSES this row as a recorded decision WITH its consequence stated -- the e35 stop term is then permanently undecidable, and it must never again be re-measured as though it could be settled.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-E35-PRE-ERA-BASELINE-IS-ERODED-BY-THE-1000-ROW-JOURNAL-CLAMP-SO-A-TIER-3-QUESTION-GETS-LESS-ANSWERABLE-OVER-TIME",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-E35-PRE-ERA-BASELINE-IS-ERODED-BY-THE-1000-ROW-JOURNAL-CLAMP-SO-A-TIER-3-QUESTION-GETS-LESS-ANSWERABLE-OVER-TIME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-E35-PRE-ERA-BASELINE-IS-ERODED-BY-THE-1000-ROW-JOURNAL-CLAMP-SO-A-TIER-3-QUESTION-GETS-LESS-ANSWERABLE-OVER-TIME'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The e35 pre-era baseline is eroded by the 1000-row journal clamp, so a live Tier-3 question gets less answerable every day"
+}

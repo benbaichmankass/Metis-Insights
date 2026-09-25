@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A guard pair whose satisfying sets are disjoint is detected BEFORE it reds main. Verified by the detector firing on a DELIBERATELY CONSTRUCTED conflicting pair that is not one of the two known instances — a detector validated only against the cases it was written from proves nothing. It must cover BOTH sub-shapes or say explicitly which one it does not cover: a path-only detector that stays silent on a content conflict is the unprovenanced-diagnostic shape (a clean negative that checked one of two conditions). NOT SUFFICIENT: fixing the two live instances (MI-191 is doing that; it removes two points, not the class); a green guard suite (both instances were green ALONE); or an enumeration whose candidates are un-adjudicated — 19 candidates with 1 verified is not a detector, it is a list.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-NO-GUARD-DECLARES-ITS-SATISFYING-SET-SO-A-DEADLOCKED-PAIR-CAN-ONLY-BE-FOUND-BY-HITTING-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-NO-GUARD-DECLARES-ITS-SATISFYING-SET-SO-A-DEADLOCKED-PAIR-CAN-ONLY-BE-FOUND-BY-HITTING-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-NO-GUARD-DECLARES-ITS-SATISFYING-SET-SO-A-DEADLOCKED-PAIR-CAN-ONLY-BE-FOUND-BY-HITTING-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Individually-correct guards deadlock in two distinct sub-shapes (path polarity, content polarity) and neither is enumerable today, because a guard declares what it CHECKS and never which actor must write which path or content"
+}

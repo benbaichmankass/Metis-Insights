@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The cheap half is a one-line habit change and needs no code: use **`git merge-tree --write-tree <ours> <theirs>` and read the EXIT CODE** (non-zero = conflicts), or just run the real `git merge` in a throwaway worktree. The deprecated 3-arg form must not be used as a mergeability probe. Closes when EITHER (a) the guidance lands where a session will meet it at the point of use — the merge protocol in .claude/skills/session-coordination/SKILL.md, beside the existing `mergeable_state` guidance — and BL-20260910-AN-ARMED-CLONES-LOCAL-TEST-MERGE-IS-A-FALSE-NEGATIVE-ON-GITHUB-MERGEABILITY is cross-referenced from it, since the two failures share a remedy and a reader needs both; OR (b) a session demonstrates the old form is in fact reliable here and this row is WRONG, which would be the more valuable finding — in that case record WHICH of my four probes was misread and correct this row in place. [!] DO NOT close this by deleting the probe from one script and calling it done — it is a habit, not a call site; the fix is the documented alternative, not a removal. [!] AND DO NOT fold this into the BL-20260910 row: its cause (an armed merge driver) is ABSENT in the clone that produced this one, so merging them would attach a true finding to a mechanism that was measured not to be present.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-DEPRECATED-3-ARG-GIT-MERGE-TREE-REPORTS-A-CLEAN-MERGE-FOR-A-PAIR-THAT-REALLY-CONFLICTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-DEPRECATED-3-ARG-GIT-MERGE-TREE-REPORTS-A-CLEAN-MERGE-FOR-A-PAIR-THAT-REALLY-CONFLICTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-DEPRECATED-3-ARG-GIT-MERGE-TREE-REPORTS-A-CLEAN-MERGE-FOR-A-PAIR-THAT-REALLY-CONFLICTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `git merge-tree <base> <ours> <theirs>` (the deprecated 3-arg form) reports ZERO conflict markers for a ref pair that git's own `git merge`, `merge-tree --write-tree` and GitHub all grade as conflicting — so a session using it as a cheap mergeability probe reports a false all-clear"
+}

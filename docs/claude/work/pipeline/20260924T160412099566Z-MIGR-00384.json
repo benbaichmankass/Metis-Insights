@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Decide and DOCUMENT which history is authoritative, then make the check say so rather than leaving a reader to infer it. Candidates, none yet chosen: count only commits on the default branch (stable, but blind during a PR, which is when the pressure is meant to be felt); count distinct PRs rather than commits; or keep commits and have the check PRINT that an in-branch count is provisional and will collapse on squash. Whatever is chosen, the check must not report a carry number whose meaning changes under the reader without saying so — that is the unstated-population problem this repo already has a rule for.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-CARRY-COUNT-RESETS-ACROSS-A-SQUASH-MERGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-CARRY-COUNT-RESETS-ACROSS-A-SQUASH-MERGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-CARRY-COUNT-RESETS-ACROSS-A-SQUASH-MERGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] operator-owed carry count is not monotonic across a squash merge — N in-branch register commits collapse to 1"
+}

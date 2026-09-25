@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-PR-LANDING-HOLD-REASONS-HAS-NO-VALUE-FOR-TIER-1-ON-AN-UNCERTIFIABLE-PATH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-PR-LANDING-HOLD-REASONS-HAS-NO-VALUE-FOR-TIER-1-ON-AN-UNCERTIFIABLE-PATH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-PR-LANDING-HOLD-REASONS-HAS-NO-VALUE-FOR-TIER-1-ON-AN-UNCERTIFIABLE-PATH'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/ci/check_pr_landing.py::HOLD_REASONS is a closed set of five, and none of them expresses the case R5 itself produces most often for a Tier-1 PR: work that IS Tier-1 by docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers ('Docs, tests, CI, tooling') but touches a path TIER1_SURFACE does not enumerate, so the guard declines to CERTIFY it and directs the author to `landing: \"hold\"`. Hit 2026-09-09 by MI-215 (PR #11529) on scripts/check_soak_doctrine.py: TIER1_SURFACE lists scripts/ci/**, scripts/ops/**, scripts/research/** and scripts/reports/**, but NOT the scripts/ root, where check_soak_doctrine.py, check_provenance_consumers.py and check_diagnostic_provenance.py all live. The author must then pick `tier_2_3_needs_approval`, whose own description reads 'Tier-2/Tier-3 work' -- so the typed reason contradicts the `tier: 1` field two lines above it. ⚠️ THE HARM IS TO THE TYPED VOCABULARY, NOT TO THIS PR. R7's docstring says the closed set exists so 'a hold is a stated KIND of hold and not an adjective', mirroring the operator_decision discipline in OPEN-PRS.json. A token routinely used to mean something other than what it says is exactly the drift that discipline prevents, and it degrades quietly: every such PR reads afterwards as Tier-2/3 work awaiting approval when it was Tier-1 awaiting a certification the guard could not give."
+}
