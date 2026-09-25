@@ -1162,6 +1162,15 @@ def main(argv=None) -> int:
                          "is what gates the merge.")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args(argv)
+    # The verdict below is about the COMMITTED tree. Say so when that is not
+    # the tree you edited -- this guard grades a commit RANGE, and a session
+    # chasing a named CI failure types IT rather than run_guards.py. See
+    # BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS-SO-ALL-18-DIRECTLY-INVOCABLE-DIFF-SCOPED-GUARDS-STILL-GRADE-THE-WRONG-TREE-SILENTLY
+    # and `tests/test_dirty_tree_notice.py`, which asserts every --base-accepting
+    # guard calls the ONE shared owner rather than re-implementing it.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import _dirty_tree  # noqa: E402,PLC0415 -- path shim above
+    _dirty_tree.warn()
 
     if a.self_test:
         return self_test()
