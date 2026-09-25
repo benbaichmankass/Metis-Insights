@@ -115,7 +115,8 @@ def _run_sweep(tmp_path, monkeypatch, *, rec, classifier, row_over=None):
         "CREATE TABLE trades (id INTEGER PRIMARY KEY, symbol TEXT, direction TEXT, "
         "position_size REAL, entry_price REAL, account_id TEXT, created_at TEXT, "
         "notes TEXT, setup_type TEXT, exit_reason TEXT, status TEXT, "
-        "is_backtest INTEGER, pnl REAL, exit_price REAL, pnl_percent REAL)"
+        "is_backtest INTEGER, pnl REAL, exit_price REAL, pnl_percent REAL, "
+        "closed_at TEXT)"  # E62: the sweep window keys on the close
     )
     row = {
         "id": 1, "symbol": "BTCUSDT", "direction": "long", "position_size": 0.001,
