@@ -1703,7 +1703,7 @@ CONTRACTS: List[Dict[str, object]] = [
     },
     {
         "name": "leg_flow_detector.state",
-        "producer": "src/runtime/leg_flow_detector.py",
+        "producer": "scripts/ops/leg_flow_detector.py",
         # The producer OWNS the vocabulary: the four values are module
         # constants (LEG_UNREADABLE etc.) and nowhere else, so no
         # `producer_field` — the literals do not share a line with the word

@@ -7,7 +7,7 @@ staying apart.
 """
 from __future__ import annotations
 
-from src.runtime import leg_flow_detector as lfd
+from scripts.ops import leg_flow_detector as lfd
 
 
 def test_all_four_states_are_distinct_string_values():

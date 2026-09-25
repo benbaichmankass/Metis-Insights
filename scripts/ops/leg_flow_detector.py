@@ -1,3 +1,16 @@
+# wiring: imported by scripts/ops/leg_flow_report.py and
+#         tests/test_leg_flow_detector.py. Deliberately kept under
+#         scripts/ops/, not src/runtime/, even though its sibling detectors
+#         (starved_account_alert.py, silent_refusal_alert.py, dead_leg.py)
+#         live there: those are imported by the LIVE TRADER TICK; this module
+#         is not, and never will be — it is a pure library behind a manual
+#         report script, the same shape as scripts/ops/strategy_liveness.py.
+#         Keeping it out of src/** also keeps this PR inside
+#         check_pr_landing.py's TIER1_SURFACE, so it can self-land as the
+#         read-only observability change it actually is, per CLAUDE.md's own
+#         Tier-1 definition, rather than needing an operator hold that the
+#         guard's conservative (and correct, for anything touching src/**)
+#         allowlist would otherwise impose.
 """leg_flow_detector — intents produced vs orders/tickets received, per live leg.
 
 WHY (checklist row E18, operator decision 2026-09-21: BUILD IT, FOR ALL

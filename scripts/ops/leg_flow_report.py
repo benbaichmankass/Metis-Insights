@@ -44,7 +44,7 @@ from typing import Any, Dict, List, Optional, Sequence
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from src.runtime import leg_flow_detector as lfd  # noqa: E402
+from scripts.ops import leg_flow_detector as lfd  # noqa: E402
 
 _BOT_BASE = os.environ.get("BOT_API_URL", "https://ict-bot.duckdns.org").rstrip("/")
 _DIAG_FETCH = _REPO_ROOT / "scripts" / "ops" / "diag_fetch.sh"
