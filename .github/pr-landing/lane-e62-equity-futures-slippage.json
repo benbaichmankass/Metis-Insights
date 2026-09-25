@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Changes src/runtime/order_monitor.py, which runs on the live trader's monitor tick and decides which price a closed trade's pnl is booked from (the close path). CLAUDE.md permission tiers: runtime / order-path change = Tier-2, prepare + validate, one operator OK in chat, then ship. The E62 dispatch (manager session_01Ljhs6sFAdWHdMDhJpL5aBP, checklist row E62) says: 'This is src/ on the close path: build it with tests, and HOLD it as Tier-2 with a true hold_reason.' Merging is the deploy here (ict-git-sync pulls main every ~5 min), so the manager merges only after the operator's OK.",
+  "why": "E62 (B): the broker-truth grace in _sweep_local_pnl_for_unpriced and the 7-day window in _sweep_pending_pnl_from_bybit are keyed on the CLOSE instead of the OPEN, so Alpaca/IB sl_cross exits resolve from the fills store (MEASURED) instead of the verdict (ESTIMATED). Resolves BL-20260905-LOCAL-PNL-BROKER-DEFER-GRACE-KEYS-ON-THE-OPEN and BL-20260905-BYBIT-BROKER-PNL-SWEEP-WINDOW-ALSO-KEYS-ON-THE-OPEN."
+}

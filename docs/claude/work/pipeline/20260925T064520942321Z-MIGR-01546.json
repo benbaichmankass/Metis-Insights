@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "B5 PR A (the resolver) is merged to main",
+    "kind": "event"
+  },
+  "id": "PI-20260924-D1AX1FZ1-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01RRE7S69NA4Q95KD1aX1Fz1 (B5 respawn lane, dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP)",
+    "rerun": "ls comms/mandate_evidence/mirror_window/ 2>/dev/null | wc -l   # 0 or absent => still open\npython3 scripts/ops/mandate_resolver.py --leg xrp_pullback_2h --from S2 --to S1 --account bybit_2   # R-RECORD-MISSING => still open"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "1",
+  "what": "[build] MD-DEMOTE-S2-S1 cannot fire: its demotion signal is the Stage-2 MIRROR's net-of-full-cost window, and no committed record of that window exists. scripts/ops/mandate_resolver.py (B5 PR A) reads comms/mandate_evidence/mirror_window/<leg>.json, with fields leg, n_closed, net_r_net_of_full_cost, source_run and generated_at. Nothing produces that file. MEASURED 2026-09-24 on branch lane/b5-mandates-v2: the directory does not exist. So today every S2->S1 demotion REFUSES with R-RECORD-MISSING. That is fail-closed and safe, but it means the mandate is dead. A producer must build the record per real-money leg from the mirror account's closed trades (bybit_portfolio, alpaca_portfolio), net of the full cost stack, and commit it with its source_run."
+}

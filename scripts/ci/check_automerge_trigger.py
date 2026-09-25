@@ -30,8 +30,9 @@ Checks:
       name still reads like a request is a trap).
   C3  the job body derives a slug FROM THE BRANCH and looks up a request file
       named for it — the ask is branch-scoped.
-  C4  the job body compares the request file at the pushed head against `main`,
-      so a file merely inherited by a merge is not an ask.
+  C4  the job body compares the request file at the pushed head against its
+      merge-base with `main` (not `main`'s ever-moving tip — see the E63 note
+      at C4's implementation below), so a file merely inherited is not an ask.
   C5  the job body's executable code never calls `markPullRequestReadyForReview`
       (comments naming it are fine and are stripped before the check — an
       assertion that punished the explanation would train the next editor to
@@ -125,12 +126,44 @@ def check(root: Path) -> list[str]:
             "`.github/pr-automerge-requests/${slug}.txt`. Without a branch-scoped "
             "request file, another branch's ask arms yours — the 2026-09-02 defect.")
 
-    # C4 — presence is not an ask; it must differ from main.
-    if "blobSha('main')" not in code or "blobSha(context.sha)" not in code:
+    # C4 — presence is not an ask; it must differ from the branch's own
+    # merge-base with `main`.
+    #
+    # ⚠️ UPDATED 2026-09-24 (E63). This used to assert the LITERAL
+    # `blobSha('main')`, comparing the request file at the pushed head
+    # against `main`'s ever-moving TIP. PR #12858 was armed and squash-merged
+    # despite declaring `landing: "hold"` because a reused lane branch's
+    # STALE request file — untouched since an earlier PR on that same branch
+    # — happened to differ from `main`'s tip (which a SIBLING PR from the
+    # SAME branch had since rewritten), and that drift read as a fresh ask.
+    # Comparing against the push's actual merge-base with `main` instead (via
+    # `compareCommits`, since `fetch-depth: 1` leaves no local history for a
+    # real `git merge-base`) closes that false positive without weakening
+    # what C4 protects: a file merely inherited — from `main`'s tip, or
+    # carried forward stale from an earlier PR on the same branch — is still
+    # not an ask.
+    compares_to_main_base = (
+        "repos.compareCommits" in code
+        # tied to the compareCommits call specifically — `base: 'main'` alone
+        # also matches the unrelated `pulls.create` call a few lines down and
+        # would pass even after this exact anchor was mutated away.
+        and "base: 'main', head: context.sha" in code
+        and "merge_base_commit" in code
+    )
+    compares_head_to_base = (
+        "blobSha(context.sha)" in code
+        and re.search(r"blobSha\(\s*mergeBaseRef\s*\)", code) is not None
+    )
+    if not (compares_to_main_base and compares_head_to_base):
         fails.append(
-            "C4 the job body does not compare the request file against `main`. A file "
-            "inherited unchanged by a merge of `main` is not a request, and treating "
-            "presence alone as the ask reintroduces the defect through the front door.")
+            "C4 the job body does not compare the request file at the pushed head "
+            "against its merge-base with `main` (compareCommits against base "
+            f"'main': {compares_to_main_base}; blobSha(context.sha) vs "
+            f"blobSha(mergeBaseRef): {compares_head_to_base}). A file merely "
+            "inherited — from `main`'s tip, or carried forward stale from an "
+            "earlier PR on the same reused branch — is not a request, and "
+            "treating presence alone as the ask reintroduces the defect through "
+            "the front door (E63 / PR #12858).")
 
     # C5 — never silently un-draft.
     if "markPullRequestReadyForReview" in code:
@@ -233,8 +266,12 @@ def self_test() -> int:
             r / LEGACY_REL).write_text("x", encoding="utf-8"),
         "C3 slug lookup removed": lambda r: _mutate_script(
             r, "pr-automerge-requests/${slug}.txt", "pr-automerge-request"),
-        "C4 main comparison removed": lambda r: _mutate_script(
-            r, "await blobSha('main')", "null"),
+        "C4 merge-base comparison removed": lambda r: _mutate_script(
+            r, "const atBase = await blobSha(mergeBaseRef);",
+            "const atBase = await blobSha('main');"),
+        "C4 merge-base no longer anchored to main": lambda r: _mutate_script(
+            r, "base: 'main', head: context.sha });",
+            "base: 'HEAD', head: context.sha });"),
         "C5 un-draft restored": lambda r: _mutate_script(
             r, "            // 3b. enable native auto-merge.",
             "            await github.graphql(`mutation($id:ID!){ "

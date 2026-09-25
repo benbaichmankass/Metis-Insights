@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "E72 /ml-review (lane task, ceiling $25). Diff is a new comms/reviews/*.json review artifact plus PIPELINE.jsonl append-only rows -- docs/analysis output, no src/, config/, or ml/configs/ touched, no runtime/order-path/service/account-mode change. Two Tier-3 demote proposals are recommendations inside the review JSON for the operator to act on, not code changes; nothing in this diff itself flips a strategy's execution or an account's mode. Matches CLAUDE.md's Tier-1 definition (retrieving + analyzing state, docs) -- self-lands once CI is green."
+}

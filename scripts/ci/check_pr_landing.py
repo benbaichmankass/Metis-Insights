@@ -493,6 +493,12 @@ LANDING_MACHINERY = [
     ".github/pr-landing/*.json",
     "scripts/ci/check_pr_landing.py",
     "scripts/ci/check_automerge_trigger.py",
+    # ⚠️ ADDED 2026-09-24 (E63). The pure decision `claude-pr-automerge.yml`
+    # calls before it will arm a PR — whether the PR's OWN `landing:` field
+    # says "self". A change to it is a change to what gets armed exactly as
+    # much as a change to the workflow file itself (already listed above), so
+    # it must not self-land by the route it decides for.
+    "scripts/ci/automerge_landing_gate.py",
     "scripts/ops/session_registry.py",
     # ⚠️ ADDED 2026-09-09 (MI-208). This action is a THIRD landing route and was
     # missing from this list, so a change to it could self-land by the very
