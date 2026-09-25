@@ -1701,6 +1701,37 @@ CONTRACTS: List[Dict[str, object]] = [
             "phantom -$6,358 exit leak."
         ),
     },
+    {
+        "name": "leg_flow_detector.state",
+        "producer": "src/runtime/leg_flow_detector.py",
+        # The producer OWNS the vocabulary: the four values are module
+        # constants (LEG_UNREADABLE etc.) and nowhere else, so no
+        # `producer_field` — the literals do not share a line with the word
+        # `state` at their declaration.
+        "producer_field": "",
+        "consumer_token": (r"\bLEG_UNREADABLE\b|\bLEG_NO_INTENTS\b|"
+                           r"\bLEG_STARVED\b|\bLEG_FLOWING\b"),
+        "states": ["unreadable", "no_intents", "starved", "flowing"],
+        "why": (
+            "E18, 2026-09-21 (operator: BUILD IT, FOR ALL ACCOUNTS). "
+            "breakout_1 produced 21 intents over 22 days and received ZERO "
+            "tickets, and nothing fired — the operator found it by noticing "
+            "an absence. THE PAIR THAT MUST NOT COLLAPSE is `unreadable` vs "
+            "`starved`: a failed pull against `signals` or `trades` must "
+            "never render as '0 tickets, not starved', which is the exact "
+            "false-clean this contract exists to block. `no_intents` is kept "
+            "apart from both for the same reason `starved_account_alert` "
+            "splits `not_observed` from `soak_unreadable` — a strategy that "
+            "simply did not signal this window is neither the finding nor "
+            "evidence of health. MEASURED live 2026-09-25 (first end-to-end "
+            "run, 79h window since the 2026-09-22 arbitration-allowlist "
+            "change, `scripts/ops/leg_flow_report.py --window-hours 79`): "
+            "63 live legs graded, 14 `starved`, 19 `flowing`, 30 "
+            "`no_intents`, 0 `unreadable` — all four states reachable "
+            "against real production data, not only the self-test's "
+            "synthetic fixtures."
+        ),
+    },
 ]
 
 # `# collapsed-state: <state> — <reason>`
