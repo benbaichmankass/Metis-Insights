@@ -1,0 +1,128 @@
+[
+ {
+  "account_id": "bybit_1",
+  "symbol": null,
+  "count": 1000,
+  "truncated": true
+ },
+ {
+  "account_id": "bybit_1",
+  "symbol": "ADA/USDT:USDT",
+  "count": 85,
+  "truncated": false
+ },
+ {
+  "account_id": "bybit_1",
+  "symbol": "AVAX/USDT:USDT",
+  "count": 203,
+  "truncated": false
+ },
+ {
+  "account_id": "bybit_1",
+  "symbol": "BNB/USDT:USDT",
+  "count": 226,
+  "truncated": false
+ },
+ {
+  "account_id": "bybit_1",
+  "symbol": "BTC/USDT:USDT",
+  "count": 299,
+  "truncated": false
+ },
+ {
+  "account_id": "bybit_1",
+  "symbol": "ETH/USDT:USDT",
+  "count": 382,
+  "truncated": false
+ },
+ {
+  "account_id": "bybit_1",
+  "symbol": "SOL/USDT:USDT",
+  "count": 480,
+  "truncated": false
+ },
+ {
+  "account_id": "bybit_1",
+  "symbol": "XRP/USDT:USDT",
+  "count": 156,
+  "truncated": false
+ },
+ {
+  "account_id": "bybit_2",
+  "symbol": null,
+  "count": 331,
+  "truncated": false
+ },
+ {
+  "account_id": "bybit_portfolio",
+  "symbol": null,
+  "count": 135,
+  "truncated": false
+ },
+ {
+  "account_id": "ib_paper",
+  "symbol": null,
+  "count": 1000,
+  "truncated": true
+ },
+ {
+  "account_id": "ib_paper",
+  "symbol": "MES",
+  "count": 11,
+  "truncated": false
+ },
+ {
+  "account_id": "ib_paper",
+  "symbol": "MGC",
+  "count": 1000,
+  "truncated": true
+ },
+ {
+  "account_id": "ib_paper",
+  "symbol": "MHG",
+  "count": 60,
+  "truncated": false
+ },
+ {
+  "account_id": "ib_live",
+  "symbol": null,
+  "count": 0,
+  "truncated": false
+ },
+ {
+  "account_id": "oanda_practice",
+  "symbol": null,
+  "count": 0,
+  "truncated": false
+ },
+ {
+  "account_id": "alpaca_paper",
+  "symbol": null,
+  "count": 253,
+  "truncated": false
+ },
+ {
+  "account_id": "alpaca_portfolio",
+  "symbol": null,
+  "count": 380,
+  "truncated": false
+ },
+ {
+  "account_id": "alpaca_live",
+  "symbol": null,
+  "count": 4,
+  "truncated": false
+ },
+ {
+  "account_id": "alpaca_options_paper",
+  "symbol": null,
+  "count": 0,
+  "truncated": false
+ },
+ {
+  "account_id": "breakout_1",
+  "symbol": null,
+  "count": 0,
+  "truncated": false
+ }
+]
