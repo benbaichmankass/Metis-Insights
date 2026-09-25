@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Lane E66 (Tier-2: src/prop ingest + the prop risk read). The lane dispatch says prepare and HOLD; the manager merges and deploys on the operator's OK. The first post-deploy action is recording fill #44's current stop (2711.10) through a kind:amend report, which the pre-deploy ingest does not accept.",
+  "why": "Changes what the prop report-back ingest accepts (new kind:amend, sl/tp COALESCE on re-report), which stop the SL/TP alert and pulse use (a reported fill stop now beats the ticket stop), and what the prop risk gate grades a new ticket against (the cushion after open positions' loss-to-stop; an open position with no journaled stop grades cushion_unknown). Adds one nullable column prop_fills.amendments by ALTER. No order path, no config, no sizing change."
+}

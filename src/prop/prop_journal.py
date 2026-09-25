@@ -126,6 +126,7 @@ _DDL = (
         closed_at         TEXT,
         reported_at       TEXT NOT NULL,
         raw               TEXT,
+        amendments        TEXT,
         created_at        TEXT NOT NULL
     )
     """,
@@ -167,6 +168,11 @@ def ensure_tables(conn: Optional[sqlite3.Connection] = None) -> None:
             c.execute("ALTER TABLE prop_fills ADD COLUMN sl REAL")
         if "tp" not in fill_cols:
             c.execute("ALTER TABLE prop_fills ADD COLUMN tp REAL")
+        # E66 (2026-09-24): the audit trail of stop/target moves on an open
+        # position. A JSON list, NULL until the first amend — see
+        # `amend_fill_levels`.
+        if "amendments" not in fill_cols:
+            c.execute("ALTER TABLE prop_fills ADD COLUMN amendments TEXT")
         if own:
             c.commit()
     finally:
@@ -483,11 +489,16 @@ def insert_fill(fill: Dict[str, Any]) -> int:
                 existing_id = int(r[0])
 
         if existing_id is not None:
+            # sl/tp are COALESCEd (E66): a re-report that omits the stop must
+            # not wipe one journaled earlier or moved by `amend_fill_levels` —
+            # an unknown stop and a removed stop are different facts, and only
+            # the amend path may move one.
             conn.execute(
                 """
                 UPDATE prop_fills SET
                     ticket_id=?, external_order_id=?, symbol=?, direction=?,
-                    qty=?, entry_price=?, exit_price=?, sl=?, tp=?, pnl=?,
+                    qty=?, entry_price=?, exit_price=?,
+                    sl=COALESCE(?, sl), tp=COALESCE(?, tp), pnl=?,
                     pnl_percent=?, status=?, reason=?, opened_at=?, closed_at=?,
                     reported_at=?, raw=?
                 WHERE id=?
@@ -509,6 +520,67 @@ def insert_fill(fill: Dict[str, Any]) -> int:
         )
         conn.commit()
         return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def amend_fill_levels(
+    fill_id: int, *, sl: Any = None, tp: Any = None,
+    source: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Move the stop and/or target of ONE journaled fill row, and log the move.
+
+    WHY THIS EXISTS (E66, 2026-09-24)
+    ---------------------------------
+    Fill #44 (breakout_1, ETH short 1.3 @ 2666.11) was journaled with
+    ``sl: null``; the operator then moved its terminal stop 2736.00 -> 2711.10
+    and that move was recorded **nowhere** — not in ``prop_fills``, not in
+    ``prop_tickets``, not in ``prop_account_status``. Re-sending the whole fill
+    through :func:`insert_fill` is not a fix: its idempotent UPDATE rewrites
+    EVERY mutable column, so a report carrying only the new stop would null the
+    entry, the qty and the open time of a live position.
+
+    This writes ONLY ``sl`` / ``tp`` (a ``None`` argument leaves that column as
+    it is — an amend never clears a level) and appends one entry per call to
+    the row's ``amendments`` JSON list with the before/after values, so the
+    history of a stop is reconstructable and "moved from X" is a fact on disk,
+    not a chat message.
+
+    Raises ``ValueError`` when neither level is given or the row does not exist.
+    """
+    sl_f, tp_f = _f(sl), _f(tp)
+    if sl_f is None and tp_f is None:
+        raise ValueError("an amend needs a numeric sl and/or tp")
+    conn = _connect()
+    try:
+        ensure_tables(conn)
+        row = conn.execute(
+            "SELECT id, sl, tp, amendments FROM prop_fills WHERE id = ?",
+            (int(fill_id),),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"no prop fill with id {fill_id}")
+        try:
+            history = json.loads(row["amendments"]) if row["amendments"] else []
+            if not isinstance(history, list):
+                history = [history]
+        except (ValueError, TypeError):
+            # Never drop an unreadable trail silently: keep it verbatim.
+            history = [{"unparseable_prior_amendments": row["amendments"]}]
+        entry = {
+            "at": _now_iso(),
+            "sl_before": row["sl"], "sl": sl_f if sl_f is not None else row["sl"],
+            "tp_before": row["tp"], "tp": tp_f if tp_f is not None else row["tp"],
+            "source": source,
+        }
+        history.append(entry)
+        conn.execute(
+            "UPDATE prop_fills SET sl = COALESCE(?, sl), tp = COALESCE(?, tp), "
+            "amendments = ? WHERE id = ?",
+            (sl_f, tp_f, json.dumps(history), int(fill_id)),
+        )
+        conn.commit()
+        return {"id": int(fill_id), **entry, "amendments_count": len(history)}
     finally:
         conn.close()
 
@@ -636,6 +708,7 @@ __all__ = [
     "set_ticket_status",
     "list_tickets",
     "insert_fill",
+    "amend_fill_levels",
     "list_fills",
     "insert_account_status",
     "latest_account_status",

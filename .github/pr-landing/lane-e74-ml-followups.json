@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "E74 ml-review follow-ups: docs/comms/pipeline only (comms/reviews/e74-ml-followups-20260924.json, docs/claude/work/PIPELINE.jsonl rows via scripts/ops/pipeline.py schema, docs/claude/work/MANAGER-CHECKLIST.json row). No src/, config/, or runtime code touched in git. The Tier-3 action this lane took (demoting exit-head-donchian-1h-v1 advisory->shadow, operator-approved) was executed as a VM runtime-artifact mutation via the trainer-vm-diag relay, not as a git change -- there is nothing gated in this diff for that action to land through."
+}

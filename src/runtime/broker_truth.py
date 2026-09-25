@@ -31,12 +31,22 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from src.utils.paths import repo_root
 
 LEDGER_ENV = "BROKER_TRUTH_LEDGER"
+
+#: A record's `as_of` older than this reads `stale: true`. This ledger is
+#: hand-maintained (upserted only by a reviewed `reconcile_netting_pnl.py
+#: --emit-ledger` run from an operator export) with no producer that refreshes
+#: it on a schedule, so its own `as_of` is the only signal a reader has that
+#: the number in front of them may no longer reflect the account. Matches the
+#: repo-wide 14-day convention for a Tier-1 row going stale (see
+#: docs/CLAUDE-RULES-CANONICAL.md "Backlog governance").
+STALE_THRESHOLD_DAYS = 14
 
 
 def ledger_path() -> Path:
@@ -77,19 +87,50 @@ def _coerce_float(v: Any) -> float | None:
         return None
 
 
-def _clean_account(rec: Any) -> dict[str, Any] | None:
+def _as_of_age_days(as_of: Any, *, now: datetime | None = None) -> int | None:
+    """Whole days between a record's ``as_of`` and *now*.
+
+    ``as_of`` is either a bare date (``"2026-07-13"``, the ledger's own
+    convention) or an ISO-8601 timestamp. ``None`` — never ``0`` — when
+    ``as_of`` is missing or unparseable: an unknown age is not a fresh one.
+    """
+    if not isinstance(as_of, str) or not as_of.strip():
+        return None
+    s = as_of.strip()
+    try:
+        dt = (
+            datetime.strptime(s, "%Y-%m-%d")
+            if len(s) <= 10
+            else datetime.fromisoformat(s.replace("Z", "+00:00"))
+        )
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    ref = now if now is not None else datetime.now(timezone.utc)
+    return (ref.date() - dt.date()).days
+
+
+def _clean_account(rec: Any, *, now: datetime | None = None) -> dict[str, Any] | None:
     """Coerce one ledger record into the wire shape, or None if it's not usable."""
     if not isinstance(rec, dict):
         return None
     account_id = rec.get("account_id")
     if not isinstance(account_id, str) or not account_id:
         return None
+    as_of = rec.get("as_of")
+    age_days = _as_of_age_days(as_of, now=now)
     return {
         "account_id": account_id,
         "realized_usd": _coerce_float(rec.get("realized_usd")),
         "fees_usd": _coerce_float(rec.get("fees_usd")),
         "funding_usd": _coerce_float(rec.get("funding_usd")),
-        "as_of": rec.get("as_of"),
+        "as_of": as_of,
+        # Never collapsed: `None` means we could not tell the age (no/garbled
+        # `as_of`), which is not the same claim as "fresh". Only a real age
+        # over STALE_THRESHOLD_DAYS reads `stale: true`.
+        "as_of_age_days": age_days,
+        "stale": (age_days > STALE_THRESHOLD_DAYS) if age_days is not None else None,
         "window_start": rec.get("window_start"),
         "window_end": rec.get("window_end"),
         "source": rec.get("source"),
@@ -102,16 +143,21 @@ def summarize_broker_truth(
     path: str | os.PathLike[str] | None = None,
     *,
     account_id: str | None = None,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """Roll the ledger up for the API / dashboard.
 
-    Returns ``{present, count, account_id, accounts:[...], updated_at}``. When
-    ``account_id`` is given, ``accounts`` is filtered to that account (still a
-    list; empty when unknown). ``present`` is True when the ledger file parsed to
-    at least one usable account record. Best-effort — never raises.
+    Returns ``{present, count, account_id, accounts:[...], updated_at}``, each
+    account additionally carrying ``as_of_age_days`` / ``stale`` (computed
+    against *now*, real time when omitted) — this ledger has no scheduled
+    producer, so its own age is the only signal a reader gets that the figure
+    may no longer reflect the account. When ``account_id`` is given, ``accounts``
+    is filtered to that account (still a list; empty when unknown). ``present``
+    is True when the ledger file parsed to at least one usable account record.
+    Best-effort — never raises.
     """
     ledger = load_ledger(path)
-    accounts = [a for a in (_clean_account(r) for r in ledger.get("accounts", [])) if a is not None]
+    accounts = [a for a in (_clean_account(r, now=now) for r in ledger.get("accounts", [])) if a is not None]
     present = bool(accounts)
     if account_id is not None:
         accounts = [a for a in accounts if a["account_id"] == account_id]
@@ -164,6 +210,8 @@ def _ledger_read_state(path: str | os.PathLike[str] | None = None) -> str:
 
 def journal_trust_map(
     path: str | os.PathLike[str] | None = None,
+    *,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """Read the ledger ONCE and return every account known not to reconcile.
 
@@ -186,7 +234,7 @@ def journal_trust_map(
     if state != "read":
         return {"read_state": state, "accounts": {}}
     try:
-        accounts = summarize_broker_truth(path).get("accounts") or []
+        accounts = summarize_broker_truth(path, now=now).get("accounts") or []
     except Exception:  # noqa: BLE001  # allow-silent: a ledger read failure must never break a trade read
         return {"read_state": "unreadable", "accounts": {}}
     out: dict[str, Any] = {}
@@ -223,24 +271,33 @@ def journal_trust_for(
     # verdict does not need to, and must not report either as `no_record`.
     if trust_map.get("read_state") not in (None, "read"):
         return {"state": TRUST_UNREADABLE, "account_id": account_id,
-                "realized_usd": None, "as_of": None, "source": None,
-                "note": _UNREADABLE_NOTE}
+                "realized_usd": None, "as_of": None, "as_of_age_days": None,
+                "stale": None, "source": None, "note": _UNREADABLE_NOTE}
     rec = (trust_map.get("accounts") or {}).get(str(account_id)) if account_id else None
     if rec is None:
         return {"state": TRUST_NO_RECORD, "account_id": account_id,
-                "realized_usd": None, "as_of": None, "source": None,
+                "realized_usd": None, "as_of": None, "as_of_age_days": None,
+                "stale": None, "source": None,
                 "note": _NO_RECORD_NOTE if account_id
                         else "no account id on the row; nothing to look up"}
     return {"state": TRUST_KNOWN_DIVERGENT, "account_id": account_id,
             "realized_usd": rec.get("realized_usd"),
             "as_of": rec.get("as_of"),
+            "as_of_age_days": rec.get("as_of_age_days"),
+            "stale": rec.get("stale"),
             "source": rec.get("source"),
-            "note": _DIVERGENT_NOTE}
+            "note": _DIVERGENT_NOTE if not rec.get("stale") else (
+                _DIVERGENT_NOTE + f" — ⚠️ STALE: as_of is {rec.get('as_of_age_days')} "
+                "days old with no scheduled refresh; treat realized_usd as a "
+                "historical figure, not the account's current result"
+            )}
 
 
 def journal_trust(
     account_id: str | None,
     path: str | os.PathLike[str] | None = None,
+    *,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """Is this account's per-row journal ``pnl`` known to disagree with the broker?
 
@@ -260,13 +317,17 @@ def journal_trust(
     ``no_record`` as "trusted" is the exact collapse this three-state return
     exists to prevent.
 
-    Returns ``{state, account_id, realized_usd, as_of, source, note}``.
-    ``realized_usd``/``as_of``/``source`` are populated only for
-    ``known_divergent``. Best-effort — never raises. For a loop over many rows
-    use :func:`journal_trust_map` + :func:`journal_trust_for` instead, which
-    read the ledger once.
+    Returns ``{state, account_id, realized_usd, as_of, as_of_age_days, stale,
+    source, note}``. ``realized_usd``/``as_of``/``as_of_age_days``/``stale``/
+    ``source`` are populated only for ``known_divergent``. ``stale`` is
+    ``True`` once ``as_of`` is more than :data:`STALE_THRESHOLD_DAYS` old — this
+    ledger has no scheduled producer, so its own age is the only signal a
+    caller gets that ``realized_usd`` may no longer reflect the account.
+    Best-effort — never raises. For a loop over many rows use
+    :func:`journal_trust_map` + :func:`journal_trust_for` instead, which read
+    the ledger once.
     """
-    return journal_trust_for(account_id, journal_trust_map(path))
+    return journal_trust_for(account_id, journal_trust_map(path, now=now))
 
 
 def upsert_account_truth(
