@@ -123,6 +123,7 @@ on:
           - grade-closed-trades
           - set-env
           - get-env
+          - unset-env
           - scrub-env-noncompliant
           - pause-autoheal
           - resume-autoheal
@@ -202,7 +203,7 @@ on:
         required: false
         default: ""
       env_key:
-        description: "Env var name (set-env / get-env; e.g. TELEGRAM_CLAUDE_THREAD_ID. get-env accepts ALL)"
+        description: "Env var name (set-env / get-env / unset-env; e.g. TELEGRAM_CLAUDE_THREAD_ID. get-env accepts ALL; unset-env only accepts a key on its fixed retirable-keys allowlist)"
         required: false
         default: ""
       env_value:
@@ -210,11 +211,11 @@ on:
         required: false
         default: ""
       service:
-        description: "Service to restart after set-env, or whose env get-env reads (e.g. ict-claude-bridge; 'none' to skip)"
+        description: "Service to restart after set-env/unset-env, or whose env get-env reads (e.g. ict-claude-bridge; 'none' to skip)"
         required: false
         default: ""
       env_file:
-        description: "Which env file set-env writes: shared (repo .env, default) | web-api (/etc/ict-trader/web-api.env). Use web-api for a key that must NOT reach the trader."
+        description: "Which env file set-env/unset-env writes: shared (repo .env, default) | web-api (/etc/ict-trader/web-api.env). Use web-api for a key that must NOT reach the trader."
         required: false
         default: ""
       account_id:
@@ -649,7 +650,7 @@ jobs:
             status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
-            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
+            pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
               echo "tier=2" >>"$GITHUB_ENV"
               if [ -z "${REASON// }" ]; then
                 echo "::error::Tier-2 action '${ACTION}' requires a non-empty 'reason' input."
@@ -765,12 +766,16 @@ jobs:
               exit 1
               ;;
           esac
-          # set-env / get-env require a valid env_key; service defaults in the
-          # wrapper. The charset guard defends the shell on both sides; get-env
-          # additionally rejects any key outside ALLOWED_KEYS in get_env.py (it
-          # has no freeform key input by design), and 'ALL' means every
-          # allowlisted key.
-          if [ "${ACTION}" = "set-env" ] || [ "${ACTION}" = "get-env" ]; then
+          # set-env / get-env / unset-env require a valid env_key; service
+          # defaults in the wrapper. The charset guard defends the shell on
+          # both sides; get-env additionally rejects any key outside
+          # ALLOWED_KEYS in get_env.py (it has no freeform key input by
+          # design, and 'ALL' means every allowlisted key); unset-env
+          # additionally rejects any key outside its own, narrower
+          # RETIRABLE_KEYS allowlist inside scripts/ops/unset_env.sh (a
+          # freeform delete could remove a credential and crashloop the
+          # trader — the charset check alone is not the control here).
+          if [ "${ACTION}" = "set-env" ] || [ "${ACTION}" = "get-env" ] || [ "${ACTION}" = "unset-env" ]; then
             if [ -z "${ENV_KEY// }" ]; then
               echo "::error::${ACTION} requires 'env_key' (workflow_dispatch input) or 'env_key: <NAME>' (issue body)."
               exit 1
@@ -1284,6 +1289,7 @@ jobs:
             send-prop-test-ping)                SCRIPT="send_prop_test_ping_action.sh" ;;
             set-env)                            SCRIPT="set_env.sh" ;;
             get-env)                            SCRIPT="get_env_action.sh" ;;
+            unset-env)                          SCRIPT="unset_env.sh" ;;
             scrub-env-noncompliant)             SCRIPT="scrub_env_noncompliant.sh" ;;
             pause-autoheal)                     SCRIPT="pause_autoheal.sh" ;;
             resume-autoheal)                    SCRIPT="resume_autoheal.sh" ;;
@@ -1626,6 +1632,15 @@ jobs:
             # value, which is correct for a write and wrong for a read (a read
             # of an unset key is a legitimate answer, not a failure).
             REMOTE_CMD="ENV_KEY=$(printf '%q' "${ENV_KEY}") ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "unset-env" ]; then
+            # THE DELETE half. Forwards ENV_KEY + ENV_SERVICE + ENV_FILE_TARGET
+            # like set-env's write path, but deliberately NOT ENV_VALUE — this
+            # action never writes a value, only removes a line. The per-key
+            # retirable-keys allowlist lives in scripts/ops/unset_env.sh, same
+            # doctrine as get_env.py::ALLOWED_KEYS for the read half; this only
+            # carries the request across.
+            REMOTE_CMD="ENV_KEY=$(printf '%q' "${ENV_KEY}") ENV_SERVICE=$(printf '%q' "${ENV_SERVICE}") ENV_FILE_TARGET=$(printf '%q' "${ENV_FILE_TARGET:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "scrub-env-noncompliant" ]; then
             # The wrapper restarts ENV_SERVICE (defaults to
