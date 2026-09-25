@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-# wiring: manual-only - a CENSUS, run on demand and quoted in a backlog row or a
-# review. It is deliberately NOT registered in scripts/ci/run_guards.py: on the
-# day it was written 15 sites report, so gating on it would red every PR. That
-# is the diagnostic-provenance-guard sequence (census -> drain -> gate), not an
-# oversight, and the ordering is stated here so the next session does not
-# "helpfully" register it and strand the repo.
+# wiring: gated - registered in scripts/ci/run_guards.py as of row E4
+# (docs/claude/work/MANAGER-CHECKLIST.json, 2026-09-25). It was deliberately
+# NOT gated before that: on the day it was written 15 sites reported, so
+# gating on it would have redded every PR. That is the
+# diagnostic-provenance-guard sequence (census -> drain -> gate), not an
+# oversight -- the drain (BL-20260912-FIFTEEN-MORE-HARNESSES...) landed in
+# the same change that flips main()'s exit code, so the count reaching 0 and
+# the gate arming happen together and the class cannot silently come back.
 """How many harnesses let `--symbol` be a LABEL over a defaulted data file?
 
 THE SHAPE
@@ -192,9 +194,10 @@ def main(argv) -> int:
     if a.self_test:
         return _self_test()
     r = census(pathlib.Path(a.root))
+    hits = len(r["bound_to_a_concrete_file"])
     if a.json:
         print(json.dumps(r, indent=2, ensure_ascii=False))
-        return 0
+        return 1 if hits else 0
     print(f"symbol-data binding census over {a.root}")
     print(f"  {r['files_parsed']} .py parsed · "
           f"{r['files_declaring_symbol']} declare `--symbol` (the denominator)")
@@ -211,6 +214,14 @@ def main(argv) -> int:
         print(f"  {len(r['files_unparseable'])} file(s) would not parse: "
               f"{', '.join(r['files_unparseable'][:5])}")
     print(f"  fallback histogram: {r['fallback_histogram']}")
+    if hits:
+        print(f"\nsymbol-data-binding: FAIL — {hits} site(s) let `--symbol` be a "
+              f"label over a defaulted `--data` file. Wire the harness through "
+              f"scripts/ops/backtest_data_source.py::resolve_or_refuse rather "
+              f"than re-deriving a refusal (see "
+              f"docs/reference/backtest-data-loading.md).")
+        return 1
+    print("symbol-data-binding: OK")
     return 0
 
 

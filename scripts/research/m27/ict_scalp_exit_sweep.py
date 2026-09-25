@@ -39,6 +39,15 @@ import pandas as pd
 _REPO = Path(__file__).resolve().parents[3]
 _HARNESS = _REPO / "scripts" / "backtest_ict_scalp.py"
 
+# --- canonical (symbol, timeframe) -> candle-file resolver -----------------
+# THE ONE WAY this harness gets candles: scripts/ops/backtest_data_source.py.
+# See docs/reference/backtest-data-loading.md.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location(
+    "_backtest_data_source", str(_REPO / "scripts" / "ops" / "backtest_data_source.py"))
+_backtest_data_source = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_backtest_data_source)  # noqa: E402
+
 # (cell_tag, matrix_lever, extra harness args) — mirrors
 # scripts/research/m20_fleet_exit_sweep.py::cells_for for the stale/giveback
 # levers (the only M20 levers that apply to a fixed-bracket scalp).
@@ -209,9 +218,13 @@ def walk_forward(df, ts, out: Path, cell_tags: dict) -> dict:
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--data", default=str(_REPO / "data" / "XAUUSD_15m_deep.csv"))
-    ap.add_argument("--symbol", default="MGC",
-                    help="Bot symbol for the leg (default MGC — the gold leg).")
+    ap.add_argument("--data", default=None,
+                    help="Candle file. Default: resolved from --symbol/--leg "
+                         "via the canonical resolver; REFUSES rather than "
+                         "silently reaching the XAUUSD proxy file.")
+    ap.add_argument("--symbol", default=None,
+                    help="Bot symbol for the leg (legacy default was MGC — "
+                         "the gold leg).")
     ap.add_argument("--timeframe", default="15m",
                     help="Leg timeframe label (default 15m).")
     ap.add_argument("--split", default="2025-07-01",
@@ -247,6 +260,21 @@ def main(argv: list[str]) -> int:
         declared = declared_lever_flags(cfg)
         # tp_at_r drives the ladder rungs; the harness default is the fallback.
         tp_at_r = float(cfg.get("tp_at_r") or 1.5)
+
+    # --- data-source resolution (row E4, docs/claude/work/MANAGER-CHECKLIST.json)
+    # Resolved AFTER --leg (above), which is the only thing here that can turn
+    # an unset --symbol into a real one -- resolving against the raw
+    # args.symbol would miss that and refuse a perfectly good `--leg` run.
+    _legacy = str(_REPO / "data" / "XAUUSD_15m_deep.csv")
+    _src = _backtest_data_source.resolve_or_refuse(
+        symbol, timeframe, args.data, legacy_default=_legacy)
+    if not _src.ok:
+        print(_backtest_data_source.refusal_message(
+            _src, harness="ict_scalp_exit_sweep.py", legacy_default=_legacy),
+            file=sys.stderr)
+        return 2
+    args.data = _src.path
+    print(_src.provenance_line(), file=sys.stderr)
 
     global BASE_FLAGS
     BASE_FLAGS = base_flags(symbol, timeframe, declared)

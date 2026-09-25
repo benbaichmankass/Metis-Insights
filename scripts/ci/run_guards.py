@@ -1092,6 +1092,36 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # MANAGER-CHECKLIST.json row E4. The row-count axis of the same
+        # defect candle-fixture-variance-guard catches on the price-variance
+        # axis: a real, moving series that is still too THIN to measure
+        # anything against. `when: None` for the same reason as its sibling
+        # -- the defect is defined by data/CORPUS-MANIFEST.json's content,
+        # not by which file happened to change.
+        "name": "corpus-row-floor-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_corpus_row_floor.py", "--self-test"],
+            ["python3", "scripts/ci/check_corpus_row_floor.py"],
+        ],
+    },
+    {
+        # BL-20260912-FIFTEEN-MORE-HARNESSES-LET-SYMBOL-BE-A-LABEL-OVER-A-
+        # DEFAULTED-DATA-FILE-AND-FOURTEEN-SHARE-ONE-FIXTURE, closed by row E4
+        # (docs/claude/work/MANAGER-CHECKLIST.json, 2026-09-25). Deliberately
+        # NOT gated before this change landed -- 15 sites reported the day it
+        # was written, so gating first would have redded every PR (the
+        # diagnostic-provenance-guard sequence is census -> drain -> gate).
+        # The drain and this registration are the SAME change, so the count
+        # reaching 0 and the gate arming are inseparable.
+        "name": "symbol-data-binding-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ops/symbol_data_binding_census.py", "--self-test"],
+            ["python3", "scripts/ops/symbol_data_binding_census.py"],
+        ],
+    },
+    {
         "name": "json-extract-guard",
         "when": {"regex": r"\.py$|\.sh$"},
         "steps": [["python3", "scripts/ci/check_json_extract_guarded.py", "--verbose"]],

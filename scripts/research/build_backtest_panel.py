@@ -619,6 +619,16 @@ def _build_adapter_opts(args: argparse.Namespace) -> Dict[str, Any]:
     }
 
 
+# --- canonical (symbol, timeframe) -> candle-file resolver -----------------
+# THE ONE WAY this harness gets candles: scripts/ops/backtest_data_source.py.
+# See docs/reference/backtest-data-loading.md.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location(
+    "_backtest_data_source", str(_REPO_ROOT / "scripts" / "ops" / "backtest_data_source.py"))
+_backtest_data_source = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_backtest_data_source)  # noqa: E402
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     import os
 
@@ -633,9 +643,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--harness", choices=sorted(ADAPTERS), default="ict_scalp",
                         help="Which backtest harness to bridge (default: ict_scalp).")
     parser.add_argument("--data",
-                        default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
+                        default=None,
                         help="OHLCV candle CSV the harness runs on ($BACKTEST_DATA_PATH default).")
-    parser.add_argument("--symbol", default="BTCUSDT")
+    parser.add_argument("--symbol", default=None)
     parser.add_argument("--timeframe", default="5m", help="Strategy timeframe label (default: 5m).")
     parser.add_argument("--stamp-regime", action=argparse.BooleanOptionalAction, default=True,
                         help="Stamp decision-time regime/adx/vol onto each trade's meta "
@@ -691,6 +701,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="Output JSONL path (a sibling .manifest.json is written too).")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
+    # --- data-source resolution (row E4, docs/claude/work/MANAGER-CHECKLIST.json)
+    _src = _backtest_data_source.resolve_or_refuse(
+        args.symbol, args.timeframe, args.data,
+        legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
+    if not _src.ok:
+        print(_backtest_data_source.refusal_message(
+            _src, harness="build_backtest_panel.py",
+            legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv")),
+            file=sys.stderr)
+        return 2
+    args.data = _src.path
+    args.symbol = args.symbol or "BTCUSDT"
+    print(_src.provenance_line(), file=sys.stderr)
 
     rows, manifest = build_backtest_panel(
         harness=args.harness,

@@ -189,7 +189,8 @@ def resolve_or_refuse(symbol: Optional[str], timeframe: Optional[str],
                       legacy_default: Optional[str] = None,
                       data_dir: Optional[pathlib.Path] = None,
                       env_var: str = DEFAULT_ENV_VAR,
-                      env: Optional[dict] = None) -> Resolution:
+                      env: Optional[dict] = None,
+                      allow_implicit_default: bool = False) -> Resolution:
     """Decide this run's data source. See the module docstring for the states.
 
     ``data_arg`` MUST be ``None`` when the caller did not pass ``--data``, which
@@ -197,6 +198,20 @@ def resolve_or_refuse(symbol: Optional[str], timeframe: Optional[str],
     load-bearing half of the wiring: while ``--data`` carries a default, the
     harness cannot tell "the caller named this file" from "argparse supplied it",
     and every run looks explicit.
+
+    ``allow_implicit_default`` (docs/claude/work/MANAGER-CHECKLIST.json row E4,
+    2026-09-25) governs the ONE case ``BL-20260813``/``BL-20260912`` left
+    alone: no ``--symbol`` and no ``--data`` at all. Until E4 that combination
+    silently returned :data:`LEGACY_DEFAULT` -- "no opinion expressed, so
+    nothing to contradict" -- which is exactly how a bare invocation reaches
+    the 5,001-row/3.5-day-of-2022 BTC fixture BY DEFAULT and prints a
+    confident result computed from it. E4's mandate is that reaching the
+    fixture by default become impossible while the fixture itself stays
+    reachable as an explicit choice, so the DEFAULT here flips to
+    :data:`REFUSED` naming ``--data <legacy_default>`` as the one-line smoke
+    command. Passing ``allow_implicit_default=True`` is the escape hatch for a
+    caller that wants the pre-E4 behaviour on purpose (this module's own
+    ``--self-test`` uses it to keep asserting the old contract still exists).
     """
     environ = os.environ if env is None else env
     if data_arg:
@@ -205,9 +220,13 @@ def resolve_or_refuse(symbol: Optional[str], timeframe: Optional[str],
     if env_val:
         return Resolution(ENV, env_val, symbol=symbol, timeframe=timeframe)
     if not symbol:
-        # No opinion expressed, so nothing to contradict. Historical behaviour.
-        return Resolution(LEGACY_DEFAULT, legacy_default, symbol=symbol,
-                          timeframe=timeframe)
+        if allow_implicit_default:
+            # No opinion expressed, so nothing to contradict. Opt-in only.
+            return Resolution(LEGACY_DEFAULT, legacy_default, symbol=symbol,
+                              timeframe=timeframe)
+        # E4: a bare invocation no longer reaches the fixture silently.
+        return Resolution(REFUSED, None, symbol=symbol, timeframe=timeframe,
+                          tried=(legacy_default,) if legacy_default else ())
     ddir = pathlib.Path(data_dir) if data_dir is not None else (_REPO / "data")
     tf = timeframe or "1h"
     path, proxy, resample = _canonical_resolver()(symbol, tf, ddir)
@@ -223,6 +242,25 @@ def refusal_message(res: Resolution, *, harness: str,
                     env_var: str = DEFAULT_ENV_VAR) -> str:
     """What a refused run prints. Names the cause AND the one-line remedy."""
     tried = ", ".join(res.tried) or "(none)"
+    if not res.symbol:
+        # E4 (docs/claude/work/MANAGER-CHECKLIST.json row E4): a bare
+        # invocation -- no --symbol AND no --data -- used to silently reach
+        # the fixture. It no longer does; this is the message for that case,
+        # distinct from "a named symbol could not be resolved" below.
+        lines = [
+            f"{harness}: REFUSING to run - no --symbol and no --data were "
+            f"given, so there is nothing to run against. Reaching the "
+            f"5,001-row/3.5-day-of-2022 BTC fixture BY DEFAULT is what row "
+            f"E4 removed (docs/claude/work/MANAGER-CHECKLIST.json).",
+        ]
+        if legacy_default:
+            lines.append(
+                f"  the fixture still works as the fast smoke path -- say so "
+                f"explicitly: --data {legacy_default}"
+            )
+        lines.append(f"  or name a real instrument: --symbol <SYMBOL>")
+        lines.append(f"  or point {env_var} at the file you want.")
+        return "\n".join(lines)
     lines = [
         f"{harness}: REFUSING to run - you asked for symbol {res.symbol!r} "
         f"(timeframe {res.timeframe!r}) and gave no --data, and no candle file "
@@ -274,7 +312,17 @@ def _self_test() -> int:
 
         r = resolve_or_refuse(None, "1h", None, legacy_default="data/btc.csv",
                               data_dir=d, env={})
-        check("NO symbol requested -> legacy default, behaviour unchanged",
+        check("E4: a bare invocation (no --symbol, no --data) now REFUSES "
+              "rather than reaching the fixture by default",
+              r.state == REFUSED and r.path is None and not r.ok)
+        msg = refusal_message(r, harness="x.py", legacy_default="data/btc.csv")
+        check("its refusal names the explicit smoke command",
+              "--data data/btc.csv" in msg)
+
+        r = resolve_or_refuse(None, "1h", None, legacy_default="data/btc.csv",
+                              data_dir=d, env={}, allow_implicit_default=True)
+        check("allow_implicit_default=True is the opt-in escape hatch back to "
+              "the pre-E4 contract",
               r.state == LEGACY_DEFAULT and r.path == "data/btc.csv")
 
         r = resolve_or_refuse("ETHUSDT", "1h", None, legacy_default="data/btc.csv",

@@ -581,16 +581,16 @@
       "id": "E4",
       "title": "A real corpus, and one way to get candles",
       "phase": "E",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01R7aAE9tHCBNNYDW9msbMb2",
       "model": "claude-sonnet-5",
       "ceiling_usd": 35,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "The default fixture is 5,001 rows spanning 3.5 days of 2022; anything falling back to it produces a confident answer about nothing. Per-symbol committed corpus with stated coverage, --data made mandatory, a guard failing a run whose input row count is below a floor. [!] THE FIXTURE STAYS -- it is the fast smoke path and deleting it breaks every self-test. What changes is that reaching it BY DEFAULT becomes impossible."
+      "note": "One loader: scripts/research/m20_fleet_exit_sweep.py::resolve_data (the (symbol,timeframe)->file mapping) + scripts/ops/backtest_data_source.py::resolve_or_refuse (the policy every harness's CLI calls), documented in docs/reference/backtest-data-loading.md. All 17 previously-unwired harnesses (the 2 filed + the 15 in BL-20260912) now go through it; symbol_data_binding_census.py reports 0 and is now GATED in run_guards.py. --data made mandatory: a bare invocation (no --symbol, no --data) now REFUSES rather than reaching the fixture by default (resolve_or_refuse's allow_implicit_default, default False); the fixture stays, reachable only explicitly. data/CORPUS-MANIFEST.json covers 46/47 rostered (symbol,timeframe) pairs with stated rows/start/end/source (SPLG_1d is an honest, disclosed gap -- Yahoo returns 'possibly delisted' for that one ticker specifically); CSVs are fetched on demand (scripts/ops/fetch_backtest_corpus.py, orchestrating the existing scripts/ops/fetch_backtest_candles.py) rather than committed, per the repo's existing .gitignore policy against committing regenerable data/*.csv. New guard scripts/ci/check_corpus_row_floor.py fails a manifest row (or a committed candle file) below 500 rows, with self-test positive/negative controls. No scheduled workflow invocation needed changing (all already pass --symbol/--data); one test (tests/test_risk_grid_sweep.py) updated to keep exercising its own target refusal now that data-source resolution runs first."
     },
     {
       "id": "E5",
