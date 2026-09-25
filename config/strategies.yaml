@@ -2525,8 +2525,39 @@ strategies:
     atr_period: 14
     atr_stop_mult: 3.0  # M20 B4 bracket geometry: cell tp1.5_sm3 (wf_pass, wf 4/6); was 2.5
     trail_mult: 4.0
-    trail_decay_arm_r: 2.0   # M20 P4.1 decay cell (arm2R tight2 wf 6/6; sweep 2026-07-12, PR #6251)
-    trail_decay_tight_mult: 2.0
+    # trail_decay_arm_r + trail_decay_tight_mult REMOVED 2026-09-24 — Tier-3, OPERATOR-DECIDED
+    # ("Strip the arm", checklist row E48). Was:
+    #   `trail_decay_arm_r: 2.0`    # M20 P4.1 decay cell (arm2R tight2 wf 6/6; sweep 2026-07-12, PR #6251)
+    #   `trail_decay_tight_mult: 2.0`
+    # Both were declared together by that same operator-approved commit (62509a022, #6251,
+    # 2026-07-13), so they are removed together rather than leaving an orphan half-lever.
+    #   THE TEST IS ZERO, NOT RARE — the operator's own words on this family: "I only wanted to
+    #   strip the arm where it can't produce a result, it should stay where it can produce one."
+    #   MEASURED 2026-09-24, entry-conditioned against the REAL ceiling min(cap_R, tp_r):
+    #   **0 of 78** backtest trades reach the 2.00R arm (0.0%, Clopper-Pearson 95% CI
+    #   [0.0%, 4.6%]), uniform across all 17 sampled years. Run:
+    #   comms/strategy_evidence/runs/2026-09-24-e48/; registry row: config/lever_reachability.json
+    #   (verdict `inert`). Probe validated on two known answers first — uso_trend_1h 56/56
+    #   (`reachable`) and gld_pullback_1d 0/7 (`inert`).
+    #   ⚠️ THE REGISTRY'S OLD 83.1% (54/65) WAS THE VENUE CAP ONLY, measured 2026-08-16 and
+    #   cited in the 2026-09-22 strip dispatch as the exemplar of a lever that FIRES. M20 B4
+    #   (91de68b9c, #10419) has since cut this leg's tp_r 50.0 -> 1.5 and atr_stop_mult 2.5 -> 3.0.
+    #   The placed TP is min(entry*(1+0.099), entry + tp_r*risk)
+    #   (src/units/strategies/trend_donchian.py:393), so the binding ceiling is min(cap_R, 1.5),
+    #   below the 2.00R arm on every entry. cap_R alone still reads 54/78 on the same corpus —
+    #   the stale figure was correctly computed for the wrong ceiling.
+    #   EFFECT OF THE REMOVAL, stated as a CHANGE rather than a no-op: this leg declares no
+    #   `trail_decay_stall_bars`, so `resolve_trail_mult`'s `declared` predicate
+    #   (src/runtime/trail_decay.py:149 — `tight is not None and tight > 0 and (arm_r > 0 or
+    #   stall > 0)`) goes True -> False. Today the tightened mult 2.0 would replace the base
+    #   trail_mult 4.0 whenever peak_r >= 2.0R; after the strip the base mult is always
+    #   returned. Those are only INDISTINGUISHABLE because the arm measures 0/78 reachable —
+    #   which is the evidence above, not an assumption. The undeclared branch additionally
+    #   writes ONE observe-only annotate row to runtime_logs/exit_lever_soak.jsonl per package
+    #   when the reference stall-6 cell would arm (src/runtime/trail_decay.py:176-197); that
+    #   path never touches an order. Entry, stop and TP are untouched either way.
+    #   ROLLBACK (two lines): restore `trail_decay_arm_r: 2.0` and `trail_decay_tight_mult: 2.0`
+    #   between `trail_mult: 4.0` and `tp_r: 1.5`.
     tp_r: 1.5  # M20 B4 bracket geometry: cell tp1.5_sm3 (wf_pass, wf 4/6); was 50.0
     min_confidence: 0.0
     shadow_model_ids: []
