@@ -20,21 +20,44 @@ trail-vol lever flags, so those variants run faithfully.
 2026-09-22).** A `PLAIN` set is an ASSERTION that the harness accounts for a
 key, and for `tp_r` on trend/pullback that assertion was FALSE: both harnesses
 take `--tp-r`, it is "only consulted when --tp-cap-pct > 0", and
-`build_harness_cmd` passes NEITHER -- so the run models no take-profit at all.
-`qqq_trend_long_1d` recorded `fidelity: faithful` with `omitted_levers: []`
-against a config declaring `tp_r: 3.0` (`PI-20260922-E41-0005`).
-`conditional_omissions()` now reads the command that is actually about to run.
-MEASURED over the 51 routed legs of `config/strategies.yaml` on 2026-09-22:
-`faithful` **37 -> 25**; 13 legs name `tp_r` as omitted, 12 of which previously
-claimed to have modelled it.
+`build_harness_cmd` used to pass NEITHER -- so the run modelled no take-profit
+at all. `qqq_trend_long_1d` recorded `fidelity: faithful` with
+`omitted_levers: []` against a config declaring `tp_r: 3.0`
+(`PI-20260922-E41-0005`). `conditional_omissions()` reads the command that is
+actually about to run, so E46 made the false claim VISIBLE: MEASURED over the
+51 routed legs of `config/strategies.yaml` on 2026-09-22, `faithful` **37 ->
+25**; 13 legs named `tp_r` as omitted, 12 of which previously claimed to have
+modelled it.
 
-⚠️ **`faithful` still does NOT mean the LIVE capped TP was modelled.** Live
-places `tp = min(entry*(1+0.099), entry + tp_r*risk)`, so the ~9.9% venue clamp
-binds on every trend/pullback leg -- the 28 carrying the 50R sentinel included --
-and no run here models it. That is
-`BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`, deliberately NOT
-folded in: doing so would re-base the whole fleet's history, which
-`backtest_trend.py`'s own `--tp-cap-pct` default-off comment refuses.
+⚠️ **E55 (2026-09-24) IS THE FIX, NOT JUST THE DISCLOSURE.** `_tp_r_flags`
+now builds the argv that genuinely models a declared `tp_r`, via the SAME
+`--tp-cap-pct`/`--tp-r` pair backtest_trend.py's own CLI already describes as
+"LIVE-PARITY" -- `tp = min(entry*(1+TP_VENUE_CAP_PCT), entry + tp_r*risk)`,
+`TP_VENUE_CAP_PCT = 0.099` imported from the single owner,
+`src/runtime/tp_venue_cap.py`. Passing `--tp-r` alone would do nothing
+(`--tp-cap-pct` is what makes it consulted at all), so modelling `tp_r` and
+modelling the venue price cap are not independent choices -- they are one
+flag pair. MEASURED 2026-09-24: `tp_r` no longer appears in ANY enabled leg's
+`omitted_levers` (0/41 trend/pullback legs, all of which declare a numeric
+`tp_r`); `faithful` moved **25 -> 37** -- the SAME number the 2026-09-22
+census read before E46's correction, but for the opposite, now-correct
+reason (12 of the 13 previously-omitted legs are now genuinely modelled;
+`xrp_pullback_2h` stays `approximate` on an unrelated omitted lever,
+`trail_decay_arm_r`/`trail_decay_tight_mult`).
+
+⚠️ **THIS ALSO CLOSES `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`
+FOR EVERY TREND/PULLBACK LEG THAT DECLARES A `tp_r`** -- previously read here
+as deliberately NOT folded in, "because doing so would re-base the whole
+fleet's history". E55 measured that re-basing rather than continuing to defer
+it: regenerating all 41 enabled trend/pullback legs' evidence records through
+the harness flipped 8/41 Stage-0 verdicts. VERIFIED against
+`config/accounts.yaml`: none of the 8 are on a real-money account
+(`bybit_2`/`bybit_portfolio`/`alpaca_live`/`alpaca_portfolio`) today. Filed as
+`PI-20260924-EDNBNMSG-0001` for whoever next reviews Stage-1 promotion
+candidates. A leg still carrying the fleet's 50R "parked" sentinel is now ALSO
+modelled -- the venue PRICE cap binds regardless of how large `tp_r` is, so a
+sentinel is not "harmlessly unreachable" once the harness can model the cap at
+all (see `_tp_r_flags`'s own docstring for the reasoning this corrects).
 
 **Trend harness, updated 2026-08-08 (convergence step (a) of
 `BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE`).** There used to
@@ -740,6 +763,71 @@ def roundtrip_fee_bps(symbol: str) -> float:
     return float(DEFAULT_FEE_BPS_ROUNDTRIP if resolved is None else resolved)
 
 
+def _tp_venue_cap_pct() -> float:
+    """The live venue TP clamp (0.099) — imported, never re-declared.
+
+    `src/runtime/tp_venue_cap.py` is the ONE owner of this literal (its own
+    docstring: it used to be declared thirteen times under three names with
+    nothing binding them together). Importing it here is what makes
+    `--tp-cap-pct` below the SAME number `order_package` sends to the venue,
+    not a thirteenth opinion.
+    """
+    if REPO not in sys.path:
+        sys.path.insert(0, REPO)
+    from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT
+    return TP_VENUE_CAP_PCT
+
+
+def _tp_r_flags(cfg: dict) -> List[str]:
+    """``--tp-cap-pct``/``--tp-r`` argv, or ``[]`` when the leg declares no `tp_r`.
+
+    E55 / `PI-20260924-JN54P2HH-0005` (graded continuation of
+    `PI-20260922-E41-0006`). Before this, `build_harness_cmd` passed NEITHER
+    flag for trend/pullback, so `tp_r` sat in `_TREND_PLAIN`/`_PB_PLAIN` as an
+    ASSERTION the harness accounted for it while the run modelled no
+    take-profit at all — the false-`faithful` defect E46 made VISIBLE
+    (`conditional_omissions` now computes the grade from the argv) but did not
+    fix. This is the fix: actually build the argv that models it.
+
+    `--tp-r` is "only consulted when --tp-cap-pct > 0" (backtest_trend.py's
+    own help text for both harnesses), so modelling a leg's declared `tp_r` at
+    all REQUIRES passing the venue cap alongside it — the two are not
+    independent choices, they are one flag pair implementing the live formula
+    `tp = min(entry*(1+TP_VENUE_CAP_PCT), entry + tp_r*risk)`
+    (`src/units/strategies/trend_donchian.py:393`). Passing `--tp-r` alone
+    would leave `tp_cap_pct` at its 0.0 default and change nothing.
+
+    Deliberately keyed on PRESENCE, not on `_tp_r_binds`'s nonbinding
+    threshold: that threshold answered a narrower question ("is the omission
+    dishonest enough to disclose") for a harness that could not model the
+    lever at all. It never established that a parked 50R sentinel is
+    unreachable — the venue cap `min(entry*1.099, entry+50R*risk)` almost
+    always resolves to the *price* term regardless of `tp_r`'s size, which is
+    exactly `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`. So once
+    the harness CAN model the cap, withholding it for a sentinel leg would
+    reintroduce the same omission for a different reason.
+
+    A leg with no `tp_r` in its config gets neither flag — byte-identical to
+    every run before this function existed (`--tp-cap-pct` defaults to 0.0,
+    the harness's own untouched default).
+
+    An UNREADABLE `tp_r` (not coercible to `float`) also gets neither flag —
+    forwarding it verbatim would hand the subprocess's `type=float` argparse a
+    string it cannot parse, turning "we could not read this lever" into a
+    crashed run (`harness_failed`) instead of the honest `approximate` grade
+    `conditional_omissions`/`_tp_r_binds` already give it when the flag is
+    absent. Fail toward *omitted*, never toward a subprocess crash.
+    """
+    v = cfg.get("tp_r")
+    if v is None:
+        return []
+    try:
+        float(v)
+    except (TypeError, ValueError):
+        return []
+    return ["--tp-cap-pct", str(_tp_venue_cap_pct()), "--tp-r", str(v)]
+
+
 def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: str,  # inert: name — the argv is built from cfg/harness/csv; the cell name is used by the CALLER for reporting, never by the command
                       emit: str, jout: str,
                       fee_override: Optional[float] = None
@@ -786,6 +874,9 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         for k, flag in _TREND_LEVER_FLAG.items():
             if cfg.get(k) is not None:
                 argv += [flag, str(cfg[k])]
+        # E55 — model the leg's declared tp_r (the live-capped TP formula).
+        # See `_tp_r_flags`. `[]` when the leg declares no tp_r.
+        argv += _tp_r_flags(cfg)
         omitted = sorted(set(k for k in cfg
                              if k not in _TREND_PLAIN and k not in _TREND_LEVER_FLAG)
                          | set(conditional_omissions("trend", cfg, argv)))
@@ -879,6 +970,9 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         for k, flag in _PB_LEVER_FLAG.items():
             if cfg.get(k) is not None:
                 argv += [flag, str(cfg[k])]
+        # E55 — model the leg's declared tp_r (the live-capped TP formula).
+        # See `_tp_r_flags`. `[]` when the leg declares no tp_r.
+        argv += _tp_r_flags(cfg)
         omitted = sorted(set(k for k in cfg
                              if k not in _PB_PLAIN and k not in _PB_LEVER_FLAG)
                          | set(conditional_omissions("pullback", cfg, argv)))

@@ -32,6 +32,16 @@ THE TWO CONTROLS ARE BOTH REQUIRED AND NEITHER IS SUFFICIENT. A test showing the
 gate refuses a merge-of-main proves nothing on its own — a gate that refuses
 everything passes it. The positive control (a genuine request still arms) is
 what separates "fixed" from "broken".
+
+⚠️ E63 (2026-09-24): the request gate now asks the API for the push's actual
+MERGE-BASE with `main` (`repos.compareCommits`) rather than diffing straight
+against `main`'s tip — PR #12858 was armed anyway because a reused lane
+branch's stale, untouched request file drifted out of sync with `main` (moved
+by a SIBLING PR from the same branch) and that drift read as a fresh ask. The
+mock's `compareCommits` defaults to returning `main` itself as the merge-base,
+so every fixture below — which keys its blobs by the literal `'main'` — keeps
+meaning exactly what it always meant; `test_negative_control_stale_request_on_a_reused_branch_does_not_arm`
+is the one that exercises a real divergence.
 """
 from __future__ import annotations
 
@@ -73,7 +83,9 @@ HEALTHY_CHECKS = [{"name": "guards"}, {"name": "open-and-automerge"}]
 def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
              get_content_raises: bool = False, check_runs=None,
              pat: str = "", pat_create_fails: bool = False,
-             checks_raise: bool = False, cwd=None) -> dict:
+             checks_raise: bool = False, cwd=None,
+             merge_base_sha: str = "main",
+             compare_commits_raises: bool = False) -> dict:
     """Evaluate the real script against a mocked API; return every call it made.
 
     `blobs` maps (ref, path) -> blob sha, modelling the two `getContent` reads.
@@ -103,6 +115,16 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
     const CHECKS_RAISE = %(checks_raise)s;
     const CHECK_RUNS = %(check_runs)s;
     const PAT_CREATE_FAILS = %(pat_fails)s;
+    // E63: the request gate now asks the API for the push's actual
+    // MERGE-BASE with `main`, rather than diffing against `main`'s tip
+    // directly — a reused lane branch's stale, untouched request file could
+    // otherwise drift out of sync with `main` (moved by a SIBLING PR from
+    // the same branch) and read as a fresh ask. Defaults to 'main' itself,
+    // so every existing fixture below — which keys its blobs by literal
+    // 'main' — keeps meaning exactly what it always meant; a test that wants
+    // to model a real merge-base divergence passes a different ref.
+    const MERGE_BASE_SHA = %(merge_base_sha)s;
+    const COMPARE_RAISES = %(compare_raises)s;
 
     // `@actions/github` is bundled into actions/github-script and is NOT
     // installed here, so a bare require would throw and no PAT path could ever
@@ -145,13 +167,20 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
         return {};
       },
       rest: {
-        repos: { getContent: async ({ path, ref }) => {
-          CALLS.push({ call: 'getContent', path, ref });
-          if (RAISES) { const e = new Error('boom'); e.status = 500; throw e; }
-          const sha = BLOBS[ref + '|' + path];
-          if (!sha) { const e = new Error('Not Found'); e.status = 404; throw e; }
-          return { data: { sha } };
-        } },
+        repos: {
+          getContent: async ({ path, ref }) => {
+            CALLS.push({ call: 'getContent', path, ref });
+            if (RAISES) { const e = new Error('boom'); e.status = 500; throw e; }
+            const sha = BLOBS[ref + '|' + path];
+            if (!sha) { const e = new Error('Not Found'); e.status = 404; throw e; }
+            return { data: { sha } };
+          },
+          compareCommits: async ({ base, head }) => {
+            CALLS.push({ call: 'compareCommits', base, head });
+            if (COMPARE_RAISES) { const e = new Error('compare failed'); e.status = 500; throw e; }
+            return { data: { merge_base_commit: { sha: MERGE_BASE_SHA } } };
+          },
+        },
         pulls: {
           list: async () => { CALLS.push({ call: 'pulls.list' });
                               return { data: EXISTING ? [EXISTING] : [] }; },
@@ -179,6 +208,8 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
         "checks_raise": "true" if checks_raise else "false",
         "check_runs": json.dumps(HEALTHY_CHECKS if check_runs is None else check_runs),
         "pat_fails": "true" if pat_create_fails else "false",
+        "merge_base_sha": json.dumps(merge_base_sha),
+        "compare_raises": "true" if compare_commits_raises else "false",
         "branch": branch,
         "sha": head_sha,
         "script": textwrap.indent(_script(), " " * 8),
@@ -189,6 +220,7 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
     with tempfile.TemporaryDirectory() as tmp:
         env = {**os.environ,
                "ARMING_INPUT": str(Path(tmp) / "automerge-arming.json"),
+               "LANDING_GATE_INPUT": str(Path(tmp) / "automerge-landing.json"),
                "PR_OPEN_PAT": pat}
         out = subprocess.run(["node", "-e", textwrap.dedent(harness)],
                              capture_output=True, text=True, timeout=60,
@@ -229,6 +261,44 @@ def test_negative_control_merge_of_main_does_not_arm():
     assert any("NO REQUEST" in c.get("m", "") for c in res["calls"])
 
 
+def test_negative_control_stale_request_on_a_reused_branch_does_not_arm():
+    """E63 / PR #12858's actual mechanism, reproduced through the shipped
+    script rather than argued about it.
+
+    `claude/tender-mayer-2g1vtq` is a reused manager lane branch: PR #12838
+    merged from it, adding the request file with content "for PR #12838". A
+    LATER, sibling PR (#12854) from the SAME branch then rewrote `main`'s
+    copy of that file to different content ("...decisions batch") — but the
+    push that became #12858 never touched the file itself; its own commit
+    still carried the stale "for PR #12838" text, unchanged since it
+    diverged from `main` at the merge-base. Comparing against `main`'s
+    EVER-MOVING TIP (the pre-E63 behaviour) would see "for PR #12838" !=
+    "...decisions batch" and read that drift as a fresh ask — a false
+    positive nobody made. Comparing against the actual merge-base (which
+    still carries "for PR #12838" too, since the branch's own history is
+    what is unchanged) correctly reads it as inherited, not asked.
+    """
+    res = run_gate(
+        branch="claude/tender-mayer-2g1vtq", head_sha="a" * 40,
+        merge_base_sha="9" * 40,
+        blobs={
+            # `main`'s CURRENT tip: rewritten by the sibling PR (#12854).
+            f"main|{REQ}/tender-mayer-2g1vtq.txt": "decisions-batch-blob",
+            # the push's own merge-base with `main`: still the OLD content —
+            # this branch's own history never touched the file after this.
+            f"{'9'*40}|{REQ}/tender-mayer-2g1vtq.txt": "stale-12838-blob",
+            # the pushed head: BYTE-IDENTICAL to the merge-base, not to `main`.
+            f"{'a'*40}|{REQ}/tender-mayer-2g1vtq.txt": "stale-12838-blob",
+        },
+    )
+    kinds = _kinds(res)
+    assert "compareCommits" in kinds, "must ask for the merge-base rather than assume `main`"
+    assert not (ACTING & set(kinds)), \
+        f"armed on a file merely inherited from an earlier PR on the same branch: {kinds}"
+    assert any("byte-identical to its copy at the merge-base" in c.get("m", "")
+               for c in res["calls"])
+
+
 def test_negative_control_inherited_identical_file_does_not_arm():
     """The subtler half: a branch whose slug-named file exists only because it
     came from `main` unchanged. Presence alone is not an ask."""
@@ -238,7 +308,8 @@ def test_negative_control_inherited_identical_file_does_not_arm():
                f"{'b'*40}|{REQ}/some-branch.txt": "same"},
     )
     assert not (ACTING & set(_kinds(res)))
-    assert any("byte-identical to main" in c.get("m", "") for c in res["calls"])
+    assert any("byte-identical to its copy at the merge-base" in c.get("m", "")
+               for c in res["calls"])
 
 
 # --------------------------------------------------------------------------

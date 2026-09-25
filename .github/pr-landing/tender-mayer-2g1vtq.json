@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register only (docs/claude/work/MANAGER-CHECKLIST.json). It records the operator's ~18:15Z popup answers verbatim (E70 merge + fix the gap, E69 keep live, E62 merge+deploy with the deploy observed) and the manager's relay-before-record error on B5/E48. No src/, config/, scripts/ or workflow change."
+}

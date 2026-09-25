@@ -6,74 +6,72 @@
   "config_fingerprint": "sha256:a6d42b94f8dd8bbee44e4b4322671a93",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "approximate",
-  "omitted_levers": [
-    "tp_r"
-  ],
-  "net_r_oos": 3.5384,
-  "expectancy_r_oos": 0.8846,
-  "n_trades_oos": 4,
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 3.8725,
+  "expectancy_r_oos": 0.4841,
+  "n_trades_oos": 8,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
-      "trades": 1,
-      "net_r": -1.0263,
-      "expectancy_r": -1.0263,
+      "trades": 2,
+      "net_r": 0.797,
+      "expectancy_r": 0.3985,
       "start": "2025-10-23 00:00:00+00:00",
-      "end": "2025-10-23 00:00:00+00:00"
-    },
-    {
-      "fold": 2,
-      "trades": 1,
-      "net_r": 4.6053,
-      "expectancy_r": 4.6053,
-      "start": "2025-10-30 00:00:00+00:00",
       "end": "2025-10-30 00:00:00+00:00"
     },
     {
-      "fold": 3,
-      "trades": 1,
-      "net_r": -1.0157,
-      "expectancy_r": -1.0157,
-      "start": "2026-02-03 00:00:00+00:00",
+      "fold": 2,
+      "trades": 2,
+      "net_r": 4.4229,
+      "expectancy_r": 2.2115,
+      "start": "2025-12-30 00:00:00+00:00",
       "end": "2026-02-03 00:00:00+00:00"
     },
     {
-      "fold": 4,
-      "trades": 1,
-      "net_r": 0.9751,
-      "expectancy_r": 0.9751,
-      "start": "2026-04-02 00:00:00+00:00",
+      "fold": 3,
+      "trades": 2,
+      "net_r": 0.3856,
+      "expectancy_r": 0.1928,
+      "start": "2026-03-04 00:00:00+00:00",
       "end": "2026-04-02 00:00:00+00:00"
+    },
+    {
+      "fold": 4,
+      "trades": 2,
+      "net_r": -1.733,
+      "expectancy_r": -0.8665,
+      "start": "2026-07-07 00:00:00+00:00",
+      "end": "2026-09-02 00:00:00+00:00"
     }
   ],
-  "folds_positive": 2,
+  "folds_positive": 3,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
-    "n": 4,
-    "max_drawdown_r": 1.0263,
-    "max_drawdown_at_trade": 1,
-    "final_equity_r": 3.5384,
-    "max_equity_r": 3.579,
-    "worst_trade_r": -1.0263,
-    "best_trade_r": 4.6053,
-    "worst_day_r": -1.0263,
-    "worst_day_date": "2025-10-28",
+    "n": 8,
+    "max_drawdown_r": 1.733,
+    "max_drawdown_at_trade": 8,
+    "final_equity_r": 3.8725,
+    "max_equity_r": 5.6055,
+    "worst_trade_r": -1.0306,
+    "best_trade_r": 3.1487,
+    "worst_day_r": -1.0306,
+    "worst_day_date": "2026-08-06",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
   },
-  "window_days": 365,
-  "fee_bps_roundtrip": 7.5,
   "cost_stack": {
     "fees": 7.5,
     "slippage": 5.0,
     "funding": 0.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-22-r5/mgc_pullback_1d__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-24-e55/mgc_pullback_1d__bt.json"
   },
-  "net_r_oos_fee_only": 3.5727,
+  "net_r_oos_fee_only": 3.9585,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
@@ -81,10 +79,10 @@
     "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T09:27:13.640114+00:00",
+  "generated_at": "2026-09-24T12:44:51.501777+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/mgc_pullback_1d__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-24-e55/mgc_pullback_1d__trades.jsonl",
   "error": null,
   "harness": "pullback",
-  "low_n_warning": "n_trades_oos=4 < 10; the pooled number is reported but is not a basis for a verdict."
+  "low_n_warning": "n_trades_oos=8 < 10; the pooled number is reported but is not a basis for a verdict."
 }

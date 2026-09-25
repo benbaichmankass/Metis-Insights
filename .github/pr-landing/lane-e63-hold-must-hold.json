@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "E63: closes the gap where a PR declaring landing: \"hold\" was armed and merged anyway (PR #12858). Touches the claude-pr-automerge workflow, a new pure-function landing gate, and the R12 machinery list itself, so it is Tier-1 CI/workflow work that must not land through the very route it changes.",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits .github/workflows/claude-pr-automerge.yml (adds the landing-declaration gate and the merge-base fix for the request gate) and scripts/ci/check_pr_landing.py's LANDING_MACHINERY list, and adds scripts/ci/automerge_landing_gate.py as a new landing-decision module. Held for one operator read per R12, as the checklist row (E63) directs."
+}

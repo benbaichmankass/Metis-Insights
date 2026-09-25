@@ -97,7 +97,8 @@ class TestVenueAwareCLI:
         _reset_globals()
         s = self._run("BTCUSDT", tmp_path)
         assert s["funding_bps_per_window"] == h.execution_costs.DEFAULT_FUNDING_BPS_PER_WINDOW
-        assert s["slippage_bps_roundtrip"] == h.execution_costs.DEFAULT_SLIPPAGE_BPS_ROUNDTRIP
+        # E60 (operator 2026-09-24, D3 record): perps resolve the per-venue 3.0.
+        assert s["slippage_bps_roundtrip"] == h.execution_costs.PERP_SLIPPAGE_BPS_ROUNDTRIP
 
     def test_non_perp_gets_zero_funding(self, tmp_path):
         _reset_globals()
