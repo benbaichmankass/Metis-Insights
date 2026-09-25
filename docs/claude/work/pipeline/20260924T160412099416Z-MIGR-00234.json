@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The whole-fetch-exception path either raises with a true cause or sizes off a bounded, explicitly-stated basis; the log line describes what that path actually does; and a test exercises it WITHOUT a pkg.meta override.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-BALANCE-FETCHER-BRANCH3-ZERO-AND-A-LOG-THAT-LIES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-BALANCE-FETCHER-BRANCH3-ZERO-AND-A-LOG-THAT-LIES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-BALANCE-FETCHER-BRANCH3-ZERO-AND-A-LOG-THAT-LIES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] LATENT: coordinator._default_balance_fetcher branch 3 sizes off $0.00 on a WHOLE-fetch exception, and the logger.warning on that exact path promises a 'cached/explicit fallback' that cannot exist in production — both of its documented fallbacks are assigned only in test files."
+}

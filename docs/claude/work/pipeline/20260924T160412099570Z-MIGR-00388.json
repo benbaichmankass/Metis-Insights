@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "The three tests pass under `pytest tests/ -k 'modify or protective or rearm or naked or over_cover or execute'` as well as in isolation and in the full suite, with the leaking module identified by bisecting the selection and the leak fixed at its source (a fixture that does not restore, or module-level state mutated at import) rather than by reordering or by marking the tests.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-THREE-BYBIT-MODIFY-TESTS-FAIL-ONLY-UNDER-A-PARTIAL-SELECTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-THREE-BYBIT-MODIFY-TESTS-FAIL-ONLY-UNDER-A-PARTIAL-SELECTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-THREE-BYBIT-MODIFY-TESTS-FAIL-ONLY-UNDER-A-PARTIAL-SELECTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Three Bybit modify tests pass alone and in the full suite, and fail under a -k selection"
+}

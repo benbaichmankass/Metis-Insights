@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) A LIVE row post-deploy that took the no-record fallback and was later price-filled carries exit_reason 'sl' or 'tp' with notes.exit_reason_source 'price_vs_pkg_bracket' -- read from the journal, not inferred from the merge. AND (2) an intent_reduce leg in the same window still carries 'reconciler_filled' (the exclusion survived). AND (3) the historical pass has been RUN at --provenance broker_truth with its annotate JSONL reviewed, and the re-measured mislabelled count over the broker-truth population is materially below 91/155 with the population restated.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260822-EXIT-REASON-FROZEN-WHEN-PRICE-ARRIVES-LATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] _sweep_pending_pnl_from_bybit fills in exit_price after the close and never re-runs _classify_broker_exit -- so 91 of 155 broker-truth 'reconciler_filled' rows (58.7%) actually reached a declared bracket level"
+}

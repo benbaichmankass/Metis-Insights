@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A disk-usage threshold check exists and is WIRED -- either a step in health-snapshot.yml's compute-status logic that parses the trainer's df% and grades watch/concern, or a dedicated workflow following the trainer-capture-watch.yml pattern (self-test + a planted over-threshold control), for BOTH the trainer VM and the live VM (vm_health.disk from /api/diag/status, currently 56.5%, is collected but also never graded).",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-GKIASQWZ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "E56 health-review, 2026-09-24, trainer-vm-diag run 35999566099 (issue #12834)",
+    "rerun": "Open a trainer-vm-diag-request issue with `cmd: df -h /` and grep .github/workflows/health-snapshot.yml's compute-status Python block for a disk threshold check."
+  },
+  "state": "queued",
+  "what": "Trainer VM disk usage is at 91% (4.2G avail of 45G on /), essentially unchanged from the 92% flagged in ROADMAP M40 on 2026-08-29, and NOTHING alerts on it. MEASURED 2026-09-24 via trainer-vm-diag issue #12834 (run 35999566099): `df -h /` -> `/dev/sda1 45G 41G 4.2G 91% /`. The figure IS collected (health-snapshot.yml's trainer_snapshot step runs `df -h /home` into artifacts/health/trainer_snapshot.txt) but that workflow's 'Compute status' step grades ONLY heartbeat age and the pipeline-test result -- grep for 'disk' or 'Use%' in the compute-status Python block returns zero matches. The artifact is a GH Actions download nobody automatically reads. Contrast: the orderflow capture's FRESHNESS is properly alarmed (trainer-capture-watch.yml, self-tested with planted controls, TRAINER-CAPTURE-WATCH.json receipt) -- disk has no equivalent."
+}

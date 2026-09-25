@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "MFE/MAE in ATR units is computed per leg per week on a durable surface and a session is OBSERVED reading it. [!] DO NOT BUILD IT ON THIS ROW ALONE WITHOUT CHECKING MI-276 (WO-20260911-NOTHING-ALARMED-ON-EITHER-FAILURE-THE-SUSTAINED), which owns the losing-streak detector for the same incident -- two cadences landing in the same window is how they come to disagree. THEY ARE COMPLEMENTS, NOT DUPLICATES: a streak detector says THAT the book is bleeding, this says WHY, and it needs no provenance-clean PnL, which is what made the streak question hard. [!] AND IT NEEDS CANDLES, which the trader has and the repo's offline surfaces mostly do not -- cost the fetch before promising a cadence. [!] A QUIET READING IS NOT EVIDENCE OF HEALTH until the ratio has been seen MOVING on a known event; this window is the known event to validate it against.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-MFE-OVER-MAE-IN-ATR-UNITS-IS-A-LEADING-INDICATOR-NOBODY-COMPUTES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Favourable:adverse excursion in ATR units fell from 1.0-4.6 to 0.33-0.54 across 2026-08-30 and no surface computes it"
+}

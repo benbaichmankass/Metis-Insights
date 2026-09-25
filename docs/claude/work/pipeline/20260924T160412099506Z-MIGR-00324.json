@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when a diff touching ONLY config/strategies.yaml selects exit-coverage-matrix-guard in run_guards.py, proven by a test that fails if the glob is reverted — presence of the glob alone is not sufficient.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-EXIT-COVERAGE-GUARD-CANNOT-SEE-THE-FILE-IT-JOINS-AGAINST",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-EXIT-COVERAGE-GUARD-CANNOT-SEE-THE-FILE-IT-JOINS-AGAINST",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-EXIT-COVERAGE-GUARD-CANNOT-SEE-THE-FILE-IT-JOINS-AGAINST'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] exit-coverage-matrix-guard is diff-scoped to 3 files but joins against config/strategies.yaml, which is not one of them"
+}

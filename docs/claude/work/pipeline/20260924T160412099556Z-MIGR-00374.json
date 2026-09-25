@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) `_is_benign_noop` becomes `is_policy_hold(err) or err.startswith('below_venue_min_qty')` — a Tier-2 change with a test asserting the sub-min clause still holds and that `_is_hold`/`dead_leg` behaviour is unchanged; or (b) a recorded decision that the coordinator's rule is deliberately its own, stating what makes it different, with a test pinning the difference so a future edit cannot silently converge them.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-BENIGN-NOOP-CLOSURE-STILL-DUPLICATES-THE-POLICY-HOLD-RULE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-BENIGN-NOOP-CLOSURE-STILL-DUPLICATES-THE-POLICY-HOLD-RULE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-BENIGN-NOOP-CLOSURE-STILL-DUPLICATES-THE-POLICY-HOLD-RULE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] coordinator._is_benign_noop remains a near-duplicate of is_policy_hold, so the rule still has two definitions and can drift again"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. Every one of the 42 listed rows either gains a concrete exit condition (what measurement, deploy or decision retires it) or is re-dispositioned - resolved / wont_fix / superseded / moved to ROADMAP.md. Do NOT bulk-add a boilerplate criterion: a criterion nobody would ever check is the same permanent resident wearing a field.\n2. The 8 ml MILESTONE-PROGRAM rows move to ROADMAP.md and are superseded in the backlog with a pointer, so each milestone has exactly one home (two homes is how they drift).\n3. A guard or the session-end routine refuses a NEW kept_open row carrying no exit condition - filing is cheap, and this class grew because nothing checked at file time. Scope it diff-wise (the artifact-validity-guard shape) so the 42-row backlog is grandfathered rather than blocking every unrelated PR.\n4. Re-measure with the same predicate and report the count; the number, not a claim, closes this row.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-KEPT-OPEN-ROWS-WITH-NO-EXIT-CONDITION-CAN-NEVER-BE-RETIRED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 42 kept_open rows across the three backlogs state NO condition that would ever close them - a permanent-resident class, and 8 of the 11 ml ones are milestone PROGRAMS filed as backlog items"
+}

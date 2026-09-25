@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A build_report.json for an ict_scalp round shows a non-zero `live` count under the SCALP leg's own family key (not only under donchian/pullback), its e1_report reads live > 0, and the round exits NON-ZERO when any family's training raises. Verified on a real trainer round, not a fixture.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The exit-head round's LIVE arm still resolves 0 trades for the leg it is grading -- now on no_candles, not on the wrong DB -- and the round reports exit=0 after crashing on the spurious family it builds instead"
+}

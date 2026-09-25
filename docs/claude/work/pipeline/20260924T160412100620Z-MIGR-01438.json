@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either docs/claude/work/OPEN-PRS.json is recreated and kept current, or reconcile-open-prs.yml / stale-automation-sweep.yml are disarmed the way the other six retired-register readers were (comment out the trigger, workflow_dispatch only), or an operator decision records that PR-settlement tracking is intentionally dropped under the new model.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260921-E01",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "E9 / this PR (build lane, session_01JVPxS3XjMyiN3J3HpQPkNq)",
+    "rerun": "git grep -lI 'OPEN-PRS.json' -- ':!docs/archive/**' ':!.github/pr-landing/**' ':!.github/pr-automerge-requests/**' ':!.github/merge-slots/**'"
+  },
+  "state": "done",
+  "terminal_reason": "A10 2026-09-24: clears_when MET on its second arm: reconcile-open-prs.yml is disarmed (trigger commented out 2026-09-22, E29 #12719); stale-automation-sweep.yml still runs but reads OPEN-PRS.json in comments only, never as input. EVIDENCE: MEASURED 2026-09-24: .github/workflows/reconcile-open-prs.yml lines 92-96 'RETIRED 2026-09-22 ... # push:'; grep OPEN-PRS in stale-automation-sweep.yml -> none in the workflow; scripts/ops/sweep_stale_automation_prs.py:479 'NEVER from a committed file'. The 14 stranded PRs are PI-20260922-RECONCILE-OPEN-PRS-14..., routed to E29 today.",
+  "what": "docs/claude/work/OPEN-PRS.json was archived by the 2026-09-21 operating reset (docs/archive/2026-09-21-operating-reset/work/OPEN-PRS.json) and docs/claude/work/README.md correctly says so ('Do not resurrect them'). But three consumers were NOT disarmed and are still LIVE, unlike due-list.yml/probes.yml/error-feed-digest.yml/pr-queue-watch.yml/constraint-readout.yml/scope-overlap-audit.yml (all of which had their schedules commented out in the same reset): (a) .github/workflows/reconcile-open-prs.yml triggers on `push: branches: [main]` — unconditional, fires on every push, confirmed by dated .github/merge-slots/automation-reconcile-open-prs-*.json artifacts from today (2026-09-21); (b) .github/workflows/stale-automation-sweep.yml still carries an un-commented `cron: '17 */2 * * *'`; (c) both call scripts/ops/reconcile_open_prs.py / scripts/ops/open_pr_record.py / scripts/ops/sweep_stale_automation_prs.py, whose RECORD_PATH is docs/claude/work/OPEN-PRS.json. This is NOT the 'writer fails loudly' case this row's note assumed: open_pr_record.py:read_record() returns (None, True) for a missing file — 'read succeeded, nothing there' — so a run against the archived path is silently indistinguishable from a healthy run that found zero rows ('MOST RUNS WILL MOVE NOTHING, AND THAT IS CORRECT' per the workflow's own comment). Not fixed here: pulling on it needs someone to decide whether the PR-settlement tracking OPEN-PRS.json did is superseded by MANAGER-CHECKLIST.json's `prs` field or genuinely dropped. [!] ID REASSIGNED AT MERGE 2026-09-21 BY THE MANAGER. The E9 lane filed this as PI-20260921-0003 while, concurrently and invisibly to it, a DIFFERENT finding was being filed under that same id on main. Neither session could see the other: each minted the next free number from the store it read at startup. Merging as filed would have SILENTLY DISPLACED one of the two, because load() folds to last-record-wins and --check reports `clean` either way. Nothing about this finding changed; only its id. The tool defect is PI-20260921-M04 and has its own lane."
+}

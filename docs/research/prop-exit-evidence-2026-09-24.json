@@ -1,0 +1,1053 @@
+{
+ "schema": "e65-prop-exit-evidence/1",
+ "lane": "E65",
+ "generated_at": "2026-09-24",
+ "generated_by": "scripts/research/prop_exit_evidence.py",
+ "preregistration_commit": "6d14310",
+ "pr": 12868,
+ "population": "breakout_1 legs trend_donchian_eth_prop + trend_donchian_sol_prop; 365d Binance-vision 1h candles 2025-09-24T00Z..2026-09-23T23Z; backtest trades only (never blended with prop fills)",
+ "cost_stack": {
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 5.0,
+  "funding_bps_per_window": 1.0,
+  "note": "slippage pinned to 5.0 as registered; E60's 3.0 is a Bybit-perp figure and breakout_1 is not Bybit"
+ },
+ "positive_controls": {
+  "t0_reproduces_e55_record": {
+   "eth": {
+    "n": 170,
+    "net_r": 8.8346,
+    "max_dd_r": 13.2061
+   },
+   "sol": {
+    "n": 65,
+    "net_r": 4.5902
+   }
+  },
+  "mfe_rewalk_mismatches": 0
+ },
+ "trades_dir": "comms/strategy_evidence/runs/2026-09-24-e65/",
+ "exploratory_not_preregistered": {
+  "eth_B0_plus_sol_B2_account": {
+   "net_usd": 2937.38,
+   "days_loss_ge_daily_limit": 17,
+   "p_breach_25_at_94.76": 0.7406,
+   "p_breach_25_at_300": 0.4906,
+   "status": "exploratory; chosen after seeing results; NOT a recommendation"
+  }
+ },
+ "live_prop_comparison": {
+  "closed_fills": 18,
+  "verdict": "too_small_and_unattributable",
+  "why": "18 closed fills 2026-06-23..2026-08-30 across more than the two _prop legs, no strategy field on the fill row, no MFE/path, sl null on most rows, 5 operator-discretionary closes; bracket-confirmed outcomes: 1 TP (#14), 4 stops (#19,#21,#29,#39)"
+ },
+ "legs": {
+  "trend_donchian_eth_prop": {
+   "data_start": "2025-09-24 00:00:00+00:00",
+   "data_end": "2026-09-23 23:00:00+00:00",
+   "bars": 8760,
+   "t0_fidelity": true,
+   "t0_omitted_levers": [],
+   "geometries": {
+    "T0": {
+     "argv_exit_flags": null,
+     "n": 170,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 8.8346,
+     "net_r_fee_only": 14.756,
+     "max_drawdown_r": 13.2061,
+     "net_r_per_capital_day": 0.1014,
+     "capital_days": 87.1667,
+     "win_rate_pct": 34.12,
+     "by_outcome": {
+      "trail_stop": 88,
+      "stale_stop": 36,
+      "take_profit": 8,
+      "stop": 37,
+      "timeout": 1
+     },
+     "tp_r_effective_median": 4.556,
+     "bars_held_p50": 12,
+     "bars_held_p90": 23,
+     "bars_held_max": 54,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 45,
+       "net_r": 1.2105
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 40,
+       "net_r": 10.0235
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 45,
+       "net_r": -1.9871
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 40,
+       "net_r": -0.4124
+      }
+     ],
+     "folds_positive": 2,
+     "mfe": {
+      "p25": 0.243,
+      "p50": 0.697,
+      "p75": 1.36,
+      "p90": 2.489,
+      "frac_reaching": {
+       "1.0": 0.3706,
+       "1.5": 0.2471,
+       "2.0": 0.1706,
+       "3.0": 0.0941
+      },
+      "bars_to_mfe_p50": 3,
+      "bars_to_mfe_p90": 14,
+      "bars_to_level_p50": {
+       "1.0": 3,
+       "1.5": 7,
+       "2.0": 9,
+       "3.0": 14
+      },
+      "bars_to_level_p90": {
+       "1.0": 13,
+       "1.5": 14,
+       "2.0": 15,
+       "3.0": 20
+      }
+     }
+    },
+    "M": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720"
+     ],
+     "n": 54,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 23.0589,
+     "net_r_fee_only": 29.0604,
+     "max_drawdown_r": 12.2733,
+     "net_r_per_capital_day": 0.0841,
+     "capital_days": 274.25,
+     "win_rate_pct": 11.11,
+     "by_outcome": {
+      "stop": 47,
+      "timeout": 7
+     },
+     "tp_r_effective_median": null,
+     "bars_held_p50": 23,
+     "bars_held_p90": 720,
+     "bars_held_max": 720,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 16,
+       "net_r": -6.4618
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 12,
+       "net_r": 4.753
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 14,
+       "net_r": 5.8151
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 12,
+       "net_r": 18.9527
+      }
+     ],
+     "folds_positive": 3,
+     "mfe": {
+      "p25": 0.247,
+      "p50": 0.758,
+      "p75": 2.46,
+      "p90": 9.266,
+      "frac_reaching": {
+       "1.0": 0.4444,
+       "1.5": 0.3704,
+       "2.0": 0.2963,
+       "3.0": 0.2037
+      },
+      "bars_to_mfe_p50": 4,
+      "bars_to_mfe_p90": 282,
+      "bars_to_level_p50": {
+       "1.0": 3,
+       "1.5": 14,
+       "2.0": 15,
+       "3.0": 48
+      },
+      "bars_to_level_p90": {
+       "1.0": 31,
+       "1.5": 58,
+       "2.0": 74,
+       "3.0": 90
+      },
+      "b0_tp_level_p50": 5.01300152863837,
+      "frac_reaching_b0_tp": 0.1852
+     }
+    },
+    "B0": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720",
+      "--tp-cap-pct",
+      "0.099",
+      "--tp-r",
+      "6.0"
+     ],
+     "n": 100,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 28.0277,
+     "net_r_fee_only": 33.3634,
+     "max_drawdown_r": 12.0955,
+     "net_r_per_capital_day": 0.1415,
+     "capital_days": 198.125,
+     "win_rate_pct": 25.0,
+     "by_outcome": {
+      "stop": 74,
+      "take_profit": 25,
+      "timeout": 1
+     },
+     "tp_r_effective_median": 4.376,
+     "bars_held_p50": 27,
+     "bars_held_p90": 119,
+     "bars_held_max": 302,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 26,
+       "net_r": -0.5736
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 26,
+       "net_r": 18.7014
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 24,
+       "net_r": 14.6713
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 24,
+       "net_r": -4.7713
+      }
+     ],
+     "folds_positive": 2
+    },
+    "B1": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720",
+      "--tp-cap-pct",
+      "0.099",
+      "--tp-r",
+      "2.0"
+     ],
+     "n": 122,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 0.8812,
+     "net_r_fee_only": 5.8102,
+     "max_drawdown_r": 13.8231,
+     "net_r_per_capital_day": 0.0059,
+     "capital_days": 149.5417,
+     "win_rate_pct": 36.07,
+     "by_outcome": {
+      "stop": 77,
+      "take_profit": 44,
+      "timeout": 1
+     },
+     "tp_r_effective_median": 2.0,
+     "bars_held_p50": 15,
+     "bars_held_p90": 74,
+     "bars_held_max": 254,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 31,
+       "net_r": 3.0539
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 30,
+       "net_r": 6.4949
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 30,
+       "net_r": -2.5368
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 31,
+       "net_r": -6.1307
+      }
+     ],
+     "folds_positive": 2
+    },
+    "B2": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720",
+      "--tp-cap-pct",
+      "0.099",
+      "--tp-r",
+      "3.0"
+     ],
+     "n": 112,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": -4.0955,
+     "net_r_fee_only": 0.9483,
+     "max_drawdown_r": 17.1712,
+     "net_r_per_capital_day": -0.0246,
+     "capital_days": 166.5417,
+     "win_rate_pct": 26.79,
+     "by_outcome": {
+      "stop": 81,
+      "take_profit": 30,
+      "timeout": 1
+     },
+     "tp_r_effective_median": 3.0,
+     "bars_held_p50": 19,
+     "bars_held_p90": 82,
+     "bars_held_max": 254,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 27,
+       "net_r": 1.9626
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 30,
+       "net_r": 2.2831
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 28,
+       "net_r": -2.7678
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 27,
+       "net_r": -5.5736
+      }
+     ],
+     "folds_positive": 2
+    },
+    "B3": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720",
+      "--tp-cap-pct",
+      "0.099",
+      "--tp-r",
+      "3.0",
+      "--bank-frac",
+      "0.5",
+      "--bank-at-r",
+      "1.5"
+     ],
+     "n": 112,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": -9.817,
+     "net_r_fee_only": -4.7732,
+     "max_drawdown_r": 20.8125,
+     "net_r_per_capital_day": -0.0589,
+     "capital_days": 166.5417,
+     "win_rate_pct": 37.5,
+     "by_outcome": {
+      "stop": 81,
+      "take_profit": 30,
+      "timeout": 1
+     },
+     "tp_r_effective_median": 3.0,
+     "bars_held_p50": 19,
+     "bars_held_p90": 82,
+     "bars_held_max": 254,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 27,
+       "net_r": 1.559
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 30,
+       "net_r": 0.0566
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 28,
+       "net_r": -5.4195
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 27,
+       "net_r": -6.0133
+      }
+     ],
+     "folds_positive": 2
+    }
+   }
+  },
+  "trend_donchian_sol_prop": {
+   "data_start": "2025-09-24 00:00:00+00:00",
+   "data_end": "2026-09-23 23:00:00+00:00",
+   "bars": 8760,
+   "t0_fidelity": true,
+   "t0_omitted_levers": [],
+   "geometries": {
+    "T0": {
+     "argv_exit_flags": null,
+     "n": 65,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 4.5902,
+     "net_r_fee_only": 6.929,
+     "max_drawdown_r": 7.7764,
+     "net_r_per_capital_day": 0.0677,
+     "capital_days": 67.7917,
+     "win_rate_pct": 40.0,
+     "by_outcome": {
+      "stop": 17,
+      "trail_stop": 43,
+      "take_profit": 5
+     },
+     "tp_r_effective_median": 4.114,
+     "bars_held_p50": 18,
+     "bars_held_p90": 54,
+     "bars_held_max": 96,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 16,
+       "net_r": 1.3021
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 16,
+       "net_r": -0.7399
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 15,
+       "net_r": -1.97
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 18,
+       "net_r": 5.998
+      }
+     ],
+     "folds_positive": 2,
+     "mfe": {
+      "p25": 0.398,
+      "p50": 1.096,
+      "p75": 1.844,
+      "p90": 3.045,
+      "frac_reaching": {
+       "1.0": 0.5231,
+       "1.5": 0.3385,
+       "2.0": 0.2462,
+       "3.0": 0.1231
+      },
+      "bars_to_mfe_p50": 10,
+      "bars_to_mfe_p90": 43,
+      "bars_to_level_p50": {
+       "1.0": 9,
+       "1.5": 10,
+       "2.0": 15,
+       "3.0": 16
+      },
+      "bars_to_level_p90": {
+       "1.0": 29,
+       "1.5": 33,
+       "2.0": 35,
+       "3.0": 41
+      }
+     }
+    },
+    "M": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720"
+     ],
+     "n": 34,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 0.5411,
+     "net_r_fee_only": 4.2171,
+     "max_drawdown_r": 32.2942,
+     "net_r_per_capital_day": 0.0027,
+     "capital_days": 204.0,
+     "win_rate_pct": 8.82,
+     "by_outcome": {
+      "stop": 31,
+      "timeout": 3
+     },
+     "tp_r_effective_median": null,
+     "bars_held_p50": 59,
+     "bars_held_p90": 389,
+     "bars_held_max": 720,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 11,
+       "net_r": -11.9117
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 9,
+       "net_r": -10.217
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 9,
+       "net_r": -10.1653
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 5,
+       "net_r": 32.8353
+      }
+     ],
+     "folds_positive": 1,
+     "mfe": {
+      "p25": 0.398,
+      "p50": 1.525,
+      "p75": 3.917,
+      "p90": 5.477,
+      "frac_reaching": {
+       "1.0": 0.6176,
+       "1.5": 0.5294,
+       "2.0": 0.4412,
+       "3.0": 0.3824
+      },
+      "bars_to_mfe_p50": 20,
+      "bars_to_mfe_p90": 131,
+      "bars_to_level_p50": {
+       "1.0": 10,
+       "1.5": 14,
+       "2.0": 27,
+       "3.0": 41
+      },
+      "bars_to_level_p90": {
+       "1.0": 52,
+       "1.5": 82,
+       "2.0": 91,
+       "3.0": 96
+      },
+      "b0_tp_level_p50": 3.722950000000019,
+      "frac_reaching_b0_tp": 0.2941
+     }
+    },
+    "B0": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720",
+      "--tp-cap-pct",
+      "0.099",
+      "--tp-r",
+      "6.0"
+     ],
+     "n": 51,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 1.0917,
+     "net_r_fee_only": 4.149,
+     "max_drawdown_r": 7.9664,
+     "net_r_per_capital_day": 0.0081,
+     "capital_days": 134.25,
+     "win_rate_pct": 23.53,
+     "by_outcome": {
+      "stop": 39,
+      "take_profit": 12
+     },
+     "tp_r_effective_median": 3.818,
+     "bars_held_p50": 31,
+     "bars_held_p90": 128,
+     "bars_held_max": 389,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 12,
+       "net_r": -4.5474
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 12,
+       "net_r": 1.3419
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 12,
+       "net_r": -2.4598
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 15,
+       "net_r": 6.757
+      }
+     ],
+     "folds_positive": 2
+    },
+    "B1": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720",
+      "--tp-cap-pct",
+      "0.099",
+      "--tp-r",
+      "2.0"
+     ],
+     "n": 63,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": -3.7673,
+     "net_r_fee_only": -1.3557,
+     "max_drawdown_r": 12.4917,
+     "net_r_per_capital_day": -0.0484,
+     "capital_days": 77.8333,
+     "win_rate_pct": 33.33,
+     "by_outcome": {
+      "stop": 41,
+      "take_profit": 21,
+      "timeout": 1
+     },
+     "tp_r_effective_median": 2.0,
+     "bars_held_p50": 16,
+     "bars_held_p90": 80,
+     "bars_held_max": 151,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 14,
+       "net_r": -2.8152
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 13,
+       "net_r": 1.0073
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 17,
+       "net_r": -6.3299
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 19,
+       "net_r": 4.3707
+      }
+     ],
+     "folds_positive": 2
+    },
+    "B2": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720",
+      "--tp-cap-pct",
+      "0.099",
+      "--tp-r",
+      "3.0"
+     ],
+     "n": 59,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 11.1371,
+     "net_r_fee_only": 13.6597,
+     "max_drawdown_r": 8.1055,
+     "net_r_per_capital_day": 0.1176,
+     "capital_days": 94.7083,
+     "win_rate_pct": 32.2,
+     "by_outcome": {
+      "stop": 39,
+      "take_profit": 19,
+      "timeout": 1
+     },
+     "tp_r_effective_median": 3.0,
+     "bars_held_p50": 19,
+     "bars_held_p90": 95,
+     "bars_held_max": 216,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 13,
+       "net_r": 1.6201
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 13,
+       "net_r": 1.2293
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 15,
+       "net_r": -4.3017
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 18,
+       "net_r": 12.5896
+      }
+     ],
+     "folds_positive": 3
+    },
+    "B3": {
+     "argv_exit_flags": [
+      "--trail-mult",
+      "1000",
+      "--timeout-bars",
+      "720",
+      "--tp-cap-pct",
+      "0.099",
+      "--tp-r",
+      "3.0",
+      "--bank-frac",
+      "0.5",
+      "--bank-at-r",
+      "1.5"
+     ],
+     "n": 59,
+     "mfe_positive_control_mismatches": 0,
+     "net_r": 7.9627,
+     "net_r_fee_only": 10.4853,
+     "max_drawdown_r": 7.5937,
+     "net_r_per_capital_day": 0.0841,
+     "capital_days": 94.7083,
+     "win_rate_pct": 45.76,
+     "by_outcome": {
+      "stop": 39,
+      "take_profit": 19,
+      "timeout": 1
+     },
+     "tp_r_effective_median": 3.0,
+     "bars_held_p50": 19,
+     "bars_held_p90": 95,
+     "bars_held_max": 216,
+     "folds": [
+      {
+       "fold": 1,
+       "start": "2025-09-24 00:00:00+00:00",
+       "end": "2025-12-24 05:45:00+00:00",
+       "trades": 13,
+       "net_r": 2.6675
+      },
+      {
+       "fold": 2,
+       "start": "2025-12-24 05:45:00+00:00",
+       "end": "2026-03-25 11:30:00+00:00",
+       "trades": 13,
+       "net_r": 1.0933
+      },
+      {
+       "fold": 3,
+       "start": "2026-03-25 11:30:00+00:00",
+       "end": "2026-06-24 17:15:00+00:00",
+       "trades": 15,
+       "net_r": -5.3017
+      },
+      {
+       "fold": 4,
+       "start": "2026-06-24 17:15:00+00:00",
+       "end": "2026-09-23 23:00:00+00:00",
+       "trades": 18,
+       "net_r": 9.5038
+      }
+     ],
+     "folds_positive": 3
+    }
+   }
+  }
+ },
+ "account": {
+  "T0": {
+   "n": 235,
+   "risk_usd": 75.0,
+   "net_usd": 1006.85,
+   "days_loss_ge_daily_limit": 7,
+   "trading_days": 179,
+   "worst_day_usd": -209.39,
+   "hist_max_drawdown_usd": 1181.54,
+   "p_breach": {
+    "94.76": {
+     "10": 0.6231,
+     "25": 0.7338,
+     "50": 0.7914
+    },
+    "300.00": {
+     "10": 0.1911,
+     "25": 0.4029,
+     "50": 0.5227
+    }
+   }
+  },
+  "B0": {
+   "n": 151,
+   "risk_usd": 75.0,
+   "net_usd": 2183.96,
+   "days_loss_ge_daily_limit": 18,
+   "trading_days": 122,
+   "worst_day_usd": -188.95,
+   "hist_max_drawdown_usd": 1094.58,
+   "p_breach": {
+    "94.76": {
+     "10": 0.7079,
+     "25": 0.7788,
+     "50": 0.8121
+    },
+    "300.00": {
+     "10": 0.4266,
+     "25": 0.5575,
+     "50": 0.6236
+    }
+   }
+  },
+  "B1": {
+   "n": 185,
+   "risk_usd": 75.0,
+   "net_usd": -216.44,
+   "days_loss_ge_daily_limit": 23,
+   "trading_days": 137,
+   "worst_day_usd": -251.53,
+   "hist_max_drawdown_usd": 1483.55,
+   "p_breach": {
+    "94.76": {
+     "10": 0.7071,
+     "25": 0.8062,
+     "50": 0.8634
+    },
+    "300.00": {
+     "10": 0.3391,
+     "25": 0.5427,
+     "50": 0.6777
+    }
+   }
+  },
+  "B2": {
+   "n": 171,
+   "risk_usd": 75.0,
+   "net_usd": 528.12,
+   "days_loss_ge_daily_limit": 18,
+   "trading_days": 139,
+   "worst_day_usd": -251.53,
+   "hist_max_drawdown_usd": 1605.02,
+   "p_breach": {
+    "94.76": {
+     "10": 0.7112,
+     "25": 0.8007,
+     "50": 0.8526
+    },
+    "300.00": {
+     "10": 0.3688,
+     "25": 0.5651,
+     "50": 0.6721
+    }
+   }
+  },
+  "B3": {
+   "n": 171,
+   "risk_usd": 75.0,
+   "net_usd": -139.07,
+   "days_loss_ge_daily_limit": 14,
+   "trading_days": 139,
+   "worst_day_usd": -251.53,
+   "hist_max_drawdown_usd": 1673.26,
+   "p_breach": {
+    "94.76": {
+     "10": 0.6584,
+     "25": 0.7879,
+     "50": 0.8532
+    },
+    "300.00": {
+     "10": 0.3273,
+     "25": 0.5407,
+     "50": 0.6701
+    }
+   }
+  }
+ },
+ "decision": {
+  "candidates": {
+   "B1": {
+    "per_leg": {
+     "trend_donchian_eth_prop": {
+      "R0": true,
+      "R1": true,
+      "R2": false,
+      "R3": true,
+      "R4": true
+     },
+     "trend_donchian_sol_prop": {
+      "R0": true,
+      "R1": false,
+      "R2": false,
+      "R3": true,
+      "R4": true
+     }
+    },
+    "R5": false,
+    "eligible": false
+   },
+   "B2": {
+    "per_leg": {
+     "trend_donchian_eth_prop": {
+      "R0": true,
+      "R1": false,
+      "R2": false,
+      "R3": true,
+      "R4": true
+     },
+     "trend_donchian_sol_prop": {
+      "R0": true,
+      "R1": true,
+      "R2": true,
+      "R3": true,
+      "R4": true
+     }
+    },
+    "R5": false,
+    "eligible": false
+   },
+   "B3": {
+    "per_leg": {
+     "trend_donchian_eth_prop": {
+      "R0": true,
+      "R1": false,
+      "R2": false,
+      "R3": true,
+      "R4": true
+     },
+     "trend_donchian_sol_prop": {
+      "R0": true,
+      "R1": true,
+      "R2": true,
+      "R3": true,
+      "R4": true
+     }
+    },
+    "R5": false,
+    "eligible": false
+   }
+  },
+  "account_net_r_per_capital_day": {
+   "B0": 0.0876,
+   "B1": -0.0127,
+   "B2": 0.027,
+   "B3": -0.0071
+  },
+  "recommended": null,
+  "b0_fails_R1_on": []
+ },
+ "percentile_method": "nearest-rank, imported from scripts/research/m31_mfe_parity._pct"
+}

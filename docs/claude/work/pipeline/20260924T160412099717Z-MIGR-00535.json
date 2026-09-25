@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A read surface reports, per OPEN journal row on a netted Bybit symbol, whether THAT ROW's own tracked leg ids (trades.sl_order_id / tp_order_id) are still resting at the venue -- not whether the SYMBOL is covered in aggregate. CLEARED when that surface is observed on the live fleet distinguishing at least two rows on one netted symbol, at least one of which has a resting own-leg and one of which does not, OR when a measurement over the journal establishes the population of rows that have EVER been open without an own-leg while a sibling's leg rested (a count, with the classifier stated and a positive control). NOT SUFFICIENT: the existing symbol-level covered_qty grade (it is the thing under test); a green unit test (a fixture cannot establish venue leg residency); or the observation that 5471 was alone (that refutes the hypothesis for ONE trade and says nothing about the class). ANY CHANGE TO THE COVERAGE BASIS ITSELF IS TIER-2 and must be proposed, not shipped.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-UNDER-NETTING-A-JOURNAL-ROW-CAN-BE-MASKED-BY-A-SIBLINGS-PROTECTIVE-LEG-AND-NOTHING-GRADES-PER-ROW-COVERAGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-UNDER-NETTING-A-JOURNAL-ROW-CAN-BE-MASKED-BY-A-SIBLINGS-PROTECTIVE-LEG-AND-NOTHING-GRADES-PER-ROW-COVERAGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-UNDER-NETTING-A-JOURNAL-ROW-CAN-BE-MASKED-BY-A-SIBLINGS-PROTECTIVE-LEG-AND-NOTHING-GRADES-PER-ROW-COVERAGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Under Bybit netting one exchange position backs N journal rows, so a sibling's Partial leg can make a symbol read covered while a row carries no protection of its own — and coverage is graded per SYMBOL, never per ROW"
+}

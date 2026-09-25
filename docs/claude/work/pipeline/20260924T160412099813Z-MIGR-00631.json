@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A manager reads the 8 in_flight objects against live session state and moves each to its true lifecycle -- done/accepted where the owning session reported completed, or re-owned to a live session where the work genuinely continues. CLEARS when a later measurement of docs/claude/work/objects/ finds every in_flight object owned by a session whose get_session reports RUNNING, or explicitly owned by the manager with a stated reason.\n!! A COUNT BELOW 8 DOES NOT CLEAR THIS. The finding is that the in_flight set does not track liveness; a store at 5 in_flight with 5 dead owners is the same defect with more headroom.\n!! AND RAISING THE CEILING CLEARS NOTHING -- it would remove the symptom (a blocked lane) and leave the register just as wrong, which is worse because nothing would surface it again.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-WIP-CEILING-IS-FULL-AND-SIX-OF-SIX-GRADEABLE-IN-FLIGHT-OWNERS-ARE-DEAD-SESSIONS-SO-A-NEW-LANE-CANNOT-RECORD-ITSELF",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-WIP-CEILING-IS-FULL-AND-SIX-OF-SIX-GRADEABLE-IN-FLIGHT-OWNERS-ARE-DEAD-SESSIONS-SO-A-NEW-LANE-CANNOT-RECORD-ITSELF",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-WIP-CEILING-IS-FULL-AND-SIX-OF-SIX-GRADEABLE-IN-FLIGHT-OWNERS-ARE-DEAD-SESSIONS-SO-A-NEW-LANE-CANNOT-RECORD-ITSELF'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The WIP ceiling is at 8/8 and six of six gradeable in-flight owners are dead sessions, so a newly-spawned lane cannot record itself in_flight"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Each of the seven either resolves `--base` through scripts/ci/_git_base.py::resolve_base, or carries a stated reason why the TIP is the right reference for it. [!] A GREEN CI RUN PROVES NOTHING HERE BY CONSTRUCTION: CI evaluates the merge ref, where the two readings coincide, so every one of these was green throughout and stays green after. Verify LOCALLY on a branch that is BEHIND its base. [!] AND A COUNT IS NOT THE CRITERION: the grep proxy that produced the 7 is a token search and cannot see a script that resolves a base by some other spelling. Re-run it with the two controls stated above before trusting a new number.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-SEVEN-OF-TEN-BASE-READING-GUARDS-COMPARE-AGAINST-THE-TIP-SO-THEY-BLAME-A-DIFF-FOR-WHAT-THE-BASE-DID",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-SEVEN-OF-TEN-BASE-READING-GUARDS-COMPARE-AGAINST-THE-TIP-SO-THEY-BLAME-A-DIFF-FOR-WHAT-THE-BASE-DID",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-SEVEN-OF-TEN-BASE-READING-GUARDS-COMPARE-AGAINST-THE-TIP-SO-THEY-BLAME-A-DIFF-FOR-WHAT-THE-BASE-DID'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 7 of the 10 scripts that read file content at `--base` read it at the base TIP rather than the merge base, so each blames a diff for changes the BASE made -- and one of them asks the author to write a false record as the remedy"
+}

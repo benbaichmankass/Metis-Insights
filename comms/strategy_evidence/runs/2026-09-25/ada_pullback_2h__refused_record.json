@@ -1,0 +1,40 @@
+{
+  "refusal": {
+    "decision": "refuse_measured",
+    "existing_coverage_state": "measured",
+    "incoming_coverage_state": "harness_failed",
+    "target": "comms/strategy_evidence/ada_pullback_2h.json",
+    "note": "REFUSED to overwrite ada_pullback_2h: the committed record reads coverage_state='measured' and this run produced 'harness_failed', which is not a measurement. The committed record is UNCHANGED, byte for byte.",
+    "refused_at": "2026-09-25T09:55:57.726495+00:00",
+    "guard": "build_strategy_evidence.overwrite_decision"
+  },
+  "would_have_written": {
+    "schema_version": 2,
+    "strategy": "ada_pullback_2h",
+    "symbol": "ADAUSDT",
+    "timeframe": "2h",
+    "config_fingerprint": "sha256:ae0e198c7d2d39ba1775daf91a2b2211",
+    "basis": "harness_timefolds",
+    "coverage_state": "harness_failed",
+    "fidelity": null,
+    "omitted_levers": null,
+    "net_r_oos": null,
+    "expectancy_r_oos": null,
+    "n_trades_oos": null,
+    "folds": null,
+    "fold_detail": null,
+    "folds_positive": null,
+    "window_days": 365,
+    "fee_bps_roundtrip": null,
+    "path_stats": null,
+    "cost_stack": null,
+    "net_r_oos_fee_only": null,
+    "decision_rule": null,
+    "param_selection_provenance": "not_established",
+    "generated_at": "2026-09-25T09:55:57.692506+00:00",
+    "generated_by": "scripts/ops/build_strategy_evidence.py",
+    "source_run": null,
+    "error": "fetch failed: CalledProcessError: Command '['/usr/local/bin/python3', '/home/user/Metis-Insights/scripts/ops/fetch_backtest_candles.py', '--symbol', 'ADAUSDT', '--interval', '120', '--days', '365', '--output', 'comms/strategy_evidence/runs/2026-09-25/ada_pullback_2h__data.csv', '--source', 'binance_vision']' returned non-zero exit status 1.",
+    "harness": "pullback"
+  }
+}

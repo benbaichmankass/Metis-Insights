@@ -6,86 +6,82 @@
   "config_fingerprint": "sha256:c2144450e5f46d784ad9144dc515e7d1",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "approximate",
-  "omitted_levers": [
-    "atr_stop_buffer",
-    "pierce_min",
-    "timeout_bars"
-  ],
-  "net_r_oos": 6.1101,
-  "expectancy_r_oos": 0.2444,
-  "n_trades_oos": 25,
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": -16.0919,
+  "expectancy_r_oos": -0.596,
+  "n_trades_oos": 27,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 6,
-      "net_r": 3.7523,
-      "expectancy_r": 0.6254,
-      "start": "2025-10-10 12:00:00+00:00",
-      "end": "2025-12-22 08:00:00+00:00"
+      "net_r": -5.2571,
+      "expectancy_r": -0.8762,
+      "start": "2025-11-03 08:00:00+00:00",
+      "end": "2025-12-23 12:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 6,
-      "net_r": 3.1745,
-      "expectancy_r": 0.5291,
-      "start": "2025-12-23 04:00:00+00:00",
-      "end": "2026-03-02 12:00:00+00:00"
+      "net_r": -6.5693,
+      "expectancy_r": -1.0949,
+      "start": "2026-01-02 12:00:00+00:00",
+      "end": "2026-03-13 00:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 6,
-      "net_r": 4.238,
-      "expectancy_r": 0.7063,
-      "start": "2026-03-13 08:00:00+00:00",
-      "end": "2026-06-13 20:00:00+00:00"
+      "net_r": 3.2915,
+      "expectancy_r": 0.5486,
+      "start": "2026-03-25 08:00:00+00:00",
+      "end": "2026-05-26 12:00:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 7,
-      "net_r": -5.0547,
-      "expectancy_r": -0.7221,
-      "start": "2026-06-18 12:00:00+00:00",
-      "end": "2026-09-08 04:00:00+00:00"
+      "trades": 9,
+      "net_r": -7.557,
+      "expectancy_r": -0.8397,
+      "start": "2026-06-12 08:00:00+00:00",
+      "end": "2026-09-15 12:00:00+00:00"
     }
   ],
-  "folds_positive": 3,
+  "folds_positive": 1,
+  "window_days": 365,
+  "fee_bps_roundtrip": 7.5,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
-    "n": 25,
-    "max_drawdown_r": 5.0547,
-    "max_drawdown_at_trade": 25,
-    "final_equity_r": 6.1101,
-    "max_equity_r": 11.1648,
-    "worst_trade_r": -1.1273,
-    "best_trade_r": 4.7934,
-    "worst_day_r": -1.1273,
-    "worst_day_date": "2026-08-13",
-    "trades_without_exit_time": 0,
+    "n": 27,
+    "max_drawdown_r": 16.0919,
+    "max_drawdown_at_trade": 27,
+    "final_equity_r": -16.0919,
+    "max_equity_r": 0.0,
+    "worst_trade_r": -1.17,
+    "best_trade_r": 4.2017,
+    "worst_day_r": null,
+    "worst_day_date": null,
+    "trades_without_exit_time": 27,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
   },
-  "window_days": 365,
-  "fee_bps_roundtrip": 7.5,
   "cost_stack": {
     "fees": 7.5,
-    "slippage": 5.0,
+    "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-22-r5/fade_breakout_4h__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-25/fade_breakout_4h__bt.json"
   },
-  "net_r_oos_fee_only": 7.5831,
+  "net_r_oos_fee_only": -14.7231,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
     "registered_at": "2026-09-22T05:34:08Z",
-    "verdict": "pass"
+    "verdict": "fail"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T09:26:13.952324+00:00",
+  "generated_at": "2026-09-25T06:54:53.940222+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-22-r5/fade_breakout_4h__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-25/fade_breakout_4h__trades.jsonl",
   "error": null,
-  "harness": "trend"
+  "harness": "fade"
 }

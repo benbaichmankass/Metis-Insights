@@ -1,0 +1,21 @@
+{
+  "a10_note": "Broker/journal disagreement class: journalTrust can only flag one account, so bybit_2/alpaca_live/breakout_1 disagreements are invisible. No checklist row owns journalTrust. EVIDENCE: Rerun is an archive lookup; the condition (every real-money account reconciled once, or automated reconciliation) is not something a sandbox can establish. Routed rather than killed because it is the instrument for broker-vs-journal on real money.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either every real-money account has been reconciled against its venue at least once (so `no_record` on a real-money account becomes a genuine anomaly), or an automated reconciliation replaces the hand-populated ledger.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT'), indent=2))\""
+  },
+  "routed_to": "ask_operator (Tier-2): reconcile bybit_2 / alpaca_live / breakout_1 against their venues once, or approve a lane to automate it — no row owns journalTrust",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "journalTrust now flags accounts whose journal disagrees with the broker — but the ledger it reads has exactly ONE account in it."
+}

@@ -106,6 +106,62 @@ _REGISTRY_PATH = Path(__file__).resolve()
 
 CONTRACTS: List[Dict[str, object]] = [
     {
+        "name": "loaded_config.process_state",
+        "producer": "src/runtime/loaded_config.py",
+        # The producer OWNS the vocabulary: the three values are module
+        # constants and nowhere else, and the literals never share a line with
+        # the word `process_state` at their declaration.
+        "producer_field": "",
+        "consumer_token": (r"\bPROCESS_OBSERVED\b|\bPROCESS_NOT_WRITTEN\b|"
+                           r"\bPROCESS_UNREADABLE\b"),
+        "states": ["observed", "not_written", "unreadable"],
+        "why": (
+            "E31, 2026-09-22. THE PAIR THAT MUST NOT COLLAPSE is "
+            "`not_written` vs `unreadable`, and NEITHER may render as an "
+            "empty roster. Until 2026-09-22 nothing published the trading "
+            "process's own loaded state at all: `runtime_status.json` -- the "
+            "ONE artifact the process itself writes -- computed `live` as "
+            "`_read_live_per_account(accounts_yaml)` and `strategies` as "
+            "`_read_strategy_names(strategies_yaml)`, both of which open and "
+            "parse config/. So every reader took `the pipeline wrote it` for "
+            "`the pipeline is using it`. Now that a process block exists, its "
+            "ABSENCE has two causes with opposite remedies: `not_written` = "
+            "the artifact was READ and the running build publishes no block "
+            "(deploy the build, or wait for a tick), `unreadable` = we could "
+            "not look at all (fix the artifact). Folding either into `the "
+            "trader holds no strategies` would report a roster nobody "
+            "measured, on a live-money book, which is the exact shape of the "
+            "hardcoded ['turtle_soup','vwap'] fallback E21 removed one module "
+            "over. `loaded` is null -- never [] -- in both."
+        ),
+    },
+    {
+        "name": "loaded_config.reload_state",
+        "producer": "src/runtime/loaded_config.py",
+        "producer_field": "",
+        "consumer_token": (r"\bRELOAD_CURRENT\b|\bRELOAD_PENDING\b|"
+                           r"\bRELOAD_UNKNOWN\b"),
+        "states": ["current", "pending_reload", "unknown"],
+        "why": (
+            "E31, 2026-09-22. THE PAIR THAT MUST NOT COLLAPSE is `unknown` vs "
+            "`current`: an unestablished comparison is not agreement. This is "
+            "the field that turns `deployed` into an observation -- it "
+            "compares the digest the process LOADED against the digest on "
+            "disk now -- so a reader that defaults a failed comparison to "
+            "`current` would report that a roster cut had reached the trader "
+            "when nothing checked. `pending_reload` is the money state: "
+            "ict-git-sync pulls main every ~5 min, which LOOKS like "
+            "deployment, and between the pull and the process taking it a leg "
+            "the evidence bar just cut is still trading real money while "
+            "every file-reading surface shows the cut. MEASURED 2026-09-22 by "
+            "reading the code: config/strategies.yaml is held in "
+            "strategy_registry._cache, populated once and never invalidated, "
+            "so it needs a RESTART; config/accounts.yaml is re-read per call, "
+            "so it converges on the next tick. Two different answers, which "
+            "is why this is per-file and not one boolean."
+        ),
+    },
+    {
         "name": "strategy_roster.roster_state",
         "producer": "src/runtime/strategy_roster.py",
         # The producer OWNS the vocabulary: the three values are module
@@ -278,9 +334,9 @@ CONTRACTS: List[Dict[str, object]] = [
             "arbitration_fanout_soak recorded `starved_accounts: "
             "[\"breakout_1\"]` on EVERY occurrence with no reader at all. "
             "THE TWO PAIRS THAT MUST NOT COLLAPSE. (1) `soak_unreadable` vs "
-            "`routing`: an absent or unparseable soak most likely means "
-            "ARBITRATION_FANOUT_MODE=off, i.e. the MEASUREMENT is switched "
-            "off, and rendering that as a quiet healthy fleet is the exact "
+            "`routing`: an absent or unparseable soak means the MEASUREMENT "
+            "is missing (pre-E35 most likely ARBITRATION_FANOUT_MODE=off; that "
+            "knob is retired), and rendering that as a quiet healthy fleet is the exact "
             "failure the soak itself already warns about -- a clean negative "
             "over a denominator nobody established. It therefore raises its "
             "own banner rather than staying silent. (2) `not_observed` vs "
@@ -1643,6 +1699,37 @@ CONTRACTS: List[Dict[str, object]] = [
             "The price-provenance ladder for a netting partial close. An "
             "anchorless 'estimate' is FABRICATED — the class behind the "
             "phantom -$6,358 exit leak."
+        ),
+    },
+    {
+        "name": "leg_flow_detector.state",
+        "producer": "scripts/ops/leg_flow_detector.py",
+        # The producer OWNS the vocabulary: the four values are module
+        # constants (LEG_UNREADABLE etc.) and nowhere else, so no
+        # `producer_field` — the literals do not share a line with the word
+        # `state` at their declaration.
+        "producer_field": "",
+        "consumer_token": (r"\bLEG_UNREADABLE\b|\bLEG_NO_INTENTS\b|"
+                           r"\bLEG_STARVED\b|\bLEG_FLOWING\b"),
+        "states": ["unreadable", "no_intents", "starved", "flowing"],
+        "why": (
+            "E18, 2026-09-21 (operator: BUILD IT, FOR ALL ACCOUNTS). "
+            "breakout_1 produced 21 intents over 22 days and received ZERO "
+            "tickets, and nothing fired — the operator found it by noticing "
+            "an absence. THE PAIR THAT MUST NOT COLLAPSE is `unreadable` vs "
+            "`starved`: a failed pull against `signals` or `trades` must "
+            "never render as '0 tickets, not starved', which is the exact "
+            "false-clean this contract exists to block. `no_intents` is kept "
+            "apart from both for the same reason `starved_account_alert` "
+            "splits `not_observed` from `soak_unreadable` — a strategy that "
+            "simply did not signal this window is neither the finding nor "
+            "evidence of health. MEASURED live 2026-09-25 (first end-to-end "
+            "run, 79h window since the 2026-09-22 arbitration-allowlist "
+            "change, `scripts/ops/leg_flow_report.py --window-hours 79`): "
+            "63 live legs graded, 14 `starved`, 19 `flowing`, 30 "
+            "`no_intents`, 0 `unreadable` — all four states reachable "
+            "against real production data, not only the self-test's "
+            "synthetic fixtures."
         ),
     },
 ]

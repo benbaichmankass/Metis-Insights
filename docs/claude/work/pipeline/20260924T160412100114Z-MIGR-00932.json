@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-MANAGER-CHECKLIST-GOES-STALE-SILENTLY-AND-STATUS-REPORTS-IT-AS-CURRENT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MANAGER-CHECKLIST.json has no mechanism forcing it current, so it drifts silently while /status renders it as the manager's authoritative state. Measured 2026-09-03T08:23Z: the operator ran /status on ClaudeBot and got `as_of 2026-09-02T17:20:00Z, 15.1h ago`, `cycle CY-20260901-OPERATING-LAYER` (the PREVIOUS cycle, superseded 2026-09-02T21:52Z) and `manager_session session_011JWFxuYAaEQKCFCmG6gnHJ` (the PREVIOUS manager). Six items created that morning -- MI-88, MI-89, MI-90, MI-92, MI-93, MI-94 -- were ABSENT; the list topped out at MI-91."
+}

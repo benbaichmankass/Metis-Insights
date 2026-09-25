@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "The operator records a decision on this item: keep B0 (and whether to queue the SOL TP-3R fresh-window test / the GTD time-close rung test), or an alternative with reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-GIGNEYV1-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-exit-evidence-2026-09-24.md#5-recommendation-tier-3-filed-ask_operator-not-applied",
+    "rerun": "python3 scripts/research/prop_exit_evidence.py --workdir /tmp/e65 --out /tmp/e65/result.json && python3 -m json.tool /tmp/e65/result.json | grep -A3 recommended"
+  },
+  "state": "queued",
+  "what": "[TIER-3 PROPOSAL, PROP] breakout_1 exit geometry (E65, PR #12868). Pre-registered rule (commit 6d14310) selects NO candidate: keep the current bracket B0 (static SL + TP=min(9.9%,6R); effective 4.4R ETH / 3.8R SOL). Do NOT graduate a tighter TP or the 1.5R ExitPlan rung to prop tickets on this evidence. Population: harness trades, 365d 1h Binance-vision to 2026-09-23T23Z, full cost stack (slip pinned 5.0 bps). B0: ETH +28.03R/100 trades, TP filled 25/100; SOL +1.09R/51, 2/4 folds (thin). TP 2R/3R/ladder cost ETH 27-38R. P(breach within 25 trades | $94.76 cushion, $75 risk) is 73-81% under EVERY geometry: sizing (PI-20260924-MQ3CDMU6-0001), not exits, is the survival lever. Time in market p90 ~5 days/trade is real; an untested option is a GTD time-close rung in the ticket. Exploratory, NOT pre-registered: SOL alone at TP 3R (+11.14R/59, 3/4 folds, fold 4 = +12.6R) - needs a fresh-window pre-registered test before any use. Operator: approve 'keep B0' (and optionally queue the SOL TP-3R and time-rung tests), or decline with reason."
+}

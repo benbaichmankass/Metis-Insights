@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "ALL THREE observable, checkable by reading the artifacts: (1) `.claude/skills/diag-data` (or the trainer-relay section it points at) contains an explicit step ordering 'grep the local writer for the shape' BEFORE composing a relay that parses a JSON artifact, and requiring the relay body to state the accessor's provenance as `shape per <file>:<line>`. (2) A relay readout that reads an exit-head round reads `rounds.jsonl` (the canonical corpus shape, no accessor) rather than walking `round_report.json` -- demonstrated by at least one posted relay issue after this row was filed. (3) That same relay body states an EXPECTED value for one already-established artifact (a known-answer control) and the returned output reproduces it. Verification: point at the relay issue number that satisfies (2) and (3), and the skill diff that satisfies (1). Closing this row on 'I will be more careful' is exactly the disposition that failed -- the prose lesson was already written after the second instance and three more followed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-REMOTE-RELAY-USED-TO-LEARN-A-SCHEMA-THE-REPO-DEFINES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Analysis sessions burn multi-minute trainer-relay round trips guessing JSON schemas that the writer, in this repo, defines exactly. The remote is treated as the source of truth for a shape the local source already fixes."
+}

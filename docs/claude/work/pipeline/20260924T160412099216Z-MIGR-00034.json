@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The route builds a FRESH client per read and a measurement shows it agreeing with a known-current view. Needs a real gateway to verify, so it cannot be closed from a sandbox.",
+    "kind": "observation",
+    "last_checked": "2026-09-06"
+  },
+  "id": "OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260826-DIAG-IB-ORDER-READ-IS-STALE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "/api/diag/ib_open_orders serves a STALE, monotonically-growing order view. Do not conclude an order's absence or presence from it."
+}

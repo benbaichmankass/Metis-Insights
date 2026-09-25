@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "why": "TIER 3 -- CHANGES LIVE ROUTING ON REAL-MONEY ACCOUNTS. E35 makes the per-account election (intent_multiplexer._attach_account_election -> arbitration_fanout.plan_per_account_election, off the ONCE-gated set) the dispatch: pipeline._dispatch_rounds sends one package per distinct elected strategy, scoped to exactly the accounts that elected it, and runs the four per-strategy monocle gates PER ROUND on the round's own strategy. It retires the global-election-plus-fan-out repair (ARBITRATION_FANOUT_MODE / ARBITRATION_FANOUT_ACCOUNTS now ignored, _fanout_apply_rounds / _round_order_package / accepted_rounds / scope_round_to_accounts deleted) and rewrites arbitration_fanout_soak as a v4 record graded against the per-account routing. bybit_2 and bybit_portfolio routing changes whenever their candidate is not the global winner.",
+  "hold_text": "Lane dispatch (manager session_01Ljhs6sFAdWHdMDhJpL5aBP), verbatim: \"This is TIER-3 order-path work: build, test and prove it, open the PR ready with landing: hold, and STOP -- the operator approves the merge, the manager merges and deploys.\" This lane does not hold operator approval and did not seek it; the merge needs the operator's explicit yes."
+}

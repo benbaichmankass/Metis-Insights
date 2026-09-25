@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) a measurement over docs/claude/work/objects/*.yaml establishing how many objects are dormant/ready while a merged artifact already satisfies their done_condition — a rate with its denominator, which is what would justify machinery; OR (b) a check that a PR whose diff cites an object id must also move that object's lifecycle/closed_at, demonstrated to FIRE on a PR that cites an object and leaves it dormant and to stay SILENT on one that closes it. Closing the single object this row names does NOT close this row — that is the instance, not the class.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-A-WORK-OBJECT-WHOSE-MEASUREMENT-LANDED-STAYED-DORMANT-AND-WAS-RE-DISPATCHED-A-DAY-LATER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-A-WORK-OBJECT-WHOSE-MEASUREMENT-LANDED-STAYED-DORMANT-AND-WAS-RE-DISPATCHED-A-DAY-LATER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-A-WORK-OBJECT-WHOSE-MEASUREMENT-LANDED-STAYED-DORMANT-AND-WAS-RE-DISPATCHED-A-DAY-LATER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] WO-20260908-EXIT-MECHANICS-THE-TRAILING-AND-BANKING-HALF was satisfied and merged on 2026-09-08, its object file stayed lifecycle:dormant/owner:null/closed_at:null, and a fresh session was dispatched onto it the next morning on a 'never been measured' premise"
+}

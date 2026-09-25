@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "adds an outside-in observability workflow + stdlib-only check script + its pytest tests + doc/catalog registration + a CADENCE_REGISTRY entry (scripts/ci/**) + two bootstrap labels (.github/**); no runtime, order path, config, or landing machinery touched"
+}

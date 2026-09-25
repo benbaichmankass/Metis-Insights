@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Observable: (a) m20_exit_head_round.py accepts a --tp-cap-pct and threads it into base_args, with the live-parity value as the DEFAULT (matching m20-exit-lever-sweep.yml, whose header argues at length for exactly that) rather than an opt-in a caller can forget; (b) a planted positive control demonstrates it -- a round run at the default must emit trades whose exit_reason distribution CONTAINS take-profit exits, verified by running one, since a quiet pass proves nothing and the arg-string method is already known void; (c) the 11 confirmed no-TP round directories are annotated on disk (a marker file naming the geometry), because artifacts outlive docs and are read directly -- the same requirement as BL-20260814-FLIP-VERDICT-PASS-IS-86PCT-DEGENERATE; (d) a decision is RECORDED on whether any exit_head_ml cell graded off those rounds needs re-running, including the three shipped donchian-1h cells. NOT resolution: adding a caveat to a doc and leaving the driver unable to pass the flag.\n\nPROGRESS 2026-08-14 (a)(b)(c) DONE, ONLY (d) REMAINS AND IT IS THE OPERATOR'S. (a)(b) shipped in PR #9150: --tp-cap-pct with live parity as the DEFAULT + _round_meta stamped into round_report.json, four can-fail-verified tests. (c) all 11 affected round dirs annotated on disk from full populations (n=100..1992, zero take-profit exits in all 11); scalp_15m/scalp_5m stamp no exit_reason and were deliberately left UNMARKED as undetermined. (b)'s PLANTED POSITIVE CONTROL IS NOW SATISFIED BY MEASUREMENT …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-EXIT-HEAD-ROUNDS-CANNOT-MODEL-LIVE-TP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] m20_exit_head_round.py STRUCTURALLY cannot produce a live-parity book -- no --tp-cap-pct option exists and it calls base_args positionally, so every exit-head round on disk (11 confirmed, incl. donchian_1h_nested) contains ZERO take-profit exits"
+}

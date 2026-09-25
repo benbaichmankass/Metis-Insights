@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "bybit-bracket-audit grades a price dimension, its roll-up names it, and a planted divergence is shown to FAIL the check before a clean result is trusted.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-BYBIT-BRACKET-AUDIT-HAS-NO-PRICE-AXIS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The Bybit bracket audit grades 5 dimensions and NONE of them is price — the same blind spot broker_bracket_reconcile was built to close on the IB side"
+}

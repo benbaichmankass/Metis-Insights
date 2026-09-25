@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register only. Records the retired ARBITRATION_FANOUT_* env removal on E35 (unset-env #12948/#12949, observed unset via get-env #12950/#12951). No src/, config/, scripts/ or workflow change."
+}

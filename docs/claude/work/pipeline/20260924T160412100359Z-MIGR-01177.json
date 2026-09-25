@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "MB-20260822-ETH-15M-HEAD-IS-AT-CANDIDATE-NOT-SHADOW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260822-ETH-15M-HEAD-IS-AT-CANDIDATE-NOT-SHADOW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260822-ETH-15M-HEAD-IS-AT-CANDIDATE-NOT-SHADOW'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "T.4's premise is REFUTED: the ETH 15m fc head is at CANDIDATE, demoted from shadow on 2026-07-19 by operator approval on a powered NO_EDGE — and '54 days at shadow' is days since REGISTRATION"
+}

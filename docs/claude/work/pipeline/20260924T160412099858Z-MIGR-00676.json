@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Tier-3 -- changing a leg's arbitration priority is an order-routing change and the operator decides. Clears when BOTH: (1) check_strategy_coverage.py gains a fourth invariant requiring every execution:live strategy to have a DEFAULT_PRIORITIES entry or a dated priority_exempt entry; and (2) a DISTRIBUTION ASSERTION on the constant itself -- fail if _UNKNOWN_STRATEGY_PRIORITY is not strictly below min(DEFAULT_PRIORITIES.values()). Part (2) is the transferable half and is the generic detector for 'a default whose fail-safety depends on a distribution that has since moved'. NOT SUFFICIENT: adding the five missing legs, which fixes the instance and leaves the constant free to invert again. NOT SUFFICIENT: no observed misrouting, since the arbitration outcome is not journalled per-tick in a form that would show it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-THE-CONTENTION-IS-LIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] _UNKNOWN_STRATEGY_PRIORITY = 10 is documented as 'deliberately below the in-scope strategies' while 45 of 50 mapped legs now sit below 10, and five declared execution:live legs are absent from the map. Omission does not merely fail to be safe -- it WINS the arbitration, the exact inverse of the constant's stated purpose. The 2026-08-20 audit's F-32 is unremediated and has escalated from theoretical to live contention."
+}

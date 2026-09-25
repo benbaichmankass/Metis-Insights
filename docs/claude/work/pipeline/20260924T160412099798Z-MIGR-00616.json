@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A guard invoked DIRECTLY with --base on a dirty tree says so -- naming the uncommitted paths and which of them are inside the range it is about to grade -- and is OBSERVED doing it on a real invocation, not asserted from a diff. [!] THE COSTED REMEDY, so nobody re-derives it: there is NO shared guard library -- all 18 are standalone and stdlib-only (checked: none imports a first-party module), so the honest implementation is one small shared helper plus 18 call sites, which is a unit of its own and is why it is FILED here rather than half-done. run_guards.py::dirty_tree_lines is already PURE and says so in its docstring, so it is the function to reuse rather than reimplement. [!] IT MUST NOT SILENTLY FIX ANYTHING -- no stashing, no committing, no grading the worktree instead. The parent row's own criteria say this and the reason is that the committed-state reading is what CI does; changing it would make the local run disagree with CI, which is worse than the trap. A NOTICE ONLY. [!] A WRAPPER SCRIPT IS NOT SUFFICIENT and should not be proposed: nothing forces a session to type it, which is the exact reason the run_guards fix did not reach these four instances. [!] AND 'tell sessions to commit first' IS NOT SUFFICIENT EITHER -- that instruction already exists, I had read it, and I still did it four times in one session.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS-SO-ALL-18-DIRECTLY-INVOCABLE-DIFF-SCOPED-GUARDS-STILL-GRADE-THE-WRONG-TREE-SILENTLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS-SO-ALL-18-DIRECTLY-INVOCABLE-DIFF-SCOPED-GUARDS-STILL-GRADE-THE-WRONG-TREE-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-DIRTY-TREE-NOTICE-LIVES-ONLY-IN-RUN-GUARDS-SO-ALL-18-DIRECTLY-INVOCABLE-DIFF-SCOPED-GUARDS-STILL-GRADE-THE-WRONG-TREE-SILENTLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260913: a guard run before committing still grades a tree without your change and still says OK -- the 2026-09-13 remedy went into run_guards.py only, and 18 of 18 guards a session invokes directly carry no notice at all"
+}

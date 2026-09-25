@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The orders-layer halt check either demonstrably runs in production or is deliberately and documentedly not a gate.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] src/runtime/orders.py's halt check is SKIPPED entirely when HALT_FLAG_PATH is absent from its settings dict -- a third, quieter halt semantics"
+}

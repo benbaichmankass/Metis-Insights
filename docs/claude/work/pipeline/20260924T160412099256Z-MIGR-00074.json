@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "The operator types /status and /decisions IN THE CLAUDEBOT CHAT and gets a correct reply — #10793's own stated done-condition, and now the ONLY thing outstanding. Record which commands were tried and what came back. ⚠️ THE TWO ROUTING HALVES ARE ALREADY OBSERVED (see observation) and must NOT be re-litigated to clear this: re-reading the journals proves nothing new. ⚠️ A REGISTRATION LINE IS NOT AN ANSWER — 'registered /status, /decisions (route_state=answerable_here)' says a handler is attached to a polled bot, not that a readout rendered, fit inside Telegram's 4096-char cap, or that the compaction ladder behaved on the real checklist. ⚠️ A GREEN HARNESS CLEARS NOTHING: 20 assertions pass in tests/test_operator_commands.py and a harness cannot reach a Telegram chat. ⚠️ IF /status OR /decisions REPLIES WITH AN ERROR OR AN EMPTY READOUT, that does NOT clear this row and is the more valuable finding — write it into observation and keep the row open. ⚠️ AND THIS ROW DOES NOT TRACK THE DECISION ROUND-TRIP: OI-20260901-DECISION-ROUNDTRIP-... stays open on a TAP round-tripping. Moving the commands onto the bot that owns the wdec tap makes that tap same-process, which is a PRECONDITION for that observation and is not it.",
+    "kind": "observation",
+    "last_checked": "2026-09-03"
+  },
+  "id": "OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] ⚠️ THE TWO ROUTING HALVES ARE NOW OBSERVED AND THIS ROW IS NARROWED, NOT CLEARED — do not re-quote its PREPARED-AND-HELD framing, which was true only until 08:00Z. #10904 was approved by the operator (typed verdict recorded on the PR at 07:39:02Z: approved, scope 'merge then restart both units', no condition), auto-merged on green at 08:00:04Z as 0cc217ad, and is DEPLOYED (live git_sha = git_sha_on_disk = 0cc217ad, restart_pending false). #10793's violation of its own title ('HELD, must not reach the trader bot') is ENDED on the fleet. WHAT REMAINS OWED is the only thing a repo surface cannot read: the operator typing /status and /decisions in the ClaudeBot chat and getting a correct reply, which is #10793's own stated done-condition."
+}

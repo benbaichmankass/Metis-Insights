@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "trainer-vm-diag branches on the failure STAGE, not on CMD_PRESENT: a run whose SSH and command both succeeded but whose comment POST failed emits a message that explicitly states the trainer is NOT implicated; the captured output is written to $GITHUB_STEP_SUMMARY BEFORE the comment is attempted (so a delivery failure can never destroy a successful measurement); and createComment retries once. Verified by exercising the post-failure path - a run or a workflow-level test - NOT by reading the YAML, since the defect is precisely that the YAML reads correct. The sibling vm-diag-snapshot relay carries the same treatment or a recorded reason it does not.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-COMMENT-POST-FAILED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-COMMENT-POST-FAILED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260811-TRAINER-RELAY-BLAMES-THE-VM-WHEN-ONLY-THE-COMMENT-POST-FAILED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] trainer-vm-diag reported an 'infrastructure failure … VM down or the command exited non-zero' for a run where the SSH succeeded, the command succeeded, and ONLY the result-comment POST failed — and the successful output was discarded"
+}

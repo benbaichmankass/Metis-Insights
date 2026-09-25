@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "ALREADY CLEARED — BOTH halves are now met and each was read out of a REAL run log rather than reasoned about; see observation for the run and job ids. THIS ROW IS RETAINED ONLY SO THE EVIDENCE IS NOT LOST BETWEEN SESSIONS (the OI-20260907-TELEMETRY-HOOK precedent); prune it at the next review. ⚠️ DO NOT REOPEN IT FOR THE PROBE QUESTION — whether scripts/ops/probe_actions_log.py can read a job log is a DIFFERENT and still-unverified claim, stated in this row's own is_not, and clause (a) was observed through the GitHub job-logs endpoint instead. Reusing a settled row for that would make a cleared observation look pending. === THE ORIGINAL CRITERION FOLLOWS AS THE RECORD OF WHAT WAS ASKED: === BOTH: (a) a real CI run prints `session-brief: verdict=inherited` on a PR that did not touch the registers, found in that run's job log rather than reasoned about; and (b) a `commit-to-main` run prints `stale-branch refresh -> refreshed` or `-> not_needed_up_to_date`, proving the branch is on the new code path at all. A passing synthetic test is NEITHER half. If instead a run prints `verdict=base_unreadable`, that is a FINDING — `origin/main` is not resolvable in the guards job — and the fix is the ref, not this row.",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "moot: the generated SESSION-BRIEF block in CLAUDE.md, its generator, and the eight-register operating model it served were retired by the 2026-09-21 operating reset. Verified 2026-09-24 by reading the current root CLAUDE.md in full (E56 health-review) -- no SESSION-BRIEF block is present; the question this row asks no longer has a subject.",
+  "what": "[LOUD] session-brief-guard is diff-scoped now, so a brief that goes stale on the CLOCK can no longer fail a PR that did not touch the registers. The `inherited` verdict has NEVER been emitted by a real CI run — it is deployed, not proven."
+}

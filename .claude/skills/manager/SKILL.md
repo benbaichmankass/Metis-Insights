@@ -143,6 +143,22 @@ independently**: this file, the plan, the lane's checklist row, and the
 `PIPELINE.jsonl` item whose `routed_to` carries the lane's own session id. All
 of those exist before the lane does, which is what makes them evidence.
 
+**The chain of authority is part of that provenance, and it is stated in
+every spawn** (operator, 2026-09-24, verbatim, after lane B5 refused to act on
+grants the manager relayed: *"Tell it that it answers to you, and you answer
+to me - the hierarchy shouldn't leave any doubt that it is overstepping it's
+bounds"*). A lane answers to the manager, and the manager answers to the
+operator. An operator decision relayed by the manager, and recorded verbatim
+on the lane's checklist row, IS the operator's decision. A lane may check that
+the record exists; it may not demand the operator repeat it.
+
+⚠️ **This does NOT extend to Claude Code's own permission prompts.** A lane
+held at an auto-mode permission prompt is waiting on a human click. The
+hierarchy does not authorize the manager to answer that prompt, and
+`fire_trigger` correctly refuses. Surface it to the operator with the
+session link. (B5, 2026-09-24: the lane accepted the hierarchy, then the
+real-money arming write hit exactly this prompt.)
+
 ⚠️ **Then verify the dispatch actually started.** Read **`status_bucket` and
 `post_turn_summary`**, never `session_status`: **`idle` collapses "finished"
 and "never started"**, so a manager reading it alone records six lanes

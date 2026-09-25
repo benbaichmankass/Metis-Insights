@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-SCHEDULED-WORKFLOW-LAG-WENT-FROM-1H-TO-6-12H-ON-2026-08-27'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Every scheduled workflow in this repo now fires 6-12 HOURS after its declared cron, against ~1h before 2026-08-27. MEASURED INDEPENDENTLY 2026-08-30, not taken from prose. POPULATION: purge-artifacts.yml, declared `0 3 * * *`, the 30 consecutive scheduled runs from 2026-08-01 to 2026-08-30 (lag = run_started_at minus the most recent 03:00Z). 08-01..08-26: 0.66-3.42h, median ~1.3h, no outliers. 08-27 onward: 10.88, 12.01, 6.80, 5.98h. The break is sharp and dated. A second control (diag-relay-sweep, `0 6 * * *`) shows the same break on the same date per PR #10487's commit message, and research-queue-dispatch tracks both. ⚠️ THE CAUSE IS NOT ESTABLISHED. Best-effort scheduling under load is the leading explanation and is NOT proven; GitHub documents scheduled workflows as best-effort and does not guarantee a start time. This row records the MEASUREMENT and the operational consequence, and deliberately does not assert a cause. ⚠️ NOTHING IS BEING DROPPED as far as measured — the runs arrive, late. Do not read this as missed executions without checking, because 'late' and 'never' are different facts and only the first is supported here. ⚠️ CORRECTED 2026-09-10: the 'NOTHING IS BEING DROPPED' sentence holds only for crons declared WIDER than the lag. An hourly cron measured the same day delivered 27% of its declared slots — below the lag, slots coalesce and simply never run. See the re-measurement in `detail`."
+}

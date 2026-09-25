@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) the dispersion is ATTRIBUTED — the 3.09x spread is traced to a named mechanism (per-account risk config, per-leg stop width, venue minimums, conviction sizing, or a mix) with the population stated, and the operator decides whether it is intended; OR (b) it is measured again at materially larger n and the perfect winner/loser separation does NOT reproduce, which would make this a 41-trade coincidence and must be recorded as that. !! RE-READING THE SAME ENDPOINT CLEARS NOTHING — it is one window and it will keep saying the same thing until the window rolls. !! AND THE SIGN DISAGREEMENT GOING AWAY CLEARS NOTHING EITHER: expectancyR and totalPnl agreeing again would mean the sizing inversion stopped OR that the leg mix changed, and those are different facts. Say which. !! A RESIZE IS TIER-3 and is not proposed here; if the operator resizes, this row does not clear on the deploy — it clears on the dispersion being re-measured afterwards.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260913-EVERY-PROFITABLE-LEG-IS-SIZED-SMALLER-PER-UNIT-OF-RISK-THAN-EVERY-LOSING-ONE-ON-REAL-MONEY",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260913-EVERY-PROFITABLE-LEG-IS-SIZED-SMALLER-PER-UNIT-OF-RISK-THAN-EVERY-LOSING-ONE-ON-REAL-MONEY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-EVERY-PROFITABLE-LEG-IS-SIZED-SMALLER-PER-UNIT-OF-RISK-THAN-EVERY-LOSING-ONE-ON-REAL-MONEY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] On the live 30d real-money book, dollars-of-risk per unit R spans 3.09x across legs and separates PERFECTLY by sign of edge — the two profitable legs are the two cheapest, all three losing legs the three dearest"
+}

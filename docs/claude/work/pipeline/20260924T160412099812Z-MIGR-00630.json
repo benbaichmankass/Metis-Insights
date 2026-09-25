@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER runtime_logs/replay_pregate/** is added to TIER1_SURFACE in scripts/ci/check_pr_landing.py and a replay-pregate PR is OBSERVED passing pr-landing-guard, OR the generator declares `landing: hold` so the refusal is a deliberate human-read rather than an accident. !! A COMPLETED RUN DOES NOT CLEAR THIS and is the trap: the two blockers are independent, so a run that finally scores 22 heads would still be refused here. !! AND A GREEN `guards` ON SOME OTHER PR CLEARS NOTHING -- R5 keys on the PATH, so only a PR carrying a runtime_logs/ artifact exercises it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-PR-LANDING-R5-REFUSES-RUNTIME-LOGS-SO-REPLAY-PREGATE-CAN-NEVER-LAND-A-REPORT-EVEN-IF-IT-FINISHES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-PR-LANDING-R5-REFUSES-RUNTIME-LOGS-SO-REPLAY-PREGATE-CAN-NEVER-LAND-A-REPORT-EVEN-IF-IT-FINISHES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-PR-LANDING-R5-REFUSES-RUNTIME-LOGS-SO-REPLAY-PREGATE-CAN-NEVER-LAND-A-REPORT-EVEN-IF-IT-FINISHES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pr-landing R5 refuses runtime_logs/ so replay-pregate can never land a report, even if a run ever completes"
+}

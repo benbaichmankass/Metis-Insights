@@ -31,6 +31,27 @@ from src.utils.paths import repo_root as _repo_root
 _REPO_ROOT = _repo_root()
 _DEFAULT_ACCOUNTS_YAML = os.path.join(_REPO_ROOT, "config", "accounts.yaml")
 
+#: E31 — what THIS PROCESS last built account objects from.
+#:
+#: The accounts layer is stateless per-call: ``load_accounts()`` re-opens the
+#: YAML every time, and the trader calls it once per tick via
+#: ``main._resolve_tick_symbols`` plus once per dispatch via
+#: ``Coordinator.multi_account_execute``. So an ``accounts.yaml`` edit DOES
+#: reach the process without a restart — but nothing published *that it had*,
+#: so "the roster was cut on the VM" and "the running trader is using the cut
+#: roster" were indistinguishable from outside. This stamp records the digest
+#: of the bytes the process actually parsed, when it parsed them, and the
+#: per-account gate + routed-strategy list it resolved.
+#:
+#: ``None`` means THIS PROCESS HAS NOT BUILT ACCOUNTS — not "there are no
+#: accounts". See ``src/runtime/loaded_config.py``.
+_accounts_stamp: "object | None" = None
+
+
+def accounts_stamp():
+    """The ``LoadStamp`` for the accounts this process last resolved, or ``None``."""
+    return _accounts_stamp
+
 
 def _resolve_mode(cfg: dict, name: str) -> bool:
     """Return True when the account is in dry_run mode.
@@ -72,7 +93,8 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
     from src.units.accounts.clients import resolve_credentials
 
     with open(config_path, "r", encoding="utf-8") as fh:
-        raw = yaml.safe_load(fh) or {}
+        source_text = fh.read()
+    raw = yaml.safe_load(source_text) or {}
 
     accounts = []
     for name, cfg in (raw.get("accounts") or {}).items():
@@ -175,4 +197,47 @@ def load_accounts(config_path: str = _DEFAULT_ACCOUNTS_YAML) -> "List":
         # observability.
         account.dry_run = dry_run
         accounts.append(account)
+    _stamp_accounts(config_path, source_text, accounts)
     return accounts
+
+
+def _stamp_accounts(config_path: str, source_text: str, accounts: "List") -> None:
+    """Record what was resolved, for ``loaded_config.process_snapshot``.
+
+    ⚠️ **Never raises, and never touches an account object.** This function is
+    reached from ``Coordinator.multi_account_execute`` on the live order path;
+    a surface built to detect a config divergence must not be able to cause
+    one, so an observation failure degrades to "no stamp" and the dispatch
+    continues byte-for-byte as before.
+
+    Stamped from the BUILT objects, not from the raw YAML: accounts with
+    ``enabled: false`` are skipped by the loop above, so reading the file
+    again here would report a roster the process did not construct.
+    """
+    global _accounts_stamp
+    try:
+        from src.runtime.loaded_config import digest_text, new_stamp
+        resolved = {}
+        for acct in accounts:
+            routed = getattr(acct, "strategies", None)
+            resolved[str(acct.name)] = {
+                # The authoritative gate is ``RiskManager.dry_run``; read it
+                # off the risk manager the account was built with rather than
+                # re-deriving it from the file.
+                "dry_run": bool(getattr(getattr(acct, "risk_manager", None),
+                                        "dry_run", getattr(acct, "dry_run", False))),
+                # ``None`` (key absent → legacy fallthrough) is preserved as
+                # distinct from ``[]`` (explicitly empty → block all), exactly
+                # as TradingAccount preserves it.
+                "strategies": None if routed is None else [str(x) for x in routed],
+                "account_class": str(getattr(acct, "account_class", "") or ""),
+                "configured": bool(getattr(acct, "configured", True)),
+            }
+        _accounts_stamp = new_stamp(
+            config_path,
+            digest_text(source_text),
+            account_count=len(resolved),
+            resolved=resolved,
+        )
+    except Exception:  # noqa: BLE001
+        _accounts_stamp = None

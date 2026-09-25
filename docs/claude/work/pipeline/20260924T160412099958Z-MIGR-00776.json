@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260820-TRAINER-DISK-BACK-TO-94PCT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-TRAINER-DISK-BACK-TO-94PCT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-TRAINER-DISK-BACK-TO-94PCT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "trainer root fs is back to 93-94% — 42 of 45 GB used, 3.2G free — past the ~80% criterion BL-20260730-TRAINER-DISK-95PCT was resolved against"
+}

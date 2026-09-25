@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies: CEILING_ENFORCED=True and CEILING_STATE='enforced_in_ci' while wip-ceiling-guard is in run_guards.py's Removed list and only a workflow_dispatch-only workflow calls the script. A false claim about a retired mechanism is E9's class. EVIDENCE: MEASURED 2026-09-24: src/utils/work_facts.py:34,39; run_guards.py:184; grep -rl check_wip_ceiling .github/workflows/ -> constraint-readout.yml only.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either wip-ceiling-guard is reachable again from scripts/ci/run_guards.py (or another PR-blocking trigger) and CEILING_ENFORCED=True is once again true, or CEILING_ENFORCED is flipped to False / CEILING_STATE to a value that says so, with tests/test_work_router.py and tests/test_work_digest.py updated to match and scripts/ops/work_digest.py's renderer re-verified.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260921-E02",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "E9 / this PR (build lane, session_01JVPxS3XjMyiN3J3HpQPkNq)",
+    "rerun": "grep -n wip-ceiling-guard scripts/ci/run_guards.py && grep -rl check_wip_ceiling .github/workflows/"
+  },
+  "routed_to": "E9",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "src/utils/work_facts.py::CEILING_ENFORCED = True and CEILING_STATE = 'enforced_in_ci' are now FALSE. Their docstring and src/web/api/routers/work.py::_wip_block()'s note both claim 'scripts/ci/check_wip_ceiling.py fails CI on a ninth in_flight object.' Verified this session: `wip-ceiling-guard` is in the explicit 'Removed' list at scripts/ci/run_guards.py:113 (the 2026-09-21 reset), and `grep -rl check_wip_ceiling .github/workflows/` finds only constraint-readout.yml, whose own trigger is workflow_dispatch-only (schedule commented out). So nothing PR-blocking runs check_wip_ceiling.py any more — the operator-facing claim 'ENFORCED... fails CI' describes a guard that cannot fire on a PR. This is the exact 'declared, not enforced' state the module's own docstring says was WRONG IN THE DANGEROUS DIRECTION when it happened before (~20 minutes, 2026-09-01, opposite polarity). Not fixed in this PR: CEILING_ENFORCED/CEILING_STATE are shared with scripts/ops/work_digest.py (single-owner by design) and pinned by two tests — tests/test_work_router.py:183 and tests/test_work_digest.py:223 both assert wip['state'] == 'enforced_in_ci' — plus work_digest.py's two-branch renderer (the under-ceiling 'IS a gate' line vs. the at-ceiling 'WIP CEILING HIT ... ENFORCED in CI' line) needs its own check. That is a multi-file, test-pinned change this pass's budget did not cover; _wip_block()'s note in this PR flags the discrepancy without touching the boolean, so the JSON does not contradict itself. [!] ID REASSIGNED AT MERGE 2026-09-21 BY THE MANAGER. The E9 lane filed this as PI-20260921-0004 while, concurrently and invisibly to it, a DIFFERENT finding was being filed under that same id on main. Neither session could see the other: each minted the next free number from the store it read at startup. Merging as filed would have SILENTLY DISPLACED one of the two, because load() folds to last-record-wins and --check reports `clean` either way. Nothing about this finding changed; only its id. The tool defect is PI-20260921-M04 and has its own lane."
+}

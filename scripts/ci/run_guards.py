@@ -132,6 +132,40 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_roster_symbol_reachability.py"],
         ],
     },
+    {
+        # E42 — ONE definition of "which symbols does this account concern".
+        # Five sites derived it privately; four were known and the fifth
+        # (`account_ib_venue_session`) was found by this very self-test's
+        # bypass control rather than by reading.
+        #
+        # The self-test is the guard: it carries the planted bypass (both
+        # directions, plus a verified-not-presence-only exemption) and asserts
+        # over the REAL config that DECLARED and UNION still agree — so the day
+        # a roster and a pull list diverge, CI says so instead of a data sweep
+        # quietly skipping a symbol that is trading.
+        "name": "symbol-resolver-guard",
+        "when": {"globs": [
+            "src/config/symbol_sets.py",
+            "scripts/ci/check_symbol_resolver.py",
+            "src/main.py",
+            "src/units/accounts/clients.py",
+            "src/runtime/exchange_accounts.py",
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+        ]},
+        # Invoked by PATH, not `-m`: `-m src.config.symbol_sets` makes the
+        # MODULE the registry's "runner", and every runner needs a
+        # RUNNER_REMEDY entry answering "what does the operator install?"
+        # — a question repo code has no true answer to
+        # (`tests/ci/test_run_guards_runner_absent.py` caught that). And the
+        # CONTROLS live in this script rather than in the module, because a
+        # file that claims coverage in this registry while asserting nothing
+        # itself is the presence-only marker `new-table-wiring-guard` already
+        # cost us (`check_guard_selftest_coverage.py` caught THAT). Both
+        # corrections are written up in the script's own docstring.
+        "steps": [["python3", "scripts/ci/check_symbol_resolver.py",
+                   "--self-test"]],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
@@ -184,6 +218,12 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ops/pipeline.py", "--self-test"],
             ["python3", "scripts/ops/pipeline.py", "--check"],
+            # E64, 2026-09-24 — the migration off the flat file. Wired for the
+            # same reason: a resurrected flat PIPELINE.jsonl (a lane PR's
+            # modify/delete conflict hand-resolved by keeping it) is caught by
+            # pipeline.py --check above, and the fix this asserts is that
+            # running the migration is always safe to re-run over that state.
+            ["python3", "scripts/ops/migrate_pipeline_to_dir.py", "--self-test"],
         ],
     },
     # ─────────────────────────────────────────────────────────────────────
@@ -300,6 +340,12 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ops/accrual_clock.py", "--all"],
             ["python3", "scripts/ops/column_provenance.py", "--self-test"],
             ["python3", "scripts/ops/strategy_liveness.py", "--self-test"],
+            # E18 — proves all four never-collapsed leg_flow_detector states
+            # (unreadable/no_intents/starved/flowing) are reachable, with a
+            # positive control for the finding itself (the breakout_1 shape:
+            # intents>0, received=0) and for the collapse the module exists
+            # to prevent (unreadable staying apart from starved).
+            ["python3", "scripts/ops/leg_flow_report.py", "--self-test"],
             ["python3", "scripts/ops/soak_alarm.py"],
             ["python3", "scripts/research/target_reachability_report.py"],
             ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
@@ -1398,6 +1444,28 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/m20_sweep_result.py", "--self-test"],
             ["python3", "scripts/ci/check_research_results.py", "--self-test"],
             ["python3", "scripts/ci/check_research_results.py"],
+        ],
+    },
+    {
+        "name": "research-queue-decision-rule-guard",
+        # Checklist C1: a NEW research/queue unit must pre-register a
+        # decision_rule; an existing one is grandfathered. Diff-scoped on the
+        # queue directories themselves — unlike pr-landing-guard, the property
+        # this checks (does a unit added HERE carry a decision_rule) is a
+        # function of the files a queue-touching PR adds, so a PR that leaves
+        # the queue alone has nothing to grade.
+        #
+        # Self-test first: its failure path REFUSES a unit, so a guard that
+        # started over-refusing existing, grandfathered work would be worse
+        # than the gap it closes.
+        "when": {"globs": ["research/queue/**"]},
+        "steps": [
+            ["python3", "scripts/ci/check_research_queue_decision_rule.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_research_queue_decision_rule.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
         ],
     },
     {

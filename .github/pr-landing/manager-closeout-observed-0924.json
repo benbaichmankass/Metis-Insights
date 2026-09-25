@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: docs/claude/work/MANAGER-CHECKLIST.json and docs/claude/work/PIPELINE.jsonl. No code, no config, no workflow, no strategy, no risk cap. It records an observation that was already taken -- GET /api/bot/runtime-config at 2026-09-24T06:34:28Z read reload_state `current` for both config files on the running trader -- and moves E31, E32, R2 and B2 from landed_unproven/blocked to done on that reading, moves E30 to landed_unproven after #12735 merged, and populates four rows' `prs` per the operator's 2026-09-24 decision on the archive gate. Tier 1 per CLAUDE.md's table (docs, tests, CI, tooling, observability/read paths, retrieving + analyzing state): nothing here changes what trades."
+}

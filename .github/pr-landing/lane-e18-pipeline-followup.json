@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs-only: one pipeline follow-up record under docs/claude/work/pipeline/ (E64's per-file store) and the merge-slot claim + pr-landing declaration for this branch itself. No code, no config, no order path."
+}

@@ -1,0 +1,71 @@
+{
+  "strategy": "trend_donchian",
+  "symbol": "MGC",
+  "timeframe": "1h",
+  "params": {
+    "donchian": 20,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 4.0,
+    "min_confidence": 0.0,
+    "confirm_bars": 1
+  },
+  "total_trades": 118,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 5.0,
+  "funding_bps_per_window": 0.0,
+  "data_start": "2025-07-14 04:00:00+00:00",
+  "data_end": "2026-09-24 12:00:00+00:00",
+  "run_date": "2026-09-24",
+  "tp_r_effective_n": 118,
+  "tp_r_effective_median": 9.29,
+  "tp_r_effective_min": 2.712,
+  "tp_r_effective_max": 23.323,
+  "rr_floor_state": "off",
+  "rr_min_n": 117,
+  "rr_min_p10": 2.304,
+  "rr_min_median": 5.941,
+  "rr_min_p90": 12.196,
+  "rr_floor_exits": 0,
+  "win_rate_pct": 38.98,
+  "total_r": 39.7274,
+  "net_total_r": 25.6114,
+  "net_total_r_long": 26.9594,
+  "net_total_r_short": -1.348,
+  "net_expectancy_r": 0.217,
+  "net_total_r_fee_only": 31.2578,
+  "net_expectancy_r_fee_only": 0.2649,
+  "mean_cost_r": {
+    "fee_r": 0.07178,
+    "slippage_r": 0.04785,
+    "funding_r": 0.0,
+    "total_cost_r": 0.11963,
+    "funding_windows": 6.99153
+  },
+  "trades_long": 65,
+  "trades_short": 53,
+  "avg_win_r": 2.1643,
+  "max_mfe_r": 9.862,
+  "max_drawdown_r": 16.1559,
+  "by_outcome": {
+    "stop": 43,
+    "trail_stop": 69,
+    "timeout": 3,
+    "take_profit": 3
+  },
+  "by_year": {
+    "2025": {
+      "trades": 41,
+      "net_r": 18.0455
+    },
+    "2026": {
+      "trades": 77,
+      "net_r": 7.5665
+    }
+  },
+  "bar_minutes": 60.0,
+  "position_days": 174.5417,
+  "capital_days": 174.5417,
+  "mean_bars_held": 35.5,
+  "net_r_per_position_day": 0.1467,
+  "net_r_per_capital_day": 0.1467
+}

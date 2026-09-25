@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) establish a working research price source for SPLG — the obvious candidate is the alpaca lane the live trader already uses, which would ALSO remove the yfinance dependency for every US-equity research question; or (b) record SPLG as research-blind on the yfinance lane so no sweep silently reports a one-bar result as a measurement. Whichever, the affordability/backtest tooling must keep declaring a thin or stale book rather than printing a bare number (shipped in this PR: `last_close` now carries an inline UNSOUND caveat plus `as_of` and `bars` when fewer than 15 bars or older than 5 d).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-SPLG-HAS-NO-USABLE-YFINANCE-HISTORY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] SPLG — a LIVE real-money cell — returns ONE stale bar from the yfinance lane, so any research on it is measuring a single 2026-07-17 print while the job reports success"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260907-S006-M7-GO-NO-GO-VERDICT-MAY-REST-ON-FLAT-FIXTURES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260907-S006-M7-GO-NO-GO-VERDICT-MAY-REST-ON-FLAT-FIXTURES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-S006-M7-GO-NO-GO-VERDICT-MAY-REST-ON-FLAT-FIXTURES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The S-006 M7 ICT multi-symbol go/no-go verdict is unattributed as to whether it ran on fetched or placeholder candles -- NOT re-derived here"
+}

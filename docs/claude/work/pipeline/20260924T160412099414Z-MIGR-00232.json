@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Pull `entry_reason` for `bybit_2`/`ict_scalp_5m` rows with `status='exchange_rejected'` over the window, attribute the rejection to a named cause, and either fix it or record why the refusal is correct. Done when the leg's 14d verdict is no longer `signalled_never_placed`, or a row explains why zero conversion is the right outcome.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-BYBIT2-ICTSCALP5M-SIX-EXCHANGE-REJECTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-BYBIT2-ICTSCALP5M-SIX-EXCHANGE-REJECTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-BYBIT2-ICTSCALP5M-SIX-EXCHANGE-REJECTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] bybit_2 (REAL MONEY) / ict_scalp_5m: 6 of 6 orders exchange_rejected in 14d - the leg placed nothing"
+}
