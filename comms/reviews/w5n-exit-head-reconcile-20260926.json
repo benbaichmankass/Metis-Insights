@@ -1,0 +1,134 @@
+{
+  "id": "W5N-exit-head-reconcile-20260926",
+  "lane": "claude/w5n-exit-head-reconcile",
+  "session": "https://claude.ai/code/session_01Gp2aXrJiSKxTf996ndZsod",
+  "dispatched_by": "manager session_01Ljhs6sFAdWHdMDhJpL5aBP (overnight run approved by operator 2026-09-26 ~21:15Z)",
+  "tier": 1,
+  "resolves": "PI-20260926-6M9R1WSA-0001",
+  "generated_at": "2026-09-26T21:40:00Z",
+  "changes_made": "NONE on either VM, and none in config/, src/ or ml/. Reads only: direct diag transport (scripts/ops/diag_fetch.sh) plus one read-only trainer-vm-diag issue (#13023, run 36272668007), which also read the live-VM copy over ssh.",
+  "verdict": {
+    "summary": "SHADOW AND INERT. Nothing unregistered or advisory is gating real-money exits today. The contradiction has a TIME ORDERING, not a factual conflict. The 2026-09-24 ml-review (generated ~21:02Z) said advisory, and that was TRUE when it was written. Lane E74 demoted the artifact advisory->shadow at 2026-09-24T22:32:51Z (operator-approved 'Investigate + demote', trainer-vm-diag #12911). The 2026-09-26 RQ-007 read of stage='shadow' came after that demote, so it was also true. The session that filed PI-20260926-6M9R1WSA-0001 did not see E74 (comms/reviews/e74-ml-followups-20260924.json, commit d67552e0 / #12912).",
+    "was_the_ml_review_wrong": "NO on all three claims. (1) 'advisory (order-influencing)': TRUE at 2026-09-24 21:02Z. The trades table shows 5 real-money exit_head closes on bybit_2 trend_donchian between 2026-07-12 and 2026-08-25, and exit_head_apply.exit_head_verdict can only return a close when rec.stage=='advisory'. (2) 'no trainer registry entry': TRUE and STILL TRUE. It is by design: export_exit_head.py writes a flat JSON artifact and never an ml/registry-store row. See (b). (3) 'predictions silent ~52h': TRUE as a measurement. The cause is that no position was open (E74/W4 diagnosis, re-confirmed in (c)), not a fault. What the ml-review did NOT know was that the silence was benign.",
+    "urgent_real_money": false
+  },
+  "evidence": {
+    "a_artifact_stage_both_copies": {
+      "source": "trainer-vm-diag #13023, run https://github.com/benbaichmankass/Metis-Insights/actions/runs/36272668007, 2026-09-26T21:23Z",
+      "trainer": "runtime_logs/trainer_mirror/exit_head/exit-head-donchian-1h-v1.json -- stage 'shadow', family donchian, tf 1h, symbols [BTCUSDT, ETHUSDT, SOLUSDT], trained_at 2026-07-12T14:44:43Z, train_rows 34338, mtime 2026-09-24 22:32:51.115641886 +0000, sha256 a5ed1775f831d197818cb7f03c792d26e9e7ab4a04ed9c6c68408d8e14584ecb",
+      "live_vm": "/data/bot-data/runtime_logs/trainer_mirror/exit_head/exit-head-donchian-1h-v1.json (read over the trainer's ssh key) -- stage 'shadow', trained_at 2026-07-12T14:44:43Z, mtime 2026-09-24 22:32:51.115641886 +0000, sha256 a5ed1775f831d197818cb7f03c792d26e9e7ab4a04ed9c6c68408d8e14584ecb -- BYTE-IDENTICAL to the trainer copy",
+      "other_artifacts_in_the_same_dir_both_vms": "exit-head-donchian-peak-1h-v1 shadow; exit-head-ict_scalp-15m-v1 shadow; exit-head-ict_scalp-5m-v1 shadow. So the mirror contains NO advisory exit-head artifact at all today.",
+      "durability": "The demote holds. export_exit_head.py is invoked by neither run_training_cycle.sh nor publish_trainer_mirror.sh (E74/W4 code-read). The daily publish rsyncs the trainer copy, which is now shadow, and the most recent publish was 2026-09-26T21:21:06Z. The live-VM mtime still equals the demote time."
+    },
+    "b_registry_entry": {
+      "source": "trainer-vm-diag #13023",
+      "result": "`ls ml/registry-store | grep -ic exit` -> 0; runtime_logs/trainer_mirror/registry.jsonl -> no match; `python -m ml gate-check exit-head-donchian-1h-v1` -> \"gate-check failed: no registry entry for 'exit-head-donchian-1h-v1'\"",
+      "reading": "Still unregistered, and structurally so (PI-20260924-JQHBBTOS-0001 was closed as by-design). Consequence for any promotion: `python -m ml promote-stage exit-head-donchian-1h-v1 advisory` would FAIL with RegistryError, because promote-stage (ml/cli.py::_cmd_promote_stage -> ModelRegistry.promote_stage) edits the registry, not the artifact. PI-20260926-6M9R1WSA-0001's text says graduation is 'a SEPARATE, deliberate ml/cli.py promote-stage action'. That is WRONG for this artifact type. The real mechanism is a flip of the artifact JSON's own `stage` field (or a re-export with --stage advisory) followed by publish_trainer_mirror.sh, the same way E74 demoted it. No registry StageEvent is written, so the only durable record is git plus the relay issue."
+    },
+    "c_newest_prediction_rows": {
+      "source_live": "diag_fetch.sh shadow_stats?model_id=exit-head-donchian-1h-v1, 2026-09-26T21:19Z: records [], count 0; log_coverage oldest_retained 2026-09-26T06:39:57Z, newest_retained 2026-09-26T21:17:07Z, total_records 3319",
+      "source_trainer_relay": "#13023: live shadow_predictions.jsonl (2.5 MB, mtime Sep 26 21:17) has n=0 rows for this model_id. No rotated archive exists on disk beside it, so the reachable window is only ~14.6h.",
+      "positive_control": "The same log/endpoint DOES return exit-head rows for other heads in the same window: exit-head-ict_scalp-5m-v1 count 33 (last 2026-09-26T15:05Z, stage shadow) and exit-head-ict_scalp-15m-v1 count 14. So the probe can see exit-head rows. Zero for donchian-1h is a real zero over the retained window, not a blind probe.",
+      "why_zero": "The scorer only fires for an OPEN position on trend_donchian / trend_donchian_sol / trend_donchian_eth. MEASURED over the full trades table (6202 rows, ids 1-6202, paged via journal?table=trades&offset=...): trend_donchian's last bybit_2 trade closed 2026-09-11T15:53:56Z and its last bybit_1 trade closed 2026-09-21T10:37Z. No trend_donchian / _sol / _eth row is currently 'open'; the only open donchian-family row is trend_donchian_ada_4h on bybit_1, which declares no exit head. The newest prediction ever reported is 2026-09-22T17:06:08Z (E72/E74/W4 reads). It is still not current, because nothing has been open to score.",
+      "not_established": "No post-demote prediction row has yet been observed carrying stage='shadow' (PI-20260925-URJPDTFB-0001 stays open for that). The file-level evidence in (a) is stronger than that row would be, because the scorer copies artifact.stage verbatim into the record (exit_head_shadow.py L493)."
+    },
+    "d_has_exit_head_apply_ever_closed": {
+      "source": "diag_fetch.sh journal?table=trades, all 6202 rows, read 2026-09-26T21:19Z",
+      "answer": "YES. 11 closed trades carry exit_reason='exit_head'. Real money: 5, all trend_donchian BTCUSDT on bybit_2. bybit_portfolio: 0. Paper (bybit_1): 6, trend_donchian_eth x4 and trend_donchian_sol x2.",
+      "bybit_2_rows": [
+        {
+          "id": 3344,
+          "pkg": "pkg-16c6a61a528342dc",
+          "closed_at": "2026-07-12T14:46:45Z",
+          "pnl_usd": 1.4956
+        },
+        {
+          "id": 3770,
+          "pkg": "pkg-f9b2170e55994873",
+          "closed_at": "2026-07-21T23:03:15Z",
+          "pnl_usd": -0.2512
+        },
+        {
+          "id": 4718,
+          "pkg": "pkg-830fb965b6db48ff",
+          "closed_at": "2026-08-18T05:00:17Z",
+          "pnl_usd": 0.1773
+        },
+        {
+          "id": 4747,
+          "pkg": "pkg-1f688175371741a4",
+          "closed_at": "2026-08-18T18:00:09Z",
+          "pnl_usd": -1.4931
+        },
+        {
+          "id": 5005,
+          "pkg": "pkg-b6eae934bda14496",
+          "closed_at": "2026-08-25T05:00:02Z",
+          "pnl_usd": -1.0589
+        }
+      ],
+      "bybit_2_sum_usd": -1.1303,
+      "bybit_1_last": "id 5786 trend_donchian_eth closed 2026-09-15T20:00:25Z. No exit_head close anywhere after 2026-09-15, and none after the 2026-09-24T22:32Z demote.",
+      "journal_grep": "The trainer relay's `sudo -n journalctl -u ict-trader-live --since 2026-08-27 | grep exit_head` returned EMPTY. Its stderr went to /dev/null, so this is an UNVERIFIED read and could be a sudo refusal. It is NOT a negative. The trades table is the evidence of record here."
+    }
+  },
+  "new_finding_mirror_divergence": {
+    "summary": "While the head was advisory, it closed ONLY the first account of a bybit_2 / bybit_portfolio twin, never the mirror. 3 of 3 twinned exit-head closes diverged. That breaks the Stage-2 invariant ('the mirror carries IDENTICAL trades'), and the Gate-2 demotion signal read off bybit_portfolio was not measuring the leg the live account actually traded.",
+    "root_cause": "src/runtime/exit_head_shadow.py::maybe_score_exit_head dedups on seen_key = (model_id, order_package_id, bar_ts) (L477-480). Twins share one order_package_id, so the monitor's call for the SECOND account returns None, and exit_head_verdict(None) -> no close. Reproduced locally (scratch script, no src change): same pkg id, two accounts -> [('bybit_2', {'stage': 'advisory', 'would_exit': True}), ('bybit_portfolio', None)].",
+    "paired_outcomes_gross_R": [
+      {
+        "pkg": "pkg-f9b2170e55994873",
+        "bybit_2_exit_head_R": -0.03,
+        "bybit_portfolio_R": -0.983,
+        "portfolio_exit": "reconciler_filled"
+      },
+      {
+        "pkg": "pkg-830fb965b6db48ff",
+        "bybit_2_exit_head_R": 0.148,
+        "bybit_portfolio_R": 12.1,
+        "portfolio_exit": "tp"
+      },
+      {
+        "pkg": "pkg-b6eae934bda14496",
+        "bybit_2_exit_head_R": -0.216,
+        "bybit_portfolio_R": -0.819,
+        "portfolio_exit": "reconciler_filled"
+      }
+    ],
+    "paired_sum": "head arm -0.097R vs no-head twin +10.299R -> head -10.40R over n=3. R = (exit - entry) / (entry - stop_loss) from the trades rows, GROSS, with each account's own entry. n=3 is anecdotal, and one 12.1R TP dominates it. It is stated because it points the same way as the replay's paired delta below, not because it establishes anything alone.",
+    "tier": "Tier-2 (runtime order path). Proposed fix: key the dedup per account, e.g. (model_id, account_id, pkg_id, bar_ts), or cache the rec per (model_id, pkg_id, bar_ts) and return the cached rec to every twin. Add a test for the twin case. This must land BEFORE any re-promotion. It is inert while every exit-head artifact is shadow."
+  },
+  "promotion_evidence_packet": {
+    "question_for_operator": "Should exit-head-donchian-1h-v1 go back shadow->advisory on trend_donchian (bybit_2 real money + bybit_portfolio mirror)?",
+    "recommendation": "DO NOT PROMOTE. The 'recovered_R +3.78' figure does not support promotion. On a like-for-like comparison, the replay says the head LOSES 34.9R. The mirror-divergence bug above would also make a promoted head break Stage-2 mirror equality again.",
+    "what_promotion_would_mechanically_be": "NOT `python -m ml promote-stage` (fails: no registry entry, see evidence.b). It would be an in-place flip of the artifact JSON field stage 'shadow'->'advisory' on the trainer, then `bash scripts/ops/publish_trainer_mirror.sh`. That is the exact inverse of E74's #12911. It is Tier-3. It writes no registry StageEvent. The live effect is immediate on the next closed 1h bar of any open trend_donchian / _sol / _eth position, because config/strategies.yaml already declares exit_head_model: exit-head-donchian-1h-v1, exit_head_threshold 0.10, exit_head_action close on all three legs (L220-222, L1136-1138, L1215-1217).",
+    "rq_20260922_007_numbers": {
+      "record": "research/results/RQ-20260922-007/36257896539.jsonl (run 36257896539, generated 2026-09-26T17:11:40Z, verdict pass, attributable_to omitted_exit_head)",
+      "population": "BTCUSDT 1h, 2021-09-22 -> 2026-09-25 (1830d, 43920 bars), 353 trades, 324 scored, head fired on 199",
+      "cost_basis": "fee 7.5 bps + slippage 3.0 bps round-trip + funding 1.0 bps per 8h (full stack, not fee-only)",
+      "baseline_gross_r": 89.4036,
+      "replayed_gross_r": 54.4857,
+      "delta_gross_r": -34.9179,
+      "baseline_summary_net_total_r (head OFF, same 353 trades)": 43.2992,
+      "head_simulated_net_r (head ON, same 353 trades)": 8.3813,
+      "evidence_baseline_net_r_oos (DIFFERENT population: 73 walk-forward OOS trades, comms/strategy_evidence/trend_donchian.json)": 4.6017,
+      "recovered_r": 3.7796
+    },
+    "caveats": [
+      "POPULATION MISMATCH, and it is decisive. recovered_R = head_simulated_net (353 full-window trades) minus evidence net_r_oos (73 OOS trades from a different record). scripts/research/exit_head_attribution_result.py L169-170 subtracts a 73-trade figure from a 353-trade figure. The like-for-like paired statistic in the SAME payload is delta_gross_r = -34.92R (head-on 8.38R vs head-off 43.30R net over the identical 353 trades). By the unit's own declared design ('PAIRED: the head-on and head-off arms score the same decision bars', RQ-20260922-007.yaml power.basis), the head is net-NEGATIVE by ~34.9R, about -0.099R per trade.",
+      "n=353 is the FULL window and NOT out-of-sample. The artifact was fit on 1662 trades / 34338 rows with train_window_present=false (train_start/train_end null), so the replay window almost certainly overlaps the training data. In-sample bias favours the head, so an OOS delta is expected to be no better than -34.9R.",
+      "Cost modelling: both arms charge each trade the fee_r of its ORIGINAL (un-replayed) exit (grader docstring L33-45), so the delta is effectively gross. Funding saved by earlier exits is not credited. That is small next to 34.9R and cannot flip the sign.",
+      "Live anecdote, same direction: the three bybit_2/bybit_portfolio twins where only bybit_2 took the head's exit came out at -10.4R for the head (n=3, gross). Live bybit_2 exit_head closes total -1.13 USD at tiny size.",
+      "Drift: the last reads before the demote showed ks 0.2018 / psi 0.9637, both significant (W4, 2026-09-25). The artifact has not been re-trained since 2026-07-12.",
+      "Unregistered: gate-check cannot evaluate this model, so there is no ladder gate report to lean on."
+    ],
+    "what_would_change_the_recommendation": "A replay whose head-on and head-off arms are both net of cost on the SAME out-of-sample trades (the training window stamped, and the replay restricted to bars after train_end) showing a positive paired delta at the declared power, AND the twin-dedup fix landed and tested."
+  },
+  "pipeline": {
+    "updated": "PI-20260926-6M9R1WSA-0001 -> done (this record)",
+    "filed_new": [
+      "PI-20260926-96NDZSOD-0001 exit-head twin-dedup mirror divergence (Tier-2 src fix, blocks any re-promotion)",
+      "PI-20260926-96NDZSOD-0002 RQ-007 grader compares populations that are not comparable (Tier-1 research tooling; re-grade on the paired delta)"
+    ]
+  }
+}
