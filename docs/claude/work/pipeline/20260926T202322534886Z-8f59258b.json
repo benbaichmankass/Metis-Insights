@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-09-29",
+    "kind": "date"
+  },
+  "id": "PI-20260926-HJPL5ABP-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "deploy",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/issues/13020",
+    "rerun": "diag-relay journalctl -u ict-trader-live --since '-2h' | grep 'pkg-51f1eff527d44b2e' | grep -c 'exchange modify failed'  -- nonzero means still recurring"
+  },
+  "state": "queued",
+  "what": "RECURRING order_monitor modify failure on alpaca_paper SPY, pkg=pkg-51f1eff527d44b2e trade=6131 (spy_pullback_1h). It was seen earlier on 09-26 and again in the #13020 deploy-log journal tail at 19:36:23Z. Every tick the SL-trail verdict (sl=763.69) tries to modify and fails with 'no protective leg of qty=8 rests on SPY (resting leg quantities: [11.0]) -- refusing to patch'. The package SL is left unchanged, so the trail never tightens and errors=1 repeats each tick. The refusal is correct as a safety behaviour: it won't touch legs that may protect another trade. The defect is upstream: a resting protective leg of qty 11 against a trade of qty 8 means either a second SPY trade shares the symbol with a merged/oversized bracket, or the bracket qty drifted from the trade qty. Needs a lane: read alpaca_paper SPY open trades and resting orders via diag, find which trade owns the qty-11 leg, and fix the bracket/qty attribution (order-path fix = Tier-2). Paper account; no real money at risk. The trail on this leg is inert until fixed."
+}
