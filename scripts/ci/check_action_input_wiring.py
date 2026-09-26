@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Dict, List, NamedTuple
+from typing import List, NamedTuple
 
 import yaml
 
