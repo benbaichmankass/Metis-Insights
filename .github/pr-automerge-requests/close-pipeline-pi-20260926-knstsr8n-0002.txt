@@ -1,0 +1,1 @@
+Tier-1 self-land: close pipeline record PI-20260926-KNSTSR8N-0002 (fix merged via PR #13000).

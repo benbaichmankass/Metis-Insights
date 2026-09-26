@@ -91,24 +91,38 @@ decision_rule:
     and belongs to exit-refinement; this unit measures, it does not ship.
 
 routing:
-  needs_trainer_resident_data: false
+  needs_trainer_resident_data: true
   needs_gpu: false
-  peak_memory_gb: 4.0
-  est_minutes: 90
+  peak_memory_gb: 2.0
+  est_minutes: 45
   basis: >-
-    Runner. research-exit-head-build.yml declares a `backtest_system` harness
-    with a `roster` input and fetches its own candles — the pattern
-    docs/claude/vm-resource-management.md names as the correct route for
-    CPU-heavy work needing no VM-resident state, explicitly in preference to
-    the trainer-vm-diag SSH relay. peak_memory_gb is raised to 4.0 over the
-    2.0 the sweep units declare because this arm loads a model, which those
-    do not.
-    ⚠️ DECLARED, NOT VERIFIED: this session read the workflow's
-    workflow_dispatch inputs (harness, roster, clock_tf, exit_threshold) but
-    did NOT confirm a trained exit head exists for trend_donchian's feature
-    set. If none does, the run returns the `unestablishable` branch above,
-    which is a real outcome rather than a failure — but check the registry
-    first so a missing model is not misread as a measured null.
+    Trainer (rescoped 2026-09-26). The unit was originally routed to a free
+    runner on the premise that `research-exit-head-build.yml` (a
+    `backtest_system` harness fetching its own candles, no VM-resident state)
+    was the tool that answers this question. VERIFIED FALSE this session by
+    reading both the workflow YAML and the two scripts it calls
+    (`scripts/research/build_intrabar_exit_panel.py`,
+    `scripts/research/analyze_exit_head.py`): that workflow trains a brand-new
+    discovery exit head from scratch and always lands against its own
+    hardcoded `RULE-EXIT-HEAD-CLEARS-BAR` — a different model and a different
+    statistic than this unit's `net_r_oos(exit head simulated, full cost
+    stack) - (-0.4245)`. Both of its cost knobs (`--cost-r`, `--exit-fee-r`)
+    default to `0.0` and are never wired from any input the unit could
+    declare, which is why run 36239257289's population read
+    `cost_r: 0.0, exit_fee_r: 0.0` regardless of run.inputs.
+    `scripts/ml/exit_head_replay.py` (driven by
+    `research-exit-head-replay-trainer.yml`) is the tool that actually
+    replays trend_donchian's PUBLISHED `exit_head_model` and grades it net of
+    the FULL venue cost stack. Its artifact
+    (`runtime_logs/trainer_mirror/exit_head/*.json`) is published to the
+    trainer + live VM and is NOT committed, so a free runner has no copy — the
+    same reason `research-exit-head-replay-trainer.yml`'s own header gives for
+    routing to the trainer over SSH (operator decision 2026-08-08). peak_memory_gb
+    2.0 per that workflow's own header ("a light job — one symbol's backtest +
+    a per-bar LightGBM scoring pass").
+    If no head is servable for this (strategy, timeframe, symbol), the run
+    honestly exits 2 (`COULD NOT MEASURE`) and the result lands
+    `attributable_to: unestablishable` — a real outcome, not a failure.
 
 cleared_blocker: >-
   PI-20260922-RESEARCH-UNIT-STAMP-ONLY-ON-E35 CLEARED — W4, this session.
@@ -122,35 +136,57 @@ cleared_blocker: >-
   to `queued` and `research_unit: RQ-20260922-007` added to run.inputs
   below, per this unit's own `clears_when`.
 
+mismeasured_run: >-
+  research/results/RQ-20260922-007/36239257289.jsonl (workflow
+  research-exit-head-build, landed 2026-09-26T11:37:43Z) MEASURED THE WRONG
+  POPULATION and is marked as such in its own `note` field rather than
+  deleted, per this repo's own convention that a wrong result is corrected in
+  place, not erased. It graded `fail` against `RULE-EXIT-HEAD-CLEARS-BAR`
+  (head_sharpe 0.041, n=300) — a different rule than this unit's own
+  `RULE-RQ0922-007-EXIT-HEAD-ATTRIBUTION` registered above, produced by a
+  workflow that never simulates trend_donchian's actual live exit head. It
+  must not be read as an answer to this unit's question in either direction.
+  Superseded by whatever this unit's `run:` block (rescoped below, same
+  session) next lands under
+  `research/results/RQ-20260922-007/<new run id>.jsonl`.
+
 run:
-  workflow: research-exit-head-build.yml
+  workflow: research-exit-head-replay-trainer.yml
   inputs:
-    harness: backtest_system
-    roster: trend_donchian
+    strategy: trend_donchian
     symbol: BTCUSDT
     timeframe: 1h
-    clock_tf: 15m
     days: '1830'
-    exit_threshold: '0.5'
     research_unit: RQ-20260922-007
   note: >-
-    `exit_threshold: 0.5` is the workflow default and is used deliberately
-    rather than tuned: the question is whether the head as configured recovers
-    the gap, not what the best possible threshold would be. Sweeping the
-    threshold here would be selecting a parameter on the data the verdict is
-    read from — the exact contamination RQ-20260922-006 exists to detect.
+    RESCOPED 2026-09-26. Was `research-exit-head-build.yml` with inputs
+    {harness: backtest_system, roster: trend_donchian, clock_tf: 15m,
+    exit_threshold: '0.5'} — that workflow does not simulate
+    `exit_head_model` at all (it trains an unrelated discovery head from
+    scratch) and always lands against its own `RULE-EXIT-HEAD-CLEARS-BAR`,
+    never this unit's registered rule; its cost knobs also default to 0.0 and
+    were never reachable from run.inputs. See `routing.basis` below for the
+    full correction. `research-exit-head-replay-trainer.yml` takes no
+    `harness`/`roster`/`clock_tf`/`exit_threshold` inputs (it always replays
+    ONE strategy's own published head over its own live-faithful harness), so
+    those four keys are dropped rather than carried forward unused; `days`
+    (trailing candles fetched) is kept at 1830 for continuity with the
+    original dispatch. `decision_rule` is UNCHANGED — see that block above,
+    registered 2026-09-22, before any run.
 
 lands:
-  store: docs/research/m20-sweep-corpus.jsonl
-  assert_field: leg
+  store: research/results/
+  assert_field: read_state
   min_rows: 1
   note: >-
-    ⚠️ DECLARED FROM THE WORKFLOW'S FAMILY, NOT VERIFIED BY READING ITS OWN
-    `git add`. research-exit-head-build.yml was not opened line-by-line this
-    session. assert_rows_landed.py's docstring is explicit that reading a
-    store name off a doc is worse than no assertion, so confirm the store this
-    workflow actually writes before firing, and correct this block if it
-    differs.
+    VERIFIED 2026-09-26 by reading `.github/actions/research-result` (the
+    landing step every research-producing workflow that lands a result calls)
+    and `scripts/ci/check_research_results.py`: every result, regardless of
+    producing workflow, lands at
+    `research/results/<research_unit>/<run_id>.jsonl`. The previous
+    `docs/research/m20-sweep-corpus.jsonl` was declared from the workflow's
+    family and was never actually written by this unit's producer — corrected
+    here, not left for the next session to re-discover.
 
 related:
   - 'checklist C5 / R4 (this unit is one of the ten)'

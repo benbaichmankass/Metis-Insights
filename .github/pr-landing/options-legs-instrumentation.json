@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 lane dispatched by manager session_01Ljhs6sFAdWHdMDhJpL5aBP (ceiling $10, landing=hold, PI-20260926-KNSTSR8N-0003): build the instrumentation, get CI green, then STOP -- the manager gets the operator's OK, merges and deploys. No automerge file added per the dispatch.",
+  "why": "Touches src/core/coordinator.py, an order-path module (Coordinator.multi_account_execute) -- Tier-2 by CLAUDE.md's permission-tier table for runtime/order-path changes, even though every change here is an additive, no-op structured-log call with no dispatch-decision or journal-write logic altered."
+}

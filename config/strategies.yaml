@@ -1314,6 +1314,46 @@ strategies:
                                  # The tight mult is 1.8 not 2.5 because this leg's base trail is 3.5
                                  # (swap-robust), not 5.0 — the cell is leg-scaled, not copied.
                                  # ROLLBACK: delete these four lines.
+    trail_decay_arm_r: 2.99      # PROPOSED Tier-3 — held for operator approval, NOT yet
+                                 # approved (this PR lands on a branch and is NOT merged;
+                                 # .github/pr-landing/eth-prop-exit-candidate.json declares
+                                 # landing: hold). Cell `decay_p80arm2.99R_t1.8`,
+                                 # RQ-20260922-003 run 36254494896 (workflow
+                                 # m20-exit-lever-sweep, corpus landed on branch
+                                 # claude/m20-sweep-corpus, sweep_generated_at
+                                 # 2026-09-26T16:15:26Z): 2 of 17 cells cleared
+                                 # RULE-M20-EXIT-LEVER-IS-OOS-GATE against the shipped
+                                 # geometry (base_net_r_OOS -5.41R / 49 OOS trades) —
+                                 # decay_p80arm2.99R_t1.8 (Path A: IS +9.86R / OOS +0.68R,
+                                 # d_max_dd IS -9.57 / OOS 0.00, walk-forward 5/6) and
+                                 # trail4.5 (Path A: IS +13.21R / OOS +1.27R, walk-forward
+                                 # 4/6). trail4.5 was NOT selected: the coverage matrix
+                                 # (docs/research/exit-refinement-coverage.json, row
+                                 # trend_donchian_eth_prop / trail_geometry) already carries
+                                 # this exact cell `honest_negative`, REPRODUCED ACROSS TWO
+                                 # INDEPENDENT RUNS (2026-08-10 / 2026-08-13) at
+                                 # walk-forward 3/6 — "not a single-run artifact". Today's
+                                 # 4/6 flips exactly one fold (2025: +1.1116 FAIL ->
+                                 # +1.1433 OK, a ~0.03R move) against that established,
+                                 # twice-reproduced refutation, is itself unreproduced, and
+                                 # reads as noise at the threshold, not signal — so the
+                                 # honest_negative stands and trail4.5 is excluded.
+                                 # decay_p80arm2.99R_t1.8 instead ADDS an R-armed trigger to
+                                 # the ALREADY-SHIPPED trail_decay lever above
+                                 # (stall10/tight1.8, live since 2026-08-13) rather than
+                                 # introducing a new lever type. LIVE PARITY (verified this
+                                 # session): src/units/strategies/trend_donchian.py
+                                 # order_package() threads `trail_decay_arm_r` from this cfg
+                                 # block into package.meta exactly like the other declared
+                                 # M20 levers (the loop already includes this key), and
+                                 # src/runtime/trail_decay.py::resolve_trail_mult declares
+                                 # `armed = (arm_r>0 and peak_r>=arm_r) or (stall>0 and
+                                 # bars_since_peak>=stall)` — an OR of the new arm and the
+                                 # existing stall trigger, byte-identical to how the harness
+                                 # builds this cell (m20_fleet_exit_sweep.py: `args =
+                                 # p["base"] + extra`, i.e. the shipped stall10/tight1.8
+                                 # base PLUS `--trail-decay-arm-r 2.99`). No other leg and no
+                                 # roster change. ROLLBACK: delete this line.
     # shadow_model_ids OMITTED (symbol-aware auto-wire). Observe-only.
 
   # ──────────────────────────────────────────────────────────────────────────
