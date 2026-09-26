@@ -1,7 +1,15 @@
 # E18 starved-leg triage — post-E35 rerun
 
-> **Doc status:** artifact · dispatched by manager `session_01Ljhs6sFAdWHdMDhJpL5aBP` (Tier-1, ceiling $20)
-> · lane `session_01URR1sVVXrF8jjKKNStSR8n` · 2026-09-26
+> **Doc status:** `unknown` · category `unknown` · last verified `never`
+> (registered in [`docs/DOCUMENT-INDEX.md`](../../../DOCUMENT-INDEX.md); no
+> directory/name rule in `scripts/ops/document_index.py` classifies
+> `docs/claude/work/findings/**` yet, so this stamp deliberately matches what
+> `document_index.categorize()`/`status_for()` compute today rather than
+> asserting a category this register cannot re-derive — see
+> `check_document_index.py`'s R6.)
+>
+> Dispatched by manager `session_01Ljhs6sFAdWHdMDhJpL5aBP` (Tier-1, ceiling
+> $20) · lane `session_01URR1sVVXrF8jjKKNStSR8n` · 2026-09-26
 
 Re-run of `scripts/ops/leg_flow_report.py` (checklist row
 [`E18`](../MANAGER-CHECKLIST.json), built in PR #12922) over the window since
