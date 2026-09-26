@@ -358,13 +358,35 @@ mandates:
       cost-tolerance clause (bar.cost_tolerance_bps: 0.0, "realized may not
       exceed modelled") is being evaluated against a modelled number nobody
       has re-checked is still current, on at least one venue in play.
+    # ⚠️ CLAUSE 3 NAMES A PER-LEG VERDICT, NOT A VENUE POINT ESTIMATE
+    # (2026-09-25, checklist row R3). It previously read "whose venue's realized
+    # round-trip cost is within bar.cost_tolerance_bps of what the record
+    # modelled" -- one number for a whole venue, which a leg with three measured
+    # exits inherited wholesale. That phrasing could not express the two states
+    # the decision turns on: "the measurement cannot yet decide for THIS leg"
+    # and "we have not measured enough of THIS leg". Of the 55 legs in the first
+    # committed R3 record, 51 are in the second of those. The wording changes;
+    # the bar does not -- cost_tolerance_bps is untouched, and the arming block
+    # (`blocked_until`) is untouched.
     fires_when: >-
       A leg already on the Stage-1 soak roster for its exchange has a committed
       Stage-0 evidence record that passes B1's four clauses and its identity
-      check, clears the bar below, and whose venue's realized round-trip cost is
-      within bar.cost_tolerance_bps of what the record modelled. The edit ADDS
-      the leg to the Stage-2 account AND to its mirror -- Stage 2 is one stage,
-      and the mirror carries the identical roster.
+      check, clears the bar below, and whose PER-LEG cost-fidelity verdict reads
+      `consistent` under RULE-R3-GATE1-COST-FIDELITY-v1
+      (docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md), taken from the
+      newest committed dated record under comms/research/r3_cost_fidelity/ and
+      graded at bar.cost_tolerance_bps against the slippage that leg's own
+      record modelled. `consistent` means the cell's 95% CI upper bound is at or
+      below modelled + tolerance; where a leg has both a market and a simulator
+      cell the MARKET cell decides. `divergent`, `inconclusive`,
+      `insufficient_n` and `no_record` are each NOT a pass: only `consistent` is
+      the Gate-1 pass, and a promotion may not fire on a verdict that says the
+      measurement cannot yet decide. On alpaca_equities and ibkr_futures, where
+      no decisive verdict exists yet, the operator-accepted 5.0 bps provisional
+      basis in `never:` below still applies and is checked first -- a
+      measurement never buys a way around it, and a `divergent` verdict refuses
+      there too. The edit ADDS the leg to the Stage-2 account AND to its mirror
+      -- Stage 2 is one stage, and the mirror carries the identical roster.
     never: >-
       Never a leg that has not soaked at Stage 1. Never while `blocked_until`
       stands. Never onto an account whose account_class is not `real_money`.
@@ -438,20 +460,30 @@ mandates:
       "Grant all 10 as written"; recorded on checklist row B5. The underlying
       grant is the operator's 2026-09-21 ladder mandate, quoted in
       docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    # ⚠️ RE-POINTED FROM D3's VENUE ESTIMATE TO R3's PER-LEG VERDICT
+    # (2026-09-25, checklist row R3), for the same reason as MD-PROMOTE-S1-S2's
+    # clause 3. It matters more in this direction: under the old wording an
+    # adverse VENUE number demoted every leg on that venue, including legs with
+    # too few fills to have contributed to it. `never:` below is unchanged and
+    # now has teeth -- "could not measure" is exactly `insufficient_n` and
+    # `inconclusive`, and neither demotes.
     fires_when: >-
-      The newest committed D3 realized-cost record under
-      comms/research/d3_realized_slippage/ shows the leg's venue charging MORE
-      than the leg's record modelled, by more than bar.cost_tolerance_bps. The
-      edit REMOVES the leg from its Stage-1 soak roster. No block: live
-      measurement, and the worst case removes exposure.
+      The newest committed dated record under comms/research/r3_cost_fidelity/
+      grades the leg `divergent` under RULE-R3-GATE1-COST-FIDELITY-v1
+      (docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md) -- the cell's
+      95% CI LOWER bound exceeds what that leg's own record modelled by more
+      than bar.cost_tolerance_bps, so the venue charges the leg more than its
+      harness assumed, with 95% confidence. `divergent` is the only firing
+      verdict. The edit REMOVES the leg from its Stage-1 soak roster. No block:
+      live measurement, and the worst case removes exposure.
     never: >-
       Never when either side of the comparison is unreadable -- an unmeasurable
       venue shows no divergence, and "could not measure" must not read as
       "diverged". Never an addition under this id.
     evidence_required: >-
-      The D3 record that decided it, the leg's modelled cost stack, the
-      tolerance applied, plus the realtime ping and the section-1 evidence
-      review in the next daily brief.
+      The R3 cost-fidelity record that decided it and the per-leg verdict it
+      carries, the leg's modelled cost stack, the tolerance applied, plus the
+      realtime ping and the section-1 evidence review in the next daily brief.
     bar:
       # Same unstated-tolerance caveat as MD-PROMOTE-S1-S2, pointing the other
       # way: here 0.0 is the most trigger-happy setting, so any realized cost

@@ -18,7 +18,9 @@ WHAT IT READS -- AND NOTHING ELSE
   * ``config/strategies.yaml``          only to bind a record to the leg's
                                         current config (B1's identity check)
   * ``comms/strategy_evidence/<leg>.json``  the committed Stage-0 record
-  * ``comms/research/d3_realized_slippage/<date>.json``  Stage-1 realized cost
+  * ``comms/research/r3_cost_fidelity/<date>.json``  the Stage-1 cost-fidelity
+                                        verdict, PER LEG (RULE-R3-GATE1-COST-
+                                        FIDELITY-v1)
   * ``comms/mandate_evidence/mirror_window/<leg>.json``  Stage-2 mirror window
   * ``comms/mandate_firings/*.json``    what earlier firings added (the cap)
 
@@ -57,15 +59,68 @@ operator ("a leg the operator placed by hand does not consume the mandate's
 budget"). The basis is named in the mandate entry (``cap.basis``); an unknown
 basis REFUSES.
 
+THE COST CLAUSE READS A PER-LEG VERDICT, NOT A VENUE POINT ESTIMATE
+------------------------------------------------------------------
+Until 2026-09-25 both cost clauses compared the leg's modelled
+``cost_stack.slippage`` against D3's single ``venue_roundtrip_bps_used[venue]``
+number. That is a POINT ESTIMATE over a venue, and it collapsed three states the
+decision depends on: a venue figure exists and is favourable / it exists and is
+adverse / **there is not enough data for that leg to say either way**. A leg with
+three measured exits inherited the whole venue's verdict, in both directions.
+
+R3 (``RULE-R3-GATE1-COST-FIDELITY-v1``,
+``docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md``) grades a
+``(leg, account)`` CELL, with a 95% bootstrap CI and an n floor of 10 per side,
+and rolls the cells up to one per-leg verdict (the MARKET cell wins; the rule
+owns that choice and this module does not re-implement it). The five verdicts
+and what this resolver does with each:
+
+  ``consistent``     CI upper <= modelled + tolerance. **The Gate-1 pass.**
+  ``divergent``      CI lower  > modelled + tolerance. REFUSES a promotion, and
+                     it is the ONLY thing that FIRES ``MD-DEMOTE-S1-OFF``.
+  ``inconclusive``   the CI straddles the threshold -- the measurement cannot
+                     decide. **Not a pass.**
+  ``insufficient_n`` below the floor on a side -- we did not measure enough.
+                     **Not a pass**, and emphatically not a demotion signal:
+                     the mandate's own `never:` says "could not measure" must
+                     not read as "diverged".
+  ``no_record``      no Stage-0 record to compare against. Not a pass.
+
+⚠️ ``inconclusive`` AND ``insufficient_n`` ARE THE POINT OF THE CHANGE. They are
+the two states D3's point estimate could not express, and they are the two that
+must not move real money. Of the 55 legs in the first committed record
+(``comms/research/r3_cost_fidelity/2026-09-25.json``, pulled 2026-09-25T13:23Z),
+**51 read ``insufficient_n``** -- so under the old clause those 51 were being
+graded on a venue number none of them had contributed enough fills to.
+
+⚠️ **A STALE VERDICT IS NOT A VERDICT.** The R3 record pins the
+``modelled_slippage_bps`` it graded against. If the leg's committed record has
+since been regenerated at a different slippage, the verdict answered a question
+about a record that no longer exists, and this resolver REFUSES rather than
+reusing it. (That is not hypothetical: the rule says a ``divergent`` verdict
+INVALIDATES the Stage-0 record and requires regeneration, so the regeneration
+that follows a demotion is exactly what makes the old verdict stale.)
+
 EQUITIES AND FUTURES REST ON A PLACEHOLDER
 ------------------------------------------
 ``MD-PROMOTE-S1-S2`` is armed for ALL venues (operator, 2026-09-24). On
-``alpaca_equities`` and ``ibkr_futures`` there is no measured realized cost
-(D3: 0 package-referenced exits), so the cost-fidelity clause is taken on the
+``alpaca_equities`` and ``ibkr_futures`` there is still no measured realized cost
+(R3, 2026-09-25: **0 measured exits on any Alpaca account**; ``ib_paper`` 22
+entries / 7 exits, below the floor), so the cost-fidelity clause is taken on the
 PROVISIONAL 5.0 bps basis the operator accepted -- *"the 5.0 assumption is a
 working artifact until we get evidence backed numbers"*. Every evidence output
 for an equity or futures leg carries that caveat, and the record must have been
 costed at >= the placeholder. Checklist row E62 replaces it.
+
+⚠️ **THE PLACEHOLDER IS A FALLBACK, NOT AN EXEMPTION, and the two orders matter.**
+The placeholder floor is checked FIRST and is never weakened by a measurement --
+the mandate's `never:` ("Never on an equities or futures leg whose record
+modelled LESS than the 5.0 bps provisional slippage") is operator-granted text
+and a measurement does not buy a way around it. What a measurement DOES do is
+bite: if R3 grades such a leg ``divergent``, the promotion REFUSES, where before
+this change the provisional branch returned early and never looked. So on these
+venues the clause is now ``placeholder floor AND (no decisive verdict OR
+consistent)`` -- strictly stricter than it was, in every case.
 
 NOT LIVE
 --------
@@ -83,6 +138,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -98,12 +154,28 @@ MANDATES_REL = "config/mandates.yaml"
 ACCOUNTS_REL = "config/accounts.yaml"
 STRATEGIES_REL = "config/strategies.yaml"
 EVIDENCE_DIR_REL = "comms/strategy_evidence"
-D3_DIR_REL = "comms/research/d3_realized_slippage"
+R3_DIR_REL = "comms/research/r3_cost_fidelity"
 MIRROR_DIR_REL = "comms/mandate_evidence/mirror_window"
 FIRINGS_DIR_REL = "comms/mandate_firings"
 
 FIRE, REFUSE = "FIRE", "REFUSE"
 STAGES = ("S0", "S1", "S2", "OFF")
+
+#: RULE-R3-GATE1-COST-FIDELITY-v1's five verdicts. Mirrored from
+#: `scripts/research/r3_cost_fidelity.py`, which OWNS them; this module only
+#: consumes -- `tests/test_mandate_resolver.py` asserts the two agree, so a
+#: rename in the producer fails a test here rather than silently matching
+#: nothing. A verdict string OUTSIDE this set is an unreadable record, not a
+#: sixth state to guess at: `r3_leg_verdict` returns `verdict: None` with a
+#: `why` naming what it saw, and both clauses refuse, because "we do not know
+#: what this record is saying" is "we could not look".
+R3_CONSISTENT, R3_DIVERGENT = "consistent", "divergent"
+R3_INCONCLUSIVE, R3_INSUFFICIENT_N, R3_NO_RECORD = (
+    "inconclusive", "insufficient_n", "no_record")
+R3_VERDICTS = frozenset({R3_CONSISTENT, R3_DIVERGENT, R3_INCONCLUSIVE,
+                         R3_INSUFFICIENT_N, R3_NO_RECORD})
+R3_RULE_ID = "RULE-R3-GATE1-COST-FIDELITY-v1"
+R3_RULE_DOC = "docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md"
 
 #: The ladder, from CLAUDE.md § "The promotion ladder". S0 is the offline
 #: harness and has no roster. ⚠️ `ib_paper` / `ib_live` are NOT named in that
@@ -124,7 +196,7 @@ SOAK_ACCOUNT = {"bybit": "bybit_1", "alpaca": "alpaca_paper", "interactive_broke
 #: The account_class each stage must carry. A mismatch is config drift the
 #: resolver will not paper over.
 STAGE_CLASS = {"S1": "paper", "S2": "real_money"}
-#: Exchange -> the venue key D3 publishes.
+#: Exchange -> the venue key D3 and R3 publish (both use realized_slippage.VENUE_OF).
 VENUE_OF_EXCHANGE = {"bybit": "bybit_perps", "alpaca": "alpaca_equities",
                      "interactive_brokers": "ibkr_futures"}
 #: Venues whose Stage-1 cost is the operator-accepted PLACEHOLDER, not a
@@ -194,18 +266,89 @@ def granted(mandates_doc: Optional[Dict[str, Any]], mandate_id: str) -> Optional
     return None
 
 
-def latest_d3(root: Path) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-    """The NEWEST dated D3 record, by filename (YYYY-MM-DD.json). The path chosen
-    is returned and surfaced as `evidence.cost_fidelity.record`, and the CLI
-    prints it, so which measurement decided the clause is never implicit."""
-    d = root / D3_DIR_REL
-    # provenance: latest_d3 — newest dated D3 record; path returned + printed as evidence.cost_fidelity.record
-    files = sorted(p for p in d.glob("*.json")) if d.is_dir() else []
+#: A dated record's filename, and NOTHING ELSE in the same directory. The R3
+#: and D3 producers write three artifacts per run -- ``<date>.json`` (the
+#: record), ``<date>__fills_pull_log.json`` and ``<date>__rows.jsonl`` -- so a
+#: bare ``*.json`` glob sorts the PULL LOG last and picks it.
+#:
+#: ⚠️ THAT IS NOT HYPOTHETICAL: it is what `latest_d3` did, and it is why this
+#: pattern is a named constant with a test rather than an inline glob.
+#: MEASURED 2026-09-25 by running the merged `latest_d3` against the committed
+#: tree: it returned `comms/research/d3_realized_slippage/2026-09-24__fills_pull_log.json`,
+#: which is a JSON *list*, so `_json` returned None, so `realized` was always
+#: None and BOTH cost clauses refused with "cannot compare" / "could not
+#: measure" whatever the measurement actually said. It failed CLOSED -- no
+#: promotion was ever wrongly fired on it -- but the clause was inert, and a
+#: clause that always refuses for a reason unrelated to its evidence is not a
+#: clause. Fixed here by construction rather than left for the same glob to
+#: reproduce against the R3 directory, which has the identical three-file shape.
+DATED_RECORD = re.compile(r"^\d{4}-\d{2}-\d{2}\.json$")
+
+
+def latest_r3(root: Path) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """The NEWEST dated R3 cost-fidelity record, by filename (YYYY-MM-DD.json).
+
+    The path chosen is returned and surfaced as `evidence.cost_fidelity.record`,
+    and the CLI prints it, so which measurement decided the clause is never
+    implicit. Only `DATED_RECORD` names are considered -- see its note."""
+    d = root / R3_DIR_REL
+    # provenance: latest_r3 — newest dated R3 record; path returned + printed as evidence.cost_fidelity.record
+    files = sorted(q for q in d.glob("*.json")
+                   if DATED_RECORD.match(q.name)) if d.is_dir() else []
     if not files:
         return None, None
-    # provenance: latest_d3 — newest dated D3 record; path returned + printed as evidence.cost_fidelity.record
+    # provenance: latest_r3 — newest dated R3 record; path returned + printed as evidence.cost_fidelity.record
     rel = str(files[-1].relative_to(root))
     return rel, _json(files[-1])
+
+
+def r3_leg_verdict(leg: str, root: Path) -> Dict[str, Any]:
+    """The leg's R3 verdict, as a block both cost clauses put straight into
+    `evidence.cost_fidelity` whether they pass or refuse.
+
+    Always returns a dict. `verdict` is one of `R3_VERDICTS` when a usable
+    verdict was read, and otherwise `None` with `why` saying which of the
+    several distinct ways of NOT having one applies:
+
+      * no committed record under `comms/research/r3_cost_fidelity/`
+      * a record that is present but unreadable, or not committed
+      * a record that does not carry this leg at all
+      * a verdict string outside the rule's vocabulary
+
+    ⚠️ These are deliberately NOT collapsed into `insufficient_n`. "The record
+    does not mention this leg" and "the record measured this leg and found too
+    few fills" are different facts, and only the second one is a measurement.
+    Both refuse, but a reader is told which.
+    """
+    rel, doc = latest_r3(root)
+    out: Dict[str, Any] = {"rule": R3_RULE_ID, "record": rel, "leg": leg,
+                           "verdict": None, "from_account": None, "basis": None,
+                           "graded_against_modelled_bps": None, "as_of": None}
+    if rel is None:
+        out["why"] = f"no committed cost-fidelity record under {R3_DIR_REL}"
+        return out
+    if not in_repo(root, rel):
+        out["why"] = f"{rel} is not a committed file in the repo"
+        return out
+    if doc is None:
+        out["why"] = f"{rel} is unreadable"
+        return out
+    out["as_of"] = doc.get("as_of")
+    per_leg = doc.get("per_leg")
+    entry = (per_leg or {}).get(leg) if isinstance(per_leg, dict) else None
+    if not isinstance(entry, dict):
+        out["why"] = (f"{rel} carries no entry for {leg!r} "
+                      f"({len(per_leg) if isinstance(per_leg, dict) else 0} legs graded)")
+        return out
+    out["graded_against_modelled_bps"] = entry.get("modelled_slippage_bps")
+    block = entry.get("leg")
+    verdict = (block or {}).get("verdict") if isinstance(block, dict) else None
+    if verdict not in R3_VERDICTS:
+        out["why"] = f"{rel} grades {leg!r} {verdict!r}, which is not one of {sorted(R3_VERDICTS)}"
+        return out
+    out.update({"verdict": verdict, "from_account": (block or {}).get("from_account"),
+                "basis": (block or {}).get("basis")})
+    return out
 
 
 def auto_promoted(root: Path, account: str, roster: List[str]) -> List[str]:
@@ -412,7 +555,7 @@ def _add_risk(leg: str, frm: str, to: str, account: str, exchange: str,
 
     # ── Stage-1 cost fidelity (S1 -> S2 only) ───────────────────────────────
     if (frm, to) == ("S1", "S2"):
-        _cost_fidelity(venue, record, m, root, ctx)
+        _cost_fidelity(leg, venue, record, m, root, ctx)
 
     # ── the cap ─────────────────────────────────────────────────────────────
     if cap.get("basis") != CAP_BASIS:
@@ -440,32 +583,91 @@ def _add_risk(leg: str, frm: str, to: str, account: str, exchange: str,
                                f"{account}'s budget {budget:.4f} ({auto_after}/{roster_after} legs)")
 
 
-def _cost_fidelity(venue: Optional[str], record: Dict[str, Any], m: Dict[str, Any],
-                   root: Path, ctx: Dict[str, Any]) -> None:
+def _stale_against_record(r3: Dict[str, Any], modelled: Any) -> Optional[str]:
+    """Did R3 grade this leg against the slippage its record carries TODAY?
+
+    Returns a sentence when the two disagree, `None` when they agree. A verdict
+    computed against a different assumption answers a different question, so
+    both clauses treat a disagreement as "could not look" rather than reusing
+    the number. Cross-checked with arithmetic, not a re-read.
+    """
+    graded = r3.get("graded_against_modelled_bps")
+    if not isinstance(modelled, (int, float)) or isinstance(modelled, bool):
+        return f"the record's cost_stack.slippage is {modelled!r}, not a number"
+    if not isinstance(graded, (int, float)) or isinstance(graded, bool):
+        return (f"{r3.get('record')} does not say what modelled slippage it graded "
+                f"against (got {graded!r})")
+    if abs(float(graded) - float(modelled)) > 1e-9:
+        return (f"{r3.get('record')} graded {r3.get('leg')!r} against modelled "
+                f"{graded} bps, but the committed record now carries {modelled} bps -- "
+                "the verdict answers a question about a record that has since changed")
+    return None
+
+
+def _cost_fidelity(leg: str, venue: Optional[str], record: Dict[str, Any],
+                   m: Dict[str, Any], root: Path, ctx: Dict[str, Any]) -> None:
+    """Clause 3 of the bar: is the realized cost the one the record assumed?
+
+    Reads the R3 PER-LEG verdict (see the module docstring). `consistent` is the
+    only pass. `divergent` refuses, and so do the two states a venue point
+    estimate could not express -- `inconclusive` and `insufficient_n` -- because
+    "we cannot yet tell" is not evidence, and this mandate routes real money.
+    """
     tol = (m.get("bar") or {}).get("cost_tolerance_bps")
     if not isinstance(tol, (int, float)) or isinstance(tol, bool) or tol < 0:
         raise _Refuse("R-COST-FIDELITY", f"bar.cost_tolerance_bps={tol!r} is not stated")
     modelled = (record.get("cost_stack") or {}).get("slippage")
     if venue is None:
         raise _Refuse("R-COST-FIDELITY", "the account's exchange maps to no known venue")
-    if venue in PROVISIONAL_VENUES:
-        if not isinstance(modelled, (int, float)) or modelled < PROVISIONAL_SLIPPAGE_BPS:
-            raise _Refuse("R-COST-FIDELITY", f"venue {venue} rests on the {PROVISIONAL_SLIPPAGE_BPS} "
-                                             f"bps placeholder; the record modelled {modelled!r}")
+
+    provisional = venue in PROVISIONAL_VENUES
+    # The placeholder floor is the mandate's own `never:` and is checked FIRST.
+    # A measurement never buys a way around it -- see the docstring.
+    if provisional and (not isinstance(modelled, (int, float)) or isinstance(modelled, bool)
+                        or modelled < PROVISIONAL_SLIPPAGE_BPS):
         ctx["evidence"]["cost_fidelity"] = {"venue": venue, "basis": "PROVISIONAL",
-                                            "modelled_bps": modelled, "realized_bps": None}
+                                            "modelled_bps": modelled, "tolerance_bps": tol}
+        raise _Refuse("R-COST-FIDELITY", f"venue {venue} rests on the {PROVISIONAL_SLIPPAGE_BPS} "
+                                         f"bps placeholder; the record modelled {modelled!r}")
+
+    r3 = r3_leg_verdict(leg, root)
+    cf = dict(r3, venue=venue, modelled_bps=modelled, tolerance_bps=tol,
+              basis_of_comparison="PROVISIONAL" if provisional else "MEASURED",
+              rule_doc=R3_RULE_DOC)
+    ctx["evidence"]["cost_fidelity"] = cf
+
+    verdict = r3.get("verdict")
+    note = verdict or r3.get("why")
+    if verdict is not None:
+        stale = _stale_against_record(r3, modelled)
+        if stale:
+            # A STALE VERDICT IS NOT A VERDICT -- it is folded back into the
+            # same "no decisive measurement" state as a record that never
+            # graded this leg, so the two leave by the same exit and neither
+            # can slip through silently.
+            cf["stale"] = stale
+            verdict, note = None, stale
+        elif verdict == R3_CONSISTENT:
+            return  # the Gate-1 pass, on any venue
+        elif verdict == R3_DIVERGENT:
+            raise _Refuse("R-COST-FIDELITY",
+                          f"{R3_RULE_ID} grades {leg} `divergent` on "
+                          f"{r3.get('from_account')} ({r3.get('basis')}): realized cost exceeds "
+                          f"the modelled {modelled} bps + tolerance {tol} with 95% confidence "
+                          f"({r3.get('record')})")
+    if provisional:
+        # No decisive measurement on this venue: the operator-accepted 5.0 bps
+        # placeholder is the stated basis, and its floor held above. The caveat
+        # is NOT optional -- a reader told "provisional" must also be told that
+        # no verdict backs it, or the two collapse into one reassuring word.
+        ctx["caveats"].append(
+            f"NO DECISIVE COST-FIDELITY VERDICT: {R3_RULE_ID} reads "
+            f"{note} for {leg}, so this promotion rests on the "
+            f"{PROVISIONAL_SLIPPAGE_BPS} bps placeholder, not on a measurement.")
         return
-    d3_rel, d3 = latest_d3(root)
-    realized = ((d3 or {}).get("venue_roundtrip_bps_used") or {}).get(venue)
-    ctx["evidence"]["cost_fidelity"] = {"venue": venue, "record": d3_rel,
-                                        "modelled_bps": modelled, "realized_bps": realized,
-                                        "tolerance_bps": tol}
-    if not isinstance(realized, (int, float)) or not isinstance(modelled, (int, float)):
-        raise _Refuse("R-COST-FIDELITY", f"realized={realized!r} (from {d3_rel}), "
-                                         f"modelled={modelled!r} -- cannot compare")
-    if realized > modelled + tol:
-        raise _Refuse("R-COST-FIDELITY", f"realized {realized} bps > modelled {modelled} + "
-                                         f"tolerance {tol} on {venue}")
+    raise _Refuse("R-COST-FIDELITY",
+                  f"{R3_RULE_ID} does not pass {leg}: {note} -- only `consistent` "
+                  f"is the Gate-1 pass ({r3.get('record') or 'no record'})")
 
 
 def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
@@ -489,7 +691,15 @@ def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
 
 def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path,
                    ctx: Dict[str, Any]) -> None:
-    """MD-DEMOTE-S1-OFF: the venue's realized cost diverges from what the leg modelled."""
+    """MD-DEMOTE-S1-OFF: the LEG's realized cost diverges from what it modelled.
+
+    `divergent` is the only firing verdict, and every other outcome REFUSES.
+    That asymmetry is the mandate's own `never:` clause -- *"an unmeasurable
+    venue shows no divergence, and 'could not measure' must not read as
+    'diverged'"* -- which under a per-leg rule is exactly `insufficient_n` and
+    `inconclusive`. Reading either as a demotion would take a leg off its soak
+    book on the strength of a measurement that said it could not decide.
+    """
     rec_rel = f"{EVIDENCE_DIR_REL}/{leg}.json"
     record = b1.load_record(leg, root / EVIDENCE_DIR_REL)
     if record is None:
@@ -498,19 +708,23 @@ def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path
     tol = (m.get("bar") or {}).get("cost_tolerance_bps")
     if not isinstance(tol, (int, float)) or isinstance(tol, bool):
         raise _Refuse("R-MANDATE-NOT-GRANTED", f"{m['id']} does not state bar.cost_tolerance_bps")
-    d3_rel, d3 = latest_d3(root)
-    if d3_rel is None or not in_repo(root, d3_rel):
-        raise _Refuse("R-RECORD-MISSING", f"no committed D3 realized-cost record under {D3_DIR_REL}")
-    realized = ((d3 or {}).get("venue_roundtrip_bps_used") or {}).get(venue)
     modelled = (record.get("cost_stack") or {}).get("slippage")
-    ctx["evidence"]["cost_fidelity"] = {"venue": venue, "record": d3_rel, "realized_bps": realized,
-                                        "modelled_bps": modelled, "tolerance_bps": tol}
-    if not isinstance(realized, (int, float)) or not isinstance(modelled, (int, float)):
-        raise _Refuse("R-COST-FIDELITY", f"realized={realized!r}, modelled={modelled!r} on "
-                                         f"{venue} -- could not measure, so no divergence is shown")
-    if realized <= modelled + tol:
-        raise _Refuse("R-COST-FIDELITY", f"realized {realized} bps is within modelled {modelled} + "
-                                         f"{tol} -- no divergence")
+    r3 = r3_leg_verdict(leg, root)
+    cf = dict(r3, venue=venue, modelled_bps=modelled, tolerance_bps=tol,
+              rule_doc=R3_RULE_DOC)
+    ctx["evidence"]["cost_fidelity"] = cf
+    verdict = r3.get("verdict")
+    if verdict is None:
+        raise _Refuse("R-RECORD-MISSING", f"{r3.get('why')} -- no per-leg cost-fidelity verdict "
+                                          "to demote on, and 'could not measure' is not 'diverged'")
+    stale = _stale_against_record(r3, modelled)
+    if stale:
+        cf["stale"] = stale
+        raise _Refuse("R-COST-FIDELITY", stale)
+    if verdict != R3_DIVERGENT:
+        raise _Refuse("R-COST-FIDELITY",
+                      f"{R3_RULE_ID} grades {leg} `{verdict}`, not `divergent` "
+                      f"({r3.get('record')}) -- the evidence does not support a demotion")
 
 
 # --------------------------------------------------------------------------
@@ -534,8 +748,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             if res["evidence"].get(key):
                 print(f"  {key}: {res['evidence'][key]}")
         cf = res["evidence"].get("cost_fidelity") or {}
-        if cf.get("record"):
-            print(f"  realized-cost record: {cf['record']}")
+        if cf.get("record") or cf.get("why"):
+            print(f"  cost fidelity: {cf.get('verdict') or cf.get('why')}"
+                  + (f" (from {cf['from_account']}, {cf['basis']})" if cf.get("from_account") else "")
+                  + (f" -- {cf['record']}" if cf.get("record") else ""))
         for c in res["caveats"]:
             print(f"  ⚠️ {c}")
     return 0 if res["verdict"] == FIRE else 1
