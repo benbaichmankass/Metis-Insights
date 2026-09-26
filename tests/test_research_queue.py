@@ -948,7 +948,12 @@ def test_the_runnable_set_and_the_disposition_refusal_cover_the_same_states():
 _W4_UNBLOCKED_UNITS = (
     ("RQ-20260922-003", ".github/workflows/m20-exit-lever-sweep.yml"),
     ("RQ-20260922-004", ".github/workflows/m20-exit-lever-sweep.yml"),
-    ("RQ-20260922-007", ".github/workflows/research-exit-head-build.yml"),
+    # RQ-20260922-007 rescoped 2026-09-26: research-exit-head-build.yml never
+    # simulated trend_donchian's actual exit head (see research/queue/
+    # RQ-20260922-007.yaml `mismeasured_run`); research-exit-head-replay-trainer.yml
+    # (scripts/ml/exit_head_replay.py) is the tool that does, and now carries
+    # the same research_unit/power_state input pair.
+    ("RQ-20260922-007", ".github/workflows/research-exit-head-replay-trainer.yml"),
 )
 
 
