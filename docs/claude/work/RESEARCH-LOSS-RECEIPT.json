@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-09-26T08:27:49Z",
+  "generated_at": "2026-09-26T16:32:07Z",
   "overall": "findings",
   "produced_by": {
-    "run_id": "36229785661",
+    "run_id": "36255776571",
     "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
       "findings": [],
-      "population": "61 open PRs; 46 automation/*; 0 carry research; 46 automation/* carry none (not graded here)",
+      "population": "66 open PRs; 51 automation/*; 3 carry research; 48 automation/* carry none (not graded here)",
       "state": "clean",
       "threshold_hours": 6.0
     },
@@ -318,12 +318,12 @@
         }
       ],
       "pending_merge": [],
-      "population": "15 completed run(s) of 2 workflow(s) calling ./.github/actions/research-result since 2026-09-12 (m20-exit-lever-sweep.yml, research-exit-head-build.yml); 49 produced no result by design (skipped); 0 result file(s) on origin/main",
+      "population": "18 completed run(s) of 2 workflow(s) calling ./.github/actions/research-result since 2026-09-12 (m20-exit-lever-sweep.yml, research-exit-head-build.yml); 49 produced no result by design (skipped); 3 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "456 artifact(s) listed, 456 unexpired, 389 expire within 72.0h across 389 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "489 artifact(s) listed, 489 unexpired, 419 expire within 72.0h across 419 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },
