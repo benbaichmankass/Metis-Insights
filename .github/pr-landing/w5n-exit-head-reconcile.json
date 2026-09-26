@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "W5N exit-head reconcile: a read-only investigation lane. Adds one evidence packet (comms/reviews/w5n-exit-head-reconcile-20260926.json) and three pipeline records via scripts/ops/pipeline.py: one update closing PI-20260926-6M9R1WSA-0001, and two new findings. No src/, config/, ml/ or VM change. Model stage untouched; the packet recommends against promotion for the operator's morning decision."
+}

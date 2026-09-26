@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "check_mandate_autoland.py's temp-repo git calls pass -c gc.auto=0 -c maintenance.auto=false (L162, L781), or _case uses TemporaryDirectory(ignore_cleanup_errors=True), and no teardown OSError recurs in CI.",
+    "kind": "observation"
+  },
+  "id": "PI-20260926-96NDZSOD-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #13025 pytest-run job 108490254942 (run 36272955223), lane claude/w5n-exit-head-reconcile, session_01Gp2aXrJiSKxTf996ndZsod",
+    "rerun": "Loop `python3 -m pytest -q tests/test_mandate_autoland.py` 20x on a CI runner (or grep recent pytest-run failures for \"Directory not empty: '.git'\") and count teardown OSErrors."
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "tests/test_mandate_autoland.py::test_planted_defect_suite_passes failed on PR #13025 (head cf8ec851, a docs-only diff) with no assertion failure. scripts/ci/check_mandate_autoland.py::_case (L876) raised OSError [Errno 39] Directory not empty: '.git' while TemporaryDirectory's rmtree ran after NEGATIVE 3. It passes 3/3 locally. INFERRED cause: a detached auto-gc/maintenance process spawned by `git commit` in the throwaway repo is still writing into .git during cleanup. It makes any PR's pytest-run intermittently red."
+}
