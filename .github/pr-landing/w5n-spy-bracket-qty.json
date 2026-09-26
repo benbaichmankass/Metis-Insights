@@ -1,5 +1,6 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "docs-only: one PIPELINE.jsonl append recording a diag-only root-cause finding (PI-20260926-HJPL5ABP-0001). No source file changed; order_monitor.py and alpaca_client.py are read-only in this diff. The proposed remedy (cancel/replace a stale resting bracket leg) is explicitly NOT executed here -- it is routed to ask_operator inside the pipeline record itself, pending a separate Tier-2 system-action."
+  "why": "docs-only: one PIPELINE.jsonl append recording a diag-only root-cause finding (PI-20260926-HJPL5ABP-0001). No source file changed; order_monitor.py and alpaca_client.py are read-only in this diff. The proposed remedy (cancel/replace a stale resting bracket leg) is explicitly NOT executed here -- it is routed to ask_operator inside the pipeline record itself, pending a separate Tier-2 system-action.",
+  "ci_resync_note": "PR #13028 was opened by the claude-pr-automerge relay with zero required checks attached (total_count=0 after ~7 minutes) -- the BL-20260908-class gap where a PR opened under the relay's own token does not always attach CI on its first head. This commit is a real, session-authored push (not empty) to force a pull_request:synchronize from an actor GitHub will run required checks for."
 }
