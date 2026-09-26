@@ -54,6 +54,29 @@ on:
       days:
         description: "Trailing days of candles"
         default: "365"
+
+      # ⚠️ THESE TWO EXIST SO THE QUEUE CAN FIRE THIS WORKFLOW AT ALL. Mirrors
+      # research-exit-head-build.yml's own block, verbatim reasoning:
+      # `scripts/research/dispatch_queue.py` REFUSES to fire a unit graded
+      # `accruing` unless the unit declares `run.inputs.research_unit`, and
+      # `gh workflow run -f <input-the-workflow-never-declared>` ERRORS — so a
+      # workflow without these inputs is undispatchable for exactly the units
+      # that most need the safety label. Added 2026-09-26 (RQ-007 rescope) when
+      # this workflow was routed to from the queue for the first time.
+      research_unit:
+        description: >-
+          Queue unit id that dispatched this run (RQ-...). Stamped onto the
+          result record so a later reader can tell WHICH unit produced it.
+          Empty means NOT QUEUE-DISPATCHED — never "this was only a test".
+        required: false
+        default: ""
+      power_state:
+        description: >-
+          That unit's R4 power verdict, supplied by the dispatcher, not by
+          hand. `accruing` means the unit declared up front that it cannot
+          answer yet, so its numbers must never be read as a test result.
+        required: false
+        default: ""
   issues:
     types: [opened]
 
@@ -74,6 +97,19 @@ jobs:
        contains(github.event.issue.labels.*.name, 'exit-head-replay-request'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Read by the `land` job (a separate runner) to know whether the JSON
+    # artifact this job fetched, if any, is a real measurement or an honest
+    # "could not measure" / crash. Mirrors research-exit-head-build.yml's own
+    # `needs.build.result` gate, adapted: this job has no distinct
+    # success/failure conclusion for rc=2 (it still exits 0 — that IS the
+    # honest outcome), so the rc itself, not the job conclusion, is what land
+    # branches on.
+    outputs:
+      rc: ${{ steps.run.outputs.rc }}
+      strategy: ${{ steps.p.outputs.strategy }}
+      symbol: ${{ steps.p.outputs.symbol }}
+      timeframe: ${{ steps.p.outputs.timeframe }}
+      days: ${{ steps.p.outputs.days }}
     steps:
       - name: Resolve params
         id: p
@@ -228,6 +264,39 @@ jobs:
             echo "::warning::replay reported COULD NOT MEASURE (no servable exit head). Not a pass."
           fi
 
+      # ⚠️ WITHOUT THIS STEP THE REPLAY'S JSON NEVER LEAVES THE TRAINER — the
+      # remote script only PRINTS it into /tmp/out.txt (with `trades_detail`
+      # stripped for readability), and a log is not a file a later job can
+      # parse. `scp` over the SAME key/host already used for the SSH run,
+      # `continue-on-error: true` because rc=2/a crash legitimately writes no
+      # file (COULD NOT MEASURE happens before `--json` is ever written) — the
+      # `land` job below reads `needs.replay.outputs.rc` to tell that apart
+      # from a real fetch failure.
+      - name: Fetch the replay JSON back from the trainer
+        if: always()
+        continue-on-error: true
+        env:
+          TRAINER_IP: ${{ vars.TRAINER_VM_IP || '158.178.209.121' }}
+          TRAINER_USER: ${{ vars.TRAINER_VM_USER || 'ubuntu' }}
+          STRATEGY: ${{ steps.p.outputs.strategy }}
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/replay-result
+          scp -i ~/.ssh/trainer_key \
+              -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+              "${TRAINER_USER}@${TRAINER_IP}:/tmp/exit_head_replay_${STRATEGY}.json" \
+              /tmp/replay-result/replay.json
+          echo "fetched: $(wc -c < /tmp/replay-result/replay.json 2>/dev/null || echo 0) bytes"
+
+      - name: Upload the replay JSON for the landing job
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exit-head-replay-${{ github.run_id }}
+          path: /tmp/replay-result/replay.json
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Comment result on issue
         if: always() && github.event_name == 'issues'
         uses: actions/github-script@v7
@@ -250,3 +319,90 @@ jobs:
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.issue.number, state: 'closed',
             });
+
+  # ---------------------------------------------------------------- landing
+  # Added 2026-09-26 (RQ-007 rescope). Before this job the replay produced a
+  # rendered comment (issue trigger) or nothing at all queryable
+  # (workflow_dispatch trigger) — the exact gap E5/R1 closed for the sibling
+  # `research-exit-head-build.yml`, unfixed here until a queue unit actually
+  # needed this workflow to land a result. A SEPARATE job for the same reason
+  # that workflow gives: `commit-to-main` needs write credentials, and the
+  # `replay` job SSHes to the trainer and runs a chunk of research code for up
+  # to 45 minutes — keeping it read-only keeps that job's blast radius small.
+  land:
+    needs: [replay]
+    # `replay` legitimately "succeeds" (exits 0) on rc=2 (COULD NOT MEASURE) —
+    # that IS this job's `unestablishable` branch, not a skip. Only an actual
+    # `skipped` conclusion (the `if:` gate above didn't match, e.g. an
+    # unlabeled issue) means nobody asked.
+    if: always() && needs.replay.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # REQUIRED by `.github/actions/commit-to-main` — see
+          # research-exit-head-build.yml's identical checkout for why.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # `continue-on-error` mirrors the sibling workflow: rc=2/a crash
+      # legitimately leaves no artifact (fetched conditionally, `if: always()`,
+      # in the `replay` job), and that absence IS the `unestablishable` /
+      # `producer_failed` case this job must still land, not swallow.
+      - uses: actions/download-artifact@v4
+        id: fetch
+        continue-on-error: true
+        with:
+          name: exit-head-replay-${{ github.run_id }}
+          path: collected
+      - name: Derive the result record from this run's own output
+        id: derive
+        env:
+          IN_STRATEGY: ${{ needs.replay.outputs.strategy }}
+          IN_SYMBOL: ${{ needs.replay.outputs.symbol }}
+          IN_TF: ${{ needs.replay.outputs.timeframe }}
+          IN_DAYS: ${{ needs.replay.outputs.days }}
+          RC: ${{ needs.replay.outputs.rc }}
+        run: |
+          set -euo pipefail
+          POP="${IN_STRATEGY} exit-head replay / ${IN_SYMBOL} ${IN_TF}, trailing ${IN_DAYS}d of candles; live-faithful backtest_trend.py harness replaying the PUBLISHED exit head, net of the full venue cost stack (fee+slippage+funding via src.runtime.execution_costs)"
+          # NO `|| true`. A load-bearing step may not swallow its own failure
+          # (mirrors research-exit-head-build.yml's identical rule here).
+          python3 scripts/research/exit_head_attribution_result.py \
+            --replay-json collected/replay.json \
+            --replay-rc "${RC:-1}" \
+            --strategy "${IN_STRATEGY:-trend_donchian}" \
+            --out-dir rr \
+            --population "${POP}"
+
+      - name: Land the result on main
+        uses: ./.github/actions/research-result
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          research-unit: ${{ inputs.research_unit }}
+          power-state: ${{ inputs.power_state }}
+          decision-rule-id: RULE-RQ0922-007-EXIT-HEAD-ATTRIBUTION
+          decision-rule-registered-at: '2026-09-22'
+          verdict: ${{ steps.derive.outputs.verdict }}
+          read-state: ${{ steps.derive.outputs.read_state }}
+          population: ${{ steps.derive.outputs.population }}
+          n: ${{ steps.derive.outputs.n }}
+          measurement-file: rr/measurement.json
+          # The full per-trade replay (`trades_detail`) is an expiring run
+          # artifact (upload-artifact, retention-days 14, never committed) —
+          # this workflow `git add`s nothing itself. The headline figures the
+          # decision rule is graded on ARE durable: they are embedded in
+          # `measurement` above.
+          artifact-store: research/results/
+          artifact-locator: >-
+            the `measurement` block on this record. The full replay
+            (`replay.json`'s `trades_detail`) is an expiring run artifact —
+            MEASURED (source not durably retrievable: uploaded with
+            retention-days 14 and never committed).
+          tool: scripts/ml/exit_head_replay.py + scripts/research/exit_head_attribution_result.py
