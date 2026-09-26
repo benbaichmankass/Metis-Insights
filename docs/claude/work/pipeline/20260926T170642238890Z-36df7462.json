@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-10",
+    "kind": "date"
+  },
+  "id": "PI-20260926-Y5MVFDD8-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/13000",
+    "rerun": "grep -n 'received + held_back' scripts/ops/leg_flow_report.py -- absent means still unfiled/unshipped"
+  },
+  "state": "queued",
+  "what": "Follow-up split off PI-20260926-KNSTSR8N-0002 (closed `done` when PR #13000 fixed the expiry_prompted/PROP_RECEIVED_STATUSES gap, but did not ship this half): the finding doc (docs/claude/work/findings/E18-starved-triage-post-E35-20260926.md) proposed also asserting `received + held_back + unmapped == len(ticket_rows)` in scripts/ops/leg_flow_report.py, so a FUTURE prop-ticket status absent from both leg_flow_detector.PROP_RECEIVED_STATUSES and PROP_NOT_RECEIVED_STATUSES is loud (an assertion failure / a surfaced `unmapped` count) instead of silently falling into neither bucket the way `expiry_prompted` did before PR #13000. Not shipped in #13000 -- that PR's scope was the vocabulary fix + tests only. Proposed fix (Tier-1, scripts/ops/leg_flow_report.py only, no order-path change): in the per-leg prop branch, after calling count_received_prop, compute `unmapped = len(ticket_rows_for_strategy) - received - held_back` and assert/log loudly (not silently) when unmapped != 0, surfacing the unmapped status value(s) rather than letting them fall into neither bucket."
+}
