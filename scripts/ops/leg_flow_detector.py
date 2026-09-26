@@ -112,18 +112,39 @@ LEG_STATES: Tuple[str, ...] = (LEG_UNREADABLE, LEG_NO_INTENTS, LEG_STARVED, LEG_
 #: mismatch on a ticket that DID reach the account (a different, also-bad
 #: problem — `dead_leg.PLACED_STATUSES` makes the identical call for `trades`,
 #: for the identical reason: don't blame dispatch for a reconciler fault).
-PROP_RECEIVED_STATUSES = ("emitted", "expired", "filled", "closed", "orphaned")
+#:
+#: `placed` / `expiry_prompted` / `awaiting_report` / `invalidated_prompted`
+#: added 2026-09-26 (PI-20260926-KNSTSR8N-0002 — `trend_donchian_eth_prop`
+#: read `starved` with a real, dispatched, `expiry_prompted` ticket
+#: `prop-manual-693bb30f7638` in-window). Verified against every prop-module
+#: status writer, not just the one that motivated the filing
+#: (`src/prop/breakout_executor.py::_reticket_suppress_reason`'s own
+#: outstanding-ticket check groups `placed`/`expiry_prompted`/
+#: `awaiting_report` with `emitted` as the same "outstanding ticket" class):
+#: `placed` — a fill report of type `placed` (`prop_report.py`, a working
+#: order on the terminal, not yet filled). `expiry_prompted` /
+#: `invalidated_prompted` — the two Yes/No prompts
+#: (`prop_expiry_prompt.py` / `prop_invalidation_prompt.py`), each of which
+#: ONLY ever fires from an already-`emitted` ticket (`_SCAN_STATUS =
+#: "emitted"` in both modules) — so a ticket in either state definitively
+#: reached the bridge; `invalidated_prompted` was miscategorised below as
+#: NOT received until this fix. `awaiting_report` — the operator's "Yes, I
+#: placed it" answer to either prompt, still waiting on the fill paste.
+PROP_RECEIVED_STATUSES = (
+    "emitted", "expired", "filled", "closed", "orphaned",
+    "placed", "expiry_prompted", "awaiting_report", "invalidated_prompted",
+)
 
 #: Never dispatched (`shadow` / `close_reason: prop_shadow_no_emit` — the
 #: literal starvation state at the prop layer) or held back by the
 #: one-ticket-per-trade reticket guard (`suppressed` —
 #: `src/prop/breakout_executor.py::_reticket_suppress_reason`, a BLOCKED leg,
-#: a DIFFERENT failure from the one this module exists to catch) or dropped
-#: before dispatch (`skipped`, `invalidated_prompted`). Counted as CONTEXT
+#: a DIFFERENT failure from the one this module exists to catch) or a fill
+#: report saying the ticket was never placed (`skipped`). Counted as CONTEXT
 #: only (`held_back` in :func:`count_received_prop`) — never folded into
 #: `received`, and never used to downgrade `starved` to something softer: a
 #: suppressed leg is still zero tickets received.
-PROP_NOT_RECEIVED_STATUSES = ("shadow", "suppressed", "skipped", "invalidated_prompted")
+PROP_NOT_RECEIVED_STATUSES = ("shadow", "suppressed", "skipped")
 
 
 def _is_actionable_side(side: Any) -> bool:
