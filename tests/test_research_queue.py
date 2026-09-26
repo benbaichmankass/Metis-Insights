@@ -1044,14 +1044,31 @@ def test_w4_negative_control_a_mismatched_identity_is_also_refused(unit_id, _wf)
 @pytest.mark.parametrize("unit_id,_wf", _W4_UNBLOCKED_UNITS)
 def test_w4_dispatcher_dry_run_selects_the_unit(unit_id, _wf):
     """End-to-end against the REAL committed queue (dry run only — no
-    `--fire`, so this cannot dispatch anything or spend runner minutes)."""
+    `--fire`, so this cannot dispatch anything or spend runner minutes).
+
+    A `cadence: once` unit that has ALREADY been dispatched (real, honest
+    `last_dispatched_at` stamp from an actual run — RQ-20260922-003/004 were,
+    2026-09-26, once the records-file bug this same W4 lane unblocked them
+    against was fixed) correctly grades `not_due` on a fresh dry run: that is
+    the cadence contract working, not the unit being blocked again. The
+    invariant this test protects — "W4 unblocked this unit" — is proven by
+    EITHER outcome, so both are accepted; only a `blocked_power`/
+    `blocked_route`/`invalid` row (or an unrelated `not_due` reason) means W4
+    regressed.
+    """
     proc = _run_dispatcher("--queue-dir", str(QUEUE_DIR), "--only", unit_id, "--json")
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     rows = [r for r in payload["decisions"] if r["id"] == unit_id]
     assert len(rows) == 1, f"expected exactly one decision row for {unit_id}, got {rows}"
     row = rows[0]
-    assert row["outcome"] == "would_dispatch", (
-        f"{unit_id} should be selected on a dry run; got {row}"
+    already_fired = (
+        row["outcome"] == "not_due"
+        and str(row.get("reason", "")).startswith("cadence=") and "it ran at" in row.get("reason", "")
     )
-    assert row["power_state"] == ACCRUING
+    assert row["outcome"] == "would_dispatch" or already_fired, (
+        f"{unit_id} should be selected on a dry run, or already have fired "
+        f"once under its own cadence; got {row}"
+    )
+    if row["outcome"] == "would_dispatch":
+        assert row["power_state"] == ACCRUING
