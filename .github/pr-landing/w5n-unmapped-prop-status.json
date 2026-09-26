@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 by surface: scripts/ops/leg_flow_report.py, tests/test_leg_flow_report.py, and docs/claude/work/pipeline/** (closing PI-20260926-Y5MVFDD8-0001) only -- every path inside TIER1_SURFACE (scripts/ops/**, tests/**, docs/**). No src/, no config/, no deploy/, no order path. leg_flow_report.py is a manual, analysis-time report script (scripts/ci/run_guards.py's own header names it read-only observability, not the live trader tick), imported by nothing on the order path -- purely additive: a new pure helper (find_unmapped_prop_tickets) plus a logging.warning and two new dict keys (unmapped, unmapped_statuses) on the per-leg report output. Follow-up to PR #13000 (PI-20260926-KNSTSR8N-0002), which shipped the vocabulary fix and deliberately left this row-accounting half for a separate PR."
+}
