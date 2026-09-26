@@ -1337,6 +1337,47 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "mandate-autoland-guard",
+        # THE ONE TIER-3 SHAPE THAT LANDS ITSELF, and every clause that admits
+        # it. Operator decision 2026-09-25 ("Build auto-land route") against
+        # pipeline item PI-20260925-WCUZRAA3-0002: B3 made the Stage-2 DEMOTION
+        # decision automatic and nothing could LAND it, so the ladder was
+        # "decided + proposed automatically, landed by hand".
+        #
+        # WHY IT IS ITS OWN GUARD RATHER THAN MORE OF `pr-landing-guard`. The
+        # clauses need two git trees, a YAML reconstruction and a REPLAY of
+        # `scripts/ops/mandate_resolver.py`; folding that into the landing
+        # guard's `check()` would make the file that decides EVERY PR's landing
+        # depend on the mandate store. Here the dependency runs one way and the
+        # landing guard delegates (R16).
+        #
+        # ⚠️ THE SELF-TEST IS THE WHOLE CONTROL, AND IT MUST RUN EVEN THOUGH THE
+        # ROUTE IS UNARMED. No mandate carries `autoland: true` as this lands,
+        # so on every real PR this guard's clause A8 refuses and the diff-scoped
+        # step below reports `not applicable` — a green that measures NOTHING,
+        # which is exactly the "green is not evidence" shape this repo has paid
+        # for five times in one day. The planted-defect suite is what proves the
+        # clauses can fail, and it runs unconditionally, first.
+        #
+        # ⚠️ AND IT CARRIES POSITIVE CONTROLS. This guard REFUSES to let a cut
+        # land; an over-broad implementation reads green while reinstating the
+        # hand merge it exists to end. Two positives (an admissible cut, and the
+        # Alpaca proxy shape where the mirror never carried the leg) run first.
+        #
+        # The real check is `pr_only` and is scoped to a declaration that asks
+        # for this route: a PR that does not declare `landing: "mandate"` is
+        # graded by `pr-landing-guard` and this step says so rather than passing.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_mandate_autoland.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_mandate_autoland.py",
+                         "--base", "origin/{base_ref}", "--if-declared"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         # THE MANAGER SESSION ONLY MANAGES — as a check, not a paragraph.
         # `CLAUDE.md` has carried the operator's rule verbatim since
         # 2026-09-01; the 2026-09-03 day manager read it at session start and

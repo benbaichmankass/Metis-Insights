@@ -14,12 +14,31 @@
 # opens a NON-draft PR, and opens a `system-action` send-ping issue so the
 # operator gets the realtime ping the mandate's evidence_required names.
 #
-# ⚠️ WHAT IT DOES NOT DO: MERGE. The PR declares `landing: hold`. The landing
-# machinery (pr-landing-guard) has no route yet for a mandate-authorized
-# roster edit to self-land, and adding one is a changes_landing_machinery
-# decision for the operator — not something this workflow grants itself.
-# Until that exists the demotion is DECIDED and PROPOSED automatically and
-# LANDED by a human merge.
+# ⚠️ WHETHER IT MERGES IS NOT THIS WORKFLOW'S CALL — AND TODAY IT DOES NOT.
+# The auto-land route asked for by PI-20260925-WCUZRAA3-0002 now EXISTS:
+# `scripts/ci/check_mandate_autoland.py` (pr-landing-guard R16) admits exactly
+# one diff shape — removals of legs from `strategies:` rosters, each carrying a
+# committed evidence record and a firing record under a GRANTED `derisk_only`
+# mandate, live account and mirror cut together, authored by THIS workflow.
+# When the run's own diff clears all eight clauses this job declares
+# `landing: mandate`, writes a merge-slot claim and enables auto-merge; GitHub
+# then merges only when every required check — pr-landing-guard among them,
+# which re-derives the same eight clauses independently — is green.
+#
+# ⚠️ IT IS BUILT AND NOT ARMED, AND THE TWO ARE DIFFERENT FACTS. Clause A8
+# requires `autoland: true` on the granted mandate entry in
+# `config/mandates.yaml`, and NO entry carries it. So every run today falls back
+# to `landing: hold` and a human merges — by the route working, not by its
+# absence. Adding that field is the OPERATOR's act, the same asymmetry that
+# makes granting a mandate and clearing MD-PROMOTE-S1-S2's `blocked_until`
+# theirs. A session that writes its own arming switch has written its own
+# authorization.
+#
+# ⚠️ AND THE FALLBACK IS THE DEFAULT IN CODE, NOT A COMMENT. The job writes the
+# `hold` declaration FIRST and only rewrites it to `mandate` after
+# check_mandate_autoland exits 0 on the pushed tree. A failure of the checker,
+# a missing interpreter, an unexpected diff — every one of them leaves the hold
+# standing.
 #
 # On a run where nothing fires it changes nothing and exits 0; the step
 # summary carries the per-leg verdict table either way.
@@ -90,28 +109,108 @@ jobs:
           GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
         run: |
           set -euo pipefail
+          base_sha="$(git rev-parse HEAD)"
           branch="automation/r4-demotion-${{ github.run_id }}"
           slug="${branch//\//-}"
           legs=$(python3 -c "import json;print(', '.join(d['leg'] for d in json.load(open('gate.json'))['demoted']))")
-          mkdir -p .github/pr-landing
+          mkdir -p .github/pr-landing .github/merge-slots
+
+          # ── the HOLD declaration is written FIRST and is the default ───────
+          # Everything below can only ever REPLACE it, and only on an exit-0
+          # from the checker. A crash, a missing file or an unexpected diff
+          # leaves this standing, which is the safe side.
           python3 - "$slug" "$legs" <<'PY'
           import json, sys
           slug, legs = sys.argv[1], sys.argv[2]
           json.dump({"tier": 3, "landing": "hold", "hold_reason": "tier_2_3_needs_approval",
-                     "hold_text": f"MD-DEMOTE-S2-S1 FIRED for {legs}; no self-land route exists "
-                                  "for a mandate-authorized roster cut, so a human merges",
+                     "hold_text": f"MD-DEMOTE-S2-S1 FIRED for {legs}; the diff did not clear "
+                                  "every clause of scripts/ci/check_mandate_autoland.py (most "
+                                  "often A8: the mandate is not armed with autoland: true), "
+                                  "so a human merges",
                      "why": "automated Stage-2 roster cut under a granted derisk_only mandate"},
                     open(f".github/pr-landing/{slug}.json", "w"), indent=2)
           PY
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add .github/pr-landing/"$slug".json
+          git add -A
           git commit -m "MD-DEMOTE-S2-S1: R4 demotes ${legs} from Stage 2 (${WINDOW} window)"
+
+          # ── does this run's OWN diff clear the auto-land route? ────────────
+          # Graded on the committed tree, against the base this branch was cut
+          # from — the same two trees pr-landing-guard R16 will grade on the PR.
+          # The paperwork the route requires (declaration + merge-slot claim) is
+          # written into the SAME commit, because A1 admits only those two
+          # .github paths and A7 requires an attributable claim.
+          CLAIMED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" python3 - "$slug" "$branch" <<'PY'
+          import json, os, sys
+          slug, branch = sys.argv[1], sys.argv[2]
+          run_id = os.environ["GITHUB_RUN_ID"]
+          json.dump({"tier": 3, "landing": "mandate", "mandate": "MD-DEMOTE-S2-S1",
+                     "run_id": run_id,
+                     "workflow": ".github/workflows/r4-demotion-gate.yml",
+                     "why": "automated Stage-2 roster cut under the granted derisk_only "
+                            "mandate MD-DEMOTE-S2-S1; removals only, live account and "
+                            "mirror cut together, every clause of "
+                            "scripts/ci/check_mandate_autoland.py verified on this diff"},
+                    open(f".github/pr-landing/{slug}.json", "w"), indent=2)
+          json.dump({"branch": branch,
+                     "held_by": f"github-actions[bot] \u00b7 r4-demotion-gate run {run_id}",
+                     "purpose": "MD-DEMOTE-S2-S1 auto-land (pr-landing-guard R16)",
+                     "claimed_at": os.environ["CLAIMED_AT"]},
+                    open(f".github/merge-slots/{slug}.json", "w"), indent=2)
+          PY
+          git add -A
+          git commit --amend --no-edit
+
+          autoland=no
+          # ⚠️ --pre-flight ONLY waives the PR-author read (no PR exists yet).
+          # The authorization is pr-landing-guard R16 ON the PR, a required
+          # check that never passes that flag and re-derives all eight clauses.
+          if PYTHONPATH=. python3 scripts/ci/check_mandate_autoland.py \
+               --base "$base_sha" --branch "$branch" --pre-flight --json > autoland.json; then
+            autoland=yes
+          fi
+          {
+            echo "### auto-land route: ${autoland}"
+            echo '```json'
+            cat autoland.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$autoland" != "yes" ]; then
+            # Put the HOLD declaration back and drop the claim — a branch that
+            # is not landing itself must not hold the merge slot.
+            python3 - "$slug" "$legs" <<'PY'
+          import json, sys
+          slug, legs = sys.argv[1], sys.argv[2]
+          json.dump({"tier": 3, "landing": "hold", "hold_reason": "tier_2_3_needs_approval",
+                     "hold_text": f"MD-DEMOTE-S2-S1 FIRED for {legs}; the diff did not clear "
+                                  "every clause of scripts/ci/check_mandate_autoland.py (most "
+                                  "often A8: the mandate is not armed with autoland: true), "
+                                  "so a human merges",
+                     "why": "automated Stage-2 roster cut under a granted derisk_only mandate"},
+                    open(f".github/pr-landing/{slug}.json", "w"), indent=2)
+          PY
+            rm -f ".github/merge-slots/${slug}.json"
+            git add -A
+            git commit --amend --no-edit
+          fi
+
           git push -u origin "$branch"
-          body=$(python3 -c "import json;d=json.load(open('gate.json'));print('R4 demotion gate FIRED under MD-DEMOTE-S2-S1 (run ${{ github.run_id }}).\n\n\`\`\`\n'+json.dumps({'demoted':d['demoted'],'refused':d['refused'],'written':d['written']},indent=2)+'\n\`\`\`\n\nEvidence: comms/mandate_evidence/mirror_window/ and comms/mandate_firings/ in this diff.')")
+          body=$(python3 -c "import json;d=json.load(open('gate.json'));a=json.load(open('autoland.json'));print('R4 demotion gate FIRED under MD-DEMOTE-S2-S1 (run ${{ github.run_id }}).\n\n\`\`\`\n'+json.dumps({'demoted':d['demoted'],'refused':d['refused'],'written':d['written']},indent=2)+'\n\`\`\`\n\nEvidence: comms/mandate_evidence/mirror_window/ and comms/mandate_firings/ in this diff.\n\nAuto-land route (pr-landing-guard R16 / scripts/ci/check_mandate_autoland.py): **'+('ADMISSIBLE — this PR lands itself when CI is green' if a.get('ok') else 'REFUSED — a human merges')+'**\n\n\`\`\`\n'+json.dumps(a,indent=2)+'\n\`\`\`')")
           gh pr create --base main --head "$branch" \
             --title "MD-DEMOTE-S2-S1: demote ${legs} (R4, ${WINDOW})" --body "$body"
+
+          # ⚠️ ARMING IS THE MERGE, so it happens only on an admissible verdict —
+          # and even then GitHub merges only when every required check passes,
+          # pr-landing-guard R16 among them, which re-derives these same clauses
+          # from the PR's own two trees rather than trusting this run.
+          if [ "$autoland" = "yes" ]; then
+            gh pr merge "$branch" --auto --squash
+          fi
+
           gh issue create --label system-action \
             --title "send-ping: R4 demotion gate fired" \
-            --body "$(printf 'action: send-ping\npriority: high\nmessage: R4 demotion gate FIRED (MD-DEMOTE-S2-S1): %s off Stage 2, %s window. PR opened by run %s; roster unchanged until it merges.\nreason: MD-DEMOTE-S2-S1 evidence_required names a realtime ping' "$legs" "$WINDOW" "${{ github.run_id }}")"
+            --body "$(printf 'action: send-ping\npriority: high\nmessage: R4 demotion gate FIRED (MD-DEMOTE-S2-S1): %s off Stage 2, %s window. PR opened by run %s; auto-land %s.\nreason: MD-DEMOTE-S2-S1 evidence_required names a realtime ping' "$legs" "$WINDOW" "${{ github.run_id }}" "$([ "$autoland" = yes ] && echo 'ADMISSIBLE — lands itself on green' || echo 'REFUSED — roster unchanged until a human merges')")"
