@@ -1,5 +1,5 @@
 {
-  "last_fired_at": "2026-09-26T12:44:55Z",
+  "last_fired_at": "2026-09-26T18:45:11Z",
   "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
   "trigger": "trig_01LFo98oHRUBpoMA6H9ra2QP",
   "served_model": "claude-sonnet-5",
@@ -7,12 +7,12 @@
     "checkout_present": true,
     "list_sessions_callable": true,
     "container_was_cold": false,
-    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 62a4e4d7, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=20, connection_status=connected, cumulative cost_usd=152.71; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 61 rows (61/61 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading."
+    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD f5be611d, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=21, connection_status=connected, cumulative cost_usd=156.67; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 62 rows (62/62 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading."
   },
-  "acted": {"archived": [], "raised": [], "held": 1},
+  "acted": {"archived": [], "raised": [], "held": 0},
   "unrouted": [
     "STEP 1 structural verification passed again: top-level supervisor_lane on claude/e44-lane-supervisor-build's MANAGER-CHECKLIST.json still names session_01R9WFrBK1sbBcpTYgBmvG1q (this session).",
-    "Same 2 stubborn archives as prior firings (session_015ZRxtKkuRyto7yzRoYCdy4/E70 idle 40.9h, session_01Fp1yQRKuy82VcsKDCZMhX8/E64 idle 43.3h) -- still authorised, still not attempted (confirmed persistent refusal, not re-tested per the standing decision recorded in the 06:44Z/12:44Z/18:44Z/00:44Z/06:44Z heartbeats). 1 held (idle<6h), 2 raised (E62 -- still no checklist row -- and the recurring 'Metis-Insights manager handoff' session, now $387.07 and back to READY).",
-    "No new findings this firing; state is stable and matches the last several firings' pattern. No coordination-board hook fired."
+    "Same 2 stubborn archives as the last several firings (E70 idle 46.9h, E64 idle 49.3h) -- still authorised, not attempted (standing confirmed-refusal decision, unchanged). 0 held, 1 raised (E62, still no checklist row).",
+    "No new findings this firing; state continues to match the established pattern. No coordination-board hook fired."
   ]
 }
