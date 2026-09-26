@@ -44,6 +44,21 @@ other, independent half: even a genuine, deliberate arming request must still
 be refused outright when the PR's own landing declaration says hold.** Neither
 gate is a substitute for the other.
 
+THE THIRD LANDING VALUE (2026-09-25)
+------------------------------------------------------------------------------
+`check_pr_landing.py` R16 added `landing: "mandate"` — the one Tier-3 shape that
+lands itself, a mandate-authorized Stage-2 roster CUT graded clause by clause by
+`scripts/ci/check_mandate_autoland.py`. This gate cannot re-derive those clauses
+(it is pure, and they need two git trees), so the caller passes their verdict in
+as `autoland_ok` and the gate refuses unless it is exactly `True`.
+
+⚠️ `None` IS NOT `False`, AND COLLAPSING THEM WOULD BE THE WHOLE BUG. A caller
+that never evaluated the clauses — `claude-pr-automerge.yml`, which sees only
+`claude/**` branches and has no idea what a mandate is — must produce
+`mandate_unchecked`, not a silent arming. The two refuse identically today; they
+are separate so that a green log never reads as "the clauses passed" when
+nothing looked.
+
 THE RULE
 ------------------------------------------------------------------------------
 `arm` is True only when `.github/pr-landing/<slug>.json`, read at the pushed
@@ -65,6 +80,11 @@ STATES, NEVER COLLAPSED
                 branches that predate the whole convention; this gate does not
                 invent a stricter rule than the one already enforced as a
                 required check.
+  ``mandate``           declaration says `landing: "mandate"` AND the caller
+                        passed `autoland_ok: true` — arm. The one Tier-3 route.
+  ``mandate_refused``   `landing: "mandate"` and the autoland clauses FAILED.
+  ``mandate_unchecked`` ⚠️ **we could not look** — `landing: "mandate"` and the
+                        caller passed no verdict at all. REFUSE.
   ``unreadable``  ⚠️ **we could not look** — the read errored (anything other
                 than a clean 404) or the blob was not valid JSON. REFUSE. A
                 failed read must never be waved through as "no declaration".
@@ -81,11 +101,25 @@ SELF = "self"
 NOT_SELF = "not_self"
 ABSENT = "absent"
 UNREADABLE = "unreadable"
-ALL_STATES = (SELF, NOT_SELF, ABSENT, UNREADABLE)
+MANDATE = "mandate"
+MANDATE_REFUSED = "mandate_refused"
+MANDATE_UNCHECKED = "mandate_unchecked"
+ALL_STATES = (SELF, NOT_SELF, ABSENT, UNREADABLE, MANDATE, MANDATE_REFUSED,
+              MANDATE_UNCHECKED)
+
+#: The `landing:` value `check_pr_landing.py` R16 routes to
+#: `scripts/ci/check_mandate_autoland.py`. Spelled here rather than imported so
+#: this module stays pure and dependency-free.
+MANDATE_LANDING = "mandate"
 
 
-def grade(*, found: bool, parse_ok: bool, landing) -> dict:
-    """Pure. Nothing here talks to GitHub — the caller already did that."""
+def grade(*, found: bool, parse_ok: bool, landing, autoland_ok=None) -> dict:
+    """Pure. Nothing here talks to GitHub — the caller already did that.
+
+    `autoland_ok` is the `check_mandate_autoland.py` verdict for a
+    `landing: "mandate"` PR: `True` (every clause held), `False` (a clause
+    failed), or `None` (the caller did not evaluate them — never read as pass).
+    """
     if not found:
         return {
             "state": ABSENT, "arm": True, "landing": None,
@@ -101,6 +135,35 @@ def grade(*, found: bool, parse_ok: bool, landing) -> dict:
             "why": "the declaration file exists but could not be read as JSON "
                    "(a failed API read, or a malformed blob). That is 'we did "
                    "not look', never 'it says self' — refusing to arm.",
+        }
+    if landing == MANDATE_LANDING:
+        if autoland_ok is True:
+            return {
+                "state": MANDATE, "arm": True, "landing": landing,
+                "why": "landing == \"mandate\" and every clause of "
+                       "scripts/ci/check_mandate_autoland.py held: a removal-only "
+                       "Stage-2 roster cut, each leg carrying a committed evidence "
+                       "record and a firing record under a GRANTED derisk_only "
+                       "mandate, live account and mirror cut together, authored by "
+                       "the workflow. The route is also gated on `autoland: true` "
+                       "in config/mandates.yaml, which only the operator writes.",
+            }
+        if autoland_ok is False:
+            return {
+                "state": MANDATE_REFUSED, "arm": False, "landing": landing,
+                "why": "landing == \"mandate\" but check_mandate_autoland.py "
+                       "REFUSED this diff. The declaration asks for the Tier-3 "
+                       "auto-land route and the diff does not qualify for it — "
+                       "which is the route working, not failing.",
+            }
+        return {
+            "state": MANDATE_UNCHECKED, "arm": False, "landing": landing,
+            "why": "landing == \"mandate\" and this caller passed NO autoland "
+                   "verdict, so the clauses that authorize a Tier-3 self-merge "
+                   "were never evaluated here. That is 'we could not look', "
+                   "never 'they passed' — refusing to arm. Only the route that "
+                   "can run scripts/ci/check_mandate_autoland.py over both git "
+                   "trees may arm this shape.",
         }
     if landing == SELF:
         return {
@@ -150,26 +213,57 @@ def _self_test(quiet: bool = False):
         check(f"a declared-but-not-exactly-\"self\" value ({bad_landing!r}) refuses",
               r["state"] == NOT_SELF and r["arm"] is False)
 
+    # ── the mandate route (R16) ─────────────────────────────────────────────
+    r = grade(found=True, parse_ok=True, landing="mandate", autoland_ok=True)
+    check("landing:\"mandate\" with a PASSING autoland verdict arms",
+          r["state"] == MANDATE and r["arm"] is True)
+    r = grade(found=True, parse_ok=True, landing="mandate", autoland_ok=False)
+    check("landing:\"mandate\" with a FAILING autoland verdict refuses",
+          r["state"] == MANDATE_REFUSED and r["arm"] is False)
+    r = grade(found=True, parse_ok=True, landing="mandate")
+    check("landing:\"mandate\" with NO verdict is UNCHECKED, never armed — the "
+          "shape claude-pr-automerge.yml would produce",
+          r["state"] == MANDATE_UNCHECKED and r["arm"] is False)
+    check("…and mandate_unchecked is not collapsed into mandate_refused",
+          MANDATE_UNCHECKED != MANDATE_REFUSED
+          and grade(found=True, parse_ok=True, landing="mandate")["state"]
+          != grade(found=True, parse_ok=True, landing="mandate",
+                   autoland_ok=False)["state"])
+    check("a passing autoland verdict CANNOT arm a landing that is not \"mandate\"",
+          grade(found=True, parse_ok=True, landing="hold", autoland_ok=True)["arm"] is False
+          and grade(found=True, parse_ok=False, landing=None,
+                    autoland_ok=True)["arm"] is False)
+    for truthy in (1, "true", "yes", [1]):
+        check(f"a merely TRUTHY autoland verdict ({truthy!r}) does not arm",
+              grade(found=True, parse_ok=True, landing="mandate",
+                    autoland_ok=truthy)["arm"] is False)
+
     r = grade(found=True, parse_ok=False, landing=None)
     check("an existing-but-unparseable declaration is UNREADABLE, never ABSENT",
           r["state"] == UNREADABLE and r["state"] != ABSENT)
     check("…and never arms", r["arm"] is False)
     check("…and says 'we did not look'", "did not look" in r["why"])
 
-    check("arm is True for exactly two states (self, absent)",
+    check("arm is True for exactly three states (self, absent, mandate)",
           [grade(found=True, parse_ok=True, landing="self")["arm"],
            grade(found=False, parse_ok=False, landing=None)["arm"],
+           grade(found=True, parse_ok=True, landing="mandate", autoland_ok=True)["arm"],
            grade(found=True, parse_ok=True, landing="hold")["arm"],
-           grade(found=True, parse_ok=False, landing=None)["arm"]]
-          == [True, True, False, False])
+           grade(found=True, parse_ok=False, landing=None)["arm"],
+           grade(found=True, parse_ok=True, landing="mandate", autoland_ok=False)["arm"],
+           grade(found=True, parse_ok=True, landing="mandate")["arm"]]
+          == [True, True, True, False, False, False, False])
 
     reached = {
         grade(found=True, parse_ok=True, landing="self")["state"],
         grade(found=True, parse_ok=True, landing="hold")["state"],
         grade(found=False, parse_ok=False, landing=None)["state"],
         grade(found=True, parse_ok=False, landing=None)["state"],
+        grade(found=True, parse_ok=True, landing="mandate", autoland_ok=True)["state"],
+        grade(found=True, parse_ok=True, landing="mandate", autoland_ok=False)["state"],
+        grade(found=True, parse_ok=True, landing="mandate")["state"],
     }
-    check("all four states are reachable, so none is decorative",
+    check("all seven states are reachable, so none is decorative",
           reached == set(ALL_STATES))
 
     if not quiet:
@@ -204,7 +298,11 @@ def main(argv=None) -> int:
     else:
         verdict = grade(found=bool(payload.get("found")),
                         parse_ok=bool(payload.get("parse_ok")),
-                        landing=payload.get("landing"))
+                        landing=payload.get("landing"),
+                        # NOT coerced: a caller that omits the key means "not
+                        # evaluated", and `bool(None)` would silently make that
+                        # a refusal for the WRONG stated reason.
+                        autoland_ok=payload.get("autoland_ok"))
 
     print(json.dumps(verdict, indent=2))
     print(f"automerge-landing-gate: {verdict['state']} — "
