@@ -74,10 +74,16 @@ jobs:
           # NOT `set -e` around the detector: exit 1 (findings) and 2 (could
           # not read) are ANSWERS, and the receipt + alert below must still
           # happen for both. The code is carried forward and graded at the end.
+          # `set -uo pipefail` does NOT clear `-e` — the runner already invokes
+          # `run:` as `bash -eo pipefail`, so without this the exit-1/2 pipe
+          # below aborted the step before `rc=` was ever written (see oci-
+          # inventory.yml's identical, already-fixed `set +e`/`set -e` wrap).
+          set +e
           python3 scripts/ops/research_loss_detector.py \
             --ref origin/main --write-receipt --alert-out /tmp/research-loss-alert.txt \
             | tee /tmp/research-loss.txt
           rc=${PIPESTATUS[0]}
+          set -e
           echo "rc=${rc}" >> "$GITHUB_OUTPUT"
           {
             echo "### research-loss-detector (exit ${rc})"
