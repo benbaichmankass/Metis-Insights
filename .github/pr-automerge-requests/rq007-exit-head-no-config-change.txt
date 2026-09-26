@@ -1,1 +1,0 @@
-Tier-1 self-land: RQ-20260922-007 disposition (no config/strategy PR — the exit head is already wired live; only its ML-registry promotion stage blocks it, which is Tier-3/ml-review territory). See .github/pr-landing/rq007-exit-head-no-config-change.json.
