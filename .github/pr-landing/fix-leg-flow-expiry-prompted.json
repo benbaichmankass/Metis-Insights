@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ops/leg_flow_detector.py (Tier-1 surface, scripts/ops/**) + tests/test_leg_flow_detector.py only -- a pure, read-only observability detector, no order-path/runtime/config change. Fixes a detector false positive found in E18's post-E35 triage (PI-20260926-KNSTSR8N-0002): a real, dispatched prop-manual-bridge ticket status ('expiry_prompted') was absent from both PROP_RECEIVED_STATUSES and PROP_NOT_RECEIVED_STATUSES, so count_received_prop() silently dropped it from both buckets and the leg graded starved even though the ticket demonstrably reached dispatch."
+}

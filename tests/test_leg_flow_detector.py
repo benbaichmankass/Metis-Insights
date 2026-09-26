@@ -127,6 +127,49 @@ def test_count_received_prop_splits_received_from_held_back():
     assert (received, held_back) == (2, 2)
 
 
+def test_count_received_prop_treats_expiry_prompted_as_received():
+    """PI-20260926-KNSTSR8N-0002 / E18 post-E35 triage: a real dispatched
+    ticket (`prop-manual-693bb30f7638`, `trend_donchian_eth_prop`) sat in
+    `expiry_prompted` — a status absent from both vocabularies before this
+    fix — and was silently dropped by `count_received_prop` (neither
+    `received` nor `held_back`), so the leg read `starved` even though the
+    ticket demonstrably reached the manual bridge. Fails before the fix
+    (received=0) and passes after (received=1)."""
+    rows = [{"strategy": "trend_donchian_eth_prop", "status": "expiry_prompted"}]
+    received, held_back = lfd.count_received_prop(rows, strategy="trend_donchian_eth_prop")
+    assert (received, held_back) == (1, 0)
+    verdict = lfd.assess_leg(intents=5, received=received, held_back=held_back)
+    assert verdict["state"] == lfd.LEG_FLOWING
+
+
+def test_count_received_prop_treats_every_dispatched_status_as_received():
+    """The full outstanding-ticket vocabulary found by grepping the prop
+    modules (`placed`, `awaiting_report`) and the previously-miscategorised
+    `invalidated_prompted` (which — like `expiry_prompted` — only ever fires
+    from an already-`emitted` ticket, per `prop_invalidation_prompt.py`'s
+    `_SCAN_STATUS = "emitted"`) must all count as received, not just the one
+    status named in the original filing."""
+    rows = [
+        {"strategy": "x", "status": "placed"},
+        {"strategy": "x", "status": "awaiting_report"},
+        {"strategy": "x", "status": "invalidated_prompted"},
+    ]
+    received, held_back = lfd.count_received_prop(rows, strategy="x")
+    assert (received, held_back) == (3, 0)
+
+
+def test_count_received_prop_negative_control_skipped_still_not_received():
+    """Negative control: `skipped` (a fill report saying the ticket was never
+    placed) must still count as NOT received after this fix — this change
+    only reclassifies statuses proven to always follow an `emitted` ticket,
+    it must not soften a genuinely-not-dispatched status."""
+    rows = [{"strategy": "x", "status": "skipped"}]
+    received, held_back = lfd.count_received_prop(rows, strategy="x")
+    assert (received, held_back) == (0, 1)
+    verdict = lfd.assess_leg(intents=5, received=received, held_back=held_back)
+    assert verdict["state"] == lfd.LEG_STARVED
+
+
 def test_prop_and_standard_received_vocabularies_do_not_overlap_confusingly():
     """A status meaningful on one side must not silently satisfy the other —
     'open'/'closed' (trades) and 'emitted'/'filled' (prop tickets) name
