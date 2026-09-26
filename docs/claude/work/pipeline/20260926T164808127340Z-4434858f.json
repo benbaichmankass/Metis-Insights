@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-03",
+    "kind": "date"
+  },
+  "id": "PI-20260926-KNSTSR8N-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/12922",
+    "rerun": "curl -sS \"https://ict-bot.duckdns.org/api/bot/prop/tickets?account_id=breakout_1&limit=500\" | python3 -c 'import json,sys; d=json.load(sys.stdin); print([t for t in d[\"tickets\"] if t.get(\"strategy\")==\"trend_donchian_eth_prop\" and t.get(\"status\")==\"expiry_prompted\"])'"
+  },
+  "state": "done",
+  "terminal_reason": "Fix merged via PR #13000 (https://github.com/benbaichmankass/Metis-Insights/pull/13000): scripts/ops/leg_flow_detector.py PROP_RECEIVED_STATUSES now includes placed/expiry_prompted/awaiting_report/invalidated_prompted; tests/test_leg_flow_detector.py covers the fix (fails pre-fix, passes post-fix) plus a skipped negative control. The finding doc's other proposal (asserting received+held_back+unmapped==len(ticket_rows) in leg_flow_report.py) was NOT shipped in this PR -- left as a separate follow-up, not re-filed here since it was never this row's own due_when/rerun.",
+  "what": "E18 triage, post-E35 rerun (window 2026-09-25T08:01:33Z -> 2026-09-26T12:01:33Z, 79h->28h; population 63 live legs both times): breakout_1/trend_donchian_eth_prop grades `starved` (5 intents, 1 episode, received=0, held_back=0) but is NOT actually unreached. /api/bot/prop/tickets?account_id=breakout_1 shows a real ticket in-window (prop-manual-693bb30f7638, created_at 2026-09-25T11:11:16Z, op_status=\"emitted\", close_reason=\"prop_ticket_emitted\") whose `status` field is \"expiry_prompted\" -- a real manual-bridge ticket lifecycle status (2 of 167 tickets fleet-wide carry it) that is in NEITHER leg_flow_detector.PROP_RECEIVED_STATUSES nor PROP_NOT_RECEIVED_STATUSES, so count_received_prop() silently drops it from both buckets per its own documented \"neither bucket rather than guessed\" contract -- the row-accounting check the docstring says would catch a dropped status was never wired into leg_flow_report.py, so nothing surfaced the drop. Since op_status=emitted/close_reason=prop_ticket_emitted mean the ticket demonstrably reached dispatch (the same evidence \"emitted\" itself is graded on), \"expiry_prompted\" belongs in PROP_RECEIVED_STATUSES, not left uncovered. Proposed fix (Tier-1, scripts/ops/leg_flow_detector.py only, no order-path change): add \"expiry_prompted\" to PROP_RECEIVED_STATUSES; consider also asserting received+held_back+unmapped == len(ticket_rows) in leg_flow_report.py so a future unmapped status is loud rather than silently absorbed into starved. (Supersedes shell-mangled PI-20260926-KNSTSR8N-0001, killed same session.) Fixed and merged: PR #13000 added `placed`, `expiry_prompted`, `awaiting_report` to PROP_RECEIVED_STATUSES and moved the misclassified `invalidated_prompted` there too (grepped every prop-ticket status writer under src/prop/ rather than patching only the named status), with a test that fails before the fix and passes after, plus a negative control for `skipped`. Merged to main at 2026-09-26T16:46:46Z (sha 5c9779f...)."
+}
