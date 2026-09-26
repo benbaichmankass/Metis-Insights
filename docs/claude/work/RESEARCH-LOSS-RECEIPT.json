@@ -1,116 +1,29 @@
 {
-  "generated_at": "2026-09-24T13:13:20Z",
+  "generated_at": "2026-09-26T08:14:02Z",
   "overall": "findings",
   "produced_by": {
-    "run_id": null,
-    "workflow": "(local run)"
+    "run_id": "36229130800",
+    "workflow": "research-loss-detector"
   },
   "questions": {
     "A_stuck_research_prs": {
-      "findings": [
-        {
-          "age_hours": 292.1,
-          "branch": "automation/replay-pregate-34683288123-1",
-          "pr": 11916,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 267.4,
-          "branch": "automation/replay-pregate-34749050321-1",
-          "pr": 12228,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 242.9,
-          "branch": "automation/replay-pregate-34829077166-1",
-          "pr": 12265,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 219.3,
-          "branch": "automation/replay-pregate-34951505315-1",
-          "pr": 12297,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 195.4,
-          "branch": "automation/replay-pregate-35077687003-1",
-          "pr": 12328,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 171.3,
-          "branch": "automation/replay-pregate-35204197736-1",
-          "pr": 12385,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 147.7,
-          "branch": "automation/replay-pregate-35326495386-1",
-          "pr": 12529,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 123.9,
-          "branch": "automation/replay-pregate-35432513421-1",
-          "pr": 12584,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 99.4,
-          "branch": "automation/replay-pregate-35501445978-1",
-          "pr": 12625,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 74.9,
-          "branch": "automation/replay-pregate-35584802626-1",
-          "pr": 12666,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 51.5,
-          "branch": "automation/replay-pregate-35708531581-1",
-          "pr": 12721,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 49.4,
-          "branch": "automation/research-queue-stamp-35723722908-1",
-          "pr": 12726,
-          "title": "chore(research-queue): dispatch stamps (auto)"
-        },
-        {
-          "age_hours": 48.6,
-          "branch": "automation/e35-bracket-corpus-35723788659-1",
-          "pr": 12730,
-          "title": "corpus: e35 bracket sweep (run 35723788659)"
-        },
-        {
-          "age_hours": 27.4,
-          "branch": "automation/replay-pregate-35841162681-1",
-          "pr": 12775,
-          "title": "chore(ml): replay pre-gate fleet report (auto)"
-        },
-        {
-          "age_hours": 25.4,
-          "branch": "automation/research-queue-stamp-35856839139-1",
-          "pr": 12777,
-          "title": "chore(research-queue): dispatch stamps (auto)"
-        },
-        {
-          "age_hours": 24.6,
-          "branch": "automation/e35-bracket-corpus-35856916993-1",
-          "pr": 12781,
-          "title": "corpus: e35 bracket sweep (run 35856916993)"
-        }
-      ],
-      "population": "107 open PRs; 78 automation/*; 19 carry research; 59 automation/* carry none (not graded here)",
-      "state": "findings",
+      "findings": [],
+      "population": "61 open PRs; 46 automation/*; 0 carry research; 46 automation/* carry none (not graded here)",
+      "state": "clean",
       "threshold_hours": 6.0
     },
     "B_unlanded_result_runs": {
       "findings": [
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T14:07:30Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36010497809",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36010497809",
+          "workflow": "research-exit-head-build.yml"
+        },
         {
           "conclusion": "failure",
           "created_at": "2026-09-24T12:41:32Z",
@@ -255,6 +168,16 @@
       "lost": [
         {
           "conclusion": "failure",
+          "created_at": "2026-09-24T14:07:30Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36010497809",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36010497809",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
           "created_at": "2026-09-24T12:41:32Z",
           "result_job": [
             "failure"
@@ -395,12 +318,12 @@
         }
       ],
       "pending_merge": [],
-      "population": "14 completed run(s) of 2 workflow(s) calling ./.github/actions/research-result since 2026-09-10 (m20-exit-lever-sweep.yml, research-exit-head-build.yml); 16 produced no result by design (skipped); 0 result file(s) on origin/main",
+      "population": "15 completed run(s) of 2 workflow(s) calling ./.github/actions/research-result since 2026-09-12 (m20-exit-lever-sweep.yml, research-exit-head-build.yml); 49 produced no result by design (skipped); 0 result file(s) on origin/main",
       "state": "findings"
     },
     "C_expiring_unlanded_artifacts": {
       "findings": [],
-      "population": "1311 artifact(s) listed, 537 unexpired, 495 expire within 72.0h across 495 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "population": "455 artifact(s) listed, 455 unexpired, 388 expire within 72.0h across 388 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
       "state": "clean"
     }
   },
