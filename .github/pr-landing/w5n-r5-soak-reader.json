@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist row R5 (W5-night lane L4, dispatched by manager session_01Ljhs6sFAdWHdMDhJpL5aBP): a new read-only observability script (scripts/ops/soak_book_grade.py) that reuses existing mechanics (leg_flow_report, E18) and cost-fidelity (r3_cost_fidelity.grade(), R3) grading rather than duplicating either, a weekly workflow_dispatch/cron workflow that runs it and lands via the shared research-result action, a rule doc registered before the first measurement, its first live measurement record under comms/research/, six kill PROPOSALS filed to the pipeline store, a checklist row update, and a research-tooling-selftests wiring entry. No src/, no config/, no roster, no execution field, no order or close path, no evidence record touched. Any kill/tweak this script proposes is filed to docs/claude/work/pipeline as an observation-gated PROPOSAL only (Tier-3) -- applying one is a separate, operator-approved act this PR does not take."
+}
