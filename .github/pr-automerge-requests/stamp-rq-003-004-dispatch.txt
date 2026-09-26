@@ -1,0 +1,1 @@
+Tier-1 self-land: research-queue dispatch stamp for RQ-20260922-003/004. See .github/pr-landing/stamp-rq-003-004-dispatch.json.
