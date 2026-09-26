@@ -62,6 +62,32 @@
 #                       "a mandate with no bar is not a mandate".
 #   cap:                basis / max_auto_share. Required for `add_risk`.
 #
+# ⚠️ ONE FURTHER FIELD, ADDED 2026-09-25 AND DELIBERATELY UNSET ON EVERY ENTRY:
+#
+#   autoland:           `true` arms the AUTO-LAND ROUTE for a `derisk_only`
+#                       mandate -- `scripts/ci/check_mandate_autoland.py`
+#                       clause A8, reached through pr-landing-guard R16. With
+#                       it, a PR the r4-demotion-gate workflow opens for a FIRE
+#                       merges ITSELF on green, provided all seven other clauses
+#                       hold (removals only, evidence committed, resolver
+#                       re-FIRES over the merge-base configs, live account and
+#                       mirror cut together, authored by the workflow). Without
+#                       it the PR declares `landing: hold` and a human merges.
+#
+# ⚠️ ADDING IT IS THE OPERATOR'S ACT, NOT A SESSION'S, and that is the same
+# asymmetry the file already rests on twice: a session may PROPOSE a mandate but
+# only the operator GRANTS one, and clearing MD-PROMOTE-S1-S2's `blocked_until`
+# is likewise theirs. A session writing its own arming switch is writing its own
+# authorization -- the failure class this file's header names in terms. The
+# route was BUILT on 2026-09-25 (operator decision, "Build auto-land route",
+# against pipeline item PI-20260925-WCUZRAA3-0002) and shipped UNARMED on
+# purpose; `tests/test_mandate_autoland.py::test_the_route_ships_unarmed`
+# asserts that no entry carries the field, and will fail loudly on the commit
+# that arms one.
+#
+# ⚠️ AND IT IS NOT A THIRD EXECUTION GATE EITHER. Like everything else here it
+# decides what may be CHANGED without asking, never what RUNS.
+#
 # ⚠️ THE FIVE PROCESS MANDATES DELIBERATELY CARRY NO `direction:`. They do not
 # act on a roster, so the resolver has nothing to measure for them -- and its
 # fail-closed behaviour is exactly right: asked to evaluate one, it REFUSES with
