@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/pipeline/**  only -- appends one new pipeline record (intent=update) closing PI-20260926-KNSTSR8N-0002, citing merged PR #13000 and a terminal_reason. No runtime/order-path/config touched."
+}
