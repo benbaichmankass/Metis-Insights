@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-only diagnostic triage against the live diag/journal relays (no order placed, no config or code changed) plus a findings artifact and pipeline rows. Changed paths: docs/claude/work/findings/**, docs/claude/work/pipeline/**, docs/claude/work/MANAGER-CHECKLIST.json (an E18 row note) -- all docs/**, on TIER1_SURFACE. No src/, config/, deploy/ or order-path file is touched. Any Tier-2/3 fix this triage surfaced is a proposal in the findings artifact and pipeline rows, not shipped."
+}

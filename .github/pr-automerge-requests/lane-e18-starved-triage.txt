@@ -1,0 +1,7 @@
+armed by lane/e18-starved-triage self-land request (session_01URR1sVVXrF8jjKKNStSR8n)
+
+Note: this branch does not match the relay's `branches: ["claude/**"]` push
+trigger (a known gap -- PI-20260925-BN2S6RQZ-0002, filed by the E18 lane that
+hit the same thing on PR #12922). This file is written per convention anyway;
+the lane expects to merge directly once CI is green rather than relying on
+the relay to fire.
