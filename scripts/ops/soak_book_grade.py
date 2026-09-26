@@ -208,13 +208,35 @@ def disposition_for_leg(*, mech: Optional[Dict[str, Any]],
                 "n_needed": None, "eta": "next scheduled run"}
 
     if mstate == lfd.LEG_STARVED:
+        # ⚠️ leg_flow_report's OWN caveat (measured live 2026-09-25 on
+        # alpaca_paper/tlt_pullback_1d and alpaca_paper/gld_pullback_1h,
+        # re-confirmed live 2026-09-26 on 4 of this run's 10 candidate
+        # `kill`s): a leg already holding a position opened BEFORE the window
+        # legitimately re-signals "stay in this position" with zero NEW
+        # orders in-window. That is NOT the E18 unreached-leg shape — it is
+        # indistinguishable, from this window alone, from a leg that simply
+        # had no need for a fresh entry. Grading it `kill` would be exactly
+        # the false positive `_print_table`'s own caveat exists to flag; this
+        # function must not launder that caveat into a firm verdict.
+        if mech.get("has_open_position"):
+            return {"disposition": INSUFFICIENT,
+                    "reason": (f"starved ({mech['intents']} intent(s), 0 received) "
+                              f"but ALREADY HOLDING a position opened before the "
+                              f"window — leg_flow_report's own caveat: this is NOT "
+                              f"reliably 'unreached', it may simply have needed no "
+                              f"new entry this window while flat-to-in-position. "
+                              f"Cannot be graded kill from this window alone."),
+                    "n_needed": "an entry signal observed while this leg is FLAT "
+                                "(no open position), in some future window",
+                    "eta": "re-check next scheduled pass"}
         return {"disposition": KILL,
                 "reason": (f"starved: {mech['intents']} actionable intent(s) "
                           f"({mech.get('intent_episodes')} episode(s)) in the "
                           f"window, 0 order(s)/ticket(s) received, "
-                          f"held_back={mech.get('held_back')}. This leg's soak "
-                          f"purpose (prove the pipeline works) is unmet: it never "
-                          f"reaches an order regardless of what cost fidelity reads."),
+                          f"held_back={mech.get('held_back')}, no open position "
+                          f"held. This leg's soak purpose (prove the pipeline "
+                          f"works) is unmet: it never reaches an order regardless "
+                          f"of what cost fidelity reads."),
                 "n_needed": None, "eta": None}
 
     if mstate == lfd.LEG_NO_INTENTS:
@@ -393,6 +415,14 @@ def _self_test() -> int:
     v = disposition_for_leg(mech=lfd.assess_leg(intents=21, received=0, held_back=0),
                            cost_cell=cell(r3.CONSISTENT))
     ck("starved (THE E18 shape) -> kill, regardless of cost fidelity", v["disposition"] == KILL)
+
+    # THE 2026-09-25/26 SHAPE: starved but already holding a position opened
+    # before the window (leg_flow_report's own caveat). Must NOT be `kill`.
+    starved_holding = lfd.assess_leg(intents=21, received=0, held_back=0)
+    starved_holding["has_open_position"] = True
+    v = disposition_for_leg(mech=starved_holding, cost_cell=cell(r3.CONSISTENT))
+    ck("starved BUT holding a pre-window position -> insufficient-data, never kill",
+       v["disposition"] == INSUFFICIENT and "ALREADY HOLDING" in v["reason"])
 
     v = disposition_for_leg(mech=lfd.assess_leg(intents=0, received=0), cost_cell=cell(r3.CONSISTENT))
     ck("no_intents -> insufficient-data, never healthy", v["disposition"] == INSUFFICIENT)
