@@ -1,5 +1,5 @@
 {
-  "last_fired_at": "2026-09-26T06:45:32Z",
+  "last_fired_at": "2026-09-26T12:44:55Z",
   "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
   "trigger": "trig_01LFo98oHRUBpoMA6H9ra2QP",
   "served_model": "claude-sonnet-5",
@@ -7,14 +7,12 @@
     "checkout_present": true,
     "list_sessions_callable": true,
     "container_was_cold": false,
-    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD b78aa59f, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=19, connection_status=connected, cumulative cost_usd=148.76; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 60 rows (60/60 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading."
+    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 62a4e4d7, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=20, connection_status=connected, cumulative cost_usd=152.71; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 61 rows (61/61 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading."
   },
   "acted": {"archived": [], "raised": [], "held": 1},
   "unrouted": [
     "STEP 1 structural verification passed again: top-level supervisor_lane on claude/e44-lane-supervisor-build's MANAGER-CHECKLIST.json still names session_01R9WFrBK1sbBcpTYgBmvG1q (this session).",
-    "IMPORTANT DATA POINT: the authorised-archive backlog SHRANK from 6 (last firing) back to 2 -- the 4 newly-COMPLETED W4-lane sessions flagged last firing are no longer in the session dump at all, meaning they were archived (or otherwise resolved) by SOME actor between firings. The 2 stubborn candidates this supervisor has never been able to execute (session_015ZRxtKkuRyto7yzRoYCdy4/E70 now idle 34.9h, session_01Fp1yQRKuy82VcsKDCZMhX8/E64 now idle 37.3h) are still present and still authorised. This confirms archive_session on these targets is NOT fundamentally blocked (something else can and did clear similar candidates) -- the refusal is specific to THIS supervisor session's auto-mode classifier state, not a global impossibility. Strengthens the recommendation in the 06:44Z/12:44Z heartbeats: whoever owns this mechanism should grant this session a standing permission for archive_session, since the work is otherwise getting done by an out-of-band actor anyway.",
-    "DID NOT ATTEMPT archive_session this firing either, for the same reason as the last two firings: two confirmed refusals already establish the pattern, and the denial's own text explicitly names 'a later turn' as still pursuing the same outcome. Continuing to treat this as settled rather than re-testing it every firing.",
-    "1 held (correctly, owns open PR #12974), 1 raised (E62, still no checklist row -- same standing gap, not re-escalated).",
-    "No coordination-board hook fired this turn."
+    "Same 2 stubborn archives as prior firings (session_015ZRxtKkuRyto7yzRoYCdy4/E70 idle 40.9h, session_01Fp1yQRKuy82VcsKDCZMhX8/E64 idle 43.3h) -- still authorised, still not attempted (confirmed persistent refusal, not re-tested per the standing decision recorded in the 06:44Z/12:44Z/18:44Z/00:44Z/06:44Z heartbeats). 1 held (idle<6h), 2 raised (E62 -- still no checklist row -- and the recurring 'Metis-Insights manager handoff' session, now $387.07 and back to READY).",
+    "No new findings this firing; state is stable and matches the last several firings' pattern. No coordination-board hook fired."
   ]
 }
