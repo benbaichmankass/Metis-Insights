@@ -1,0 +1,156 @@
+name: soak-book-grade-weekly
+
+# R5 — the standing weekly read of the Stage-1 soak books (bybit_1,
+# alpaca_paper). Checklist row R5: "26 legs on bybit_1 and 19 on alpaca_paper
+# make decisions on live data continuously and nobody reads them." This
+# workflow is the mechanism that makes that no longer true.
+#
+# What it does (Tier-1, read-only, no config/roster/order-path touched):
+#   1. Runs scripts/ops/soak_book_grade.py against the live diag surface —
+#      MECHANICS (scripts/ops/leg_flow_report, checklist row E18) and COST
+#      FIDELITY (scripts/research/r3_cost_fidelity, checklist row R3), reused
+#      rather than re-derived — grading every soak leg into
+#      healthy/tweak/kill/insufficient-data. NOT expectancy (root CLAUDE.md:
+#      "a live or paper book never establishes edge").
+#   2. Lands the full per-leg record under comms/research/soak_book_grade/,
+#      and a pointer/verdict record under research/results/_unattributed/
+#      (E5's result contract; research-unit is empty because R5 is a standing
+#      checklist-row pass, not a research/queue/ dispatched unit), via the
+#      shared .github/actions/research-result action (E57's landing route —
+#      research/results/** is inside check_pr_landing.py's TIER1_SURFACE).
+#
+# Filing tweak/kill legs to docs/claude/work/pipeline/ is NOT done by this
+# workflow — pipeline.py's mint_id() is session-scoped by design, and R3
+# (the sibling standing-test row this reuses) is the same: a session reads
+# the landed record and files what needs following up. This workflow's job
+# ends at "landed and durable, so nobody has to remember to look."
+#
+# Required repo secrets: DIAG_READ_TOKEN (bearer, see docs/claude/diag-relay.md),
+#                         BRANCH_PROTECTION_TOKEN (commit-to-main's PAT).
+
+on:
+  schedule:
+    # Weekly — Sunday 03:00 UTC, off the live-trader's own busier hours.
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      window_hours:
+        description: "Mechanics measurement window, hours. Empty = 168 (weekly)."
+        required: false
+        default: "168"
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  grade:
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       (github.event.issue.user.login == github.repository_owner ||
+        github.event.issue.user.login == 'github-actions[bot]') &&
+       contains(github.event.issue.labels.*.name, 'soak-book-grade-now'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # REQUIRED by .github/actions/commit-to-main — see its own line 12
+          # and every other landing job in this repo for why GITHUB_TOKEN
+          # cannot be substituted here (the PR it opens never gets its
+          # required checks and auto-merge waits forever).
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q pyyaml
+
+      - id: run
+        name: Grade every soak leg (mechanics + cost fidelity)
+        env:
+          DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
+          WINDOW_HOURS: ${{ inputs.window_hours }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIAG_READ_TOKEN}" ]; then
+            echo "::error::DIAG_READ_TOKEN secret is unset. Add it under Settings -> Secrets -> Actions."
+            exit 1
+          fi
+          WH="${WINDOW_HOURS:-168}"
+          DATE="$(date -u +%Y-%m-%d)"
+          OUT="comms/research/soak_book_grade/${DATE}.json"
+          rc=0
+          python3 scripts/ops/soak_book_grade.py --window-hours "${WH}" --out "${OUT}" || rc=$?
+          echo "out_path=${OUT}" >> "$GITHUB_OUTPUT"
+          echo "run_rc=${rc}" >> "$GITHUB_OUTPUT"
+          # rc=1 (could not measure EITHER dimension) still lands a record —
+          # a producer_failed run is a real result, not a job we hide.
+          if [ "$rc" != "0" ] && [ "$rc" != "1" ]; then
+            echo "::error::soak_book_grade.py exited ${rc} (usage/self-test failure, not a data-read failure)"
+            exit "$rc"
+          fi
+
+      - id: derive
+        name: Derive the research-result fields from the report
+        run: |
+          python3 - "${{ steps.run.outputs.out_path }}" >> "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          path = sys.argv[1]
+          try:
+              rep = json.load(open(path))
+          except Exception as exc:
+              print(f"read_state=producer_failed")
+              print(f"verdict=not_applicable")
+              print(f"n=null")
+              print(f"note=could not read {path}: {exc}")
+              raise SystemExit(0)
+
+          mech_ok = rep.get("mechanics_read_state") == "measured"
+          cost_ok = rep.get("cost_fidelity_read_state") == "measured"
+          by = rep.get("by_disposition", {})
+          if not mech_ok and not cost_ok:
+              read_state, verdict, n = "producer_failed", "not_applicable", "null"
+          else:
+              read_state = "measured"
+              n = str(rep["population"]["n"])
+              if by.get("kill", 0) > 0:
+                  verdict = "fail"
+              elif by.get("tweak", 0) > 0:
+                  verdict = "indeterminate"
+              else:
+                  verdict = "no_action_warranted"
+          note = (f"mechanics_read_state={rep.get('mechanics_read_state')} "
+                  f"cost_fidelity_read_state={rep.get('cost_fidelity_read_state')} "
+                  f"by_disposition={by}")
+          print(f"read_state={read_state}")
+          print(f"verdict={verdict}")
+          print(f"n={n}")
+          print(f"note={note}")
+          PY
+
+      - name: Land the pointer record on main
+        uses: ./.github/actions/research-result
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          research-unit: ""
+          power-state: ""
+          decision-rule-id: RULE-R5-SOAK-BOOK-GRADE-v1
+          decision-rule-registered-at: '2026-09-26'
+          verdict: ${{ steps.derive.outputs.verdict }}
+          read-state: ${{ steps.derive.outputs.read_state }}
+          population: "every (account, strategy) leg on config/accounts.yaml's bybit_1 and alpaca_paper rosters, counted live"
+          n: ${{ steps.derive.outputs.n }}
+          measurement-file: ${{ steps.run.outputs.out_path }}
+          artifact-store: ${{ steps.run.outputs.out_path }}
+          artifact-locator: "the full per-leg record; this pointer's population/n summarize it"
+          tool: scripts/ops/soak_book_grade.py
+          note: ${{ steps.derive.outputs.note }}

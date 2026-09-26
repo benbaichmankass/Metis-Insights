@@ -362,6 +362,14 @@ GUARDS: List[Dict[str, Any]] = [
             # intents>0, received=0) and for the collapse the module exists
             # to prevent (unreadable staying apart from starved).
             ["python3", "scripts/ops/leg_flow_report.py", "--self-test"],
+            # R5 — grades every Stage-1 soak leg (bybit_1, alpaca_paper) on
+            # mechanics (reuses E18's leg_flow_report) and cost fidelity
+            # (reuses R3's r3_cost_fidelity.grade()) into
+            # healthy/tweak/kill/insufficient-data. Proves the shadow-execution
+            # branch stays apart from a genuine read failure (measured live
+            # 2026-09-26: 7 of 45 soak legs are execution=shadow and absent
+            # from enumerate_live_legs entirely).
+            ["python3", "scripts/ops/soak_book_grade.py", "--self-test"],
             ["python3", "scripts/ops/soak_alarm.py"],
             ["python3", "scripts/research/target_reachability_report.py"],
             ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
