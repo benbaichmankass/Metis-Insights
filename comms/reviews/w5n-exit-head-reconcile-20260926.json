@@ -74,7 +74,7 @@
   },
   "new_finding_mirror_divergence": {
     "summary": "While the head was advisory, it closed ONLY the first account of a bybit_2 / bybit_portfolio twin, never the mirror. 3 of 3 twinned exit-head closes diverged. That breaks the Stage-2 invariant ('the mirror carries IDENTICAL trades'), and the Gate-2 demotion signal read off bybit_portfolio was not measuring the leg the live account actually traded.",
-    "root_cause": "src/runtime/exit_head_shadow.py::maybe_score_exit_head dedups on seen_key = (model_id, order_package_id, bar_ts) (L477-480). Twins share one order_package_id, so the monitor's call for the SECOND account returns None, and exit_head_verdict(None) -> no close. Reproduced locally (scratch script, no src change): same pkg id, two accounts -> [('bybit_2', {'stage': 'advisory', 'would_exit': True}), ('bybit_portfolio', None)].",
+    "root_cause": "INFERRED, not observed in live logs: src/runtime/exit_head_shadow.py::maybe_score_exit_head dedups on seen_key = (model_id, order_package_id, bar_ts) (L477-480). Twins share one order_package_id, so the monitor's call for the SECOND account returns None, and exit_head_verdict(None) -> no close. Reproduced locally (scratch script, no src change): same pkg id, two accounts -> [('bybit_2', {'stage': 'advisory', 'would_exit': True}), ('bybit_portfolio', None)]. The divergence in the trades table is MEASURED. That the dedup CAUSED those three historical divergences is inferred from the mechanism reproduction plus the data. Not verified: that both twins' monitor calls run in the same process with a shared _SEEN set on the same bar. No live log line ties a specific close to the dedup.",
     "paired_outcomes_gross_R": [
       {
         "pkg": "pkg-f9b2170e55994873",
