@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "Manager register only. Records wave-4 outcomes: B3 merged and deployed (operator-approved), R3 condition (1) merged (#12973, operator-approved), E38 answered null. No src/, config/, scripts/ or workflow change."
+  "why": "Manager register only. Notes on B3 (first R4 run 0/7, auto-land route merged unarmed), E6 (09-26 nightly partial 15/22), E18 (post-E35 triage merged). No src/, config/, scripts/ or workflow change."
 }
