@@ -166,6 +166,22 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_symbol_resolver.py",
                    "--self-test"]],
     },
+    {
+        # BL-20260926-RECORDS-FILE-UNDECLARED-SO-GITHUB-SILENTLY-DROPS-IT.
+        # GitHub does not fail a step that passes an undeclared `with:` key to
+        # a local composite action — it warns and drops it. That is how
+        # RQ-20260922-003/004 landed `not_attempted`/`null` instead of the
+        # per-leg verdicts `m20_sweep_result.py` actually computed:
+        # `research-result/action.yml` never declared `records-file`. This
+        # guard statically cross-checks every workflow's `with:` keys against
+        # the local action's declared `inputs:` so the next undeclared key is
+        # a red PR, not a silent warning in a job log nobody greps.
+        "name": "action-input-wiring",
+        "when": {"globs": [".github/workflows/*.yml", ".github/actions/**"]},
+        "steps": [["python3", "scripts/ci/check_action_input_wiring.py",
+                   "--self-test"],
+                  ["python3", "scripts/ci/check_action_input_wiring.py"]],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
