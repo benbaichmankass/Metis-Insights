@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 by the canonical doc's own list: CI/tooling fix only. Declares a missing input on a local composite GitHub Action (.github/actions/research-result/action.yml) and adds a static CI guard (scripts/ci/check_action_input_wiring.py, wired into scripts/ci/run_guards.py). No src/ runtime, no config/*.yaml, no order path, no deploy/, no live-VM file touched. Root cause + fix are both verified locally: research_result.py --self-test and m20_sweep_result.py --self-test still pass unchanged, the new guard's self-test (with a planted negative control replaying the exact undeclared-input bug) passes, and an end-to-end manual replication of the emit step with the fixed action.yml now lands the real per-leg verdict instead of the not_applicable/not_attempted placeholder that RQ-20260922-003 and RQ-20260922-004 landed on runs 36239255060/36239256148."
+}
