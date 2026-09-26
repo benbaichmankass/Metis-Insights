@@ -100,6 +100,33 @@ def test_untightened_cells_left_untouched():
         assert s[base]["trail_mult"] == 5.0
 
 
+def test_eth_prop_trail_decay_geometry():
+    # M20 exit-lever sweep, 2026-08-13 (Tier-3, operator-approved): the shipped
+    # trail_decay arm on trend_donchian_eth_prop is stall-based (decay_stall10_t1.8).
+    s = _strategies()
+    b = s["trend_donchian_eth_prop"]
+    assert b["trail_decay_stall_bars"] == 10
+    assert b["trail_decay_tight_mult"] == 1.8
+
+
+def test_eth_prop_trail_decay_arm_r_candidate_pinned():
+    # PROPOSED Tier-3 candidate (held for operator approval — NOT merged):
+    # decay_p80arm2.99R_t1.8, RQ-20260922-003 run 36254494896. Adds an R-armed
+    # trigger to the already-shipped trail_decay lever (OR'd with the existing
+    # stall trigger by src/runtime/trail_decay.py::resolve_trail_mult); the
+    # existing stall/tight params are unchanged. Leg-scoped: no sibling leg is
+    # touched. See config/strategies.yaml::trend_donchian_eth_prop for the full
+    # evidence citation and rollback note.
+    s = _strategies()
+    b = s["trend_donchian_eth_prop"]
+    assert b["trail_decay_arm_r"] == 2.99
+    # Unchanged by this candidate — it only adds the arm_r trigger.
+    assert b["trail_decay_stall_bars"] == 10
+    assert b["trail_decay_tight_mult"] == 1.8
+    # Leg-scoped: the sibling prop leg is untouched by this candidate.
+    assert "trail_decay_arm_r" not in s["trend_donchian_sol_prop"]
+
+
 def test_no_per_strategy_risk_pct():
     # Prime Directive / strategy-risk-guard: a strategy carries NO risk level.
     s = _strategies()
