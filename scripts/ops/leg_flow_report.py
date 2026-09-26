@@ -34,17 +34,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from scripts.ops import leg_flow_detector as lfd  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 _BOT_BASE = os.environ.get("BOT_API_URL", "https://ict-bot.duckdns.org").rstrip("/")
 _DIAG_FETCH = _REPO_ROOT / "scripts" / "ops" / "diag_fetch.sh"
@@ -167,6 +170,52 @@ def fetch_prop_tickets(account_id: str, *, since_iso: str) -> Optional[List[Dict
     return [r for r in rows if str((r or {}).get("created_at") or "") >= since_iso]
 
 
+def find_unmapped_prop_tickets(
+    ticket_rows: Sequence[Dict[str, Any]],
+    *,
+    strategy: str,
+    received: int,
+    held_back: int,
+) -> Tuple[int, List[str]]:
+    """``unmapped = len(ticket_rows_for_strategy) - received - held_back`` —
+    tickets whose ``status`` satisfied NEITHER
+    ``leg_flow_detector.PROP_RECEIVED_STATUSES`` nor
+    ``PROP_NOT_RECEIVED_STATUSES``, so :func:`leg_flow_detector.count_received_prop`
+    dropped them into neither bucket rather than guessing.  That is the exact
+    gap that let ``expiry_prompted`` fall through silently — a leg reading
+    `starved` with a real, dispatched ticket in flight — before PR #13000
+    (docs/claude/work/findings/E18-starved-triage-post-E35-20260926.md).
+
+    ``received`` and ``held_back`` must come from the SAME
+    ``ticket_rows_for_strategy`` population (i.e. the two-tuple this module's
+    caller already gets back from ``count_received_prop`` on this exact
+    ``ticket_rows``) — the subtraction is only correct as row-accounting
+    against that shared population.
+
+    Returns ``(unmapped, offending_status_values)``: the count via simple
+    subtraction, and the SORTED, DEDUPED status values responsible (so a
+    caller can name them in a warning instead of just a bare number). A row
+    with no ``status`` at all counts under the literal string
+    ``"<missing>"``. ``unmapped == 0`` (every status is one of the two
+    described in the docstring above) returns an empty list either way — the
+    caller decides what "loud" means for a nonzero count.
+    """
+    ticket_rows_for_strategy = [
+        r for r in ticket_rows if (r or {}).get("strategy") == strategy
+    ]
+    unmapped = len(ticket_rows_for_strategy) - received - held_back
+    statuses: List[str] = []
+    if unmapped != 0:
+        seen = set()
+        for r in ticket_rows_for_strategy:
+            status = (r or {}).get("status")
+            if status in lfd.PROP_RECEIVED_STATUSES or status in lfd.PROP_NOT_RECEIVED_STATUSES:
+                continue
+            seen.add("<missing>" if status is None else str(status))
+        statuses = sorted(seen)
+    return unmapped, statuses
+
+
 def build_report(*, window_hours: int) -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
     since_iso = (now - timedelta(hours=window_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -195,8 +244,9 @@ def build_report(*, window_hours: int) -> Dict[str, Any]:
         sig_rows = signal_cache.get(strat)
         intents = lfd.count_intents(sig_rows)
         episodes = lfd.count_intent_episodes(sig_rows)
+        ticket_rows = prop_cache.get(acct) if is_prop else None
         if is_prop:
-            recv = lfd.count_received_prop(prop_cache.get(acct), strategy=strat)
+            recv = lfd.count_received_prop(ticket_rows, strategy=strat)
         else:
             recv = lfd.count_received_standard(trade_rows, account_id=acct, strategy=strat)
         received, held_back = (recv if recv is not None else (None, None))
@@ -204,6 +254,26 @@ def build_report(*, window_hours: int) -> Dict[str, Any]:
             intents=intents, received=received,
             intent_episodes=episodes, held_back=held_back,
         )
+
+        # A prop ticket whose status is in neither PROP_RECEIVED_STATUSES nor
+        # PROP_NOT_RECEIVED_STATUSES must never fall silently into neither
+        # bucket the way `expiry_prompted` did before PR #13000 — surface it
+        # loudly (a WARNING + the offending status values) instead. Only
+        # computed when the ticket source was actually readable, so a genuine
+        # `unreadable` leg is never misreported as `unmapped=0`.
+        unmapped: Optional[int] = None
+        unmapped_statuses: List[str] = []
+        if is_prop and ticket_rows is not None and received is not None:
+            unmapped, unmapped_statuses = find_unmapped_prop_tickets(
+                ticket_rows, strategy=strat, received=received, held_back=held_back,
+            )
+            if unmapped != 0:
+                logger.warning(
+                    "leg_flow_report: %s/%s: %d prop ticket(s) UNMAPPED — status(es) "
+                    "%s matched neither PROP_RECEIVED_STATUSES nor "
+                    "PROP_NOT_RECEIVED_STATUSES (the expiry_prompted gap, PR #13000; "
+                    "PI-20260926-Y5MVFDD8-0001)", acct, strat, unmapped, unmapped_statuses,
+                )
         # CONTEXT ONLY — never feeds the state calc, same contract as
         # `held_back`. A leg graded `starved` while ALREADY HOLDING a
         # position opened before the window is very likely "still holding",
@@ -221,6 +291,8 @@ def build_report(*, window_hours: int) -> Dict[str, Any]:
             "strategy": strat, "account_id": acct,
             "account_class": leg["account_class"],
             "has_open_position": has_open_position,
+            "unmapped": unmapped,
+            "unmapped_statuses": unmapped_statuses,
             **verdict,
         })
 
@@ -265,6 +337,14 @@ def _print_table(report: Dict[str, Any]) -> None:
             print(f"  - {leg['account_id']}/{leg['strategy']}: "
                   f"{leg['intents']} intent(s) ({leg['intent_episodes']} episode(s)), "
                   f"0 received, {leg['held_back']} held back{caveat}")
+    unmapped_legs = [leg for leg in report["legs"] if leg.get("unmapped")]
+    if unmapped_legs:
+        print(f"\n⚠️  {len(unmapped_legs)} leg(s) with UNMAPPED prop ticket "
+              f"status(es) — neither received nor held_back, the expiry_prompted gap "
+              f"(PR #13000):")
+        for leg in unmapped_legs:
+            print(f"  - {leg['account_id']}/{leg['strategy']}: unmapped={leg['unmapped']} "
+                  f"status(es)={leg['unmapped_statuses']}")
 
 
 def _self_test() -> int:
@@ -332,6 +412,36 @@ def _self_test() -> int:
     )
     ck("count_received_standard: placed vs refused, other-account excluded",
        placed == 1 and refused == 1)
+
+    # unmapped prop ticket statuses (PI-20260926-Y5MVFDD8-0001): a status
+    # absent from BOTH vocabularies must surface by name, never fall
+    # silently into neither bucket the way `expiry_prompted` did before
+    # PR #13000.
+    unknown_rows = [{"strategy": "x", "status": "filled"},
+                     {"strategy": "x", "status": "shadow"},
+                     {"strategy": "x", "status": "some_future_status"}]
+    recv, held = lfd.count_received_prop(unknown_rows, strategy="x")
+    unmapped, statuses = find_unmapped_prop_tickets(
+        unknown_rows, strategy="x", received=recv, held_back=held)
+    ck("unmapped surfaces an unknown status by name",
+       unmapped == 1 and statuses == ["some_future_status"])
+
+    known_rows = [{"strategy": "x", "status": "filled"},
+                  {"strategy": "x", "status": "shadow"}]
+    recv, held = lfd.count_received_prop(known_rows, strategy="x")
+    unmapped, statuses = find_unmapped_prop_tickets(
+        known_rows, strategy="x", received=recv, held_back=held)
+    ck("known statuses give unmapped=0, no offending status(es)",
+       unmapped == 0 and statuses == [])
+
+    # negative control: an unknown status on a DIFFERENT strategy must not
+    # bleed into this strategy's unmapped count.
+    other_strategy_rows = known_rows + [{"strategy": "y", "status": "totally_unknown"}]
+    recv, held = lfd.count_received_prop(other_strategy_rows, strategy="x")
+    unmapped, statuses = find_unmapped_prop_tickets(
+        other_strategy_rows, strategy="x", received=recv, held_back=held)
+    ck("negative control: another strategy's unknown status is not counted",
+       unmapped == 0 and statuses == [])
 
     print("leg_flow_report self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
