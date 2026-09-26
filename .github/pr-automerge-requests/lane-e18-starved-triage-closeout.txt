@@ -1,0 +1,5 @@
+armed by lane/e18-starved-triage-closeout self-land request (session_01URR1sVVXrF8jjKKNStSR8n)
+
+Note: same known gap as PI-20260925-BN2S6RQZ-0002 -- this branch does not
+match claude-pr-automerge.yml's branches: ["claude/**"] push trigger. Written
+per convention; expect to merge directly once CI is green.

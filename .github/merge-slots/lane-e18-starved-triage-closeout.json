@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01URR1sVVXrF8jjKKNStSR8n",
+  "branch": "lane/e18-starved-triage-closeout",
+  "claimed_at": "2026-09-26T12:44:56Z",
+  "purpose": "E18 close-out: PR number + explicit close condition on the checklist row"
+}

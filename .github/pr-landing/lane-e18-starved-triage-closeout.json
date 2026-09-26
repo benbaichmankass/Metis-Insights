@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Close-out fix on PR #12995 (already merged): the checklist note landed without naming the PR number in the `prs` array or an explicit close condition, per the close-out skill's check 3. Docs-only change to docs/claude/work/MANAGER-CHECKLIST.json, on TIER1_SURFACE. No src/, config/, or order-path file touched."
+}
