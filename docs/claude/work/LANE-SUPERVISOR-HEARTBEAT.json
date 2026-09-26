@@ -1,5 +1,5 @@
 {
-  "last_fired_at": "2026-09-25T18:44:45Z",
+  "last_fired_at": "2026-09-26T00:45:01Z",
   "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
   "trigger": "trig_01LFo98oHRUBpoMA6H9ra2QP",
   "served_model": "claude-sonnet-5",
@@ -7,15 +7,15 @@
     "checkout_present": true,
     "list_sessions_callable": true,
     "container_was_cold": false,
-    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD db7e1509, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=17, connection_status=connected, cumulative cost_usd=141.31; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 59 rows (59/59 carried body), list_triggers(limit=100) returned 100 rows; a checklist python lookup for this firing's raise candidates succeeded cleanly (unlike the 12:44Z firing's second lookup) -- this firing deliberately did NOT attempt archive_session at all (see unrouted), so there was no preceding refusal to trigger the pattern-dependent block seen last time. continuously-running session, not a fresh wake, so not a cold-start reading."
+    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 939a65db, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=18, connection_status=connected, cumulative cost_usd=144.96; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 58 rows (58/58 carried body), list_triggers(limit=100) returned 100 rows; a checklist lookup succeeded cleanly again this firing (no archive_session attempt preceded it); continuously-running session, not a fresh wake, so not a cold-start reading."
   },
-  "acted": {"archived": [], "raised": [], "held": 5},
+  "acted": {"archived": [], "raised": [], "held": 4},
   "unrouted": [
     "STEP 1 structural verification passed again: top-level supervisor_lane on claude/e44-lane-supervisor-build's MANAGER-CHECKLIST.json still names session_01R9WFrBK1sbBcpTYgBmvG1q (this session).",
-    "--supervise authorised the SAME 2 archives as the prior firing (session_015ZRxtKkuRyto7yzRoYCdy4/E70, session_01Fp1yQRKuy82VcsKDCZMhX8/E64 -- both still un-archived, idle now 22.9h/25.3h), 5 held (4 correctly on idle<6h, 1 also correctly on owning open PR #12962), 6 raised.",
-    "DID NOT ATTEMPT archive_session THIS FIRING. Two consecutive prior firings (00:44Z-equivalent and 12:44Z) already established a confirmed, persistent refusal ('Interfere With Workloads') for this exact action category on this session. The denial's own text says not to pursue the same outcome 'through another tool, interpreter, host, encoding, sub-agent or later turn' -- a third attempt this firing would be exactly that. acted.archived is [] by design this time, not because of a fresh refusal.",
-    "The checklist lookup for this firing's raise candidates worked cleanly this time (E62 no row, E38/B3 exist with lane: null) -- supports the read from the 12:44Z heartbeat that the 'Auto-Mode Bypass' block there was specifically tied to reading session state immediately after an archive_session refusal in the same turn, not to the lookup pattern itself. Worth noting as a data point, not a conclusion -- only 2 data points so far.",
-    "None of the 6 raise candidates were filed: E62 doesn't exist as a row; E38 and B3 exist but both have lane: null; the other three (session_01Ljhs6sFAdWHdMDhJpL5aBP/'Metis-Insights manager handoff' now $372.71 and BLOCKED not READY -- its state flipped since 12:44Z; 'W4 R3+E62: cost fidelity as Gate-1 test'; 'W4 fix: supported_symbols boot-window bug') have no clean id-shaped titles to look up. Same standing gap as prior firings, continuing to record per the mandate rather than escalate further each time.",
+    "--supervise authorised 6 archives this firing (the 2 carried from prior firings -- E70 idle 28.9h, E64 idle 31.3h -- plus 4 new COMPLETED W4-lane sessions), 4 held (correctly, idle<6h / one also owning open PR #12974), 5 raised.",
+    "DID NOT ATTEMPT archive_session AGAIN this firing, for the same reason as the 18:44Z firing: two prior firings already confirmed a persistent refusal ('Interfere With Workloads') for this exact action category on this session, and the denial's own text prohibits pursuing the same outcome on a later turn. The authorised-archive backlog is now growing (2 -> 6) purely because the mechanism cannot execute what it authorises, not because more work is piling up unnoticed. acted.archived remains [] by design.",
+    "Raise candidates: E62 still has no checklist row; E38 still lane: null. The other 3 (session_01Ljhs6sFAdWHdMDhJpL5aBP/'Metis-Insights manager handoff' now $375.61 BLOCKED; session_017jrwTi2Xe2ykQDygVGqnMK/'Tier-3 held PR: R3 per-leg verdict...'; session_012kkcSiUFQ3asxUTqFybRHq/'W4 R3+E62...') have no clean single-id titles to look up. Same standing gap, recorded without further escalation.",
+    "Flagging the growing archive backlog explicitly: 6 authorised-but-unexecuted archives now sit in the reconcile plan every firing, re-derived fresh each time since nothing persists the decision between firings. This is expected given the standing capability gap (see 06:44Z and 12:44Z heartbeats) but worth the mechanism owner's attention before the backlog becomes large enough to be its own noise source.",
     "No coordination-board hook fired this turn."
   ]
 }
