@@ -107,20 +107,71 @@ def test_an_unparseable_declaration_is_unreadable_never_absent():
 
 # ── contract ────────────────────────────────────────────────────────────────
 
-def test_arm_is_true_for_exactly_two_states():
+def test_arm_is_true_for_exactly_three_states():
+    """⚠️ WAS "two" UNTIL 2026-09-25, and the third is a Tier-3 route.
+
+    `check_pr_landing.py` R16 added `landing: "mandate"` — a mandate-authorized,
+    removal-only Stage-2 roster cut, graded clause by clause by
+    `scripts/ci/check_mandate_autoland.py`. This gate arms it ONLY on an
+    explicit passing verdict from that module; it cannot re-derive the clauses
+    itself. Every other combination stays refusing, and that is asserted below
+    rather than left to the reader.
+    """
     got = [G.grade(found=True, parse_ok=True, landing="self")["arm"],
            G.grade(found=False, parse_ok=False, landing=None)["arm"],
+           G.grade(found=True, parse_ok=True, landing="mandate",
+                   autoland_ok=True)["arm"],
            G.grade(found=True, parse_ok=True, landing="hold")["arm"],
-           G.grade(found=True, parse_ok=False, landing=None)["arm"]]
-    assert got == [True, True, False, False]
+           G.grade(found=True, parse_ok=False, landing=None)["arm"],
+           G.grade(found=True, parse_ok=True, landing="mandate",
+                   autoland_ok=False)["arm"],
+           G.grade(found=True, parse_ok=True, landing="mandate")["arm"]]
+    assert got == [True, True, True, False, False, False, False]
 
 
-def test_all_four_states_are_reachable_so_none_is_decorative():
+def test_a_mandate_landing_with_no_verdict_is_unchecked_never_armed():
+    """'We could not look' is not 'the clauses passed'.
+
+    `claude-pr-automerge.yml` sees only `claude/**` branches and never evaluates
+    the autoland clauses, so it produces exactly this shape. It must refuse, and
+    it must refuse under a state DISTINCT from a genuine clause failure — the
+    two read identically in a log otherwise, and a green log would then mean
+    "nothing looked".
+    """
+    unchecked = G.grade(found=True, parse_ok=True, landing="mandate")
+    refused = G.grade(found=True, parse_ok=True, landing="mandate",
+                      autoland_ok=False)
+    assert unchecked["arm"] is False and refused["arm"] is False
+    assert unchecked["state"] != refused["state"]
+    assert "could not look" in unchecked["why"]
+
+
+@pytest.mark.parametrize("truthy", [1, "true", "yes", [1]])
+def test_a_merely_truthy_autoland_verdict_does_not_arm(truthy):
+    """The verdict must be exactly `True`. A truthy stand-in is how a caller
+    that could not evaluate the clauses arms anyway."""
+    assert G.grade(found=True, parse_ok=True, landing="mandate",
+                   autoland_ok=truthy)["arm"] is False
+
+
+def test_a_passing_autoland_verdict_cannot_arm_a_non_mandate_landing():
+    assert G.grade(found=True, parse_ok=True, landing="hold",
+                   autoland_ok=True)["arm"] is False
+    assert G.grade(found=True, parse_ok=False, landing=None,
+                   autoland_ok=True)["arm"] is False
+
+
+def test_all_seven_states_are_reachable_so_none_is_decorative():
     reached = {
         G.grade(found=True, parse_ok=True, landing="self")["state"],
         G.grade(found=True, parse_ok=True, landing="hold")["state"],
         G.grade(found=False, parse_ok=False, landing=None)["state"],
         G.grade(found=True, parse_ok=False, landing=None)["state"],
+        G.grade(found=True, parse_ok=True, landing="mandate",
+                autoland_ok=True)["state"],
+        G.grade(found=True, parse_ok=True, landing="mandate",
+                autoland_ok=False)["state"],
+        G.grade(found=True, parse_ok=True, landing="mandate")["state"],
     }
     assert reached == set(G.ALL_STATES)
 
