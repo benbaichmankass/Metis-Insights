@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Tier-1 lane dispatch (manager session_01Ljhs6sFAdWHdMDhJpL5aBP, operator choice 'Re-scope RQ-007' in the manager chat, 2026-09-26), clarified the same day: declare tier 1 / landing hold, add NO automerge-request file, get CI green and stop -- the manager merges.",
+  "why": "Rescopes research/queue/RQ-20260922-007.yaml's run.workflow + routing/lands blocks to the workflow that actually answers its registered question, adds a landing job + self-tested result mapper to research-exit-head-replay-trainer.yml, marks the prior wrong-population result's note field, and updates one test fixture. Research-queue plumbing, CI workflow YAML, a new scripts/research/*.py tool, and a test file -- no runtime/order-path/live config touched, and the unit's question and decision_rule are unchanged. Tier-1 by path; held per this lane's explicit landing instruction rather than self-landed."
+}
