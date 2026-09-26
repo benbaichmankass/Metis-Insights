@@ -1,0 +1,4 @@
+m20 exit-lever sweep corpus — run 36239256148
+Touching this file is the opt-in signal for claude-pr-automerge.yml;
+its contents are ignored. The NAME is the signal, and it must
+match the target branch slug or the relay ignores it.
