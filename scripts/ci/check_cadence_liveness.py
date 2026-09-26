@@ -201,6 +201,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     "macro-producer-liveness.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "macro-valuation-snapshot.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "replay-pregate-nightly.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
+    "soak-book-grade-weekly.yml": {"receipt": None, "why": "commits back (comms/research/soak_book_grade/<date>.json, a new filename per run, plus research/results/_unattributed/); no fixed path yet — a future latest.json pointer would make this gradeable"},
     "research-queue-dispatch.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "stale-automation-sweep.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "strategy-review-packets.yml": {"receipt": None, "why": "commits back; output path not yet declared"},

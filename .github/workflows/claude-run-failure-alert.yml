@@ -263,6 +263,10 @@ on:
       #    stop exactly when the repo is unhealthy — so a watcher that dies
       #    quietly restores a blind window measured at up to 442.6 minutes.
       - main-tree-watch
+      # R5's standing weekly soak-book grade (Sunday 03:00 UTC). A scheduled
+      # run that dies here notifies nobody otherwise — the exact class every
+      # other cron entry above exists for.
+      - soak-book-grade-weekly
     types: [completed]
 
 permissions:
