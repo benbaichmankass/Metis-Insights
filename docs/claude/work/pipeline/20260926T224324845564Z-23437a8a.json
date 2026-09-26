@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a later soak_book_grade run reads alpaca_paper/tlt_pullback_1h as flowing (received>0), or the operator kills/keeps the leg explicitly",
+    "kind": "observation"
+  },
+  "id": "PI-20260926-X3QEGPJL-0005",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "R5 soak-book-grade 2026-09-26",
+    "rerun": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out comms/research/soak_book_grade/<date>.json"
+  },
+  "state": "queued",
+  "what": "R5 soak-book grade PROPOSES kill: alpaca_paper/tlt_pullback_1h — starved (48 actionable intent(s), 6 episode(s), 0 order(s)/ticket(s) received, held_back=1, no open position held) over the 168h window ending 2026-09-26T22:39:52.948694+00:00. Cost fidelity insufficient_n (0 fills) — consistent with zero orders reaching the exchange. This is Stage-1 soak mechanics, NOT an expectancy call; the leg is a PROPOSAL to remove from the alpaca_paper roster as mechanically dead, Tier-3, operator-approved only."
+}

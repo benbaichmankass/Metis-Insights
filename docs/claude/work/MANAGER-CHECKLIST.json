@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-26T19:40:00Z",
-  "updated_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP",
+  "updated_at": "2026-09-26T22:50:00Z",
+  "updated_by": "session_01Vy5PRPgQd3LRcex3qEGPjL",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -536,16 +536,16 @@
       "id": "R5",
       "title": "Read the soak book on a cadence",
       "phase": "R",
-      "state": "queued",
+      "state": "landed_unproven",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01Vy5PRPgQd3LRcex3qEGPjL",
       "model": "claude-sonnet-5",
       "ceiling_usd": 25,
       "spend_usd": null,
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "OPERATOR-NAMED and never built: 26 legs on bybit_1 and 19 on alpaca_paper make decisions on live data continuously and nobody reads them. A standing weekly pass grading every soak leg on MECHANICS and COST FIDELITY (not expectancy -- see R3), filing each as tweakable-with-a-named-hypothesis or kill."
+      "note": "BUILT 2026-09-26 (lane session_01Vy5PRPgQd3LRcex3qEGPjL, dispatched by manager session_01Ljhs6sFAdWHdMDhJpL5aBP as W5-night L4): scripts/ops/soak_book_grade.py grades every Stage-1 soak leg on MECHANICS (reuses E18's leg_flow_report/leg_flow_detector) and COST FIDELITY (reuses R3's r3_cost_fidelity.grade() per (leg, account) cell) into healthy/tweak/kill/insufficient-data. NOT expectancy. POPULATION counted live, not quoted: 45 legs (26 bybit_1 + 19 alpaca_paper, confirmed matches the note's own prior count by direct config/accounts.yaml parse, this run). .github/workflows/soak-book-grade-weekly.yml runs it weekly and lands via the shared research-result action (E5/E57 contract). RAN ONCE NOW through the real diag data path: by_disposition = {healthy: 3, tweak: 0, kill: 6, insufficient-data: 36} (comms/research/soak_book_grade/2026-09-26.json). REAL FINDING CAUGHT AND FIXED DURING THIS RUN: 4 of an initial 10 candidate `kill` legs (alpaca_paper gdx_pullback_1d/gld_pullback_1h/slv_pullback_1d/tlt_pullback_1d) were holding a position opened before the window -- leg_flow_report's own documented caveat for exactly this shape -- and were reclassified insufficient-data rather than left as false-positive kills. 7 of 45 legs read execution=shadow (place no live order by design) and are graded insufficient-data with that reason stated, not conflated with a read failure. The 6 surviving `kill` legs (bybit_1 trend_donchian, trend_donchian_eth_4h; alpaca_paper gld_pullback_1d, iaum_pullback_1d, tlt_pullback_1h, tqqq_trend_long_1d) are PROPOSED-only (Tier-3, this leg grading changes no roster) and filed to the pipeline: PI-20260926-X3QEGPJL-0001 through -0006, each with due_when=observation (clears when a later run reads flowing, or the operator decides) and check_every_days=7. `landed_unproven` because the WEEKLY SCHEDULE has not fired yet -- closes when the first scheduled (cron, not manual) run of soak-book-grade-weekly.yml lands a result under research/results/ or a later comms/research/soak_book_grade/*.json, whichever a session next confirms."
     },
     {
       "id": "R6",
