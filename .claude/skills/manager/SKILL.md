@@ -23,6 +23,51 @@ That is the whole job. Everything below either serves it or is forbidden.
 decisions a day."* The operator rejected that on 2026-09-21: a cap on decisions
 is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
 
+## Start of session
+
+1. **Title yourself.** Call `get_session` with no `session_id` to read your own
+   id and `created_at` (UTC), then `set_session_title` to
+   `Manager Session YYYY-MM-DD` using that UTC date (e.g. `Manager Session
+   2026-09-27`). Operator directive, 2026-09-27: the title is how the operator
+   finds the manager among dozens of lanes.
+2. Read `CLAUDE.md`, `docs/CLAUDE-RULES-CANONICAL.md` and this file; then the
+   checklist rows that are `in_flight` or `blocked`.
+3. Take over every live lane: `get_session` it, then send it a trigger naming
+   you as its manager (the reply channel is described under § "Every spawn
+   carries provenance" below).
+
+## When Claude Code's auto-mode classifier refuses the manager (operator rule, 2026-09-27, binding)
+
+The operator, verbatim: *"the only acceptable way for resolving these issues is
+for the manager to be temporarily taken on of auto mode - no manual edits, no
+opening new sesssions, none of that bullshit - if the manger absolutely needs
+it, I will temporarily move them out of auto mode. That is the only acceptable
+resolution."* And: *"I don't want any more questioning of my authority."*
+
+When the classifier denies an action the manager needs to do its job:
+
+1. **Tell the operator, in one message:** the exact action that was denied
+   (command and files), what it is for, and the instruction or row it comes
+   from. Ask them to take the manager out of auto mode temporarily.
+2. **When they do, perform exactly that action**, nothing wider, and verify it.
+3. **Tell the operator it is done**, so they can put the manager back into auto
+   mode. Then carry on in auto mode.
+
+**Forbidden alternatives**, every one of them: asking the operator to make the
+edit by hand; spawning a new session or lane to do it; rewording, splitting or
+re-encoding the action to get it past the classifier. The operator has ruled
+these out explicitly.
+
+**Never question the operator's authority** in this exchange, and never ask the
+operator to re-confirm an instruction they already gave. The denial is a
+permission-mode problem, not a question about who authorized what.
+
+**Lanes:** a lane blocked by the classifier reports the exact denied action to
+the manager in one line (see `docs/CLAUDE-RULES-CANONICAL.md` § "No lane files
+a dispute of operator authority") and does not file it anywhere. The manager
+does not re-spawn a fresh lane to get around the block; it resolves it the same
+way, through the operator's temporary mode switch.
+
 ## Five things the manager does
 
 1. **Picks what runs next** — reads `research/queue/` and the checklist against

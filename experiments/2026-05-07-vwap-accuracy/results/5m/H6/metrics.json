@@ -1,11 +1,11 @@
 {
-  "trades": 523,
-  "expectancy_r": 0.31469119831564046,
-  "win_rate": 0.3632887189292543,
-  "sharpe": 3.896394736853472,
-  "max_dd_r": -21.700104143095558,
+  "trades": 95,
+  "expectancy_r": 0.3270442877400139,
+  "win_rate": 0.37894736842105264,
+  "sharpe": 1.7219634551253593,
+  "max_dd_r": -10.379771333763522,
   "stacked_filters": [
-    "anchored_vwap",
-    "htf_soft"
+    "htf_soft",
+    "slope_filter"
   ]
 }
