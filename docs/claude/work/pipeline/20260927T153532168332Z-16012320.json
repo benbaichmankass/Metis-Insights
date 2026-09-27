@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the docker-logs grep is changed from free-text keyword matching (which can capture a raw value on the same line) to a fixed enumerated set of known-safe IBC status phrases, or captured lines are pattern-scrubbed/redacted before being posted to the public issue comment or step summary",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-NQRDRZWZ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A14 code-audit-2026-09-27 (docs/audits/code-audit-2026-09-27/CA-A14.findings.jsonl, finding AUD-20260927-CA-A14-ib-login-test-password-grep)",
+    "rerun": "grep -n \"grep -iE\" .github/workflows/vm-ib-gateway-live-login-test.yml; review the most recent run's posted issue comment / step summary (if any exist) for a captured line that contains a raw credential value rather than a status phrase"
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-18 fixed in PR #13246: the log tail goes through auth_log_filter (fixed IBC status phrases + hard drop of credential-mentioning lines); tests/ops/test_ib_login_test_log_filter.py.",
+  "what": "vm-ib-gateway-live-login-test.yml's remote log-tail step (.github/workflows/vm-ib-gateway-live-login-test.yml:199-201) greps the throwaway live-IBKR container's docker logs for a keyword set that includes the literal word 'password' (alongside 'incorrect', 'denied', 'rejected', etc.), and the matching lines are posted VERBATIM (last 6000 chars via `out.slice(-6000)`, line 232) into a public GitHub issue comment, or into the run's public $GITHUB_STEP_SUMMARY on workflow_dispatch (line 240) -- this repository is public. Credential material itself is handled correctly everywhere else in the file (staged to a file, scp'd, shredded, passed via --env-file, never in argv/log per the file's own header claim, verified). But if the ib-gateway/IBC container image ever emits a raw credential value on a login-failure/debug log line -- a documented behavior class for TWS/IBC verbose logs -- that value would be captured by this grep and published. NOT CONFIRMED to have occurred: no live login was triggered to test this (doing so would itself be an inappropriate live-credential test), so this is a plausible, unverified risk from code inspection, not an observed leak."
+}
