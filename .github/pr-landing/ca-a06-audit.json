@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs-only: this PR adds docs/audits/code-audit-2026-09-27/CA-A06.{md,findings.jsonl} (the lane's findings report) and one new record under docs/claude/work/pipeline/ (filed via scripts/ops/pipeline.py::append, which validated the record before it was written). Nothing under src/, config/, deploy/, scripts/, tests/ or .github/workflows/ is touched, per the audit lane's standing instruction to only find, never change, those trees. The pipeline record was filed with pipeline.append(item, intent='new'), which runs validate() first and refuses a record missing due_when/origin.rerun/state -- confirmed by the successful append (a rejected item raises PipelineError and would not have produced a file)."
+}

@@ -124,14 +124,16 @@ ASSUMPTIONS — stated because each one moves the answer
   A5  Open positions at the moment the evaluation passes are dropped (the
       account is re-issued), and contribute nothing to either phase.
   A6  The funded account starts FRESH at the starting balance
-      (``--funded-start fresh``). A third-party summary of Breakout's FAQ says
-      the balance resets on passing; Breakout's own article checked on
-      2026-09-27 does not say either way. ``--funded-start carry`` is the
-      optimistic alternative.
+      (``--funded-start fresh``). OPERATOR-CONFIRMED 2026-09-27 ~11:12Z ("Resets
+      to a fresh $5,000"), declared as ``economics.funded_start: fresh`` in
+      config/prop_rulesets/breakout.yaml and read from there as the default.
+      ``--funded-start carry`` remains only as a counterfactual.
   A7  A 1-day approval gap (KYC + agreement, "12-24 hours") between passing and
       the funded account trading. No trades are taken in it.
-  A8  The first-payout fee refund some reviews mention is NOT modelled by
-      default (unconfirmed); ``--first-payout-refund`` adds it.
+  A8  NO first-payout fee refund. OPERATOR-CONFIRMED 2026-09-27 ~11:12Z ("No
+      refund"), declared as ``economics.first_payout_fee_refund: false`` in the
+      ruleset and read from there as the default. ``--first-payout-refund``
+      remains only as a counterfactual.
   A9  A life still alive at the horizon (default 730 days) is scored at what it
       has BANKED — its remaining value is counted as zero. Conservative; the
       fraction alive at the horizon is reported so the truncation is visible.
@@ -236,6 +238,10 @@ class PropRules:
     payout_frequency_days: float = 7.0
     min_withdrawal: float = 50.0
     withdraw_buffer: float = 0.0
+    # Operator-confirmed Breakout terms (2026-09-27): the funded account resets
+    # to a fresh start balance, and the eval fee is not refunded.
+    funded_start: str = "fresh"
+    first_payout_refund: bool = False
 
     @classmethod
     def from_yaml(cls, path: Path) -> "PropRules":
@@ -260,6 +266,8 @@ class PropRules:
             payout_frequency_days=float(pay["payout_frequency_days"]),
             min_withdrawal=float(pay.get("min_withdrawal_usd") or 0.0),
             withdraw_buffer=float(wp.get("buffer_usd") or 0.0),
+            funded_start=str(econ.get("funded_start") or "fresh"),
+            first_payout_refund=bool(econ.get("first_payout_fee_refund") or False),
         )
 
 
@@ -1117,11 +1125,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="resume an EXISTING evaluation account at this (flat) balance; pair with "
                          "--fee 0 when the account fee is already sunk")
     ap.add_argument("--fee", type=float, default=None, help="override the ruleset account fee")
-    ap.add_argument("--funded-start", choices=("fresh", "carry"), default="fresh")
+    ap.add_argument("--funded-start", choices=("fresh", "carry"), default=None,
+                    help="default: the ruleset's economics.funded_start (Breakout: fresh, operator 2026-09-27)")
     ap.add_argument("--approval-days", type=float, default=1.0)
     ap.add_argument("--horizon-days", type=float, default=730.0)
     ap.add_argument("--block-days", type=int, default=30)
-    ap.add_argument("--first-payout-refund", action="store_true")
+    ap.add_argument("--first-payout-refund", action="store_true", default=None,
+                    help="counterfactual only; default: the ruleset's economics.first_payout_fee_refund "
+                         "(Breakout: false, operator 2026-09-27)")
     ap.add_argument("--costs", choices=("breakout", "as_given"), default="breakout")
     ap.add_argument("--commission-bps-rt", type=float, default=8.0)
     ap.add_argument("--slippage-bps-rt", type=float, default=3.0)
@@ -1168,9 +1179,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                        swap_model=args.swap_model)
     cfg = SimConfig(risk_pct=args.risk_pct, sizing=args.sizing, room_frac=args.room_frac,
                     min_risk_usd=args.min_risk,
-                    start_balance=args.start_balance, funded_start=args.funded_start,
+                    start_balance=args.start_balance,
+                    funded_start=args.funded_start or rules.funded_start,
                     approval_days=args.approval_days, horizon_days=args.horizon_days,
-                    block_days=args.block_days, first_payout_refund=args.first_payout_refund)
+                    block_days=args.block_days,
+                    first_payout_refund=(rules.first_payout_refund if args.first_payout_refund is None
+                                         else bool(args.first_payout_refund)))
     rows = {leg: load_rows(p) for leg, p in paths.items()}
     trades, day0, hist_days = build_trades(rows, costs)
     hist = History(trades, hist_days)
