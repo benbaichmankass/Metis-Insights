@@ -176,7 +176,9 @@ REPO = Path(__file__).resolve().parents[2]
 DEFAULT_RULESET = REPO / "config" / "prop_rulesets" / "breakout.yaml"
 TOOL = "scripts/research/prop_ev_sim.py"
 
-MARK_MODES = ("realized", "bridge", "stop")
+MARK_MODES = ("realized", "bridge", "stop", "path")
+#: The modes the REGISTERED V1 rule reads. `path` was added after V1 was run.
+V1_MODES = ("realized", "bridge", "stop")
 _EPS_R = 1e-6          # a non-losing trade approaches but never touches its stop
 _DAY_RESET = 0.5 / 24  # 00:30 UTC as a fraction of a day
 
@@ -195,6 +197,24 @@ DECISION_RULE = (
     "percentile of that distribution is < 0 under the `realized` (optimistic) "
     "model; otherwise INDETERMINATE. Descriptive of the book; does not itself "
     "authorize or perform any roster, execution or sizing change (Tier-3)."
+)
+
+
+# V2 — REGISTERED 2026-09-27 AFTER V1 WAS RUN ON breakout_1, and it says so.
+# Why it exists: V1's `bridge` clause marks each trade at its sampled minimum for
+# its WHOLE life, so two overlapping trades' minima always coincide; on
+# breakout_1 that timing assumption, not the excursion depth, decides the answer
+# (bridge ~= stop). `path` samples WHEN the excursion happens (hourly bridge
+# path). V2 is the rule for candidates scored FROM HERE ON (P2). It must NOT be
+# used to re-grade breakout_1's 2026-09-27 run, whose registered verdict is V1's.
+DECISION_RULE_V2_ID = "RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2"
+DECISION_RULE_V2_REGISTERED_AT = "2026-09-27T07:05:00Z"
+DECISION_RULE_V2 = (
+    "Same bar as V1 (E[net-$ per account life, after the fee] > 0). PASS if the 5th "
+    "percentile of the outer-bootstrap (evidence) distribution of mean net-$ per life "
+    "under the `path` model is > 0; FAIL if its 95th percentile is < 0; otherwise "
+    "INDETERMINATE. `realized` and `stop` are reported as the optimistic / pessimistic "
+    "bounds and do not enter the predicate. Descriptive; authorizes nothing (Tier-3)."
 )
 
 
@@ -408,6 +428,8 @@ def bridge_min_r(t: Trade, u: float) -> Optional[float]:
 def open_mark_r(t: Trade, mode: str, rng: np.random.Generator, counters: Dict[str, int]) -> float:
     if mode == "realized":
         return 0.0
+    if mode == "path":
+        raise ValueError("`path` marks are time-varying — see sample_path_r")
     stop = stop_mark_r(t)
     if mode == "stop":
         return stop
@@ -421,6 +443,57 @@ def open_mark_r(t: Trade, mode: str, rng: np.random.Generator, counters: Dict[st
         m = g - t.cost_r
         return max(m, stop) if t.net_r > -1.0 - t.cost_r else max(m, t.net_r)
     raise ValueError(f"unknown mark mode {mode!r}")
+
+
+def sample_path_r(t: Trade, rng: np.random.Generator, counters: Dict[str, int]) -> np.ndarray:
+    """`path` model: an HOURLY Brownian-bridge path of the open trade's mark (R,
+    net of its full cost from entry), 0 -> gross_r over its hold.
+
+    The bridge variance is calibrated as in :func:`bridge_min_r` (median maximum
+    == the recorded MFE), then each path is drawn conditional on the two facts the
+    row records: a non-loser never touches its stop, and the path's maximum lies
+    within 10% (+0.05R) of the MFE (up to 40 draws; else the closest admissible
+    draw, counted). A loser is clipped at its own final value. Hourly resolution:
+    an intrabar dip deeper than the hourly sample is not seen (optimistic). Rows with no MFE fall back to the
+    stop mark for their whole life (counted).
+    """
+    n = max(1, int(round((t.exit - t.entry) * 24.0)))
+    if t.gross_r is None or t.mfe_r is None:
+        counters["path_fallback_to_stop"] = counters.get("path_fallback_to_stop", 0) + 1
+        return np.full(n + 1, stop_mark_r(t))
+    R = t.gross_r
+    top = max(0.0, R)
+    m = t.mfe_r
+    s2 = 2.0 * m * (m - R) / math.log(2.0) if m > top + 1e-9 else 0.0
+    k = np.arange(n + 1) / n
+    loser = t.net_r <= -1.0 - t.cost_r
+    lo = min(-1.0, R) if loser else -1.0 + _EPS_R
+    b = k * R
+    if s2 > 0:
+        # Condition on BOTH recorded facts: never touching the stop (non-losers)
+        # AND a maximum close to the recorded MFE. Conditioning on the stop alone
+        # lifts the median max ~8% above the MFE (caught by the self-test).
+        tol = 0.10 * m + 0.05
+        best, best_gap = None, math.inf
+        for _ in range(40):
+            w = np.concatenate(([0.0], np.cumsum(rng.normal(0.0, math.sqrt(s2 / n), n))))
+            cand = w - k * w[-1] + k * R
+            if not loser and cand.min() <= lo:
+                continue
+            gap = abs(float(cand.max()) - m)
+            if gap < best_gap:
+                best, best_gap = cand, gap
+            if gap <= tol:
+                break
+        if best is None:
+            counters["path_clipped_at_stop"] = counters.get("path_clipped_at_stop", 0) + 1
+            best = cand
+        elif best_gap > tol:
+            counters["path_mfe_outside_band"] = counters.get("path_mfe_outside_band", 0) + 1
+        b = best
+    b = np.maximum(b, lo)
+    b[-1] = R
+    return b - t.cost_r
 
 
 # ---------------------------------------------------------------------------
@@ -519,6 +592,8 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
     open_pos: Dict[str, Tuple[float, float, float]] = {}
     exits: List[Tuple[float, str]] = []
     marks_sum = 0.0
+    paths: Dict[str, Tuple[float, np.ndarray, float]] = {}   # `path` mode: leg -> (entry, marks_r, risk_usd)
+    next_tick = math.inf
 
     src = stream if stream is not None else trade_stream(hist, rng, cfg.block_days, H)
     pending = next(src, None)
@@ -543,6 +618,8 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
             cand.append((funded_at, 0, "funded"))
         if phase == "funded" and next_payout is not None:
             cand.append((next_payout, 3, "payout"))
+        if paths:
+            cand.append((next_tick, 5, "tick"))
         now, _, kind = min(cand)
 
         if kind == "horizon":
@@ -550,7 +627,15 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
             life.lifetime_days = H
             break
 
-        if kind == "reset":
+        if kind == "tick":
+            for leg, (e0, pr, risk_usd) in paths.items():
+                j = min(len(pr) - 1, int(round((now - e0) * 24.0)))
+                x, pnl, old = open_pos[leg]
+                new = pr[j] * risk_usd
+                open_pos[leg] = (x, pnl, new)
+                marks_sum += new - old
+            next_tick = now + 1.0 / 24.0
+        elif kind == "reset":
             day_start = bal                 # the 00:30 balance, excluding open positions
             next_reset += 1.0
         elif kind == "funded":
@@ -571,6 +656,7 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
         elif kind == "exit":
             _, leg = heapq.heappop(exits)
             ex, pnl, mark = open_pos.pop(leg)
+            paths.pop(leg, None)
             marks_sum -= mark
             bal += pnl
             if phase == "eval" and bal >= target - 1e-9:
@@ -583,6 +669,7 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
                 funded_at = now + cfg.approval_days
                 # A5: the account is re-issued — open positions do not carry.
                 open_pos.clear()
+                paths.clear()
                 exits.clear()
                 marks_sum = 0.0
                 if cfg.funded_start == "fresh":
@@ -599,7 +686,14 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
             else:
                 risk_usd = cfg.risk_pct * (bal if cfg.sizing == "balance" else start)
                 pnl = t.net_r * risk_usd
-                mark = open_mark_r(t, mode, rng, counters) * risk_usd
+                if mode == "path":
+                    pr = sample_path_r(t, rng, counters)
+                    paths[t.leg] = (e, pr, risk_usd)
+                    mark = float(pr[0]) * risk_usd
+                    if len(paths) == 1:
+                        next_tick = e + 1.0 / 24.0
+                else:
+                    mark = open_mark_r(t, mode, rng, counters) * risk_usd
                 open_pos[t.leg] = (x, pnl, mark)
                 heapq.heappush(exits, (x, t.leg))
                 marks_sum += mark
@@ -657,6 +751,8 @@ def summarize(lives: Sequence[Life], rules: PropRules) -> Dict[str, Any]:
         "net_usd_percentiles": {f"p{q}": round(_pct(net, q), 2) for q in (5, 25, 50, 75, 95)},
         "mean_payouts_per_life": round(float(np.mean([lf.n_payouts for lf in lives])), 2),
         "mean_trades_per_life": round(float(np.mean([lf.trades_taken for lf in lives])), 1),
+        "mean_trades_skipped_leg_busy_per_life": round(
+            float(np.mean([lf.trades_skipped_leg_busy for lf in lives])), 2),
         "death_causes": dict(sorted(causes.items())),
         "ev_net_usd_per_365d_with_rebuy": (
             round(365.0 * mean_net / mean_life, 2) if mean_life > 0 else None),
@@ -712,6 +808,19 @@ def grade(results: Dict[str, Any]) -> Tuple[str, str]:
         return "fail", f"even the optimistic realized model's evidence-p95 is {r95:+.2f} < 0"
     return "indeterminate", (f"bridge evidence-p5 {b5:+.2f}, stop point {s_pt:+.2f}, "
                              f"realized evidence-p95 {r95:+.2f} — neither clause decides")
+
+
+def grade_v2(results: Dict[str, Any]) -> Tuple[str, str]:
+    try:
+        ci = results["path"]["evidence_ci"]
+    except KeyError as e:
+        return "indeterminate", f"rule inputs missing ({e}); the `path` mode + outer CI are required"
+    p5, p95 = ci["ev_net_usd_p5"], ci["ev_net_usd_p95"]
+    if p5 > 0:
+        return "pass", f"path evidence-p5 {p5:+.2f} > 0"
+    if p95 < 0:
+        return "fail", f"path evidence-p95 {p95:+.2f} < 0"
+    return "indeterminate", f"path evidence CI [{p5:+.2f}, {p95:+.2f}] straddles 0"
 
 
 # ---------------------------------------------------------------------------
@@ -913,6 +1022,20 @@ def _self_test() -> int:
     check(open_mark_r(t, "bridge", np.random.default_rng(0), {}) >= stop_mark_r(t),
           "bridge mark never below the stop mark for a non-loser")
 
+    # --- 5b. path model -------------------------------------------------------------
+    t = Trade("x", 0.0, 200 / 24, 1.5 - 0.05, 0.05, 1.5, 2.5)
+    cnt: Dict[str, int] = {}
+    rng = np.random.default_rng(3)
+    ps = [sample_path_r(t, rng, cnt) for _ in range(800)]
+    check(all(abs(pr[0] + 0.05) < 1e-12 and abs(pr[-1] - t.net_r) < 1e-12 for pr in ps),
+          "path starts at -cost and ends exactly at net_r")
+    check(all(pr.min() > -1.0 - 0.05 for pr in ps), "a non-loser's path never touches its stop")
+    med_max = float(np.median([pr.max() + 0.05 for pr in ps]))
+    check(abs(med_max - 2.5) < 0.1, f"path calibration: median gross max {med_max:.3f} ~= recorded MFE 2.5 (hourly)")
+    loser = Trade("y", 0.0, 10 / 24, -1.05, 0.05, -1.0, 0.3)
+    pl = sample_path_r(loser, rng, cnt)
+    check(pl.min() >= -1.0 - 0.05 - 1e-12, "a loser's path is clipped at its own final value")
+
     # --- 6. schema refusals -------------------------------------------------------------
     for bad, why in (({"entry_time": "2025-01-01T00:00:00Z"}, "missing exit_time"),
                      ({"entry_time": "2025-01-02T00:00:00Z", "exit_time": "2025-01-01T00:00:00Z",
@@ -974,6 +1097,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--emit-result", action="store_true",
                     help="also land an E5 result record under research/results/_unattributed/")
     ap.add_argument("--run-id", default=None, help="run id for --emit-result (path-safe)")
+    ap.add_argument("--rule", choices=("v1", "v2"), default="v2",
+                    help="which registered rule the E5 record is graded against. v2 for any "
+                         "candidate scored from 2026-09-27 on; v1 ONLY for breakout_1's 2026-09-27 run")
     args = ap.parse_args(argv)
 
     if args.self_test:
@@ -1015,11 +1141,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
     results = run(hist, rules, cfg, modes=modes, n_lives=args.lives, outer=args.outer,
                   lives_per_outer=args.lives_per_outer, seed=args.seed)
-    verdict, reason = grade(results) if set(MARK_MODES) <= set(modes) else ("indeterminate", "not all modes run")
+    verdict, reason = grade(results) if set(V1_MODES) <= set(modes) else ("indeterminate", "V1 modes not all run")
+    v2, v2_reason = grade_v2(results)
     doc = {
         "tool": TOOL, "commit_sha": _git_sha(),
         "decision_rule": {"id": DECISION_RULE_ID, "registered_at": DECISION_RULE_REGISTERED_AT,
                           "rule": DECISION_RULE, "verdict": verdict, "reason": reason},
+        "decision_rule_v2": {"id": DECISION_RULE_V2_ID, "registered_at": DECISION_RULE_V2_REGISTERED_AT,
+                             "rule": DECISION_RULE_V2, "verdict": v2, "reason": v2_reason},
         "inputs": {"legs": per_leg, "provenance": provenance, "history_day0": day0.isoformat(),
                    "history_days": hist_days, "n_trades": len(trades)},
         "config": {"rules": rules.__dict__, "sim": cfg.__dict__, "costs": costs.__dict__},
@@ -1035,9 +1164,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         sys.path.insert(0, str(REPO / "scripts" / "research"))
         import research_result as rr
         run_id = args.run_id or f"b6-prop-ev-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}"
+        use = doc["decision_rule"] if args.rule == "v1" else doc["decision_rule_v2"]
+        other = doc["decision_rule_v2"] if args.rule == "v1" else doc["decision_rule"]
         rec = rr.build(
-            research_unit=None, decision_rule_id=DECISION_RULE_ID,
-            decision_rule_registered_at=DECISION_RULE_REGISTERED_AT, verdict=verdict,
+            research_unit=None, decision_rule_id=use["id"],
+            decision_rule_registered_at=use["registered_at"], verdict=use["verdict"],
             read_state="measured",
             population_description=(
                 "one Breakout $5k 1-Step account life, simulated over the pooled per-trade OOS rows of "
@@ -1050,10 +1181,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "lifetime_days", "ev_net_usd_per_365d_with_rebuy")} for m in results},
             artifact_store=(args.out or "stdout only"),
             artifact_locator="the full JSON output of this tool; inputs listed under inputs.provenance",
-            note=reason,
+            note=(f"{use['id']}: {use['verdict']} ({use['reason']}). Also reported, NOT the "
+                  f"verdict of record: {other['id']}: {other['verdict']} ({other['reason']})."),
         )
         path = rr.write([rec], research_unit=None, run_id=run_id)
-        print(f"landed E5 result: {path.relative_to(REPO)}", file=sys.stderr)
+        print(f"landed E5 result: {path}", file=sys.stderr)
     return 0
 
 

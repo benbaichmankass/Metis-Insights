@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Breakout support (or its FAQ) states in writing whether the funded account starts at the starting balance and whether the eval fee is refunded, and breakout.yaml records it with the source",
+    "kind": "event"
+  },
+  "id": "PI-20260927-JUANCRRZ-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "w6-prop-ev lane (checklist B6), session_013wNhAh3Z3EPTFyJuANcRrz",
+    "rerun": "python3 scripts/research/prop_ev_sim.py --book breakout_1 --modes path --funded-start carry --outer 0 --lives 3000 | python3 -c \"import json,sys;print(json.load(sys.stdin)['results']['path']['ev_net_usd_per_life'])\""
+  },
+  "state": "queued",
+  "what": "B6 prop EV is LOAD-BEARINGLY sensitive to two Breakout terms nobody has confirmed from Breakout itself: (1) is the funded account issued FRESH at $5,000 after passing, or does the eval balance carry? scripts/research/prop_ev_sim.py defaults to fresh (a third-party FAQ summary says the balance resets; Breakout's own article 11643775, read 2026-09-27, does not say). MEASURED on breakout_1's evidence (path model, 3000 lives): fresh -> EV -$12.43/life; carry -> +$56.99/life. (2) is the $45 fee refunded at first payout? default off; refund -> -$9.03. Either answer changes the book's B6 reading. Only a human can ask Breakout support; the answer then goes into config/prop_rulesets/breakout.yaml (economics block, new key) and the tool's --funded-start default."
+}
