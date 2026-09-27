@@ -52,6 +52,26 @@ mutations — they wrap this skill with the right shapes.)
   workflow's only output is an artifact, have it comment the key result back on
   the issue instead.
 
+## Tier-2 system-actions require a non-empty `reason:` line
+
+⚠️ **A Tier-2 `action` with no `reason:` line fails at validation, not silently
+— but it still fails.** `system-actions.yml`'s "Validate action and tier
+policy" step hard-fails (`::error::Tier-2 action '<name>' requires a non-empty
+'reason' input.`) for any action in its Tier-2 list (`pull-and-deploy`,
+`restart-bot-service`, `set-account-mode`, … — see the workflow's own
+`case "${ACTION}"` block for the full allowlist) when the body's `reason:`
+line is missing or blank. Tier-1 actions (`status-check`,
+`pull-latest-logs`, …) do not require one. Measured 2026-08-26: issue #13017
+dispatched a `pull-and-deploy` with `action:` but no `reason:` line and failed
+at this exact check — nothing reached the VM, and the failure was
+indistinguishable from a queue drop until the run log was read.
+
+So when the workflow table above says `**body** = action: <name>\nreason:
+<why>` for `system-actions.yml`, the `reason:` line is not optional prose —
+write it on every Tier-2 dispatch, one line, non-empty. If unsure whether an
+action is Tier-1 or Tier-2, include `reason:` anyway; it is accepted (and
+recorded) on both tiers.
+
 ## Dispatch one at a time
 
 ⚠️ **One system-action issue in flight at a time — open it, wait for its
