@@ -1,0 +1,74 @@
+name: schedule-keeper
+
+# Runs the critical recurring validators near their slot despite GitHub's
+# cron lag, and pages when one of them has STOPPED running.
+# Logic, measurements and reasoning: scripts/ops/schedule_keeper.py.
+# Audit: docs/research/recurring-validations-audit-2026-09-27.md.
+#
+# MEASURED (Actions API, event=schedule): since 2026-08-27 GitHub creates this
+# repo's scheduled runs ~4-6h after their slot (health-snapshot and
+# diag-relay-sweep, 2026-07-29..09-26), and over 09-20..27 it DROPPED most
+# hourly slots (dashboard-edge-watch 15/168, main-tree-watch 39/168). So this
+# workflow does NOT rely on its own cron alone: `push` to main fires it too,
+# and main takes dozens of pushes a day. The crons are the night-time floor.
+#
+# WHAT IT CHANGES in each target: nothing but WHEN it runs. It dispatches the
+# target on main with that workflow's own default inputs, once per slot; the
+# target's `dedupe` job skips the late scheduled run of a slot the keeper
+# already ran. No decision logic, window or threshold of any target is touched
+# (r4-demotion-gate is the armed MD-DEMOTE-S2-S1 route).
+#
+# PAGING: only the 6-hourly cron pages (Telegram), so a stale target pages
+# ~4x/day until it runs again instead of once per push. "Stale" = no COMPLETED
+# run (success OR failure) within the target's window — this is the silence
+# alarm; a failing run is claude-run-failure-alert's job.
+#
+# Tier-1: reads the Actions API and dispatches existing workflows on main. No
+# order path, no strategy/risk config, no deploy/, no VM.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "7 * * * *"       # dispatch floor when main is quiet
+    - cron: "53 */6 * * *"    # the paging run
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: schedule-keeper
+  cancel-in-progress: false
+
+jobs:
+  keep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Keep the critical validators on their slot
+        id: keep
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          pip install -q pyyaml
+          python3 scripts/ops/schedule_keeper.py keep | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Page when a validator has stopped running
+        if: steps.keep.outputs.stale == 'true' && github.event.schedule == '53 */6 * * *'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.CLAUDE_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STALE_SUMMARY: ${{ steps.keep.outputs.summary }}
+        run: |
+          set +e
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PYTHONPATH=. python3 scripts/notify_session.py alert \
+            --summary "🚨 Recurring validator SILENT — ${STALE_SUMMARY}" \
+            --link "${RUN_URL}" \
+            || echo "::warning::telegram notify failed (non-fatal)"
+          echo "::error::recurring validator(s) silent past their window: ${STALE_SUMMARY}"
+          exit 1

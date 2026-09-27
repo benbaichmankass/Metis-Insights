@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01PT8KKSz3KzyN2hE5UpwTaU",
+  "branch": "claude/w6-ops-recurring-validations",
+  "claimed_at": "2026-09-27T09:18:29Z",
+  "purpose": "W6-OPS-R recurring-validation fixes (schedule-keeper, pregate budget, trainer-capture set -e)"
+}
