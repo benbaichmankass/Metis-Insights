@@ -764,16 +764,42 @@ class DXtradeAdapter(PropPlatformAdapter):
                 struct.setdefault("hits", []).extend(got.get("hits") or [])
         return render_structure(struct, frames, self._page_text(page), self._tables(page), secrets)
 
+    @staticmethod
+    def _tab_name_re(name: str) -> "re.Pattern[str]":
+        # "Orders" or "Orders (2)" -- never "Order History" or "Place Order".
+        return re.compile(r"^\s*" + re.escape(name) + r"(?:\s*\(\d+\))?\s*$")
+
     def _show_tab(self, page: Any, key: str) -> bool:
-        """Click a VIEW tab (Positions / Orders) if one exists. View only."""
+        """Click a VIEW tab (Positions / Orders) if one exists. View only.
+
+        MEASURED (run 36351578802, issue #13345): Breakout's DXtrade renders
+        the bottom-panel tabs as a span inside an element carrying a
+        ``data-active`` attribute, NOT as ``role=tab`` (the page's 4
+        ``role=tab`` elements are elsewhere). So: an ARIA tab whose name is
+        exactly the tab name first, then a non-button ``[data-active]``
+        element whose whole text is exactly the tab name. Never a button,
+        never a partial-text match, so "Place Order" / "Buy" / "Sell" can
+        never be the thing clicked.
+        """
+        name_re = self._tab_name_re(SELECTORS[key])
+        candidates = []
         try:
-            tab = page.get_by_role("tab", name=SELECTORS[key], exact=False)
-            if tab.count() > 0:
-                tab.first.click(timeout=5_000)
-                page.wait_for_timeout(1_000)
-                return True
+            candidates.append(page.get_by_role("tab", name=name_re))
         except Exception:
             pass
+        try:
+            candidates.append(page.locator(
+                "[data-active]:not(button):not([role=button]):not(input)").filter(has_text=name_re))
+        except Exception:
+            pass
+        for loc in candidates:
+            try:
+                if loc.count() > 0:
+                    loc.first.click(timeout=5_000)
+                    page.wait_for_timeout(1_000)
+                    return True
+            except Exception:
+                continue
         return False
 
     def read_account(self, page: Any) -> AccountSnapshot:
