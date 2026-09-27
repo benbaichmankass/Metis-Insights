@@ -158,7 +158,7 @@ def _assert_never_exposed(sim, proc: subprocess.CompletedProcess, *tokens: str) 
 
 
 def _result(proc) -> dict:
-    line = [l for l in proc.stdout.splitlines() if l.startswith("DIAG_ROTATION_RESULT=")]
+    line = [ln for ln in proc.stdout.splitlines() if ln.startswith("DIAG_ROTATION_RESULT=")]
     assert len(line) == 1, proc.stdout
     return json.loads(line[0].split("=", 1)[1])
 
