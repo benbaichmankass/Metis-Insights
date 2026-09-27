@@ -56,8 +56,14 @@ def build_account_leg(
     contract_value_usd_per_point: float = 1.0,
     entry_band_frac: float = 0.25,
     ttl_bars: float = 1.0,
+    risk_usd_override: Optional[float] = None,
 ) -> AccountLeg:
     """Size one account's leg from its :class:`AccountBacktestUnit`.
+
+    ``risk_usd_override`` is the ROOM-sized risk from
+    :func:`src.prop.prop_sizing.resolve`; ``None`` (``flat`` mode, and every
+    caller that does not pass it) sizes ``risk_pct x account_size_usd`` as
+    before.
 
     ⚠️ **AN UNGRADEABLE UNIT IS REFUSED HERE, EXPLICITLY** (2026-08-27).
     ``AccountBacktestUnit.account_size_usd`` became nullable when the standard
@@ -85,6 +91,7 @@ def build_account_leg(
         contract_value_usd_per_point=contract_value_usd_per_point,
         entry_band_frac=entry_band_frac,
         ttl_bars=ttl_bars,
+        risk_usd_override=risk_usd_override,
     )
     try:
         ticket = build_ticket(signal, cfg)

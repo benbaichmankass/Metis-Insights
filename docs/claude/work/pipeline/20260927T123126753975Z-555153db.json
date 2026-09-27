@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "P1's comparison lands and the operator decides sizing on those numbers (approve a k, amend, or decline), recorded on this item.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#2-sizing-vs-the-floor-the-urgent-part",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1' | python3 -m json.tool"
+  },
+  "routed_to": "W6 prop-sizing-decisions lane (session_01LDBj5SQ3KpCZDsCstGv2yt), branch claude/w6-prop-sizing-decisions (held Tier-3 PR; manager merges): sizing.mode declared in config/prop_rulesets/breakout.yaml (flat now), room mode k=0.33 / min $10 implemented in src/prop/prop_sizing.py, switch filed as PI-20260927-CSTGV2YT-0001.",
+  "state": "routed",
+  "what": "[TIER-3, PROP REAL MONEY] breakout_1 sizes every ticket at a flat $75 (config risk_pct 1.5% x account_size_usd $5,000, config/accounts.yaml breakout_1, read 2026-09-24; population: every ticket breakout_1 emits) against a $94.76 DD-floor cushion (MEASURED 2026-09-24T09:38Z snapshot): 1 full-size stop-out survivable now, 0 after the open ETH short #44 stops (~$24.94 left). Proposal (not applied): risk_usd = min(1.5% x live balance, k x (cushion - open loss-to-stop - $2)), k=0.33, skip+page below $10. Exact config/code and arithmetic in docs/research/prop-state-2026-09-24.md section 2. | 2026-09-27: operator chose 'Wait for P1's comparison (Recommended)'; decide with P1's numbers. Operator decision by popup in manager session session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27 ~08:40Z. | 2026-09-27 P1's COMPARISON (B6 lane session_013wNhAh3Z3EPTFyJuANcRrz, PR #13084), evidence only, not a decision: scripts/research/prop_ev_sim.py --sizing room implements this proposal's shape (risk = min(1.5% x balance, k x the binding cushion); the extra $2 buffer is not modelled). MEASURED @ docs/research/b6-prop-ev/live-state-2026-09-27T0723Z.json (breakout_1 evidence n=234 trades, 2025-09-25 to 2026-09-24; path model, 3000 lives; EV = expected banked payouts before death minus fees). THIS PROPOSAL (k=0.33, skip below $10): CURRENT account at $4,724 never trades (0.33 x $24 = $7.92 < $10) -> parked, EV exactly $0; FRESH account +$111.96 (CI -$37..+$528), P(pass) 0.497. Comparators: fresh flat 1.5% -$12.43 (CI -$43..+$27); fresh k=0.45 +$112.06; current flat 1.5% +$5.93 (fee sunk, P(pass) 0.04, ~5 days left); current k=0.45 +$3.43. Caveats: k-sized lives mostly survive to the 730-day horizon and are scored at banked-only, so k figures are UNDERSTATED; DXTrade minimum order size is not modelled; n=234 trades over one year, so every CI still straddles 0 at p5. | DECIDED — Operator decision by AskUserQuestion popup in manager session session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27 ~11:12Z, verbatim answer 'Current flat, room sizing next': the CURRENT breakout_1 account keeps flat 1.5% ($75/ticket) until it passes or dies; every FRESH account uses room sizing risk_usd = min(1.5% x live balance, 0.33 x binding cushion), skip below $10 (k=0.33 chosen over 0.45 as the lower-risk k at equal EV: +$111.96 vs +$112.06). Routed to branch claude/w6-prop-sizing-decisions (held Tier-3 PR; manager merges); the switch for the next account is PI-20260927-CSTGV2YT-0001."
+}

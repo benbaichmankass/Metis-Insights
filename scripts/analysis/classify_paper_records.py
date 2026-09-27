@@ -133,15 +133,19 @@ def _render_md(result: Dict[str, Any], recon: Dict[str, Any]) -> str:
         "",
         f"- total: **{s['total']}**  ·  gradeable (A): **{s['by_bucket']['A']}** "
         f"({s['gradeable_pct']}%)  ·  artifact (B): **{s['by_bucket']['B']}**  ·  "
-        f"reconstructable (C): **{s['by_bucket']['C']}**",
+        f"reconstructable (C): **{s['by_bucket']['C']}**  ·  "
+        f"pairs bilateral exit (P): **{s['by_bucket'].get('P', 0)}**",
         "",
         "## By category",
     ]
     for cat, n in s["by_category"].items():
         lines.append(f"- `{cat}`: {n}")
-    lines += ["", "## By strategy (A / B / C)"]
+    lines += ["", "## By strategy (A / B / C / P)"]
     for strat, d in sorted(result["summary"]["by_strategy"].items()):
-        lines.append(f"- **{strat}**: A={d['A']} · B={d['B']} · C={d['C']}")
+        lines.append(
+            f"- **{strat}**: A={d['A']} · B={d['B']} · C={d['C']} · "
+            f"P={d.get('P', 0)}"
+        )
     if recon:
         lines += ["", "## Bucket-C reconstruction"]
         rc = recon.get("counts", {})
