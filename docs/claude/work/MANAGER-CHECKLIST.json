@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-27T12:45:00Z",
-  "updated_by": "manager session_01Ljhs6sFAdWHdMDhJpL5aBP",
+  "updated_at": "2026-09-27T13:10:00Z",
+  "updated_by": "manager session_01GfmY83D3Ekv7Mq22wPgJqy",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -1778,7 +1778,7 @@
       "id": "E71",
       "title": "System-audit scoping proposal (plan only, not dispatched)",
       "phase": "E",
-      "state": "queued",
+      "state": "done",
       "owner": "OPS lane",
       "lane": "session_01HbnXpk8Tt6c91tYZrZQ725",
       "model": "claude-sonnet-5",
@@ -1789,7 +1789,7 @@
         13085
       ],
       "blocked_on": [],
-      "note": "Third assignment of the wave-6 OPS lane (row R4 'OPS LANE' note): draft, do NOT execute, a proposal for a thorough system audit. Delivered: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md -- eight scope areas ordered by blast radius (order-path safety, trading correctness, data/provenance integrity, ML serving fidelity, infra/VMs, CI guard health, security, the operating model itself), each with a falsifiable one-lane one-question method, the finding schema (claim/evidence/expected-vs-actual/population/blast_radius/tier/detector/disposition) carried forward from the retired full-system-audit skill, 8 parallelizable sub-lanes with model + cost estimate ($165-270 total for all eight in one wave), outputs, and a done-condition. Motivated by two concrete findings from the same 30h window (this lane's own PI-20260927-YZRZQ725-0001 shadow-drift blind spot, and the retired skill's own IBClient.protection_coverage case study) rather than an abstract case for auditing. Four explicit questions left for the operator (scope subset vs all eight, cadence, Fable-lane candidacy for the mechanical guard-coverage lane per E11, findings-review capacity). The operator decides whether and when any of it runs; nothing in the doc is self-authorizing. | 07:32Z: /performance-review landed on the same PR (#13085) -- 51 closed trades this window, 86% technical-artifact (classify_paper_records.py: A=7/B=44/C=0), mostly a pairs-strategy classifier coverage gap (filed PI-20260927-YZRZQ725-0004), not a strategy-quality signal. bybit_2 real money: 0/3 gradeable this window, journalTrust=known_divergent on all 3 -- confirmed pre-existing (the standing SUB-subaccount ledger gap), not a new regression. No Tier-3 action. paper-book tracker and real-money allocation benchmark not run this session (stated reasons in the artifact), for a follow-up."
+      "note": "Third assignment of the wave-6 OPS lane (row R4 'OPS LANE' note): draft, do NOT execute, a proposal for a thorough system audit. Delivered: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md -- eight scope areas ordered by blast radius (order-path safety, trading correctness, data/provenance integrity, ML serving fidelity, infra/VMs, CI guard health, security, the operating model itself), each with a falsifiable one-lane one-question method, the finding schema (claim/evidence/expected-vs-actual/population/blast_radius/tier/detector/disposition) carried forward from the retired full-system-audit skill, 8 parallelizable sub-lanes with model + cost estimate ($165-270 total for all eight in one wave), outputs, and a done-condition. Motivated by two concrete findings from the same 30h window (this lane's own PI-20260927-YZRZQ725-0001 shadow-drift blind spot, and the retired skill's own IBClient.protection_coverage case study) rather than an abstract case for auditing. Four explicit questions left for the operator (scope subset vs all eight, cadence, Fable-lane candidacy for the mechanical guard-coverage lane per E11, findings-review capacity). The operator decides whether and when any of it runs; nothing in the doc is self-authorizing. | 07:32Z: /performance-review landed on the same PR (#13085) -- 51 closed trades this window, 86% technical-artifact (classify_paper_records.py: A=7/B=44/C=0), mostly a pairs-strategy classifier coverage gap (filed PI-20260927-YZRZQ725-0004), not a strategy-quality signal. bybit_2 real money: 0/3 gradeable this window, journalTrust=known_divergent on all 3 -- confirmed pre-existing (the standing SUB-subaccount ledger gap), not a new regression. No Tier-3 action. paper-book tracker and real-money allocation benchmark not run this session (stated reasons in the artifact), for a follow-up. | 2026-09-27 ~13:00Z: ADOPTED by the operator as the CODE AUDIT (row CA), with a wider scope (whole repo). Proposal delivered and acted on; closed here, tracked on CA."
     },
     {
       "id": "E73",
@@ -1807,6 +1807,456 @@
       ],
       "blocked_on": [],
       "note": "Final assignment of the wave-6 OPS lane, per the operator's 2026-09-27 ~08:15Z request (relayed by the manager): a single decision-shaped pack for the upcoming joint review, drawn from R4/E71's ml-review + performance-review + audit-scoping outputs. Delivered: docs/plans/review-pack-2026-09-27.md -- 12 numbered accept/reject decisions (D1-D3 ml-review: shadow-drift archive fallback, exit-head twin-dedup fix, SOL trend_vol OFF-cell; D4-D6 performance-review: pairs classifier coverage gap, breakout_1/iaum_pullback_1d drop, SRQ-20260618 dispatch-or-kill; D7-D10 the audit proposal's own four operator questions; D11 a newly-found repo-wide operator-owed-guard CI instability (PI-20260927-EPMBGUYB-0003) currently blocking Tier-1 self-land on multiple PRs including both of this wave's; D12 a synthesis connecting two operator-owed pipeline rows (PI-20260924-MQ3CDMU6-0001/-0002) with PR #13084's fresh breakout_1 EV-simulator finding into one sizing decision), plus a table of operator-owed items currently closest to their due window (MEASURED via check_operator_owed.py --verbose, 2026-09-27T08:28Z). Does not edit OPERATING-PLAN, ROADMAP.md, or checklist priorities itself -- every row/priority change is a proposal for the joint session to accept or reject."
+    },
+    {
+      "id": "CA",
+      "title": "CODE AUDIT 2026-09-27 \u2014 thorough, wide code audit of the whole repo (operator decision)",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "manager",
+      "lane": "session_01GfmY83D3Ekv7Mq22wPgJqy",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 1100,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-27 ~13:00Z, verbatim (handoff to manager session_01GfmY83D3Ekv7Mq22wPgJqy): 'START THE CODE AUDIT NOW (my decision): a thorough, wide CODE audit of the whole repo, verifying everything we built works as intended. It is not a narrow question list. Plan: ~14 Wave-A lanes on the money path first ... Then ~10 Wave-B lanes ... Plus one Opus LEAD lane that consolidates. Finding schema and principles: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a73 and \u00a75; every finding needs evidence, a population, and a detector or a stated reason there isn't one. Audit lanes only find. You dispatch fix lanes for evidence-settled fixes and notify me; genuine judgment calls come to me in the daily brief. Report to docs/audits/code-audit-2026-09-27.md.' BUDGET: CODE AUDIT $1,100, separate from the wave-6 cap ($350). Lane ceilings sum to $1,095 (Wave A 15 lanes $775, Wave B 9 lanes $250, lead $70). PLAN (manager): Wave A (CA-A01..A15) dispatched first; the operator's execution-core lane was split in two (CA-A02 pipeline/intents/sizing/costs/gates, CA-A03 exits/positions/fills/invariants) because together it is ~35k lines, and scripts/ops/workflows each in two halves as directed. Wave B (CA-B01..B09) dispatches as Wave A lanes land. CA-LEAD (Opus) dispatches once Wave A findings are on main, consolidates to docs/audits/code-audit-2026-09-27.md, re-verifies every critical/high, and splits findings into evidence-settled fixes (manager dispatches fix lanes, notifies operator) and judgment calls (daily brief section 2). Lane outputs: docs/audits/code-audit-2026-09-27/<ID>.findings.jsonl + <ID>.md. Critical findings are filed to docs/claude/work/pipeline/ immediately by the lane. ASSUMPTION (stated, not blocking): fix lanes draw on the audit budget's unspent headroom under ceilings; if the projected total would pass $1,100 the manager says so before dispatching more. Supersedes E71 (the proposal): the operator adopted it with a wider scope (whole repo, not eight axes)."
+    },
+    {
+      "id": "CA-A01",
+      "title": "Code audit Wave A: order_monitor.py",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 75,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: src/runtime/order_monitor.py (12,212 lines) and every test that exercises it (grep tests/ for order_monitor). Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A01.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A02",
+      "title": "Code audit Wave A: execution core I: pipeline, intents, sizing, costs, gates",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 80,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: src/main.py; src/runtime/{pipeline,pipeline_result,intents,intent_multiplexer,arbitration_fanout,conviction,conviction_arbitration,conviction_inputs,conviction_sizing,advisory_sizing,advisory_influence,news_sizing,allocator_corr,allocator_ev,execution_costs,trade_costs,tick_cost,broker_cost_attribution,cash_settlement,strategy_roster,loaded_config,risk_counters,runtime_flags,validation,account_side_filter,portfolio_conflicts,conflict_taxonomy,orders,order_bridge,market_data,market_hours,ib_trading_hours,operator_flatten_intent}.py; the Coordinator.multi_account_execute path wherever it lives (grep) and the effective_dry resolution; src/units/strategies/pairs_executor.py and config/pairs.yaml consumption. Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A02.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A03",
+      "title": "Code audit Wave A: execution core II: exits, positions, fills, invariants, protection, broker truth",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 80,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: src/runtime/{exit_plan,exit_plan_materializer,exit_plan_realism,exit_levers,exit_head_apply,exit_head_shadow,exit_anchor,exit_restart_gap,regime_flip_exit,trail_decay,trail_vol,thesis_decay,stale_leg_decision,dead_leg,positions,position_telemetry,fills_pnl,exchange_fills_alpaca,exchange_fills_ib,exchange_fills_puller,exchange_fills_store,exchange_funding_puller,closed_flat_invariant,_closed_flat_wiring,close_wedge_standing,protection_price,protection_reassert,tp_venue_cap,over_cover_decision,package_leg_coverage,stray_oca_groups,orphan_attribution,outcomes,bracket_calibration,bracket_outcome,broker_truth,bybit_wallet_truth,bybit_position_book,bybit_position_mode,bybit_leg_sides,bybit_ccxt,local_pnl,net_r_label,target_expectation}.py. Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A03.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A04",
+      "title": "Code audit Wave A: src/units/accounts (brokers, executors, risk)",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 75,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: src/units/accounts/** (23 files, 19.7k lines) and their tests. Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A04.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A05",
+      "title": "Code audit Wave A: signal builders, strategies, ict_detection, regime",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: src/runtime/strategy_signal_builders.py; src/units/strategies/** EXCEPT pairs_executor.py (CA-A02 owns it); src/ict_detection/**; src/runtime/regime/** plus src/runtime/{regime_bar_scoring,regime_shadow,forecast_live,cross_asset_live,entry_head_pwin,liquidity_state,decision_subject}.py; how config/strategies.yaml and config/regime_policy.yaml are consumed. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A05.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A06",
+      "title": "Code audit Wave A: rest of src/runtime: alerts, telegram, reports, health, provenance, insights, soaks",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: Every src/runtime/*.py and subpackage NOT listed in CA-A01/A02/A03/A05 \u2014 i.e. *_alert.py, alert_cooldown, notify, claude_ping, decision_push, decision_channel_alert, telegram_*, signal_notifications, signal_writer, mobile_push/, hourly_report, api_reporting, health, heartbeat, liveness_watchdog, boot_audit, exit_loop_health, execution_diagnostics, provenance, r_provenance, registry_fingerprint, research_results_gate, insights/, every *_soak.py, manager_status, work_decisions, operator_owed, gpu_spend, hold_vs_cash, evidence_horizon, election_track_record, strategy_monocle, strategy_verdict, monitor_verdict, shadow_adapter, telegram_poll_registry, and the rest (run `ls src/runtime` and subtract the other lanes' lists; state the subtraction). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A06.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A07",
+      "title": "Code audit Wave A: src/prop + scripts/prop (Breakout)",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: src/prop/** (33 files incl. the DXtrade platform adapter merged today in #13139) and scripts/prop/**, plus config for breakout_1 and the prop ruleset. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A07.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A08",
+      "title": "Code audit Wave A: src/web/api + src/bot + src/comms (security focus)",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: src/web/** (55 files), src/bot/** (13), src/comms/** (6); docs/api-tier-policy.md; docs/reference/bot-api-reference.md. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A08.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A09",
+      "title": "Code audit Wave A: config, mandates, auto-land route, landing & permission controls",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 60,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: config/** (37 files) and their loaders; config/mandates.yaml and every resolver/workflow that reads it; the MD-DEMOTE-S2-S1 auto-land route end to end (script + workflow + guard); .github/workflows/claude-pr-automerge.yml, pr-opener.yml, scripts/ci/check_pr_landing.py, scripts/ci/check_dry_run_in_diff.py, scripts/ci/check_manager_scope.py, .github/pr-landing/, .github/merge-slots/; .claude/settings.json permissions as of #13138; branch protection (read it via the GitHub API if reachable, else state that). Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A09.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A10",
+      "title": "Code audit Wave A: deploy/ + VM-mutating action scripts",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: deploy/** (64 files: systemd units, timers, Caddy, etc.); scripts/ops/*_action.sh (57 files) and the system-actions workflow allowlist that maps to them (docs/claude/system-actions.md); scripts/deploy_pull_restart.sh, install_systemd_units.sh, vm_bootstrap.sh, setup.sh, render_env_from_master.py. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A10.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A11",
+      "title": "Code audit Wave A: scripts/ops part 1",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: scripts/ops/ files 1\u2013166 in `ls scripts/ops` order (from _backlog.py through manifest_training_staleness.py), EXCLUDING *_action.sh (CA-A10). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A11.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A12",
+      "title": "Code audit Wave A: scripts/ops part 2",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: scripts/ops/ files 167\u2013332 in `ls scripts/ops` order (from mark_netted_duplicate_pnl.py to the end), EXCLUDING *_action.sh (CA-A10). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A12.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A13",
+      "title": "Code audit Wave A: GitHub workflows part 1",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: .github/workflows/ files 1\u201374 in `ls .github/workflows` order (through provision-ib-gateway.yml). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A13.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A14",
+      "title": "Code audit Wave A: GitHub workflows part 2",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: .github/workflows/ files 75\u2013149 in `ls .github/workflows` order (from provision-live-vm.yml to the end). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A14.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-A15",
+      "title": "Code audit Wave A: remaining small src/ modules",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "Scope: src/{analysis,backtest,core,data_layer,exchange,news,pipeline,research,sysdyn,utils,config}/**, src/units/{db,dashboards,trading_school,ui}/**, src/strategy_registry.py. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A15.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B01",
+      "title": "Code audit Wave B: ml/",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: ml/** (210 files, 24.3k lines) and its tests. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B01.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B02",
+      "title": "Code audit Wave B: scripts/ml + scripts/training",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: scripts/ml/** (72 files) and scripts/training/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B02.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B03",
+      "title": "Code audit Wave B: scripts/research part 1",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: scripts/research/ files 1\u201397 in `ls scripts/research` order (through m20_u1_winner_close_inventory.py). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B03.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B04",
+      "title": "Code audit Wave B: scripts/research part 2",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: scripts/research/ files 98\u2013185 in `ls scripts/research` order (from m20_u2_winner_close_attribution.py to the end). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B04.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B05",
+      "title": "Code audit Wave B: CI guards part 1 \u2014 each proven to fail on its defect",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: The first 44 guards in `python3 scripts/ci/run_guards.py --list` order (through candle-fixture-variance-guard), and each guard's script under scripts/ci/ or scripts/. Model reason: Haiku \u2014 mechanical plant-a-defect-and-run per guard; operator named Haiku. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B05.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B06",
+      "title": "Code audit Wave B: CI guards part 2 \u2014 each proven to fail on its defect",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: Guards 45\u201389 in `python3 scripts/ci/run_guards.py --list` order (from corpus-row-floor-guard to the end), and each guard's script. Model reason: Haiku \u2014 mechanical plant-a-defect-and-run per guard; operator named Haiku. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B06.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B07",
+      "title": "Code audit Wave B: tests coverage",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: tests/** (1,224 files) mapped against src/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B07.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B08",
+      "title": "Code audit Wave B: leftover scripts",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: Top-level scripts/*.py and *.sh (74), scripts/{analysis,macro,micro,options,llm,reports,session_handoff,sprint015,sprint047,git-hooks}/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B08.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-B09",
+      "title": "Code audit Wave B: skills and canonical docs vs code",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: .claude/skills/**/SKILL.md and docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md, CLAUDE.md, docs/reference/*. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B09.md + .findings.jsonl. Only finds; fixes are separate lanes."
+    },
+    {
+      "id": "CA-LEAD",
+      "title": "Code audit LEAD: consolidate findings to docs/audits/code-audit-2026-09-27.md",
+      "phase": "CA",
+      "state": "queued",
+      "owner": "audit lead lane",
+      "lane": null,
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 70,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "dispatches once Wave A findings files are on main; resumed for Wave B"
+        }
+      ],
+      "note": "Opus per the operator. Consolidates, dedupes, independently re-verifies every critical/high finding, splits evidence-settled fixes (-> manager fix lanes) from judgment calls (-> daily brief section 2), files pipeline items for what is not fixed at once."
     }
   ]
 }
