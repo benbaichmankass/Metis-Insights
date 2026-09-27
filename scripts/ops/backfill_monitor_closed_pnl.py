@@ -210,6 +210,39 @@ def _plan_row(
     if not avg_exit_price or avg_exit_price <= 0:
         return None, f"recovered avg_exit_price={avg_exit_price!r} (degenerate)"
 
+    # Sign-consistency sanity guard — ported verbatim from
+    # backfill_orphan_pnl.py::_plan_row (2026-06-20 dashboard-audit;
+    # FIX-CA-19 / CA-A11). A recovered closed_pnl whose SIGN contradicts
+    # the trade's own entry→exit price move is almost certainly a
+    # MISMATCHED Bybit closed-pnl record (observed on bybit_1: every long
+    # resolved to an identical +3847.29 even though the exit was ~18%
+    # adverse). Refuse the write and leave the row as it is rather than
+    # fabricate a profit/loss. Only fires on a >0.2% directional move, so a
+    # near-breakeven trade whose net-of-fees pnl flips sign is never refused.
+    try:
+        cp = float(closed_pnl)
+        if entry_price and entry_price > 0:
+            move = float(avg_exit_price) - entry_price
+            if str(row["direction"] or "").lower() == "short":
+                move = -move
+            move_frac = move / entry_price  # >0 favorable, <0 adverse
+            if move_frac < -0.002 and cp > 0:
+                return None, (
+                    f"recovered closed_pnl=+{cp:.4f} but {row['direction']} exit "
+                    f"{avg_exit_price} is {abs(move_frac) * 100:.1f}% ADVERSE to entry "
+                    f"{entry_price} — mismatched Bybit closed-pnl record; refusing to "
+                    f"write a fabricated profit"
+                )
+            if move_frac > 0.002 and cp < 0:
+                return None, (
+                    f"recovered closed_pnl={cp:.4f} but {row['direction']} exit "
+                    f"{avg_exit_price} is {move_frac * 100:.1f}% FAVORABLE to entry "
+                    f"{entry_price} — mismatched Bybit closed-pnl record; refusing to "
+                    f"write a fabricated loss"
+                )
+    except (TypeError, ValueError):
+        pass
+
     notes = _decode_notes(row["notes"])
     new_notes = dict(notes)
     new_notes.update({
