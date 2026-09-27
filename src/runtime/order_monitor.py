@@ -4782,8 +4782,56 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
             #   * terminal state with zero fills — Cancelled / Rejected
             #     before any qty executed; no real position ever opened.
             if status_str == "not_found" or filled_qty <= 0:
+                if status_str == "not_found":
+                    # FIX-CA-04 (CA-A01-018). One `not_found` read used to
+                    # orphan the row outright, stamped "not present in exchange
+                    # open-positions" — a view that was never read. A venue that
+                    # briefly cannot find an orderId (history-window lag, a
+                    # replaced id) then removed a LIVE position from the open
+                    # journal. Now the position view decides, and absence must
+                    # be seen twice, exactly like the filled→flat close below.
+                    if positions_cache is ...:
+                        pos = account_open_positions(cfg)
+                        positions_cache = (
+                            None if pos is None else _exchange_position_set(pos)
+                        )
+                    if positions_cache is None:
+                        # Could not look → never orphan on a half-known view.
+                        summary["skipped_no_creds"] += 1
+                        continue
+                    _nf_tid = row.get("id")
+                    _nf_side = str(row.get("direction") or "").lower()
+                    if (row.get("symbol"), _nf_side) in positions_cache:
+                        if _nf_tid is not None:
+                            _PENDING_CLOSE_CONFIRM.pop(int(_nf_tid), None)
+                        logger.warning(
+                            "_reconcile_open_trades: order %s not_found but "
+                            "position live — leaving trade_id=%s account=%s "
+                            "%s %s OPEN", trade_id_str, _nf_tid, aid,
+                            row.get("symbol"), _nf_side,
+                        )
+                        continue
+                    if _nf_tid is not None:
+                        _nf_first = _PENDING_CLOSE_CONFIRM.get(int(_nf_tid))
+                        if _nf_first is None:
+                            _PENDING_CLOSE_CONFIRM[int(_nf_tid)] = now
+                            summary["pending_close"] += 1
+                            continue
+                        if ((now - _nf_first).total_seconds()
+                                < _close_confirm_seconds()):
+                            summary["pending_close"] += 1
+                            continue
+                        _PENDING_CLOSE_CONFIRM.pop(int(_nf_tid), None)
+                    _orphan_reason = (
+                        "reconciler — order not_found + position absent "
+                        "(confirmed x2)")
+                else:
+                    _orphan_reason = (
+                        "reconciler — terminal zero-fill "
+                        f"(order status {order_status.get('status')!r}, "
+                        "filled_qty 0)")
                 try:
-                    _mark_orphaned(db, row)
+                    _mark_orphaned(db, row, reason=_orphan_reason)
                     summary["orphaned"] += 1
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
@@ -6984,7 +7032,8 @@ def _close_trade_from_order_status(
     return final_exit_reason, _exec_type
 
 
-def _mark_orphaned(db, row: Dict[str, Any]) -> None:
+def _mark_orphaned(db, row: Dict[str, Any],
+                   reason: Optional[str] = None) -> None:
     """Mark a trade as orphaned + cascade the linked order_packages row.
 
     Both writes are best-effort — a failure on the package cascade
@@ -7009,7 +7058,10 @@ def _mark_orphaned(db, row: Dict[str, Any]) -> None:
     notes.update({
         "orphaned_at": now,
         "orphaned_by": "monitor_reconciler",
-        "orphaned_reason": "reconciler — DB-open trade not present in exchange open-positions",
+        # The predicate the caller actually EVALUATED (FIX-CA-04). The default
+        # is kept for callers that do not say; the reconciler always does.
+        "orphaned_reason": reason or (
+            "reconciler — DB-open trade not present in exchange open-positions"),
     })
     db.update_trade(int(row["id"]), {
         "status": "orphaned",

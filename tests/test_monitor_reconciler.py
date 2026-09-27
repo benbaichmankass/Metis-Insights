@@ -283,6 +283,29 @@ def tmp_db(tmp_path, monkeypatch):
     return db
 
 
+@pytest.fixture(autouse=True)
+def _clear_pending_confirm():
+    """The not_found → orphan path now arms `_PENDING_CLOSE_CONFIRM` (keyed by
+    trades.id, which restarts at 1 in every tmp DB) — never leak it across."""
+    from src.runtime import order_monitor as _om
+    _om._PENDING_CLOSE_CONFIRM.clear()
+    yield
+    _om._PENDING_CLOSE_CONFIRM.clear()
+
+
+def _not_found_to_orphan(db, monkeypatch, positions=()):
+    """FIX-CA-04 (CA-A01-018): a `not_found` order orphans its row only once
+    the venue position view shows the (symbol, side) ABSENT on two
+    observations. Runs both passes under an active `account_order_status`
+    patch and returns the ORPHANING pass's summary."""
+    monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+    with patch("src.units.accounts.clients.account_open_positions",
+               return_value=list(positions)):
+        first = _reconcile_open_trades(db)
+        assert first["orphaned"] == 0, "orphaned on ONE not_found observation"
+        return _reconcile_open_trades(db)
+
+
 def _read_trade(db, trade_id):
     conn = db.connect()
     try:
@@ -358,7 +381,7 @@ def test_db_open_orderid_not_found_marks_orphaned_and_pings(
         "src.units.accounts.clients.account_order_status",
         return_value=_not_found_status("1900000000000000001"),
     ):
-        summary = _reconcile_open_trades(tmp_db)
+        summary = _not_found_to_orphan(tmp_db, monkeypatch)
 
     assert summary["orphaned"] == 1
     trade = _read_trade(tmp_db, trade_id)
@@ -454,7 +477,7 @@ def test_multiple_orphans_in_same_account_all_swept(
         "src.units.accounts.clients.account_order_status",
         side_effect=lambda cfg, oid: _not_found_status(str(oid)),
     ):
-        summary = _reconcile_open_trades(tmp_db)
+        summary = _not_found_to_orphan(tmp_db, monkeypatch)
 
     assert summary["orphaned"] == 3
     for tid in ids:
@@ -494,7 +517,7 @@ def test_per_orderid_dedup_long_orphaned_short_kept(tmp_db, tmp_path, monkeypatc
         "src.units.accounts.clients.account_order_status",
         side_effect=fake_status,
     ):
-        summary = _reconcile_open_trades(tmp_db)
+        summary = _not_found_to_orphan(tmp_db, monkeypatch)
 
     assert summary["orphaned"] == 1
     assert _read_trade(tmp_db, long_id)["status"] == "orphaned"
@@ -512,7 +535,7 @@ def test_two_consecutive_runs_idempotent(tmp_db, tmp_path, monkeypatch):
         "src.units.accounts.clients.account_order_status",
         side_effect=lambda cfg, oid: _not_found_status(str(oid)),
     ):
-        s1 = _reconcile_open_trades(tmp_db)
+        s1 = _not_found_to_orphan(tmp_db, monkeypatch)
         s2 = _reconcile_open_trades(tmp_db)
 
     assert s1["orphaned"] == 1
@@ -707,12 +730,9 @@ class TestSSOTReconciler:
         with patch(
             "src.units.accounts.clients.account_order_status",
             return_value=_not_found_status("2000000000000000004"),
-        ), patch(
-            "src.units.accounts.clients.account_open_positions",
-            side_effect=AssertionError(
-                "not_found must not need a position cross-check"),
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            # FIX-CA-04: not_found now NEEDS the position cross-check.
+            summary = _not_found_to_orphan(tmp_db, monkeypatch)
         assert summary["orphaned"] == 1
         assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
 
@@ -1092,7 +1112,7 @@ class TestReconcilerGraceWindow:
             "src.units.accounts.clients.account_order_status",
             return_value=_not_found_status("2100000000000000001"),
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            summary = _not_found_to_orphan(tmp_db, monkeypatch)
 
         assert summary["orphaned"] == 1
         assert summary["skipped_recent"] == 0
@@ -1115,7 +1135,7 @@ class TestReconcilerGraceWindow:
             "src.units.accounts.clients.account_order_status",
             return_value=_not_found_status("2100000000000000002"),
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            summary = _not_found_to_orphan(tmp_db, monkeypatch)
 
         assert summary["orphaned"] == 1
         assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
@@ -1160,7 +1180,7 @@ class TestReconcilerGraceWindow:
             "src.units.accounts.clients.account_order_status",
             return_value=_not_found_status("2100000000000000003"),
         ):
-            summary = _reconcile_open_trades(tmp_db)
+            summary = _not_found_to_orphan(tmp_db, monkeypatch)
 
         assert summary["orphaned"] == 1
         assert _read_trade(tmp_db, trade_id)["status"] == "orphaned"
@@ -2618,7 +2638,7 @@ class TestPackageCascadeByLinkedTradeId:
             "src.units.accounts.clients.account_order_status",
             return_value=_not_found_status("1900000000001230001"),
         ):
-            _reconcile_open_trades(tmp_db)
+            _not_found_to_orphan(tmp_db, monkeypatch)
 
         pkg = _read_package(tmp_db, "pkg-orphan-prod")
         assert pkg["status"] == "closed"
@@ -3068,3 +3088,93 @@ class TestNettingGuardCloseConfirmation:
         assert summary["closed"] == 0
         assert summary["pending_close"] == 1
         assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+
+# ---------------------------------------------------------------------------
+# FIX-CA-04 (CA-A01-018): `not_found` must consult the venue position view
+# ---------------------------------------------------------------------------
+
+
+class TestNotFoundConsultsPositions:
+    """One `not_found` read used to orphan a trade outright, stamped "not
+    present in exchange open-positions" — a view that was never read."""
+
+    def _setup(self, tmp_db, tmp_path, monkeypatch, tid="1900000000000000009"):
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "p")
+        monkeypatch.setenv("RECONCILER_CLOSE_CONFIRM_SECONDS", "0")
+        return _insert_trade(tmp_db, trade_id=tid)
+
+    def test_not_found_with_the_position_live_stays_open(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        tid = self._setup(tmp_db, tmp_path, monkeypatch)
+        with patch("src.units.accounts.clients.account_order_status",
+                   return_value=_not_found_status("1900000000000000009")), \
+             patch("src.units.accounts.clients.account_open_positions",
+                   return_value=[{"symbol": "BTCUSDT", "side": "Buy",
+                                  "size": 0.005}]):
+            s1 = _reconcile_open_trades(tmp_db)
+            s2 = _reconcile_open_trades(tmp_db)
+        assert s1["orphaned"] == 0 and s2["orphaned"] == 0
+        assert _read_trade(tmp_db, tid)["status"] == "open"
+
+    def test_not_found_and_absent_orphans_on_the_second_observation(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        tid = self._setup(tmp_db, tmp_path, monkeypatch)
+        with patch("src.units.accounts.clients.account_order_status",
+                   return_value=_not_found_status("1900000000000000009")), \
+             patch("src.units.accounts.clients.account_open_positions",
+                   return_value=[]):
+            s1 = _reconcile_open_trades(tmp_db)
+            assert s1["orphaned"] == 0 and s1["pending_close"] == 1
+            assert _read_trade(tmp_db, tid)["status"] == "open"
+            s2 = _reconcile_open_trades(tmp_db)
+        assert s2["orphaned"] == 1
+        row = _read_trade_full(tmp_db, tid)
+        assert row["status"] == "orphaned"
+        assert "not_found + position absent (confirmed x2)" in row["notes"]
+
+    def test_a_reappearing_position_disarms_the_pending_orphan(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        tid = self._setup(tmp_db, tmp_path, monkeypatch)
+        seq = iter([[], [{"symbol": "BTCUSDT", "side": "Buy", "size": 1}], []])
+        with patch("src.units.accounts.clients.account_order_status",
+                   return_value=_not_found_status("1900000000000000009")), \
+             patch("src.units.accounts.clients.account_open_positions",
+                   side_effect=lambda cfg: next(seq)):
+            for _ in range(3):
+                s = _reconcile_open_trades(tmp_db)
+        assert s["orphaned"] == 0, "a live observation must reset the count"
+        assert _read_trade(tmp_db, tid)["status"] == "open"
+
+    def test_not_found_with_an_unreadable_position_view_is_skipped(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        tid = self._setup(tmp_db, tmp_path, monkeypatch)
+        with patch("src.units.accounts.clients.account_order_status",
+                   return_value=_not_found_status("1900000000000000009")), \
+             patch("src.units.accounts.clients.account_open_positions",
+                   return_value=None):
+            s1 = _reconcile_open_trades(tmp_db)
+            s2 = _reconcile_open_trades(tmp_db)
+        assert s1["skipped_no_creds"] == 1 and s2["orphaned"] == 0
+        assert _read_trade(tmp_db, tid)["status"] == "open"
+
+    def test_terminal_zero_fill_reason_names_what_was_checked(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        tid = self._setup(tmp_db, tmp_path, monkeypatch,
+                          tid="1900000000000000010")
+        with patch("src.units.accounts.clients.account_order_status",
+                   return_value={"order_id": "1900000000000000010",
+                                 "status": "Cancelled", "filled_qty": 0.0,
+                                 "avg_price": 0.0, "exec_time": None}):
+            s = _reconcile_open_trades(tmp_db)
+        assert s["orphaned"] == 1
+        notes = _read_trade_full(tmp_db, tid)["notes"]
+        assert "terminal zero-fill" in notes
+        assert "not present in exchange open-positions" not in notes
