@@ -26,7 +26,7 @@ from typing import Any
 from ..manifest import canonical_stage
 from ..registry.model_registry import ModelRegistry
 from ..shadow.drift import compute_drift
-from ..shadow.inspector import filter_records, iter_records
+from ..shadow.inspector import filter_records, iter_records_with_archives
 from .attribution import compute_attribution
 from .gates import (
     GateReport,
@@ -358,7 +358,13 @@ def run_stage_guard(
             backfill_log=backfill_log, include_demo=include_demo,
         )
     }
-    records = list(iter_records(shadow_log))
+    # Active log + rotated archives, bounded to the drift window: an
+    # active-only read left the reference window empty for ~1-2 weeks after
+    # every rotation (FIX-CA-20 / PI-20260927-3WM5HADW-0001).
+    records = list(iter_records_with_archives(
+        shadow_log,
+        since=datetime.now(timezone.utc) - timedelta(days=reference_days + current_days),
+    ))
     proposals: list[Proposal] = []
     for entry in registry.list():
         drift = _drift_for_model(
