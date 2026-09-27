@@ -264,7 +264,7 @@ case "${action}" in
         tier=2
         case "${exit_code}" in
             0) result="ok (dry-run plan, already armed, or re-armed + VERIFIED)"; priority="normal" ;;
-            1) result="new OCO REFUSED — old protection re-placed; still partially naked"; priority="urgent" ;;
+            1) result="new OCO REFUSED — net mode: old protection re-placed; row mode: nothing was cancelled. Still partially naked"; priority="urgent" ;;
             2) result="COULD NOT LOOK — NOT evidence either way; nothing was changed"; priority="high" ;;
             3) result="OCO accepted but NOT verified by re-read — inspect before re-running"; priority="urgent" ;;
             4) result="refused by a safety guard — nothing was cancelled"; priority="high" ;;
