@@ -30,6 +30,33 @@ why_this_matters: >-
   onto them (that would be Tier-3, config/strategies.yaml, and is explicitly
   out of scope here).
 
+  ⚠️ CHECKED AGAINST docs/research/exit-refinement-coverage.json BEFORE THIS
+  RUN (2026-09-27) -- this is NOT the first look at these two legs, and the
+  existing rows change what this unit's result would mean:
+  trend_donchian_sol_prop's OWN dedicated E1 round (2026-08-14, live-parity
+  TP, its own book) already reads exit_head_ml: honest_negative (auc=0.5635,
+  beats_actual=15/23, n_oos=298) -- a from-scratch head trained on this leg
+  specifically did not clear the gate. trend_donchian_eth_prop's OWN dedicated
+  round reads exit_head_ml: passed_unshipped (auc=0.6138, beats_actual=20/24,
+  n_oos=902) -- it PASSED, but is explicitly BLOCKED from shipping because
+  that round trained a head and never published a matching artifact (zero
+  model_id references anywhere under runtime_logs/m20_exit_head/prop_1h/), so
+  there is nothing to pin in config/strategies.yaml::exit_head_model, and the
+  only two publishable artifacts that exist (exit-head-donchian-1h-v1 /
+  exit-head-donchian-peak-1h-v1) both predate that round by a month. The
+  coverage row's own stated unblock path is: "(i) publish the head the
+  prop_1h round trained and pin its id, or (ii) re-measure this leg against
+  the existing exit-head-donchian-1h-v1 artifact and ship only if THAT clears
+  the gate." **This unit's driver (scripts/research/
+  exit_head_prop_swap_feasibility.py) is option (ii), for BOTH legs** -- for
+  ETH specifically, a clean recovered_r_incl_swap with a reasonable n_fired
+  here is a live candidate for actually unblocking that already-passed,
+  currently-stranded verdict (still Tier-3 to ship; this unit does not ship
+  it), not merely a scoping signal for whether to bother. For SOL, given the
+  leg's own from-scratch head already failed, transfer from a DIFFERENT
+  symbol's head clearing this bar would be a real (if smaller) surprise worth
+  a closer look rather than an expected pass.
+
 why_not_inferential: >-
   This is an uncontrolled, in-sample, single-pass scoring of an already-
   published artifact against a leg it was never validated on -- no walk-
