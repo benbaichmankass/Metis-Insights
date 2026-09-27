@@ -1,0 +1,120 @@
+id: RQ-20260927-003
+title: exit-head-for-prop-legs feasibility look (trend_donchian_sol_prop / trend_donchian_eth_prop)
+status: queued
+cadence: once
+kind: deterministic
+
+question: >-
+  config/strategies.yaml declares exit_head_model: exit-head-donchian-1h-v1 on
+  trend_donchian, trend_donchian_sol and trend_donchian_eth but NOT on the two
+  legs actually live on the prop account breakout_1 --
+  trend_donchian_sol_prop / trend_donchian_eth_prop (SOLUSDT / ETHUSDT,
+  execution: live, trail_mult 3.5 vs the non-prop 5.0, tp_r 6.0 vs 50.0).
+  Would scoring these legs' OWN trades with the ALREADY-PUBLISHED
+  exit-head-donchian-1h-v1 artifact (no retrain -- that artifact's training
+  set already includes SOLUSDT/ETHUSDT rows) show enough signal to justify a
+  real retrain + walk-forward on this leg's own geometry, the way
+  RQ-20260927-001/-002 did for the flagship BTCUSDT leg? Breakout is a
+  flat-daily-swap venue (0.033%/day, config/strategies.yaml:2687), so an exit
+  head that shortens losing holds may matter MORE here than on a perpetual
+  (8h-funding) venue -- this unit also estimates the swap saved by earlier
+  exits, which recovered_R alone does not capture.
+
+why_this_matters: >-
+  Operator decision 2026-09-27 (docs/claude/work/MANAGER-CHECKLIST.json row
+  R4, "OPERATOR DECISIONS 2026-09-27" wave 6, lane M2): "an exit-head-for-prop-
+  legs look" is explicitly asked for, alongside the multi-fold walk-forward
+  (RQ-20260927-002). This is a SCOPING question, not a promotion question --
+  it decides whether the follow-up (a real retrain + walk-forward on these
+  legs' own exit geometry) is worth doing, not whether to wire exit_head_model
+  onto them (that would be Tier-3, config/strategies.yaml, and is explicitly
+  out of scope here).
+
+why_not_inferential: >-
+  This is an uncontrolled, in-sample, single-pass scoring of an already-
+  published artifact against a leg it was never validated on -- no walk-
+  forward, no embargo, no retrain, no pre-registered effect size. It exists to
+  decide whether RQ-20260927-002's methodology (real embargoed multi-fold
+  retrain) is worth repeating for these two legs, not to stand as evidence on
+  its own. Declaring a power floor here would dress an exploratory scan up as
+  a powered test it is not; the decision_rule below is a SCOPING threshold
+  (worth a follow-up vs not), never a PASS/FAIL promotion verdict.
+
+decision_rule:
+  id: RULE-RQ0927-003-PROP-EXIT-HEAD-SCOPING
+  registered_at: '2026-09-27'
+  registered_before_run: true
+  statistic: >-
+    Per leg (trend_donchian_sol_prop/SOLUSDT, trend_donchian_eth_prop/ETHUSDT):
+    scripts/research/exit_head_prop_swap_feasibility.py runs the leg's
+    config-exact scripts/backtest_trend.py trades (config-exact donchian /
+    atr_stop_mult / trail_mult / tp_r / min_confidence from that leg's own
+    config/strategies.yaml block), scores each with the PUBLISHED
+    exit-head-donchian-1h-v1 artifact via the imported, unmodified
+    exit_head_replay.replay_trade (no retrain), and computes: delta_gross_r =
+    replayed_gross_r - baseline_gross_r; swap_saved_total_r = sum over trades
+    of (bars_held_baseline - bars_held_replayed) * per-bar swap-in-R (Breakout's
+    real 0.00033/day rate, R-normalised per trade via that trade's own
+    entry-to-stop risk); recovered_r_incl_swap = delta_gross_r +
+    swap_saved_total_r. n_fired = count of trades where the head actually
+    fired (would_exit_for the leg's own bars).
+  rule: >-
+    IF, for a given leg, n_fired >= 10 AND recovered_r_incl_swap > 0: verdict
+    worth_followup for that leg -- queue a NEW research/queue unit that
+    retrains per-leg (RQ-20260927-002's methodology: purged embargoed
+    walk-forward, this leg's own trade population as the OOS test set) before
+    any Tier-3 exit_head_model wiring is even proposed.
+    IF n_fired >= 10 AND recovered_r_incl_swap <= 0: verdict deprioritize for
+    that leg -- the in-sample, no-retrain pass shows no signal; a real
+    retrain is unlikely to look better and is not worth the trainer time
+    ahead of higher-priority work.
+    IF n_fired < 10 (too few head-fired trades on this leg's own, wider-trail
+    geometry to say anything): verdict unestablishable for that leg --
+    record read_state producer_failed / attributable_to insufficient_firing,
+    never invent a followup/deprioritize call on fewer than 10 fired trades.
+  what_it_does_not_do: >-
+    Never wires exit_head_model/exit_head_threshold/exit_head_action onto
+    either prop leg (Tier-3, config/strategies.yaml -- out of scope). Never
+    promotes exit-head-donchian-1h-v1 to advisory (a separate, independent
+    Tier-3 decision already gated by RQ-20260927-001/-002 and
+    PI-20260926-96NDZSOD-0001). A worth_followup verdict is a scoping
+    recommendation for a LATER unit, not itself evidence a Tier-3 change may
+    cite.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: >-
+    Trainer (158.178.209.121) -- the published exit-head-donchian-1h-v1
+    artifact lives only in runtime_logs/trainer_mirror/exit_head/ on the
+    trainer/live VMs (exit_head_replay.load_heads()'s own contract), not
+    committed. No retrain here (unlike RQ-20260927-002), so materially cheaper
+    per leg; two legs (SOL, ETH) in one dispatch is well inside a 6 GB box.
+
+run:
+  workflow: 'trainer-vm-diag (issue label trainer-vm-diag-request)'
+  inputs:
+    strategies: [trend_donchian_sol_prop, trend_donchian_eth_prop]
+    symbols: [SOLUSDT, ETHUSDT]
+    timeframe: 1h
+    swap_rate_daily: 0.00033
+    research_unit: RQ-20260927-003
+  note: >-
+    Dispatched by running the COMMITTED driver
+    scripts/research/exit_head_prop_swap_feasibility.py on the trainer, once
+    per leg, via a trainer-vm-diag issue.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: >-
+    research/results/RQ-20260927-003/<run_id_or_manual-tag>.jsonl, one row
+    per leg, built via scripts/research/research_result.py.
+
+related:
+  - RQ-20260927-002 (the methodology this scopes a possible follow-up for)
+  - RQ-20260922-007 (the original flagship-leg attribution this generalizes from)
+last_dispatched_at: null
