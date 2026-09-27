@@ -1,1 +1,1 @@
-auto-merge on green: manager register update 17:30Z
+auto-merge on green: close MES 907 item + file diag collapsed-state item
