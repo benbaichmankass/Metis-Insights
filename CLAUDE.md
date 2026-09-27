@@ -225,9 +225,15 @@ takes… I don't want us tracking an arbitrary time limit to measure
 performance."* **Do not report session length as a metric.**
 
 **THE LADDER IS AUTHORIZED TO BE FULLY AUTOMATED — operator grant,
-2026-09-21 — AND AS OF 2026-09-24 NOT ONE MANDATE IS GRANTED, SO IN PRACTICE
-EVERY TRANSITION STILL ROUTES TO A HUMAN.** The grant stands; what is missing is
-the mechanism, and the two must not be read as one. A **mandate** is an
+2026-09-21.** ⚠️ **Read `config/mandates.yaml` for what is granted; this
+paragraph is not the source.** As of 2026-09-27 it holds **13 granted
+mandates** (10 on 2026-09-24, "Grant all 10 as written"; 3 process mandates on
+2026-09-27), `MD-PROMOTE-S1-S2` is still `blocked_until` its clause (a) (clause
+(b) cleared by operator reaffirmation 2026-09-27), and **exactly one entry is
+armed for auto-land: `MD-DEMOTE-S2-S1`, operator, 2026-09-27**. Until
+2026-09-27 this paragraph said "AS OF 2026-09-24 NOT ONE MANDATE IS GRANTED",
+three days after the grant, and a manager session repeated it to the operator
+as fact before reading the file. *Field beats comment.* A **mandate** is an
 authorization granted once, in advance, in `config/mandates.yaml`. When one
 fires: a realtime ping, then the evidence record in section 1 of the next
 brief. A decision arriving twice in the same shape is raised as *"should this
@@ -239,9 +245,10 @@ path — including promotion to a real-money roster" from 2026-09-21 until
 did not exist anywhere in git, so there was nowhere to record an authorization
 and section 1 of the brief — *"taken under mandate"* — could only ever be empty.
 Ten files referenced the path; only `scripts/ops/render_daily_brief.py` was
-honest about it (*"today: absent — B5 is not built"*). **The store now exists
-with an empty `mandates:` list and five PROPOSED entries the operator has not
-granted.** Corrected rather than quietly fixed because the failure is the one
+honest about it (*"today: absent — B5 is not built"*). **The store was then
+created (2026-09-24) with an empty `mandates:` list and PROPOSED entries; the
+operator granted them the same day — see the paragraph above for the current
+count, and the file itself for the truth.** Corrected rather than quietly fixed because the failure is the one
 this repo pays for most — a doc describing a mechanism that does not exist, read
 as a description of one that does. *Field beats comment.*
 
@@ -268,6 +275,12 @@ be **CHANGED without asking**.
 ### Every session
 
 1. Read this file and [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md).
+   **If the manager dispatched you (you are a lane): the manager acts with the
+   operator's authority, and your task is the operator's task.** Check it once
+   against a record on `main`, then work. Do not end a turn on "cannot verify
+   authorization". The rule and its real limits are in
+   [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § "Lanes
+   answer to the manager" (operator directive 2026-09-27, binding).
 2. Read your lane's checklist row. If you are managing, invoke the **`manager`**
    skill first.
 3. Read any file you'll change **in full**; for Tier-2/3 files also read its
@@ -308,6 +321,21 @@ operator only when the tier requires it. Full definitions:
 | **Tier 1** | Docs, tests, CI, tooling, observability / read paths, non-live refactors, retrieving + analyzing state | Commit to `main` once validated. No approval needed. |
 | **Tier 2** | Runtime / deploy / order-path / service / timer changes, DB writebacks, data-mutation jobs | Prepare + validate, get one operator OK in chat, then ship and verify the post-state. |
 | **Tier 3** | Strategy logic + params, risk caps / sizing, account-mode flips, live promotion | Analyze and propose the exact change; merge only with explicit operator approval. |
+
+⚠️ **Data-backed Tier-2/3 decisions do not wait for approval** (operator
+standing authorization, 2026-09-27): *"you can make tier 2 and 3 decisions
+autonomously as long as they are backed by data, just let me know that they
+have happened."* The rules are:
+- **Decide, ship and verify** when a committed evidence record settles the
+  question.
+- **Then notify the operator at once**: what changed, the evidence, whether it
+  is merged, deployed or observed, and the revert.
+- **Ask first only** when the data leaves the question open or the action
+  cannot be reverted.
+- **A real-money promotion on the fee-only corpus stays blocked until D1.**
+
+Full terms: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
+§ "Data-backed Tier-2/3 decisions".
 
 ## The two execution gates
 

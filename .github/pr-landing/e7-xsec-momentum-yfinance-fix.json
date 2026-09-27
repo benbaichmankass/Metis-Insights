@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "One-line dependency fix to research-harness-dispatch.yml's Install deps step (.github/**), root-causing xsec_momentum's first real dispatch failure. No config/, no live src/, no order path, no VM."
+}

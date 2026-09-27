@@ -77,8 +77,27 @@ SHADOW_LOG_NAME = "shadow_predictions.jsonl"
 # per-file: {path_str: (mtime, artifact, booster)} — reloaded when the mirror
 # publishes a newer file.
 _CACHE: dict = {}
-# One score per (model_id, order_package_id, last-closed-bar timestamp).
-_SEEN: set = set()
+# One SCORE (not one VERDICT) per (model_id, order_package_id, last-closed-bar
+# timestamp) — a dict, not a set, so a repeat key returns the cached RECORD
+# rather than nothing.
+#
+# ⚠️ FIXED 2026-09-27 (PI-20260926-96NDZSOD-0001, Tier-2). A Stage-2 mirror
+# pair (e.g. bybit_2 + bybit_portfolio) fans ONE order_package_id out to TWO
+# accounts, so the monitor calls this function twice for the identical bar —
+# once per account. This dedup used to be a bare ``set``: the first call
+# scored and returned the record, the second call's key was already
+# "seen" and it fell straight to ``continue``, contributing nothing to
+# ``first_record``/``advisory_record`` — so the function returned ``None`` to
+# the second account regardless of what the first account's score was.
+# ``exit_head_apply.exit_head_verdict`` treats ``rec=None`` as "no verdict",
+# so the mirror leg never received the close its twin got, MEASURED on 3 of 3
+# twinned live closes (trades table, 2026-09-26T21:19Z): the mirror closed by
+# a different mechanism (reconciler / TP-cross) instead. Caching the record
+# and returning it to every caller sharing the key restores "the mirror takes
+# IDENTICAL trades" (the Stage-2 rule) without threading a new per-account
+# argument through every call site — the intent was always "score once per
+# bar", never "the second account gets nothing".
+_SEEN: dict = {}
 
 
 def _artifact_dir():
@@ -475,9 +494,18 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
         for artifact, booster in candidates:
             model_id = str(artifact.get("model_id") or MODEL_ID)
             seen_key = (model_id, pkg_id, row["_bar_ts"])
-            if seen_key in _SEEN:
+            cached = _SEEN.get(seen_key)
+            if cached is not None:
+                # Already scored this (model, package, bar) for a prior
+                # caller this tick (typically the package's OTHER mirrored
+                # account) — return that SAME record rather than re-scoring
+                # or re-logging, so every account sharing the package sees
+                # the same verdict instead of the second one going empty.
+                if first_record is None:
+                    first_record = cached
+                if advisory_record is None and cached.get("stage") == "advisory":
+                    advisory_record = cached
                 continue
-            _SEEN.add(seen_key)
 
             features = artifact.get("features") or []
             vec = [[float(row[f]) if row.get(f) is not None else float("nan")
@@ -521,6 +549,7 @@ def maybe_score_exit_head(meta: Dict[str, Any], open_pkg: Dict[str, Any],
                 "feature_row": {k: v for k, v in row.items()
                                 if not k.startswith("_")},
             }
+            _SEEN[seen_key] = record
             try:
                 from src.utils.paths import runtime_logs_dir
 

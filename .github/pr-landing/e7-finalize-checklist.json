@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/MANAGER-CHECKLIST.json only (docs/**) -- E7 to done, C4 dropped as its duplicate, both with the evidence trail in the note. No config/, no live src/, no roster change."
+}

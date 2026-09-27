@@ -246,9 +246,16 @@ class TestNoUnapprovedBehaviourRidesAlong:
         Without this, the test above passes vacuously for a change that
         disabled the cross-check entirely (BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND,
         which false-closed a real-money BTCUSDT row).
+
+        ⚠️ CHANGED 2026-09-27 (OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-
+        FETCHED): the page row is now ONE-WAY (``positionIdx 0``). It was
+        ``positionIdx 1`` alone, and a hedge book listed without its sibling
+        now DOES get one symbol-scoped read -- that is the fix, pinned in
+        ``tests/test_bybit_hedge_sibling_read.py``. Idx 0 keeps this test
+        about what it was always about: the roster cross-check.
         """
         rows = [
-            {"symbol": "SOLUSDT", "side": "Buy", "size": "1", "positionIdx": 1},
+            {"symbol": "SOLUSDT", "side": "Buy", "size": "1", "positionIdx": 0},
         ]
         _, client = _run(_acct(symbols=["SOLUSDT", "BTCUSDT"]), rows, tmp_path)
         scoped = [c.get("symbol") for c in client.calls if c.get("symbol")]

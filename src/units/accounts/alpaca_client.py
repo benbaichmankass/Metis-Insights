@@ -15,8 +15,11 @@ creds are absent so the account loads ``configured: False``.
 Orders are **bracket** market orders (entry + ``take_profit`` limit +
 ``stop_loss`` stop in one atomic request) so SL/TP protection is
 broker-side from the first fill — surviving RTH closes, weekends, and
-trader restarts. Bracket orders require whole-share quantities and
-``time_in_force: day`` legs (Alpaca constraint); qty is floored at 1.
+trader restarts. Bracket orders require whole-share quantities (qty is
+floored at 1) and ``time_in_force`` ``day`` or ``gtc`` — they are sent
+``gtc``. ⚠️ Until 2026-09-27 this said ``day`` was an Alpaca constraint and
+the code sent ``day``, which CONTRADICTED the "surviving RTH closes" claim
+two lines up: day legs are cancelled at the close (PI-20260926-HJPL5ABP-0001).
 
 Auth: key id + secret from ``ALPACA_API_KEY_ID`` /
 ``ALPACA_API_SECRET_KEY`` (free paper keys). ``ALPACA_ENV`` picks the
@@ -504,6 +507,10 @@ class AlpacaClient:
     def place(self, order: Dict[str, Any]) -> Dict[str, Any]:
         """Place a bracket MARKET order; retCode envelope.
 
+        A bracket/OTO is sent ``time_in_force: gtc`` so its protective legs
+        survive the RTH close (see the block above the POST); a plain market
+        order with no legs stays ``day``.
+
         Expects the executor's order dict: ``symbol``, ``side``
         (``Buy``/``Sell``, case-insensitive), ``qty`` (shares, floored
         at 1 whole share — bracket orders disallow fractionals),
@@ -563,7 +570,43 @@ class AlpacaClient:
                 body["take_profit"] = {"limit_price": f"{float(tp):.2f}"}
             if sl is not None:
                 body["stop_loss"] = {"stop_price": f"{float(sl):.2f}"}
+        # ── PROTECTIVE LEGS ARE GTC (PI-20260926-HJPL5ABP-0001) ──────────────
+        # A bracket/OTO's child legs take the PARENT's time_in_force. With
+        # `day` Alpaca cancels the stop + target at the RTH close of the entry
+        # day, so every multi-session hold went broker-naked overnight and
+        # relied on the naked sweep to re-arm it (alpaca_paper/SPY trade 6131:
+        # 8 of 19 shares unprotected from the 2026-09-24 close).
+        #
+        # The comment this replaces called `day` "an Alpaca constraint". The
+        # venue's own doc says otherwise — bracket, OCO and OTO:
+        # "time_in_force must be day or gtc", and a market order accepts gtc
+        # (docs.alpaca.markets/docs/orders-at-alpaca, read 2026-09-27). The
+        # entry itself is a MARKET order, so GTC changes nothing about when it
+        # fills (in RTH: now; after the close: queued to the next open either
+        # way). A plain market order with NO legs keeps `day` — it has no
+        # protection to preserve, so it is left byte-identical.
+        #
+        # Fallback, because the claim above is from the doc and not from a
+        # live GTC bracket: if the venue refuses the TIF specifically, re-send
+        # ONCE as `day` rather than refusing the entry. That restores exactly
+        # the pre-change behaviour (legs lapse at the close; the naked sweep
+        # re-arms) instead of stopping every Alpaca entry on a doc mismatch.
+        if "order_class" in body:
+            body["time_in_force"] = "gtc"
         env = self._request("POST", "/v2/orders", body)
+        if (
+            env.get("retCode") not in (0, None)
+            and body.get("time_in_force") == "gtc"
+            and "time_in_force" in str(env.get("retMsg") or "").lower()
+        ):
+            logger.warning(
+                "alpaca place(%s): venue refused a GTC %s (%s) — re-sending as "
+                "DAY; its protective legs will lapse at the RTH close and rely "
+                "on the naked sweep", body["symbol"], body["order_class"],
+                env.get("retMsg"),
+            )
+            body["time_in_force"] = "day"
+            env = self._request("POST", "/v2/orders", body)
         if env.get("retCode") != 0:
             return env
         result = env.get("result") or {}
@@ -2116,9 +2159,12 @@ class AlpacaClient:
 
         The re-arm counterpart to ``IBClient.place_protective`` for Alpaca
         (BL-20260629-ALPACA-NAKED-BRACKET). The entry bracket's protective legs
-        are ``time_in_force: day`` (an Alpaca market-entry-bracket constraint)
-        so they are CANCELLED at the RTH close — a multi-session ETF hold then
-        sits broker-naked. This places a fresh **GTC** OCO (one-cancels-other:
+        WERE ``time_in_force: day`` until 2026-09-27 (then described as an
+        Alpaca constraint; the venue doc allows ``gtc`` and :meth:`place` now
+        sends it) so they were CANCELLED at the RTH close — a multi-session ETF
+        hold then sat broker-naked. This remains the backstop for positions
+        opened before that change, for a venue refusal that falls back to
+        ``day``, and for GTC legs Alpaca's 90-day aged-order policy cancels. This places a fresh **GTC** OCO (one-cancels-other:
         a take-profit limit + a stop, ``time_in_force: gtc``) on the
         closing side so protection persists across closes/weekends/restarts.
 

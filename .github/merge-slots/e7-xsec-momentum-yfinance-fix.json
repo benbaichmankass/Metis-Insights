@@ -1,0 +1,6 @@
+{
+  "held_by": "session_018vMhZdSXoQdbn5EPmbgUyb",
+  "branch": "claude/e7-xsec-momentum-yfinance-fix",
+  "claimed_at": "2026-09-27T07:29:27Z",
+  "purpose": "yfinance dependency fix for xsec_momentum dispatch"
+}
