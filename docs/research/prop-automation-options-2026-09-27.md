@@ -46,7 +46,16 @@ blocked. It does not mean the fact is absent.
 > So "we're on the Breakout terminal" and "we're on DXtrade" can both be true
 > of the same screen.
 >
-> **This version therefore specs both branches.** It makes identifying the
+> **✅ RESOLVED 2026-09-27 at about 10:17Z. Source: the operator, in chat,
+> relayed by manager session `session_01Ljhs6sFAdWHdMDhJpL5aBP`.** Verbatim:
+> *"I open and login through this link: https://app.breakoutprop.com/"*.
+> Breakout's FAQ names that URL as the **DXTrade** login: *"DXTrade terminal
+> accounts — access via https://app.breakoutprop.com/"* (S3). **breakout_1 is
+> therefore a DXtrade account.** The DXtrade white-label's own title is
+> "Breakout Terminal" (S26), which is why it read as the proprietary terminal.
+> Nobody was wrong about what was on screen.
+>
+> **The version before the resolution specced both branches.** It makes identifying the
 > platform D.6 **step 0**, which is one operator answer and needs no
 > credentials. **Option C is downgraded**: see § C for the measured
 > `RBAC: access denied` on the DXtrade REST path. Sections changed: § 0,
@@ -65,8 +74,11 @@ blocked. It does not mean the fact is absent.
 | repo code and config (`breakout_routing.yaml` `dxtrade_symbol`, `breakout_executor.py`, `accounts.yaml` comments, `metacopier-bridge-DESIGN.md`) | All say DXTrade. **These are June design assumptions, never a measurement.** | dated 2026-06-16/17 |
 | prop-report issues #12808, #13086, #10521 (2026-08-30 → 2026-09-27) | The operator's screenshots are transcribed as "the Breakout terminal": account `823528`, exec ids like `38033351:6827565`, "Position Effect Closing", margin level. **Given the finding above, "Breakout terminal" is ambiguous.** No transcribed field is tied to a platform by any first-party source we have. | current, not decisive |
 
-**Verdict: UNDETERMINED from any source this session can read. The operator's
-belief (proprietary terminal) is the working hypothesis.** One operator answer
+**Verdict (RESOLVED 2026-09-27 ~10:17Z): DXtrade.** The operator logs in at
+`https://app.breakoutprop.com/` (operator, chat). FAQ 14215629 (S3) maps that
+URL to DXTrade accounts. Before that answer, the verdict read *"UNDETERMINED
+… the operator's belief (proprietary terminal) is the working
+hypothesis"*. The question that settled it is kept below for the record. One operator answer
 settles it:
 
 > *"Do you reach breakout_1 by clicking **Open Terminal** on the Breakout
@@ -78,7 +90,9 @@ authenticator app that labels the entry `dxTrade5`, it is DXtrade.
 
 ## 0. The answer in five lines
 
-1. **D is ranked first, as the operator directed.** D is a bot that drives
+1. *(Resolved 2026-09-27 ~10:17Z: **breakout_1 is DXtrade**. The operator
+   logs in at app.breakoutprop.com, and FAQ S3 maps that URL to DXTrade.
+   D.6 step 0 is done.)* **D is ranked first, as the operator directed.** D is a bot that drives
    breakout_1's own web terminal with the operator's own credentials, at our
    normal cadence. It is **gated on feasibility and cost, not on the terms.**
    *(Corrected 2026-09-27.)* **Which terminal that is has not been
@@ -282,14 +296,16 @@ gateway (§ C).*
 
 | step | what | "works" means | Tier |
 |---|---|---|---|
-| **0: identify the platform (no credentials)** | The operator answers the one question in § Which platform: dashboard "Open Terminal" or `app.breakoutprop.com`. | A definite answer, recorded on `PI-20260927-R6FQK6DS-0002`. **Nothing below is built until this is recorded.** | none (an operator answer) |
+| **0: identify the platform (no credentials)** — ✅ **DONE 2026-09-27 ~10:17Z: DXtrade (`app.breakoutprop.com`)** | The operator answers the one question in § Which platform: dashboard "Open Terminal" or `app.breakoutprop.com`. | A definite answer, recorded on `PI-20260927-R6FQK6DS-0002`. | none (an operator answer) |
 | **1: unauthenticated reachability from the VM** | Default headless Playwright Chromium, run on the live VM, loads **only the login page** of the confirmed platform. DXtrade: `app.breakoutprop.com` (the host S3 names). Proprietary: `portal.breakoutprop.com/sign-in`, then "Open Terminal" after login. No credentials are entered. | The login form renders with **no bot challenge.** ⚠️ From this sandbox, `app.`, `portal.` and `trade.breakoutprop.com` all return **403 Cloudflare challenge** to non-browser clients (MEASURED 2026-09-27 with curl). `wss.breakoutprop.com` (a DXtrade login page) returned **200 with no challenge**. Whether a real browser from the VM's IP passes is exactly what this step measures. **If it gets a challenge, D is infeasible** under the no-evasion boundary. | Tier-2 held PR (a new script run on the VM) |
 | **2: read-only login** | Log in, read balance, equity, open positions and orders, and whether an order carries a label/comment field. Write **one** `account_status` via `POST /api/bot/prop/report` (or a dry print). **No order control is touched**; the probe has no code path that clicks one. | Login succeeds unattended. The values match the operator's screen. | Tier-2 held PR plus the operator's secrets |
 | **3: session keep-alive** | Repeat step 2 every 5 min for 72 h. | Re-login works unattended, and 2FA does not need a human each time. Selector stability is measured. | same |
 | **4: one minimum-size bracket, operator watching** | A **separate** held Tier-2 PR adds `place_bracket`. | Entry, SL and TP all rest, confirmed by re-read. The report lands. | Tier-2, operator OK |
 | **5: soak** | Executor live on breakout_1's roster, with the manual bridge still emitting. | 14 days with zero unconfirmed submits, orphans or naked positions. | Tier-2 |
 
-**Branch-specific feasibility, from what can be learned without logging in:**
+**Branch-specific feasibility, from what can be learned without logging in.**
+*breakout_1 is the **DXtrade** column. The proprietary column is kept for a
+future re-buy, since new accounts can only be proprietary (S3).*
 
 | | DXtrade branch (`app.breakoutprop.com`) | Proprietary branch (dashboard → "Open Terminal") |
 |---|---|---|
@@ -342,6 +358,10 @@ work around):
 
 ### D.8 Credentials and 2FA
 
+- **Resolved: breakout_1 is DXtrade, so the probe needs the DXtrade
+  names** (2026-09-27 ~10:17Z): `BREAKOUT_DX_USERNAME`,
+  `BREAKOUT_DX_PASSWORD`, and `BREAKOUT_DX_TOTP_SEED` **only if** the account
+  has 2FA turned on. The per-branch list below is kept for a re-buy.
 - **Secret names depend on the step-0 answer** (corrected 2026-09-27). They
   are **Actions secrets synced to the VM env** through the existing
   `sync-vm-secrets` route (the `credentials-and-vm-mutations` skill):
@@ -483,16 +503,15 @@ Option E is therefore **not an automation option.** It is ranked last.
 
 ## Recommendation ranking
 
-| rank | option | gate | why |
-|---|---|---|---|
-*(Re-ranked 2026-09-27 after the platform correction.)*
+*(Re-ranked 2026-09-27 after the platform correction, and again at about
+10:20Z once the platform was RESOLVED.)*
 
 | rank | option | gate | why |
 |---|---|---|---|
-| **1** | **D on the confirmed platform** | D.6 step 0 (operator answer), then step 1 (no challenge from the VM) | Operator-directed lead. No first-party clause read prohibits it. Credentials stay ours. The existing ticket, report and reconcile path is reused whole. The DXtrade branch has a known, storable login (user/pass/TOTP); the proprietary branch may be blocked by emailed-code login. |
+| **1** | **D on DXtrade** (breakout_1's confirmed platform) | D.6 step 0 ✅ done; next is steps 1–2, the read-only probe (Tier-2 held PR) | Operator-directed lead. No first-party clause read prohibits it. Credentials stay ours. The existing ticket, report and reconcile path is reused whole. The DXtrade branch has a known, storable login (user/pass/TOTP); the proprietary branch may be blocked by emailed-code login. |
 | 2 | A (A1–A3) | none | Zero ToS risk. It is the fallback if D.6 kills D, and worth doing anyway. |
-| 3 | F1 (proprietary-terminal API) | support answer | The best route if it exists; nothing found today. |
-| 4 | C (DXtrade REST) | support answer; gateway currently refuses it | MEASURED `403 RBAC: access denied` before auth. Applies only if breakout_1 is DXtrade. |
+| 3 | C (DXtrade REST) | support answer; gateway currently refuses it | **Now applicable**, because breakout_1 is DXtrade. But the gateway returned MEASURED `403 RBAC: access denied` before auth. If support opens it, C becomes D's transport. |
+| 4 | F1 (proprietary-terminal API) | support answer | Does not apply to breakout_1. It matters only for a future re-buy, which would be proprietary-only (S3). |
 | 5 | B (copier) | needs C's API, or a copier supporting the proprietary terminal | Unavailable on either branch as far as we can see, and has the highest ToS exposure. |
 | 6 | E (Apex) | none possible; the ban is explicit | Operator confirmed do-not-pursue 2026-09-27 (`PI-20260927-R6FQK6DS-0001`, closed). |
 
@@ -502,14 +521,14 @@ The operator chose not to gate D on the terms. The question is still worth
 asking, because the answer is free. It settles the platform question, the
 DXtrade sunset question, C and F1.
 
-*(Rewritten 2026-09-27 for the platform correction. The earlier draft
-assumed DXtrade.)*
+*(Rewritten 2026-09-27 for the platform correction, then updated at about
+10:20Z once the operator confirmed DXtrade. Q1 is now a statement.)*
 
 > Hello — I hold a Breakout account (account number \[823528 — operator to
 > confirm\]). I trade my own systematic strategy: a few trades a day on hourly
 > bars, always with a stop-loss and take-profit attached. I have some
 > questions about platforms and automation.
-> 1. **Which terminal is my account on**, the Breakout terminal or DXTrade?
+> 1. My account is on **DXTrade** (I log in at app.breakoutprop.com).
 > 2. **Is the DXTrade terminal being retired?** If so, on what date, and what
 >    happens to existing DXTrade accounts?
 > 3. Does the **Breakout terminal** offer an API for account holders (REST,
@@ -537,15 +556,15 @@ assumed DXtrade.)*
   `w6-crypto-candidates-2026-09-27.md` on branch `claude/w6-prop-candidates`).
 - **Non-crypto legs (S&P500, XYZ100, SILVER, CL) exist only on the Breakout
   Terminal** (S7, and P2's `breakout-instruments-2026-09-27.md`). *(Corrected
-  2026-09-27.)* **If breakout_1 is on the proprietary terminal (the
-  operator's belief), these instruments are already tradable on it**, and a D
-  build on that branch reaches them too. If it is on DXtrade they are
-  unreachable on it. P2's non-crypto scoring
+  2026-09-27; resolved ~10:17Z.)* **breakout_1 is DXtrade, so these
+  instruments are NOT tradable on it** (S7: *"available exclusively on the
+  Breakout Terminal and are not available on DXTrade"*). A D build for
+  breakout_1 cannot reach them. P2's non-crypto scoring
   (`mes_trend_long_1d`, `spy_*`, `qqq_*`, `slv_pullback_1d`, `uso_trend_1h`)
   is therefore only reachable on a **new** Breakout Terminal account or on
   Apex (futures).
-- **A two-account setup** (if breakout_1 turns out to be DXtrade and a
-  proprietary-terminal account is added for non-crypto) runs into *"trading multiple accounts from
+- **A two-account setup** (keep DXtrade breakout_1 and add a
+  proprietary-terminal account for non-crypto) runs into *"trading multiple accounts from
   the same… IP address"* during an **evaluation** (S1). Funded accounts may
   stack to $200k combined (S17). The automation host must not trade two
   *evaluations* from one IP.
@@ -556,9 +575,9 @@ assumed DXtrade.)*
 
 1. **`PI-20260927-R6FQK6DS-0002`: the read-only probe.** The operator
    pre-authorised it by popup at about 2026-09-27 09:42Z, *conditional on the
-   platform being established first*. **The platform is not established**
-   (§ Which platform), so D.6 step 0, one operator answer, comes first. The
-   secrets it then needs depend on that answer (§ D.8).
+   platform being established first*. **The condition was met at about
+   10:17Z (DXtrade).** The probe is built as a Tier-2 held PR. It needs the
+   operator to add the DXtrade secrets named in § D.8.
 2. **`PI-20260927-R6FQK6DS-0003`: send the Breakout support question** above.
 3. The Apex verdict, `PI-20260927-R6FQK6DS-0001`, was **closed** by the operator (confirmed do-not-pursue, 2026-09-27).
 
