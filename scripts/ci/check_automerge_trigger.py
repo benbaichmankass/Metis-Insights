@@ -141,19 +141,34 @@ def check(root: Path) -> list[str]:
             "help because it gates on checks. #10788 and #10764 were both armed this "
             "way while their own bodies said not to merge.")
 
-    # C6 — the PR is opened by a PAT-authenticated client when one is available.
+    # C6 — the PR is opened by a PAT-authenticated request when one is available.
+    #
+    # ⚠️ NOT `getOctokit(patToken)` ANY MORE (2026-09-27,
+    # PI-20260926-DP2BHGT3-0001). That construction ROUTED through
+    # `require('@actions/github')`, which throws `Cannot find module
+    # '@actions/github'` inside a `github-script@v7` user script — MEASURED on
+    # every PR this job opened (#13000, #13003, #13018, #13019, #13021,
+    # #13027), where `BRANCH_PROTECTION_TOKEN` was present the whole time and
+    # the client construction still failed and fell back to GITHUB_TOKEN. The
+    # replacement builds the same PAT-authenticated `pulls.create` call with
+    # the runtime's own global `fetch`, so this check now looks for THAT
+    # literal instead — matching what actually executes, not what merely
+    # reads as an attempt.
     pat_read = "PR_OPEN_PAT" in code
-    pat_client = "getOctokit(patToken)" in code
+    pat_client = "Bearer ${patToken}" in code
     pat_used = "opener.rest.pulls.create" in code
     if not (pat_read and pat_client and pat_used):
         fails.append(
             "C6 the job body no longer opens the PR through a PAT-authenticated "
-            "client (reads PR_OPEN_PAT: "
-            f"{pat_read}; builds getOctokit(patToken): {pat_client}; calls "
-            f"opener.rest.pulls.create: {pat_used}). GitHub suppresses workflow "
-            "triggers for the built-in GITHUB_TOKEN, so a PR opened with it is "
-            "born with ZERO attached checks — measured in pr-opener.yml's header "
-            "on #10079 and #10683. Reverting to `github.rest.pulls.create` "
+            "request (reads PR_OPEN_PAT: "
+            f"{pat_read}; builds an `Authorization: Bearer ${{patToken}}` "
+            f"request: {pat_client}; calls opener.rest.pulls.create: "
+            f"{pat_used}). GitHub suppresses workflow triggers for the "
+            "built-in GITHUB_TOKEN, so a PR opened with it is born with ZERO "
+            "attached checks — measured in pr-opener.yml's header on #10079 "
+            "and #10683, and again in this job's own run log for #13027 "
+            "(job 108498515118) after the PREVIOUS Octokit-based construction "
+            "silently stopped working. Reverting to `github.rest.pulls.create` "
             "restores that, and C7 would then withhold every arming.")
 
     # C7 — arming goes through the gate, and the refusal path RETURNS.
@@ -244,14 +259,12 @@ def self_test() -> int:
         # that makes every PR born with zero checks.
         "C6 PR opened with GITHUB_TOKEN again": lambda r: _mutate_script(
             r, "await opener.rest.pulls.create", "await github.rest.pulls.create"),
-        # ⚠️ EVERY construction site, not the first. The workflow builds the
-        # client through two `require` spellings (the plain one, and the
-        # `__original_require__` that survives actions/github-script's module
-        # shim), so removing one leaves C6's literal still present and the
-        # plant escapes. Matching the EXACT string C6 tests for keeps the
-        # plant and the check from drifting apart.
+        # Matching the EXACT string C6 tests for keeps the plant and the check
+        # from drifting apart — this is the literal the 2026-09-27 fetch-based
+        # replacement actually builds, not one of several equivalent spellings.
         "C6 PAT client construction removed": lambda r: _mutate_script(
-            r, "getOctokit(patToken)", "github", all_occurrences=True),
+            r, "Authorization: `Bearer ${patToken}`,",
+            "Authorization: `token GITHUB_TOKEN`,"),
         # C7 — the two ways the gate gets neutered: not consulted, or consulted
         # and ignored. Both must fail, because a gate whose verdict nobody reads
         # is decoration.

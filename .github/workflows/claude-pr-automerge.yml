@@ -238,64 +238,74 @@ jobs:
             // caller opened themselves already carries its own checks, which is
             // why adopting is the documented workaround).
             const patToken = process.env.PR_OPEN_PAT || '';
-            // A PAT-authenticated client opens the PR as the PAT's owner rather
+            // A PAT-authenticated request opens the PR as the PAT's owner rather
             // than as github-actions[bot], which is the whole point — the
             // `pull_request` event fires for a human/PAT actor and does not for
             // the bot, so a bot-opened PR carries no checks.
             //
-            // ⚠️ `require('@actions/github')` THREW HERE AND CRASHED THE WHOLE
-            // JOB, repo-wide, from 2026-09-12T09:56:31Z. The comment this
-            // replaces asserted "@actions/github is bundled with
-            // actions/github-script"; on v7 it is not resolvable from the user
-            // script, and `Cannot find module '@actions/github'` surfaced as an
-            // UNHANDLED ERROR. MEASURED over the last 15 runs: 9 failed, across
-            // four different lanes (mi278/mi279/mi280/mi285). The survivors were
-            // branches that had not yet merged `main` and so still ran their own
-            // older copy — so it spread as people synced.
+            // ⚠️ ROOT-CAUSED 2026-09-27 (PI-20260926-DP2BHGT3-0001; #13000,
+            // #13003, #13018, #13019, #13021, #13027 all share this signature).
+            // `BRANCH_PROTECTION_TOKEN` IS SET on this repo — this is NOT the
+            // missing-secret path the warning below still covers. The PREVIOUS
+            // version of this step built the PAT client via
+            // `require('@actions/github').getOctokit(patToken)` (with an
+            // `__original_require__` escape attempted first). MEASURED directly
+            // in the job log for PR #13027's opening push (run 36279095114 /
+            // job 108498515118): `patToken` was truthy (no "BRANCH_PROTECTION_
+            // TOKEN is NOT set" warning), and BOTH require spellings threw
+            // `Cannot find module '@actions/github'` — the exact failure mode
+            // #11889 hit in 2026-09 for the same reason (the module is not
+            // resolvable from a `github-script@v7` user script). The code
+            // caught that, warned, and fell back to GITHUB_TOKEN — the
+            // documented degraded path — on EVERY run, so the PAT was never
+            // actually exercised despite being present the whole time.
             //
-            // ⚠️ AND THE CHANGE THAT INTRODUCED IT WAS NEVER RUN BY THIS
-            // WORKFLOW: #11889's merge commit carries guards, pytest-run,
-            // pytest-collect, repo-inventory, gate, sync and reconcile, and NO
-            // `open-and-automerge` run at all.
+            // FIX, AND THE TRUST BOUNDARY IT DOES NOT CHANGE: build the PAT
+            // request with the runtime's own global `fetch` (this job's own
+            // log already reads "forced to run on Node.js 24", which ships
+            // `fetch` built in) instead of importing an Octokit client — one
+            // REST call needs no client. This introduces NO new trust: it is
+            // the SAME secret (`secrets.BRANCH_PROTECTION_TOKEN`) this
+            // workflow already declared and already scoped to exactly this
+            // call (opening one PR); what changes is that using it now
+            // actually executes instead of silently no-op'ing to GITHUB_TOKEN.
+            // The three-state contract below (`pat` / `github_token` /
+            // `adopted`) and C7's arming gate are UNCHANGED — a PAT that still
+            // lacks PR-create scope, or is simply absent, degrades exactly as
+            // before: PR opened under GITHUB_TOKEN, checks absent, arming
+            // refused.
             //
-            // THREE THINGS, IN ORDER, AND THE ORDER IS THE POINT:
-            //   1. `__original_require__` — github-script's own documented
-            //      escape for reaching its bundled modules.
-            //   2. a bare `require`, for a runtime where that hatch is absent.
-            //   3. FALL BACK TO `github` RATHER THAN THROW. That is not a
-            //      silent swallow: it is precisely the degraded path this step's
-            //      own `PR_OPEN_PAT` comment already documents — the PR is
-            //      opened under GITHUB_TOKEN, the checks do not attach, and the
-            //      gate in step 3 REFUSES to arm. A loud refusal beats an
-            //      unhandled error that takes the job down and tells four lanes
-            //      nothing about why.
-            // ⚠️ IT TAKES NO PARAMETER AND CLOSES OVER `patToken` DELIBERATELY.
-            //    `automerge-trigger-guard` C6 is a SOURCE assertion: it looks for
-            //    the literal `getOctokit(patToken)`, and its own planted-defect
-            //    test mutates that exact string. A parameter named anything else
-            //    is behaviourally identical and makes both the check and its
-            //    plant stop matching — the guard then reports a regression that
-            //    is not there, which is how a guard gets relaxed to shut it up.
-            function _patClient() {
-              const tries = [
-                () => __original_require__('@actions/github').getOctokit(patToken),
-                () => require('@actions/github').getOctokit(patToken),
-              ];
-              for (const t of tries) {
-                try { return t(); } catch (e) { /* try the next */ }
+            // ⚠️ `automerge-trigger-guard` C6 is a SOURCE assertion keyed on
+            // this construction; its planted-defect test mutates the same
+            // literal it checks for (`Bearer ${patToken}`), so renaming or
+            // inlining this differently makes the check and its plant stop
+            // matching — the guard would then report a regression that is not
+            // there, which is how a guard gets relaxed to shut it up.
+            async function _patCreatePR(args) {
+              const resp = await fetch(
+                `https://api.github.com/repos/${args.owner}/${args.repo}/pulls`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${patToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    'User-Agent': 'claude-pr-automerge',
+                  },
+                  body: JSON.stringify({
+                    title: args.title, head: args.head, base: args.base,
+                    draft: args.draft, body: args.body,
+                  }),
+                });
+              const data = await resp.json().catch(() => null);
+              if (!resp.ok) {
+                const err = new Error((data && data.message) || `HTTP ${resp.status}`);
+                err.status = resp.status;
+                throw err;
               }
-              core.warning(
-                'could not construct a PAT-authenticated client: ' +
-                "`@actions/github` is not resolvable from this script. Falling " +
-                'back to GITHUB_TOKEN, which means the PR is opened as ' +
-                'github-actions[bot], the `pull_request` checks do NOT attach, ' +
-                'and step 3 will REFUSE to arm auto-merge. That refusal is ' +
-                'correct and is the documented degraded path — but it means ' +
-                'nothing will self-land until this is repaired, so fix it ' +
-                'rather than living with it.');
-              return null;
+              return { data };
             }
-            const patClient = patToken ? _patClient() : null;
+            const patClient = patToken ? { rest: { pulls: { create: _patCreatePR } } } : null;
             const opener = patClient || github;
 
             let pr = (await github.rest.pulls.list({
