@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either the legacy REPO_ROOT/trade_journal.db candidate is dropped entirely from _TJ_CANDIDATES (matching what the file's own comment already claims), or scripts/check_canonical_db_resolver.py gains a rule that catches an existence-based preference-fallback wrapping a repo-anchored join, whichever the fix lane picks -- either way with a regression test reproducing the empty-DATA_DIR + stray-repo-root-file scenario.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-RLBXQDGK-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A15",
+    "rerun": "python3 scripts/check_canonical_db_resolver.py --list"
+  },
+  "state": "queued",
+  "what": "AUD-20260927-CA-A15-db-loaders-stray-trade-journal-fallback: src/units/ui/data_loaders.py:47-52 builds _TJ_CANDIDATES = [trade_journal_db_path(), os.path.join(REPO_ROOT, \"trade_journal.db\")] and picks `next((p for p in _TJ_CANDIDATES if p and os.path.exists(p)), trade_journal_db_path())` -- i.e. it prefers whichever candidate EXISTS ON DISK first, canonical-first. If the canonical $DATA_DIR/trade_journal.db does not yet exist (fresh deploy, race, DATA_DIR just mounted) while a stray/legacy REPO_ROOT/trade_journal.db exists, it silently uses the legacy one instead -- even though the module's own header comment claims 'the legacy ... candidate was dropped.' TRADE_JOURNAL_DB is a module-level constant computed once at import time and used by 7+ read functions reachable from the live web API (src/web/api/routers/diag.py) and the deployed Telegram bot. scripts/check_canonical_db_resolver.py --list reports clean over this file: its regexes don't match the os.path.join(REPO_ROOT, \"trade_journal.db\") shape, and its own test suite explicitly allowlists that join pattern as safe (test_allows_repo_anchored_join) without accounting for the existence-based next() selection wrapping it."
+}

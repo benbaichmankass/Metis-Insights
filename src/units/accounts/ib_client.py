@@ -3629,6 +3629,46 @@ class IBClient:
             return {"retCode": 1, "retMsg": f"cancel-resting failed: {exc}"}
         return {"retCode": 0, "result": {"symbol": sym}, "retMsg": "OK"}
 
+    def cancel_trade_protection(
+        self, symbol: Optional[str], oca_key: Any,
+    ) -> Dict[str, Any]:
+        """Cancel ONE closed trade's own protective group — public, best-effort.
+
+        The trade-scoped counterpart of :meth:`cancel_resting_protection`: it
+        cancels only group ``oca-protect-t<oca_key>`` on *symbol*, so a sibling
+        trade's keyed group on the same netted contract survives
+        (BL-20260814-IB-PROTECTION-BOOLEAN-NOT-QUANTITY). Called by the
+        monitor's flat-close paths that finalise a trade WITHOUT going through
+        :meth:`close` — the stuck-strategy watchdog left ``oca-protect-t5836``
+        (STP + LMT, 15 MES) resting on a flat ``ib_paper`` book for 8 days
+        (CA-A01-001, measured 2026-09-27).
+
+        Returns the :meth:`_cancel_oca_group_for_symbol` verification envelope
+        under ``result``. Never raises. ``_open_trades`` is session-scoped, so
+        this sees only legs this clientId placed — which, for a trader-armed
+        bracket, is the trader's own exec client.
+        """
+        key = str(oca_key if oca_key is not None else "").strip()
+        if not key:
+            return {"retCode": 1, "retMsg": "no oca_key — refusing a symbol-wide cancel"}
+        with self._usage_lock:
+            if self.readonly:
+                return {"retCode": 1, "retMsg": "client is read-only"}
+            sym = str(symbol or self.symbol or "").upper()
+            try:
+                ib = self.connect()
+            except IBConnectionError as exc:
+                return {"retCode": 1, "retMsg": f"IB connect failed: {exc}"}
+            except Exception as exc:  # noqa: BLE001
+                return {"retCode": 1, "retMsg": f"{type(exc).__name__}: {exc}"}
+            group = f"{stray_oca_groups.KEYED_PREFIX}{key}"
+            try:
+                result = self._cancel_oca_group_for_symbol(ib, sym, group)
+            except Exception as exc:  # noqa: BLE001
+                return {"retCode": 1, "retMsg": f"cancel-group failed: {exc}"}
+            return {"retCode": 0, "retMsg": "OK",
+                    "result": {"symbol": sym, "oca_group": group, **(result or {})}}
+
     def _req_all_open_orders(self, ib: Any) -> list:
         """Force an ACCOUNT-WIDE open-order refresh, then return active trades.
 
