@@ -316,3 +316,39 @@ def test_build_config_uses_fixed_now_for_as_of(fake_configs):
         now_utc=datetime(2026, 5, 9, 12, 0, 0, tzinfo=timezone.utc),
     )
     assert payload["as_of"] == "2026-05-09T12:00:00Z"
+
+
+# ---------------------------------------------------------------------------
+# FIX-CA-32 (CA-B09-third-execution-gate-undocumented): the account_state.yaml
+# dry-only fold must be observable on this endpoint, not just present in
+# src/core/coordinator.py.
+# ---------------------------------------------------------------------------
+
+
+def test_config_surfaces_account_state_dry_run_override(fake_configs, client, tmp_path, monkeypatch):
+    account_state = tmp_path / "account_state.yaml"
+    account_state.write_text(
+        yaml.safe_dump({"accounts": {"bybit_1": {"dry_run": True}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ACCOUNT_STATE_PATH", str(account_state))
+
+    resp = client.get("/api/bot/config")
+    assert resp.status_code == 200
+    accounts = {a["id"]: a for a in resp.json()["accounts"]}
+    # Must fail on current main (reproduced: the field does not exist).
+    assert accounts["bybit_1"]["account_state_dry_run"] is True
+    # No entry for bybit_2 -> fail-open no-op, not a fabricated False.
+    assert accounts["bybit_2"]["account_state_dry_run"] is None
+
+
+def test_config_account_state_absent_file_is_none_not_false(fake_configs, client, tmp_path, monkeypatch):
+    """A missing account_state.yaml must read None (\"we did not look\" /
+    no override), never a fabricated False that looks like a checked-and-clear
+    override."""
+    monkeypatch.setenv("ACCOUNT_STATE_PATH", str(tmp_path / "does-not-exist.yaml"))
+    resp = client.get("/api/bot/config")
+    assert resp.status_code == 200
+    accounts = {a["id"]: a for a in resp.json()["accounts"]}
+    assert accounts["bybit_1"]["account_state_dry_run"] is None
+    assert accounts["bybit_2"]["account_state_dry_run"] is None

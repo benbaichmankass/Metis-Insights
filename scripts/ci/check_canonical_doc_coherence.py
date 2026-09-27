@@ -821,6 +821,55 @@ def check_env_knob_live_values() -> list[str]:
     return []
 
 
+# DOES A GATE INPUT FOLDED INTO effective_dry ACTUALLY GET NAMED IN THE TWO
+# GATE-DESCRIPTION DOCS?
+#
+# CA-B09-third-execution-gate-undocumented (2026-09-27, FIX-CA-32):
+# `config/account_state.yaml` was folded into `effective_dry` in
+# `Coordinator.multi_account_execute` (src/core/coordinator.py) while both
+# CLAUDE.md's "The two execution gates" and CLAUDE-RULES-CANONICAL.md's
+# Prime Directive rule 6 said "exactly two ... and no third" — and a code
+# COMMENT in src/web/runtime_status.py additionally asserted the fold "was
+# removed". Nothing mechanical would have caught a FOURTH such fold landing
+# silently; this check is that mechanism, scoped to the one gate that
+# already burned a session rather than a general effective_dry parser
+# (fragile against refactors, and not what CI needs — see the module
+# header's "known stale phrasings, not meaning" limit).
+_THIRD_GATE_CODE_SOURCE = "src/core/coordinator.py"
+_THIRD_GATE_CODE_MARKER = re.compile(r"account_state_dry_run")
+_THIRD_GATE_DOC_MARKER = re.compile(r"account_state\.yaml", re.I)
+_THIRD_GATE_DOCS = ("CLAUDE.md", "docs/CLAUDE-RULES-CANONICAL.md")
+
+
+def check_third_gate_documented() -> list[str]:
+    """If coordinator.py folds account_state.yaml into effective_dry, both
+    gate-description docs must name it — never let this specific
+    doc-vs-code gap (or its recurrence) go unmentioned again."""
+    src = ROOT / _THIRD_GATE_CODE_SOURCE
+    if not src.exists():
+        return [f"{_THIRD_GATE_CODE_SOURCE}: missing — cannot verify the "
+                f"third-gate contract"]
+    if not _THIRD_GATE_CODE_MARKER.search(src.read_text(encoding="utf-8")):
+        # The fold was retired (JC-CA-06 resolved as "retire"). Nothing to
+        # document here; check_removed_gates-style prose review handles the
+        # doc-side cleanup.
+        return []
+    fails: list[str] = []
+    for rel in _THIRD_GATE_DOCS:
+        doc = ROOT / rel
+        if not doc.exists():
+            fails.append(f"{rel}: missing — cannot verify the third-gate contract")
+            continue
+        if not _THIRD_GATE_DOC_MARKER.search(doc.read_text(encoding="utf-8")):
+            fails.append(
+                f"{rel}: {_THIRD_GATE_CODE_SOURCE} folds config/account_state.yaml "
+                "into effective_dry (a third execution-gate input, via "
+                "account_state_dry_run()) but this doc never names it — see "
+                "CA-B09-third-execution-gate-undocumented / FIX-CA-32"
+            )
+    return fails
+
+
 CHECKS = [
     # FIRST, because the checks below read these files' CONTENT and a
     # conflicted file makes some of their verdicts untrustworthy. It does
@@ -835,6 +884,8 @@ CHECKS = [
      check_status_enum_mirror),
     ("env knobs state their live value (ratchet + denominator)",
      check_env_knob_live_values),
+    ("account_state.yaml third-gate fold documented in both gate sections",
+     check_third_gate_documented),
 ]
 
 
