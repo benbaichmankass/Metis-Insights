@@ -123,3 +123,26 @@ def test_unknown_page_prints_the_page_shape_redacted(monkeypatch, capsys):
     assert rc == mod.EXIT_FEASIBILITY
     assert "feasibility: unknown_page" in out and "page_shape: BEGIN" in out
     assert USER.lower() not in out.lower()
+
+
+class _LongErrorAdapter(_LeakyAdapter):
+    def login(self, page, url, username, password):
+        # The username starts at index 495, so the old str(exc)[:500] cut
+        # kept "bo-jd" and dropped the rest: no longer a match for redaction.
+        raise RuntimeError("z" * 494 + " " + USER + " trailing")
+
+
+def test_long_exception_is_redacted_before_it_is_truncated(monkeypatch, capsys):
+    mod = _load_script()
+    pkg, sync_api = _fake_playwright()
+    monkeypatch.setitem(sys.modules, "playwright", pkg)
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", sync_api)
+    monkeypatch.setenv("BREAKOUT_DX_USERNAME", USER)
+    monkeypatch.setenv("BREAKOUT_DX_PASSWORD", PASSWORD)
+    monkeypatch.setattr(mod, "adapter_for_platform", lambda _p: _LongErrorAdapter())
+
+    rc = mod.main(["--account", "breakout_1"])
+    out = capsys.readouterr().out
+
+    assert rc == mod.EXIT_ERROR and "login: ERROR (RuntimeError" in out
+    assert "bo-jd" not in out.lower()

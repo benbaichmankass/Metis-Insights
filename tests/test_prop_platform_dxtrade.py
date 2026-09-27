@@ -516,3 +516,46 @@ def test_page_shape_on_the_measured_login_page_never_reads_input_values(chromium
     assert "class='loginForm loginForm-main'" in blob and "action='api/auth/login'" in blob
     assert "page_shape.input: id='password'" in blob
     chromium_page.set_content(DIVGRID.read_text())  # leave the shared page as the other tests expect
+
+
+# ── redact BEFORE truncating (pre-merge review of #13297) ─────────────────
+LONG_USER = "bo-jdoe77longusername"
+
+
+def test_page_shape_never_leaks_a_secret_prefix_split_by_a_cut(chromium_page):
+    # The reviewer's exact case: the JS used to cut button text at 40 chars
+    # BEFORE redaction, printing ['Welcome back, you are signed in as bo-jd'].
+    title = "T" * 110 + " " + LONG_USER            # straddles the old 120-char title cut
+    chromium_page.set_content(
+        f"<html><head><title>{title}</title></head><body>"
+        f"<a href='#'>Welcome back, you are signed in as {LONG_USER}</a></body></html>")
+    blob = "\n".join(DXtradeAdapter(timeout_ms=5_000).page_shape(chromium_page, (LONG_USER,)))
+    assert "bo-jd" not in blob.lower(), blob
+    assert "Welcome back, you are signed in as" in blob
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+def test_structure_never_leaks_a_secret_prefix_split_by_a_cut(chromium_page):
+    # parent_text reads "Balance4,724.00 <pad> <user>": the user starts at
+    # index 17 + 98 = 115, inside the old 120-char parent_text cut.
+    pad = "x" * 98
+    chromium_page.set_content(
+        f"<html><body><div><span>Balance</span><span>4,724.00 {pad} {LONG_USER}</span></div></body></html>")
+    blob = "\n".join(DXtradeAdapter(timeout_ms=5_000).structure(chromium_page, (LONG_USER,)))
+    assert "bo-jd" not in blob.lower(), blob
+    assert "structure.label: 'Balance'" in blob
+    chromium_page.set_content(DIVGRID.read_text())
+
+
+@pytest.mark.parametrize("pad", [0, 20, 37, 115, 155])
+def test_renderers_cap_after_redaction(pad):
+    # A guard on the Python side (the old renderers already redacted first;
+    # the defect was in the JS). Keeps a future cap from moving before r().
+    text = "y" * pad + LONG_USER
+    shape = {"title": text, "buttons": [text], "forms": [], "inputs": []}
+    struct = {"hits": [{"label": "Balance", "chain": [text], "parent_text": text,
+                        "grandparent_text": text, "next_sibling_text": text, "row_cells": [text]}]}
+    blob = "\n".join(render_page_shape(shape, text, secrets=(LONG_USER,))
+                     + render_structure(struct, [], text, [{"kind": "divgrid", "headers": [text],
+                                                           "rows": [[text]]}], secrets=(LONG_USER,)))
+    assert "bo-jd" not in blob.lower()

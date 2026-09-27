@@ -80,11 +80,14 @@ def post_status(report: Dict[str, Any], api_base: str) -> Dict[str, Any]:
         return json.loads(resp.read().decode() or "{}")
 
 
-def _redact(text: str, *secrets: str) -> str:
+def _redact(text: str, *secrets: str, limit: int = 0) -> str:
     """Everything this script prints goes to a PUBLIC issue comment: strip the
-    secrets case-insensitively, URL paths/queries, e-mails and token runs."""
+    secrets case-insensitively, URL paths/queries, e-mails and token runs.
+    ``limit`` truncates AFTER redaction; never slice text before passing it
+    here, or a secret split by the cut no longer matches and its prefix leaks."""
     from src.prop.platform.dxtrade import redact_text
-    return redact_text(text, *secrets)
+    out = redact_text(text, *secrets)
+    return out if not limit or len(out) <= limit else out[:limit] + "…"
 
 
 def main(argv: Optional[list] = None) -> int:
@@ -126,7 +129,7 @@ def main(argv: Optional[list] = None) -> int:
             browser = pw.chromium.launch(headless=True)
         except Exception as exc:  # missing browser build or system libraries
             print(_redact(f"environment: chromium failed to launch ({type(exc).__name__}: "
-                          f"{str(exc).splitlines()[0][:300]})", username, password))
+                          f"{(str(exc).splitlines() or [''])[0]})", username, password, limit=400))
             return EXIT_ENV
         try:
             context = browser.new_context()
@@ -145,13 +148,13 @@ def main(argv: Optional[list] = None) -> int:
                         for line in adapter.page_shape(page, (username, password)):
                             print(_redact(line, username, password))
                     except Exception as exc:
-                        print(_redact(f"page_shape: FAILED ({type(exc).__name__}: {str(exc)[:200]})",
-                                      username, password))
+                        print(_redact(f"page_shape: FAILED ({type(exc).__name__}: {exc})",
+                                      username, password, limit=300))
                 return EXIT_FEASIBILITY
             except Exception as exc:
                 # Playwright errors can echo call logs; redact before printing.
-                print(_redact(f"login: ERROR ({type(exc).__name__}: {str(exc)[:500]})",
-                              username, password))
+                print(_redact(f"login: ERROR ({type(exc).__name__}: {exc})",
+                              username, password, limit=600))
                 return EXIT_ERROR
             print("login: ok")
             try:
@@ -187,8 +190,8 @@ def main(argv: Optional[list] = None) -> int:
                     for line in adapter.structure(page, (username, password)):
                         print(_redact(line, username, password))
                 except Exception as exc:
-                    print(_redact(f"structure: FAILED ({type(exc).__name__}: {str(exc)[:200]})",
-                                  username, password))
+                    print(_redact(f"structure: FAILED ({type(exc).__name__}: {exc})",
+                                  username, password, limit=300))
 
             if args.dump_dir:
                 d = Path(args.dump_dir)
@@ -214,7 +217,7 @@ def main(argv: Optional[list] = None) -> int:
             else:
                 print("emit_status: off (default)")
         except Exception as exc:
-            print(_redact(f"read: ERROR ({type(exc).__name__}: {str(exc)[:500]})", username, password))
+            print(_redact(f"read: ERROR ({type(exc).__name__}: {exc})", username, password, limit=600))
             return EXIT_ERROR
         finally:
             browser.close()

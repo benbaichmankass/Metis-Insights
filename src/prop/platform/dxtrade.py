@@ -422,15 +422,17 @@ EXTRACT_TABLES_JS = r"""
 # It returns element SHAPE and visible label text only: tag, id, class, role,
 # data-* attribute NAMES (never their values), ancestor chains, and the short
 # visible text of the label's row. It never reads cookies, storage, input or
-# textarea values, or any attribute value other than class/id/role.
+# textarea values, or any attribute value other than class/id/role. It does
+# NOT truncate text: truncating before redact_text can split a secret so it no
+# longer matches. render_structure redacts first, then truncates (_cap).
 STRUCTURE_JS = r"""
 (labels) => {
   const txt = el => (el.innerText || el.textContent || '').trim();
   const shape = el => {
     if (!el || !el.tagName) return null;
-    const cls = (typeof el.className === 'string' ? el.className : '').trim().slice(0, 80);
+    const cls = (typeof el.className === 'string' ? el.className : '').trim();
     const data = [...el.attributes].map(a => a.name).filter(n => n.startsWith('data-')).slice(0, 6);
-    return [el.tagName.toLowerCase() + (el.id ? '#' + el.id.slice(0, 40) : '') +
+    return [el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') +
             (cls ? '.' + cls.split(/\s+/).join('.') : ''),
             el.getAttribute('role') || '', data.join(',')].filter(Boolean).join(' ');
   };
@@ -448,10 +450,10 @@ STRUCTURE_JS = r"""
     if (perLabel[key] > 2) continue;
     const par = el.parentElement, gp = par && par.parentElement;
     hits.push({label: t, chain: chain(el),
-               parent_text: par ? txt(par).slice(0, 120) : '',
-               grandparent_text: gp ? txt(gp).slice(0, 160) : '',
-               next_sibling_text: el.nextElementSibling ? txt(el.nextElementSibling).slice(0, 80) : '',
-               row_cells: par ? [...par.children].map(k => txt(k).slice(0, 40)).slice(0, 30) : []});
+               parent_text: par ? txt(par) : '',
+               grandparent_text: gp ? txt(gp) : '',
+               next_sibling_text: el.nextElementSibling ? txt(el.nextElementSibling) : '',
+               row_cells: par ? [...par.children].map(k => txt(k)).slice(0, 30) : []});
     if (hits.length >= 40) break;
   }
   return {
@@ -480,21 +482,24 @@ STRUCTURE_LABELS: List[str] = sorted({
 # path, each input's id/name/type (NEVER its value), and button/link text.
 PAGE_SHAPE_JS = r"""
 () => {
-  const cut = (s, n) => String(s || '').trim().replace(/\s+/g, ' ').slice(0, n);
+  // Whitespace only. NO truncation here: a cut before the Python-side
+  // redaction can split a secret so redact_text no longer matches it and its
+  // prefix leaks. Python redacts FIRST, then truncates (_cap).
+  const cut = (s) => String(s || '').trim().replace(/\s+/g, ' ');
   const forms = [...document.querySelectorAll('form')].slice(0, 10).map(f => ({
-    id: cut(f.id, 40), cls: cut(typeof f.className === 'string' ? f.className : '', 80),
-    action: cut((f.getAttribute('action') || '').split(/[?#]/)[0], 80),
+    id: cut(f.id), cls: cut(typeof f.className === 'string' ? f.className : ''),
+    action: cut((f.getAttribute('action') || '').split(/[?#]/)[0]),
     visible: !!(f.offsetWidth || f.offsetHeight || f.getClientRects().length),
   }));
   const inputs = [...document.querySelectorAll('input, select, textarea')].slice(0, 30).map(i => ({
-    id: cut(i.id, 40), name: cut(i.getAttribute('name'), 40),
-    type: cut(i.getAttribute('type') || i.tagName.toLowerCase(), 20),
+    id: cut(i.id), name: cut(i.getAttribute('name')),
+    type: cut(i.getAttribute('type') || i.tagName.toLowerCase()),
   }));
   const buttons = [...document.querySelectorAll('button, [role=button], input[type=submit], a')]
-    .map(b => cut(b.innerText || b.getAttribute('aria-label') || '', 40)).filter(Boolean).slice(0, 30);
+    .map(b => cut(b.innerText || b.getAttribute('aria-label') || '')).filter(Boolean).slice(0, 30);
   const iframes = [...document.querySelectorAll('iframe')].slice(0, 10)
-    .map(f => cut((f.getAttribute('src') || '').split(/[?#]/)[0], 120));
-  return {title: cut(document.title, 120), location: location.origin, forms, inputs, buttons, iframes};
+    .map(f => cut((f.getAttribute('src') || '').split(/[?#]/)[0]));
+  return {title: cut(document.title), location: location.origin, forms, inputs, buttons, iframes};
 }
 """
 
@@ -502,23 +507,24 @@ PAGE_SHAPE_JS = r"""
 def render_page_shape(shape: Mapping[str, Any], page_text: str,
                       secrets: Sequence[str] = (), max_lines: int = 40) -> List[str]:
     """Format the redacted page-shape dump as printable lines (pure; tested)."""
-    r = lambda t: redact_text(t, *secrets)  # noqa: E731
+    # Redact FIRST, then cap: a cut before redaction can split a secret.
+    r = lambda t, n=120: _cap(redact_text(t, *secrets), n)  # noqa: E731
     lines = ["page_shape: BEGIN (redacted: no input values, cookies, storage or tokens)"]
     lines.append(f"page_shape.title: {r(shape.get('title', ''))}")
     lines.append(f"page_shape.location: {r(_strip_url(shape.get('location', '')))}")
     for f in shape.get("forms") or []:
-        lines.append(f"page_shape.form: id={r(f.get('id', ''))!r} class={r(f.get('cls', ''))!r} "
+        lines.append(f"page_shape.form: id={r(f.get('id', ''), 40)!r} class={r(f.get('cls', ''), 80)!r} "
                      f"action={r(f.get('action', ''))!r} visible={f.get('visible')}")
     for i in shape.get("inputs") or []:
-        lines.append(f"page_shape.input: id={r(i.get('id', ''))!r} name={r(i.get('name', ''))!r} "
+        lines.append(f"page_shape.input: id={r(i.get('id', ''), 40)!r} name={r(i.get('name', ''), 40)!r} "
                      f"type={r(i.get('type', ''))!r}")
-    lines.append(f"page_shape.buttons: {[r(b) for b in shape.get('buttons') or []]}")
+    lines.append(f"page_shape.buttons: {[r(b, 40) for b in shape.get('buttons') or []]}")
     for src in shape.get("iframes") or []:
         lines.append(f"page_shape.iframe: {r(_strip_url(src)) if '://' in src else r(src)}")
     text_lines = [ln.strip() for ln in (page_text or "").splitlines() if ln.strip()]
     lines.append(f"page_shape.text: {len(text_lines)} non-empty lines; first {min(max_lines, len(text_lines))}:")
     for ln in text_lines[:max_lines]:
-        lines.append(f"  | {r(ln)[:120]}")
+        lines.append(f"  | {r(ln)}")
     lines.append("page_shape: END")
     return lines
 
@@ -526,6 +532,12 @@ def render_page_shape(shape: Mapping[str, Any], page_text: str,
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 _TOKENISH_RE = re.compile(r"[A-Za-z0-9_\-.=+/]{24,}")
 _URL_RE = re.compile(r"((?:https?|wss?)://[^\s/?#'\"]+)([/?#][^\s'\"]*)?", re.IGNORECASE)
+
+
+def _cap(text: str, n: int) -> str:
+    """Truncate text that has ALREADY been through redact_text. Never call it
+    before redaction: a cut can split a secret so it no longer matches."""
+    return text if len(text) <= n else text[:n] + "…"
 
 
 def redact_text(text: str, *secrets: str) -> str:
@@ -554,7 +566,8 @@ def render_structure(struct: Mapping[str, Any], frames: Sequence[Mapping[str, An
     and ``tables`` :data:`EXTRACT_TABLES_JS`'s result. Every string passes
     :func:`redact_text`; URLs lose their query and fragment.
     """
-    r = lambda t: redact_text(t, *secrets)  # noqa: E731
+    # Redact FIRST, then cap: a cut before redaction can split a secret.
+    r = lambda t, n=120: _cap(redact_text(t, *secrets), n)  # noqa: E731
     lines = ["structure: BEGIN (redacted: no cookies, storage, input values or tokens)"]
     lines.append(f"structure.title: {r(struct.get('title', ''))}")
     lines.append(f"structure.location: {r(_strip_url(struct.get('location', '')))}")
@@ -566,18 +579,18 @@ def render_structure(struct: Mapping[str, Any], frames: Sequence[Mapping[str, An
         lines.append(f"structure.table[{t.get('kind')}]: headers={[r(h) for h in t.get('headers') or []]} "
                      f"rows={len(t.get('rows') or [])}")
         for row in (t.get("rows") or [])[:5]:
-            lines.append(f"structure.table.row: {[r(c)[:40] for c in row]}")
+            lines.append(f"structure.table.row: {[r(c, 40) for c in row]}")
     for h in struct.get("hits") or []:
         lines.append(f"structure.label: {r(h.get('label', ''))!r}")
-        lines.append(f"  chain: {' < '.join(r(c) for c in h.get('chain') or [])}")
+        lines.append(f"  chain: {' < '.join(r(c, 100) for c in h.get('chain') or [])}")
         lines.append(f"  parent_text: {r(h.get('parent_text', ''))!r}")
-        lines.append(f"  grandparent_text: {r(h.get('grandparent_text', ''))!r}")
-        lines.append(f"  next_sibling_text: {r(h.get('next_sibling_text', ''))!r}")
-        lines.append(f"  row_cells: {[r(c) for c in h.get('row_cells') or []]}")
+        lines.append(f"  grandparent_text: {r(h.get('grandparent_text', ''), 160)!r}")
+        lines.append(f"  next_sibling_text: {r(h.get('next_sibling_text', ''), 80)!r}")
+        lines.append(f"  row_cells: {[r(c, 40) for c in h.get('row_cells') or []]}")
     text_lines = [ln.strip() for ln in (page_text or "").splitlines() if ln.strip()]
     lines.append(f"structure.text: {len(text_lines)} non-empty lines; first {min(max_lines, len(text_lines))}:")
     for ln in text_lines[:max_lines]:
-        lines.append(f"  | {r(ln)[:120]}")
+        lines.append(f"  | {r(ln)}")
     lines.append("structure: END")
     return lines
 
