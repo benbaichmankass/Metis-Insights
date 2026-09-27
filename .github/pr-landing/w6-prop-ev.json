@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "B6 (checklist): Tier-1 research tooling. Adds scripts/research/prop_ev_sim.py (Monte-Carlo of E[net profit per Breakout account life] for a multi-leg prop book, with a gambler's-ruin positive control in --self-test), tests/test_prop_ev_sim.py, the scored result for breakout_1 under the E5 contract (research/results/_unattributed/b6-prop-ev-breakout_1-20260927.jsonl + docs/research/b6-prop-ev/*.json), two pipeline filings, and the B6 checklist update. No roster, execution, sizing or config change; no src/ runtime change."
+  "why": "B6 register follow-up (Tier-1): #13084 merged; flip checklist row B6 in_flight -> landed_unproven and name the observation that closes it. docs/claude/work/MANAGER-CHECKLIST.json only."
 }
