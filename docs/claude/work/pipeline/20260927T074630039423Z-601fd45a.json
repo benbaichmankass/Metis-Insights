@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "scripts/research/prop_ev_sim.py exists on origin/main (git cat-file -e origin/main:scripts/research/prop_ev_sim.py) and this lane's candidate table has been re-run against it.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-ODDTM5QY-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md",
+    "rerun": "git log origin/main -- scripts/research/prop_ev_sim.py  # once present, re-run this lane's candidate table against it"
+  },
+  "state": "queued",
+  "what": "[W6/B6] This lane scored breakout_1 crypto candidates using scripts/research/prop_ev_sim.py fetched from unmerged branch origin/claude/w6-prop-ev (commit 2d7e65fff1) because that branch had not landed on main. Re-run the same scoring (docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md) once claude/w6-prop-ev merges, and reconcile any diff (the tool may change before it lands)."
+}
