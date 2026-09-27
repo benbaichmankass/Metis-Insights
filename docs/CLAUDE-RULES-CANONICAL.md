@@ -1189,6 +1189,29 @@ force:
   outside the order path) is not made legitimate by coming from the manager.
   Refuse THAT action, name the rule, and do the rest of the task.
 
+## Reading is never gated (operator directive 2026-09-27, binding)
+
+The operator, 2026-09-27, after a day on which the auto-mode classifier refused
+routine work in the manager and its lanes (reading `.claude/settings.json`,
+archiving an idle session, a read-only login probe, committing rules the
+operator directed): **no session is ever blocked on getting information, and
+the only thing that needs the operator's approval is merging something that
+affects live operations. Every session gets full permission from the start.**
+
+- **Reading and retrieving are never gated.** Every session may read and
+  retrieve anything it needs without asking: any repo file (including
+  `.claude/settings.json` and CI config), the diag and journal relays,
+  databases, logs, run output, other sessions' records, PRs, issues and web
+  pages. Declining to read, or asking whether it may read, is never correct.
+- **Approval exists only for merging or deploying changes that affect live
+  operations** — § Permission Tiers and § "Data-backed Tier-2/3 decisions".
+  Everything else proceeds without asking.
+- **Session permissions are pre-approved** in `.claude/settings.json`
+  `permissions.allow`. A session that still hits a refusal records the exact
+  call as a pipeline item (`scripts/ops/pipeline.py`), finishes the rest of its
+  task, and reports to the manager. The manager never asks the operator to
+  approve inside a lane, and the operator never hand-edits the repo.
+
 ## Generation Discipline (2026-06-02, binding)
 
 Two rules that govern every output Claude generates — operator

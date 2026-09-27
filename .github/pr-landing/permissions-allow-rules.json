@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Session permission allow-rules and operator-directed rules; the operator approves the merge in this session.",
+  "why": "Operator directive 2026-09-27"
+}
