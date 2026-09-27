@@ -470,14 +470,19 @@ write_files:
     permissions: '0644'
     owner: root:root
     content: |
-      # 15-minute cadence for the live TSFM forecast producer (the 15m bar the
-      # fc head scores). Persistent=true so a paused VM catches up on resume.
+      # Live TSFM forecast producer, BAR-ALIGNED: 30 s after each 15m bar
+      # closes (:00/:15/:30/:45), so every run forecasts a freshly CLOSED bar
+      # (FIX-CA-25 / CA-B01-fc-producer-forecasts-forming-bar). Was
+      # OnUnitActiveSec=15min, which drifts from the bar grid. AccuracySec=1s
+      # overrides systemd's 1-min default coalescing. Persistent=true so a
+      # paused VM catches up on resume.
       [Unit]
       Description=Periodic live TSFM forecast production
 
       [Timer]
       OnBootSec=90sec
-      OnUnitActiveSec=15min
+      OnCalendar=*:0/15:30
+      AccuracySec=1s
       Persistent=true
 
       [Install]
@@ -548,7 +553,7 @@ final_message: |
   ict-trainer-publish.service: installed, enabled (oneshot).
   ict-trainer-publish.timer:   installed, enabled (every 2 min).
   ict-trainer-forecast.service: installed, enabled (oneshot; M19 fc_* producer).
-  ict-trainer-forecast.timer:   installed, enabled (every 15 min).
+  ict-trainer-forecast.timer:   installed, enabled (bar-aligned, :00/:15/:30/:45 +30s).
   ict-promotion-readiness.service: installed, disabled (Claude enables via diag relay).
   ict-promotion-readiness.timer:   installed, disabled (Claude enables via diag relay).
   ict-drift-retrain.service: installed, disabled (Claude enables via diag relay; RETRAIN_PLAN_ONLY=1 by default).

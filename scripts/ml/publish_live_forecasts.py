@@ -156,7 +156,18 @@ def build_forecast_artifact(
     horizon: int = DEFAULT_HORIZON,
     quantile_levels: Sequence[float] = FORECAST_QUANTILES,
 ) -> dict[str, Any] | None:
-    """Assemble the serializable artifact for one symbol (``None`` if no row)."""
+    """Assemble the serializable artifact for one symbol (``None`` if no row).
+
+    The still-forming bar is dropped first (FIX-CA-25 /
+    CA-B01-fc-producer-forecasts-forming-bar): the live fetch ends on it, and
+    the offline ``forecast_features`` rows the fc heads trained on condition
+    on CLOSED bars — a forming last close skews all six ``ln(q/last_close)``
+    features. ``as_of_ts`` is therefore the last CLOSED bar, which is what
+    ``src/runtime/forecast_live.py`` aligns against the scored bar (FIX-CA-24).
+    """
+    from src.runtime.closed_bars import drop_forming_bar  # stdlib-only
+
+    candles = drop_forming_bar(list(candles), timeframe)
     row = latest_forecast_row(
         candles,
         forecast_fn=forecast_fn,
