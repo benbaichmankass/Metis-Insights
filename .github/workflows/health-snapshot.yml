@@ -382,3 +382,5 @@ jobs:
               state: 'closed',
               state_reason: 'not_planned',
             });
+
+# no-durable-result: bundle for the operator's manual /health-review; not an automated research verdict
