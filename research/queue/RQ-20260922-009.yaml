@@ -1,6 +1,6 @@
 id: RQ-20260922-009
 title: Can eth_pullback_2h be graded at all, under any cost assumption the data supports?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -159,12 +159,65 @@ run:
     runs later as a measurement.
 
 lands:
-  store: docs/research/e35-bracket-corpus.jsonl
-  assert_field: leg
+  store: research/results/
+  assert_field: read_state
   min_rows: 1
+  note: >-
+    CORRECTED, this session, same reasoning RQ-20260922-007 already applied to
+    its own `lands:` block: `scripts/ci/check_research_results.py` and
+    `.github/actions/research-result` land every result at
+    `research/results/<research_unit>/<run_id>.jsonl` regardless of producing
+    workflow, so `docs/research/e35-bracket-corpus.jsonl` was never this
+    unit's actual landing surface. Also: the e35 route named in `run:` below
+    was CHECKED before use (see the landed result's
+    `measurement.e35_corpus_schema_check`) and confirmed to carry no per-trade
+    dispersion field — firing it would have reproduced the exact gap
+    `routing.basis` warned about, not closed it. This unit's statistic instead
+    used the already-committed per-trade rows behind
+    `comms/strategy_evidence/eth_pullback_2h.json`
+    (`comms/strategy_evidence/runs/2026-09-25/eth_pullback_2h__trades.jsonl`),
+    which is the leg's own OOS trade rows the decision rule calls for and
+    needed no new dispatch.
 
 related:
   - 'checklist C5 / R4 (this unit is one of the ten)'
   - 'RQ-20260922-008 (the same leg, compared against its prop sibling)'
   - 'RQ-20260831-002 (the precedent for a unit that declares it cannot answer, and says what would change that)'
 last_dispatched_at: '2026-09-24T11:58:37+00:00'
+
+result: >-
+  LANDED research/results/RQ-20260922-009/manual-20260927-gradeability-check.jsonl
+  (manual analysis, 2026-09-27, commit d6b9f13). INDETERMINATE under
+  RULE-RQ0922-009-GRADEABILITY: computed d_observed and required_n from the
+  leg's own 62 OOS per-trade rows (comms/strategy_evidence/runs/2026-09-25/
+  eth_pullback_2h__trades.jsonl, the source behind the CURRENT evidence record
+  -- note this supersedes the unit's own citation of n=57 /
+  net_r_oos_fee_only=+0.8487 / cost_stack {7.5,5.0,1.0}bps at commit f3746ab,
+  2026-09-22; the record was regenerated 2026-09-25 to n=62 /
+  net_r_oos_fee_only=+0.4682 / cost_stack {7.5,3.0,1.0}bps -- field beats
+  comment, and the shift is immaterial to the verdict below either way).
+  FULL COST STACK: mean -0.028R/trade, sd 1.6851R, d_observed=0.0166 sd,
+  required_n=28,343. FEE-ONLY: mean +0.0076R/trade, sd 1.6981R,
+  d_observed=0.0045 sd, required_n=396,887. Both exceed 10x n_trades_oos=620
+  by two to three orders of magnitude, so `stage0_verdict_uninformative: true`
+  under BOTH cost assumptions tested -- there is no cost assumption under
+  which this leg's Stage-0 verdict is distinguishable from zero at this n.
+  RULE-D1's fail on eth_pullback_2h may NOT be cited as evidence for a
+  bybit_2 roster change in either direction (Gate-2 input, not a demotion and
+  not a clean bill of health). NOT killed: per the operator's standing
+  principle that an idea is never killed after one bad pass, this is a
+  cannot-be-graded-at-this-n finding, not a fail. What would settle it, most
+  plausible first: (1) record per-trade R dispersion on every evidence record
+  (PI-20260922-EVIDENCE-RECORDS-CARRY-NO-PER-TRADE-DISPERSION) so this
+  computation is automatic rather than one-off; (2) pool the
+  ETH/XRP/SOL/ADA/AVAX 2h pullback family into one cross-sectional test
+  (changes the unit of analysis, needs its own design); (3) accept a much
+  coarser min_detectable_effect for this leg family specifically. Waiting on
+  more history does not help: at this leg's observed rate (~62 OOS
+  trades/365d), 620 OOS trades -- let alone 28,343 -- is not reachable this
+  decade. Also confirmed while running this: `e35-bracket-sweep.yml` (the
+  route this unit's own `run:` block names) lands to
+  `docs/research/e35-bracket-corpus.jsonl`, whose schema carries pooled
+  net_total_r/net_expectancy_r per (leg, cell) only -- no per-trade dispersion
+  field -- so it would not have answered this question; `lands:` above is
+  corrected accordingly.
