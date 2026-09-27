@@ -1,5 +1,7 @@
 # CA-A04 — code audit, `src/units/accounts/**` (brokers, executors, risk)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · audit lane CA-A04, measured 2026-09-27 at `da9e68d` (findings only; no code changed). `unknown` is the generator's value for an unreviewed audit.
+
 Lane CA-A04 of the 2026-09-27 code audit (`docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md`).
 Session `session_01L6oxNwzTguNk5ZKRaKE1tG`, dispatched by the manager session
 `session_01KAQRJxRbRwpYTkPgBjNVyQ`. Findings, one JSON object per line:
@@ -18,10 +20,12 @@ tests and the canonical docs say it does, and where does it not?
 | sev | id (`AUD-20260927-CA-A04-…`) | one line | disposition |
 |---|---|---|---|
 | **high** | `daily-loss-cap-by-open-date` | The daily-loss cap counts realized PnL by the day the trade **opened**. 145 of 603 live closes (24%) are cross-day and never count toward any day's cap. Planted: a -6000 loss against a 2500 cap reads `daily_pnl=0.0` and the gate returns `evaluate=(True, None)` | pipeline `PI-20260927-KRAKE1TG-0001` |
+| **high** | `monitor-dry-run-gate-reads-absent-attribute` | The monitor's `mode == "dry_run"` short-circuit on close, modify and partial-close can never fire. `_build_account_client` reads `acc.mode`, which `TradingAccount` does not have, so all 11 accounts resolve to `live`, ib_live and oanda_practice included. Inert until a dry_run account holds a row | pipeline `PI-20260927-KRAKE1TG-0002` |
 | medium | `exposure-notional-ignores-contract-multiplier` | Futures exposure is `qty × price` with no contract multiplier, so it reads MHG 2500× too low (planted: 99 vs 247,500). The effect is latent because no ceiling is declared anywhere | filed (jsonl) |
 | medium | `fabricated-order-id-alpaca-oanda-ib` | The alpaca, oanda and IB branches of `_submit_order` still invent a `uuid4().hex` id when an accept carries no id. Bybit's branch was fixed for this in BL-20260830. Planted on all three; 0 of 1000 live rows show it | filed (jsonl) |
 | medium | `options-snapshots-unfiltered-first-page` | 3 of 3 live options expressions were refused `fewer_than_two_quotable_strikes`. Snapshots are fetched unfiltered with `limit=200`. The refusal is MEASURED; the mechanism is PLAUSIBLE | filed (jsonl) |
 | medium | `prop-risk-manager-inert` | `PropRiskManager.record_trade_result` has 0 runtime callers, and breakout_1 writes 0 trades rows. The result: mission counters and base caps never move, and the UI renders the unmeasured progress as `0.0` | filed (jsonl) |
+| medium | `dup-key-check-drops-custom-secret-env` | The duplicate-key check never forwards `api_secret_env`, so all 4 Alpaca accounts (alpaca_live included) are silently excluded. Planted: a shared key between alpaca_live and alpaca_options_paper gives `[]` | filed (jsonl) |
 | low | `per-symbol-notional-backtest-filter-mismatch` | `COALESCE(is_backtest,1)` vs `COALESCE(is_backtest,0)` in two queries whose docstring says they mirror each other. 0 NULL rows live | filed (jsonl) |
 | low | `fetch-balance-direction-claim-unimplemented` | The spot direction-aware balance in the docstring is never implemented, and a read failure collapses to `0.0` | filed (jsonl) |
 | low | `options-shadow-rows-record-equity-qty` | Shadow rows on `alpaca_options_paper` journal ~1500-share equity sizes. The soak cannot see the options expression | filed (jsonl) |
