@@ -1,0 +1,12 @@
+import os, sqlite3, tempfile
+from unittest.mock import patch, MagicMock
+d=tempfile.mkdtemp(); db=os.path.join(d,"trade_journal.db"); os.environ["TRADE_JOURNAL_DB"]=db
+from src.units.db.database import Database; Database(db)
+c=sqlite3.connect(db); c.execute("INSERT INTO trades (timestamp,symbol,direction,entry_price,position_size,status,is_backtest,strategy_name,account_id,sl_order_id,tp_order_id) VALUES ('2026-09-27','BTCUSDT','long',100,0.001,'open',0,'vwap','bybit_2','SL-123','TP-456')"); c.commit(); c.close()
+from src.units.ui import processor, data_loaders
+cap={}
+def fake(client,cfg,*,symbol,side,qty,sl_order_id=None,tp_order_id=None):
+    cap.update(sl=sl_order_id,tp=tp_order_id); return {"ok":True,"exchange_order_id":"x","error":None}
+with patch.object(data_loaders,"list_accounts",return_value=[{"account_id":"bybit_2","exchange":"bybit"}]), patch("src.units.accounts.clients.bybit_client_for",return_value=MagicMock()), patch("src.units.accounts.execute.close_open_position",side_effect=fake):
+    print(processor.close_open_positions())
+print("forwarded:",cap)

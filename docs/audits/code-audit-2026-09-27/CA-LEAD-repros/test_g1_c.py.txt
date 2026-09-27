@@ -1,0 +1,24 @@
+import sys; sys.path.insert(0, "/home/user/Metis-Insights/tests"); sys.path.insert(0, "/home/user/Metis-Insights")
+from test_monitor_reconciler import tmp_db, _insert_trade, _insert_package, _read_package  # noqa
+from src.runtime import order_monitor as om
+
+def _mk(db):
+    _insert_package(db, pkg_id="P")
+    t1 = _insert_trade(db, account_id="bybit_1"); t2 = _insert_trade(db, account_id="bybit_2")
+    c = db.connect(); c.execute("UPDATE trades SET order_package_id='P'"); c.commit(); c.close()
+    db.update_order_package("P", {"linked_trade_id": t1})
+    return t1, t2
+
+def test_033_sweep(tmp_db):
+    t1, t2 = _mk(tmp_db)
+    tmp_db.update_trade(t1, {"status": "closed"})
+    n = om._sweep_stuck_linked_packages(tmp_db)
+    print("033 sweep affected", n, _read_package(tmp_db, "P"))
+    assert _read_package(tmp_db, "P")["status"] == "open"
+
+def test_033_cascade_nonlinked(tmp_db):
+    t1, t2 = _mk(tmp_db)
+    tmp_db.update_trade(t2, {"status": "closed"})  # non-linked leg closes; linked leg t1 still open
+    r = om._cascade_close_linked_package(tmp_db, t2, close_reason="reconciler_filled", caller="t")
+    print("033 cascade", r, _read_package(tmp_db, "P"))
+    assert _read_package(tmp_db, "P")["status"] == "open"
