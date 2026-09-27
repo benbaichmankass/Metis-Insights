@@ -1,5 +1,7 @@
 # RQ-20260927-004 — soft regime-weight [15, 25] band result
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Dispatched:** trainer-vm-diag issue #13151, run 36320461693, commit d1da2ecdd
 (branch `claude/w6-srq-regime-weighting`). **Landed:** 2026-09-27T13:12Z.
 
