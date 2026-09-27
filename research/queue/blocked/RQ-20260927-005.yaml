@@ -1,0 +1,130 @@
+id: RQ-20260927-005
+title: Does a realised-vol-percentile soft weight (instead of ADX) rescue the same chop-fold on trend_4h/pullback_2h?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  SRQ-20260618-001/-002's surviving lead is "a soft regime weight," and
+  RQ-20260927-004 tests the ADX-keyed version. ADX is one regime FEATURE among
+  several the operator named on 2026-09-27 — "regime features beyond ADX
+  (realised-vol percentile ...)". Does weighting each trade's R by a continuous
+  function of its entry-bar ATR PERCENTILE (calm -> full weight, volatile ->
+  down-weighted, or vice versa — direction is an empirical question, not
+  assumed) clear the same 5-fold/0.40 holdout gate that killed the tuned hard
+  ADX gate, on the same 10 cells?
+
+why_this_matters: >-
+  MEASURED, scripts/research/regime_weight.py (this session, PR landing
+  RQ-20260927-004): the soft-weight MECHANISM (continuous R-scaling by a
+  linear ramp between a floor and ceiling) is now shared and generic over "a
+  regime scalar," not ADX-specific in its math. What is ADX-specific is only
+  the INPUT series. Both backtest_trend.py and backtest_pullback.py already
+  compute an ATR-percentile series for the EXISTING hard vol-skip levers
+  (`--vol-skip-above-pctl`/`--vol-skip-below-pctl`, `atr_pctl`), so the
+  candidate weight SOURCE already exists in both harnesses — only the
+  APPLICATION (weight a trade rather than skip a bar) does not.
+  ADX and realised vol are not redundant: ADX measures trend STRENGTH, ATR
+  percentile measures the SIZE of recent moves, and a market can be
+  high-ADX/low-vol (a slow grind) or low-ADX/high-vol (choppy but wide) — the
+  regime-selectivity skill's Rule 3 (axis fidelity) already treats vol and
+  trend as two distinct router axes for the live hard-gate system, and this
+  unit asks whether the same distinction matters for a soft weight.
+
+power:
+  expected_n: null
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same design as RQ-20260927-004 (paired per-fold net-R comparison against
+    the ungated baseline); the floor is identical (87.2 fold-comparisons) and
+    is likewise a design target, not yet an achieved corpus statistic.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Cannot be declared `corpus` for the same reason RQ-20260927-004 cannot —
+      this family's per-cell OOS trade counts are not committed anywhere yet.
+      Resolves identically once RQ-20260927-004 lands (same cells, same data).
+
+decision_rule:
+  id: RULE-RQ0927-005-VOL-PCTL-SOFT-WEIGHT
+  registered_at: '2026-09-27'
+  registered_before_run: true
+  statistic: >-
+    Identical two-part bar to RQ-20260927-004 (every_fold_positive_75bps AND
+    total_positive_15bps per cell), run TWICE — once weighting toward calm
+    (weight=1.0 below the percentile floor, down-weighted above the ceiling)
+    and once toward volatile (the mirror) — since the direction is not
+    pre-supposed.
+  rule: >-
+    IF either direction produces at least one `soft_weight_candidate` cell
+    (fails ungated, passes soft-weighted) -> record which direction and which
+    cell(s), and that cell is subject to the SAME holdout-stress requirement
+    as RQ-20260927-004's rule before any Tier-3 citation.
+    IF a cell is ALREADY a `soft_weight_candidate` under the ADX weight
+    (RQ-20260927-004) AND under this vol weight -> record
+    `multi_axis_candidate` — two independent regime features agreeing on the
+    same cell is stronger evidence than either alone, and is the one case
+    that would justify combining axes (a SEPARATE, not-yet-registered unit).
+    IF neither direction rescues any cell at THIS floor/ceiling anchor ->
+    record `refuted_at_this_band` (mirroring RQ-20260927-004's own
+    band-scoped, not axis-scoped, disposition) and close
+    `no_action_warranted` on the band. This does NOT close the
+    realised-vol-soft-weight axis itself — per the operator's standing
+    principle (never kill an idea on one pass), the next pre-registerable
+    arm is a different percentile anchor or a non-zero `weight_min` (sizing
+    down rather than to zero), named as the open follow-up rather than left
+    implied.
+  what_it_does_not_do: >-
+    Does not combine the ADX and vol axes into one weight — that composition
+    is a distinct hypothesis (does the PRODUCT of two soft weights out-perform
+    either alone, or does it just compound false confidence) and needs its own
+    pre-registration if `multi_axis_candidate` fires here.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: >-
+    Same trainer-VM data dependency as RQ-20260927-004 (data/<SYM>_15m.csv).
+
+blocked_on:
+  - what: >-
+      `scripts/research/regime_weight.py::soft_regime_weight` and the harness
+      wiring in backtest_trend.py/backtest_pullback.py key EXCLUSIVELY on the
+      entry-bar ADX value (`adx_at_entry`) — there is no CLI lever or code
+      path that applies the same weight function to `atr_pctl` instead. The
+      existing `--vol-skip-above-pctl`/`--vol-skip-below-pctl` flags are a
+      HARD skip, not a continuous weight, and are a different lever entirely
+      (they discard the bar's entry outright; they do not exist to be reused
+      as a weight source without new code).
+    ref: null
+    clears_when: >-
+      Either harness gains a `--vol-soft-weight-floor-pctl`/
+      `--vol-soft-weight-ceiling-pctl` pair (mirroring the ADX flags exactly,
+      reusing `soft_regime_weight` with `atr_pctl.iloc[entry_i]` as the input
+      series) — the natural next PR once RQ-20260927-004's ADX result lands
+      and this unit is worth spending the implementation on.
+
+run:
+  workflow: null
+  note: >-
+    Null rather than a guess — see RQ-20260922-001's identical reasoning.
+    Fill in once the vol-percentile weight lever exists; the dispatch
+    mechanism will be the same trainer-vm-diag.yml `cmd:` pattern
+    RQ-20260927-004 uses, via a sibling of m15_ws_c_soft_weight_kfold.sh.
+
+lands:
+  store: results/m15_ws_c_vol_soft_weight_kfold/
+  assert_field: label
+  min_rows: 10
+
+related:
+  - 'RQ-20260927-004 (the ADX-keyed sibling this unit generalizes)'
+  - 'SRQ-20260618-001 / SRQ-20260618-002'
+  - '.claude/skills/regime-selectivity/SKILL.md Rule 3 (axis fidelity — vol vs trend are distinct)'
+last_dispatched_at: null

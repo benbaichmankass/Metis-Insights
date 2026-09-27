@@ -1,0 +1,12 @@
+import sys, os, sqlite3, tempfile, json
+sys.path.insert(0, "/home/user/Metis-Insights")
+from pathlib import Path
+from ml.datasets.families import setup_labels_audit as m
+d=tempfile.mkdtemp(); db=Path(d)/"j.db"; c=sqlite3.connect(db)
+c.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, timestamp TEXT, symbol TEXT, direction TEXT, strategy_name TEXT, setup_type TEXT, killzone TEXT, bias TEXT, pnl REAL, pnl_percent REAL, account_id TEXT, created_at TEXT, status TEXT, is_backtest INT, is_demo INT, notes TEXT)")
+c.execute("INSERT INTO trades VALUES (1,'2026-01-01T10:00:30+00:00','BTCUSDT','long','ict_scalp','fvg','ny','bull',99.0,3.0,'bybit_1','2026-01-01T10:00:30+00:00','closed',0,1,?)",(json.dumps({"pnl_source":"synthesized","exit_price_source":"synthesized"}),))
+c.commit()
+ev=sorted(m._AUDIT_EVENTS)[0]
+Path(d,"a.jsonl").write_text(json.dumps({"event":ev,"strategy":"ict_scalp","symbol":"BTCUSDT","entry":1,"logged_at_utc":"2026-01-01T10:01:00+00:00","pattern":"P_after_trade"})+"\n")
+rows=list(m.SetupLabelsAuditBuilder().iter_rows(audit_log_path=Path(d,"a.jsonl"), db_path=db))
+print(len(rows), [(r["r_multiple"], r["audit_pattern"], r["match_offset_seconds"]) for r in rows])

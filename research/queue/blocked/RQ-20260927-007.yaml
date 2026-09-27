@@ -1,0 +1,121 @@
+id: RQ-20260927-007
+title: Portfolio-level vs per-leg regime weighting — does gating the SHARED trend_4h/pullback_2h book beat gating each leg alone?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  RQ-20260927-004/-005/-006 all weight each LEG independently — a cell's
+  weight depends only on its own symbol's regime reading. The operator's
+  2026-09-27 direction also names "per-leg vs portfolio-level regime
+  weighting." Does weighting at the PORTFOLIO level — e.g. down-sizing every
+  leg in the trend_4h/pullback_2h family together when the CROSS-SECTIONAL
+  regime read (the count or fraction of the 5 alt symbols currently
+  trend/high-ADX) is weak — outperform weighting each leg on its own reading,
+  net of the same fee band and holdout gate?
+
+why_this_matters: >-
+  MEASURED, docs/claude/strategy-refinement-queue.json SRQ-20260618-001
+  resweep round 1: a flat adx_min=20 HELPED ETH/ADA and HURT XRP/SOL/AVAX in
+  the SAME calendar window — i.e. the alt-symbol regime state is not
+  synchronized, some symbols trend while others chop at the same time. A
+  per-leg weight already captures that asymmetry (each leg reads its own
+  ADX). What a per-leg weight CANNOT capture is a genuinely CROSS-SECTIONAL
+  effect — e.g. if the family's aggregate drawdown risk is driven by how many
+  legs are simultaneously in a weak regime (correlated chop across alts,
+  which live position-sizing / daily-loss-cap logic already treats as a
+  portfolio-level risk in `scripts/backtest_system.py`'s netted-account
+  design). This is a genuinely distinct hypothesis from -004/-005/-006, not a
+  restatement: it asks whether the WEIGHT SOURCE should be leg-local or
+  fleet-wide, independent of which indicator drives it.
+
+power:
+  expected_n: null
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: two_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Comparing two WEIGHTING REGIMES (per-leg vs portfolio) over the same
+    trade population is a two-sample-shaped question (two different weight
+    assignments produce two different equity paths from the same signals),
+    unlike -004/-005/-006's one-sample paired-fold design against a single
+    unweighted baseline. Floor at d=0.3: (1.96+0.8416)^2/0.3^2*2 = 174.4
+    (doubled per group per the queue README's two_sample rule). This is a
+    DESIGN target; feasibility below is why it is not yet gradeable.
+
+decision_rule:
+  id: RULE-RQ0927-007-PORTFOLIO-VS-PERLEG-WEIGHT
+  registered_at: '2026-09-27'
+  registered_before_run: true
+  statistic: >-
+    total_net_r_portfolio_weighted vs total_net_r_per_leg_weighted, pooled
+    across all 10 cells, at 7.5bps, PLUS the same 5-fold holdout stress
+    applied to whichever regime wins the pooled comparison (a portfolio-level
+    win on the nominal split is exactly as vulnerable to the round-2 overfit
+    failure as a per-leg one, and must clear the SAME k=6/k=7/train_frac
+    stress before either regime may be cited toward Tier-3).
+  rule: >-
+    IF portfolio-weighted total_net_r > per-leg-weighted AND the portfolio
+    regime clears the holdout stress -> record `portfolio_weight_preferred`,
+    and this becomes the candidate mechanism for a Tier-3 packet (still a
+    separate gate).
+    IF per-leg wins or the portfolio regime fails holdout while per-leg
+    passes -> record `per_leg_weight_preferred`, close `no_action_warranted`
+    on the portfolio axis for this family.
+    IF NEITHER regime clears the holdout stress -> record
+    `both_regimes_overfit`, and treat this as evidence the family's
+    chop-fold problem may not be a WEIGHTING problem at all (exit-manager
+    axis, per the original 06-18 resweep's own alternative, becomes the next
+    lead rather than a further weighting variant).
+  what_it_does_not_do: >-
+    Does not build or validate a full multi-symbol portfolio EXECUTION
+    simulator (fills, shared balance, daily-loss cap) — this compares two
+    WEIGHT ASSIGNMENTS applied to the same independently-computed per-leg
+    trade streams, summed. A true portfolio execution replay (netting,
+    shared capital) is `scripts/backtest_system.py`'s job and is explicitly
+    out of scope here; that would be its own, larger unit if this one's
+    result warrants it.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 25
+  basis: Same trainer-VM data dependency as the sibling units in this family.
+
+blocked_on:
+  - what: >-
+      No harness or orchestrator computes a CROSS-SECTIONAL regime scalar
+      (e.g. "fraction of the 5 alt symbols with entry-bar ADX above X") and
+      threads it into `scripts/research/regime_weight.py` as an alternative
+      input to the per-symbol ADX value. `scripts/backtest_trend.py` and
+      `scripts/backtest_pullback.py` each run ONE symbol per invocation and
+      have no visibility into the other 4 legs' concurrent regime state —
+      this needs either a new orchestrating script that runs all 5 symbols in
+      lockstep per bar, or a precomputed fleet-regime series joined in as a
+      second input column.
+    ref: null
+    clears_when: >-
+      A fleet-regime series (or an orchestrator producing one) exists and a
+      harness flag consumes it as an ALTERNATIVE weight source alongside the
+      existing per-symbol `--adx-soft-weight-*` flags — the natural
+      follow-on once RQ-20260927-004 establishes whether per-leg soft
+      weighting itself clears the holdout bar at all (a portfolio comparison
+      is more useful once at least one leg-local regime is known to work).
+
+run:
+  workflow: null
+  note: Null — see the sibling blocked units' identical reasoning.
+
+lands:
+  store: results/m15_ws_c_portfolio_soft_weight_kfold/
+  assert_field: label
+  min_rows: 1
+
+related:
+  - 'RQ-20260927-004 (per-leg ADX weight — the baseline this compares against)'
+  - 'scripts/backtest_system.py (the true portfolio-execution harness, explicitly out of scope here)'
+  - 'SRQ-20260618-001 round 1 (asymmetric per-symbol response to the same flat gate)'
+last_dispatched_at: null

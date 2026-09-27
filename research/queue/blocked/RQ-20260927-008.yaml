@@ -1,0 +1,113 @@
+id: RQ-20260927-008
+title: Does a regime-transition-lag weight (recently-flipped bars down-weighted) beat the level-only soft weight?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  RQ-20260927-004/-005/-006 all weight a trade by the regime indicator's
+  LEVEL at entry (how high is ADX / vol-percentile / model probability right
+  now). None of them account for how RECENTLY the regime crossed into that
+  state. The operator's 2026-09-27 direction names "the regime-transition
+  lag" as its own axis. Does down-weighting a trade entered within N bars of
+  the regime crossing the soft-weight ceiling (a bar that reads "trending"
+  but has only just started to) reduce whipsaw losses relative to a
+  level-only weight that treats a 1-bar-old crossing identically to a
+  50-bar-old established trend?
+
+why_this_matters: >-
+  MEASURED, docs/claude/strategy-refinement-queue.json SRQ-20260618-001
+  `missed_live_because`: "a chop/range regime where a breakout-trend
+  follower whipsaws" is this item's own stated failure mode, and a fresh
+  regime crossing is exactly where a false-start whipsaw is most likely — the
+  ADX has just ticked up but the move has not proven itself. A level-only
+  soft weight (RQ-20260927-004) gives that bar the SAME weight as a bar deep
+  into an established trend, so if whipsaw losses cluster near transitions
+  specifically, a level-only weight would under-perform a lag-aware one even
+  at the same average weight.
+
+power:
+  expected_n: null
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same paired per-fold design as RQ-20260927-004 (lag-weighted vs
+    level-only-weighted net R per fold); same 87.2 floor, same design-target
+    status pending an actual run.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Blocked on the lag feature existing at all — resolves once
+      RQ-20260927-004 lands AND the feature below is built.
+
+decision_rule:
+  id: RULE-RQ0927-008-TRANSITION-LAG-WEIGHT
+  registered_at: '2026-09-27'
+  registered_before_run: true
+  statistic: >-
+    Per cell, compare (a) RQ-20260927-004's level-only soft weight against (b)
+    the same weight further multiplied by a lag ramp (0 at the transition bar,
+    1.0 after `lag_bars` bars in-regime), using the SAME two-part bar
+    (every_fold_positive_75bps AND total_positive_15bps).
+  rule: >-
+    IF the lag-weighted variant turns any RQ-20260927-004 non-candidate cell
+    into a `soft_weight_candidate` (subject to the same holdout-stress
+    requirement before Tier-3 citation) -> record `lag_weight_adds_value` for
+    that cell.
+    IF the lag-weighted variant matches or underperforms the level-only
+    weight on every cell -> record `lag_weight_no_advantage`, close
+    `no_action_warranted` — the extra parameter (`lag_bars`) is not earning
+    its complexity and the level-only weight (already simpler) is preferred.
+    IF the lag-weighted variant WORSENS a cell that was a candidate under
+    level-only weighting -> record `lag_weight_regression` explicitly (never
+    silently dropped) — this would mean the transition bars were themselves
+    net-positive for this family, the opposite of the hypothesis, and is
+    reported as a negative finding rather than omitted.
+  what_it_does_not_do: >-
+    Does not introduce a second tunable per cell (`lag_bars` stays FIXED and
+    shared across all 10 cells, exactly like RQ-20260927-004's floor/ceiling —
+    a per-cell tuned lag would reintroduce the identical overfit-by-tuning
+    failure mode this whole item family exists to avoid).
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: Same trainer-VM data dependency as the sibling units in this family.
+
+blocked_on:
+  - what: >-
+      No "bars since the regime series last crossed the soft-weight ceiling
+      (or floor)" feature exists in `backtest_trend.py`, `backtest_pullback.py`,
+      or `scripts/research/regime_weight.py`. Building it needs a decision on what
+      "crossing" means for a continuous ramp (a step function needs an
+      explicit threshold even though the WEIGHT itself is continuous) and
+      where the count resets (every crossing, or only floor->ceiling
+      transitions) — genuine design work, not a mechanical extension of the
+      existing floor/ceiling ramp.
+    ref: null
+    clears_when: >-
+      `scripts/research/regime_weight.py` gains a lag-aware variant (or a second
+      function composing with `soft_regime_weight`) and both harnesses expose
+      a `--adx-soft-weight-lag-bars` (or equivalent) flag — the natural
+      third follow-on after RQ-20260927-004 (does the level weight work at
+      all) and RQ-20260927-005/-006 (which regime feature is the best level
+      input), since a lag composes with whichever level input wins.
+
+run:
+  workflow: null
+  note: Null — see the sibling blocked units' identical reasoning.
+
+lands:
+  store: results/m15_ws_c_lag_soft_weight_kfold/
+  assert_field: label
+  min_rows: 1
+
+related:
+  - 'RQ-20260927-004 (the level-only soft weight this unit adds lag to)'
+  - 'SRQ-20260618-001 missed_live_because (whipsaw in a chop/range regime — the failure mode this targets)'
+last_dispatched_at: null

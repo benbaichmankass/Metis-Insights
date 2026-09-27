@@ -1,0 +1,21 @@
+import sys; sys.path.insert(0,'.')
+import pandas as pd, numpy as np
+import src.runtime.cross_asset_live as xl
+from ml.datasets.cross_asset_features import compute_cross_asset_feature_rows
+xl.peers_for = lambda s: ["BTCUSDT","SOLUSDT"]
+ts = pd.date_range("2026-09-27 10:00", periods=120, freq="15min")
+rng = np.random.default_rng(1)
+def mk(seed_close):
+    c = seed_close*np.exp(np.cumsum(rng.normal(0,0.003,120)))
+    return pd.DataFrame({"timestamp":ts,"open":c,"high":c,"low":c,"close":c,"volume":1.0})
+eth, btc, sol = mk(2500), mk(80000), mk(150)
+# LIVE: fetched 20s into the last bar -> last close == prior close + tiny move (forming)
+def forming(df):
+    d = df.copy(); d.loc[d.index[-1],"close"] = d["close"].iloc[-2]*1.0001; return d
+live = xl.compute_live_cross_asset_row("ETHUSDT","15m",forming(eth),
+        lambda s,tf: forming({"BTCUSDT":btc,"SOLUSDT":sol}[s]))
+# TRAIN: same bar, closed
+rows = lambda df: [{"ts":str(t),"close":c} for t,c in zip(df.timestamp, df.close)]
+train = compute_cross_asset_feature_rows(rows(eth), [rows(btc), rows(sol)])[-1]
+for k in ("xa_peer1_ret","xa_peer1_beta_residual","xa_peer2_ret","xa_breadth_up"):
+    print(f"{k}: live(forming)={live[k]:+.6f} train(closed)={train[k]:+.6f}")

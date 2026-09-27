@@ -1,0 +1,26 @@
+import sys, json, random, math, os, tempfile
+sys.path.insert(0, "/home/user/Metis-Insights")
+from collections import Counter
+from ml.datasets.families.market_features import MarketFeaturesBuilder
+from src.runtime.regime_shadow import bucket_for_vol
+random.seed(7)
+d=tempfile.mkdtemp(); px=100.0; rows=[]
+from datetime import datetime, timedelta, timezone
+t0=datetime(2025,1,1,tzinfo=timezone.utc)
+for i in range(5000):
+    sig=0.004 if (i//500)%2==0 else 0.012   # alternating calm/volatile regimes
+    o=px; c=o*math.exp(random.gauss(0,sig)); h=max(o,c)*math.exp(abs(random.gauss(0,sig/2))); l=min(o,c)*math.exp(-abs(random.gauss(0,sig/2)))
+    rows.append({"ts":(t0+timedelta(hours=i)).isoformat().replace("+00:00","Z"),"symbol":"X","timeframe":"1h","source":"t","open":o,"high":h,"low":l,"close":c,"volume":1}); px=c
+open(os.path.join(d,"data.jsonl"),"w").write("\n".join(json.dumps(r) for r in rows))
+out=list(MarketFeaturesBuilder().iter_rows(market_raw_path=d, vol_threshold=0.008, trend_threshold=0.0))
+# exact trainer freeze logic (lightgbm_multiclass.py:188-192, 314-321) with vol_feature_column=yang_zhang_vol
+by={}
+for r in out: by.setdefault(r["vol_bucket"],[]).append(r["yang_zhang_vol"])
+labels=sorted(by); edges=[max(by[labels[i]]) for i in range(len(labels)-1)]
+print("n rows", len(out), "labels", labels, "yz edges(max per cc-bucket)", [round(e,5) for e in edges])
+trained=Counter(r["vol_bucket"] for r in out)
+served=Counter(bucket_for_vol(r["yang_zhang_vol"], edges, labels) for r in out)
+agree=sum(1 for r in out if bucket_for_vol(r["yang_zhang_vol"], edges, labels)==r["vol_bucket"])
+print("TRAINED vol_bucket dist:", dict(sorted(trained.items())))
+print("SERVED  vol_bucket dist (same bars, yz vs frozen edges):", dict(sorted(served.items())))
+print("per-row agreement: %d/%d = %.3f" % (agree, len(out), agree/len(out)))

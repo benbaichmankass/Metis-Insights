@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "scripts/ops/status_check.sh's exit code is gated on `systemctl is-failed`/Result for every timer-driven oneshot under deploy/ (at minimum the money/data-adjacent ones: ict-git-sync, ict-db-integrity, ict-exchange-fills-pull, ict-exchange-funding-pull, ict-ib-executions-pull), merged AND deployed, so a failed oneshot flips Tier-1 status-check red instead of surfacing only in an uncapped non-gating dump.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-R1DJ7SUQ-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A10 (session session_016shE4tRmBjWERor1Dj7Suq), finding CA-A10-402",
+    "rerun": "grep -rl 'OnFailure' deploy/ (expect 0 hits across all 64 files); read scripts/ops/status_check.sh's CANONICAL_UNITS array (currently 3 units) and confirm the broader ict-* enumeration is still documented as non-gating / head-capped. The finding holds while no push (OnFailure=) or gated pull (`systemctl is-failed` feeding the exit code) mechanism exists for any of the ~41 other declared ict-* units."
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "HIGH (code audit CA-A10-402, MEASURED 2026-09-27): zero of the 64 files under deploy/ declare OnFailure=, and scripts/ops/status_check.sh's exit code is gated on `systemctl is-active` for only 3 hardcoded long-running services (ict-trader-live, ict-web-api, ict-telegram-bot) -- its broader ict-* enumeration is explicitly documented as read-only, head-capped at 60 lines, and never affecting the exit code. So NO oneshot+timer pair in this repo (~41 declared ict-* units per the CA-A10 deploy-lane's count) has any alerting path for its own failure; a failed unit is visible only if a session or the operator happens to pull the right diag endpoint and specifically looks. This is the systemic cause behind the lead this lane was dispatched to check: ict-git-sync.service read 'failed' on 2026-09-27 (PI-20260927-YZRZQ725-0002, now closed -- see that record) while its timer stayed 'active' throughout, masking the failure from anything reading only timer state; a live re-pull this session caught a SECOND, independent, currently-failed instance of the exact same class (ict-ib-executions-pull.service, an IB Gateway connect refusal -- CA-A10-401/CA-A10-002 in this lane's findings file). Both were caught only by incidental diag reads, not by any purpose-built check. Full finding + evidence: docs/audits/code-audit-2026-09-27/CA-A10.findings.jsonl id CA-A10-402. Proposed fix: add `systemctl is-failed <unit>` (or a single `systemctl list-units --state=failed 'ict-*'` call) to status_check.sh's exit-code-gating logic for the money/deploy-freshness-adjacent oneshots at minimum."
+}

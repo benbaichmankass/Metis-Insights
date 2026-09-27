@@ -1,0 +1,1 @@
+auto-merge requested: C2 research-workflow durable landing + guard

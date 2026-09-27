@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "The audit dispatch for lane CA-A10 explicitly said: 'Do not set up auto-merge; the repo owner's manager session reviews and merges it.' Docs + pipeline-record only (findings JSONL/MD, 5 pipeline records, one closed) -- no code, config, or runtime state touched -- but landing goes through the manager per that instruction, not self-land.",
+  "why": "code-audit lane CA-A10 findings (docs + pipeline records only); dispatch instructed manager review before merge"
+}

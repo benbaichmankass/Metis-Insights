@@ -1,0 +1,13 @@
+import random
+from ml.calibration import fit_calibrator, expected_calibration_error, brier_score
+random.seed(3)
+n=400
+xs=[random.random() for _ in range(n)]
+ys=[1 if random.random()<0.4 else 0 for _ in range(n)]   # labels INDEPENDENT of score
+cal=fit_calibrator(xs,ys)
+p=cal.predict_many(xs)
+print("method",cal.method,"in-sample ECE raw",round(expected_calibration_error(ys,xs),4),"-> cal",round(expected_calibration_error(ys,p),4),"| brier",round(brier_score(ys,xs),4),"->",round(brier_score(ys,p),4))
+xs2=[random.random() for _ in range(n)]; ys2=[1 if random.random()<0.4 else 0 for _ in range(n)]
+p2=cal.predict_many(xs2)
+print("out-of-sample ECE cal",round(expected_calibration_error(ys2,p2),4),"brier",round(brier_score(ys2,p2),4),"base-rate brier",round(brier_score(ys2,[0.4]*n),4))
+print("empty-input ECE/brier:",expected_calibration_error([],[]),brier_score([],[]))

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for AUD-20260927-CA-B01-oos-edge-discards-manifest-purge-horizon is merged with a test that fails on the old code (detector: tests/ml/test_oos_edge.py: a manifest with label_horizon=5/embargo_fraction=0.01 must produce a CV config with the same values through both compute_oos_edge and _oos-edge-one.), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-3WM5HADW-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B01 (session_01M6NBQHKgKXsvrB3Wm5HAdW), finding AUD-20260927-CA-B01-oos-edge-discards-manifest-purge-horizon in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B01-oos-edge-discards-manifest-purge-horizon (evidence field) in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl, re-read ml/promotion/oos_edge.py:150-167 (build_cv_config); callers ml/cli.py:960,964 (gate-check defaults 1 / 0.0) and ml/cli.py:720-725 (_oos-edge-one used by stage_guard) on main, and re-run the stated command / repro in docs/audits/code-audit-2026-09-27/CA-B01-repros/; the finding holds while the quoted code is unchanged."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit AUD-20260927-CA-B01-oos-edge-discards-manifest-purge-horizon): The oos_edge promotion gate's 'purged & embargoed' CV overwrites each manifest's declared label_horizon=5 / embargo_fraction=0.01 with label_horizon=1 / embargo_fraction=0.0 (the sweep path cannot pass them at all), so the OOS edge for the 19 manifests declaring a 5-bar horizon — including both live advisory BTC/SOL fc-pcv-v2 heads — is measured with 4 bars of label overlap at every fold boundary. LOCATION: ml/promotion/oos_edge.py:150-167 (build_cv_config); callers ml/cli.py:960,964 (gate-check defaults 1 / 0.0) and ml/cli.py:720-725 (_oos-edge-one used by stage_guard). PROPOSED FIX: build_cv_config defaults to the manifest's label_horizon / embargo_fraction / embargo_n and an explicit CLI value may only tighten (max); CLI defaults become None. Then re-run gate-check oos_edge for the two advisory heads with the corrected purge and record the delta (magnitude UNSETTLED)."
+}
