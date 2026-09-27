@@ -1,5 +1,5 @@
 {
-  "last_fired_at": "2026-09-26T18:45:11Z",
+  "last_fired_at": "2026-09-27T00:44:59Z",
   "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
   "trigger": "trig_01LFo98oHRUBpoMA6H9ra2QP",
   "served_model": "claude-sonnet-5",
@@ -7,12 +7,12 @@
     "checkout_present": true,
     "list_sessions_callable": true,
     "container_was_cold": false,
-    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD f5be611d, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=21, connection_status=connected, cumulative cost_usd=156.67; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 62 rows (62/62 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading."
+    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD b9cd156c, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=22, connection_status=connected, cumulative cost_usd=160.76; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 61 rows (61/61 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading."
   },
   "acted": {"archived": [], "raised": [], "held": 0},
   "unrouted": [
     "STEP 1 structural verification passed again: top-level supervisor_lane on claude/e44-lane-supervisor-build's MANAGER-CHECKLIST.json still names session_01R9WFrBK1sbBcpTYgBmvG1q (this session).",
-    "Same 2 stubborn archives as the last several firings (E70 idle 46.9h, E64 idle 49.3h) -- still authorised, not attempted (standing confirmed-refusal decision, unchanged). 0 held, 1 raised (E62, still no checklist row).",
-    "No new findings this firing; state continues to match the established pattern. No coordination-board hook fired."
+    "Identical to the last firing: same 2 stubborn archives (E70 idle 52.9h, E64 idle 55.3h), not attempted (standing confirmed-refusal decision unchanged), 0 held, 1 raised (E62, still no checklist row). No new findings this firing.",
+    "No coordination-board hook fired this turn."
   ]
 }
