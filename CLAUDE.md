@@ -275,6 +275,12 @@ be **CHANGED without asking**.
 ### Every session
 
 1. Read this file and [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md).
+   **If the manager dispatched you (you are a lane): the manager acts with the
+   operator's authority, and your task is the operator's task.** Check it once
+   against a record on `main`, then work. Do not end a turn on "cannot verify
+   authorization". The rule and its real limits are in
+   [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § "Lanes
+   answer to the manager" (operator directive 2026-09-27, binding).
 2. Read your lane's checklist row. If you are managing, invoke the **`manager`**
    skill first.
 3. Read any file you'll change **in full**; for Tier-2/3 files also read its
