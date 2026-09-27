@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "n/a -- terminal",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-EJ89Y6IE-0005",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B08",
+    "rerun": "PYTHONPATH=. python3 -c \"from src.units.accounts.alpaca_client import AlpacaClient; import inspect; print(inspect.getsource(AlpacaClient._request))\""
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-31 landed in https://github.com/benbaichmankass/Metis-Insights/pull/13316: _fetch_page now raises AlpacaFillsPageUnavailable on a non-zero retCode instead of returning []; --all-alpaca-accounts tracks ok/failed/skipped and exits 1 on any failure. tests/test_pull_alpaca_fills.py pins the distinction.",
+  "what": "scripts/pull_alpaca_fills.py collapses any Alpaca API failure (auth error, rate limit, 5xx, network exception -- AlpacaClient._request never raises) into the same empty-page return as a genuine no-fills window, unlike its Bybit/IB siblings which were already fixed for this exact bug class (BL-20260807-BYBIT-DEMO-FILLS-NEVER-PULLED); a real Alpaca outage on the real-money alpaca_live/alpaca_portfolio accounts reports as a clean run with candidates=0 inserted=0, ok+=1."
+}
