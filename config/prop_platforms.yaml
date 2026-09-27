@@ -1,0 +1,24 @@
+# Which terminal each prop account is driven through (platform-adapter boundary).
+#
+# Spec: docs/research/prop-automation-options-2026-09-27.md § 2.
+# Read by src/prop/platform/__init__.py::get_adapter. An unknown `platform`
+# value raises; it never falls back silently.
+#
+#   dxtrade            — Breakout's DXtrade white-label (titled "Breakout
+#                        Terminal"), login at app.breakoutprop.com. BUILT:
+#                        read path (login, balance, positions, working orders).
+#   breakout_terminal  — Breakout's proprietary terminal (dashboard →
+#                        "Open Terminal"). SCOPED ONLY: every method raises.
+#
+# breakout_1 is DXtrade: the operator logs in at app.breakoutprop.com
+# (2026-09-27 ~10:17Z), which Breakout FAQ 14215629 maps to DXTrade accounts.
+# Accounts cannot migrate between the two terminals.
+accounts:
+  breakout_1:
+    platform: dxtrade
+    login_url: https://app.breakoutprop.com/
+    # Env-var NAMES (never values) holding the login. They reach the VM .env
+    # via .github/workflows/sync-vm-secrets.yml (optional secrets) once that
+    # workflow lists them — pending, see PI-20260927-R6FQK6DS-0002.
+    username_env: BREAKOUT_DX_USERNAME
+    password_env: BREAKOUT_DX_PASSWORD

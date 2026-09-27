@@ -166,6 +166,18 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    breakout-login-check)
+        # READ-ONLY prop-terminal login check. Exit 4 is a FEASIBILITY finding
+        # (challenge / CAPTCHA / 2FA / login rejected), not a crash.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok — logged in and read the account"; priority="normal" ;;
+            3) result="login ok, read path partly unparsed (selector work)"; priority="normal" ;;
+            4) result="feasibility stop (see run log)"; priority="high" ;;
+            5) result="environment — Playwright/Chromium unusable on the VM"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
+        esac
+        ;;
     set-account-mode)
         tier=2
         case "${exit_code}" in
