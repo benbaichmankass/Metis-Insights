@@ -1,5 +1,7 @@
 # Code Audit CA-B06: CI Guard Self-Test Coverage (Guards 45-90)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > **Audit date:** 2026-09-27  
 > **Scope:** Guards 45-90 from `python3 scripts/ci/run_guards.py --list`  
 > **Purpose:** Verify each CI guard is PROVEN to fail on the defect it exists to catch
