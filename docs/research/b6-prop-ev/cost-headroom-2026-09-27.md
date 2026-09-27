@@ -1,5 +1,7 @@
 # RQ-20260922-003 — round-trip cost headroom of the two `breakout_1` legs
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+>
 > Lane W6-PROP-O1 (manager-dispatched, 2026-09-27). Tier-1 offline research on
 > committed evidence. No config, roster, sizing or execution change. Where this
 > document PROPOSES, it proposes; the change is Tier-3.
@@ -8,8 +10,8 @@
 
 | leg | n (OOS) | break-even, fee arm (slip 3 + funding 1 bps/8h held) | break-even, flat all-in round trip | Breakout stack at the modelled 3 bps spread+slip | room left for spread + slippage | B6 V2, fresh $5k, room k=0.33 (5 seeds) |
 |---|---|---|---|---|---|---|
-| `trend_donchian_eth_prop` | 169 | **22.2 bps** (arm read: 22.5) | **26.6 bps** | 8 + 3 + swap 1.6 = **12.6 bps** | **≈17 bps** | __ETH_B6__ |
-| `trend_donchian_sol_prop` | 65 | **24.9 bps** (arm read: none ≤ 22.5) | **30.7 bps** | 8 + 3 + swap 2.8 = **13.8 bps** | **≈20 bps** | __SOL_B6__ |
+| `trend_donchian_eth_prop` | 169 | **22.2 bps** (arm read: 22.5) | **26.6 bps** | 8 + 3 + swap 1.6 = **12.6 bps** | **≈17 bps** | **indeterminate** 5/5; EV +$150…+$162, evidence p5 −$33…−$20 |
+| `trend_donchian_sol_prop` | 65 | **24.9 bps** (arm read: none ≤ 22.5) | **30.7 bps** | 8 + 3 + swap 2.8 = **13.8 bps** | **≈20 bps** | **indeterminate** 5/5; EV +$122…+$136, evidence p5 −$45…−$40 |
 
 - **Unit verdict (RULE-RQ0922-003-COST-BREAKEVEN, applied as registered):** ETH
   `breakeven_bps` = 22.5 → the "between 15 and 22.5" branch → report and close
@@ -84,7 +86,7 @@ Flat all-in break-even per harness fold (fold boundaries from the record's
 
 (SOL fold windows are SOL's own record's, within the same year.)
 
-- **ETH**: 64% of its gross R over the year (15.87 of 24.60) is fold 2. Over the
+- **ETH**: 64% of its gross R over the year (15.87 of 24.60 R, n = 169 OOS trades) is fold 2. Over the
   most recent half (folds 3–4, 85 trades) the gross edge is +1.80 R and the
   flat break-even is **3.4 bps** — below Breakout's 8 bps commission before any
   spread or swap. On the recent half, at Breakout's own cost stack, the leg is
@@ -140,15 +142,81 @@ defaults 4,000 lives, 100 outer histories × 200 lives, 730-day horizon, 30-day
 blocks. Each leg alone (`--trades LEG=PATH`) and the two-leg book
 (`--book breakout_1`). Seeds 1–5; the stress arm (spread+slip 10 bps) seeds 1–3.
 
-__B6_TABLE__
+Tool commit for every run: `cf51e0b7`. Per-seed numbers:
+[`cost-headroom-b6-seeds-2026-09-27.json`](cost-headroom-b6-seeds-2026-09-27.json).
+EV = mean net-$ per account life, `path` model; p5/p95 = the outer-bootstrap
+(evidence) percentiles the V2 predicate reads. Ranges are min…max across seeds.
+
+**Fresh $5,000 account, $45 fee, room sizing k = 0.33, skip below $10** (the
+sizing #13154 sets for the next instance). This is the arm where the V2 rule
+can come out either way.
+
+| portfolio | seeds | V2 verdict | EV per life | evidence p5 | evidence p95 | P(pass eval) | `stop` bound EV | `realized` bound EV |
+|---|---|---|---|---|---|---|---|---|
+| ETH alone | 5 | indeterminate ×5 | +$150 … +$162 | −$33 … −$20 | +$597 … +$959 | 0.52 … 0.55 | +$159 (mean) | +$157 (mean) |
+| SOL alone | 5 | indeterminate ×5 | +$122 … +$136 | −$45 … −$40 | +$887 … +$1,380 | 0.54 … 0.56 | +$133 | +$126 |
+| book (both) | 5 | indeterminate ×5 | +$110 … +$114 | −$34 … −$20 | +$375 … +$781 | 0.48 … 0.50 | +$29 | +$125 |
+| ETH, spread+slip 10 bps | 3 | indeterminate ×3 | +$79 … +$82 | −$40 … −$38 | +$643 … +$718 | 0.42 … 0.44 | +$76 | +$76 |
+| SOL, spread+slip 10 bps | 3 | indeterminate ×3 | +$78 … +$82 | −$45 … −$44 | +$800 … +$1,096 | 0.47 | +$80 | +$76 |
+| book, spread+slip 10 bps | 3 | indeterminate ×3 | +$55 … +$57 | −$39 … −$32 | +$236 … +$340 | 0.40 … 0.42 | +$4 | +$64 |
+
+**Current account, flat 1.5% = $75/ticket, started at $4,724, fee 0 (sunk).**
+The $4,724 balance is the last measured value (manager, 2026-09-27T07:23Z,
+`live-state-2026-09-27T0723Z.json`). This lane did not re-read it.
+
+| portfolio | seeds | V2 verdict | EV per life | evidence p5 / p95 | P(pass eval) |
+|---|---|---|---|---|---|
+| ETH alone | 5 | pass ×4, indeterminate ×1 | +$16 … +$21 | +$0.0 … +$1.8 / +$67 … +$104 | 0.05 … 0.06 |
+| SOL alone | 5 | indeterminate ×5 | +$17 … +$22 | $0.0 / +$106 … +$202 | 0.06 … 0.07 |
+| book (both) | 5 | indeterminate ×5 | +$6 … +$8 | $0.0 / +$22 … +$33 | 0.04 |
+
+The book result reproduces the precedent: #13154's fresh-account figure was
++$111.96 at k = 0.33, and these seeds give +$110 … +$114.
 
 **How to read it.**
 
-- __B6_READ__
+- **Both legs: INDETERMINATE on every seed, on the arm that can decide.** The
+    point EV is positive and stable across seeds (EV varies by $12 for ETH and
+    $14 for SOL across seeds). The evidence CI straddles zero on every seed (p5 −$45 …
+    −$20), so the V2 predicate (p5 > 0) is not met. The seed spread is small
+    next to the evidence spread. What leaves the verdict undecided is the
+    one-year, n = 234 history, not simulation noise.
+- **The ETH "pass" on the current account does not count as a pass.** With the
+    fee at 0 (sunk), net-$ per life cannot go below zero, so its p5 is ≥ 0 by
+    construction. The V2 predicate can never FAIL on that arm, and a 4-of-5
+    "pass" flips on whether p5 is +$0.2 or $0.0. The only thing it shows is
+    that continuing the current account costs nothing new, which was already
+    known. P(pass eval) is 5–7% either way.
+- **Each leg alone scores higher than the book** (+$157 / +$129 vs +$112),
+    and the book's pessimistic `stop` bound is far lower (+$29 vs +$159 /
+    +$133). That fits the simulator's stated mechanism: two legs open together
+    share one daily-loss cushion. It is evidence that overlap costs the book
+    EV. It is not evidence that dropping a leg would pass B6, because every
+    single-leg arm is also indeterminate.
+- **Spread sensitivity:** 10 bps spread+slip instead of 3 roughly halves
+    fresh-account EV (ETH −49%, SOL −37%, book −50%). The book's `stop` bound
+    falls to +$4. The spread assumption is the cost input the EV is most
+    sensitive to, and it is the one that has not been measured.
 
 ## 6. Proposal
 
-__PROPOSAL__
+**No parameter or roster change is proposed.** The numbers do not support one:
+
+- The cost rule closes `no_action_warranted` for both legs.
+- B6 V2 is indeterminate for both legs on every seed, with positive point EV.
+  Neither a cut (nothing FAILS) nor a promotion (nothing PASSES) is backed.
+- The ETH recent-window weakness in § 3 was found after the pooled result was
+  read. On n = 85 it can motivate a pre-registered test, not a change.
+
+What the numbers do support is two measurements, filed in
+`docs/claude/work/PIPELINE.jsonl` as `PI-20260927-W6PROPO1-0001`:
+
+1. A pre-registered test of whether `trend_donchian_eth_prop`'s edge net of
+   Breakout's cost stack holds after 2026-03-27. The rule has to be registered
+   before the next evidence regeneration is read.
+2. A measured spread+slippage figure for ETH/SOL on `breakout_1` (fill price
+   vs the signal/ticket price). This belongs to R3/D3 cost fidelity. The spread
+   is the input B6 EV is most sensitive to, and it is currently an assumption.
 
 ## 7. What this does not establish
 

@@ -1,0 +1,1068 @@
+{
+  "book/current_flat": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "verdicts": [
+      "indeterminate"
+    ],
+    "path_ev": {
+      "min": 5.75,
+      "max": 8.35,
+      "mean": 7.18
+    },
+    "path_p5": {
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+    },
+    "path_p95": {
+      "min": 22.23,
+      "max": 32.57,
+      "mean": 26.82
+    },
+    "p_ev_positive": {
+      "min": 0.81,
+      "max": 0.87,
+      "mean": 0.85
+    },
+    "p_pass_eval": {
+      "min": 0.035,
+      "max": 0.0432,
+      "mean": 0.04
+    },
+    "p_alive_at_horizon": {
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+    },
+    "realized_ev": {
+      "min": 17.1,
+      "max": 23.07,
+      "mean": 19.66
+    },
+    "stop_ev": {
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 5.75,
+        "path_p5": 0.0,
+        "path_p50": 4.53,
+        "path_p95": 24.99,
+        "p_ev_positive": 0.81,
+        "p_pass_eval": 0.035,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 20.61,
+        "stop_ev": 0.0,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 234
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "indeterminate",
+        "path_ev": 8.05,
+        "path_p5": 0.0,
+        "path_p50": 4.89,
+        "path_p95": 24.53,
+        "p_ev_positive": 0.85,
+        "p_pass_eval": 0.0362,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 18.89,
+        "stop_ev": 0.0,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 234
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "indeterminate",
+        "path_ev": 7.09,
+        "path_p5": 0.0,
+        "path_p50": 4.04,
+        "path_p95": 29.77,
+        "p_ev_positive": 0.86,
+        "p_pass_eval": 0.0385,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 17.1,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      },
+      {
+        "seed": 4,
+        "verdict_v2": "indeterminate",
+        "path_ev": 6.65,
+        "path_p5": 0.0,
+        "path_p50": 4.21,
+        "path_p95": 22.23,
+        "p_ev_positive": 0.87,
+        "p_pass_eval": 0.0432,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 23.07,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      },
+      {
+        "seed": 5,
+        "verdict_v2": "indeterminate",
+        "path_ev": 8.35,
+        "path_p5": 0.0,
+        "path_p50": 5.73,
+        "path_p95": 32.57,
+        "p_ev_positive": 0.87,
+        "p_pass_eval": 0.041,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 18.61,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      }
+    ]
+  },
+  "book/fresh_room33": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "verdicts": [
+      "indeterminate"
+    ],
+    "path_ev": {
+      "min": 110.05,
+      "max": 113.76,
+      "mean": 111.73
+    },
+    "path_p5": {
+      "min": -34.08,
+      "max": -20.23,
+      "mean": -27.07
+    },
+    "path_p95": {
+      "min": 375.31,
+      "max": 780.77,
+      "mean": 616.03
+    },
+    "p_ev_positive": {
+      "min": 0.83,
+      "max": 0.87,
+      "mean": 0.85
+    },
+    "p_pass_eval": {
+      "min": 0.4803,
+      "max": 0.4955,
+      "mean": 0.49
+    },
+    "p_alive_at_horizon": {
+      "min": 0.999,
+      "max": 1.0,
+      "mean": 1.0
+    },
+    "realized_ev": {
+      "min": 120.67,
+      "max": 130.54,
+      "mean": 124.73
+    },
+    "stop_ev": {
+      "min": 26.25,
+      "max": 32.58,
+      "mean": 29.06
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 113.76,
+        "path_p5": -25.47,
+        "path_p50": 93.92,
+        "path_p95": 375.31,
+        "p_ev_positive": 0.83,
+        "p_pass_eval": 0.4955,
+        "p_alive_at_horizon": 0.9992,
+        "realized_ev": 122.43,
+        "stop_ev": 26.25,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 234
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "indeterminate",
+        "path_ev": 112.88,
+        "path_p5": -28.08,
+        "path_p50": 98.37,
+        "path_p95": 687.61,
+        "p_ev_positive": 0.85,
+        "p_pass_eval": 0.4803,
+        "p_alive_at_horizon": 0.9995,
+        "realized_ev": 130.54,
+        "stop_ev": 27.85,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "indeterminate",
+        "path_ev": 110.05,
+        "path_p5": -34.08,
+        "path_p50": 88.93,
+        "path_p95": 557.34,
+        "p_ev_positive": 0.83,
+        "p_pass_eval": 0.4825,
+        "p_alive_at_horizon": 0.999,
+        "realized_ev": 120.67,
+        "stop_ev": 27.75,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      },
+      {
+        "seed": 4,
+        "verdict_v2": "indeterminate",
+        "path_ev": 110.45,
+        "path_p5": -20.23,
+        "path_p50": 116.72,
+        "path_p95": 679.1,
+        "p_ev_positive": 0.87,
+        "p_pass_eval": 0.4953,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 120.76,
+        "stop_ev": 32.58,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      },
+      {
+        "seed": 5,
+        "verdict_v2": "indeterminate",
+        "path_ev": 111.53,
+        "path_p5": -27.49,
+        "path_p50": 110.27,
+        "path_p95": 780.77,
+        "p_ev_positive": 0.85,
+        "p_pass_eval": 0.486,
+        "p_alive_at_horizon": 0.9995,
+        "realized_ev": 129.27,
+        "stop_ev": 30.87,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      }
+    ]
+  },
+  "book/fresh_room33_slip10": {
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "verdicts": [
+      "indeterminate"
+    ],
+    "path_ev": {
+      "min": 54.65,
+      "max": 56.9,
+      "mean": 55.93
+    },
+    "path_p5": {
+      "min": -38.92,
+      "max": -32.37,
+      "mean": -35.23
+    },
+    "path_p95": {
+      "min": 236.01,
+      "max": 340.33,
+      "mean": 294.66
+    },
+    "p_ev_positive": {
+      "min": 0.6,
+      "max": 0.78,
+      "mean": 0.71
+    },
+    "p_pass_eval": {
+      "min": 0.398,
+      "max": 0.4155,
+      "mean": 0.41
+    },
+    "p_alive_at_horizon": {
+      "min": 0.9975,
+      "max": 0.9982,
+      "mean": 1.0
+    },
+    "realized_ev": {
+      "min": 58.65,
+      "max": 71.08,
+      "mean": 64.11
+    },
+    "stop_ev": {
+      "min": 2.86,
+      "max": 4.81,
+      "mean": 4.15
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 54.65,
+        "path_p5": -34.39,
+        "path_p50": 33.71,
+        "path_p95": 236.01,
+        "p_ev_positive": 0.74,
+        "p_pass_eval": 0.4155,
+        "p_alive_at_horizon": 0.9982,
+        "realized_ev": 62.6,
+        "stop_ev": 2.86,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 234
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "indeterminate",
+        "path_ev": 56.9,
+        "path_p5": -32.37,
+        "path_p50": 45.53,
+        "path_p95": 340.33,
+        "p_ev_positive": 0.78,
+        "p_pass_eval": 0.4105,
+        "p_alive_at_horizon": 0.9975,
+        "realized_ev": 71.08,
+        "stop_ev": 4.81,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "indeterminate",
+        "path_ev": 56.24,
+        "path_p5": -38.92,
+        "path_p50": 22.07,
+        "path_p95": 307.63,
+        "p_ev_positive": 0.6,
+        "p_pass_eval": 0.398,
+        "p_alive_at_horizon": 0.998,
+        "realized_ev": 58.65,
+        "stop_ev": 4.78,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 234
+      }
+    ]
+  },
+  "eth/current_flat": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "verdicts": [
+      "indeterminate",
+      "pass"
+    ],
+    "path_ev": {
+      "min": 16.21,
+      "max": 20.74,
+      "mean": 19.38
+    },
+    "path_p5": {
+      "min": 0.0,
+      "max": 1.77,
+      "mean": 0.86
+    },
+    "path_p95": {
+      "min": 67.44,
+      "max": 103.72,
+      "mean": 80.81
+    },
+    "p_ev_positive": {
+      "min": 0.94,
+      "max": 0.99,
+      "mean": 0.96
+    },
+    "p_pass_eval": {
+      "min": 0.0483,
+      "max": 0.0592,
+      "mean": 0.05
+    },
+    "p_alive_at_horizon": {
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+    },
+    "realized_ev": {
+      "min": 46.57,
+      "max": 62.26,
+      "mean": 50.97
+    },
+    "stop_ev": {
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 20.74,
+        "path_p5": 0.0,
+        "path_p50": 14.38,
+        "path_p95": 80.43,
+        "p_ev_positive": 0.94,
+        "p_pass_eval": 0.055,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 49.24,
+        "stop_ev": 0.0,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 169
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "pass",
+        "path_ev": 19.03,
+        "path_p5": 1.77,
+        "path_p50": 21.65,
+        "path_p95": 103.72,
+        "p_ev_positive": 0.97,
+        "p_pass_eval": 0.0555,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 46.57,
+        "stop_ev": 0.0,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 169
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "pass",
+        "path_ev": 20.23,
+        "path_p5": 1.01,
+        "path_p50": 14.67,
+        "path_p95": 71.83,
+        "p_ev_positive": 0.96,
+        "p_pass_eval": 0.052,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 48.77,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      },
+      {
+        "seed": 4,
+        "verdict_v2": "pass",
+        "path_ev": 20.7,
+        "path_p5": 0.2,
+        "path_p50": 15.27,
+        "path_p95": 80.62,
+        "p_ev_positive": 0.95,
+        "p_pass_eval": 0.0592,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 62.26,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      },
+      {
+        "seed": 5,
+        "verdict_v2": "pass",
+        "path_ev": 16.21,
+        "path_p5": 1.32,
+        "path_p50": 17.26,
+        "path_p95": 67.44,
+        "p_ev_positive": 0.99,
+        "p_pass_eval": 0.0483,
+        "p_alive_at_horizon": 0.0,
+        "realized_ev": 48.02,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      }
+    ]
+  },
+  "eth/fresh_room33": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "verdicts": [
+      "indeterminate"
+    ],
+    "path_ev": {
+      "min": 149.88,
+      "max": 161.66,
+      "mean": 156.65
+    },
+    "path_p5": {
+      "min": -33.33,
+      "max": -19.5,
+      "mean": -26.39
+    },
+    "path_p95": {
+      "min": 596.78,
+      "max": 958.51,
+      "mean": 793.17
+    },
+    "p_ev_positive": {
+      "min": 0.79,
+      "max": 0.87,
+      "mean": 0.84
+    },
+    "p_pass_eval": {
+      "min": 0.5158,
+      "max": 0.545,
+      "mean": 0.53
+    },
+    "p_alive_at_horizon": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+    },
+    "realized_ev": {
+      "min": 152.58,
+      "max": 158.31,
+      "mean": 156.57
+    },
+    "stop_ev": {
+      "min": 152.09,
+      "max": 164.76,
+      "mean": 158.62
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 159.01,
+        "path_p5": -29.31,
+        "path_p50": 111.89,
+        "path_p95": 958.51,
+        "p_ev_positive": 0.8,
+        "p_pass_eval": 0.5315,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 157.15,
+        "stop_ev": 152.09,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 169
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "indeterminate",
+        "path_ev": 152.12,
+        "path_p5": -21.14,
+        "path_p50": 142.64,
+        "path_p95": 751.62,
+        "p_ev_positive": 0.86,
+        "p_pass_eval": 0.5158,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 158.31,
+        "stop_ev": 156.4,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "indeterminate",
+        "path_ev": 149.88,
+        "path_p5": -19.5,
+        "path_p50": 106.3,
+        "path_p95": 834.16,
+        "p_ev_positive": 0.87,
+        "p_pass_eval": 0.5205,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 152.58,
+        "stop_ev": 159.09,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      },
+      {
+        "seed": 4,
+        "verdict_v2": "indeterminate",
+        "path_ev": 160.6,
+        "path_p5": -33.33,
+        "path_p50": 119.1,
+        "path_p95": 596.78,
+        "p_ev_positive": 0.79,
+        "p_pass_eval": 0.545,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 156.98,
+        "stop_ev": 164.76,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      },
+      {
+        "seed": 5,
+        "verdict_v2": "indeterminate",
+        "path_ev": 161.66,
+        "path_p5": -28.66,
+        "path_p50": 130.67,
+        "path_p95": 824.79,
+        "p_ev_positive": 0.86,
+        "p_pass_eval": 0.54,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 157.84,
+        "stop_ev": 160.76,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      }
+    ]
+  },
+  "eth/fresh_room33_slip10": {
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "verdicts": [
+      "indeterminate"
+    ],
+    "path_ev": {
+      "min": 79.31,
+      "max": 81.87,
+      "mean": 80.51
+    },
+    "path_p5": {
+      "min": -39.61,
+      "max": -37.94,
+      "mean": -38.96
+    },
+    "path_p95": {
+      "min": 643.3,
+      "max": 717.85,
+      "mean": 676.16
+    },
+    "p_ev_positive": {
+      "min": 0.71,
+      "max": 0.74,
+      "mean": 0.72
+    },
+    "p_pass_eval": {
+      "min": 0.4233,
+      "max": 0.436,
+      "mean": 0.43
+    },
+    "p_alive_at_horizon": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+    },
+    "realized_ev": {
+      "min": 74.63,
+      "max": 76.43,
+      "mean": 75.53
+    },
+    "stop_ev": {
+      "min": 73.53,
+      "max": 77.55,
+      "mean": 75.53
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 80.34,
+        "path_p5": -37.94,
+        "path_p50": 92.16,
+        "path_p95": 667.32,
+        "p_ev_positive": 0.74,
+        "p_pass_eval": 0.436,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 75.53,
+        "stop_ev": 73.53,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 169
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "indeterminate",
+        "path_ev": 79.31,
+        "path_p5": -39.61,
+        "path_p50": 47.79,
+        "path_p95": 717.85,
+        "p_ev_positive": 0.72,
+        "p_pass_eval": 0.4283,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 76.43,
+        "stop_ev": 77.55,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "indeterminate",
+        "path_ev": 81.87,
+        "path_p5": -39.33,
+        "path_p50": 64.29,
+        "path_p95": 643.3,
+        "p_ev_positive": 0.71,
+        "p_pass_eval": 0.4233,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 74.63,
+        "stop_ev": 75.52,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 169
+      }
+    ]
+  },
+  "sol/current_flat": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "verdicts": [
+      "indeterminate"
+    ],
+    "path_ev": {
+      "min": 16.94,
+      "max": 21.87,
+      "mean": 19.26
+    },
+    "path_p5": {
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+    },
+    "path_p95": {
+      "min": 105.8,
+      "max": 201.53,
+      "mean": 146.79
+    },
+    "p_ev_positive": {
+      "min": 0.85,
+      "max": 0.89,
+      "mean": 0.87
+    },
+    "p_pass_eval": {
+      "min": 0.0635,
+      "max": 0.0658,
+      "mean": 0.06
+    },
+    "p_alive_at_horizon": {
+      "min": 0.0005,
+      "max": 0.0013,
+      "mean": 0.0
+    },
+    "realized_ev": {
+      "min": 39.35,
+      "max": 46.59,
+      "mean": 43.26
+    },
+    "stop_ev": {
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 16.94,
+        "path_p5": 0.0,
+        "path_p50": 18.62,
+        "path_p95": 186.16,
+        "p_ev_positive": 0.89,
+        "p_pass_eval": 0.0635,
+        "p_alive_at_horizon": 0.0005,
+        "realized_ev": 39.66,
+        "stop_ev": 0.0,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 65
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "indeterminate",
+        "path_ev": 21.87,
+        "path_p5": 0.0,
+        "path_p50": 15.87,
+        "path_p95": 105.8,
+        "p_ev_positive": 0.88,
+        "p_pass_eval": 0.0653,
+        "p_alive_at_horizon": 0.0013,
+        "realized_ev": 44.13,
+        "stop_ev": 0.0,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 65
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "indeterminate",
+        "path_ev": 21.71,
+        "path_p5": 0.0,
+        "path_p50": 12.07,
+        "path_p95": 125.02,
+        "p_ev_positive": 0.86,
+        "p_pass_eval": 0.0658,
+        "p_alive_at_horizon": 0.0005,
+        "realized_ev": 46.55,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      },
+      {
+        "seed": 4,
+        "verdict_v2": "indeterminate",
+        "path_ev": 17.94,
+        "path_p5": 0.0,
+        "path_p50": 17.68,
+        "path_p95": 201.53,
+        "p_ev_positive": 0.87,
+        "p_pass_eval": 0.065,
+        "p_alive_at_horizon": 0.0013,
+        "realized_ev": 46.59,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      },
+      {
+        "seed": 5,
+        "verdict_v2": "indeterminate",
+        "path_ev": 17.84,
+        "path_p5": 0.0,
+        "path_p50": 12.08,
+        "path_p95": 115.46,
+        "p_ev_positive": 0.85,
+        "p_pass_eval": 0.0635,
+        "p_alive_at_horizon": 0.001,
+        "realized_ev": 39.35,
+        "stop_ev": 0.0,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      }
+    ]
+  },
+  "sol/fresh_room33": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "verdicts": [
+      "indeterminate"
+    ],
+    "path_ev": {
+      "min": 122.19,
+      "max": 135.74,
+      "mean": 128.97
+    },
+    "path_p5": {
+      "min": -44.61,
+      "max": -40.32,
+      "mean": -42.63
+    },
+    "path_p95": {
+      "min": 887.06,
+      "max": 1379.96,
+      "mean": 1138.02
+    },
+    "p_ev_positive": {
+      "min": 0.66,
+      "max": 0.78,
+      "mean": 0.73
+    },
+    "p_pass_eval": {
+      "min": 0.5437,
+      "max": 0.5637,
+      "mean": 0.55
+    },
+    "p_alive_at_horizon": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+    },
+    "realized_ev": {
+      "min": 124.92,
+      "max": 128.27,
+      "mean": 126.1
+    },
+    "stop_ev": {
+      "min": 125.7,
+      "max": 135.92,
+      "mean": 132.76
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 122.19,
+        "path_p5": -42.64,
+        "path_p50": 84.84,
+        "path_p95": 1134.95,
+        "p_ev_positive": 0.66,
+        "p_pass_eval": 0.5437,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 126.24,
+        "stop_ev": 125.7,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 65
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "indeterminate",
+        "path_ev": 123.66,
+        "path_p5": -44.61,
+        "path_p50": 163.23,
+        "path_p95": 1252.41,
+        "p_ev_positive": 0.76,
+        "p_pass_eval": 0.5505,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 128.27,
+        "stop_ev": 135.01,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "indeterminate",
+        "path_ev": 135.74,
+        "path_p5": -41.54,
+        "path_p50": 86.67,
+        "path_p95": 1035.71,
+        "p_ev_positive": 0.69,
+        "p_pass_eval": 0.559,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 125.63,
+        "stop_ev": 135.92,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      },
+      {
+        "seed": 4,
+        "verdict_v2": "indeterminate",
+        "path_ev": 133.99,
+        "path_p5": -44.04,
+        "path_p50": 208.07,
+        "path_p95": 887.06,
+        "p_ev_positive": 0.78,
+        "p_pass_eval": 0.5513,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 124.92,
+        "stop_ev": 133.66,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      },
+      {
+        "seed": 5,
+        "verdict_v2": "indeterminate",
+        "path_ev": 129.29,
+        "path_p5": -40.32,
+        "path_p50": 139.42,
+        "path_p95": 1379.96,
+        "p_ev_positive": 0.74,
+        "p_pass_eval": 0.5637,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 125.44,
+        "stop_ev": 133.5,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      }
+    ]
+  },
+  "sol/fresh_room33_slip10": {
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "verdicts": [
+      "indeterminate"
+    ],
+    "path_ev": {
+      "min": 77.57,
+      "max": 82.43,
+      "mean": 80.62
+    },
+    "path_p5": {
+      "min": -45.0,
+      "max": -44.12,
+      "mean": -44.71
+    },
+    "path_p95": {
+      "min": 799.62,
+      "max": 1095.72,
+      "mean": 906.87
+    },
+    "p_ev_positive": {
+      "min": 0.64,
+      "max": 0.7,
+      "mean": 0.67
+    },
+    "p_pass_eval": {
+      "min": 0.4665,
+      "max": 0.4735,
+      "mean": 0.47
+    },
+    "p_alive_at_horizon": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+    },
+    "realized_ev": {
+      "min": 74.71,
+      "max": 77.44,
+      "mean": 75.68
+    },
+    "stop_ev": {
+      "min": 73.36,
+      "max": 83.65,
+      "mean": 79.94
+    },
+    "per_seed": [
+      {
+        "seed": 1,
+        "verdict_v2": "indeterminate",
+        "path_ev": 77.57,
+        "path_p5": -45.0,
+        "path_p50": 61.93,
+        "path_p95": 825.26,
+        "p_ev_positive": 0.67,
+        "p_pass_eval": 0.4665,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 74.9,
+        "stop_ev": 73.36,
+        "commit_sha": "cf51e0b7650bb0c9d4705633522c32d5884a2923",
+        "n_trades": 65
+      },
+      {
+        "seed": 2,
+        "verdict_v2": "indeterminate",
+        "path_ev": 81.85,
+        "path_p5": -45.0,
+        "path_p50": 52.49,
+        "path_p95": 799.62,
+        "p_ev_positive": 0.64,
+        "p_pass_eval": 0.4735,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 77.44,
+        "stop_ev": 83.65,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      },
+      {
+        "seed": 3,
+        "verdict_v2": "indeterminate",
+        "path_ev": 82.43,
+        "path_p5": -44.12,
+        "path_p50": 46.84,
+        "path_p95": 1095.72,
+        "p_ev_positive": 0.7,
+        "p_pass_eval": 0.472,
+        "p_alive_at_horizon": 1.0,
+        "realized_ev": 74.71,
+        "stop_ev": 82.82,
+        "commit_sha": "3bffc756e003663bef8737fca040c5790c9d4490",
+        "n_trades": 65
+      }
+    ]
+  }
+}
