@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs-only audit output: CA-A11 findings (docs/audits/code-audit-2026-09-27/CA-A11.{md,findings.jsonl}) plus 3 pipeline items filed for the HIGH findings (docs/claude/work/pipeline/). No src/, config/, deploy/, scripts/, tests/, or workflow changes."
+}
