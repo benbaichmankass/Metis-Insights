@@ -127,6 +127,53 @@ def mode() -> str:
     return raw if raw in _MODES else _DEFAULT_MODE
 
 
+#: What ``enforce_ticket_cap`` did to one ticket.
+CAP_NOT_ENFORCED = "not_enforced"   # mode is off / annotate: size untouched
+CAP_UNCHANGED = "unchanged"         # enforce; the risk is within the cap
+CAP_RESIZED = "resized"             # enforce; the risk exceeded the cap -> cut to it
+CAP_REFUSED = "refused"             # enforce; no cap is known -> the ticket is refused
+
+
+def enforce_ticket_cap(
+    *, risk_usd: float, cap_usd: Optional[float], gate_mode: Optional[str] = None,
+    sizing_mode: str = "",
+) -> Dict[str, Any]:
+    """``enforce`` mode's SIZE action — the part this gate never had until 2026-09-27.
+
+    ``PROP_TICKET_RISK_GATE_MODE=enforce`` was operator-approved on 2026-08-31
+    and read live, but no code path changed a size (PI-20260924-MQ3CDMU6-0002).
+    Operator decision 2026-09-27 ~08:40Z: "Implement it with the sizing
+    decision". The cap is the CURRENT sizing mode's configured cap
+    (``prop_sizing.SizingDecision.cap_usd``): the flat $75 for the current
+    breakout_1 account, the room formula for a fresh one. It is deliberately
+    NOT the live cushion: capping the current account at its cushion would
+    overturn the operator's "keep flat until it passes or dies" in the same
+    popup. The cushion caveat (``caveat_lines``) is unchanged.
+
+    Pure. ``off`` / ``annotate`` never touch the size. Under ``enforce`` a risk
+    above the cap is cut to the cap; an unknown cap refuses — we do not emit a
+    size nobody bounded. Every non-trivial outcome carries a ``cause``.
+    """
+    gm = gate_mode if gate_mode is not None else mode()
+    risk = float(risk_usd)
+    base = {"gate_mode": gm, "sizing_mode": sizing_mode, "cap_usd": cap_usd,
+            "requested_risk_usd": risk}
+    if gm != "enforce":
+        return {**base, "action": CAP_NOT_ENFORCED, "risk_usd": risk, "cause": None}
+    if cap_usd is None:
+        return {**base, "action": CAP_REFUSED, "risk_usd": None,
+                "cause": (f"risk gate ENFORCE: no configured cap for {sizing_mode or 'this'} "
+                          f"sizing — refusing a ${risk:,.2f} ticket rather than emitting "
+                          f"an unbounded size")}
+    cap = float(cap_usd)
+    # half-a-cent tolerance: both sides are rounded to cents upstream.
+    if risk <= cap + 0.005:
+        return {**base, "action": CAP_UNCHANGED, "risk_usd": risk, "cause": None}
+    return {**base, "action": CAP_RESIZED, "risk_usd": round(cap, 2),
+            "cause": (f"risk gate ENFORCE: ticket risk ${risk:,.2f} exceeds the "
+                      f"{sizing_mode or 'configured'}-mode cap ${cap:,.2f} — resized to the cap")}
+
+
 def grade_ticket_risk(
     *,
     risk_usd: Optional[float],
