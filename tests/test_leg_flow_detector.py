@@ -212,3 +212,62 @@ def test_enumerate_live_legs_gates_on_both_account_and_strategy():
     standard_leg = next(leg for leg in legs if leg["account_id"] == "live_acct"
                          and leg["strategy"] == "live_strat")
     assert standard_leg["is_prop"] is False
+
+
+# ---------------------------------------------------------------------------
+# live_symbol_contenders — PI-20260926-X3QEGPJL, the w5d-starved-legs
+# diagnosis. A `starved` (E18) leg with a live same-account/same-symbol
+# rival is NOT distinguishable, from intents/received alone, from a leg that
+# never reaches dispatch at all — the two need different remedies. This is
+# the pure, config-only signal `soak_book_grade.disposition_for_leg` reads to
+# tell them apart, mirroring the existing `has_open_position` precedent.
+# ---------------------------------------------------------------------------
+
+def _config_one_account(account_id: str, strategies: list) -> dict:
+    return {"accounts": [{"id": account_id, "yaml_mode": "live", "enabled": True,
+                           "account_class": "paper", "strategies": strategies}]}
+
+
+def test_live_symbol_contenders_finds_a_same_symbol_live_sibling():
+    config = _config_one_account("bybit_1", ["trend_donchian_eth_4h", "eth_pullback_2h"])
+    strategies = {"strategies": [
+        {"name": "trend_donchian_eth_4h", "execution": "live", "enabled": True, "symbols": ["ETHUSDT"]},
+        {"name": "eth_pullback_2h", "execution": "live", "enabled": True, "symbols": ["ETHUSDT"]},
+    ]}
+    contenders = lfd.live_symbol_contenders("trend_donchian_eth_4h", "bybit_1", config, strategies)
+    assert contenders == ["eth_pullback_2h"]
+
+
+def test_live_symbol_contenders_excludes_shadow_and_disabled_rivals():
+    config = _config_one_account(
+        "bybit_1", ["trend_donchian", "fade_breakout_4h", "turtle_soup", "ict_scalp_5m"],
+    )
+    strategies = {"strategies": [
+        {"name": "trend_donchian", "execution": "live", "enabled": True, "symbols": ["BTCUSDT"]},
+        {"name": "fade_breakout_4h", "execution": "shadow", "enabled": True, "symbols": ["BTCUSDT"]},
+        {"name": "turtle_soup", "execution": "live", "enabled": False, "symbols": ["BTCUSDT"]},
+        {"name": "ict_scalp_5m", "execution": "live", "enabled": True, "symbols": ["BTCUSDT"]},
+    ]}
+    contenders = lfd.live_symbol_contenders("trend_donchian", "bybit_1", config, strategies)
+    assert contenders == ["ict_scalp_5m"]  # shadow + disabled rivals excluded
+
+
+def test_live_symbol_contenders_empty_when_the_symbol_is_uncontested():
+    config = _config_one_account("alpaca_paper", ["iaum_pullback_1d", "tqqq_trend_long_1d"])
+    strategies = {"strategies": [
+        {"name": "iaum_pullback_1d", "execution": "live", "enabled": True, "symbols": ["IAUM"]},
+        {"name": "tqqq_trend_long_1d", "execution": "live", "enabled": True, "symbols": ["TQQQ"]},
+    ]}
+    assert lfd.live_symbol_contenders("iaum_pullback_1d", "alpaca_paper", config, strategies) == []
+
+
+def test_live_symbol_contenders_unknown_account_or_symbol_is_empty_not_a_guess():
+    config = _config_one_account("alpaca_paper", ["gld_pullback_1d"])
+    strategies = {"strategies": [
+        {"name": "gld_pullback_1d", "execution": "live", "enabled": True, "symbols": ["GLD"]},
+    ]}
+    assert lfd.live_symbol_contenders("gld_pullback_1d", "no_such_account", config, strategies) == []
+    # a strategy with no declared symbols row: cannot say what it would
+    # contend for, so report none rather than guess.
+    strategies_no_symbols = {"strategies": [{"name": "gld_pullback_1d", "execution": "live", "enabled": True}]}
+    assert lfd.live_symbol_contenders("gld_pullback_1d", "alpaca_paper", config, strategies_no_symbols) == []

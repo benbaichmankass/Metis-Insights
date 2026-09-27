@@ -87,11 +87,23 @@ def _diag_fetch(path: str, *, timeout: int = 30) -> Optional[Any]:
         return None
 
 
-def fetch_live_legs() -> Optional[List[Dict[str, Any]]]:
+def fetch_config_and_strategies() -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+    """The two raw payloads ``enumerate_live_legs`` and
+    ``live_symbol_contenders`` both need. Split out from :func:`fetch_live_legs`
+    so ``build_report`` can compute per-leg symbol contention without a
+    second, redundant pull of the same two endpoints."""
     cfg = _curl_json(f"{_BOT_BASE}/api/bot/config")
     strat = _curl_json(f"{_BOT_BASE}/api/bot/strategies")
     if cfg is None or strat is None:
         return None
+    return cfg, strat
+
+
+def fetch_live_legs() -> Optional[List[Dict[str, Any]]]:
+    fetched = fetch_config_and_strategies()
+    if fetched is None:
+        return None
+    cfg, strat = fetched
     return lfd.enumerate_live_legs(cfg, strat)
 
 
@@ -220,11 +232,13 @@ def build_report(*, window_hours: int) -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
     since_iso = (now - timedelta(hours=window_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    legs = fetch_live_legs()
-    if legs is None:
+    fetched = fetch_config_and_strategies()
+    if fetched is None:
         return {"read_state": "legs_unreadable", "legs": [],
                 "why": "could not read /api/bot/config or /api/bot/strategies "
                        "— we did not look, not 'no live legs'"}
+    cfg, strat_cfg = fetched
+    legs = lfd.enumerate_live_legs(cfg, strat_cfg)
 
     strategies = sorted({leg["strategy"] for leg in legs})
     signal_cache: Dict[str, Optional[List[Dict[str, Any]]]] = {
@@ -287,10 +301,18 @@ def build_report(*, window_hours: int) -> Dict[str, Any]:
                 and (r or {}).get("status") == "open"
                 for r in all_trade_rows
             )
+        # CONTEXT ONLY — never feeds the state calc, same contract as
+        # `has_open_position`/`held_back` above. Computed for every leg
+        # (not only `starved` ones) so a reader can see the population this
+        # was checked over, not only the rows where it happened to matter.
+        same_symbol_live_contenders = lfd.live_symbol_contenders(
+            strat, acct, cfg, strat_cfg,
+        )
         out_legs.append({
             "strategy": strat, "account_id": acct,
             "account_class": leg["account_class"],
             "has_open_position": has_open_position,
+            "same_symbol_live_contenders": same_symbol_live_contenders,
             "unmapped": unmapped,
             "unmapped_statuses": unmapped_statuses,
             **verdict,
