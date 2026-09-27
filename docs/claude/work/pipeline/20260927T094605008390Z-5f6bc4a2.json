@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-R6FQK6DS-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-apex-vs-breakout-2026-09-27.md",
+    "rerun": "Re-read https://apextraderfunding.com/help-center/getting-started/prohibited-activities/ (via a reader proxy; Cloudflare blocks direct fetches) and check that the 'No Automation or Algorithm Usage allowed' clause and the overnight-close rule are still present. If either is gone, the verdict must be redone."
+  },
+  "state": "done",
+  "terminal_reason": "Operator confirmed DO NOT PURSUE Apex by popup 2026-09-27 ~09:42Z (relayed by manager session_01Ljhs6sFAdWHdMDhJpL5aBP): Apex bans automation/algorithm usage on all account types and forces flat before the market close, which removes every live futures leg. Reverse only if Apex drops the automation clause AND an intraday flat-by-close futures leg clears the prop EV bar.",
+  "what": "OPERATOR DECISION (W6-P3): Apex Trader Funding. The lane verdict is DO NOT PURSUE, neither alongside nor instead of breakout_1. Deciding facts, all read 2026-09-27: (1) Apex Prohibited Activities says 'No Automation or Algorithm Usage allowed' on every account type, evals included, and the legacy PA page names the penalty as closure plus forfeiture; (2) no holding through the market close, which kills all 3 live futures legs (mes/mgc/mhg _1d); (3) the Tradovate API needs a LIVE account with >$1000 equity, a venue threshold (not a sample) quoted from api.tradovate.com; the Apex rule pages carry a published date of 2026-09-24/25. So no compliant API route exists. Operator: confirm (then kill this row with that reason) or overrule, e.g. a manual Apex account with an intraday flat-by-close leg."
+}
