@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "touches research/queue/RQ-20260922-009.yaml and research/queue/RQ-20260922-007.yaml with a decision-rule/status/result edit, not a stamp-only edit -- research/queue/** is outside TIER1_SURFACE (it has scripts/research/** but not research/**), and R5's stamp-only carve-out covers only the dispatcher's own last_dispatched_at stamp, not a substantive result write-up. research/results/RQ-20260922-009/manual-20260927-gradeability-check.jsonl is itself inside the self-landable E57 surface, but it does not travel alone here. Same route RQ-20260922-007's own unblock previously used for this exact reason (see docs/claude/work/MANAGER-CHECKLIST.json row E5's note). A human (the manager) merges.",
+  "why": "Tier-1 research-queue bookkeeping (grading a pre-registered decision rule + a citation update, no live config/roster/order-path change), but the queue-file edits are outside the paths this guard can certify for self-land."
+}
