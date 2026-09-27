@@ -803,6 +803,40 @@ def _full_close_trade_and_package(
         )
 
 
+def _is_sole_open_row(db, leg: dict) -> bool:
+    """Is *leg* the ONLY open, non-backtest journal row on its (account, symbol)?
+
+    Feeds the Alpaca whole-position trail match
+    (``AlpacaClient._whole_position_legs``, PI-20260926-HJPL5ABP-0001): a
+    netted OCO covering the whole position may be attributed to a trade only
+    when no sibling row declares levels that the amend would move. ``False``
+    on a read failure or any missing key — *we did not look* must never be
+    read as *there is no sibling*, and ``False`` is the pre-existing exact-qty
+    behaviour, so failing closed changes nothing.
+    """
+    try:
+        account_id, symbol = leg.get("account_id"), leg.get("symbol")
+        if not account_id or not symbol:
+            return False
+        # Symbol compared case-insensitively in Python: an exact `symbol = ?`
+        # filter would miss a stored-case-drift sibling and wrongly answer
+        # "sole" — the one direction this must never err in.
+        want = str(symbol).upper()
+        rows = [
+            r for r in db.get_trades(filters={
+                "account_id": account_id, "status": "open"})
+            if not r.get("is_backtest")
+            and str(r.get("symbol") or "").upper() == want
+        ]
+        return len(rows) == 1 and str(rows[0].get("id")) == str(leg.get("id"))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: sole-open-row read failed for trade=%s: %s",
+            leg.get("id"), exc,
+        )
+        return False
+
+
 def _package_open_legs(db, open_pkg: dict) -> tuple:
     """Every OPEN, non-backtest trade row belonging to this order package.
 
@@ -1454,6 +1488,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             qty=_coerce_float(leg.get("position_size")),
             cur_sl=_coerce_float(open_pkg.get("sl")),
             cur_tp=_coerce_float(open_pkg.get("tp")),
+            sole_open_row=_is_sole_open_row(db, leg),
         )
         logger.info(
             "order_monitor: exchange modify for pkg=%s trade=%s account=%s → %s",
@@ -2036,7 +2071,8 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
                              side: Optional[str] = None,
                              qty: Optional[float] = None,
                              cur_sl: Optional[float] = None,
-                             cur_tp: Optional[float] = None) -> Dict[str, Any]:
+                             cur_tp: Optional[float] = None,
+                             sole_open_row: bool = False) -> Dict[str, Any]:
     """Send a SL/TP modify to the exchange for the matched trade row.
 
     Dry-run short-circuit (2026-05-18): when the resolved cfg has
@@ -2092,6 +2128,7 @@ def _send_modify_to_exchange(matched_trade: Dict[str, Any], *,
             # Scopes the IB pre-cancel to this trade's own OCA group; ignored by
             # every non-IB branch. See modify_open_order's IB branch for why.
             trade_id=matched_trade.get("id"),
+            sole_open_row=sole_open_row,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: exchange modify failed: %s", exc)

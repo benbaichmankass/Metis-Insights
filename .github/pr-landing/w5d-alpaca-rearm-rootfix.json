@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "live order path (src/units/accounts/execute.py, alpaca_client.place TIF, order_monitor modify fan-out) affecting alpaca_live real money; needs explicit operator approval in chat before merge",
+  "why": "changes entry-bracket time_in_force and the Alpaca trailing-amend leg match on the live order path"
+}

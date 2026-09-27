@@ -15,8 +15,11 @@ creds are absent so the account loads ``configured: False``.
 Orders are **bracket** market orders (entry + ``take_profit`` limit +
 ``stop_loss`` stop in one atomic request) so SL/TP protection is
 broker-side from the first fill — surviving RTH closes, weekends, and
-trader restarts. Bracket orders require whole-share quantities and
-``time_in_force: day`` legs (Alpaca constraint); qty is floored at 1.
+trader restarts. Bracket orders require whole-share quantities (qty is
+floored at 1) and ``time_in_force`` ``day`` or ``gtc`` — they are sent
+``gtc``. ⚠️ Until 2026-09-27 this said ``day`` was an Alpaca constraint and
+the code sent ``day``, which CONTRADICTED the "surviving RTH closes" claim
+two lines up: day legs are cancelled at the close (PI-20260926-HJPL5ABP-0001).
 
 Auth: key id + secret from ``ALPACA_API_KEY_ID`` /
 ``ALPACA_API_SECRET_KEY`` (free paper keys). ``ALPACA_ENV`` picks the
@@ -504,6 +507,10 @@ class AlpacaClient:
     def place(self, order: Dict[str, Any]) -> Dict[str, Any]:
         """Place a bracket MARKET order; retCode envelope.
 
+        A bracket/OTO is sent ``time_in_force: gtc`` so its protective legs
+        survive the RTH close (see the block above the POST); a plain market
+        order with no legs stays ``day``.
+
         Expects the executor's order dict: ``symbol``, ``side``
         (``Buy``/``Sell``, case-insensitive), ``qty`` (shares, floored
         at 1 whole share — bracket orders disallow fractionals),
@@ -563,7 +570,43 @@ class AlpacaClient:
                 body["take_profit"] = {"limit_price": f"{float(tp):.2f}"}
             if sl is not None:
                 body["stop_loss"] = {"stop_price": f"{float(sl):.2f}"}
+        # ── PROTECTIVE LEGS ARE GTC (PI-20260926-HJPL5ABP-0001) ──────────────
+        # A bracket/OTO's child legs take the PARENT's time_in_force. With
+        # `day` Alpaca cancels the stop + target at the RTH close of the entry
+        # day, so every multi-session hold went broker-naked overnight and
+        # relied on the naked sweep to re-arm it (alpaca_paper/SPY trade 6131:
+        # 8 of 19 shares unprotected from the 2026-09-24 close).
+        #
+        # The comment this replaces called `day` "an Alpaca constraint". The
+        # venue's own doc says otherwise — bracket, OCO and OTO:
+        # "time_in_force must be day or gtc", and a market order accepts gtc
+        # (docs.alpaca.markets/docs/orders-at-alpaca, read 2026-09-27). The
+        # entry itself is a MARKET order, so GTC changes nothing about when it
+        # fills (in RTH: now; after the close: queued to the next open either
+        # way). A plain market order with NO legs keeps `day` — it has no
+        # protection to preserve, so it is left byte-identical.
+        #
+        # Fallback, because the claim above is from the doc and not from a
+        # live GTC bracket: if the venue refuses the TIF specifically, re-send
+        # ONCE as `day` rather than refusing the entry. That restores exactly
+        # the pre-change behaviour (legs lapse at the close; the naked sweep
+        # re-arms) instead of stopping every Alpaca entry on a doc mismatch.
+        if "order_class" in body:
+            body["time_in_force"] = "gtc"
         env = self._request("POST", "/v2/orders", body)
+        if (
+            env.get("retCode") not in (0, None)
+            and body.get("time_in_force") == "gtc"
+            and "time_in_force" in str(env.get("retMsg") or "").lower()
+        ):
+            logger.warning(
+                "alpaca place(%s): venue refused a GTC %s (%s) — re-sending as "
+                "DAY; its protective legs will lapse at the RTH close and rely "
+                "on the naked sweep", body["symbol"], body["order_class"],
+                env.get("retMsg"),
+            )
+            body["time_in_force"] = "day"
+            env = self._request("POST", "/v2/orders", body)
         if env.get("retCode") != 0:
             return env
         result = env.get("result") or {}
@@ -1606,6 +1649,7 @@ class AlpacaClient:
         sl: Optional[float] = None,
         tp: Optional[float] = None,
         qty: Optional[float] = None,
+        sole_open_row: bool = False,
     ) -> Dict[str, Any]:
         """Replace the resting SL/TP legs of the open bracket on *symbol*.
 
@@ -1632,6 +1676,13 @@ class AlpacaClient:
           records ``sl_order_id``/``tp_order_id`` for Bybit partial-tpsl), so
           there is no per-trade handle to disambiguate with. Saying so is the
           honest answer; picking one is a coin flip on somebody's protection.
+
+        * **``sole_open_row=True`` and no exact-qty leg** → one further,
+          narrower match: a single OCO sized to the WHOLE netted position is
+          attributed to the trade when it is the symbol's only open journal
+          row (:meth:`_whole_position_legs` lists every condition). The
+          result carries ``scope: "whole_position_sole_open_row"``. Default
+          ``False``: every existing caller is byte-unchanged.
 
         ⚠️ Matching on quantity is an IDENTIFICATION HEURISTIC, not an
         identity. It is sound whenever the open rows on a symbol differ in
@@ -1660,6 +1711,7 @@ class AlpacaClient:
             return {"retCode": -1, "retMsg": "could not read open orders"}
 
         sym = str(symbol).upper()
+        scope = "symbol" if qty is None else "trade_qty"
         if qty is None:
             if len(legs) > 2:
                 # More legs than one bracket has ⇒ more than one trade's
@@ -1682,6 +1734,22 @@ class AlpacaClient:
                     if (lq := self._leg_qty(o)) is not None
                     and abs(lq - want) <= _QTY_EPS
                 ]
+                if not scoped and sole_open_row:
+                    whole = self._whole_position_legs(sym, legs, want, sl, tp)
+                    if whole.get("legs"):
+                        scoped = whole["legs"]
+                        scope = "whole_position_sole_open_row"
+                    else:
+                        resting = sorted({
+                            q for o in legs
+                            if (q := self._leg_qty(o)) is not None
+                        })
+                        return {"retCode": 1, "retMsg": (
+                            f"no protective leg of qty={_qty_param(want)} rests "
+                            f"on {sym} (resting leg quantities: "
+                            f"{resting or 'none'}) and the whole-position match "
+                            f"did not apply: {whole.get('why')} — refusing to "
+                            "patch")}
                 if not scoped:
                     resting = sorted({
                         q for o in legs
@@ -1734,7 +1802,90 @@ class AlpacaClient:
                     "retMsg": "no matching protective leg found for "
                               f"{str(symbol).upper()}"}
         return {"retCode": 0,
-                "result": {"orderId": patched[-1], "patched": patched}}
+                "result": {"orderId": patched[-1], "patched": patched,
+                           "scope": scope}}
+
+    def _whole_position_legs(
+        self, sym: str, legs: list, want: float,
+        sl: Optional[float], tp: Optional[float],
+    ) -> Dict[str, Any]:
+        """Attribute a NETTED whole-position OCO to the symbol's ONLY open trade.
+
+        ``{"legs": [...]}`` when the match holds, else ``{"legs": [],
+        "why": <reason>}``. Called only when the caller has asserted
+        ``sole_open_row`` — i.e. the journal holds exactly ONE open row for
+        this (account, symbol), read from the DB, not inferred here.
+
+        **Why this exists** (PI-20260926-HJPL5ABP-0001). Alpaca nets per symbol,
+        so after a re-arm (``rearm-alpaca-protective``) or any netted top-up the
+        ONLY resting protection is one OCO sized to the whole position (19 on
+        alpaca_paper/SPY) while the journal row is one tranche of it (8). The
+        exact-qty match above can never pair them, so the trail on that trade
+        was refused every tick, permanently.
+
+        **Why this does not reopen BL-20260820.** That incident was an
+        automatic repair that CANCELLED a leg and kept the wrong one. This
+        cancels nothing and places nothing: it PATCHes the price of a leg that
+        is attributable by elimination, under all of these, each checked
+        against the venue rather than assumed —
+
+        * exactly one open journal row on the symbol (the caller's assertion),
+          so there is no sibling trade whose declared level could be moved —
+          the BL-20260908 TLT sibling-stop failure needs two rows;
+        * a clean, OPEN position read, and the legs REDUCE it;
+        * NO other order rests on the symbol (a non-protective order means the
+          book is not understood);
+        * exactly one stop leg (if ``sl`` is moving) and at most one limit leg
+          (exactly one if ``tp`` is moving) — i.e. one OCO, never a choice
+          between groups;
+        * every matched leg's qty EQUALS the live net position, and the net is
+          at least the trade's own qty — the leg covers the whole book, of
+          which this trade is a part.
+
+        Shares on the symbol that no open row accounts for are trailed WITH
+        the trade. They declare no level of their own; the alternative is
+        leaving the whole book's stop frozen, which is the state being fixed.
+        """
+        pos = self._position_raw(sym)
+        if pos is None:
+            return {"legs": [], "why": "position unreadable or flat"}
+        try:
+            net = abs(float(pos.get("qty")))
+        except (TypeError, ValueError):
+            return {"legs": [], "why": "position qty unreadable"}
+        reducing = self._reducing_side_for(str(pos.get("side") or ""))
+        if not reducing or net <= 0:
+            return {"legs": [], "why": "position side/qty not gradeable"}
+        if net + _QTY_EPS < want:
+            return {"legs": [], "why": (
+                f"live net {_qty_param(net)} < trade qty {_qty_param(want)}")}
+        stops, limits = [], []
+        seen: set = set()
+        for o in legs:
+            # A filled bracket's legs can surface both nested and top-level
+            # (see `_open_orders_for_symbol`); one order must count once, or a
+            # single OCO reads as "2 stop legs" and is refused.
+            oid = o.get("id")
+            if oid is not None:
+                if oid in seen:
+                    continue
+                seen.add(oid)
+            kind = self._leg_protective_side(o.get("type") or o.get("order_type"))
+            if not kind or str(o.get("side") or "").lower() != reducing:
+                return {"legs": [], "why": (
+                    f"a non-protective order rests (id={o.get('id')})")}
+            lq = self._leg_qty(o)
+            if lq is None or abs(lq - net) > _QTY_EPS:
+                return {"legs": [], "why": (
+                    f"leg {o.get('id')} qty={lq} != live net {_qty_param(net)}")}
+            (stops if kind == "stop" else limits).append(o)
+        if sl is not None and len(stops) != 1:
+            return {"legs": [], "why": f"{len(stops)} stop legs rest, need exactly 1"}
+        if tp is not None and len(limits) != 1:
+            return {"legs": [], "why": f"{len(limits)} limit legs rest, need exactly 1"}
+        if len(stops) > 1 or len(limits) > 1:
+            return {"legs": [], "why": "more than one OCO rests"}
+        return {"legs": stops + limits}
 
     # --------------------------------------------------- naked re-arm (GTC OCO)
     def protection_state(self, symbol: str) -> Optional[dict]:
@@ -2116,9 +2267,12 @@ class AlpacaClient:
 
         The re-arm counterpart to ``IBClient.place_protective`` for Alpaca
         (BL-20260629-ALPACA-NAKED-BRACKET). The entry bracket's protective legs
-        are ``time_in_force: day`` (an Alpaca market-entry-bracket constraint)
-        so they are CANCELLED at the RTH close — a multi-session ETF hold then
-        sits broker-naked. This places a fresh **GTC** OCO (one-cancels-other:
+        WERE ``time_in_force: day`` until 2026-09-27 (then described as an
+        Alpaca constraint; the venue doc allows ``gtc`` and :meth:`place` now
+        sends it) so they were CANCELLED at the RTH close — a multi-session ETF
+        hold then sat broker-naked. This remains the backstop for positions
+        opened before that change, for a venue refusal that falls back to
+        ``day``, and for GTC legs Alpaca's 90-day aged-order policy cancels. This places a fresh **GTC** OCO (one-cancels-other:
         a take-profit limit + a stop, ``time_in_force: gtc``) on the
         closing side so protection persists across closes/weekends/restarts.
 

@@ -2802,6 +2802,7 @@ def modify_open_order(
     sl_order_id: Optional[str] = None,
     tp_order_id: Optional[str] = None,
     trade_id: Optional[Any] = None,
+    sole_open_row: bool = False,
 ) -> dict:
     """Modify SL/TP on an open position on the account's exchange.
 
@@ -3073,8 +3074,13 @@ def modify_open_order(
             # limit resting on the symbol — the same symbol-vs-trade defect the
             # close carried, on a different verb (MI-173). The caller already
             # has the number: it is the leg row's `position_size`.
+            # `sole_open_row` (the caller read the journal: this is the ONLY
+            # open row on the symbol) lets a whole-position netted OCO be
+            # trailed when no leg of the trade's own qty exists
+            # (PI-20260926-HJPL5ABP-0001). Only the Alpaca branch reads it.
             resp = exchange_client.modify_protective(
-                symbol, sl=sl, tp=tp, qty=qty) or {}
+                symbol, sl=sl, tp=tp, qty=qty,
+                sole_open_row=bool(sole_open_row)) or {}
             ret_code = resp.get("retCode")
             if ret_code in (0, "0", None):
                 logger.info(
