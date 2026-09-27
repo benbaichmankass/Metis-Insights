@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for CA-A01-073 is merged with a test that fails on the old code (detector: unit test: two live hedge books with no SL legs must yield a non-zero refusal counter and a surfaced summary), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-KFWRL9R1-0015",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-073 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-073 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:10197-10199, 10145-10150 (reporting 12146-12149) on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-06 fixed in PR #13251 (lane fix/ca-order-monitor-02-06) with FIX-CA-06 tests in tests/test_bybit_naked_rearm.py (Part A refusal counters/page, Part B per-book re-arm idx 1+2), shown failing on the pre-fix main. Closes on merge per clears_when; deploy needs an ict-trader-live restart (merged != deployed != observed).",
+  "what": "HIGH (code audit CA-A01-073, MEASURED): _check_broker_naked_bybit_positions silently skips every symbol whose protection read returns None (hedge symbol with BOTH books live, no_rows, size_unreadable, or a broker error): no re-arm for either book, no summary counter, and run_reconciliation_tick drops the summary because broker_naked==0 and errors==0. LOCATION: src/runtime/order_monitor.py:10197-10199, 10145-10150 (reporting 12146-12149); selection src/runtime/order_monitor.py:9159-9176. PROPOSED FIX: Count every None-state skip (split read_error vs ambiguous_multi_book) in the summary and include the key in run_reconciliation_tick's emit predicate; for ambiguous_multi_book, read positions per book (positionIdx 1/2) and grade each book against its own direction's rows instead of refusing the symbol."
+}

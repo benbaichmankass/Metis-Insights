@@ -112,3 +112,92 @@ def test_compute_oos_edge_too_few_rows_returns_none(tmp_path: Path):
     _write_dataset(root, _rows(n=3))  # fewer than n_folds+1
     entry = _entry(tmp_path, _manifest())
     assert compute_oos_edge(entry, datasets_root=root, n_folds=5) is None
+
+
+# --- FIX-CA-21: the manifest's own purge horizon / embargo is honoured -------
+# CA-B01-oos-edge-discards-manifest-purge-horizon (PI-20260927-3WM5HADW-0002):
+# 28 manifests declare evaluator_config label_horizon=5 / embargo_fraction=0.01
+# (incl. both live advisory fc-pcv-v2 heads), and the OOS-edge gate overwrote
+# them with 1 / 0.0 — 4 bars of label overlap at every fold boundary.
+
+
+def _purged_manifest() -> dict:
+    m = _manifest()
+    m["evaluator_config"] = {
+        **m["evaluator_config"],
+        "split_strategy": "purged_walk_forward",
+        "label_horizon": 5, "embargo_fraction": 0.01,
+    }
+    return m
+
+
+def _capture_cv_cfg(monkeypatch) -> list[dict]:
+    import ml.promotion.oos_edge as oe
+
+    seen: list[dict] = []
+    real = oe._pooled_cv_metrics
+
+    def _spy(rows, trainer, evaluator, trainer_config, cv_cfg):
+        seen.append(dict(cv_cfg))
+        return real(rows, trainer, evaluator, trainer_config, cv_cfg)
+
+    monkeypatch.setattr(oe, "_pooled_cv_metrics", _spy)
+    return seen
+
+
+def test_build_cv_config_inherits_manifest_horizon_and_embargo():
+    from ml.promotion.oos_edge import build_cv_config
+
+    cfg = build_cv_config({"label_horizon": 5, "embargo_fraction": 0.01})
+    assert cfg["label_horizon"] == 5 and cfg["embargo_fraction"] == 0.01
+    # An explicit override may only WIDEN the manifest's purge, never shrink it.
+    cfg = build_cv_config({"label_horizon": 5, "embargo_fraction": 0.01},
+                          label_horizon=1, embargo_fraction=0.0)
+    assert cfg["label_horizon"] == 5 and cfg["embargo_fraction"] == 0.01
+    cfg = build_cv_config({"label_horizon": 5}, label_horizon=8, embargo_fraction=0.02)
+    assert cfg["label_horizon"] == 8 and cfg["embargo_fraction"] == 0.02
+    # Undeclared + no override: the historical 1 / 0.0 defaults.
+    cfg = build_cv_config({})
+    assert cfg["label_horizon"] == 1 and cfg["embargo_fraction"] == 0.0
+
+
+def test_compute_oos_edge_uses_manifest_purge_horizon(tmp_path: Path, monkeypatch):
+    seen = _capture_cv_cfg(monkeypatch)
+    root = tmp_path / "datasets-out"
+    _write_dataset(root, _rows())
+    entry = _entry(tmp_path, _purged_manifest())
+    assert compute_oos_edge(entry, datasets_root=root, n_folds=3) is not None
+    assert seen and all(
+        c["label_horizon"] == 5 and c["embargo_fraction"] == 0.01 for c in seen
+    ), seen
+
+
+def test_oos_edge_one_cli_uses_manifest_purge_horizon(tmp_path: Path, monkeypatch, capsys):
+    from ml.cli import main
+
+    seen = _capture_cv_cfg(monkeypatch)
+    root = tmp_path / "datasets-out"
+    _write_dataset(root, _rows())
+    _entry(tmp_path, _purged_manifest())
+    rc = main(["_oos-edge-one", "m-const",
+               "--registry-root", str(tmp_path / "registry-store"),
+               "--datasets-root", str(root)])
+    assert rc == 0
+    assert seen and all(
+        c["label_horizon"] == 5 and c["embargo_fraction"] == 0.01 for c in seen
+    ), seen
+
+
+def test_gate_check_cli_defaults_do_not_shrink_manifest_purge(tmp_path: Path, monkeypatch, capsys):
+    from ml.cli import main
+
+    seen = _capture_cv_cfg(monkeypatch)
+    root = tmp_path / "datasets-out"
+    _write_dataset(root, _rows())
+    _entry(tmp_path, _purged_manifest())
+    main(["gate-check", "m-const",
+          "--registry-root", str(tmp_path / "registry-store"),
+          "--datasets-root", str(root), "--n-folds", "3"])
+    assert seen and all(
+        c["label_horizon"] == 5 and c["embargo_fraction"] == 0.01 for c in seen
+    ), seen

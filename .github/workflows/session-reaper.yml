@@ -62,13 +62,20 @@ on:
         description: 'Minutes without a commit before a branch stops counting as active'
         required: false
         default: '90'
+  # FIX-CA-17 / CA-A14-session-reaper-dead-trigger (2026-09-27): this used to
+  # carry `paths: [docs/claude/work/SESSIONS.json, scripts/ops/session_reaper.py]`
+  # — SESSIONS.json is one of the eight registers the 2026-09-21 operating
+  # reset archived under docs/archive/2026-09-21-operating-reset/, so nothing
+  # writes that path any more and that half of the filter was permanently dead.
+  # With the cron already retired above, the trigger had gone six days silent
+  # (last run 2026-09-21T12:18:04Z, confirmed against the live run history) —
+  # `session_reaper.py`'s own edits are rare, so the surviving half almost
+  # never fired either. Dropped the `paths:` filter entirely, matching
+  # work-digest.yml's own push-on-main fallback ("the ONLY carrier that can
+  # fire while `main` is quiet" per that file's header) — every push to `main`
+  # now re-reaps, same as every other push-driven producer in this repo.
   push:
     branches: [main]
-    paths:
-      # Re-reap when the registry changes, so a newly-spawned session is graded
-      # without waiting up to 3h for the cron.
-      - 'docs/claude/work/SESSIONS.json'
-      - 'scripts/ops/session_reaper.py'
 
 permissions:
   contents: write

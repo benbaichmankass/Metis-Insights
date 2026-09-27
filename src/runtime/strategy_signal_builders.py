@@ -330,6 +330,11 @@ def _emit_shadow_preds(
             "setup_type": str(meta.get("setup_type") or ""),
             "killzone": str(meta.get("killzone") or ""),
         }
+        # Regime features on the last CLOSED bar — training rows are closed
+        # bars; the live frame ends on the forming one (FIX-CA-23).
+        from src.runtime.closed_bars import drop_forming_bar
+
+        candles_df = drop_forming_bar(candles_df, str(timeframe or ""))
         closes = closes_from_candles(candles_df)
         captured: dict[str, dict[str, Any]] = {}
         for predictor in predictors:

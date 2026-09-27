@@ -5,8 +5,10 @@
 # Exercises the Breakout prop "trade flow" up to and including the
 # notification — ruleset resolution, per-account leg + sizing, ticket render,
 # and the prop_signal fan-out — using a SYNTHETIC, clearly-labelled order.
-# It calls the emitter directly (not the execute path), so NOTHING is
-# journaled and no exchange socket is opened. Safe to run repeatedly.
+# It calls the emitter directly (not the execute path): no trades row, no
+# exchange socket. It journals ONE prop_tickets row as status='test_ping',
+# which the one-ticket-per-trade suppression ignores (FIX-CA-11 — it used to be
+# 'emitted' and could suppress the next real signal). Safe to run repeatedly.
 #
 # Dispatched by the system-actions workflow (issue body:
 #   action: send-prop-test-ping

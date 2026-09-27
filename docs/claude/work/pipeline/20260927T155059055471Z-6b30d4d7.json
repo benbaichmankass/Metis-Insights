@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for AUD-20260927-CA-B01-shadow-gates-read-active-log-only is merged with a test that fails on the old code (detector: Test in tests/ml: plant a rotated .jsonl.gz beside a short active log and assert gate-check drift reference_count / stage_guard drift / attribution n / live_parity n include the archived rows; plus a grep guard that every iter_records(<shadow log>) call site goes through one union helper.), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-3WM5HADW-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B01 (session_01M6NBQHKgKXsvrB3Wm5HAdW), finding AUD-20260927-CA-B01-shadow-gates-read-active-log-only in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B01-shadow-gates-read-active-log-only (evidence field) in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl, re-read ml/cli.py:431; ml/promotion/stage_guard.py:361; ml/promotion/attribution.py:419-421; ml/promotion/live_parity.py:376-401; ml/shadow/drift_retrain.py:144-152 on main, and re-run the stated command / repro in docs/audits/code-audit-2026-09-27/CA-B01-repros/; the finding holds while the quoted code is unchanged."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-20 fixed in PR #13252 (merged = done for this item's clears_when); a test that fails on the old code lands with it — see the PR table",
+  "what": "HIGH (code audit AUD-20260927-CA-B01-shadow-gates-read-active-log-only): Every ml/ consumer of the shadow-prediction log that applies a time window or a minimum n — gate-check's drift_clean (ml/cli.py:431), the fleet stage-guard / promotion-readiness sweep (ml/promotion/stage_guard.py:361), attribution (ml/promotion/attribution.py:419), live_parity (ml/promotion/live_parity.py:385) and drift-retrain (ml/shadow/drift_retrain.py:150) — reads only the ACTIVE log, so the same rotation blind spot #13146 fixed in the /api/bot/shadow/drift router is still live in every promotion/demotion gate; a planted case PASSES drift_clean on the truncated window that FAILS on the full 30d window. LOCATION: ml/cli.py:431; ml/promotion/stage_guard.py:361; ml/promotion/attribution.py:419-421; ml/promotion/live_parity.py:376-401; ml/shadow/drift_retrain.py:144-152. PROPOSED FIX: Move the active+rotated union into ml/shadow/inspector.py (e.g. iter_records_with_archives(log, since=...)) and use it at all 5 call sites (and the 3 CLI shadow-* commands, see shadow-cli-active-log-only); stream with a since-filter rather than list() to avoid re-creating the BL-20260715 memory pattern."
+}

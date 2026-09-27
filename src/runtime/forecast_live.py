@@ -34,7 +34,9 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import threading
+import time
 from typing import Any, Mapping, Sequence
 
 # The fixed forecast feature columns — the single source of truth shared by the
@@ -42,6 +44,7 @@ from typing import Any, Mapping, Sequence
 # list here. ``forecast_features`` is stdlib-only (math + typing), so importing
 # it adds ZERO heavy deps to the live import chain.
 from ml.datasets.forecast_features import FORECAST_FEATURE_COLUMNS
+from src.runtime.closed_bars import TF_SECONDS, _epoch_seconds
 
 
 def forecast_live_disabled() -> bool:
@@ -144,8 +147,93 @@ def _load_artifact(path: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+# --------------------------------------------------------------------------- #
+# bar alignment (FIX-CA-24 / CA-B01-fc-live-no-staleness-check)
+# --------------------------------------------------------------------------- #
+#: How many bars the served forecast may trail the scored bar. The producer
+#: forecasts a bar only after it closes and ict-trainer-publish.timer rsyncs
+#: it up to 2 min later, while the per-bar scorer scores at the close — so the
+#: previous bar's forecast is the normal in-flight case. Anything older means
+#: the producer (or the mirror) stopped; anything NEWER than the scored bar
+#: conditions on data after it (lookahead). Both are refused.
+MAX_FORECAST_LAG_BARS = 1
+
+_counter_lock = threading.Lock()
+_serve_counters: dict[str, int] = {"fc_served": 0, "fc_stale": 0}
+_serve_status: dict[str, dict[str, Any]] = {}
+
+
+def serve_counters() -> dict[str, int]:
+    """Process-lifetime counts of bar-checked serves (copy)."""
+    with _counter_lock:
+        return dict(_serve_counters)
+
+
+def reset_serve_counters() -> None:
+    with _counter_lock:
+        for k in _serve_counters:
+            _serve_counters[k] = 0
+        _serve_status.clear()
+
+
+def _status_path() -> str:
+    """``runtime_logs/forecast_live_status.json`` — NOT under the mirrored
+    forecasts dir, which the trainer rsync owns. ``""`` when unresolvable."""
+    try:
+        from src.utils.paths import runtime_logs_dir
+
+        return str(runtime_logs_dir() / "forecast_live_status.json")
+    except Exception:
+        return ""
+
+
+def _record_serve(symbol: str, *, served: bool, bar_ts: Any, as_of_ts: Any,
+                  lag_bars: int | None) -> None:
+    """Count one bar-checked serve and persist the per-symbol state, so the
+    web API (a different process) can surface the served forecast's age.
+    Best-effort: a write failure never breaks scoring."""
+    with _counter_lock:
+        _serve_counters["fc_served" if served else "fc_stale"] += 1
+        _serve_status[symbol] = {
+            "served": served,
+            "bar_ts": None if bar_ts is None else str(bar_ts),
+            "as_of_ts": None if as_of_ts is None else str(as_of_ts),
+            "lag_bars": lag_bars,
+            "checked_at_epoch_s": time.time(),
+        }
+        payload = {
+            "counters": dict(_serve_counters),
+            "counters_scope": "since trader process start",
+            "max_lag_bars": MAX_FORECAST_LAG_BARS,
+            "symbols": dict(_serve_status),
+        }
+    path = _status_path()
+    if not path:
+        return
+    try:
+        d = os.path.dirname(path) or "."
+        os.makedirs(d, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=d, prefix=".forecast_live_status.", suffix=".tmp")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, sort_keys=True)
+        os.replace(tmp, path)
+    except Exception:
+        pass
+
+
+def _lag_bars(bar_ts: Any, as_of_ts: Any, timeframe: str | None) -> int | None:
+    """Whole bars the forecast trails the scored bar (negative = ahead), or
+    ``None`` when either timestamp or the bar length cannot be read."""
+    tf_s = TF_SECONDS.get(_norm(timeframe))
+    bar_s = _epoch_seconds(bar_ts)
+    as_of_s = _epoch_seconds(as_of_ts)
+    if not tf_s or bar_s is None or as_of_s is None:
+        return None
+    return int(round((bar_s - as_of_s) / tf_s))
+
+
 def compute_live_forecast_row(
-    symbol: str, *, timeframe: str | None = None
+    symbol: str, *, timeframe: str | None = None, bar_ts: Any = None,
 ) -> dict[str, float] | None:
     """The current bar's ``fc_*`` feature dict for ``symbol``, or ``None``.
 
@@ -162,13 +250,19 @@ def compute_live_forecast_row(
     - ``timeframe`` is given AND the artifact was published for a DIFFERENT
       timeframe — a **parity guard** so a (say) 15m forecast is never merged
       onto a head scored on a different cadence; and
-    - the projected row would be empty (no usable ``fc_*`` value).
+    - the projected row would be empty (no usable ``fc_*`` value); and
+    - ``bar_ts`` (the bar being scored) is given AND the artifact's
+      ``as_of_ts`` is not within ``MAX_FORECAST_LAG_BARS`` bars at or before
+      it — counted as ``fc_stale`` (FIX-CA-24).
 
-    No staleness/age drop is applied by default: a missing/refreshed file is the
-    real freshness signal (the producer overwrites the artifact each run and the
-    mirror rsyncs it), and dropping a slightly-old row would only turn a usable
-    forecast into a NaN degrade. (If a bound is ever wanted, add it here as a
-    generous, configurable window — never a tight default.)
+    Staleness is BAR ALIGNMENT, not an age threshold. Until FIX-CA-24 there
+    was no check at all, on the reasoning that "a missing/refreshed file is the
+    real freshness signal" — but a producer that FAILS leaves its last artifact
+    in place (run_forecast_producer.sh exits without touching it), so a dead
+    producer's frozen forecast was served forever with no counter
+    (CA-B01-fc-live-no-staleness-check: a 10-day-old row, reproduced).
+    ``bar_ts=None`` keeps the old unchecked behaviour for callers that have no
+    scored bar (``fc_geometry_soak``).
     """
     if forecast_live_disabled():
         return None
@@ -197,6 +291,13 @@ def compute_live_forecast_row(
     fc_row = artifact.get("fc_row")
     if not isinstance(fc_row, Mapping):
         return None
+    if bar_ts is not None:
+        as_of = artifact.get("as_of_ts")
+        lag = _lag_bars(bar_ts, as_of, timeframe or artifact.get("timeframe"))
+        fresh = lag is not None and 0 <= lag <= MAX_FORECAST_LAG_BARS
+        _record_serve(sym, served=fresh, bar_ts=bar_ts, as_of_ts=as_of, lag_bars=lag)
+        if not fresh:
+            return None
     out: dict[str, float] = {}
     for col in FORECAST_FEATURE_COLUMNS:
         if col in fc_row:
@@ -212,4 +313,7 @@ __all__ = [
     "head_wants_forecast",
     "group_needs_forecast",
     "compute_live_forecast_row",
+    "serve_counters",
+    "reset_serve_counters",
+    "MAX_FORECAST_LAG_BARS",
 ]

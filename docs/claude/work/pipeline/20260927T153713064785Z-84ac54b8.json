@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "session-reaper.yml regains a live automatic trigger — either its schedule cron is restored, or its push-trigger `paths:` list is repointed at a file that actually changes on main, or it is given a push-on-main fallback the way work-digest.yml was given one for the same 2026-09-21 reset",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-NQRDRZWZ-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A14 code-audit-2026-09-27 (docs/audits/code-audit-2026-09-27/CA-A14.findings.jsonl, finding AUD-20260927-CA-A14-session-reaper-dead-trigger)",
+    "rerun": "mcp__github__actions_list list_workflow_runs resource_id=session-reaper.yml -> confirm whether any run newer than id 35598747485 (2026-09-21T12:18:04Z) exists; `git cat-file -e origin/main:docs/claude/work/SESSIONS.json` -> confirm still absent"
+  },
+  "state": "done",
+  "terminal_reason": "Fixed in PR #13247 (FIX-CA-17): dropped the push trigger's `paths:` filter (which named the now-archived docs/claude/work/SESSIONS.json) so every push to main re-reaps, mirroring work-digest.yml's push-on-main fallback. Merge restores the live automatic trigger, which is the whole clears_when.",
+  "what": "session-reaper.yml has fired ZERO times since 2026-09-21T12:18:04Z (131.7h+ as of 2026-09-27T00:00Z, run history total_count=116, last run #116 event=push on the operating-reset commit itself) because that same commit (1) commented out its `schedule: cron '17 */3 * * *'` and (2) its surviving `push:` trigger path-filters on docs/claude/work/SESSIONS.json and scripts/ops/session_reaper.py, but docs/claude/work/SESSIONS.json was archived by the SAME commit and confirmed absent from origin/main (`git cat-file -e` fails). Only workflow_dispatch remains live. Stale/orphaned Claude sessions and lane branches are no longer reaped automatically; nothing else in scope performs this function."
+}

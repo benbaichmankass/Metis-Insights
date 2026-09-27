@@ -74,10 +74,19 @@ if [ "${pre_count}" = "0" ]; then
     exit 0
 fi
 
+# ACTION_APPLY gates dry-run (default) vs the real write (FIX-CA-14 sweep —
+# this wrapper used to pass --apply unconditionally, the same bug class as
+# CA-A10-200 in rebuild_pnl_from_bybit_action.sh).
+ARGS=()
+case "${ACTION_APPLY:-}" in
+    true|True) ARGS+=(--apply) ;;
+    *) ;;
+esac
+
 echo
-echo "===== backfill_monitor_closed_pnl.py --apply ====="
+echo "===== backfill_monitor_closed_pnl.py ${ARGS[*]:-(dry-run)} ====="
 set +e
-TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" --apply
+TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" ${ARGS[@]+"${ARGS[@]}"}
 exit_code=$?
 set -e
 

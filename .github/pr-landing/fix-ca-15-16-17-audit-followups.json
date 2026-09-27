@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI-tooling + workflow-trigger + test changes only (scripts/ops/status_check.sh, scripts/ci/*, .github/workflows/*.yml, tests/*, docs/claude/work/pipeline/*.json) -- no runtime order-path, no live-VM mutation, no config/strategies.yaml or accounts.yaml change. Dispatched as a Tier-1 fix lane under the manager for FIX-CA-15/16/17 (docs/audits/code-audit-2026-09-27.md sec 5)."
+}

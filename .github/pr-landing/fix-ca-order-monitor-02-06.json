@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges under the data-backed Tier-2/3 authority (audit brief evidence)",
+  "why": "FIX-CA-02..06 from docs/audits/code-audit-2026-09-27.md §5: order-path changes in src/runtime/order_monitor.py (package close leg selection, venue-closed DB-write retry, not_found orphaning, package cascades, Bybit naked-sweep refusals + per-book re-arm), plus src/runtime/bybit_position_book.py and src/runtime/execution_diagnostics.py. Every brief is Tier 2 (FIX-CA-06 Part A alone is Tier 1). Lane dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ: do not merge or deploy."
+}

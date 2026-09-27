@@ -334,6 +334,21 @@ def _load_env_accounts(repo_root: Optional[str] = None) -> List[Dict[str, Any]]:
     return out
 
 
+def accounts_yaml_read_errors() -> List[Dict[str, Any]]:
+    """Errors from reading ``accounts.yaml`` (``[]`` = read cleanly or absent).
+
+    ``list_accounts`` swallows a parse/import failure to ``[]``, which is
+    indistinguishable from "no accounts configured". A caller that must tell
+    *could not look* from *looked, found none* (the token-gated venue diag
+    routes, FIX-CA-12) asks this when ``list_accounts`` comes back empty.
+    Each entry is ``{"path": str, "error": str}``.
+    """
+    from src.config.accounts_loader import load_accounts_dict
+    errors: List[Dict[str, Any]] = []
+    load_accounts_dict(ACCOUNTS_YAML_PATH, errors=errors)
+    return errors
+
+
 def list_accounts() -> List[Dict[str, Any]]:
     """Return all configured accounts.
 

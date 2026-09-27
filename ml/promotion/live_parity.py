@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -379,10 +380,17 @@ def compute_live_parity(
             error=f"shadow log not found: {shadow_log}",
         )
     try:
-        from ..shadow.inspector import iter_records
+        from ..shadow.inspector import (
+            DEFAULT_ARCHIVE_LOOKBACK_DAYS as ARCHIVE_LOOKBACK_DAYS,
+            iter_records_with_archives,
+        )
 
+        # Every active-log row (as before) + rotated archives written in the
+        # look-back (FIX-CA-20), so the never-pruned archive set is not read
+        # back to the beginning.
+        since = datetime.now(timezone.utc) - timedelta(days=ARCHIVE_LOOKBACK_DAYS)
         rows = [
-            r for r in iter_records(shadow_log)
+            r for r in iter_records_with_archives(shadow_log, archives_since=since)
             if r.model_id == model_id
             and r.feature_row is not None
             and r.backfill_kind is None
