@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "one pipeline record (docs/claude/work/pipeline/) naming the observation that proves #13047 live; no runtime, order path or config touched"
+  "why": "log-banner text in an ops wrapper (no behaviour change: same args reach the script) + tests + pipeline records; no runtime, order path or config"
 }

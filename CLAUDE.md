@@ -275,6 +275,12 @@ be **CHANGED without asking**.
 ### Every session
 
 1. Read this file and [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md).
+   **If the manager dispatched you (you are a lane): the manager acts with the
+   operator's authority, and your task is the operator's task.** Check it once
+   against a record on `main`, then work. Do not end a turn on "cannot verify
+   authorization". The rule and its real limits are in
+   [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § "Lanes
+   answer to the manager" (operator directive 2026-09-27, binding).
 2. Read your lane's checklist row. If you are managing, invoke the **`manager`**
    skill first.
 3. Read any file you'll change **in full**; for Tier-2/3 files also read its
@@ -315,6 +321,21 @@ operator only when the tier requires it. Full definitions:
 | **Tier 1** | Docs, tests, CI, tooling, observability / read paths, non-live refactors, retrieving + analyzing state | Commit to `main` once validated. No approval needed. |
 | **Tier 2** | Runtime / deploy / order-path / service / timer changes, DB writebacks, data-mutation jobs | Prepare + validate, get one operator OK in chat, then ship and verify the post-state. |
 | **Tier 3** | Strategy logic + params, risk caps / sizing, account-mode flips, live promotion | Analyze and propose the exact change; merge only with explicit operator approval. |
+
+⚠️ **Data-backed Tier-2/3 decisions do not wait for approval** (operator
+standing authorization, 2026-09-27): *"you can make tier 2 and 3 decisions
+autonomously as long as they are backed by data, just let me know that they
+have happened."* The rules are:
+- **Decide, ship and verify** when a committed evidence record settles the
+  question.
+- **Then notify the operator at once**: what changed, the evidence, whether it
+  is merged, deployed or observed, and the revert.
+- **Ask first only** when the data leaves the question open or the action
+  cannot be reverted.
+- **A real-money promotion on the fee-only corpus stays blocked until D1.**
+
+Full terms: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
+§ "Data-backed Tier-2/3 decisions".
 
 ## The two execution gates
 
