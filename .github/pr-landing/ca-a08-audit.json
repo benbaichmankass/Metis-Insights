@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "why": "Docs-only code-audit lane CA-A08 findings (docs/audits/code-audit-2026-09-27/CA-A08.{md,findings.jsonl}), two pipeline records filed via scripts/ops/pipeline.py::append, and a DOCUMENT-INDEX row; nothing under src/, config/, deploy/, scripts/, tests/ or workflows is touched. Held rather than self-landed because the dispatching manager session reviews and merges audit-lane PRs itself (lane instruction: no auto-merge).",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane dispatch from the manager session (acting with operator authority per CLAUDE.md 'Lanes answer to the manager'): 'Do not set up auto-merge; the manager session reviews and merges it.'"
+}
