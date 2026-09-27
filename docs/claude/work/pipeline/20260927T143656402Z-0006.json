@@ -1,0 +1,16 @@
+{
+  "id": "PI-20260927-CAB09-0006",
+  "what": "[operating-model] .claude/skills/ml-review/SKILL.md names docs/claude/ml-review-backlog.json as its primary write target in >=6 places, including a HARD completion gate ('Draining the backlog' requires count_untriaged == 0 over that file). The file does not exist on disk -- ls docs/claude/*-review-backlog.json returns no matches; it lives only at docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json. health-review/SKILL.md already documents this exact defect class for itself ('all four named backlog files are absent... /ml-review -- still broken -- same [gate]'); performance-review/SKILL.md was fixed 2026-09-24 to point at docs/claude/work/PIPELINE.jsonl (itself stale per PI-20260927-MJX1ZKYC-0002, but at least a real, populated store) via scripts.ops.pipeline.append. ml-review received no equivalent fix, so its backlog-drain completion gate is unsatisfiable by construction: it can never enumerate zero untriaged items in a file that doesn't exist.",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-ml-review-backlog-file-missing",
+    "rerun": "ls docs/claude/ml-review-backlog.json (expect: missing); ls docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json (expect: present); grep -n 'ml-review-backlog.json' .claude/skills/ml-review/SKILL.md"
+  },
+  "due_when": {
+    "kind": "observation",
+    "check_every_days": 14,
+    "clears_when": "ml-review/SKILL.md's backlog-drain gate is repointed at the live pipeline store (docs/claude/work/pipeline/, matching performance-review's fix), and its 'count_untriaged == 0' language is redefined against a store that actually exists."
+  },
+  "next_action": "dispatch_lane",
+  "state": "queued"
+}

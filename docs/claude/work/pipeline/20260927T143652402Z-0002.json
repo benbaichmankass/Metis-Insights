@@ -1,0 +1,16 @@
+{
+  "id": "PI-20260927-CAB09-0002",
+  "what": "[operating-model] .claude/skills/system-report/SKILL.md (a live, catalog-listed skill) instructs a session to 'invoke /system-review and follow .claude/skills/system-review/SKILL.md verbatim'. .claude/skills/system-review/ does not exist on disk -- it is one of the ten skills CLAUDE.md's 2026-09-21 reset says were retired and archived to docs/archive/2026-09-21-operating-reset/skills/system-review/. .claude/settings.json's own SessionStart hook text says plainly '(The /system-review roll-up is RETIRED and archived; do not invoke it.)'. Invoking /system-report today points a session at a file that isn't there.",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-system-report-dangling-pointer",
+    "rerun": "test -f .claude/skills/system-review/SKILL.md (expect: missing); cat .claude/skills/system-report/SKILL.md"
+  },
+  "due_when": {
+    "kind": "observation",
+    "check_every_days": 14,
+    "clears_when": "system-report/SKILL.md either redirects to the three live review skills (health-review, performance-review, ml-review) per CLAUDE.md's 'the three reviews stay separate' section, or is itself retired/archived to match system-review."
+  },
+  "next_action": "dispatch_lane",
+  "state": "queued"
+}
