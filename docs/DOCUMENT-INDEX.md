@@ -839,6 +839,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/real-money-0for13-attribution-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/real-money-close-attribution-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/recombination-sweep-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/recurring-validations-audit-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/regime-cell-walkforward-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/regime-conditional-strategy-weighting-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/regime-coverage-debt-analysis-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
