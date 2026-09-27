@@ -102,6 +102,34 @@ def test_scores_and_dedups_per_bar(tmp_path, monkeypatch):
     assert rec["feature_row"]["age_bars"] > 0
 
 
+def test_twin_account_sharing_one_package_both_get_the_verdict(
+        tmp_path, monkeypatch):
+    """PI-20260926-96NDZSOD-0001 — Stage-2 mirror pairs (e.g. bybit_2 +
+    bybit_portfolio) fan ONE order_package_id out to TWO accounts, so the
+    monitor calls this function twice for the identical bar. Before the fix,
+    the second call's dedup key was already "seen" (a bare set) and it
+    returned None — so `exit_head_apply.exit_head_verdict` (which treats
+    rec=None as "no verdict") never closed the mirror leg, even though its
+    twin got a real score. The two calls here simulate exactly that: same
+    meta/pkg/df/direction (nothing distinguishes which account is calling,
+    matching the repro filed on the PI), standing in for two accounts."""
+    logs = _artifact(tmp_path, monkeypatch)
+    df, entry_time = _frame()
+    meta, pkg = _pkg(entry_time)
+    first = ehs.maybe_score_exit_head(meta, pkg, df, "long")
+    second = ehs.maybe_score_exit_head(meta, pkg, df, "long")
+    assert first is not None
+    assert second is not None, (
+        "the second account sharing this order_package_id must get the "
+        "SAME verdict as the first, not a starved None"
+    )
+    assert second == first
+    # Still exactly one score computed and one log line written — the fix
+    # caches the record, it does not re-score or duplicate the log.
+    lines = (logs / ehs.SHADOW_LOG_NAME).read_text().strip().splitlines()
+    assert len(lines) == 1
+
+
 def test_would_exit_writes_soak_row(tmp_path, monkeypatch):
     logs = _artifact(tmp_path, monkeypatch, tau=1.01)  # always would-exit
     df, entry_time = _frame()
