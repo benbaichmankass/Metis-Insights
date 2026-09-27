@@ -1,0 +1,27 @@
+import sys, json, math, os, tempfile, sqlite3, random
+sys.path.insert(0, "/home/user/Metis-Insights"); sys.path.insert(0, "/home/user/Metis-Insights/scripts/ml")
+from datetime import datetime, timedelta, timezone
+import pandas as pd
+from ml.datasets.backtest_recorder import write_backtest_trades
+from record_harness_trades import harness_row_to_sim_trade
+from ml.datasets.families.setup_candidates import SetupCandidatesBuilder
+random.seed(1)
+d=tempfile.mkdtemp(); px=100.0; rows=[]
+t0=datetime(2025,1,1,tzinfo=timezone.utc)
+for i in range(200):  # 1h bars, Bybit-adapter ts form (…Z = bar OPEN time)
+    o=px; c=o*math.exp(random.gauss(0,0.01)); rows.append({"ts":(t0+timedelta(hours=i)).isoformat().replace("+00:00","Z"),"symbol":"BTCUSDT","timeframe":"1h","source":"bybit_v5_offvm","open":o,"high":max(o,c)*1.002,"low":min(o,c)*0.998,"close":c,"volume":1}); px=c
+open(os.path.join(d,"data.jsonl"),"w").write("\n".join(json.dumps(r) for r in rows))
+db=os.path.join(d,"j.db"); con=sqlite3.connect(db)
+con.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, symbol TEXT, direction TEXT, entry_price REAL, exit_price REAL, stop_loss REAL, take_profit_1 REAL, take_profit_2 REAL, take_profit_3 REAL, position_size REAL NOT NULL, setup_type TEXT, killzone TEXT, bias TEXT, entry_reason TEXT, exit_reason TEXT, pnl REAL, pnl_percent REAL, status TEXT, notes TEXT, is_backtest INT, strategy_name TEXT, account_id TEXT, is_demo INT, order_package_id INT, created_at TEXT)")
+# LIVE trade: production writer form datetime.now(timezone.utc).isoformat() — entered 10:05 into the 2025-01-05T10:00 bar
+live_ts=datetime(2025,1,5,10,5,17,123456,tzinfo=timezone.utc).isoformat()
+con.execute("INSERT INTO trades(notes,timestamp,symbol,direction,entry_price,stop_loss,position_size,pnl,pnl_percent,status,is_backtest,is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",(json.dumps({"pnl_source":"exchange"}),live_ts,"BTCUSDT","long",100,99,1,5.0,1.0,"closed",0,0))
+con.commit(); con.close()
+# BACKTEST trade: harness emits entry_time=str(pd.Timestamp) (scripts/backtest_squeeze.py:289)
+ht=str(pd.Timestamp("2025-01-05 10:00", tz="UTC"))
+st=harness_row_to_sim_trade({"entry_time":ht,"exit_time":ht,"direction":"long","net_r":1.2,"entry":100,"sl":99},symbol="BTCUSDT",default_strategy="squeeze_breakout_4h")
+write_backtest_trades(db,[st],run_tag="t")
+print("backtest timestamp stored:", sqlite3.connect(db).execute("select timestamp from trades where is_backtest=1").fetchone()[0])
+print("live     timestamp stored:", live_ts)
+for r in SetupCandidatesBuilder().iter_rows(market_raw_path=d, live_trades_db=db, backtest_trades_db=db, include_cusum=False):
+    print(r["event_source"], "-> feature bar ts", r["ts"], "hour_of_day", r["hour_of_day"], "dayofweek", r["dayofweek"], "log_return", round(r["log_return"],5))

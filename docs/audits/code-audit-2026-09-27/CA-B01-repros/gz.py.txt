@@ -1,0 +1,28 @@
+import json, gzip, sys, tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+sys.path.insert(0, "/home/user/Metis-Insights")
+from ml.shadow.inspector import iter_records, rotated_log_paths
+d = Path(tempfile.mkdtemp(dir="/tmp/claude-0/audit-scratch"))
+active = d/"shadow_predictions.jsonl"; active.write_text("")
+lines = "".join(json.dumps({"predicted_at_utc": datetime(2026,9,1,h,tzinfo=timezone.utc).isoformat(),"model_id":"m","stage":"shadow","score":0.5,"row_keys":[]})+"\n" for h in range(24))*50
+plain = d/"shadow_predictions.2026-09-26.jsonl"; plain.write_text(lines)
+gzp = d/"shadow_predictions.2026-09-26.jsonl.gz"
+with gzip.open(gzp,"wb") as f: f.write(lines.encode())
+full = gzp.read_bytes(); gzp.write_bytes(full[: len(full)//2])   # gzip interrupted mid-write (rotate.py gzip_failed path leaves it)
+print("paths:", [p.name for p in rotated_log_paths(active)])
+n=0
+try:
+    for p in [active,*rotated_log_paths(active)]:
+        for r in iter_records(p): n+=1
+    print("n=",n)
+except Exception as e:
+    print("RAISED", type(e).__name__, e, "after n=", n)
+# duplicate case: complete gz + plain both present
+with gzip.open(gzp,"wb") as f: f.write(lines.encode())
+n = sum(1 for p in [active,*rotated_log_paths(active)] for _ in iter_records(p))
+print("plain+gz both present: records read =", n, "true unique =", lines.count("\n"))
+# ordering of same-day rotations
+for nm in ["shadow_predictions.2026-09-26.1.jsonl.gz","shadow_predictions.2026-09-26.10.jsonl.gz","shadow_predictions.2026-09-26.2.jsonl.gz"]:
+    (d/nm).write_bytes(b"")
+print("order:", [p.name for p in rotated_log_paths(active)])

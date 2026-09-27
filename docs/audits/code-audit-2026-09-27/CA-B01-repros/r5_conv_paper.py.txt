@@ -1,0 +1,12 @@
+import sys, os, sqlite3, tempfile, json
+sys.path.insert(0, "/home/user/Metis-Insights")
+from ml.datasets.families.conviction_meta import ConvictionMetaBuilder
+d=tempfile.mkdtemp(); db=os.path.join(d,"j.db"); c=sqlite3.connect(db)
+c.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY, order_package_id TEXT, status TEXT, is_backtest INT, is_demo INT, account_class TEXT, pnl REAL, pnl_percent REAL, notes TEXT)")
+c.execute("CREATE TABLE order_packages (order_package_id TEXT, strategy_name TEXT, symbol TEXT, direction TEXT, confidence REAL, signal_logic TEXT, meta TEXT, model_scores TEXT, created_at TEXT)")
+for i,(demo,cls) in enumerate([(0,"real"),(1,"paper"),(0,"paper")]):
+    c.execute("INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?)",(i+1,f"op{i}","closed",0,demo,cls,1.0,0.5,json.dumps({"pnl_source":"exchange"})))
+    c.execute("INSERT INTO order_packages VALUES (?,?,?,?,?,?,?,?,?)",(f"op{i}","ict_scalp","BTCUSDT","long",0.6,"{}","{}","{}","2026-01-0%dT00:00:00+00:00"%(i+1)))
+c.commit()
+rows=list(ConvictionMetaBuilder().iter_rows(db_path=db, exclude_fabricated_pnl=True))
+print("rows:", len(rows), [(r["trade_id"], r["source"]) for r in rows], "(trade 2 is_demo=1, trade 3 account_class=paper)")

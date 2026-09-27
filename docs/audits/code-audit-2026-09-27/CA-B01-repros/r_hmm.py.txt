@@ -1,0 +1,23 @@
+import random
+from ml.trainers.causal_hmm_regime import CausalHMMRegimeTrainer
+from ml.predictors.causal_hmm_regime import CausalHMMRegimePredictor
+random.seed(1)
+rows=[];s=0
+for t in range(400):
+    if random.random()<0.05: s=1-s
+    v=random.gauss(1.0 if s==0 else 3.0,0.3)
+    rows.append({"ts":f"2026-01-01T{t:05d}","yang_zhang_vol":v,"regime_label":"range" if s==0 else "volatile"})
+st=CausalHMMRegimeTrainer().fit(rows,{"feature_columns":["yang_zhang_vol"],"n_states":2})
+seq=[{"ts":f"2026-02-01T{t:05d}","yang_zhang_vol":3.0} for t in range(10)]
+seq.append({"ts":"2026-02-01T00010","yang_zhang_vol":2.0})  # ambiguous bar after 10 volatile bars
+a=CausalHMMRegimePredictor(st)
+for r in seq: pa=a.predict_proba(r)
+print("single-call per bar  P(volatile) at ambiguous bar:", round(pa["volatile"],4))
+b=CausalHMMRegimePredictor(st)
+for r in seq:
+    pb=b.predict_proba(r); lb=b.predict_label(r)   # proba then label on SAME row
+print("proba+label per bar: alpha after 2nd call reset? P(volatile) now:", round(b.predict_proba({"ts":"2026-02-01T00010","yang_zhang_vol":2.0})["volatile"],4))
+c=CausalHMMRegimePredictor(st)
+print("fresh predictor, same ambiguous bar (no history):", round(c.predict_proba(seq[-1])["volatile"],4))
+print("row with NO hmm features (trade-signal row):", {k:round(v,3) for k,v in CausalHMMRegimePredictor(st).predict_proba({"ts":"x","symbol":"BTCUSDT"}).items()})
+print("has regime_spec attr:", hasattr(a,"regime_spec"))
