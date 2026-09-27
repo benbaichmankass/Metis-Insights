@@ -559,3 +559,5 @@ jobs:
               state: 'closed',
               state_reason: 'not_planned'
             });
+
+# no-durable-result: diag relay, no verdict computed

@@ -287,3 +287,5 @@ jobs:
             }
             await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
             await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: "closed" });
+
+# no-durable-result: ML training run tracked by the model registry/gpu spend ledger, not the research/results queue

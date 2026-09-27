@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "backfill_monitor_closed_pnl.py::_plan_row refuses (or flags for manual review) a recovered closed_pnl whose sign contradicts the trade's own entry->exit price move, the same way backfill_orphan_pnl.py::_plan_row already does — ported verbatim or via a shared helper so the two cannot drift apart again.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-MJX1ZKYC-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A11 / docs/audits/code-audit-2026-09-27/CA-A11.findings.jsonl#AUD-20260927-CA-A11-backfill-monitor-sign-guard",
+    "rerun": "diff <(sed -n '/Sign-consistency sanity guard/,/except (TypeError, ValueError):/p' scripts/ops/backfill_orphan_pnl.py) <(sed -n '/def _plan_row/,/return updates, None/p' scripts/ops/backfill_monitor_closed_pnl.py) | grep -c 'Sign-consistency' -- if 0, the guard is still absent from backfill_monitor_closed_pnl.py"
+  },
+  "state": "queued",
+  "what": "[trading-correctness] scripts/ops/backfill_monitor_closed_pnl.py::_plan_row writes Bybit-recovered pnl/exit_price directly with NO sign-consistency guard, while its sibling backfill_orphan_pnl.py::_plan_row (calling the SAME account_closed_pnl_for_trade lookup) has an explicit guard added 2026-06-20 after a real incident where the lookup returned a mismatched record (every long on a demo account resolving to an identical +3847.29 regardless of actual exit). This script is dispatchable for real accounts via the system-actions workflow (`backfill-monitor-closed-pnl` -> backfill_monitor_closed_pnl_action.sh --apply), so the same failure mode can write a fabricated profit/loss to a real trade's pnl/exit_price with no defense. Filed by code-audit lane CA-A11 (docs/audits/code-audit-2026-09-27/CA-A11.findings.jsonl, finding AUD-20260927-CA-A11-backfill-monitor-sign-guard)."
+}

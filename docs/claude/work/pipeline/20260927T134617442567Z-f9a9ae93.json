@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for AUD-20260927-CA-B01-fc-live-no-staleness-check is merged with a test that fails on the old code (detector: tests/runtime/test_forecast_live.py: artifact with an old as_of_ts must return None.), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-3WM5HADW-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B01 (session_01M6NBQHKgKXsvrB3Wm5HAdW), finding AUD-20260927-CA-B01-fc-live-no-staleness-check in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B01-fc-live-no-staleness-check (evidence field) in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl, re-read src/runtime/forecast_live.py:185-199 (consumer of ml/datasets/forecast_features.py output) on main, and re-run the stated command / repro in docs/audits/code-audit-2026-09-27/CA-B01-repros/; the finding holds while the quoted code is unchanged."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit AUD-20260927-CA-B01-fc-live-no-staleness-check): compute_live_forecast_row merges the published fc_row whatever its age and never compares artifact['as_of_ts'] with the bar being scored, so if the trainer-side forecast producer stops, the two live advisory fc-pcv-v2 heads keep scoring 6 of their 13 features on one frozen forecast with no counter or alarm. LOCATION: src/runtime/forecast_live.py:185-199 (consumer of ml/datasets/forecast_features.py output). PROPOSED FIX: Pass the expected bar_ts into compute_live_forecast_row, return None and count fc_stale when it does not match; surface the served forecast age on /api/bot/shadow/*."
+}

@@ -1,0 +1,34 @@
+import sys, time
+sys.path.insert(0, "/home/user/Metis-Insights")
+from datetime import datetime, timezone, timedelta
+import pandas as pd
+import src.runtime.regime_shadow as rs
+from src.runtime import regime_bar_scoring as rbs
+
+now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0, tzinfo=None)
+# 25 CLOSED 1h bars with a 2% range + 1 FORMING bar opened 5 min ago with a tiny range
+rows=[]; px=100.0
+start = now - timedelta(hours=25)
+for k in range(25):
+    o=px; c=px*(1.01 if k%2 else 0.99); rows.append([start+timedelta(hours=k), o, max(o,c)*1.005, min(o,c)*0.995, c, 1.0]); px=c
+forming_ts = start+timedelta(hours=25)
+rows.append([forming_ts, px, px*1.0001, px*0.9999, px*1.00005, 0.1])
+df = pd.DataFrame(rows, columns=["timestamp","open","high","low","close","volume"])
+nn=datetime.now(timezone.utc).replace(tzinfo=None); print("last row ts", df.timestamp.iloc[-1], "now", nn, "bar still open:", df.timestamp.iloc[-1]+timedelta(hours=1) > nn)
+
+class P:  # stub regime predictor
+    model_id="stub-regime"; stage="shadow"
+    regime_spec={"symbol":"BTCUSDT","timeframe":"1h","vol_bucket_labels":["vol_b0","vol_b1","vol_b2"],"vol_bucket_edges":[0.005,0.015],"vol_window_n":20}
+captured={}
+orig=rs.feature_row_for_predictor
+def spy(pred, base_row, **kw):
+    r=orig(pred, base_row, **kw); captured['row']=r; captured['n']=len(kw['closes']); return None
+rs.feature_row_for_predictor=spy
+rbs.emit_regime_bar_predictions(predictors=[P()], fetch_fn=lambda s,t: df, seen={}, wall_cache={})
+r=captured['row']
+print("closes scored:", captured['n'], "(frame rows:", len(df), ")")
+print("served log_return (forming bar):", round(r['log_return'],6), " parkinson_vol:", round(r['parkinson_vol'],6), " hour_of_day:", r['hour_of_day'])
+closed=df.iloc[:-1]
+o,h,l,c=[closed[x].tolist() for x in ("open","high","low","close")]
+rc=rs.build_parity_feature_row(o,h,l,c,20,rolling_vol=rs.rolling_log_return_vol(c,20),hour_of_day=0,dayofweek=0)
+print("last-CLOSED-bar log_return:", round(rc['log_return'],6), " parkinson_vol:", round(rc['parkinson_vol'],6))

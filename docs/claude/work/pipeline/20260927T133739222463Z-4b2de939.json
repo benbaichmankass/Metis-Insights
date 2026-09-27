@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "scripts/ops/rebuild_pnl_from_bybit_action.sh only passes --apply when the issue body sets apply: true, defaulting to the python helper's own dry-run preview, merged AND deployed; docs/claude/system-actions.md's §2 allowlist table carries a full row for rebuild-pnl-from-bybit matching its siblings.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-R1DJ7SUQ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A10 (session session_016shE4tRmBjWERor1Dj7Suq), finding CA-A10-200",
+    "rerun": "grep -n 'apply' scripts/ops/rebuild_pnl_from_bybit_action.sh -- the finding holds while it passes `--apply` to rebuild_pnl_from_bybit.py unconditionally, with no preceding `case \"${ACTION_APPLY:-}\" in true|True) ...` gate in the same file (compare against scripts/ops/backfill_pnl_nulls_action.sh, which has one)."
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "HIGH (code audit CA-A10-200, MEASURED 2026-09-27): scripts/ops/rebuild_pnl_from_bybit_action.sh hardcodes `--apply` on every dispatch of the `rebuild-pnl-from-bybit` Tier-2 system action, with no ACTION_APPLY gate anywhere in the file -- unlike every other Tier-2 money-DB-writing sibling wrapper in scope (mark-operator-flattened, reconcile-netting-rows, repair-netted-rows, repair-malformed-notes, the supersede-* actions, reconcile-orphan-history, fix-prop-mislinked-close, reattach-stranded-package-legs), all of which require an explicit `apply: true` in the issue body before writing and default to a dry-run preview. rebuild_pnl_from_bybit.py's own argparse defines --apply as store_true (default dry-run) -- the python helper is dry-run-safe by design; the bash wrapper is what removes that safety, so every dispatch immediately rewrites the matched rows' pnl/exit_price/pnl_percent/notes for the given account/window with no preview step. The action also has zero row in docs/claude/system-actions.md's §2 allowlist table (only a bare Tier-2 bullet in §3), so this gap was undocumented anywhere a session or the operator would naturally look before dispatching it. Full finding + evidence: docs/audits/code-audit-2026-09-27/CA-A10.findings.jsonl id CA-A10-200. Proposed fix: add the same ACTION_APPLY case-gate every sibling wrapper already uses, and a full §2 table row."
+}

@@ -1,0 +1,26 @@
+import json, os, tempfile, sys
+sys.path.insert(0, '.')
+from ml.datasets.forecast_features import compute_forecast_feature_rows, DEFAULT_STRIDE
+import src.runtime.forecast_live as fl
+
+# R1: stale artifact served with no as_of check
+d = tempfile.mkdtemp()
+art = {"symbol":"BTCUSDT","timeframe":"15m","as_of_ts":"2026-09-17 10:15:00",
+       "generated_at":"2026-09-17T10:16:00Z",
+       "fc_row":{"fc_ret_med":0.004,"fc_range_rel":0.01,"fc_up_prob":1.0,"fc_skew":0.1,"fc_q10_rel":-0.003,"fc_q90_rel":0.007}}
+json.dump(art, open(os.path.join(d,"BTCUSDT.json"),"w"))
+fl._forecasts_dir = lambda: d
+print("R1 served 10-day-old row:", fl.compute_live_forecast_row("BTCUSDT", timeframe="15m"))
+
+# R2: batch forecaster failure -> neutral rows emitted (not skipped), no flag
+rows = [{"ts": f"2026-01-01T{h:02d}:{m:02d}:00Z", "close": 100+i} for i,(h,m) in enumerate([(h,m) for h in range(24) for m in (0,15,30,45)][:96])]
+def boom(w,h,q): raise RuntimeError("chronos OOM")
+out = compute_forecast_feature_rows(rows, forecast_fn=boom)
+print("R2 rows emitted on total forecaster failure:", len(out), "all-zero:", all(all(r[c]==0.0 for c in r if c!='ts') for r in out))
+def ok(w,h,q): return [{0.1:x[-1]*0.99,0.5:x[-1]*1.001,0.9:x[-1]*1.01} for x in w]
+good = compute_forecast_feature_rows(rows, forecast_fn=ok)
+print("R2 rows emitted on success:", len(good))
+
+# R3: stride carry-forward: fraction of training bars whose fc is from THIS bar
+emitted = {r['ts'] for r in good}
+print(f"R3 stride={DEFAULT_STRIDE}: bars with same-bar forecast {len(emitted & {r['ts'] for r in rows})}/{len(rows)}; others carry a 1-3 bar old forecast in training, live always serves the latest bar")

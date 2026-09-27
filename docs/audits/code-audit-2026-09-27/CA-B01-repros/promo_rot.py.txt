@@ -1,0 +1,39 @@
+import json, gzip, random, sqlite3
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from src.runtime.provenance import MEASURED_SOURCES
+SRC=sorted(MEASURED_SOURCES)[0]
+from ml.shadow.inspector import iter_records, rotated_log_paths
+from ml.promotion.stage_guard import _drift_for_model, propose_for_model
+from ml.promotion.attribution import compute_attribution, load_closed_trades, iter_shadow_records, join_scores_to_trades, aggregate_attribution
+d = Path("/tmp/claude-0/audit-scratch/promo-lane/rot"); d.mkdir(parents=True, exist_ok=True)
+for f in d.iterdir(): f.unlink()
+now = datetime.now(timezone.utc); random.seed(0)
+def rec(t, s, sym="BTCUSDT"):
+    return json.dumps({"model_id":"m1","stage":"advisory","score":s,"predicted_at_utc":t.isoformat(),"feature_row":{"symbol":sym}})
+arch = [rec(now-timedelta(days=30)+timedelta(hours=h), random.random()) for h in range(0, 27*24)]
+act = [rec(now-timedelta(days=3)+timedelta(hours=h), random.random()) for h in range(0, 3*24)]
+with gzip.open(d/"shadow_predictions.2026-09-24.jsonl.gz","wt") as fh: fh.write("\n".join(arch)+"\n")
+(d/"shadow_predictions.jsonl").write_text("\n".join(act)+"\n")
+active = list(iter_records(d/"shadow_predictions.jsonl"))
+allr = active + [r for p in rotated_log_paths(d/"shadow_predictions.jsonl") for r in iter_records(p)]
+print("rows active-only", len(active), "active+archives", len(allr))
+print("drift active-only (stage_guard/gate-check):", _drift_for_model(active,"m1",reference_days=30,current_days=7))
+dr = _drift_for_model(allr,"m1",reference_days=30,current_days=7)
+print("drift with archives:", None if dr is None else (dr.overall_verdict, round(dr.ks,3)))
+class E: model_id="m1"; target_deployment_stage="advisory"; metrics={}; manifest={}; runs=(); stage_history=()
+p = propose_for_model(E(), attribution=None, drift=None)
+print("advisory proposal w/ drift=None, attribution=None:", p.action, p.reasons)
+db = d/"tj.db"; c = sqlite3.connect(db)
+c.execute("create table trades(id integer primary key, symbol text, pnl real, pnl_percent real, status text, timestamp text, notes text, is_backtest int, is_demo int)")
+c.execute("create table order_packages(linked_trade_id int, updated_at text)")
+for i in range(29):
+    o = now-timedelta(days=29-i)-timedelta(minutes=30); cl = o+timedelta(minutes=90)
+    c.execute("insert into trades values(?,?,?,?,?,?,?,0,0)",(i,"BTCUSDT",(1 if i%2 else -1),0,"closed",o.isoformat(),json.dumps({"closed_at":cl.isoformat(),"exit_price_source":SRC,"pnl_source":SRC})))
+    c.execute("insert into order_packages values(?,?)",(i,cl.isoformat()))
+c.commit()
+a = compute_attribution(db_path=db, shadow_log=d/"shadow_predictions.jsonl")
+print("attribution n (active only, as compute_attribution):", [x.n for x in a])
+tr = load_closed_trades(db)
+paths=[d/"shadow_predictions.jsonl"]+rotated_log_paths(d/"shadow_predictions.jsonl")
+print("closed trusted trades:", len(tr), "attribution n (active+archives):", [x.n for x in aggregate_attribution(join_scores_to_trades(tr, iter_shadow_records(*paths)))])

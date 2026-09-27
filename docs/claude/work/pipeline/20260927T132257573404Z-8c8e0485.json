@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the rerun yields could_not_look, with a test asserting it, merged AND deployed",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-ENGC5EUD-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A03 (session_01RjVA2i43wfnwqFEnGc5euD), finding AUD-20260927-CA-A03-closed-flat-partial-read-grades-flat",
+    "rerun": "Build a fake bybit client whose settleCoin get_positions returns [] and whose symbol-scoped read raises; call clients.account_open_positions and closed_flat_invariant._fetch_exchange_residual for that symbol. The finding holds while the result is residual_state='flat'."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-A03): the closed->flat invariant grades a symbol `flat` when Bybit's settleCoin page omits it AND the per-symbol cross-check fails: clients.account_open_positions logs the failure and continues (clients.py ~1537-1538, 1663-1687), returning [], and closed_flat_invariant._fetch_exchange_residual (closed_flat_invariant.py ~360-383) treats any list as a real read -> ResidualRead(residual_state='flat'). A non-dict resp also yields []/flat. Contradicts the module's own 'A failure grades could_not_look -- NOT flat'. The settleCoin omission has occurred before on real-money bybit_2 (BL-20260713). Alert-only path: a residual position after a close goes unflagged. FIX (Tier-2): propagate per-symbol query failure from account_open_positions (it already records obs['queries']) and grade could_not_look; add a test with a client whose symbol-scoped read raises."
+}

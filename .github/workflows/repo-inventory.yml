@@ -82,3 +82,5 @@ jobs:
         if: always()
         run: |
           echo "::notice::repo-inventory is advisory; not gating PR merge."
+
+# no-durable-result: explicitly ADVISORY ONLY per its own header; a repo-hygiene inventory, not a research verdict

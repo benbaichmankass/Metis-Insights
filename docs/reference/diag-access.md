@@ -74,7 +74,9 @@ themselves** (the repo Actions secret, and the consuming environment's
 `DIAG_READ_TOKEN`); `set-diag-token` then pushes it to the VM, moving it
 one way only and never handing it back.
 
-🛑 **THE DIAG-TOKEN ROTATION QUESTION IS CLOSED — DO NOT RAISE IT.** Operator
+🔄 **REOPENED 2026-09-27 by the operator** (via the manager session): the token was pasted in chat and the operator directed a rotation through `init-diag-token`, which was rebuilt the same day to rotate end to end without exposing the value (runner-originated, VM + Actions secret updated, old → 401 verified, automatic rollback) — see `docs/claude/system-actions.md` § `init-diag-token`. The paragraph below is the 2026-08-30 decision it supersedes, kept as history.
+
+🛑 **(SUPERSEDED 2026-09-27)** **THE DIAG-TOKEN ROTATION QUESTION IS CLOSED — DO NOT RAISE IT.** Operator
 decision, 2026-08-30: the token is **not being rotated again**, and the exposure
 is an accepted risk. The live value has been readable in a public issue comment
 since 2026-05-21 and **still authorizes** — re-measured 2026-08-30T05:09:21Z,

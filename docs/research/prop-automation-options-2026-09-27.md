@@ -251,10 +251,9 @@ Every outcome goes through `src/prop/prop_report.py::ingest_report`, served as
 
 `BREAKOUT_DX_USERNAME` and `BREAKOUT_DX_PASSWORD` are GitHub Actions secrets
 (set by the operator, 2026-09-27 ~11:05Z). They reach the VM `.env` through
-`sync-vm-secrets.yml` as **optional** secrets. ⚠️ **That workflow entry is NOT
-in the slice-1 PR:** the lane's edit to add the two names was refused by its
-session permission layer, so it is an open item on `PI-20260927-R6FQK6DS-0002`
-until a session permitted to make it does. Until then the login check exits
+`sync-vm-secrets.yml` as **optional** secrets (added in the follow-up to
+PR #13139; the slice-1 lane's first attempt was refused by its session
+permission layer). If they are absent on the VM the login check exits
 `feasibility: no_credentials`. They never go into git, logs,
 screenshots or reports. Playwright tracing and screenshots are off.
 

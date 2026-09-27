@@ -1,0 +1,123 @@
+id: RQ-20260927-006
+title: Does weighting by the advisory regime head's predict_proba beat a raw-ADX soft weight on the same cells?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  RQ-20260927-004/-005 weight trades by raw indicator VALUES (ADX, ATR
+  percentile). The operator's 2026-09-27 direction also names "the existing
+  regime-model probabilities" as a feature to try. The live router already
+  reads a trained advisory head's `predict_proba(row)["volatile"]`
+  (`.claude/skills/regime-selectivity/SKILL.md` Rule 3) for symbols with one.
+  Does using that MODEL-LEARNED probability as the soft-weight input —
+  rather than a hand-picked ADX band — clear the same 5-fold holdout gate,
+  and does it do so on MORE cells than the raw-ADX weight (a trained
+  classifier should, if it is adding information beyond the raw indicator)?
+
+why_this_matters: >-
+  MEASURED, comms/reviews/performance-review-20260927-072944.json this
+  session's D3 finding: `sol-regime-15m-lgbm-fc-pcv-v2` is healthy
+  (oos_edge +0.237) but has ZERO real-money order effect — no SOL trend_vol
+  OFF-cell exists for it to gate. If a soft weight keyed on that model's own
+  probability clears this item's holdout where raw ADX does not (or clears
+  MORE cells), it gives that trained head a live lever it currently lacks
+  entirely, which is a stronger finding than another hand-tuned indicator
+  band — it would mean the retrained regime models are already carrying
+  exploitable signal this repo has nowhere to spend.
+
+power:
+  expected_n: null
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same paired per-fold design as RQ-20260927-004/-005; same floor
+    (87.2 fold-comparisons), same design-target (not yet observed) status.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Blocked on a harness capability (below) before any run exists to read
+      n off; resolves identically to RQ-20260927-004/-005 once that lands.
+
+decision_rule:
+  id: RULE-RQ0927-006-ML-PROBA-SOFT-WEIGHT
+  registered_at: '2026-09-27'
+  registered_before_run: true
+  statistic: >-
+    Same two-part bar (every_fold_positive_75bps AND total_positive_15bps) per
+    cell, PLUS a direct comparison: count of `soft_weight_candidate` cells
+    under the ML-probability weight vs under RQ-20260927-004's raw-ADX weight,
+    restricted to the subset of these 10 cells' SYMBOLS that actually have an
+    advisory regime head (checked via `ml_vol_regime_for_symbol`, not assumed
+    — a symbol with none resolves `unknown`/frozen and must be excluded from
+    this comparison rather than silently scored as a non-candidate).
+  rule: >-
+    IF the ML-probability weight yields a strict superset of RQ-20260927-004's
+    candidate cells (same symbols with a head) -> record
+    `ml_weight_dominates`, and the trained head becomes the PREFERRED weight
+    source for those cells going forward — subsequent soft-weight work on them
+    should use the head, not raw ADX.
+    IF it yields the same or a non-overlapping set (no clean dominance) ->
+    record `ml_weight_no_advantage`, close `no_action_warranted` on
+    preferring it, and note raw ADX remains the simpler, dependency-free
+    choice (no trained-model coupling) for those cells.
+    IF the symbol subset with a head is empty for this cell family (checked
+    first, before running) -> record `not_applicable_no_advisory_head`,
+    do NOT dispatch, and this unit stays `blocked` on that gap rather than
+    running a comparison with zero members.
+  what_it_does_not_do: >-
+    Does not touch the advisory head's training or its OWN promotion ladder
+    (candidate -> shadow -> advisory) — that is `model-training`/`ml-review`
+    territory. This only asks whether ITS OUTPUT is a better backtest weight
+    SOURCE than a raw indicator, for the specific soft-weight mechanism this
+    item family is building.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 30
+  basis: >-
+    Needs both the trainer-resident candle data (as RQ-20260927-004/-005) AND
+    a per-bar replay of the advisory head's predict_proba, which is a
+    trainer-VM-resident model artifact — heavier than the pure-CSV harness
+    runs, hence the higher est_minutes.
+
+blocked_on:
+  - what: >-
+      No backtest-harness code path replays a trained advisory regime head's
+      `predict_proba` per bar into `backtest_trend.py`/`backtest_pullback.py`.
+      `ml_vol_label_replay` (cited in the regime-selectivity skill) resolves a
+      DISCRETE label for the live hard-gate's walk-forward tool
+      (`regime_cell_walkforward.py`), not a continuous probability threaded
+      into a soft-weight application — reusing it would need confirming it
+      exposes the raw probability (not just the thresholded label) and wiring
+      that into the harness's per-bar loop the way `df["adx"]` is today.
+    ref: null
+    clears_when: >-
+      Either (a) `ml_vol_label_replay` is confirmed to expose
+      `predict_proba(row)["volatile"]` and a harness flag is added to consume
+      it as a soft-weight input, or (b) a new, narrower replay utility is built
+      for exactly this purpose. Whoever builds it should read
+      `.claude/skills/regime-selectivity/SKILL.md` Rule 3 (axis fidelity)
+      first — the same `predict_proba(row)["volatile"]` vs `max(proba)`
+      mislabelling bug (`BL-20260730-PARITY-PROBE-MISLABELS-MAXPROBA`) is
+      exactly as reachable in a backtest replay as it was in the live gate.
+
+run:
+  workflow: null
+  note: Null — see RQ-20260922-001's and RQ-20260927-005's identical reasoning.
+
+lands:
+  store: results/m15_ws_c_ml_proba_soft_weight_kfold/
+  assert_field: label
+  min_rows: 1
+
+related:
+  - 'RQ-20260927-004 / RQ-20260927-005 (the raw-indicator soft-weight siblings)'
+  - 'comms/reviews/performance-review-20260927-072944.json D3 (SOL advisory head, zero real-money order effect)'
+  - '.claude/skills/regime-selectivity/SKILL.md Rule 3 (axis fidelity)'
+last_dispatched_at: null

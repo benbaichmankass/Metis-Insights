@@ -312,6 +312,13 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/bybit2-broker-reconciliation-2026-07-13.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/closed-pr-salvage-2026-06-28.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-A01.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B01.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A03.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A06.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A09.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A10.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A11.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A13.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-A08.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/conviction-weight-sweep-2026-06-16.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/dashboard-truth-and-persistence-2026-06-16.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
@@ -863,6 +870,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/roadmap-redundancy-audit-2026-09-07.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roadmap-toolbox-assessment-2026-07-29.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roll-adjusted-continuous-futures-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/research/rq-20260927-004-soft-weight-band-15-25-result.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/scalp-control-design-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/scalp-family-target-arms-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/session-handoff-2026-06-01-afternoon.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

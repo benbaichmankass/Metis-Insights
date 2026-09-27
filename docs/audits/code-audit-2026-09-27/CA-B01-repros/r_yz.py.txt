@@ -1,0 +1,22 @@
+import random, math
+from ml.trainers.lightgbm_multiclass import LightGBMMulticlassTrainer
+from src.runtime.regime_shadow import bucket_for_vol
+random.seed(7)
+rows=[]
+cc=[abs(random.gauss(0.01,0.004))+1e-4 for _ in range(2000)]
+q=sorted(cc); bnds=[q[int(len(q)*k/5)-1] for k in range(1,5)]
+def b(v):
+    for i,c in enumerate(bnds):
+        if v<=c: return f"vol_b{i}"
+    return "vol_b4"
+for i,v in enumerate(cc):
+    yz=v*math.exp(random.gauss(0,0.25))   # correlated but not monotone with cc
+    rows.append({"ts":f"t{i:05d}","rolling_log_return_vol":v,"yang_zhang_vol":yz,"vol_bucket":b(v),
+                 "regime_label":"volatile" if v*random.uniform(.5,1.5)>0.015 else "range","symbol":"BTCUSDT","timeframe":"15m"})
+for vcol in ("rolling_log_return_vol","yang_zhang_vol"):
+    st=LightGBMMulticlassTrainer().fit(rows,{"feature_columns":["vol_bucket","rolling_log_return_vol","yang_zhang_vol"],"categorical_columns":["vol_bucket"],
+        "freeze_regime_spec":True,"vol_feature_column":vcol,"n_iter":10})
+    e,l=st["vol_bucket_edges"],st["vol_bucket_labels"]
+    agree=sum(bucket_for_vol(r[vcol],e,l)==r["vol_bucket"] for r in rows)/len(rows)
+    from collections import Counter
+    print(vcol,"edges",[round(x,4) for x in e],"| serve-bucket == train-bucket on train rows:",f"{agree:.1%}","| serve dist",dict(sorted(Counter(bucket_for_vol(r[vcol],e,l) for r in rows).items())))

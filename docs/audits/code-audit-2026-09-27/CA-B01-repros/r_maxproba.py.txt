@@ -1,0 +1,19 @@
+import random
+from ml.trainers.lightgbm_multiclass import LightGBMMulticlassTrainer
+from ml.predictors.lightgbm import LightGBMMulticlassPredictor
+from ml.calibration.regime_alignment import corpus_for_model
+random.seed(0)
+rows=[]
+for i in range(600):
+    x=random.random()
+    rows.append({"x":x,"regime_label":"volatile" if (x>0.5)!=(random.random()<0.1) else "range","won": x>0.5})
+st=LightGBMMulticlassTrainer().fit(rows,{"feature_columns":["x"],"target_column":"regime_label","n_iter":50})
+p=LightGBMMulticlassPredictor(st)
+for x in (0.05,0.95):
+    r={"x":x}; print("x=",x,"proba=",{k:round(v,3) for k,v in p.predict_proba(r).items()},"predict()=",round(p.predict(r),3))
+# conviction-style won target
+st2=LightGBMMulticlassTrainer().fit(rows,{"feature_columns":["x"],"target_column":"won","n_iter":50})
+p2=LightGBMMulticlassPredictor(st2)
+print("won class_labels:",st2["class_labels"])
+for x in (0.05,0.95):
+    r={"x":x}; print("won-head x=",x,"proba=",{k:round(v,3) for k,v in p2.predict_proba(r).items()},"predict()=",round(p2.predict(r),3))

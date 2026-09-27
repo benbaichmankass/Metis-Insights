@@ -49,6 +49,15 @@ from src.research.trail_levers import (  # noqa: E402  (the ONE trail-lever rule
     effective_trail_mult,
     vol_trail_armed,
 )
+# scripts/research/, not src/research/ — this is Tier-1 backtest-only tooling
+# (TIER1_SURFACE covers `scripts/research/**`, not `src/**`; check_pr_landing.py
+# would bar a self-land PR that touched anything under `src/`). Loaded by
+# inserting its directory and importing the bare module name, matching the
+# convention `scripts/ops/recombination_sweep.py` already uses for
+# `classify_strategy_tier` — never `import scripts.research...`, which would
+# collide with the top-level `research/` (queue) directory on the path.
+sys.path.insert(0, str(_REPO_ROOT / "scripts" / "research"))  # noqa: E402
+from regime_weight import soft_regime_weight, soft_weight_armed  # noqa: E402
 # The ONE definition of (r_to_stop, r_to_target, rr_from_here) — imported from
 # the LIVE telemetry module that computes it on the trader, so the `rr_floor`
 # lever below measures the same quantity production records rather than a second
@@ -99,6 +108,13 @@ class Trade:
     # Live-parity confidence (trend_donchian.order_package): breakout depth
     # past the channel / ATR, clamped [0,1].
     confidence: float = 0.0
+    # SRQ-20260618-001 soft regime-weight refinement (scripts/research/regime_weight.py):
+    # the entry-bar ADX (None when never computed) and the continuous weight
+    # applied to r_multiple. weight is always 1.0 when the lever is unset, so
+    # r_multiple already reflects it and no consumer needs to re-derive it —
+    # these two fields are reporting/diagnostic, not a second source of truth.
+    adx_at_entry: Optional[float] = None
+    regime_weight: float = 1.0
 
 
 def _load_candles(path: str) -> pd.DataFrame:
@@ -215,6 +231,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  adx_min: Optional[float] = None,
                  adx_max: Optional[float] = None,
                  adx_period: int = 14,
+                 adx_soft_weight_floor: Optional[float] = None,
+                 adx_soft_weight_ceiling: Optional[float] = None,
+                 adx_soft_weight_min: float = 0.0,
                  direction_filter: str = "off",
                  stale_exit_bars: Optional[int] = None,
                  stale_exit_below_r: float = 0.0,
@@ -270,7 +289,12 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     df["dc_lo"] = df["low"].rolling(donchian).min().shift(1)
     # ADX regime filter (recombination lever): only computed/consulted when a
     # band is set, so the default (None/None) run is byte-identical to before.
-    adx_active = adx_min is not None or adx_max is not None
+    # SRQ-20260618-001/-002 refinement: the SOFT weight lever (continuous R
+    # scaling by entry-bar ADX, scripts/research/regime_weight.py) also needs the
+    # series, so it shares the same activation flag rather than gating on the
+    # hard band alone — a soft-weight-only run must not skip the computation.
+    soft_weight_on = soft_weight_armed(adx_soft_weight_floor, adx_soft_weight_ceiling)
+    adx_active = adx_min is not None or adx_max is not None or soft_weight_on
     if adx_active:
         df["adx"] = _adx(df, adx_period)
     # Direction-aware regime filter (Phase 2, BL-20260717-REGIME-COVERAGE-DEBT):
@@ -655,13 +679,29 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         # +bank_at_r; the remainder realises the exit R. No-op when bank_frac is 0.
         if banked:
             r = bank_frac * bank_at_r + (1.0 - bank_frac) * r
+        # SRQ-20260618-001 soft regime-weight lever: scale realized R by a
+        # continuous function of the ENTRY bar's ADX (never the exit bar — the
+        # sizing decision is made at entry, exactly like a live order's
+        # position size). No-op (weight=1.0, byte-identical r) when the lever
+        # is not declared.
+        adx_at_entry = None
+        regime_weight = 1.0
+        if adx_active:
+            _adx_entry = df["adx"].iloc[entry_i]
+            adx_at_entry = None if pd.isna(_adx_entry) else float(_adx_entry)
+            if soft_weight_on:
+                regime_weight = soft_regime_weight(
+                    adx_at_entry, adx_soft_weight_floor, adx_soft_weight_ceiling,
+                    weight_min=adx_soft_weight_min)
+                r = r * regime_weight
         trades.append(Trade(
             entry_index=entry_i, entry_time=df["timestamp"].iloc[entry_i],
             direction=direction,
             entry=entry, sl=sl, risk=risk, exit_index=exit_idx,
             exit_time=df["timestamp"].iloc[exit_idx], exit_price=exit_price,
             outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3),
-            confidence=confidence))
+            confidence=confidence, adx_at_entry=adx_at_entry,
+            regime_weight=round(regime_weight, 4)))
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
     if trades_out is not None:
@@ -730,7 +770,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                     "cost_slippage_r": round(cb["slippage_r"], 5),
                     "cost_funding_r": round(cb["funding_r"], 5),
                     "funding_windows": round(cb["funding_windows"], 3),
-                    "confidence": t.confidence}, default=str) + "\n")
+                    "confidence": t.confidence, "adx_at_entry": t.adx_at_entry,
+                    "regime_weight": t.regime_weight}, default=str) + "\n")
     params: Dict[str, Any] = {"donchian": donchian, "atr_stop_mult": atr_stop_mult,
                               "trail_mult": trail_mult, "min_confidence": min_confidence}
     if adx_min is not None:
@@ -739,6 +780,10 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         params["adx_max"] = adx_max
     if adx_active:
         params["adx_period"] = adx_period
+    if soft_weight_on:
+        params["adx_soft_weight_floor"] = adx_soft_weight_floor
+        params["adx_soft_weight_ceiling"] = adx_soft_weight_ceiling
+        params["adx_soft_weight_min"] = adx_soft_weight_min
     if direction_filter != "off":
         params["direction_filter"] = direction_filter
     if stale_exit_bars is not None:
@@ -1056,6 +1101,20 @@ def main(argv: List[str]) -> int:
                    help="Regime filter: skip entries whose Wilder ADX is above this (None=off).")
     p.add_argument("--adx-period", type=int, default=14,
                    help="Wilder ADX period for the regime filter (default 14).")
+    p.add_argument("--adx-soft-weight-floor", type=float, default=None,
+                   help="SRQ-20260618-001 soft regime-weight lever: entry-bar ADX at/below "
+                        "which regime_weight == --adx-soft-weight-min. Requires "
+                        "--adx-soft-weight-ceiling too; both None (default) is byte-identical "
+                        "to no lever (weight always 1.0). Continuous alternative to the "
+                        "refuted hard --adx-min/--adx-max gate.")
+    p.add_argument("--adx-soft-weight-ceiling", type=float, default=None,
+                   help="Entry-bar ADX at/above which regime_weight == 1.0. See "
+                        "--adx-soft-weight-floor.")
+    p.add_argument("--adx-soft-weight-min", type=float, default=0.0,
+                   help="Weight floor for the soft regime-weight lever (default 0.0, i.e. can "
+                        "size a weak-regime trade all the way to zero contribution — the "
+                        "continuous analogue of the hard gate's skip). Only consulted when "
+                        "both --adx-soft-weight-floor/-ceiling are set.")
     p.add_argument("--stale-exit-bars", type=int, default=None,
                    help="M20 exit lever: close at bar N after entry when open "
                         "R is below --stale-exit-below-r (None=off, legacy "
@@ -1224,6 +1283,9 @@ def main(argv: List[str]) -> int:
                      side_filter=args.side_filter,
                      adx_min=args.adx_min, adx_max=args.adx_max,
                      adx_period=args.adx_period,
+                     adx_soft_weight_floor=args.adx_soft_weight_floor,
+                     adx_soft_weight_ceiling=args.adx_soft_weight_ceiling,
+                     adx_soft_weight_min=args.adx_soft_weight_min,
                      direction_filter=args.direction_filter,
                      stale_exit_bars=args.stale_exit_bars,
                      stale_exit_below_r=args.stale_exit_below_r,
