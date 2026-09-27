@@ -63,20 +63,32 @@ ACTION_APPLY="${ACTION_APPLY:-}"
 PY="${REPO_DIR}/.venv/bin/python3"
 [ -x "${PY}" ] || PY="python3"
 
+# The banner states what THIS run will do. It is a function so the test can
+# exercise it without the VM env. In row mode nothing is cancelled, and the
+# banner must not say otherwise (it did until 2026-09-27: dispatch #13115
+# printed "cancel the resting protective legs" for a row-mode apply).
+rearm_banner() {
+  local apply="$1" row="$2" acct="$3" sym="$4"
+  case "${apply}" in
+    true|True)
+      if [ -n "${row}" ]; then
+        echo ">>> rearm-alpaca-protective: APPLY, ROW MODE — place ONE GTC OCO for journal row ${row} on ${acct}/${sym}; cancels NOTHING"
+      else
+        echo ">>> rearm-alpaca-protective: APPLY, NET MODE — cancel the resting protective legs and place ONE GTC OCO for the net qty on ${acct}/${sym}"
+      fi ;;
+    *)
+      if [ -n "${row}" ]; then
+        echo ">>> rearm-alpaca-protective: DRY-RUN, ROW MODE (row ${row}; cancels nothing; set apply: true to execute) for ${acct}/${sym}"
+      else
+        echo ">>> rearm-alpaca-protective: DRY-RUN, NET MODE (set apply: true to execute) for ${acct}/${sym}"
+      fi ;;
+  esac
+}
+
 ARGS=(--account "${ACCOUNT_ID}" --symbol "${ACTION_SYMBOL}")
 ACTION_ROW="${ACTION_ROW:-}"
-if [ -n "${ACTION_ROW}" ]; then
-  echo ">>> rearm-alpaca-protective: ROW MODE — row ${ACTION_ROW}; cancels NOTHING"
-  ARGS+=(--row "${ACTION_ROW}")
-fi
-case "${ACTION_APPLY}" in
-  true|True)
-    echo ">>> rearm-alpaca-protective: APPLY — cancel the resting protective legs and place ONE GTC OCO for the net qty on ${ACCOUNT_ID}/${ACTION_SYMBOL}"
-    ARGS+=(--apply)
-    ;;
-  *)
-    echo ">>> rearm-alpaca-protective: DRY-RUN (set apply: true to execute) for ${ACCOUNT_ID}/${ACTION_SYMBOL}"
-    ;;
-esac
+if [ -n "${ACTION_ROW}" ]; then ARGS+=(--row "${ACTION_ROW}"); fi
+case "${ACTION_APPLY}" in true|True) ARGS+=(--apply) ;; esac
+rearm_banner "${ACTION_APPLY}" "${ACTION_ROW}" "${ACCOUNT_ID}" "${ACTION_SYMBOL}"
 
 exec "${PY}" scripts/ops/rearm_alpaca_protective.py "${ARGS[@]}"

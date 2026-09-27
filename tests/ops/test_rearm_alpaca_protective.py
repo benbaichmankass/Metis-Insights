@@ -534,3 +534,32 @@ def test_cli_row_flag_routes_to_row_mode(monkeypatch, capsys):
     monkeypatch.setattr(ra, "rearm", lambda *a, **k: pytest.fail("net mode must not run"))
     assert ra.main(["--account", "alpaca_paper", "--symbol", "SPY", "--row", "6131"]) == 0
     assert seen == {"r": 6131, "a": False}
+
+
+# ───────────────────────────────── wrapper banner matches the mode
+def _banner(apply, row):
+    import subprocess
+    wrapper = _ROOT / "scripts" / "ops" / "rearm_alpaca_protective_action.sh"
+    script = (f"source <(sed -n '/^rearm_banner()/,/^}}/p' {wrapper}); "
+              f"rearm_banner '{apply}' '{row}' alpaca_paper SPY")
+    return subprocess.run(["bash", "-c", script], capture_output=True,
+                          text=True, check=True).stdout
+
+
+def test_row_mode_apply_banner_never_says_cancel():
+    """Dispatch #13115 (row-mode apply) printed 'cancel the resting protective
+    legs' although row mode cancels nothing."""
+    out = _banner("true", "6131")
+    assert "ROW MODE" in out and "cancels NOTHING" in out
+    assert "cancel the resting" not in out
+
+
+def test_net_mode_apply_banner_says_it_cancels():
+    out = _banner("true", "")
+    assert "NET MODE" in out and "cancel the resting protective legs" in out
+
+
+@pytest.mark.parametrize("row,mode", [("6131", "ROW MODE"), ("", "NET MODE")])
+def test_dry_run_banner_names_the_mode(row, mode):
+    out = _banner("", row)
+    assert "DRY-RUN" in out and mode in out and "cancel the resting" not in out
