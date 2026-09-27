@@ -228,6 +228,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    a workflow pulls it, so a CI guard has no trace of them at all. The
     #    surface for their liveness is the diag relays, not this file. Declared
     #    so they are COUNTED rather than silently outside the population.
+    "ict-alpaca-fills-pull.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-db-integrity.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-devnull-guard.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-exchange-fills-pull.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},

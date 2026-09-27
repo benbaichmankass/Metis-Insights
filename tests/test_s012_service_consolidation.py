@@ -111,6 +111,17 @@ EXPECTED_SERVICES = {
     # the Ampere box). Live-trader-box only via install_systemd_units.sh auto-enable;
     # secondary-priority, skipped by deploy_pull_restart.sh DEFAULT_SKIP.
     "ict-exchange-fills-pull.service",
+    # 2026-09-27 (FIX-CA-OPS2): Alpaca fills pull, split off
+    # ict-exchange-fills-pull.service so an Alpaca-side failure (a revoked
+    # key, a rate limit, a 5xx -- FIX-CA-31 made scripts/pull_alpaca_fills.py
+    # exit non-zero on exactly these) can never skip the Bybit wallet ledger
+    # sharing that unit (the ExecStart-ordering contract systemd's
+    # Type=oneshot multi-ExecStart gives no other way to enforce). Timer-fired
+    # oneshot (ict-alpaca-fills-pull.timer, hourly at :23), same store
+    # (runtime_state/exchange_fills.sqlite), same fail-visible contract as its
+    # Bybit sibling. Live-trader-box only via install_systemd_units.sh
+    # auto-enable; skipped by deploy_pull_restart.sh DEFAULT_SKIP.
+    "ict-alpaca-fills-pull.service",
     # 2026-07-19: daily Bybit funding pull (BL-20260719-FUNDING-NO-TIMER, PR #6901).
     # Timer-fired oneshot (ict-exchange-funding-pull.timer) that runs the funding
     # puller so the M24 go-forward fee+funding capture accrues without manual runs.

@@ -103,6 +103,7 @@ class TestFailedUnitGate:
             "ict-git-sync.service",
             "ict-db-integrity.service",
             "ict-exchange-fills-pull.service",
+            "ict-alpaca-fills-pull.service",
             "ict-exchange-funding-pull.service",
             "ict-ib-executions-pull.service",
         ):

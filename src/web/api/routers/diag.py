@@ -310,6 +310,13 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # rationale as the watchdog / insights / snapshot pairs above.
     "ict-exchange-fills-pull.service",
     "ict-exchange-fills-pull.timer",
+    # 2026-09-27 (FIX-CA-OPS2) — Alpaca fills, split off
+    # ict-exchange-fills-pull.service so an Alpaca-side failure can never
+    # skip the Bybit wallet ledger sharing that unit's ExecStart chain. Same
+    # rationale as its Bybit sibling above: queryable so a session can verify
+    # the pull is firing on cadence and tail its journal.
+    "ict-alpaca-fills-pull.service",
+    "ict-alpaca-fills-pull.timer",
     "ict-exchange-funding-pull.service",
     "ict-exchange-funding-pull.timer",
     "ict-mes-ibkr-pull.service",

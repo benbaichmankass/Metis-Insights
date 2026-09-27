@@ -1075,6 +1075,24 @@ decides whether to intervene.
    `*_ENABLED` names as grandfathered exceptions; new gates use `*_MODE`
    or a default-permissive YAML declaration.
 
+   ⚠️ **A third, DRY-ONLY input exists and this rule previously omitted it
+   (FIX-CA-32, 2026-09-27, `CA-B09-third-execution-gate-undocumented`).**
+   `config/account_state.yaml` is folded into `effective_dry` in
+   `Coordinator.multi_account_execute` (`src/core/coordinator.py`, via
+   `account_state_dry_run()` in `src/runtime/orders.py`): when it declares
+   `dry_run: true` for an account, that account trades dry regardless of
+   what `accounts.yaml::mode` / `strategies.yaml::execution` say. It can
+   only ever **force dry, never force live**, and a missing file or a
+   missing account entry is a no-op (fail-open) — the opposite shape from
+   the MES-stranding pattern this rule forbids (a default-off flag
+   **stranding** a required capability), so it does not violate "no third
+   gate" as scoped above. It is a belt-and-suspenders safety input, not a
+   capability gate, and it is now surfaced per-account on `/api/bot/config`
+   (`account_state_dry_run`). Today `bybit_1` / `bybit_2` both read
+   `dry_run: false` there, so it changes nothing in practice. **Whether to
+   keep it or retire it is `JC-CA-06`, undecided as of 2026-09-27** — do
+   not remove the fold before that lands.
+
 ### What this rules out (queued for the safeguards PR follow-on)
 
 The doc-level contract is in this commit; the code-level deletions

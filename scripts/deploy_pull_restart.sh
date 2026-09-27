@@ -393,6 +393,10 @@ fi
 # ict-exchange-fills-pull.timer (daily) — restarting it on every deploy would
 # fire an unscheduled Bybit fills pull each time (cheap + idempotent, but
 # needless). Let the timer own it (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY).
+# ict-alpaca-fills-pull.service is a oneshot owned by
+# ict-alpaca-fills-pull.timer (hourly), split off ict-exchange-fills-pull on
+# 2026-09-27 (FIX-CA-OPS2) — same reasoning as its Bybit sibling: let the
+# timer own it rather than firing an unscheduled Alpaca pull on every deploy.
 # ict-ib-executions-pull.service is a oneshot owned by
 # ict-ib-executions-pull.timer (hourly) — restarting it on every deploy would
 # open an unscheduled IB GATEWAY connection each time. That is the costliest
@@ -400,7 +404,7 @@ fi
 # wedge history (BL-20260609 / BL-20260709), and a deploy can land inside
 # IBKR's ~03:45-05:45 UTC reset window. Let the timer own it.
 # ---------------------------------------------------------------------------
-DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service ict-exchange-fills-pull.service ict-ib-executions-pull.service"
+DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service ict-exchange-fills-pull.service ict-alpaca-fills-pull.service ict-ib-executions-pull.service"
 SKIP_LIST="${DEPLOY_RESTART_SKIP:-${DEFAULT_SKIP}}"
 
 # list-units --all surfaces inactive units too; --type=service excludes

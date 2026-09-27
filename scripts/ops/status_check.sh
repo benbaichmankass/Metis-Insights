@@ -68,6 +68,10 @@ GATE_ONESHOTS=(
     ict-git-sync.service
     ict-db-integrity.service
     ict-exchange-fills-pull.service
+    # Split off ict-exchange-fills-pull.service 2026-09-27 (FIX-CA-OPS2) so an
+    # Alpaca-side failure can never block the Bybit wallet ledger sharing that
+    # unit; gated here for the same reason its Bybit sibling is.
+    ict-alpaca-fills-pull.service
     ict-exchange-funding-pull.service
     ict-ib-executions-pull.service
 )

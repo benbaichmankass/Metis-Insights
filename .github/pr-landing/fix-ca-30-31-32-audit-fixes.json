@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges under the data-backed Tier-2/3 authority (audit brief evidence)",
+  "why": "FIX-CA-31 (pull_alpaca_fills.py) is Tier 2 by the audit brief and by path (src/**-adjacent runtime behaviour change to a broker-truth cost-sweep input); FIX-CA-32 touches src/web/runtime_status.py and src/web/api/routers/bot_config.py (also src/**). FIX-CA-30 alone would be Tier 1, but the PR is declared at its highest touched tier."
+}

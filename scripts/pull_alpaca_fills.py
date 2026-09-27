@@ -34,6 +34,22 @@ from src.runtime.exchange_fills_store import upsert_fills  # noqa: E402
 logger = logging.getLogger("pull_alpaca_fills")
 
 
+class AlpacaFillsPageUnavailable(RuntimeError):
+    """``account_activities`` returned a non-zero ``retCode`` — an API
+    failure (auth error, rate limit, 5xx, or a network exception; see
+    ``AlpacaClient._request``, which never raises and instead returns
+    ``{"retCode": -1, ...}``), never raised on a genuine empty page.
+
+    FIX-CA-31 (CA-B08-pull-alpaca-fills-collapses-api-failure-as-empty):
+    before this existed, ``_fetch_page`` returned ``[]`` identically for
+    "the account has zero fills this window" and "we could not read the
+    account at all", and the ``--all-alpaca-accounts`` loop counted the
+    account as ``ran`` either way. A 100%-failing account therefore read as
+    a clean, fully-covered pull — the same collapsed-state defect
+    ``FillsWindowUnavailable`` exists for on the Bybit sibling.
+    """
+
+
 def _parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--days", type=int, default=7, help="Pull window in days (default: 7)")
@@ -87,11 +103,12 @@ def _pull_one_account(
             activity_types="FILL", after=after, page_token=page_token, page_size=100,
         )
         if resp.get("retCode") != 0:
-            logger.warning(
-                "pull_alpaca_fills: account_activities failed for %s: %s",
-                account_id, resp.get("retMsg"),
+            # FIX-CA-31: raise, don't return [] — an API failure and a
+            # genuine empty page must not collapse to the same value (see
+            # AlpacaFillsPageUnavailable).
+            raise AlpacaFillsPageUnavailable(
+                f"account_activities failed for {account_id}: {resp.get('retMsg')}"
             )
-            return []
         result = resp.get("result")
         return result if isinstance(result, list) else []
 
@@ -117,7 +134,9 @@ def main(argv: list[str]) -> int:
                 "--all-alpaca-accounts: no live Alpaca accounts in config/accounts.yaml"
             )
             return 2
-        ran = 0
+        ok = 0
+        failed: list[str] = []
+        skipped: list[str] = []
         total_inserted = 0
         for acct in accounts:
             api_key = os.environ.get(acct.key_env)
@@ -127,21 +146,40 @@ def main(argv: list[str]) -> int:
                     "pull_alpaca_fills: skip %s — %s / %s not set",
                     acct.account_id, acct.key_env, acct.secret_env,
                 )
+                skipped.append(acct.account_id)
                 continue
-            total_inserted += _pull_one_account(
-                account_id=acct.account_id,
-                api_key=api_key,
-                api_secret=api_secret,
-                env=acct.env,
-                days=args.days,
-                fills_path=fills_path,
-            )
-            ran += 1
+            try:
+                total_inserted += _pull_one_account(
+                    account_id=acct.account_id,
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    env=acct.env,
+                    days=args.days,
+                    fills_path=fills_path,
+                )
+            except Exception as exc:  # noqa: BLE001
+                # FIX-CA-31: one unreachable account must not read as clean
+                # coverage — it is recorded as a FAILURE and propagates to
+                # the exit code, mirroring pull_exchange_fills.py's
+                # --all-bybit-accounts loop.
+                logger.error(
+                    "pull_alpaca_fills: account=%s FAILED (env=%s): %s",
+                    acct.account_id, acct.env, exc,
+                )
+                failed.append(acct.account_id)
+                continue
+            ok += 1
         logger.info(
-            "pull_alpaca_fills: all-alpaca-accounts done — ran=%d/%d total_inserted=%d",
-            ran, len(accounts), total_inserted,
+            "pull_alpaca_fills: all-alpaca-accounts done — ok=%d failed=%d%s "
+            "skipped=%d%s of %d total_inserted=%d",
+            ok,
+            len(failed), f" {failed}" if failed else "",
+            len(skipped), f" {skipped}" if skipped else "",
+            len(accounts), total_inserted,
         )
-        return 0 if ran > 0 else 2
+        if failed:
+            return 1
+        return 0 if ok > 0 else 2
 
     api_key = os.environ.get(args.api_key_env)
     api_secret = os.environ.get(args.api_secret_env)
