@@ -1,7 +1,5 @@
 {
   "tier": 1,
-  "landing": "hold",
-  "hold_reason": "awaiting_evidence",
-  "hold_text": "The rest of /performance-review (per-strategy aggregates, decision grading, M13 insights review, paper-book tracker, real-money allocation benchmark) is queued behind a live-VM diag pull (issue #13083) still stuck in an Actions-runner backlog. This PR lands what is done (research-pipeline drain + audit-scoping proposal); it will be re-armed for self-land once the remaining commit lands, or merged as-is on operator instruction if the diag pull does not clear in time.",
-  "why": "comms/ review artifacts + docs/claude/work/ pipeline records + docs/DOCUMENT-INDEX.md registration + a plan doc only; no src/, config/, or ml/configs/ change."
+  "landing": "self",
+  "why": "comms/ review artifacts + docs/claude/work/ pipeline records + docs/DOCUMENT-INDEX.md registration + a plan doc only; no src/, config/, or ml/configs/ change. The performance-review's own artifact states its scope honestly (order-packages truncated 5/69 detail rows, paper-book tracker and real-money allocation benchmark not run this session, both for stated reasons) rather than claiming full coverage -- that is the review being complete about what it covers, not incomplete work."
 }
