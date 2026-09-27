@@ -2262,11 +2262,25 @@
       "prs": [],
       "blocked_on": [],
       "id": "W6-PROP-O1",
-      "title": "Optimize the two live breakout_1 legs (trend_donchian_eth_prop, trend_donchian_sol_prop) against the B6 EV-per-account-life bar",
+      "title": "RQ-20260922-003: at what round-trip cost do the breakout_1 legs stop clearing Stage 0 / the B6 bar (eth_prop, then sol_prop)",
       "owner": "research lane",
       "model": "claude-sonnet-5",
-      "ceiling_usd": 30,
-      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260922-003 (cost break-even for eth_prop; same for sol_prop) at Breakout DXtrade costs, sizing under #13154's flat-1.5%/room-k=0.33 rule, and M2's deferred 'exit-head-for-prop-legs' look. Output: evidence records + any Tier-3 param proposal to the manager. Sonnet: research, not an order path."
+      "ceiling_usd": 20,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260922-003 cost break-even for trend_donchian_eth_prop, repeated for trend_donchian_sol_prop, at Breakout DXtrade costs (incl. 0.033%/day swap), judged also against RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 under #13154 sizing. One question: how much cost headroom do the two live prop legs have."
+    },
+    {
+      "phase": "W6",
+      "state": "in_flight",
+      "lane": null,
+      "spend_usd": null,
+      "prs": [],
+      "blocked_on": [],
+      "id": "W6-PROP-O2",
+      "title": "RQ-20260927-003: exit-head-for-prop-legs feasibility (score breakout_1 legs' own trades with exit-head-donchian-1h-v1, incl. swap saved)",
+      "owner": "research lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 20,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260927-003 as written (scoping, not promotion). One question: is a prop-geometry exit-head retrain worth doing."
     },
     {
       "phase": "W6",
@@ -2309,11 +2323,11 @@
       "spend_usd": null,
       "prs": [],
       "blocked_on": [],
-      "id": "W6-RQ007",
-      "title": "RQ-20260922-007: trend_donchian on bybit_2 net-negative under the full cost stack",
+      "id": "W6-RQ009",
+      "title": "RQ-20260922-009 (eth_pullback_2h fails Stage 0 by cost) + close RQ-20260922-007 as answered by RQ-20260927-001/-002",
       "owner": "research lane",
       "model": "claude-sonnet-5",
-      "ceiling_usd": 25,
+      "ceiling_usd": 20,
       "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Queue-moving slot: real-money leg, highest-value non-prop research unit."
     }
   ]
