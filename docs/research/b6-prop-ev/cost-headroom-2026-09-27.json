@@ -1,0 +1,209 @@
+{
+  "tool": "scripts/research/prop_cost_headroom.py",
+  "research_unit": "RQ-20260922-003",
+  "decision_rule": "RULE-RQ0922-003-COST-BREAKEVEN",
+  "legs": [
+    {
+      "leg": "trend_donchian_eth_prop",
+      "evidence_record": "comms/strategy_evidence/trend_donchian_eth_prop.json",
+      "source_run": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
+      "record_generated_at": "2026-09-26T17:56:02.449801+00:00",
+      "config_fingerprint": "sha256:776a9ea693864bcf4fcccbac2501e34a",
+      "record": {
+        "n_trades_oos": 169,
+        "net_r_oos": 13.6082,
+        "net_r_oos_fee_only": 17.661,
+        "cost_stack": {
+          "fees": 7.5,
+          "slippage": 3.0,
+          "funding": 1.0,
+          "unit": "bps_roundtrip (funding: bps per funding window)",
+          "source": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__bt.json"
+        }
+      },
+      "n": 169,
+      "gross_r_oos": 24.5977,
+      "mean_r_per_bps": 0.00547,
+      "reproduction_abs_err_total_r": 0.093639,
+      "arms": [
+        {
+          "fee_bps_roundtrip": 7.5,
+          "slippage_bps": 3.0,
+          "funding_bps_per_window": 1.0,
+          "net_r_oos": 13.6094,
+          "n": 169
+        },
+        {
+          "fee_bps_roundtrip": 15.0,
+          "slippage_bps": 3.0,
+          "funding_bps_per_window": 1.0,
+          "net_r_oos": 6.6729,
+          "n": 169
+        },
+        {
+          "fee_bps_roundtrip": 22.5,
+          "slippage_bps": 3.0,
+          "funding_bps_per_window": 1.0,
+          "net_r_oos": -0.2636,
+          "n": 169
+        }
+      ],
+      "breakeven_bps_arm": 22.5,
+      "breakeven_fee_bps_exact": 22.215,
+      "breakeven_flat_roundtrip_bps_exact": 26.596,
+      "hold": {
+        "hours_median": 12.0,
+        "hours_mean": 12.02,
+        "hours_p90": 22.0,
+        "hours_max": 54.0,
+        "midnights_mean": 0.562,
+        "share_crossing_no_midnight": 0.4675
+      },
+      "breakout": {
+        "dxtrade": {
+          "swap_bps_per_trade_mean": 1.855,
+          "swap_bps_per_trade_median": 3.3,
+          "swap_bps_per_trade_p90": 3.3,
+          "swap_equiv_flat_bps_r_weighted": 1.586,
+          "room_left_for_spread_plus_slippage_bps": 17.01,
+          "net_at_spread_slip_arms": {
+            "spread_slip_3bps": {
+              "net_r_oos": 12.9574,
+              "expectancy_r": 0.0767
+            },
+            "spread_slip_5bps": {
+              "net_r_oos": 11.1076,
+              "expectancy_r": 0.0657
+            },
+            "spread_slip_10bps": {
+              "net_r_oos": 6.4833,
+              "expectancy_r": 0.0384
+            }
+          }
+        },
+        "prorated": {
+          "swap_bps_per_trade_mean": 1.653,
+          "swap_bps_per_trade_median": 1.65,
+          "swap_bps_per_trade_p90": 3.025,
+          "swap_equiv_flat_bps_r_weighted": 1.511,
+          "room_left_for_spread_plus_slippage_bps": 17.085,
+          "net_at_spread_slip_arms": {
+            "spread_slip_3bps": {
+              "net_r_oos": 13.0271,
+              "expectancy_r": 0.0771
+            },
+            "spread_slip_5bps": {
+              "net_r_oos": 11.1773,
+              "expectancy_r": 0.0661
+            },
+            "spread_slip_10bps": {
+              "net_r_oos": 6.553,
+              "expectancy_r": 0.0388
+            }
+          }
+        }
+      }
+    },
+    {
+      "leg": "trend_donchian_sol_prop",
+      "evidence_record": "comms/strategy_evidence/trend_donchian_sol_prop.json",
+      "source_run": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl",
+      "record_generated_at": "2026-09-25T10:31:08.392103+00:00",
+      "config_fingerprint": "sha256:788c4e29332bb4e5f12bcf09810b1913",
+      "record": {
+        "n_trades_oos": 65,
+        "net_r_oos": 5.1885,
+        "net_r_oos_fee_only": 6.9292,
+        "cost_stack": {
+          "fees": 7.5,
+          "slippage": 3.0,
+          "funding": 1.0,
+          "unit": "bps_roundtrip (funding: bps per funding window)",
+          "source": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__bt.json"
+        }
+      },
+      "n": 65,
+      "gross_r_oos": 9.1727,
+      "mean_r_per_bps": 0.0046,
+      "reproduction_abs_err_total_r": 0.044611,
+      "arms": [
+        {
+          "fee_bps_roundtrip": 7.5,
+          "slippage_bps": 3.0,
+          "funding_bps_per_window": 1.0,
+          "net_r_oos": 5.1975,
+          "n": 65
+        },
+        {
+          "fee_bps_roundtrip": 15.0,
+          "slippage_bps": 3.0,
+          "funding_bps_per_window": 1.0,
+          "net_r_oos": 2.9573,
+          "n": 65
+        },
+        {
+          "fee_bps_roundtrip": 22.5,
+          "slippage_bps": 3.0,
+          "funding_bps_per_window": 1.0,
+          "net_r_oos": 0.7171,
+          "n": 65
+        }
+      ],
+      "breakeven_bps_arm": null,
+      "breakeven_fee_bps_exact": 24.901,
+      "breakeven_flat_roundtrip_bps_exact": 30.709,
+      "hold": {
+        "hours_median": 18.0,
+        "hours_mean": 25.03,
+        "hours_p90": 54.0,
+        "hours_max": 96.0,
+        "midnights_mean": 0.985,
+        "share_crossing_no_midnight": 0.3538
+      },
+      "breakout": {
+        "dxtrade": {
+          "swap_bps_per_trade_mean": 3.249,
+          "swap_bps_per_trade_median": 3.3,
+          "swap_bps_per_trade_p90": 6.6,
+          "swap_equiv_flat_bps_r_weighted": 2.805,
+          "room_left_for_spread_plus_slippage_bps": 19.904,
+          "net_at_spread_slip_arms": {
+            "spread_slip_3bps": {
+              "net_r_oos": 5.0492,
+              "expectancy_r": 0.0777
+            },
+            "spread_slip_5bps": {
+              "net_r_oos": 4.4518,
+              "expectancy_r": 0.0685
+            },
+            "spread_slip_10bps": {
+              "net_r_oos": 2.9583,
+              "expectancy_r": 0.0455
+            }
+          }
+        },
+        "prorated": {
+          "swap_bps_per_trade_mean": 3.442,
+          "swap_bps_per_trade_median": 2.475,
+          "swap_bps_per_trade_p90": 7.425,
+          "swap_equiv_flat_bps_r_weighted": 3.072,
+          "room_left_for_spread_plus_slippage_bps": 19.637,
+          "net_at_spread_slip_arms": {
+            "spread_slip_3bps": {
+              "net_r_oos": 4.9694,
+              "expectancy_r": 0.0765
+            },
+            "spread_slip_5bps": {
+              "net_r_oos": 4.372,
+              "expectancy_r": 0.0673
+            },
+            "spread_slip_10bps": {
+              "net_r_oos": 2.8785,
+              "expectancy_r": 0.0443
+            }
+          }
+        }
+      }
+    }
+  ]
+}
