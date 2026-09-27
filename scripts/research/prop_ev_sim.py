@@ -266,7 +266,9 @@ class PropRules:
 @dataclass
 class SimConfig:
     risk_pct: float = 0.015
-    sizing: str = "balance"          # balance | start
+    sizing: str = "balance"          # balance | start | room
+    room_frac: float = 0.45          # `room` sizing: max share of the binding cushion one new trade may risk
+    start_balance: Optional[float] = None  # resume an EXISTING eval account at this balance (flat)
     funded_start: str = "fresh"      # fresh | carry
     approval_days: float = 1.0
     horizon_days: float = 730.0
@@ -585,8 +587,8 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
     withdraw_above = start + rules.withdraw_buffer
 
     phase = "eval"
-    bal = start
-    day_start = start
+    bal = float(cfg.start_balance) if cfg.start_balance is not None else start
+    day_start = bal
     next_reset = _DAY_RESET
     funded_at: Optional[float] = None
     next_payout: Optional[float] = None
@@ -687,7 +689,17 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
             elif t.leg in open_pos:
                 life.trades_skipped_leg_busy += 1
             else:
-                risk_usd = cfg.risk_pct * (bal if cfg.sizing == "balance" else start)
+                if cfg.sizing == "room":
+                    # Fit the NEW trade inside the binding cushion (static floor or today's
+                    # daily limit), net of what open positions are already marked at.
+                    eq = bal + marks_sum
+                    room = min(eq - floor, eq - day_start * (1.0 - dl))
+                    risk_usd = min(cfg.risk_pct * bal, cfg.room_frac * max(0.0, room))
+                else:
+                    risk_usd = cfg.risk_pct * (bal if cfg.sizing == "balance" else start)
+                if risk_usd < 1.0:
+                    counters["skipped_no_room"] = counters.get("skipped_no_room", 0) + 1
+                    continue
                 pnl = t.net_r * risk_usd
                 if mode == "path":
                     pr = sample_path_r(t, rng, counters)
@@ -1007,6 +1019,18 @@ def _self_test() -> int:
     check(lf.died and lf.death_cause == "daily_loss",
           "stop bound: two open 1.5% positions whose stops cost > 2R breach daily loss (the concurrency risk)")
 
+    # --- 3b. resuming an existing account --------------------------------------------
+    # $4,724 flat, floor $4,700: one -1R stop at 1.5% of balance ($70.86) breaches;
+    # `room` sizing risks at most 45% of the $24 cushion and survives it.
+    rows5 = [{"entry_time": "2025-01-01T01:00:00+00:00", "exit_time": "2025-01-01T03:00:00+00:00", "net_r": -1.0}]
+    trades, _, days = build_trades({"a": rows5}, as_given)
+    hist = History(trades, days)
+    for sz, dies in (("balance", True), ("room", False)):
+        lf = simulate_life(hist, PropRules(), SimConfig(risk_pct=0.015, sizing=sz, start_balance=4724.0,
+                           horizon_days=5, block_days=days), "realized", np.random.default_rng(0),
+                           stream=((t.entry, t.exit, t) for t in hist.trades))
+        check(lf.died == dies, f"resume at $4,724: one stop with sizing={sz} -> died={lf.died} (want {dies})")
+
     # --- 4. costs ------------------------------------------------------------------
     c = CostConfig()
     row = {"entry": 100.0, "sl": 98.0, "gross_r": 1.0}
@@ -1083,7 +1107,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--ruleset", default=str(DEFAULT_RULESET))
     ap.add_argument("--risk-pct", type=float, default=0.015,
                     help="FRACTION of balance risked per trade (0.015 = breakout_routing.yaml's 1.5%%)")
-    ap.add_argument("--sizing", choices=("balance", "start"), default="balance")
+    ap.add_argument("--sizing", choices=("balance", "start", "room"), default="balance",
+                    help="room = min(risk_pct x balance, room_frac x binding cushion), cushion = the "
+                         "smaller of equity-to-static-floor and equity-to-today's-daily-limit")
+    ap.add_argument("--room-frac", type=float, default=0.45)
+    ap.add_argument("--start-balance", type=float, default=None,
+                    help="resume an EXISTING evaluation account at this (flat) balance; pair with "
+                         "--fee 0 when the account fee is already sunk")
+    ap.add_argument("--fee", type=float, default=None, help="override the ruleset account fee")
     ap.add_argument("--funded-start", choices=("fresh", "carry"), default="fresh")
     ap.add_argument("--approval-days", type=float, default=1.0)
     ap.add_argument("--horizon-days", type=float, default=730.0)
@@ -1128,10 +1159,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         ap.error("give --book or at least one --trades LEG=PATH")
 
     rules = PropRules.from_yaml(Path(args.ruleset))
+    if args.fee is not None:
+        rules.fee = float(args.fee)
     costs = CostConfig(mode=args.costs, commission_bps_rt=args.commission_bps_rt,
                        slippage_bps_rt=args.slippage_bps_rt, swap_daily=args.swap_daily,
                        swap_model=args.swap_model)
-    cfg = SimConfig(risk_pct=args.risk_pct, sizing=args.sizing, funded_start=args.funded_start,
+    cfg = SimConfig(risk_pct=args.risk_pct, sizing=args.sizing, room_frac=args.room_frac,
+                    start_balance=args.start_balance, funded_start=args.funded_start,
                     approval_days=args.approval_days, horizon_days=args.horizon_days,
                     block_days=args.block_days, first_payout_refund=args.first_payout_refund)
     rows = {leg: load_rows(p) for leg, p in paths.items()}
