@@ -1,5 +1,7 @@
 # CA-A09 — config, mandates, auto-land route, landing & permission controls
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Code audit 2026-09-27, lane CA-A09 (session_01CTCL5m5svVvXSgGu9VGVpe), dispatched by manager
 > session_01KAQRJxRbRwpYTkPgBjNVyQ. Findings (schema §5): [`CA-A09.findings.jsonl`](CA-A09.findings.jsonl).
 > This lane only FINDS problems. It changed nothing in src/, config/, scripts/, workflows or tests.
