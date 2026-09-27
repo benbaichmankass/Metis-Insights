@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for AUD-20260927-CA-B01-regime-scoring-uses-forming-bar is merged with a test that fails on the old code (detector: Unit test: fetch_fn returns a frame whose last bar ts+tf > now; assert that bar is not in the scored window (mirror exit_head_shadow's test).), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-3WM5HADW-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B01 (session_01M6NBQHKgKXsvrB3Wm5HAdW), finding AUD-20260927-CA-B01-regime-scoring-uses-forming-bar in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B01-regime-scoring-uses-forming-bar (evidence field) in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl, re-read src/runtime/regime_bar_scoring.py:448-463 (no trim), src/runtime/cross_asset_live.py:187-213, src/runtime/strategy_signal_builders.py:333-341; contrast src/runtime/exit_head_shadow.py:456-469 which trims ('caught live 2026-07-12') on main, and re-run the stated command / repro in docs/audits/code-audit-2026-09-27/CA-B01-repros/; the finding holds while the quoted code is unchanged."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-23 fixed in PR #13253 (merged = done for this item's clears_when; deploy = trader + web-api restart and trainer unit install, tracked on the PR); a test that fails on the old code lands with it",
+  "what": "HIGH (code audit AUD-20260927-CA-B01-regime-scoring-uses-forming-bar): emit_regime_bar_predictions scores every regime head (and builds the xa_* cross-asset row) on the LAST row of fetch_candles, which on Bybit is the still-forming bar, whereas every market_features training row is a closed bar — so live log_return / range-vol / vol_bucket / xa_* are partial-bar values; for the advisory heads this P(volatile) is what ml_vol_verdict publishes into the regime router's vol axis. LOCATION: src/runtime/regime_bar_scoring.py:448-463 (no trim), src/runtime/cross_asset_live.py:187-213, src/runtime/strategy_signal_builders.py:333-341; contrast src/runtime/exit_head_shadow.py:456-469 which trims ('caught live 2026-07-12'). PROPOSED FIX: Drop the last row when ts+tf > now once in emit_regime_bar_predictions (and the signal-time caller) before closes / xa / fc are built; key dedup on the last closed bar. Tier-2 runtime change — decide with the operator."
+}
