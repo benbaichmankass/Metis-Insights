@@ -308,7 +308,7 @@ case "${action}" in
             0) result="ok (dry-run preview, cancelled+verified gone, or no such order)"; priority="normal" ;;
             1) result="cancel FAILED or did not take effect — order may still be resting"; priority="urgent" ;;
             2) result="refused: bad/ambiguous id (orderId is unique only per clientId — retry with perm:)"; priority="high" ;;
-            3) result="COULD NOT LOOK or unconfirmed — NOT evidence the order is gone; re-run the dry-run"; priority="high" ;;
+            3) result="COULD NOT LOOK, unconfirmed, or cancel already in flight (PendingCancel) — NOT evidence the order is gone; re-run the dry-run"; priority="high" ;;
             4) result="refused by a safety guard (protective leg, or a trader-band clientId)"; priority="high" ;;
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac

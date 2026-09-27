@@ -175,6 +175,7 @@ fi
 echo "===== pre-restart status ====="
 "${SYSTEMCTL[@]}" status "${UNIT}" --no-pager -n 5 || true
 log "Restarting ${UNIT}..."
+clear_trader_stop_marker "set-account-mode"  # an explicit restart releases the stop_bot.sh git-sync hold
 "${SYSTEMCTL[@]}" restart "${UNIT}"
 
 # Allow up to 30s for systemd to settle.

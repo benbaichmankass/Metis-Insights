@@ -59,6 +59,9 @@ if [ -f "${INSTALL_UNITS}" ]; then
     fi
 fi
 
+# Release the git-sync hold stop_bot.sh placed (PI-20260927-YDVVYLKH-0002).
+clear_trader_stop_marker "start-bot-service"
+
 log "Starting ${UNIT}…"
 "${SYSTEMCTL[@]}" start "${UNIT}"
 heal_devnull || true
