@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-m21-entry-sweep-inert-fold-inflation",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-m21-entry-sweep-inert-fold-inflation against current scripts/research/m21_entry_sweep.py:204"
+  },
+  "state": "queued",
+  "what": "CA-B04 audit finding (critical): scripts/research/m21_entry_sweep.py:204 — Module docstring: yearly walk-forward PASS requires >=2/3 usable folds; the printed wins/usable fraction is cited verbatim in config/strategies.yaml as shipped evidence for LIVE re"
+}

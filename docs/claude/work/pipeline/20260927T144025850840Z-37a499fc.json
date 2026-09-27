@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-ict-scalp-exit-sweep-inert-fold",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-ict-scalp-exit-sweep-inert-fold against current scripts/research/m27/ict_scalp_exit_sweep.py:162"
+  },
+  "state": "queued",
+  "what": "CA-B04 audit finding (high): scripts/research/m27/ict_scalp_exit_sweep.py:162 — walk_forward()'s own docstring: a cell PASSES the M20 confirmation gate if it beats-or-ties baseline on net_R and maxDD in >=ceil(2/3) of usable folds."
+}

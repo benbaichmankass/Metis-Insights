@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Dispatch instruction for this audit lane (CA-B04): 'commit on branch claude/ca-b04-audit, push, open a normal PR (not a draft)... No auto-merge; the manager merges.' Same lane/dispatch convention as the CA-A/CA-B sibling audit PRs (#13161, #13163, #13164, #13169, #13170, #13173, #13182, #13186).",
+  "why": "Docs-only code audit: two new files under docs/audits/code-audit-2026-09-27/, one row added to docs/DOCUMENT-INDEX.md, and 10 new append-only records under docs/claude/work/pipeline/ for the filed critical/high findings. No code, config, or runtime/order-path touched -- Tier-1 by path, held per the lane's landing convention (manager merges, not auto-merge)."
+}

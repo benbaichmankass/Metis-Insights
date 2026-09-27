@@ -332,6 +332,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/code-audit-2026-09-27/CA-A15.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-B01.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-B03.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B04.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-B08.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-B09.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/conviction-weight-sweep-2026-06-16.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
