@@ -1824,9 +1824,29 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
 
 def _cancel_resting_protection_after_flat(
     account_id: Optional[str], symbol: Optional[str],
+    *,
+    trade_id: Optional[Any] = None,
+    sl_order_id: Optional[str] = None,
+    tp_order_id: Optional[str] = None,
 ) -> None:
     """Cancel resting protective bracket legs for (account, symbol) after the
     RECONCILER concludes the position is flat on the exchange. Best-effort.
+
+    **Two scopes, chosen by whether the caller names the closing trade**
+    (CA-A01-001, 2026-09-27):
+
+    * ``trade_id`` given → cancel ONLY that trade's own protection: on IB the
+      keyed group ``oca-protect-t<trade_id>`` (:meth:`IBClient.cancel_trade_protection`),
+      so a sibling trade's keyed group on the same netted contract survives;
+      on Bybit the row's tracked ``sl_order_id`` / ``tp_order_id`` legs. This
+      is what the flat-FINALISE paths that never call ``close_open_position``
+      use — the stuck-strategy watchdog, the ``reconciler_filled`` close and
+      its netted-sibling cascade. Before it, the watchdog finalised
+      ``ib_paper`` trade 5836 (15 MES long) and left ``oca-protect-t5836``
+      (SELL STP 15 @7602.5 + SELL LMT 15 @8390.5) resting GTC on a flat
+      book for 8 days — either leg filling opens an unintended 15-lot short.
+    * ``trade_id`` absent → the legacy symbol-wide sweep below, unchanged for
+      the two :func:`_reconcile_orphan_exchange_positions` call sites.
 
     The reconciler's flat-close paths (``exchange_flat_reconciled`` / snapshot /
     close-on-disappear) mark the DB row closed WITHOUT going through
@@ -1883,6 +1903,12 @@ def _cancel_resting_protection_after_flat(
         return
     if client is None or cfg is None:
         return
+    if trade_id is not None:
+        _cancel_trade_scoped_protection(
+            client, cfg, account_id, symbol, trade_id=trade_id,
+            sl_order_id=sl_order_id, tp_order_id=tp_order_id,
+        )
+        return
     cancel_fn = getattr(client, "cancel_resting_protection", None)
     if not callable(cancel_fn):
         return  # non-IB integration — nothing to sweep
@@ -1899,6 +1925,99 @@ def _cancel_resting_protection_after_flat(
             "%s/%s: %s", account_id, symbol, exc,
         )
 
+
+
+def _cancel_trade_scoped_protection(
+    client: Any, cfg: Dict[str, Any], account_id: str, symbol: str,
+    *, trade_id: Any, sl_order_id: Optional[str], tp_order_id: Optional[str],
+) -> None:
+    """The ``trade_id`` half of :func:`_cancel_resting_protection_after_flat`.
+
+    IB → cancel the keyed group ``oca-protect-t<trade_id>`` only. Bybit →
+    cancel the row's tracked Partial-tpsl legs by id (the same per-row cancel
+    ``close_open_position`` makes after an ACTIVE close). Anything else has no
+    per-trade resting leg this path can address and is a no-op. Never raises.
+    """
+    try:
+        group_fn = getattr(client, "cancel_trade_protection", None)
+        if callable(group_fn):
+            resp = group_fn(symbol, trade_id) or {}
+            res = resp.get("result") or {}
+            logger.warning(
+                "order_monitor: flat-close cancelled trade %s's own protection "
+                "%s on %s/%s → retCode=%s verify_state=%s still_resting=%s",
+                trade_id, res.get("oca_group"), account_id, symbol,
+                resp.get("retCode"), res.get("verify_state"),
+                res.get("still_resting"),
+            )
+            return
+        exchange = str((cfg or {}).get("exchange") or "").lower()
+        if exchange != "bybit":
+            return
+        legs = [x for x in (sl_order_id, tp_order_id) if x]
+        if not legs:
+            return
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(cfg)
+        for leg_id in legs:
+            try:
+                r = client.cancel_order(
+                    category=category, symbol=symbol, orderId=str(leg_id),
+                ) or {}
+                logger.info(
+                    "order_monitor: flat-close cancel of trade %s tracked leg "
+                    "%s (%s/%s) → retCode=%s (non-zero usually means it already "
+                    "fired/cancelled)", trade_id, leg_id, account_id, symbol,
+                    r.get("retCode"),
+                )
+            except Exception as leg_exc:  # noqa: BLE001
+                logger.info(
+                    "order_monitor: flat-close cancel of trade %s leg %s raised: %s",
+                    trade_id, leg_id, leg_exc,
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: trade-scoped protection cancel failed for trade %s "
+            "%s/%s: %s", trade_id, account_id, symbol, exc,
+        )
+
+
+def _cancel_closed_row_protection(row: Any, db: Any = None) -> None:
+    """Call :func:`_cancel_resting_protection_after_flat` scoped to *row*.
+
+    *row* is a ``sqlite3.Row`` or dict for a trade that was just finalised on
+    a flat-at-exchange observation. The Bybit tracked-leg ids are read from
+    ``trades`` by id in a SEPARATE best-effort query rather than added to the
+    callers' SELECTs — a journal predating the ``sl_order_id`` migration must
+    still close the row; it only loses the leg cancel. Never raises.
+    """
+    try:
+        def _g(key: str) -> Any:
+            return row[key] if _row_has(row, key) else None
+        tid = _g("id")
+        if tid is None:
+            return
+        sl_id, tp_id = _g("sl_order_id"), _g("tp_order_id")
+        if sl_id is None and tp_id is None and db is not None:
+            try:
+                conn = db.connect()
+                try:
+                    got = conn.execute(
+                        "SELECT sl_order_id, tp_order_id FROM trades WHERE id=?",
+                        (int(tid),),
+                    ).fetchone()
+                finally:
+                    conn.close()
+                if got is not None:
+                    sl_id, tp_id = got[0], got[1]
+            except Exception:  # noqa: BLE001  # allow-silent: pre-migration journal has no leg-id columns; IB keyed cancel needs none
+                pass
+        _cancel_resting_protection_after_flat(
+            _g("account_id"), _g("symbol"), trade_id=int(tid),
+            sl_order_id=sl_id, tp_order_id=tp_id,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("order_monitor: _cancel_closed_row_protection raised: %s", exc)
 
 def _send_partial_close_to_exchange(
     matched_trade: Dict[str, Any], qty: float,
@@ -5804,6 +5923,9 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                 )
                 if recovered is not None:
                     db.update_trade(int(trade_row["id"]), recovered)
+                    # CA-A01-001: flat-finalise → cancel THIS trade's own
+                    # resting protection (keyed group / tracked legs).
+                    _cancel_closed_row_protection(trade_row, db)
                     _cascade_close_linked_package(
                         db, trade_row["id"],
                         close_reason=recovered.get(
@@ -5874,6 +5996,11 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                         "closed_at": now_iso,
                         "notes": dump_capped(trade_notes, 500),
                     })
+                    # CA-A01-001: this branch finalised ib_paper trade 5836 and
+                    # left oca-protect-t5836 (STP + LMT, 15 MES) resting GTC on
+                    # a flat book. Cancel THIS trade's own group — scoped, so a
+                    # sibling trade's keyed group on the contract survives.
+                    _cancel_closed_row_protection(trade_row, db)
                     summary["closed_local_unmatched"] += 1
                     logger.warning(
                         "_watchdog_stuck_strategies: FINALIZED CLOSED "
@@ -6419,6 +6546,10 @@ def _cascade_close_netted_siblings(
                     close_reason=exit_reason,
                     caller="_cascade_close_netted_siblings",
                 )
+                # CA-A01-001: the netted position is flat, so this sibling's
+                # own resting protection protects nothing — cancel it (scoped
+                # to THIS row; never symbol-wide).
+                _cancel_closed_row_protection(s, db)
                 closed += 1
                 logger.info(
                     "_cascade_close_netted_siblings: closed netted sibling "
@@ -6715,6 +6846,10 @@ def _close_trade_from_order_status(
             pass
 
     db.update_trade(int(row["id"]), updates)
+    # CA-A01-001: this is a flat-FINALISE path — it never calls
+    # close_open_position, so nothing else cancels the row's own resting
+    # protection (IB keyed group / Bybit tracked legs). Scoped to this row.
+    _cancel_closed_row_protection(row, db)
 
     # Cascade by canonical link (order_packages.linked_trade_id), not
     # by notes-JSON scraping. Pre-2026-05-16 this used
