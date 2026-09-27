@@ -1406,7 +1406,70 @@ operator for approval only when the tier requires it (Tier 2 / Tier 3 below).
 |---|---|---|---|---|
 | **Tier 1** | Safe autonomous work | Docs, tests, repo hygiene, CI, GitHub Actions updates, non-live-path refactors, validation tooling, communication infrastructure that does not alter trading behavior | Alter strategy logic, alter risk meaning, promote to live | Commit to `main` once validated; no approval needed |
 | **Tier 2** | Potential production-impact work with bounded scope | Prepare changes touching runtime flow, deploy flow, timers, bot writeback, order path, or services; run strongest safe validation; draft concise risk summary | Merge if the change can affect live trading behavior and is not fully proven safe | **Approval required before merge** |
-| **Tier 3** | Strategy and risk authority boundary | Analyze, test, prepare docs, and propose exact code changes | Merge or silently ship changes to strategy logic, risk caps, sizing formulas, thresholds, live promotion, **or any code path that writes `config/accounts.yaml` `mode:` outside the `set-account-mode` system-action** | **Explicit product approval required before merge** |
+| **Tier 3** | Strategy and risk authority boundary | Analyze, test, prepare docs, and propose exact code changes | Merge or silently ship changes to strategy logic, risk caps, sizing formulas, thresholds, live promotion, **or any code path that writes `config/accounts.yaml` `mode:` outside the `set-account-mode` system-action** | **Explicit product approval required before merge**, OR the data-backed standing authorization below |
+
+### Data-backed Tier-2/3 decisions: decide, ship, then tell the operator (operator standing authorization 2026-09-27, binding)
+
+The operator, verbatim, 2026-09-27: *"i've said several times that you can
+make tier 2 and 3 decisions autonomously as long as they are backed by data,
+just let me know that they have happened - that also needs to be updated so we
+stop running into it."* Before this section, no repo record of that
+authorization existed (the checklist and `config/mandates.yaml` were grepped),
+so every session re-asked. That gap is what this closes.
+
+**The rule.** The manager may **decide, merge and deploy** a Tier-2 or Tier-3
+change without first asking the operator, **when the decision is backed by
+data**, and then tells the operator it happened. So may a lane acting on the
+manager's recorded decision. It does not wait for approval. It reports.
+
+**"Backed by data" means a committed record, not an argument:**
+- **Every Tier-2/3 decision** needs the measurement it rests on, committed to
+  the repo or linked from the PR. That can be a diag/DB read, a test run
+  against real config, a run log or a harness output. It must name its
+  source and its population (§ "Always state the population"), and it must
+  distinguish MEASURED from INFERRED (§ MEASURED / INFERRED / DECIDED). A
+  claim in a PR body with nothing behind it is not a record.
+- **Strategy, parameter, sizing, risk-cap, roster and promotion decisions**
+  additionally need the evidence standard in § "Promotion evidence — offline
+  edge, live mechanics". That means a committed evidence record, a named
+  harness, a stated n, net of the full cost stack, and clearing a rule
+  registered before the run. A live or paper book's P&L alone never
+  establishes edge.
+- **A data basis known to be wrong in the favourable direction is not
+  "backed by data".** Until D1 lands, the backtest corpus defaults slippage
+  and funding to 0.0. So a real-money PROMOTION on that corpus stays blocked,
+  exactly as CLAUDE.md § "The daily sync" states. De-risking decisions
+  (demote, shrink, cut, add protection) carry no such block.
+
+**"Let me know that they have happened" means**, at the time of the
+decision, a realtime notification to the operator (a push notification, or a
+chat message in the manager session) that states:
+- what changed;
+- the evidence record;
+- merged vs deployed vs observed;
+- the one-line revert.
+
+The same goes into section 1 of the next daily brief. **Silence is not
+notification.** A Tier-2/3 change the operator learns about from the git log
+has broken this rule, even if the data was good.
+
+**What does NOT change:**
+- CI green, the guards and the landing protocol.
+- Every such change is ONE revertible PR.
+- Verify the post-state after deploy (*merged ≠ deployed ≠ observed*).
+- Account-mode flips still go only through the `set-account-mode`
+  system-action, and the Prime Directive stands: the trader never switches
+  itself off.
+- Claude Code's own permission prompts are a human click.
+- Credential and physical actions (key rotation, broker/console actions) stay
+  with the operator.
+- **When the data is ambiguous, or the change cannot be cleanly reverted**
+  (e.g. closing a real position, an irreversible venue action), ask first.
+  This authorization covers decisions the data settles. It does not cover
+  judgment calls the data leaves open.
+- `config/mandates.yaml` still records specific standing grants (e.g. an
+  armed auto-land route). This section is the general authorization those
+  grants sit inside.
 
 ### Tier 1 examples
 
