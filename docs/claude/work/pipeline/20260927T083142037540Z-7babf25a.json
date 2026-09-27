@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "P1's comparison lands and the operator decides sizing on those numbers (approve a k, amend, or decline), recorded on this item.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#2-sizing-vs-the-floor-the-urgent-part",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1' | python3 -m json.tool"
+  },
+  "routed_to": "W6 lane P1 (session_013wNhAh3Z3EPTFyJuANcRrz, PR #13084): the prop EV simulator is scoring keep / trade-smaller / fresh-account for breakout_1 from the live state (balance 4724, $24 room, account_status #21).",
+  "state": "routed",
+  "what": "[TIER-3, PROP REAL MONEY] breakout_1 sizes every ticket at a flat $75 (config risk_pct 1.5% x account_size_usd $5,000, config/accounts.yaml breakout_1, read 2026-09-24; population: every ticket breakout_1 emits) against a $94.76 DD-floor cushion (MEASURED 2026-09-24T09:38Z snapshot): 1 full-size stop-out survivable now, 0 after the open ETH short #44 stops (~$24.94 left). Proposal (not applied): risk_usd = min(1.5% x live balance, k x (cushion - open loss-to-stop - $2)), k=0.33, skip+page below $10. Exact config/code and arithmetic in docs/research/prop-state-2026-09-24.md section 2. | 2026-09-27: operator chose 'Wait for P1's comparison (Recommended)'; decide with P1's numbers. Operator decision by popup in manager session session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27 ~08:40Z."
+}
