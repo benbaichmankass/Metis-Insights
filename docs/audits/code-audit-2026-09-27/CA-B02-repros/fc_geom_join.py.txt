@@ -1,0 +1,25 @@
+import sqlite3, sys
+sys.path.insert(0, "/home/user/Metis-Insights")
+from scripts.ml.fc_geometry_resolve import _join_real_r
+
+con = sqlite3.connect(":memory:")
+con.row_factory = sqlite3.Row
+con.execute("""CREATE TABLE trades (
+    symbol TEXT, status TEXT, is_backtest INTEGER, strategy_name TEXT,
+    entry_price REAL, stop_loss REAL, position_size REAL, pnl REAL,
+    timestamp TEXT, created_at TEXT
+)""")
+# Two DIFFERENT strategies both trading BTCUSDT, closing within the 900s tolerance window.
+# soak row under test belongs to trend_donchian (R should be ~ +2.0)
+con.execute("INSERT INTO trades VALUES ('BTCUSDT','closed',0,'trend_donchian',100,98,1.0,4.0,'2026-01-01T00:05:00Z','2026-01-01T00:00:00Z')")  # R = 4/(2*1)=2.0
+# an UNRELATED strategy (ict_scalp_5m) also closed a BTCUSDT trade 3 minutes earlier -- closer in time to `when`
+con.execute("INSERT INTO trades VALUES ('BTCUSDT','closed',0,'ict_scalp_5m',100,99.5,2.0,-3.0,'2026-01-01T00:03:00Z','2026-01-01T00:00:00Z')")  # R = -3/(0.5*2)=-3.0
+con.commit()
+
+# soak row's `when` (decision ts) is 00:02:00 -- closer to the scalp trade (closed 00:03) than the trend trade (00:05)
+import datetime
+when = datetime.datetime(2026,1,1,0,2,0, tzinfo=datetime.timezone.utc).timestamp()
+r = _join_real_r(con, "BTCUSDT", when)
+print("joined real_r =", r, " (picked the CLOSEST-in-time trade regardless of strategy)")
+print("this soak row belongs to trend_donchian (true R=2.0) but the join has no strategy filter")
+print("and returns the nearer ict_scalp_5m trade's R instead:", r)
