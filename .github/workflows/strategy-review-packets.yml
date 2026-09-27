@@ -79,12 +79,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # schedule-keeper (scripts/ops/schedule_keeper.py, W6-OPS-R 2026-09-27):
+  # GitHub creates this repo's scheduled runs ~4-6h late, so
+  # .github/workflows/schedule-keeper.yml dispatches this workflow near its
+  # slot. This job skips the LATE scheduled run of a slot the keeper already
+  # ran, so each slot runs once. It only ever decides WHETHER this run
+  # proceeds, never what it computes. Fails open: an error here means "run".
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
   packets:
+    needs: dedupe
     if: |
+      !cancelled() && needs.dedupe.outputs.skip != 'true' && (
       github.event_name != 'issues' ||
       ((github.event.issue.user.login == github.repository_owner ||
         github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'strategy-review-packets'))
+      )
     runs-on: ubuntu-latest
     # 45, not 25: `commit-to-main` with verify-merged waits up to its own
     # 30-minute default for the PR to MERGE, so a 25-minute job timeout would
