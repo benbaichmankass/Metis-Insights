@@ -123,8 +123,16 @@ above rather than override it: **spend the daily budget; spend it on results.**
   conflict markers before every commit (a conflicted checklist was pushed once
   on 2026-09-26 by exactly that chain).
 
-Headroom this leaves is for **depth** (multi-fold rather than single-split
-tests, Opus where risk warrants it, audits), never for moving work off the model
+⚠️ **Running below the 10%/day pace while delivering is NOT under-spending**
+(operator, 2026-09-27, correcting the manager, who had called it one: *"It's not
+a failure here at all, we are getting work done at a good usage pace"*). The
+"under-spending is a failure" warning above means an idle or throttled manager,
+not an efficient one. Judge the pace by results delivered, never by distance
+from 10%.
+
+Headroom this leaves is available for **depth** when a task warrants it
+(multi-fold rather than single-split tests, Opus where risk warrants it,
+audits). It is not a target to hit, and never a reason to move work off the model
 its risk demands.
 
 ## Spawning
