@@ -1165,6 +1165,51 @@ def enqueue_naked_position_alert(
         return None
 
 
+def enqueue_bybit_protection_refused(
+    *,
+    account: str,
+    symbol: str,
+    state: str,
+    sweeps: int,
+    priority: str = "high",
+) -> Optional[Path]:
+    """Page: a Bybit symbol's protection read has been REFUSED for *sweeps*
+    consecutive broker-naked sweeps (FIX-CA-06 / CA-A01-073).
+
+    While refused, ``_check_broker_naked_bybit_positions`` cannot re-arm a
+    protective stop on that symbol at all. Fired once per episode by
+    ``order_monitor._track_bybit_protection_refusals``. Never raises.
+    """
+    try:
+        body = (
+            "⚠️ BYBIT PROTECTION UNREADABLE — no re-arm possible\n"
+            f"Account: {account}\n"
+            f"Symbol: {symbol}\n"
+            f"Refusal: {state} for {sweeps} consecutive sweeps\n"
+            "The broker-naked sweep cannot grade this symbol's stop coverage, "
+            "so a naked position here would NOT be re-protected. "
+            "Action: run the bybit-bracket-audit action and check the "
+            "position's books on the venue."
+        )[:1024]
+        _append_operator_alert("bybit_protection_refused", priority, body)
+        payload = {"priority": priority, "body": body}
+        PENDING_PINGS_DIR.mkdir(parents=True, exist_ok=True)
+        name = (f"{int(uuid.uuid4().int % 10**12):012d}"
+                "-bybit-protection-refused.json")
+        path = PENDING_PINGS_DIR / name
+        tmp = path.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, path)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "execution_diagnostics: bybit-protection-refused ping enqueue "
+            "failed for %s/%s: %s", account, symbol, exc,
+        )
+        return None
+
+
 def enqueue_monitor_blindness_alert(
     *,
     order_package_id: Any,

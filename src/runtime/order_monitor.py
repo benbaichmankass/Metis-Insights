@@ -8314,7 +8314,8 @@ def _stamp_repair(db, row, kind: str, verified: str = "unverified") -> None:
         )
 
 
-def _attempt_naked_autoprotect(row, sl, tp, *, db=None) -> bool:
+def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
+                               bybit_position_idx: Optional[int] = None) -> bool:
     """Re-arm a broker-side GTC protective bracket on a naked position.
 
     Returns True on a placed protective bracket. Never raises.
@@ -8401,10 +8402,18 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None) -> bool:
             except Exception:  # noqa: BLE001 — a missing column is not a failure
                 _dir = None
             _pos = position_idx_for(account_id, symbol, _dir)
+            _pidx = 0 if _pos.idx is None else _pos.idx
+            if bybit_position_idx is not None:
+                # FIX-CA-06: the caller graded ONE book of a dual-book hedge
+                # symbol and hands us the VENUE's own positionIdx for it — the
+                # book the venue says this position is on, which outranks the
+                # configured allowlist (a venue holding two live books IS in
+                # hedge mode whatever the config says).
+                _pidx = int(bybit_position_idx)
             resp = client.set_trading_stop(
                 category=category,
                 symbol=symbol,
-                positionIdx=(0 if _pos.idx is None else _pos.idx),
+                positionIdx=_pidx,
                 tpslMode="Full",
                 stopLoss=str(sl),
                 takeProfit=str(tp),
@@ -9462,8 +9471,18 @@ def _norm_position_side(raw) -> str:
     return ""
 
 
-def _bybit_position_protection(client, category: str, symbol: str):
+def _bybit_position_protection(client, category: str, symbol: str,
+                               want_side: Optional[str] = None,
+                               refusal: Optional[Dict[str, Any]] = None):
     """Read a Bybit symbol's live protection COVERAGE, mode-agnostically.
+
+    FIX-CA-06 (CA-A01-073). *want_side* grades ONE book of a hedge symbol whose
+    two books are both live (see ``bybit_position_book.select_position_row``);
+    omitted, behaviour is unchanged. *refusal*, when passed, is filled with
+    ``{"state": ...}`` whenever this returns ``None`` — ``read_error``,
+    ``open_orders_read_error`` or the book-selection state (``no_rows`` /
+    ``ambiguous_multi_book`` / ``size_unreadable``) — so a caller can COUNT a
+    refusal by kind instead of skipping it silently.
 
     Returns ``None`` on any read failure so the caller SKIPS (never re-arms on
     an unconfirmed read — the fail-safe the Alpaca/IB sweeps also honour), else
@@ -9552,6 +9571,8 @@ def _bybit_position_protection(client, category: str, symbol: str):
     except Exception as exc:  # noqa: BLE001
         logger.debug("_bybit_position_protection: get_positions failed %s: %s",
                      symbol, exc)
+        if refusal is not None:
+            refusal["state"] = "read_error"
         return None
     _flat = {
         "size": 0.0, "side": "", "covered_qty": 0.0, "source": "flat",
@@ -9568,7 +9589,7 @@ def _bybit_position_protection(client, category: str, symbol: str):
     # selection is a PURE function so the policy is arguable in tests rather
     # than against a live position; its five states and what a refusal costs are
     # documented in `src.runtime.bybit_position_book`.
-    selection = _bybit_book.select_position_row(rows)
+    selection = _bybit_book.select_position_row(rows, want_side=want_side)
     if selection.state == "flat":
         # The venue ENUMERATED the books and none holds anything. A real
         # measurement, unlike `no_rows` below.
@@ -9587,6 +9608,8 @@ def _bybit_position_protection(client, category: str, symbol: str):
             "closed a live position (MI-204).",
             symbol, selection.state, selection.detail,
         )
+        if refusal is not None:
+            refusal["state"] = selection.state
         return None
     pos = selection.row
     size = selection.size
@@ -9641,6 +9664,8 @@ def _bybit_position_protection(client, category: str, symbol: str):
     except Exception as exc:  # noqa: BLE001
         logger.debug("_bybit_position_protection: get_open_orders failed %s: %s",
                      symbol, exc)
+        if refusal is not None:
+            refusal["state"] = "open_orders_read_error"
         return None
     covered = 0.0
     leg_prices: List[float] = []
@@ -10442,7 +10467,18 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
     it is recorded and nothing else: an ``annotate`` mode that introduced a new
     refusal would not be an annotation.
 
-    Returns ``{"checked", "broker_naked", "rearmed", "errors"}``.
+    ⚠️ **A REFUSED READ IS COUNTED, AND A DUAL-BOOK SYMBOL IS GRADED PER BOOK**
+    (FIX-CA-06 / CA-A01-073, 2026-09-27). Every (account, symbol) whose
+    protection read returns ``None`` is counted in ``protection_refused`` (split
+    ``refused_ambiguous_book`` / ``refused_read_error`` / ``refused_no_rows``),
+    makes the summary reportable, and pages after
+    ``_BYBIT_PROTECTION_REFUSED_PAGE_AFTER`` consecutive refused sweeps. A hedge
+    symbol with BOTH books live is re-read per book; each book is graded on the
+    graded (side-aware) coverage on EVERY account — the allowlist above does
+    not scope that case, because there the side-blind sum is both books' legs
+    by construction — and a naked book is re-armed at the venue's positionIdx.
+
+    Returns ``{"checked", "broker_naked", "rearmed", "errors", ...}``.
     """
     summary: Dict[str, int] = {
         "checked": 0, "broker_naked": 0, "rearmed": 0, "errors": 0,
@@ -10485,6 +10521,21 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
         "coverage_ungradeable_refused": 0,
         "journal_qty_divergent": 0,
         "journal_qty_divergent_pairs": 0,
+        # ---- FIX-CA-06 (CA-A01-073) ----------------------------------------
+        # A protection read that returned None used to be a SILENT skip: no
+        # re-arm for either book, no counter, and run_reconciliation_tick then
+        # dropped the whole summary because broker_naked == errors == 0. Every
+        # such (account, symbol) is now counted once per sweep, by kind.
+        # `refused_read_error` also carries `size_unreadable` and an
+        # open-orders read failure: all three are "the venue's answer would
+        # not parse / arrive". `dual_book_graded` counts BOOKS graded one at a
+        # time on a hedge symbol whose two books are both live — the case that
+        # used to refuse as `ambiguous_multi_book`.
+        "protection_refused": 0,
+        "refused_ambiguous_book": 0,
+        "refused_read_error": 0,
+        "refused_no_rows": 0,
+        "dual_book_graded": 0,
     }
     try:
         from src.bot import data_loaders
@@ -10533,6 +10584,13 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
     # block ran second unreachable and silently retire a live detector — the
     # mistake the `overcover_checked` comment below already records.
     coverage_soaked: set = set()
+    # FIX-CA-06: the refusal kind per protection-cache key, which keys were
+    # already counted this sweep, and — per (account, SYMBOL) — whether the
+    # symbol was refused or read this sweep (feeds the page-after-N streak).
+    refusal_state: Dict[tuple, Optional[str]] = {}
+    refused_counted: set = set()
+    refused_syms: Dict[tuple, str] = {}
+    readable_syms: set = set()
     _cov_global_mode = _bybit_cov_basis.resolve_mode(
         os.environ.get("BYBIT_GRADED_COVERAGE_MODE"))
     _cov_allowlist = os.environ.get("BYBIT_GRADED_COVERAGE_ACCOUNTS")
@@ -10601,14 +10659,60 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
             if client is None:
                 continue
             category = _bybit_category(acc)
-            cache_key = (account_id, symbol.upper())
+            sym_key = (account_id, symbol.upper())
+            cache_key = sym_key
             if cache_key not in protection_cache:
+                _refusal: Dict[str, Any] = {}
                 protection_cache[cache_key] = _bybit_position_protection(
-                    client, category, symbol,
+                    client, category, symbol, refusal=_refusal,
                 )
+                refusal_state[cache_key] = _refusal.get("state")
             state = protection_cache[cache_key]
+            # ---- FIX-CA-06 Part B: a dual-book hedge symbol, PER BOOK --------
+            # Both books live used to refuse the whole symbol, so NEITHER book
+            # was ever re-armed. Grade the book THIS row is on instead, cached
+            # per (account, symbol, direction), and — below — grade it on the
+            # side-aware graded coverage, never the side-blind sum: with two
+            # live books the other book's legs would otherwise mask a naked
+            # book (the CA-A01-057 shape) on an account outside the graded
+            # allowlist, e.g. bybit_2.
+            per_book = False
+            book_side = None
+            if (state is None
+                    and refusal_state.get(sym_key) == "ambiguous_multi_book"):
+                book_side = _norm_position_side(row["direction"])
+                if book_side in ("long", "short"):
+                    per_book = True
+                    cache_key = (*sym_key, book_side)
+                    if cache_key not in protection_cache:
+                        _refusal = {}
+                        protection_cache[cache_key] = (
+                            _bybit_position_protection(
+                                client, category, symbol,
+                                want_side=book_side, refusal=_refusal,
+                            ))
+                        refusal_state[cache_key] = _refusal.get("state")
+                        if protection_cache[cache_key] is not None:
+                            summary["dual_book_graded"] += 1
+                    state = protection_cache[cache_key]
             if state is None:
-                continue  # read failure — never re-arm on an unconfirmed read
+                # Never re-arm on an unconfirmed read — but never SILENTLY
+                # either (FIX-CA-06 Part A). A key set to None on purpose later
+                # in this loop ("don't re-grade this tick") carries no refusal
+                # kind and is counted by its own guard instead.
+                _rs = refusal_state.get(cache_key)
+                if _rs and cache_key not in refused_counted:
+                    refused_counted.add(cache_key)
+                    summary["protection_refused"] += 1
+                    if _rs == "ambiguous_multi_book":
+                        summary["refused_ambiguous_book"] += 1
+                    elif _rs == "no_rows":
+                        summary["refused_no_rows"] += 1
+                    else:
+                        summary["refused_read_error"] += 1
+                    refused_syms.setdefault(sym_key, _rs)
+                continue
+            readable_syms.add(sym_key)
             size = float(state["size"])
             covered = float(state["covered_qty"])
             exch_side = str(state.get("side") or "")
@@ -10626,8 +10730,8 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
             # docs/netting-partial-close-attribution-DESIGN.md).
             if cache_key not in anomaly_checked:
                 anomaly_checked.add(cache_key)
-                _j_long = journal_qty_by_key.get((*cache_key, "long"), 0.0)
-                _j_short = journal_qty_by_key.get((*cache_key, "short"), 0.0)
+                _j_long = journal_qty_by_key.get((*sym_key, "long"), 0.0)
+                _j_short = journal_qty_by_key.get((*sym_key, "short"), 0.0)
                 # Qty the exchange actually backs, per side. A flat position
                 # backs nothing on EITHER side; a live one backs only its own.
                 _live = {"long": 0.0, "short": 0.0}
@@ -10636,11 +10740,15 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                 for _side, _j in (("long", _j_long), ("short", _j_short)):
                     if _j <= 0:
                         continue
+                    if per_book and _side != book_side:
+                        # A per-book read backs only ITS book; the other book
+                        # is graded on its own key (FIX-CA-06).
+                        continue
                     _backed = _live[_side]
                     if _j <= _backed * (1.0 + _BYBIT_QTY_DIVERGENCE_FRAC):
                         continue
                     summary["journal_qty_divergent"] += 1
-                    _pairs_q = pairs_qty_by_key.get((*cache_key, _side), 0.0)
+                    _pairs_q = pairs_qty_by_key.get((*sym_key, _side), 0.0)
                     if _pairs_q >= _j - 1e-9:
                         # ENTIRELY pairs-sleeve. The netting reconciler refuses
                         # these by design, so the generic message below would
@@ -10796,7 +10904,18 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
             # Bybit account is graded and soaked below, so the rows a reviewer
             # needs before widening to bybit_2 exist for bybit_2 — the exact
             # correction NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09.
-            if _cov_global_mode == _bybit_cov_basis.MODE_OFF:
+            # FIX-CA-06: on a per-book read of a dual-book symbol the GRADED
+            # basis binds on every account, whatever the staged allowlist
+            # says — the side-blind sum there is by construction the sum of
+            # BOTH books' legs, i.e. exactly the masking the graded basis
+            # exists to prevent. Nothing about single-book symbols changes.
+            if per_book:
+                _row_cov_mode, _row_cov_allow = (
+                    _bybit_cov_basis.MODE_APPLY, account_id)
+            else:
+                _row_cov_mode, _row_cov_allow = (
+                    _cov_global_mode, _cov_allowlist)
+            if _row_cov_mode == _bybit_cov_basis.MODE_OFF:
                 # `off` grades nothing and writes nothing: byte-for-byte the
                 # pre-gate behaviour, on disk as well as in the order path.
                 _graded_qty, _cov_state = (
@@ -10812,9 +10931,9 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                 _graded_qty, _cov_state = (
                     covered, _bybit_leg_sides.COVERAGE_GRADED)
             cov = _bybit_cov_basis.coverage_decision(
-                global_mode=_cov_global_mode,
+                global_mode=_row_cov_mode,
                 account_id=account_id,
-                allowlist_raw=_cov_allowlist,
+                allowlist_raw=_row_cov_allow,
                 size=size, eps=eps,
                 side_blind_qty=covered,
                 graded_qty=_graded_qty,
@@ -10929,7 +11048,12 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
             # fall back to the whole-position Full-mode re-arm (which protects
             # everything but stamps one trade's levels over the netted position).
             topped_up = False
-            if partial:
+            # A per-book (dual-book hedge) gap goes straight to the Full-mode
+            # re-arm below, which targets the venue's own positionIdx for this
+            # book. The qty-scoped top-up path resolves no book of its own
+            # (it passes no position side), so on a hedge symbol it would be
+            # refused or aimed at the wrong book (FIX-CA-06).
+            if partial and not per_book:
                 # The hole is measured against WHICHEVER basis bound this row,
                 # so the leg placed matches the verdict that called for it.
                 # Under the graded basis that is the same book the position is
@@ -10957,7 +11081,9 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                         account_id, symbol, uncovered, a_sl, row["id"],
                     )
             if not topped_up and _attempt_naked_autoprotect(
-                row, a_sl, a_tp, db=db):
+                row, a_sl, a_tp, db=db,
+                bybit_position_idx=(
+                    state.get("position_idx") if per_book else None)):
                 summary["rearmed"] += 1
                 protection_cache[cache_key] = _bybit_mark_fully_covered(state, size)
                 logger.info(
@@ -10972,7 +11098,54 @@ def _check_broker_naked_bybit_positions(db) -> Dict[str, int]:
                 "_check_broker_naked_bybit_positions: failed for trade_id=%s: %s",
                 row["id"], exc,
             )
+    _track_bybit_protection_refusals(refused_syms, readable_syms)
     return summary
+
+
+# FIX-CA-06 Part A: consecutive sweeps each (account, symbol) was REFUSED (its
+# protection read returned None). In-process; a restart re-counts from zero.
+# After _BYBIT_PROTECTION_REFUSED_PAGE_AFTER consecutive refused sweeps the
+# operator is paged ONCE for that episode; a readable sweep ends the episode.
+_BYBIT_PROTECTION_REFUSED_PAGE_AFTER = 10
+_BYBIT_PROTECTION_REFUSED_STREAK: Dict[tuple, int] = {}
+
+
+def _track_bybit_protection_refusals(refused: Dict[tuple, str],
+                                     readable: set) -> None:
+    """Advance the refused-sweep streaks and page once per episode. Never
+    raises."""
+    try:
+        for key in readable - set(refused):
+            _BYBIT_PROTECTION_REFUSED_STREAK.pop(key, None)
+        for key, state in refused.items():
+            n = _BYBIT_PROTECTION_REFUSED_STREAK.get(key, 0) + 1
+            _BYBIT_PROTECTION_REFUSED_STREAK[key] = n
+            if n != _BYBIT_PROTECTION_REFUSED_PAGE_AFTER:
+                continue
+            logger.error(
+                "_check_broker_naked_bybit_positions: %s/%s protection read "
+                "REFUSED (%s) for %d consecutive sweeps — no protective re-arm "
+                "has been possible for this symbol in that time.",
+                key[0], key[1], state, n,
+            )
+            from src.runtime import execution_diagnostics
+            execution_diagnostics.enqueue_bybit_protection_refused(
+                account=key[0], symbol=key[1], state=state, sweeps=n,
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_track_bybit_protection_refusals: failed: %s", exc)
+
+
+def _bybit_naked_summary_reportable(summary: Dict[str, int]) -> bool:
+    """Whether run_reconciliation_tick emits the Bybit broker-naked summary.
+
+    FIX-CA-06: a sweep whose only finding is a REFUSED read is reportable. It
+    used to be dropped because broker_naked == errors == 0, which made "we
+    could not look at this symbol" read exactly like "this symbol is fine".
+    """
+    return bool(summary.get("broker_naked") or summary.get("errors")
+                or summary.get("protection_refused"))
 
 
 def _check_naked_positions(db) -> Dict[str, int]:
@@ -12555,9 +12728,7 @@ def run_reconciliation_tick(
     try:
         with _phase("check_broker_naked_bybit_positions"):
             bybit_naked_summary = _check_broker_naked_bybit_positions(db)
-        if bybit_naked_summary.get("broker_naked") or bybit_naked_summary.get(
-            "errors"
-        ):
+        if _bybit_naked_summary_reportable(bybit_naked_summary):
             summaries["__broker_naked_bybit__"] = bybit_naked_summary
     except Exception as exc:  # noqa: BLE001
         logger.warning(
