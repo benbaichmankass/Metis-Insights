@@ -58,7 +58,7 @@ class _AlertManagerAdapter:
         self._am = alert_manager
 
     def send_message(self, message: str):
-        self._am.send_alert(message)
+        return self._am.send_alert(message)
 
 
 def _build_telegram_client():
@@ -868,6 +868,9 @@ def run_one_tick(settings: dict, exchange_client, telegram_client) -> dict:
     return {"multi_symbol": True, "results": results}
 
 
+_CRITICAL_ALERT_MAX_ATTEMPTS = 5
+
+
 def _drain_critical_alerts(telegram_client) -> None:
     """Forward queued critical alerts to Telegram, then drain.
 
@@ -885,18 +888,44 @@ def _drain_critical_alerts(telegram_client) -> None:
     Drain on every tick so operator notification latency is bounded
     by ``TICK_INTERVAL_SECONDS``. Best-effort — never let a
     notification failure break the trader loop.
+
+    FIX-CA-13: ``pop_alerts()`` is destructive, so a failed send (raised,
+    or the client returned ``False``) re-queues the alert for the next
+    tick, up to ``_CRITICAL_ALERT_MAX_ATTEMPTS`` attempts; after that it
+    is logged at ERROR as UNDELIVERED with its full text. A client that
+    returns ``None`` (no delivery signal) is treated as sent.
     """
     try:
-        from src.units.dashboards.alerts import pop_alerts
+        from src.units.dashboards.alerts import pop_alerts, push_alert
         for alert in pop_alerts():
             if str(alert.get("level", "")).lower() != "critical":
                 continue
             source = alert.get("source") or "unknown"
             msg = alert.get("message") or ""
             try:
-                telegram_client.send_message(f"[CRITICAL][{source}] {msg}")
+                ok = telegram_client.send_message(f"[CRITICAL][{source}] {msg}")
             except Exception:  # noqa: BLE001
                 logger.exception("alert_drainer: telegram send failed")
+                ok = False
+            if ok is not False:
+                continue
+            attempts = int(alert.get("delivery_attempts") or 0) + 1
+            if attempts >= _CRITICAL_ALERT_MAX_ATTEMPTS:
+                logger.error(
+                    "alert_drainer: critical alert UNDELIVERED after %d "
+                    "attempts [%s] %s", attempts, source, msg,
+                )
+                continue
+            extra = {k: v for k, v in alert.items()
+                     if k not in ("ts", "source", "level", "message",
+                                  "delivery_attempts")}
+            push_alert(msg, source=source, level="critical",
+                       delivery_attempts=attempts, **extra)
+            logger.warning(
+                "alert_drainer: critical alert send failed (attempt %d/%d); "
+                "re-queued for next tick", attempts,
+                _CRITICAL_ALERT_MAX_ATTEMPTS,
+            )
     except Exception:  # noqa: BLE001
         logger.exception("alert_drainer: pop_alerts failed")
 
