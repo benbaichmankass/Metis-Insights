@@ -1,5 +1,9 @@
 # CA-A15 — Code audit: remaining small src/ modules
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+> lane CA-A15 of the 2026-09-27 code audit · session `session_014SZHZwFb7DiRbfRLBXqdGK` · reports to manager (row `CA`, `docs/claude/work/MANAGER-CHECKLIST.json`) · audited HEAD `043825797` (origin/main at 2026-09-27T13:00Z)
+
 Lane of the 2026-09-27 operator-adopted whole-repo code audit (row `CA`,
 `docs/claude/work/MANAGER-CHECKLIST.json`, dispatched via PR #13156). Method
 and finding schema per `docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md` §3/§5.
