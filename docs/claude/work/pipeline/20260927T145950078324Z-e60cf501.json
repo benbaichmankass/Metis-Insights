@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "10148 with state PendingCancel reports a distinct in-flight state, with a test",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-YDVVYLKH-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A01-001",
+    "rerun": "grep -n '_IB_CANCEL_CONFIRMED_CODES\\|10148' src/units/accounts/ib_client.py scripts/ops/cancel_ib_order.py"
+  },
+  "state": "queued",
+  "what": "scripts/ops/cancel_ib_order.py grades IBKR 10148 'cannot be cancelled, state: PendingCancel' as refused_by_venue with note 'the order is still resting ... will not change that' (#13216). PendingCancel means a cancel is already in flight (here: the OCA sibling cancel after 906), not a refusal; the report misdirects the operator. Classify 10148+PendingCancel as a third state (cancel_in_flight)."
+}

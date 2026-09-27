@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-09-27",
+    "kind": "date"
+  },
+  "id": "PI-20260927-YDVVYLKH-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A01-001",
+    "rerun": "system-action cancel-ib-order DRY-RUN: account ib_paper, order 907 -> expect lookup_state not_found; plus vm-diag-request exchange_positions -> ib_paper has no MES row"
+  },
+  "state": "queued",
+  "what": "ib_paper MES order 907 (SELL LMT 15 @8390.5, oca-protect-t5836, owner clientId 497) is stuck PendingCancel after the CA-A01-001 cancel window (#13215 cancelled 906 with IBKR 202; #13216 found 907 already PendingCancel, 10148). Fresh-process read 14:58Z (#13224) still PendingCancel, orders_on_account 5, MES flat. CME closed until ~22:00Z Sunday; expected to finalise at reopen. If still present after reopen, re-run the stop window (pause-autoheal, stop, cancel 907 apply+force_protective+force_client_id, start, resume) timed right after a git-sync tick."
+}
