@@ -1,5 +1,7 @@
 # Code audit CA-A13 — GitHub workflows part 1
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md)
+
 > Lane of the 2026-09-27 code audit (row CA-A13, `docs/claude/work/MANAGER-CHECKLIST.json`,
 > added by PR #13156). Read-only analysis + this docs-only PR; no code, config or live
 > state changed. Budget: ~$35, Sonnet.

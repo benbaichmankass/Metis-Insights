@@ -1,7 +1,7 @@
 {
   "tier": 1,
   "landing": "hold",
-  "hold_reason": "code_audit_lane_manager_review",
-  "hold_text": "CA-A13 audit lane (docs/claude/work/MANAGER-CHECKLIST.json row CA-A13, added by PR #13156). Dispatch instructions for this lane explicitly say: commit, push and open a normal (non-draft) PR, do not set up auto-merge, and the repo owner's manager session reviews and merges it. This PR adds only docs/audits/code-audit-2026-09-27/CA-A13.findings.jsonl, docs/audits/code-audit-2026-09-27/CA-A13.md, this landing declaration, and one new record file under docs/claude/work/pipeline/ (the pipeline follow-up PI-20260927-CAA13-0001, filed via scripts/ops/pipeline.py's own append()). No code, config, or workflow file is changed -- this is analysis only.",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Quoting the CA-A13 dispatch (docs/claude/work/MANAGER-CHECKLIST.json row CA-A13, added by PR #13156): 'commit on branch claude/ca-a13-audit, push, and open a normal pull request (not a draft) ... Do not set up auto-merge; the repo owner's manager session reviews and merges it.' This PR adds only docs/audits/code-audit-2026-09-27/CA-A13.findings.jsonl, docs/audits/code-audit-2026-09-27/CA-A13.md, this landing declaration, and one new record file under docs/claude/work/pipeline/ (the pipeline follow-up PI-20260927-CAA13-0001, filed via scripts/ops/pipeline.py's own append()). No code, config, or workflow file is changed -- this is analysis only.",
   "why": "Tier-1 by the canonical doc's own list (docs / analysis / retrieving and analyzing state). Held for manager review rather than self-landed per this lane's explicit dispatch instruction, not because the work is Tier-2/3."
 }
