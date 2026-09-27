@@ -42,6 +42,11 @@ Exit codes: 0 on a computed result (whatever the verdict), 2 when the
 population genuinely cannot support the pre-registered floor (never silently
 lowered — see ``research/queue/RQ-20260927-002.yaml``).
 """
+# wiring: manual-only - a one-off research driver dispatched by hand via a
+# trainer-vm-diag issue/workflow_dispatch (research/queue/RQ-20260927-002.yaml
+# `run.workflow`). Not meant to be called from a registered CI/scheduled
+# workflow -- see that unit's `run.note` for why a one-off dispatch is the
+# right shape here rather than a permanent workflow input.
 from __future__ import annotations
 
 import argparse
@@ -191,6 +196,14 @@ def main(argv: List[str]) -> int:
         artifact = {"features": teh.FEATURES, "shape": SHAPE}
 
         def predict(vec, _booster=booster):
+            # provenance: predict — the head's RAW score, P(class=1) for this
+            # BINARY LightGBM booster (train_model() above trains on the
+            # binary target `holding_pays` via lgb.LGBMClassifier; a raw
+            # lgb.Booster's predict() on a binary objective returns the
+            # positive-class probability, never a class label or a
+            # multiclass max — there is no multiclass head in this family).
+            # Interpreted by would_exit_for per SHAPE, matching
+            # exit_head_replay.py's own identical closure.
             return float(_booster.predict(vec)[0])
 
         records = [replay_trade(df, t, artifact, predict, ACTION) for t in test_trades]
@@ -218,6 +231,7 @@ def main(argv: List[str]) -> int:
         "research_unit": "RQ-20260927-002",
         "strategy": a.strategy, "symbol": a.symbol, "timeframe": a.timeframe,
         "model_id": "exit-head-donchian-1h-v1",
+        "baseline_summary_net_total_r": baseline.get("net_total_r"),
         "retrained_recipe": (
             "scripts/ml/train_exit_head.py train_model() unmodified: LightGBM, "
             "target=holding_pays, features=base, shape below_half_r tau=0.10 "

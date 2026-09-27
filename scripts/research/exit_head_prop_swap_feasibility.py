@@ -64,6 +64,12 @@ Usage (on the trainer, where the published artifact + candle data live)::
         --strategy trend_donchian_sol_prop --symbol SOLUSDT --timeframe 1h \\
         --swap-rate-daily 0.00033 --json /tmp/prop_sol.json
 """
+# wiring: manual-only - a one-off research driver dispatched by hand via a
+# trainer-vm-diag issue/workflow_dispatch (research/queue/RQ-20260927-003.yaml
+# `run.workflow`), the same pattern RQ-20260927-001's driver used. It is not
+# meant to be called from a registered CI/scheduled workflow -- see that
+# unit's `run.note` for why a one-off dispatch is the right shape here rather
+# than a permanent workflow input.
 from __future__ import annotations
 
 import argparse
@@ -71,7 +77,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, List
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _REPO_ROOT not in sys.path:
@@ -142,6 +148,14 @@ def main(argv: List[str]) -> int:
     artifact, booster = heads[0]
 
     def predict(vec):
+        # provenance: predict — the head's RAW score, P(class=1) for this
+        # BINARY LightGBM booster (train_exit_head.py trains on the binary
+        # target `holding_pays` via lgb.LGBMClassifier, exported to a raw
+        # lgb.Booster; Booster.predict() on a binary objective returns the
+        # positive-class probability, never a class label or a multiclass
+        # max — there is no multiclass head in this family). Interpreted by
+        # would_exit_for per the artifact's declared shape, same as
+        # exit_head_replay.py's own identical closure.
         return booster.predict(vec)[0]
 
     # Bypassed by design (see module docstring): this leg declares no
@@ -205,6 +219,7 @@ def main(argv: List[str]) -> int:
             "swap rate -- NOT the perp-funding cost_basis above, which this "
             "leg's real venue does not charge."),
         "baseline_gross_r": round(base_r, 4),
+        "baseline_summary_net_total_r": baseline.get("net_total_r"),
         "replayed_gross_r": round(new_r, 4),
         "delta_gross_r": round(new_r - base_r, 4),
         "swap_saved_total_r": round(swap_saved_total_r, 4),
