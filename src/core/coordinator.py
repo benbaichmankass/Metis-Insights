@@ -2113,14 +2113,7 @@ class Coordinator:
                     # full-size open on an account already holding the symbol.
                     # Refuse this account for this package; the account stays
                     # live (per-trade refusal with a logged cause).
-                    _holds_open = (
-                        has_open_trade_for_strategy(
-                            account.name, pkg.symbol, pkg.strategy,
-                        )
-                        if position_netting_guard_active_for(account.name)
-                        else False
-                    )
-                    if current_signed_qty is None or _holds_open is None:
+                    if current_signed_qty is None:
                         logger.warning(
                             "[coordinator] net position unreadable for %s/%s "
                             "— refusing package (not treating as flat)",
@@ -2190,7 +2183,42 @@ class Coordinator:
                     # POSITION_NETTING_GUARD_ENABLED env flag was removed (Prime
                     # Directive: a required correctness fix must not sit behind a
                     # default-off gate that an env drop could silently revert).
-                    if delta.action in ("open", "increase") and _holds_open:
+                    # Read only for an ADD, so reduce / close / flip never
+                    # depend on it (they are never blocked). FIX-CA-07: an
+                    # unreadable read refuses the add rather than reading as
+                    # "no open trade".
+                    _holds_open = (
+                        has_open_trade_for_strategy(
+                            account.name, pkg.symbol, pkg.strategy,
+                        )
+                        if position_netting_guard_active_for(account.name)
+                        and delta.action in ("open", "increase")
+                        else False
+                    )
+                    if _holds_open is None:
+                        logger.warning(
+                            "[coordinator] open-trade read unreadable for "
+                            "%s/%s/%s — refusing %s (not treating as flat)",
+                            account.name, pkg.symbol, pkg.strategy, delta.action,
+                        )
+                        from src.units.accounts.execute import log_rejection_to_journal
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason="net_position_unreadable",
+                            status="rejected",
+                            sized_qty=0.0,
+                            margin_basis=margin_basis or None,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": "net_position_unreadable",
+                        })
+                        continue
+                    if _holds_open:
                         _guard_reason = (
                             f"reentry_suppressed_netting_guard:{delta.action}"
                         )

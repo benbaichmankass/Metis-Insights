@@ -171,7 +171,9 @@ def current_net_position_qty(
           * no open rows match, OR
           * the trade journal file does not exist (fresh deploy).
         ``None`` when the SELECT fails — "could not look" is not "flat"
-        (FIX-CA-07; registered in scripts/ci/check_collapsed_states.py).
+        (FIX-CA-07). Not registered in scripts/ci/check_collapsed_states.py:
+        that guard keys on string state tokens and a None-vs-0.0 return has
+        none; tests/test_net_position_unreadable.py is the detector.
 
     Notes
     -----

@@ -114,3 +114,75 @@ class TestReconcilerDoesNotCloseAnUnreadableSymbol:
         assert summary["closed"] == 0
         assert summary["pending_close"] == 0
         assert _read_trade(tmp_db, trade_id)["status"] == "open"
+
+
+class _EthLiveBtcCrossCheckRaises:
+    """settleCoin page lists a live ETHUSDT long; the BTCUSDT cross-check raises."""
+
+    def get_positions(self, **kw):
+        if "symbol" in kw:
+            raise RuntimeError("per-symbol 5xx")
+        return {"result": {"list": [
+            {"symbol": "ETHUSDT", "side": "Buy", "size": "0.12",
+             "avgPrice": "1725.0", "unrealisedPnl": "5.0", "positionIdx": 0},
+        ]}}
+
+
+def _status_by_order(statuses):
+    def _impl(cfg, order_id, *a, **k):
+        return statuses[str(order_id)]
+    return _impl
+
+
+class TestNotFoundBranchCarriesUnreadableSymbols:
+    """Review finding on #13244 after #13251 merged: the not_found branch
+    filled the per-tick positions cache without recording unreadable symbols,
+    so a later filled row on an unreadable symbol was closed."""
+
+    def test_filled_row_on_unreadable_symbol_survives_a_prior_not_found_row(
+        self, tmp_db,
+    ):
+        from tests.test_monitor_reconciler import _not_found_status
+
+        eth_id = _insert_trade(
+            tmp_db, symbol="ETHUSDT", trade_id="2000000000000000801",
+        )
+        btc_id = _insert_trade(
+            tmp_db, symbol="BTCUSDT", trade_id="2000000000000000802",
+        )
+        partial = _read(_EthLiveBtcCrossCheckRaises())
+        statuses = {
+            "2000000000000000801": _not_found_status("2000000000000000801"),
+            "2000000000000000802": _filled_status("2000000000000000802"),
+        }
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            side_effect=_status_by_order(statuses),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=partial,
+        ):
+            summary = _reconcile_to_close(tmp_db)
+
+        assert _read_trade(tmp_db, btc_id)["status"] == "open"
+        assert _read_trade(tmp_db, eth_id)["status"] == "open"
+        assert summary["closed"] == 0
+
+    def test_not_found_row_on_unreadable_symbol_is_not_orphaned(self, tmp_db):
+        from tests.test_monitor_reconciler import _not_found_status
+
+        btc_id = _insert_trade(
+            tmp_db, symbol="BTCUSDT", trade_id="2000000000000000803",
+        )
+        partial = _read(_EthLiveBtcCrossCheckRaises())
+        with patch(
+            "src.units.accounts.clients.account_order_status",
+            return_value=_not_found_status("2000000000000000803"),
+        ), patch(
+            "src.units.accounts.clients.account_open_positions",
+            return_value=partial,
+        ):
+            summary = _reconcile_to_close(tmp_db)
+
+        assert summary["orphaned"] == 0
+        assert _read_trade(tmp_db, btc_id)["status"] == "open"

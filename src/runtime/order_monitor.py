@@ -4796,8 +4796,20 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                         positions_cache = (
                             None if pos is None else _exchange_position_set(pos)
                         )
+                        # FIX-CA-08: this fetch fills the per-tick cache too,
+                        # so it must record the unreadable symbols as well —
+                        # otherwise the filled branch below reuses the cache
+                        # and never learns them.
+                        unreadable_syms = frozenset(
+                            getattr(pos, "unreadable_symbols", ()) or ()
+                        )
                     if positions_cache is None:
                         # Could not look → never orphan on a half-known view.
+                        summary["skipped_no_creds"] += 1
+                        continue
+                    if row.get("symbol") in unreadable_syms:
+                        # FIX-CA-08: absent on an unreadable symbol is not
+                        # "position absent" — no orphan, no confirm armed.
                         summary["skipped_no_creds"] += 1
                         continue
                     _nf_tid = row.get("id")

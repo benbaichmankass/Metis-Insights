@@ -83,3 +83,54 @@ class TestCoordinatorRefusesOnUnreadableNetPosition:
         assert len(results) == 1
         assert results[0]["error"] == "net_position_unreadable"
         assert results[0]["trade_id"] is None
+
+
+class TestStrategyReadUnreadableRefusesOnlyAnAdd:
+    """Review finding on #13244: the strategy-scoped read must not gate
+    reduce / close / flip — those deltas are never blocked."""
+
+    def test_flip_proceeds_when_strategy_read_is_unreadable(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        monkeypatch.setenv("FLIP_POLICY", "reverse")
+        captured: list = []
+        _patch_dispatch_deps(monkeypatch, captured)
+        _insert_trade(
+            trade_db, account_id="bybit_2", symbol="BTCUSDT",
+            direction="short", position_size=0.03,
+        )
+        monkeypatch.setattr(
+            positions_mod, "has_open_trade_for_strategy",
+            lambda *a, **k: None,
+        )
+
+        pkg = _intent_pkg(direction="long")
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=lambda account: 10_000.0,
+        )
+
+        assert pkg.meta["execution_delta"]["action"] == "flip"
+        assert results[0]["error"] != "net_position_unreadable"
+        assert len(captured) == 2, "close leg + open leg must both dispatch"
+        assert captured[0]["reduce_only"] is True
+
+    def test_open_refused_when_only_strategy_read_is_unreadable(
+        self, coord, accounts_yaml, trade_db, monkeypatch,
+    ):
+        captured: list = []
+        _patch_dispatch_deps(monkeypatch, captured)
+        monkeypatch.setattr(
+            positions_mod, "has_open_trade_for_strategy",
+            lambda *a, **k: None,
+        )
+
+        pkg = _intent_pkg(direction="long", aggregated_target_qty=0.0)
+        results = coord.multi_account_execute(
+            pkg, accounts_path=accounts_yaml,
+            balance_fetcher=lambda account: 10_000.0,
+        )
+
+        assert pkg.meta["execution_delta"]["action"] == "open"
+        assert captured == []
+        assert results[0]["error"] == "net_position_unreadable"
