@@ -559,3 +559,44 @@ def test_renderers_cap_after_redaction(pad):
                      + render_structure(struct, [], text, [{"kind": "divgrid", "headers": [text],
                                                            "rows": [[text]]}], secrets=(LONG_USER,)))
     assert "bo-jd" not in blob.lower()
+
+
+# ── bottom-panel VIEW tabs as Breakout's DXtrade renders them ─────────────
+# MEASURED (run 36351578802, issue #13345): tabs are a span inside a
+# [data-active] element, not role=tab; the positions table headers are the
+# ones below. The orders table's headers are NOT measured yet (the tab was
+# never clicked), so the orders side of this fixture is invented.
+BOTTOM_PANEL = """<html><body>
+<script>window.__clicks = [];</script>
+<button onclick="window.__clicks.push('Place Order')">Place Order</button>
+<div class="tabs">
+  <div data-active="true" onclick="window.__clicks.push('Positions');show('pos')"><span>Positions</span></div>
+  <div data-active="false" onclick="window.__clicks.push('Orders');show('ord')"><span>Orders</span></div>
+  <div data-active="false" onclick="window.__clicks.push('Order History')"><span>Order History</span></div>
+</div>
+<table id="pos"><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Open P&amp;L</th><th>Take profit</th>
+<th>Stop loss</th><th>Position ID</th><th>Fill Price</th><th>Current Price</th><th>Date and Time</th></tr></thead>
+<tbody></tbody></table>
+<script>
+function show(which) {
+  document.getElementById('pos').style.display = which === 'pos' ? '' : 'none';
+  if (which === 'ord' && !document.getElementById('ord')) {
+    document.body.insertAdjacentHTML('beforeend',
+      '<table id="ord"><thead><tr><th>Symbol</th><th>Side</th><th>Type</th><th>Size</th><th>Price</th>' +
+      '<th>Order ID</th></tr></thead><tbody><tr><td>ETHUSD</td><td>Sell</td><td>Stop</td><td>0.5</td>' +
+      '<td>2,600.00</td><td>77</td></tr></tbody></table>');
+  }
+}
+</script></body></html>"""
+
+
+def test_view_tabs_click_only_the_exact_data_active_tab(chromium_page):
+    chromium_page.set_content(BOTTOM_PANEL)
+    a = DXtradeAdapter(timeout_ms=5_000)
+    assert a.read_positions(chromium_page) == []          # measured headers; looked, none open
+    orders = a.read_orders(chromium_page)
+    assert [(o.symbol, o.side, o.order_type, o.quantity, o.price) for o in orders] == [
+        ("ETHUSD", "short", "Stop", 0.5, 2600.0)]
+    # Only VIEW tabs were clicked -- never the button, never "Order History".
+    assert chromium_page.evaluate("window.__clicks") == ["Positions", "Orders"]
+    chromium_page.set_content(DIVGRID.read_text())
