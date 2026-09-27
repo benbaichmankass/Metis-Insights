@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) trainer memory/swap is watched — a threshold that fires when swap-in-use or available-RAM crosses a declared bound, verified by a test or a forced condition, so a thrashing-but-up trainer is distinguishable from a healthy one; or (b) replay_pregate_fleet's peak RSS is measured and either reduced below a level the 6 GB box can host concurrently, or the job is serialized against other trainer work with that serialization enforced rather than conventional. Closing this on 'it finished and the box recovered' is not sufficient — that is the condition recurring, not resolving.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-TRAINER-VM-THRASHING-4GB-SWAP-DEGRADES-EVERY-JOB",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-TRAINER-VM-THRASHING-4GB-SWAP-DEGRADES-EVERY-JOB",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-TRAINER-VM-THRASHING-4GB-SWAP-DEGRADES-EVERY-JOB'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Trainer VM is thrashing: replay_pregate_fleet.py holds 4.08 GB of a 6 GB box, 4.4 GB is in swap with 97 MB free, and every other job on the box has slowed ~3x. Nothing alerts on trainer memory or swap."
+}

@@ -1,0 +1,519 @@
+{
+ "question": "E62: what does it take to produce an evidence-backed round-trip slippage figure for Alpaca equities and IBKR futures, and how much can be done now?",
+ "generated_by": "scripts/research/e62_slippage_accrual.py (reuses realized_slippage.measure)",
+ "as_of": "2026-09-24T15:44:00+00:00",
+ "reference_price": "identical to D3: order_packages.entry / .sl / .tp; positive bps = adverse",
+ "min_n_per_side": 20,
+ "per_account": {
+  "alpaca_live": {
+   "account_class": "real_money",
+   "mode": "live",
+   "roster": [
+    "ief_pullback_1d",
+    "slv_pullback_1d",
+    "iaum_pullback_1d"
+   ],
+   "venue": "alpaca_equities",
+   "entry": {
+    "n": 3,
+    "mean": -49.801,
+    "trimmed_mean_5pct": -49.801,
+    "median": -18.812,
+    "p25": -131.417,
+    "p75": 0.825,
+    "p90": 0.825,
+    "min": -131.417,
+    "max": 0.825,
+    "mean_bootstrap_ci95": [
+     -131.417,
+     0.825
+    ],
+    "basis": "real market",
+    "state": "INSUFFICIENT: n=3 < 20; not usable"
+   },
+   "entry_excluding_session_open_5min": {
+    "n": 2,
+    "mean": -8.994,
+    "trimmed_mean_5pct": -8.994,
+    "median": -18.812,
+    "p25": -18.812,
+    "p75": 0.825,
+    "p90": 0.825,
+    "min": -18.812,
+    "max": 0.825,
+    "mean_bootstrap_ci95": [
+     -18.812,
+     0.825
+    ],
+    "basis": "real market",
+    "state": "INSUFFICIENT: n=2 < 20; not usable",
+    "dropped": 1
+   },
+   "exit_package_referenced": {
+    "n": 0,
+    "mean_bootstrap_ci95": null,
+    "basis": "real market",
+    "state": "INSUFFICIENT: n=0 < 20; not usable"
+   },
+   "exit_family_close_census_by_provenance": {
+    "estimated:verdict": 1
+   }
+  },
+  "alpaca_paper": {
+   "account_class": "paper",
+   "mode": "live",
+   "roster": [
+    "spy_trend_long_1d",
+    "qqq_trend_long_1d",
+    "gld_pullback_1d",
+    "iwm_trend_long_1d",
+    "tlt_pullback_1d",
+    "ief_pullback_1d",
+    "gld_pullback_1h",
+    "slv_trend_1h",
+    "spy_pullback_1h",
+    "qqq_pullback_1h",
+    "tlt_pullback_1h",
+    "uso_trend_1h",
+    "slv_pullback_1d",
+    "gdx_pullback_1d",
+    "tqqq_trend_long_1d",
+    "qld_trend_long_1d",
+    "splg_trend_long_1d",
+    "iaum_pullback_1d",
+    "scha_trend_long_1d"
+   ],
+   "venue": "alpaca_equities",
+   "entry": {
+    "n": 51,
+    "mean": 1.658,
+    "trimmed_mean_5pct": 1.046,
+    "median": -0.474,
+    "p25": -4.886,
+    "p75": 7.71,
+    "p90": 19.078,
+    "min": -36.737,
+    "max": 61.514,
+    "mean_bootstrap_ci95": [
+     -2.373,
+     5.992
+    ],
+    "basis": "simulator fill model",
+    "state": "measured"
+   },
+   "entry_excluding_session_open_5min": {
+    "n": 39,
+    "mean": -2.281,
+    "trimmed_mean_5pct": -2.089,
+    "median": -1.604,
+    "p25": -5.04,
+    "p75": 0.517,
+    "p90": 7.71,
+    "min": -31.706,
+    "max": 20.044,
+    "mean_bootstrap_ci95": [
+     -5.24,
+     0.547
+    ],
+    "basis": "simulator fill model",
+    "state": "measured",
+    "dropped": 12
+   },
+   "exit_package_referenced": {
+    "n": 0,
+    "mean_bootstrap_ci95": null,
+    "basis": "simulator fill model",
+    "state": "INSUFFICIENT: n=0 < 20; not usable"
+   },
+   "exit_family_close_census_by_provenance": {
+    "estimated:recorded_exit_price": 13,
+    "estimated:verdict": 7
+   }
+  },
+  "alpaca_portfolio": {
+   "account_class": "paper",
+   "mode": "live",
+   "roster": [
+    "ief_pullback_1d",
+    "slv_pullback_1d"
+   ],
+   "venue": "alpaca_equities",
+   "entry": {
+    "n": 60,
+    "mean": 0.256,
+    "trimmed_mean_5pct": -0.246,
+    "median": -0.139,
+    "p25": -3.182,
+    "p75": 2.058,
+    "p90": 10.38,
+    "min": -37.959,
+    "max": 59.729,
+    "mean_bootstrap_ci95": [
+     -2.895,
+     3.755
+    ],
+    "basis": "simulator fill model",
+    "state": "measured"
+   },
+   "entry_excluding_session_open_5min": {
+    "n": 48,
+    "mean": -2.855,
+    "trimmed_mean_5pct": -2.37,
+    "median": -0.805,
+    "p25": -4.16,
+    "p75": 0.599,
+    "p90": 2.132,
+    "min": -29.862,
+    "max": 9.742,
+    "mean_bootstrap_ci95": [
+     -4.883,
+     -1.038
+    ],
+    "basis": "simulator fill model",
+    "state": "measured",
+    "dropped": 12
+   },
+   "exit_package_referenced": {
+    "n": 0,
+    "mean_bootstrap_ci95": null,
+    "basis": "simulator fill model",
+    "state": "INSUFFICIENT: n=0 < 20; not usable"
+   },
+   "exit_family_close_census_by_provenance": {
+    "estimated:recorded_exit_price": 6,
+    "estimated:verdict": 12
+   }
+  },
+  "ib_live": {
+   "account_class": "real_money",
+   "mode": "dry_run",
+   "roster": [],
+   "venue": "ibkr_futures",
+   "entry": {
+    "n": 0,
+    "mean_bootstrap_ci95": null,
+    "basis": "real market",
+    "state": "INSUFFICIENT: n=0 < 20; not usable"
+   },
+   "entry_excluding_session_open_5min": {
+    "n": 0,
+    "mean_bootstrap_ci95": null,
+    "basis": "real market",
+    "state": "INSUFFICIENT: n=0 < 20; not usable",
+    "dropped": 0
+   },
+   "exit_package_referenced": {
+    "n": 0,
+    "mean_bootstrap_ci95": null,
+    "basis": "real market",
+    "state": "INSUFFICIENT: n=0 < 20; not usable"
+   },
+   "exit_family_close_census_by_provenance": {}
+  },
+  "ib_paper": {
+   "account_class": "paper",
+   "mode": "live",
+   "roster": [
+    "mes_trend_long_1d",
+    "mgc_pullback_1d",
+    "mhg_pullback_1d",
+    "mgc_trend_1h",
+    "ict_scalp_mgc_15m",
+    "spy_trend_long_1d",
+    "qqq_trend_long_1d",
+    "iwm_trend_long_1d",
+    "tlt_pullback_1d"
+   ],
+   "venue": "ibkr_futures",
+   "entry": {
+    "n": 22,
+    "mean": 8.126,
+    "trimmed_mean_5pct": 8.156,
+    "median": 6.438,
+    "p25": -1.868,
+    "p75": 19.289,
+    "p90": 20.478,
+    "min": -8.132,
+    "max": 23.784,
+    "mean_bootstrap_ci95": [
+     3.948,
+     12.204
+    ],
+    "basis": "simulator fill model",
+    "state": "measured"
+   },
+   "entry_excluding_session_open_5min": {
+    "n": 22,
+    "mean": 8.126,
+    "trimmed_mean_5pct": 8.156,
+    "median": 6.438,
+    "p25": -1.868,
+    "p75": 19.289,
+    "p90": 20.478,
+    "min": -8.132,
+    "max": 23.784,
+    "mean_bootstrap_ci95": [
+     3.948,
+     12.204
+    ],
+    "basis": "simulator fill model",
+    "state": "measured",
+    "dropped": 0
+   },
+   "exit_package_referenced": {
+    "n": 7,
+    "mean": 14.052,
+    "trimmed_mean_5pct": 14.052,
+    "median": 18.704,
+    "p25": 10.733,
+    "p75": 20.666,
+    "p90": 21.483,
+    "min": -6.462,
+    "max": 33.143,
+    "mean_bootstrap_ci95": [
+     4.682,
+     23.045
+    ],
+    "basis": "simulator fill model",
+    "state": "INSUFFICIENT: n=7 < 20; not usable"
+   },
+   "exit_family_close_census_by_provenance": {
+    "estimated:recorded_exit_price": 5,
+    "estimated:verdict": 6,
+    "measured:ib_execution": 7,
+    "unverified:None": 18
+   }
+  }
+ },
+ "accrual": {
+  "rate_window": [
+   "2026-07-26T15:44:00+00:00",
+   "2026-09-24T15:44:00+00:00"
+  ],
+  "definition": "a usable ROUND TRIP = a closed sl/tp-family trade whose entry AND exit are both MEASURED against a package reference. Today alpaca exits are never MEASURED (structural), so alpaca's usable count is 0 regardless of trades; the projection below is what accrues AFTER the held fix deploys.",
+  "alpaca_live": {
+   "basis": "forward rate of the CURRENT alpaca_live roster, measured on the SAME legs' alpaca_paper history over the last 60d (3 live fills cannot bound a rate). alpaca_paper runs each leg at paper size; INFERRED that live signal frequency matches (same strategy, same symbol, same bars).",
+   "roster": [
+    "iaum_pullback_1d",
+    "ief_pullback_1d",
+    "slv_pullback_1d"
+   ],
+   "entries": {
+    "events": 6,
+    "days": 60,
+    "rate_per_day": 0.1,
+    "rate_ci95_per_day": [
+     0.0367,
+     0.2177
+    ],
+    "have_now": 3,
+    "reach": {
+     "n20": {
+      "point": "2027-03-13",
+      "earliest_ci": "2026-12-11",
+      "latest_ci": "2027-12-31"
+     },
+     "n30": {
+      "point": "2027-06-21",
+      "earliest_ci": "2027-01-26",
+      "latest_ci": "2028-09-29"
+     }
+    }
+   },
+   "round_trips": {
+    "events": 1,
+    "days": 60,
+    "rate_per_day": 0.0167,
+    "rate_ci95_per_day": [
+     0.0004,
+     0.0929
+    ],
+    "have_now": 0,
+    "reach": {
+     "n20": {
+      "point": "2030-01-06",
+      "earliest_ci": "2027-04-28",
+      "latest_ci": "2156-07-02"
+     },
+     "n30": {
+      "point": "2031-08-29",
+      "earliest_ci": "2027-08-13",
+      "latest_ci": "2221-05-21"
+     }
+    }
+   },
+   "observed_on_alpaca_live_itself": {
+    "entries": 3,
+    "sl_tp_closes": 1,
+    "first_entry": "2026-09-17T13:36:41.238332+00:00"
+   }
+  },
+  "ib_live": {
+   "basis": "mode dry_run with an EMPTY strategies roster: it produces no fills at any rate",
+   "rate_per_day": 0.0,
+   "reach": {
+    "n20": "never, until the operator puts a leg on a live ib_live roster (Tier-3)",
+    "n30": "never, until the operator puts a leg on a live ib_live roster (Tier-3)"
+   }
+  },
+  "simulators_for_reference": {
+   "alpaca_paper": {
+    "entries": {
+     "events": 45,
+     "days": 60,
+     "rate_per_day": 0.75,
+     "rate_ci95_per_day": [
+      0.5471,
+      1.0036
+     ],
+     "have_now": 51,
+     "reach": {
+      "n20": {
+       "point": "2026-09-24",
+       "earliest_ci": "2026-09-24",
+       "latest_ci": "2026-09-24"
+      },
+      "n30": {
+       "point": "2026-09-24",
+       "earliest_ci": "2026-09-24",
+       "latest_ci": "2026-09-24"
+      }
+     }
+    },
+    "sl_tp_closes": {
+     "events": 15,
+     "days": 60,
+     "rate_per_day": 0.25,
+     "rate_ci95_per_day": [
+      0.1399,
+      0.4123
+     ],
+     "have_now": 0,
+     "reach": {
+      "n20": {
+       "point": "2026-12-13",
+       "earliest_ci": "2026-11-12",
+       "latest_ci": "2027-02-14"
+      },
+      "n30": {
+       "point": "2027-01-22",
+       "earliest_ci": "2026-12-06",
+       "latest_ci": "2027-04-27"
+      }
+     }
+    }
+   },
+   "alpaca_portfolio": {
+    "entries": {
+     "events": 55,
+     "days": 60,
+     "rate_per_day": 0.9167,
+     "rate_ci95_per_day": [
+      0.6906,
+      1.1932
+     ],
+     "have_now": 60,
+     "reach": {
+      "n20": {
+       "point": "2026-09-24",
+       "earliest_ci": "2026-09-24",
+       "latest_ci": "2026-09-24"
+      },
+      "n30": {
+       "point": "2026-09-24",
+       "earliest_ci": "2026-09-24",
+       "latest_ci": "2026-09-24"
+      }
+     }
+    },
+    "sl_tp_closes": {
+     "events": 18,
+     "days": 60,
+     "rate_per_day": 0.3,
+     "rate_ci95_per_day": [
+      0.1778,
+      0.4741
+     ],
+     "have_now": 0,
+     "reach": {
+      "n20": {
+       "point": "2026-11-30",
+       "earliest_ci": "2026-11-05",
+       "latest_ci": "2027-01-15"
+      },
+      "n30": {
+       "point": "2027-01-02",
+       "earliest_ci": "2026-11-26",
+       "latest_ci": "2027-03-12"
+      }
+     }
+    }
+   },
+   "ib_paper": {
+    "entries": {
+     "events": 22,
+     "days": 60,
+     "rate_per_day": 0.3667,
+     "rate_ci95_per_day": [
+      0.2298,
+      0.5551
+     ],
+     "have_now": 22,
+     "reach": {
+      "n20": {
+       "point": "2026-09-24",
+       "earliest_ci": "2026-09-24",
+       "latest_ci": "2026-09-24"
+      },
+      "n30": {
+       "point": "2026-10-16",
+       "earliest_ci": "2026-10-09",
+       "latest_ci": "2026-10-29"
+      }
+     }
+    },
+    "sl_tp_closes": {
+     "events": 16,
+     "days": 60,
+     "rate_per_day": 0.2667,
+     "rate_ci95_per_day": [
+      0.1524,
+      0.433
+     ],
+     "have_now": 7,
+     "reach": {
+      "n20": {
+       "point": "2026-11-12",
+       "earliest_ci": "2026-10-24",
+       "latest_ci": "2026-12-18"
+      },
+      "n30": {
+       "point": "2026-12-19",
+       "earliest_ci": "2026-11-16",
+       "latest_ci": "2027-02-22"
+      }
+     }
+    }
+   }
+  },
+  "caveat_alpaca_portfolio": "its roster was cut 14 -> 2 legs on 2026-09-21 (plan item B2), so its 60d rate is the OLD roster's and overstates the forward rate; its 2 legs are a subset of the alpaca_live roster above"
+ },
+ "excluded_counts": {
+  "exit_not_measured": 1353,
+  "exit_measured_no_reference:pairs_revert": 4,
+  "exit_measured_no_reference:reconciler_filled": 220,
+  "exit_measured_no_reference:pairs_stop": 2,
+  "exit_measured_no_reference:exchange_flat_reconciled": 46,
+  "exit_measured_no_reference:intent_reduce_executed": 7,
+  "exit_measured_no_reference:stuck_strategy_watchdog": 4,
+  "exit_measured_no_reference:exit_head": 10,
+  "exit_measured_no_reference:stale_stop": 7,
+  "exit_measured_no_reference:operator_flatten_reconciled": 6,
+  "exit_measured_no_reference:exit_coverage_no_strategy": 1,
+  "exit_measured_no_reference:backfill_closed_pnl_recovery": 21,
+  "exit_measured_no_reference:vwap_cross": 35,
+  "exit_measured_no_reference:time_decay": 1,
+  "exit_measured_no_reference:adopted_orphan_disappeared": 17,
+  "unknown_account": 270
+ }
+}

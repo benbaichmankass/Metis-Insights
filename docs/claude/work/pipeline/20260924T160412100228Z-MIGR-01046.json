@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-A-PROVEN-DETECTOR-FOR-A-MEASURED-CLASS-WAS-BUILT-AND-ARMED-NOWHERE-AND-IS-UNARMABLE-AS-WRITTEN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-A-PROVEN-DETECTOR-FOR-A-MEASURED-CLASS-WAS-BUILT-AND-ARMED-NOWHERE-AND-IS-UNARMABLE-AS-WRITTEN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-A-PROVEN-DETECTOR-FOR-A-MEASURED-CLASS-WAS-BUILT-AND-ARMED-NOWHERE-AND-IS-UNARMABLE-AS-WRITTEN'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/ci/check_guard_glob_coverage.py passes its own planted-violation self-test, generalises a real measured defect class (a guard scoped to one side of its own join), was written 2026-08-23, and runs in zero workflows and zero registries. It is also structurally unarmable as written, because main() returns 1 on a verdict its own message labels 'LEAD, not a verdict' -- and nobody recorded that."
+}

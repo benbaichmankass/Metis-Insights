@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "fade_breakout_4h.py and fvg_range_15m.py no longer define a local `_adx`; they import the canonical wilder_adx from src.runtime.regime. The existing unit tests pass. The bit-for-bit parity test in test_regime_detector.py can be removed (the consolidation makes it tautological) or kept as a regression guard.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260601-003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260601-003",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260601-003'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Consolidate fade_breakout_4h._adx + fvg_range_15m._adx onto src.runtime.regime.wilder_adx (DRY)"
+}

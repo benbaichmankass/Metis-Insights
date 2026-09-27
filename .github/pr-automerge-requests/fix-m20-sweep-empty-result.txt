@@ -1,0 +1,1 @@
+Tier-1 self-land: research-result composite action input-wiring fix (RQ-20260922-003/004 empty-result root cause). See .github/pr-landing/fix-m20-sweep-empty-result.json.

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A manager pass is observed grading a sub-session's progress WITHOUT using remote-branch presence as the productivity term -- or using it only alongside a stated expectation of first-push latency for that class of task. NOT SUFFICIENT: another backlog row, another line in a wake prompt, or a resolution to be more careful -- this row exists BECAUSE a self-issued instruction to be decisive is what produced the error. What would close it is a cheap POSITIVE probe run before calling a stall: ask the session (create_trigger + fire_trigger, proven to work per BL-20260902-AN-IDLE-CLOUD-SUB-SESSION-IS-RESUMABLE-VIA-A-SESSION-BOUND-ROUTINE-NOT-UNREACHABLE), or read whether its token counters are climbing -- MI-205b's own get_session record showed output_tokens 172,537 and cost_usd 54.03 at the moment it was called unproductive, a directly available counter-signal in a payload the manager had already fetched and did not read.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-MANAGER-GRADED-A-SUBSESSION-UNPRODUCTIVE-FROM-AN-ABSENT-REMOTE-BRANCH-AND-PUBLISHED-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-MANAGER-GRADED-A-SUBSESSION-UNPRODUCTIVE-FROM-AN-ABSENT-REMOTE-BRANCH-AND-PUBLISHED-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-MANAGER-GRADED-A-SUBSESSION-UNPRODUCTIVE-FROM-AN-ABSENT-REMOTE-BRANCH-AND-PUBLISHED-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A manager read 'no branch on the remote' as 'no work produced', called a working session a STALL, and merged that claim to main 28 seconds before the session opened a 29-file PR"
+}

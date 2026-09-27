@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A LIVE lane is OBSERVED being woken off a declared edge, end to end: (a) a real blocked lane pushes a `blocked_on` edge to main; (b) a SCHEDULED run of pr-queue-watch.yml is observed grading it `cleared` -- read the run history and BLOCKED-LANE-WATCH.json's `generated_at`, NEVER the cron; and (c) that lane is poked and does something attributable to it. Say WHICH of the three you cleared. !! A GREEN TEST SUITE CLEARS NOTHING: 33 tests pass in tests/test_blocked_lane_watch.py incl. 5 mutation checks, plus 34 in tests/test_session_registry.py -- RUN, not assumed (2026-09-11, session_014zhDAQTVrAuppjm5WDAWwF installed pytest, which neither the review lane nor MI-235 could; both had recorded the suite as *could not look*, never green). A harness still cannot reach a blocked cloud session, which IS the condition -- and the latch defect proves the point, having survived 30 green tests and 3 mutation checks. !! MERGING CLEARS NOTHING -- a merge is not a run and a run is not a wake. !! A QUIET RUN CLEARS NOTHING AND IS NOT EVIDENCE OF A HEALTHY ROSTER: exit 0 means every DECLARED blocker still holds, and with 159 of 159 undeclared the sweep currently has nothing to grade. Zero pages today means the input is empty, not that no lane is stuck -- check `declared_rows` in the receipt BEFORE reading any zero. If `declared_rows` is still 0 after lanes have been blocked in the window, that is the OPPOSITE finding -- the spawn-prompt instruction is not being followed -- and it clears this row",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Subject retired (SESSIONS.json blocked_on edges are archived) and superseded by E44. EVIDENCE: MANAGER-CHECKLIST.json: E44 queued.",
+  "what": "[LOUD] MI-235 shipped the NOTICER for a lane blocked on a manager action: a typed `blocked_on` edge on the SESSIONS.json row (`session_registry.py blocked-on`, which REFUSES a kind it cannot grade) plus `scripts/ops/blocked_lane_watch.py`, graded on every run of `pr-queue-watch.yml` and paging via exit 1. !! IT DOES NOT WAKE THE LANE AND WAS NEVER GOING TO: the wake hop is create_trigger + fire_trigger, mcp__* tools CI does not hold, and the operator ruled out minted credentials for CI on 2026-09-02. That channel already exists and is proven (MI-123 woke a manager out-of-band 2026-09-04T23:09:19Z). What failed on all three measured lanes was NOTICING, not poking. !! AND ITS INPUT IS EMPTY TODAY: measured 2026-09-11 over all 209 rows of SESSIONS.json at main, 159 non-terminal rows graded and 159 of 159 declared NO blocker -- 4 rows carry the legacy `needs_action`, none written after 2026-09-05, two already archived. None of the three incidents used that field either; all three declared to the PLATFORM (status_bucket BLOCKED + post_turn_summary) and a manager transcribed it by hand, so a cadence pointed at the old field would have graded 0 of 3. The watcher is therefore CORRECT and SILENT until lanes start declaring, and the adoption half is carried by one line in the spawn prompt."
+}

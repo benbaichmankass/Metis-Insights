@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "check_artifact_caveats.py and check_canonical_doc_coherence.py either read a live post-reset register (PIPELINE.jsonl or MANAGER-CHECKLIST.json) for the same class of finding, or fail closed (not silently pass) when their whole backlog/doc population is archived, the way check_manager_scope.py already does for its own identity sources.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-E51-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E51",
+    "rerun": "python3 scripts/ci/check_artifact_caveats.py --self-test && python3 -c \"import pathlib; print([p for p in ['docs/claude/health-review-backlog.json','docs/claude/performance-review-backlog.json','docs/claude/ml-review-backlog.json'] if not pathlib.Path(p).exists()])\""
+  },
+  "state": "queued",
+  "what": "Two LIVE CI guards silently shrink their input population to the 2026-09-21 operating reset's archived paths, and neither asserts the population it read (the \"Green is not evidence\" obligation 1 class). scripts/ci/check_artifact_caveats.py::_open_rows_naming_producers skips a missing backlog with a bare  (line ~168) over its whole  tuple (health/performance/ml-review-backlog.json) -- all three are ARCHIVED under docs/archive/2026-09-21-operating-reset/registers/, so on the real repo  and  are ALWAYS empty and the guard is wired live in run_guards.py (scripts/ci/check_artifact_caveats.py --self-test / no-args, verified 2026-09-24) but can now never fail on a real caveat -- 0 of 1826 rows it used to grade (check_artifact_caveats.py:152-154's own MEASURED count) are reachable. scripts/ci/check_canonical_doc_coherence.py (also live) has the same shape at a smaller scale:  (line 536) lists , and line 555 filters the scan list with , so that doc silently drops out of the coherence scan with no count printed anywhere. Neither guard is check_pr_landing.py R13 or check_allow_degraded.py (E51 confirmed those two separately: R13's remedy text was fixed this session, check_allow_degraded.py was already re-pointed at PIPELINE.jsonl by E45/PR#12756 and its self-test passes). This is the READER-DEGRADES-SILENTLY class from E51's sweep, not REMEDY-NAMES-DEAD-PATH -- no error message names a dead path, the guards just went quiet -- so E51 filed rather than fixed it: a real fix means deciding what these two guards should read post-reset (repoint at PIPELINE.jsonl the way E45 did for check_allow_degraded.py and check_stated_population.py, or assert-and-fail-closed on zero backlog files the way check_manager_scope.py's  verdict already does), which is a design decision beyond a message-text fix."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260826-ONE-THIRD-OF-MEASURED-CLOSES-LAND-BEYOND-THE-DECISION-TIME-STOP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-ONE-THIRD-OF-MEASURED-CLOSES-LAND-BEYOND-THE-DECISION-TIME-STOP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-ONE-THIRD-OF-MEASURED-CLOSES-LAND-BEYOND-THE-DECISION-TIME-STOP'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "HISTORICAL — vwap exited past its decision-time stop on 44.2% of measured closes (65/147), but vwap has been OFF since 2026-06-07 and is routed to no account"
+}

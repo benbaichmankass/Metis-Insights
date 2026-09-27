@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-AN-OPEN-ITEMS-ROW-DECLARES-THAT-MEETING-IT-DISCHARGES-ANOTHER-ROW-WHOSE-OWN-CRITERION-ASKS-A-DIFFERENT-QUESTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260913-AN-OPEN-ITEMS-ROW-DECLARES-THAT-MEETING-IT-DISCHARGES-ANOTHER-ROW-WHOSE-OWN-CRITERION-ASKS-A-DIFFERENT-QUESTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-AN-OPEN-ITEMS-ROW-DECLARES-THAT-MEETING-IT-DISCHARGES-ANOTHER-ROW-WHOSE-OWN-CRITERION-ASKS-A-DIFFERENT-QUESTION'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "OI-20260911's clears_when says its attribution 'also discharges' OI-20260830 — but OI-20260830's own clears_when asks for DEPLOY VERIFICATION, which no attribution measurement can satisfy"
+}

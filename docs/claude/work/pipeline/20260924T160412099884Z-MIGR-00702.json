@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "WHAT WOULD CLOSE THIS: either (a) a head-to-head on MES vol-label quality that picks a winner, after which promote AND demote the loser in one change so the registry shows ONE advisory head rather than two with a tie-break, or (b) a recorded decision that the 5m head is sufficient, which closes this row. Note the row's original framing -- 'define the per-symbol multi-timeframe advisory-head resolution' -- is partly satisfied: the resolution is DEFINED in code and is not ambiguous. What is missing is not a rule, it is evidence about which head should win under it. checked: src/runtime/regime/ml_vol_verdict.py, ml/registry-store/registry.jsonl via trainer relay #9645.  [PROMOTED VERBATIM by backlog-drain #3 (session_01Au13tQ9BaLKsEU7youUomr), 2026-09-02, from this row's OWN 2026-08-16 update, where it sat as prose inside `updates` — a location no field-reading consumer (check_backlog_criteria.py, the kept_open census, migrate_backlog_to_work_objects.py) can see. The condition is its original author's; this session did not author it and did not judge it.]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260721-MES-15M-HEAD-PARKED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260721-MES-15M-HEAD-PARKED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260721-MES-15M-HEAD-PARKED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] 15m MES regime head (mes-regime-15m-lgbm-v2) reads gate-ready — decide whether a 2nd same-symbol advisory head is wanted"
+}

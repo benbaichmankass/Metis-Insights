@@ -1,0 +1,6 @@
+{
+  "held_by": "lane/e73-research-pr-sweep (rebasing+landing stale e35-bracket corpus PR #12847, superseding #12781/#12730)",
+  "branch": "automation/e35-bracket-corpus-35996186685-1",
+  "claimed_at": "2026-09-24T20:51:20Z",
+  "purpose": "R2 sweep: rebase onto current main, apply this run's 199 fresh measurements, land it so the two older duplicate runs can be closed without losing data."
+}

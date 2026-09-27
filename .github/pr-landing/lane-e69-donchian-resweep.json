@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "comms/strategy_evidence/*.json + comms/strategy_evidence/runs/**/*.jsonl (research evidence) + docs/claude/work/PIPELINE.jsonl (one filed row) only -- no runtime, order path, or config/ touched. Tier-1 by path (comms/ + docs/)."
+}

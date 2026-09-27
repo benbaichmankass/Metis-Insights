@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The count of committed-vs-computed disagreements reaches zero AND the way it got there is recorded — which documents were re-graded `unknown`, and which were established as live through a named status_for rung. [!] A DROP IN THE COUNT ALONE DOES NOT CLEAR THIS: `--write` makes the number zero in one command while asserting `unknown` about 47 documents nobody read, which is the failure the parent row named. [!] NOR DOES R6 PASSING — R6 is diff-scoped and stays silent on every one of these until a PR touches the document, which is by design and is why this row exists beside it. Read the census line the guard prints on every run for the live number. [!] AND IF IT IS DECIDED that a hand-written `live` header is allowed to stand against the computation, this row does not clear — it CHANGES: record that as a decision with the consequence stated (a document may present as verified while the register says nobody verified it).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-FORTY-SEVEN-DOCUMENTS-PRESENT-AS-LIVE-WHILE-THE-REGISTERS-OWN-COMPUTATION-SAYS-NOBODY-HAS-ASSESSED-THEM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-FORTY-SEVEN-DOCUMENTS-PRESENT-AS-LIVE-WHILE-THE-REGISTERS-OWN-COMPUTATION-SAYS-NOBODY-HAS-ASSESSED-THEM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-FORTY-SEVEN-DOCUMENTS-PRESENT-AS-LIVE-WHILE-THE-REGISTERS-OWN-COMPUTATION-SAYS-NOBODY-HAS-ASSESSED-THEM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 47 documents carry a `live` header and a `live` index row while a fresh build_rows() grades them `unknown`, and nobody has decided which is right"
+}

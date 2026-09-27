@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A dashboard-repo PR removes/redirects the four Runbooks.svelte reference links and the Work.svelte hardcoded 'review backlogs' sentence, or replaces them with links into docs/archive/2026-09-21-operating-reset/ (explicitly historical) or into the live successors (PIPELINE.jsonl / MANAGER-CHECKLIST.json).",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-0005",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "E9 / this PR (build lane, session_01JVPxS3XjMyiN3J3HpQPkNq) -- dashboard repo, read-only clone",
+    "rerun": "git -C <dashboard-clone> grep -n -i 'board-pointer\\|OPEN-ITEMS.json\\|SESSIONS.json\\|MERGE-QUEUE.json\\|coordination.board\\|session-board.json\\|MANAGER-LEASE.json\\|review.backlog\\|OPEN-PRS.json\\|DUE.md\\|PROBES.json\\|operator-owed-register.json' -- webapp/src"
+  },
+  "state": "queued",
+  "what": "The dashboard repo (benbaichmankass/ict-trader-dashboard, read-only clone this session, HEAD eaccaaa) has its OWN orphaned readers of the 2026-09-21 reset, independent of anything in this repo's API responses -- fixing src/web/api/routers/work.py's notes (this PR) does not touch these because they are either hardcoded strings or hardcoded links in the SPA's own source, not renders of the API's `note`/`coverage` fields. NOT fixed here -- out of scope, this repo cannot open a PR against the dashboard. Four items: (1) webapp/src/routes/Work.svelte:745 hardcodes the literal string 'A bug to fix still goes to the review backlogs.' inside the coverage-panel template -- the SAME sentence this PR just corrected in work.py's `note` field, duplicated in the frontend where the backend fix cannot reach it. (2) webapp/src/routes/Runbooks.svelte:16-53 hardcodes FIVE reference links under `${REPO}/blob/main/docs/claude/...`: issues/6927 ('Claude coordination board'), DUE.md, PROBES.json, OPEN-ITEMS.json, operator-owed-register.json -- all four *.json/*.md paths were moved to docs/archive/2026-09-21-operating-reset/registers/ by this repo's reset, so all four links now 404 on GitHub (main no longer has docs/claude/OPEN-ITEMS.json etc.); the coordination-board issue link may also be stale depending on #6927's current state (this session could not resolve docs/claude/board-pointer.json to check -- it is itself archived, see PI-20260921-0002). (3) webapp/src/lib/nav.ts:52 describes the Runbooks page as covering 'the coordination board, and what is due today' -- both retired. (4) webapp/src/routes/Work.svelte:551 comment references SESSIONS.json's decay behavior as a live concern; harmless (a code comment, not operator-facing), noted for completeness only."
+}

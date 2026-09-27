@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research evidence only. docs/research/prop-exit-evidence-2026-09-24.{md,json} (new memo + record; decision rule pre-registered at 6d14310 before any run), scripts/research/prop_exit_evidence.py (new, manual-only research runner over scripts/backtest_trend.py), comms/strategy_evidence/runs/2026-09-24-e65/*.jsonl|json (the harness trades + summaries it cites), docs/research/exit-refinement-coverage.json (exit_ladder verdict on the two _prop rows: honest_negative), docs/DOCUMENT-INDEX.md (registers the memo), docs/claude/work/PIPELINE.jsonl (files PI-20260924-GIGNEYV1-0001/0002). All TIER1_SURFACE (docs/**, scripts/**, comms/**). No src/, no config/ (config/strategies.yaml untouched), no workflow, no order path. The geometry recommendation is a Tier-3 PROPOSAL filed ask_operator, not applied."
+}

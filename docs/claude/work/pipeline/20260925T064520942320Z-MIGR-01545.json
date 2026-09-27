@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "either (a) a queue unit declaring needs_gpu: true is graded would_dispatch or dispatched by scripts/research/dispatch_queue.py, at which point GPU_BURST_ARMED's live value and the real per-run cap behaviour must be confirmed before/alongside that fire, or (b) the operator states the GPU burst path is out of scope for the research queue for now, closing this as killed with that reason",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-5V6UVR9J-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E54",
+    "rerun": "grep -l 'needs_gpu: true' research/queue/*.yaml research/queue/blocked/*.yaml  # re-run before authoring/queuing any GPU-routed unit; if this ever finds a match, GPU_BURST_ARMED's live value must be confirmed (read via the GitHub UI/API Repository variables, not inferable from this repo) and a real armed dispatch of that one unit observed before trusting the per-run cap and the ARMED gate under real conditions"
+  },
+  "state": "queued",
+  "what": "[research-infra] The GPU half of the R5 dispatcher's three declared spend gates (GPU_BURST_ARMED, and --max-gpu-dispatches-per-run under a REAL --fire) has NEVER been exercised by a real armed dispatch, even though the cron itself has fired for real ~14 times since 2026-08-30 (E54, 2026-09-24). MEASURED: grepped routing: blocks in all 18 current queue files (11 live + 7 blocked) -- zero declare needs_gpu: true; grepped routing: on the 5 units with a real last_dispatched_at stamp -- all 5 are needs_gpu: false (e35-bracket-sweep.yml x4, gld-compat-matrix.yml x1). Gate 1 (scripts/ml/gpu_burst/preflight.py's ledger check) WAS verified directly this session with a real fixture ledger (GPU_SPEND_LEDGER=<fixture at $9.90/$10.00>): est_cost=0.40 -> exit 1, refused, 'would exceed the $10.00 monthly cap'; est_cost=0.05 (negative control) -> exit 0, cleared. The real comms/gpu_spend_ledger.json reads $0.00 month-to-date for 2026-09 (last real spend 2026-07, 7 runs, lifetime $0.2164). Gate 3 (the per-run cap inside scripts/research/dispatch_queue.py) is proven correct by the repo's own test (tests/test_research_queue.py::test_the_gpu_cap_actually_stops_the_second_burst, stubbed _fire, cap=2 stops a 3rd burst) -- legitimate for THIS gate's pure counter logic, per the same reasoning the task brief itself gave for why a stubbed _fire does NOT prove the ledger gate. Gate 2 (the vars.GPU_BURST_ARMED repo variable's live value) could NOT be read from this session -- no available tool exposes GitHub Actions repository variables, and every recent gpu-burst-train.yml run in the list is conclusion=skipped (routed there by an unrelated system-action issue, never a real gpu-burst-train-labelled one) so its live decision has not been observed either way. Net: the CPU path has run safely and unattended for 25 days; the GPU path is entirely unexercised in that same window, and stays that way for as long as the queue holds zero needs_gpu: true units, which is true today. This is a live gap, not a failure -- worth a standing check so it is caught BEFORE the first GPU-needing research unit is authored, not after."
+}

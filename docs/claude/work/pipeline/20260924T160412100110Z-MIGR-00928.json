@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260903-SESSIONS-REGISTRY-KEY-IS-SECOND-GRANULAR-AND-COLLIDES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-SESSIONS-REGISTRY-KEY-IS-SECOND-GRANULAR-AND-COLLIDES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-SESSIONS-REGISTRY-KEY-IS-SECOND-GRANULAR-AND-COLLIDES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/ops/session_registry.py mints registry_key from a SECOND-granular UTC timestamp with no uniqueness check, so two spawns registered inside the same second get the SAME key. Measured 2026-09-03: registering MI-92 and MI-93 back-to-back produced two rows both keyed pending-20260903T070814Z. It is NOT new -- pending-20260902T133456Z is duplicated in the same file from 2026-09-02 and went unnoticed for a day."
+}

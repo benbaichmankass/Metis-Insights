@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Mark resolved once either (a) ~5-7 consecutive days pass with zero Alpaca orphan/phantom-close/naked-position incidents on the reviewed accounts, or (b) at least one real close-not-confirmed-flat or entry-rejection event is directly observed in the logs and confirmed to have resolved cleanly (no phantom row, no naked exposure, no re-adopt flap) — whichever gives genuine confidence first. If a new Alpaca orphan/phantom-close incident DOES occur during the window, do not resolve this entry — open a fresh, specific incident entry instead and cross-reference it here.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260708-ALPACA-PIPELINE-VERIFICATION-WATCH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260708-ALPACA-PIPELINE-VERIFICATION-WATCH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260708-ALPACA-PIPELINE-VERIFICATION-WATCH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Sustained verification watch: keep doing a full Alpaca-pipeline health check for the next several days until the 4-PR remediation is proven stable under real conditions, not just deploy-verified"
+}

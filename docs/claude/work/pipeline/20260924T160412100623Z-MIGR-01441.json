@@ -1,0 +1,20 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either the prop ticket TTL is set from a stated assumption about operator response time (recorded, with the number), or a decision records that expiry-by-clock is the intended behaviour on this bridge and what the accepted loss rate is. ⚠️ Needs the expired-share re-measured over a full window, not the 8/164 sample above.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260921-E16-PROP-TICKET-TTL-SHORTER-THAN-THE-HUMAN",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "E16 build lane session_012DyVaL6CpsTxEwHBs9MEcB, PR #12696 'Filed for follow-ups' item 5, 2026-09-21.",
+    "rerun": "curl -s 'https://ict-bot.duckdns.org/api/bot/prop/tickets?limit=200' and count status=='expired' against the total."
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by E17/E18: no ticket reaches breakout_1 at all today, so the TTL question is downstream and becomes askable only once tickets flow again. EVIDENCE: MEASURED 2026-09-24: GET /api/bot/prop/tickets?limit=200 -> 164 tickets, expired 8 (unchanged from filing); MANAGER-CHECKLIST.json: E17 blocked, E18 queued.",
+  "what": "The 2026-09-13 prop ticket carried a 1h validity and went `expired` unanswered. On a MANUAL bridge the validity window may simply be shorter than the operator's response time. Population: 8 of the 164 tickets in the measured window are `expired`.",
+  "why_it_matters": "It is not the cause of the three-week silence -- that is the arbitration defect on E17 -- but it is a real second-order loss: a ticket the bridge could have filled is discarded by the clock while the operator is asleep or at work. And an expired ticket used to LATCH the status ask (fixed in #12696), so its cost was previously larger than it looked."
+}

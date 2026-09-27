@@ -132,6 +132,56 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ci/check_roster_symbol_reachability.py"],
         ],
     },
+    {
+        # E42 — ONE definition of "which symbols does this account concern".
+        # Five sites derived it privately; four were known and the fifth
+        # (`account_ib_venue_session`) was found by this very self-test's
+        # bypass control rather than by reading.
+        #
+        # The self-test is the guard: it carries the planted bypass (both
+        # directions, plus a verified-not-presence-only exemption) and asserts
+        # over the REAL config that DECLARED and UNION still agree — so the day
+        # a roster and a pull list diverge, CI says so instead of a data sweep
+        # quietly skipping a symbol that is trading.
+        "name": "symbol-resolver-guard",
+        "when": {"globs": [
+            "src/config/symbol_sets.py",
+            "scripts/ci/check_symbol_resolver.py",
+            "src/main.py",
+            "src/units/accounts/clients.py",
+            "src/runtime/exchange_accounts.py",
+            "config/accounts.yaml",
+            "config/strategies.yaml",
+        ]},
+        # Invoked by PATH, not `-m`: `-m src.config.symbol_sets` makes the
+        # MODULE the registry's "runner", and every runner needs a
+        # RUNNER_REMEDY entry answering "what does the operator install?"
+        # — a question repo code has no true answer to
+        # (`tests/ci/test_run_guards_runner_absent.py` caught that). And the
+        # CONTROLS live in this script rather than in the module, because a
+        # file that claims coverage in this registry while asserting nothing
+        # itself is the presence-only marker `new-table-wiring-guard` already
+        # cost us (`check_guard_selftest_coverage.py` caught THAT). Both
+        # corrections are written up in the script's own docstring.
+        "steps": [["python3", "scripts/ci/check_symbol_resolver.py",
+                   "--self-test"]],
+    },
+    {
+        # BL-20260926-RECORDS-FILE-UNDECLARED-SO-GITHUB-SILENTLY-DROPS-IT.
+        # GitHub does not fail a step that passes an undeclared `with:` key to
+        # a local composite action — it warns and drops it. That is how
+        # RQ-20260922-003/004 landed `not_attempted`/`null` instead of the
+        # per-leg verdicts `m20_sweep_result.py` actually computed:
+        # `research-result/action.yml` never declared `records-file`. This
+        # guard statically cross-checks every workflow's `with:` keys against
+        # the local action's declared `inputs:` so the next undeclared key is
+        # a red PR, not a silent warning in a job log nobody greps.
+        "name": "action-input-wiring",
+        "when": {"globs": [".github/workflows/*.yml", ".github/actions/**"]},
+        "steps": [["python3", "scripts/ci/check_action_input_wiring.py",
+                   "--self-test"],
+                  ["python3", "scripts/ci/check_action_input_wiring.py"]],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
@@ -184,6 +234,12 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ops/pipeline.py", "--self-test"],
             ["python3", "scripts/ops/pipeline.py", "--check"],
+            # E64, 2026-09-24 — the migration off the flat file. Wired for the
+            # same reason: a resurrected flat PIPELINE.jsonl (a lane PR's
+            # modify/delete conflict hand-resolved by keeping it) is caught by
+            # pipeline.py --check above, and the fix this asserts is that
+            # running the migration is always safe to re-run over that state.
+            ["python3", "scripts/ops/migrate_pipeline_to_dir.py", "--self-test"],
         ],
     },
     # ─────────────────────────────────────────────────────────────────────
@@ -300,6 +356,20 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/ops/accrual_clock.py", "--all"],
             ["python3", "scripts/ops/column_provenance.py", "--self-test"],
             ["python3", "scripts/ops/strategy_liveness.py", "--self-test"],
+            # E18 — proves all four never-collapsed leg_flow_detector states
+            # (unreadable/no_intents/starved/flowing) are reachable, with a
+            # positive control for the finding itself (the breakout_1 shape:
+            # intents>0, received=0) and for the collapse the module exists
+            # to prevent (unreadable staying apart from starved).
+            ["python3", "scripts/ops/leg_flow_report.py", "--self-test"],
+            # R5 — grades every Stage-1 soak leg (bybit_1, alpaca_paper) on
+            # mechanics (reuses E18's leg_flow_report) and cost fidelity
+            # (reuses R3's r3_cost_fidelity.grade()) into
+            # healthy/tweak/kill/insufficient-data. Proves the shadow-execution
+            # branch stays apart from a genuine read failure (measured live
+            # 2026-09-26: 7 of 45 soak legs are execution=shadow and absent
+            # from enumerate_live_legs entirely).
+            ["python3", "scripts/ops/soak_book_grade.py", "--self-test"],
             ["python3", "scripts/ops/soak_alarm.py"],
             ["python3", "scripts/research/target_reachability_report.py"],
             ["python3", "scripts/research/e35_corpus_extract.py", "--selftest"],
@@ -1046,6 +1116,20 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # MANAGER-CHECKLIST.json row E4. The row-count axis of the same
+        # defect candle-fixture-variance-guard catches on the price-variance
+        # axis: a real, moving series that is still too THIN to measure
+        # anything against. `when: None` for the same reason as its sibling
+        # -- the defect is defined by docs/reference/corpus-manifest.json's content,
+        # not by which file happened to change.
+        "name": "corpus-row-floor-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_corpus_row_floor.py", "--self-test"],
+            ["python3", "scripts/ci/check_corpus_row_floor.py"],
+        ],
+    },
+    {
         "name": "json-extract-guard",
         "when": {"regex": r"\.py$|\.sh$"},
         "steps": [["python3", "scripts/ci/check_json_extract_guarded.py", "--verbose"]],
@@ -1277,6 +1361,47 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "mandate-autoland-guard",
+        # THE ONE TIER-3 SHAPE THAT LANDS ITSELF, and every clause that admits
+        # it. Operator decision 2026-09-25 ("Build auto-land route") against
+        # pipeline item PI-20260925-WCUZRAA3-0002: B3 made the Stage-2 DEMOTION
+        # decision automatic and nothing could LAND it, so the ladder was
+        # "decided + proposed automatically, landed by hand".
+        #
+        # WHY IT IS ITS OWN GUARD RATHER THAN MORE OF `pr-landing-guard`. The
+        # clauses need two git trees, a YAML reconstruction and a REPLAY of
+        # `scripts/ops/mandate_resolver.py`; folding that into the landing
+        # guard's `check()` would make the file that decides EVERY PR's landing
+        # depend on the mandate store. Here the dependency runs one way and the
+        # landing guard delegates (R16).
+        #
+        # ⚠️ THE SELF-TEST IS THE WHOLE CONTROL, AND IT MUST RUN EVEN THOUGH THE
+        # ROUTE IS UNARMED. No mandate carries `autoland: true` as this lands,
+        # so on every real PR this guard's clause A8 refuses and the diff-scoped
+        # step below reports `not applicable` — a green that measures NOTHING,
+        # which is exactly the "green is not evidence" shape this repo has paid
+        # for five times in one day. The planted-defect suite is what proves the
+        # clauses can fail, and it runs unconditionally, first.
+        #
+        # ⚠️ AND IT CARRIES POSITIVE CONTROLS. This guard REFUSES to let a cut
+        # land; an over-broad implementation reads green while reinstating the
+        # hand merge it exists to end. Two positives (an admissible cut, and the
+        # Alpaca proxy shape where the mirror never carried the leg) run first.
+        #
+        # The real check is `pr_only` and is scoped to a declaration that asks
+        # for this route: a PR that does not declare `landing: "mandate"` is
+        # graded by `pr-landing-guard` and this step says so rather than passing.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_mandate_autoland.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_mandate_autoland.py",
+                         "--base", "origin/{base_ref}", "--if-declared"],
+                "pr_only": True,
+            },
+        ],
+    },
+    {
         # THE MANAGER SESSION ONLY MANAGES — as a check, not a paragraph.
         # `CLAUDE.md` has carried the operator's rule verbatim since
         # 2026-09-01; the 2026-09-03 day manager read it at session start and
@@ -1398,6 +1523,28 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/m20_sweep_result.py", "--self-test"],
             ["python3", "scripts/ci/check_research_results.py", "--self-test"],
             ["python3", "scripts/ci/check_research_results.py"],
+        ],
+    },
+    {
+        "name": "research-queue-decision-rule-guard",
+        # Checklist C1: a NEW research/queue unit must pre-register a
+        # decision_rule; an existing one is grandfathered. Diff-scoped on the
+        # queue directories themselves — unlike pr-landing-guard, the property
+        # this checks (does a unit added HERE carry a decision_rule) is a
+        # function of the files a queue-touching PR adds, so a PR that leaves
+        # the queue alone has nothing to grade.
+        #
+        # Self-test first: its failure path REFUSES a unit, so a guard that
+        # started over-refusing existing, grandfathered work would be worse
+        # than the gap it closes.
+        "when": {"globs": ["research/queue/**"]},
+        "steps": [
+            ["python3", "scripts/ci/check_research_queue_decision_rule.py", "--self-test"],
+            {
+                "argv": ["python3", "scripts/ci/check_research_queue_decision_rule.py",
+                         "--base", "origin/{base_ref}"],
+                "pr_only": True,
+            },
         ],
     },
     {

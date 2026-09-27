@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "SPLG returns a full candle history on both paths and splg_trend_long_1d evaluates (fires or declines on price, not on missing data).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-SPLG-NO-CANDLES-STRATEGY-CANNOT-EVALUATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [data][strategy] SPLG returns ZERO candles on /api/bot/candles and 35 to the strategy — splg_trend_long_1d has never been able to evaluate"
+}

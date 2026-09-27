@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) a recorded decision to surface a priority cause independently of the verdict gate, with the expected alert-rate change measured over the same lifetime population (48 rows / 11 occurrences) BEFORE it ships; or (b) an explicit recorded decision that a partially-refused account is out of scope for this detector, with Lane 0 item 0.3's criteria updated to name what does cover that case. Closing this by pointing at the per-cause floor is the failure mode this row exists to prevent.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-RARE-CAUSE-INVISIBLE-ON-A-PARTIALLY-REFUSED-ACCOUNT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-RARE-CAUSE-INVISIBLE-ON-A-PARTIALLY-REFUSED-ACCOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-RARE-CAUSE-INVISIBLE-ON-A-PARTIALLY-REFUSED-ACCOUNT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A rare serious cause on an account that placed even ONE order never alerts, because the verdict gate excludes partially_refused — so the per-cause floor covers 2 of the 3 accounts in the event it was built for"
+}

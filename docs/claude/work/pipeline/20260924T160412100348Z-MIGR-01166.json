@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-THE-FANOUT-SURFACE-COUNT-HAS-BEEN-QUOTED-AS-SHRINKING-BY-THREE-CONSECUTIVE-UNITS-AND-THE-INSTRUMENT-SAYS-IT-HAS-NEVER-MOVED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260913-THE-FANOUT-SURFACE-COUNT-HAS-BEEN-QUOTED-AS-SHRINKING-BY-THREE-CONSECUTIVE-UNITS-AND-THE-INSTRUMENT-SAYS-IT-HAS-NEVER-MOVED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-THE-FANOUT-SURFACE-COUNT-HAS-BEEN-QUOTED-AS-SHRINKING-BY-THREE-CONSECUTIVE-UNITS-AND-THE-INSTRUMENT-SAYS-IT-HAS-NEVER-MOVED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Three consecutive MI-278 units reported the fan-out surface debt shrinking; re-measured with U12's own instrument it has never moved off 21"
+}

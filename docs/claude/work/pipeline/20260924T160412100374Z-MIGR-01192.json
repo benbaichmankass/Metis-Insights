@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "src/backtest/backtester.py imports execution_costs and its fee/slippage/funding computation is derived from it (fee_bps_roundtrip / slippage_bps_roundtrip / funding_bps_per_window), not a separate pct-based literal set.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-E3-BACKTESTER-DUAL-COST-MODEL",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist E3 build lane, session_01HmQgaLfZv9rv7uuWfgA321",
+    "rerun": "grep -n \"taker_fee_pct\\|maker_fee_pct\\|slippage_pct\\|execution_costs\" src/backtest/backtester.py"
+  },
+  "routed_to": null,
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "checklist E3: src/backtest/backtester.py::ICTBacktester (used by bin/backtest_ict.py, and load_data()/summarize() from it are imported by src/backtest/run_backtest_vwap.py) hardcodes its OWN independent cost model (taker_fee_pct=0.055, maker_fee_pct=0.02, slippage_pct=0.02 at the top of the file) and never imports or consults src/runtime/execution_costs.py -- the exact \"a second cost model is how the two drift\" failure execution_costs.py's own module docstring warns about (P1 section 3.B, the cost-model-single-owner guard family). bin/backtest_ict.py is declared scaffolding-only in its own docstring and has no funding term at all (crypto perp funding never modelled). Not fixed in E3 because changing backtester.py's cost math is a bigger consolidation (rebasing it onto execution_costs.roundtrip_cost_usd) that deserves its own review of whether existing backtester.py consumers depend on the current pct-based numbers."
+}

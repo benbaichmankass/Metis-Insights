@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "B5 PR A (the mandate resolver). The manager dispatch says to hold it as Tier-2: every PR in this lane is merged by the manager (session_01Ljhs6sFAdWHdMDhJpL5aBP), acting for the operator. The approval sought is the manager's merge. This is the component that decides whether a ladder transition, including promotion to a real-money roster, may fire without asking.",
+  "why": "Adds scripts/ops/mandate_resolver.py and its tests. Given (leg, from_stage, to_stage, account) it returns FIRE or REFUSE plus the deciding clause. It reads only committed evidence records, config/mandates.yaml and the rosters. It writes nothing and proposes a roster edit only. Nothing calls it yet: no schedule, no consumer, no ping. So merging it changes no runtime behaviour. It is held at Tier-2 because it is the decision function for the fully-automated ladder."
+}

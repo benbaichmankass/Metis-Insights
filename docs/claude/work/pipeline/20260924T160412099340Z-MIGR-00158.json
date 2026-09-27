@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "THIS IS A CONTAINER ROW. It closes when each of the 12 enumerated NEW findings carries its own disposition recorded against its number here - fixed, filed as its own backlog row (with the id), or closed with a reason - and not before. It does NOT close on 'the P0-P3 plan was worked': a container that retires while any of the 12 is undisposed silently loses that finding, which is the specific way a consolidated audit row fails.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260731-AUDIT-0731-NEW-FINDINGS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260731-AUDIT-0731-NEW-FINDINGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260731-AUDIT-0731-NEW-FINDINGS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Full-system audit 2026-07-31: consolidated NEW findings + prioritized P0-P3 work plan"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A donchian-1h E1 round exists at code carrying _select_tau_holdout, its selected_tau is compared against the best arm per fold, and the operator has a stated decision on the three live cells. Closing this by arguing the fleet result does not apply, without running the round, is not a resolution - the point of the row is that the check is cheap and has never been done.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-SHIPPED-DONCHIAN-1H-HEAD-RESTS-ON-BESTARM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The LIVE donchian-1h exit head has fired EXACTLY TWICE in a month, both on real money - so its 'validated + live' grade rests entirely on an E1 verdict scored by best-arm hindsight, with n=2 of live track record behind it"
+}

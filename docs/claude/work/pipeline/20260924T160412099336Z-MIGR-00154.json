@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when a trainer-vm-diag relay read (`cmd:` block, label trainer-vm-diag-request) shows the trainer repo root carries NO trade_journal.db beside the canonical store — e.g. `ls -la /home/ubuntu/ict-trading-bot/trade_journal.db` reports no such file while the real store's declared path still resolves and is the larger one. State BOTH paths and BOTH sizes in the close: the finding is a DUPLICATE, so a reading that shows only one file without saying which path it sat at cannot distinguish 'the stray was removed' from 'the real store was removed'. A session with no trainer relay access CANNOT close this and should refuse rather than infer (refused on exactly that basis by backlog-drain session #2, 2026-09-02).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260730-TRAINER-JOURNAL-COPY-STALE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-TRAINER-JOURNAL-COPY-STALE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-TRAINER-JOURNAL-COPY-STALE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Stray 8 MB trade_journal.db at the trainer repo root beside the real 677 MB store"
+}

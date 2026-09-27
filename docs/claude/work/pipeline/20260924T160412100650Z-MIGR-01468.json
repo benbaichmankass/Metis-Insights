@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "EITHER build_strategy_evidence.py threads the leg's `tp_r` into the harness so a `faithful` record is faithful about the take-profit, OR `tp_r` is added to the omitted-levers accounting so a leg declaring a real tp_r can no longer grade `faithful` with `omitted_levers: []`. [!] RE-RUNNING THE PRODUCER CLEARS NOTHING -- it reproduces the same claim; the fix is in what the producer threads or in what it counts as omitted.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E41-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E41",
+    "rerun": "python3 -c \"import json,yaml; d=json.load(open('comms/strategy_evidence/runs/2026-09-22/qqq_trend_long_1d__bt.json')); r=json.load(open('comms/strategy_evidence/qqq_trend_long_1d.json')); s=yaml.safe_load(open('config/strategies.yaml'))['strategies']['qqq_trend_long_1d']; print('config tp_r', s.get('tp_r'), '| harness tp_r', d['params'].get('tp_r'), '| record fidelity', r.get('fidelity'), r.get('omitted_levers'))\""
+  },
+  "state": "done",
+  "terminal_reason": "A10 2026-09-24: clears_when MET (second arm) by E46 (#12754): tp_r is in the omitted-levers accounting, so the record no longer grades faithful with omitted_levers []. EVIDENCE: MEASURED 2026-09-24: comms/strategy_evidence/qqq_trend_long_1d.json fidelity=approximate, omitted_levers=['tp_r'], generated_at 2026-09-24T10:28:53Z; config tp_r 3.0.",
+  "what": "[health] `comms/strategy_evidence/qqq_trend_long_1d.json` claims `fidelity: faithful` with `omitted_levers: []` while the harness run behind it carries `tp_r: None` -- no take-profit at all -- against a config that declares `tp_r: 3.0`. `faithful` is defined in comms/strategy_evidence/README.md as 'the harness modelled EVERY lever the leg's config declares', so this is a FALSE COMPLETENESS CLAIM on the record the M7 gate is meant to take its edge verdict from. MEASURED 2026-09-22: config tp_r 3.0, harness params tp_r None, tp_r_effective_n 0, record omitted_levers []. It is not cosmetic -- see PI-20260922-E41-0006, where the omission moved a leg's recorded net_r_oos by 3.4x."
+}

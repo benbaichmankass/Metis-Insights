@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "REFRAMED with its sibling 2026-08-23: this does NOT resolve by adding a reward-to-risk floor. vwap's target is a LEVEL (the VWAP line) and its stop a MULTIPLE, so unlike the tp_r: 50.0 legs its target IS already a prediction - which is why it is filed low and separately. What it owes is (a) the vwap.py:201 docstring's '1:2 preserved' claim corrected to state the condition under which it holds (it is true at the entry boundary and was generalised to the whole surface), and (b) inclusion in whatever declared-geometry surface the active-management build produces, so a level-based target landing inside its own stop is visible rather than inferred. Whether vwap should REFUSE such a setup is a separate Tier-3 call and may reasonably be 'no'; record the decision either way.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-VWAP-TARGET-NEARER-THAN-STOP",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-VWAP-TARGET-NEARER-THAN-STOP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-VWAP-TARGET-NEARER-THAN-STOP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] vwap and turtle_soup can place a target nearer than their stop by a DIFFERENT mechanism than the TP clamp - a level-based target against a multiple-based stop, with no floor relating them"
+}

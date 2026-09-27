@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "/api/bot/shadow/drift at its DEFAULT windows (reference_days=30, current_days=7) returns a non-zero reference_count for at least one advisory head — i.e. shadow.py::_log_path reads the rotated archives. ⚠️ A verdict obtained by shortening the window does NOT clear this; the whole finding is that the configured window is unreachable. Once it clears, btc-regime-15m-lgbm-fc-pcv-v2 must be re-measured at that configured window before any promote/demote is proposed off drift.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-SHADOW-DRIFT-IS-STRUCTURALLY-UNMEASURABLE-BECAUSE-ROTATION-DELETES-THE-REFERENCE-WINDOW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#BL-20260908-SHADOW-DRIFT-IS-STRUCTURALLY-UNMEASURABLE-BECAUSE-ROTATION-DELETES-THE-REFERENCE-WINDOW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-SHADOW-DRIFT-IS-STRUCTURALLY-UNMEASURABLE-BECAUSE-ROTATION-DELETES-THE-REFERENCE-WINDOW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] /api/bot/shadow/drift can NEVER populate its reference window: the log is rotated at 7 days and the default reference window starts 37 days back, so every model reads reference_count 0 / insufficient_data — and the demote trigger keys on drift"
+}

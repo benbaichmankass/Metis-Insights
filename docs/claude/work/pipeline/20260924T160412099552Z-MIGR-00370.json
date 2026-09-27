@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. THE LEVEL IS CORRECT FOR THE CONDITION. A self-recovering fetch miss on one bar is not an operator page. Either rate-limit it durably (the `_cooldown_admits` gate now exists and is shared) or demote it to WARN and page only when the leg misses N CONSECUTIVE bars — i.e. when it has stopped evaluating, which IS the operator-relevant condition. Whichever is chosen, `strategy_builder exception` must stop being the largest line on the ERROR+ feed.\n2. THE LEG'S HEALTH IS OBSERVABLE WITHOUT READING THE ALARM. A consecutive-miss count (or fetch-success ratio) per (strategy, timeframe) that a review can read, so 'this leg cannot get its data' is a fact on a surface rather than an inference from alert volume. Without this, demoting the level in criterion 1 makes the condition INVISIBLE instead of quiet — which is the wrong fix and must not be shipped alone.\n3. THE ROOT CAUSE IS EITHER FIXED OR STATED. Correlate the failures against IB breaker/timeout state and either fix the fetch or record explicitly that intermittent IB 15m data is expected and the leg tolerates it.\n4. Re-measure the feed composition afterwards and quote it beside its denominator: the claim to beat is 228/388 = 58.8% over 2026-08-20T07:01Z–2026-08-25T09:28Z.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-ICT-SCALP-MGC-15M-NO-CANDLE-IS-59PCT-OF-THE-OPERATOR-ERROR-FEED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-ICT-SCALP-MGC-15M-NO-CANDLE-IS-59PCT-OF-THE-OPERATOR-ERROR-FEED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-ICT-SCALP-MGC-15M-NO-CANDLE-IS-59PCT-OF-THE-OPERATOR-ERROR-FEED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] An intermittent IB gateway blackout (circuit breaker OPEN for 10.0.0.251:4002) blinds EVERY IB leg and leaves an open position's dynamic exit unmonitored — and the only operator-visible symptom is one leg's RuntimeError, at 58.8% of the entire ERROR feed"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "health-review/performance-review/ml-review's SKILL.md files state explicitly that PIPELINE.jsonl items whose disposition is a distinct, separately-owned checklist row (A10 today) are excluded from the review's own open-set denominator, so a review lane states the exclusion and its reason rather than either silently absorbing or silently ignoring them.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-GKIASQWZ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "E56 health-review, 2026-09-24, .claude/skills/health-review/SKILL.md § 'Driving the open items' + checklist row A10",
+    "rerun": "python3 scripts/ops/pipeline.py --due | grep -c '\\*\\*OI-' ; and read MANAGER-CHECKLIST.json row A10."
+  },
+  "state": "queued",
+  "what": "health-review's (and by the same construction, performance-review's/ml-review's) 'Driving the open items' HARD COMPLETION GATE says the PIPELINE.jsonl half of the open set is 'every item due and not closed', with no domain filter. Taken literally that requires ONE review lane to drive ALL currently-due pipeline items (181 on 2026-09-24 via pipeline.py --due) to disposition regardless of domain, including prop/ML/macro/strategy-tuning items outside its own scope. MEASURED 2026-09-24: of the currently-due items, 91 carry an 'OI-' id prefix (imported from the archived OPEN-ITEMS.json by A8, cross-domain by construction: prop, ML, macro and strategy-geometry items alongside pipeline/health ones) and checklist row A10 ('Rescue the 91 monitoring rows...disposing of them is A10', state=queued, lane=None) exists SPECIFICALLY to disposition these as its own bounded sweep. A review lane absorbing A10's job either blows any reasonable review-lane budget or produces a rushed, under-verified sweep of the exact kind A8's own note warns against ('NOT 85 rubber-stamps')."
+}

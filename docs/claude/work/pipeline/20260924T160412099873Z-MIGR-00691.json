@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Some family carries BOTH tp_geometry levels with folds and OOS balanced across the arms, so the audit's `licenses_a_target_geometry_decision` returns true on real data. [!] A CROSS-FAMILY DIFFERENCE DOES NOT CLOSE THIS however large -- that is precisely the 75%-vs-30% gap being rejected (populations: 21 of 28 uncapped arms, 66 of 218 capped, over the complete 246-arm corpus). [!] NOR DOES RE-RUNNING THE SAME ARMS AND GETTING THE SAME GAP: the gap is not in doubt, its attribution is. [!] AND A GEOMETRY VERDICT ALONE STILL SAYS NOTHING ABOUT THE LEVEL -- clause (B) is separate for that reason and both are needed before a tp parameter is proposed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-M20-WALKFORWARD-ARM-SET-CANNOT-GRADE-TARGET-GEOMETRY-BECAUSE-TP-GEOMETRY-IS-PERFECTLY-CONFOUNDED-WITH-FAMILY-AND-BLOCK-UNIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-THE-M20-WALKFORWARD-ARM-SET-CANNOT-GRADE-TARGET-GEOMETRY-BECAUSE-TP-GEOMETRY-IS-PERFECTLY-CONFOUNDED-WITH-FAMILY-AND-BLOCK-UNIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-M20-WALKFORWARD-ARM-SET-CANNOT-GRADE-TARGET-GEOMETRY-BECAUSE-TP-GEOMETRY-IS-PERFECTLY-CONFOUNDED-WITH-FAMILY-AND-BLOCK-UNIT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] m20-fold-dispersion-arms-consolidated.jsonl carries tp_geometry but no family holds both levels of it, so the 75%-vs-30% candidate-rate gap is a scalp-vs-others gap and no target-geometry decision can be read off this evidence base"
+}

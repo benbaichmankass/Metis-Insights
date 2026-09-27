@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The route either SERVES every open row or SAYS it did not — a caller must be able to distinguish 'these are all of them' from 'this is the first 50'. Minimum: publish a total (rows existing) alongside the returned rows, or a truncated boolean, so a consumer can branch. Verify with a POSITIVE CONTROL, not a code read: stand up >50 open non-backtest rows in a test journal, call the route, and show the response distinguishes the truncated case from the complete one. !! RAISING 50 TO A BIGGER NUMBER DOES NOT CLEAR THIS — the defect is the silence, not the value; a larger silent cap fails identically the day it is crossed. !! AND DO NOT CLEAR ON 'the fleet is only at 29' — that is the condition being relied on, not the fix. Cross-reference BL-20260906-TRADES-CLOSED-SILENTLY-RETURNS-EMPTY-ABOVE-LIMIT-200-AND-FOR-ANY-SINCE: two confirmed members means the remaining population (src/web/api/routers/notifications.py:336 LIMIT 25 and :403 LIMIT 50 are unexamined candidates) should be swept, not sampled.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-BOT-POSITIONS-SILENTLY-CAPS-AT-50-OPEN-ROWS-AND-THE-FLEET-IS-AT-29",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-BOT-POSITIONS-SILENTLY-CAPS-AT-50-OPEN-ROWS-AND-THE-FLEET-IS-AT-29",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-BOT-POSITIONS-SILENTLY-CAPS-AT-50-OPEN-ROWS-AND-THE-FLEET-IS-AT-29'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] GET /api/bot/positions — the fleet's only uncapped-looking open-positions read — has a hardcoded LIMIT 50 with no total, no truncation flag and no limit param; measured 29/50 today"
+}

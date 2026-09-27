@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Strategy exit-geometry flip on trend_donchian_eth_prop (breakout_1, prop, real capital-at-risk): adds `trail_decay_arm_r: 2.99` to config/strategies.yaml, an R-armed trigger alongside the already-shipped trail_decay lever. Approval sought from the operator per docs/CLAUDE-RULES-CANONICAL.md Permission Tiers: Tier-3 (strategy logic + params) merges only with explicit operator approval. Evidence: RQ-20260922-003 run 36254494896 (m20-exit-lever-sweep), decay_p80arm2.99R_t1.8 clears RULE-M20-EXIT-LEVER-IS-OOS-GATE (Path A IS +9.86R / OOS +0.68R, walk-forward 5/6) on this leg's own base (base_net_r_OOS -5.41R, 49 OOS trades). Live parity verified this session: src/units/strategies/trend_donchian.py already threads trail_decay_arm_r from cfg into package.meta, and src/runtime/trail_decay.py::resolve_trail_mult ORs it with the existing stall trigger, matching the harness's base+extra cell construction exactly. This PR does NOT merge itself — dispatched under a standing 'validate, then propose' lane instruction that the flip is Tier-3 and must be held for a human.",
+  "why": "Tier-3 by content: config/strategies.yaml exit-lever parameter on a live real-money-adjacent prop leg (strategy logic / risk geometry). Held per the explicit dispatch instruction — never merge Tier-3 without operator approval; see hold_text for the full evidence citation."
+}

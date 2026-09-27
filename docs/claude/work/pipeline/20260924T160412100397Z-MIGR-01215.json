@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER a fresh web session can run `python3 -m pytest tests/ -q` with ZERO collection errors (a SessionStart step, a documented one-line install, or whatever route is chosen), OR a lane establishes that partial local test coverage is intended and writes the honest ceiling somewhere a lane reads BEFORE it validates -- naming which test files a session can and cannot run. Either closes it; asserting 'CI has the deps' does not, because that is already true and is not what this row is about.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-R2-A-WEB-SESSION-CANNOT-RUN-THE-TEST-SUITE-AND-GETS-NO-SIGNAL-THAT-IT-COULD-NOT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_017aScqdVcFoXxqffMcsf5Ge, checklist row R2, incidental observation while validating a Tier-3 config diff",
+    "rerun": "python3 -m pytest tests/ -q 2>&1 | tail -3   # FINDING STILL APPLIES while this reports collection errors on a fresh Claude Code on the web container; it clears when the count is 0"
+  },
+  "state": "queued",
+  "what": "MEASURED 2026-09-22 in a Claude Code on the web container (this session): `python3 -m pytest tests/ -q` aborts with '149 errors during collection' -- ModuleNotFoundError on pandas and siblings. pytest itself was ALSO absent until I ran `pip install pytest` by hand. The repo ships requirements.txt / requirements-dev.txt / requirements-test.txt and nothing in the session bootstrap installs any of them; .claude/hooks/ contains only vm_lane_guard.sh. [!] THE DEFECT IS NOT THE MISSING DEPS, IT IS THE ABSENCE OF A SIGNAL. A lane that runs a targeted `pytest tests/test_foo.py` and sees green has no way to learn that ~149 other files never collected -- 'the tests I ran passed' and 'the tests that matter passed' are indistinguishable from inside the container, which is the collapsed-state shape docs/CLAUDE-RULES-CANONICAL.md names. This session hit it while validating a TIER-3 real-money roster diff: tests/test_account_side_filter.py showed 6 failures, and only because I checked out origin/main's config/accounts.yaml and re-ran the file did I establish the same 6 fail WITHOUT my change (missing pandas, pre-existing). A lane that did not think to baseline would have read them as its own regression, or -- the dangerous direction -- a lane whose change DID break something in the 149 uncollected files would have pushed on a green partial run. [!] I DID NOT DIAGNOSE THE CAUSE and am not asserting one: I did not check whether the deps are deliberately omitted (container size, install time) or simply never wired. That determination is the first thing the lane should make, because it decides which of the two clears_when branches applies. [!] SCOPE OF MY OBSERVATION, stated because it bounds the claim: one container, one date, one repo checkout. I did not test a second session."
+}

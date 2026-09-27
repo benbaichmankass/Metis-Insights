@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260912-A-BARE-PYTEST-RUN-ABORTS-AT-COLLECTION-HERE-SO-A-FAILED-GREP-RETURNS-AN-EMPTY-SET-THAT-READS-AS-A-CLEAN-DIFFERENTIAL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-A-BARE-PYTEST-RUN-ABORTS-AT-COLLECTION-HERE-SO-A-FAILED-GREP-RETURNS-AN-EMPTY-SET-THAT-READS-AS-A-CLEAN-DIFFERENTIAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-BARE-PYTEST-RUN-ABORTS-AT-COLLECTION-HERE-SO-A-FAILED-GREP-RETURNS-AN-EMPTY-SET-THAT-READS-AS-A-CLEAN-DIFFERENTIAL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "`python3 -m pytest -q` aborts at collection in this container (117 errors, 0 tests run), so the standard `grep '^FAILED'` differential returns an EMPTY set on BOTH arms and reads as 'my diff introduces no failures'"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "origin/main carries (a) a RESEARCH-LOSS-RECEIPT.json commit whose produced_by.workflow is 'research-loss-detector' (a scheduled run, not the local seed), and (b) at least one automation/replay-pregate-* or automation/research-queue-stamp-* PR merged AFTER the E57 merge with pr-landing-guard green on it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-E57-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E57",
+    "rerun": "git log -3 --format='%h %cI %s' origin/main -- docs/claude/work/RESEARCH-LOSS-RECEIPT.json runtime_logs/replay_pregate/ research/queue/ ; python3 -c \"import json;d=json.load(open('docs/claude/work/RESEARCH-LOSS-RECEIPT.json'));print(d['produced_by'],d['overall'])\""
+  },
+  "state": "queued",
+  "what": "[research-landing] E57 is LANDED_UNPROVEN until observed end to end. Merged != deployed != observed: the R5 widening (research/results/**, runtime_logs/replay_pregate/**, stamp-only research/queue/*.yaml) was proven only by re-running check_pr_landing.py locally against 6 stuck branches (exit 1 -> exit 0). The research-loss-detector.yml schedule has never fired on main, and its first receipt in the PR was written by a LOCAL run (produced_by.workflow = '(local run)'). This closes only when BOTH are observed on main after the merge."
+}

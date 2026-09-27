@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A CHECK OR A DEFAULT, not a fourth reminder -- the 2026-09-06 row WAS the reminder and it did not hold. Either: (a) every spawn prompt opens with a `git remote -v` assertion naming the expected repo, alongside the push probe, and a session STOPS on mismatch -- cheap, and it converts a silent contamination into a loud refusal; or (b) the repo ships a spawn helper that always passes `source_url` so the manager cannot omit it. ⚠️ CLEARS ONLY ON AN OBSERVATION: a session must be SEEN stopping on a planted wrong remote, or a spawn must be seen carrying the correct `sources` because the helper supplied it. A green self-test clears nothing -- a harness cannot reach `create_session`. ⚠️ AND IT DOES NOT CLEAR by the 2026-09-06 row being closed: that row covers the no-repo case only, and closing it would leave the wrong-repo case -- the quiet one -- unwatched.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-SPAWNING-WITHOUT-SOURCE-URL-CAN-ATTACH-THE-WRONG-REPO-NOT-MERELY-NO-REPO-AND-THE-2026-09-06-ROW-DID-NOT-PREVENT-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-SPAWNING-WITHOUT-SOURCE-URL-CAN-ATTACH-THE-WRONG-REPO-NOT-MERELY-NO-REPO-AND-THE-2026-09-06-ROW-DID-NOT-PREVENT-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-SPAWNING-WITHOUT-SOURCE-URL-CAN-ATTACH-THE-WRONG-REPO-NOT-MERELY-NO-REPO-AND-THE-2026-09-06-ROW-DID-NOT-PREVENT-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260906-A-SUBSESSION-SPAWNED-WITHOUT-SOURCE-URL-GETS-NO-REPO-AND-ITS-WORK-DIES-UNPUSHED, plus a WORSE variant it does not describe: the container can attach a DIFFERENT repo and produce plausible findings from the wrong codebase"
+}

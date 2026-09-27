@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "BOTH: (a) /api/bot/config read back shows the new atr_stop_mult/tp_r on all 10 legs, confirming ict-git-sync carried them to the running trader; and (b) at least one closed trade on a real-money leg that was **OPENED AFTER the deploy of 892c9a2c**, read against broker truth. ⚠️ (b) SAYS *OPENED*, NOT *CLOSED*, AND THAT WORD IS THE WHOLE CRITERION — it previously read 'at least one CLOSED trade exists on a real-money leg under the new geometry', which a trade opened BEFORE the deploy satisfies on its face while carrying the OLD geometry. That is not hypothetical: trend_donchian_eth_4h trade 4904 (bybit_2, ETHUSDT) CLOSED 2026-08-30T09:48:15Z — after the deploy, on a real-money e35 leg — and is disqualified TWICE OVER. It was OPENED 2026-08-21T21:54:54Z, nine days earlier, so its bracket is the pre-e35 2.5 atr_stop_mult; and per PR #10482 it was an OPERATOR FLATTEN executed to satisfy the flat-symbol guard for the Bybit hedge switch, i.e. not a strategy exit at all. Its exit_reason reads 'reconciler_filled', which describes HOW the row closed and misdescribes WHY. A session applying the old wording could have cleared this row on it. Explicitly NOT sufficient: the PR merging, CI green, or the guard passing — the guard compares the matrix to the repo, and neither of them is the running trader. Also NOT sufficient: a closed trade whose pnlProvenance is 'fabricated' or 'unverified', or one closed by an operator action rather than by the strategy — read PB-20260830-XRP-4H-FIRST-CLOS",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] Tier-3, operator-approved 2026-08-30: e35 bracket geometry shipped to 9 legs (10 fields). THREE route to bybit_2 = REAL MONEY (trend_donchian, trend_donchian_eth_4h, trend_donchian_xrp_4h). It is DEPLOYED, not PROVEN, and those are different facts. A 10th approved leg (trend_donchian_eth_prop) was HELD — see detail."
+}

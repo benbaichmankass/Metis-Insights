@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "THREE things, and they are different facts — say which you cleared rather than clearing on the easiest. (1) SCHEDULER EXISTS: a `manager-wake` Routine is listed by list_triggers with a real cron schedule AND carries a connector, so its fired sessions actually hold create_trigger/fire_trigger. (2) IT FIRED ON ITS OWN: `check_wake_liveness.py` grades `fresh` on a receipt whose newest run was written by a SCHEDULED firing, not a hand-fired one — read the receipt's `detail`, since a hand-fired run writes a byte-similar entry, and this is the same event-vs-artifact distinction that keeps OI-20260902-DIGEST-MOVED-OFF-A-CRON-THAT-DOES-NOT-FIRE-AND-THE-NEW-TRIGGER-HAS-NEVER-FIRED open. (3) IT WOKE SOMEBODY UNATTENDED: a receipt entry with outcome `poked` from a scheduled fire, AND that manager observed running afterwards via get_session, with NO human in the loop for any step. ⚠️ THE MERGE OF #11014 CLEARS NOTHING — a merge is not a deploy and a deploy is not a fire. ⚠️ A GREEN CI CLEARS NOTHING: 28 tests and PASS 65 are a harness, and a harness is exactly what cannot reach a Routine. ⚠️ THE 2026-09-04T23:11:26Z RECEIPT ON MAIN CLEARS NOTHING — that fire was triggered by hand from the MI-123 session and proves DELIVERY, not CADENCE, which is the whole thing this row is open about. ⚠️ AND IF THE OPERATOR DECIDES NOT TO CREATE THE ROUTINE, THIS ROW DOES NOT CLEAR — IT CHANGES: a manager's idle time is then bounded by nothing, which is a legitimate decision and must be RECORDED as one w",
+    "kind": "observation",
+    "last_checked": "2026-09-05"
+  },
+  "id": "OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] MI-123 / PR #11014 built the manager durable wake: `manager_wake.py` (assess/brief/receipt), `check_wake_liveness.py`, a committed Routine prompt, 28 tests. The DELIVERY half is OBSERVED — the manager session went SESSION_STATUS_IDLE/disconnected (2026-09-04T23:09Z) to SESSION_STATUS_RUNNING/connected (23:11:29Z) via get_session, poked with `--brief` verbatim after 901 measured minutes of silence. ⚠️ THE SCHEDULING HALF DOES NOT EXIST. There is NO Routine. A manager's idle time is therefore STILL UNBOUNDED, exactly as it was before this work, and the only thing that has changed is that the machinery to bound it is now in the repo. Built, delivered-once, and scheduled are three facts; only the first two are established. verified_at is deliberately null: no unattended observation has been made, and dating it today would be a claim of one."
+}

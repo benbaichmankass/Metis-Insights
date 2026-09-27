@@ -1,0 +1,16 @@
+Arming the self-landing route for PR #12828 (Tier-1, docs only).
+
+Added AFTER the PR was opened, per R6. The declaration at
+.github/pr-landing/e41-e42-observed.json says `landing: "self"`, and
+pr-landing-guard correctly refused the branch while that claim was unarmed --
+"a readiness declaration lands nothing on its own", which is how 7 green PRs
+sat unmerged on 2026-09-03.
+
+Why arming is the honest fix rather than flipping to `hold`: none of the five
+HOLD_REASONS truthfully describes this PR. It is Tier-1, docs-only
+(docs/claude/work/MANAGER-CHECKLIST.json + PIPELINE.jsonl, both inside
+TIER1_SURFACE), it edits no landing machinery, depends on no unmerged PR, waits
+on no evidence, and the operator asked for no hold. Picking one anyway would be
+the false declaration the guard's own MI-226 note exists to prevent.
+
+Contents are not read -- the PATH is the signal.

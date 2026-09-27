@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "APPROVED 2026-09-24 by the operator in chat, asked as a named decision: they chose 'Land it on the stated assumption'. Stays `hold` because Tier-3 NEVER self-lands -- the manager merges deliberately. [!] The 'assumption' in that question was the manager's error and is withdrawn in the row: the lane HAD done the runs-vs-records read and found a third answer (the fanout runs, records and elects correctly; apply_scope reports breakout_1 not_allowlisted). The change is exact. [!] This PR carries NO config change -- it is the E17 row only. The arming itself is a set-env system-action, dispatched separately by the manager (#12802 get-env first, additive write preserving bybit_1, then read back).",
+  "why": "Register-only diff (docs/claude/work/MANAGER-CHECKLIST.json), but declared Tier-3 rather than Tier-1 because the row it lands authorises an arbitration-allowlist change on a prop account's live order-election path, and under-declaring a tier is the PR #1358 failure class. No src/, config/ or workflow change is in this diff."
+}

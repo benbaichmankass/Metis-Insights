@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER a disposition surface exists and a stranded branch is OBSERVED keeping its due-list row across at least two consecutive `probes` runs until it is dispositioned, OR an operator decision is recorded that the one-cadence surface is sufficient. [!] A GREEN TEST CLEARS NOTHING: the one-period behaviour is already asserted by tests/test_stuck_branch_carrier.py, which pins the CURRENT design rather than the desired one. [!] AND PAGING THE STANDING COUNT DOES NOT CLEAR THIS — it replaces an attention gap with an alarm everyone walks past, which is strictly worse.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-A-NEW-STRANDING-IS-SURFACED-FOR-ONE-CADENCE-PERIOD-AND-THEN-SUPERSEDED-BY-THE-NEXT-QUIET-RUN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-A-NEW-STRANDING-IS-SURFACED-FOR-ONE-CADENCE-PERIOD-AND-THEN-SUPERSEDED-BY-THE-NEXT-QUIET-RUN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-NEW-STRANDING-IS-SURFACED-FOR-ONE-CADENCE-PERIOD-AND-THEN-SUPERSEDED-BY-THE-NEXT-QUIET-RUN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] the stuck-branch receipt carries the LAST run's delta, so a new stranding is due-listed once and then vanishes"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Capture a real Flex XML fixture, then build scripts/pull_ib_flex_fills.py (2-step SendRequest→GetStatement) + src/runtime/exchange_fills_ib_flex.py mapper (Trade -> exchange_fills, real ibCommission) + a 3rd ExecStart on ict-exchange-fills-pull.service + add the 2 secrets to sync-vm-secrets OPTIONAL_SECRETS. Takes broker-truth coverage 6/8 -> 7/8. Separately, bybit_2 lifetime wallet-truth stays UM-export-only (structural, not this item).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260729-IB-FLEX-FILLS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260729-IB-FLEX-FILLS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260729-IB-FLEX-FILLS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [broker-truth] ib_paper fills not captured — needs the IB Flex Web Service (operator-gated on a Flex token)"
+}

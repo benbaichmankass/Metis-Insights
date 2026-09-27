@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Add a fifth refusal: read the current price and refuse when the declared target is already through the market for the position's direction (long: target <= last; short: target >= last), reporting the gap and naming the consequence ('this would fill immediately at market'). Refuse by default and require an explicit separate opt-in flag whose NAME says flatten, not attach — or route the caller to `flatten-ib-position`, which already exists and is honestly named. The price read must be three-state: a price we could not read is `could_not_look` and must also refuse, never fall through to placing. DONE when a dry-run against trade 4487 reports the through-market refusal instead of a clean plan.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-ATTACH-IB-TARGET-NO-THROUGH-MARKET-REFUSAL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-ATTACH-IB-TARGET-NO-THROUGH-MARKET-REFUSAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-ATTACH-IB-TARGET-NO-THROUGH-MARKET-REFUSAL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] attach-ib-target has four refusals but none for a declared target already THROUGH the market — on such a position it is a market exit wearing the label of a protective repair"
+}

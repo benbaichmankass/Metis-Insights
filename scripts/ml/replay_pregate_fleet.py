@@ -24,6 +24,7 @@ a JSON report to stdout (``--json -``) or a file. Never touches the order path.
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import os
 import sys
@@ -141,17 +142,31 @@ def score_model(model_id: str, reg: ModelRegistry, *, window_n: int,
         raise ValueError(f"no market_raw candles for {sym_scope}/{tf}")
 
     # True-parity label: the dataset's own regime_label, keyed by raw ts string.
+    #
+    # ⚠️ E6(b), MEMORY. `label_rows` is every row of the FULL market_features
+    # file (dozens of feature columns per row, uncapped by `max_bars`) and is
+    # dropped the instant `label_map` (ts -> 0/1) is built from it — it is
+    # never read again. Before this fix it stayed referenced for the entire
+    # rest of this function (the per-bar scoring loop below), so its memory
+    # sat live for the whole head instead of the one line that needed it.
+    # Measured trainer evidence (replay-pregate-nightly.yml, run #4390):
+    # 5508/5909 MB used + 4 GB swap consumed, with the run dying at the SAME
+    # head (10/22) across 6/6 nightly runs — a cumulative-growth signature,
+    # not a single head's peak. This does not touch trainer runtime/service;
+    # it is a memory-lifetime fix inside this harness's own scoring loop.
     label_rows = _load_jsonl(feat_path)
     label_map: Dict[str, int] = {
         str(r.get("ts")): (1 if str(r.get("regime_label")) == positive_class else 0)
         for r in label_rows
         if r.get("regime_label") is not None
     }
+    del label_rows
     if not label_map:
         raise ValueError("dataset has no regime_label rows")
 
     candle_rows = _load_jsonl(raw_path)
     df = _candles_df(candle_rows)
+    del candle_rows  # same reasoning: consumed, not needed past this line.
     if max_bars and len(df) > max_bars + window_n + 10:
         # Bound the per-bar loop to the most-recent (and most decision-relevant)
         # window; keep window_n+10 extra rows of warm-up before the scored span.
@@ -252,6 +267,15 @@ def run(model_ids: List[str], *, window_n: int, folds: int,
             errors.append(err_row)
             print(pregate_stream.frame(pregate_stream.ERROR, err_row), flush=True)
             print(f"[fleet]   -> ERROR {exc}", file=sys.stderr, flush=True)
+        finally:
+            # E6(b): pandas/numpy objects commonly hold reference cycles that
+            # refcounting alone does not collect promptly, so a per-head
+            # DataFrame + its columns can outlive the head that built it. One
+            # collection per head, unconditionally (success or error), is
+            # cheap next to the ~minutes a head's own scoring loop already
+            # costs, and it is what actually returns memory before the next
+            # head's own peak begins rather than adding to the last one's.
+            gc.collect()
     results.sort(key=lambda r: (r.get("overall") or {}).get("auc") or 0.0,
                  reverse=True)
     return {

@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "APPROVAL GIVEN 2026-09-24 — and this STAYS `hold`, because TIER-3 NEVER SELF-LANDS and no record admits one. The operator approved it explicitly, asked as one of four decisions with the tier and the substance both stated; they chose 'Approve - land it'. The manager lands it deliberately. The hold keeps AUTO-merge off, which is exactly right for a Tier-3 path — nothing here should ever land unattended. [!] THE LANE'S OWN CALL STANDS AS CORRECT: it first declared Tier-2, pr-landing-guard answered that the diff touches a Tier-3 path, and it took the STRICTER tier rather than arguing the guard down. [!] NOT `done` ON THE MERGE: PI-20260922-54WQNHJX-0001 closes it — a pairs_* close carrying `exchange_fill` AND paper pnlCoverage above 0.30. Coverage not moving means the fix is inert, not that it is finished.",
+  "why": "Tier-3 by path (src/units/strategies/ -- strategy/exit logic surface), bookkeeping-only in substance; see hold_text"
+}

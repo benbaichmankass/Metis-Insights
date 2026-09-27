@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (c): test_docs_committed_readers_are_all_covered (or a sibling) DERIVES the covered set from the paths tests actually read, so a newly-read tree fails the guard instead of waiting for an incident — demonstrated by showing it fails on the current filter and passes after the filter is corrected. OR, as an interim, (a)/(b): the filter names the retired tree AND tests/test_pytest_run_filter.py::COVERED gains an entry citing test_torch_sequence_contract as the reader, with the perturbation above as the evidence. Interim closure MUST record that the class is unretired and that instance 3's green-tick ambiguity remains open, so this does not close the way instance 3 did.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260829-PYTEST-RUN-SHORTCIRCUIT-MISSES-ML-CONFIGS-RETIRED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260829-PYTEST-RUN-SHORTCIRCUIT-MISSES-ML-CONFIGS-RETIRED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260829-PYTEST-RUN-SHORTCIRCUIT-MISSES-ML-CONFIGS-RETIRED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] FIFTH instance of BL-20260813-PYTEST-RUN-SHORTCIRCUITS-SO-MAIN-MERGES-UNVERIFIED: ml/configs/retired/ is read by a contract test AS COMMITTED and is not in the relevance filter — and this one was found by a CHECK, not an incident"
+}

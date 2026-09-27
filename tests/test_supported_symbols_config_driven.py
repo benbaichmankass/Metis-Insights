@@ -83,3 +83,34 @@ def test_config_load_failure_falls_back_to_static_base(monkeypatch):
     # The static base keeps working through the failure.
     intent = StrategyIntent(strategy="failsafe_test", symbol="MES", side="long", target_qty=0.0)
     assert intent.symbol == "MES"
+
+
+def test_boot_window_still_loads_config(monkeypatch):
+    """PI-20260925-HJPL5ABP-0001: a monotonic clock under the 60s TTL at the
+    very first call must not read the never-populated cache as fresh.
+
+    On a host whose ``time.monotonic()`` is under ``_CONFIG_SYMBOLS_TTL_S``
+    (a just-booted VM or a fresh container), the pre-fix cache entry
+    ``{"at": 0.0, ...}`` satisfied ``now - 0.0 <= 60.0`` on the very first
+    call, so ``supported_symbols()`` returned the empty cached set instead of
+    ever loading config — every account/roster-declared symbol (e.g.
+    ETHUSDT) was refused for that window.
+    """
+    monkeypatch.setattr(intents.time, "monotonic", lambda: 5.0)
+    intents._reset_config_symbols_cache()
+
+    from src.config.accounts_loader import load_accounts_dict
+
+    declared = {
+        str(sym).upper().replace("/", "")
+        for cfg in load_accounts_dict().values()
+        for sym in (cfg or {}).get("symbols") or []
+    }
+    assert declared, "accounts.yaml declared no symbols — fixture broke?"
+
+    accepted = supported_symbols()
+    missing = declared - accepted
+    assert not missing, (
+        f"boot-window cache read as fresh with an empty set — {sorted(missing)} "
+        "refused on the very first call at monotonic()=5.0s"
+    )

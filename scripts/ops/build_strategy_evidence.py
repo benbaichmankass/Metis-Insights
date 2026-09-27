@@ -64,21 +64,35 @@ over `load_legs()` -- no fetch, no harness run):
     coincidence of arithmetic, not the same measurement -- the two would part
     again the moment a leg matched a family by name without its config being
     accepted, which is exactly what the upper bound cannot see.
-  * **25/52 (48.1%)** grade `faithful` -- the harness models EVERY lever the
-    leg's config declares. The other **26** of the 51 routed grade `approximate`
-    (25 + 26 = 51; the 52nd is `turtle_soup`, unrouted), and `ict_scalp_xrp_5m`
-    is one of the 26: its `off_cells` is `not_expressible` by this harness
-    (MI-321), so its number is the UNGATED arm.
-    ⚠️ **This read 37/52 (71.2%) until E46 on the same day, and the step down is
-    a CORRECTION.** `tp_r` sat in the trend/pullback `PLAIN` sets asserting the
-    harness modelled it, while `build_harness_cmd` passed neither `--tp-r` nor
-    the `--tp-cap-pct` that makes it take effect -- so 12 legs claimed
-    `faithful` with `omitted_levers: []` against a declared, binding take-profit
-    (`PI-20260922-E41-0005`). The grade is now computed from the argv that
-    actually runs.
+  * **37/52 (71.2%)** grade `faithful` -- the harness models EVERY lever the
+    leg's config declares. The other **14** of the 51 routed grade
+    `approximate` (37 + 14 = 51; the 52nd is `turtle_soup`, unrouted), and
+    `ict_scalp_xrp_5m` is one of the 14: its `off_cells` is `not_expressible`
+    by this harness (MI-321), so its number is the UNGATED arm.
+    ⚠️ **THIS NUMBER HAS A HISTORY WORTH READING, NOT JUST QUOTING.** It read
+    37/52 (71.2%) until E46 (2026-09-22) found that WRONG for the wrong
+    reason -- `tp_r` sat in the trend/pullback `PLAIN` sets ASSERTING the
+    harness modelled it, while `build_harness_cmd` passed neither `--tp-r`
+    nor the `--tp-cap-pct` that makes it take effect, so 12 legs claimed
+    `faithful` with `omitted_levers: []` against a declared, binding
+    take-profit (`PI-20260922-E41-0005`). E46 corrected the grade to
+    25/52 (48.1%) by computing it from the argv that actually ran, rather
+    than fixing the harness -- the honest number for a harness that could
+    not model `tp_r` at all. **E55 (2026-09-24) is what fixed the harness**:
+    `regime_debt_matrix._tp_r_flags` now forwards `--tp-cap-pct`/`--tp-r`
+    (live-parity with the venue TP clamp `src/runtime/tp_venue_cap.py` owns)
+    for every trend/pullback leg with a readable `tp_r`, so those same 12
+    legs are now genuinely modelled and the count lands back at 37/52 --
+    the SAME figure as before E46, for the OPPOSITE and now-correct reason.
+    Regenerating the corpus through the harness (never hand-edited) flipped
+    8 of the 41 enabled trend/pullback legs' Stage-0 verdicts; none of the 8
+    are on a real-money account (`config/accounts.yaml`, checked explicitly
+    against all four) -- see `PI-20260924-EDNBNMSG-0001`.
 
-**48.1% is the number this record rests on.** Do not quote 98.1%, and do not
-quote the pre-E46 71.2%.
+**71.2% is the number this record rests on, as of 2026-09-24.** Do not quote
+98.1%, and do not quote the intermediate 48.1% as current -- both are real
+measurements of this corpus at different points in its history, not
+interchangeable readings of today.
 
 ⚠️ `fidelity` IS IN THE RECORD, AND THAT IS DELIBERATE
 ------------------------------------------------------

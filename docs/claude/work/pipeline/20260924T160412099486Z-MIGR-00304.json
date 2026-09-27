@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Closed when a post-fix line-citation accuracy is recorded against a stated denominator and file set. A qualitative 'looks better' does not close it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260820-DELEGATE-LINE-CITATIONS-UNMEASURED-AFTER-NUMBERING-FIX",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-DELEGATE-LINE-CITATIONS-UNMEASURED-AFTER-NUMBERING-FIX",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-DELEGATE-LINE-CITATIONS-UNMEASURED-AFTER-NUMBERING-FIX'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The LLM delegate's line-citation accuracy is 0/20 on the PRE-fix prompt and UNMEASURED after the fix - the numbering change is a hypothesis with a test behind it, not a measured improvement"
+}

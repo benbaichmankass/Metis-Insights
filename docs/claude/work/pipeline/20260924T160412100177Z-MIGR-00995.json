@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-TOUCHES-NO-BYBIT-ACCOUNT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-TOUCHES-NO-BYBIT-ACCOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-VENUE-TP-CAP-IS-2-9X-TOO-LOOSE-ON-EVERY-LEG-THAT-TOUCHES-NO-BYBIT-ACCOUNT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "src/runtime/tp_venue_cap.py declares it an OPEN QUESTION whether 0.099 is right off Bybit — measured: it is ~2.9x the p90 of lower-bound MFE, and 0 of 39 non-crypto trades ever reached it"
+}

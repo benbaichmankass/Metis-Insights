@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "BOTH halves, and say which you cleared. (a) The digest and any other reader resolve this artifact through the canonical $DATA_DIR-based resolver rather than a repo-relative path -- verified by the digest naming /data/bot-data/... in its own output, not by reading the code. (b) The absence is DISAMBIGUATED. `present: false` today cannot distinguish 'no wedge has occurred since the writer shipped' from 'the writer is not running', and those are opposite facts -- the collapsed-state failure this repo files bugs about. The writer must emit an empty-but-present ledger with a timestamp so that `wedges: []` means WE LOOKED AND FOUND NONE, distinct from a missing file meaning WE DID NOT LOOK. ⚠️ NOT SUFFICIENT: creating the file by hand; the writer must produce it. ⚠️ AND CHECK THE DOWNGRADE IS STILL SAFE: while (b) is unresolved, confirm whether any broker_cancel_wedged close failure has occurred since MI-34 shipped -- if one has, it was silently in neither channel and that is an incident, not a gap.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260903-CLOSE-WEDGE-LEDGER-IS-ABSENT-SO-DOWNGRADED-WEDGES-ARE-IN-NEITHER-CHANNEL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-CLOSE-WEDGE-LEDGER-IS-ABSENT-SO-DOWNGRADED-WEDGES-ARE-IN-NEITHER-CHANNEL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-CLOSE-WEDGE-LEDGER-IS-ABSENT-SO-DOWNGRADED-WEDGES-ARE-IN-NEITHER-CHANNEL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The standing close-wedge ledger does not exist, and the digest that replaced the pager reads a non-canonical path for it"
+}

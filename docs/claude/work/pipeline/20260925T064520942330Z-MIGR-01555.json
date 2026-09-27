@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "the SKILL.md table is corrected to show the api/bot/ prefix, and either trades/scores gains a usable filter or the relay stops truncating this endpoint.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-JQHBBTOS-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane E72 /ml-review, session_01PrCFC3J9gYv64gJqHBBtos, comms/reviews/ml-review-20260924-210245.json",
+    "rerun": "grep the ml-review SKILL.md endpoint table against .github/workflows/vm-diag-snapshot.yml's allowlist case statement for prefix agreement; check whether api/bot/trades/scores gained a date-range param or the relay gained an artifact-output mode."
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "Two small doc/tooling gaps hit while running this ml-review. (a) .claude/skills/ml-review/SKILL.md 'Fetching live-VM ML state' table lists paths bare (e.g. 'shadow/stats', 'trades/scores') but vm-diag-snapshot.yml's allowlist match requires the 'api/bot/' prefix (case 'api/bot/*)' in the workflow) -- a bare path resolves under the default /api/diag/ prefix instead and 404s uniformly across every path in the batch, which reads exactly like 'the whole surface is down' (the same trap CLAUDE-RULES-CANONICAL.md already documents for a related case). Cost this session one full round-trip (issue #12892) before the fix (issue #12893, prefixing every path with api/bot/) was found by reading the workflow source directly. (b) api/bot/trades/scores has no date-range filter (only limit, ge=1 le=200, and include_open) and its response nests every scoring model's full stats per trade, so even at limit=200 the vm-diag-snapshot relay's ~55KB GitHub-comment cap truncates the response to ~18-21 trades in practice -- meaning a live realized-track-record join for a specific model can only ever see a thin, most-recent slice via this relay, not a real graded window. A future ml-review wanting n>~20 closed, scored trades per model needs either a narrower per-model/per-symbol query param on the endpoint, or a relay path that writes to a run artifact instead of a comment body for this endpoint specifically."
+}

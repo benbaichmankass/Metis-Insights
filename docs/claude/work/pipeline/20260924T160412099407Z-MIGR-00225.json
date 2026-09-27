@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) `stale_decisions` distinguishes a cell that CAN be re-swept from one that cannot -- e.g. a `remedy` field per row (`resweep` / `neighbourhood_only` / `not_regradeable`), so a reviewer is never handed an alarm whose implied action is impossible. Three states, not a boolean: 'not yet re-swept', 're-swept', and 'cannot be re-swept' are different, and collapsing the third into the first is what produces the walk-past. (2) The neighbourhood evidence that DOES exist is reachable from the cell -- the trail_geometry cells for htf_pullback_trend_2h and tlt_pullback_1h reference their 2026-08-13 live-parity neighbour rows, so a reader is not left believing nothing has been measured. (3) Either a way to grade a shipped trail_mult is built (the natural one: compare the shipped value against its neighbours as the cell grid already does, and say so explicitly) or the matrix records that trail_geometry decisions are permanently ungradeable post-hoc and the stale flag is scoped accordingly.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-STALE-DECISION-LIST-HOLDS-CELLS-NO-RESWEEP-CAN-CLEAR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 4 of the 5 remaining stale live DECISIONS are trail_geometry cells that no re-sweep can ever clear -- the list asks for a remedy that does not exist for them"
+}

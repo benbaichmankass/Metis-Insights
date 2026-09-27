@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-THE-NEWEST-MONEY-PATH-FIVE-STATE-CONTRACT-IS-NOT-REGISTERED-WITH-THE-GUARD-BUILT-FOR-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-THE-NEWEST-MONEY-PATH-FIVE-STATE-CONTRACT-IS-NOT-REGISTERED-WITH-THE-GUARD-BUILT-FOR-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-THE-NEWEST-MONEY-PATH-FIVE-STATE-CONTRACT-IS-NOT-REGISTERED-WITH-THE-GUARD-BUILT-FOR-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "bybit_position_book.STATES is a deliberate five-state contract on the money path, written days ago as the fix for a real-money mis-grade, and it is not registered with collapsed-state-guard, so nothing asserts its states stay branched-on. This is not a defect in the guard -- it is the predicted consequence of enrolment-gating, now observed rather than theoretical."
+}

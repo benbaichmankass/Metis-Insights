@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "EITHER (a) comms/strategy_evidence/splg_trend_long_1d.json reads coverage_state `measured` with a non-null n_trades_oos, produced by a builder run and not by hand; OR (b) it is ESTABLISHED and recorded that Yahoo cannot serve this leg's window, and the leg is moved to a feed that can, or its window is changed with the reason stated in the record. !! A PLANTED CONTROL THAT MUST FAIL THIS ROW: re-running the builder unchanged and getting the same harness_failed record clears NOTHING -- that is the current state, already measured. !! AND `venue_state=serving` FLIPPING TO `refusing_us` DOES NOT CLEAR THIS EITHER: that would mean the yfinance dependency regressed, which is a DIFFERENT and more serious finding and belongs in its own row.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260916-SPLG-YAHOO-SERVES-NO-1Y-DAILY-BARS-SO-ONE-EVIDENCE-LEG-STAYS-UNMEASURED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260916-SPLG-YAHOO-SERVES-NO-1Y-DAILY-BARS-SO-ONE-EVIDENCE-LEG-STAYS-UNMEASURED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260916-SPLG-YAHOO-SERVES-NO-1Y-DAILY-BARS-SO-ONE-EVIDENCE-LEG-STAYS-UNMEASURED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] SPLG returns zero rows from Yahoo at a 365d window while the venue is up, leaving splg_trend_long_1d the one remaining harness_failed evidence leg"
+}

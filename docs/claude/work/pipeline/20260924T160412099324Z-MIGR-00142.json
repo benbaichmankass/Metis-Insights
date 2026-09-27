@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "The sprint log and notebook state the required-context count taken from a LIVE read of the branch protection settings on the day of the edit, with that read quoted. Deliberately not '9': this row's action says 9 and BL-20260731-AUDIT-0731-NEW-FINDINGS item (12) says 11, so the number is itself contested and copying either would re-file the same staleness under a new date.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] BL-20260726-BRANCH-PROTECTION-DOC-STALE-4-CHECKS"
+}

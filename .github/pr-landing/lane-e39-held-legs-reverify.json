@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research-evidence regeneration + a research-harness classification bugfix (fade_breakout_4h was silently routed to the wrong backtest script) + two pipeline rows. No config/strategies.yaml or config/accounts.yaml edit -- the promote/keep decision for both held bybit_2 legs is left to the operator via PI-20260925-REVERIFY-0001 (next_action: ask_operator). scripts/research/**, scripts/ops/**, tests/**, comms/** and docs/claude/work/PIPELINE.jsonl are all on TIER1_SURFACE; no src/, deploy/ or order-path file is touched and nothing that decides what trades is changed."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260912-A-STOP-DISTANCE-FLOOR-OF-0-0015-BINDS-ON-A-QUARTER-OF-SCALP-ROWS-AND-ITS-SOURCE-IS-NOT-IN-SRC",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-A-STOP-DISTANCE-FLOOR-OF-0-0015-BINDS-ON-A-QUARTER-OF-SCALP-ROWS-AND-ITS-SOURCE-IS-NOT-IN-SRC",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-STOP-DISTANCE-FLOOR-OF-0-0015-BINDS-ON-A-QUARTER-OF-SCALP-ROWS-AND-ITS-SOURCE-IS-NOT-IN-SRC'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "A stop distance of exactly 0.00150000 of entry binds 48 of 180 bybit_1 rows (ict_scalp only) and I could not find the code that sets it"
+}

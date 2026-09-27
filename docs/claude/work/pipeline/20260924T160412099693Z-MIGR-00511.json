@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "check_manager_scope.py is OBSERVED ADMITTING a merge commit whose two parents differ on a session-board.json key other than merge_slot, while STILL refusing a merge commit that also changes any other top-level key in that file — both halves demonstrated by a deliberate exercise in the guard's own --self-test, since a guard that only learns to say yes has been weakened rather than fixed. AND an armed manager branch is observed taking main in and landing without a re-lay. NOT SUFFICIENT: a green run over a branch that happens not to conflict — that is what every run already does, and it is why this went unnoticed until a merge_slot change landed concurrently. NOT SUFFICIENT: re-laying successfully, which is the WORKAROUND this row exists to remove; it has now been paid twice in one morning and each re-lay must be redone whenever another branch lands a merge_slot change first. IF THE OPERATOR DECIDES the carve-out should stay strict and re-laying is the accepted cost, this row does NOT clear — it CHANGES: manager register branches are then re-laid by policy, which is legitimate and must be RECORDED as a decision, with the consequence stated (every concurrent merge_slot change invalidates an armed manager branch), rather than left looking like a guard fix about to be written.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-MERGE-SLOT-CARVE-OUT-IS-CHECKED-AGAINST-EVERY-PARENT-SO-A-MANAGER-CAN-NEVER-MERGE-MAIN-INTO-AN-ARMED-BRANCH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-MERGE-SLOT-CARVE-OUT-IS-CHECKED-AGAINST-EVERY-PARENT-SO-A-MANAGER-CAN-NEVER-MERGE-MAIN-INTO-AN-ARMED-BRANCH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-MERGE-SLOT-CARVE-OUT-IS-CHECKED-AGAINST-EVERY-PARENT-SO-A-MANAGER-CAN-NEVER-MERGE-MAIN-INTO-AN-ARMED-BRANCH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_manager_scope's merge_slot carve-out requires `merge_slot` to be the ONLY changed key against EVERY parent, so a merge commit whose two parents differ on any other key in session-board.json is refused — the manager cannot merge main into its own armed branch"
+}

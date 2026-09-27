@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A review session either (a) flips fvg_range_15m/trail_geometry to `n/a` if the legend reading holds, or records why `blocked` is right and makes the ref say so; and (b) gives shadow-fleet/giveback_stop a ref matching its siblings. Both are cosmetic on shadow rows - closing this must not change the 370/376 headline or the 28 done-condition, and if a proposed fix WOULD change either, that is the signal the fix is wrong.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-COVERAGE-MATRIX-SHADOW-ROW-METADATA",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-COVERAGE-MATRIX-SHADOW-ROW-METADATA",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-COVERAGE-MATRIX-SHADOW-ROW-METADATA'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Two coverage-matrix SHADOW-leg cells carry metadata their own legend contradicts: fvg_range_15m/trail_geometry is `blocked` while its ref says the lever is structurally inapplicable (= `n/a`), and shadow-fleet/giveback_stop has no `ref` key at all while its three siblings do"
+}

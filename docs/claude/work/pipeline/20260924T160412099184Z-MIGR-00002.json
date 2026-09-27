@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "check_pr_landing.py's R13 failure text names the per-branch route (scripts/ops/claim_merge_slot.py --branch-claim) BEFORE, or instead of, docs/claude/session-board.json -- verified by running the rerun command above and reading the emitted text, not by reading the diff.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-0002",
+  "loud": true,
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager, 2026-09-21) -- PR #12678",
+    "rerun": "git checkout -B tmp/pi-0002-probe origin/main && printf '{\"tier\":1,\"landing\":\"self\",\"why\":\"probe\"}' > .github/pr-landing/tmp-pi-0002-probe.json && touch .github/pr-automerge-requests/tmp-pi-0002-probe.txt && git add -A && git commit -qm probe && python3 scripts/ci/check_pr_landing.py --base origin/main; # FINDING STILL APPLIES if the failure text names docs/claude/session-board.json before scripts/ops/claim_merge_slot.py"
+  },
+  "routed_to": "E9 (session_01JVPxS3XjMyiN3J3HpQPkNq) -- folded into the reader sweep, which already owns this exact class",
+  "state": "routed",
+  "what": "pr-landing-guard R13's first remedy message points at docs/claude/session-board.json and docs/claude/board-pointer.json, BOTH ARCHIVED by the 2026-09-21 reset. The route is not broken -- scripts/ops/claim_merge_slot.py --branch-claim writes a per-branch slot and the guard then passes -- but the guard NAMES THE DEAD REGISTER FIRST, so a session following the error text is sent to a file that no longer exists and only reaches the working route by reading the guard's source. Measured 2026-09-21 on branch claude/metis-insights-manager-9qmm63: R13 emitted 'docs/claude/session-board.json does not exist' plus a 'could_not_check' on board-pointer.json, and the per-branch claim then produced 'OK -- state=declared_self_land'. [!] THIS IS THE FOURTH INSTANCE OF THE E9 READER-ORPHAN PATTERN AND AGAIN IT WAS FOUND BY SOMETHING FAILING LOUDLY, NOT BY THE SWEEP. It bites EVERY Tier-1 self-landing PR from here on, so the population is 'all future lanes', not one branch. [!] DO NOT fix it by weakening R13 -- it fails closed on purpose and the loss it guards is real. Fix the REMEDY TEXT and the ordering so the per-branch route is named first, and decide explicitly whether the shared-board fallback should be removed now that its register is archived."
+}

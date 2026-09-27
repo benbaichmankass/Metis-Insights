@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) an operator Tier-3 decision on xrp_pullback_2h.pullback_frac made against a PRE-REGISTERED admission criterion, with the four non-generalizing legs explicitly left alone and that recorded; or (b) a fresh walk-forward over >= 3 of the 5 legs whose criterion was fixed before the candidates were measured, resolving whether the 1-of-5 survivor is an edge or a lucky draw over ~120 measured cells. Closing requires one of those two, not a re-read of the existing corpus.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260824-PULLBACK-FILTER-COSTS-MONEY-ON-ALL-FIVE-LEGS-GENERALIZES-ON-ONE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260824-PULLBACK-FILTER-COSTS-MONEY-ON-ALL-FIVE-LEGS-GENERALIZES-ON-ONE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260824-PULLBACK-FILTER-COSTS-MONEY-ON-ALL-FIVE-LEGS-GENERALIZES-ON-ONE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] The htf_pullback_trend_2h family's pullback-DEPTH filter is a net negative on all 5 crypto legs on full history, but removing it survives split dispersion on only 1 (xrp)"
+}

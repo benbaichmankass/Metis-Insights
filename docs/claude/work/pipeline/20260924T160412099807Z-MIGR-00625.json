@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "SHIPPED as MI-280 U121, and shipping is NOT the criterion. THREE PARTS, different facts — say WHICH you cleared. (1) A run of main-tree-watch with event=schedule is OBSERVED having completed — read the run history, NEVER the cron expression. [!] This repo's crons fire late and erratically (probes.yml's first scheduled run fired ~4h50m late and once instead of daily), so a correct cron line is not evidence of a run. A workflow_dispatch run clears the WORKFLOW half only and must be recorded as such, because the failure class being watched is a cadence that does not fire. (2) The watcher is OBSERVED DISCRIMINATING: either it goes red on a real finding on main, or a `could_not_run` is observed. [!] A GREEN RUN CLEARS (2) NOT AT ALL — green is the healthy case and is what every run will be while main is clean, so 'it passed again' is not progress on this half. [!] AND THE FIRST RED MUST NOT BE FILED AS A REGRESSION: it exits non-zero ON PURPOSE, so a red run is the mechanism working, the same reading pr-queue-watch carries. Read the log before filing it as broken. (3) The PAGE is observed EXECUTING — a claude-run-failure-alert Telegram step reaching a non-skipped conclusion for this workflow. [!] The step reporting success is not the operator RECEIVING it; record which of the two you established. || [!] A GREEN TEST SUITE CLEARS NOTHING: 25 tests pass and eight planted defects are each caught, and a harness cannot reach a cron, a live tree or a Telegram chat. || [!] MERGING CLEARS …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-MAIN-HAD-NO-CADENCE-DRIVEN-CHECK-SO-A-CORRUPT-TIP-WAS-INVISIBLE-FOR-UP-TO-SEVEN-HOURS-AND-THE-CALENDAR-CLASS-WAS-INVISIBLE-ALWAYS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-MAIN-HAD-NO-CADENCE-DRIVEN-CHECK-SO-A-CORRUPT-TIP-WAS-INVISIBLE-FOR-UP-TO-SEVEN-HOURS-AND-THE-CALENDAR-CLASS-WAS-INVISIBLE-ALWAYS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-MAIN-HAD-NO-CADENCE-DRIVEN-CHECK-SO-A-CORRUPT-TIP-WAS-INVISIBLE-FOR-UP-TO-SEVEN-HOURS-AND-THE-CALENDAR-CLASS-WAS-INVISIBLE-ALWAYS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] main-tree-watch: the default branch had no scheduled grading at all, so a corrupt tip waited on the next chore push — and the calendar-crossing class could not be caught by any PR-time check"
+}

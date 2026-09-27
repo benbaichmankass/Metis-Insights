@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Next phase, Tier-3. Design first, in this order: (1) pct-per-leg against each leg's own size, never a shared qty; (2) per-leg cumulative-partial state, with a leg reaching 100% closing THAT LEG and the package draining exactly as the full-close path now does; (3) a non-idempotent partial-application story — a retry must not re-reduce a leg that already succeeded, which rules out copying the full-close path's blanket 'leave it and retry next tick'. Likely needs a per-leg applied-marker keyed on (package, leg, verdict instance). Then: tests pinning unequal leg sizes (use the measured 149.5-vs-48,625.8 XRP shape), a partial that lands on one leg and fails on another, and a leg crossing 100% while a sibling does not. DONE when all three effectuation branches resolve legs through `_package_open_legs` and no branch is silently single-leg. Also worth measuring on the way in (cheap, and it sizes the backlog): has a partial-close verdict ever fired on a multi-leg package? — packages with >1 trade row whose legs' position_size diverges from entry size.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-PARTIAL-CLOSE-STILL-SINGLE-LEG",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-PARTIAL-CLOSE-STILL-SINGLE-LEG",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-PARTIAL-CLOSE-STILL-SINGLE-LEG'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] _apply_partial_close still resolves only linked_trade_id — the last effectuation branch not yet package-wide; QUEUED for the next phase so the exit path is comprehensively multi-leg rather than multi-leg in two branches of three"
+}

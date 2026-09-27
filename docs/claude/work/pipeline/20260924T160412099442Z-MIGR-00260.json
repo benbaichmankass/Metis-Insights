@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) Every blocked cell whose reason names a count records that count in the cell; (2) the writer that stamps a count-based block reason stamps the count in the same place, so the two cannot diverge; (3) a check fails when a count-naming block reason appears without its number — the 7 known cells are either filled in or re-typed to a non-count reason. Source-shaped blocks (e.g. native-history-thin) are explicitly exempt and must stay exempt.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-BLOCKED-CELLS-CITE-A-TRADE-COUNT-THEY-DO-NOT-RECORD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-BLOCKED-CELLS-CITE-A-TRADE-COUNT-THEY-DO-NOT-RECORD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-BLOCKED-CELLS-CITE-A-TRADE-COUNT-THEY-DO-NOT-RECORD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [research] 7 blocked matrix cells name a TRADE-COUNT reason while recording no trade count — the claim cannot be checked from the artifact that makes it"
+}

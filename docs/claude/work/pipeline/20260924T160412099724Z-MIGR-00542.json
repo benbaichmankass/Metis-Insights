@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. THE OPERATOR ANSWERS DEC-20260910-EXIT-EVAL-60S-REMEDY on WO-20260910-ROOT-CAUSE-THE-EXIT-EVAL-60S-BREACHES. The cause is established; what is owed is a Tier-2 decision, not more measurement. !! DO NOT RE-MEASURE TO ADVANCE THIS ROW -- the population is a complete census and re-reading the same route adds nothing. 2. IF R2 IS ARMED: a pass is OBSERVED inside a 04:00-05:00Z IBKR reset window whose pass_ms is bounded near one queue timeout (~35s) rather than n x 29s, read off /api/bot/exit-interval/soak. !! A GREEN TEST CLEARS NOTHING -- a harness cannot reach an IBKR reset window, which is the entire condition. !! AND A QUIET WINDOW CLEARS NOTHING EITHER: the denominator is IB packages open during the window, so establish that at least three IB-routed packages were open before reading a clean pass as evidence. 3. IF THE OPERATOR ARMS NOTHING: record that as a DECISION with its consequence stated, rather than leaving the row looking like a fix about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-1216-LIFETIME-MAX-120S-AND-EVERY-PRIOR-READ-WAS-A-TAIL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-1216-LIFETIME-MAX-120S-AND-EVERY-PRIOR-READ-WAS-A-TAIL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-EXIT-EVAL-60S-BREACHES-DID-NOT-CEASE-1216-LIFETIME-MAX-120S-AND-EVERY-PRIOR-READ-WAS-A-TAIL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260825: the 60s exit-eval requirement did NOT stop being breached -- 1216 breaches / 67444 intervals lifetime (1.803%), max 120189.1ms = 2.0x the requirement, last breach 2026-09-10T00:30:58Z -- and every figure the repo has quoted came from a 1000-row TAIL that reads ZERO"
+}

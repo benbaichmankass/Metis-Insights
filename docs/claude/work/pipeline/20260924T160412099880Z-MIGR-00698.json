@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either: corpus_emb clears the beat-BOTH-baselines gate on a task-matched head (→ promote-candidate), OR a task-matched head is A/B'd and corpus_emb still misses (→ T1.2 closes as a full negative, price+context representation exhausted for boosting heads).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260704-T12-SSL-NEGATIVE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260704-T12-SSL-NEGATIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260704-T12-SSL-NEGATIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] T1.2 corpus-SSL embedding: task-matched-head probe (regime head is a closed negative)"
+}

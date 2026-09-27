@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Do NOT close on the detector alone. stuck_automation_branches.py REPORTS; nothing yet re-runs a stale branch's checks, and the four PR-less branches are unadjudicated. Closes when a stale automation branch is refreshed automatically, or the four are adjudicated AND the class has a standing owner. ⚠️ WIDENED 2026-08-31: closing also requires that a SCHEDULED research-queue dispatch lands its own cadence stamp with no manual rescue — observed on a real run, not asserted. The original criteria are about stray branches; this class is now also the failure mode of the autonomous loop, and a fix that tidies branches without making the stamp land leaves that half open.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-A-TRANSIENT-RED-BASE-PERMANENTLY-STRANDS-AN-AUTOMERGE-BRANCH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A transient red base permanently strands an auto-merge branch, because nothing ever updates it again"
+}

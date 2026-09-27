@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The tp_cross / monitor close path records an exit price that is either the BROKER FILL or an explicitly anchored estimate via `src/runtime/exit_anchor.py` (whose `anchored` / `deferred` / `no_anchor` contract already exists), and `exit_price_source` distinguishes them — a stale last-known close must NOT resolve to a bucket that `classify_pnl` grades MEASURED. Verified by a test that a close occurring after a data gap does not record a price outside the closing bar's range. SEPARATELY: audit how many historical closed rows carry an `exit_price` outside the range of the bar containing their `closed_at` — that is a pure arithmetic check over existing data, needs no venue call, and bounds how far this has propagated.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-TP-CROSS-CLOSE-RECORDS-A-STALE-MARK-AS-A-MEASURED-EXIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-TP-CROSS-CLOSE-RECORDS-A-STALE-MARK-AS-A-MEASURED-EXIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-TP-CROSS-CLOSE-RECORDS-A-STALE-MARK-AS-A-MEASURED-EXIT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The monitor's tp_cross close recorded an exit price that NEVER TRADED — a 49-hour-old candle close, graded `measured` and below the reopen candle's low"
+}

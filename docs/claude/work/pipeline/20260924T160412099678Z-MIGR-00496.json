@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A CHECK, not a convention -- prose has already failed here twice (the criterion authors were careful people writing carefully). Wanted: a guard over docs/claude/work/objects/*.yaml and OPEN-ITEMS.json that FAILS a NEW or EDITED criterion which names no refuting observation and no expiry, with an override that must NAME why the condition is legitimately one-sided (verified, not presence-only -- the new-table-wiring-guard lesson). ⚠️ IT MUST BE DIFF-SCOPED FOR NEW/EDITED ROWS ONLY: an ungated pass over 682 legacy objects would red every PR on day one, which is how a guard gets disabled instead of fixed. ⚠️ AND CLEARS ONLY ON AN OBSERVATION: the guard must be SEEN failing a real PR that adds a pass-only criterion, and seen PASSING one that carries a negative branch. A green self-test clears nothing. ⚠️ IF THE OPERATOR DECIDES a negative branch should not be mandatory, this row does NOT clear -- it CHANGES: criteria are then knowingly allowed to be unfalsifiable, which is a legitimate decision and must be RECORDED as one with the consequence stated.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-DONE-CONDITIONS-ARE-PASS-ONLY-SO-A-CRITERION-CAN-NEVER-FAIL-ONLY-STAY-OPEN-FOREVER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-DONE-CONDITIONS-ARE-PASS-ONLY-SO-A-CRITERION-CAN-NEVER-FAIL-ONLY-STAY-OPEN-FOREVER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-DONE-CONDITIONS-ARE-PASS-ONLY-SO-A-CRITERION-CAN-NEVER-FAIL-ONLY-STAY-OPEN-FOREVER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Criteria across this repo state only how to PASS, never how to FAIL — so an item that will never clear is indistinguishable from one whose mechanism is broken, and both sit `waiting` forever"
+}

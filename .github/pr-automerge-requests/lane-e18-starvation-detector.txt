@@ -1,0 +1,5 @@
+E18 — leg-flow starvation detector (intents vs orders/tickets received).
+
+Tier-1 by path: src/runtime/leg_flow_detector.py (pure), scripts/ops/leg_flow_report.py
+(read-only), tests/**, scripts/ci/check_collapsed_states.py (CONTRACTS registration),
+scripts/ci/run_guards.py (one new self-test step). No order path, no config, no deploy.

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The acknowledgement never prints a Python repr where a number belongs. Either the daily-loss distance is DERIVED (day_pnl from the fills store since the UTC day boundary, which would also make the field measured rather than assumed), or it says 'not measured' in words. Closed when a null distance is unmistakably a non-measurement on every surface that renders it, and the same check covers the sibling DD-floor field so the next null there cannot ship the same way.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-PROP-SAFETY-PANEL-RENDERS-NONE-AS-A-DOLLAR-AMOUNT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-PROP-SAFETY-PANEL-RENDERS-NONE-AS-A-DOLLAR-AMOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-PROP-SAFETY-PANEL-RENDERS-NONE-AS-A-DOLLAR-AMOUNT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The prop balance acknowledgement prints 'to daily-loss $None' — a Python repr where a safety number belongs"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "balance() returns a figure for both accounts, OR the refusal names the branch that actually failed rather than blaming credentials. The row does NOT close on the accounts happening to recover: an intermittent failure that recurs unalerted is the same defect. Closing also requires stating why account_reachability_alert did not fire.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-ALPACA-BALANCE-NONE-WHILE-ACCOUNT-READS-ACTIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] alpaca_paper + alpaca_portfolio: balance() returns None and every signal is refused, while /v2/account reads ACTIVE on the same client"
+}

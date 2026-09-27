@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a fresh web session is warned that the test suite cannot run, by a SessionStart hook line or a conftest collection-error guard, OR the container image installs requirements-test.txt, OR the operator decides the shallow-clone-style warning is not worth a second instance",
+    "kind": "event"
+  },
+  "id": "PI-20260925-HSMBU7G9-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Nrp6ZbnQ1rYuGnhSmbu7G9 (mandate-derisk-autoland lane)",
+    "rerun": "in a fresh web container, before installing anything: `python3 -m pytest -q 2>&1 | tail -3` -- expect `Interrupted: N errors during collection`; then `python3 -m pytest -q tests/test_mandate_autoland.py` -- expect it to PASS, which is the trap"
+  },
+  "state": "queued",
+  "what": "A WEB-SESSION CONTAINER SHIPS WITHOUT THE REPO'S TEST DEPENDENCIES, AND THE RESULTING PARTIAL RUN READS AS A PASS. MEASURED 2026-09-25 in the mandate-derisk-autoland lane: `python3 -m pytest` in a fresh container aborts with `Interrupted: 152 errors during collection` (ModuleNotFoundError: pandas and friends) -- but `pytest <one-file>` on a dependency-free test file passes happily, so a session that only runs its own files gets a green it has no right to. That cost TWO red CI rounds on PR #12974 (runs 36188298373 `guards`, 36189639730 `pytest-run`), both on repo invariants the full suite catches. `pip install -r requirements.txt -r requirements-test.txt` fixes it (needs `--ignore-installed PyJWT`: the debian-packaged PyJWT 2.7.0 has no RECORD file and blocks the uninstall); the full suite then runs 18618 passed in 19:29. This is the same shape as the SHALLOW-CLONE SessionStart hook, which already warns that a truncated `git log` answers plausibly and wrongly: the proposed fix is the sibling warning -- a SessionStart line, or a conftest guard, saying a nonzero collection-error count means the suite MEASURED NOTHING."
+}

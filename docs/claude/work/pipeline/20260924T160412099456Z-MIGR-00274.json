@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "OBSERVABLE: two DIFFERENT client objects that occupy the same address at different times must not share a cache entry. Demonstrate with a test that builds a client, caches a frame, drops it, builds a second client that CPython allocates at the same id, and asserts the second gets a MISS — the test must be shown to FAIL against the current id()-based key, or it proves nothing.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-CANDLE-CACHE-KEYS-ON-ID-CLIENT-WHICH-CPYTHON-RECYCLES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-CANDLE-CACHE-KEYS-ON-ID-CLIENT-WHICH-CPYTHON-RECYCLES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-CANDLE-CACHE-KEYS-ON-ID-CLIENT-WHICH-CPYTHON-RECYCLES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] market_data._candle_cache_key keys on id(client), which CPython recycles the instant an object is freed — so the key cannot do the one thing its own comment says it exists for"
+}

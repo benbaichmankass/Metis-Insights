@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "PR #12881 edits src/runtime/broker_truth.py and src/web/api/routers/pnl_broker_truth.py (adds as_of_age_days / stale fields to the broker-truth ledger read path). check_pr_landing.py's TIER1_SURFACE excludes all of src/**; TIER2_PATHS lists src/** explicitly and does not distinguish read-only diagnostic code from the order path by glob. The diff is read-only and additive (no order path, no config, no deploy/, no runtime-service change), but the guard does not make that distinction, so this needs an operator/manager Tier-2 approval to merge rather than self-landing.",
+  "why": "Lane E70 (checklist row E70, ceiling $15, Tier-1 read path mandate). The investigation and the wallet-truth read itself are Tier-1 read-only work, already done and reported; only the code fix (surfacing the ledger's own staleness) touches src/** and therefore needs this hold."
+}

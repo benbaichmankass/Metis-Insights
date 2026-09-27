@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "e35-bracket-sweep dispatches and every scheduled leg either fetches candles successfully or is refused BEFORE a runner is spent on it. Either (a) the feed source is resolved per-leg from the symbol (crypto -> binance_vision, equity/ETF/futures -> whatever source the trainer sweeps already use, e.g. the source behind scripts/ops/fetch_backtest_candles.py), or (b) the planner refuses an unservable leg at plan time with a stated reason, so the matrix contains only legs that can run and the census reports the excluded ones separately. A run whose job failures are zero AND whose scheduled-leg count is stated against the 43 planned is the evidence. Reducing the matrix to the 19 crypto legs with no record of the 24 excluded is NOT a valid close -- that hides the coverage gap rather than declaring it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-E35-SWEEP-FEED-IS-BINANCE-ONLY-FOR-A-MOSTLY-NON-CRYPTO-MATRIX'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] e35-bracket-sweep hardcodes BACKTEST_FEED_SOURCE=binance_vision for every leg, so 24 of its 43 legs (55.8%) cannot fetch data at all and each burns ~10 min failing"
+}

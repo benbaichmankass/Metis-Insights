@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either every real-money account has been reconciled against its venue at least once (so `no_record` on a real-money account becomes a genuine anomaly), or an automated reconciliation replaces the hand-populated ledger.",
+    "kind": "observation",
+    "last_checked": "2026-09-17"
+  },
+  "id": "OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "journalTrust now flags accounts whose journal disagrees with the broker — but the ledger it reads has exactly ONE account in it."
+}

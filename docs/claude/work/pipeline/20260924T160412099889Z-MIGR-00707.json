@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A named consumer resolves the rotated archives (globs `shadow_predictions.????-??-??*`, handling .gz) AND a research join is OBSERVED returning rows dated before the live log's oldest row — the join's own min(ts) crossing the rotation boundary is the observation, not the glob being present in the diff. ⚠️ NOT SUFFICIENT: db_pulls reporting `ok` with a non-zero archive count. That is the WRITE side and it has been true since 2026-08-16 while the horizon did not move; treating it as the answer is what let this sit for 17 days. ⚠️ ALSO NOT SUFFICIENT: adding a glob to a reader nobody runs — say which consumer, and show its output changed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260902-SHADOW-ARCHIVES-SYNCED-SINCE-0816-AND-NO-READER-RESOLVES-THEM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] Rotated shadow-prediction archives have been synced to the trainer since 2026-08-16 and NOTHING reads them — every reader resolves the single literal shadow_predictions.jsonl, so the research-join horizon the sync was built to extend has not moved"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-WHERE-ELSE-DOES-THE-OPERATING-LAYER-ASSUME-LIVE-ACCRUAL-PROVES-EDGE-NOBODY-HAS-COUNTED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-WHERE-ELSE-DOES-THE-OPERATING-LAYER-ASSUME-LIVE-ACCRUAL-PROVES-EDGE-NOBODY-HAS-COUNTED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-WHERE-ELSE-DOES-THE-OPERATING-LAYER-ASSUME-LIVE-ACCRUAL-PROVES-EDGE-NOBODY-HAS-COUNTED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "OPERATOR-RAISED 2026-09-09: \"our overall operation is clearly not built to suit the system's structure\". The system establishes EDGE offline (the backtesting infrastructure) and uses live data for MECHANICS. The operating layer around it repeatedly assumes the opposite — that live outcomes accrue until a verdict becomes possible. The M7 strategy-review packet is ONE confirmed instance (MI-215): it withholds all 52 verdicts for want of live in-window closes. ⚠️ THE POINT OF THIS ROW IS THAT NOBODY HAS COUNTED THE OTHERS, and one instance is not a population. Candidate surfaces to CHECK, not to assume: promotion/demotion gates, the soak framing throughout OPEN-ITEMS.json clears_when texts, `days_to_grade` style horizon reporting, the review skills' own rubrics, `snoozed_until` accrual rows in the backlogs, and any `MIN_*` / `*_MIN_N` constant applied to a LIVE window. For each: does it decide EDGE or MECHANICS, and does it require calendar time to reach a verdict? ⚠️ STATE THE POPULATION AND CARRY A POSITIVE CONTROL — a probe that finds nothing must be shown able to find the known instance (the M7 packet) first, or its silence means nothing. ⚠️ THIS IS A MEASUREMENT, NOT A LICENCE TO CHANGE GATES. Report the count and the list; each fix is its own scoped decision, and anything touching what a promotion or KILL rests on is Tier-3. ⚠️ FILING NOTE: an earlier wording of this row's exit condition tripped `accrual-clock guard`, which matches the word 'accrual' and demanded an `accrual_legs` list. That was a FALSE POSITIVE of the narrow kind that module's own comment says it wants to avoid — this row waits on a COUNT, not on trades — and it is a hazard specific to a row whose SUBJECT is calendar-accrual assumptions. Resolved the way the guard itself prescribes, by re-stating the exit condition as the measurement it really is, NOT by adding a fake leg list or weakening the guard. Recorded here so the next author of such a row does not read the failure as their row being wrong."
+}

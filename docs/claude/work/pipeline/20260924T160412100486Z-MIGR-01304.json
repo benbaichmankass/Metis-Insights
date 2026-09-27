@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "every OPEN claude/* or lane/* PR is named by exactly one checklist row's `prs`, OR each unattributable PR has been closed. Today four are unattributable and the reason differs per PR -- see `what`.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-JN54P2HH-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager), closing out PI-20260923-HDZFTGH2-0001",
+    "rerun": "cd <repo> && python3 -c \"import json;d=json.load(open('docs/claude/work/MANAGER-CHECKLIST.json'));named=set();[named.update(int(p) for p in (i.get('prs') or [])) for i in d['items']];print(sorted(named))\" # then diff against the open claude/* and lane/* PRs from list_pull_requests. Any open lane PR not in that set is still invisible to the archive gate's fallback key."
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 1,
+  "what": "THE OPERATOR'S CHOSEN FIX FOR PI-20260923-HDZFTGH2-0001 IS APPLIED BUT NOT COMPLETE, AND THE REMAINDER IS NOT A BACKLOG -- IT IS FOUR PRs THE FALLBACK KEY STRUCTURALLY CANNOT SEE. Operator decision 2026-09-24: close the archive gate's inertness by 'populating each checklist row's prs' rather than by fetching every PR body or loosening the gate. MEASURED 2026-09-24T06:40Z against main's checklist (79 rows, 41 PR numbers named) and the 50 open PRs: NINE open lane-owned PRs were named by no row. Five are now named -- #12765 -> E44, #12755 -> E17, #12741 -> E5, #12737 -> E41 (and #12752/#12753 were already on E44). FOUR REMAIN, in two distinct classes:\n(a) #12759 and #12747 claim row E43 AND ROW E43 DOES NOT EXIST ON MAIN. The row was written on the E43 branch (commit 6b7bbf39b, 'E43 close-out: the row's true state, its PR, and the observation that closes it') and that branch has never merged. So a lane has two open PRs, a close-out it wrote, and no row on the register the operator's Workflow page serves. This is the same shape as the five findings rescued by #12789: work filed only on a branch, and nothing reads a branch. Populating `prs` cannot fix it -- the row has to land first.\n(b) #12569, #12564 and #12398 predate the 2026-09-21 operating reset (opened 09-17/09-18) and belong to no row in this cycle's checklist by design. For these the honest disposition is close-or-adopt, not a `prs` edit.\nWHY THIS MATTERS RATHER THAN BEING TIDINESS: the gate now fails closed, so an unattributable open PR means the supervisor can never authorise archiving whichever lane owns it. That is the safe direction and must not be loosened. But it also means the archive half stays inert for those four lanes indefinitely, which is exactly the state HDZFTGH2-0001 asked the next session to close deliberately rather than discover. NOT DONE HERE, and said so rather than reporting the operator's decision as fully executed.\nONE THING DELIBERATELY NOT DONE: three `done` rows (A7, E10, A3b) also carry an empty `prs`. They were left empty on purpose -- their lanes are archived and own no open PR, so they cannot affect the gate, and backfilling them would have meant guessing a delivery PR from a grep over commit subjects. A guessed attribution in a field the gate trusts is worse than an empty one."
+}

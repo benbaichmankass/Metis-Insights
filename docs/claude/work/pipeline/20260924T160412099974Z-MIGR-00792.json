@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260820-TRADE-BLOCK-NULL-IS-ANTICONSERVATIVE-ON-XRP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-TRADE-BLOCK-NULL-IS-ANTICONSERVATIVE-ON-XRP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-TRADE-BLOCK-NULL-IS-ANTICONSERVATIVE-ON-XRP'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "E2's trade-block shuffled-label null is anticonservative on the XRPUSDT panels — a pure-noise column clears its own alpha bar 2.27x too often (87 of 768 draws, +8.0 sd, p ~ 2e-12) while the SOLUSDT panels measure textbook — so every XRP E2 hit is inflated by an unknown amount"
+}

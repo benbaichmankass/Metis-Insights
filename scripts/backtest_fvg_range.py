@@ -672,12 +672,25 @@ def _fmt(s: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# --- canonical (symbol, timeframe) -> candle-file resolver -----------------
+# THE ONE WAY this harness gets candles: scripts/ops/backtest_data_source.py
+# wraps scripts/research/m20_fleet_exit_sweep.py::resolve_data (the single
+# (symbol, timeframe) -> file mapping; not re-derived here). Loaded by path,
+# not `from ... import`, because scripts/ is not a package -- the same
+# pattern scripts/backtest_trend.py uses. See docs/reference/backtest-data-loading.md.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location(
+    "_backtest_data_source", str(_REPO_ROOT / "scripts" / "ops" / "backtest_data_source.py"))
+_backtest_data_source = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_backtest_data_source)  # noqa: E402
+
+
 def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW
     p = argparse.ArgumentParser(description="FVG range / mean-reversion backtest (net-of-cost: fee+slippage+funding).")
-    p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
+    p.add_argument("--data", default=None)
     p.add_argument("--timeframe", default="15m")
-    p.add_argument("--symbol", default="BTCUSDT")
+    p.add_argument("--symbol", default=None)
     p.add_argument("--resample", default=None, help="Resample to this rule first (e.g. 15m, 30m).")
     p.add_argument("--start", default=None, help="Walk-forward window start (ISO date, inclusive).")
     p.add_argument("--end", default=None, help="Walk-forward window end (ISO date, inclusive).")
@@ -743,6 +756,23 @@ def main(argv: List[str]) -> int:
     p.add_argument("--emit-trades", default=None, metavar="PATH",
                    help="Write per-trade {entry_time, net_r, confidence} JSONL for portfolio_combine.")
     args = p.parse_args(argv[1:])
+    # --- data-source resolution (BL-20260912-FIFTEEN-MORE-HARNESSES...) ---
+    # --data/--symbol default to None so a bare invocation REFUSES rather
+    # than silently reaching the 5,001-row BTC fixture (docs/claude/work/
+    # MANAGER-CHECKLIST.json row E4). The fixture still works -- pass it
+    # explicitly: --data data/backtest_candles.csv.
+    _src = _backtest_data_source.resolve_or_refuse(
+        args.symbol, args.timeframe, args.data,
+        legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
+    if not _src.ok:
+        print(_backtest_data_source.refusal_message(
+            _src, harness="backtest_fvg_range.py",
+            legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv")),
+            file=sys.stderr)
+        return 2
+    args.data = _src.path
+    args.symbol = args.symbol or "BTCUSDT"
+    print(_src.provenance_line(), file=sys.stderr)
     FEE_BPS_ROUNDTRIP = args.fee_bps_roundtrip
     # Mandatory venue-aware cost policy: unset flags resolve to the venue-aware
     # defaults (funding is perp-only → 0 for non-perps); an explicit value

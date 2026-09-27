@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BOTH: (a) `docs/claude/session-board.json`'s `_doc` and `schema.merge_slot` name the live board by POINTER ('resolved from docs/claude/board-pointer.json') and no longer by number, read back from the file on main; and (b) that path is in check_board_coherence.py's R4 MUST_NAME_POINTER, so the next rotation cannot leave it behind — verified by a self-test case in which the file stops naming the pointer and R4 fires. ⚠️ (a) alone clears this only until the next rotation, which is the failure being recorded rather than fixed; say which half you did.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-SESSION-BOARD-JSON-PROSE-STILL-NAMES-THE-RETIRED-BOARD-AS-THE-AUTHORITATIVE-LIVE-CLAIM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-SESSION-BOARD-JSON-PROSE-STILL-NAMES-THE-RETIRED-BOARD-AS-THE-AUTHORITATIVE-LIVE-CLAIM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-SESSION-BOARD-JSON-PROSE-STILL-NAMES-THE-RETIRED-BOARD-AS-THE-AUTHORITATIVE-LIVE-CLAIM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] docs/claude/session-board.json's own `_doc` and `schema` prose still name the RETIRED board as the authoritative live merge claim, and no guard can see it because R3 scans only .github/workflows and scripts"
+}

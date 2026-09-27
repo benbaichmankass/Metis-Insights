@@ -714,6 +714,38 @@ def selftest_pr_landing() -> None:
           "every planted defect fails it")
 
 
+def selftest_mandate_autoland() -> None:
+    """Alias for `check_mandate_autoland.py --self-test` (see COVERED_BY_CHECKER).
+
+    That checker owns its suite for `check_pr_landing.py`'s reason and one more:
+    its plants need REAL git repositories (merge-base blobs, commit authorship)
+    AND a REPLAY of `scripts/ops/mandate_resolver.py` over reconstructed
+    merge-base configs. A fixture that faked either would be testing the fake.
+
+    ⚠️ THIS SUITE IS LOAD-BEARING IN A WAY THE OTHERS ARE NOT, because the route
+    it grades is UNARMED: no entry in `config/mandates.yaml` carries
+    `autoland: true`, so on every real PR the guard's A8 clause refuses and the
+    diff-scoped step measures nothing. Until the operator arms it, the planted
+    defects ARE the only evidence in CI that these clauses can fail — a green
+    from the live step alone would be "green while measuring nothing".
+
+    ⚠️ AND IT CARRIES TWO POSITIVE CONTROLS FIRST. Every clause here REFUSES a
+    merge; an over-broad implementation reads green while reinstating exactly
+    the hand merge the route was built to end.
+    """
+    rc = _rc([sys.executable, "scripts/ci/check_mandate_autoland.py", "--self-test"])
+    if rc != 0:
+        raise SystemExit(
+            "::error::self-test FAILED — check_mandate_autoland's planted-defect "
+            f"suite exited {rc}. Either its failure paths are broken (in which "
+            "case a Tier-3 real-money roster edit could land itself on a diff "
+            "nobody graded) or its POSITIVE controls broke (in which case a "
+            "correct, mandate-authorized cut can no longer land at all).")
+    print("self-test OK — an admissible mandate cut lands, and every planted "
+          "defect (an addition, an ungranted mandate, a promote-direction "
+          "mandate, a session branch, a live-only cut) refuses")
+
+
 def selftest_manifest_scope_constants() -> None:
     """Plant each of the three defects `manifest-scope-constants` claims to catch.
 
@@ -876,6 +908,7 @@ SELFTESTS: Dict[str, Callable[[], None]] = {
     "manifest-scope-constants": selftest_manifest_scope_constants,
     "automerge-trigger": selftest_automerge_trigger,
     "pr-landing": selftest_pr_landing,
+    "mandate-autoland": selftest_mandate_autoland,
     "manager-scope": selftest_manager_scope,
     # `one-live-workplan` unregistered 2026-09-21 with its guard entry
     # (operating reset). The function below is kept so the control can be
@@ -904,6 +937,7 @@ COVERED_BY_CHECKER: Dict[str, str] = {
     "workflow-catalog": "scripts/ci/check_workflow_catalog.py",
     "automerge-trigger": "scripts/ci/check_automerge_trigger.py",
     "pr-landing": "scripts/ci/check_pr_landing.py",
+    "mandate-autoland": "scripts/ci/check_mandate_autoland.py",
     "manager-scope": "scripts/ci/check_manager_scope.py",
 }
 

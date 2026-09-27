@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies (nothing refuses a conflict marker in a pushed file); landing-machinery family, E49. EVIDENCE: MEASURED 2026-09-24: grep conflict-marker in scripts/ci/run_guards.py -> none.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A MECHANISM refuses the push, not a resolver that promises to be careful. The cheapest honest one: a pre-push or CI check that greps every tracked text file in the diff for a conflict marker at line start and fails. [!] A CAREFUL RESOLVER DOES NOT CLEAR THIS, and that is the whole finding - the resolver that did this ALREADY printed that it could not handle the file. The defect was not ignorance, it was proceeding anyway. [!] NOR DOES 'the manager will stop batch-resolving': this repo's own record on `reminder is not a mechanism` (MI-15, twice) is why that is not accepted as a disposition.",
+    "kind": "event",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-JN54P2HH-0008",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager), commit 983eb7a2 (dropped in E5's rebuild), PR #12739",
+    "rerun": "git log --all -S'<<<<<<<' --oneline -- scripts/ | head   # any commit that ADDED a conflict marker to a tracked file is an instance of this class; the 2026-09-22 one is gone from history (rebuilt away), so an empty result is NOT evidence the hazard is fixed - read the clears_when"
+  },
+  "routed_to": "E49 (landing machinery)",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "A MANAGER PUSHED scripts/ci/run_guards.py WITH CONFLICT MARKERS IN IT to a live lane branch on 2026-09-22, and the mechanism is the finding rather than the incident. The batch resolver handled PIPELINE.jsonl and MANAGER-CHECKLIST.json by name, PRINTED 'UNHANDLED' for run_guards.py on stdout, and then ran `git add` over EVERY conflicted path regardless - so it correctly identified that it could not resolve the file, said so, and pushed it anyway. [!] A LOOP THAT REPORTS A PROBLEM AND THEN PROCEEDS IS WORSE THAN ONE THAT NEVER CHECKED: it leaves a record saying it looked. That is the same shape as the `unprovenanced diagnostic output` class this repo already has a guard for, and the same shape as `new-table-wiring-guard`'s presence-only marker - a check whose output nothing acts on. [!] THE BLAST RADIUS WAS THE WHOLE GUARD FLEET: run_guards.py is the module every guard run imports, so on that branch it did not parse and the entire required `guards` context could not run - INCLUDING check_manager_scope.py, the guard that grades the manager. A manager error disabled the guard that watches the manager. It was caught in ~90 seconds by the next CI run and repaired, and the repair itself then graded as a manager-scope violation, which cost a branch rebuild by the E5 lane to clear. [!] THE ORIGINAL COMMIT IS GONE FROM HISTORY - E5 rebuilt the branch from main without it, so `git log -S'<<<<<<<'` finds nothing today. An empty probe is therefore NOT evidence of absence here; it is evidence the incident was cleaned up. The rerun command says so."
+}

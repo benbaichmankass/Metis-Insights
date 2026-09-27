@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "A10 lane: 181 append-only state-change records in docs/claude/work/PIPELINE.jsonl (each written through scripts/ops/pipeline.append(intent='update'), no line edited or deleted), one disposition table under docs/research/, and this branch's landing files. Tier-1 by the canonical doc's own list: registers and docs only -- no src/, config/, deploy/ or order-path file is touched. None of the HOLD_REASONS is true of this PR, so `self` is the honest declaration; note the branch is lane/*, which the automerge trigger (claude/**) cannot match -- PI-20260922-JN54P2HH-0003, routed to E49 in this same PR -- so the manager merges."
+}

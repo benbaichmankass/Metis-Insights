@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A mechanism, not a reminder -- the pattern is already recorded twice (BL-20260903 OPEN-PRS condition-dropping; the CLAUDE.md § OPEN-PRS half-informed-case rule) and prose did not hold. Candidate: a check that any artifact citing a coverage-matrix cell by name must also surface any operator-decision segment in that cell's `ref` (the refs already mark them with recognisable `SHIP BLOCKED (operator decision)` / `operator decision <date>` tokens, so this is greppable). Closing this needs either that check, or a recorded operator decision that memo-level summarisation is accepted as lossy and readers must always open the cell.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-MI146-ROUTED-A-SHIP-WITHOUT-THE-CANCELLATION-RECORDED-IN-THE-CELLS-IT-CITED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-MI146-ROUTED-A-SHIP-WITHOUT-THE-CANCELLATION-RECORDED-IN-THE-CELLS-IT-CITED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-MI146-ROUTED-A-SHIP-WITHOUT-THE-CANCELLATION-RECORDED-IN-THE-CELLS-IT-CITED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] MI-146's ship recommendation summarised five matrix cells and dropped the 2026-08-23 SHIP-BLOCKED/ship-CANCELLED operator decision recorded inside those same cells"
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "run_pipeline returns {signal, order_result} on every path (or main.py reads both shapes), pinned by a test, and a live pipeline_tick outcome row carries status 'skipped' for a gated tick.",
+    "kind": "observation"
+  },
+  "id": "PI-20260925-HVCIFOQV-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R8SC6tYcJ7WeCuHVCiFoQv (E35 build lane), found while extracting pipeline._monocle_gate",
+    "rerun": "grep -n 'return _gate' src/runtime/pipeline.py; grep -n 'order_result' src/main.py | head -3"
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "run_pipeline's monocle-gate early-returns hand back the RAW result ({status: skipped, reason: open_package_exists, ...}) while every other path returns {signal, order_result}; src/main.py::_run_symbol_tick reads (result or {}).get('order_result') -> {} -> status 'unknown'. So every gated tick (open_package_exists, same_bar_reentry_debounce, recent_refusal_cooldown, empty_sizing_refused) reaches outcomes as pipeline_tick status='unknown' with symbol None. PRE-EXISTING: the four gates returned `result` directly before E35; E35 kept that shape byte-for-byte and its new all_rounds_gated return mirrors it, so the fix is a separate Tier-1 observability change. Read from source 2026-09-25, NOT measured on the live outcomes feed."
+}

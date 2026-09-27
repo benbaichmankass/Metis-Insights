@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A reconcile run is OBSERVED producing a mergeable PR in a repo state where a PR was closed unmerged and no disposition had yet been written — i.e. the automated job no longer depends on a hand-written field to be mergeable. Explicitly NOT sufficient: the #10921 instance being recorded (that is this row's own workaround), --strict being relaxed, or a disposition being auto-generated.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-AN-UNDISPOSITIONED-CLOSED-PR-DEADLOCKS-EVERY-RECONCILE-PR-AND-THEY-STACK-UNBOUNDEDLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] One closed-unmerged PR with no `disposition` makes open_pr_record.py --strict refuse on EVERY reconcile PR, and the reconciler keeps opening more — five were stacked and unmergeable at once"
+}

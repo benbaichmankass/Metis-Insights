@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Running `python3 scripts/ops/document_index.py --write` on a branch that adds ONE new document produces a diff touching `docs/DOCUMENT-INDEX.md` and that document ONLY — `git diff --name-only | wc -l` returns 2, against the 60 measured 2026-09-12. ⚠️ NOT sufficient: a warning in the guard message or the docstring — the failure IS a documented instruction being followed correctly, which is the same reason the predecessor row rejected that remedy. ⚠️ AND a test must pin the DIRECTION: assert that a document whose header records `live` with a category is NOT rewritten to `unknown` / `evidence` / `never` by a run that changed nothing about it, with a negative control that fails if the carry is dropped.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-DOCUMENT-INDEX-WRITE-STILL-REWRITES-OTHER-SESSIONS-DOCS-NOW-DOWNGRADING-60-OF-THEM-TO-UNKNOWN-WITH-A-FALSE-NOBODY-HAS-VERIFIED-BANNER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-DOCUMENT-INDEX-WRITE-STILL-REWRITES-OTHER-SESSIONS-DOCS-NOW-DOWNGRADING-60-OF-THEM-TO-UNKNOWN-WITH-A-FALSE-NOBODY-HAS-VERIFIED-BANNER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-DOCUMENT-INDEX-WRITE-STILL-REWRITES-OTHER-SESSIONS-DOCS-NOW-DOWNGRADING-60-OF-THEM-TO-UNKNOWN-WITH-A-FALSE-NOBODY-HAS-VERIFIED-BANNER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260908-DOCUMENT-INDEX-WRITE-STAMPS-A-FALSE-LAST-VERIFIED-ON-436-DOCS-AND-THE-GUARD-TELLS-YOU-TO-RUN-IT (resolved THE SAME DAY): `--write` still rewrites documents this diff never touched — it downgraded 60 of them from their real status to `unknown` and appended a banner saying 'nobody has verified this document's status', which is false about other sessions' work"
+}

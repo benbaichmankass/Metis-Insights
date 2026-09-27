@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A REAL TAP ON CLAUDEBOT PRODUCES A work_decision_transit.jsonl ROW, and it is recorded which request and who tapped. Concretely, all four: (1) ict-claude-decision-bot.service is enabled and ACTIVE on the VM (/api/diag/services), with its startup banner in `journalctl -u ict-claude-decision-bot` naming token_var=TELEGRAM_CLAUDE_BOT_SECRET and the wdec prefix; (2) /api/diag/log_file?name=telegram_poll_claude returns a FRESH heartbeat; (3) a decision prompt is observed arriving in @ict_cluade_bot and NOT in the trader chat -- the last hop is visible only on the operator's phone, the same limit that keeps OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN open; (4) the operator taps a button and a row lands in /api/diag/log_file?name=work_decision_transit. !! MERGING DOES NOT CLEAR THIS -- a merge is not a deploy and a deploy is not a tap; the unit must be installed and enabled, which install_systemd_units.sh does only on the next deploy run. !! A GREEN TEST RUN DOES NOT CLEAR THIS, for the reason in `detail`. !! CLAUSE (1) OR (2) ALONE DOES NOT CLEAR IT EITHER: those prove the bot is POLLED, which is necessary and is NOT the same as a tap being RECEIVED and SUBMITTED -- that exact distinction is the subject of this change, and clearing on the cheaper half would reproduce it. !! IF THE OPERATOR DECIDES NOT TO PUT TELEGRAM_CLAUDE_BOT_SECRET ON THE VM, this row does not clear -- it CHANGES: the trader-bot fallback is then the DECLARED destination, which is a legitimate deci",
+    "kind": "observation",
+    "last_checked": "2026-09-06"
+  },
+  "id": "OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] Work-decision prompts are re-pointed from the TRADER bot to the dedicated Claude bot (@ict_cluade_bot), and the thing that makes that safe ships in the SAME PR: src/bot/claude_decision_bot.py + deploy/ict-claude-decision-bot.service POLL TELEGRAM_CLAUDE_BOT_SECRET and register the same `wdec` handler, so the bot is ANSWERABLE before anything is routed to it. Operator, 2026-09-02: \"that's supposed to be showing up in Cloudbot. Right? Not on the trader one, the decisions.\" !! NO TAP HAS EVER BEEN MADE ON CLAUDEBOT. The PR is a DRAFT, the new unit has never run, and whether TELEGRAM_CLAUDE_BOT_SECRET is present in the VM .env is NOT something this session could read -- that is an operator/manager action, not a bug to work around, and it must not be substituted with TELEGRAM_CLAUDE_BOT_TOKEN (which drives the PROP bot despite its name)."
+}

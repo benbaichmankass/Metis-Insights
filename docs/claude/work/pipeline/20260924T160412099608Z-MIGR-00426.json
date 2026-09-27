@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "`python3 scripts/ops/constraint_readout.py` prints verdict `computed` with a named stage, over an assessed coverage above the declared 50% floor. ⚠️ RE-MEASURED 2026-09-12T21:28:12Z: **85 of 180 objects = 47.2%**, not the 6 of 584 = 1.0% this row was filed with — the population itself fell 584 -> 180 (confirmed identically on disk and on origin/main; why is NOT established). So the gap is **five objects**, not 286. ⚠️ COVERAGE REACHED BY A BULK PASS DOES NOT COUNT and closes nothing: the edges must be written by sessions that understand the rows, because an invented edge is read by the computation as a true blocker — and choosing five rows BECAUSE they are five is that bulk pass at n=5. Pick objects you are already working and write the edge you can defend. Read `assessed` beside `population` in docs/claude/CONSTRAINT.json — never the verdict alone — and ⚠️ re-RUN the script rather than reading that file or the CLAUDE.md brief, both of which are dated snapshots (the committed CONSTRAINT.json was ~7h stale at the time of this measurement).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-WORK-STORE-EDGES-ARE-1-PERCENT-ASSESSED-SO-THE-CONSTRAINT-CANNOT-BE-COMPUTED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-WORK-STORE-EDGES-ARE-1-PERCENT-ASSESSED-SO-THE-CONSTRAINT-CANNOT-BE-COMPUTED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-WORK-STORE-EDGES-ARE-1-PERCENT-ASSESSED-SO-THE-CONSTRAINT-CANNOT-BE-COMPUTED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The work store's blocked_on edges are 1.0% assessed (6 of 584), so E1 constraint diagnosis refuses to name a stage — the machinery is built and the input is missing"
+}

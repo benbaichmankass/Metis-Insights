@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Mechanism confirmed in code with the specific close path named; fix designed + operator-approved; after deploy, journal_qty_divergent stays silent for 7 consecutive days on all bybit accounts (population: every (account,symbol,direction) group the detector scans per tick).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260801-NETTING-PARTIAL-CLOSE-ROWS-NEVER-REDUCED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [root-cause] One-way-netting partial closes never reduce constituent journal rows — order-monitor close attribution under netting"
+}

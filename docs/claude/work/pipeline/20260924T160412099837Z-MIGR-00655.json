@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "matched-session comparison run; driver identified; keep-shadow-or-propose decision recorded",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260707-MGC-TREND-1H-STRUCTURAL",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260707-MGC-TREND-1H-STRUCTURAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260707-MGC-TREND-1H-STRUCTURAL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] mgc_trend_1h stays shadow — isolate the structural cross-series driver (matched-session GC=F/spot re-pull) before any promotion"
+}

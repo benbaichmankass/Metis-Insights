@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-COMMIT-TO-MAINS-STALE-BRANCH-REFRESH-IS-BOUNDED-BY-ITS-OWN-RUN-SO-IT-CANNOT-REACH-A-LONG-BLOCKER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-COMMIT-TO-MAINS-STALE-BRANCH-REFRESH-IS-BOUNDED-BY-ITS-OWN-RUN-SO-IT-CANNOT-REACH-A-LONG-BLOCKER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-COMMIT-TO-MAINS-STALE-BRANCH-REFRESH-IS-BOUNDED-BY-ITS-OWN-RUN-SO-IT-CANNOT-REACH-A-LONG-BLOCKER'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "`commit-to-main`'s stale-branch refresh is at most ONE attempt inside one `verify-timeout-minutes` window, so any blocker lasting longer strands the branch permanently"
+}

@@ -29,6 +29,14 @@ name: gpu-burst-train
 #
 # Required (when armed): a provider API key secret (e.g. RUNPOD_API_KEY) + the repo
 # var GPU_PROVIDER. Required label: gpu-burst-train (bootstrap-labels.yml).
+#
+# status_only: true in the issue body — reports the live values of the three
+# arm-gate conditions (GPU_BURST_ARMED, GPU_PROVIDER, provider-key-present) as
+# an issue comment and STOPS before the Burst step, regardless of GPU_BURST_ARMED's
+# live value. This exists because no tool available to a Claude session can read
+# a GitHub Actions repository variable directly, so the only way to observe these
+# gates safely is to ask this workflow to report on itself without proceeding to
+# spend (PI-20260924-5V6UVR9J-0002).
 on:
   issues:
     types: [opened]
@@ -86,12 +94,19 @@ jobs:
               est_f = 0.0
           verify = field("verify", "false").lower() in ("1", "true", "yes")
           probe = field("probe", "false").lower() in ("1", "true", "yes")
+          # status_only: report the three arm-gate conditions (ARMED, PROVIDER,
+          # key-present) and stop — never reaches the Burst step, so it is safe
+          # to dispatch regardless of the LIVE value of GPU_BURST_ARMED. Exists
+          # because no tool available to a Claude session can read a GitHub
+          # Actions repository variable directly (PI-20260924-5V6UVR9J-0002).
+          status_only = field("status_only", "false").lower() in ("1", "true", "yes")
           print(f"experiment={exp}")
           print(f"est_cost={est_f}")
           print(f"max_minutes={field('max_minutes', '90')}")
           print(f"manifest={field('manifest', '')}")
           print(f"verify={'1' if verify else ''}")
           print(f"probe={'1' if probe else ''}")
+          print(f"status_only={'1' if status_only else ''}")
           PY
 
       - name: Preflight — ledger spend-gate (no spend)
@@ -103,6 +118,9 @@ jobs:
 
       - name: Arm gate
         id: arm
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          VAST_API_KEY: ${{ secrets.VAST_API_KEY }}
         run: |
           if [ "${GPU_BURST_ARMED:-}" = "1" ] && [ -n "${GPU_PROVIDER:-}" ]; then
             echo "armed=true" >> "$GITHUB_OUTPUT"
@@ -111,10 +129,17 @@ jobs:
             echo "armed=false" >> "$GITHUB_OUTPUT"
             echo "::notice::GPU_BURST_ARMED != 1 (or GPU_PROVIDER unset) — DRY PREFLIGHT ONLY. No pod launched, no spend."
           fi
+          # Presence only, never the value — safe to report even on status_only.
+          case "${GPU_PROVIDER:-}" in
+            runpod) key_present="${RUNPOD_API_KEY:+1}" ;;
+            vast)   key_present="${VAST_API_KEY:+1}" ;;
+            *)      key_present="" ;;
+          esac
+          echo "provider_key_present=${key_present}" >> "$GITHUB_OUTPUT"
 
       - name: Burst — launch → build → train → return → teardown
         id: burst
-        if: steps.arm.outputs.armed == 'true'
+        if: steps.arm.outputs.armed == 'true' && steps.parse.outputs.status_only != '1'
         env:
           EXPERIMENT: ${{ steps.parse.outputs.experiment }}
           EST_COST: ${{ steps.parse.outputs.est_cost }}
@@ -241,11 +266,24 @@ jobs:
         with:
           script: |
             const armed = "${{ steps.arm.outputs.armed }}" === "true";
+            const statusOnly = "${{ steps.parse.outputs.status_only }}" === "1";
             const exp = "${{ steps.parse.outputs.experiment }}";
             const est = "${{ steps.parse.outputs.est_cost }}";
             const cost = "${{ steps.burst.outputs.cost }}" || "—";
-            const body = armed
-              ? `🖥️ **GPU burst** — \`${exp}\`\nOutcome: \`${{ steps.burst.outcome }}\` · billed: **$${cost}** (est $${est}). Cost appended to the ledger — see the dashboard GPU-spend panel.`
-              : `🧮 **GPU burst — dry preflight only** for \`${exp}\` (est $${est}).\nBudget gate passed; **no pod launched, no spend** (GPU_BURST_ARMED≠1 or GPU_PROVIDER unset). Arm it once a provider adapter is verified.`;
+            const provider = "${{ env.GPU_PROVIDER }}" || "(unset)";
+            const keyPresent = "${{ steps.arm.outputs.provider_key_present }}" === "1";
+            let body;
+            if (statusOnly) {
+              body = `🔎 **GPU burst — status only** for \`${exp}\`.\nNo pod launched, no spend (this mode never reaches the Burst step).\n\n`
+                + `| gate | live value |\n|---|---|\n`
+                + `| \`vars.GPU_BURST_ARMED\` | \`${armed ? "1" : "(not 1 or unset)"}\` |\n`
+                + `| \`vars.GPU_PROVIDER\` | \`${provider}\` |\n`
+                + `| provider API key present | \`${keyPresent}\` |\n`
+                + `| would launch on a real dispatch | \`${armed}\` |`;
+            } else if (armed) {
+              body = `🖥️ **GPU burst** — \`${exp}\`\nOutcome: \`${{ steps.burst.outcome }}\` · billed: **$${cost}** (est $${est}). Cost appended to the ledger — see the dashboard GPU-spend panel.`;
+            } else {
+              body = `🧮 **GPU burst — dry preflight only** for \`${exp}\` (est $${est}).\nBudget gate passed; **no pod launched, no spend** (GPU_BURST_ARMED≠1 or GPU_PROVIDER unset). Arm it once a provider adapter is verified.`;
+            }
             await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
             await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: "closed" });

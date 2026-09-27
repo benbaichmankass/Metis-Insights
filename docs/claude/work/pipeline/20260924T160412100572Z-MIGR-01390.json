@@ -1,0 +1,21 @@
+{
+  "a10_note": "Live order-path adjacency: a close that cannot complete on a real-money account is what this ledger surfaces. R5 is the row that reads fleet soaks. EVIDENCE: Unverifiable from a sandbox (needs /api/diag/log_file?name=close_wedge_standing). Not killed on inference.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "BOTH, and they are different facts — say which you cleared rather than clearing on the easier one. (1) After the trader has restarted under this code, /api/diag/log_file?name=close_wedge_standing reads `present: true` with an `updated_at` FRESH against the artifact's own declared budget — read the stamp, never the file's existence, because a dead trader leaves a ledger that still parses and still reports zero wedges, which is the exact failure this change exists to end. (2) A work-digest run NAMES the resolved path in its own output and that path is under /data/bot-data/, proving the DATA_DIR resolution on the VM rather than the repo-relative agreement that holds only on a GitHub runner. ⚠️ A GREEN CI CLEARS NEITHER: 92 pytest, run_guards PASS 66/FAIL 0 and three self-test suites all passed BEFORE the merge and are a harness — a harness is exactly what cannot reach a trader restart. ⚠️ THE MERGE CLEARS NOTHING EITHER, and neither does the deploy: that distinction is why OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION is still open. ⚠️ AND A DIGEST STILL SAYING `NOT EXAMINED` IS NOT A FAILURE OF THIS ROW — it is the accurate reading until the restart, and the row must not be re-filed as broken on the strength of it.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET'), indent=2))\""
+  },
+  "routed_to": "R5 (soak-book read): /api/diag/log_file?name=close_wedge_standing present:true with a fresh updated_at",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[LOUD] #10944 MERGED (squash 717f00eb, Tier-2, operator-approved 2026-09-03) makes the trader's monitor sweep heartbeat an empty-but-PRESENT close-wedge ledger, and stops the reader synthesising a clean fleet from `present: false`. ⚠️ THE LEDGER HAS NEVER BEEN OBSERVED PRESENT ON THE FLEET. Merged, deployed and proven are three facts and only the first is established. verified_at is deliberately null: no observation has been made, and dating it today would be a claim of one."
+}

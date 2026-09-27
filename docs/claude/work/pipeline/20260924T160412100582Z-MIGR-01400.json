@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "THREE PARTS, and they are different facts — say WHICH you cleared rather than clearing the row on the easiest. (1) ✅ SATISFIED 2026-09-08 — #11279 merged as 12b5b84, verdict approved_with_conditions, and the approval DID record the stated choice on IB_CLOSE_CONFIRM_PARTIAL (`strict`). Nothing further is owed on this part; do not re-open it. (2) A REAL close on a symbol holding a sibling's lots is OBSERVED CONFIRMING on the fleet — a confirm_state of confirmed_order_filled or confirmed_reduced in the trader journal, or the absence of a 'close not confirmed flat' event on a close that did fill. ⚠️ A PASSING HARNESS IS NOT THIS OBSERVATION. 12 green tests cannot reach a venue, and merged is not deployed and deployed is not observed. (3) The MI-140 coupling is DISCHARGED: either MI-140 is remediated AFTER this lands with the Alpaca over-close addressed or explicitly accepted by the operator, or the operator rules that alpaca_live stays inert. The Alpaca work is MI-173 / #11312 (MEASUREMENT AND A PROPOSAL ONLY — merged 2026-09-08, implements nothing, touches no .py) and MI-180 / #11337 (THE FIX, still HELD). ⚠️ MI-140 is held until #11337 LANDS, not until #11312 merges — those are different PRs and #11312 is already merged, so reading them as one would release MI-140 on a real-money account against a fix that has not shipped, and MI-140 is held behind #11337 by the merge's own CONDITION 2. ⚠️ DO NOT CLEAR THIS PART BECAUSE #11279 MERGED — that closes (1), not (3); the Alpaca over-",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Clause (1) satisfied on the record (#11279 merged 2026-09-08); the remaining observation is on IB, which carries no real-money roster, and nothing owns it. EVIDENCE: config/accounts.yaml 2026-09-24: ib_live strategies=[] mode=dry_run.",
+  "what": "[LOUD] PR #11279 re-scopes the close confirmation from SYMBOL to TRADE, is held for Tier-3 approval, and MI-140 must not be remediated before it lands"
+}

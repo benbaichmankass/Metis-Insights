@@ -156,6 +156,26 @@ power:
 # kind: deterministic → required instead
 why_not_inferential: >-      # why no sample/effect applies. Empty ⇒ blocked.
 
+# REQUIRED on every NEW unit (both kinds) — `check_research_queue_decision_rule.py`
+# refuses a unit added on this branch with no admissible decision_rule. Existing
+# units that predate this requirement are GRANDFATHERED (counted, never failed);
+# the guard reports how many on every run. "The result IS the decision" — this
+# is what makes that true instead of aspirational: it states, BEFORE the run,
+# what each outcome means and what happens next, so landing the result is not
+# also the moment someone has to invent what it means.
+decision_rule:
+  id: RULE-<id>-<short-name>
+  registered_at: '2026-09-25'  # non-empty. When this was written, before the run.
+  registered_before_run: true  # must be literally `true` — not merely present.
+  statistic: >-                # what is actually computed from the run's output
+  rule: >-                     # IF <statistic condition> THEN <verdict/action>,
+                                # for every branch the run can land in. This is
+                                # the part that must not be written AFTER seeing
+                                # the result.
+  what_it_does_not_do: >-      # OPTIONAL but conventional — what this unit's
+                                # verdict may NOT be used to justify (e.g. a
+                                # Tier-3 roster change belongs to R2/D2, not here)
+
 routing:                     # DECLARED, never inferred
   needs_trainer_resident_data: false
   needs_gpu: false

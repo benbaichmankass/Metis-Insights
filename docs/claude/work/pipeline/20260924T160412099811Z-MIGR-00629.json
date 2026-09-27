@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO PARTS, different facts -- say WHICH you cleared, and the SECOND is the one that matters. (1) THE RENDER STOPS LYING: a future-dated stamp is rendered DISTINGUISHABLY from a fresh one -- e.g. the age text reads `stamp is N min in the FUTURE` rather than `0.0h ago`. Demonstrate it with a positive control: show a future stamp and a just-made stamp producing DIFFERENT output, because today they produce identical output and that is the whole defect. (2) THE BAD VALUES ARE CORRECTED at source, and the writer that produced them is identified -- a bulk of 19 identical values is one event, so find it rather than hand-editing the rows. !! CORRECTING THE 20 STAMPS WITHOUT (1) CLEARS NOTHING AND IS THE WEAKER HALF: the clamp is still there and the next mistyped stamp reads as maximally fresh again. !! A GREEN TEST SUITE CLEARS NOTHING -- no test asserts on the future branch today, which is why it survived. !! AND DO NOT CLEAR THIS BY DELETING THE STAMPS: an absent `as_of` renders ', age unknown', which is honest and is a DIFFERENT state from both -- removing the field would hide the defect rather than fix it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-A-FUTURE-DATED-AS-OF-RENDERS-AS-JUST-OBSERVED-BECAUSE-THE-AGE-IS-CLAMPED-AT-ZERO",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-A-FUTURE-DATED-AS-OF-RENDERS-AS-JUST-OBSERVED-BECAUSE-THE-AGE-IS-CLAMPED-AT-ZERO",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-A-FUTURE-DATED-AS-OF-RENDERS-AS-JUST-OBSERVED-BECAUSE-THE-AGE-IS-CLAMPED-AT-ZERO'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A future-dated register stamp renders as '0.0h ago' — identical to one made this instant"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "ONE resolver governs family membership for both the harness and live arms, with a defined non-silent bucket for harness-less legs; the pooling unit and the mixed-tf question are each a recorded decision rather than a fallthrough; and a re-run shows the previously-unpooled legs landing in their intended dir. Re-grading the affected exit_head_ml cells is part of the close, since existing scalp verdicts were produced per-leg.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-FAMILY-RESOLVER-DRIFT-SCALP-NEVER-POOLED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Two independent definitions of \"which family is this leg\" disagree on 24 of 55 legs -- and the measured consequence is that the 8 ict_scalp legs have NEVER trained as the pooled family the design says they should, while the 12 equity/commodity trend legs are absent from `donchian` entirely"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260910-A-START-HEADED-FILES-I-WILL-TOUCH-DECLARES-NOTHING-SO-THE-SCOPE-OVERLAP-AUDIT-REPORTS-NO-LIVE-SESSION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-A-START-HEADED-FILES-I-WILL-TOUCH-DECLARES-NOTHING-SO-THE-SCOPE-OVERLAP-AUDIT-REPORTS-NO-LIVE-SESSION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-A-START-HEADED-FILES-I-WILL-TOUCH-DECLARES-NOTHING-SO-THE-SCOPE-OVERLAP-AUDIT-REPORTS-NO-LIVE-SESSION'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scope-overlap-audit's declaration markers are a closed 5-substring vocabulary, and the natural heading `Files I will touch:` matches NONE of them -- so such a START declares ZERO paths and the audit then reports `0 from a live session`"
+}

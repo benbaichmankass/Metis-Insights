@@ -1,0 +1,1042 @@
+{
+ "_comment": "E53 roadmap status sweep. One row per status cell in ROADMAP.md § Milestone Roadmap. Population: the 33 rows matching '^| **M' (M0–M5 is one row spanning six milestones). Evidence refs are PR numbers with the squash-merge sha on main, or the probe that returned nothing (stated with its denominator).",
+ "swept_on": "2026-09-24",
+ "swept_by": "checklist row E53 (session_016esXb8N3RvmZycrDXJStcA), dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP",
+ "base": "origin/main @ 1665947 (2026-09-24)",
+ "population": {
+  "rows": 33,
+  "by_class": {
+   "CURRENT": 8,
+   "STALE-ADVANCED": 17,
+   "STALE-DORMANT": 5,
+   "WRONG": 3
+  }
+ },
+ "leading_glyph_census_before": {
+  "✅": 5,
+  "⛔": 1,
+  "🔄": 21,
+  "📋": 6
+ },
+ "leading_glyph_census_after": {
+  "✅": 5,
+  "⛔": 2,
+  "🔄": 20,
+  "📋": 6
+ },
+ "starting_facts_checked": {
+  "33 milestone rows": "TRUE (33 rows; 38 milestones counting M0–M5 as six)",
+  "13 closed / 14 in progress / 6 proposed": "NOT what the leading glyphs say: ✅ 5 rows + ⛔ 1, 🔄 21, 📋 6 (before this sweep)",
+  "no in-progress milestone dated after 2026-08-31": "FALSE: M15 (2026-09-10) and M20 (2026-09-07) carry newer dates; M37 (closed) 2026-09-03",
+  "M9 2026-05-10, M14 2026-06-04, M8 2026-06-10": "TRUE",
+  "M6, M10, M17 undated": "TRUE, and so is M0–M5",
+  "header Last Updated 2026-08-29": "TRUE (now 2026-09-24)",
+  "M40 R1 landed as #12739, roadmap does not know": "TRUE (cell had no #12739 / E5)",
+  "M39 operator-selected 2026-08-24, still BACKLOG": "TRUE"
+ },
+ "rows": [
+  {
+   "milestone": "M0–M5",
+   "old_status": "✅ CLOSED",
+   "new_status": "✅ CLOSED ✅ **2026-09-24 (token unchanged) + 2026-09-24 line: CURRENT",
+   "class": "CURRENT",
+   "status_cell_max_date_before": null,
+   "evidence": [
+    {
+     "ref": "#10051",
+     "sha": "1d7379dc6",
+     "date": "2026-08-20",
+     "what": "Remove the M5 /test consumer (ROADMAP_MACRO namespace; consistent with CLOSED)"
+    },
+    {
+     "ref": "grep",
+     "what": "git log origin/main --first-parent --since=2026-05-01 -E --grep='\\bM[0-5]\\b': 26 hits, all ROADMAP_MACRO M1–M5"
+    }
+   ]
+  },
+  {
+   "milestone": "M6",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": null,
+   "evidence": [
+    {
+     "ref": "#10686",
+     "sha": "943a71921",
+     "date": "2026-09-02",
+     "what": "Streamlit/Android retired from the live feed; SPA is the only consumer"
+    },
+    {
+     "ref": "#12690",
+     "sha": "453864359",
+     "date": "2026-09-21",
+     "what": "A7 and A3 observed on the operator's page (A3b = SPA render)"
+    },
+    {
+     "ref": "#12692",
+     "sha": "429c3eb62",
+     "date": "2026-09-22",
+     "what": "A9: the work schedule, served live"
+    },
+    {
+     "ref": "#12680",
+     "sha": "a4ca078b4",
+     "date": "2026-09-21",
+     "what": "E9: Workflow page orphaned-register panels fixed"
+    },
+    {
+     "ref": "#12693",
+     "what": "E15: 'Waiting on you' panel false all-clear (checklist row done)"
+    },
+    {
+     "ref": "UNVERIFIED",
+     "what": "ict-trader-dashboard repo not read (out of scope)"
+    }
+   ]
+  },
+  {
+   "milestone": "M7",
+   "old_status": "✅ DONE 2026-06-09",
+   "new_status": "✅ DONE 2026-06-09 (token unchanged) + 2026-09-24 line: CURRENT",
+   "class": "CURRENT",
+   "status_cell_max_date_before": "2026-06-09",
+   "evidence": [
+    {
+     "ref": "#11529",
+     "sha": "d535343b6",
+     "date": "2026-09-09",
+     "what": "soak-doctrine guard reaches the M7 decision surface"
+    },
+    {
+     "ref": "#11626",
+     "sha": "d597d2451",
+     "date": "2026-09-10",
+     "what": "M7 gate emits no_offline_evidence"
+    },
+    {
+     "ref": "#12443",
+     "sha": "f8ba2e1f8",
+     "date": "2026-09-17",
+     "what": "MI-287: 22 legs gained offline edge evidence; gate still cannot act"
+    },
+    {
+     "ref": "#12688",
+     "sha": "c08c60b13",
+     "date": "2026-09-22",
+     "what": "B1: evidence required to reach a real-money roster"
+    }
+   ]
+  },
+  {
+   "milestone": "M8",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-DORMANT",
+   "class": "STALE-DORMANT",
+   "status_cell_max_date_before": "2026-06-10",
+   "evidence": [
+    {
+     "ref": "docs/sprint-logs/S-M8-CLOSEOUT-2026-06-10.md",
+     "what": "'Outcome — M8 tooling COMPLETE + first tune applied live'"
+    },
+    {
+     "ref": "#10741",
+     "sha": "8d22f8f7c",
+     "date": "2026-09-02",
+     "what": "only touch of strategy_tune_sweep.py since 06-10 (incidental)"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match strategy_tune|tune_recipe|/tune"
+    }
+   ]
+  },
+  {
+   "milestone": "M9",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-05-10",
+   "evidence": [
+    {
+     "ref": "ROADMAP.md § M9 / M10 — AI traders workstreams",
+     "what": "WS5 DONE A–F; WS7/WS8/WS9/WS10 IN PROGRESS"
+    },
+    {
+     "ref": "docs/sprint-logs/S-AI-WS7-PART-1..6.md, S-AI-WS8-PART-1..3.md, S-AI-WS5-D/E/F.md",
+     "what": "exist on main (git ls-files)"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match M9 or WS[0-9]"
+    }
+   ]
+  },
+  {
+   "milestone": "M10",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": null,
+   "evidence": [
+    {
+     "ref": "ROADMAP.md § M9 / M10 — AI traders workstreams",
+     "what": "WS8/WS9/WS10 rows"
+    },
+    {
+     "ref": "#10741",
+     "sha": "8d22f8f7c",
+     "date": "2026-09-02",
+     "what": "only non-auto ml/ touch since 2026-08-31"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match dataset|market_raw|market_features|setup_labels|WS[0-9]"
+    }
+   ]
+  },
+  {
+   "milestone": "M11",
+   "old_status": "✅ COMPLETE 2026-05-20",
+   "new_status": "✅ COMPLETE 2026-05-20 (token unchanged) + 2026-09-24 line: CURRENT",
+   "class": "CURRENT",
+   "status_cell_max_date_before": "2026-05-22",
+   "evidence": [
+    {
+     "ref": "grep",
+     "what": "git log origin/main --first-parent --since=2026-05-22 --grep='\\bM11\\b': 0 hits"
+    }
+   ]
+  },
+  {
+   "milestone": "M12",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "⛔ RETIRED FROM THE LIVE FEED 2026-09-01 (token changed) + 2026-09-24 line: WRONG",
+   "class": "WRONG",
+   "status_cell_max_date_before": "2026-05-28",
+   "evidence": [
+    {
+     "ref": "#10686",
+     "sha": "943a71921",
+     "date": "2026-09-02",
+     "what": "Streamlit/Android retired from the live feed (BL-20260901-RETIRE-ANDROID-AND-STREAMLIT-FROM-THE-LIVE-FEED part 3)"
+    },
+    {
+     "ref": "CLAUDE.md § What this is",
+     "what": "'the Streamlit dashboard and the Android app are retired from the live feed'"
+    },
+    {
+     "ref": "UNVERIFIED",
+     "what": "Play Store AAB operator verification: no record found"
+    }
+   ]
+  },
+  {
+   "milestone": "M14",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-DORMANT",
+   "class": "STALE-DORMANT",
+   "status_cell_max_date_before": "2026-06-04",
+   "evidence": [
+    {
+     "ref": "ls docs/sprint-logs",
+     "what": "no S-M14-* sprint log; S-M19-* exist"
+    },
+    {
+     "ref": "#8501",
+     "sha": "a188a6fb3",
+     "date": "2026-08-06",
+     "what": "retire the 13 M19 closed-negative manifests (successor program)"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 touch ml/training ml/validation ml/configs"
+    }
+   ]
+  },
+  {
+   "milestone": "M13",
+   "old_status": "✅ S1 + S2 COMPLETE 2026-05-26",
+   "new_status": "✅ S1 + S2 COMPLETE 2026-05-26 (token unchanged) + 2026-09-24 line: CURRENT",
+   "class": "CURRENT",
+   "status_cell_max_date_before": "2026-05-26",
+   "evidence": [
+    {
+     "ref": "git log -- src/runtime/insights",
+     "what": "2 commits since 2026-05-26: c71c7dd01, 39a03d9c7 (incidental)"
+    }
+   ]
+  },
+  {
+   "milestone": "M15",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-09-10",
+   "evidence": [
+    {
+     "ref": "#11671",
+     "sha": "e88ef612a",
+     "date": "2026-09-10",
+     "what": "MI-247 Option A applied: four affordable legs to alpaca_live"
+    },
+    {
+     "ref": "#12673",
+     "sha": "47404b4d2",
+     "date": "2026-09-21",
+     "what": "A6: pull tlt_pullback_1h/1d off alpaca_live"
+    },
+    {
+     "ref": "#12687",
+     "sha": "025de033f",
+     "date": "2026-09-22",
+     "what": "B2: alpaca_portfolio strict equality, 14 → 2"
+    },
+    {
+     "ref": "#12707",
+     "sha": "8088bbb7a",
+     "date": "2026-09-22",
+     "what": "R2: bybit_2 6 → 3, breakout_1 3 → 2"
+    },
+    {
+     "ref": "#12725",
+     "sha": "75981022c",
+     "date": "2026-09-22",
+     "what": "R8: ada_pullback_2h to bybit_2"
+    },
+    {
+     "ref": "#12694",
+     "sha": "684bcaf6a",
+     "date": "2026-09-21",
+     "what": "E16: prop no fill since 2026-08-30"
+    },
+    {
+     "ref": "#12696",
+     "sha": "635600cc8",
+     "date": "2026-09-22",
+     "what": "E16: prop status-ask fix"
+    },
+    {
+     "ref": "#12755",
+     "sha": "bc78259fa",
+     "date": "2026-09-24",
+     "what": "E17: breakout_1 receives nothing; row unblocked"
+    },
+    {
+     "ref": "config/accounts.yaml",
+     "what": "FIELD 2026-09-24: alpaca_live 3 legs, alpaca_portfolio 2, breakout_1 2, bybit_2 = bybit_portfolio 4"
+    }
+   ]
+  },
+  {
+   "milestone": "M16",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-DORMANT",
+   "class": "STALE-DORMANT",
+   "status_cell_max_date_before": "2026-08-26",
+   "evidence": [
+    {
+     "ref": "git log --since=2026-08-26 -- src/runtime/conviction*.py config/regime_policy.yaml",
+     "what": "0 commits"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match confidence|conviction|lens|regime-router|regime_policy|unified"
+    },
+    {
+     "ref": "UNVERIFIED",
+     "what": "Lane D1 re-scope/park decision: no record found"
+    }
+   ]
+  },
+  {
+   "milestone": "M18",
+   "old_status": "📋 PROPOSED 2026-06-29",
+   "new_status": "📋 PROPOSED 2026-06-29 (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-08-30",
+   "evidence": [
+    {
+     "ref": "#10544",
+     "sha": "12e4a9eb4",
+     "date": "2026-08-31",
+     "what": "Arbitration is an account-level decision, ranks by evidence"
+    },
+    {
+     "ref": "#11882",
+     "sha": "c66e78abe",
+     "date": "2026-09-12",
+     "what": "MI-282: the fan-out has never dispatched"
+    },
+    {
+     "ref": "#11970",
+     "sha": "1baff7a1f",
+     "date": "2026-09-12",
+     "what": "MI-286: round geometry into apply_rounds"
+    },
+    {
+     "ref": "#12723",
+     "sha": "abda697ce",
+     "date": "2026-09-22",
+     "what": "E33: partial allowlist subtracts real money (Tier-3 HOLD)"
+    },
+    {
+     "ref": "#12755",
+     "sha": "bc78259fa",
+     "date": "2026-09-24",
+     "what": "E17 unblocked"
+    },
+    {
+     "ref": "MANAGER-CHECKLIST.json#E34,#E35",
+     "what": "queued on operator directive 2026-09-22"
+    }
+   ]
+  },
+  {
+   "milestone": "M19",
+   "old_status": "📋 PROPOSED 2026-07-01",
+   "new_status": "📋 PROPOSED 2026-07-01 (token unchanged) + 2026-09-24 line: WRONG",
+   "class": "WRONG",
+   "status_cell_max_date_before": "2026-07-01",
+   "evidence": [
+    {
+     "ref": "#8501",
+     "sha": "a188a6fb3",
+     "date": "2026-08-06",
+     "what": "retire the 13 M19 closed-negative manifests (89 → 76)"
+    },
+    {
+     "ref": "docs/sprint-logs/S-M19-*.md",
+     "what": "T0 A/Bs ran 2026-07-04..06"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match M19"
+    }
+   ]
+  },
+  {
+   "milestone": "M17",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: WRONG",
+   "class": "WRONG",
+   "status_cell_max_date_before": null,
+   "evidence": [
+    {
+     "ref": "#12668",
+     "sha": "3ea277787",
+     "date": "2026-09-21",
+     "what": "operating reset archived full-system-audit + system-review skills"
+    },
+    {
+     "ref": "docs/archive/2026-09-21-operating-reset/skills/full-system-audit",
+     "what": "archived skill (ls)"
+    },
+    {
+     "ref": "#9998",
+     "sha": "b9adb0115",
+     "date": "2026-08-20",
+     "what": "full-system-audit rewritten"
+    },
+    {
+     "ref": "#11571",
+     "sha": "566c0ff4c",
+     "date": "2026-09-09",
+     "what": "MI-225 seven-axis audit run"
+    },
+    {
+     "ref": "#12756",
+     "sha": "8a0669284",
+     "date": "2026-09-22",
+     "what": "E45: dead CI guards re-pointed/retired"
+    }
+   ]
+  },
+  {
+   "milestone": "M20",
+   "old_status": "🔄 IN PROGRESS",
+   "new_status": "🔄 IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-09-07",
+   "evidence": [
+    {
+     "ref": "#11140",
+     "sha": "86e059cc9",
+     "date": "2026-09-07",
+     "what": "MI-150: exit-head consumer into ict_scalp (annotate-only)"
+    },
+    {
+     "ref": "#11208",
+     "sha": "7b9dd7632",
+     "date": "2026-09-07",
+     "what": "MI-154b: exit-head artifacts at shadow"
+    },
+    {
+     "ref": "#12471",
+     "sha": "ecf7b12a6",
+     "date": "2026-09-17",
+     "what": "MI-295: active management landed-pending"
+    },
+    {
+     "ref": "#12503",
+     "sha": "b0150bde4",
+     "date": "2026-09-18",
+     "what": "MI-307: offline MFE distribution"
+    },
+    {
+     "ref": "#12526",
+     "sha": "eef01b69b",
+     "date": "2026-09-18",
+     "what": "MI-317: per-leg target-geometry packet"
+    },
+    {
+     "ref": "#12710",
+     "sha": "9eb13192b",
+     "date": "2026-09-22",
+     "what": "E21: exit monitor fallback"
+    },
+    {
+     "ref": "#12745",
+     "sha": "3d46f3a46",
+     "date": "2026-09-22",
+     "what": "settled-evidence flag on reachability verdicts"
+    },
+    {
+     "ref": "#12737",
+     "sha": "d0a80f0c1",
+     "date": "2026-09-24",
+     "what": "E41: strip gld/qqq trail-decay arms (operator decision 2026-09-22)"
+    },
+    {
+     "ref": "#12728",
+     "sha": "06914ce2f",
+     "date": "2026-09-22",
+     "what": "corpus: e35 bracket sweep"
+    },
+    {
+     "ref": "#12780",
+     "sha": "5773c201a",
+     "date": "2026-09-23",
+     "what": "corpus: e35 bracket sweep"
+    },
+    {
+     "ref": "PIPELINE.jsonl#PI-20260922-E41-0002",
+     "what": "E48 queued"
+    }
+   ]
+  },
+  {
+   "milestone": "M21",
+   "old_status": "📋 DORMANT",
+   "new_status": "📋 DORMANT (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-07-28",
+   "evidence": [
+    {
+     "ref": "#9573",
+     "sha": "8a23a72b5",
+     "date": "2026-08-16",
+     "what": "fix(m21): TP cap to base_args in both entry drivers"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match entry refinement / entry-head"
+    }
+   ]
+  },
+  {
+   "milestone": "M22",
+   "old_status": "🔄 IN PROGRESS 2026-07-15",
+   "new_status": "🔄 IN PROGRESS 2026-07-15 (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-07-16",
+   "evidence": [
+    {
+     "ref": "#12735",
+     "sha": "91cbfc99a",
+     "date": "2026-09-24",
+     "what": "E30: pairs closes stop pre-filling pnl"
+    },
+    {
+     "ref": "MI-283",
+     "sha": "a2aa6a7ae",
+     "date": "2026-09-12",
+     "what": "clause (3) met on the pairs sleeve"
+    },
+    {
+     "ref": "MANAGER-CHECKLIST.json#E36,#E37",
+     "what": "single-account by construction; no Stage-0 evidence record"
+    }
+   ]
+  },
+  {
+   "milestone": "M23",
+   "old_status": "📋 PROPOSED 2026-07-17",
+   "new_status": "📋 PROPOSED 2026-07-17 (token unchanged) + 2026-09-24 line: CURRENT",
+   "class": "CURRENT",
+   "status_cell_max_date_before": "2026-07-19",
+   "evidence": [
+    {
+     "ref": "grep",
+     "what": "git log --since=2026-07-19 -i --grep='meta-label|meta_label|metalabel': 0 relevant hits"
+    }
+   ]
+  },
+  {
+   "milestone": "M24",
+   "old_status": "🔄 IN PROGRESS 2026-07-17",
+   "new_status": "🔄 IN PROGRESS 2026-07-17 (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-07-29",
+   "evidence": [
+    {
+     "ref": "#12684",
+     "sha": "3afc02bda",
+     "date": "2026-09-22",
+     "what": "E3: shared cost model into every harness"
+    },
+    {
+     "ref": "#12705",
+     "sha": "f3746abd1",
+     "date": "2026-09-22",
+     "what": "R1: corpus net of full cost stack, 0/12 → 8/12"
+    },
+    {
+     "ref": "#12720",
+     "sha": "f50a25928",
+     "date": "2026-09-22",
+     "what": "R7: 40 remaining records graded"
+    },
+    {
+     "ref": "MANAGER-CHECKLIST.json#D1",
+     "what": "dropped (killed into R1)"
+    },
+    {
+     "ref": "UNVERIFIED",
+     "what": "ib_paper Flex token: no commit found"
+    }
+   ]
+  },
+  {
+   "milestone": "M25",
+   "old_status": "🔄 IN PROGRESS 2026-07-18",
+   "new_status": "🔄 IN PROGRESS 2026-07-18 (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-07-20",
+   "evidence": [
+    {
+     "ref": "#7674",
+     "sha": "5ae252d46",
+     "date": "2026-07-26",
+     "what": "retire shadow_soak_days calendar gate"
+    },
+    {
+     "ref": "#7683",
+     "sha": "26558b169",
+     "date": "2026-07-27",
+     "what": "standing offline-discrimination in the readiness report"
+    },
+    {
+     "ref": "#7684",
+     "sha": "ef07b8f9d",
+     "date": "2026-07-27",
+     "what": "drift_clean as the sole rolling live check"
+    },
+    {
+     "ref": "git log --since=2026-07-31 -- ml/registry ml/promotion",
+     "what": "0 commits"
+    }
+   ]
+  },
+  {
+   "milestone": "M26",
+   "old_status": "🔄 IN PROGRESS 2026-07-19",
+   "new_status": "🔄 IN PROGRESS 2026-07-19 (token unchanged) + 2026-09-24 line: STALE-DORMANT",
+   "class": "STALE-DORMANT",
+   "status_cell_max_date_before": "2026-08-11",
+   "evidence": [
+    {
+     "ref": "#8789",
+     "sha": "8dc0f8a2d",
+     "date": "2026-08-12",
+     "what": "Disarm the flip-confidence override"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match regime-transition; 'conflict' hits are merge conflicts"
+    },
+    {
+     "ref": "MANAGER-CHECKLIST.json#E38",
+     "what": "queued; nearest open row"
+    }
+   ]
+  },
+  {
+   "milestone": "M27",
+   "old_status": "🔄 IN PROGRESS 2026-07-21",
+   "new_status": "🔄 IN PROGRESS 2026-07-21 (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-07-28",
+   "evidence": [
+    {
+     "ref": "#7848",
+     "sha": "cc4efb1c3",
+     "date": "2026-07-28",
+     "what": "Wire ict_scalp_mgc_15m (ungated) to ib_paper"
+    },
+    {
+     "ref": "config/accounts.yaml",
+     "what": "FIELD 2026-09-24: ib_paper carries ict_scalp_mgc_15m"
+    },
+    {
+     "ref": "#11121",
+     "sha": "f2b871e98",
+     "date": "2026-09-07",
+     "what": "demote ict_scalp_5m from real money"
+    },
+    {
+     "ref": "#11140",
+     "sha": "86e059cc9",
+     "date": "2026-09-07",
+     "what": "MI-150 exit-head consumer"
+    },
+    {
+     "ref": "#12515",
+     "sha": "afc252501",
+     "date": "2026-09-18",
+     "what": "MI-312"
+    },
+    {
+     "ref": "#12551",
+     "sha": "24efd678b",
+     "date": "2026-09-18",
+     "what": "MI-318"
+    },
+    {
+     "ref": "#12743",
+     "sha": "4b0b794a2",
+     "date": "2026-09-22",
+     "what": "E28: eight ict_scalp_* legs routed to harness"
+    },
+    {
+     "ref": "#12757",
+     "sha": "c820eb8fb",
+     "date": "2026-09-22",
+     "what": "E28 closed on run predicates"
+    }
+   ]
+  },
+  {
+   "milestone": "M28",
+   "old_status": "🔄 IN PROGRESS 2026-07-22",
+   "new_status": "🔄 IN PROGRESS 2026-07-22 (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-07-27",
+   "evidence": [
+    {
+     "ref": "#8365",
+     "sha": "374257c21",
+     "date": "2026-08-02",
+     "what": "correct 'value dead/exhausted' framing — validated-but-weak lead"
+    },
+    {
+     "ref": "#8363",
+     "sha": "1b1c1430a",
+     "date": "2026-08-02",
+     "what": "D4/D5 value-construction sweep — clean NULL"
+    },
+    {
+     "ref": "#12782",
+     "sha": "057f03d42",
+     "date": "2026-09-23",
+     "what": "chore(m28): valuation snapshots (producer alive)"
+    }
+   ]
+  },
+  {
+   "milestone": "M29",
+   "old_status": "🔄 P0 SCOPE LOCKED 2026-07-23",
+   "new_status": "🔄 P0 SCOPE LOCKED 2026-07-23 (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-07-23",
+   "evidence": [
+    {
+     "ref": "#7488",
+     "sha": "dbcefebc0",
+     "date": "2026-07-23",
+     "what": "P1c dual-target gas calibration"
+    },
+    {
+     "ref": "#7510",
+     "sha": "f904aa9b7",
+     "date": "2026-07-24",
+     "what": "sysdyn model-implied mispricing as a graded snapshot signal"
+    },
+    {
+     "ref": "#7569",
+     "sha": "1ec9f3844",
+     "date": "2026-07-25",
+     "what": "gas producer already built; EIA key is the only gap"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match sysdyn|system-dynamics|EIA|gas storage|causal"
+    }
+   ]
+  },
+  {
+   "milestone": "M30",
+   "old_status": "🔄 **PLATFORM v1 BUILT + VALIDATED 2026-07-27.** C1 panel builder + C2 toolkit",
+   "new_status": "🔄 **PLATFORM v1 BUILT + VALIDATED 2026-07-27.** C1 panel builder + C2 toolkit (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-07-27",
+   "evidence": [
+    {
+     "ref": "#7784",
+     "sha": "0556446a2",
+     "date": "2026-07-28",
+     "what": "Track 1 intrabar features"
+    },
+    {
+     "ref": "#7788",
+     "sha": "61a2aebc2",
+     "date": "2026-07-28",
+     "what": "per-bar in-trade exit head"
+    },
+    {
+     "ref": "#8685",
+     "sha": "eb8b7e03a",
+     "date": "2026-08-09",
+     "what": "exit-head replay net-of-full-cost"
+    },
+    {
+     "ref": "#9316",
+     "sha": "b6b8d2ec1",
+     "date": "2026-08-14",
+     "what": "both loose ends resolved; neither worth starting"
+    },
+    {
+     "ref": "#10006",
+     "sha": "735e1501d",
+     "date": "2026-08-20",
+     "what": "exogenous peer block joined to the exit panel"
+    },
+    {
+     "ref": "git log --since=2026-08-31 -- scripts/research/*panel*",
+     "what": "0 commits"
+    }
+   ]
+  },
+  {
+   "milestone": "M31",
+   "old_status": "🔄 **IN PROGRESS** 2026-08-16",
+   "new_status": "🔄 **IN PROGRESS** 2026-08-16 (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-08-17",
+   "evidence": [
+    {
+     "ref": "#11288",
+     "sha": "0544d6ba4",
+     "date": "2026-09-07",
+     "what": "telemetry hook observed on the live fleet"
+    },
+    {
+     "ref": "#11264",
+     "sha": "115b0c25c",
+     "date": "2026-09-08",
+     "what": "MI-164: hook the four unhooked monitor units"
+    },
+    {
+     "ref": "#12087",
+     "sha": "5079dfefd",
+     "date": "2026-09-12",
+     "what": "peak_r sentinel"
+    },
+    {
+     "ref": "#12503",
+     "sha": "b0150bde4",
+     "date": "2026-09-18",
+     "what": "MI-307 offline MFE distribution"
+    },
+    {
+     "ref": "UNVERIFIED",
+     "what": "P5 status: no commit found"
+    }
+   ]
+  },
+  {
+   "milestone": "M36",
+   "old_status": "🔄 **IN PROGRESS** 2026-07-27",
+   "new_status": "🔄 **IN PROGRESS** 2026-07-27 (token unchanged) + 2026-09-24 line: STALE-DORMANT",
+   "class": "STALE-DORMANT",
+   "status_cell_max_date_before": "2026-07-27",
+   "evidence": [
+    {
+     "ref": "grep",
+     "what": "22 M36 mentions since 2026-07-27, none after 2026-08-25 except MI-160 census (#11254)"
+    },
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 carry M36 track work"
+    }
+   ]
+  },
+  {
+   "milestone": "M37",
+   "old_status": "✅ **BOTH TRACKS SHIPPED AND VERIFIED 2026-08-18**",
+   "new_status": "✅ **BOTH TRACKS SHIPPED AND VERIFIED 2026-08-18** (token unchanged) + 2026-09-24 line: CURRENT",
+   "class": "CURRENT",
+   "status_cell_max_date_before": "2026-09-03",
+   "evidence": [
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match burst|llm-delegate|delegat|oci-inventory|cloud-state"
+    },
+    {
+     "ref": "#12668",
+     "sha": "3ea277787",
+     "date": "2026-09-21",
+     "what": "llm-delegate not among the retired skills"
+    }
+   ]
+  },
+  {
+   "milestone": "M38",
+   "old_status": "⛔ **SCREENSHOT DRIVER WITHDRAWN BY THE OPERATOR 2026-08-23",
+   "new_status": "⛔ **SCREENSHOT DRIVER WITHDRAWN BY THE OPERATOR 2026-08-23 (token unchanged) + 2026-09-24 line: CURRENT",
+   "class": "CURRENT",
+   "status_cell_max_date_before": "2026-08-23",
+   "evidence": [
+    {
+     "ref": "grep",
+     "what": "git log --since=2026-08-23 -i --grep='ollama|llava|qwen|local vision|local llm|vllm': 0 relevant hits"
+    },
+    {
+     "ref": "#12696",
+     "sha": "635600cc8",
+     "date": "2026-09-22",
+     "what": "E16 prop status-ask (not M38)"
+    }
+   ]
+  },
+  {
+   "milestone": "M39",
+   "old_status": "📋 BACKLOG",
+   "new_status": "📋 BACKLOG (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-08-25",
+   "evidence": [
+    {
+     "ref": "#10237",
+     "sha": "05b06ddef",
+     "date": "2026-08-25",
+     "what": "M39(A) shipped"
+    },
+    {
+     "ref": "#10268",
+     "sha": "a3d8a0809",
+     "date": "2026-08-25",
+     "what": "PnL coverage per exit path"
+    },
+    {
+     "ref": "#12735",
+     "sha": "91cbfc99a",
+     "date": "2026-09-24",
+     "what": "E30: paper-book P&L measurement"
+    },
+    {
+     "ref": "#12738",
+     "sha": "a66a1eca2",
+     "date": "2026-09-24",
+     "what": "E31/E32: runtime-config surface (observed)"
+    },
+    {
+     "ref": "#12756",
+     "sha": "8a0669284",
+     "date": "2026-09-22",
+     "what": "E45: dead CI guards"
+    },
+    {
+     "ref": "E46",
+     "sha": "e9c695f75",
+     "date": "2026-09-22",
+     "what": "failed evidence run cannot clobber a measured record"
+    },
+    {
+     "ref": "#12745",
+     "sha": "3d46f3a46",
+     "date": "2026-09-22",
+     "what": "settled-evidence flags"
+    },
+    {
+     "ref": "UNVERIFIED",
+     "what": "track (A) criterion 2: no observation recorded"
+    }
+   ]
+  },
+  {
+   "milestone": "M40",
+   "old_status": "🔄 **IN PROGRESS",
+   "new_status": "🔄 **IN PROGRESS (token unchanged) + 2026-09-24 line: STALE-ADVANCED",
+   "class": "STALE-ADVANCED",
+   "status_cell_max_date_before": "2026-08-31",
+   "evidence": [
+    {
+     "ref": "#12739",
+     "sha": "73cb5f57e",
+     "date": "2026-09-22",
+     "what": "E5: one result schema, one committed location, one shared commit step (= M40 R1)"
+    },
+    {
+     "ref": "MANAGER-CHECKLIST.json#C2",
+     "what": "queued: 19 of 23 workflows artifact-only (= M40 R2 open)"
+    },
+    {
+     "ref": "#12706",
+     "sha": "28e7f6af9",
+     "date": "2026-09-22",
+     "what": "checklist R4: ten pre-registered research questions"
+    },
+    {
+     "ref": "MANAGER-CHECKLIST.json#E8",
+     "what": "the testing queue, blocked by design"
+    },
+    {
+     "ref": "#12705",
+     "sha": "f3746abd1",
+     "date": "2026-09-22",
+     "what": "checklist R1: corpus net of cost"
+    },
+    {
+     "ref": "#12720",
+     "sha": "f50a25928",
+     "date": "2026-09-22",
+     "what": "checklist R7: corpus complete"
+    },
+    {
+     "ref": "#12679",
+     "sha": "497bae2d2",
+     "date": "2026-09-21",
+     "what": "A8: archived registers imported into PIPELINE.jsonl"
+    }
+   ]
+  },
+  {
+   "milestone": "M41",
+   "old_status": "📋 BACKLOG",
+   "new_status": "📋 BACKLOG (token unchanged) + 2026-09-24 line: CURRENT",
+   "class": "CURRENT",
+   "status_cell_max_date_before": "2026-09-04",
+   "evidence": [
+    {
+     "ref": "grep",
+     "what": "0 of 1,863 first-parent commits since 2026-08-31 match local LLM|ollama|llama|vLLM|GPU|checkpoint|quantiz|fine-tun"
+    },
+    {
+     "ref": "MANAGER-CHECKLIST.json",
+     "what": "no row names M41 / local LLM"
+    }
+   ]
+  }
+ ]
+}

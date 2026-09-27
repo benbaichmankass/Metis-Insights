@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "is_measured (and classify_row) raise TypeError, or return a distinguishable third outcome, when handed a non-mapping — NOT silently UNVERIFIED. Demonstrated by a test asserting BOTH controls: passing a real row with exit_price_source='bybit_closed_pnl' returns True (positive control), and passing the bare string 'measured' does not return False silently. A docstring warning alone does NOT close this — the sibling function already has one and this function is what a caller reaches for first.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-PROVENANCE-IS-MEASURED-RETURNS-FALSE-FOR-EVERY-ROW-WHEN-HANDED-A-BUCKET-STRING-AND-SAYS-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-PROVENANCE-IS-MEASURED-RETURNS-FALSE-FOR-EVERY-ROW-WHEN-HANDED-A-BUCKET-STRING-AND-SAYS-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-PROVENANCE-IS-MEASURED-RETURNS-FALSE-FOR-EVERY-ROW-WHEN-HANDED-A-BUCKET-STRING-AND-SAYS-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] provenance.is_measured(row) accepts Any and silently returns False for EVERY row when passed a bucket string instead of a row — the same total-silent-failure its sibling pnl_is_trustworthy has a docstring warning about"
+}

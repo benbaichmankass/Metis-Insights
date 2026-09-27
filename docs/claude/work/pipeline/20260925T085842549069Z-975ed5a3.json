@@ -1,0 +1,20 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "ALL of: (a) DEPLOYED -- /api/diag/version sha contains the E35 merge; (b) arbitration_fanout_soak rows with fanout_schema 4 exist; (c) ROUTED -- at least one v4 row with a non-empty global_would_drop whose account has an order_packages row for that round's strategy within 60s of the row; (d) ZERO v4 starved_count and ZERO double_round_accounts over a window STATED IN HOURS -- at the measured ~0.48 multi-account rows/hour a window under ~24h cannot contain the case and does not clear this; (e) get-env shows ARBITRATION_FANOUT_MODE and ARBITRATION_FANOUT_ACCOUNTS unset. A merge alone clears nothing.",
+    "kind": "observation",
+    "last_checked": "2026-09-25"
+  },
+  "id": "PI-20260925-HVCIFOQV-0001",
+  "next_action": "check_observation",
+  "observation_2026_09_25T0858Z": "FIRST POST-DEPLOY READ (manager deployed squash 112c77c1b, pid 572268, boot 08:45:37Z). Window 08:45:37Z->08:58:03Z (12.4 min), 81 tick results in journalctl. (a) DEPLOYED: yes per manager's runtime-config read. (b) v4 soak rows: 0 rows written after boot (last row 08:25:17Z, schema 3) -- NOT a failure: only 3 actionable ticks in the window (79 no_intents_emitted), none with a multi-account contest, and a quiet tick writes no row; at the file's ~1.9 rows/h a 12-min window expects <1. (c) ROUTED: no global_would_drop row can exist yet. The one dispatch (XRPUSDT ict_scalp_xrp_15m, 08:48:13Z) went through the new path: result carries round_outcomes and package meta carries account_election {state: planned, rounds [{ict_scalp_xrp_15m:[bybit_1]}]}; the package itself was 'rejected' by bybit_1's own sizing/risk, not by routing. (d) starved/double: 0/0 but over 0 v4 rows -- no denominator, does not count. Also 0 'more than one round' and 0 'GLOBAL-winner dispatch' errors, 0 Tracebacks. (e) RETIRED ENV STILL SET: journalctl 08:48:03Z WARNING names BOTH ARBITRATION_FANOUT_MODE and ARBITRATION_FANOUT_ACCOUNTS as set-and-ignored; the unset (Tier-2 set-env) is still owed. Re-read after >=24h.",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R8SC6tYcJ7WeCuHVCiFoQv (E35 build lane), branch lane/e35-per-account-election",
+    "rerun": "bash scripts/ops/diag_fetch.sh '/api/diag/log_file?name=arbitration_fanout_soak&lines=1000' > soak.json && python3 -c \"import json;r=[json.loads(l) for l in json.load(open('soak.json'))['lines']];v=[x for x in r if x.get('fanout_schema')==4];print(len(v),'v4', sum(x['starved_count'] for x in v),'starved', sum(bool(x.get('double_round_accounts')) for x in v),'double', sum(x['global_would_drop_count'] for x in v),'global_would_drop')\"  # then join global_would_drop rows to /api/diag/journal?table=order_packages on (strategy, created_at within 60s)"
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": 3,
+  "what": "[E35] PER-ACCOUNT ELECTION IS BUILT, NOT YET MERGED/DEPLOYED/OBSERVED -- three facts. PR lane/e35-per-account-election (Tier 3, landing hold) makes arbitration_fanout.plan_per_account_election the routing and retires ARBITRATION_FANOUT_MODE / ARBITRATION_FANOUT_ACCOUNTS. The unit tests (tests/test_e35_per_account_election.py, incl. a 300-seed no-double-place property with a positive control that fails 90/300 when the scope is dropped) and the replay (scripts/research/e35_per_account_election_replay.py over the last 1000 live soak rows) establish the DECISION; neither establishes an ORDER. The only evidence the fix routes is a journal package on an account the pre-E35 global election would have dropped. Also owed after deploy: unset the two retired env vars on ict-trader-live (Tier-2 set-env; the code ignores them and warns once, but a leftover variable reading like a routing control is the doc-describes-a-mechanism-that-does-not-exist failure)."
+}

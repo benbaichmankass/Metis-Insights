@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A cell's artifact states, as FIELDS rather than prose: the fold span, the cell's own OOS span, the uncovered OOS years, the pre-split fold count, the arm provenance (IS-derived vs declared), and the effective-vs-recorded win split -- so a reader sees coverage without re-deriving it. Demonstrated by RUNNING it with a planted control proving both directions fire: split 2019 + panel 2021-26 must report uncovered [2019,2020]; split 2025 must report pre_split [2021..2024]; split 2021 must report clean. A bare re-run without these fields does not close this -- the panel would still be unable to say what it did not grade, and splg_trend_long_1d/vt_hot80_t2 would still read as a 6/6 PASS.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-WF-FOLD-PANEL-IS-A-FIXED-CALENDAR-NOT-AN-OOS-WALKFORWARD",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-WF-FOLD-PANEL-IS-A-FIXED-CALENDAR-NOT-AN-OOS-WALKFORWARD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-WF-FOLD-PANEL-IS-A-FIXED-CALENDAR-NOT-AN-OOS-WALKFORWARD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] the fleet sweep's walk-forward panel is a FIXED 2021-2026 calendar that does not read the cell's own IS/OOS split -- so a fold can grade in-sample data, and some OOS years are never graded at all"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) a tuning attempt on the ENTRY axis and the TRAIL axis is run and recorded, at which point the leg has had the genuine multi-axis attempt the rule requires and a disposition (keep / tune / demote) can be PROPOSED to the operator with evidence on every axis; or (b) the operator decides on the leg without waiting for those axes. Closure requires the axes to be NAMED as tested or explicitly waived -- 'we tuned it and it did not work' without saying which axis is exactly the shape this row exists to prevent. NOT sufficient: shipping any geometry change on the strength of this grid, which found nothing to ship.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-XRP-PULLBACK-GEOMETRY-TUNING-EXHAUSTED-NEGATIVE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-XRP-PULLBACK-GEOMETRY-TUNING-EXHAUSTED-NEGATIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-XRP-PULLBACK-GEOMETRY-TUNING-EXHAUSTED-NEGATIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] xrp_pullback_2h: the joint (stop, target) tuning attempt is COMPLETE and returns NO profitable geometry -- 37 measured cells, 0 positive, and the LIVE geometry is the interior optimum"
+}

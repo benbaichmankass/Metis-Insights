@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Resolved when a could_not_look response carries a non-empty reason distinguishing at least breaker-open, gateway-unreachable, and not-configured, and a test asserts the reason is populated on each path.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-IB-OPEN-ORDERS-COULD-NOT-LOOK-CARRIES-NO-REASON",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-IB-OPEN-ORDERS-COULD-NOT-LOOK-CARRIES-NO-REASON",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-IB-OPEN-ORDERS-COULD-NOT-LOOK-CARRIES-NO-REASON'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/diag/ib_open_orders returns read_state=could_not_look with an EMPTY error string -- the three-state is right, but it cannot say WHY it could not look"
+}

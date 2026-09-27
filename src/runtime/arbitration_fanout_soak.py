@@ -1,4 +1,41 @@
-"""Observe-only soak for the Lane P/P3 per-account arbitration fan-out.
+"""The per-tick record of the PER-ACCOUNT ELECTION that routes (E35), v4 rows.
+
+⚠️ **E35 (2026-09-25) CHANGED WHAT THIS FILE RECORDS, AND KEPT IT DELIBERATELY.**
+The operator's order was to retire the fan-out writer unless E34's findings
+said some part must stay. This part must, for two reasons: (1) it is the ONLY
+durable per-tick record of what each account elected — a package row exists
+only for a round that passed its gates, so without it a tick where an account
+elected and was gated, or elected and had no dispatchable round, leaves no
+trace; and (2) ``starved_account_alert`` reads it, and under v4 that alert
+becomes the live tripwire for the property E35 builds (**no account that
+elected a winner is left without a round**). What is RETIRED is everything
+that made it a staging instrument: ``ARBITRATION_FANOUT_MODE`` (there is no
+``off``/``annotate``/``apply`` any more — the per-account election is the
+routing and is always recorded), ``ARBITRATION_FANOUT_ACCOUNTS`` (no allowlist
+exists to scope anything), and the ``applied``/``rounds_written``/
+``rounds_applied``/``apply_state``/``apply_scope`` fields. Both env names are
+now IGNORED; :func:`record` warns once if either is still set, because a
+leftover variable reading like a routing control is a doc describing a
+mechanism that no longer exists.
+
+v4 row, per ``(tick, symbol)`` worth recording:
+
+  * ``per_account[a].state`` — graded against the PER-ACCOUNT election:
+    ``routed`` (in a dispatch round), ``no_winner`` (its own election came out
+    flat), ``starved`` (it ELECTED and is in NO round — structurally only an
+    undispatchable winner; any non-zero count is a defect), ``unknown`` (its
+    election raised, or the roster was unreadable).
+  * ``global_would_drop`` — accounts ROUTED now that the pre-E35 global
+    election would have dropped (they did not hold its one winner). This is
+    the running version of ``scripts/research/e35_per_account_election_replay.py``.
+  * ``rounds_planned`` — the rounds as planned (strategy, accounts, geometry).
+
+A quiet tick — every candidate-holding account routed, and every one of them
+held the global winner, so old and new routing coincide — writes no row.
+
+---- the pre-E35 account (v1–v3), kept for readers of the accumulated log ----
+
+Observe-only soak for the Lane P/P3 per-account arbitration fan-out.
 
 At the shipped default (``annotate``) this writes one row per symbol-tick on
 which at least one account held a candidate and did not get an order out of it —
@@ -91,51 +128,25 @@ from typing import Any, Dict, Mapping, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
-_MODES = ("off", "annotate", "apply")
 _LOG_NAME = "arbitration_fanout_soak.jsonl"
 
+#: Env names that USED to scope/arm the fan-out and are now ignored (E35).
+RETIRED_ENV = ("ARBITRATION_FANOUT_MODE", "ARBITRATION_FANOUT_ACCOUNTS")
+_retired_env_warned = False
 
-def resolve_mode() -> str:
-    """``off`` | ``annotate`` (default) | ``apply``.
 
-    An unparseable or unknown value falls back to **``annotate``**, never to
-    ``off`` and never to ``apply``: a typo must not silently switch the
-    observation off, and certainly must not switch an order path on.
-
-    ``apply`` is accepted by the parser but **refused at the call site** — see
-    the module docstring. It is spelled here so the vocabulary matches its
-    siblings and so a future Tier-3 change has a name to flip, not because it
-    does anything today.
-    """
-    raw = (os.environ.get("ARBITRATION_FANOUT_MODE") or "").strip().lower()
-    if raw in _MODES:
-        return raw
-    if raw:
+def _warn_retired_env_once() -> None:
+    global _retired_env_warned
+    if _retired_env_warned:
+        return
+    _retired_env_warned = True
+    present = [k for k in RETIRED_ENV if (os.environ.get(k) or "").strip()]
+    if present:
         logger.warning(
-            "ARBITRATION_FANOUT_MODE=%r is not one of %s — falling back to "
-            "'annotate' (a typo must not disable the observation)", raw, _MODES,
+            "%s set but IGNORED since E35 (2026-09-25): every account elects "
+            "per account and there is no allowlist. Unset them so nothing "
+            "reads as a routing control that is not one.", present,
         )
-    return "annotate"
-
-
-def allowlisted_accounts() -> frozenset:
-    """Accounts an ``apply`` would be permitted to bind. EMPTY MEANS NONE."""
-    raw = (os.environ.get("ARBITRATION_FANOUT_ACCOUNTS") or "").strip()
-    if not raw:
-        return frozenset()
-    return frozenset(p.strip() for p in raw.split(",") if p.strip())
-
-
-def apply_scope_for(account_id: str, mode: str) -> str:
-    """Why an account's EFFECTIVE outcome differs from the requested ``mode``.
-
-    Three states, never collapsed, so a held-back row can never read as an
-    applied one — the distinction ``NETTING_ATTRIBUTION_MODE`` had to be
-    corrected to make.
-    """
-    if mode != "apply":
-        return "not_apply"
-    return "allowlisted" if account_id in allowlisted_accounts() else "not_allowlisted"
 
 
 def _log_path() -> pathlib.Path:
@@ -146,6 +157,62 @@ def _log_path() -> pathlib.Path:
         return pathlib.Path("runtime_logs") / _LOG_NAME
 
 
+#: v4 plan state -> soak grade. `no_candidates` accounts are not graded (the
+#: planner only lists accounts that hold a candidate).
+_GRADE = {
+    "elected": "routed",
+    "elected_flat": "no_winner",
+    "elected_undispatchable": "starved",
+    "unknown": "unknown",
+}
+
+
+def grade_plan(plan: Optional[Mapping[str, Any]], global_verdict: Mapping[str, Any]
+               ) -> Dict[str, Any]:
+    """Grade each account against the per-account election. PURE.
+
+    ``global_verdict`` is ``arbitration_fanout.assess`` over the same tick —
+    the OLD routing — used only to name ``global_would_drop``.
+    """
+    routed_in_round = {
+        str(a): str(r.get("strategy"))
+        for r in ((plan or {}).get("rounds") or [])
+        for a in (r.get("accounts") or ())
+    }
+    per_account: Dict[str, Dict[str, Any]] = {}
+    for a, cell in ((plan or {}).get("per_account") or {}).items():
+        state = _GRADE.get(str(cell.get("state")), "unknown")
+        if state == "routed" and a not in routed_in_round:
+            # Elected, yet in no round: the one thing the design forbids.
+            state = "starved"
+        per_account[str(a)] = {
+            "candidates": list(cell.get("candidates") or []),
+            "elected": cell.get("elected"),
+            "state": state,
+        }
+    g_per = global_verdict.get("per_account") or {}
+    global_would_drop = sorted(
+        a for a, c in per_account.items()
+        if c["state"] == "routed" and not (g_per.get(a) or {}).get("holds_winner")
+    )
+
+    def _in(state: str) -> list:
+        return sorted(a for a, c in per_account.items() if c["state"] == state)
+
+    return {
+        "per_account": per_account,
+        "starved_accounts": _in("starved"),
+        "starved_count": len(_in("starved")),
+        "no_winner_accounts": _in("no_winner"),
+        "no_winner_count": len(_in("no_winner")),
+        "unknown_accounts": _in("unknown"),
+        "routed_accounts": _in("routed"),
+        "accounts_graded": len(per_account),
+        "global_would_drop": global_would_drop,
+        "global_would_drop_count": len(global_would_drop),
+    }
+
+
 def record(
     candidate_strategies: Sequence[str],
     winning_strategy: Optional[str],
@@ -154,125 +221,58 @@ def record(
     accounts: Optional[Mapping[str, Mapping[str, Any]]] = None,
     plan: Optional[Mapping[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Assess and append one row. Returns the row, or ``None``.
+    """Grade and append one v4 row. Returns the row, or ``None``.
 
-    ``plan`` is the per-account election from
-    ``arbitration_fanout.plan_per_account_election``. **Pass it whenever the
-    caller computed one** — without it this row records only what the GLOBAL
-    election would have starved, which is what the fan-out was built to fix and
-    says nothing about whether the fix RAN.
-
-    ⚠️ THIS ROW IS THE ONLY DURABLE RECORD THAT THE FAN-OUT ACTED. Until
-    2026-08-31 it hardcoded ``mode: "annotate"`` and ``apply_implemented:
-    False``, which was true when written and became a LIE the moment the apply
-    path shipped: a review session reading the log would have concluded the
-    fan-out was never built. That is this repo's signature failure — a
-    mechanism ships and nothing reads it back
-    (``provenance-consumer-guard``'s whole reason for existing) — and it is
-    worse here than a missing field, because the field was present and
-    confidently wrong.
+    ``plan`` is the per-account election the tick ROUTED on
+    (``intent_multiplexer._attach_account_election``). ``None`` means no plan
+    was made — a flat headline (nothing to route) or the election was
+    unavailable; the row then records ``plan_state: absent`` (*we did not look*)
+    only when the roster itself was unreadable, and nothing on a flat tick.
 
     Best-effort throughout: this runs on the live tick, so **no failure here may
     reach the caller**. Silence costs an observation; a raise would cost a tick.
     """
-    mode = resolve_mode()
-    if mode == "off":
-        return None
+    _warn_retired_env_once()
     try:
-        from src.runtime.arbitration_fanout import assess
+        from src.runtime.arbitration_fanout import FANOUT_SCHEMA, assess
         if accounts is None:
             from src.config.accounts_loader import load_accounts_dict
             accounts = load_accounts_dict()
         verdict = assess(candidate_strategies, winning_strategy, accounts=accounts)
-        # A tick where every candidate-holding account got the winner anyway is
-        # the ordinary case and would bury the finding under noise. Everything
-        # else is worth a row — INCLUDING a no-winner tick, which is not the
-        # finding but IS its denominator (see the module docstring).
-        # A tick the fan-out ACTED on is always notable, whatever the global
-        # election would have done. Without this an applied round could be
-        # dropped by the quiet-tick gate, and the one durable record that the
-        # mechanism ran would be silently incomplete — exactly the shape of
-        # under-reporting this module already carries two warnings about.
-        # ⚠️ KEYED ON WHAT WAS *WRITTEN*, NOT ON WHAT WAS ACCEPTED. A plan the
-        # dispatcher REFUSES is the single most notable thing this soak can
-        # see; gating the row on acceptance would make the refusal defect
-        # write no row at all — silence exactly where the evidence is needed.
+        roster_read = (plan or {}).get("roster_state") == "read"
+        if plan is None and verdict["roster_state"] == "read":
+            return None  # flat headline: no account could elect
+        graded = grade_plan(plan if roster_read else None, verdict)
         notable = (
-            bool((plan or {}).get("apply_rounds"))
-            or verdict["starved_accounts"]
-            or verdict["no_winner_accounts"]
-            or verdict["winner_unattributed_accounts"]
+            not roster_read
+            or graded["global_would_drop"]
+            or graded["starved_accounts"]
+            or graded["no_winner_accounts"]
+            or graded["unknown_accounts"]
+            or len((plan or {}).get("rounds") or []) > 1
+            or (plan or {}).get("double_round_accounts")
         )
-        if not notable and verdict["roster_state"] == "read":
+        if not notable:
             return None
-        # WHAT THE FAN-OUT ACTUALLY DID, never inferred from the mode.
-        # `applied` is the EFFECT (rounds the dispatcher accepts); `global_mode`
-        # is the REQUEST; `apply_scope` and `apply_state` say why they differ. A
-        # held-back row can therefore never read as an applied one — the
-        # distinction NETTING_ATTRIBUTION_MODE had to be corrected into
-        # existence on 2026-08-09.
-        #
-        # ⚠️ AND THE EFFECT IS WHAT THE DISPATCHER WILL ACT ON, not what the
-        # writer produced — these
-        # are two different facts and conflating them is precisely what made
-        # this row assert `applied: true` on 93 consecutive ticks that
-        # dispatched nothing. `accepted_rounds` is the SAME validator
-        # `pipeline._fanout_apply_rounds` uses, so this row cannot claim an
-        # acceptance the dispatcher refuses.
-        from src.runtime.arbitration_fanout import accepted_rounds
-        written = list((plan or {}).get("apply_rounds") or [])
-        rounds = accepted_rounds(written)
-        applied = bool(rounds)
         row = {
             "logged_at_utc": datetime.now(timezone.utc).isoformat(),
             "symbol": symbol,
-            # The EFFECTIVE outcome beside what was REQUESTED, so the two can
-            # never be conflated by a reader.
-            "mode": "apply" if applied else "annotate",
-            "global_mode": mode,
-            # TRUE since 2026-08-31. It was hardcoded False for the whole life
-            # of the annotate-only build and would have kept asserting the
-            # capability does not exist.
-            "apply_implemented": True,
-            # ⚠️ `plan_state` is never collapsed. `absent` means the caller
-            # passed no plan — WE DID NOT LOOK — and is emphatically NOT
-            # "the fan-out elected nothing"; `planned` means it ran.
-            "plan_state": "planned" if plan else "absent",
-            "applied": applied,
-            # ⚠️ THREE ROUND LISTS, NEVER COLLAPSED, because each answers a
-            # different question and the v2 row answered only one of them while
-            # being read as all three:
-            #   * `rounds_planned`  — what the per-account election DECIDED.
-            #   * `rounds_written`  — what the writer put in `apply_rounds`
-            #                         after allowlist scoping. NEW in v3.
-            #   * `rounds_applied`  — what the DISPATCHER accepts, i.e. what
-            #                         actually gets routed.
-            # `written` non-empty with `applied` empty is the refusal defect
-            # itself, visible in one row instead of inferable from none.
-            "rounds_applied": rounds,
-            "rounds_written": written,
+            "fanout_schema": FANOUT_SCHEMA,
+            "election": "per_account",
+            # ⚠️ never collapsed: `absent`/`unreadable` = WE DID NOT LOOK.
+            "plan_state": "planned" if roster_read else "absent",
+            "plan_roster_state": (plan or {}).get("roster_state"),
             "rounds_planned": list((plan or {}).get("rounds") or []),
-            # Why applied and written differ. One of `APPLY_STATES`; `None` on
-            # a row whose caller passed no plan (*we did not look*), which is
-            # deliberately NOT `not_requested`.
-            "apply_state": (plan or {}).get("apply_state"),
-            # STATE THE DENOMINATOR: how many accounts the planner considered
-            # at all, beside how many came out with something to place.
+            "double_round_accounts": list(
+                (plan or {}).get("double_round_accounts") or []),
+            # STATE THE DENOMINATOR beside every count.
             "accounts_planned": (plan or {}).get("accounts_planned"),
             "accounts_elected": (plan or {}).get("accounts_elected"),
-            "plan_roster_state": (plan or {}).get("roster_state"),
-            "elected_by_account": {
-                a: r.get("elected")
-                for a, r in ((plan or {}).get("per_account") or {}).items()
-            },
-            # Keyed on the STARVED set only: those are the accounts whose
-            # routing a real fan-out would change. A no-winner account is not
-            # one of them, so listing it here would re-imply the very
-            # conflation this row's schema exists to undo.
-            "apply_scope": {
-                a: apply_scope_for(a, mode) for a in verdict["starved_accounts"]
-            },
-            **verdict,
+            # The OLD routing, for comparison only — it no longer decides.
+            "winning_strategy": winning_strategy,
+            "winner_accounts": verdict.get("winner_accounts"),
+            "unattributed_strategies": verdict.get("unattributed_strategies"),
+            **graded,
         }
         path = _log_path()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -284,4 +284,4 @@ def record(
         return None
 
 
-__all__ = ["resolve_mode", "allowlisted_accounts", "apply_scope_for", "record"]
+__all__ = ["RETIRED_ENV", "grade_plan", "record"]

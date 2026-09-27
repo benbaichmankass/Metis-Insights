@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A harness can sweep the ict_scalp target end to end -- either e35's scope widens with a grid appropriate to a REAL bracket (not the sentinel grid, which is why it was excluded), or the fleet exit sweep gains a target axis for scalp legs. Cleared when a tp_at_r cell for at least one ict_scalp leg carries an IS/OOS verdict WITH a yearly walk-forward at the exit-refinement gate (Path A or Path B). [!] NOT cleared by a sweep that runs: an empty or ungradeable matrix is the failure this row was found by. [!] AND AN HONEST NEGATIVE CLOSES IT -- if a wider target does not clear the gate, that is a completed deliverable per the coverage-matrix contract, not a failure to fix.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-SCALP-FAMILY-S-TARGET-HAS-NO-SWEEP-E35-EXCLUDES-IT-BY-DESIGN-AND-THE-FLEET-SWEEP-DOES-NOT-SWEEP-A-TARGET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-THE-SCALP-FAMILY-S-TARGET-HAS-NO-SWEEP-E35-EXCLUDES-IT-BY-DESIGN-AND-THE-FLEET-SWEEP-DOES-NOT-SWEEP-A-TARGET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-SCALP-FAMILY-S-TARGET-HAS-NO-SWEEP-E35-EXCLUDES-IT-BY-DESIGN-AND-THE-FLEET-SWEEP-DOES-NOT-SWEEP-A-TARGET'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] The counterfactual the winner-collapse evidence points at -- is ict_scalp's 1.5R target too near? -- has NO harness: e35 excludes the scalp family by design and the fleet exit sweep does not sweep a target at all"
+}

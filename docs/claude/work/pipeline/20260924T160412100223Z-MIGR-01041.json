@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-E2-POWER-FLOOR-CANNOT-SAY-WHETHER-THE-PANEL-IT-GATED-WAS-LIVE-OR-BACKTEST",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-E2-POWER-FLOOR-CANNOT-SAY-WHETHER-THE-PANEL-IT-GATED-WAS-LIVE-OR-BACKTEST",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-E2-POWER-FLOOR-CANNOT-SAY-WHETHER-THE-PANEL-IT-GATED-WAS-LIVE-OR-BACKTEST'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-218 CONDITIONAL SURFACE C1 — deliberately classified neither `edge` nor `mechanics`, because collapsing it either way would assert a fact nobody established. scripts/research/e2_feature_information.py::score_panel gates `verdict = 'unmeasured'` on `min_trades=30` / `min_rows=200`. These are statistical POWER floors and the comment defending them is correct ('An underpowered null is not a negative'). Whether they require CALENDAR TIME depends entirely on which panel is handed in: the intrabar exit panel stamps `source: backtest` and `_COHORT = 'backtest'` (OFFLINE — satisfied by deepening history, i.e. by computing harder), while a journal-sourced panel is LIVE (satisfied only by waiting). `score_panel` does not read the panel manifest's `source` stamp, so the report cannot tell a reader WHICH of the two the floor was enforcing — the same constant, opposite verdicts. This is the general form of the distinction that eliminated 11 of MI-218's 14 automated candidates. Evidence: docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md § C1."
+}

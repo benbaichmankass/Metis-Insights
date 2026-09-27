@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. PUBLISH COVERAGE PER EXIT PATH, not only per strategy. A path that has NEVER been measured must be distinguishable from one below a floor — the collapsed-state discipline applied to coverage. Until this exists the finding is re-derivable only by pulling the whole table by hand, which is how it stayed invisible.\n2. FOR EACH OF THE SIX ZERO PATHS, one of: (a) wire it to a fills reader so it records broker truth; or (b) record explicitly that it CANNOT (e.g. the pairs executor closes legs the fills store does not attribute) and stamp its closes with an honest ESTIMATED/UNMEASURED source rather than leaving the field to imply a measurement. Either is acceptable; silence is not.\n3. ANY published aggregate that mixes paths states its measured share. The existing `totalPnlMeasured`/`pnlCoverage` pair is the right shape — it just does not have a per-path cut.\n4. Re-measure and quote the population. The claim to beat: six paths at 0.0% over 267 closes, from 1,347 closed non-backtest rows on 2026-08-25.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-EXIT-PROVENANCE-IS-STRUCTURED-BY-EXIT-PATH-SIX-PATHS-AT-ZERO'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] PnL coverage is not a global 42.9% — it is STRUCTURED BY EXIT PATH, and six whole exit paths (267 closes: the entire pairs sleeve, the entire intent-reduce path, netting attribution, reconciler_incomplete) carry ZERO broker-truth exit prices"
+}

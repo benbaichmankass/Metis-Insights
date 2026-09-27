@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "MEASURED 2026-09-08 by MI-188b. Population: the last 1000 records of runtime_logs/exit_lever_soak.jsonl (TAIL CAP of a 1,376,985-byte file; spans 2026-08-30T00:53Z -> 2026-09-08T07:25Z; 193 packages, 19 strategies). ALL 1000 read mode='annotate': trail_decay 479, exit_head 183, stale_stop 179, giveback_stop 159. No other value is REACHABLE: record_exit_lever_annotation (src/runtime/exit_lever_soak.py:64) sets \"mode\": \"annotate\" unconditionally. THE FIELD IS NOT A MODE. The real gate is `declared_bars is not None` / `declared` (src/runtime/exit_levers.py ~L179 stale_stop, ~L272 giveback_stop; src/runtime/trail_decay.py ~L172 trail_decay): DECLARED in strategy YAML => the lever RETURNS A CLOSE/TIGHTEN AND WRITES NO SOAK ROW; UNDECLARED => it observes and writes one. So the file records only the counterfactual, and '100% annotate' is a fact about the writer, not the fleet. POSITIVE CONTROL that the inverted reading is false: stale_stop closed 14 real trades (2026-07-14 -> 2026-09-02, bybit_1 x11 ict_scalp_eth_15m + bybit_2 x3 trend_donchian_xrp_4h) and giveback_stop closed 5 (2026-08-13 -> 2026-09-02, uso_trend_1h on alpaca_portfolio/alpaca_paper) — inside the same window the soak reports as 100% annotate. This is UNPROVENANCED DIAGNOSTIC OUTPUT sub-class A (label does not describe what was computed) in a surface review sessions are told to read. RESOLVED WHEN: a reader of exit_lever_soak.jsonl can tell 'the lever was evaluated and DECLINED to act because undeclared' from 'the l …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-EXIT-LEVER-SOAK-MODE-IS-A-HARDCODED-LITERAL-AND-READS-AS-A-MODE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-EXIT-LEVER-SOAK-MODE-IS-A-HARDCODED-LITERAL-AND-READS-AS-A-MODE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-EXIT-LEVER-SOAK-MODE-IS-A-HARDCODED-LITERAL-AND-READS-AS-A-MODE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] exit_lever_soak writes mode='annotate' as a HARDCODED LITERAL on every row, so the file reads as 'every trailing lever is in annotate mode' when it is actually a log of the lever NOT firing — the inverted reading is one step away and I nearly filed it"
+}

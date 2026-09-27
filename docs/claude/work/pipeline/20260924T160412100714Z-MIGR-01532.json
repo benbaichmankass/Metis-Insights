@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "A promotion-readiness review (performance-review or equivalent) reads these 8 legs' current Stage-0 verdicts and either proposes a Stage-1 roster action or explicitly decides none is warranted.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-EDNBNMSG-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_014QFYLHEvRPsPqDeDNBnMSg (lane E55, dispatched by session_01Ljhs6sFAdWHdMDhJpL5aBP), regenerating the trend/pullback evidence corpus per PI-20260924-JN54P2HH-0005",
+    "rerun": "cd <repo on main, after lane/e55-harness-models-tp-r merges>\npython3 -c \"import json; [print(n, json.load(open(f'comms/strategy_evidence/{n}.json'))['decision_rule']['verdict']) for n in ['avax_pullback_2h','htf_pullback_trend_2h','scha_trend_long_1d','tqqq_trend_long_1d','trend_donchian','trend_donchian_ada_4h','trend_donchian_avax_4h','trend_donchian_sol_4h']]\""
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": "1",
+  "what": "[research] Regenerating the trend/pullback evidence corpus to genuinely model tp_r (E55, closes PI-20260924-JN54P2HH-0005/PI-20260922-E41-0006) flipped 8 of 41 Stage-0 verdicts (decision_rule.verdict, net_r_oos > 0). MEASURED 2026-09-24: population = all 41 enabled trend/pullback legs in config/strategies.yaml, regenerated through scripts/ops/build_strategy_evidence.py against comms/strategy_evidence/runs/2026-09-24-e55/, never hand-edited.\n  avax_pullback_2h (execution=shadow): pass -> fail, net_r_oos 12.6729 -> -2.7832, n 45 -> 58\n  htf_pullback_trend_2h (execution=shadow): pass -> fail, net_r_oos 2.7979 -> -5.6055, n 80 -> 86\n  scha_trend_long_1d (execution=live): pass -> fail, net_r_oos 0.7882 -> -0.0717, n 5 -> 7\n  tqqq_trend_long_1d (execution=live): pass -> fail, net_r_oos 3.1661 -> -0.1104, n 5 -> 12\n  trend_donchian (execution=live): fail -> pass, net_r_oos -0.4245 -> 2.9552, n 73 -> 73\n  trend_donchian_ada_4h (execution=live): pass -> fail, net_r_oos 8.5287 -> -8.807, n 38 -> 46\n  trend_donchian_avax_4h (execution=live): pass -> fail, net_r_oos 9.692 -> -9.4613, n 48 -> 50\n  trend_donchian_sol_4h (execution=live): pass -> fail, net_r_oos 4.1648 -> -3.0368, n 34 -> 35\nVERIFIED against config/accounts.yaml (all four real-money rosters read explicitly): none of these 8 are on bybit_2, bybit_portfolio, alpaca_live or alpaca_portfolio today. 6 are execution=shadow or routed only to bybit_1 (Stage-1 soak); scha_trend_long_1d and tqqq_trend_long_1d route only to alpaca_paper (Stage-1 soak). So this is NOT a real-money promotion-gate flip today -- but B1 reads this corpus for promotion READINESS, and a leg's Stage-0 verdict changing (especially trend_donchian fail->pass, and the 5 live-execution legs pass->fail: scha_trend_long_1d, tqqq_trend_long_1d, trend_donchian_ada_4h, trend_donchian_avax_4h, trend_donchian_sol_4h) is a changed input to any future promotion decision for these Stage-1 legs. Filed so a later review (performance-review or a promotion-readiness pass) reads the corrected verdicts rather than re-deriving this diff. NOT a Tier-3 action item on its own -- no roster change is proposed here, and none of these legs moved on live money."
+}

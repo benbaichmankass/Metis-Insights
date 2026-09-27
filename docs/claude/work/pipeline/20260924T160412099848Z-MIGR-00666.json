@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either a committed per-leg mfe_r distribution (percentiles + n, not raw rows — the corpus should not carry per-trade volume), or a documented one-command sweep re-run with --emit-trades that m31_mfe_parity.py consumes directly.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260817-NO-COMMITTED-PER-TRADE-HARNESS-MFE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] The committed sweep corpus carries no per-trade mfe_r, so P4's harness side needs a sweep re-run"
+}

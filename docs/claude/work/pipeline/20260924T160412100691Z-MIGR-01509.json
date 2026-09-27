@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies; corpus registration is C2's row. EVIDENCE: MEASURED 2026-09-24: grep strategy_evidence scripts/research/research_disposition.py -> none.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "research_disposition.CORPORA carries a strategy_evidence entry keyed on (strategy, generated_at) whose per-leg statistic is n_trades_oos, and a research unit can declare source: corpus / corpus: strategy_evidence.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-STRATEGY-EVIDENCE-IS-NOT-A-REGISTERED-CORPUS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist C5/R4 research lane, session_01AHNgatHswZsemNiP8aSXCk, branch claude/c5-r4-ten-research-questions",
+    "rerun": "grep -n 'CORPORA' -A 15 scripts/research/research_disposition.py"
+  },
+  "routed_to": "C2 (corpus): register comms/strategy_evidence in research_disposition.CORPORA keyed on n_trades_oos",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "scripts/research/research_disposition.py::CORPORA holds exactly e35, m20 and gld_compat (read 2026-09-22). comms/strategy_evidence -- the store the four-clause promotion bar actually reads -- is not among them, so a research unit whose n comes from n_trades_oos cannot ground its power.feasibility on the corpus and must declare source: none. Four of the ten units written this session do exactly that (RQ-20260922-003/004/007/009). The alternative, grounding on e35, would launder a bracket-sweep OOS boundary count as a harness_timefolds count -- the substitution the feasibility check exists to catch."
+}

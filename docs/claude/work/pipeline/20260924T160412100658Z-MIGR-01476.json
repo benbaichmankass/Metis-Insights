@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies; a live instruction, claim or module pointing at something the reset archived is E9's class. EVIDENCE: MEASURED 2026-09-24: importers today are scripts/ops/constraint_readout.py:125 and scripts/ops/render_due_list.py:426 — both retired tools, so the module still has no live consumer.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "src/runtime/operator_owed.py has a consumer outside tests/, or it is deleted",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E45-SRC-RUNTIME-OPERATOR-OWED-IS-IMPORTED-BY-NOTHING-OUTSIDE-ITS-OWN-TEST",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E45",
+    "rerun": "grep -rn operator_owed src/ scripts/ --include=*.py | grep -v 'src/runtime/operator_owed.py'"
+  },
+  "routed_to": "E9",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "src/runtime/operator_owed.py (grade_item, validate_item, the seven states, the owner classes) is now imported by NOTHING outside tests/test_operator_owed.py. MEASURED 2026-09-22 by grepping src/ for 'operator_owed' excluding the module itself: 0 hits; its only other importer was scripts/ci/check_operator_owed.py, which E45 re-pointed off that schema. It is a declared capability with no consumer, which this repo has a guard family about. Decide: retire it with the archived register, or wire its grading onto the pipeline schema."
+}

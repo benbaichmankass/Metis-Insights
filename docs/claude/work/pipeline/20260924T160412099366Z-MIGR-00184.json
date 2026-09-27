@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Closed when either (i) the pullback family has per-leg stale/giveback values shipped on operator-approved evidence that reads capital efficiency, or (ii) the memo records, on a capital-efficiency-aware sweep, that holding through chop is genuinely the better policy for these legs. 'It failed the net_R gate' is NOT sufficient to close this row - that is the criterion under question.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-NO-STALL-EXIT-CAPITAL-SITS-IN-DEAD-TRADES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 24 of 25 live positions have NO time/stall exit lever: nothing in the system can decide a trade has peaked or stopped being worth holding"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) The guard emits three verdicts, not two. (2) Its headline count excludes skill_invoked. (3) The 9 no-reference-anywhere tools are each removed, wired, or annotated `# wiring: manual-only - <reason>`. (4) Re-run and state the new counts beside the old ones.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260824-UNWIRED-GUARD-COUNTS-A-SKILL-AS-NOT-A-RUNNER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-UNWIRED-GUARD-COUNTS-A-SKILL-AS-NOT-A-RUNNER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-UNWIRED-GUARD-COUNTS-A-SKILL-AS-NOT-A-RUNNER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_unwired_artifacts counts a SKILL.md reference as 'documented, but nothing runs it' — so 10 of its 128 findings are tools a binding skill invokes, two of which this very review ran"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "`bot_log` either returns real content or is removed from the allowlist and the docs.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260809-DIAG-BOTLOG-TARGET-ABSENT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260809-DIAG-BOTLOG-TARGET-ABSENT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260809-DIAG-BOTLOG-TARGET-ABSENT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/diag/log_file advertises a `bot_log` target that does not exist on disk"
+}

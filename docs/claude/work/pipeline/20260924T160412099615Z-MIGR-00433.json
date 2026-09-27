@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "The `diag_log_name` signal reports the LOG'S OWN STATE, not the allowlist's — i.e. it grades `present` from /api/diag/log_file?name=<n> (three states, never collapsed: `present_with_rows` / `present_empty` / `absent`, plus `could_not_look` when the diag read fails, since an unreachable VM is not evidence a file is missing), and only `present_with_rows` counts toward `likely_met`. VERIFIED by re-running backlog_drain_candidates.py and observing BL-20260830-BUILDER-EXCEPTION-LATCH-HAS-NEVER-BEEN-WRITTEN drop OUT of `likely_met` while at least one row whose log genuinely carries rows stays IN — both halves, because a signal that now matches nothing is not a fix. ⚠️ If a live diag read is judged too expensive for this tool to make, the acceptable alternative is to RENAME the signal to say what it actually checks (e.g. `diag_name_allowlisted`) and stop counting it toward `likely_met` on its own — but silently keeping a presence check under a name that reads as an observation is not.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-DRAIN-CANDIDATES-DIAG-SIGNAL-CHECKS-THE-ALLOWLIST-NOT-THE-FILE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-DRAIN-CANDIDATES-DIAG-SIGNAL-CHECKS-THE-ALLOWLIST-NOT-THE-FILE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-DRAIN-CANDIDATES-DIAG-SIGNAL-CHECKS-THE-ALLOWLIST-NOT-THE-FILE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] backlog_drain_candidates' diag_log_name signal is satisfied by the diag ALLOWLIST, not by the log existing — so it shortlists a row whose whole finding is that the file has never been written"
+}

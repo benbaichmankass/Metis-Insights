@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER the two on-demand tools write to docs/claude/pending-pings.jsonl like their siblings (and say, as work_phase_ping.py already does, that an uncommitted row is a ping that never happened), OR they detect that runtime_logs/ is gitignored-and-undrained in this environment and REFUSE with a message naming the tool that does work, rather than reporting 'queued'. [!] Reporting 'queued -- the bot drains within ~5s' when no bot exists is the specific behaviour to remove; a tool may not claim a delivery path it cannot see. [!] NOT SUFFICIENT: documenting which tool to use. Two tools that look right and silently do nothing is the defect, and a doc does not stop the next session reaching for the obvious one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260904-BOTH-ON-DEMAND-PING-TOOLS-WRITE-TO-A-GITIGNORED-DIR-SO-A-SANDBOX-PING-IS-LOST",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260904-BOTH-ON-DEMAND-PING-TOOLS-WRITE-TO-A-GITIGNORED-DIR-SO-A-SANDBOX-PING-IS-LOST",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260904-BOTH-ON-DEMAND-PING-TOOLS-WRITE-TO-A-GITIGNORED-DIR-SO-A-SANDBOX-PING-IS-LOST'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] send_ping.py and work_digest_now.py queue to a gitignored runtime dir, so a ping queued from a sandbox session never reaches the operator and never satisfies the F6 check"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The operator rules on the proposed per-venue slippage values below (accept -> a Tier-2+ PR changes slippage_bps_roundtrip_for to per-venue values and the corpus is re-priced; or decline with a stated reason). Re-run the rerun command first: if bybit_2's round-trip CI upper has moved above 5.0 bps the proposal is void.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-A87KVAFC-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "session_01J4W8rC8qYJBAFLa87KVAFC, checklist row D3, branch lane/d3-realized-slippage",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/d3 && python3 scripts/research/realized_slippage.py analyze --in-dir /tmp/d3 --out /tmp/d3/out.json"
+  },
+  "state": "queued",
+  "what": "[cost-model] D3 measured realized round-trip slippage on the ONE real-money venue with enough fills: Bybit perps (bybit_2), entry mean -0.25 bps (n=87, 2026-06-29..09-24) + package-referenced sl/tp exit mean +1.12 bps (n=42, 2026-06-01..09-24) = +0.87 bps round-trip, bootstrap 95% CI [-0.91, +2.95]. Source: comms/research/d3_realized_slippage/2026-09-24.json. The flat default src/runtime/execution_costs.py::DEFAULT_SLIPPAGE_BPS_ROUNDTRIP = 5.0 is ABOVE the CI upper, i.e. conservative for perps (INFERRED from the CI; symbols measured are BTC/ETH/XRP/ADA only). PROPOSED per-venue values for slippage_bps_roundtrip_for (NOT applied -- this lane was forbidden to change defaults, and the function feeds the live EV scorer, so the change is at least Tier-2): bybit perps (linear/inverse) = 3.0 bps (the measured CI upper 2.95, rounded up -- deliberately not the 0.87 point, which would credit noise); alpaca equities = 5.0 (UNCHANGED: unmeasurable, alpaca_live n=3 entries, 0 measured sl/tp exits); IBKR futures = 5.0 (UNCHANGED: ib_live is dry_run, 0 fills; ib_paper is a simulator and reads +8 bps entry on n=22 maker fills). What the change would move: at 3.0 bps no record WITH per-trade rows flips (the three 5m scalp legs that pass at the 0.87 point have break-evens 0.87/1.83/2.79 bps, all inside the CI). trend_donchian (BTC, no durable per-trade rows, so its fee-only difference mixes slippage and funding) is UNDETERMINED at 3.0: its net_r_oos interval is about [-0.42, +2.23], so its current fail could become pass. Everything else keeps its verdict; the proposal mainly changes net R."
+}

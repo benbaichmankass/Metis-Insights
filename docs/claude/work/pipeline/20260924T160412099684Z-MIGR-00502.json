@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "`src/runtime/target_expectation.resolve_expectation` returns an `intent` value BESIDE `state` (never as a new `state`, which would silently re-grade existing consumers), AND at least one real consumer branches on it — shown by running `scripts/ops/target_expectation_coverage.py` against the live config and seeing the 22 deliberate / 2 blocked-or-unexamined legs reported separately rather than pooled into one `sentinel_no_expectation` count. A test asserting the branch must land with it, or this reproduces the write-only defect one level down.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-TARGET-EXPECTATION-COLLAPSES-THE-THREE-TP-INTENT-STATES-THE-CENSUS-KEEPS-APART",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-TARGET-EXPECTATION-COLLAPSES-THE-THREE-TP-INTENT-STATES-THE-CENSUS-KEEPS-APART",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-TARGET-EXPECTATION-COLLAPSES-THE-THREE-TP-INTENT-STATES-THE-CENSUS-KEEPS-APART'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] src/runtime/target_expectation.py still grades every sentinel leg `sentinel_no_expectation`, so at the PER-TRADE surface a deliberate no-target, a blocked one and a never-examined one are byte-identical — the exact collapse `tp_intent` was accepted to prevent, one level below where it was fixed"
+}

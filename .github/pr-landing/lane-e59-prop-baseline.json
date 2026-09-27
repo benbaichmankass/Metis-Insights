@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane E59 research record: docs/research/prop-state-2026-09-24.{md,json}, one DOCUMENT-INDEX row, and five appended PIPELINE.jsonl items. Docs and records only: no src/, no config/, no deploy/, no order path, no env change. The sizing rule it proposes is Tier-3 and is filed with next_action ask_operator, not applied."
+}

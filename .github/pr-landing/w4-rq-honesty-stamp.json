@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260922-003.yaml, research/queue/RQ-20260922-004.yaml and research/queue/RQ-20260922-007.yaml are outside TIER1_SURFACE (no research/queue/** entry), so R5 refuses self-land even though the change is Tier-1 by content -- flipping 3 units blocked->queued and declaring run.inputs.research_unit, now that #12739 already wired the honesty-stamp inputs onto both target workflows. No decision_rule/question changed, no src/, no config/, no order path. The rest of the diff (tests/test_research_queue.py, docs/claude/work/PIPELINE.jsonl) is inside the surface.",
+  "why": "research/queue/*.yaml (flip 3 blocked units to queued + declare run.inputs.research_unit), tests/test_research_queue.py (new W4 tests incl. a negative control), and docs/claude/work/PIPELINE.jsonl (one filed finding). No src/, no config/, no order path, no deploy/, no live-VM runtime file -- Tier-1 by content, held only because research/queue/** is not in this guard's TIER1_SURFACE allowlist yet."
+}

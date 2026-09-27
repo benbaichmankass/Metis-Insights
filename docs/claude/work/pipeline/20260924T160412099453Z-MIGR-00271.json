@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. The deferral survives a restart -- persisted to `runtime_logs/` keyed on (account, symbol, direction) with its set-time, in the shape the three *_alert_state.json latches already use, and reloaded on first read rather than assumed empty.\n2. The persisted read is three-state and says which: `deferral_active` / `no_deferral` (we looked, nothing is deferred) / `could_not_read` (we did not look). A read failure MUST NOT resolve to 'no deferral' -- that is the current behaviour dressed up, and it is the collapsed-state failure the guard exists to catch. Register with collapsed-state-guard.\n3. A test that asserts a simulated restart INSIDE the cooldown window does not re-attempt the close: set the marker, drop the module state, reload, assert the monitor defers. The existing tests cannot catch this because they never cross a process boundary.\n4. CLAUDE.md's `IB_CLOSE_RETRY_COOLDOWN_S` row loses the unqualified 'fail-safe' claim and states both directions explicitly.\n5. MEASURED, not merely shipped: across at least one real deploy while a deferral is active on ib_paper, `/api/diag/ib_open_orders` shows no new MKT close order for that (account, symbol, direction). Verifying this requires the gateway reachable -- a `read_state: could_not_look` run is NOT evidence of absence.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-IB-CLOSE-RETRY-COOLDOWN-PROCESS-SCOPED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] IB_CLOSE_RETRY_COOLDOWN_S's deferral lives in a module global, so EVERY trader restart re-opens the close-retry churn window the cooldown exists to close -- and this repo restarts the trader on every merge to main"
+}

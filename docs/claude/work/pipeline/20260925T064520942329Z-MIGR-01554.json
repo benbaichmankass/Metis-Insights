@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "a session reports a stage-decomposed total registry count that reconciles (or explains the discrepancy in) both the 96 stage-guard figure and the 132 notification figure.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-JQHBBTOS-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane E72 /ml-review, session_01PrCFC3J9gYv64gJqHBBtos, comms/reviews/ml-review-20260924-210245.json",
+    "rerun": "trainer-vm-diag: `python -m ml list-models > /tmp/lm.json; python3 -c \"import json,collections; d=json.load(open('/tmp/lm.json')); print(collections.Counter(m.get('canonical_stage') or m.get('stage') for m in (d if isinstance(d,list) else d.get('models',[]))))\"` -- write the counter to a file/artifact rather than stdout to avoid the same truncation."
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "Unreconciled population count. MEASURED this session (trainer-vm-diag #12902, run 36058254309): `python -m ml stage-guard --db data/trade_journal.db` evaluated N_PROPOSALS=96 total registry entries. The manager's task notification (measured separately at 20:45Z from api/bot/shadow/stats) stated 4 advisory + 29 shadow + 96 candidate + 3 shadow baselines = 132 total. 96 (stage-guard's whole-registry count) does not arithmetically equal 132, and it is not established whether stage-guard's 96 is itself a subset (e.g. excludes some legacy-stage or archived rows) or whether the notification's 96-candidate figure was drawn from a different population than stage-guard's proposals list. A full, untruncated `python -m ml list-models` dump would resolve this but exceeded the trainer-vm-diag relay's ~55KB GitHub-comment size limit every time it was attempted this session (raw dump measured at 8,195,344 bytes in one attempt) -- so this session could not itself decompose the 96 (or the true total) by canonical_stage to check the arithmetic."
+}

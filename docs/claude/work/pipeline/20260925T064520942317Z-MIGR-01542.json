@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A performance-review re-checks the 6 named legs against the fuller n>=30/majority-folds bar and either they clear it, the operator explicitly decides the standing roster need not re-clear it, or one is cut/demoted for an unrelated, independently-sufficient reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-2S8DXGTZ-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "MANAGER-CHECKLIST.json#E67 (/performance-review, session_01HUMdsBGKWKBmNC2S8DxGtz)",
+    "rerun": "python3 scripts/ci/check_roster_promotion_evidence.py --population --json | python3 -c \"import json,sys; d=json.load(sys.stdin); print('failing:', d['failing'], 'passing:', d['passing']); [print(s['leg'], s['passes_bar']) for s in d['slots']]\""
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": "1",
+  "what": "[performance] ZERO real-money legs fail B1's four-clause bar today -- MEASURED by running the canonical guard, `python3 scripts/ci/check_roster_promotion_evidence.py --population --json`, 2026-09-24: 9/9 roster slots across bybit_2 (4), alpaca_live (3), breakout_1 (2) pass all four clauses (C1 harness, C2 stated n, C3 full cost stack, C4 decision_rule verdict pass registered before the run). So there is NO MD-DERISK-ONLY-ROSTER-CUT candidate today under the bar that mandate actually keys on -- this is the primary answer to the B1-failure question and it is a clean negative, checked with the tool rather than re-derived by hand. SEPARATE, NARROWER OBSERVATION, not a B1 failure: applying the FULLER three-clause bar used for FRESH S1->S2 promotions (operator, 2026-09-21: n>=30 net of full cost, majority of walk-forward folds positive, cost tolerance) to the 9 ALREADY-LIVE legs, 6 of 9 would not clear it if evaluated fresh today: trend_donchian_eth_4h (n=44 OK, folds_positive 2/4 -- NOT majority), trend_donchian_xrp_4h (n=16 <30), ief_pullback_1d (n=3 <30), slv_pullback_1d (n=11 <30 AND folds_positive 2/4), iaum_pullback_1d (n=7 <30), trend_donchian_sol_prop (n=65 OK, folds_positive 2/4 -- NOT majority). The other 3 (xrp_pullback_2h n=57 3/4; ada_pullback_2h n=56 4/4; trend_donchian_eth_prop n=170 3/4) clear both bars. This is a GRANDFATHERING gap, not a live-money integrity problem: these 6 were promoted under earlier or looser criteria (several pre-date the 2026-09-21 bar; ief/slv/iaum are recent A6-survivor legs still thin on Stage-1-style n even though they trade real money) and B1 (the actual roster-membership gate) does not require re-clearing the fuller bar to STAY on a roster, only to newly JOIN one. NOT PROPOSING any cut -- 'underperformance -> diagnose, don't demote' applies, several of these (trend_donchian_eth_4h, trend_donchian_sol_prop) are net_r_oos positive overall and only miss on fold-majority, and n<30 is a POWER problem, not a demonstrated negative edge. Filed so a later review does not have to re-derive which legs are 'clears bar' vs 'grandfathered', and so the gap is visible if the operator wants to decide whether the standing roster should be held to the same bar as new admissions."
+}

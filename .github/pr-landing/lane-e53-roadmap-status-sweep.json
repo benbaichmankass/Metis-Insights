@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs only: ROADMAP.md status cells + header date, one research JSON table, one PIPELINE.jsonl row; no runtime, order path or config touched (checklist row E53)"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "trend_donchian_eth_prop.json and trend_donchian_sol_prop.json are regenerated on the bracket-only argv (or graded approximate naming trail_mult/stale_exit_bars), and a test pins that prop-only legs do not get trail levers.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-GIGNEYV1-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-exit-evidence-2026-09-24.md#5-recommendation-tier-3-filed-ask_operator-not-applied",
+    "rerun": "python3 -c \"import json;[print(n,json.load(open(f'comms/strategy_evidence/{n}.json'))['fidelity']) for n in ['trend_donchian_eth_prop','trend_donchian_sol_prop']]\"; grep -n 'bracket is the exit' src/prop/breakout_ticket.py"
+  },
+  "state": "queued",
+  "what": "breakout_1's two evidence records (comms/strategy_evidence/trend_donchian_{eth,sol}_prop.json, E55) grade fidelity 'faithful' while modelling trail_mult 3.5 + (ETH) stale_exit 12 + trail decay, none of which EXECUTES on prop: src/prop/breakout_ticket.py:18 'the broker-side bracket is the exit', no code trails a prop stop. MEASURED (E65, harness trades over the window 2025-09-24 to 2026-09-23, 1h, full cost stack): as-executed bracket vs record differs +19.20R on ETH (28.03R over 100 trades vs 8.83R over 170 trades) and -3.50R on SOL (1.09R over 51 trades vs 4.59R over 65 trades). Fix: build_strategy_evidence/regime_debt_matrix should grade legs routed only to manual-bridge prop accounts on the bracket they run (drop trail/stale flags, trail-mult inert) or mark them 'approximate' with the unexecuted levers named. Also: PI-20260924-MQ3CDMU6-0004's /tmp-source premise is superseded for these two legs (E55 committed runs/2026-09-24-e55/*_prop__trades.jsonl)."
+}

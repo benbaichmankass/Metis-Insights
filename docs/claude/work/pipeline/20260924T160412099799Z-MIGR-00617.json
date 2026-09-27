@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A register-touching PR is OBSERVED sitting open across an hour boundary WITHOUT session-brief-guard reding on it. !! RE-RENDERING A PR AND SEEING IT GO GREEN CLOSES NOTHING -- that is the current behaviour and buys one hour; the claim is about what happens at the NEXT tick. !! AND IF THE DECISION IS TO KEEP THE HOUR COUNTER AS IS, that is a legitimate outcome and closes this row -- but it must be RECORDED as a decision, with the re-render treadmill accepted knowingly, rather than left looking like a defect nobody got to.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-RENDERED-SESSION-BRIEF-CARRIES-A-WALL-CLOCK-HOUR-COUNTER-SO-SESSION-BRIEF-GUARD-REDS-EVERY-REGISTER-TOUCHING-PR-ON-THE-CLOCK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-RENDERED-SESSION-BRIEF-CARRIES-A-WALL-CLOCK-HOUR-COUNTER-SO-SESSION-BRIEF-GUARD-REDS-EVERY-REGISTER-TOUCHING-PR-ON-THE-CLOCK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-RENDERED-SESSION-BRIEF-CARRIES-A-WALL-CLOCK-HOUR-COUNTER-SO-SESSION-BRIEF-GUARD-REDS-EVERY-REGISTER-TOUCHING-PR-ON-THE-CLOCK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The generated CLAUDE.md SESSION-BRIEF embeds a wall-clock hour counter, so session-brief-guard re-reds any open register-touching PR as the clock ticks"
+}

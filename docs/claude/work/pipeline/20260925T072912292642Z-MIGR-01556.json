@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "ALL of: (a) DEPLOYED -- /api/diag/version sha contains the E35 merge; (b) arbitration_fanout_soak rows with fanout_schema 4 exist; (c) ROUTED -- at least one v4 row with a non-empty global_would_drop whose account has an order_packages row for that round's strategy within 60s of the row; (d) ZERO v4 starved_count and ZERO double_round_accounts over a window STATED IN HOURS -- at the measured ~0.48 multi-account rows/hour a window under ~24h cannot contain the case and does not clear this; (e) get-env shows ARBITRATION_FANOUT_MODE and ARBITRATION_FANOUT_ACCOUNTS unset. A merge alone clears nothing.",
+    "kind": "observation"
+  },
+  "id": "PI-20260925-HVCIFOQV-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01R8SC6tYcJ7WeCuHVCiFoQv (E35 build lane), branch lane/e35-per-account-election",
+    "rerun": "bash scripts/ops/diag_fetch.sh '/api/diag/log_file?name=arbitration_fanout_soak&lines=1000' > soak.json && python3 -c \"import json;r=[json.loads(l) for l in json.load(open('soak.json'))['lines']];v=[x for x in r if x.get('fanout_schema')==4];print(len(v),'v4', sum(x['starved_count'] for x in v),'starved', sum(bool(x.get('double_round_accounts')) for x in v),'double', sum(x['global_would_drop_count'] for x in v),'global_would_drop')\"  # then join global_would_drop rows to /api/diag/journal?table=order_packages on (strategy, created_at within 60s)"
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": 3,
+  "what": "[E35] PER-ACCOUNT ELECTION IS BUILT, NOT YET MERGED/DEPLOYED/OBSERVED -- three facts. PR lane/e35-per-account-election (Tier 3, landing hold) makes arbitration_fanout.plan_per_account_election the routing and retires ARBITRATION_FANOUT_MODE / ARBITRATION_FANOUT_ACCOUNTS. The unit tests (tests/test_e35_per_account_election.py, incl. a 300-seed no-double-place property with a positive control that fails 90/300 when the scope is dropped) and the replay (scripts/research/e35_per_account_election_replay.py over the last 1000 live soak rows) establish the DECISION; neither establishes an ORDER. The only evidence the fix routes is a journal package on an account the pre-E35 global election would have dropped. Also owed after deploy: unset the two retired env vars on ict-trader-live (Tier-2 set-env; the code ignores them and warns once, but a leftover variable reading like a routing control is the doc-describes-a-mechanism-that-does-not-exist failure)."
+}

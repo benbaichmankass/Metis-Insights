@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "CLOSE when (a) the live arm for the three shipped donchian heads has been re-evaluated at accrued n and the result recorded, AND (b) the E1->E2 gate either declares a minimum-n for its live arm or records an explicit decision not to. If (a) shows the sign no longer agrees, this escalates to Tier-3 (three live heads trimming winners on real money) and must NOT be closed on the re-measurement alone.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-E1E2-LIVE-ARM-NO-MINIMUM-N'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] E1->E2 gate's live arm has no minimum-n: counted as confirmation at n=15, discounted at n=24"
+}

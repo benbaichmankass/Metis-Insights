@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "THREE PARTS, and they are different facts -- say WHICH you cleared rather than clearing the row on the easiest. (1) CARRIED: set-env runs for JWT_SIGNING_KEY and WEBAPP_PASSWORD_SHA256 are OBSERVED completing with env_file: web-api, i.e. the mapping actually moved a value. (2) MINTS: POST /api/auth/login is OBSERVED returning 200 with an access_token for a WELL-FORMED body. !! THE BODY MUST BE WELL-FORMED AND THIS IS THE TRAP THE RUNBOOK EXISTS FOR: #11780 recorded that an EMPTY body returns 422 from Pydantic BEFORE the handler runs, so a 422 grades a broken host as healthy and clears NOTHING. !! A 401 invalid_credentials on a deliberately WRONG password is genuine progress and is NOT this clause -- it proves ALLOWED_EMAIL and WEBAPP_PASSWORD_SHA256 are live while proving nothing about JWT_SIGNING_KEY, because the handler never reaches issue_token on a bad password. Record which of the two you got. (3) RENDERS: a human loads the Data Explorer in the deployed SPA and sees rows. !! (2) DOES NOT IMPLY (3) -- the SPA cannot send a bearer at all today, so the honest state after (1) and (2) is 'the host is restored; the SPA still cannot reach it', which is a real state and NOT a failure. !! MERGING #11783 CLEARS NOTHING -- a merge is not a value and a value is not a mint. !! A GREEN GUARD RUN CLEARS NOTHING: PASS 57 FAIL 0 was measured on this PR and a harness cannot reach an Actions secret or a VM. !! A FAILED set-env READING 'resolved value is EMPTY' IS NOT A DEFECT IN THIS WORK ",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260911-WEBAPP-AUTH-SECRET-MAP-LANDED-AND-HAS-CARRIED-NO-VALUE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260911-WEBAPP-AUTH-SECRET-MAP-LANDED-AND-HAS-CARRIED-NO-VALUE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260911-WEBAPP-AUTH-SECRET-MAP-LANDED-AND-HAS-CARRIED-NO-VALUE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] The SECRET_* propagation path for the two web-api auth secrets is LANDED and has carried NOTHING -- and the gated tab still cannot be reached even once it does"
+}

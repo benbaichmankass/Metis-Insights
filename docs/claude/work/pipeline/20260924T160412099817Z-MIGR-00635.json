@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "RESOLVED when m20_u41_break_attribution_verdict's own output states, for the stop term it used, the row selection, the four cell sizes and the trade-id range of the pull -- read off the instrument's report(), never off a memo. REPORT-ONLY: a guard cannot decide whether a CLI scalar's provenance is adequately described in prose, so this must not be closed by adding a presence-only check, which would be cheaper to satisfy than to mean. NOT sufficient: the PR merging; a green self-test (44 controls already pass and not one reads the scalar's origin); or restating 11.6 with a caveat in the memo while the instrument still accepts a bare float. If the operator decides a hand-supplied scalar is acceptable BECAUSE verdict() reads only its sign, that CLOSES this row -- as a recorded decision, not left looking like a fix pending.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-BREAK-VERDICT-CONSUMES-A-HAND-TYPED-STOP-DID-SCALAR-WHOSE-POPULATION-AND-PROVENANCE-ITS-OWN-ARTIFACT-NEVER-STATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-BREAK-VERDICT-CONSUMES-A-HAND-TYPED-STOP-DID-SCALAR-WHOSE-POPULATION-AND-PROVENANCE-ITS-OWN-ARTIFACT-NEVER-STATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-BREAK-VERDICT-CONSUMES-A-HAND-TYPED-STOP-DID-SCALAR-WHOSE-POPULATION-AND-PROVENANCE-ITS-OWN-ARTIFACT-NEVER-STATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The 2026-08-30 break verdict consumes a hand-typed stop-DiD scalar whose population and provenance its own artifact never state"
+}

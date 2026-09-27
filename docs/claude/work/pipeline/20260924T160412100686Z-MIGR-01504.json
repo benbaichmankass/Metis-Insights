@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies (12 measured records without path_stats) and the row's own alternative is an R8/B6 decision. EVIDENCE: MEASURED 2026-09-24: 12 measured records lack path_stats: trend_donchian, slv_pullback_1d, ief_pullback_1d, trend_donchian_eth_prop, eth_pullback_prop_2h, trend_donchian_sol_prop, trend_donchian_xrp_4h, fvg_range_15m, iaum_pullback_1d, trend_donchian_eth_4h, xrp_pullback_2h, eth_pullback_2h — every real-money and prop leg is in this list.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "EITHER every `measured` record carries a path_stats block (which requires re-running the 12 legs whose source_run is a dead /tmp path, and R8/B6 accepting that their net_r_oos will move on the window shift), OR R8/B6 records a DECIDED that the prop half is settled without a path statistic for breakout_1's two legs and says on what basis.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-R5-PATH-STATS-MISSING-FOR-THE-12-LEGS-WHOSE-SERIES-IS-IN-A-DEAD-TMP-DIR",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01W2KHBwLh4ouP1b8De2bmfV, checklist row R7, branch claude/r5-remaining-corpus-cost-stack",
+    "rerun": "python3 -c \"import json,glob,os; print([json.load(open(p))['strategy'] for p in glob.glob('comms/strategy_evidence/*.json') if json.load(open(p)).get('coverage_state')=='measured' and not json.load(open(p)).get('path_stats')])\"   # every measured leg still carrying no path_stats; empty list == closed"
+  },
+  "routed_to": "B6 (prop bar): re-run the 12 legs so path_stats exists, or record that the prop half is settled without one",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "MEASURED 2026-09-22 by the R5/R7 lane, after B6 asked for the per-trade OOS R series. GOOD NEWS FIRST: the series did not need a re-run -- this lane had already committed the per-trade rows under comms/strategy_evidence/runs/2026-09-22-r5/, so path_stats (max peak-to-trough drawdown in R, worst single exit-day R sum, worst/best trade, final and max equity) was computed from committed data and written into all 30 records this lane produced, cross-checked against each record (final_equity_r == net_r_oos and n == n_trades_oos on 30 of 30). [!] THE GAP: of 52 records, 30 now carry path_stats and 22 do not, and the 22 split into TWO DIFFERENT STATES that must not be collapsed. 10 have NO SERIES AT ALL (9 no_harness + 1 harness_failed) -- nothing was ever emitted. 12 have a series that WAS emitted and is now UNREACHABLE, because source_run points into a /tmp dir that no longer exists (R1's 11 + E25's 1). [!] AND THE 12 ARE EXACTLY THE WRONG 12: every risk-bearing roster leg is among them, INCLUDING trend_donchian_sol_prop and trend_donchian_eth_prop -- the two legs on breakout_1, which is the account B6 exists to decide. So P(target before floor) is not computable for the prop book today, and the reason is a provenance defect rather than anything about the strategies. [!] THIS IS THE SECOND AND LARGER COST OF PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH, and it was not visible when that row was filed as a provenance defect: a dead locator does not merely stop someone RE-CHECKING a number, it stops any NEW question being asked of the old measurement. Every future statistic over those 12 costs a full re-run. [!] WHY THIS LANE DID NOT JUST RE-RUN THEM, stated so the next owner can overturn it rather than re-derive it: re-running fixes the locators and produces the path stats in one pass, but PI-20260922-R5-STAGE0-VERDICT-FLIPS-ON-A-9-DAY-WINDOW-SHIFT shows the net_r_oos figures WILL move, and those 12 records are the ones R2 already acted on (four roster cuts) and R8 is about to read. Silently replacing evidence mid-decision is worse than the stated gap. OPERATOR / R8 / B6 CALL. Write-up: docs/research/R5-REMAINING-CORPUS-COST-STACK-2026-09-22.md FINDING 4."
+}

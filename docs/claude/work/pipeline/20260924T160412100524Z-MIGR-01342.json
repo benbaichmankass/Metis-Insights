@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "The rerun reports roundtrip_state == 'measured' for alpaca_live (>=20 entries AND >=20 package-referenced sl/tp exits with a MEASURED exit_price_source). If alpaca sl/tp closes still never carry a MEASURED exit source when entries reach 20, this is a wiring bug, not an accrual wait -- re-route it to a build lane.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-A87KVAFC-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "session_01J4W8rC8qYJBAFLa87KVAFC, checklist row D3, branch lane/d3-realized-slippage",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/d3 && python3 scripts/research/realized_slippage.py analyze --in-dir /tmp/d3 --out /tmp/d3/out.json"
+  },
+  "state": "queued",
+  "what": "[cost-model] Equity (Alpaca) and futures (IBKR) realized slippage are UNMEASURABLE today, so 22 of the 49 measured Stage-0 records (every equity and futures leg) are still priced on an assumed 5.0 bps nobody has compared to a real fill. Two different reasons: (1) accrual -- alpaca_live has 3 real entries (2026-09-17..23), ib_live is dry_run with 0 fills. (2) STRUCTURAL, and accrual will not fix it -- across ALL Alpaca accounts (live, paper, portfolio) there are 0 sl/tp closes whose exit_price_source classifies MEASURED: the sl_cross exits carry recorded_exit_price/verdict (ESTIMATED), and exchange_fill appears only on exchange_flat_reconciled closes, which have no harness-equivalent reference level. So the exit side of Alpaca slippage cannot be measured by this method no matter how many trades accrue, unless the sl_cross close path resolves its exit from the fills store (as the Bybit path does). Measured by scripts/research/realized_slippage.py over trades ids <= 6129 (read 2026-09-24)."
+}

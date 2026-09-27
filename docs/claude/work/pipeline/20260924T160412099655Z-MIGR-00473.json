@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A session that pushes BOTH .github/pr-automerge-requests/<slug>.txt and automation/pr-requests/<name>.json ends up with a PR carrying the pr-opener request's TITLE and BODY. Any of: (a) claude-pr-automerge.yml defers to a pending pr-request for the same head branch; (b) pr-opener.yml, on finding the PR already exists, EDITS its title and body instead of writing `FAILED:` and stopping; or (c) the two relays are documented as mutually exclusive with a stated ordering, and CLAUDE.md's relay section says which to use when both would apply. ⚠️ OBSERVE IT: not proven by a green workflow run — it needs one PR opened via this exact double-push whose final title is the requested one, not the head commit's subject.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260907-PR-OPENER-LOSES-THE-RACE-TO-AUTOMERGE-AND-THE-PR-KEEPS-A-BARE-TITLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-PR-OPENER-LOSES-THE-RACE-TO-AUTOMERGE-AND-THE-PR-KEEPS-A-BARE-TITLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-PR-OPENER-LOSES-THE-RACE-TO-AUTOMERGE-AND-THE-PR-KEEPS-A-BARE-TITLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Pushing the automerge request and the pr-opener request together lets claude-pr-automerge open the PR first, and the title/body can never be fixed"
+}

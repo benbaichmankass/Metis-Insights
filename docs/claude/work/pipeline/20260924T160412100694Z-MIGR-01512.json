@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies (Yahoo serves no 15m gold bars over 365d); E4 is the candles row. EVIDENCE: MEASURED 2026-09-24: ict_scalp_mgc_15m.json coverage_state=harness_failed, error 'yfinance returned no rows for GC=F'.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER ict_scalp_mgc_15m carries coverage_state 'measured' from a feed that serves 15m gold bars over the record's own window_days, OR a DECIDED records that the leg is graded at a shorter window and the evidence record gains a field saying so, OR the leg is dropped from ib_paper's roster with a reason.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-UTN353OZ-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01LfjQsydv3W4J6butn353oz, checklist row E28, branch e28-ict-scalp-harness-route",
+    "rerun": "python3 -c \"import json; d=json.load(open('comms/strategy_evidence/ict_scalp_mgc_15m.json')); print(d['coverage_state'], '|', d['error'])\"   # coverage_state == 'measured' means it is closed"
+  },
+  "routed_to": "E4 (one way to get candles): a 15m gold feed over the record's window",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "MEASURED 2026-09-22 (E28). ict_scalp_mgc_15m is the one non-USDT leg of the eight, so routing the family is the first time anything asked Yahoo for 15m bars over 365 days. It returns nothing and the leg's record is `harness_failed` -- the honest outcome, and the reason is now stated correctly in the record after E28 fixed a misattribution (see below). [!] THE LEG IS NOT UNMEASURABLE, IT IS UNMEASURABLE AT THIS WINDOW, and the distinction is the point: GC=F at 15m returns 4,338 rows over 5 days and 0 over 365, with Yahoo's own error naming a 60-day intraday limit. A ~58-day measurement is available TODAY and this lane deliberately did NOT take it, for a stated reason rather than an omission: it would sit in a corpus whose every other record is 365d, the evidence schema has a window_days field but no consumer that compares across windows, and n over 58 days would be roughly a sixth of its 15m siblings' -- i.e. a number that looks like the others and is not. Either give the record a window that is honestly comparable, or source a feed that serves 15m gold over a year (Yahoo will not; the Binance-vision lane this harness uses for the seven USDT legs has no gold). [!] SECOND-ORDER, ALREADY FIXED IN E28 AND RECORDED HERE SO THE FIX IS NOT SILENTLY UNDONE: _yahoo_empty_reason originally blamed the TICKER ('delisting, a short listing history, or a wrong symbol map'), all three false, because its SPY control probes period=5d/interval=1d and therefore varies along NEITHER axis under test. A fourth state (window_exceeds_intraday_limit) and a same-interval self-probe now separate them, with both branches and the refusing_us precedence covered by tests. A control that cannot vary along the axis under test can only return the answer it already had."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "An operator decision on the SOL twin, recorded either way, with this table in front of them: (a) re-flip - re-add trend_donchian_sol to breakout_1.strategies and remove trend_donchian_sol_prop (Tier-3), accepting that it re-adopts the tp_r: 50.0 geometry; (b) hold the current routing and record that the lower-EV twin is kept deliberately, because its target is a prediction and the base's is a venue limit; or (c) defer until M20's active-management build gives the _prop leg a real target, then re-run this matrix - which is the only option that resolves the tension rather than choosing a side of it. Both legs ROUTE and both are positive EV, so the cost of the current state is opportunity and not risk; this is a decision, not an incident, and must NOT be closed by a session re-flipping it unilaterally. Closed when the decision and its reasoning are in the record.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-PROP-COMPAT-SOL-TWIN-INVERTED",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-PROP-COMPAT-SOL-TWIN-INVERTED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-PROP-COMPAT-SOL-TWIN-INVERTED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The mandatory prop compat matrix, run for the first time on the CURRENT roster, says the 2026-08-23 de-dup kept the better twin on ETH and the WORSE twin on SOL - seed-stable, both still ROUTE"
+}

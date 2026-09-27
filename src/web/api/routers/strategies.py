@@ -277,11 +277,24 @@ def _empty_stats() -> Dict[str, Any]:
 
 
 def _read_runtime_status() -> Dict[str, Any]:
-    """The pipeline's per-tick runtime_status.json (live view of what's running).
+    """The pipeline's per-tick ``runtime_status.json``.
 
-    Carries ``strategies`` (the names the running process actually loaded),
-    ``live`` (per-account live/dry), and ``last_tick_utc``. Empty dict if
-    the file is missing/unreadable (pipeline never wrote one yet)."""
+    ⚠️ **``strategies`` IS A FILE READ, NOT A PROCESS READ — this docstring
+    said the opposite until 2026-09-22 (E31).** It read *"the names the
+    running process actually loaded"*; the producer computes it as
+    ``_read_strategy_names(strategies_yaml)``, which opens and parses
+    ``config/strategies.yaml`` on every tick. The pipeline WRITING the file is
+    not the pipeline USING those names, and the difference is a whole
+    deploy-latency window wide.
+
+    The names the process genuinely holds are in the artifact's ``process``
+    block, surfaced by ``GET /api/bot/runtime-config``; this function reads it
+    for the ``held_*`` fields below so the two views sit side by side instead
+    of one impersonating the other.
+
+    Carries ``strategies`` + ``live`` (both FILE views), ``process`` (the
+    process's own loaded state) and ``last_tick_utc``. Empty dict if the file
+    is missing/unreadable (pipeline never wrote one yet)."""
     path = runtime_logs_dir() / "runtime_status.json"
     if not path.exists():
         return {}
@@ -291,6 +304,30 @@ def _read_runtime_status() -> Dict[str, Any]:
         logger.warning("strategies: runtime_status read failed")
         return {}
     return raw if isinstance(raw, dict) else {}
+
+
+def _held_by_process(rt: Dict[str, Any]) -> tuple[Optional[set], str]:
+    """``(names_the_process_holds | None, process_state)`` from a status dict.
+
+    E31. ``None`` for the names whenever the process did not publish a roster,
+    so a caller cannot read "we were not told" as "the process holds nothing".
+    The ``process_state`` that comes back distinguishes the two reasons.
+    """
+    from src.runtime.loaded_config import (
+        HELD_LOADED, PROCESS_NOT_WRITTEN, PROCESS_OBSERVED,
+    )
+    block = rt.get("process")
+    if not isinstance(block, dict) or not block:
+        # `rt` is {} when the artifact was missing or unreadable, and the
+        # caller already logged that; from here both read as "not told".
+        return (None, PROCESS_NOT_WRITTEN)
+    sub = block.get("strategies_yaml")
+    if not isinstance(sub, dict) or sub.get("held_state") != HELD_LOADED:
+        return (None, PROCESS_NOT_WRITTEN)
+    names = sub.get("names")
+    if not isinstance(names, list):
+        return (None, PROCESS_NOT_WRITTEN)
+    return ({str(n) for n in names}, PROCESS_OBSERVED)
 
 
 def _account_routing() -> Dict[str, List[str]]:
@@ -326,14 +363,31 @@ def _tick_age_seconds(last_tick_utc: Any) -> Optional[float]:
 
 @router.get("/strategies")
 def get_strategies() -> Dict[str, Any]:
-    """Return config, live-runtime status, stats, descriptions, and changelog.
+    """Return config, runtime status, stats, descriptions, and changelog.
 
-    "Live runtime" surfaces what the bot is **actually** running, not just
-    the static YAML: ``loaded`` (the running process reported this strategy
-    in its per-tick runtime_status), ``running`` (loaded AND the last tick
-    is fresh), and ``accounts`` (which accounts route the strategy, with
-    each account's live/dry state). This is what makes the Strategies tab a
-    transparent view of the VM rather than a config echo."""
+    ⚠️ **``loaded`` AND ``running`` ARE FILE-DERIVED, and this docstring
+    claimed they were process-derived until 2026-09-22 (E31).** It said the
+    tab surfaced *"what the bot is actually running, not just the static
+    YAML"*. It did not: ``loaded`` is membership of ``runtime_status.json``'s
+    ``strategies`` list, which the pipeline computes by re-parsing
+    ``config/strategies.yaml``. So ``loaded`` means *the file on the VM
+    declares this strategy enabled, and the pipeline was alive enough to
+    re-read it* — a real and useful fact, and not the one the name promises.
+    ``running`` adds only tick freshness on top of that same file read.
+
+    Both keep their meaning and their place (the SPA consumes them, and the
+    VM's file IS layer 5 of the verification mapping). What is new beside
+    them:
+
+    * ``held_by_process`` — ``True``/``False`` when the trading process
+      published its own roster, and ``None`` when it did not. ``None`` is
+      **not** ``False``: *we were not told what the process holds* and *the
+      process does not hold this strategy* are opposite findings.
+    * ``runtime.process_state`` — ``observed`` / ``not_written`` /
+      ``unreadable``, so a reader can tell which of those a ``None`` is.
+
+    Full mapping: ``docs/reference/verifying-what-is-trading.md``; the
+    dedicated surface is ``GET /api/bot/runtime-config``."""
     strategies_cfg = _load_strategies_yaml()
     changelog = _load_changelog()
     descriptions = _load_descriptions()
@@ -344,6 +398,7 @@ def get_strategies() -> Dict[str, Any]:
 
     loaded_set = {str(s) for s in (rt.get("strategies") or [])}
     live_map = rt.get("live") if isinstance(rt.get("live"), dict) else {}
+    held_set, process_state = _held_by_process(rt)
     last_tick = rt.get("last_tick_utc")
     tick_age = _tick_age_seconds(last_tick)
     bot_running = tick_age is not None and tick_age <= _TICK_FRESH_S
@@ -355,6 +410,8 @@ def get_strategies() -> Dict[str, Any]:
         stats = stats_by_name.get(name, _empty_stats())
         desc = descriptions.get(name, {"short": name, "how_it_works": ""})
         loaded = name in loaded_set
+        # `None` when the process published no roster — never `False`.
+        held = None if held_set is None else (name in held_set)
         accounts = [
             {"id": aid, "live": bool(live_map.get(aid, False))}
             for aid in routing.get(name, [])
@@ -372,6 +429,8 @@ def get_strategies() -> Dict[str, Any]:
             # Live-runtime truth (vs the static `enabled` flag above).
             "loaded": loaded,
             "running": bool(loaded and bot_running),
+            # E31 — the process's own roster, tri-state (True/False/None).
+            "held_by_process": held,
             "accounts": accounts,
             "risk_pct": cfg.get("risk_pct"),
             "timeframe": cfg.get("timeframe"),
@@ -389,6 +448,11 @@ def get_strategies() -> Dict[str, Any]:
             "last_tick_utc": last_tick,
             "tick_age_seconds": round(tick_age, 1) if tick_age is not None else None,
             "loaded_strategies": sorted(loaded_set),
+            # E31. `process_state` says WHICH kind of "we don't know" a
+            # `held_by_process: null` is; `held_strategies` is null rather
+            # than [] when we were not told.
+            "process_state": process_state,
+            "held_strategies": None if held_set is None else sorted(held_set),
         },
         "strategies": out,
     }

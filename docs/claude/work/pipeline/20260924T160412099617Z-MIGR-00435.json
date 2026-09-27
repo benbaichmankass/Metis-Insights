@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) `docs/claude/coordination-board.md` and/or CLAUDE.md § 'PM-side session capabilities' name `add_repo(access=\"push\")` as the FIRST thing to try on a write 403 against a repo outside the session's printed scope, so the next session does not re-derive it -- AND a session that was NOT told this reports having used it; OR (b) a session runs the probe, `create_pull_request` STILL 403s after a successful `add_repo(access=\"push\")`, and records the run -- which would refute THIS row and is the more valuable outcome of the two. ⚠️ ict-trader-dashboard#211 existing does NOT close this: one success is not a documented path, and the point is that the next session finds it without a measurement.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-DASHBOARD-PR-403-IS-A-SCOPE-GAP-NOT-A-CAPABILITY-GAP-ADD-REPO-WITH-PUSH-CLEARS-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-DASHBOARD-PR-403-IS-A-SCOPE-GAP-NOT-A-CAPABILITY-GAP-ADD-REPO-WITH-PUSH-CLEARS-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-DASHBOARD-PR-403-IS-A-SCOPE-GAP-NOT-A-CAPABILITY-GAP-ADD-REPO-WITH-PUSH-CLEARS-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The 403 blocking PR creation in ict-trader-dashboard from a web session is a SESSION-SCOPE gap, not a missing capability -- `add_repo` with access:\"push\" clears it, and a session that concludes 'that repo has no pr-opener relay' stops one step early"
+}

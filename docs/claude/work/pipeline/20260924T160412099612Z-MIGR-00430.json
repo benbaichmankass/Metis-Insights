@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Three `system-action` issues dispatched inside ~15s and EVERY ONE of the three carries a comment naming its outcome -- ✅ completed, ❌ failed, or an explicit cancellation notice -- with none left open and comment-less. The cancellation case is the one that must be demonstrated, so the check is not satisfied by a burst in which no run happened to be cancelled: reproduce the cancel first (runs 33566171789 / 33566180621 / 33566191528 are the recorded instance) and then show the third comment appearing. ⚠️ Widening the concurrency key instead would ALSO close this, by removing the cancellation rather than reporting it -- record which remedy was taken, because the two leave different residual risk. ⚠️ 'We now dispatch one at a time' does NOT close it: that is an unwritten discipline held by whichever session remembers, which is the state this row exists to end.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-SYSTEM-ACTIONS-CANCELS-A-SUPERSEDED-PENDING-RUN-AND-COMMENTS-NOTHING-BACK-SO-A-DISPATCHED-ACTION-IS-SILENTLY-LOST'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Three system-actions dispatched within 15s: the MIDDLE one was cancelled by the concurrency queue, its issue was left OPEN with NO comment, and nothing anywhere said the action never ran"
+}

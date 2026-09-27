@@ -101,7 +101,29 @@ MATRIX = REPO / "docs" / "research" / "exit-refinement-coverage.json"
 
 # The three cuts, widest-numerator last. `blocked` is deliberately the only
 # difference between HEADLINE and DONE — see the module docstring.
-RESOLVED = ("shipped", "honest_negative", "n/a")
+#
+# ⚠️ THESE ARE INCLUSION LISTS OVER LITERALS, AND THE DENOMINATOR IS NOT.
+# `total_cells` is every cell in the matrix, so a status added to the legend and
+# NOT added here leaves the cell in the denominator while dropping it from every
+# numerator — the coverage figure falls and nothing says why. MEASURED 2026-09-25
+# (E48) by running this script over the matrix with one cell flipped
+# `shipped` -> `stripped_unreachable` before adding it below: resolved 327 -> 326,
+# validated 341 -> 340, headline 388 -> 387, `total_cells` 396 throughout. The
+# done-condition was unmoved (it is computed from OPEN_STATUSES), so the erosion
+# was visible ONLY in the three progress cuts, which is the half nobody re-derives.
+# ADD A NEW LEGEND STATUS TO EXACTLY ONE OF THESE TUPLES, OR TO OPEN_STATUSES,
+# and say which in the legend entry. (`scripts/research/m20_coverage_rollup.py`
+# is the only consumer that enumerates statuses positively;
+# `check_matrix_corpus_agreement.py`'s NEGATIVE_STATUSES / NO_OUTCOME_STATUSES
+# are exclusion sets and need no entry for a closed, non-negative status.)
+#
+# `stripped_unreachable` belongs in RESOLVED and not in VALIDATED-only: the
+# lever question for that leg is CLOSED, not awaiting anyone — it was validated,
+# shipped, then removed by a Tier-3 decision once measured unreachable under the
+# leg's current bracket. That is a resolved outcome in exactly the sense
+# `shipped` and `honest_negative` are, which is why the counts above return to
+# their pre-flip values with it listed here.
+RESOLVED = ("shipped", "honest_negative", "n/a", "stripped_unreachable")
 VALIDATED = RESOLVED + ("passed_unshipped", "shipped_gate_failed")
 HEADLINE = VALIDATED + ("blocked",)
 

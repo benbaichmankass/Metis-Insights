@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260824-COSMETIC-TARGETS-ABOVE-CAP-R-SHIP-AS-DECLARED-EXPECTATIONS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "A declared tp_r above a leg's cap_r is byte-identically the same run as declaring NO target — the 9.9% venue clamp exits first — yet it reads in config as a chosen expectation. Measured 2026-08-24: 49 of 308 cells that have a same-stop no-target baseline are byte-identical to that baseline on BOTH net_R and max_drawdown_r (15.9%); restricted to the four clamp-dominated donchian 4h legs, 28 of 112 (25.0%). Worked case: trend_donchian_ada_4h at sm1.5 (cap_r 2.62R) returns net_R 55.4731 at tp_r 6.0 and net_R 55.4731 with no target at all. This extends the operator premise that a sentinel target is the absence of an expectation: a target above the clamp is equally absent while looking like a decision."
+}

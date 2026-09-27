@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. DECIDE RENAME-VS-ADD FIRST, and note this is a SCHEMA CHANGE with existing readers -- exit_restart_gap.py (grouping key), exit_interval_soak.py (builder + summary), src/web/api/routers/exit_interval.py, and any session reading the raw JSONL. A blind rename breaks the grouping; the cheaper fix is to keep the existing key as the process IDENTITY it actually is (consider `process_key` / `first_pass_at_utc`) and, if boot time is genuinely wanted, ADD a real one captured at module import or from /proc/self/stat rather than repurposing this. 2. THE DOCSTRING IS PART OF THE FIX, not an afterthought: exit_interval_soak.py's module docstring dates five processes from these values and must be corrected in the same change, or the stale claim outlives the field. 3. !! DO NOT BACK-FILL EXISTING ROWS. Every row already on disk carries the first-pass-completion value; rewriting them to a reconstructed boot time would assert an observation nobody made. Distinguish by row date. 4. !! A GREEN TEST CLEARS NOTHING HERE -- the field is internally consistent and always has been; the defect is that its NAME describes a different quantity. What clears it is the field (or its replacement) read back off /api/bot/exit-interval/soak and shown to differ from the first-pass completion by the startup interval, cross-checked against a systemd 'Started ICT Trader Live' line in /api/diag/journalctl for the SAME restart.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-PROCESS-STARTED-UTC-IS-THE-FIRST-PASS-COMPLETION-NOT-THE-PROCESS-START",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-PROCESS-STARTED-UTC-IS-THE-FIRST-PASS-COMPLETION-NOT-THE-PROCESS-START",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-PROCESS-STARTED-UTC-IS-THE-FIRST-PASS-COMPLETION-NOT-THE-PROCESS-START'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] exit_loop_health's `process_started_utc` is the FIRST PASS'S COMPLETION time, not when the process started - it is late by exactly the boot-plus-cold-pass interval (23.2s measured), and the soak's own docstring dates processes from it"
+}

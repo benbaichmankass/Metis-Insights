@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "EITHER (a) .github/workflows/strategy-review-packets.yml is changed so a committed day directory cannot mix runs — verified by a day whose INDEX.json generated_at matches its packets' — OR (b) the index carries an explicit stamp of which run wrote the packets beside it and a reader can detect the mismatch from the artifact alone. ⚠️ A DAY THAT HAPPENS TO HAVE ONE RUN DOES NOT CLEAR THIS: single-run days are the common case and were always consistent; the defect only shows on a re-run, so 'the newest day looks fine' is not evidence.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260902-COMMITTED-REVIEW-DAY-JOINS-TWO-RUNS-SILENTLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-COMMITTED-REVIEW-DAY-JOINS-TWO-RUNS-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-COMMITTED-REVIEW-DAY-JOINS-TWO-RUNS-SILENTLY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by B4, which re-scopes the strategy review packet; a run-boundary stamp is part of whatever B4 ships. EVIDENCE: MANAGER-CHECKLIST.json: B4 queued.",
+  "what": "[NEVER VERIFIED] A committed comms/strategy_reviews/<date>/ directory can hold an INDEX.json from one run beside per-strategy packets from a DIFFERENT run, with nothing stamping that a reader joining them crosses a run boundary. Measured on 2026-09-01: run #10652 (c1f95964) committed INDEX.json + all 52 packets at 12:03Z; run #10656 (7d13bc1a) then rewrote INDEX.json ALONE at 12:51Z. Population: all 52 strategies in both artifacts — 1 already disagrees, qqq_pullback_1h reading n_closed=1 / pnl=-212.52 in the index and n_closed=0 / pnl=0.0 in its own packet. The mechanism is by design (the workflow commits the index always and packets selectively), so this recurs on any day with two runs."
+}

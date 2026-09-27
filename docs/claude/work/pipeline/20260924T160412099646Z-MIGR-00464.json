@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "An artifact that SPECIFIES WORK cannot be created without a register row pointing at it, AND un-actioned specs are visible at session start. Candidates, not a design: (a) a CI check failing a PR that adds docs/research/*SESSION-PROMPT*.md / *-PROPOSAL-*.md / *-DESIGN.md with no matching work object referencing its path; (b) a rendered SESSION-BRIEF section listing specs with no owning object - the surface that demonstrably reaches a session before it acts; (c) a sweep grepping for artifacts whose own text asks for a follow-up ('paste this as', 'next session should', 'not yet built') and filing any with no carrier. VERIFY BY PLANTING a spec with no carrier and showing the mechanism catches it, AND by running it over the existing tree and REPORTING HOW MANY UN-CARRIED SPECS ALREADY EXIST - that count is the finding and is currently UNMEASURED (now owned by WO-20260906-COUNT-THE-UN-CARRIED-SPECS, operator-chosen 2026-09-06). !! A mechanism covering only NEW artifacts leaves the existing pile invisible; say which half you built. !! The 14-day gap was NOT someone forgetting - the artifact was well-written and correctly filed. There was no path from 'filed' to 'planned'. A fix relying on sessions filing better does not address the cause.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-A-RESEARCH-ARTIFACT-THAT-SPECIFIES-WORK-IS-NOT-REGISTERED-AS-WORK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A finished session prompt sat undispatched 14 days because docs/research/ is not a work register - and the same thesis was re-derived seven times"
+}

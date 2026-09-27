@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260903-NEEDS-ACTION-NEVER-CLEARS-SO-A-SATISFIED-ASK-READS-AS-BLOCKED-FOREVER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-NEEDS-ACTION-NEVER-CLEARS-SO-A-SATISFIED-ASK-READS-AS-BLOCKED-FOREVER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-NEEDS-ACTION-NEVER-CLEARS-SO-A-SATISFIED-ASK-READS-AS-BLOCKED-FOREVER'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "A sub-session's post_turn_summary.needs_action is written by the session and NEVER cleared by anything. Once the manager satisfies the ask, the session is already idle and cannot rewrite its own summary, so the row reads BLOCKED forever. Measured 2026-09-03: MI-89 (needs_action 'add MI-89 to session_registry.py and update Routine prompt with --write-receipt flag') and MI-90 ('operator decision on Tier-3 merge gate') both still read status_bucket BLOCKED with those exact strings AFTER both asks were fully satisfied -- MI-89's registry row was already on main and the Routine was updated at 07:29Z; MI-90's decision was taken and #10900 was merged at 07:36Z."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "[!] READ BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT FIRST — it owns the 'sizing does not consult the cushion' half and should be resolved WITH this row, not separately. Resolving one and leaving the other would fix one of two independent blind spots and read as done. THIS ROW'S OWN CLAUSE: the counter blindness is either FIXED or RECORDED AS DELIBERATE. A recorded decision is a legitimate and possibly correct answer here — prop is isolated from `trades` BY DESIGN so prop never leaks into the real-money/paper KPIs (CLAUDE.md), and that isolation is worth more than the caps it disables — but it must be WRITTEN DOWN rather than left as an accident of the schema. [!] DO NOT 'FIX' THIS BY WIRING PROP FILLS INTO THE `trades` TABLE. That would corrupt the evidence base to reach a gate, and it is the one remedy this row explicitly refuses. If the caps are wanted, they need a prop-native counter reading prop_fills. [!] A GREEN TEST CLEARS NOTHING, and neither does the account not breaching: it has been flat since 2026-08-30, so nothing has TESTED the floor. State the trade count in the window before reading any zero.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-NOTHING-IN-THE-ORDER-PATH-ENFORCES-THE-PROP-DRAWDOWN-FLOOR-AND-THE-RISK-COUNTERS-CANNOT-SEE-PROP-TRADES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-NOTHING-IN-THE-ORDER-PATH-ENFORCES-THE-PROP-DRAWDOWN-FLOOR-AND-THE-RISK-COUNTERS-CANNOT-SEE-PROP-TRADES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-NOTHING-IN-THE-ORDER-PATH-ENFORCES-THE-PROP-DRAWDOWN-FLOOR-AND-THE-RISK-COUNTERS-CANNOT-SEE-PROP-TRADES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [NARROWED 2026-09-12, same session] The prop risk COUNTERS are structurally blind to prop activity: daily_risk_state is rebuilt from the `trades` table, which carries zero prop rows by design, so breakout_1's declared max_dd_pct/daily_loss_pct/daily_usd can never trip — a SECOND mechanism beside the already-filed one that ticket sizing never consults distance_to_dd_floor_usd"
+}

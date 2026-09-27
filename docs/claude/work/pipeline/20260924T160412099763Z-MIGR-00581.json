@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "EITHER (a) `commits` is added to check_claim_basis.py::_BASIS_RES, a row stating its population in commits passes, AND a planted-defect case proves the guard still REFUSES a row that states no denominator at all — the widening must not become a bypass, which is the only real risk here; OR (b) the noun list is deliberately left closed, recorded as that decision, in which case the standing convention is that such a population is restated in rows or files and this row closes as wont_fix. [!] REWORDING A ROW TO GET PAST THE GUARD CLEARS NOTHING — that is precisely the workaround this row exists to record, and it is what was actually done on 2026-09-12. [!] AND ADDING NOUNS BEYOND `commits` IS NOT COVERED BY THIS ROW: each one is a phrase an author can write without a real denominator behind it, so each needs its own argument rather than riding this one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-CLAIM-BASIS-GUARD-DOES-NOT-RECOGNISE-COMMITS-AS-A-DENOMINATOR-SO-A-CORRECTLY-STATED-POPULATION-READS-AS-BASIS-LESS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-CLAIM-BASIS-GUARD-DOES-NOT-RECOGNISE-COMMITS-AS-A-DENOMINATOR-SO-A-CORRECTLY-STATED-POPULATION-READS-AS-BASIS-LESS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-CLAIM-BASIS-GUARD-DOES-NOT-RECOGNISE-COMMITS-AS-A-DENOMINATOR-SO-A-CORRECTLY-STATED-POPULATION-READS-AS-BASIS-LESS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_claim_basis.py::_BASIS_RES omits `commits` from its denominator nouns, so a row measuring over git history is refused despite stating its population"
+}

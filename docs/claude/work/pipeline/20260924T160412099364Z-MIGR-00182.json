@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Closed when the operator has ruled on (b) — either the prop sleeve gains a survival-weighted arm, or the memo records that a net_R-first gate is deliberate there too, decided on the prop EV run's evidence. (a) is done; (c) is tracked as its own Tier-3 proposal, not as this row.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260810-BANKING-GATE-CANNOT-PASS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-BANKING-GATE-CANNOT-PASS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-BANKING-GATE-CANNOT-PASS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RETRACTED PREMISE (measured false 2026-08-10): banking CAN pass the M20 gate. Residual open question is narrow — should the PROP sleeve be gated on survival-weighted EV instead of net_R?"
+}

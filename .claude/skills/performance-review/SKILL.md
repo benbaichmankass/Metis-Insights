@@ -1,9 +1,9 @@
 ---
 name: performance-review
-description: Autonomous review of the ICT trading bot's TRADING PERFORMANCE and its RESEARCH PIPELINE — per-strategy aggregate stats, per-order-package decision grading, comparison against actual closed-trade PnL, and proposed tweaks to consider. Reviews the M13 AI-analyst insights log (/api/bot/insights/*) and cross-checks its claims against real data. ALSO owns the research pipeline end to end (2026-08-30): are backtests queued and routable, are they running, were their results READ and dispositioned, what analysis follows, and what action item comes out. Owns comms/claude_strategy_scores.jsonl (per-decision grading, append-only), docs/claude/performance-review-backlog.json (trading follow-ups) and docs/claude/research-review-backlog.json (research/evidence follow-ups). Also answers \"did anyone read that sweep\", \"is the research queue healthy\", \"/research-review\". Use when the operator says "run the performance review", "/performance-review", "score the recent trades", or "how are the strategies doing". NOT for ML/model perf (use /ml-review) and NOT for system/pipeline plumbing (use /health-review).
+description: Autonomous review of the ICT trading bot's TRADING PERFORMANCE and its RESEARCH PIPELINE — per-strategy aggregate stats, per-order-package decision grading, comparison against actual closed-trade PnL, and proposed tweaks to consider. Reviews the M13 AI-analyst insights log (/api/bot/insights/*) and cross-checks its claims against real data. ALSO owns the research pipeline end to end (2026-08-30): are backtests queued and routable, are they running, were their results READ and dispositioned, what analysis follows, and what action item comes out. Owns comms/claude_strategy_scores.jsonl (per-decision grading, append-only) and docs/claude/work/PIPELINE.jsonl (trading + research follow-ups, filed via scripts/ops/pipeline.py). Also answers \"did anyone read that sweep\", \"is the research queue healthy\", \"/research-review\". Use when the operator says "run the performance review", "/performance-review", "score the recent trades", or "how are the strategies doing". NOT for ML/model perf (use /ml-review) and NOT for system/pipeline plumbing (use /health-review).
 ---
 
-> **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
+> **Doc status:** `live` · category `instruction` · last verified `2026-09-24` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
 
 # /performance-review — trading performance + the research pipeline
 
@@ -40,12 +40,20 @@ If the user asked about *technical/pipeline health* — STOP, use
 `/health-review`. If the user asked about *model training / promotion
 / shadow predictions* — STOP, use `/ml-review`.
 
-**Coordination (binding):** before your first diag pull, read + post to the
-**live coordination board** (GitHub issue #6927,
-`docs/claude/coordination-board.md`) — this skill dispatches real live-VM
-diag/system-action requests, grades trades, and commits backlog drains, so
-other concurrent sessions need to see your `▶️ START` before you touch
-anything.
+**Coordination (binding, corrected 2026-09-24):** the coordination board this
+paragraph used to point at (GitHub issue #6927 / `docs/claude/coordination-board.md`)
+is retired — `docs/claude/coordination-board.md` itself says #6927 "is retired,
+readable, and takes no writes. Do not post there." — and posting there is a
+no-op under the 2026-09-21 operating reset (`docs/plans/OPERATING-PLAN-2026-09-21.md`;
+CLAUDE.md § "How work is organised"). The live model is **one manager session
+plus scoped lanes**: read your lane's row in
+`docs/claude/work/MANAGER-CHECKLIST.json` before your first diag pull, and
+before landing a PR claim this branch's merge slot with
+`scripts/ops/claim_merge_slot.py --branch-claim --branch <branch> --held-by
+<session-id>` per `.claude/skills/manager/SKILL.md`. This skill still
+dispatches real live-VM diag/system-action requests and commits pipeline
+filings, so check the checklist for another lane already working the same
+window before you duplicate its pulls.
 
 ## Scope (what this skill DOES)
 
@@ -433,13 +441,26 @@ vocabulary `backlog_drive` is hardened with — "carried forward unchanged" cann
 satisfy this. `actioned` **must** name what was done. Deferring is permitted; it
 must be SAID, not achieved by silence.
 
-Anything needing follow-up goes to
-**[`docs/claude/research-review-backlog.json`](../../../docs/claude/research-review-backlog.json)**
-via `scripts/ops/backlog_append.py::append_row`, **never by hand**. That file is
-this session's SECOND backlog and is deliberately separate from
-`performance-review-backlog.json`: *"this sweep needs re-running at higher n"*
-and *"this strategy's win rate slipped"* are graded against different bars, and
-one file buries both. Drain it under the same HARD COMPLETION GATE as the other.
+⚠️ **CORRECTED 2026-09-24 — `docs/claude/research-review-backlog.json` and
+`docs/claude/performance-review-backlog.json` no longer exist.** Both were
+retired in the 2026-09-21 operating reset along with the other archived
+registers (CLAUDE.md § "How work is organised"; content migrated verbatim to
+`docs/archive/2026-09-21-operating-reset/registers/`, e.g.
+`SRQ-20260715-REALMONEY-ALLOC-BENCHMARK` now lives on as
+`PIPELINE.jsonl#SRQ-20260715-REALMONEY-ALLOC-BENCHMARK`). Anything needing
+follow-up — a research follow-up as much as a trading tweak-to-consider —
+goes to **`docs/claude/work/PIPELINE.jsonl`**, filed via
+`scripts.ops.pipeline.append(item, intent="new"|"update")` (mint the id with
+`python3 scripts/ops/pipeline.py --mint-id "<this session's ref>"`; **never
+edit the file by hand**, and never write a JSON array). It refuses an item
+without `due_when` and `origin.rerun`, which is stricter than the old
+backlogs' free-text follow-up fields, not looser — a research/performance
+item still needs a `clears_when` (or a date) and a rerun command the same way
+a health finding does. Draining still means the same thing: enumerate every
+open (non-terminal) item this skill's population touches, re-validate it
+against this window's data, and either move it to `done`/`killed` (with
+`terminal_reason`) or append an `update` record with the fresh evidence — never
+leave a re-validated item's record unchanged if the evidence moved.
 
 ## Underperformance → diagnose, don't demote (BINDING — operator directive 2026-07-30)
 
@@ -519,28 +540,42 @@ instead (§ "Draining the backlog").
 
 ## Draining the backlog — a HARD COMPLETION GATE (not a sample)
 
-**A performance-review is NOT complete until every open item in
-`docs/claude/performance-review-backlog.json` has been triaged THIS
-run.** Triaging a sample / "the recent few" is a review failure — the
-backlog IS the standing open-task list. (Health/ML backlogs are not
-touched here; each of the three reviews enforces this same gate on its
-own list.)
+⚠️ **CORRECTED 2026-09-24 — there is no more standalone
+`docs/claude/performance-review-backlog.json` to enumerate.** It was retired
+2026-09-21; its still-open rows were migrated verbatim into
+`docs/claude/work/PIPELINE.jsonl` (e.g. `SRQ-20260715-REALMONEY-ALLOC-BENCHMARK`,
+`PB-20260707-IBKR-STK-ETF-SUPPORT`). The gate below is unchanged in spirit —
+every open item this skill owns still gets touched every run, not sampled —
+it just reads from the pipeline now, alongside `docs/claude/strategy-refinement-queue.json`
+(§ "Draining the strategy-refinement queue", unaffected by the reset).
+
+**A performance-review is NOT complete until every open (non-terminal) pipeline
+item whose `origin.ref` traces to a performance-review/research finding —
+practically, everything tagged `[performance]` or `[research]` in `what`, plus
+any item this session itself filed on a prior run — has been re-checked THIS
+run.** Triaging a sample / "the recent few" is a review failure. (Health/ML
+findings in the same pipeline are not this skill's to drain — each review
+owns re-checking its own population; `state`/`next_action` on the row, not the
+tag prefix, decide who acts, but re-reading a health-tagged row you happen to
+pass is always fine.)
 
 **Enumerate the FULL open set, then walk it 100%:**
 
-1. **Count first.** Filter to every item whose `status` is not a
-   terminal-resolved value (`resolved`/`closed`/`done`/`invalid`/
-   `wont_fix`/`superseded`). Record `open_at_start` — you must touch
-   every one.
-2. **For EACH open item:** re-validate against this window's data;
-   then disposition into exactly one bucket — **resolved** (the new
-   data closes it / the tweak shipped), **fixed_now** (an in-scope
-   write — a proposal filed, the backlog itself), **invalid/superseded**
-   (stale), or **kept_open** (still needs more evidence / a Tier-3
-   decision — add an update with this run's re-validation + the
-   blocker, so it never sits stale-and-unlooked).
-3. **Write it back** + record EVERY item's disposition in
-   `backlog_drain[]` (array length == `open_at_start`).
+1. **Count first.** `python3 -c "from scripts.ops.pipeline import load; ..."`
+   (or `--stats`) over the store, filtered to this skill's population and to
+   `state` not in `("done", "killed")`. Record `open_at_start`.
+2. **For EACH open item:** re-run `origin.rerun`; then disposition into
+   exactly one bucket — **resolved** (append an `update` record with
+   `state: "done"` and a `terminal_reason` naming what changed), **fixed_now**
+   (an in-scope write — e.g. a proposal filed, this run's own pipeline item),
+   **killed** (stale/superseded — `update` with `state: "killed"` and why),
+   or **kept_open** (still needs more evidence / a Tier-3 decision — append
+   an `update` record carrying this run's re-validation and the blocker, so
+   it never sits stale-and-unlooked; `state`/`due_when` may be unchanged but
+   the record itself must be fresh).
+3. **Append it** (`intent="update"` — never rewrite the file by hand) and
+   record EVERY item's disposition in `backlog_drain[]` (array length ==
+   `open_at_start`).
 
 **Coverage assertion (the gate).** Emit `backlog_coverage:
 {open_at_start, triaged, resolved, fixed_now, closed_stale, kept_open,
@@ -610,8 +645,8 @@ Every run:
      net-negative + mean below floor over ≥10 trades) is a **caution**
      signal, not proof — note it and keep watching.
    - **Per-cell / per-family**: any cell that's a sustained net loser on
-     live paper (not just a flat week) is a candidate for the
-     `performance-review-backlog` — a future tweak or a
+     live paper (not just a flat week) is a candidate for a pipeline
+     item (`docs/claude/work/PIPELINE.jsonl`) — a future tweak or a
      `DEMOTE_SHADOW`/`KILL` proposal (Tier-3, *proposed* not enacted).
    - Cross-check against the backtest expectation (the families were
      complementary: trend wants low-moderate ADX, pullback wants high
@@ -709,8 +744,8 @@ Emit a single JSON object conforming to
   empty).
 - `insights_review[]` — agreements/disagreements with the M13 cache.
 - `proposed_tweaks[]` — Tier-3 proposals with evidence.
-- `backlog_drain[]` — actions taken on
-  `docs/claude/performance-review-backlog.json`.
+- `backlog_drain[]` — actions taken on this skill's open
+  `docs/claude/work/PIPELINE.jsonl` items (§ "Draining the backlog").
 - `paper_book_tracker` — the diversified paper-book read: this run's
   snapshot summary (book `n`/`net_usd`/`win_rate`, recent-vs-prior,
   per-family net, `decay_flag`), the Δ vs the previous snapshot, and a
@@ -737,8 +772,9 @@ fast.
 **Write:**
 - Append per-decision scores to `comms/claude_strategy_scores.jsonl`
   (keyed by `order_package_id`, dedup-on-append).
-- Edit `docs/claude/performance-review-backlog.json` to drain + add
-  new items.
+- File/update performance + research follow-ups in
+  `docs/claude/work/PIPELINE.jsonl` via `scripts.ops.pipeline.append`
+  (never by hand — see § "Draining the backlog", corrected 2026-09-24).
 - Append a snapshot line to `docs/research/paper-book-tracker.jsonl`
   (append-only, via `paper_book_tracker.py`; never rewrite prior lines).
 - Post the Claude-channel ping (via `send-ping` system-action; fall
@@ -749,8 +785,8 @@ fast.
 **Do NOT:**
 - Touch `src/`, `config/`, or any live-path file. **No exceptions** —
   param changes go in `proposed_tweaks[]` for operator approval.
-- Modify `docs/claude/health-review-backlog.json` or
-  `docs/claude/ml-review-backlog.json`.
+- Edit `docs/claude/work/MANAGER-CHECKLIST.json` — that register is the
+  manager's, not a lane's (CLAUDE.md § "How work is organised").
 - Touch the M13 insights cache (`runtime_logs/insights/*.json`) —
   that's the generator's territory; this skill only reads it.
 - Ask the operator to paste/download/SSH a snapshot — autonomy

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The tolerance is re-derived from MEASURED reconciler fill dispersion rather than chosen, with the population stated, OR exit location is adjudicated from the price path where candles are available and the two instruments are reported side by side. [!] SIMPLY WIDENING THE BAND IS NOT SUFFICIENT AND IS DANGEROUS IN THE OTHER DIRECTION: a wider band makes a `neither` exit near a bracket read as a stop-out, which would inflate every stop rate in the repo. Measure the dispersion first. [!] AND NOTE MI-271's POSITIVE CONTROL WAS NOT WRONG -- 88.4% recall means ~12% missed, and this row is that 12% located rather than a new defect.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-EXIT-ADJUDICATION-AT-15BP-MISSES-STOP-OUTS-WHOSE-RECONCILER-FILL-LANDS-OUTSIDE-THE-BAND",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-EXIT-ADJUDICATION-AT-15BP-MISSES-STOP-OUTS-WHOSE-RECONCILER-FILL-LANDS-OUTSIDE-THE-BAND",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-EXIT-ADJUDICATION-AT-15BP-MISSES-STOP-OUTS-WHOSE-RECONCILER-FILL-LANDS-OUTSIDE-THE-BAND'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] MI-271's exit adjudicator uses a 15bp touch band and misses stop-outs whose reconciler fill lands outside it; 2 of 33 packages measured"
+}

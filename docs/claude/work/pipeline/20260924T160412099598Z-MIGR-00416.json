@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) The prop report path POPULATES sl/tp on every fill that has a bracket — the reporter sends them and the screenshot parser extracts them — verified by a new fill landing with non-null columns, not by the prose mentioning a stop. (2) prop_sl_tp_alert is shown to actually evaluate that position (an entry appears in its state file for it), so the short-circuit is no longer taken. (3) A bracket AMENDMENT is expressible without appending a duplicate position row — either a third report kind or an explicit update path. (4) The 11 existing open-state rows are backfilled or explicitly marked unrecoverable; leaving them NULL while new rows are correct would leave the live position uncovered, which is the whole finding.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260830-PROP-FILL-BRACKETS-LIVE-IN-PROSE-SO-THE-SLTP-CROSSING-ALERT-CANNOT-FIRE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-PROP-FILL-BRACKETS-LIVE-IN-PROSE-SO-THE-SLTP-CROSSING-ALERT-CANNOT-FIRE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-PROP-FILL-BRACKETS-LIVE-IN-PROSE-SO-THE-SLTP-CROSSING-ALERT-CANNOT-FIRE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] prop_fills has sl/tp columns and ingest_report accepts them, but 33 of 40 rows leave them NULL and put the bracket in free-text `reason` — so prop_sl_tp_alert's `if not sl and not tp: continue` makes the crossing alert INERT for 11 of 18 open-state fills, including the one live position"
+}

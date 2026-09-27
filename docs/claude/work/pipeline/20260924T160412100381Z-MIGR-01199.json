@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either the trainer VM has a serialization mechanism that actually exists, or those comments say plainly that heavy work is unserialized and what the consequence is. Reading the comments is not enough -- check whether two concurrent trainer jobs can in fact overlap today.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_011Z18XADmiW1npvEeHm5nCP, found via scope-overlap-audit's self-test failing on PR #12674 for a missing board-pointer.json",
+    "rerun": "grep -rln 'board-pointer\\|board_pointer' --include=*.yml --include=*.py . | grep -v '^./docs/archive'"
+  },
+  "routed_to": "session_0123X5YvhKUFRoScLj1amz3L (build lane, sonnet-5) -- MEASURED, not just read: 2 workflows make the serialization claim of 23 that touch the trainer VM; docs/claude/board-pointer.json is absent at its old path (archived); .claude/skills/session-coordination/ is archived and absent from the live catalog; docs/claude/coordination-board.md's own MEASURED 2026-08-20 record shows vm_lane_guard.sh is inert on Claude Code on the web, 'where most of these sessions run'; a real, separate, CI-enforced on-VM flock (src/utils/trainer_heavy_lock.py) already exists but only covers python -m ml train/build-dataset + an enumerated research-entrypoint list, not arbitrary heavy commands dispatched through these two relays. BOTH acceptance outcomes delivered, split by evidence: trainer-vm-diag.yml's issues+trainer-vm-heavy-request path now wraps its SSH command in that SAME real flock (verified locally -- single acquire, concurrent collision -> refuse exit 75, crashed holder -> next run still acquires, no deadlock); trainer-diag-relay.yml has no heavy/light signal to wrap automatically, so its comment states plainly it applies no serialization and how a heavy script must lock itself. docs/claude/vm-resource-management.md and vm_lane_guard.sh's deny message corrected to stop pointing at the dead board. PR: https://github.com/benbaichmankass/Metis-Insights/pull/12691 (draft, landing=hold/operator_asked_to_hold per lane instructions -- manager merges). scripts/ci/run_guards.py: 36 pass/0 fail/35 skip (not relevant) on the committed diff. NOT YET MERGED and the new flock-wrap step has not yet been exercised against a live trainer-vm-diag SSH session -- that is the first live proof, owed after merge. Flagged in the PR body (not filed here, out of this lane's scope): ~20+ other non-archived files still live-read board-pointer.json/session-board.json, a materially bigger surface than the two workflows this item named.",
+  "state": "routed",
+  "what": "The trainer VM's cross-session serialization protocol is gone: trainer-diag-relay.yml and trainer-vm-diag.yml both document heavy VM work as serialized by a VM-LANE CLAIM/RELEASE FIFO on the coordination board, which the 2026-09-21 reset archived. Comments only -- the relays still RUN -- but on a 1-OCPU box the serialization they promise no longer exists and nothing says so."
+}

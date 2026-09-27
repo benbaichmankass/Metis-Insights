@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) the reachable-set claim is re-derived on demand rather than recorded as a constant -- a script or workflow that runs RiskManager.position_size over the current roster at the current balance and current prices, whose output is the thing sessions read -- or (b) the two prose copies carry an explicit as-of date and a statement that reachability decays with price, so a reader knows to re-measure. !! (b) ALONE IS WEAKER AND MUST BE RECORDED AS THE CHEAPER CHOICE IF TAKEN: a dated claim still goes stale, it merely says so. !! DO NOT close this by editing the GDX line to say 'refused' -- that is the same defect with a different value, and it would be stale again on the next meaningful move in GDX. The claim under repair is that the set is CONSTANT, not the value of any one entry.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-THE-ALPACA-LIVE-REACHABLE-SYMBOL-SET-IS-RECORDED-AS-A-CONSTANT-AND-GDX-HAS-SINCE-FALLEN-OUT-OF-IT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-THE-ALPACA-LIVE-REACHABLE-SYMBOL-SET-IS-RECORDED-AS-A-CONSTANT-AND-GDX-HAS-SINCE-FALLEN-OUT-OF-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-THE-ALPACA-LIVE-REACHABLE-SYMBOL-SET-IS-RECORDED-AS-A-CONSTANT-AND-GDX-HAS-SINCE-FALLEN-OUT-OF-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] config/accounts.yaml and the 2026-08-25 affordability sweep both record alpaca_live's reachable set as 'TLT IEF SLV USO IAUM GDX' as though it were a constant -- GDX no longer sizes, and the drift is in the permissive direction"
+}

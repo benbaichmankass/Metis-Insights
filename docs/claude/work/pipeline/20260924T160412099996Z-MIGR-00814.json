@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260823-NETTING-ATTRIBUTION-LIVE-IN-APPLY-ON-REAL-MONEY-UNRECORDED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-NETTING-ATTRIBUTION-LIVE-IN-APPLY-ON-REAL-MONEY-UNRECORDED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-NETTING-ATTRIBUTION-LIVE-IN-APPLY-ON-REAL-MONEY-UNRECORDED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "NETTING_ATTRIBUTION_MODE is live in `apply` on bybit_1 AND real-money bybit_2, and CLAUDE.md records neither the value nor when it was flipped"
+}

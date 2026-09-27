@@ -1,0 +1,345 @@
+{
+  "generated_at": "2026-09-27T05:28:08Z",
+  "overall": "findings",
+  "produced_by": {
+    "run_id": "36297259016",
+    "workflow": "research-loss-detector"
+  },
+  "questions": {
+    "A_stuck_research_prs": {
+      "findings": [
+        {
+          "age_hours": 17.9,
+          "branch": "automation/research-queue-stamp-36239222079-1",
+          "pr": 12989,
+          "title": "chore(research-queue): dispatch stamps (auto)"
+        },
+        {
+          "age_hours": 12.3,
+          "branch": "automation/research-queue-stamp-36257853974-1",
+          "pr": 13012,
+          "title": "chore(research-queue): dispatch stamps (auto)"
+        }
+      ],
+      "population": "63 open PRs; 50 automation/*; 2 carry research; 48 automation/* carry none (not graded here)",
+      "state": "findings",
+      "threshold_hours": 6.0
+    },
+    "B_unlanded_result_runs": {
+      "findings": [
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T14:07:30Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36010497809",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36010497809",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T12:41:32Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36000658979",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36000658979",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T12:31:11Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35999566185",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35999566185",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T12:31:10Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35999563824",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35999563824",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T11:17:24Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35992152280",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35992152280",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:50:59Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35983731519",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983731519",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:48:06Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35983442279",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983442279",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:45:23Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35983166835",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983166835",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:38:03Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35982418069",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35982418069",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:37:50Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35982396299",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35982396299",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:32:27Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35981853449",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35981853449",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:32:08Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35981819756",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35981819756",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:17:24Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35980322052",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35980322052",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:10:17Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35979604926",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35979604926",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T06:24:23Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35964326810",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35964326810",
+          "workflow": "research-exit-head-build.yml"
+        }
+      ],
+      "lost": [
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T14:07:30Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36010497809",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36010497809",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T12:41:32Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "36000658979",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36000658979",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T12:31:11Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35999566185",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35999566185",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T12:31:10Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35999563824",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35999563824",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T11:17:24Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35992152280",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35992152280",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:50:59Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35983731519",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983731519",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:48:06Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35983442279",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983442279",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:45:23Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35983166835",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35983166835",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:38:03Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35982418069",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35982418069",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:37:50Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35982396299",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35982396299",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:32:27Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35981853449",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35981853449",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:32:08Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35981819756",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35981819756",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:17:24Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35980322052",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35980322052",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T09:10:17Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35979604926",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35979604926",
+          "workflow": "research-exit-head-build.yml"
+        },
+        {
+          "conclusion": "failure",
+          "created_at": "2026-09-24T06:24:23Z",
+          "result_job": [
+            "failure"
+          ],
+          "run_id": "35964326810",
+          "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/35964326810",
+          "workflow": "research-exit-head-build.yml"
+        }
+      ],
+      "pending_merge": [],
+      "population": "21 completed run(s) of 4 workflow(s) calling ./.github/actions/research-result since 2026-09-13 (m20-exit-lever-sweep.yml, research-exit-head-build.yml, research-exit-head-replay-trainer.yml, soak-book-grade-weekly.yml); 105 produced no result by design (skipped); 6 result file(s) on origin/main",
+      "state": "findings"
+    },
+    "C_expiring_unlanded_artifacts": {
+      "findings": [],
+      "population": "521 artifact(s) listed, 521 unexpired, 445 expire within 72.0h across 445 run(s); 0 of those from research workflows (none); a landed copy = run id named on origin/main in research/results, a commit message, or a file under research/**, docs/research/**, runtime_logs/replay_pregate/**",
+      "state": "clean"
+    }
+  },
+  "ref": "origin/main",
+  "repo": "benbaichmankass/Metis-Insights"
+}

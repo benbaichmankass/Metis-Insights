@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist row D3, measurement only. Adds a read-only research script (scripts/research/realized_slippage.py), its committed output (comms/research/d3_realized_slippage/), a results doc registered in docs/DOCUMENT-INDEX.md, and two new PIPELINE.jsonl items. It does not touch src/, config/, execution_costs.py defaults, any comms/strategy_evidence record, the order path, strategy params, risk caps or account modes. Tier 1 by the canonical examples (retrieving and analyzing state, research tooling)."
+}

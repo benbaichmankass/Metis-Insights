@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260803-GLD-ALPACA-PORTFOLIO-SURVIVAL-SKIP'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "[routing][Tier-3] gld_pullback_1h is routed on alpaca_portfolio but FAILS that account's survival/breach gate at corrected cost (survival 0.871<0.90, P(breach) 0.132>0.10)"
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A prop_ticket_risk_soak row with `global_mode: enforce` AND `state: exceeds_cushion` AND `would_have_capped: true`, read back through /api/diag/log_file?name=prop_ticket_risk_soak, showing the suggested size was actually reduced. Explicitly NOT sufficient: the get-env read, a `within_cushion` row under enforce (that is the gate declining to act, which is correct and proves nothing), or the tests passing.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by E17/E18 (no ticket reaches breakout_1 at all, so the cap cannot be exercised) and B6 (the prop bar). The observation this row wants is downstream of E17. EVIDENCE: MANAGER-CHECKLIST.json: E17 blocked ('breakout_1 receives nothing'), E18 queued, B6 queued.",
+  "what": "[LOUD] PROP_TICKET_RISK_GATE_MODE=enforce is LIVE on breakout_1 (Tier-3, operator-approved 2026-08-31). It is ARMED and has never CAPPED a ticket. Those are different facts and only the second is proof the cap works."
+}

@@ -64,6 +64,24 @@ def test_a_recorded_account_is_known_divergent(ledger):
     assert "broker-truth" in v["note"]
 
 
+def test_a_known_divergent_verdict_carries_its_own_age(ledger):
+    """The ledger has no scheduled producer, so a caller reading this verdict
+    must be able to tell a fresh figure from a stale one without a second
+    lookup (E70, 2026-09-24: bybit_2's `as_of` sat 73 days stale with no
+    signal anywhere in the wire shape)."""
+    import datetime as dt
+
+    fresh = journal_trust("bybit_2", ledger, now=dt.datetime(2026, 7, 20, tzinfo=dt.timezone.utc))
+    assert fresh["as_of_age_days"] == 7
+    assert fresh["stale"] is False
+    assert "STALE" not in fresh["note"]
+
+    old = journal_trust("bybit_2", ledger, now=dt.datetime(2026, 9, 24, tzinfo=dt.timezone.utc))
+    assert old["as_of_age_days"] == 73
+    assert old["stale"] is True
+    assert "STALE" in old["note"]
+
+
 def test_an_unrecorded_account_is_not_a_clean_bill_of_health(ledger):
     """`no_record` means nobody reconciled it, NOT that it reconciles."""
     v = journal_trust("bybit_1", ledger)

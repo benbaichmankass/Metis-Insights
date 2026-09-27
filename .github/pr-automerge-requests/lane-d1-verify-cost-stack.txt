@@ -1,0 +1,1 @@
+armed by lane/d1-verify-cost-stack (session_01W3mLNfVKZsRBCV41YPpgwo): Tier-1 docs + pipeline-records PR, self-land on green.

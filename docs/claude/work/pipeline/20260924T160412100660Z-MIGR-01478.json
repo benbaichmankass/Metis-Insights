@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies and soak_alarm.py is R5's instrument (the four-state grading of every declared soak). EVIDENCE: MEASURED 2026-09-24: scripts/ops/soak_alarm.py:2,17 name docs/claude/OPEN-ITEMS.json; git cat-file -e HEAD:docs/claude/OPEN-ITEMS.json -> does not exist.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "soak_alarm.py names a register that exists at HEAD, or the module is retired with a stated reason",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E45-SOAK-ALARM-GRADING-STILL-READS-THE-ARCHIVED-OPEN-ITEMS-REGISTER",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "E45",
+    "rerun": "grep -n 'OPEN-ITEMS' scripts/ops/soak_alarm.py && git cat-file -e HEAD:docs/claude/OPEN-ITEMS.json"
+  },
+  "routed_to": "R5 (soak-book read): re-point soak_alarm.py at PIPELINE.jsonl or retire it before the first cadence pass",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "scripts/ops/soak_alarm.py still reads docs/claude/OPEN-ITEMS.json, archived by the 2026-09-21 reset. E45 re-pointed the REGISTRATION guard (check_soak_registered) at PIPELINE.jsonl but NOT this module, so the four-state grading the canonical doc describes (ready / not_writing / unknown / accruing) runs against nothing. The dangerous state is not_writing: a soak that stopped writing is today indistinguishable from one patiently accruing, which is the exact condition that rule was written to end. MEASURED 2026-09-22: soak-registered-guard reports 19 soak logs declared and 16 carried as pre-2026-09-02 debt, so this affects 19 of 19 declared soaks. The doc now says so rather than implying the table runs."
+}

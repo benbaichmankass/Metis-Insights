@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BOTH, and they are different facts — say which you cleared. (a) The input count is brought to <= 10 (drop one, or fold two into a single CSV input — the file already uses CSV inputs for `roster` and `arms`, so the pattern exists) AND a push to a `claude/**` branch is OBSERVED producing NO ranking-key-ab run, or a run that is not a zero-duration failure. Read the run history, never the workflow file. (b) A `workflow_dispatch` run of ranking-key-ab.yml is OBSERVED reaching a non-startup conclusion — i.e. the experiment can actually be run. ⚠️ (a) WITHOUT (b) IS THE TRAP: silencing the push noise while leaving the A/B undispatchable fixes the symptom nobody was paying for and leaves the capability dead. ⚠️ A GREEN YAML LINT CLEARS NOTHING — the file parses fine as YAML today (verified with yaml.safe_load); the violation is a GitHub-specific schema limit no YAML parser knows about. ⚠️ AND IF THE OWNER DECIDES the experiment is retired, this row does NOT clear — it CHANGES: the workflow should then be DELETED rather than left emitting a startup failure on every push, and that must be RECORDED as a decision rather than left looking like a fix about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-RANKING-KEY-AB-HAS-11-DISPATCH-INPUTS-AGAINST-A-LIMIT-OF-10-SO-IT-IS-A-STARTUP-FAILURE-ON-EVERY-PUSH-AND-CANNOT-BE-DISPATCHED-AT-ALL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-RANKING-KEY-AB-HAS-11-DISPATCH-INPUTS-AGAINST-A-LIMIT-OF-10-SO-IT-IS-A-STARTUP-FAILURE-ON-EVERY-PUSH-AND-CANNOT-BE-DISPATCHED-AT-ALL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-RANKING-KEY-AB-HAS-11-DISPATCH-INPUTS-AGAINST-A-LIMIT-OF-10-SO-IT-IS-A-STARTUP-FAILURE-ON-EVERY-PUSH-AND-CANNOT-BE-DISPATCHED-AT-ALL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ranking-key-ab.yml declares 11 workflow_dispatch inputs against GitHub's hard limit of 10, so it startup-fails on EVERY push to claude/** and its workflow_dispatch is dead — the A/B it exists to run has never been runnable"
+}

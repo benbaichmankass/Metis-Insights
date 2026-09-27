@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS, different facts — say which was resolved. (1) MECHANISM: two concurrently-open self-landing PRs are OBSERVED both passing pr-landing-guard WITHOUT either having to rewrite a line the other also rewrites — proven by `git merge-tree --write-tree --name-only` between the two heads returning ZERO conflicted paths while both PRs' `pr-landing` checks are green. [!] NOT sufficient: one of them declaring `hold` to opt out, which is the workaround this row was found through and leaves the defect intact for every self-landing pair. (2) DETECTION: something FAILS or PAGES on a MERGE-QUEUE.json that is empty or stale while register-touching PRs are open — a guard, a workflow, or a manager check that can tell 'nothing to queue' from 'nobody is queueing'. [!] A green R8 run resolves NOTHING here: R8 passes on an empty queue by construction, which is the finding. [!] And a CLAUDE.md paragraph resolves nothing — the merge-queue duty is already canonised as a manager base function and the measurement above is what happened anyway.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-R13-FORCES-EVERY-SELF-LANDING-BRANCH-TO-REWRITE-ONE-5-LINE-OBJECT-SO-CONCURRENT-PRS-CONFLICT-BY-CONSTRUCTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pr-landing-guard R13 makes docs/claude/session-board.json::merge_slot a guaranteed conflict point between any two concurrent self-landing PRs — and R8 passes vacuously on the empty queue that lets it happen"
+}

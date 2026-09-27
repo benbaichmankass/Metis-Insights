@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. State the rule where sessions actually read it — the session-coordination skill's merge protocol step 4 currently says 'confirm all required checks pass' without naming the trap. It should say: read `get_check_runs` on the head SHA and check each required context by name; a `check_suite.completed` success is NEVER sufficient.\n2. Add the same line to the PreToolUse merge-guard deny message, which is the one place a session is guaranteed to read before merging in runtimes where hooks load.\n3. Verified by a session reporting it followed the rule against a PR where a suite completed green while another was still running — i.e. proven against the live condition, not by re-reading the doc.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-CHECK-SUITE-EVENT-IS-PER-SUITE-NOT-PER-PR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A check_suite.completed SUCCESS is per-SUITE, not per-PR — acting on it merges on a partial required set"
+}

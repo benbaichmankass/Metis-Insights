@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "alpaca_live declares an exposure/notional bound (e.g. max_gross_exposure_pct and/or a per-position notional cap) such that no routed leg can size past it, verified by recomputing the notional table above against the declared cap; OR the per-leg stop geometry is widened so 2% risk implies sane notional. Either is Tier-3.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 7 of 15 alpaca_live legs size to MORE notional than the whole account on a single trade — scale-invariant, so funding does not fix it, and no exposure cap is declared"
+}

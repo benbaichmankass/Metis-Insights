@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260820-TRAINER-DATASET-GC-HAS-NO-CALLER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-TRAINER-DATASET-GC-HAS-NO-CALLER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-TRAINER-DATASET-GC-HAS-NO-CALLER'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/ops/trainer_dataset_gc.py has NO CALLER anywhere -- but wiring it is NOT the disk fix, because it reclaims 0.09 GB against a 3.2 GB shortfall"
+}

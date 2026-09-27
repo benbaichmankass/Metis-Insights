@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A session measuring a condition its own cycle has been remediating states WHICH SHA its control was graded at, and why that sha is uncontaminated. Cheap, mechanical form: grade the negative control in a worktree at the last commit before the current cycle's work began, and record that sha beside the result -- scripts/ops/uncarried_specs.py --self-test --strict-negative is a worked example (it REFUSES to pass unless the known-stranded artifact grades un-carried on a pre-remediation tree). !! DO NOT 'FIX' THIS BY DROPPING THE CONTROL: the contaminated control still passed, so removing it loses the only thing that caught the under-count. !! AND A PROBE WITH NO NEGATIVE CONTROL AT ALL IS WORSE THAN A CONTAMINATED ONE -- it cannot be wrong in a way anyone notices.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-A-CONTROL-MEASURED-AFTER-YOUR-OWN-REMEDIATION-CONFIRMS-THE-FIX-INSTEAD-OF-TESTING-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-A-CONTROL-MEASURED-AFTER-YOUR-OWN-REMEDIATION-CONFIRMS-THE-FIX-INSTEAD-OF-TESTING-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-A-CONTROL-MEASURED-AFTER-YOUR-OWN-REMEDIATION-CONFIRMS-THE-FIX-INSTEAD-OF-TESTING-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A negative control graded at HEAD was carried by work objects this week's own program created that same day — the control confirmed the remediation instead of testing the condition"
+}

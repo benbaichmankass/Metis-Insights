@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260911-THE-REGISTRY-OBSERVATION-CADENCE-IS-SLOWER-THAN-THE-STALENESS-WINDOW-SO-A-SUPPORTED-IN-FLIGHT-CLAIM-IS-UNREACHABLE-IN-PRACTICE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-THE-REGISTRY-OBSERVATION-CADENCE-IS-SLOWER-THAN-THE-STALENESS-WINDOW-SO-A-SUPPORTED-IN-FLIGHT-CLAIM-IS-UNREACHABLE-IN-PRACTICE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-REGISTRY-OBSERVATION-CADENCE-IS-SLOWER-THAN-THE-STALENESS-WINDOW-SO-A-SUPPORTED-IN-FLIGHT-CLAIM-IS-UNREACHABLE-IN-PRACTICE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "`owner_liveness` grades an `in_flight` claim `supported` only on a FRESH observation, and MEASURED the only rows that qualify are ones spawned inside the last 90 minutes — nothing RE-observes a lane, so a live lane decays to `could_not_establish` while still working"
+}

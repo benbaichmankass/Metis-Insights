@@ -1,0 +1,156 @@
+{
+ "schema": "prop_state/v1",
+ "lane": "E59",
+ "as_of_utc": "2026-09-24T12:38:33Z",
+ "account_id": "breakout_1",
+ "code_ref": "origin/main b157598",
+ "sources": {
+  "S1": "GET https://ict-bot.duckdns.org/api/bot/prop/status?account_id=breakout_1 (account_status id 20, reported_at 2026-09-24T09:38:09Z, freshness ok)",
+  "S2": "GET /api/bot/prop/fills?account_id=breakout_1&limit=500 (44 rows)",
+  "S3": "GET /api/bot/prop/tickets?account_id=breakout_1&limit=500 (164 rows); /prop/reconcile tickets_total 94 fills_total 44 unacted 0",
+  "S4": "diag log_file arbitration_fanout_soak lines=1000 (2026-09-02T18:53:59Z..2026-09-24T11:00:15Z, 109 rows name breakout_1)",
+  "S5": "diag log_file prop_ticket_risk_soak lines=20 (6 rows, newest 2026-09-23T14:12:22Z, global_mode enforce)"
+ },
+ "flow": {
+  "label": "MEASURED",
+  "window": "2026-09-23..2026-09-24T11:00Z",
+  "rounds_applied_for_breakout_1": 2,
+  "tickets": 2,
+  "emitted": 1,
+  "suppressed_one_ticket_per_trade": 1,
+  "fills": 1,
+  "join": [
+   {
+    "round": "2026-09-23T14:12:15Z",
+    "ticket": "prop-manual-5ef9bb2e58c2",
+    "ticket_delay_s": 6.6,
+    "status": "filled",
+    "fill_id": 44
+   },
+   {
+    "round": "2026-09-23T15:02:00Z",
+    "ticket": "prop-manual-bc832c0bbf02",
+    "ticket_delay_s": 6.0,
+    "status": "suppressed",
+    "reason": "outstanding_ticket:awaiting_report: prop-manual-5ef9bb2e58c2"
+   }
+  ],
+  "gaps": [
+   "fill #44 journaled 19.4h after ticket",
+   "fill #44 sl null; stop 2711.10 move UNVERIFIED/unjournaled",
+   "entry 2666.11 outside ticket band 2668.37-2695.47 (INFERRED)",
+   "E17 field closure criterion met on 2 rows"
+  ]
+ },
+ "sizing": {
+  "label": "MEASURED unless noted",
+  "balance": 4784.78,
+  "equity": 4794.76,
+  "static_dd_floor_usd": 4700.0,
+  "distance_to_dd_floor_usd": 94.76,
+  "daily_loss_limit_usd": 143.54,
+  "distance_to_daily_loss_usd": null,
+  "day_pnl_state": "realized_unreported",
+  "open_position": {
+   "fill_id": 44,
+   "side": "short",
+   "qty": 1.3,
+   "entry": 2666.11,
+   "snapshot_mark_inferred": 2658.43,
+   "stop_used": 2711.1,
+   "stop_provenance": "UNVERIFIED (manager brief)",
+   "cushion_after_stop_usd_inferred": 24.94,
+   "cushion_after_original_stop_2736_usd_inferred": -7.43,
+   "cushion_after_tp_usd_inferred": 408.57
+  },
+  "config_next_trade_risk_usd": 75.0,
+  "recompute_at_live_balance_usd": 71.77,
+  "full_size_stopouts_until_breach": {
+   "now_ignoring_open_risk": 1,
+   "after_44_stops": 0,
+   "after_44_tp": 5,
+   "concurrent_second_ticket": "breach if both stop (143.47 at risk vs 94.76)"
+  },
+  "defects": {
+   "D1": "PROP_TICKET_RISK_GATE_MODE=enforce live but no code path caps size (annotate-equivalent)",
+   "D2": "cushion excludes open-position loss-to-stop",
+   "D3": "reticket guard keyed on (account,symbol,direction) permits concurrent exposure"
+  },
+  "proposal": {
+   "tier": 3,
+   "applied": false,
+   "rule": "risk_usd = min(risk_pct*live_balance, k*(min(dd_dist,daily_dist) - open_risk_at_stop - cost_buffer)); skip+page below min_risk_usd",
+   "params": {
+    "fraction": 0.33,
+    "min_risk_usd": 10.0,
+    "cost_buffer_usd": 2.0
+   },
+   "table_k033": {
+    "24.94": "skip",
+    "94.76": {
+     "first_risk": 30.61,
+     "stopouts_to_floor": 3
+    },
+    "408.57": {
+     "first_risk": 71.77,
+     "stopouts_to_floor": 8
+    }
+   },
+   "pipeline_id": "PI-20260924-MQ3CDMU6-0001"
+  }
+ },
+ "baseline": {
+  "realized_reported_pnl_usd": {
+   "value": -146.52,
+   "label": "MEASURED",
+   "population": "18 closed prop_fills 2026-06-23..2026-08-30"
+  },
+  "venue_balance_change_usd": {
+   "value": -215.22,
+   "label": "MEASURED",
+   "basis": "balance 4784.78 vs 5000 start"
+  },
+  "unexplained_residual_usd": {
+   "value": -68.7,
+   "label": "INFERRED"
+  },
+  "open_unrealized_venue_usd": {
+   "value": 9.98,
+   "label": "venue-reported unrealized, not realized"
+  },
+  "prop_estimate_upnl_usd": {
+   "value": null,
+   "label": "ESTIMATED \u2014 not computed (no mark reachable)"
+  }
+ },
+ "non_reproducible_evidence": {
+  "label": "MEASURED",
+  "source_run_prefix": "/tmp/",
+  "records": [
+   "trend_donchian_eth_prop",
+   "trend_donchian_sol_prop",
+   "trend_donchian_eth_4h",
+   "trend_donchian_xrp_4h",
+   "xrp_pullback_2h",
+   "iaum_pullback_1d",
+   "ief_pullback_1d",
+   "slv_pullback_1d",
+   "eth_pullback_2h",
+   "eth_pullback_prop_2h",
+   "trend_donchian",
+   "fvg_range_15m"
+  ],
+  "breakout_1_roster_affected": "2 of 2",
+  "omitted_levers_on_prop_records": [
+   "tp_r"
+  ],
+  "pipeline_id": "PI-20260924-MQ3CDMU6-0004"
+ },
+ "pipeline_ids": [
+  "PI-20260924-MQ3CDMU6-0001",
+  "PI-20260924-MQ3CDMU6-0002",
+  "PI-20260924-MQ3CDMU6-0003",
+  "PI-20260924-MQ3CDMU6-0004",
+  "PI-20260924-MQ3CDMU6-0005"
+ ]
+}

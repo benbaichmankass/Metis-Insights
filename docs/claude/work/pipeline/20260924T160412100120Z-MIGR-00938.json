@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260903-TWO-AUTOMATION-FAMILIES-WRITE-PATHS-OUTSIDE-THE-TIER-1-SURFACE-AND-WILL-RELOCK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-TWO-AUTOMATION-FAMILIES-WRITE-PATHS-OUTSIDE-THE-TIER-1-SURFACE-AND-WILL-RELOCK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-TWO-AUTOMATION-FAMILIES-WRITE-PATHS-OUTSIDE-THE-TIER-1-SURFACE-AND-WILL-RELOCK'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-98 makes .github/actions/commit-to-main write its own landing declaration (tier 1, landing self), which unlocks the automation PR lane. R5 then grades the diff against check_pr_landing.py's TIER1_SURFACE. MEASURED across all 35 remote automation/* branches, by family: reconcile-open-prs (8), work-digest (4) and strategy-reviews (1) -- the three families currently red-locked -- touch ZERO paths outside the Tier-1 surface, so they pass. TWO families do not: ciwatch (8 branches, writes automation/board-results/**) and research-queue-stamp (2 branches, writes research/queue/*.yaml). Neither `automation/**` nor `research/queue/**` is in TIER1_SURFACE."
+}

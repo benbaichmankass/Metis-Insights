@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER the share of open rows the tool can grade RISES on a stated population and by a stated mechanism, OR it is recorded as a decision that draining is a human re-read rather than a shortlist. [!] DO NOT MEET THIS BY READING BACKTICKED TOKENS AS SYMBOLS -- that is measured above at 6.0% headroom with a false-positive vocabulary dominated by state names, and building it would raise the likely_met count while lowering its truth, which is worse than the current silence. [!] THE UPSTREAM REMEDY IS THE ONE WORTH COSTING: criteria are prose, and a criterion that names a checkable artifact is gradeable by anything while one that names a behaviour is gradeable only by a reader. check_backlog_criteria.py already governs what a criterion must carry, so requiring a NAMED ARTIFACT is expressible there -- but it would bind every NEW row and not the 782 standing ones, and a rule that makes rows harder to file is a real cost against a register the operator has explicitly said should not be capped. That trade is an operator decision and this row does not take it. [!] A RE-RUN OF THE TOOL CLEARS NOTHING: re-measuring 4.2% is not progress, and a likely_met count that grows because more rows happen to name paths is not the mechanism moving.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-DRAIN-TOOL-CAN-EXPRESS-AN-OPINION-ABOUT-FOUR-PERCENT-OF-THE-BACKLOG-AND-THE-CAUSE-IS-HOW-CRITERIA-ARE-WRITTEN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-DRAIN-TOOL-CAN-EXPRESS-AN-OPINION-ABOUT-FOUR-PERCENT-OF-THE-BACKLOG-AND-THE-CAUSE-IS-HOW-CRITERIA-ARE-WRITTEN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-DRAIN-TOOL-CAN-EXPRESS-AN-OPINION-ABOUT-FOUR-PERCENT-OF-THE-BACKLOG-AND-THE-CAUSE-IS-HOW-CRITERIA-ARE-WRITTEN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] backlog_drain_candidates grades 971 of 1014 open rows not_checkable, and the cause is upstream in how criteria are worded rather than in the tool"
+}

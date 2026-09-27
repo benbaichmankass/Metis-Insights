@@ -4,7 +4,10 @@ debt roster — the rec #5 follow-up for the strategies the sandbox can't reach.
 
 For each `coverage_debt` strategy (config/regime_coverage_exemptions.yaml) it:
   1. classifies the harness (Donchian trend -> backtest_trend.py; pullback ->
-     backtest_pullback.py; TTM-style BB-inside-KC squeeze -> backtest_squeeze.py)
+     backtest_pullback.py; TTM-style BB-inside-KC squeeze -> backtest_squeeze.py;
+     failed-breakout fade -> backtest_fade.py, keyed on `pierce_min` and checked
+     BEFORE the trend branch since a fade leg also declares `donchian` — see the
+     E39 / `_FADE_PLAIN` comment below)
      and extracts the EXACT live params from config/strategies.yaml,
   2. resolves the candle feed for the symbol — Binance-vision for `*USDT` crypto,
      Yahoo (yfinance) for equities/ETFs, and Yahoo continuous futures for
@@ -20,21 +23,44 @@ trail-vol lever flags, so those variants run faithfully.
 2026-09-22).** A `PLAIN` set is an ASSERTION that the harness accounts for a
 key, and for `tp_r` on trend/pullback that assertion was FALSE: both harnesses
 take `--tp-r`, it is "only consulted when --tp-cap-pct > 0", and
-`build_harness_cmd` passes NEITHER -- so the run models no take-profit at all.
-`qqq_trend_long_1d` recorded `fidelity: faithful` with `omitted_levers: []`
-against a config declaring `tp_r: 3.0` (`PI-20260922-E41-0005`).
-`conditional_omissions()` now reads the command that is actually about to run.
-MEASURED over the 51 routed legs of `config/strategies.yaml` on 2026-09-22:
-`faithful` **37 -> 25**; 13 legs name `tp_r` as omitted, 12 of which previously
-claimed to have modelled it.
+`build_harness_cmd` used to pass NEITHER -- so the run modelled no take-profit
+at all. `qqq_trend_long_1d` recorded `fidelity: faithful` with
+`omitted_levers: []` against a config declaring `tp_r: 3.0`
+(`PI-20260922-E41-0005`). `conditional_omissions()` reads the command that is
+actually about to run, so E46 made the false claim VISIBLE: MEASURED over the
+51 routed legs of `config/strategies.yaml` on 2026-09-22, `faithful` **37 ->
+25**; 13 legs named `tp_r` as omitted, 12 of which previously claimed to have
+modelled it.
 
-⚠️ **`faithful` still does NOT mean the LIVE capped TP was modelled.** Live
-places `tp = min(entry*(1+0.099), entry + tp_r*risk)`, so the ~9.9% venue clamp
-binds on every trend/pullback leg -- the 28 carrying the 50R sentinel included --
-and no run here models it. That is
-`BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`, deliberately NOT
-folded in: doing so would re-base the whole fleet's history, which
-`backtest_trend.py`'s own `--tp-cap-pct` default-off comment refuses.
+⚠️ **E55 (2026-09-24) IS THE FIX, NOT JUST THE DISCLOSURE.** `_tp_r_flags`
+now builds the argv that genuinely models a declared `tp_r`, via the SAME
+`--tp-cap-pct`/`--tp-r` pair backtest_trend.py's own CLI already describes as
+"LIVE-PARITY" -- `tp = min(entry*(1+TP_VENUE_CAP_PCT), entry + tp_r*risk)`,
+`TP_VENUE_CAP_PCT = 0.099` imported from the single owner,
+`src/runtime/tp_venue_cap.py`. Passing `--tp-r` alone would do nothing
+(`--tp-cap-pct` is what makes it consulted at all), so modelling `tp_r` and
+modelling the venue price cap are not independent choices -- they are one
+flag pair. MEASURED 2026-09-24: `tp_r` no longer appears in ANY enabled leg's
+`omitted_levers` (0/41 trend/pullback legs, all of which declare a numeric
+`tp_r`); `faithful` moved **25 -> 37** -- the SAME number the 2026-09-22
+census read before E46's correction, but for the opposite, now-correct
+reason (12 of the 13 previously-omitted legs are now genuinely modelled;
+`xrp_pullback_2h` stays `approximate` on an unrelated omitted lever,
+`trail_decay_arm_r`/`trail_decay_tight_mult`).
+
+⚠️ **THIS ALSO CLOSES `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`
+FOR EVERY TREND/PULLBACK LEG THAT DECLARES A `tp_r`** -- previously read here
+as deliberately NOT folded in, "because doing so would re-base the whole
+fleet's history". E55 measured that re-basing rather than continuing to defer
+it: regenerating all 41 enabled trend/pullback legs' evidence records through
+the harness flipped 8/41 Stage-0 verdicts. VERIFIED against
+`config/accounts.yaml`: none of the 8 are on a real-money account
+(`bybit_2`/`bybit_portfolio`/`alpaca_live`/`alpaca_portfolio`) today. Filed as
+`PI-20260924-EDNBNMSG-0001` for whoever next reviews Stage-1 promotion
+candidates. A leg still carrying the fleet's 50R "parked" sentinel is now ALSO
+modelled -- the venue PRICE cap binds regardless of how large `tp_r` is, so a
+sentinel is not "harmlessly unreachable" once the harness can model the cap at
+all (see `_tp_r_flags`'s own docstring for the reasoning this corrects).
 
 **Trend harness, updated 2026-08-08 (convergence step (a) of
 `BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE`).** There used to
@@ -226,6 +252,30 @@ _SQZ_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe", "
 # the threshold `tp_r` is reported as an omitted lever and the row degrades to
 # `approximate`, which correctly blocks cell authoring.
 #
+# Fade (failed-breakout reversion) lever config-key -> the PLAIN set for
+# scripts/backtest_fade.py. E39 (2026-09-25): `classify()` below used to check
+# `"donchian" in cfg` FIRST, and fade_breakout_4h's config declares `donchian`
+# (the channel it fades pierces) — the SAME structural key trend_donchian legs
+# use. So `classify()` returned `"trend"` for it and every "fade_breakout_4h"
+# evidence record ever built (`comms/strategy_evidence/fade_breakout_4h.json`,
+# every run under `comms/strategy_evidence/runs/*/`) measured
+# scripts/backtest_trend.py's CONTINUATION entry (buy the confirmed breakout)
+# against fade's stop/trail/timeout params, not scripts/backtest_fade.py's
+# structurally OPPOSITE reversion entry (fade the FAILED breakout) the live
+# unit (src/units/strategies/fade_breakout_4h.py) actually trades — the same
+# "never wired into classify()" shape as BL-20260730-SQUEEZE-NO-HARNESS, one
+# entry-direction deeper: a wrong-harness silent `measured`, not a
+# `no_harness` refusal. `pierce_min` (checked in `classify()` below BEFORE the
+# `donchian` branch) is the discriminator: MEASURED 2026-09-25 against every
+# enabled leg in `config/strategies.yaml`, exactly ONE leg
+# (`fade_breakout_4h`) declares it, so keying on it cannot silently re-route a
+# leg an earlier/later branch should keep.
+_FADE_PLAIN = {"model", "signal_prefixes", "enabled", "execution", "timeframe",
+               "symbols", "donchian", "atr_period", "atr_stop_buffer",
+               "pierce_min", "trail_mult", "adx_max", "adx_period", "tp_r",
+               "timeout_bars", "min_confidence", "shadow_model_ids",
+               "description", "tp_intent"}
+#
 # 20R is chosen as comfortably beyond any plausible 3.5-ATR-trail exit while
 # still failing loudly if someone sets a real target (e.g. tp_r: 3). The live
 # config is tp_r: 50.0. The STRONGER form of this check is empirical — verify no
@@ -296,6 +346,8 @@ _PLAIN_CONDITIONAL_ON_FLAG: Dict[str, Dict[str, tuple]] = {
     # carry it. This replaces the hand-rolled special case that used to live in
     # `build_harness_cmd`'s squeeze branch.
     "squeeze": {"tp_r": (None, _tp_r_binds)},
+    # backtest_fade.py takes the same --tp-cap-pct/--tp-r pair (E39, 2026-09-25).
+    "fade": {"tp_r": ("--tp-cap-pct", _tp_r_binds)},
 }
 
 
@@ -509,6 +561,16 @@ def annotate_exit_head_replayability(cfg: dict, row: dict, omitted: list[str]) -
 
 
 def classify(cfg: dict) -> str | None:
+    # Checked BEFORE `donchian` below: fade_breakout_4h declares BOTH `donchian`
+    # (the channel it fades pierces) and `pierce_min` (fade-specific: the
+    # minimum pierce depth past that channel that counts as a failed breakout).
+    # `donchian` alone cannot discriminate it from trend_donchian's own legs —
+    # see the `_FADE_PLAIN` comment above for the E39 finding this fixes.
+    # `pierce_min` is carried by exactly ONE leg fleet-wide (measured
+    # 2026-09-25), so checking it first cannot silently re-route a donchian
+    # trend-follower leg into the fade branch.
+    if "pierce_min" in cfg:
+        return "fade"
     if "donchian" in cfg:
         return "trend"
     if "trend_lookback" in cfg or "pullback_frac" in cfg:
@@ -740,6 +802,71 @@ def roundtrip_fee_bps(symbol: str) -> float:
     return float(DEFAULT_FEE_BPS_ROUNDTRIP if resolved is None else resolved)
 
 
+def _tp_venue_cap_pct() -> float:
+    """The live venue TP clamp (0.099) — imported, never re-declared.
+
+    `src/runtime/tp_venue_cap.py` is the ONE owner of this literal (its own
+    docstring: it used to be declared thirteen times under three names with
+    nothing binding them together). Importing it here is what makes
+    `--tp-cap-pct` below the SAME number `order_package` sends to the venue,
+    not a thirteenth opinion.
+    """
+    if REPO not in sys.path:
+        sys.path.insert(0, REPO)
+    from src.runtime.tp_venue_cap import TP_VENUE_CAP_PCT
+    return TP_VENUE_CAP_PCT
+
+
+def _tp_r_flags(cfg: dict) -> List[str]:
+    """``--tp-cap-pct``/``--tp-r`` argv, or ``[]`` when the leg declares no `tp_r`.
+
+    E55 / `PI-20260924-JN54P2HH-0005` (graded continuation of
+    `PI-20260922-E41-0006`). Before this, `build_harness_cmd` passed NEITHER
+    flag for trend/pullback, so `tp_r` sat in `_TREND_PLAIN`/`_PB_PLAIN` as an
+    ASSERTION the harness accounted for it while the run modelled no
+    take-profit at all — the false-`faithful` defect E46 made VISIBLE
+    (`conditional_omissions` now computes the grade from the argv) but did not
+    fix. This is the fix: actually build the argv that models it.
+
+    `--tp-r` is "only consulted when --tp-cap-pct > 0" (backtest_trend.py's
+    own help text for both harnesses), so modelling a leg's declared `tp_r` at
+    all REQUIRES passing the venue cap alongside it — the two are not
+    independent choices, they are one flag pair implementing the live formula
+    `tp = min(entry*(1+TP_VENUE_CAP_PCT), entry + tp_r*risk)`
+    (`src/units/strategies/trend_donchian.py:393`). Passing `--tp-r` alone
+    would leave `tp_cap_pct` at its 0.0 default and change nothing.
+
+    Deliberately keyed on PRESENCE, not on `_tp_r_binds`'s nonbinding
+    threshold: that threshold answered a narrower question ("is the omission
+    dishonest enough to disclose") for a harness that could not model the
+    lever at all. It never established that a parked 50R sentinel is
+    unreachable — the venue cap `min(entry*1.099, entry+50R*risk)` almost
+    always resolves to the *price* term regardless of `tp_r`'s size, which is
+    exactly `BL-20260810-BACKTEST-DOES-NOT-MODEL-THE-LIVE-CAPPED-TP`. So once
+    the harness CAN model the cap, withholding it for a sentinel leg would
+    reintroduce the same omission for a different reason.
+
+    A leg with no `tp_r` in its config gets neither flag — byte-identical to
+    every run before this function existed (`--tp-cap-pct` defaults to 0.0,
+    the harness's own untouched default).
+
+    An UNREADABLE `tp_r` (not coercible to `float`) also gets neither flag —
+    forwarding it verbatim would hand the subprocess's `type=float` argparse a
+    string it cannot parse, turning "we could not read this lever" into a
+    crashed run (`harness_failed`) instead of the honest `approximate` grade
+    `conditional_omissions`/`_tp_r_binds` already give it when the flag is
+    absent. Fail toward *omitted*, never toward a subprocess crash.
+    """
+    v = cfg.get("tp_r")
+    if v is None:
+        return []
+    try:
+        float(v)
+    except (TypeError, ValueError):
+        return []
+    return ["--tp-cap-pct", str(_tp_venue_cap_pct()), "--tp-r", str(v)]
+
+
 def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: str,  # inert: name — the argv is built from cfg/harness/csv; the cell name is used by the CALLER for reporting, never by the command
                       emit: str, jout: str,
                       fee_override: Optional[float] = None
@@ -786,9 +913,47 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         for k, flag in _TREND_LEVER_FLAG.items():
             if cfg.get(k) is not None:
                 argv += [flag, str(cfg[k])]
+        # E55 — model the leg's declared tp_r (the live-capped TP formula).
+        # See `_tp_r_flags`. `[]` when the leg declares no tp_r.
+        argv += _tp_r_flags(cfg)
         omitted = sorted(set(k for k in cfg
                              if k not in _TREND_PLAIN and k not in _TREND_LEVER_FLAG)
                          | set(conditional_omissions("trend", cfg, argv)))
+        faithful = not omitted
+    elif harness == "fade":
+        # Deliberately does NOT reuse `common`: that list hard-codes
+        # `--atr-stop-mult`, which scripts/backtest_fade.py does not accept —
+        # its stop is `--atr-stop-buffer` (ATR beyond the rejection wick), a
+        # structurally different lever. Passing it would abort the subprocess
+        # with "unrecognized arguments" (same reasoning as the fvg_range/
+        # ict_scalp branches below). `--exit-style far` matches the harness
+        # variant validated in docs/audits/fade-breakout-complement-2026-05-24.md
+        # and the `backtesting` skill's own example invocation — the live unit
+        # has no fixed-target exit style to select. No `--adx-min`: the harness
+        # takes only `--adx-max` (chop gate), and fade_breakout_4h declares
+        # only adx_max today.
+        argv = [py, os.path.join(REPO, "scripts/backtest_fade.py"),
+                "--data", csv, "--symbol", symbol, "--resample", resample,
+                "--donchian", str(cfg.get("donchian", 20)),
+                "--atr-period", str(cfg.get("atr_period", 14)),
+                "--atr-stop-buffer", str(cfg.get("atr_stop_buffer", 0.5)),
+                "--pierce-min", str(cfg.get("pierce_min", 0.0)),
+                "--trail-mult", str(cfg.get("trail_mult", 3.0)),
+                "--exit-style", "far",
+                "--min-confidence", str(cfg.get("min_confidence", 0.0)),
+                "--fee-bps-roundtrip", str(fee),
+                "--emit-trades", emit, "--json", jout]
+        if cfg.get("adx_max") is not None:
+            argv += ["--adx-max", str(cfg["adx_max"])]
+        if cfg.get("adx_period") is not None:
+            argv += ["--adx-period", str(cfg["adx_period"])]
+        if cfg.get("timeout_bars") is not None:
+            argv += ["--timeout-bars", str(cfg["timeout_bars"])]
+        # E55-style — model the leg's declared tp_r (the live-capped TP
+        # formula). `[]` when the leg declares no tp_r.
+        argv += _tp_r_flags(cfg)
+        omitted = sorted(set(k for k in cfg if k not in _FADE_PLAIN)
+                         | set(conditional_omissions("fade", cfg, argv)))
         faithful = not omitted
     elif harness == "squeeze":
         argv = [py, os.path.join(REPO, "scripts/backtest_squeeze.py"),
@@ -879,6 +1044,9 @@ def build_harness_cmd(name: str, cfg: dict, harness: str, csv: str, resample: st
         for k, flag in _PB_LEVER_FLAG.items():
             if cfg.get(k) is not None:
                 argv += [flag, str(cfg[k])]
+        # E55 — model the leg's declared tp_r (the live-capped TP formula).
+        # See `_tp_r_flags`. `[]` when the leg declares no tp_r.
+        argv += _tp_r_flags(cfg)
         omitted = sorted(set(k for k in cfg
                              if k not in _PB_PLAIN and k not in _PB_LEVER_FLAG)
                          | set(conditional_omissions("pullback", cfg, argv)))

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260820-PULLBACK-TREND-HARNESS-EMITS-NO-MAE-R",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260820-PULLBACK-TREND-HARNESS-EMITS-NO-MAE-R",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260820-PULLBACK-TREND-HARNESS-EMITS-NO-MAE-R'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "the pullback/trend --emit-trades writer omits mae_r, so MAE-to-stop is unmeasured on all 34 legs of the fleet corpus (measured_n = 0 over 10,280 rows)"
+}

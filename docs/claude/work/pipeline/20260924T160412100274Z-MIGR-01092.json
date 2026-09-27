@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260912-ORDER-PACKAGES-SL-IS-AMENDED-BY-THE-BREAK-EVEN-RATCHET-SO-EVERY-R-OFF-IT-IS-INFLATED-ON-WINNERS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-ORDER-PACKAGES-SL-IS-AMENDED-BY-THE-BREAK-EVEN-RATCHET-SO-EVERY-R-OFF-IT-IS-INFLATED-ON-WINNERS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-ORDER-PACKAGES-SL-IS-AMENDED-BY-THE-BREAK-EVEN-RATCHET-SO-EVERY-R-OFF-IT-IS-INFLATED-ON-WINNERS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "order_packages.sl is NOT entry-frozen -- the break-even ratchet amends it in place on trades that reach 1R, so every R computed off it is inflated on winners and correct on losers"
+}

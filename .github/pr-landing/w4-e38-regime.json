@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research result + read-only analysis script only: research/results/e38-regime/ (pre-registration, results.json, RESULTS.md, README.md), scripts/research/e38_regime_classification.py (reads committed evidence records and public daily candles, writes only under research/results/e38-regime/), one pipeline record under docs/claude/work/pipeline/, and the E38 row note in docs/claude/work/MANAGER-CHECKLIST.json. No src/, no config/, no deploy/, no workflow, no order path, no roster or regime_policy change. Its finding is that none of the six gated legs may be wired on regime grounds -- it wires nothing."
+}

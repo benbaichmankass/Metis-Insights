@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Root cause identified (no-signal vs broken resolution); if no-signal, the live-strategy implication recorded; the matrix flags all-zero rows explicitly.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260730-SPLG-ZERO-TRADES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-SPLG-ZERO-TRADES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-SPLG-ZERO-TRADES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [strategy] splg_trend_long_1d produced ZERO trades over 730d — no signals, or a broken feed/params?"
+}

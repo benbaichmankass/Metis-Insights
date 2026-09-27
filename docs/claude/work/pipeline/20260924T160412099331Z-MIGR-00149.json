@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "trail_decay is modelled in the trend harness (or an equivalent path exists), and trend_donchian's cells have a recorded re-audit verdict on a row whose omissions are declared acceptable.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260730-DONCHIAN-APPROX-ONLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-DONCHIAN-APPROX-ONLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-DONCHIAN-APPROX-ONLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [regime] trend_donchian is only measurable as `approximate` — its 6 cells cannot be acted on either way"
+}

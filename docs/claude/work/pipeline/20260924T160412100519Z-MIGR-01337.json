@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "Either code that reduces a ticket's size under mode enforce is merged AND a soak row shows it reduced a real ticket, or the operator records that enforce stays annotate-equivalent and the prop_risk_gate.py MODE docstring is corrected to say so.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#three-defects-that-make-the-table-worse-than-it-looks",
+    "rerun": "grep -rnE 'enforce|capped|cap_risk' src/prop/ src/units/accounts/ ; scripts/ops/diag_fetch.sh 'log_file?name=prop_ticket_risk_soak&lines=20'"
+  },
+  "state": "queued",
+  "what": "[LOUD] PROP_TICKET_RISK_GATE_MODE=enforce (operator-approved Tier-3 2026-08-31) is NOT IMPLEMENTED: no code path caps size; breakout_ticket.py:173 only checks != 'off' and annotates, size is fixed at breakout_ticket.py:96. Live soak rows read global_mode enforce (MEASURED 2026-09-24). So OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED can never clear by construction. The operator should be told the approval bought a caveat, not a cap; the fix is PI-20260924-MQ3CDMU6-0001 step 3."
+}

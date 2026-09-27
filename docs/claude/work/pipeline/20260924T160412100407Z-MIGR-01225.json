@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER comms/strategy_evidence/splg_trend_long_1d.json reports coverage_state == 'measured' with a cost_stack and a decision_rule verdict, OR the symbol map is corrected / a substitute feed is wired and the record names which, OR the leg is explicitly dropped from config/strategies.yaml with a stated reason so nobody re-asks.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-R5-SPLG-FEED-RESOLVES-TO-ZERO-ROWS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01W2KHBwLh4ouP1b8De2bmfV, checklist row R7, branch claude/r5-remaining-corpus-cost-stack",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --strategy splg_trend_long_1d   # a coverage_state other than 'harness_failed' means the feed resolves again"
+  },
+  "state": "queued",
+  "what": "MEASURED 2026-09-22 by the R5 lane: splg_trend_long_1d is the ONLY leg of the 40 regraded that came back `harness_failed`, and the failure is a data gap, not a code defect. The record's own error field carries a POSITIVE CONTROL rather than a bare failure: 'yfinance returned no rows for SPLG (yfinance==1.7.0); venue_state=serving -- the SPY control returned 5 rows, so the venue is up and this is specific to SPLG (delisting, a short listing history, or a wrong symbol map). NOT a dependency problem.' So this is NOT the MI-287 yfinance-resolution class that cost 23 of 52 legs in September -- that floor is satisfied at 1.7.0 and the same call served SPY. [!] WHY IT MATTERS MORE THAN ONE ungraded leg: splg_trend_long_1d is one of the TWO declared affordability proxies carved out of the Alpaca mirror equality invariant in CLAUDE.md, so it is a leg the roster reasons about BY NAME, and it now has NO gradeable offline evidence at all -- not a pass, not a fail, and not even a no_harness (a harness exists and routes; it ran and could not get data). Under the promotion ladder that means it can never leave Stage 0, and unlike the E28 family nobody has a row asking why. [!] harness_failed IS NOT `no edge` AND IS NOT `no harness` -- three states, never collapsed. Do not read the null net_r_oos as a zero or as a verdict about the strategy. Write-up: docs/research/R5-REMAINING-CORPUS-COST-STACK-2026-09-22.md, proposal P5."
+}

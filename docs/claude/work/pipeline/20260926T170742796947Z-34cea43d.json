@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "The claude-pr-automerge workflow (or whatever opens these PRs) is changed so a bot-token-opened PR reliably gets its pull_request CI on the opening commit -- e.g. by triggering a workflow_dispatch re-run of the required checks right after opening, or by opening via a token/method GitHub treats as an authenticated push for Actions-triggering purposes -- and this is verified by a new bot-opened PR getting green pull_request checks WITHOUT needing a follow-up push. Until then, every Tier-1 self-land PR opened this way should be expected to need one throwaway/substantive follow-up push.",
+    "kind": "observation"
+  },
+  "id": "PI-20260926-DP2BHGT3-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "claude/fix-m20-sweep-empty-result lane (session_01Ja2uqCC7mPi3n3dP2BhgT3) -- observed while landing PR #13001 (records-file fix) and PR #13003 (RQ-003/004 dispatch stamp); PR #13000 is a second, independent instance from a different lane the same day.",
+    "rerun": "gh api repos/benbaichmankass/Metis-Insights/commits/<PR-opening-commit-sha>/check-runs --jq '.check_runs[] | {name, status, conclusion}' -- on an affected PR this returns only the automerge workflow's own runs (or action_required conclusions) for the PR-opening commit; compare against the SAME query on the commit from any subsequent authenticated push on the same PR, which returns full pull_request-event runs with real conclusions."
+  },
+  "state": "queued",
+  "what": "A PR opened by the claude-pr-automerge workflow (using its own GITHUB_TOKEN, not a push from an authenticated human/session actor) never gets its pull_request-triggered CI (Guards, pytest-collect, pytest-run, repo-inventory) to actually run on the PR-opening commit -- those checks come back either 'action_required' (needing manual approval) or, in a second observed shape, simply never start at all (mergeable_state stays blocked with no check runs beyond the automerge workflow's own 'watch'/'open-and-automerge'). MEASURED twice: PR #13000 (branch fix-leg-flow-expiry-prompted) and PR #13003 (branch claude/stamp-rq-003-004-dispatch) both hit this on their PR-opening commit; both were unstuck only by a SUBSEQUENT push from an authenticated actor (a human/session git push, not the bot token) triggering a real pull_request synchronize event. On PR #13001 the same shape appeared on its first commit (7077d9e1, opened by github-actions[bot], conclusion action_required across pytest-collect/Guards/repo-inventory/pytest-run) and resolved cleanly once a follow-up commit (df4e7c5f) was pushed by an authenticated actor -- three instances total, all following the identical shape."
+}

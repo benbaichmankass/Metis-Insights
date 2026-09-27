@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "MEASURED 2026-09-07 by MI-168 while writing the MI-140 coupling edge. Both files exist under docs/claude/work/objects/, share the same parent_intent (IN-20260903-TRADING-SYSTEM-HEALTH), the same title stem and substantially the same why/done_condition; they differ in opened_at (2026-09-06 vs 2026-09-07) and stage (EVIDENCE vs QUESTION). WHY IT MATTERS BEYOND TIDINESS: the coupling MI-168 was dispatched to record is an ORDERING CONSTRAINT on real money (MI-140 must not be remediated before MI-168 lands, because alpaca_live's only protection is that it cannot place orders). MI-168 wrote the reciprocal blocked_on edge on the -0907- object the dispatch named. A session that opens the -0906- object instead sees blocked_on: [] with basis NOT_ASSESSED and no sign the constraint exists — and CLAUDE.md is explicit that an empty list is not the claim that nothing blocks it. A duplicated object makes a true edge unreachable from half its own identity. MI-168 did NOT merge them: consolidating two work objects is not this unit's scope and doing it unasked risks discarding whichever fields the other row holds. RESOLVES WHEN: the two are reconciled into one object (or one is explicitly superseded with a pointer), and the MI-140 coupling edge is reachable from whatever survives. Population note: MI-168 found this pair incidentally while looking for ONE named object; it did NOT sweep the 662-object store for other duplicates. We did not look.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260907-TWO-WORK-OBJECTS-FOR-THE-SAME-ALPACA-LIVE-UNIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-TWO-WORK-OBJECTS-FOR-THE-SAME-ALPACA-LIVE-UNIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-TWO-WORK-OBJECTS-FOR-THE-SAME-ALPACA-LIVE-UNIT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] WO-20260906- and WO-20260907-ALPACA-LIVE-S-ROUTED-REAL-MONEY-LEG are two work objects for the same work, so a blocked_on edge written on one is invisible from the other"
+}

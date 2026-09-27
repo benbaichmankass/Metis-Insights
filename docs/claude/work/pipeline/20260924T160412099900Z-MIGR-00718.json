@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BL-20260906-BACKTEST-HARNESSES-RUN-NO-TAKE-PROFIT-BY-DEFAULT's partial-close clause is amended so that porting the cap is scoped to the 36 legs whose LIVE unit clamps, and backtest_ict_scalp.py is explicitly EXCLUDED with the reason recorded — verified by reading the amended row. OR, if the operator decides ict_scalp SHOULD clamp live, that is a Tier-3 order-path decision and this row changes rather than closes: it must be RECORDED as a decision, with the 1-in-298 measurement as its basis, rather than left looking like a harness gap. NOT SUFFICIENT: porting the cap to backtest_ict_scalp.py — that is the action this row exists to prevent. NOT SUFFICIENT: re-running the 4/15 signature count, which is already reproduced here and is not in dispute.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-PORTING-THE-TP-CAP-TO-BACKTEST-ICT-SCALP-WOULD-MOVE-IT-AWAY-FROM-LIVE-THE-LIVE-UNIT-DOES-NOT-CLAMP-EITHER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260908-PORTING-THE-TP-CAP-TO-BACKTEST-ICT-SCALP-WOULD-MOVE-IT-AWAY-FROM-LIVE-THE-LIVE-UNIT-DOES-NOT-CLAMP-EITHER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-PORTING-THE-TP-CAP-TO-BACKTEST-ICT-SCALP-WOULD-MOVE-IT-AWAY-FROM-LIVE-THE-LIVE-UNIT-DOES-NOT-CLAMP-EITHER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] CORRECTION to BL-20260906-BACKTEST-HARNESSES-RUN-NO-TAKE-PROFIT-BY-DEFAULT: on the 8 ict_scalp legs the harness and the live unit AGREE (both uncapped), so that row's partial-close clause would make the instrument LESS faithful, not more"
+}

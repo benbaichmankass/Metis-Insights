@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BOTH must hold, measured not inferred: (1) MEMORY — a single head's compute_oos_edge peaks measurably under MemoryMax (4500 MiB) on the trainer, verified by /usr/bin/time -v on the largest shadow dataset on disk, not by reading the code; and (2) WALL CLOCK — a full-registry sweep WITH --datasets-root completes inside its timer window. Baseline to beat, from #10044: 5.19 GB and 5:35 for one head. ALTERNATIVELY the design is formally changed so oos_edge is per-head-at-gate-check-time only, the sweep drops --datasets-root by design, and every doc claiming a fleet-wide oos_edge sweep is corrected to match.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260719-PROMOREADY-OOSEDGE-OOM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260719-PROMOREADY-OOSEDGE-OOM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260719-PROMOREADY-OOSEDGE-OOM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] promotion-readiness sweep memory-thrashes the 6GB trainer (~5GB RSS, D-state, 0-byte outputs) -- inline compute_oos_edge over every shadow model in ONE process; needs the per-model subprocess isolation the training cycle got"
+}

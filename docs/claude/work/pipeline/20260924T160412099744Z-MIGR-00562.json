@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A SCHEDULED run of sunset-pass.yml completes AND its artifact is on origin/main carrying that run's stamp. Read the run history and the committed file. ⚠️ A workflow_dispatch run clears the PUSH-ROUTE question only and must be recorded as such — the failure class being watched is a weekly cadence that has never delivered. ⚠️ IF THE OPERATOR DECIDES the sunset pass should not run weekly, this does NOT clear — it CHANGES: the sunset list is then produced by nothing on a cadence, which is a legitimate decision and must be RECORDED as one rather than left looking like a cadence about to start, AND the SESSION BRIEF's sunset block must stop presenting the stale candidates as current.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-SUNSET-PASS-PUSHES-STRAIGHT-AT-PROTECTED-MAIN-SO-ITS-ONLY-SCHEDULED-RUN-COULD-NOT-LAND-AND-IT-WILL-FAIL-IDENTICALLY-EVERY-MONDAY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-SUNSET-PASS-PUSHES-STRAIGHT-AT-PROTECTED-MAIN-SO-ITS-ONLY-SCHEDULED-RUN-COULD-NOT-LAND-AND-IT-WILL-FAIL-IDENTICALLY-EVERY-MONDAY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-SUNSET-PASS-PUSHES-STRAIGHT-AT-PROTECTED-MAIN-SO-ITS-ONLY-SCHEDULED-RUN-COULD-NOT-LAND-AND-IT-WILL-FAIL-IDENTICALLY-EVERY-MONDAY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] sunset-pass.yml pushes directly at protected main and is declined by the branch-protection hook — its ONE scheduled run failed, it will recur every Monday, and the SESSION BRIEF is advertising 10 sunset candidates from a pass that never landed"
+}

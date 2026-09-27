@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Establish why one leg of a single package exits on `intent_reduce` at 12h while its siblings run 21 days (candidate: the intent layer reduced only the bybit_1 leg, so per-account intent resolution is not package-coherent). Then either make package legs exit coherently or record why divergence is intended. Verified by an open-book invariant check that legs of one order_package_id agree on exit mechanism and close within a stated tolerance.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-MIRROR-LEGS-DIVERGENT-TRAILED-STOPS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Mirror legs of ONE order package diverge in HOLD DURATION, exit mechanism and PnL measurability — not merely in stop level"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260903-RUN-GUARDS-PY-IS-LANDING-MACHINERY-AND-CHECK-PR-LANDING-DOES-NOT-KNOW-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-RUN-GUARDS-PY-IS-LANDING-MACHINERY-AND-CHECK-PR-LANDING-DOES-NOT-KNOW-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-RUN-GUARDS-PY-IS-LANDING-MACHINERY-AND-CHECK-PR-LANDING-DOES-NOT-KNOW-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "check_pr_landing.py's LANDING_MACHINERY list (the set R8 verifies a `changes_landing_machinery` hold against, and that R12 uses to refuse self-landing) names 7 paths and does NOT include scripts/ci/run_guards.py or scripts/ci/guard_selftests.py. Found 2026-09-03 while declaring MI-95's landing: a PR that registers a new guard in run_guards.py was REFUSED the `changes_landing_machinery` hold reason, correctly by the list as written. But run_guards.py is invoked by .github/workflows/guards.yml, which is a required check: a malformed entry there breaks the gate that decides whether ANYTHING merges. By any functional definition that is landing machinery. POPULATION: read from LANDING_MACHINERY in scripts/ci/check_pr_landing.py at commit b596d4bc -- 7 entries, enumerated, neither of these among them."
+}

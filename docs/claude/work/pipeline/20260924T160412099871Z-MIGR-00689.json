@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either the 30-vs-31 difference is ATTRIBUTED to one of the two causes with evidence, or memos gain a retained/hashed input so the next such difference is attributable when it happens. [!] RE-RUNNING AND GETTING 30 AGAIN CLOSES NOTHING — agreement between two runs of the same pull is not evidence about the pull that produced 31. [!] NOR DOES EDITING THE MEMO TO SAY 30: that would overwrite the record with a number whose provenance is no better, and the discrepancy is the finding.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-U15S-OWN-CODE-NO-LONGER-REPRODUCES-U15S-OWN-PUBLISHED-TABLE-ONE-CONTROL-PACKAGE-FLIPPED-AND-NOBODY-WOULD-HAVE-KNOWN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] stop_integrity_both_arms, run unmodified against a fresh journal pull, reports 30 control_pre stop-outs where its own memo published 31 — and the run gives no sign that it disagrees with the record"
+}

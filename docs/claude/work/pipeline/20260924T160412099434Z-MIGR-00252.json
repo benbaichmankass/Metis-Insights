@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) tp_geometry is present on all 33 exit_head_ml cells whose leg has a corpus row, with the capped-family cells carrying 'live_parity_capped' rather than the bare 'live_parity' (assert: for every corpus leg, matrix cell tp_geometry is non-empty AND equals the label m20_exit_head_round's own three-state logic yields for that row's family and tp_cap_pct); or (b) the exemption text in scripts/ci/check_matrix_corpus_agreement.py is amended to state that the 10 disagreements are one un-propagated batch rather than ten separate re-grade decisions, so the next reader is not misled about their nature. Verified by re-running the set-identity check: the no-geometry set and the status-disagreement set must no longer be identical, or the exemption must say why they are.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-EXIT-HEAD-CORPUS-GEOMETRY-NEVER-PROPAGATED-TO-MATRIX",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-EXIT-HEAD-CORPUS-GEOMETRY-NEVER-PROPAGATED-TO-MATRIX",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-EXIT-HEAD-CORPUS-GEOMETRY-NEVER-PROPAGATED-TO-MATRIX'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The 10 exit_head_ml cells that disagree with the corpus are EXACTLY the 10 whose tp_geometry was never propagated — one un-propagated batch, not ten judgement conflicts"
+}

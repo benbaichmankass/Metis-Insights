@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "EITHER the manager/operator records a Tier-3 decision on the four failing 5m legs (demote from bybit_1's roster, keep them running as soak instruments with the fail on record, or re-scope them), OR a later measurement over a different window overturns the verdicts and says so.",
+    "kind": "event"
+  },
+  "id": "PI-20260922-UTN353OZ-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01LfjQsydv3W4J6butn353oz, checklist row E28, branch e28-ict-scalp-harness-route",
+    "rerun": "python3 -c \"import json,glob; print({json.load(open(p))['strategy']: (json.load(open(p)).get('decision_rule') or {}).get('verdict') for p in sorted(glob.glob('comms/strategy_evidence/ict_scalp_*.json'))})\"   # the eight verdicts as committed; re-run scripts/ops/build_strategy_evidence.py --strategy <leg> to refresh one"
+  },
+  "state": "queued",
+  "what": "MEASURED 2026-09-22 by routing the eight ict_scalp_* legs to scripts/backtest_ict_scalp.py for the first time (E28). Against RULE-D1-STAGE0-NET-OF-FULL-COST, registered 2026-09-22T05:34:08Z BEFORE every run, net of fee 7.5 / slippage 5.0 / funding 1.0 bps roundtrip, over 365d of real bars from data.binance.vision (2025-09-22 -> 2026-09-21): FAIL on ict_scalp_5m (net_r -16.8140, n=193, folds+ 1/4), ict_scalp_sol_5m (-14.7099, n=258, 1/4), ict_scalp_avax_5m (-13.5621, n=261, 1/4), ict_scalp_xrp_5m (-8.2061, n=245, 2/4); PASS on ict_scalp_eth_15m (+7.9357, n=120, 2/4), ict_scalp_sol_15m (+4.0692, n=133, 2/4), ict_scalp_xrp_15m (+1.1225, n=130, 2/4); ict_scalp_mgc_15m harness_failed with its reason stated. [!] THE SPLIT IS BY TIMEFRAME AND THE COST STACK IS WHAT CAUSES IT: all seven measured legs are POSITIVE fee-only (+2.37 to +13.76R) and the four 5m legs flip negative once slippage and funding are on. SOL is the controlled comparison -- same symbol, same params: 5m -14.7099 over n=258 vs 15m +4.0692 over n=133. XRP likewise. Cost is charged per trade, so a 5m leg pays roughly twice the stack for the same per-trade edge. This is R1's '3 of 11 flipped' class again, at 4 of 7. [!] URGENCY IS LOW AND THAT IS MEASURED, NOT ASSUMED: all eight sit on bybit_1 (7) and ib_paper (1), both account_class: paper, and check_roster_promotion_evidence.py --population lists 8 risk-bearing slots today (R2 cut four; the 12 in E28's original note is stale) and none of the eight is among them. NO REAL MONEY RIDES ON THIS. [!] DO NOT READ ict_scalp_xrp_5m's FAIL AS A VERDICT ON THE LEG AS IT RUNS -- its record grades `approximate` because off_cells is not_expressible by this harness, so the number is the UNGATED arm, and the live builder's own docstring says ungated fails 2/4 folds while gated passes 4/4. [!] THE DECISION IS TIER-3 AND IS DELIBERATELY NOT TAKEN HERE: E28's diff touches neither config/accounts.yaml nor config/strategies.yaml. Evidence records: comms/strategy_evidence/ict_scalp_*.json; per-trade series: comms/strategy_evidence/runs/2026-09-22-e28/."
+}

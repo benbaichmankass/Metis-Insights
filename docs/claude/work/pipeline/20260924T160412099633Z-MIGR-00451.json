@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The manager's wake cadence survives a single carrier failing, AND the failure is DETECTABLE. Interim mitigation already applied: two overlapping send_later wakeups (~4 min and ~7 min) so one miss does not open a gap -- that is redundancy, NOT a detector, and must not be reported as a fix. ⚠️ THE DETECTOR IS THE HARDER AND MORE IMPORTANT HALF: the gap must be measured from the OUTSIDE, against what the manager actually DID, never against what it scheduled. `MANAGER-LEASE.json`'s git history is the natural instrument because it records heartbeats that HAPPENED (59 revisions across 3 sessions as of 2026-09-03; gaps median 18 min, p90 66, max 480). A check that grades whether a timer was ARMED would have passed cleanly through this incident and is worse than nothing. ⚠️ ALSO CONSIDER whether the carrier should move off `send_later` entirely, the way the work digest was moved onto the VM's own systemd clock after cron proved unreliable here -- but note the operator's standing rule that nothing may depend on a mechanism that dies with the session.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260903-MANAGER-CADENCE-RIDES-A-SINGLE-UNMONITORED-TIMER-THAT-SILENTLY-DID-NOT-FIRE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-MANAGER-CADENCE-RIDES-A-SINGLE-UNMONITORED-TIMER-THAT-SILENTLY-DID-NOT-FIRE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-MANAGER-CADENCE-RIDES-A-SINGLE-UNMONITORED-TIMER-THAT-SILENTLY-DID-NOT-FIRE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The manager's whole supervision cadence rode one send_later timer with no delivery guarantee and no detector, and it silently did not fire"
+}

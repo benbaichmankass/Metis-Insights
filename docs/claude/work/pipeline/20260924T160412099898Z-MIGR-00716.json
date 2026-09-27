@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The next e35 sweep writes a history sidecar in which every archived row's `superseded_by_sweep` names a DIFFERENT run than its own `sweep_generated_at`, and the archived count equals the number of keys genuinely displaced. Proposed remedy, one line and structural: rename the aggregate artifact so the corpus job's glob cannot match it (`e35-bracket-ALL` -> a name outside `e35-bracket-*`), which stops the duplicate being produced rather than de-duplicating it afterwards. A dedup inside `e35_corpus_extract.py` keyed on `measurement_key` would also work and is more robust to a future artifact name, but it hides the double-download rather than removing it. NOT closed by reasoning about the workflow: it needs an actual sweep whose sidecar is read back.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260831-CORPUS-JOB-SCANS-EVERY-LEG-REPORT-TWICE-SO-THE-HISTORY-SIDECAR-ARCHIVES-THE-RUNS-OWN-ROWS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260831-CORPUS-JOB-SCANS-EVERY-LEG-REPORT-TWICE-SO-THE-HISTORY-SIDECAR-ARCHIVES-THE-RUNS-OWN-ROWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-CORPUS-JOB-SCANS-EVERY-LEG-REPORT-TWICE-SO-THE-HISTORY-SIDECAR-ARCHIVES-THE-RUNS-OWN-ROWS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] The e35 sweep's `corpus` job scans every leg's report.json TWICE, so the history sidecar shipped by #10583 archives 51% same-run duplicates instead of superseded measurements. Measured on run 33411906178, the sidecar's FIRST live exercise: 10,547 archived rows, of which 5,174 are genuine supersedes (per-leg source path, keys still live in the corpus carrying the new measurement) and 5,373 are copies of THAT RUN'S OWN rows (source path under `collected/e35-bracket-ALL/`). 5,373 is exactly 27 legs x ~199 cells -- every row the run produced, written twice and archived once."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A run is OBSERVED grading at least one NON-BTC head -- read n_scored and the head ids in the report, never the run's conclusion. !! RE-SCOPING IS AN OPERATOR DECISION, NOT A SESSION'S: the open item's clears_when (b) puts 'fewer heads per run, or batched across runs' to the operator, and a session must not take it. !! A LONGER POLL IS NOT AUTOMATICALLY THE FIX -- at ~3.8 min/head the budget needed is ~84 min, which is a different trade against runner time. !! AND SHUFFLING THE ORDER WOULD BE THE WORST ANSWER: it would spread coverage while leaving every head partially graded, converting a visible, nameable gap into an invisible one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-FLEET-PRE-GATE-HAS-NEVER-GRADED-A-NON-BTC-HEAD-AND-A-PARTIAL-RUN-HIDES-THAT-BY-DESIGN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260917-THE-FLEET-PRE-GATE-HAS-NEVER-GRADED-A-NON-BTC-HEAD-AND-A-PARTIAL-RUN-HIDES-THAT-BY-DESIGN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-FLEET-PRE-GATE-HAS-NEVER-GRADED-A-NON-BTC-HEAD-AND-A-PARTIAL-RUN-HIDES-THAT-BY-DESIGN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] replay-pregate has never graded a non-BTC head, and a partial run hides that by design"
+}

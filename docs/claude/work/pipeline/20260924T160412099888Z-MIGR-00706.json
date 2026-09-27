@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A COMMIT-TIME check that a manifest's declared feature_columns (and target_column) are producible by its declared dataset family — the same shape as the guards this repo already runs for db resolvers, provenance consumers and collapsed states — so a manifest asking for a column no builder emits FAILS CI instead of failing silently on the trainer for a month. It must distinguish the four causes above rather than lumping them: an absent column (A) is a wiring bug, a structurally-constant one (B) is a manifest-timeframe mismatch, a degenerate label (C) is a data-coverage question, and a 0-row build (D) is not a manifest defect at all. PLUS: each of the 7 currently-failing manifests either trains again (observed as a manifest_ok row + a fresh registered run) or is explicitly retired with the measurement as the reason. Explicitly NOT sufficient: fixing the manifests one at a time and leaving the commit-time gap open — that is what leaves the next one to be found in 34 days.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260829-MANIFESTS-DECLARE-COLUMNS-THE-DATASET-NEVER-PROVIDES-AND-NOTHING-CHECKS-AT-COMMIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260829-MANIFESTS-DECLARE-COLUMNS-THE-DATASET-NEVER-PROVIDES-AND-NOTHING-CHECKS-AT-COMMIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260829-MANIFESTS-DECLARE-COLUMNS-THE-DATASET-NEVER-PROVIDES-AND-NOTHING-CHECKS-AT-COMMIT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] 6 of the 8 non-training manifests fail because the MANIFEST asks for something the DATASET does not provide — the contract is checked only at train time, so a manifest merges clean and then silently never trains under rc=0"
+}

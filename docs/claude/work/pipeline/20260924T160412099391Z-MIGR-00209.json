@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A venue-max clamp on a live order is observable WITHOUT reading journalctl: the clamp branch routes through outcomes.report(..., Level.WARNING) so it persists to outcomes.jsonl and appears as an operator_warning banner on /api/bot/notifications - verified by forcing one clamp (a test or a staged qty above a known cap) and observing the banner, not by inspecting the code. Additionally, the clamp RATE is readable over a window from some surface (a counter or soak row), so 'is this leg systematically under-sizing?' has an answer with a stated denominator.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-VENUE-MAX-CLAMP-IS-INVISIBLE-TO-EVERY-OPERATOR-SURFACE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The venue-max qty clamp trades a LOUD failure for a SILENT success - the under-sized position reaches no operator surface"
+}

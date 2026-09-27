@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "E57 lands pr-landing-guard R5 allowlisting research/queue/** and runtime_logs/replay_pregate/**, and the 16 named PRs (#11916,#12228,#12265,#12297,#12328,#12385,#12529,#12584,#12625,#12666,#12721,#12775,#12815,#12726,#12777,#12829) are confirmed merged (not just still open)",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-NKNG2BGS-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "PR #12852 (docs/research/e58-research-loss-inventory-2026-09-24.json)",
+    "rerun": "python3 -c \"import subprocess; [print(subprocess.run([\"git\",\"log\",\"--oneline\",\"origin/main\",\"--\",p]).returncode) for p in [\"research/queue\",\"runtime_logs/replay_pregate\"]]\" ; or: list open PRs titled 'chore(ml): replay pre-gate fleet report (auto)' and 'chore(research-queue): dispatch stamps (auto)' and confirm each is CLOSED+merged, not just closed"
+  },
+  "state": "queued",
+  "what": "E58: 16 research/evidence PRs (13 replay-pregate-nightly + 3 research-queue-dispatch) are open with auto-merge armed, blocked only by pr-landing-guard R5 (E57). Verify they actually merged after E57 lands rather than assuming; a stale/conflicted branch would not auto-resolve."
+}

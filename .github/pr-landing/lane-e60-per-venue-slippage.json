@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Operator-approved Tier-2 (checklist E60, operator decision 2026-09-24: 'set per-venue round-trip slippage ... to 3.0 bps for Bybit perps (linear and inverse), and keep 5.0 for Alpaca equities, IBKR futures and anything unclassified'). The dispatch specified landing 'hold' with reason 'operator-approved', which is not in HOLD_REASONS; this is the nearest truthful value. The manager merges and deploys.",
+  "why": "Changes the venue-aware slippage default in src/runtime/execution_costs.py (perps 5.0 -> 3.0 bps round-trip, non-perps unchanged) on the D3 record comms/research/d3_realized_slippage/2026-09-24.json. Offline harness cost basis only: no live caller of slippage_bps_roundtrip_for was found (allocator_ev charges fee only). No evidence record regenerated; re-pricing is filed as PI-20260924-JCVFRWEA-0001."
+}

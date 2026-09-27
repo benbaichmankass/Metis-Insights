@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "CLAUDE.md's A7/A8 paragraph is rewritten to state A8's actual current status (merged, landed_unproven, 91 imported whole + 1,065 triaged 607/458, A10 queued-unowned for the remaining unrouted disposition) rather than 'not imported... until A8 runs'. NOT attempted by this review: the adjacent A3/A7 'not yet connected to a schedule' framing was NOT independently re-verified this session (a substring grep of /api/bot/work/checklist for 'section_0'/'unrouted' returned true positives that were prose inside checklist row NOTES, not a live render -- caught before being reported as verified, per RULE ONE) and should be re-checked before that half is rewritten too. Natural pairing with A10's own work, which is also unowned.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-GKIASQWZ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "E56 health-review, 2026-09-24, docs/claude/work/MANAGER-CHECKLIST.json row A8 + direct grep of PIPELINE.jsonl",
+    "rerun": "grep -c '\"id\": \"OI-' docs/claude/work/PIPELINE.jsonl; and read MANAGER-CHECKLIST.json row A8's state/note."
+  },
+  "state": "queued",
+  "what": "Root CLAUDE.md's A7/A8 paragraph is stale and actively misleading every session that reads it at session start. It reads: 'The 1,065 archived backlog rows and 91 monitoring rows are NOT imported... importing them is A8... Until A8 runs, those rows are still in git history with nothing reading them.' MEASURED 2026-09-24 (field beats comment, checklist outranks CLAUDE.md per the doc-priority table -- level 4 vs level 6): checklist row A8 state=landed_unproven (not queued/blocked), merged as 497bae2 / PR #12679 on 2026-09-21, note states '91 [OPEN-ITEMS] come across whole' and '1,065 ... 607 promoted, 458 killed'. Independently confirmed by grep: docs/claude/work/PIPELINE.jsonl contains 91 records with id prefix 'OI-' and origin.ref pointing at docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json. So A8 HAS run and the rows ARE imported and ARE being read (pipeline.py --due surfaces ~87-93 of them right now) -- the CLAUDE.md sentence is false in the field, not merely dated."
+}

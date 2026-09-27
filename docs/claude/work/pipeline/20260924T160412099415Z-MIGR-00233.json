@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The trainer's canonical resolver and its db-puller agree on one path; that path holds the populated journal; the empty stray is gone; and a consumer resolving canonically on the trainer reads the same non-zero row count the puller wrote.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-TRAINER-CANONICAL-RESOLVER-POINTS-AT-EMPTY-JOURNAL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] On the TRAINER VM the canonical journal resolver points at an EMPTY stray database — trade_journal_db_path() -> <repo>/trade_journal.db (0 rows, stale since 2026-08-02) while the db-puller writes the real 4649-row journal to <repo>/data/. Any trainer-side tool using the resolver gets a clean, confident, WRONG 'zero rows'."
+}

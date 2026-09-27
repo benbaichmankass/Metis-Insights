@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. ANSWER THE BROKER QUESTION FIRST, from IBKR documentation or a live experiment on ib_paper -- do NOT infer it from this repo, which contains no evidence either way. Arm a stop on an ib_paper futures position with `outsideRth=False`, move price through it outside RTH, and observe whether it fires.\n2. If stops ARE inert outside RTH: set `outsideRth=True` on the protective legs (Tier-3, operator-approved), and treat the interim as a known exposure window rather than a covered one.\n3. EITHER WAY, make `protection_coverage` report trigger-eligibility, not just restingness -- a boolean that cannot distinguish 'a leg exists' from 'a leg can fire' is the collapsed state here.\n4. Check the ENTRY bracket in `_locked_place` on the same axis while in there.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-IB-PROTECTIVE-STOPS-NEVER-SET-OUTSIDERTH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Every IB protective STOP is RTH-trigger-only: place_protective never sets outsideRth either, so a GTC stop on a ~23h futures contract may be inert for most of the day"
+}

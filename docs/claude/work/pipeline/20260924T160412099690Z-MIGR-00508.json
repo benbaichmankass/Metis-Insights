@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) add `actions: read` to due-list.yml's permissions block and OBSERVE a scheduled run whose committed DUE.json still shows `red_crons: read` — the observation is the point, since adding the scope cannot be distinguished from the public-repo path by reading the file; or (b) establish by reading a real run's log that `contents` already suffices, and record THAT, so a future session does not re-derive the question. NOT sufficient: the source continuing to read while the repo stays public — that is the condition being questioned, not evidence against it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-DUE-LIST-RED-CRONS-DEPENDS-ON-THE-REPO-BEING-PUBLIC-NOT-ON-A-DECLARED-PERMISSION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-DUE-LIST-RED-CRONS-DEPENDS-ON-THE-REPO-BEING-PUBLIC-NOT-ON-A-DECLARED-PERMISSION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-DUE-LIST-RED-CRONS-DEPENDS-ON-THE-REPO-BEING-PUBLIC-NOT-ON-A-DECLARED-PERMISSION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] due-list.yml grants no `actions: read`, so its red-crons source works only because the repo is public"
+}

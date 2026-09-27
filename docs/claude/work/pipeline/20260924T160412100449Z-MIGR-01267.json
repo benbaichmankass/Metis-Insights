@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "config/accounts.yaml's header no longer tells a reader that the Telegram /accounts command flips `mode:` at runtime via set_account_dry_run(). The rerun grep returns no hit in config/accounts.yaml.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E42-ACCOUNTS-YAML-HEADER-STILL-CITES-A-FUNCTION-DELETED-IN-2026-06",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01PDnYMJCPBohXArAKpUceZm, checklist row E42, branch lane/e42-roster-symbol-union",
+    "rerun": "grep -rn 'set_account_dry_run' config/ src/ docs/ --include=*.yaml --include=*.py --include=*.md | grep -v archive   # any surviving reference to the deleted writer; a hit in config/accounts.yaml is this row"
+  },
+  "routed_to": "unrouted -- any session touching config/accounts.yaml next",
+  "state": "queued",
+  "what": "FOUND 2026-09-22 by the E42 lane while reading config/accounts.yaml in full. Its header comment says, of the dry/live toggle: 'the Telegram /accounts command flips it at runtime via `set_account_dry_run()`.' BOTH HALVES ARE FALSE and have been since 2026-06-10. docs/CLAUDE-RULES-CANONICAL.md Section 'Open Items to Finalize' records that `set_account_dry_run()` (and the `_DRY_RUN_OVERRIDES` dict, and the Coordinator wrapper) were DELETED in the 2026-06-10 dead-code cleanup, with tests/test_exchange_rejection_circuit_breaker.py asserting their absence; and the legacy Telegram `/accounts dry|live` handler was removed in #1933, the menu-driven kill switch now persisting a flip through scripts/ops/set_account_mode.sh. [!] WHY IT IS WORTH A ROW RATHER THAN A SHRUG: it is the most-read comment block in the file that declares the ONE sanctioned write path for `mode:`, and it names a second one that does not exist. The Prime Directive's whole point is that exactly one path may write that field. A stale comment on a Tier-3 field reads as corroboration -- that is the PR #1358 class, where a session disabled a live strategy on the strength of a stale inline comment. [!] NOT FIXED IN THE E42 PR ON PURPOSE: that PR's accounts.yaml edit is comment-only AND proven so (parsing both sides of the diff yields identical YAML), and it is held for Tier-2 approval. Folding an unrelated correction in would make the fence harder to verify, not easier. It is a one-paragraph Tier-1 doc fix for any session that opens the file next."
+}

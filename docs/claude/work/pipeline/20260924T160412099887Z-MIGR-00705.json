@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO things, and the first alone does not close it. (a) mes-regime-1d-lgbm-v2 TRAINS: a training_cycle.jsonl row with status manifest_ok and a fresh registered run for that model_id dated after this change deploys — a passing YAML parse is NOT that observation, and neither is the absence of the audit flag. (b) The other five enforced skips each have a NAMED cause read from dataset_audit.jsonl (not inferred from this one), and the 7-stale / 2-never-trained population is either explained or reduced. Explicitly NOT sufficient: fixing this manifest and reporting the trainer healthy, since 67 models were already training while these 9 were stuck and rc=0 reported neither.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260829-MES-1D-DECLARES-A-FEATURE-THAT-CANNOT-VARY-AT-ITS-OWN-TIMEFRAME'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] mes-regime-1d-lgbm-v2 listed hour_of_day as a feature on a DAILY bar, so the dataset audit correctly flagged it dead and the model had not trained in 34 days while the cycle reported rc=0"
+}

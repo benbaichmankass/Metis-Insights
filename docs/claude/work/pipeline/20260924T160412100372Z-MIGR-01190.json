@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "scripts/backtest_orb.py imports execution_costs and applies a slippage term (in points, unit-reconciled) in addition to FEE_POINTS_ROUNDTRIP.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-E3-ORB-NO-SLIPPAGE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist E3 build lane, session_01HmQgaLfZv9rv7uuWfgA321",
+    "rerun": "grep -n \"FEE_POINTS_ROUNDTRIP\\|slippage\\|execution_costs\" scripts/backtest_orb.py"
+  },
+  "routed_to": null,
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "checklist E3 (cost model reaching every harness): scripts/backtest_orb.py has NO slippage model and was never wired to execution_costs.py. Its fee is modelled in POINTS round-trip (FEE_POINTS_ROUNDTRIP=0.5), not bps -- a deliberate, venue-correct choice for index futures -- but that means execution_costs.roundtrip_cost_r cannot be reused as-is (it assumes a bps-of-notional fee/slippage term). E3 wired the 6 harnesses that had literally zero cost terms (chop_scalp, funding_carry, fvg_range, pairs, xsec_momentum, vwap) plus confirmed the 6 harnesses already wired to execution_costs (fade, ict_scalp, pullback, squeeze, system, trend) resolve slippage/funding via the venue-aware CLI default already. orb.py was NOT wired: it needs a points-vs-bps unit reconciliation (execution_costs.slippage_bps_roundtrip_for(symbol) converted to points via the traded contract's tick/point value) before a slippage term can be added without fabricating a wrong-unit cost."
+}

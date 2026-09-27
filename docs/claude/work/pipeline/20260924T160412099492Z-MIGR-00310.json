@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "pnlCoverage over a trailing 7d window is at or above the 30d figure rather than an order of magnitude below it, and a same-day Bybit close resolves with exit_price_source='exchange_fill'.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-ICTSCALP-TP-CROSSED-BOOKED-AS-ESTIMATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Real-money trade 4863 crossed its declared TP, was closed by the netting reconciler at a bar-anchored ESTIMATE ~317 below the TP, and its paper mirror recorded pnl NULL"
+}

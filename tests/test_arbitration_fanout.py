@@ -220,229 +220,170 @@ def test_a_candidate_mapping_to_no_account_is_recorded_not_dropped():
     assert r["unattributed_strategies"] == ["ghost_strategy"]
 
 
-# --- the gate -------------------------------------------------------------
+# --- the v4 soak row (E35): graded against the PER-ACCOUNT election --------
+# RETIRED BY E35 (2026-09-25), and deliberately not kept as xfails: the mode
+# gate (`resolve_mode`: off/annotate/apply), the allowlist
+# (`allowlisted_accounts`, `apply_scope_for`) and the v3 `applied` /
+# `rounds_written` / `rounds_applied` / `apply_state` fields. There is no
+# global election left for the allowlist to scope, so its tests would pin a
+# mechanism that no longer exists.
 
 
-def test_mode_defaults_to_annotate_and_a_typo_does_not_disable_it(monkeypatch):
-    monkeypatch.delenv("ARBITRATION_FANOUT_MODE", raising=False)
-    assert soak.resolve_mode() == "annotate"
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "annotaet")   # typo
-    assert soak.resolve_mode() == "annotate"
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "")
-    assert soak.resolve_mode() == "annotate"
+def _plan(**over):
+    """A per-account plan as `_attach_account_election` hands it to the soak."""
+    plan = {
+        "roster_state": "read",
+        "rounds": [
+            {"strategy": "trend_donchian_sol", "accounts": ["bybit_1"],
+             "side": "long", "entry": 100.0, "sl": 95.0, "tp": 115.0},
+            {"strategy": "trend_donchian_sol_prop", "accounts": ["breakout_1"],
+             "side": "long", "entry": 200.0, "sl": 190.0, "tp": 230.0},
+        ],
+        "per_account": {
+            "bybit_1": {"candidates": ["trend_donchian_sol"], "state": "elected",
+                        "elected": "trend_donchian_sol"},
+            "breakout_1": {"candidates": ["trend_donchian_sol_prop"],
+                           "state": "elected", "elected": "trend_donchian_sol_prop"},
+        },
+        "accounts_planned": 2, "accounts_elected": 2,
+    }
+    plan.update(over)
+    return plan
 
 
-def test_off_writes_nothing(monkeypatch, tmp_path):
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "off")
-    assert soak.record(["trend_donchian_sol"], None, symbol="SOLUSDT",
-                       accounts=_ACCOUNTS) is None
-
-
-def test_empty_allowlist_means_NONE_not_all(monkeypatch):
-    """⚠️ The OPPOSITE polarity to CONVICTION_SIZING_ACCOUNTS /
-    NETTING_ATTRIBUTION_ACCOUNTS, which read empty as ALL. This one would arm a
-    change to WHICH ACCOUNT AN ORDER ROUTES TO, so an unset variable must not
-    arm it everywhere. If this test is ever 'harmonised' to match its siblings,
-    that is the bug, not the fix."""
-    monkeypatch.delenv("ARBITRATION_FANOUT_ACCOUNTS", raising=False)
-    assert soak.allowlisted_accounts() == frozenset()
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
-    assert soak.apply_scope_for("bybit_1", "apply") == "not_allowlisted"
-    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
-    assert soak.apply_scope_for("bybit_1", "apply") == "allowlisted"
-    assert soak.apply_scope_for("bybit_2", "apply") == "not_allowlisted"
-
-
-def test_the_allowlist_scopes_the_binding_never_the_measurement(monkeypatch, tmp_path):
-    """A held-back account must still be ASSESSED and ANNOTATED, or the rows a
-    reviewer needs before widening never exist — the correction
-    NETTING_ATTRIBUTION_ACCOUNTS needed on 2026-08-09."""
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
-    monkeypatch.delenv("ARBITRATION_FANOUT_ACCOUNTS", raising=False)
+def _rec(monkeypatch, tmp_path, plan, winner="trend_donchian_sol_prop",
+         cands=("trend_donchian_sol", "trend_donchian_sol_prop")):
     monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
-    row = soak.record(["trend_donchian_sol", "trend_donchian_sol_prop"],
-                      "trend_donchian_sol_prop", symbol="SOLUSDT",
-                      accounts=_ACCOUNTS)
-    assert row is not None, "a not-allowlisted account must still be measured"
+    return soak.record(list(cands), winner, symbol="SOLUSDT",
+                       accounts=_ACCOUNTS, plan=plan)
+
+
+def test_v4_row_routes_the_account_the_global_election_starved(monkeypatch, tmp_path):
+    """THE FIX, as the soak records it: bybit_1 lost the global election to the
+    prop twin, and is now ROUTED its own winner. The old routing survives on
+    the row only as `global_would_drop`."""
+    row = _rec(monkeypatch, tmp_path, _plan())
+    assert row["fanout_schema"] == FANOUT_SCHEMA == 4
+    assert row["election"] == "per_account"
+    assert row["per_account"]["bybit_1"]["state"] == "routed"
+    assert row["per_account"]["breakout_1"]["state"] == "routed"
+    assert row["starved_count"] == 0
+    assert row["global_would_drop"] == ["bybit_1"]
+    assert row["winner_accounts"] == ["breakout_1"]
+
+
+def test_v4_elected_but_undispatchable_grades_starved_the_tripwire(monkeypatch, tmp_path):
+    """An account that ELECTED and is in no round is the one thing the design
+    forbids. It must grade `starved` so `starved_account_alert` pages on it."""
+    plan = _plan(rounds=[_plan()["rounds"][1]])
+    plan["per_account"]["bybit_1"].update(
+        state="elected_undispatchable", elected=None)
+    row = _rec(monkeypatch, tmp_path, plan)
     assert row["starved_accounts"] == ["bybit_1"]
-    assert row["apply_scope"]["bybit_1"] == "not_allowlisted"
+    assert row["starved_count"] == 1
 
 
-def test_effective_mode_can_never_read_as_applied(monkeypatch, tmp_path):
-    """Effective mode is what HAPPENED, never what was REQUESTED.
-
-    ⚠️ The GUARANTEE is unchanged; only this test's premise moved. It used to
-    read *"`apply` is NOT implemented. The row must say so"* and asserted
-    `apply_implemented is False`. Apply shipped 2026-08-31, so that assertion
-    became a test PINNING A LIE — it would have kept the field asserting the
-    capability does not exist, which is what a review session reads the log
-    for. The mode assertion below is untouched and still passes: no `plan` is
-    handed to `record`, so nothing was applied, whatever the env asked for.
-    """
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
-    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
-    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
-    row = soak.record(["trend_donchian_sol", "trend_donchian_sol_prop"],
-                      "trend_donchian_sol_prop", symbol="SOLUSDT",
-                      accounts=_ACCOUNTS)
-    assert row["mode"] == "annotate", "effective mode is what HAPPENED"
-    assert row["global_mode"] == "apply", "beside what was REQUESTED"
-    assert row["applied"] is False, "nothing reached the wire"
-    # The capability EXISTS; this row simply did not exercise it.
-    assert row["apply_implemented"] is True
-    # And *we did not look* must not read as *it elected nothing*.
-    assert row["plan_state"] == "absent"
-    assert row["accounts_planned"] is None
+def test_v4_elected_state_without_a_round_is_starved_not_routed(monkeypatch, tmp_path):
+    """Defence in depth: `routed` is read off the ROUNDS, never off the plan's
+    own label, so a plan that says `elected` but dropped the round cannot
+    report the account as routed."""
+    plan = _plan(rounds=[_plan()["rounds"][1]])      # bybit_1's round is gone
+    row = _rec(monkeypatch, tmp_path, plan)
+    assert row["per_account"]["bybit_1"]["state"] == "starved"
 
 
-def test_a_row_that_DID_apply_says_so(monkeypatch, tmp_path):
-    """The other half: when rounds really reached the wire the row must show it.
-
-    Without this, `mode` could be pinned to "annotate" forever and the soak
-    would under-report the mechanism running — the inverse of the defect above
-    and just as blinding.
-    """
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
-    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
-    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
-    rounds = [{"strategy": "trend_donchian_sol", "accounts": ["bybit_1"],
-               "side": "long", "entry": 100.0, "sl": 95.0, "tp": 115.0}]
-    row = soak.record(
-        ["trend_donchian_sol", "trend_donchian_sol_prop"],
-        "trend_donchian_sol_prop", symbol="SOLUSDT", accounts=_ACCOUNTS,
-        plan={"roster_state": "read", "rounds": rounds, "apply_rounds": rounds,
-              "accounts_planned": 2, "accounts_elected": 2,
-              "per_account": {"bybit_1": {"elected": "trend_donchian_sol"}}},
-    )
-    assert row["mode"] == "apply"
-    assert row["applied"] is True
-    assert row["plan_state"] == "planned"
-    assert row["rounds_applied"][0]["accounts"] == ["bybit_1"]
-    assert row["elected_by_account"]["bybit_1"] == "trend_donchian_sol"
+def test_v4_own_flat_election_is_no_winner_not_starved(monkeypatch, tmp_path):
+    plan = _plan(rounds=[_plan()["rounds"][1]])
+    plan["per_account"]["bybit_1"].update(state="elected_flat", elected=None)
+    row = _rec(monkeypatch, tmp_path, plan)
+    assert row["per_account"]["bybit_1"]["state"] == "no_winner"
+    assert row["starved_count"] == 0 and row["no_winner_count"] == 1
 
 
-def test_written_rounds_the_dispatcher_refuses_never_read_as_applied(
-    monkeypatch, tmp_path
-):
-    """THE 2026-09-12 DEFECT, pinned on the row that concealed it.
-
-    ``applied`` used to be ``bool(apply_rounds)`` — a statement about what the
-    WRITER produced, which cannot fail. It said ``true`` on 93 consecutive live
-    rows while ``pipeline._fanout_apply_rounds`` refused every one of those
-    rounds for missing geometry and the fan-out dispatched nothing, on any
-    account, for twelve days.
-
-    The row must now distinguish three facts that the v2 row collapsed into
-    one: what was PLANNED, what was WRITTEN, and what the dispatcher ACCEPTS.
-    """
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
-    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
-    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
-    # The EXACT shape the live log carried on all 93 rows.
-    v2_rounds = [{"strategy": "trend_donchian_sol", "accounts": ["bybit_1"]}]
-    full = [dict(v2_rounds[0], side="long", entry=100.0, sl=95.0, tp=115.0)]
-    row = soak.record(
-        ["trend_donchian_sol", "trend_donchian_sol_prop"],
-        "trend_donchian_sol_prop", symbol="SOLUSDT", accounts=_ACCOUNTS,
-        plan={"roster_state": "read", "rounds": full, "apply_rounds": v2_rounds,
-              "apply_state": "refused_by_dispatcher",
-              "accounts_planned": 2, "accounts_elected": 2,
-              "per_account": {"bybit_1": {"elected": "trend_donchian_sol"}}},
-    )
-    assert row is not None, (
-        "a refused plan must STILL write a row — gating the row on acceptance "
-        "would silence the soak exactly where the evidence is needed"
-    )
-    assert row["applied"] is False, "nothing the dispatcher refuses was applied"
-    assert row["mode"] == "annotate", "effective mode is what HAPPENED"
-    assert row["global_mode"] == "apply", "beside what was REQUESTED"
-    assert row["rounds_applied"] == [], "the dispatcher acts on none of these"
-    assert row["rounds_written"] == v2_rounds, (
-        "what the writer produced must stay visible — otherwise a reviewer "
-        "cannot tell a refused plan from a plan that was never written"
-    )
-    assert row["apply_state"] == "refused_by_dispatcher"
-
-
-def test_a_row_that_really_will_dispatch_says_so(monkeypatch, tmp_path):
-    """The other half: written == accepted, so all three lists agree."""
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "apply")
-    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
-    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
-    rounds = [{"strategy": "trend_donchian_sol", "accounts": ["bybit_1"],
-               "side": "long", "entry": 100.0, "sl": 95.0, "tp": 115.0}]
-    row = soak.record(
-        ["trend_donchian_sol", "trend_donchian_sol_prop"],
-        "trend_donchian_sol_prop", symbol="SOLUSDT", accounts=_ACCOUNTS,
-        plan={"roster_state": "read", "rounds": rounds, "apply_rounds": rounds,
-              "apply_state": "dispatchable", "accounts_planned": 2,
-              "accounts_elected": 2,
-              "per_account": {"bybit_1": {"elected": "trend_donchian_sol"}}},
-    )
-    assert row["applied"] is True
-    assert row["rounds_applied"] == row["rounds_written"] == rounds
-    assert row["apply_state"] == "dispatchable"
-
-
-def test_a_clean_tick_writes_no_row(monkeypatch, tmp_path):
-    """Only a tick where the global scope actually costs someone is worth a row;
-    otherwise the finding drowns in the ordinary case."""
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "annotate")
-    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
-    assert soak.record(["trend_donchian_sol"], "trend_donchian_sol",
-                       symbol="SOLUSDT", accounts=_ACCOUNTS) is None
+def test_v4_quiet_tick_writes_no_row(monkeypatch, tmp_path):
+    """Every candidate-holding account routed, and each held the global winner:
+    old and new routing coincide, so the row would be noise."""
+    plan = {
+        "roster_state": "read",
+        "rounds": [{"strategy": "trend_donchian_sol", "accounts": ["bybit_1"],
+                    "side": "long", "entry": 1.0, "sl": 0.9, "tp": 1.2}],
+        "per_account": {"bybit_1": {"candidates": ["trend_donchian_sol"],
+                                    "state": "elected",
+                                    "elected": "trend_donchian_sol"}},
+    }
+    assert _rec(monkeypatch, tmp_path, plan, winner="trend_donchian_sol",
+                cands=("trend_donchian_sol",)) is None
     assert not (tmp_path / "s.jsonl").exists()
 
 
-def test_the_row_round_trips_as_json(monkeypatch, tmp_path):
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "annotate")
-    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
-    soak.record(["trend_donchian_sol", "trend_donchian_sol_prop"],
-                "trend_donchian_sol_prop", symbol="SOLUSDT", accounts=_ACCOUNTS)
-    line = (tmp_path / "s.jsonl").read_text().strip()
-    parsed = json.loads(line)
-    assert parsed["symbol"] == "SOLUSDT"
-    assert parsed["starved_accounts"] == ["bybit_1"]
-    assert parsed["roster_state"] == "read"
-    # The schema marker is what lets a reader of the ACCUMULATED log tell a
-    # post-split row from a pre-2026-08-30 one whose `starved_accounts`
-    # conflates starvation with no-winner ticks.
-    assert parsed["fanout_schema"] == FANOUT_SCHEMA
-    assert FANOUT_SCHEMA >= 2
-    assert parsed["winner_scope"] == "attributed"
-    assert parsed["no_winner_accounts"] == []
+def test_v4_flat_headline_writes_no_row(monkeypatch, tmp_path):
+    """plan=None with a readable roster = the headline was flat: no account can
+    elect (the conflict branch always elects), so there is nothing to record."""
+    assert _rec(monkeypatch, tmp_path, None, winner=None) is None
 
 
-def test_a_no_winner_tick_still_writes_a_row_but_counts_zero_starved(
-        monkeypatch, tmp_path):
-    """The row survives (it is the denominator) and cannot be MISREAD as the
-    finding: `starved_count` is 0 and `apply_scope` — the accounts a real
-    fan-out would rebind — is empty."""
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "annotate")
-    monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
-    row = soak.record(["trend_donchian_sol", "trend_donchian_sol_prop"], None,
-                      symbol="SOLUSDT", accounts=_ACCOUNTS)
-    assert row is not None, "the denominator row must still be written"
-    assert row["starved_count"] == 0
-    assert row["no_winner_count"] == 2
-    assert row["apply_scope"] == {}
+def test_v4_unreadable_roster_is_recorded_as_did_not_look(monkeypatch, tmp_path):
+    row = _rec(monkeypatch, tmp_path,
+               {"roster_state": "unreadable", "per_account": {}, "rounds": []})
+    assert row is not None
+    assert row["plan_state"] == "absent"
+    assert row["accounts_graded"] == 0
+
+
+def test_v4_row_round_trips_as_json(monkeypatch, tmp_path):
+    _rec(monkeypatch, tmp_path, _plan())
     parsed = json.loads((tmp_path / "s.jsonl").read_text().strip())
-    assert parsed["winner_scope"] == "no_winner"
+    assert parsed["global_would_drop"] == ["bybit_1"]
+    assert "applied" not in parsed and "rounds_written" not in parsed
+
+
+def test_retired_env_is_ignored_and_warned_once(monkeypatch, tmp_path, caplog):
+    """ARBITRATION_FANOUT_MODE=off used to switch the soak off, and
+    ARBITRATION_FANOUT_ACCOUNTS used to scope routing. Both are now inert: the
+    row is identical with them set, and one WARNING says so."""
+    monkeypatch.setattr(soak, "_retired_env_warned", False)
+    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "off")
+    monkeypatch.setenv("ARBITRATION_FANOUT_ACCOUNTS", "bybit_1")
+    with caplog.at_level("WARNING"):
+        row = _rec(monkeypatch, tmp_path, _plan())
+        _rec(monkeypatch, tmp_path, _plan())
+    assert row is not None and row["global_would_drop"] == ["bybit_1"]
+    msgs = [r.getMessage() for r in caplog.records if "IGNORED" in r.getMessage()]
+    assert len(msgs) == 1
+
+
+def test_v4_rows_drive_the_starved_account_alert_both_ways():
+    """The reader: a v4 `routed` row reads `routing`; repeated v4 `starved`
+    rows with nothing routed read `starved_persistent` — the tripwire."""
+    from datetime import datetime, timezone
+    from src.runtime import starved_account_alert as sa
+    now = datetime.now(timezone.utc)
+    ts = now.isoformat()
+    routed = {"logged_at_utc": ts, "fanout_schema": 4,
+              "per_account": {"bybit_1": {"state": "routed"}}}
+    starved = {"logged_at_utc": ts, "fanout_schema": 4,
+               "per_account": {"bybit_1": {"state": "starved"}}}
+    assert sa.assess([routed] * 3, min_rows=2, now=now)["bybit_1"]["state"] == sa.STARVED_ROUTING
+    assert sa.assess([starved] * 3, min_rows=2, now=now)["bybit_1"]["state"] == sa.STARVED_PERSISTENT
 
 
 def test_a_broken_roster_never_breaks_the_tick(monkeypatch, tmp_path):
     """This runs on the live tick. It must never be the thing that breaks one."""
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "annotate")
     monkeypatch.setattr(soak, "_log_path", lambda: tmp_path / "s.jsonl")
     for bad in ({"a": None}, {"a": {"strategies": None}}, {}, None):
-        soak.record(["x"], "x", symbol="SOLUSDT", accounts=bad)  # must not raise
+        soak.record(["x"], "x", symbol="SOLUSDT", accounts=bad,
+                    plan=_plan())  # must not raise
 
 
 # --- the safety proof: at the shipped default, routing is UNCHANGED ---------
 
 
 def test_the_soak_block_cannot_mutate_the_routed_signal():
-    """THE claim this PR rests on: at `annotate` the live path is unchanged.
+    """The soak RECORDS the routing; it must never be able to change it.
+
+    (Pre-E35 this read *"at `annotate` the live path is unchanged"*. The
+    routing now lives in `_attach_account_election`; the soak block below it
+    must still be unable to write into the signal.)
 
     Checked STRUCTURALLY against the real source, because the alternative was a
     test that set a flag and asserted the flag — vacuous, and I caught myself
@@ -493,7 +434,6 @@ def test_a_raising_soak_is_swallowed_by_the_call_site(monkeypatch):
 
     monkeypatch.setattr(sk, "record", _boom)
     # record() itself is wrapped internally too — a direct call must not raise.
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "annotate")
     try:
         sk.record(["x"], "x", symbol="S")
     except RuntimeError:
@@ -503,12 +443,13 @@ def test_a_raising_soak_is_swallowed_by_the_call_site(monkeypatch):
 def test_record_swallows_its_own_internal_failure(monkeypatch, tmp_path):
     """The real `record` must swallow an internal failure rather than propagate."""
     import src.runtime.arbitration_fanout_soak as sk
-    monkeypatch.setenv("ARBITRATION_FANOUT_MODE", "annotate")
 
     def _bad_path():
         raise OSError("disk gone")
 
     monkeypatch.setattr(sk, "_log_path", _bad_path)
+    # A NOTABLE plan, so the write is actually attempted (without one the
+    # early return would make this pass vacuously).
     assert sk.record(["trend_donchian_sol", "trend_donchian_sol_prop"],
                      "trend_donchian_sol_prop", symbol="SOLUSDT",
-                     accounts=_ACCOUNTS) is None  # returns None, does not raise
+                     accounts=_ACCOUNTS, plan=_plan()) is None

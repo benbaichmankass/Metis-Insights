@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "This PR ADDS a landing route (pr-landing-guard R16 + scripts/ci/check_mandate_autoland.py) by which a mandate-authorized, removal-only Stage-2 roster cut lands itself. R12 holds any PR that edits the landing machinery, and this one edits check_pr_landing.py, automerge_landing_gate.py and the route's own new guard. Operator-decided 2026-09-25 (\"Build auto-land route\") against pipeline item PI-20260925-WCUZRAA3-0002; the manager brings it to the operator. It ships UNARMED: no mandate carries autoland: true, so every r4-demotion-gate run still declares landing: hold.",
+  "why": "Tier-3 by path (config/mandates.yaml) and by subject: it decides how a real-money roster edit reaches main. Built and held; not merged, not armed. Filename note: the task named this file `mandate-derisk-autoland.json`; pr-landing-guard derives it from the branch slug (`check_pr_landing.branch_slug` strips only a leading `claude/`), so on branch `lane/mandate-derisk-autoland` the slug is `lane-mandate-derisk-autoland` and the guard reads no other name. Renamed rather than duplicated."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Add `detail` (and any other free-text key the schema admits) to `_row_text`, then re-run `--base origin/main` over a window of recent merges to size the fallout before enforcing — some existing rows will newly trip, and that population should be counted and triaged, not discovered one PR at a time. Add a self-test pinning both directions: a row with its basis ONLY in `detail` must PASS, and a row with a bare claim ONLY in `detail` must FAIL. DONE when both self-test cases hold.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-CLAIM-BASIS-GUARD-DOES-NOT-READ-THE-DETAIL-FIELD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-CLAIM-BASIS-GUARD-DOES-NOT-READ-THE-DETAIL-FIELD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-CLAIM-BASIS-GUARD-DOES-NOT-READ-THE-DETAIL-FIELD'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] claim-basis-guard's _row_text reads title/description/source/action/resolution/resolution_criteria but NOT `detail` — the field recent backlog rows actually put their evidence in, so it fails well-evidenced rows and passes bare claims"
+}

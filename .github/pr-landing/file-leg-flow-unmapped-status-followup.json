@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/pipeline/** only -- files one new pipeline record (intent=new) for a follow-up proposal split off the now-closed PI-20260926-KNSTSR8N-0002. No runtime/order-path/config touched."
+}

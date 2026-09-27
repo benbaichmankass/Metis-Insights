@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS, and they are different facts -- say WHICH you cleared rather than clearing on the easier one. (1) A run of due-list.yml with event=schedule is OBSERVED concluding `success` AND docs/claude/DUE.json on main carries a `generated_at` from THAT run. Read the run history and that stamp, never the workflow file and never the cron expression. [!] A workflow_dispatch run clears (1) NOT AT ALL -- the failure class is a cadence that does not deliver. (2) A DUE.json revision on main produced by a WORKFLOW carries sources.spent_decision_edges.state == 'read'. [!] Check the commit that wrote it: the one and only `read` on record came from a session's local run, and a second such render would look identical while proving nothing. [!] A GREEN pytest-run CLEARS NEITHER: 13 tests pass in a harness and a harness cannot reach a runner -- which is the whole reason this class was invisible to CI for four days. [!] AND THE MERGE CLEARS NOTHING: a merge is not a run.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-A-WORKFLOW-THAT-RUNS-A-PYTHON-SCRIPT-IS-NOT-CHECKED-AGAINST-WHAT-THAT-SCRIPT-IMPORTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-A-WORKFLOW-THAT-RUNS-A-PYTHON-SCRIPT-IS-NOT-CHECKED-AGAINST-WHAT-THAT-SCRIPT-IMPORTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-A-WORKFLOW-THAT-RUNS-A-PYTHON-SCRIPT-IS-NOT-CHECKED-AGAINST-WHAT-THAT-SCRIPT-IMPORTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of the missing-PyYAML class in THREE more workflows -- the due-list cron died 4 of 4 scheduled runs, and the previous fix's own comment is what stopped it spreading"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER the operator reopens the declined decision and provisions BYBIT_API_KEY_2_SUB/BYBIT_API_SECRET_2_SUB (the live path can then cover SUB directly and this row closes done), OR the operator pastes a fresher UM export covering SUB past 2026-07-13 and the ledger is re-emitted with a later as_of (this row closes done, noting the new as_of), OR the operator records that bybit_2 SUB history before 2026-07-13 stays permanently CSV-only and no further re-check is wanted (this row closes killed with that reason).",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-PN2PXMTE-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane/e71-bybit2-subaccount-check investigation, checklist row E71, PR reverting #12888",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/pnl/broker-truth?account_id=bybit_2' # re-read the hand ledger's as_of/realized_usd/sub_accounts/note; scripts/ops/diag_fetch.sh 'bybit_wallet_truth?account_id=bybit_2&days=90' # the live single-key (MAIN UID) figure; grep -n 'BYBIT_API_KEY_2_SUB\\|BYBIT_API_SECRET_2_SUB' config/accounts.yaml config/master-secrets.template.yaml # re-check whether a second credential has since been provisioned"
+  },
+  "state": "queued",
+  "what": "[E71] bybit_2's SUB Bybit sub-account UID (BL-20260831) has no live credential and never has: the live wallet-truth/fills puller authenticates as the account's single configured key (MAIN UID, MEASURED 2026-08-31 to reproduce MAIN's -1.52 ledger component to the cent), and no BYBIT_API_KEY_2_SUB/BYBIT_API_SECRET_2_SUB exists anywhere in this system (config/accounts.yaml, config/master-secrets.template.yaml, or GitHub secrets) -- the operator has declined to provision one (lane E71, 2026-09-24 ~20:45Z: 'Check if it's needed', PR #12888 reverted as a result). So bybit_2's SUB-attributed realized P&L for the window ending 2026-07-13 (realized -261.01 of the ledger's stitched -262.52, MEASURED via comms/broker_truth_ledger.json as_of=2026-07-13, window 2026-04-15..2026-07-13, source bybit_um_export_stitched) is knowable ONLY from that hand-pasted CSV ledger -- the live path structurally cannot re-derive it, not now and not later without a new credential or a fresh operator export. Whether SUB traded at all after 2026-07-13 is UNKNOWN, not measured-false: nothing has pulled it since (collapsed-states rule -- 'we did not look' must not read as 'nothing happened'). MEASURED this session (2026-09-24T20:44:08Z, live diag pull): bybit_2's currently-trading UID (the single configured MAIN key) shows continuous fresh activity through today (14-day window, 45 rows, realized_usd=-18.74) and the trade journal shows an open trade from 2026-09-24T16:10:25Z -- so the account's CURRENT live trading is fully covered by the existing single-key read regardless of SUB's status."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "MECHANICALLY CHECKABLE, on purpose — a run of `check_register_ids.py --root <tmp> --base HEAD` over a register whose ONE shared id is wholesale-replaced (so R2a fires and `continue`s) must NOT print `R2b (replacement) 1/1 (100%)` for that register. It must report that 0 of 1 shared ids reached R2b, or name the short-circuited row, or otherwise distinguish 'not evaluated' from 'evaluated and clean'. ⚠️ A PASSING RUN CLEARS NOTHING: on a green run R2a never fires, every shared id does reach R2b, and 100% is the CORRECT reading — so the guard behaving on `main` is not evidence about this row and the check must be made against a deliberately R2a-failing tree. ⚠️ AND A TEST ASSERTING THE NEW STRING IS NOT SUFFICIENT ALONE without the positive control that a genuinely fully-evaluated register still reads 100%; deleting the number everywhere would pass a negative-only suite while destroying the census's ability to report full coverage — the exact trap #12398's own suite records hitting.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-REGISTER-ID-GUARD-PRINTS-R2B-COVERAGE-100-PERCENT-FOR-ROWS-R2A-SHORT-CIRCUITED-BEFORE-R2B-COULD-SEE-THEM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-REGISTER-ID-GUARD-PRINTS-R2B-COVERAGE-100-PERCENT-FOR-ROWS-R2A-SHORT-CIRCUITED-BEFORE-R2B-COULD-SEE-THEM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-REGISTER-ID-GUARD-PRINTS-R2B-COVERAGE-100-PERCENT-FOR-ROWS-R2A-SHORT-CIRCUITED-BEFORE-R2B-COULD-SEE-THEM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] register-id-guard's census prints R2b coverage as 100% of shared ids, including rows R2a short-circuited before R2b could evaluate them"
+}

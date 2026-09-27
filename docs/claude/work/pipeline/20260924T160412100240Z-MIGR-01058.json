@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-THREE-ORDER-PACKAGES-ARE-CLOSED-WHILE-HOLDING-FOUR-OPEN-LEGS-ONE-ON-REAL-MONEY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-THREE-ORDER-PACKAGES-ARE-CLOSED-WHILE-HOLDING-FOUR-OPEN-LEGS-ONE-ON-REAL-MONEY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-THREE-ORDER-PACKAGES-ARE-CLOSED-WHILE-HOLDING-FOUR-OPEN-LEGS-ONE-ON-REAL-MONEY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Three order packages are closed while still holding four open legs the monitor cannot manage, one of them on real-money bybit_2. The detector that flags this writes to a latch whose live rows are 3 of its 20 entries (15%), and its verdict never reaches an invariant suite's exit code."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO parts, and the first alone does not close it. (1) RETROACTIVE: trades 4904 and 4934 carry exit_reason='operator_flatten_reconciled' + notes.closed_by_operator, verified by reading the rows back from /api/diag/journal after the mark-operator-flattened dispatch — not by the action reporting success. (2) DURABLE: an operational flatten marks its own journal row WITHOUT a second manual dispatch, so the class cannot recur through forgetfulness; demonstrated by a flatten whose resulting row carries the operator marker with no intervening mark-operator-flattened run. Closable only when (2) is exercised on a real flatten, not when the code merges.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260830-OPERATOR-FLATTEN-LEAVES-NO-MARKER-ON-THE-JOURNAL-ROW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-OPERATOR-FLATTEN-LEAVES-NO-MARKER-ON-THE-JOURNAL-ROW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-OPERATOR-FLATTEN-LEAVES-NO-MARKER-ON-THE-JOURNAL-ROW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] An OPERATIONAL flatten leaves no marker on the journal row — the reconciler stamps `reconciler_filled`, so a human-chosen exit is byte-indistinguishable from a strategy exit and lands in the exit-geometry corpus as evidence about the strategy"
+}

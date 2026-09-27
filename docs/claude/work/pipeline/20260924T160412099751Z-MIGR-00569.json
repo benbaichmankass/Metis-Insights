@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) a maximum-adverse-excursion field is added beside peak_r and a session is OBSERVED using it -- note this still cannot answer the post-exit question, so it would serve the DURING-trade half only and must not be described as closing the counterfactual gap; OR (b) the limitation is RECORDED where a session planning a geometry change will meet it, and the candle-based method is named as the answer. [!] A GREEN TEST CLEARS NOTHING -- the defect is an absent field, not a broken one. [!] AND THIS ROW MUST NOT BE CLOSED BY ADDING MAE ALONE while anyone still believes telemetry answers the counterfactual: the post-exit path is the part no in-trade instrument can hold.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-NEEDS-THE-ADVERSE-PATH-AND-TELEMETRY-RECORDS-ONLY-THE-FAVOURABLE-ONE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-NEEDS-THE-ADVERSE-PATH-AND-TELEMETRY-RECORDS-ONLY-THE-FAVOURABLE-ONE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-STOP-WIDTH-COUNTERFACTUAL-NEEDS-THE-ADVERSE-PATH-AND-TELEMETRY-RECORDS-ONLY-THE-FAVOURABLE-ONE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] position_telemetry records MFE and no maximum ADVERSE excursion, and is an upsert, so it cannot answer a stop-width counterfactual at any coverage"
+}

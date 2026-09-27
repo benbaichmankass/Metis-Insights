@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when EITHER (a) the pool config is read and shown to contain no two entry keys sharing a `family` — state the pool path and the entry->family mapping you measured — and that invariant is asserted in code or a test, so it cannot silently stop holding; OR (b) the label includes entry_key, with the artifact-renaming consequence stated. A code citation does not close this: the entry->family mapping is DATA and must be read.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260902-RECOMBINATION-SWEEP-LABEL-OMITS-ENTRY-KEY-SO-TWO-ENTRY-VARIANTS-SHARING-A-FAMILY-COLLIDE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-RECOMBINATION-SWEEP-LABEL-OMITS-ENTRY-KEY-SO-TWO-ENTRY-VARIANTS-SHARING-A-FAMILY-COLLIDE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-RECOMBINATION-SWEEP-LABEL-OMITS-ENTRY-KEY-SO-TWO-ENTRY-VARIANTS-SHARING-A-FAMILY-COLLIDE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [research] recombination_sweep._build_label accepts `entry_key` and never puts it in the label — two entry variants sharing a family produce the SAME label for different sweep cells"
+}

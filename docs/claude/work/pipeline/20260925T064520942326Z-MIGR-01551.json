@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "gate-check returns a real gate report for this model_id (registry gap closed) AND last_seen advances to within ~2x cadence of the read time (staleness cleared) -- or, if the gap is by design (e.g. an exit-head family registered under a different key), a session confirms that and closes this row with the mapping.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-JQHBBTOS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane E72 /ml-review, session_01PrCFC3J9gYv64gJqHBBtos, checklist row E72 (per manager task), comms/reviews/ml-review-20260924-210245.json",
+    "rerun": "trainer-vm-diag: `.venv/bin/python -m ml gate-check exit-head-donchian-1h-v1 --db data/trade_journal.db --datasets-root datasets-out` (expect either a populated gate report or the same 'no registry entry' failure) AND `grep -c donchian` over a fresh, untruncated `python -m ml list-models` dump to rule out a naming mismatch; vm-diag-snapshot: `api/bot/shadow/stats?model_id=exit-head-donchian-1h-v1` for current last_seen/staleness."
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": 1,
+  "what": "exit-head-donchian-1h-v1 is at stage=advisory (order-influencing, MEASURED via api/bot/shadow/stats, read 2026-09-24T20:45Z) yet `python -m ml gate-check exit-head-donchian-1h-v1 --db data/trade_journal.db --datasets-root datasets-out` on the trainer VM returns 'gate-check failed: no registry entry for \"exit-head-donchian-1h-v1\"' (MEASURED, trainer-vm-diag issue #12902, run 36058254309, 2026-09-24T21:00Z). The trainer's own registry -- the source the promotion/demotion ladder gates against -- does not know this order-influencing model exists, so it cannot be gate-checked at all. Corroborating anomaly, same pull: its last shadow prediction is 2026-09-22T17:06:08Z while the shared shadow_predictions.jsonl log's newest_retained is 2026-09-24T20:44:54Z (other models logged predictions minutes before this read) -- roughly 52h with zero predictions logged for this model specifically, against a MEASURED cadence_seconds_est=5021s (~84min), i.e. ~37 expected firings missing. Its shadow/drift pull (api/bot/shadow/drift?model_id=exit-head-donchian-1h-v1, read 2026-09-24T20:45Z) also reports the worst drift of any model in this review: ks=0.204 (significant), psi=0.897 (significant, vs 0.25 threshold). Not established this session: whether the registry gap and the staleness share a root cause (e.g. a broken/renamed manifest) or are independent; not established whether it is registered under a different model_id the trainer side recognizes."
+}

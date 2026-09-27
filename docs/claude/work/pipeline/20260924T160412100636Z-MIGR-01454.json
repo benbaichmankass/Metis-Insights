@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "regime_debt_matrix.classify() routes the ict_scalp family to scripts/backtest_ict_scalp.py (or the family is explicitly declared un-routable with a stated reason), AND comms/strategy_evidence/ict_scalp_*.json exist with coverage_state != 'no_harness'.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-5GAYXBX5-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Pfa2shVwLhbdof5GayXBX5, checklist row E25, PR on branch claude/e25-fvg-range-harness-route",
+    "rerun": "python3 -c \"import sys,yaml,collections; sys.path.insert(0,'scripts/research'); import regime_debt_matrix as rdm; S=yaml.safe_load(open('config/strategies.yaml'))['strategies']; print(sorted(n for n,c in S.items() if isinstance(c,dict) and c.get('enabled',True) and rdm.classify(c) is None))\"   # the unrouted set; E25 reduced it 10 -> 9 by adding the fvg_range branch"
+  },
+  "state": "done",
+  "terminal_reason": "A10 2026-09-24: clears_when MET by E28 (#12743): the ict_scalp family routes to scripts/backtest_ict_scalp.py and all eight carry evidence records. EVIDENCE: MEASURED 2026-09-24: regime_debt_matrix.classify() leaves only ['turtle_soup'] unrouted; comms/strategy_evidence/ict_scalp_*.json: 7 measured + mgc_15m harness_failed (its own row, routed to E4 today).",
+  "what": "EIGHT LIVE LEGS STILL HAVE NO OFFLINE EDGE NUMBER FOR THE SAME REASON fvg_range_15m DID NOT. MEASURED 2026-09-22 over all 52 enabled legs in config/strategies.yaml by importing regime_debt_matrix and calling classify(): 43 route, 9 do not. The 9 are turtle_soup plus the whole ict_scalp_* family (ict_scalp_5m, _sol_5m, _xrp_5m, _avax_5m, _xrp_15m, _eth_15m, _sol_15m, _mgc_15m) -- and ALL EIGHT ict_scalp legs carry execution: live, against fvg_range_15m's execution: shadow. scripts/backtest_ict_scalp.py exists and is cost-wired; nothing routes to it. E25 (this row's origin) is the worked example: a classify() branch keyed on the family's defining structural config params, plus a PLAIN/LEVER_FLAG map read off the harness's own add_argument list, plus a sibling of tests/test_regime_debt_matrix_fvg_range.py. ONE SHAPE DIFFERENCE TO SETTLE FIRST, and it is why E25 did not simply do this too: backtest_ict_scalp.py takes --strategy-name/--ignore-yaml and LOADS THE LEG'S PARAMS FROM config/strategies.yaml ITSELF, where trend/pullback/squeeze/fvg_range are driven entirely by forwarded flags. So the lever map either forwards nothing and trusts the harness's own read (in which case `fidelity` cannot be computed the way the other four compute it), or --ignore-yaml is used and every param is forwarded explicitly. That is a design call, not a mechanical port. turtle_soup is the 9th and has no harness at all in scripts/ -- a separate question, not this one."
+}

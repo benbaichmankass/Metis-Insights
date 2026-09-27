@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either the trainer VM has a serialization mechanism that actually exists, or those comments say plainly that heavy work is unserialized and what the consequence is. Reading the comments is not enough -- check whether two concurrent trainer jobs can in fact overlap today.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_011Z18XADmiW1npvEeHm5nCP, found via scope-overlap-audit's self-test failing on PR #12674 for a missing board-pointer.json",
+    "rerun": "grep -rln 'board-pointer\\|board_pointer' --include=*.yml --include=*.py . | grep -v '^./docs/archive'"
+  },
+  "state": "queued",
+  "what": "The trainer VM's cross-session serialization protocol is gone: trainer-diag-relay.yml and trainer-vm-diag.yml both document heavy VM work as serialized by a VM-LANE CLAIM/RELEASE FIFO on the coordination board, which the 2026-09-21 reset archived. Comments only -- the relays still RUN -- but on a 1-OCPU box the serialization they promise no longer exists and nothing says so."
+}

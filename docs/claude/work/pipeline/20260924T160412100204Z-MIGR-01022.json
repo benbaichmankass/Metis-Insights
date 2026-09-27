@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-THE-AUTOMATION-PRS-THAT-WROTE-MERGE-SLOT-WERE-WRITTEN-BY-A-MANAGER-BY-HAND-NOT-BY-THE-ACTION-AND-THE-DIFFERENCE-IS-THE-WHOLE-DEADLOCK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-THE-AUTOMATION-PRS-THAT-WROTE-MERGE-SLOT-WERE-WRITTEN-BY-A-MANAGER-BY-HAND-NOT-BY-THE-ACTION-AND-THE-DIFFERENCE-IS-THE-WHOLE-DEADLOCK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-THE-AUTOMATION-PRS-THAT-WROTE-MERGE-SLOT-WERE-WRITTEN-BY-A-MANAGER-BY-HAND-NOT-BY-THE-ACTION-AND-THE-DIFFERENCE-IS-THE-WHOLE-DEADLOCK'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "CORRECTION to BL-20260908-R13-MAKES-EVERY-AUTOMATION-PR-WRITE-THE-MERGE-SLOT-SO-MAIN-CAN-NEVER-BE-QUIET: the action never wrote the slot; a manager hand-wrote it on the two PRs that row cites"
+}

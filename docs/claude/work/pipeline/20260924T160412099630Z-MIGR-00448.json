@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "The header no longer contains the sentence \"removes the request\", and states instead that the request file is deliberately left in place and that success is read from the RESULT file (a bare comment URL, run exit 0) versus failure (a `FAILED:` prefix, run exit 1). Verified by two commands rather than by reading the prose: `grep -c 'removes the request' .github/workflows/board-post.yml` returns 0, and `grep -c 'FAILED:' .github/workflows/board-post.yml` returns a non-zero count inside the header block. NOT sufficient: the workflow continuing to work -- it already works, and the defect is in what it TELLS a session about itself. NOT sufficient either: this row being filed. The observable that would reopen it is a later session again reporting a successful board post as failed, or re-posting a duplicate on #6927, on the strength of the request file's presence.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260903-BOARD-POST-HEADER-CLAIMS-IT-REMOVES-THE-REQUEST-AND-THE-CODE-DELIBERATELY-DOES-NOT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-BOARD-POST-HEADER-CLAIMS-IT-REMOVES-THE-REQUEST-AND-THE-CODE-DELIBERATELY-DOES-NOT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-BOARD-POST-HEADER-CLAIMS-IT-REMOVES-THE-REQUEST-AND-THE-CODE-DELIBERATELY-DOES-NOT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] board-post.yml's header says it removes the request file; the code deliberately keeps it, so a session verifying its own post reads the surviving file as a FAILED post"
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "pipeline.append() refuses, or at minimum loudly flags, an append whose id already exists with materially different content -- verified by ACTUALLY ATTEMPTING one and seeing it refused, not by reading the diff -- and pipeline --check reports displaced/shadowed ids rather than `clean`. A fix that only renames ids without adding the check does NOT clear this.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-M04",
+  "loud": true,
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager, 2026-09-21) -- found while resolving the E9 merge; caused by this same session",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import pipeline;r=pipeline.read_log();print('records',r.records,'items',len(r.items))\"; # FINDING STILL APPLIES while records>items for reasons other than genuine state changes, and while append() accepts an existing id carrying unrelated content without complaint"
+  },
+  "routed_to": "session_01YUnvQssdGXkpjB2MRkddF3 (build lane, sonnet-5, ceiling $18) — dispatched 2026-09-21, the same day this appeared unrouted in section 0. Fenced OUT of render_section_0 and unrouted_count signatures (A3a now CALLS them) and out of PIPELINE.jsonl beyond its own state change (A8 is importing ~1,150 rows into it), and told the store will be that size so the fold cost of any collision check is a real constraint rather than a detail.",
+  "state": "routed",
+  "what": "pipeline.append() HAS NO ID COLLISION CHECK, SO ONE FINDING CAN SILENTLY DISPLACE ANOTHER AND THE STORE STILL READS `clean`. MEASURED 2026-09-21, and it is not hypothetical -- the manager session did it. The store's design is APPEND-ONLY with LAST-RECORD-WINS, which is correct for a STATE CHANGE to a known item and is what gives the audit trail for free. But nothing distinguishes 'a new state for item X' from 'a DIFFERENT finding that happens to reuse X's id'. Two sessions filing concurrently both mint the next free number from the store they each read at start, and neither can see the other. Observed: main carried PI-20260921-0002 (a board-pointer reader finding, filed by session_011Z18XADmiW1npvEeHm5nCP in #12676); the manager appended a pr-landing-guard finding under the same id; load() folded 8 records to 4 items and the FIRST finding vanished from items, due() and render_section_0 entirely. Concurrently the E9 lane minted its OWN 0002/0003/0004/0005 on its branch for four further different findings, so the same collision was queued up three more times behind a merge. [!] `--check` REPORTED `clean -- 4 item(s) validated over 8 record(s), 0 unreadable` THROUGHOUT. That is the serious half: the store cannot distinguish 'this item is gone' from 'this item was never filed', which is the exact collapsed-state class scripts/ci/check_collapsed_states.py enforces against repo-wide, occurring inside the module built to stop findings being dropped. A displaced row is a DROPPED FINDING that looks like a healthy store. [!] DO NOT fix it by making ids opaque (a uuid) and stopping there -- the readable dated id is worth keeping and the real defect is the missing check. append() should refuse an id already present whose record is not plausibly a state change of it, and the caller should have to say which it means. Allocation needs an answer too: two sessions that cannot see each other will keep picking the same next number."
+}

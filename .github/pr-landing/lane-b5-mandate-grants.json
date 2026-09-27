@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 grant; operator approves the merge in the manager session. This lane (session_01RAERa2sGmCEwSHRsAmwXrW) writes the change and opens the PR; the manager session_01Ljhs6sFAdWHdMDhJpL5aBP merges it on the operator's approval. The lane does not merge, does not arm auto-merge and does not deploy. The approval sought is the operator's, relayed through the manager, for the ten standing authorizations this diff records.",
+  "why": "Records the operator's 2026-09-24 ~17:15Z grant -- verbatim \"Grant all 10 as written\", recorded on checklist row B5 -- into config/mandates.yaml. Moves the five process mandates from `proposed:` into `mandates:` unchanged, and adds the five ladder mandates from docs/plans/OPERATING-PLAN-2026-09-21.md section 5.3 in the shape scripts/ops/mandate_resolver.py reads (direction / bar / cap). MD-PROMOTE-S1-S2 -- the only one that can route real money -- carries section 5.3's arming block verbatim as `blocked_until`, so the resolver refuses it; it is granted, not armed. No order path, no roster, no risk cap and no sizing changes, and nothing calls the resolver on a schedule, so merging alters no runtime behaviour. It is Tier-3 because the file it writes is the authorization store for the fully-automated ladder."
+}

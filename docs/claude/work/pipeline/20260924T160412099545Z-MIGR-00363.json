@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) The pairs sleeve stamps provenance on close, satisfying the same criteria as BL-20260824-THE-DECIDED-EXIT-PATH-IS-THE-UNMEASURED-ONE. (2) Enumerate every cross-cutting invariant the main pipeline enforces and record, per invariant, whether the sleeve satisfies it, is deliberately exempt (with the reason), or is missing it. (3) That enumeration becomes a CI guard so a future isolated path cannot silently skip them — presence-only markers are not acceptable (the new-table-wiring-guard lesson: a guard cheaper to lie to than to satisfy is worse than none). Keep the sleeve RUNNING throughout — it is bybit_1 demo-only, so in-place work carries no real-money risk.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260824-PAIRS-SLEEVE-IS-A-SECOND-SYSTEM-THAT-MISSES-INVARIANTS-BY-CONSTRUCTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-PAIRS-SLEEVE-IS-A-SECOND-SYSTEM-THAT-MISSES-INVARIANTS-BY-CONSTRUCTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-PAIRS-SLEEVE-IS-A-SECOND-SYSTEM-THAT-MISSES-INVARIANTS-BY-CONSTRUCTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The pairs sleeve is an isolated order path that silently misses every cross-cutting invariant the main pipeline acquired — 79 of 79 closes carry no provenance stamp"
+}

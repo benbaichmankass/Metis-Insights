@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) the merge claim moves to a per-branch artifact so two concurrently-armed branches produce NO conflict in it — verified by actually merging two independently-armed branches in sequence and observing zero conflict in the claim path, not by reading the design; OR (b) it is RECORDED as a decision to keep the single slot, with the take-your-own-side resolution rule written into docs/claude/coordination-board.md and into check_pr_landing.py's R13 failure message, so the next session hitting the conflict is told the rule at the point of use. ⚠️ A quiet week clears NOTHING: the conflict only appears when two lanes arm at once, so absence of conflicts is evidence about lane concurrency, not about this. ⚠️ And a single successful hand-resolution clears nothing either — that is the tax being paid, not removed. ⚠️ AND (b) MUST NOW ALSO STATE HOW THE SLOT IS RELEASED: recording the take-your-own-side rule while leaving the slot unreleasable means main permanently names a merged branch, which is the corollary above and is not a documented state so much as an undocumented one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-WRITE-THE-SAME-SINGLE-MERGE-SLOT-SO-N-LANES-ALL-HOLD-IT-AT-ONCE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-WRITE-THE-SAME-SINGLE-MERGE-SLOT-SO-N-LANES-ALL-HOLD-IT-AT-ONCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-R13-MAKES-EVERY-CONCURRENT-ARMED-BRANCH-WRITE-THE-SAME-SINGLE-MERGE-SLOT-SO-N-LANES-ALL-HOLD-IT-AT-ONCE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_pr_landing R13 requires EVERY armed branch to write the one `merge_slot` object, so N concurrent lanes each 'hold' a slot only one may hold and every lane after the first hits a hand-resolved conflict on the same 6 lines"
+}

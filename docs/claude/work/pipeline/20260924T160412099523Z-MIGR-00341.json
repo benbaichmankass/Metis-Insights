@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either shorting is enabled on the Alpaca live account (a broker-side setting the operator owns), or alpaca_live's routed strategy list is narrowed to the long-only legs and the removed legs are recorded as deliberately unrouted rather than silently non-functional. Verified by re-reading status_flags.shorting_enabled and re-counting the short share of routed packages.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-ALPACA-LIVE-CANNOT-SHORT-BUT-60PCT-OF-ITS-FLOW-IS-SHORT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-LIVE-CANNOT-SHORT-BUT-60PCT-OF-ITS-FLOW-IS-SHORT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-LIVE-CANNOT-SHORT-BUT-60PCT-OF-ITS-FLOW-IS-SHORT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] alpaca_live has shorting_enabled=False while 157 of 262 routed order packages (60%) are SHORT — 4 of 16 legs are 100% short and would be entirely dead"
+}

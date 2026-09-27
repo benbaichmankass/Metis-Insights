@@ -1,0 +1,138 @@
+# E38 — regime classification: PRE-REGISTRATION
+#
+# Committed BEFORE any regime feature was computed or any feature-vs-outcome
+# statistic was looked at. The analysis script
+# (scripts/research/e38_regime_classification.py) READS its constants from
+# this file, so the method it runs cannot drift from the method registered
+# here without a diff to this file appearing in git history after this commit.
+#
+# What the registering session HAD seen before writing this (stated, because
+# "registered before the run" is only worth what it excludes): the committed
+# fold_detail (per-fold net_r / trades) of every comms/strategy_evidence/*.json
+# record, and the E38 checklist row. It had NOT computed any candle feature,
+# any per-trade or per-fold regime statistic, or any walk-forward result.
+
+id: E38-REGIME-2026-09-25
+registered_at: '2026-09-25T13:25:00Z'
+registered_by: 'W4 E38 lane (session_01LwtnaWKz5G2Kag7p3vZ7EJ)'
+checklist_row: E38
+related_queue_unit: RQ-20260922-002  # blocked; this row is the build it implies
+
+question: >-
+  Under what market conditions is each strategy leg expected to perform, and
+  could a mechanism have called that condition BEFORE the outcome was known?
+
+population:
+  source: >-
+    Every comms/strategy_evidence/*.json record with coverage_state=measured,
+    using the per-trade series at the record's own `source_run` (the series its
+    fold_detail was pooled from), trades assigned to folds by entry_time within
+    fold [start, end]. Outcome per trade = `net_r` (net of the FULL cost stack).
+  primary_family: >-
+    The six legs E38 names as held from real money until this mechanism exists:
+    trend_donchian_eth, sol_pullback_2h, trend_donchian_avax_4h,
+    trend_donchian_ada_4h, trend_donchian_sol_4h, trend_donchian_sol.
+  secondary_family: >-
+    Every other measured leg whose symbol's daily candles are reachable this
+    session. Descriptive; its own multiple-comparison family; it cannot by
+    itself change any roster.
+  unreachable: >-
+    A leg whose candles cannot be fetched is reported `not_attempted` with the
+    reason. It is never dropped silently and never graded.
+
+candles:
+  source: >-
+    data.binance.vision USDT-M futures DAILY klines (the same archive
+    scripts/ops/build_strategy_evidence.py fetches for its crypto legs), via
+    scripts/ops/fetch_backtest_candles.py::fetch_klines_binance_vision. NOT the
+    5,001-row data/backtest_candles.csv fixture — if that were the only input,
+    the run STOPS. No committed per-symbol corpus exists yet (checklist E4).
+  interval: 1d
+  why_daily: >-
+    A regime is a market condition, not a bar pattern. Daily closes make the
+    features identical in meaning across a 5m leg and a 1d leg, and are
+    exactly what a live classifier would read to say which regime is current.
+  no_look_ahead: >-
+    For a trade entered at time T the features use only daily bars whose CLOSE
+    time (open_time + 1 day) is <= T. The bar in progress at T is never used.
+
+features:  # exactly two; no others will be tested in this registration
+  rv20:
+    definition: population std-dev of the last 20 daily log returns (21 closes)
+    reads_as: realized volatility
+  er20:
+    definition: >-
+      Kaufman efficiency ratio over the last 20 daily closes:
+      |C[t] - C[t-20]| / sum_{i=t-19..t} |C[i] - C[i-1]|, in [0, 1]
+    reads_as: trend strength, direction-agnostic (1 = straight line, 0 = chop)
+
+trade_level_test:
+  statistic: >-
+    Spearman rank correlation rho(feature at entry, net_r), per leg per feature.
+  why_not_binary_won_vs_lost: >-
+    Trend legs earn their R in a few large winners; a won/lost split discards
+    the magnitude that is the edge. Rank correlation keeps it and is robust to
+    the fat right tail. The won-vs-lost comparison is still reported
+    descriptively (median feature, winners vs losers).
+  p_value: >-
+    Two-sided, 10,000 iid permutations of net_r against the feature, seed 38.
+  serial_dependence_guard: >-
+    Trades cluster in time, so iid permutation overstates significance. A
+    passing test must ALSO have a circular-shift p <= 0.10 (net_r rotated
+    against the feature over all n-1 non-zero shifts, which preserves both
+    series' autocorrelation).
+  min_n_trades: 30   # below this: insufficient_n, no test is run
+  alpha_familywise: 0.05
+  correction: >-
+    Bonferroni within each family: alpha / (number of legs in the family that
+    reach min_n_trades x 2 features).
+
+out_of_sample_check:
+  applies_to: every leg that reaches min_n_trades (reported for all, required for a pass)
+  procedure: >-
+    Walk-forward over the leg's own folds. For each fold k >= 2: TRAIN = trades
+    in folds < k. If TRAIN has fewer than 15 trades the fold is not evaluated.
+    Direction = sign of Spearman rho on TRAIN; threshold = median of the
+    feature on TRAIN; the leg is ON when the feature is on the TRAIN-favoured
+    side of the threshold (>= threshold if rho > 0, < threshold if rho <= 0).
+    In fold k, gated_net = sum net_r of ON trades; ungated_net = sum of all.
+    Nothing from fold k is used to set the rule applied to fold k.
+  pass: >-
+    >= 2 folds evaluated AND sum(gated_net - ungated_net) > 0 over evaluated
+    folds AND gated_net > ungated_net in a strict majority of evaluated folds
+    AND sum(gated_net) > 0.
+  feature_used: >-
+    The feature that passed the in-sample test (smaller iid p if both did).
+    For a leg where neither passed, the walk-forward is still reported for
+    both features, marked descriptive.
+
+fold_level_test:
+  unit: one fold = one observation (mean rv20 / er20 over the fold's calendar days vs fold net_r)
+  min_n_folds: 8
+  expected_outcome_stated_in_advance: >-
+    Every record carries 4 folds, so every leg is insufficient_n at this level.
+    It is reported descriptively (won folds vs lost folds, mean features) and
+    is NOT a verdict. Saying so here, before the run, is the point: the
+    fold-level record the E38 row describes cannot by itself answer E38.
+
+verdicts:  # per leg, exactly one
+  not_attempted: candles unreachable for the leg's symbol (reason stated)
+  insufficient_n: n_trades < min_n_trades
+  no_regime_signal: neither feature clears the family-corrected in-sample bar
+  in_sample_only: a feature clears the in-sample bar but the walk-forward fails
+  regime_explains: >-
+    a feature clears the in-sample bar (iid p < corrected alpha AND
+    circular-shift p <= 0.10) AND the walk-forward passes. Only this verdict
+    yields a falsifiable per-leg regime statement (feature, side, threshold
+    re-derived on the full record) and a current-regime call.
+
+what_a_pass_does_not_do: >-
+  It authorizes nothing. Wiring a leg, adding a regime_policy cell, or gating
+  a real-money leg on this rule is Tier-3 and goes to the manager / operator
+  with the evidence. A pass here is Stage-0 evidence about WHEN, not about
+  WHETHER there is an edge; RULE-D1 still has to clear on its own.
+
+what_would_falsify_this_method: >-
+  If a later regime_explains leg's live/soak record in its ON regime is not
+  better than in its OFF regime over a declared window, the mechanism was
+  wrong for that leg. That window is declared at the point anything is wired.

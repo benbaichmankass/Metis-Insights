@@ -1,5 +1,5 @@
 {
-  "_comment": "Strategy refinement queue (2026-06-18) — the active pipeline for `paper_ready` cells (docs/strategy-readiness-ladder.md). A paper_ready cell is a net-of-fee-positive edge that is NOT yet fold-robust (cleared the demo bar, missed the live-money bar). Each row records WHY it missed live + a concrete refinement HYPOTHESIS to test. /performance-review + the backtesting skill drain this: re-test the hypothesis on the harness, re-tier with scripts/ops/classify_strategy_tier.py, then advance (paper->live proposal), iterate, or reject with evidence. This is distinct from: performance-review-backlog.json (live-strategy tweak puzzles), ml-review-backlog.json (model experiments), health-review-backlog.json (system bugs). Item ids: SRQ-YYYYMMDD-NNN.",
+  "_comment": "Strategy refinement queue (2026-06-18) — the active pipeline for `paper_ready` cells (docs/strategy-readiness-ladder.md). A paper_ready cell is a net-of-fee-positive edge that is NOT yet fold-robust (cleared the demo bar, missed the live-money bar). Each row records WHY it missed live + a concrete refinement HYPOTHESIS to test. /performance-review + the backtesting skill drain this: re-test the hypothesis on the harness, re-tier with scripts/ops/classify_strategy_tier.py, then advance (paper->live proposal), iterate, or reject with evidence. This is distinct from live-strategy tweak puzzles and system bugs, both of which now go to docs/claude/work/PIPELINE.jsonl (corrected 2026-09-24 — the standalone performance-review-backlog.json/health-review-backlog.json/ml-review-backlog.json files this comment used to name were retired in the 2026-09-21 operating reset). Item ids: SRQ-YYYYMMDD-NNN.",
   "_see_also": "docs/research/strategy-primitives-recombination-DESIGN.md — the combinatorial primitive-recombination initiative (operator direction 2026-06-18). Its first probes drain SRQ-20260618-001/-002 (regime-filter swap) and -003 (exit-manager swap) by treating each refinement hypothesis as a (entry, filter, exit, timeframe) tuple to sweep + re-tier via classify_strategy_tier.py. DESIGN — for operator review; trainer-gated.",
   "schema_version": 1,
   "items": [
@@ -51,6 +51,11 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22",
           "note": "Fresh paper-book-tracker snapshot appended this session (bybit_1, n=49 cohort trades, 06-07->07-22; book fixed field-mapping bug meant this is the first REAL snapshot since 07-07). Book overall now net -$5384.35 (30.6% WR), decay_flag=TRUE (recent-30d window -$6534.97, a clear deterioration from the 07-07 snapshot's +$10997.16). Per-cell trend_4h: trend_donchian_ada_4h +$1875.26 (n6, 50% WR) and trend_donchian_eth_4h +$2221.29 (n4, 75% WR) and trend_donchian_xrp_4h +$1606.60 (n3, 33% WR) still net-positive; trend_donchian_avax_4h -$2833.60 (n5, 20% WR) and trend_donchian_sol_4h -$1472.81 (n3, 33% WR) are net-negative and match this same family's twin AVAX/SOL laggard split flagged on 07-07 and 07-10 -- now a THIRD consecutive review confirming the same two names underperforming while ETH/ADA/XRP hold up. See proposed_tweaks[] for a DEMOTE_SHADOW proposal on the AVAX/SOL pullback_2h siblings (thinner n there); the trend_4h AVAX/SOL legs are flagged here as the same-direction watch, not yet proposed (n=3-5 is thinner still). Continue accruing before any trend_4h action."
+        },
+        {
+          "at": "2026-09-24T00:00:00+00:00",
+          "by": "/performance-review (E67, session_01HUMdsBGKWKBmNC2S8DxGtz)",
+          "note": "MEASURED, not the ADX resweep this item still lists as REMAINING -- a DIFFERENT fix (E55, #12853: the offline harness now genuinely models tp_r) regenerated this family's Stage-0 evidence 2026-09-24 and it changes the picture materially. Current comms/strategy_evidence/ records (harness `trend`, coverage_state measured): trend_donchian_ada_4h decision_rule.verdict FLIPPED pass->fail (net_r_oos -8.807, n=46, folds_positive 1/4); trend_donchian_avax_4h verdict fail, WORSE than before the fix (net_r_oos -9.4613, n=50, folds_positive 0/4 -- zero of four folds positive); trend_donchian_sol_4h verdict FLIPPED pass->fail (net_r_oos -3.0368, n=35, folds_positive 1/4). trend_donchian_eth_4h and trend_donchian_xrp_4h still verdict=pass and are the two already promoted to bybit_2 real money (unaffected by this item, which is Stage-1/bybit_1-demo only). So the 07-07/07-10/07-22 live-paper read (\"AVAX/SOL are the persistent laggards\") is now corroborated by corrected OFFLINE evidence too, on all three non-promoted cells, not just the AVAX/SOL pair this item's notes tracked -- ADA_4h joins them once tp_r is modelled faithfully. DISPOSITION: kept_open. This is Stage-1/paper-only (no real capital at risk), so per 'Underperformance -> diagnose, don't demote' this is not an automatic action, but the ADX-regime-gate hypothesis these three cells were queued under is now moot for a different reason than 'missed the recent fold' -- they are net-negative on the corrected FULL-window evidence, not just the tail. Flagged to the operator as a proposed_tweaks[] item this run (consider demoting ada/avax/sol_4h from execution:live to execution:shadow on bybit_1 pending a fresh resweep against the corrected harness) rather than actioned directly -- Tier-3, propose only. Filed alongside PIPELINE.jsonl#PI-20260924-EDNBNMSG-0001 (the corpus-flip observation this disposition answers) and a fresh pipeline row for the proposal."
         }
       ],
       "resweep_results": [
@@ -125,6 +130,11 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22",
           "note": "Same fresh tracker snapshot. Pullback_2h family: eth_pullback_2h +$3714.39 (n6, 33% WR -- high mean win offsetting a sub-50% hit rate) and ada_pullback_2h -$3120.47 (n8, 25% WR) and xrp_pullback_2h -$752.32 (n2, 50% WR) are mixed/thin; avax_pullback_2h -$3976.67 (n7, 14.3% WR) and sol_pullback_2h -$2646.02 (n5, 0.0% WR -- zero wins) are the book's clear worst two cells, and this is the THIRD consecutive review (07-07, 07-10, 07-22) flagging these exact two names as persistent laggards with the trend not improving -- if anything sol_pullback_2h going to a flat 0% win rate this window is worse than prior reads. This now clears the bar for a Tier-3 DEMOTE_SHADOW proposal (see proposed_tweaks[]) rather than continuing to just note-and-watch; n is still thin (5-7 trades/cell) so the proposal is flagged with that caveat for the operator to weigh against the 3-review consistency."
+        },
+        {
+          "at": "2026-09-24T00:00:00+00:00",
+          "by": "/performance-review (E67, session_01HUMdsBGKWKBmNC2S8DxGtz)",
+          "note": "MEASURED corroboration of the 07-07/07-10/07-22 AVAX/SOL-laggard read, from the CORRECTED offline evidence corpus (E55, #12853, tp_r now genuinely modelled), not from a fresh live-paper sample: avax_pullback_2h's Stage-0 decision_rule.verdict FLIPPED pass->fail 2026-09-24 (net_r_oos 12.6729 -> -2.7832, n 45 -> 58, folds_positive 2/4). sol_pullback_2h still reads verdict=pass (net_r_oos 4.5091, n=18, folds_positive 2/4) but n<30 and folds are only an even split (not a majority), so it does not clear the fuller n>=30/majority-folds promotion bar either -- it is 'not failing' rather than 'clearing'. eth/ada/xrp_pullback_2h are unaffected by this corpus regen (not in the 8-verdict-flip set) and ada/xrp are meanwhile already promoted to bybit_2 real money. DISPOSITION: kept_open. The DEMOTE_SHADOW proposal this item already flagged for avax_pullback_2h (07-22 drain note) is now additionally supported by a Stage-0 backtest fail, not just a live-paper laggard read -- re-flagged in this run's proposed_tweaks[] with the updated evidence rather than treated as new. sol_pullback_2h stays on watch, not proposed (Stage-0 still passes)."
         }
       ],
       "resweep_results": [
@@ -203,9 +213,17 @@
           "at": "2026-07-22T18:35:00+00:00",
           "by": "/performance-review 2026-07-22",
           "note": "No new evidence this session; this is a settled REJECT (fee-bleed) research record, not an open monitoring item. No action needed; status left as-is (the queue schema does not carry a terminal 'status' distinct from 'open' with a rejected{} block for this entry -- recommend the queue's own schema add a true terminal status alongside `rejected{}` so this stops surfacing in the open-item count every review)."
+        },
+        {
+          "at": "2026-09-24T00:00:00+00:00",
+          "by": "/performance-review (E67, session_01HUMdsBGKWKBmNC2S8DxGtz)",
+          "note": "Re-checked against the current corpus: comms/strategy_evidence/ict_scalp_5m.json (the one of this item's core-5m symbols the current corpus carries a per-strategy record for) still verdict=pass, net_r_oos=7.9357, at the operator-set 7.5bps default -- not this item's own 15bps stress arm, so today's corpus does not re-run the question this item settled and does not reopen it. Taking the 07-22 note's own recommendation rather than asking a fourth review to re-propose it: adding a genuine terminal status now."
         }
-      ]
+      ],
+      "status": "closed_settled",
+      "closed_at": "2026-09-24T00:00:00+00:00",
+      "closed_reason": "REJECT (fee-bleed, 2026-06-18/2026-08-12) is a completed research record, not an open monitoring item; three consecutive reviews (07-22, and now 09-24) found nothing to re-open it against. Untested alternatives (c) wider stops and (d) maker-only entry remain available as a FRESH SRQ row if anyone wants to pursue them -- they are not carried forward as open work on this row."
     }
   ],
-  "updated_at": "2026-07-22T18:35:00+00:00"
+  "updated_at": "2026-09-24T00:00:00+00:00"
 }

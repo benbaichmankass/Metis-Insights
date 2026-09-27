@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER backtest_vol_target.py is wired to execution_costs.resolve_cost_policy() the way the other harnesses are, OR a comms/strategy_evidence/*.json record's cost_stack.source first points at a vol_target run (at which point this item escalates from latent to live and must be actioned before that record is trusted for promotion).",
+    "kind": "event"
+  },
+  "id": "PI-20260925-41YPPGWO-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/d1-cost-stack-verification-2026-09-25.md",
+    "rerun": "grep -n 'SLIPPAGE_BPS\\|FUNDING_BPS\\|resolve_cost_policy' scripts/backtest_vol_target.py  # expect no matches; and grep -l vol_target comms/strategy_evidence/*.json  # expect no hits, confirming it still backs no scored leg"
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "[research] scripts/backtest_vol_target.py has NO wiring to src/runtime/execution_costs.py at all -- its only cost term is a turnover-bps drag (_turnover_drag / --turnover-bps) charged when the vol-target multiplier changes; there is no separate fee, slippage or funding term, and none of the three resolve through execution_costs.resolve_cost_policy() or the venue-aware slippage_bps_roundtrip_for()/funding_bps_per_window_for() functions. FOUND 2026-09-25 by lane/d1-verify-cost-stack while verifying D1's substance (docs/research/d1-cost-stack-verification-2026-09-25.md section 1(d)) -- NOT named in D1's original note (which named backtest_orb.py, src/backtest/backtester.py and backtest_xsec_momentum.py's funding gap; those three are already filed as PI-20260921-E3-ORB-NO-SLIPPAGE, PI-20260921-E3-BACKTESTER-DUAL-COST-MODEL and PI-20260921-E3-XSEC-MOMENTUM-FUNDING-GAP, all still queued/routed). CHECKED against the current 52-record comms/strategy_evidence/ corpus: no record's cost_stack.source points at a vol_target run, so this harness does not currently back any scored leg -- this is a latent gap, not a live one. Filed so a future leg routed through backtest_vol_target.py does not land in the promotion corpus undercosted with nothing catching it."
+}

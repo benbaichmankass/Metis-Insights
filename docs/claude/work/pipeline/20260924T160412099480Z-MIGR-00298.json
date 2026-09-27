@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Audit the DB fakes across tests/ for two properties: (1) `get_trades` honours the `filters` it is passed, and (2) `update_trade` reflects at least `status` into what `get_trades` subsequently returns. Prefer a single shared in-memory fake over per-file ones — the three fixed here were three independent re-implementations of the same object. Consider a test that asserts the shared fake's `get_trades` respects a `status` filter, so the fake itself is covered. DONE when a new close-path test cannot pass against a row that never closes.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-TEST-FAKES-THAT-DO-NOT-REFLECT-WRITES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-TEST-FAKES-THAT-DO-NOT-REFLECT-WRITES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-TEST-FAKES-THAT-DO-NOT-REFLECT-WRITES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] three order_monitor test fakes served a permanently-open row and never reflected update_trade — the class, not just the three instances"
+}

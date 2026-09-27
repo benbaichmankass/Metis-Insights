@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A decision is recorded on whether cross-register numeric coherence is worth a mechanism at all, and if so what it would be. [!] THE THREE ROWS BEING CORRECTED DOES NOT CLOSE THIS -- that is this commit, and it is the instance, not the class. [!] AND A GUARD THAT ONLY CHECKS THAT TWO REGISTERS AGREE IS NOT AN ACCEPTABLE ANSWER unless it also names which is authoritative; agreement on a wrong number is the failure mode this row exists to describe, and both wrong carriers here already agreed with each other.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-TWO-REGISTERS-CARRIED-A-WRONG-BLEED-ONSET-WHILE-A-THIRD-CARRIED-THE-RIGHT-ONE-AND-NOTHING-COMPARES-THEM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-TWO-REGISTERS-CARRIED-A-WRONG-BLEED-ONSET-WHILE-A-THIRD-CARRIED-THE-RIGHT-ONE-AND-NOTHING-COMPARES-THEM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-TWO-REGISTERS-CARRIED-A-WRONG-BLEED-ONSET-WHILE-A-THIRD-CARRIED-THE-RIGHT-ONE-AND-NOTHING-COMPARES-THEM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] OPEN-ITEMS and the health backlog both dated the bybit_1 bleed onset 2026-08-28 while CLAUDE.md correctly dated it 2026-08-27 — three registers state the same measured fact and nothing compares them"
+}

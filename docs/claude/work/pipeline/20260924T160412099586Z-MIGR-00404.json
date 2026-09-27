@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Two separable halves. (1) DETECTION: give the IB sweep the journal-vs-exchange quantity comparison its Bybit sibling already has, so a divergence is observable at all; ends when a deliberately divergent IB row is reported on a surface a human reads, asserted by a test. (2) THIS ROW: trade 5007 reads the same size as the exchange, or is closed, verified from a fresh client -- and the decision on how to reconcile it (the fill was real, so the exit price and 1-lot pnl are a MEASURED broker fact that should not be discarded) is recorded rather than silently applied. Do NOT resolve (2) by editing the row to 50 without accounting for the filled contract.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-A-STRAY-OCA-LEG-FILLED-AND-THE-JOURNAL-NEVER-LEARNED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The MGC over-cover was not merely a hazard -- a stray group's duplicate LIMIT partially FILLED, and the resulting 1-contract journal/exchange divergence is invisible to every IB detector"
+}

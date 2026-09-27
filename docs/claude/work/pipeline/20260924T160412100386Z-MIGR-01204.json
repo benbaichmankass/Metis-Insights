@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Every enabled leg in config/strategies.yaml has a comms/strategy_evidence/<leg>.json with coverage_state==measured (or a named no_harness/harness_failed reason) carrying a cost_stack and decision_rule block, OR is explicitly dropped with a stated reason.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-R1-REMAINING-CORPUS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_016FkzGuob8CJMJgqYRddvSV, checklist row R1, PR on branch claude/r1-d1-cost-corpus-rerun",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --out comms/strategy_evidence   # every enabled leg not yet covered; cross-check against scripts/ci/check_roster_promotion_evidence.py --population for the risk-bearing subset"
+  },
+  "state": "queued",
+  "what": "R1 (re-run the backtest corpus with cost defaults on) covered only the 12-leg risk-bearing promotion-evidence population (11 of 12 measured; fvg_range_15m still no_harness), not the full ~55-leg live roster R1's original note scoped. MEASURED 2026-09-22 by running scripts/ops/build_strategy_evidence.py --dry-run against config/strategies.yaml: the remaining legs still need a classify()+run pass with the same extended producer (cost_stack + decision_rule fields, this session's scripts/ops/build_strategy_evidence.py diff). fvg_range_15m specifically needs a regime_debt_matrix.classify() branch for the fvg_range family (backtest_fvg_range.py exists; nothing routes to it) before it can be measured at all -- that is a separate, smaller fix from the corpus re-run itself. Also out of scope here: the three harnesses E3 filed as having no bps cost model (backtest_orb.py, src/backtest/backtester.py, xsec_momentum's funding term -- PI-20260921-E3-* rows), which this producer does not reach at all (regime_debt_matrix only classifies trend/squeeze/pullback)."
+}

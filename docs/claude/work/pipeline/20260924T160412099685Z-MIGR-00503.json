@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "`grep -rl tp_intent tests/` returns at least one file, AND that file asserts BOTH: (a) every malformed input class — unknown mode string, list, bare string, None, missing key — resolves to `undeclared` and is distinguishable from `none`; and (b) the three buckets stay disjoint and sum to the sentinel total when `bracket_expectation_census.py` runs over the real `config/strategies.yaml`. A test that only round-trips the three valid modes does NOT close this row — it misses the typo case the docstring makes a promise about.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-TP-INTENT-READER-LANDED-WITH-ZERO-TESTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-TP-INTENT-READER-LANDED-WITH-ZERO-TESTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-TP-INTENT-READER-LANDED-WITH-ZERO-TESTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The tp_intent reader (MI-158) shipped with ZERO tests: nothing asserts that a malformed block degrades to `undeclared`, and nothing asserts the never-summed property the vocabulary exists for"
+}

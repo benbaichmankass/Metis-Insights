@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) ROADMAP.md carries the operating-layer build with a status per phase and a link to `docs/design/operating-layer-build-plan-DESIGN.md`, and a session that opens ROADMAP.md FIRST can state which phase the build is on -- reported by a session that was NOT told; OR (b) the operator/manager decides the operating layer is deliberately NOT a ROADMAP milestone and records that decision where a reader of ROADMAP.md will meet it, so its absence reads as a choice rather than a gap. ⚠️ ADDING A ROW AND LEAVING ITS STATUS TO ROT DOES NOT SATISFY (a) -- that reproduces the condition the program exists to end, one document further up the hierarchy. ⚠️ AND A SESSION CITING THE CLAUDE.md SESSION BRIEF DOES NOT SATISFY IT EITHER: that channel already works and is separately tracked (OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION). This row is about the rank-3 surface specifically.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-THE-OPERATING-LAYER-BUILD-IS-ABSENT-FROM-ROADMAP-MD-THE-DOC-THAT-OUTRANKS-ITS-OWN-DESIGN-SERIES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-THE-OPERATING-LAYER-BUILD-IS-ABSENT-FROM-ROADMAP-MD-THE-DOC-THAT-OUTRANKS-ITS-OWN-DESIGN-SERIES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-THE-OPERATING-LAYER-BUILD-IS-ABSENT-FROM-ROADMAP-MD-THE-DOC-THAT-OUTRANKS-ITS-OWN-DESIGN-SERIES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The eight-phase operating-layer build -- the cycle's DECLARED PRIORITY, six of eight phases shipped in one day -- appears NOWHERE in ROADMAP.md, which CLAUDE.md ranks ABOVE the design series as 'the centralized record: every milestone/sprint, status, and dates'"
+}

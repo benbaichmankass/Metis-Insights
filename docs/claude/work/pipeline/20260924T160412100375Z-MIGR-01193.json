@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A prop sizing refusal for a stale/absent balance is OBSERVED reaching the operator — a row in outcomes.jsonl / /api/bot/logs?level=error, or a /api/bot/notifications banner, naming the account and carrying prop_balance's own refusal_message text — read off the live surface, not from a test. ⚠️ A GREEN TEST CLEARS NOTHING: the refusal path is already exercised in tests and the gap is which channel the message reaches. ⚠️ AND A JOURNALED order_packages ROW IS NOT SUFFICIENT — that is precisely the current behaviour and the thing being reported as inadequate. ALTERNATIVELY the operator DECIDES that a silently non-trading prop account needs no alert, which clears this row as a RECORDED decision stating the accepted consequence (breakout_1 can stop trading indefinitely with the only evidence being a journalctl line), rather than being left looking like a fix about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED'), indent=2))\""
+  },
+  "routed_to": "Checklist row E16, lane session_012DyVaL6CpsTxEwHBs9MEcB (opus-5), dispatched 2026-09-21. ⚠️ HALF OF THIS ROW'S clears_when HAS NOW HAPPENED, FROM THE WRONG DIRECTION. It reads: 'breakout_1 can stop trading indefinitely with the only evidence being a journalctl line.' On 2026-09-21 the OPERATOR raised, unprompted, that they had had no prop trade notification in a suspiciously long time. MEASURED the same hour off the live host: newest account_status is 2026-08-30T19:33:29Z (528.4h, `stale` against a 24h gate), newest ticket 2026-09-13 `expired`, no fill since 2026-08-30, distance_to_daily_loss_usd null. So the predicted state is the observed state and the discovery method was a human noticing an ABSENCE -- not the alert this row asks for. [!] THE ROW IS NOT CLEARED BY THAT. Its clears_when demands the refusal message reaching an operator-facing channel, read off a live surface; a human independently noticing the silence is the failure it describes, not the fix. [!] AND THE OPERATOR'S OTHER DECISION THE SAME DAY RAISES THE STAKES: the periodic status ask now fires only on new exposure, so the one thing that WAS noisy in the stalled state is going away. E16 is instructed not to ship that silencing without the refusal signal in the same landing.",
+  "state": "routed",
+  "what": "[health] A prop account blocked from trading by a stale balance stops trading with NO operator-facing signal — the refusal is journaled and logged, and the ping that exists for exactly this is on a different branch"
+}

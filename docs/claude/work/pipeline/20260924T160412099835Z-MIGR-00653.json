@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either a re-run of scripts/backtest_funding_carry.py on an elevated-funding window clears the robustness bar and a market-neutral carry cell is proposed (Tier-3, account_compat-gated), or the carry idea is re-confirmed dormant with fresh evidence and snoozed again.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260620-002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260620-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260620-002'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] Funding-carry sleeve is dormant/regime-dependent — revisit wiring a market-neutral carry cell when perp funding elevates"
+}

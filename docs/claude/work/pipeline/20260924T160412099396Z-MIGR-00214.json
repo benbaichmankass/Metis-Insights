@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "BOTH halves of the contemporaneous (train-half) tau measurement are DONE (donchian-1h +0.137R 2026-08-14; scalp +3.848R, 5-of-7 two-sided PASS, same day). What remains for closure is the OPERATOR DECISION on whether exit_head_ml is a fleet-wide capability or a scalp-family one — the evidence it was waiting on now exists and a recommendation is recorded in remaining_work item 3. Closing this by loosening a grading threshold is explicitly out of scope.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-EXIT-HEAD-EDGE-SMALL-AND-INCONSISTENT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The M20 exit head's fleet edge IS the hindsight: +1.217R with best-tau vs -0.341R when tau is chosen causally, hit rate 70.2% -> a coin flip. Only 2 of 7 scalp legs beat a stale-stop; no non-scalp leg beats doing nothing"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A digest commit lands on main whose covers_since is LATER than 2026-09-07T10:41:39.779890+00:00 (i.e. the watermark actually advanced), AND the NEXT digest generated after it reports truncated_feeds == [] with no 'Page cap hit' banner in docs/claude/ERROR-FEED-DIGEST.md. Read both from the committed ERROR-FEED-DIGEST.json on main, never from a workflow run's conclusion. ⚠️ A digest that LANDS while still reporting truncated_feeds ['bot_logs'] clears the FREEZE but NOT this row — this row is about the window having outgrown the page cap, and a landing that is still truncated is evidence the window is structurally too wide rather than merely backed up. In that case the fix is the page limit or a paging read, and this row should be re-filed against that, not closed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-THE-FROZEN-DIGEST-IS-SELF-WORSENING-ITS-UNADVANCED-WATERMARK-WIDENS-THE-WINDOW-PAST-THE-PAGE-CAP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-THE-FROZEN-DIGEST-IS-SELF-WORSENING-ITS-UNADVANCED-WATERMARK-WIDENS-THE-WINDOW-PAST-THE-PAGE-CAP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-THE-FROZEN-DIGEST-IS-SELF-WORSENING-ITS-UNADVANCED-WATERMARK-WIDENS-THE-WINDOW-PAST-THE-PAGE-CAP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The error-feed digest freeze is SELF-WORSENING, not merely static: because no digest lands, the watermark never advances, so every retry re-reads an ever-widening window and every one of them now hits the bot_logs page cap — rows are being lost, not just delayed"
+}

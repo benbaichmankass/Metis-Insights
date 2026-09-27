@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01JrouNUK59JKMXMU34WWg1R",
+  "branch": "lane/e61-arm-gpu-bursts",
+  "claimed_at": "2026-09-24T13:11:52Z",
+  "purpose": "E61: safe status-only read mode for the GPU-burst arm gates (PI-20260924-5V6UVR9J-0002)"
+}

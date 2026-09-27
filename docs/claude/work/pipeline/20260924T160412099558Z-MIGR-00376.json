@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. _cancel_resting_orders_for_symbol reports its EFFECT, not its calls: after cancelling it re-reads account-wide and returns a per-leg three-state result -- confirmed_gone / refused_not_found (IBKR 10147) / unverified (we could not look) -- never collapsing the last two. Register the contract with collapsed-state-guard.\n2. place_protective BRANCHES on that result. The invariant to pin: never place a fresh bracket while legs it attempted to cancel are still resting. Refusing is safe precisely because those legs ARE the protection -- the cost is that the trail does not advance, which is visible and alertable, whereas arming anyway is the accumulation this row describes. The genuinely-naked case (pre-cancel found nothing) must still arm.\n3. Thread oca_key through the modify path so the ordinary re-arm is idempotent: order_monitor._apply_update -> execute.modify_open_order -> IBClient.modify_protective -> place_protective. Today exactly ONE of the two place_protective call sites passes it (order_monitor:6950, naked autoprotect); execute.py:2536 passes symbol/direction/qty/sl/tp and nothing else. MIND THE MIGRATION -- order_monitor:7670 already records that a scoped cancel will not match legs resting in legacy oca-protect-<reqId> groups, so switching the modify path to the scoped key WITHOUT criterion 2 in place makes existing positions worse, not better. Criterion 2 lands first.\n4. A regression test that plants a resting leg the cancel cannot remove and asserts place_protective  …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] IB over-cover ROOT CAUSE: place_protective's pre-cancel counts the cancelOrder CALL, never its effect, so IBKR Error 10147 is invisible and every re-arm mints ANOTHER disjoint OCA group"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Establish, AGAINST THE BROKER, whether `cancel_orders=true` has any effect on the per-symbol liquidation. The cheap decisive probe: on alpaca_paper, open a position, rest a protective order that holds its shares, then issue DELETE /v2/positions/{sym}?cancel_orders=true and read whether the resting order was cancelled — a response code alone settles nothing, because an ignored query parameter also returns 2xx. THEN either (a) it works → record the observation so the comment stops being a claim, or (b) it is ignored → route the escalation through the endpoint that documents it, or drop the escalation and correct the give-up log and retMsg so they stop reporting a lever that was never pulled. ⚠️ A green unit test resolves NOTHING here: the question is what a remote API does with an undefined parameter, which no fake can answer. ⚠️ AND a close that succeeds on this path does not resolve it either unless the resting order is confirmed cancelled — the flatten may simply have found the shares free.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-ALPACA-CANCEL-ORDERS-ESCALATION-USES-AN-UNDOCUMENTED-PARAM-ON-THE-PER-SYMBOL-ENDPOINT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-ALPACA-CANCEL-ORDERS-ESCALATION-USES-AN-UNDOCUMENTED-PARAM-ON-THE-PER-SYMBOL-ENDPOINT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-ALPACA-CANCEL-ORDERS-ESCALATION-USES-AN-UNDOCUMENTED-PARAM-ON-THE-PER-SYMBOL-ENDPOINT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The close path's 'strongest programmatic lever left' sends ?cancel_orders=true to DELETE /v2/positions/{symbol}, where Alpaca documents no such parameter — it is documented only on the close-ALL endpoint, so the escalation may be a silent no-op"
+}

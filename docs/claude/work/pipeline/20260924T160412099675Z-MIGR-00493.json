@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "/api/diag/exposure is OBSERVED reporting a non-null open_gross_notional for an account whose exposure is still graded measured:false — i.e. the journal-side sum survives an unreadable equity. Verified by reading the live route for ib_live or breakout_1 and finding a number where null is today, with status/measured UNCHANGED and unmeasured_reason still naming equity. Explicitly NOT sufficient: a unit test (the two live accounts are what demonstrate it), and NOT sufficient: making the observation measured:true — that would be the collapse this repo's exposure module exists to prevent, and would be a REGRESSION, not a fix.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-EXPOSURE-WITHHOLDS-THE-JOURNAL-NOTIONAL-WHEN-ONLY-EQUITY-IS-UNREADABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-EXPOSURE-WITHHOLDS-THE-JOURNAL-NOTIONAL-WHEN-ONLY-EQUITY-IS-UNREADABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-EXPOSURE-WITHHOLDS-THE-JOURNAL-NOTIONAL-WHEN-ONLY-EQUITY-IS-UNREADABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] observe_exposure returns early on an unreadable EQUITY, so open_gross_notional — a pure local SQLite sum needing no venue call — is never computed for exactly the accounts whose venue side is also dark"
+}

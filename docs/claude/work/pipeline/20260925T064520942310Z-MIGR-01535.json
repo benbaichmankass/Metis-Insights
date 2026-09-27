@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "exchange_flat_reconciled (and snapshot-reconciler) closes whose exit price is MEASURED are re-labelled against the package bracket by the same classifier _sweep_pending_pnl_from_bybit uses for reconciler_filled (price_vs_pkg_bracket), OR the operator decides they stay unlabelled and E62's live-venue n is accepted as bounded by it.",
+    "due_date": "2026-10-01",
+    "kind": "date"
+  },
+  "id": "PI-20260924-BOFCWBO7-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "session_01Unv4EErU84GXjyboFcwbo7, checklist row E62, branch lane/e62-equity-futures-slippage",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/e62 && python3 scripts/research/e62_slippage_accrual.py --in-dir /tmp/e62 --as-of <pull time> --out /tmp/e62/out.json"
+  },
+  "state": "queued",
+  "what": "[cost-model] The live Alpaca roster's measurable slippage n is bounded by a LABELLING gap as well as by the held sl_cross fix. MEASURED (trades ids <= 6141, 60 days to 2026-09-24): the 3 alpaca_live legs (ief/slv/iaum_pullback_1d) closed 5 times on alpaca_paper. 4 were exchange_flat_reconciled (none of the 4 carries an exit price) and 1 was sl_cross. D3's method prices only sl/tp-family exits, because they have a harness reference level. _classify_broker_exit re-derives a bracket label only for exit_reason '' or 'reconciler_filled' (order_monitor _sweep_pending_pnl_from_bybit, guard 2), never for exchange_flat_reconciled. So a broker-side stop or target that fills and is then noticed by the reconciler is never counted as a stop or target fill. In the pull, 46 exchange_flat_reconciled closes carry a MEASURED exit and no label: 37 Alpaca (exchange_fill, alpaca_paper 12 + alpaca_portfolio 25) and 9 ib_paper (ib_execution). Likely Tier-2 (src/ close path). Record: comms/research/e62_equity_futures_slippage/2026-09-24.json."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A read surface reports, PER ACCOUNT, the set of venue books its credentials can actually reach -- the product categories queried AND the UID(s) answering -- beside the set the account DECLARES it trades, with a three-state verdict per account that never collapses 'covered' with 'we did not look': observed on the live fleet via a diag read, not from a test fixture. CLEARED when that surface returns a verdict for all 3 Bybit accounts AND at least one account grades something other than 'covered' or the all-covered verdict is confirmed against a positive control (an account deliberately queried on a category it does not trade must grade uncovered, proving the check can fail). NOT SUFFICIENT: a green unit test (a fixture cannot establish which books a real key reaches); the current reads returning rows (that is the assumption under test, not evidence for it); or the operator confirming where their position was (that answers THIS incident and leaves the class unmeasured).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-NOTHING-VERIFIES-THAT-THE-BOOKS-OUR-KEYS-CAN-READ-ARE-ALL-THE-BOOKS-THE-CAPITAL-IS-ON'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Every venue read is scoped to category=linear and one UID per account, and NOTHING verifies that scope covers all the books the account's capital is actually on"
+}

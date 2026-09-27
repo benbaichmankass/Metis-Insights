@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when the census key no longer claims more than it tests -- either renamed to name the exit_reason it filters, or widened to call src.runtime.provenance and genuinely exclude the FABRICATED bucket. Verify by grepping the census key in e35_break_attribution.py and confirming either the new name or an import of src.runtime.provenance. NOT sufficient: a comment explaining the label while the label stays. NOT sufficient either: a re-measurement finding zero fabricated rows again -- that is the CURRENT reading and is precisely why this defect is invisible.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-E35-BREAK-ATTRIBUTION-POPULATION-NAMES-A-CENSUS-BUCKET-FABRICATED-CLOSE-WHILE-TESTING-ONE-EXIT-REASON",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-E35-BREAK-ATTRIBUTION-POPULATION-NAMES-A-CENSUS-BUCKET-FABRICATED-CLOSE-WHILE-TESTING-ONE-EXIT-REASON",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-E35-BREAK-ATTRIBUTION-POPULATION-NAMES-A-CENSUS-BUCKET-FABRICATED-CLOSE-WHILE-TESTING-ONE-EXIT-REASON'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] e35_break_attribution.population names a census bucket `fabricated_close` while testing a single exit_reason value"
+}

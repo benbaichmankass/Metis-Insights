@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260903-SESSION-TOKENS-AUTHENTICATE-AS-THE-REPO-OWNER-SO-AN-OWNER-APPROVAL-IS-NOT-AN-IDENTITY-BOUNDARY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-SESSION-TOKENS-AUTHENTICATE-AS-THE-REPO-OWNER-SO-AN-OWNER-APPROVAL-IS-NOT-AN-IDENTITY-BOUNDARY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-SESSION-TOKENS-AUTHENTICATE-AS-THE-REPO-OWNER-SO-AN-OWNER-APPROVAL-IS-NOT-AN-IDENTITY-BOUNDARY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MEASURED 2026-09-03 from sub-session session_017DxuurbMW5ex5Q1f7xATqW, while verifying the operator's R13 ruling (a manager-constraining PR needs an operator GitHub approving review) rather than assuming it: (a) `get_me` returns `login: benbaichmankass, id: 119055177` -- the REPO OWNER's own account, NOT a bot identity. A session does not merely act for the owner, it authenticates AS the owner, so any review it could submit would carry the owner's login. (b) `pull_request_review_write` (method create, pending, no event) on #10918 returns `Resource not accessible by integration`. So THIS session cannot write reviews -- but the barrier is a TOKEN PERMISSION SCOPE, not an identity boundary. POPULATION: 3 distinct calls on this session's credential -- create_pull_request 403, update_pull_request(draft:false) 403, pull_request_review_write 403. All three are GitHub `pull_requests: write`."
+}

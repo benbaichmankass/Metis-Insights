@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 60,
+    "clears_when": "an operator or a future session decides whether registered_soak_logs()/pipeline_ids() should fold to current state instead of scanning raw, and (if so) makes the change",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-KDCZMHX8-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Fp1yQRKuy82VcsKDCZMhX8 (build lane, E64, PR #12876)",
+    "rerun": "python3 scripts/ci/check_soak_registered.py && python3 scripts/ops/check_allow_degraded.py --self-test"
+  },
+  "state": "queued",
+  "what": "scripts/ci/check_soak_registered.py's registered_soak_logs() and scripts/ops/check_allow_degraded.py's pipeline_ids() both scan the pipeline store's UNFOLDED raw record stream (pipeline.py's new LoadResult.raw), so an id ever seen in an OPEN state (queued/due/routed) counts as 'registered'/'citable' FOREVER, even after a later record closes it (done/killed). MEASURED 2026-09-24 while re-pointing both guards to the directory store (lane E64): bybit_coverage_soak is 'registered' only via a record now superseded by a killed state (line 46 queued, line 1393 killed in the pre-migration flat file). This is the PRE-EXISTING behaviour (verified identical against the original flat-file parsers: 11 registered soaks / 824 open ids, both unchanged by the re-point) -- E64 preserved it byte-for-byte rather than deciding it, since changing it would silently newly-fail bybit_coverage_soak and ict_scalp_exit_head_soak in an unrelated storage-migration PR. Is 'once registered, always citable' the intended rule, or should both guards fold to CURRENT state (pipeline.read_log().items) so a closed row stops counting? A session with the room to make that call should decide and, if folding is correct, re-file any soak/annotation that would newly fail."
+}

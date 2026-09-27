@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A CLAUDE.md merge resolution can no longer silently drop non-brief content. Either the documented pattern changes to 'take main's copy of the GENERATED BLOCK ONLY, then diff the remainder against BOTH sides and resolve it as a union' -- written where the resolvers actually read it, i.e. the merge-driver docs and the manager cadence guidance, not only in a backlog row -- or a check compares the post-resolution CLAUDE.md against the branch's pre-merge copy OUTSIDE the generated block and refuses a net deletion the author did not make. [!] `render_session_brief.py --check` PASSING RESOLVES NOTHING and is what gave the false confidence: it grades the generated block and is blind to the rest of the file BY DESIGN. Do not extend it to cover this; that would conflate two different questions. [!] AND A WRITTEN WARNING ALONE IS NOT A MECHANISM -- this repo's own rules say so, and I applied a pattern I had used correctly before. What failed was not knowledge.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-TAKING-MAINS-CLAUDE-MD-WHOLESALE-TO-RESOLVE-A-SESSION-BRIEF-CONFLICT-SILENTLY-DROPS-THE-BRANCHS-OWN-HAND-WRITTEN-EDITS-TO-THAT-FILE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-TAKING-MAINS-CLAUDE-MD-WHOLESALE-TO-RESOLVE-A-SESSION-BRIEF-CONFLICT-SILENTLY-DROPS-THE-BRANCHS-OWN-HAND-WRITTEN-EDITS-TO-THAT-FILE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-TAKING-MAINS-CLAUDE-MD-WHOLESALE-TO-RESOLVE-A-SESSION-BRIEF-CONFLICT-SILENTLY-DROPS-THE-BRANCHS-OWN-HAND-WRITTEN-EDITS-TO-THAT-FILE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The documented CLAUDE.md conflict resolution — take main's copy wholesale, re-render the brief — silently DELETES any hand-written CLAUDE.md content the branch added; it cost an env-table row on a Tier-2 PR"
+}

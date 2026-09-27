@@ -108,6 +108,29 @@ inputs:
       — a `producer_failed` result legitimately has none.
     required: false
     default: ""
+  records-file:
+    description: >
+      Path to a JSONL file of PER-RECORD PARTS for a fan-out producer (one line
+      per leg/cell — verdict, read_state, population, n, and optionally
+      measurement/artifact_store/artifact_locator/rows_landed/note). Passed
+      straight through to `research_result.py --emit --records-file`, which
+      already implements this fan-out (`_emit_many`). Optional — a single-verdict
+      caller leaves this empty and uses `verdict`/`read-state`/`population`/`n`
+      above instead.
+
+      ⚠️ UNTIL THIS INPUT WAS DECLARED (BL-20260926-RECORDS-FILE-UNDECLARED-SO-
+      GITHUB-SILENTLY-DROPS-IT), a caller passing `records-file:` got a
+      `::warning::Unexpected input(s) 'records-file'` and the step silently fell
+      through to the single-record path using whatever placeholder
+      `verdict`/`read-state`/`population`/`n` the caller had to supply to satisfy
+      the (then-)required single-record fields — landing every fanned-out result
+      as that placeholder instead of the real per-leg verdicts. Measured on
+      RQ-20260922-003/004 via `m20-exit-lever-sweep.yml`: both landed
+      `verdict: not_applicable`, `read_state: not_attempted`, `n: null` — the
+      literal fallback values that workflow's `with:` block supplies, never
+      computed from a single swept row.
+    required: false
+    default: ""
   artifact-store:
     description: >
       The committed store holding the underlying measurement rows — e.g.
@@ -168,6 +191,7 @@ runs:
         RR_POPULATION: ${{ inputs.population }}
         RR_N: ${{ inputs.n }}
         RR_MEASUREMENT: ${{ inputs.measurement-file }}
+        RR_RECORDS: ${{ inputs.records-file }}
         RR_STORE: ${{ inputs.artifact-store }}
         RR_LOCATOR: ${{ inputs.artifact-locator }}
         RR_ROWS: ${{ inputs.rows-landed }}
@@ -196,6 +220,7 @@ runs:
           --commit-sha "${GITHUB_SHA}" \
           --tool "${RR_TOOL}" \
           --measurement-file "${RR_MEASUREMENT}" \
+          --records-file "${RR_RECORDS}" \
           --artifact-store "${RR_STORE}" \
           --artifact-locator "${RR_LOCATOR}" \
           --rows-landed "${RR_ROWS}" \

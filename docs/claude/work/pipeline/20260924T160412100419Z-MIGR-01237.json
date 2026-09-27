@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A deliberately-failed build_strategy_evidence.py run is shown LEAVING the prior `measured` record intact -- write to a temp path and swap only on success, or refuse to downgrade `measured` -> `harness_failed` without an explicit flag. Demonstrate with a control: run it with the fetch broken and diff the committed record.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E41-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E41",
+    "rerun": "python3 scripts/ops/build_strategy_evidence.py --strategy gld_pullback_1d  # with yfinance absent, then `git diff comms/strategy_evidence/gld_pullback_1d.json`"
+  },
+  "state": "queued",
+  "what": "[health] A FAILED build_strategy_evidence.py run OVERWRITES a committed `measured` record with a `harness_failed` stub, destroying the measurement. OBSERVED 2026-09-22: with yfinance absent the producer graded gld_pullback_1d and qqq_trend_long_1d `harness_failed` and rewrote both committed records, dropping net_r_oos/n_trades_oos/fold_detail to null -- two real measurements gone. Caught only because `git diff` was read before committing. The repo's own README says an absent record 'is a statement about us, never about the strategy'; a CLOBBERED record is worse, because it looks like a measurement that failed rather than a run that could not start."
+}

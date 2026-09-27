@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "QQQ position flattened on alpaca_paper (broker reset or a code remediation that dislodges a pending_cancel-wedged order); alert spam bounded for a broker-wedged close",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260716-ALPACA-QQQ-WEDGED-PENDING-CANCEL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] alpaca_paper QQQ long-16 wont flatten — broker-side OCO wedged in pending_cancel (not a code bug)"
+}

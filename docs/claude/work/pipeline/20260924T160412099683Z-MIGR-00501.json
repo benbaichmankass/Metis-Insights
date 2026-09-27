@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A spawn prompt naming a `docs/claude/work/**` path OR an in-file anchor that does not resolve on the default branch is REFUSED or flagged before the session acts on it — demonstrated by a probe that flags this exact dispatch string (`operator_answers_2026_09_08` in WO-20260907-25-OF-44-ENABLED-LIVE-LEGS-HAVE.yaml) against a positive control that passes for a block which DOES exist in the same file (`decision_requests`). A path-existence check alone does NOT close this row — the file exists and only the block is missing, so a path check passes on the very case that motivated it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-DISPATCH-NAMES-AN-OPERATOR-ANSWERS-BLOCK-THAT-WAS-NEVER-WRITTEN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-DISPATCH-NAMES-AN-OPERATOR-ANSWERS-BLOCK-THAT-WAS-NEVER-WRITTEN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-DISPATCH-NAMES-AN-OPERATOR-ANSWERS-BLOCK-THAT-WAS-NEVER-WRITTEN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260907-DISPATCH-NAMES-A-WORK-OBJECT-THAT-WAS-NEVER-CREATED: the MI-195 dispatch named `operator_answers_2026_09_08` as the CARRIER OF THREE TIER-3 OPERATOR VERDICTS AND THEIR CONDITIONS, said READ THAT BLOCK FIRST, and the block does not exist anywhere in the repo"
+}

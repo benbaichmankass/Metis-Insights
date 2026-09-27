@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either transport the `cmd:` block without HTML-escaping (base64 the way the prop-report relay already carries its untrusted payload), or detect and refuse a block whose escaped form differs from the source and say so. DONE when a cmd block containing `{x:<30}` and a multi-line f-string executes byte-identically. Until then, note the constraint in docs/claude/diag-relay.md so the next session does not lose a round-trip to it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-TRAINER-RELAY-MANGLES-LESS-THAN-AND-MULTILINE-STRINGS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] trainer-vm-diag HTML-escapes `<` to `&lt;` and collapses multi-line implicit string concatenation to U+00B7, so any python using format specifiers breaks"
+}

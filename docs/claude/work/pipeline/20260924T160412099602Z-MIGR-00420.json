@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER: (a) the route publishes a never-collapsed `since_state` (applied / not_requested / ignored_unparseable) the way /api/bot/db/table/{name} publishes `filter_state`, so a dropped filter is visible in the payload and `count` can be read honestly; OR (b) an unparseable `since` returns 400 rather than an empty 200. Verified by re-running the three-arm measurement above against the live VM and showing the '+00:00' arm no longer renders identically to a genuine empty result. A unit test alone is not sufficient - the defect is in what a LIVE caller cannot distinguish.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-ORDER-PACKAGES-SINCE-WITH-A-RAW-PLUS-OFFSET-RETURNS-ZERO-ROWS-SILENTLY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-ORDER-PACKAGES-SINCE-WITH-A-RAW-PLUS-OFFSET-RETURNS-ZERO-ROWS-SILENTLY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-ORDER-PACKAGES-SINCE-WITH-A-RAW-PLUS-OFFSET-RETURNS-ZERO-ROWS-SILENTLY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] GET /api/bot/order-packages?since=<ISO with a raw +00:00 offset> returns ZERO rows and no error - a malformed filter renders as a clean negative"
+}

@@ -1,0 +1,23 @@
+{
+  "a10_note": "Still applies (the vocabulary guard reads no `lane` field); checklist-state hygiene is E12's row. EVIDENCE: MEASURED 2026-09-24 with the positive control: grep -c lane check_manager_checklist_vocabulary.py -> 0; grep -c '\"state\"' -> 6.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "check_manager_checklist_vocabulary.py (or a guard beside it) FAILS when a row's `lane` names a session while its `state` says nobody is working it, unless the row carries an explicit marker saying the lane is historical attribution. The guard must ship a self-test with BOTH a planted violation that fails and a control that stays quiet, per this repo's usual bar. A doc note alone does not clear this -- the failure mode is that nobody looks.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260924-JN54P2HH-0007",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager), running the close-out skill's check 3",
+    "rerun": "TWO COMMANDS, AND THE SECOND IS THE POSITIVE CONTROL THAT MAKES THE FIRST MEAN SOMETHING:\n  grep -c 'lane' scripts/ci/check_manager_checklist_vocabulary.py   # measured 2026-09-24: 0, exit 1\n  grep -c '\"state\"' scripts/ci/check_manager_checklist_vocabulary.py # measured: 6, exit 0\nThe control proves the probe can find a field the guard DOES read, so the zero is absence rather than a\nbroken grep. Then list the live instances:\n  python3 -c \"import json;d=json.load(open('docs/claude/work/MANAGER-CHECKLIST.json'));\"\n  \"print([(r['id'],r['state'],r.get('lane')) for r in d['items'] if r.get('lane') and r['state'] in ('queued','done','dropped','killed')])\""
+  },
+  "routed_to": "E12 (checklist state hygiene)",
+  "severity": "low",
+  "state": "routed",
+  "terminal_reason": null,
+  "tier": 1,
+  "what": "THE CHECKLIST VOCABULARY GUARD DOES NOT READ THE `lane` FIELD AT ALL, so it cannot catch the exact condition the close-out skill's check 3 tells every session to verify by hand: 'No row says in_flight if nobody is working it. Check this explicitly -- a stale in_flight tells the next session a lane is live when it is not, and it will route around work that is actually free.'\nMEASURED 2026-09-24 with a positive control, because a grep that finds nothing proves nothing on its own: `grep -c lane` over scripts/ci/check_manager_checklist_vocabulary.py returns 0 (exit 1), while `grep -c '\"state\"'` over the same file returns 6 (exit 0). So the probe can find a field the guard reads, and `lane` is genuinely absent. The guard's own success line -- 'every item's effective state is unambiguous and every declared value is in the file's own vocabulary' -- is about the state VOCABULARY, not about state/lane coherence, and reading its green as coverage of this is the negative-with-no-denominator error.\nLIVE INSTANCES TODAY, and both are BENIGN, which is why this is severity low rather than high: E27 (state queued, lane session_01HD2geAyqSQQu66Ah7wb8sU) and E34 (state queued, lane session_01N43beYx4nnvdoy8BjWtr1W). Both notes explain that the lane is archived and pushed no PR, and E27's note explicitly cites close-out check 3 as the reason it was reset to `queued`. So a session DID do this correctly by hand. That is the point: it worked because someone remembered, not because anything checks.\nWHY IT IS WORTH A ROW AT ALL, given this repo's stated allergy to filing: the cost of the miss is asymmetric and silent. A row reading `in_flight` or carrying a live-looking lane makes the NEXT manager route around work that is actually free -- the failure is invisible at the moment it happens and shows up as a lane that never got dispatched. Close-out check 3 exists because this already happened; it is currently defended by instruction only.\n[!] WHAT IS NOT ESTABLISHED: whether any OTHER guard covers this. Only check_manager_checklist_vocabulary.py was inspected -- check_manager_scope.py and check_manager_queue_watch.py were not read for `lane` handling. Confirming or ruling those out is the first step of the work, not a conclusion of this row."
+}

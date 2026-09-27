@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-THE-OBSERVATION-PRESERVATION-RULE-PREFERS-APPENDING-AND-NOTHING-BOUNDS-HOW-LONG-AN-OBSERVATION-MAY-GET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260913-THE-OBSERVATION-PRESERVATION-RULE-PREFERS-APPENDING-AND-NOTHING-BOUNDS-HOW-LONG-AN-OBSERVATION-MAY-GET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-THE-OBSERVATION-PRESERVATION-RULE-PREFERS-APPENDING-AND-NOTHING-BOUNDS-HOW-LONG-AN-OBSERVATION-MAY-GET'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The new observation-preservation rule makes shortening a declared act and leaves growth unbounded -- one OPEN-ITEMS observation already reached 16,989 characters before somebody cut it"
+}

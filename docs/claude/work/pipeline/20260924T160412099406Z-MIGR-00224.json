@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(1) DONE -- enumerated mechanically; 4 committed readers, all now covered. (2) DONE -- tests/test_pytest_run_filter.py::test_docs_committed_readers_are_all_covered re-derives the set FROM THE TESTS on every run and fails when a new committed docs/ reader is not covered, so instance 5 cannot merge quietly. It ships with a negative control (test_the_scan_finds_the_reader_we_already_know_about) so a scan that silently stops matching cannot read as a clean pass. (3) OPEN, and it is the one that matters: pytest-run still reports an IDENTICAL green tick whether it ran 10,677 tests or zero. Every fix so far, including this one, has widened the allowlist rather than removed that ambiguity. Done = a skipped run is visibly distinct at the merge button (a neutral/skipped conclusion, or a required check that reports what it executed). Until then the class can recur through any tree the allowlist does not name. (4) OPEN, cheaper alternative worth pricing first: move the four committed-doc assertions into the `guards` job, which never short-circuits -- that removes the CI-minutes cost this PR just accepted on ARCHITECTURE-CANONICAL.md.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-COVERAGE-MATRIX-SHORTCIRCUITS-THE-SUITE-THAT-READS-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pytest-run short-circuits on docs/ changes, but 39 test files read docs/ -- the exclusion's stated justification is per-file and was never checked per-file"
+}

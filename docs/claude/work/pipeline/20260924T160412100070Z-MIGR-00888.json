@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260901-M7-GATE-WINDOW-IS-SHORTER-THAN-ITS-OWN-EVIDENCE-FLOOR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-M7-GATE-WINDOW-IS-SHORTER-THAN-ITS-OWN-EVIDENCE-FLOOR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-M7-GATE-WINDOW-IS-SHORTER-THAN-ITS-OWN-EVIDENCE-FLOOR'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The M7 review gate runs a 7-day window against an n_closed>=20 KILL/DEMOTE floor, so it can never propose a retirement — 52/52 hold, 0 actionable, best leg n=8"
+}

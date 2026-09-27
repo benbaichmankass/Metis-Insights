@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260830-SIGNAL-JOURNAL-AXIS-HAS-NO-LIVE-ALERT-ONLY-AN-OFFLINE-AUDIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-SIGNAL-JOURNAL-AXIS-HAS-NO-LIVE-ALERT-ONLY-AN-OFFLINE-AUDIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-SIGNAL-JOURNAL-AXIS-HAS-NO-LIVE-ALERT-ONLY-AN-OFFLINE-AUDIT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "the signal-vs-journal axis ships as an OFFLINE audit only — nothing runs it on a cadence, so the condition is detectable but still not DETECTED"
+}

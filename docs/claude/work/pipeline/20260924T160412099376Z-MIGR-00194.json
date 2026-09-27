@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A default-branch sweep dispatch results in the corpus reaching main with NO session intervention -- verifiable as a merged PR from claude/m20-sweep-corpus whose checks ran, with no session-authored PR-create call in that window. That requires a credential other than GITHUB_TOKEN. Alternatively, closing as WONTFIX is legitimate if the operator prefers the manual step to a stored PAT -- in which case the warning + step summary IS the resolution, and this row should say so rather than stay open forever.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-CORPUS-RETARGET-CANNOT-OPEN-ITS-OWN-PR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The sweep's corpus retarget preserves the rows but cannot open the PR -- a GITHUB_TOKEN push starts no workflows, so no automatic variant of this can work without a PAT"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260917-WATCH-RESOLVES-A-BRANCHS-PRS-BY-NAME-SO-A-REUSED-DESIGNATED-BRANCH-ALWAYS-MATCHES-ITS-OWN-MERGED-PR-AND-FAILS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-WATCH-RESOLVES-A-BRANCHS-PRS-BY-NAME-SO-A-REUSED-DESIGNATED-BRANCH-ALWAYS-MATCHES-ITS-OWN-MERGED-PR-AND-FAILS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-WATCH-RESOLVES-A-BRANCHS-PRS-BY-NAME-SO-A-REUSED-DESIGNATED-BRANCH-ALWAYS-MATCHES-ITS-OWN-MERGED-PR-AND-FAILS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "watch/armed-branch-push resolves a branch's PRs BY NAME, so a designated branch reused after a merge always matches its own merged PR and fails with 'THIS PUSH IS NOT IN main'"
+}

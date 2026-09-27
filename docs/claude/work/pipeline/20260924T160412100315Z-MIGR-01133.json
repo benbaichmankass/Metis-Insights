@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260917-NAMING-A-BACKLOG-ID-IN-A-SPAWN-PROMPT-MAKES-THE-LANE-FILE-IT-SO-TWO-SESSIONS-LAND-THE-SAME-ID-WITH-DIFFERENT-BODIES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-NAMING-A-BACKLOG-ID-IN-A-SPAWN-PROMPT-MAKES-THE-LANE-FILE-IT-SO-TWO-SESSIONS-LAND-THE-SAME-ID-WITH-DIFFERENT-BODIES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-NAMING-A-BACKLOG-ID-IN-A-SPAWN-PROMPT-MAKES-THE-LANE-FILE-IT-SO-TWO-SESSIONS-LAND-THE-SAME-ID-WITH-DIFFERENT-BODIES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "A manager citing a backlog id in a spawn prompt causes the lane to FILE that id — two sessions landed the same two ids with different bodies, and the monolithic register turns it into a whole-file conflict"
+}

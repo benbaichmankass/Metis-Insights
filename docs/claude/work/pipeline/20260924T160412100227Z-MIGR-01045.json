@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-COMMIT-TO-MAIN-IS-RATE-LIMITED-SO-THE-REGISTERS-THE-SESSION-BRIEF-IS-RENDERED-FROM-DO-NOT-LAND",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-COMMIT-TO-MAIN-IS-RATE-LIMITED-SO-THE-REGISTERS-THE-SESSION-BRIEF-IS-RENDERED-FROM-DO-NOT-LAND",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-COMMIT-TO-MAIN-IS-RATE-LIMITED-SO-THE-REGISTERS-THE-SESSION-BRIEF-IS-RENDERED-FROM-DO-NOT-LAND'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The shared commit-to-main action cannot open its PR because the account's GraphQL rate limit is exhausted, so every scheduled producer that lands a receipt through it pushes to an automation/* branch that is never merged. DUE.md, READOUT.md, PROBES.json and the strategy-review packets are stale on main while their workflows report as running -- and the CLAUDE.md SESSION BRIEF every session reads at startup is rendered from those files."
+}

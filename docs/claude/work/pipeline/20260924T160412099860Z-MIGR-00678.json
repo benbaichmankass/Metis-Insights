@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "⚠️ THIS ROW IS NOT WAITING FOR TRADES AND ITS FIRST DRAFT WRONGLY IMPLIED IT WAS -- `check_backlog_criteria.py` caught that, and chasing the fix produced the real finding. NEITHER CONTROL CAN EVER REPORT INTO THIS POPULATION, for two different structural reasons, both read off config 2026-09-11 rather than inferred: (1) htf_pullback_trend_2h -- the leg e35 WIDENED to 3.0, and the single most decisive arm of the dose test -- is `execution: shadow`, so it CANNOT open a live position, which is exactly why all 8 of its rows in the window are `rejected`. It is not a leg that happened not to trade; it is structurally incapable of trading. ⚠️ AND NOTE WHAT THAT SAYS ABOUT e35 ITSELF: a geometry cell was shipped to a leg that cannot act on it. (2) trend_donchian_eth_prop -- the within-family control deliberately HELD at 2.5 -- is `execution: live` but routed ONLY to `breakout_1`, the PROP account: a manual Telegram-ticket bridge with no broker API, whose fills land in prop_tickets/prop_fills and are ISOLATED from `trades` by design. It can never appear in a `trades`-based population by construction. SO THE EXIT IS A DECISION OR A MEASUREMENT, NEVER A WAIT, AND BOTH CLOCKS ARE STOPPED: EITHER (a) the e35 experiment is RECORDED as unfalsifiable on its own declared controls, so a later session cannot cite a control that was never able to report -- the cheap and correct close; OR (b) a control that CAN report is chosen and the dose-response re-run against it, meaning either routing the w …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-BOTH-OF-THE-E35-EXPERIMENTS-DESIGNED-CONTROLS-HAVE-ZERO-OBSERVATIONS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260911-BOTH-OF-THE-E35-EXPERIMENTS-DESIGNED-CONTROLS-HAVE-ZERO-OBSERVATIONS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-BOTH-OF-THE-E35-EXPERIMENTS-DESIGNED-CONTROLS-HAVE-ZERO-OBSERVATIONS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] e35's two designed controls -- the WIDENED leg and the HELD within-family leg -- have zero observations, so its decisive falsifier cannot be evaluated"
+}

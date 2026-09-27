@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) root-cause the pyo3/pydantic-core panic so a local run matches CI, and confirm by running the full suite in-sandbox to the same pass/fail counts CI reports on the same commit; OR (b) if it cannot be fixed in this environment, record the limitation where a session will read it BEFORE trusting a local run (the session-coordination preflight is the natural home) and name CI as the only gate. Either way the 34 failures must be enumerated once against a pristine-main baseline, so the claim 'they are environmental' is measured rather than assumed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260824-SANDBOX-TEST-SUITE-DIVERGES-FROM-CI",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-SANDBOX-TEST-SUITE-DIVERGES-FROM-CI",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-SANDBOX-TEST-SUITE-DIVERGES-FROM-CI'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The web-sandbox pytest run diverges from CI — 95 collection errors and 34 failures CI does not have — so every session is pre-validating against a suite that cannot import FastAPI"
+}

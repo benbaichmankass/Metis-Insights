@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "R1 (the corpus re-run with cost defaults ON) has landed AND the operator has been re-asked R6 with that corpus's verdict in front of them, and has answered. Verified by their recorded answer on the R6 row, not by R1 landing alone — R1 landing is what makes the question ASKABLE, not what answers it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-M08",
+  "loud": true,
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "operator",
+    "ref": "operator decision 2026-09-21, R6, answered in a four-question popup with the measurement stated",
+    "rerun": "python3 -c \"import json;d=json.load(open('docs/claude/work/MANAGER-CHECKLIST.json'));r=[i for i in d['items'] if i['id']=='R1'][0];print('R1 state:',r['state'])\"; # THE DEFERRAL EXPIRES when R1 reaches landed_unproven or done"
+  },
+  "state": "queued",
+  "what": "R6 IS DEFERRED, NOT SETTLED: 'should the system trade at all right now' was answered 'keep the roster as-is, decide after D1/R1' by the operator on 2026-09-21, with the measurement in front of them — lifetime real-money expectancy -0.3231R over n=431, against a corpus that is fee-only and optimistic by an unknown amount (+0.57R on the one leg anyone checked). [!] THIS ROW EXISTS BECAUSE A DEFERRAL WITH NO DUE CONDITION IS HOW A DECISION GETS SILENTLY SETTLED. 'Decide after X' is precisely the shape the follow-through pipeline was built for: nothing about the answer makes it ask for attention again, and the corpus re-run is days out. Without this row the question quietly becomes 'yes, keep trading', forever, by default and without anyone choosing it. [!] WHEN IT COMES BACK, the question is NOT re-asked cold — it is re-asked WITH the re-run corpus's verdict, which is the whole point of waiting. [!] THE derisk_only MANDATES ARE NOT BLOCKED by this deferral: they read live measurement, not the corpus, and their worst case removes exposure. A leg going net-negative on the mirror can still be pulled meanwhile."
+}

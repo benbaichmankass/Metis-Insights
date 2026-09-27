@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Establish WHICH term folded dry: read PROP/effective_dry inputs on the RUNNING process (a get-env read of the account mode against /proc/<MainPID>/environ plus the process's loaded accounts.yaml), not the repo copy. Then EITHER the running config is stale, in which case the fix is the deploy/restart path and the finding is that ict-git-sync left a Tier-3-approved routing unapplied for 5+ days; OR a third dry-fold term exists, in which case name it and cover it with a test. Closed when a tlt_pullback_1h signal on alpaca_live is journalled with a status other than 'rejected', or when the operator records a decision that the account stays dry.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-ALPACA-LIVE-FOLDS-DRY-RUN-WHILE-ACCOUNTS-YAML-AND-THE-STRATEGY-BOTH-DECLARE-LIVE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-ALPACA-LIVE-FOLDS-DRY-RUN-WHILE-ACCOUNTS-YAML-AND-THE-STRATEGY-BOTH-DECLARE-LIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-ALPACA-LIVE-FOLDS-DRY-RUN-WHILE-ACCOUNTS-YAML-AND-THE-STRATEGY-BOTH-DECLARE-LIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] alpaca_live's routed real-money leg cannot place an order: both declared gates read live, yet every signal since the 2026-08-31 routing is journalled 'dry_run_no_order_placed'"
+}

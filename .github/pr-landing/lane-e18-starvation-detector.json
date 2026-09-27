@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 by path and by content, per checklist row E18 (operator decision 2026-09-21: build it, for all accounts). The diff adds one pure detection module (src/runtime/leg_flow_detector.py, no I/O, no env, no network), one live read-only report script (scripts/ops/leg_flow_report.py — GET-only against /api/bot/* and /api/diag/*, mutates nothing), one test file, one new collapsed-state contract registration, and one new self-test wired into run_guards.py's existing research-tooling-selftests bucket. NO order path, NO strategy config, NO risk cap, NO account-mode or execution-gate write, NO deploy/, NO live-VM runtime mutation. The script reads the live VM only through the existing token-gated diag surface and the public read-only /api/bot/* routes, identical in kind to scripts/ops/strategy_liveness.py which already self-lands."
+}

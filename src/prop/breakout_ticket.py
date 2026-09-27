@@ -233,7 +233,8 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
         "  Prop tab report-back form, or send it to Claude). Fill the <…> values:",
         f"    placed : {{\"account_id\":\"{acct}\",\"symbol\":\"{s.symbol}\","
         f"\"direction\":\"{s.direction}\",\"status\":\"open\","
-        f"\"entry_price\":<your fill>,\"qty\":<size you placed>{tid}}}",
+        f"\"entry_price\":<your fill>,\"qty\":<size you placed>,"
+        f"\"sl\":<stop you set>,\"tp\":<target you set>{tid}}}",
         f"    skipped: {{\"account_id\":\"{acct}\",\"symbol\":\"{s.symbol}\","
         f"\"direction\":\"{s.direction}\",\"status\":\"skipped\","
         f"\"reason\":\"stale/out-of-range\"{tid}}}",
@@ -241,6 +242,12 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
         f"\"direction\":\"{s.direction}\",\"status\":\"closed\","
         f"\"entry_price\":<fill>,\"exit_price\":<exit>,\"qty\":<size>,"
         f"\"pnl\":<usd>,\"reason\":\"tp|sl|manual\"{tid}}}",
+        # E66: a stop/target moved AFTER placement must reach the journal, or
+        # the rule distance cannot subtract what the open position can still
+        # lose (fill #44's 2736.00 -> 2711.10 move was recorded nowhere).
+        f"    moved stop/target: {{\"kind\":\"amend\",\"account_id\":\"{acct}\","
+        f"\"symbol\":\"{s.symbol}\",\"direction\":\"{s.direction}\","
+        f"\"sl\":<new stop>,\"tp\":<new target, or omit>}}",
     ]
     if now is not None and now > t.valid_until:
         lines.insert(2, "  ⚠ THIS TICKET IS ALREADY EXPIRED — do not place.")

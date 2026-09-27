@@ -810,7 +810,10 @@ def main(argv: List[str]) -> int:
     # Mandatory venue-aware cost policy (slippage only — see module note on why
     # funding is excluded). Unset resolves to the venue-aware default; an
     # explicit value (incl. 0 for the fee-only comparison arm) always wins.
-    # slippage_bps_roundtrip_for ignores its argument (uniform across venues).
+    # NOTE (E60): slippage_bps_roundtrip_for is per-venue since 2026-09-24 (perp
+    # 3.0, else 5.0). This multi-asset book passes None, so it still resolves the
+    # 5.0 non-perp default although its universe is crypto perps — kept as-is in
+    # E60 (no harness default changes); see pipeline item for the re-pricing.
     slippage_bps = (execution_costs.slippage_bps_roundtrip_for(None)
                     if args.slippage_bps_roundtrip is None else args.slippage_bps_roundtrip)
 

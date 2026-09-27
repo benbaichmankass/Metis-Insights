@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "check_lease distinguishes `released_by_me` from the other non-held states and treats it as a PASS for handover readiness, keeping `expired`, `unheld`, `held_by_other` and a release by a DIFFERENT session as FAIL. Evidence must be a planted positive in both directions: a fixture where THIS session released -> PASS, and one where ANOTHER session released -> FAIL. NOT SUFFICIENT: relaxing the check to accept any non-held state, which would let a displaced manager grade itself ready to hand over. NOT SUFFICIENT EITHER: instructing managers to run the check before releasing -- that is a reminder, and this repo has already paid twice for reminders standing in for mechanisms (MI-15).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260903-HANDOFF-CHECK-CANNOT-TELL-A-DELIBERATE-RELEASE-FROM-AN-EXPIRY-SO-A-CLEAN-HANDOVER-GRADES-FAIL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-HANDOFF-CHECK-CANNOT-TELL-A-DELIBERATE-RELEASE-FROM-AN-EXPIRY-SO-A-CLEAN-HANDOVER-GRADES-FAIL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-HANDOFF-CHECK-CANNOT-TELL-A-DELIBERATE-RELEASE-FROM-AN-EXPIRY-SO-A-CLEAN-HANDOVER-GRADES-FAIL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] handoff_check's lease check passes ONLY on held_by_me, so the outgoing manager's final act — releasing the lease — makes its own readiness verdict go red"
+}

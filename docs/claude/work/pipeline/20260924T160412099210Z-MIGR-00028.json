@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The operator records a decision on §4A of docs/design/evidence-floor-horizon-PROPOSAL.md — either the packet reports real and paper as separate populations, or blending is explicitly DECLARED acceptable for this gate and the reason is written down. ⚠️ A MERGED FILTER DOES NOT CLEAR THIS BY ITSELF: the row is about which population the gate DECIDES on, and shipping a filter without the decision recorded would settle it by default. ⚠️ NOR DOES THE FLEET SIMPLY TRADING MORE REAL MONEY — the blend is a property of the query, not of the volume, and it would persist unnoticed at any size.",
+    "kind": "observation",
+    "last_checked": null
+  },
+  "id": "OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] [NEVER VERIFIED] scripts/ml/strategy_review_packet.py::pull_decisions filters ONLY is_backtest — it never consults account_class or is_demo — so every M7 review packet and every INDEX row blends real-money and paper PnL, against CLAUDE.md's P4 live-trade-management contract ('real and paper performance are never blended'), which /api/bot/stats, /api/bot/performance, /api/bot/trades/closed and /api/bot/strategy/attribution all honour. ⚠️ THIS CHANGES WHAT THE HEADLINE FINDING MEANS, not just a report's tidiness. The -35,446 of 'provenance-trusted losing pnl that no window could act on' — the measured motivation for widening the evidence floor's window — is essentially all paper. Population: 142 closed non-backtest trades whose order_package.created_at falls inside the 2026-09-01 packet window (2026-08-25T12:03:05Z..2026-09-01T12:03:05Z), read from a 1000-row /api/diag/journal?table=trades page spanning 2026-08-03..2026-09-02 (so the window is fully covered, not truncated), joined to order_packages on order_package_id. Split: PAPER 136 trades / -36,219.07 · REAL MONEY 6 trades / -3.11. The entire real-money population is 6 closed trades on bybit_2 across 2 legs (ict_scalp_5m x5, trend_donchian_xrp_4h x1). And 59.4% of the -35,446 is ONE leg with ONE closed trade: ict_scalp_mgc_15m at -21,070.00, verified against the journal as trade 5259 on ib_paper (MGC long 4454.8 -> 4405.8, 43 contracts, sl_cross; -49.0 points x 43 x the 10oz multiplier = -21,070.00 exactly, so the arithmetic is CORRECT — it is the account class, not the number, that is the finding)."
+}

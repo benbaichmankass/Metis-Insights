@@ -748,12 +748,21 @@ def _summarise_run(states: List[_BookState], *, clock, symbol, arbitration,
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
+# --- canonical (symbol, timeframe) -> candle-file resolver -----------------
+# THE ONE WAY this harness gets candles: scripts/ops/backtest_data_source.py.
+# See docs/reference/backtest-data-loading.md.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location(
+    "_backtest_data_source", str(_REPO_ROOT / "scripts" / "ops" / "backtest_data_source.py"))
+_backtest_data_source = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_backtest_data_source)  # noqa: E402
+
+
 def main(argv: List[str]) -> int:
     p = argparse.ArgumentParser(
         description="N-book portfolio replay with a swappable election key.")
-    p.add_argument("--data", default=os.environ.get(
-        "BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
-    p.add_argument("--symbol", default="BTCUSDT")
+    p.add_argument("--data", default=None)
+    p.add_argument("--symbol", default=None)
     p.add_argument("--start", default=None)
     p.add_argument("--end", default=None)
     p.add_argument("--roster", default="trend_donchian,fade_breakout_4h,"
@@ -782,6 +791,19 @@ def main(argv: List[str]) -> int:
     p.add_argument("--refresh-signals", action="store_true")
     p.add_argument("--json", dest="json_out", default=None)
     args = p.parse_args(argv[1:])
+    # --- data-source resolution (row E4, docs/claude/work/MANAGER-CHECKLIST.json)
+    _src = _backtest_data_source.resolve_or_refuse(
+        args.symbol, None, args.data,
+        legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
+    if not _src.ok:
+        print(_backtest_data_source.refusal_message(
+            _src, harness="nbook_portfolio.py",
+            legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv")),
+            file=sys.stderr)
+        return 2
+    args.data = _src.path
+    args.symbol = args.symbol or "BTCUSDT"
+    print(_src.provenance_line(), file=sys.stderr)
 
     default_roster = [r.strip() for r in args.roster.split(",")
                       if r.strip() in bs.ROSTER]

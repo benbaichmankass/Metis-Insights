@@ -1,0 +1,231 @@
+{
+  "request_id": "ml-review-20260924-210245",
+  "reviewed_at": "2026-09-24T21:02:45+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-05-19T04:47:12+00:00",
+  "window_end": "2026-09-24T21:02:45+00:00",
+  "_window_note": "No prior /ml-review artifact exists under comms/reviews/ (only health-review and performance-review files present there as of this session). window_start is set to the earliest MEASURED soak_started_at among the models reviewed (the two frozen baselines, registry-sourced) rather than a prior-review cursor, since there is no prior cursor to read.",
+  "overall_assessment": "investigate",
+  "_headline": "Of the 4 advisory (order-influencing) models: 1 is healthy and gate-ready (mes-regime-5m-lgbm-v2), 2 are stage-guard DEMOTE proposals with corroborated drift + a 0-for-8 live win-rate on one of them (btc-regime-15m-lgbm-fc-pcv-v2, sol-regime-15m-lgbm-fc-pcv-v2), and 1 (exit-head-donchian-1h-v1) has NO ENTRY in the trainer's own model registry despite being order-influencing -- gate-check cannot even evaluate it, and its predictions have been silent for ~52h. All three findings are MEASURED this session via trainer-vm-diag gate-check/stage-guard (issue #12902, run 36058254309) and vm-diag-snapshot shadow/stats+drift (issues #12893/#12898, read 2026-09-24T20:45Z). Population/scope note: this review could not obtain a full untruncated python -m ml list-models dump (8.2MB, exceeds the trainer-vm-diag relay's ~55KB GitHub-comment cap every attempt) -- per-model detail below is complete for the 4 advisory + 3 shadow-baseline models the operator specifically asked about; the 29 shadow and ~92 remaining candidate-stage models are covered only in aggregate via stage-guard's automated proposal pass (94 hold / 2 demote of 96 total proposals), not individually. This scope limitation is stated rather than papered over -- filed as PI-20260924-JQHBBTOS-0004.",
+  "trainer_findings": {
+    "trainer_service": {
+      "status": "ok",
+      "note": "MEASURED trainer-vm-diag #12891/#12895, 2026-09-24T20:4x-21:00Z: ict-trainer.service disabled/inactive, ict-trainer.timer enabled/active, ExecMainStatus=0 (last run succeeded) -- the expected idle-between-runs state for a timer+oneshot unit, not a fault."
+    },
+    "trainer_datasets": {
+      "status": "ok",
+      "note": "Cycle log tail (trainer-vm-diag #12891) shows recent manifest_ok / manifest_audit_skipped_enforced entries through 2026-09-23T01:xx; not individually audited every build line this session -- no failing/erroring build observed in the tail read."
+    },
+    "trainer_registry": {
+      "status": "watch",
+      "note": "MEASURED: stage-guard evaluated N_PROPOSALS=96 total registry entries (trainer-vm-diag #12902). This does not arithmetically reconcile with the task notification's 4 advisory + 29 shadow + 96 candidate + 3 baselines = 132 (measured separately, api/bot/shadow/stats, 20:45Z). Unresolved this session -- filed PI-20260924-JQHBBTOS-0004. >=1 model at shadow+ is clearly true (4 advisory + multiple shadow visible), so the basic registry-health bar is met; the count discrepancy is the watch item."
+    },
+    "trainer_models": {
+      "status": "concern",
+      "note": "2 of 4 ORDER-INFLUENCING (advisory) models are stage-guard DEMOTE proposals with corroborated drift (btc-regime-15m-lgbm-fc-pcv-v2, sol-regime-15m-lgbm-fc-pcv-v2), and a 3rd order-influencing model (exit-head-donchian-1h-v1) has no trainer registry entry at all. Per the skill's rubric this is squarely the concern case: an advisory model degrading on live/shadow data. operator_attention_required=true."
+    }
+  },
+  "model_status": [
+    {
+      "model_id": "mes-regime-5m-lgbm-v2",
+      "stage": "advisory",
+      "registry_status": "advisory",
+      "last_training": {
+        "run_id": "unknown -- not pulled this session (gate-check reports the artifact's soak start, not its run_id)",
+        "at": "unknown",
+        "code_revision": "unknown -- not pulled this session",
+        "headline_metric": "macro_f1: candidate 0.65111 vs baseline 0.25302, OOS edge +0.39809 over 5 purged WF-CV folds (MEASURED, gate-check #12902)",
+        "n_eval": 10976,
+        "trend_vs_prior_run": "unknown -- cross_run_stability gate reports std(macro_f1)=0.0069 over the last 10 runs (pass, stable), but this session did not pull the run-over-run metric series itself"
+      },
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": 4342,
+        "score_summary": "mean=0.7049, min=0.5001, max=0.9621 over 4342 logged predictions, soak_days=65.87 (registry-sourced). MEASURED api/bot/shadow/stats, read 2026-09-24T20:45Z.",
+        "drift": "ks=0.0825 (minor), psi=0.0263 (no_change) -- MEASURED api/bot/shadow/drift, read 2026-09-24T20:45Z; gate-check's independent drift_clean gate agrees (KS 0.0825<=0.2, PSI 0.0263<=0.25, pass).",
+        "realized": "live_regime_discrimination AUC=0.738 (>=0.55 threshold, pass) on the joined live/realized-regime population; live_parity 37/37 sampled rows match train-time features within 1e-6, zero dead-feature divergence (the Soak Integrity Audit's parity check, clean); labels_accruing 3699/4158 = 0.89 labeled. All MEASURED, gate-check #12902."
+      },
+      "note": "HEALTHY. gate-check ready=true, blocking=[]. Best-evidenced of the 4 advisory models -- clean parity, clean drift, strong OOS edge and live discrimination."
+    },
+    {
+      "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+      "stage": "advisory",
+      "registry_status": "advisory",
+      "last_training": {
+        "run_id": "unknown -- current artifact's training run timestamp is 2026-09-24T00:32:55Z (MEASURED, gate-check live_parity detail)",
+        "at": "2026-09-24T00:32:55+00:00",
+        "code_revision": "unknown -- not pulled this session",
+        "headline_metric": "macro_f1: candidate 0.57869 vs baseline 0.32804, OOS edge +0.25065 over 5 purged WF-CV folds (MEASURED, gate-check #12902) -- offline edge exists",
+        "n_eval": 8,
+        "trend_vs_prior_run": "unknown -- not pulled this session"
+      },
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": 2361,
+        "score_summary": "mean=0.9572, min=0.5037, max=0.9998 over 2361 logged predictions, soak_days=51.63. MEASURED api/bot/shadow/stats, read 2026-09-24T20:45Z.",
+        "drift": "ks=0.2147 (significant), psi=0.0316 (no_change) -- MEASURED api/bot/shadow/drift, 20:45Z; gate-check's own drift_clean gate independently FAILS (KS=0.2334 > 0.2 threshold), same direction, different window.",
+        "realized": "n=8 live closed trades scored (trusted-provenance population), win_rate=0.0 (0-for-8), brier_lift=-0.84032 (worse than base-rate; non-required gate, still informative). MEASURED, stage-guard attribution + gate-check #12902. live_regime_discrimination AUC=0.736 (pass, >=0.55) on the broader eval population -- so offline/broader-population discrimination is fine; it is the recent live trade outcomes and the score-distribution drift that are bad."
+      },
+      "note": "STAGE-GUARD DEMOTE PROPOSAL (advisory->shadow). gate-check ready=false, blocking=[live_parity, drift_clean]. live_parity is insufficient_data (only 17/20 post-retrain rows -- same-day retrain, self-clearing) but drift_clean genuinely fails and the live win-rate is 0/8. See PI-20260924-JQHBBTOS-0002."
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+      "stage": "advisory",
+      "registry_status": "advisory",
+      "last_training": {
+        "run_id": "unknown",
+        "at": "2026-09-24T00:55:21+00:00",
+        "code_revision": "unknown -- not pulled this session",
+        "headline_metric": "macro_f1: candidate 0.54437 vs baseline 0.30905, OOS edge +0.23532 over 5 purged WF-CV folds (MEASURED, gate-check #12902)",
+        "n_eval": 86580,
+        "trend_vs_prior_run": "unknown -- not pulled this session"
+      },
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": 2359,
+        "score_summary": "mean=0.8111, min=0.5017, max=0.9989 over 2359 logged predictions, soak_days=53.69. MEASURED api/bot/shadow/stats, 20:45Z.",
+        "drift": "ks=0.2201 (significant), psi=0.2127 (moderate) -- MEASURED api/bot/shadow/drift, 20:45Z; gate-check drift_clean FAILS (KS=0.2153>0.2), same direction.",
+        "realized": "n/a -- gate-check sample_sufficiency detail reports 'no live trades yet' for the trusted-provenance attribution join, so this model's realized live win/loss record could not be graded this session (an honest gap, not a measured-bad outcome). live_regime_discrimination AUC=0.664 (pass, weakest of the 3 regime heads but still >=0.55)."
+      },
+      "note": "STAGE-GUARD DEMOTE PROPOSAL (advisory->shadow), trigger='score-distribution drift verdict is significant'. gate-check ready=false, blocking=[live_parity, drift_clean]. live_parity insufficient_data (14/20 post-retrain rows, self-clearing). No live-trade attribution yet -- decision rests on drift + offline OOS edge, not a bad realized track record. See PI-20260924-JQHBBTOS-0002."
+    },
+    {
+      "model_id": "exit-head-donchian-1h-v1",
+      "stage": "advisory",
+      "registry_status": "advisory (per live-VM mirror) -- NO TRAINER REGISTRY ENTRY (see note)",
+      "last_training": {
+        "run_id": "unknown -- gate-check cannot look this model up",
+        "at": "unknown",
+        "code_revision": "unknown",
+        "headline_metric": "not computable -- gate-check failed: no registry entry for 'exit-head-donchian-1h-v1' (MEASURED, gate-check #12902)",
+        "n_eval": 0,
+        "trend_vs_prior_run": "unknown"
+      },
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": 328,
+        "score_summary": "mean=0.1861, min=0.0065, max=0.5447 over 328 logged predictions. MEASURED api/bot/shadow/stats, 20:45Z. first_seen 2026-09-03T17:00:07Z, last_seen 2026-09-22T17:06:08Z -- ~52h before this read (20:44Z 2026-09-24) with zero new predictions, against a MEASURED cadence_seconds_est=5021s (~84min, ~37 expected firings missed).",
+        "drift": "ks=0.2041 (significant), psi=0.8972 (significant) -- the worst PSI of any model measured this session. MEASURED api/bot/shadow/drift, 20:45Z.",
+        "realized": "not computable this session -- gate-check cannot evaluate a model absent from the trainer's registry, so no gate-computed win-rate/AUC exists for it."
+      },
+      "note": "HIGH-PRIORITY GAP, not yet a demote/promote verdict. Order-influencing model the trainer's own registry does not recognize (gate-check: 'no registry entry'), silent for ~52h, and showing the worst drift PSI in this review. See PI-20260924-JQHBBTOS-0001 -- root cause (naming mismatch vs. genuine registry gap vs. broken/stalled manifest) not established this session."
+    },
+    {
+      "model_id": "execution-quality-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "shadow",
+      "last_training": {
+        "run_id": "unknown",
+        "at": "unknown",
+        "code_revision": "unknown",
+        "headline_metric": "n/a (constant-output baseline)",
+        "n_eval": 0,
+        "trend_vs_prior_run": "unknown"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 9229,
+        "score_summary": "LITERALLY CONSTANT: score_min == score_max == score_mean == -0.2016627518083... to 15 decimal places, over 9229 predictions / 128.67 soak days. MEASURED api/bot/shadow/stats, 20:45Z.",
+        "drift": "not independently pulled (a constant series has no meaningful drift); gate-check drift_clean: pass (KS=0.0, PSI=0.0).",
+        "realized": "n/a -- never gate-eligible for promotion (blocking=[beats_baseline, oos_edge, live_agreement], all insufficient_data/fail per gate-check #12902)."
+      },
+      "note": "Likely an intentional fixed reference point (used as the beats_baseline gate's denominator elsewhere in this review's evidence), not verified against code this session. gate-check's non_degenerate 'live score spread' value (0.201663) suspiciously equals the constant's magnitude rather than reading ~0 -- possible metric bug, not confirmed. See PI-20260924-JQHBBTOS-0003."
+    },
+    {
+      "model_id": "setup-quality-audit-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "shadow",
+      "last_training": {
+        "run_id": "unknown",
+        "at": "unknown",
+        "code_revision": "unknown",
+        "headline_metric": "n/a (constant-output baseline)",
+        "n_eval": 0,
+        "trend_vs_prior_run": "unknown"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 9229,
+        "score_summary": "LITERALLY CONSTANT: score_min == score_max == score_mean == -0.0571959595959... over 9229 predictions / 128.67 soak days. MEASURED api/bot/shadow/stats, 20:45Z.",
+        "drift": "gate-check drift_clean: pass (KS=0.0, PSI=0.0).",
+        "realized": "n/a -- blocking=[beats_baseline, oos_edge, live_agreement], same as execution-quality-baseline-v0."
+      },
+      "note": "Same disposition as execution-quality-baseline-v0 -- likely intentional fixed reference, not verified against code. See PI-20260924-JQHBBTOS-0003."
+    },
+    {
+      "model_id": "setup-quality-baseline-v0",
+      "stage": "shadow",
+      "registry_status": "shadow",
+      "last_training": {
+        "run_id": "unknown",
+        "at": "unknown",
+        "code_revision": "unknown",
+        "headline_metric": "n/a",
+        "n_eval": 0,
+        "trend_vs_prior_run": "unknown"
+      },
+      "live_shadow": {
+        "influence": "none(shadow)",
+        "predictions": 9229,
+        "score_summary": "NOT frozen -- narrow real range: min=-0.2003, max=-0.1422, mean=-0.1647 (spread ~0.058) over 9229 predictions / 128.67 soak days. MEASURED api/bot/shadow/stats, 20:45Z.",
+        "drift": "gate-check drift_clean FAILS hard: KS=0.6118 (>>0.2 threshold), PSI not reported for this gate's cross_run_stability failure. MEASURED gate-check #12902 -- the worst drift-clean KS of any model in this review.",
+        "realized": "n/a -- blocking=[beats_baseline, oos_edge, cross_run_stability, live_agreement, drift_clean]; also fails cross_run_stability (std(mae)=0.0582 > 0.05 threshold)."
+      },
+      "note": "UNLIKE the other 2 baselines, this one is NOT constant and drifts hard + fails cross_run_stability -- worth distinguishing from the 'flat score' framing; this is the baseline actually misbehaving. See PI-20260924-JQHBBTOS-0003."
+    }
+  ],
+  "shadow_and_candidate_aggregate": {
+    "_comment": "Population/scope note (see _headline): the ~29 shadow and remaining candidate-stage models are NOT individually detailed above -- a full list-models dump could not be obtained (8.2MB, exceeds the relay's comment-size cap). This is the best available aggregate evidence.",
+    "stage_guard_pass": "MEASURED, trainer-vm-diag #12902, run 36058254309, 2026-09-24T21:00Z: python -m ml stage-guard --db data/trade_journal.db over N_PROPOSALS=96 total registry entries -> ACTION_COUNTS {hold: 94, demote: 2}. Zero promote proposals this run -- no shadow-stage model triggered stage-guard's automated promote signal.",
+    "example_shadow_gate_reports": "The 2 constant-score baselines (execution-quality-baseline-v0, setup-quality-audit-baseline-v0) each show blocking=[beats_baseline, oos_edge, live_agreement], all insufficient_data or fail -- illustrative of the general shadow population's distance from the promotion gate, not a claim about all 29."
+  },
+  "promotion_recommendations": [
+    {
+      "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+      "current_stage": "advisory",
+      "proposed_stage": "shadow",
+      "direction": "demote",
+      "tier": 3,
+      "evidence": "stage-guard auto-proposal (trigger: drift significant). gate-check ready=false, blocking=[live_parity, drift_clean]: drift_clean KS=0.2334>0.2; live_parity insufficient_data (17/20 post-retrain rows, same-day retrain, self-clearing in ~hours). n=8 live closed trades, win_rate=0.0, brier_lift=-0.84032. Offline OOS edge is real (+0.25065, 5-fold purged WF-CV) -- the offline model is not broken, its LIVE serving is degrading.",
+      "risk_note": "Demoting removes its influence on new orders (stage=shadow keeps it observing). Kill-switch: demote is itself the risk-reducing action here; re-promote only after drift_clean clears and a larger live win-rate sample (n>8) is positive. Watch: does removing this regime input change other strategies' composite conviction meaningfully (unified-confidence framework, c_reg lens)."
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+      "current_stage": "advisory",
+      "proposed_stage": "shadow",
+      "direction": "demote",
+      "tier": 3,
+      "evidence": "stage-guard auto-proposal (trigger: drift significant). gate-check ready=false, blocking=[live_parity, drift_clean]: drift_clean KS=0.2153>0.2, PSI=0.1956 (near 0.25 threshold). live_parity insufficient_data (14/20 post-retrain rows, same-day retrain, self-clearing). No live-trade attribution available yet (n=0 joinable) -- this proposal rests on drift, not a bad realized track record, which is weaker evidence than btc's case and stated as such.",
+      "risk_note": "Same shape as btc-regime. Weaker evidence (no bad live win-rate to point to, only drift) -- operator may reasonably choose to hold this one for a re-check after live_parity clears rather than demote immediately; both options are defensible on what is measured today."
+    }
+  ],
+  "experiments_proposed": [
+    {
+      "kind": "hyperparam_sweep",
+      "name": "btc-sol-regime-drift-retrain-recheck",
+      "rationale": "Both btc-regime-15m-lgbm-fc-pcv-v2 and sol-regime-15m-lgbm-fc-pcv-v2 were retrained same-day (2026-09-24) and their live_parity gate is currently insufficient_data rather than pass/fail. A re-run of gate-check in ~5h (once >=20 post-retrain rows accrue at the measured ~14min cadence) would either confirm the new artifact fixed the drift (parity clean, drift_clean re-evaluated on fresher data) or show the demote case is even stronger.",
+      "input_changes": "none -- this is a re-read of gate-check, not a new manifest",
+      "expected_metric_signal": "live_parity gate flips from insufficient_data to pass/fail with >=20 sampled rows; drift_clean re-computed on a window that starts after the retrain",
+      "tier": 3,
+      "next_step": "trainer-vm-diag: python -m ml gate-check <model> --db data/trade_journal.db --datasets-root datasets-out, after ~2026-09-25T02:00Z"
+    }
+  ],
+  "backlog_drain": [],
+  "_backlog_drain_note": "docs/claude/ml-review-backlog.json does not exist -- retired under the 2026-09-21 operating reset per root CLAUDE.md ('Retired 2026-09-21 ... the four review backlogs ... Do not resurrect them'). Per CLAUDE.md's instruction hierarchy (ranked above this skill file) and the task's explicit instruction, follow-up items are filed as PIPELINE.jsonl rows instead (5 rows, PI-20260924-JQHBBTOS-0001..0005) rather than into a backlog file. The skill's own pointer to this path is stale -- see PI-20260924-JQHBBTOS-0005.",
+  "anomalies": [
+    "exit-head-donchian-1h-v1 (advisory/order-influencing) has no trainer registry entry -- gate-check cannot evaluate it. See PI-20260924-JQHBBTOS-0001.",
+    "exit-head-donchian-1h-v1's predictions have been silent for ~52h (last_seen 2026-09-22T17:06Z vs the log's newest_retained 2026-09-24T20:44Z for other models) against a ~84min measured cadence, and shows the worst drift PSI (0.897, significant) of any model in this review.",
+    "2 of 3 'baseline' shadow models emit a literally constant score for 128.67 days; the third (setup-quality-baseline-v0) is narrow-but-real and fails drift_clean hardest of anything measured (KS=0.6118). See PI-20260924-JQHBBTOS-0003.",
+    "gate-check's non_degenerate 'live score spread' value for execution-quality-baseline-v0 (0.201663) numerically matches its constant score's magnitude rather than reading ~0 -- possible metric-computation issue, not confirmed.",
+    "Registry population discrepancy: stage-guard's N_PROPOSALS=96 vs. the notification's 4+29+96+3=132 do not reconcile; a full list-models dump to resolve this exceeded the relay's size limit every attempt (8.2MB raw). See PI-20260924-JQHBBTOS-0004.",
+    "api/bot/trades/scores has no date-range filter and, nested with per-model scores, truncates at the vm-diag-snapshot relay's ~55KB comment cap to ~18-21 trades even at limit=200 -- the realized-track-record join for advisory models in this review is a thin recent slice (n=0-8 per model), not a full graded window. See PI-20260924-JQHBBTOS-0005.",
+    "The ml-review skill's endpoint table omits the required api/bot/ path prefix for the vm-diag-snapshot relay, causing an avoidable 404 round-trip early in this session (issue #12892 before the fix in #12893). See PI-20260924-JQHBBTOS-0005."
+  ],
+  "recommended_action": "Operator decision needed on the 2 Tier-3 demote proposals (btc-regime-15m-lgbm-fc-pcv-v2, sol-regime-15m-lgbm-fc-pcv-v2, advisory->shadow). Separately and with higher urgency, a session should establish why exit-head-donchian-1h-v1 -- currently order-influencing -- has no trainer registry entry and why its predictions stopped ~52h ago (PI-20260924-JQHBBTOS-0001) before any promotion/demotion question about it can even be evaluated.",
+  "operator_attention_required": true,
+  "claude_channel_ping": {
+    "delivered_via": "skipped (lane task -- this session reports to the manager per the lane's operating model, not directly to the operator channel; see the final chat summary for the operator-facing headline)",
+    "priority": "high",
+    "message": "/ml-review E72 -- 1/4 advisory models healthy (mes-regime), 2/4 are Tier-3 demote proposals (btc/sol-regime, drift+live evidence), 1/4 (exit-head-donchian) has NO trainer registry entry + 52h silent + worst drift. trainer=watch. 5 pipeline rows filed."
+  }
+}

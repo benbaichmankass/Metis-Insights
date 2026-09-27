@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-THE-MANAGER-SCOPE-CARVE-OUT-ADMITS-A-MERGE-SLOT-CLAIM-BUT-CANNOT-EXPRESS-A-RELEASE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-THE-MANAGER-SCOPE-CARVE-OUT-ADMITS-A-MERGE-SLOT-CLAIM-BUT-CANNOT-EXPRESS-A-RELEASE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-THE-MANAGER-SCOPE-CARVE-OUT-ADMITS-A-MERGE-SLOT-CLAIM-BUT-CANNOT-EXPRESS-A-RELEASE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "check_manager_scope.py R2 admits a manager commit to docs/claude/session-board.json for EXACTLY one thing: a `merge_slot` claim naming the branch being landed. It cannot express a RELEASE (held_by -> null). OBSERVED 2026-09-09: the manager wrote a release after #11524 merged and R2 refused it with 'merge_slot.branch is None, not this branch'. So a manager who has finished landing has only two moves, and both are bad: leave a STALE claim naming a merged branch, or violate R2. THE STALE-CLAIM BRANCH IS NOT HYPOTHETICAL AND IT HAS A MEASURED COST: earlier the same day the slot sat held for claude/mgr-dispatch-lane2-refill-20260909 for ~25 minutes after its PR #11511 had merged, and lane 2 had to announce and DISPLACE it before it could land #11514. That lane handled it correctly, which is the point - the cost landed on someone else. ⚠️ THIS IS A GAP IN THE CARVE-OUT, NOT AN ARGUMENT TO WIDEN R2. Releasing is a LANDING act by exactly the same reasoning that admits the claim, so the narrow fix is to admit a transition to a null/released slot BY THE SESSION THAT HOLDS IT - never a general permission to write session-board.json, which would re-open the hole the carve-out exists to close. ⚠️ AND NOTE THE MITIGATION THAT ALREADY EXISTS, so this is not urgent: R13 does not serialize (its own docstring says so) and slots are displaced freely, so a stale claim delays rather than blocks. Entry point: scripts/ci/check_manager_scope.py R2, the merge_slot carve-out."
+}

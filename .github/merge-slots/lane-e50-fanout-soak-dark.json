@@ -1,0 +1,6 @@
+{
+  "held_by": "session_019mw6kFz9EL3AuHL1AUT4ff",
+  "branch": "lane/e50-fanout-soak-dark",
+  "claimed_at": "2026-09-24T12:30:07Z",
+  "purpose": "E50: relay renderer states which list elements survive a cut"
+}

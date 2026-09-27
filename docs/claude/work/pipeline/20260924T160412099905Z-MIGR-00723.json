@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER the default refuses (exit non-zero naming the span) so a bare run cannot silently produce a 3.5-day result, OR the fixture is renamed to say what it is (e.g. data/backtest_candles.SMOKE.csv) and the docs that name it as the default are updated. !! ENLARGING THE FIXTURE IS NOT THE FIX and would be worse -- it would make the foot-gun quieter while keeping a committed corpus that drifts from the real feeds.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-BACKTEST-DATA-PATH-DEFAULTS-TO-A-3-POINT-5-DAY-SMOKE-FIXTURE-THAT-READS-LIKE-A-RESULT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260917-BACKTEST-DATA-PATH-DEFAULTS-TO-A-3-POINT-5-DAY-SMOKE-FIXTURE-THAT-READS-LIKE-A-RESULT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-BACKTEST-DATA-PATH-DEFAULTS-TO-A-3-POINT-5-DAY-SMOKE-FIXTURE-THAT-READS-LIKE-A-RESULT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] BACKTEST_DATA_PATH defaults to a 3.5-day smoke fixture, and a bare harness run reads like an answer"
+}

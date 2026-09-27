@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the non-pairs paper coverage gap vs the real book is either closed, or explained by a stated venue limit on what Gate 1 can measure",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-54WQNHJX-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_017mdYduTwtyVPXU54wqNHJx, checklist row E30, branch claude/e30-pairs-pnl-measured-0922",
+    "rerun": "page /api/diag/journal?table=trades (limit=1000, offset 0..6000); keep status='closed' AND is_backtest=0 AND pnl IS NOT NULL AND account_class='paper' AND strategy_name!='orphan_adopt' AND reconcile_status!='superseded'; DROP rows whose exit_reason startswith 'pairs_'; bucket with src.runtime.provenance.classify_pnl"
+  },
+  "state": "queued",
+  "what": "RESIDUAL, NOT ROOT-CAUSED BY E30, STATED SO NOBODY READS THE PAIRS FIX AS THE WHOLE ANSWER: with every pairs_* row removed, the paper book's NON-PAIRS closes still measure only 0.3221 (n=829: M=267 E=414 F=128 U=20) against the real book's 0.7633 (n=431). So even a fully-landed pairs fix leaves Stage 1 ~30 points below Stage 2 on the metric Gate 1 exists to read. Worst cells: alpaca_paper 0.197 (n=61), alpaca_options_paper 0.000 (n=6). NOT investigated this session -- E30's scope was the largest single block, and calling this diagnosed would be the 'finished the queue reads as finished the audit' failure."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A consumer can distinguish an EXPLICIT sentinel from an INHERITED one on a live trade. Acceptable shapes: the soak row carries the origin (declared_in_yaml | inherited_class_default) alongside expectation_state, or resolve_expectation is passed the raw YAML block beside the merged one. NOT sufficient: documenting the class defaults, or a test asserting the current counts — the failure is that the distinction is unobservable at runtime, so the test must show a leg with no YAML target key grading differently from one that writes tp_r: 50.0 explicitly.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-NO-TARGET-KEY-STATE-UNREACHABLE-IN-PRODUCTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-NO-TARGET-KEY-STATE-UNREACHABLE-IN-PRODUCTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-NO-TARGET-KEY-STATE-UNREACHABLE-IN-PRODUCTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] target_expectation.STATE_NO_TARGET_KEY can never fire in production, so the sentinel's PROVENANCE (chosen vs inherited) is collapsed for 10 live legs"
+}

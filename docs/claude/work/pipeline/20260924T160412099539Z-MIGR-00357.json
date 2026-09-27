@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A floor is DERIVED, not chosen. Required first: the ADX-at-entry distribution per leg over history for all 12, so the proposed adx_min is stated together with the fraction of historical entries it would have REFUSED. A value whose refusal rate is unmeasured does NOT close this row, and neither does porting 25/28/30 from the crypto legs. If the measurement shows a candidate floor refuses a material share of entries, it needs its own walk-forward before any Tier-3 flip -- at which point it is a strategy change, not a fix to thesis_unknown. Closing this row by declaring nothing is also acceptable IF the finding is recorded as 'these legs deliberately have no entry regime condition', since thesis_unknown is then correct behaviour rather than a gap.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-TWELVE-PULLBACK-LEGS-HAVE-NO-ENTRY-REGIME-CONDITION",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-TWELVE-PULLBACK-LEGS-HAVE-NO-ENTRY-REGIME-CONDITION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-TWELVE-PULLBACK-LEGS-HAVE-NO-ENTRY-REGIME-CONDITION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 12 pullback legs declare no adx_min, so they have NO ADX filter at entry — and 'declare adx_min to fix thesis_unknown' is an entry-behaviour change, not the cheap observability fix it was described as"
+}

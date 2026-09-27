@@ -1,0 +1,21 @@
+{
+  "a10_note": "Broker/journal class on real money (bybit_2 lifetime truth): the open decision is the row's own second arm and only the operator can record it. EVIDENCE: Rerun is an archive lookup; the sub-account join is a code question nobody owns. Routed as a one-line decision rather than carried.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The sub-account join is solved — the live path can see BOTH sub-accounts for bybit_2 and reproduces the stitched figure — OR the operator records that bybit_2's lifetime truth stays hand-maintained permanently. ⚠️ SUPERSEDES the original clears_when, whose (a)/(b) both rested on a retention question that has now been ANSWERED and was the wrong question: retention reaches, the scope does not. Re-running the puller at any `days` value does NOT clear this.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW'), indent=2))\""
+  },
+  "routed_to": "ask_operator: does bybit_2's lifetime wallet truth stay hand-maintained permanently (record it), or is the sub-account join worth a lane?",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[LOUD] The live Bybit wallet-truth path works and is MEASURED, but it does not and cannot currently reproduce the -$262.52 figure it was built to replace -- the two are over almost disjoint windows. Switching journalTrust over is therefore NOT a one-line flip, and the decision is open."
+}

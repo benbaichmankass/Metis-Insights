@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "STILL OPEN because the 404 itself is unexplained: a 404 from generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent means that model id is not served for that key/API version, and this session could not call the API to distinguish a retired id from a key-scope problem. Closed when a real screenshot round-trips end to end on the prop bot, OR the fallback model id is corrected to one the live key actually serves — verified by an actual send, not by inspection. Do NOT guess a replacement id.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-SCREENSHOT-FALLBACK-REPORTS-ONLY-THE-SECOND-FAILURE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The prop screenshot reader reported ONLY the fallback provider's failure, so a Gemini 404 masked whatever took out the primary — and a primary ScreenshotParseError skipped the fallback entirely"
+}

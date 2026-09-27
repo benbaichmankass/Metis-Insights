@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260917-THE-OPEN-ITEMS-GUARD-VALIDATES-CHECK-EVERY-DAYS-AND-NEVER-ENFORCES-IT-SO-66-OF-73-LOUD-ROWS-ARE-PAST-THEIR-DECLARED-CADENCE-WHILE-IT-READS-OK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-OPEN-ITEMS-GUARD-VALIDATES-CHECK-EVERY-DAYS-AND-NEVER-ENFORCES-IT-SO-66-OF-73-LOUD-ROWS-ARE-PAST-THEIR-DECLARED-CADENCE-WHILE-IT-READS-OK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-OPEN-ITEMS-GUARD-VALIDATES-CHECK-EVERY-DAYS-AND-NEVER-ENFORCES-IT-SO-66-OF-73-LOUD-ROWS-ARE-PAST-THEIR-DECLARED-CADENCE-WHILE-IT-READS-OK'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scripts/ci/check_open_items.py READS check_every_days only to validate it is a positive int and then judges staleness against a FLAT _STALE_DAYS = 21 for every row, so a row declaring check_every_days: 1 may sit 20 days unobserved and the guard prints OK. The per-row cadence is validated and never enforced."
+}

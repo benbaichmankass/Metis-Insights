@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BOTH columns' fragile-cell counts are recorded with their population stated (DONE: 8/14 candidates, 4/19 negatives over the 33 committed rounds), AND an offset screen has been run on at least the fragile CANDIDATES, since those are the cells that would justify a live change. Closes on the screen being run and its unanimity recorded — NOT on any cell being re-graded and NOT on the gate changing; both are Tier-3 and belong to the operator.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-SINGLE-TERM-NEGATIVES-MAY-BE-BOUNDARY-ARTEFACTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] An exit_head_ml verdict that sits ONE FOLD FLIP from the opposite outcome is a boundary artefact risk — and the CANDIDATE column is 2.7x more exposed than the negative one (8/14 vs 4/19), measured by arithmetic over the committed rounds."
+}

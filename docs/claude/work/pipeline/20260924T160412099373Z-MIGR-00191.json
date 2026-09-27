@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A sweep row exists in docs/research/m20-sweep-corpus.jsonl for a leg whose base_trades_OOS is under MIN_OOS_TRADES and whose `wf_ran` is true, carrying a fold-based verdict in a field DISTINCT from the single-split `verdict` — and the 7 cells this row blocked (iwm/mes/qld/qqq/scha/splg/spy _trend_long_1d vol_trail in docs/research/exit-refinement-coverage.json) have moved off `blocked` to a status citing that fold-based verdict. If the operator instead decides low-frequency legs are not gradeable, closing requires that decision recorded in the matrix legend or the exit-refinement skill, so the 7 cells stop reading as work someone can pick up.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-THIN-OOS-BLOCKS-THE-WALKFORWARD-IT-COULD-PASS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-THIN-OOS-BLOCKS-THE-WALKFORWARD-IT-COULD-PASS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-THIN-OOS-BLOCKS-THE-WALKFORWARD-IT-COULD-PASS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A cell too thin for the single-split OOS gate is refused the walk-forward, whose folds span the full history it CAN support -- so low-frequency legs are ungradeable by construction"
+}

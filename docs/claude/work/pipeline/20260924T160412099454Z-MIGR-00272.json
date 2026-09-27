@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "1. SHIPPED: `list_open_orders` rows carry `client_id` (null = IB did not report it, which is NOT 'client 0').\n2. SHIPPED: `scripts/ops/cancel_ib_order.py` + the Tier-2 `cancel-ib-order` system-action -- reads account-wide, resolves the owner, connects AS that clientId, cancels, re-reads to verify. Dry-run by default. Lookup is three-state and never collapsed (`could_not_look` / `not_found` / `found`), and an accepted cancel whose verification read fails reports `cancelled_unconfirmed` rather than success.\n3. SHIPPED: two default refusals with SEPARATE explicit overrides -- a protective order (OCA-grouped or a stop/trailing type) needs `--force-protective`; a clientId below 9000 (the trader's execution band) needs `--force-client-id`, because taking over that id would evict the trader's live IB session.\n4. OPEN -- LIVE VERIFICATION. Not yet exercised against a real broker: at 12:37:33Z the IB breaker was open and `/api/diag/ib_open_orders` returned `read_state: could_not_look`. The action must be run in DRY-RUN first against a real order and shown to resolve a real `owner_client_id`, then applied and verified `gone`. A `could_not_look` run is NOT evidence either way. Until then the 14 unit tests prove the DECISION logic only, never the IB semantics.\n5. OPEN -- the class this does NOT cover: an order owned by the trader's own live execution client cannot be cancelled by any ops session (connecting as that id evicts the trader). The trader can cancel its own orders; nothing else …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-NO-PER-ORDER-IB-CANCEL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-NO-PER-ORDER-IB-CANCEL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-NO-PER-ORDER-IB-CANCEL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] No way to cancel a SINGLE IB order from any session -- the only two mechanisms either PLACE another order or strip every protective stop on the account"
+}

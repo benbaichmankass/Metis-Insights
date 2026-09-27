@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "scripts/ops/build_strategy_evidence.py lands the per-trade OOS rows in a committed addressable store (or records the per-trade net_r vector on the record itself), and source_run names that path rather than a tempdir.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist C5/R4 research lane, session_01AHNgatHswZsemNiP8aSXCk, branch claude/c5-r4-ten-research-questions",
+    "rerun": "python3 -c \"import json,glob; [print(f, json.load(open(f)).get('source_run')) for f in sorted(glob.glob('comms/strategy_evidence/*.json'))]\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Duplicate of PI-20260922-R5-PATH-STATS-MISSING-FOR-THE-12-LEGS-WHOSE-SERIES-IS-IN-A-DEAD-TMP-DIR (routed to B6 today): the 12 /tmp records are the same 12 legs. EVIDENCE: MEASURED 2026-09-24: 12 of 52 records carry a /tmp source_run.",
+  "what": "Every comms/strategy_evidence/*.json record written by R1 carries source_run: '/tmp/tmp.RsNZr5lfkw/<leg>__trades.jsonl' -- a tempdir on a runner that no longer exists. Per docs/CLAUDE-RULES-CANONICAL.md 'A MEASURED must say WHERE THE MEASUREMENT LIVES', that is not a locator, so the per-trade OOS rows behind every Stage-0 verdict on the risk-bearing roster are unreachable. Blocks RQ-20260922-001 (drop-one-trade jackknife on the three alpaca_live legs, n=4/4/6) outright, and bounds RQ-20260922-009."
+}

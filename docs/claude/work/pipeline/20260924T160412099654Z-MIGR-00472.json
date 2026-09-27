@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A session that does NOT hold this session's context can post a coordination-board START and READ IT BACK on the board surface -- observed, not asserted. Concretely, ALL THREE: (1) a board post succeeds by one of the two documented paths, i.e. either MCP add_issue_comment returns 2xx or automation/board-results/<name>.txt holds a bare comment URL and the board-post.yml run exits 0 -- a FAILED: line or a non-zero run is NOT this; (2) the comment is visible on the board issue the docs point at, fetched back rather than inferred from the post succeeding; and (3) CLAUDE.md, docs/CLAUDE-RULES-CANONICAL.md, docs/claude/coordination-board.md, the session-coordination skill AND .github/workflows/board-post.yml all name the SAME board issue -- verified by grepping each of the five, because the 2026-09-01 finding was precisely that a relay nobody can find from the surface they read is equivalent to no relay. [!] A GREEN board-post.yml RUN IS NOT SUFFICIENT ON ITS OWN and must not be read as closing this: the run that produced this row exited non-zero with the GraphQL ceiling error, so a future green proves the post landed somewhere -- clause (3) is what establishes it landed where every other session is looking. [!] IF THE OPERATOR DECIDES the board should be retired or replaced with a different substrate, this row does NOT close on a workaround -- it CHANGES: record the decision and the new mechanism, and the criteria above re-point at that mechanism. Sessions being unable to coordinat …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260907-COORDINATION-BOARD-6927-IS-FULL-SO-THE-MANDATORY-START-POST-IS-IMPOSSIBLE-BY-EVERY-PATH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-COORDINATION-BOARD-6927-IS-FULL-SO-THE-MANDATORY-START-POST-IS-IMPOSSIBLE-BY-EVERY-PATH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-COORDINATION-BOARD-6927-IS-FULL-SO-THE-MANDATORY-START-POST-IS-IMPOSSIBLE-BY-EVERY-PATH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] GitHub issue #6927 has exceeded 2500 comments, so commenting is DISABLED on it -- the coordination-board START post that CLAUDE.md and CLAUDE-RULES-CANONICAL make MANDATORY before a session's first substantive tool call is now impossible via EVERY documented path."
+}

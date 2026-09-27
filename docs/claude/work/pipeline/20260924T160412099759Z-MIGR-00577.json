@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) The seam test CALLS _attach_fanout_plan and asserts _fanout_apply_rounds accepts its output — and is shown to FAIL against the pre-fix producer. A test that only passes after the fix does not establish it would have caught the defect; demonstrate the failure. (2) The other two apply_rounds = rounds sites are graded: either they are legitimately testing the consumer in isolation (say so in the test) or they are the same defect and are fixed. [!] NOT SUFFICIENT: adding a NEW end-to-end test beside the misleading one. The existing test's docstring claims the coverage, so leaving it in place leaves a reader believing the seam is covered twice. [!] A GENERAL GUARD IS NOT ASKED FOR HERE and should not be invented on this one instance — whether 'a test that constructs its producer's output' is mechanically detectable is an open question, and a presence-only guard for it would reproduce the very class it targets.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-A-SEAM-TEST-THAT-CONSTRUCTS-THE-PRODUCER-S-OUTPUT-CANNOT-SEE-THE-PRODUCER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-A-SEAM-TEST-THAT-CONSTRUCTS-THE-PRODUCER-S-OUTPUT-CANNOT-SEE-THE-PRODUCER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-SEAM-TEST-THAT-CONSTRUCTS-THE-PRODUCER-S-OUTPUT-CANNOT-SEE-THE-PRODUCER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The arbitration-fanout seam test hand-builds the artifact it claims to verify end to end, so it passes over a producer/consumer break it exists to catch — its sibling asserts only that a KEY NAME appears in the source, never the payload"
+}

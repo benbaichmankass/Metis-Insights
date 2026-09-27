@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The INSTANCE is fixed by this row's own account. What is open is the CLASS decision, and it closes on a recorded choice: either the review-skill checklist gains the rule - a diff that makes an existing unconditional path conditional must show the MEASURED output of both branches, not assert the intent - or that rule is declined with a reason. A static guard is explicitly ruled out by the row (high false-positive, and a presence-only marker is the new-table-wiring-guard trap), so 'add a guard later' does not close it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-INERT-CONDITIONAL-SHIPPED-AS-A-BEHAVIOUR-CHANGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] An `exit_head_replayable()` gate shipped INERT — byte-identical output on both branches — and the PR description claimed a measured behaviour change it did not produce"
+}

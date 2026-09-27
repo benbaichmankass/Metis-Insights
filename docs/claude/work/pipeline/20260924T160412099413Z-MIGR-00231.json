@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "`legalize_qty` distinguishes at least three states for the ceiling and no consumer sees only one: (a) a resolved maximum, (b) the venue genuinely publishes none, (c) **we could not look** (lookup raised / timed out / returned nothing). On (c) the order path must REFUSE rather than send unclamped - the same fail-safe posture the reconcilers take on an unreadable broker read ('never attribute on an unconfirmed read'). Registering the contract with `collapsed-state-guard` is how it stops regressing. A cheap complement, not a substitute: give `config/instruments.yaml` a maxOrderQty so the offline profile can answer at all - today it structurally cannot, which is why (c) is the common case and not the rare one. Done-condition: a forced lookup failure produces a refusal with a typed reason, and NOT an exchange_rejected row.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-VENUE-MAX-NONE-CANNOT-SAY-WE-COULD-NOT-LOOK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] legalize_qty's venue_max=None collapses 'the venue published no maximum' with 'we could not resolve one' - so the BL-20260810 clamp silently no-ops and the oversized order is still sent"
+}

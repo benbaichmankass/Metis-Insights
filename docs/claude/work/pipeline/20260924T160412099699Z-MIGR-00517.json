@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The adopt path refuses to write a strategy_name it cannot support. Concretely: a quantity check against the claimed strategy's own recent size history on that symbol — the cheapest available discriminator, and one that would have refused BOTH wrong attributions here — and on failure the row is left a BARE orphan (recovered_strategy empty, which 6 of 13 correctly already are) rather than attributed to a guess. A bare orphan is the honest state; a wrong attribution is worse than none because it reads as known and is acted on. PROVEN BY: an observed adopt whose re-attach DECLINED on a quantity mismatch and left the row bare, read from the live journal — not by a unit test, which cannot reproduce the venue state that produces a candidate package. ALSO REQUIRED: the two existing OUTSIDE rows (5448, 5453) are dispositioned — either corrected with the reason recorded, or explicitly left with a note that their strategy_name is not trustworthy, so a later aggregate does not silently consume them. NOT SUFFICIENT: fixing the rows[0] root cause (BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED). That reduces how OFTEN adopts happen and does not make the attribution correct when one does; the two defects are independent and 5453's parent chain does not involve a netting false close at all.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-THE-ORPHAN-ADOPT-REATTACH-WRITES-A-STRATEGY-NAME-IT-CANNOT-SUPPORT-AND-THAT-STRATEGY-THEN-ACTS-ON-THE-ROW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-THE-ORPHAN-ADOPT-REATTACH-WRITES-A-STRATEGY-NAME-IT-CANNOT-SUPPORT-AND-THAT-STRATEGY-THEN-ACTS-ON-THE-ROW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-THE-ORPHAN-ADOPT-REATTACH-WRITES-A-STRATEGY-NAME-IT-CANNOT-SUPPORT-AND-THAT-STRATEGY-THEN-ACTS-ON-THE-ROW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The reverse reconciler's orphan re-attach can name a strategy that did not open the position — it wrote +$612.71 of trend_donchian_eth's PnL onto pairs_sol_eth_b, and the pairs executor then flattened the position 14s later"
+}

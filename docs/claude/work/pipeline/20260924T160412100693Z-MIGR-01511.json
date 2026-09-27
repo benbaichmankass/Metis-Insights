@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies (harness cannot express off_cells); harness-fidelity family, E7. EVIDENCE: MEASURED 2026-09-24: grep -c off_cells scripts/backtest_ict_scalp.py -> 0; ict_scalp_xrp_5m.json fidelity=approximate omitted_levers=['off_cells','vol_spec'].",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER scripts/backtest_ict_scalp.py applies an off-cell suppression (a real SKIP, not a stamp) and ict_scalp_xrp_5m's record grades `faithful` with omitted_levers == [], OR a DECIDED records that the gated arm will not be measured offline and says what the leg's evidence rests on instead.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-UTN353OZ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01LfjQsydv3W4J6butn353oz, checklist row E28, branch e28-ict-scalp-harness-route",
+    "rerun": "grep -n 'off_cells' scripts/backtest_ict_scalp.py; python3 -c \"import json; d=json.load(open('comms/strategy_evidence/ict_scalp_xrp_5m.json')); print(d['fidelity'], d['omitted_levers'])\"   # a hit in the harness AND omitted_levers == [] means it is closed"
+  },
+  "routed_to": "E7 (harness fidelity)",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "CARRIED FORWARD, NOT NEW: MI-321 filed it on 2026-09-18 (docs/research/ict-scalp-seam-2026-09-18.md sec 5) as BL-20260918-THE-ICT-SCALP-HARNESS-CANNOT-EXPRESS-THE-OFF-CELL-SUPPRESSION-..., and that id no longer resolves -- the four review backlogs were archived by the 2026-09-21 operating reset, so the finding was tracked by nobody. This row is the carrier. THE FINDING: ict_scalp_xrp_5m declares off_cells [[trending, volatile], [chop, volatile]]; the LIVE builder suppresses an entry on it (src/runtime/strategy_signal_builders.py:797-802, `if off_cells and vol_spec:`), the key occurs ZERO times in scripts/backtest_ict_scalp.py, and no flag exists -- MI-321 graded it `not_expressible`. Its sibling vol_spec grades `asymmetric_gate`: --vol-spec-json exists and reaches no skip (12 occurrences, all inside _stamp_decision_time_regime), so forwarding it would LABEL a run with the spec while it behaves as if unset. [!] E28 FIXED THE OTHER HALF OF MI-321 sec 3 (the hardcoded _load_yaml_params read) and deliberately did NOT fix this half: regime_debt_matrix grades the leg `approximate` and NAMES both keys rather than certifying it. CONSEQUENCE, now committed: comms/strategy_evidence/ict_scalp_xrp_5m.json's net_r_oos -8.2061 (n=245) is the UNGATED arm, and the live builder's own docstring says 'XRP's pass was conditional on this gate (ungated 2/4 folds fails; gated 4/4 passes)'. So this harness can only produce the arm that fails, and that leg's Stage-0 verdict is not a statement about the leg as it actually runs. The fix is to port an off-cell SKIP into the harness -- not to widen the lever sets, which would launder the gap."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RE-POINTED 2026-08-23 (the original source, the 22:30Z MES run, is verify-only now and both IB positions already hold resting targets - see progress). Satisfied by the NEXT genuine target-naked occurrence on any IB position repaired via `attach-ib-target --apply`, graded correctly and checkably: `target_resting` with the order on the book, or `target_filled` with position_after flat/reduced, or `absent_unexplained` with position_after showing the position standing at full size. A run graded `could_not_look` does NOT satisfy it - that is the state that says we did not look. This is opportunistic by design: the alternative is creating an unprotected position deliberately, which is not an acceptable way to earn evidence.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260818-ATTACH-IB-TARGET-VERIFY-CANNOT-EXPRESS-FILLED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-ATTACH-IB-TARGET-VERIFY-CANNOT-EXPRESS-FILLED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-ATTACH-IB-TARGET-VERIFY-CANNOT-EXPRESS-FILLED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] attach-ib-target verifies by asking whether a target is RESTING, so a marketable target that FILLS reports `place_not_effective` / `still_absent` + exit 1 — a red on a successful flatten, and a retry on that signal opens a naked reverse position"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "board-post.yml AND pr-opener.yml are named, with their request-file paths, in docs/claude/coordination-board.md, in CLAUDE.md's PM-side capabilities section, AND in .claude/skills/session-coordination/SKILL.md — each at the point where a session hitting a 403 would be reading, i.e. beside the 403 discussion rather than in a separate list. ⚠️ ALL THREE SURFACES ARE NOW MET (measured 2026-09-12: CLAUDE.md 5/5 at lines 1434-1516, coordination-board.md 5/5, and the skill patched the same day from 0/0). The skill was added to this list because it was found missing while checking the other two, and it is the surface skill-first lookup makes BINDING. WHAT REMAINS IS THE OBSERVATION HALF, UNCHANGED: a session that HITS the 403 reaches the board WITHOUT reading .github/workflows/, and says so. ⚠️ A grep confirming the words are present is a deploy, not an observation — that is this criterion's own wording and it is why the row is still open with every document fixed. ⚠️ AND THE OBSERVER MUST BE A SESSION THAT ACTUALLY HIT IT: measured 2026-09-12, `add_issue_comment` on the board succeeded 5 of 5 from a PM-side web session, so write access is NOT uniform and a session that never needed the relay cannot testify that it is findable.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-COORDINATION-BOARD-WRITES-403-FROM-THIS-SESSION-WHILE-READS-SUCCEED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] board-post.yml — the relay that exists precisely so a 403-scoped session can reach the coordination board — is named in ZERO of the four documents a session consults, so the session it was built for cannot find it"
+}

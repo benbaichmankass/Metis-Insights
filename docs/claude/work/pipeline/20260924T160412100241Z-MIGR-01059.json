@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-ONLY-17-OF-58-WIRED-GUARD-SELFTESTS-ASSERT-ON-A-RETURN-CODE-SO-F04S-STATED-DETECTOR-COULD-NOT-BE-MADE-A-GATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-ONLY-17-OF-58-WIRED-GUARD-SELFTESTS-ASSERT-ON-A-RETURN-CODE-SO-F04S-STATED-DETECTOR-COULD-NOT-BE-MADE-A-GATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-ONLY-17-OF-58-WIRED-GUARD-SELFTESTS-ASSERT-ON-A-RETURN-CODE-SO-F04S-STATED-DETECTOR-COULD-NOT-BE-MADE-A-GATE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "F-04's detector -- 'require each self-test to include at least one assertion on main([...])'s return or a subprocess return code' -- is measured at 17 of 58 wired self-tests, so it ships REPORTED rather than GATED. Gating it on day one would have failed 41 guards and redded every PR."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "⚠️ THE TOKEN IS IMPERFECT AND DISCLOSED AS SUCH, the same shape as MI-95's and MI-102's holds: the instruction is from the MANAGER SESSION (session_01Ljhs6sFAdWHdMDhJpL5aBP) that dispatched this one-question lane under the manager contract, not the operator directly, and the closed vocabulary has no token for 'a manager asked'. The manager contract (.claude/skills/manager/SKILL.md, § landing) states plainly: 'The manager merges; the lane stops.' This lane's own dispatch (docs/claude/work/MANAGER-CHECKLIST.json row E55) names the manager as owner of the checklist row and the merge. Holding is a process property of how lanes land under this contract, not a quality judgement on the PR. R12's condition was checked and is not met: the diff touches no file on check_pr_landing.py's LANDING_MACHINERY list.",
+  "why": "Tier-1 by path: scripts/research/**, scripts/ops/**, comms/**, tests/**, docs/** are all in TIER1_SURFACE. No config/, src/, deploy/, order-path, or live-VM runtime file touched. Evidence-corpus-and-harness-fidelity fix only (E55): models a leg's declared tp_r in the offline evidence harness so the corpus B1 reads for real-money promotion stops measuring a counterfactual no-TP leg. Regenerates 41 committed research records through the harness (never hand-edited); no roster, account or strategy-config change."
+}

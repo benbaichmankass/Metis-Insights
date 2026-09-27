@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The blocker message distinguishes three states, never collapsed, read from runtime_logs/ib_state.json: `live_session` (the owning id appears among the current clients - the existing wording is correct here), `retired_band_id` (in the band, NOT currently connected - say so, and do not tell the operator to stop the trader), and `unknown` (ib_state absent, stale, or unreadable - 'we could not look', which must read as the cautious case, not as retired). The refusal itself stays default-on in all three. A test asserts the message differs across the three and that none of them drops the refusal.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-CANCEL-IB-ORDER-BAND-GUARD-ASSERTS-A-LIVE-SESSION-IT-NEVER-CHECKED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-CANCEL-IB-ORDER-BAND-GUARD-ASSERTS-A-LIVE-SESSION-IT-NEVER-CHECKED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-CANCEL-IB-ORDER-BAND-GUARD-ASSERTS-A-LIVE-SESSION-IT-NEVER-CHECKED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] cancel-ib-order's clientId guard tests a BAND but tells the operator the trader owns the order and is live"
+}

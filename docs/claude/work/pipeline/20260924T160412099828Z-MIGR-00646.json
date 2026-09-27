@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) a Tier-3 PR proposes promoting tqqq_trend_long_1d / qld_trend_long_1d onto a real-money Alpaca account, citing >=20-30 clean closed paper trades per cell that track the backtest + a current account_compat_matrix ROUTE verdict (see promotion_prerequisite below — the risk adjustment is REQUIRED for that ROUTE) — and the operator approves; OR (b) a documented decision here that the paper soak diverged from the backtest (decay/gap drag, whipsaw) and the cells stay paper-only / are removed, with the evidence recorded.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260630-002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260630-002",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260630-002'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] Monitor the TQQQ/QLD leveraged-Nasdaq paper soak on alpaca_paper; gate any real-money (alpaca_live) promotion on a clean live track record + account_compat_matrix"
+}

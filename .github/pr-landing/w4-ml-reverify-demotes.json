@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-and-analyze only: one review artifact under comms/reviews/ (the W4 re-check of E72's two Tier-3 demote proposals), one new pipeline record under docs/claude/work/pipeline/, and this branch's landing declaration, arming file and merge-slot claim. No model stage or registry entry changed; no src/, config/, ml/configs/, deploy/, scripts/, workflow or order path. The demotion decision itself stays with the operator via the manager."
+}

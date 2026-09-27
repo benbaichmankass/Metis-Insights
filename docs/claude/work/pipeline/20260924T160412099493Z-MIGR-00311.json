@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "No graded row carries tp_appropriate/sl_appropriate unless its exit_reason is one of the declared-bracket mechanisms, and the review reports the by-mechanism split beside the grade histogram.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-GRADER-CALLS-A-RECONCILER-CLOSE-A-TAKE-PROFIT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The decision grader labels exit_quality from the R value, not from the exit MECHANISM — 56 of 81 graded closes (69%) are scored tp_appropriate/sl_appropriate on exits the strategy never made"
+}

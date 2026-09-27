@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The Work page distinguishes PARKED from ACCRUING — at minimum by reading `blockedOn[].kind == 'data_accrual'`, which the API already returns — and the operator confirms they can tell the two apart from the page. Whether OPEN-ITEMS rows should also surface there is a separate call. !! A MERGE IS NOT A DEPLOY AND A DEPLOY IS NOT THE OPERATOR SEEING IT.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-THE-ACCRUING-REGISTER-IS-OPEN-ITEMS-JSON-AND-THE-SPA-WORK-PAGE-DOES-NOT-RENDER-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-THE-ACCRUING-REGISTER-IS-OPEN-ITEMS-JSON-AND-THE-SPA-WORK-PAGE-DOES-NOT-RENDER-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-ACCRUING-REGISTER-IS-OPEN-ITEMS-JSON-AND-THE-SPA-WORK-PAGE-DOES-NOT-RENDER-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The register of work that is genuinely accruing (OPEN-ITEMS.json, 57 monitoring + 11 awaiting_verification) is not on the Work page, which is why the page shows a dormant pile and no accruing status"
+}

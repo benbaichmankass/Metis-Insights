@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A PR opened by claude-pr-automerge under GITHUB_TOKEN is OBSERVED carrying real CI -- i.e. get_check_runs on a bot-opened PR returns the repo's actual required checks (guards, pytest-collect, pytest-run, repo-inventory) and not only `open-and-automerge` -- OR the workflow is observed REFUSING to create a PR at all (adopt-only), so the zero-CI birth is unreachable by construction. Name the PR and paste the check-run census. !! A QUIET WEEK CLEARS NOTHING: the trap fires only when the workflow WINS the race against a session's own create_pull_request, so an absence of occurrences is not evidence the shape is gone -- it went 2026-09-08 (six) to 2026-09-10 (one) with no code change in between. !! RESTATING THE ORDERING RULE ANYWHERE CLEARS NOTHING: that is what already exists at CLAUDE.md line ~1522 and what seven occurrences falsify. !! AND ONE SESSION FOLLOWING THE TWO-PUSH ORDER CORRECTLY (as PR #11700 did) IS NOT A FIX -- it is one session, and the row is about the default.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-CLAUDE-PR-AUTOMERGE-ORDERING-TRAP-RECURS-A-SEVENTH-TIME-BECAUSE-THE-REMEDY-IS-AN-ORDERING-RULE-WHOSE-VIOLATION-IS-THE-DEFAULT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-CLAUDE-PR-AUTOMERGE-ORDERING-TRAP-RECURS-A-SEVENTH-TIME-BECAUSE-THE-REMEDY-IS-AN-ORDERING-RULE-WHOSE-VIOLATION-IS-THE-DEFAULT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-CLAUDE-PR-AUTOMERGE-ORDERING-TRAP-RECURS-A-SEVENTH-TIME-BECAUSE-THE-REMEDY-IS-AN-ORDERING-RULE-WHOSE-VIOLATION-IS-THE-DEFAULT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE (7th): a PR born under GITHUB_TOKEN carries ONE GREEN check and no real CI -- documented in CLAUDE.md, hit anyway, because the remedy is a two-push ordering rule"
+}

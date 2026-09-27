@@ -1033,10 +1033,10 @@ def build_parser() -> argparse.ArgumentParser:
     """
     p = argparse.ArgumentParser(
         description="Backtest ict_scalp_5m (net-of-cost: fee+slippage+funding).")
-    p.add_argument("--data", default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"),
+    p.add_argument("--data", default=None,
                    help="OHLCV CSV path (default: $BACKTEST_DATA_PATH or data/backtest_candles.csv).")
     p.add_argument("--timeframe", default="5m", help="Strategy timeframe label (default: 5m).")
-    p.add_argument("--symbol", default="BTCUSDT")
+    p.add_argument("--symbol", default=None)
     p.add_argument("--start", default=None,
                    help="Window start (ISO date, inclusive). Applied BEFORE "
                         "--warmup-bars, so the window's own first bars pay the "
@@ -1158,10 +1158,40 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+# --- canonical (symbol, timeframe) -> candle-file resolver -----------------
+# THE ONE WAY this harness gets candles: scripts/ops/backtest_data_source.py
+# wraps scripts/research/m20_fleet_exit_sweep.py::resolve_data (the single
+# (symbol, timeframe) -> file mapping; not re-derived here). Loaded by path,
+# not `from ... import`, because scripts/ is not a package -- the same
+# pattern scripts/backtest_trend.py uses. See docs/reference/backtest-data-loading.md.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location(
+    "_backtest_data_source", str(_REPO_ROOT / "scripts" / "ops" / "backtest_data_source.py"))
+_backtest_data_source = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_backtest_data_source)  # noqa: E402
+
+
 def main(argv: List[str]) -> int:
     global FEE_BPS_ROUNDTRIP, SLIPPAGE_BPS_ROUNDTRIP, FUNDING_BPS_PER_WINDOW, FUNDING_WINDOW_HOURS
     p = build_parser()
     args = p.parse_args(argv[1:])
+    # --- data-source resolution (BL-20260912-FIFTEEN-MORE-HARNESSES...) ---
+    # --data/--symbol default to None so a bare invocation REFUSES rather
+    # than silently reaching the 5,001-row BTC fixture (docs/claude/work/
+    # MANAGER-CHECKLIST.json row E4). The fixture still works -- pass it
+    # explicitly: --data data/backtest_candles.csv.
+    _src = _backtest_data_source.resolve_or_refuse(
+        args.symbol, args.timeframe, args.data,
+        legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv"))
+    if not _src.ok:
+        print(_backtest_data_source.refusal_message(
+            _src, harness="backtest_ict_scalp.py",
+            legacy_default=os.environ.get("BACKTEST_DATA_PATH", "data/backtest_candles.csv")),
+            file=sys.stderr)
+        return 2
+    args.data = _src.path
+    args.symbol = args.symbol or "BTCUSDT"
+    print(_src.provenance_line(), file=sys.stderr)
     # Mandatory venue-aware cost policy (operator directive 2026-08-04): a faithful
     # backtest is net-of-real-cost by default. Unset flags resolve to the venue-aware
     # defaults (funding is perp-only → 0 for a non-perp, never a fabricated cost); an

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "check_pr_landing (or a sibling CI step) READS the PR's live auto-merge state — not the arming file — and FAILS when auto_merge is enabled while the landing declaration says hold, or while R4/R5 refuse self-landing. Verified by a POSITIVE CONTROL, because the whole defect is a check that passes on a state it cannot see: arm a scratch PR, let the workflow enable auto-merge, remove the arming file and declare hold, and observe the guard FAIL — a guard that stays green there has not been fixed, it has been re-verified as blind. NOT SUFFICIENT: removing the arming file (the observed no-op); a green run on a PR that was never armed (it cannot distinguish the fix from the defect); or documenting the two-push order in prose — that guidance ALREADY exists in CLAUDE.md and was violated six times in two days, which is why this needs a mechanism rather than a reminder.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-REMOVING-THE-ARMING-FILE-DOES-NOT-DISARM-AUTO-MERGE-GITHUB-HAS-ALREADY-ENABLED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-REMOVING-THE-ARMING-FILE-DOES-NOT-DISARM-AUTO-MERGE-GITHUB-HAS-ALREADY-ENABLED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-REMOVING-THE-ARMING-FILE-DOES-NOT-DISARM-AUTO-MERGE-GITHUB-HAS-ALREADY-ENABLED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pr-landing R10 grades the ARMING FILE, but auto-merge GitHub has already enabled SURVIVES the file's removal — so a PR can be declared `hold` and still auto-merge"
+}

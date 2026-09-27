@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A session that reads the board and reports 'no open MERGE SLOT CLAIM' can point to the evidence that its read reached the END -- a short page, or an empty probe past the last index -- and not merely to the page it happened to fetch. Concretely closeable by either: (a) both protocol surfaces carrying the short-page assertion AND a subsequent session's claim comment citing it (e.g. 'perPage=3 page=N returned 2 => tail'), or (b) a helper that establishes the end programmatically and is actually invoked by the merge preflight. Note what does NOT close this: adding a sentence telling sessions to 'be careful' or 'read the newest comments', which is what both docs already said while the violation happened.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-BOARD-TAIL-READ-CANNOT-ASSERT-IT-REACHED-THE-END",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-BOARD-TAIL-READ-CANNOT-ASSERT-IT-REACHED-THE-END",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-BOARD-TAIL-READ-CANNOT-ASSERT-IT-REACHED-THE-END'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The coordination-board tail read has no way to assert it reached the END, so a full page of comments is byte-indistinguishable from the real tail -- and 'no open MERGE SLOT CLAIM' gets reported off a page boundary"
+}

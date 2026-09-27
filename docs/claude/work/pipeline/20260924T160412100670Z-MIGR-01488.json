@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies (automerge fires on claude/** only, nothing refuses landing: self on other prefixes); landing-machinery family, E49. EVIDENCE: MEASURED 2026-09-24: .github/workflows/claude-pr-automerge.yml:71-72 push branches ['claude/**']; grep 'lane/' in check_pr_landing.py and the manager SKILL.md -> none.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The manager dispatch template names the `claude/` branch prefix as REQUIRED for any lane expected to self-land, AND either check_pr_landing.py fails a `landing: \"self\"` declaration on a branch the automerge trigger cannot match, or the trigger's filter is widened to cover the prefixes lanes actually use. A doc line alone does NOT clear it: the failure is silent and a reader cannot see it.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-JN54P2HH-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager, 2026-09-22); resolved by the E28 lane's report, confirmed against .github/workflows/claude-pr-automerge.yml on origin/main",
+    "rerun": "grep -n -A2 '^on:' .github/workflows/claude-pr-automerge.yml   # the push branches filter"
+  },
+  "routed_to": "E49 (landing machinery)",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "THE `claude/` BRANCH PREFIX IS LOAD-BEARING FOR SELF-LANDING AND NOTHING SAYS SO. `.github/workflows/claude-pr-automerge.yml` fires on `push: branches: [\"claude/**\"]`. A lane that branches as `lane/...` — as the whole E42 family did, and as E28's first branch did — has its request file, its merge-slot claim and green checks, declares `landing: \"self\"`, and NEVER SELF-LANDS, with no error anywhere. MEASURED 2026-09-22: it cost #12744 a hand-merge that destroyed an in-flight observation, cost E28 a hand-arm on #12743, and produced a false 'the self-land route may be broken' finding that took two lanes and the manager to unwind. [!] THE FIX IS EITHER END AND THE CHOICE MATTERS: teach check_pr_landing.py to FAIL a self-land declaration on a branch the trigger cannot match (fails loudly at declaration time, which is the repo's own preference for silent conditions), or widen the trigger. A line in the dispatch template is necessary but NOT sufficient — the whole defect is that nothing reports it."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) api-contract.mjs distinguishes a field the consumer reads that is present in the fixture but NOT in a payload captured from the CURRENTLY DEPLOYED bot -- which needs the checker to know a live-capture provenance stamp, so the honest minimum is that a fixture declares whether it was captured from a deployed or a patched bot and the checker REPORTS that rather than passing silently; OR (b) it is recorded as a DECISION that the checker deliberately validates only the post-deploy contract, with the consequence stated -- that every cross-repo field addition must handle its own absence -- and that duty written where an author of such a pair will read it. !! A GREEN RUN CLEARS NOTHING: green is precisely what this row records as uninformative. !! AND FIXING THE ONE FIXTURE CLEARS NOTHING EITHER -- the MI-254 fixture is correct and honest; the gap is that nothing generalises it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-API-CONTRACT-FIXTURE-CAN-BE-AHEAD-OF-THE-DEPLOYED-BOT-SO-IT-CANNOT-CATCH-A-CONSUMER-READING-A-FIELD-NOTHING-SERVES-YET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-API-CONTRACT-FIXTURE-CAN-BE-AHEAD-OF-THE-DEPLOYED-BOT-SO-IT-CANNOT-CATCH-A-CONSUMER-READING-A-FIELD-NOTHING-SERVES-YET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-API-CONTRACT-FIXTURE-CAN-BE-AHEAD-OF-THE-DEPLOYED-BOT-SO-IT-CANNOT-CATCH-A-CONSUMER-READING-A-FIELD-NOTHING-SERVES-YET'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] webapp/tests/api-contract.mjs validates SPA field reads against a RECORDED fixture, which is routinely captured from a locally-patched bot -- so it passes on a field the DEPLOYED bot does not serve, and cannot see the pre-deploy window in which every row reading that field renders as a false negative"
+}

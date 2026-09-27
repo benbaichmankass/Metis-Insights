@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "It is ESTABLISHED, with a named denominator, which of the two it is: the signals table genuinely holds no rows in the window (a real measurement of the system), or the read is broken (a defect). Either answer closes this row; `it returned 0 again` does not.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E32-SIGNALS-RETURNS-ZERO-ROWS-AND-WE-COULD-NOT-ESTABLISH-WHY",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01SVqDYb7UMYjzNqZrdLdDjt, checklist rows E31+E32, PR #12738 branch claude/e31-runtime-loaded-config",
+    "rerun": "for q in '' '?limit=5' '?limit=50' '?hours=720' '?limit=50&hours=2000'; do curl -s \"https://ict-bot.duckdns.org/api/bot/signals$q\" | head -c 200; echo; done # and cross-check the signals table directly via the Data Explorer, which is the denominator this probe lacks"
+  },
+  "state": "queued",
+  "what": "MEASURED 2026-09-22: /api/bot/signals returns 0 rows under EVERY shape tried -- bare, limit=5, limit=50, hours=720, and limit=50&hours=2000 (an 83-day window). [!] I COULD NOT ESTABLISH WHETHER THAT IS `no signals` OR `a broken read`, AND I AM NOT GUESSING. That distinction is the whole subject of the row this was found under (E32): a negative from a probe with no positive control proves nothing, and `we could not look` must not be recorded as `we looked and found nothing`. The honest next step is a denominator -- read the signals table directly rather than through the route, so the route and the data are separable. Carried into docs/reference/verifying-what-is-trading.md § 'What we still cannot see' as item 3."
+}

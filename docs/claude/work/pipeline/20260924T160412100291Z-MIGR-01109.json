@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-THE-DAILY-BRIEF-IS-AN-OPERATOR-SET-DAILY-DELIVERABLE-AND-HAS-BEEN-PRODUCED-ONCE-IN-ELEVEN-DAYS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260913-THE-DAILY-BRIEF-IS-AN-OPERATOR-SET-DAILY-DELIVERABLE-AND-HAS-BEEN-PRODUCED-ONCE-IN-ELEVEN-DAYS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-THE-DAILY-BRIEF-IS-AN-OPERATOR-SET-DAILY-DELIVERABLE-AND-HAS-BEEN-PRODUCED-ONCE-IN-ELEVEN-DAYS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The daily brief is a manager close-out deliverable with an operator-stated acceptance criterion, is guarded on every PR, is named in NO skill — and exactly ONE has ever been produced, eleven days ago"
+}

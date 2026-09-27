@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "BOTH, and they are different facts. (a) A run of e35-bracket-sweep.yml with only=qld_trend_long_1d,tqqq_trend_long_1d completes ON A RUNNER with both legs SCHEDULED (not refused) and its own fetch step reporting a non-trivial row count for each — read the run log, never the workflow file, and record the feed_source the planner emitted. ⚠️ A GREEN RUN WITH BOTH LEGS REFUSED CLEARS NOTHING and is the failure being watched; so does an empty `legs` list, which the sweep exits 0 on (BL-20260826-E35-RUNNER-WRITES-A-FILENAME-THE-SWEEP-NEVER-READS). ⚠️ The planner selftest passing clears nothing either — 66 assertions pass in a harness and a harness cannot reach a runner. (b) The operator decides on § 6: either tp_intent moves to mode: none with a reason naming the measured reachability ceiling (NOT the trail_is_the_profit_exit the other 20 legs carry, which would lose exactly the fact this cost a session to buy), or they decide to leave it — which is legitimate and must be RECORDED as a decision rather than left looking like an edit about to happen. ⚠️ IF THE RUNNER RUN DISAGREES WITH THE LOCAL ONE, that does NOT clear this row and is the more valuable finding — the two substrates differ (Yahoo direct vs the fetcher) and a divergence would say the positive control was not sufficient. Write it into observation and keep the row open.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260908-QLD-TQQQ-EXAMINED-LOCALLY-AND-THE-CI-FEED-PATH-HAS-NEVER-RUN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260908-QLD-TQQQ-EXAMINED-LOCALLY-AND-THE-CI-FEED-PATH-HAS-NEVER-RUN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260908-QLD-TQQQ-EXAMINED-LOCALLY-AND-THE-CI-FEED-PATH-HAS-NEVER-RUN'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by R7: both legs now carry a committed measured evidence record produced by build_strategy_evidence.py; the e35-bracket-sweep runner feed this row waited on is C4/E7's concern. EVIDENCE: MEASURED 2026-09-24: comms/strategy_evidence/qld_trend_long_1d.json and tqqq_trend_long_1d.json coverage_state=measured. Both legs sit on a paper roster (config/accounts.yaml:1118-1119).",
+  "what": "[LOUD] qld_trend_long_1d and tqqq_trend_long_1d are EXAMINED and the answer is a measured `none` — but the CI feed path that is supposed to produce that evidence has never run, and config still says `unexamined`"
+}

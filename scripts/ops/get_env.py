@@ -113,6 +113,9 @@ ALLOWED_KEYS: tuple[str, ...] = (
     # neither.
     # Both values are safe to publish: a fixed mode string, and an account-id
     # CSV — the same class as ACCOUNT_DOWN_ALERT_SKIP, which carries no secret.
+    # ⚠️ RETIRED BY E35 (2026-09-25): nothing reads either any more — every
+    # account elects per account and there is no allowlist. They stay readable
+    # here so the post-deploy step can CONFIRM they were unset.
     "ARBITRATION_FANOUT_MODE",
     "ARBITRATION_FANOUT_ACCOUNTS",
     # CENTRALIZED_ALLOCATOR + MULTI_STRATEGY_INTENT_LAYER (2026-09-12, MI-279):
@@ -122,7 +125,8 @@ ALLOWED_KEYS: tuple[str, ...] = (
     #
     # ⚠️ CENTRALIZED_ALLOCATOR is a PRECONDITION for reading the per-account
     # arbitration fan-out at all: `pipeline.py` takes the typed-allocator branch
-    # ABOVE `_fanout_apply_rounds`, so if it is true the fan-out never runs and
+    # INSTEAD OF the per-account rounds (`_dispatch_rounds` since E35), so if it
+    # is true the per-account election never routes and
     # a fan-out repair is the wrong fix however correct its diff. That is
     # `BL-20260912-THE-ARBITRATION-FANOUT-APPLY-PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-VALIDATES`'s
     # own stated first question, and it could not be answered from anywhere.

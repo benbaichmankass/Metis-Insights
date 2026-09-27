@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-R6-GRADES-HISTORICAL-COMMITS-SO-A-TRUE-LAPSE-IS-PERMANENTLY-UNMERGEABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-R6-GRADES-HISTORICAL-COMMITS-SO-A-TRUE-LAPSE-IS-PERMANENTLY-UNMERGEABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-R6-GRADES-HISTORICAL-COMMITS-SO-A-TRUE-LAPSE-IS-PERMANENTLY-UNMERGEABLE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "check_manager_scope R6/R7 grade every manager commit in the range, so a TRUE supervision lapse makes its PR unmergeable forever — the only exits are an exception (refused) or a branch rebuild (which has now twice caused collateral defects)"
+}

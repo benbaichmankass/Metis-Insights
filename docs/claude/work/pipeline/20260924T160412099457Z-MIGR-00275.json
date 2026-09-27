@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "OBSERVABLE: a fold in which the lever never fires must NOT be counted as a win. Either (a) `wf_wins`/`wf_summary` count only folds with a non-zero delta and report the inert count separately, or (b) a fold with `d_net_r == 0.0 and d_max_dd == 0.0` gets a distinct third state (not `ok: True`), registered with collapsed-state-guard so producer and consumer are both checked. PLUS a planted control: a cell whose folds are all inert must not come back `6/6`, demonstrated by RUNNING it — a quiet pass proves nothing. AND the fold window must state its coverage against the OOS window, so a delta originating outside every fold cannot read as walk-forward-confirmed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] m20_fleet_exit_sweep's walk-forward reports `wf_summary: 6/6` on six folds where the lever changed NOTHING — and the folds do not cover the years the OOS delta comes from"
+}

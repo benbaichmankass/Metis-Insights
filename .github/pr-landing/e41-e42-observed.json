@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/MANAGER-CHECKLIST.json only — two row-state flips (E41 landed_unproven->done, E42 in_flight->done) and their notes. Both close on a MEASURED post-deploy observation of GET /api/bot/runtime-config, not on a merge. No code, no config, no order path, no account mode, no roster membership. docs/** is in TIER1_SURFACE.",
+  "verification": "check_manager_checklist_vocabulary.py EXIT 0; pipeline.py --check EXIT 0; the closing observation itself read from the live endpoint pre and post deploy (#12825): boot_utc 10:16:49Z -> 11:18:11Z, pid 38154 -> 62247, strategies digest 2669a35d0047 -> b9d95c4c098d, accounts digest UNCHANGED as a negative control, roster_state ok, 55 legs, 11 accounts, process_state observed, verdict CURRENT, ticking at tick_age 3.3s."
+}

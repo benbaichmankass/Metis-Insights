@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260913-THE-PER-BRANCH-MERGE-SLOT-ROUTE-IS-UNVOUCHABLE-BY-CHECK-MANAGER-SCOPE-SO-A-MANAGER-CANNOT-TAKE-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260913-THE-PER-BRANCH-MERGE-SLOT-ROUTE-IS-UNVOUCHABLE-BY-CHECK-MANAGER-SCOPE-SO-A-MANAGER-CANNOT-TAKE-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260913-THE-PER-BRANCH-MERGE-SLOT-ROUTE-IS-UNVOUCHABLE-BY-CHECK-MANAGER-SCOPE-SO-A-MANAGER-CANNOT-TAKE-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The per-branch merge-slot route is unvouchable by check_manager_scope R2, so a manager is forced back onto the shared field the route exists to replace"
+}

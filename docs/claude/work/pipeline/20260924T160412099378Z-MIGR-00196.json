@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "This row is CLOSED by evidence about the transfer gap, not by a passing leg.\n  1. The live arm reaches n >= MIN_OOS_TRADES (25) on at least one leg -- `ict_scalp_5m` sits at 24, ONE short, so its own direction is recorded but cannot yet carry a verdict.\n  2. A stated diagnosis of the base-rate/hold-length shift: either the training population is changed to include live rows (see the augmentation debt the training-population guard already tracks), or the tau policy is recalibrated ON live rows, or the gap is shown to be an artifact of n=24.\n  3. A re-run showing whether the harness->live inversion reproduces on a SECOND leg. One leg is one leg; the sibling legs cannot test it until their live arms are non-empty (BL-20260813-EXIT-HEAD-LIVE-ARM-DROPPED-ON-NO-CANDLES).\nREFUSED as evidence: a harness-only round, however many folds it passes. That is the exact artifact this row exists to record.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-EXIT-HEAD-HARNESS-PASS-DOES-NOT-SURVIVE-THE-LIVE-BOOK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-EXIT-HEAD-HARNESS-PASS-DOES-NOT-SURVIVE-THE-LIVE-BOOK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-EXIT-HEAD-HARNESS-PASS-DOES-NOT-SURVIVE-THE-LIVE-BOOK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The exit head's harness arm passed 3/3 folds and LOST to doing nothing on the live book -- measured on the ONE leg where both arms exist, so no `candidate` verdict in the program currently means what it reads as"
+}

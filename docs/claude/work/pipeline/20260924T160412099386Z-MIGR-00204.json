@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "`grep -rn 'claude-vm-runner' scripts/` returns zero hits outside purge_vm_runner.sh and its historical references, and every touched operator action still runs clean in a dry-run dispatch.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-VM-RUNNER-INERT-GUARDS-CLEANUP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Eight operator-action scripts still guard against a claude-vm-runner that no longer exists"
+}

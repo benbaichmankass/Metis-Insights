@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) an operator decision on record for mgc_trend_1h — demoted to shadow so its status matches its behaviour, given its own routing, or accepted as-is with the reason stated — OR (b) a recorded arbitration policy for legs sharing a netted (account, symbol), so which leg owns a contended symbol is a decision rather than an arrival-order accident. VERIFICATION, and a code change alone does NOT close it: re-read order_packages for mgc_trend_1h and show EITHER a non-zero fill rate over at least 20 decisions, OR the leg no longer emitting live decisions. Re-running the same contention join and getting a lower concurrency share is the check. ⚠️ Do NOT close this on the observation that MGC occupancy fell — occupancy is a market-dependent quantity and a quiet month would produce the same reading with nothing fixed; the closure must show the ROUTING or the DISPOSITION changed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] mgc_trend_1h is execution:live and produced 95 decisions and ZERO fills in 5 weeks — a sibling leg owns MGC on ib_paper 73.3% of the time, so its evidence clock cannot run"
+}

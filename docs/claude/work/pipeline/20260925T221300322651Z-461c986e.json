@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "checklist row B3 carries a state consistent with f6466583f being merged (landed_unproven or done) and names PR #12963 in `prs`, OR the manager states why `queued` is correct",
+    "kind": "event"
+  },
+  "id": "PI-20260925-HSMBU7G9-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Nrp6ZbnQ1rYuGnhSmbu7G9 (mandate-derisk-autoland lane)",
+    "rerun": "python3 -c \"import json;d=json.load(open('docs/claude/work/MANAGER-CHECKLIST.json'));print([r for r in d['items'] if r['id']=='B3'])\" && git log --oneline --all --grep='B3: R4 as the Stage-2 DEMOTION gate' -- expect the row's state to be `queued` with `prs: []` while the commit exists"
+  },
+  "state": "queued",
+  "what": "STALE CHECKLIST ROW: B3 reads state `queued` with `prs: []`, but B3 IS BUILT AND MERGED -- f6466583f, PR #12963, 'B3: R4 as the Stage-2 DEMOTION gate (enforcer + daily runner) -- Tier-2, HELD', which was the tip of `main` on 2026-09-25. `queued` means nobody has started it, so the next session reading the checklist routes a lane to BUILD scripts/ops/r4_demotion_gate.py and .github/workflows/r4-demotion-gate.yml, both of which already exist on main. The row is the MANAGER's to correct, not a lane's -- the true state looks like `landed_unproven` (merged, never armed: nothing has observed the 07:41Z schedule fire), and its done-when should name the observation that closes it. Found by the mandate-derisk-autoland lane while reading B3 for context."
+}

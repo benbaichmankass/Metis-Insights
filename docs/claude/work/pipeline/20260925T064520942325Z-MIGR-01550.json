@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a session observes a live 1h bar close while one of the three wired legs has an open position, and confirms the exit head does (or does not) produce a new shadow_predictions.jsonl row for it -- settling whether the 17:06-18:32 eth gap was a real missed firing or expected bar-close timing.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-Y2NFASK3-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane E74, session_015rQJ6stNY7ixzRy2NfASk3, comms/reviews/e74-ml-followups-20260924.json part_a",
+    "rerun": "api/bot/trades/closed?include_paper=true&limit=200 and api/bot/positions?include_paper=true (vm-diag-snapshot) to re-check whether trend_donchian/trend_donchian_sol/trend_donchian_eth have traded since; if one is open, watch api/diag/log_file?name=shadow_predictions in real time across its next 1h bar close to directly observe whether a firing occurs."
+  },
+  "severity": "low",
+  "state": "queued",
+  "tier": 1,
+  "what": "Correction to PI-20260924-JQHBBTOS-0001's '~37 missed firings' framing for exit-head-donchian-1h-v1's 2026-09-22T17:06Z silence. MEASURED this session (E74): of the three legs wired to this exit head (trend_donchian BTC, trend_donchian_sol, trend_donchian_eth), trend_donchian and trend_donchian_sol were ALREADY flat before the silence began (last closed 2026-09-21T08:48:37Z and 2026-09-21T14:04:32Z respectively, per api/bot/trades/closed?limit=200 read 2026-09-24T22:2xZ), and trend_donchian_eth was open through the silence's start but closed only ~86 minutes later (2026-09-22T18:32:21Z) and has not reopened since (none of the three appear in the current api/bot/positions list). So the ~53h gap is substantially explained by these three legs having almost no open-position time to score, not by a functional break in the scorer -- journalctl for ict-trader-live across the window (issues #12906, #12908) shows the service running continuously with no traceback near 17:06. NOT resolved this session: whether the ~86-minute eth-still-open window (17:06->18:32) should have produced at least one more scoring event under the model's own bar-close gating and didn't -- a single potential missed firing, distinct from the '~37' figure, that a future session with a live donchian position open could confirm or rule out by watching the log in real time."
+}

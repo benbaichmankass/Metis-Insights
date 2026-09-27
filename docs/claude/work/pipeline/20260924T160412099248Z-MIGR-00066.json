@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A session that was NOT pointed here by its prompt cites one of these packs as WHERE it learned about the work store / cycle priority / WIP ceiling, AND says what it did differently because of it. Record which session and which pack. !! A GREEN GUARD DOES NOT CLEAR THIS -- it proves the pointer exists, which is a deploy, not a reading; the same distinction that keeps OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION open. !! A SESSION POINTED HERE BY ITS PROMPT CANNOT CLEAR IT, for the reason the MHG row names: it has been told. !! AND 'a session read it and ignored it' does NOT clear this either -- that is a different and more useful finding, and belongs in `observation` rather than being treated as a pass.",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "The operating model's anti-silo mechanism is `context = work object + role pack`, and its two halves were wired to different systems: the object half shipped 2026-09-01 and not one role pack knew it existed. Six situating packs (session-coordination, session-handoff, doc-freshness, duty, research-driver, delegate-work) now name the work store, the cycle priority, the constraint readout and the enforced WIP ceiling -- and scripts/ci/check_role_pack_operating_layer.py KEEPS them pointing there, because a one-time prose edit decays silently on the next rewrite. !! NO SESSION HAS BEEN OBSERVED ACTING ON ANY OF IT."
+}

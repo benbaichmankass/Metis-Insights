@@ -1,0 +1,21 @@
+{
+  "a10_note": "Still applies and E27 (queued) is the row it blocks. EVIDENCE: MEASURED 2026-09-24: grep -rn 'restart.web.api' docs/claude/system-actions.md .github/workflows/system-actions.yml -> empty; positive control grep -c restart-bot-service docs/claude/system-actions.md -> 14.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "`restart-web-api` is dispatchable through the system-actions allowlist AND has been run once against ict-web-api.service with its post-state read back. ⚠️ The row it unblocks (E27) needs a SECOND, separate observation to close: the diag probe that returns HTTP 400 `unknown_unit` for journalctl?unit=ssh.service today returning 200 WITH journal lines. Do not read the restart landing as E27 closing — that is the merged/deployed/observed collapse this row is about.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-E27-MERGED-BUT-NO-ALLOWLISTED-ACTION-CAN-RESTART-THE-WEB-API",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager (session_01XQhayAHWdrSYv8jN54P2HH), 2026-09-22, found while trying to deploy E27 after merging #12729",
+    "rerun": "Two greps and one read, all cheap. (1) `grep -rn 'restart.web.api' docs/claude/system-actions.md .github/workflows/system-actions.yml` — an empty result is the finding. POSITIVE CONTROL, which is what makes the empty result trustworthy: the same grep for 'restart-bot-service' MUST return hits in both files; if it does not, the probe is broken, not the allowlist. (2) `grep -n '^UNIT=' scripts/ops/restart_bot.sh` must still read ict-trader-live.service. (3) confirm scripts/ops/restart_web_api.sh still exists."
+  },
+  "routed_to": "E27",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "E27 MERGED (#12729, 2026-09-22) AND CANNOT BE DEPLOYED, so the row it closes cannot close. Its change adds `ssh.service` to `_CANONICAL_UNITS` in src/web/api/routers/diag.py — code served by `ict-web-api.service`. MEASURED 2026-09-22 against the allowlist: `restart-bot-service` wraps scripts/ops/restart_bot.sh, whose `UNIT=\"ict-trader-live.service\"` — it restarts THE TRADER, not the web API. `scripts/ops/restart_web_api.sh` EXISTS in the repo and names ict-web-api.service four times, but grep finds it in NEITHER docs/claude/system-actions.md NOR .github/workflows/system-actions.yml, so there is no dispatch path for it. [!] THE SHAPE OF THIS IS THE POINT AND IT GENERALISES BEYOND E27: any merged change to the web API's own code is UNDEPLOYABLE by a session today. `ict-git-sync` pulls main every ~5 min, so the FILE reaches the VM and the RUNNING PROCESS keeps the old code — which is precisely the merged-vs-deployed collapse E31 exists to make visible, arriving here as a concrete stranded change rather than a principle. [!] AND THE WORKAROUNDS ARE WORSE THAN THE GAP, stated so a later session does not reach for one: `reboot-vm` restarts everything including the live trader and needs a sudoers entry that may not exist; `fix-data-dir` and `set-env` restart the web API as a SIDE EFFECT of doing something else, so using either as a restart vector means dispatching a mutation for its side effect — exactly the kind of off-label use the allowlist exists to prevent. Neither should be used for this. [!] WHAT THE FIX IS: add `restart-web-api` to the allowlist the way § 2 requires — the doc, the workflow's `inputs.action.options`, the wrapper mapping in system-actions.yml, and the priority case. Tier 2, single unit, restart-only, and the script it wraps already exists and already reads its pre/post is-active state."
+}

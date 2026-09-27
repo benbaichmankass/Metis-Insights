@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. Measure the CURRENT extent, not this one line: for every Bybit account and symbol, compare summed open journal qty to the exchange position, and record the population (accounts x symbols scanned), not just the hits. A per-symbol table is the deliverable.\n2. Identify which specific open row(s) on bybit_portfolio/ETHUSDT are phantom and how they were created - the netting partial-close attribution reconciler (NETTING_ATTRIBUTION_MODE, currently annotate) already writes candidate rows to netting_attribution_soak.jsonl; check whether these appear there before hypothesising a new mechanism.\n3. Only then decide the writeback (Tier-2). Do NOT close a row on the strength of a single snapshot - the 2-observation confirm exists because an unconfirmed exchange read is not proof of flatness.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-BYBIT-PORTFOLIO-ETH-JOURNAL-DIVERGENCE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-BYBIT-PORTFOLIO-ETH-JOURNAL-DIVERGENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-BYBIT-PORTFOLIO-ETH-JOURNAL-DIVERGENCE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [bybit] bybit_portfolio ETHUSDT journal over-reports the exchange by 13.96 (35.01 vs 21.05) - at least one phantom open row on the paper-portfolio mirror, which is the book the UIs label 'Paper'"
+}

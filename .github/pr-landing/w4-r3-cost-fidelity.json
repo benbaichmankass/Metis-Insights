@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist row R3 (W4 lane, dispatched by manager session_01Ljhs6sFAdWHdMDhJpL5aBP): a pre-registered Gate-1 rule doc, a read-only research script (scripts/research/r3_cost_fidelity.py, reusing D3's realized_slippage.measure unchanged), its tests, a committed measurement record under comms/research/r3_cost_fidelity/, and note/state updates to checklist rows R3 and E62 only. No src/, no config/, no roster, no order or close path, no execution_costs default, no evidence record, no mandate touched. The Tier-2 resolver change this measurement motivates is deliberately NOT in this diff; it is proposed to the operator via the manager."
+}

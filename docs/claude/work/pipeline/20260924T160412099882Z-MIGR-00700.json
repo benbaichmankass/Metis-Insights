@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A shadow-log READER resolves the rotated archives, not only the single live file — i.e. some consumer globs `shadow_predictions.????-??-??*` the way scripts/ops/sync_trainer_data.sh:339-342 already does on the WRITE side — AND a trade-vs-score join is observed reaching past the live log's rotation boundary (rotate_shadow_log.py:38-39, 100 MiB or 7 days). ⚠️ EXPLICITLY NOT SUFFICIENT: archives landing on the trainer. That half SHIPPED on 2026-08-16 (a620f2a8, PR #9612) and is EXERCISED, and the horizon did NOT move, because nothing reads them — see this row's 2026-09-02 update for the measurement. Closing on the sync alone would be the 'artifact reports success true relative to its own scope while the scope is wrong' failure that docs/CLAUDE-RULES-CANONICAL.md § 'Green is not evidence' names. [Authored 2026-09-02 by backlog-drain #3 FROM ITS OWN MEASUREMENT, not from the row — the row's own latest prose ('Trigger: enough shadow history to make the trade-vs-score join viable') names no threshold and is not checkable, and is also superseded: see the update.]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260712-SHADOW-LOG-HISTORY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260712-SHADOW-LOG-HISTORY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260712-SHADOW-LOG-HISTORY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] Shadow-prediction history horizon limits trade-vs-score research joins"
+}

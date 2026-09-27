@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "--min-fold-trades carries a stated basis pointing at the derivation; the coverage matrix stops citing the 100-trade bar; and the 7 daily legs are dispositioned on the derivation's finding (no block size helps) rather than on 'not enough trades yet'. The upstream question — is the exit head's edge real and consistent — is tracked separately, since this row cannot close it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-EXIT-HEAD-ML-1D-LEGS-UNREACHABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] exit_head_ml: the E1 block size is now DERIVED (keep 50) — and the derivation says no block size makes the 7 daily legs gradeable"
+}

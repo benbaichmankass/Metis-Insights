@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "ONE of the following, and the first is preferred because it removes the ambiguity rather than documenting it. (a) coverage() distinguishes the two cases -- e.g. it RAISES (or returns a distinct sentinel) when 'total' is absent from a non-empty counts mapping, so a wiring error fails loud instead of rendering as caution, while a genuinely empty window still returns None. (b) coverage() derives the denominator from the four bucket counts when 'total' is absent, making the key optional rather than load-bearing. (c) The operator/owner decides the explicit-total contract is correct and it is RECORDED, with split_counts named in the docstring as the required producer and the hand-built path called out as unsupported. !! WHICHEVER IS CHOSEN, THE None-MEANS-EMPTY-WINDOW SEMANTICS MUST SURVIVE IT -- collapsing that back into 0.0 would undo the distinction the module exists for and is a strictly worse outcome than the bug being fixed. !! AND ANY CHANGE NEEDS THE EXISTING CONSUMERS RE-READ: performance.py, shadow.py and _pnl_provenance.py all render coverage to an operator-facing surface, so a new raising path must not be able to 5xx a read route.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-PROVENANCE-COVERAGE-READS-A-CALLERS-MISSING-TOTAL-KEY-AS-NO-DENOMINATOR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-PROVENANCE-COVERAGE-READS-A-CALLERS-MISSING-TOTAL-KEY-AS-NO-DENOMINATOR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-PROVENANCE-COVERAGE-READS-A-CALLERS-MISSING-TOTAL-KEY-AS-NO-DENOMINATOR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] provenance.coverage() keys its denominator on an explicit 'total' and returns None without it, so a caller that builds its counts dict by hand gets the 'we could not look' value while holding a perfectly good denominator"
+}

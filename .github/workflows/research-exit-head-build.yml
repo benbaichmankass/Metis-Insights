@@ -355,7 +355,16 @@ jobs:
   # different and more actionable fact than silence.
   research_result:
     needs: [build]
-    if: always()
+    # ⚠️ `always()` ALONE LANDED A FALSE RECORD FOR EVERY ISSUE IN THE REPO
+    # (E57, 2026-09-24). This workflow triggers on EVERY `issues: opened` -- the
+    # label filter is on `build`, not on the trigger -- so each diag relay and
+    # system-action issue started a run whose `build` was SKIPPED, and this job
+    # then emitted `read_state: producer_failed` for a run that never tried.
+    # MEASURED: 13 of 13 `automation/research-result-*` branches on origin that
+    # day carried `build_job_result: skipped`, zero carried a real build. A
+    # SKIPPED build is "nobody asked", not "we looked and it broke"; a FAILED or
+    # CANCELLED one still lands, which is the case `always()` is here for.
+    if: always() && needs.build.result != 'skipped'
     runs-on: ubuntu-latest
     # MUST OUTLAST `commit-to-main`'s `verify-merged` wait (30m default), or the
     # job dies mid-wait and reports a timeout for a PR that was merging fine.

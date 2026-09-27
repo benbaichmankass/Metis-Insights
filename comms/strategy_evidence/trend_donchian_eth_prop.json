@@ -3,62 +3,75 @@
   "strategy": "trend_donchian_eth_prop",
   "symbol": "ETHUSDT",
   "timeframe": "1h",
-  "config_fingerprint": "sha256:4c821e711e677f3412ae6937b3cae5c6",
+  "config_fingerprint": "sha256:776a9ea693864bcf4fcccbac2501e34a",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
-  "fidelity": "approximate",
-  "omitted_levers": [
-    "tp_r"
-  ],
-  "net_r_oos": 7.13,
-  "expectancy_r_oos": 0.0422,
+  "fidelity": "faithful",
+  "omitted_levers": [],
+  "net_r_oos": 13.6082,
+  "expectancy_r_oos": 0.0805,
   "n_trades_oos": 169,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 42,
-      "net_r": 5.4347,
-      "expectancy_r": 0.1294,
-      "start": "2025-09-25 01:00:00+00:00",
-      "end": "2025-12-12 15:00:00+00:00"
+      "net_r": 4.7973,
+      "expectancy_r": 0.1142,
+      "start": "2025-09-28 22:00:00+00:00",
+      "end": "2025-12-18 13:00:00+00:00"
     },
     {
       "fold": 2,
       "trades": 42,
-      "net_r": 5.0973,
-      "expectancy_r": 0.1214,
-      "start": "2025-12-15 17:00:00+00:00",
-      "end": "2026-03-18 11:00:00+00:00"
+      "net_r": 13.2873,
+      "expectancy_r": 0.3164,
+      "start": "2025-12-21 13:00:00+00:00",
+      "end": "2026-03-26 05:00:00+00:00"
     },
     {
       "fold": 3,
       "trades": 42,
-      "net_r": -5.3884,
-      "expectancy_r": -0.1283,
-      "start": "2026-03-21 23:00:00+00:00",
-      "end": "2026-06-14 14:00:00+00:00"
+      "net_r": -3.1533,
+      "expectancy_r": -0.0751,
+      "start": "2026-03-27 10:00:00+00:00",
+      "end": "2026-06-20 05:00:00+00:00"
     },
     {
       "fold": 4,
       "trades": 43,
-      "net_r": 1.9864,
-      "expectancy_r": 0.0462,
-      "start": "2026-06-15 11:00:00+00:00",
-      "end": "2026-09-18 13:00:00+00:00"
+      "net_r": -1.3231,
+      "expectancy_r": -0.0308,
+      "start": "2026-06-23 06:00:00+00:00",
+      "end": "2026-09-23 14:00:00+00:00"
     }
   ],
-  "folds_positive": 3,
+  "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
+  "path_stats": {
+    "series_location": "source_run (the per-trade rows, in order, with net_r)",
+    "n": 169,
+    "max_drawdown_r": 13.0336,
+    "max_drawdown_at_trade": 51,
+    "final_equity_r": 13.6082,
+    "max_equity_r": 20.2701,
+    "worst_trade_r": -1.2769,
+    "best_trade_r": 5.8989,
+    "worst_day_r": -2.1048,
+    "worst_day_date": "2026-06-30",
+    "trades_without_exit_time": 0,
+    "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
+    "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
+  },
   "cost_stack": {
     "fees": 7.5,
-    "slippage": 5.0,
+    "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "/tmp/tmp.RsNZr5lfkw/trend_donchian_eth_prop__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__bt.json"
   },
-  "net_r_oos_fee_only": 13.0478,
+  "net_r_oos_fee_only": 17.661,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
@@ -66,9 +79,9 @@
     "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-22T05:35:49.208867+00:00",
+  "generated_at": "2026-09-26T17:56:02.449801+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "/tmp/tmp.RsNZr5lfkw/trend_donchian_eth_prop__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
   "error": null,
   "harness": "trend"
 }

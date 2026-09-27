@@ -394,6 +394,97 @@ def reconstruct_equity(
     }
 
 
+#: The states of :func:`compute_open_risk`. Only the first two are a number a
+#: cushion may be reduced by; the other two are "we could not look".
+OPEN_RISK_STATES = ("no_open_positions", "measured", "stop_unknown", "unreadable")
+
+
+def compute_open_risk(account_id: str) -> Dict[str, Any]:
+    """P&L at the stop of every OPEN prop position on ``account_id`` (E66).
+
+    WHY (2026-09-24, E59 -> E66): ``compute_rule_distance`` graded a new
+    ticket against *equity − floor* while fill #44 (ETH short 1.3 @ 2666.11)
+    still had ~$58 to lose to its stop, so a $75 ticket read ``within_cushion``
+    against a $94.76 cushion that was really ~$26. The committed loss was
+    invisible because the stop was never journaled.
+
+    Positions come from ``find_open_prop_positions`` (newest fill per
+    ``position_key`` with status open/filled). The stop used is the FILL's
+    ``sl`` — what the executor reported is on the terminal, at placement or via
+    a ``kind: amend`` report — and NEVER the ticket's: a ticket stop is an
+    instruction, and the one case this exists for (#44) is a stop moved away
+    from it. The ticket stop is carried beside it for the reader, uncounted.
+
+    ⚠️ A POSITION WITH NO JOURNALED STOP IS ``stop_unknown``, NEVER ZERO RISK.
+    One unknown position makes the aggregate unknown: a partial sum would
+    understate what is at risk, and the understated direction is the one that
+    breaches the floor. Known positions are still itemised.
+
+    Not counted: ``placed`` working orders (no position yet) and fees (the
+    close commission, ~$1.35 on 1.3 ETH per E59, is NOT subtracted).
+    """
+    try:
+        from src.prop.prop_monitor_pulse import find_open_prop_positions
+
+        positions = find_open_prop_positions(account_id=account_id)
+    except Exception as exc:  # noqa: BLE001 — a read failure is not "flat"
+        logger.warning("prop_reconcile: open-position read failed for %s: %s",
+                       account_id, exc)
+        return {"state": "unreadable", "positions": [], "open_count": None,
+                "stop_unknown_count": None, "pnl_at_stop_usd": None,
+                "loss_to_stop_usd": None}
+
+    items: List[Dict[str, Any]] = []
+    total_pnl, unknown = 0.0, 0
+    for p in positions or []:
+        direction = str(p.get("direction") or "").strip().lower()
+        missing = []
+        entry, qty, sl = p.get("entry_price"), p.get("qty"), p.get("fill_sl")
+        for name, v in (("entry_price", entry), ("qty", qty), ("sl", sl)):
+            try:
+                if v is None or float(v) <= 0:
+                    missing.append(name)
+            except (TypeError, ValueError):
+                missing.append(name)
+        if direction not in ("long", "short"):
+            missing.append("direction")
+        pnl_at_stop = None
+        if not missing:
+            e, q, st = float(entry), float(qty), float(sl)
+            pnl_at_stop = (st - e) * q if direction == "long" else (e - st) * q
+            total_pnl += pnl_at_stop
+        else:
+            unknown += 1
+        items.append({
+            "fill_id": p.get("fill_id"), "ticket_id": p.get("ticket_id"),
+            "symbol": p.get("symbol"), "direction": p.get("direction"),
+            "qty": qty, "entry_price": entry, "sl": sl,
+            "ticket_sl": p.get("ticket_sl"),
+            "pnl_at_stop_usd": round(pnl_at_stop, 8) if pnl_at_stop is not None else None,
+            "loss_to_stop_usd": (round(max(0.0, -pnl_at_stop), 8)
+                                 if pnl_at_stop is not None else None),
+            "missing": missing,
+        })
+
+    if not items:
+        state = "no_open_positions"
+    elif unknown:
+        state = "stop_unknown"
+    else:
+        state = "measured"
+    known = state in ("no_open_positions", "measured")
+    return {
+        "state": state,
+        "positions": items,
+        "open_count": len(items),
+        "stop_unknown_count": unknown,
+        # Aggregates only when EVERY position is known — see the ⚠️ above.
+        "pnl_at_stop_usd": round(total_pnl, 8) if known else None,
+        "loss_to_stop_usd": (round(sum(i["loss_to_stop_usd"] for i in items), 8)
+                             if known else None),
+    }
+
+
 def compute_rule_distance(
     account_id: str, status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -495,6 +586,55 @@ def compute_rule_distance(
         if (equity_used is not None and dd_floor is not None) else None
     )
 
+    # --- E66: the cushion AFTER what open positions can still lose ---------
+    # `distance_to_dd_floor_usd` stays what it always was (equity now − floor)
+    # so no existing reader changes meaning; the two `*_after_open_risk_usd`
+    # figures are what a NEW exposure must fit inside, and are what
+    # prop_risk_gate grades against.
+    #
+    # Worst-case equity if every open stop is hit:
+    #     equity_used − unrealized(snapshot) + Σ pnl_at_stop
+    # i.e. the realized balance (snapshot + fills since) plus each open
+    # position closed AT ITS STOP, measured from ENTRY. Measured from entry and
+    # not from the mark, because the snapshot's unrealized P&L is already in
+    # equity and would otherwise be counted twice. On #44 (balance 4784.78,
+    # short 1.3 @ 2666.11, stop 2711.10) that is 4784.78 − 58.49 = 4726.29,
+    # i.e. $26.29 to the $4,700 floor (E59 §2: "$26.29 gross" ✓).
+    #
+    # The figure is clamped to never EXCEED the plain distance: a stop already
+    # in profit may not grow a safety cushion past what equity shows now
+    # (slippage through a stop is real; the asymmetry mirrors
+    # `reconstruct_equity`'s rule for unplaceable gains).
+    open_risk = compute_open_risk(account_id)
+    unrealized_basis = unrealized
+    if unrealized_basis is None and equity is not None and balance is not None:
+        unrealized_basis = float(equity) - float(balance)
+    dd_after = daily_after = None
+    if open_risk["state"] == "no_open_positions":
+        after_state = "no_open_positions"
+        dd_after, daily_after = distance_to_dd, distance_to_daily
+    elif open_risk["state"] == "measured":
+        after_state = "measured"
+        pnl_stop = float(open_risk["pnl_at_stop_usd"])
+        if (equity_used is not None and dd_floor is not None
+                and unrealized_basis is not None):
+            worst_eq = float(equity_used) - float(unrealized_basis) + pnl_stop
+            dd_after = worst_eq - dd_floor
+            if distance_to_dd is not None:
+                dd_after = min(dd_after, distance_to_dd)
+        else:
+            after_state = "unrealized_unreported"
+        if daily_loss_limit_usd is not None and realized_today is not None:
+            worst_day = float(realized_today) + pnl_stop
+            daily_after = daily_loss_limit_usd - max(0.0, -worst_day)
+            if distance_to_daily is not None:
+                daily_after = min(daily_after, distance_to_daily)
+    else:
+        # stop_unknown / unreadable: WE COULD NOT LOOK. Both stay None — a
+        # position whose stop we do not know has UNBOUNDED risk as far as this
+        # read can tell, and must never be summed in as zero.
+        after_state = open_risk["state"]
+
     return {
         "account_id": account_id,
         "as_of": status.get("reported_at"),
@@ -541,6 +681,17 @@ def compute_rule_distance(
         "fills_withheld_unplaceable_gain": recon.get(
             "fills_withheld_unplaceable_gain"
         ),
+        # E66: what the open positions can still lose, and the cushion left
+        # for NEW risk once they do. Read `after_open_risk_state` first:
+        # `no_open_positions` / `measured` are numbers; `stop_unknown`,
+        # `unrealized_unreported` and `unreadable` mean the after-figures are
+        # None because we could not look — never because nothing is at risk.
+        "open_risk": open_risk,
+        "open_risk_state": open_risk["state"],
+        "open_loss_to_stop_usd": open_risk["loss_to_stop_usd"],
+        "after_open_risk_state": after_state,
+        "distance_to_dd_floor_after_open_risk_usd": dd_after,
+        "distance_to_daily_loss_after_open_risk_usd": daily_after,
         "status_present": bool(status),
         "status_age_hours": age_hours,
         "status_freshness": freshness,
@@ -552,6 +703,8 @@ __all__ = [
     "match_fill_to_ticket",
     "find_unacted_tickets",
     "compute_rule_distance",
+    "compute_open_risk",
+    "OPEN_RISK_STATES",
     "reconstruct_equity",
     "BALANCE_BASIS_STATES",
 ]

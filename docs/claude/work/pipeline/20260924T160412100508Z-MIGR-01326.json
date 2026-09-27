@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A session that was NOT pointed at this mechanism by its prompt reports on a due monitoring item, citing the CLAUDE.md brief as where it saw it. WARNING: the handoff prompt written at the end of this session names the MHG item explicitly, so the FIRST session after this one cannot be the clean test -- it has been told. The uncontaminated observation is a later session that arrived cold. Record which it was.",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "moot: the generated SESSION-BRIEF block in CLAUDE.md, its generator, and the eight-register operating model it served were retired by the 2026-09-21 operating reset. Verified 2026-09-24 by reading the current root CLAUDE.md in full (E56 health-review) -- no SESSION-BRIEF block is present; the question this row asks no longer has a subject.",
+  "what": "The generated SESSION-BRIEF block in CLAUDE.md is the mechanism this session shipped in place of a cap and an adjective, and NO fresh session has ever read it. Shipped and working are different states; only a real session acting on the block settles it."
+}

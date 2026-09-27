@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-BOARD-POST-RECEIPT-IS-PER-BRANCH'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworkable_no_resolution_criteria",
+  "what": "board-post.yml's idempotency receipt is committed PER-BRANCH while the request merges to main -- so any request that reaches main receipt-less is re-posted by every future branch that files a board post; measured as 3 copies of one comment"
+}

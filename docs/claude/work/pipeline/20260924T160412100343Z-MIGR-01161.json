@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260912-MI-277-SECTION-2-2-CELL-IS-NOT-DECISION-GRADE-ITS-RATIO-SWINGS-1-18-TO-1-98-ON-A-TOLERANCE-CHOICE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-MI-277-SECTION-2-2-CELL-IS-NOT-DECISION-GRADE-ITS-RATIO-SWINGS-1-18-TO-1-98-ON-A-TOLERANCE-CHOICE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-MI-277-SECTION-2-2-CELL-IS-NOT-DECISION-GRADE-ITS-RATIO-SWINGS-1-18-TO-1-98-ON-A-TOLERANCE-CHOICE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-277 section 2.2's 'achieved R nearly doubled' cell is not decision-grade -- the ratio swings 1.18 to 1.98 on a label-recovery tolerance at n~10"
+}

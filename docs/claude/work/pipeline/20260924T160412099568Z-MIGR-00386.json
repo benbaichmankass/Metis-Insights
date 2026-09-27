@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Amend BL-20260825-GITHUB-CHECK-RUN-READS-LAG-AND-READ-AS-STILL-RUNNING so it no longer presents actions_get as a reliable second opinion, and state the safe reading rule: a 'completed' verdict from either surface is trustworthy; an 'in_progress' verdict from EITHER is 'we could not look', not 'it is running'. Any poller that branches on in_progress needs a wait-and-recheck rather than a conclusion.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-ACTIONS-GET-LAGS-IDENTICALLY-TO-CHECK-RUN-READS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-ACTIONS-GET-LAGS-IDENTICALLY-TO-CHECK-RUN-READS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-ACTIONS-GET-LAGS-IDENTICALLY-TO-CHECK-RUN-READS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] actions_get get_workflow_run is NOT an escape hatch from the check-run read lag — it lagged identically, and its frozen updated_at is not evidence of a stalled job"
+}

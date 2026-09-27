@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Reverts merge commit 838eb6a95 (PR #12888), which edited src/runtime/exchange_accounts.py (BybitFillAccount.key_env_sub/secret_env_sub) and scripts/ops/pull_bybit_transaction_log.py -- src/** is outside TIER1_SURFACE in check_pr_landing.py regardless of content, so this cannot self-land under R5. Pure removal of unreachable capability (no order path, no config/accounts.yaml change, no runtime-service change): deletes the optional second-credential pull that can never activate now that the operator has declined to provision BYBIT_API_KEY_2_SUB/BYBIT_API_SECRET_2_SUB. Needs an operator/manager approval to merge, same as #12888 and #12881.",
+  "why": "Lane E71 (checklist row E71, operator 2026-09-24 ~20:45Z popup in session_01Ljhs6sFAdWHdMDhJpL5aBP: 'Check if it's needed (Recommended)'). MEASURED this session: bybit_2's currently-trading Bybit UID is the one the account's single configured API key already covers (live wallet-truth read shows fresh activity through today, 2026-09-24T20:44:08Z; the trade journal shows an open trade from 2026-09-24T16:10:25Z), and no credential for the account's other UID (SUB) exists or will be provisioned. SUB's only recorded activity is the operator-provided 2026-07-13 CSV export; nothing indicates it traded after that date. #12888's capability therefore has no path to ever activate. See PR body for the full measurement."
+}

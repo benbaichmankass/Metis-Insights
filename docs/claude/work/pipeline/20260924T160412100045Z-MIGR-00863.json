@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260830-PRIORITY-IS-MOOT-COMMENTS-REASON-PER-ACCOUNT-WHILE-ARBITRATION-IS-PER-SYMBOL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-PRIORITY-IS-MOOT-COMMENTS-REASON-PER-ACCOUNT-WHILE-ARBITRATION-IS-PER-SYMBOL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-PRIORITY-IS-MOOT-COMMENTS-REASON-PER-ACCOUNT-WHILE-ARBITRATION-IS-PER-SYMBOL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Most rows in DEFAULT_PRIORITIES justified a value of 0 with 'this leg runs ALONE on its (symbol, account), so priority is moot -- it never arbitrates against another strategy'. aggregate_intents elects ONE winner per SYMBOL, globally, BEFORE the per-account fan-out in multi_account_execute; it never sees an account. The justification described a scope the aggregator does not use, and it is the reasoning that produced BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1. MEASURED 2026-08-30 against the live config: 12 symbols are contested by more than one enabled leg -- BTCUSDT 7, SOLUSDT 6, ETHUSDT 6, XRPUSDT 4, MGC 3, AVAXUSDT 3, and six more at 2. Every contesting leg sits at priority 0, so the winner is decided entirely by the name tiebreak. Comments corrected + a mutation-verified regression test added (tests/test_priority_arbitration_scope.py); NO priority VALUE was changed, so behaviour is byte-identical."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "BOTH, and they are different facts — say which you cleared. (1) PREVENTION: a spawn cannot omit the repo — either create_session is wrapped so source_url is always supplied, or a spawn with no explicit source_url is REFUSED. Verified by a NEW session appearing in list_sessions carrying the correct repo without its prompt having said anything about repos. (2) DETECTION: a session establishes its own repo from get_session BEFORE substantive work and stops if it is wrong — verified by observing a real session report the check, not by a spawn prompt containing the instruction. NOT SUFFICIENT: another backlog row, another line in a spawn template, or a push probe passing (the probe detects the symptom and names no cause). NOT SUFFICIENT: a quiet week — the class ran at 5/day on 2026-09-08 and 0/day on 2026-09-05, so absence over a short window is not evidence.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-PUSH-DENIED-AND-WRONG-REPO-ARE-ONE-DEFECT-3-OF-3-AND-A-ONE-CALL-PREDICTOR-EXISTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-PUSH-DENIED-AND-WRONG-REPO-ARE-ONE-DEFECT-3-OF-3-AND-A-ONE-CALL-PREDICTOR-EXISTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-PUSH-DENIED-AND-WRONG-REPO-ARE-ONE-DEFECT-3-OF-3-AND-A-ONE-CALL-PREDICTOR-EXISTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE + UNIFICATION: the 'container cannot push' class and the 'spawned without source_url' class are ONE defect — 3 of 3 push-denied sessions carried a wrong or absent repo, and a session can predict it in ONE get_session call before spending any budget"
+}

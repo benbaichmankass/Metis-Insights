@@ -1,0 +1,22 @@
+{
+  "a10_note": "Partly cleared: two of the four pairs are resolved (C5/D1/D2/R6 dropped); C4/E7 and C3/E6 are both still open. The checklist is the manager's, so the remaining collapse is named to them. EVIDENCE: MEASURED 2026-09-24 MANAGER-CHECKLIST.json: C4 queued, E7 queued (note says DUPLICATE OF C4); C3 queued, E6 queued; C5/D1/D2/R6 dropped.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "No two open checklist rows describe the same work. ⚠️ Check by reading the four named pairs, not by a title grep -- C4/E7 have DIFFERENT titles ('...; replace the smoke fixture' vs not) and a title comparison would miss them, which is how they got here.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-CHECKLIST-CARRIES-FOUR-TASKS-TWICE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Manager session_01XQhayAHWdrSYv8jN54P2HH, 2026-09-22, found while answering 'what is next for each lane' -- reading the queue end to end rather than row by row is what surfaced it.",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/claude/work/MANAGER-CHECKLIST.json')); [print(r['id'], r['title']) for r in d['items'] if r['state'] in ('queued','blocked')]\" and read the notes, not just the titles."
+  },
+  "routed_to": "manager (checklist owner): collapse C4/E7 and C3/E6 — whoever takes one kills the twin",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "The checklist carries the same work under two numbering schemes: D1/R1 (flip the cost defaults and re-run the corpus), C4/E7 (wire the 9 orphan backtest harnesses), C5/R4 (write the first ten pre-registered research questions), C3/E6 (unblock replay-pregate). Eight rows, four pieces of work, and both halves render on the operator's page.",
+  "why_it_matters": "It is not cosmetic. A manager reading the queue can dispatch both halves of a pair -- two lanes on one task, which at today's MEASURED rates is a $60-$435 mistake, and it produces two PRs racing on the same files. It also inflates the queue the operator is asked to read, which is the same failure E14 is about at a different scale."
+}

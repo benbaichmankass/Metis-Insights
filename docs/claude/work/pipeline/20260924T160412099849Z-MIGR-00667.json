@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Run the rr_floor walk-forward on per-leg candles at the live timeframes (1h-1d) for legs whose cap_R sits in the 2-6R band, and grade it with scripts/research/m20_wf_effective.py so inert folds are excluded from the win count (BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS, measured 75/386 = 19.4%). Read rr_min_p10/median/p90 from a lever-OFF run FIRST to pick floors that can fire at all; a floor below rr_min_p10 is a real no-op and a floor above rr_min_p90 fires on nearly every trade. Assert rr_floor_state == 'measurable' on every recorded row. Precondition 3 is met only if the lever CLEARS the do-nothing arm; a loss retires the candidate, which is a legitimate and useful outcome.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260817-RR-FLOOR-UNMEASURED-ON-LIVE-REGIME-DATA'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] The rr_floor lever now runs, but has not been measured on data in the live cap_R regime"
+}

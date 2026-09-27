@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A repeatable vol-split matrix exists (per (trend, vol, direction) net-R using the router's own vol-label resolution) and all six 2-D cells have a recorded re-audit verdict.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260730-2D-VOL-CELLS-UNAUDITABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260730-2D-VOL-CELLS-UNAUDITABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260730-2D-VOL-CELLS-UNAUDITABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [regime] the offline harness has NO vol axis — and the obvious fix (the frozen vol_detector) would reproduce the very population-mismatch this row exists to flag"
+}

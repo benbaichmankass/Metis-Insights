@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Operator instruction relayed 2026-09-22: the shared resolver lands FIRST and then the E42 union, so that 'the promoted leg goes live first and isn't stranded on the fix being built and implemented'. This is that resolver. Tier-2 because it changes src/main.py's tick path and the live Bybit position/fill read paths; approval sought from the operator, same as #12736.",
+  "why": "One definition of 'which symbols does this account concern', replacing five private derivations (four known, the fifth found by this change's own bypass control). BEHAVIOUR-PRESERVING ON THE TICK BY CONSTRUCTION: src/main.py passes mode=DECLARED, which is exactly today's derivation, and flipping that one argument to UNION is the whole of held PR #12736. The three data readers move to UNION now, which is the point of the ordering -- when the tick flips there is no window in which a symbol trades while the naked-position cross-check cannot see it. Proven a no-op on today's config: DECLARED == UNION on all 11 accounts, asserted in the self-test over the real config so the day they diverge is a CI failure."
+}

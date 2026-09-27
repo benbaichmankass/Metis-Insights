@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "THE FIX IS TIER-2 (it changes what pages a live operator) AND IS NOT APPLIED HERE. What it needs: _residual_from_positions must compare the symbol's net book against what the journal's REMAINING OPEN rows on that (account, symbol, side) account for, and report a violation only on the UNATTRIBUTED excess — the same attribution _reconcile_netting_partial_closes already performs for bybit. Equivalently and more cheaply as a first cut: suppress the violation when open sibling rows on that (account, symbol, side) sum to >= the observed net, since then nothing is unaccounted for.\n\n⚠️ A FOURTH STATE IS REQUIRED, NOT A BOOLEAN: 'net is fully accounted for by open siblings' / 'net exceeds what the siblings account for' (the real finding) / 'we could not read the sibling rows' (NEVER folded into either) — beside the existing flat/residual/could_not_look. Collapsing 'we could not attribute' into 'flat' would re-create F-11, the exact defect this module was repaired to stop having.\n\nCLEARS WHEN: a close on a netted symbol WITH open siblings is observed producing NO violation, AND a genuine unattributed residual is still reported — both halves, because a fix that merely silences the alarm is indistinguishable from one that works, and this module's 14.7-day zero is precisely what that looks like. ⚠️ A GREEN TEST CLEARS NOTHING: run_residual_controls() plants a single-position book and passes today while the live rows are wrong, because the control never constructs a multi-sibling netted bo …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-CLOSED-FLAT-INVARIANT-GRADES-THE-SYMBOL-NET-BOOK-NOT-THE-CLOSING-TRADE-SO-EVERY-NETTED-CLOSE-WITH-OPEN-SIBLINGS-IS-A-FALSE-ERROR-PAGE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-CLOSED-FLAT-INVARIANT-GRADES-THE-SYMBOL-NET-BOOK-NOT-THE-CLOSING-TRADE-SO-EVERY-NETTED-CLOSE-WITH-OPEN-SIBLINGS-IS-A-FALSE-ERROR-PAGE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-CLOSED-FLAT-INVARIANT-GRADES-THE-SYMBOL-NET-BOOK-NOT-THE-CLOSING-TRADE-SO-EVERY-NETTED-CLOSE-WITH-OPEN-SIBLINGS-IS-A-FALSE-ERROR-PAGE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] closed-flat invariant reports the account+symbol NET position as the closing trade's residual, so on a netting account every close with open siblings is a FALSE violation — 9 false Level.ERROR pages to the operator since 2026-09-10, and the falsifier that 'can finally speak' is saying something untrue"
+}

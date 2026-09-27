@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either the live equity account is funded above $25k (and that is recorded as the reason no gate exists), or a day-trade counter is available to the sizing path so an entry that would be the 4th day trade in a rolling 5-business-day window is refused with a named cause rather than rejected at the venue. Closed when the constraint is either provably inapplicable or enforced.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-NO-PDT-MODELLING-ON-ALPACA",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-NO-PDT-MODELLING-ON-ALPACA",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-NO-PDT-MODELLING-ON-ALPACA'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The pattern-day-trader rule is modelled NOWHERE in code, while the Alpaca paper book runs 14.9% same-day round trips and a live account under $25k gets 3 day trades per 5 business days"
+}

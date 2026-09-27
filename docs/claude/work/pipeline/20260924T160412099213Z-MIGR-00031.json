@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "The build reaches a state where it is carried by something OTHER than this row — i.e. Phase B has shipped the work view AND a session has been observed reading it. ⚠️ THIS ROW MUST NOT BE CLEARED BECAUSE THE PHASES ARE PROGRESSING. Progress is tracked in docs/claude/work/objects/*.yaml; this row exists solely because the build is invisible without it, so clearing it while that is still true removes the only thing carrying the work. ⚠️ AND IT MUST NOT BE CLEARED ON A DEPLOY: the session brief itself is UNPROVEN (OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION), so 'the row renders' is not evidence a session read it. The observation needed is a COLD session — one not pointed here by its prompt — reporting on this row and citing the CLAUDE.md brief as where it saw it.",
+    "kind": "observation",
+    "last_checked": "2026-09-12"
+  },
+  "id": "OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] The operating-model redesign (operator-directed, 2026-09-01) is DESIGNED and its build has begun. Phase A of 8 is in flight. ⚠️ THE DESIGN IS FOUR DOCUMENTS UNDER docs/design/ THAT NOTHING ELSE POINTS AT — this row is the ONLY thing that puts them in front of a session, so if it is dropped the work is lost to the exact failure it diagnoses. Read docs/claude/work/ for what is in flight; the build plan for the phase order."
+}

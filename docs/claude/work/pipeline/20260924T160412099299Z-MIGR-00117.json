@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Determine which process wrote the stray (grep the trainer's units + any cron for a bare `trade_journal.db` / a CWD-relative resolver, and check whether `signals` there has rows newer than 2026-08-02 on a later read — a growing count means a live writer, a frozen one means a historical artifact). THEN either fix the writer's path resolution, or, if it is confirmed historical, delete the stray and record that a later trainer-vm-diag `find / -name 'trade_journal*.db'` returns exactly ONE path. Deleting it before knowing which is the case would destroy the evidence of the writer.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A stray trade_journal.db sits at the TRAINER's repo root holding 15,644 signals rows — the CWD-relative-fallback artifact canonical-db-resolver exists to prevent, and it nearly cost a false 'sync is 10 days stale' alarm"
+}

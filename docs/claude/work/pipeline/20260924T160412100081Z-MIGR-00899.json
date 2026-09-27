@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260901-PING-TESTS-SHARE-AN-EVENT-LOOP-ACROSS-MODULES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-PING-TESTS-SHARE-AN-EVENT-LOOP-ACROSS-MODULES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-PING-TESTS-SHARE-AN-EVENT-LOOP-ACROSS-MODULES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Ping-drain tests drive coroutines with asyncio.get_event_loop(), so they pass alone and fail on suite order after a module that uses asyncio.run"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) both endpoints consume ONE shared normaliser with a class axis (the remedy BL-20260820-STRATEGIES-EXIT-REASON-ROLLUP-BUCKETS-LEVERS-AS-OTHER already specifies), so the same trade cannot carry two published labels; OR (b) /api/bot/trades/closed additionally publishes the RAW exit_reason beside closeReason, so a consumer that needs the mechanism can read it without a second join. VERIFIED BY: re-running scripts/research/real_money_close_attribution.py and observing the disagreement count fall to 0 (or, under (b), by asserting the raw field is present and equal to trades.exit_reason on a live pull). A passing unit test is NOT sufficient — the two normalisers each pass their own tests today. NOT sufficient: renaming the 'other' bucket. The remedy is to branch on the actual condition, not reword the label.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-TRADES-CLOSED-AND-STRATEGIES-PUBLISH-DIFFERENT-EXIT-TAXONOMIES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-TRADES-CLOSED-AND-STRATEGIES-PUBLISH-DIFFERENT-EXIT-TAXONOMIES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-TRADES-CLOSED-AND-STRATEGIES-PUBLISH-DIFFERENT-EXIT-TAXONOMIES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260820: /api/bot/trades/closed and /api/bot/strategies publish DIFFERENT exit taxonomies over the same column — 174 of 447 real-money closed rows (38.9%) carry a different label depending on which endpoint you ask, and 53 of them read `sl` on one surface and `other` on the other"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(a) The comment in BOTH strategy modules no longer asserts the trail is the real profit-exit as a general fact -- it states the instrument-dependence and points at the measurement. (b) A reader can tell, per leg, whether a sentinel bracket is genuinely far (trail-dominant) or clamp-dominant, WITHOUT re-running a sweep: either `target_expectation` gains a state that separates them, or the clamp-dominance ratio is surfaced beside the `sentinel_no_expectation` grade. A comment fix ALONE is not sufficient -- the grade would still say 'no expectation' about a leg whose dominant profit exit is a target. (c) NOT required for closure: changing any leg's geometry. That is Tier-3 and belongs to the per-family construction work.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-VENUE-CLAMP-IS-THE-UNDECLARED-TARGET-ON-HALF-THE-SENTINEL-LEGS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-VENUE-CLAMP-IS-THE-UNDECLARED-TARGET-ON-HALF-THE-SENTINEL-LEGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-VENUE-CLAMP-IS-THE-UNDECLARED-TARGET-ON-HALF-THE-SENTINEL-LEGS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `_TP_SENTINEL_CAP_PCT`'s stated rationale is FALSE on 5 of 10 sentinel legs: the 9.9% venue clamp is not a far-away formality, it is the DOMINANT profit exit, so those legs run an undeclared ~1.5R target while grading as `sentinel_no_expectation`"
+}

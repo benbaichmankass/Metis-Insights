@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "check_lever_reachability.py (or a sibling) FAILS when a leg's `atr_stop_mult` or `tp_r` has changed since its registry entry's `measured_at`, with a self-test planting each of the two inputs -- so a reachability measurement cannot silently outlive the geometry it was taken on. NOT SUFFICIENT: pinning arm_r harder, which is what it already does, nor a doc note; the 2026-09-22 instances happened with the arm_r pin fully green.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E41-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E41",
+    "rerun": "python3 scripts/ci/check_lever_reachability.py --json"
+  },
+  "state": "queued",
+  "what": "[health] A lever-reachability measurement silently expires when the leg's geometry moves, and the guard cannot see it. check_lever_reachability.py pins the registry `arm_r` to config -- 'changing an arm without re-measuring FAILS' -- but cap_R = 0.099/(atr_stop_mult*ATR/entry) and the real ceiling is min(cap_R, tp_r), so BOTH those inputs move the answer while arm_r sits still and CI stays green. TWO LIVE INSTANCES on 2026-09-22, in opposite directions: trend_donchian_sol_4h (atr_stop_mult 2.5 -> 1.5 made an 'inert on 0 of 16' arm reachable on 11.8%) and scha_trend_long_1d (tp_r 50.0 -> 1.5 made an '83.1% reachable' arm inert). A THIRD, smaller species from the same commit: xrp_pullback_2h and qqq_trend_long_1d now carry `trail_decay_tight_mult` with no arming condition at all -- a declared tightening that can never apply, left in place because removing it was not what was decided."
+}

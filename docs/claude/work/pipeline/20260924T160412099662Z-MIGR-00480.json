@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS, different facts — say WHICH you cleared rather than clearing the row on the easier one. (1) DETECTOR OBSERVED: an alpaca_partial_stop_coverage row is found in /api/bot/logs?level=error (or the close_failure/notifications surface), carrying a size and a stop_qty that DIFFER, on a real fleet position — read the log row, never the merged diff and never a passing unit test. The standing alpaca_portfolio/TLT condition (72 vs 16) is the exhibit it should fire on first. ⚠️ A GREEN CI RUN CLEARS NOTHING: 23 assertions pass in tests/test_alpaca_protection_coverage_quantity.py and a harness cannot reach the live monitor tick. ⚠️ AND THE SWEEP REPORTING covered=N CLEARS NOTHING EITHER — grading every position as covered is the detector working while no position is partially naked, which is the healthy case, not an observation of the detector discriminating. (2) THE STANDING TLT CONDITION IS DISPOSITIONED: alpaca_portfolio trade 5414's 56 shares either carry a resting stop (verified on /api/diag/alpaca_open_orders as stop_qty >= size, not from a repair call's return value), or the position is closed, or an operator records a decision to leave it uncovered. ⚠️ IF THE POSITION SIMPLY DISAPPEARS WITH NO ATTRIBUTION, record THAT rather than clearing on it — an unexplained resolution is not evidence the mechanism works, and this repo has already been bitten by crediting an unrelated repair (see the PROTECTION_REASSERT_MODE row in CLAUDE.md, whose one live exhibit vanished with the  …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-ALPACA-COVERAGE-IS-SIDES-NOT-QUANTITY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Alpaca protection was graded as SIDES only, so a 72-share short carrying a 16-share stop read as covered — 56 shares naked and invisible to every accessor"
+}

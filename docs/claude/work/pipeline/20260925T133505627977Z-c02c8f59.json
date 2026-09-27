@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER checklist E4 lands a committed multi-year per-symbol corpus and the E38 script is rerun over it under a fresh registration, OR a pooled-family registration is committed and run, OR the manager kills this with the reason that the six legs are decided on other grounds (e.g. three already fail RULE-D1).",
+    "kind": "event"
+  },
+  "id": "PI-20260925-7P3VZ7EJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "checklist E38, branch claude/w4-e38-regime, docs/research/e38-regime/results.json (registration E38-REGIME-2026-09-25)",
+    "rerun": "python3 scripts/research/e38_regime_classification.py --current  (reads docs/research/e38-regime/REGISTRATION.yaml; rewrites docs/research/e38-regime/results.json + RESULTS.md; --self-test is the offline control)"
+  },
+  "state": "queued",
+  "what": "E38 regime classification returned a POWER-BOUNDED null (docs/research/e38-regime-classification-2026-09-25.md): 0 of 22 testable crypto legs show regime dependence on rv20/er20 at entry, but single-leg n=35-107 only detects |rho| >= 0.27-0.46. The six real-money-gated legs therefore stay held -- the operator's wiring condition is not met. Two follow-ups would change the answer, and each needs its OWN pre-registration before it runs: (a) a POOLED family test (all 10 trend_donchian_* legs, 664 trades, de-duplicating same-symbol overlap) that can detect |rho| ~0.09; (b) the same per-leg test over multi-year history once E4's committed corpus exists. Also: the 22 non-crypto legs were not_attempted (yfinance absent, Yahoo 429) -- rerun when a Yahoo path is reachable."
+}

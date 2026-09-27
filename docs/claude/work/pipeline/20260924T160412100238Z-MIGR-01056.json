@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-CLAUDE-MD-DECLARES-TWO-LANDED-MONEY-PATH-FIXES-AS-NOT-APPLIED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-CLAUDE-MD-DECLARES-TWO-LANDED-MONEY-PATH-FIXES-AS-NOT-APPLIED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-CLAUDE-MD-DECLARES-TWO-LANDED-MONEY-PATH-FIXES-AS-NOT-APPLIED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "CLAUDE.md's BL-20260908-BYBIT-POSITION-PROTECTION-GRADES-A-SYMBOL-OFF-ROWS0-SO-A-HEDGE-BOOK-READS-FLAT-AND-A-LIVE-POSITION-IS-CLOSED row states 'Both fixes are Tier-2, written out in the evidence doc and NOT applied'. Both are applied and have been since 2026-09-08. It is stale in the dangerous direction on a money-path row: a session reading it concludes a live protective-grading defect is still open."
+}

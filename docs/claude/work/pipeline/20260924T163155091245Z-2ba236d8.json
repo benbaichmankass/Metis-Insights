@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "scripts/check_claim_basis.py either moves under scripts/ci/ or is added to TIER1_SURFACE with a dated operator approval",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-KDCZMHX8-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Fp1yQRKuy82VcsKDCZMhX8 (build lane, E64, PR #12876)",
+    "rerun": "python3 scripts/ci/check_pr_landing.py --base origin/main --branch <any PR touching scripts/check_claim_basis.py>"
+  },
+  "state": "queued",
+  "what": "E64's PR (#12876, re-pointing docs/claude/work/PIPELINE.jsonl to a directory) could not self-land: pr-landing-guard's R5 refuses because scripts/check_claim_basis.py -- which that PR must modify, since it hand-parsed the old flat file directly -- sits at the top-level scripts/ directory, outside TIER1_SURFACE by deliberate policy (scripts/ci/check_pr_landing.py's own comment: 'every other loose script at scripts/ top level stays outside Tier-1', MI-242). The script is functionally a CI guard (registered as claim-basis-guard in scripts/ci/run_guards.py) and its siblings all live under scripts/ci/. Moving it there would fix the classification, but touches docs/CLAUDE-RULES-CANONICAL.md (the #1 doc) and several sprint-log references -- out of a narrow storage-migration lane's scope. A session with room to touch canonical docs should decide whether to relocate scripts/check_claim_basis.py to scripts/ci/, or widen TIER1_SURFACE for it specifically (operator approval, per the MI-242 precedent already in that allowlist)."
+}

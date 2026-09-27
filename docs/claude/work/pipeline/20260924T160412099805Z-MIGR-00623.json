@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either the convention is written where a session reads it BEFORE posting -- the coordination skill or the board doc, not a memo -- or TIER1_SURFACE admits the two automation paths. [!] A SESSION WORKING AROUND IT AGAIN CLOSES NOTHING: this row exists because the workaround is undiscoverable, not because it is unavailable. [!] AND IF THE OPERATOR DECIDES the board claim should simply not ride a deliverable branch, that is a legitimate answer and must be RECORDED as the decision rather than left looking like a guard change about to happen.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-A-TIER-1-SELF-LANDING-BRANCH-CANNOT-POST-TO-THE-COORDINATION-BOARD-BECAUSE-THE-RELAY-COMMITS-OUTSIDE-TIER1-SURFACE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-A-TIER-1-SELF-LANDING-BRANCH-CANNOT-POST-TO-THE-COORDINATION-BOARD-BECAUSE-THE-RELAY-COMMITS-OUTSIDE-TIER1-SURFACE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-A-TIER-1-SELF-LANDING-BRANCH-CANNOT-POST-TO-THE-COORDINATION-BOARD-BECAUSE-THE-RELAY-COMMITS-OUTSIDE-TIER1-SURFACE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] board-post.yml commits automation/board-results/, which is outside pr-landing's TIER1_SURFACE, so posting the MANDATORY board claim from a Tier-1 branch makes that branch un-self-landable"
+}

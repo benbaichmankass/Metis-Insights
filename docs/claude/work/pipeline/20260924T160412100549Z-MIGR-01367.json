@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "A session that was NOT told the priority by its prompt states this cycle's priority AND cites the CLAUDE.md session brief as where it read it AND says what it did differently because of it. ⚠️ RENDERING IS NOT EVIDENCE — that the block appears in CLAUDE.md is a deploy, not an observation; this is the same distinction that keeps OI-20260826 open. ⚠️ A SESSION POINTED HERE BY ITS PROMPT CANNOT CLEAR THIS, for the reason the MHG row names: it has been told. The uncontaminated observation is a later session that arrived cold — record which it was. ⚠️ 'A session read it and ignored it' does NOT clear this either: that is a different and more useful finding, and belongs in observation rather than being treated as a pass.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Subject retired by the 2026-09-21 operating reset: CYCLE-PRIORITY.json rendered into the SESSION-BRIEF block, which is gone. EVIDENCE: CLAUDE.md § 'This file was cut on 2026-09-21'.",
+  "what": "[LOUD] A3 priority propagation shipped (operating-layer Phase C): docs/claude/CYCLE-PRIORITY.json is rendered into CLAUDE.md's SESSION BRIEF by render_session_brief.py, so a session now inherits the cycle's priority without a human retyping it. ⚠️ NOTHING HAS BEEN OBSERVED ACTING ON IT. Shipped and working are different states, and the channel it rides is itself unproven — OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION is still open. verified_at is deliberately null: no observation has been made, and dating it today would be a claim of one."
+}

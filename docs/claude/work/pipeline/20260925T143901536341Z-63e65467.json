@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "CORRECTED 2026-09-25: this row was marked done earlier the same day on a premature reading -- `python3 scripts/ops/symbol_data_binding_census.py` reported 0 only because the check ran BEFORE scripts/ml/build_calibration_corpus.py was reverted out of PR #12967 for a landing-surface reason (TIER1_SURFACE does not cover scripts/ml/**, and widening check_pr_landing.py to add it is itself LANDING_MACHINERY under R12, which would force that self-land PR to hold for a human). 16 of 17 sites are wired and merged/merging; ACTUAL remaining count is 1: scripts/ml/build_calibration_corpus.py. Clears when a follow-up PR wires that one file through scripts/ops/backtest_data_source.py::resolve_or_refuse (same pattern as the other 16 -- see docs/reference/backtest-data-loading.md) AND the census genuinely reports 0 AND scripts/ci/run_guards.py registers it as a gate in that same change.",
+    "kind": "observation",
+    "last_checked": "2026-09-25"
+  },
+  "id": "BL-20260912-FIFTEEN-MORE-HARNESSES-LET-SYMBOL-BE-A-LABEL-OVER-A-DEFAULTED-DATA-FILE-AND-FOURTEEN-SHARE-ONE-FIXTURE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-FIFTEEN-MORE-HARNESSES-LET-SYMBOL-BE-A-LABEL-OVER-A-DEFAULTED-DATA-FILE-AND-FOURTEEN-SHARE-ONE-FIXTURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-FIFTEEN-MORE-HARNESSES-LET-SYMBOL-BE-A-LABEL-OVER-A-DEFAULTED-DATA-FILE-AND-FOURTEEN-SHARE-ONE-FIXTURE'), indent=2))\""
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "[health] The `--symbol` is a display label class is 15 harnesses, not the 2 that were filed — and 14 of them default to the same BTC fixture"
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A `llm_capacity_benchmark.sh` run under LLMBENCH_MODEL_URL reaches `RESULT: benchmarked` with `model:` naming the requested URL and NO `requested override did NOT serve` warning, and its generation sample is compared against the 1.5B baseline below on ANSWER QUALITY against the same real repo question. Then the operator decides. A throughput comparison alone does NOT clear this.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: No owner and no consequence: a tooling experiment whose both size arms are measured in the archived record; nothing on a money or research path depends on the verdict. EVIDENCE: The record itself says both arms are measured and the verdict is the operator's; no checklist row references the local LLM.",
+  "what": "[LOUD] Whether the half-built local LLM carries any weight is UNDECIDED — and it is undecided BY THE OPERATOR, not for want of evidence. ⚠️ THIS SUMMARY PREVIOUSLY ENDED '#10605 makes that arm dispatchable via LLMBENCH_MODEL_URL; it has NOT been run' — that was true when written and became FALSE on 2026-09-01, in the dangerous direction: a session reading only the summary would conclude the measurement is still owed and re-run a 16-minute job on the 1-core trainer under the heavy lock. BOTH SIZE ARMS ARE NOW MEASURED ON ANSWER QUALITY. 1.5B: fabricated a causal claim and misattributed the fault. 3B (Qwen2.5-3B-Instruct Q4_K_M, `RESULT: benchmarked`, `single-shot flag: -st`, both controls passing): better on BOTH of those specific defects — it hedges instead of inventing, and keeps the fault on the internal side — but never names the mechanism, at ~2.1x the latency and ~0.96 GB of headroom. So the REMAINING step is the operator's decision, which is the last clause of clears_when ('Then the operator decides'). Read the observation for the full sample and for one correction it carries: the truncation both models show is OURS (`-n 200`), not evidence about either model."
+}

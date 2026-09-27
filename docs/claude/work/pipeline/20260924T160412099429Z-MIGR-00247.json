@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The `--total-sort` tie-break is the DEFAULT (not merely available), the committed corpus has been re-measured under it with the re-measure dated in the evidence file, and `docs/research/m20-exit-head-rounds.jsonl` rows carry an ordered `legs` field so rows from the two conventions are distinguishable. Verified by: two runs of the same family passing --legs in two DIFFERENT orders producing byte-identical per-leg mean_auc and usable_folds, with both orders recorded in the PR.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] An E1 exit_head_ml verdict depends on the ORDER the legs were typed on the command line: --legs order becomes rows.jsonl row order, which becomes the tie-break in a STABLE sort over a heavily-tied bar_t, which moves fold membership."
+}

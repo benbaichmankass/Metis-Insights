@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either package-level analyses over a journal tail EXCLUDE (or mark) packages truncated by the tail edge, or the drift rate is measured and shown to be small enough that they need not. [!] A SINGLE RE-RUN AGREEING WITH ITSELF CLOSES NOTHING -- the mechanism is a difference BETWEEN pulls separated in time, so two reads of the same pull cannot see it. [!] AND AN HONEST NEGATIVE CLOSES IT: if the measured drift rate is negligible over the windows these analyses actually use, saying so with the number is a completed deliverable.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-A-1000-ROW-TAIL-PULL-CHANGES-A-FANOUT-PACKAGES-MEMBERSHIP-WITHIN-HOURS-SO-A-PACKAGE-LEVEL-RATE-OVER-A-TAIL-IS-UNSTABLE-BY-CONSTRUCTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-A-1000-ROW-TAIL-PULL-CHANGES-A-FANOUT-PACKAGES-MEMBERSHIP-WITHIN-HOURS-SO-A-PACKAGE-LEVEL-RATE-OVER-A-TAIL-IS-UNSTABLE-BY-CONSTRUCTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-A-1000-ROW-TAIL-PULL-CHANGES-A-FANOUT-PACKAGES-MEMBERSHIP-WITHIN-HOURS-SO-A-PACKAGE-LEVEL-RATE-OVER-A-TAIL-IS-UNSTABLE-BY-CONSTRUCTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] A fan-out package loses a sibling to the 1000-row tail window in 7.4h with nothing re-stamped and nothing reordered — a third cause of a moving published table that neither hypothesis in the U15 row names"
+}

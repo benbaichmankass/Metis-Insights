@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) data/XAUUSD_15m_deep.csv is regenerated and the M27 sweep re-run for both levers, with the outcome recorded on each cell - reproduced (caveat removed) or not (verdict revised) - verified by the run artifact, not by asserting the file exists; OR (b) the matrix-wide audit above is run, its results recorded, and a guard added so a closed cell citing a data path that cannot be located is FLAGGED rather than counted silently as closed. (b) is the one that closes the class; (a) alone closes one instance and this row should then be narrowed to the class rather than closed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-M20-VERDICTS-ON-DELETED-EVIDENCE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-M20-VERDICTS-ON-DELETED-EVIDENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-M20-VERDICTS-ON-DELETED-EVIDENCE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Two CLOSED M20 verdicts rest on an input file that no longer exists, and neither cell said so"
+}

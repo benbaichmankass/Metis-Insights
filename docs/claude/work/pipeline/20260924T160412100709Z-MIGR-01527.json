@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "due_date": "2026-10-02",
+    "kind": "date"
+  },
+  "id": "PI-20260924-E57-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "MANAGER-CHECKLIST.json#E57",
+    "rerun": "python3 -c \"import sys;sys.path.insert(0,'scripts/ops');import research_loss_detector as d;from datetime import datetime,timezone;q=d.q_expiring('benbaichmankass/Metis-Insights',datetime.now(timezone.utc),24*15,'origin/main');print(q['population']);[print(r) for r in q['findings']]\""
+  },
+  "routed_to": "MANAGER-CHECKLIST.json row E58",
+  "state": "routed",
+  "what": "[research-landing] An UNLANDED research artifact with a known expiry: research-backtest-augment-35594371192 (artifact 10636332146, run 35594371192, workflow research-backtest-augment.yml) expires 2026-10-05T11:32:33Z and its run id appears nowhere on origin/main (not in research/results, not in a commit message, not under research/**, docs/research/** or runtime_logs/replay_pregate/**). Found by the E57 detector's question C as its positive control (15-day window). MECHANISM GAP BEHIND IT: only 2 workflows call .github/actions/research-result (m20-exit-lever-sweep, research-exit-head-build); the ~18 other research workflows land nowhere by contract, so question B cannot see them and question C (72h before expiry) is their only net. Wiring them onto the research-result action is the durable fix."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Stamp-only edit to research/queue/RQ-20260922-003.yaml and RQ-20260922-004.yaml — only last_dispatched_at changes, no decision_rule/question/power edited. Tier-1 per the canonical doc's own list and the established E57 category (a queue stamp-only edit self-lands, per check_pr_landing.py's own self-test). Records that both units were re-dispatched via m20-exit-lever-sweep.yml (runs 36254494896 / 36254496707) through the GitHub Actions API directly (the `gh` CLI is unavailable in this session, so scripts/research/dispatch_queue.py --fire itself could not run) after PR #13001 fixed the records-file wiring bug."
+}

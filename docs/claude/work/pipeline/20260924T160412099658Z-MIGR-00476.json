@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "MEASURED 2026-09-07 on branch claude/mi165-be-floor-sweep-20260907. The branch is Tier-1 by the canonical definition (research harnesses + a sweep script + tests + a memo; no src/, no config/, no order path, nothing armed), but three of its paths — scripts/backtest_trend.py, scripts/backtest_pullback.py, scripts/backtest_squeeze.py — are outside TIER1_SURFACE, which covers scripts/ci/**, scripts/ops/**, scripts/research/** and scripts/reports/** but not the backtest harnesses at scripts/ root. R5 therefore refuses `landing: \"self\"`, correctly and by design ('a path outside TIER1_SURFACE is not thereby dangerous; it is one the guard cannot certify'). THE GAP IS IN HOLD_REASONS, WHICH IS A CLOSED VOCABULARY OF FIVE AND NAMES NONE OF THIS CASE: changes_landing_machinery (verified false by R8), depends_on_unmerged_pr (false), awaiting_evidence (false), operator_asked_to_hold (the CLOSEST available and the one MI-165 used, but not what the hold is actually caused by — the commission explicitly PERMITTED landing the Tier-1 half), tier_2_3_needs_approval (this PR is Tier-1 and arms nothing). So the branch must declare a typed reason that does not name its real cause, and a typed verdict whose basis is stated only in free text is the weaker half of the discipline OPEN-PRS.json::operator_decision exists to enforce. MI-165 therefore put the true cause in hold_text and filed this row rather than leaving the mismatch unrecorded. RESOLVES WHEN either (a) HOLD_REASONS gains a term for it — …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260907-PR-LANDING-HAS-NO-HOLD-REASON-FOR-TIER1-WORK-OUTSIDE-THE-CERTIFIABLE-SURFACE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-PR-LANDING-HAS-NO-HOLD-REASON-FOR-TIER1-WORK-OUTSIDE-THE-CERTIFIABLE-SURFACE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-PR-LANDING-HAS-NO-HOLD-REASON-FOR-TIER1-WORK-OUTSIDE-THE-CERTIFIABLE-SURFACE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_pr_landing R5 refuses self-land for scripts/backtest_*.py, but no HOLD_REASON names 'Tier-1 work the guard cannot certify', so the declaration must state a reason that is not quite true"
+}

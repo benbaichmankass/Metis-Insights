@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "In the change that first arms the allowlist: (a) make the call site branch on `_pos.state` rather than on `idx is None`, so `one_way` and `unresolved` — which the resolver deliberately keeps apart — are not collapsed back together at the point of use; (b) decide and record what `unresolved` should DO, given it is correct-on-one-way and doomed-on-hedge (candidates: send 0 and escalate the failure to the naked-position alert rather than a bare WARNING; or read the venue mode and branch). (c) Fix the resolver's warning text so it does not claim 'no positionIdx' for a caller that sends 0. Closable when a test asserts the wire payload for each of the four resolver states at this call site.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260830-NAKED-REARM-SENDS-POSITIONIDX-0-WHERE-THE-RESOLVER-SAYS-IT-SENDS-NONE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-NAKED-REARM-SENDS-POSITIONIDX-0-WHERE-THE-RESOLVER-SAYS-IT-SENDS-NONE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-NAKED-REARM-SENDS-POSITIONIDX-0-WHERE-THE-RESOLVER-SAYS-IT-SENDS-NONE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The Bybit naked re-arm sends positionIdx=0 on `unresolved`, while the resolver's own WARNING says it sends none — inert today, and the two disagree the moment BYBIT_HEDGE_MODE_SYMBOLS is armed"
+}

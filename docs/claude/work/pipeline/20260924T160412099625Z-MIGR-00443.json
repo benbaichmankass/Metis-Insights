@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The set of rows a session is actually required to report on is SMALLER than the register and is derivable rather than authored, AND a session is observed reporting on that set in full. ⚠️ Closing this by editing 34 rows' flags without changing what PRODUCES the flag closes nothing -- the proportion will drift back, because every new row is filed by someone who thinks their row is important. ⚠️ And it does NOT close by capping the register: the cap was already tried and reversed for exactly this file.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260902-THE-LOUD-FLAG-MARKS-34-OF-45-OPEN-ITEMS-SO-IT-NO-LONGER-DISCRIMINATES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-THE-LOUD-FLAG-MARKS-34-OF-45-OPEN-ITEMS-SO-IT-NO-LONGER-DISCRIMINATES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-THE-LOUD-FLAG-MARKS-34-OF-45-OPEN-ITEMS-SO-IT-NO-LONGER-DISCRIMINATES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `loud: true` is set on 34 of 45 OPEN-ITEMS rows (75.6%), while the register's own rule is that every loud row must be REPORTED in a session's closing summary — a report nobody can actually make, so in practice none are"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A Data Explorer load in the DEPLOYED SPA returns 200 with real rows, observed on the live page. TWO INDEPENDENT PRECONDITIONS MUST BOTH HOLD and neither substitutes for the other: (1) the host can mint -- POST /api/auth/login with a WELL-FORMED body returns 401 invalid_credentials rather than 500 auth_unavailable, i.e. JWT_SIGNING_KEY / ALLOWED_EMAIL / WEBAPP_PASSWORD_SHA256 are set (Tier-2, operator originates the values); and (2) the SPA can SEND a bearer -- a login screen and token store exist in benbaichmankass/ict-trader-dashboard, which the gating commit measured as ABSENT. !! NOT sufficient: setting the envs alone -- that clears (1) and says nothing about (2). !! NOT sufficient: any test suite -- #11517 ships 34 passing tests and a harness cannot reach a deployed front end. !! NOT sufficient: an unauthenticated 401 from /api/bot/db/* -- that is the gate WORKING and is byte-identical in the healthy and broken states. !! AND A 422 FROM AN EMPTY LOGIN BODY IS NOT EVIDENCE EITHER WAY: Pydantic validation runs before the handler. Use a well-formed body. !! IF THE OPERATOR DECIDES the Data Explorer should stay closed -- legitimate, since failing closed on the money DB is the right side to err on -- this row does NOT clear, it CHANGES: the tab is then deliberately retired and that must be RECORDED as a decision rather than left looking like an outage about to be fixed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-DB-EXPLORER-GATE-MERGED-WITH-BOTH-ITS-OWN-HELD-PRECONDITIONS-MEASURED-FALSE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] CONFIRMED BROKEN: the SPA's Data Explorer has been unreachable on the live host since 2026-09-09 — the /api/bot/db/* gate fails closed (correctly) and the host cannot mint a session, a documented precondition that was never closed"
+}

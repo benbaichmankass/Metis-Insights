@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER a fifth verdict (e.g. `ungradeable`) exists and is refused as a terminal close, so a reader can record 'this unit predates the achieved-n stamp' without asserting a measurement -- with a test pinning it distinct from `underpowered` -- OR the 28 legs are re-swept and become gradeable, with the count of still-ungradeable units measured and stated afterwards. Closing this by recording the 28 as `underpowered` is NOT acceptable and is the specific outcome this row exists to prevent.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260831-28-E35-UNITS-ARE-PERMANENTLY-UNGRADEABLE-AND-THE-VERDICT-VOCABULARY-CANNOT-SAY-SO",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260831-28-E35-UNITS-ARE-PERMANENTLY-UNGRADEABLE-AND-THE-VERDICT-VOCABULARY-CANNOT-SAY-SO",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-28-E35-UNITS-ARE-PERMANENTLY-UNGRADEABLE-AND-THE-VERDICT-VOCABULARY-CANNOT-SAY-SO'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] 28 of the 42 unread e35 units carry NO achieved OOS count at all (`base_oos_trades` null on every row), so the R4 power gate cannot grade them -- and they cannot be back-filled: the source report.json files are workflow artifacts, never committed, and a PM-side session has no artifact download. They are therefore stuck in `unread` indefinitely. The verdict vocabulary (actioned / no_action_warranted / underpowered / superseded) has no member for NEVER MEASURED. Recording them `underpowered` would assert a measurement nobody made -- it means 'measured, and too small' -- so the honest options today are to leave them unread (which reads as nobody looked) or to re-sweep, a multi-hour run the corpus exists to avoid. That is a collapsed state in the vocabulary itself: 'we measured n and it was short' and 'n was never recorded' are different facts with different remedies (acquire more data vs re-run the extractor)."
+}

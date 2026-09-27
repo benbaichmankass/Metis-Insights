@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The `emitted` branch treats an undateable valid_until as NOT blocking a fresh signal, OR bounds it by created_at + PROP_EXPIRY_PROMPT_MAX_AGE_HOURS — either is defensible; choose one and say which. Fixed in the same change as the expiry_prompted timeout, since both are the same unbounded-latch shape. [!] A unit test IS sufficient here, unusually, because the trigger is a malformed journal row rather than venue state — but it must assert the ticket stops blocking, not merely that the branch is reached. [!] DO NOT close this on the observation that zero instances exist: that is the state it was FILED in, and it is why the severity is medium rather than high.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-AN-EMITTED-PROP-TICKET-WITH-NO-VALID-UNTIL-LATCHES-THE-BOOK-FOREVER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-AN-EMITTED-PROP-TICKET-WITH-NO-VALID-UNTIL-LATCHES-THE-BOOK-FOREVER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-AN-EMITTED-PROP-TICKET-WITH-NO-VALID-UNTIL-LATCHES-THE-BOOK-FOREVER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Latent second permanent-latch path in the prop reticket guard: an `emitted` ticket whose valid_until is missing or unparseable takes the `vu_dt is None` branch and blocks every further ticket for that (account, symbol, direction) indefinitely"
+}

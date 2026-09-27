@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The sub-account join is solved — the live path can see BOTH sub-accounts for bybit_2 and reproduces the stitched figure — OR the operator records that bybit_2's lifetime truth stays hand-maintained permanently. ⚠️ SUPERSEDES the original clears_when, whose (a)/(b) both rested on a retention question that has now been ANSWERED and was the wrong question: retention reaches, the scope does not. Re-running the puller at any `days` value does NOT clear this.",
+    "kind": "observation",
+    "last_checked": "2026-08-31"
+  },
+  "id": "OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] The live Bybit wallet-truth path works and is MEASURED, but it does not and cannot currently reproduce the -$262.52 figure it was built to replace -- the two are over almost disjoint windows. Switching journalTrust over is therefore NOT a one-line flip, and the decision is open."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "execute.modify_open_order accepts a trade identifier and forwards it as oca_key on the IB branch, and order_monitor._reassert_from_divergence does the same, so no IB re-arm reaches the symbol-wide pre-cancel while a trade id is in scope; verified by a test that asserts each IB call site passes oca_key, and by the next live re-arm minting a group named 'oca-protect-t<trade_id>' rather than 'oca-protect-<orderId>'.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-THE-TRAILING-AMEND-NEVER-PASSES-OCA-KEY-SO-IT-STILL-CANCELS-SYMBOL-WIDE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The deterministic per-trade OCA group exists, and the trailing-amend path does not use it"
+}

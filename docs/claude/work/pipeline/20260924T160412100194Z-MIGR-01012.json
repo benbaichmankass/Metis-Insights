@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260908-ALPACA-PAPER-OCO-GROUP-IS-INERT-A-STOP-13-POINTS-IN-THE-MONEY-HAS-NEVER-FIRED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-ALPACA-PAPER-OCO-GROUP-IS-INERT-A-STOP-13-POINTS-IN-THE-MONEY-HAS-NEVER-FIRED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-ALPACA-PAPER-OCO-GROUP-IS-INERT-A-STOP-13-POINTS-IN-THE-MONEY-HAS-NEVER-FIRED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "alpaca_paper GLD's resting OCO bracket is INERT at the venue -- a sell-stop 13 points in the money has not fired in 12 days, while every protection check grades the position covered"
+}

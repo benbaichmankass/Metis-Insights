@@ -1,0 +1,1 @@
+requesting the auto-merge relay for claude/w4-e4-corpus (row E4, Tier-1 self-land)

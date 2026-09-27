@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "1. The report-back ingest populates opened_at/closed_at when the source carries them — the terminal screenshot shows trade-history timestamps and the parser already reads that panel, so the data is present on the image and is being dropped, not absent.\n2. THE MISSING VALUE MUST STAY NULL, never backfilled from reported_at. Substituting the report time for the trade time is the FABRICATED bucket exactly — a defensible-looking number with no anchor to the event — and it would silently make every historical latency read as zero. A null here is the honest 'we were not told'.\n3. State the population on any prop timing claim until coverage is high: report n_with_trade_time / n_total beside it, the rCoverage/pnlCoverage discipline. Coverage is 25.7% today.\n4. Do NOT retro-fill the 26 existing rows from their free-text `reason` by machine. Several DO contain the venue times in prose (fill 33 is one), but a regex over operator prose is a reconstruction presented as a record; if it is done at all it is stamped ESTIMATED with the extraction basis, never as a measured timestamp.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-PROP-FILLS-RECORD-WHEN-THEY-WERE-REPORTED-NOT-WHEN-THEY-TRADED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-PROP-FILLS-RECORD-WHEN-THEY-WERE-REPORTED-NOT-WHEN-THEY-TRADED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-PROP-FILLS-RECORD-WHEN-THEY-WERE-REPORTED-NOT-WHEN-THEY-TRADED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 74% of prop fills carry NO trade timestamp — the journal records when a trade was REPORTED, not when it happened, so prop hold time and report latency are unmeasurable"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "native MES per-contract shard pulled + cells re-backtested; verdict recorded",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260707-NATIVE-MES-PULL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260707-NATIVE-MES-PULL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260707-NATIVE-MES-PULL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] Deeper native-MES per-contract history — re-judge MES pullback 1h + fvg 15m on 3y+"
+}

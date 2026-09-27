@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either the two slow cases are made deterministic/faster, or the guard gets a timeout with headroom over its measured p99 — and the chosen number is justified by a measured distribution, not picked. Closing this by observing one fast run is NOT sufficient.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260824-ARTIFACT-VALIDITY-GUARD-VERDICT-DEPENDS-ON-SANDBOX-TIMING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-ARTIFACT-VALIDITY-GUARD-VERDICT-DEPENDS-ON-SANDBOX-TIMING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-ARTIFACT-VALIDITY-GUARD-VERDICT-DEPENDS-ON-SANDBOX-TIMING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] artifact-validity-guard runs at 43.9s against run_guards.py's 60s timeout, on a test whose runtime varies 3x run-to-run"
+}

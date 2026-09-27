@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The cause is NAMED with evidence from the live system (an audit row, a gate row, or the loaded-strategy set), and either the leg journals on bybit_1 or the silence is shown to be correct-and-declared and the leg is de-routed or its loss is logged. ⚠️ NOT sufficient: the detector existing, this row being read, or a later window happening to show a row — a single journal row does not establish that the other 143 signals were handled correctly.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260830-TREND-DONCHIAN-SOL-SIGNALS-144-TIMES-AND-JOURNALS-NOTHING-ON-BYBIT-1'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] trend_donchian_sol is enabled/live and routed to bybit_1, has emitted 144 actionable buy signals since 08-01, and has NEVER written a journal row on that account — the detector now exists, the CAUSE is undiagnosed"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) `run_guards.py` runs the test file(s) whose path matches a changed module — for a diff touching `scripts/research/e35_shard_plan.py` it executes `tests/test_e35_shard_plan_data_basename.py` — demonstrated by reverting the MI-195 test fix and seeing the local run go RED where it went green on 2026-09-08; OR (b) its summary block states the denominator explicitly, naming that it does NOT run the repo test suite and which test files it did run, so `PASS n · FAIL 0` can no longer be read as coverage. ⚠️ NOT sufficient: a note in the docstring or in CLAUDE.md — the defect is that the OUTPUT carries a confident label its scope does not support, and the reader is at the terminal, not in the docs.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-RUN-GUARDS-GREEN-DOES-NOT-COVER-THE-CHANGED-MODULES-OWN-TEST-FILE-AND-DOES-NOT-SAY-SO",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-RUN-GUARDS-GREEN-DOES-NOT-COVER-THE-CHANGED-MODULES-OWN-TEST-FILE-AND-DOES-NOT-SAY-SO",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-RUN-GUARDS-GREEN-DOES-NOT-COVER-THE-CHANGED-MODULES-OWN-TEST-FILE-AND-DOES-NOT-SAY-SO'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] `run_guards.py` reports `PASS n · FAIL 0` while running only three hardcoded pytest invocations and never the suite — so a session that follows the documented pre-push discipline can push a change whose OWN test file was never executed, and the summary does not state that denominator"
+}

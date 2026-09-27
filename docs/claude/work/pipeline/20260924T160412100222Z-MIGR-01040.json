@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-EXIT-REFINEMENT-P7-ATTACHES-DEMOTION-TO-A-REALIZED-LIVE-R-RECORD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-EXIT-REFINEMENT-P7-ATTACHES-DEMOTION-TO-A-REALIZED-LIVE-R-RECORD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-EXIT-REFINEMENT-P7-ATTACHES-DEMOTION-TO-A-REALIZED-LIVE-R-RECORD'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-218 CONFIRMED SURFACE S4, and the only prose finding that survived reading (19 edge/both candidates -> 1). .claude/skills/exit-refinement/SKILL.md § P7 reads: 'The lever/head soaks LIVE. The next /health-review MUST verify the mechanics of the first real lever-driven exit; /ml-review//performance-review track the realized `future_r_delta` record. Demotion = delete the YAML lines.' ⚠️ THE FIRST HALF IS EXEMPLARY and is why this is a partial rather than a clean finding — 'verify the mechanics of the first real lever-driven exit' is the canonical doctrine stated correctly, and the fix must not damage it. The second half attaches DEMOTION to a REALIZED LIVE R RECORD, which is an edge verdict on live accrual with no stated floor and no offline counterpart. Note this skill is NOT in check_soak_doctrine.py's SOAK_SKILLS list (new-strategy, backtesting), so checks A-C do not read it. Evidence: docs/research/CALENDAR-TIME-EDGE-SURFACE-CENSUS-2026-09-09.md § S4."
+}

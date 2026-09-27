@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "An automation PR is OBSERVED merging green -- not the guard passing in a self-test, and not a hand-written declaration dropped onto one branch. The two candidate fixes are NOT equivalent and the choice must be recorded: (a) make each generating workflow WRITE its own .github/pr-landing/<slug>.json (tier 1, landing self) as part of the commit it already makes -- keeps the invariant that no PR lands undeclared, and is the recommended route; or (b) exempt automation/** in the guard -- cheaper, and it creates an UNGUARDED LANE on the guard's first day, which is the failure this repo names as 'a guard cheaper to lie to than to satisfy is worse than no guard'. If (b) is chosen anyway, the exemption must be NARROW (a named branch-prefix allowlist, never a bot-author test) and must be recorded as a deliberate decision rather than a fix. ALSO REQUIRED EITHER WAY: the stacked duplicates must be drained, and #10398 checked separately -- it was cut 2026-08-29, BEFORE the guard, so if it fails R11 too then the 'branch could have known' test is not doing what its docstring claims and that is a SECOND, worse finding.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260903-PR-LANDING-GUARD-RED-LOCKS-EVERY-AUTOMATION-PR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-PR-LANDING-GUARD-RED-LOCKS-EVERY-AUTOMATION-PR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-PR-LANDING-GUARD-RED-LOCKS-EVERY-AUTOMATION-PR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pr-landing-guard R11 red-locks the entire automation PR lane, because a generating workflow cannot know to write a landing declaration"
+}

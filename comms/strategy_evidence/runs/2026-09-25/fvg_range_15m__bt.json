@@ -1,0 +1,66 @@
+{
+  "strategy": "fvg_range",
+  "symbol": "BTCUSDT",
+  "timeframe": "15m",
+  "params": {
+    "range_lookback": 48,
+    "adx_max": 20.0,
+    "min_width_pct": 0.015,
+    "max_width_pct": 0.12,
+    "min_touches": 4,
+    "third_frac": 0.34,
+    "fvg_search": 24,
+    "min_fvg_size_bps": 2.0,
+    "atr_stop_buffer": 0.25,
+    "exit_style": "mid",
+    "tp_r": 1.5,
+    "timeout_bars": 48,
+    "min_confidence": 0.0
+  },
+  "total_trades": 17,
+  "fee_bps_roundtrip": 7.5,
+  "slippage_bps_roundtrip": 3.0,
+  "funding_bps_per_window": 1.0,
+  "data_start": "2025-09-25 00:00:00+00:00",
+  "data_end": "2026-09-24 23:45:00+00:00",
+  "run_date": "2026-09-25",
+  "win_rate_pct": 35.29,
+  "total_r": -6.6782,
+  "trades_long": 11,
+  "trades_short": 6,
+  "total_r_long": -6.2159,
+  "total_r_short": -0.4623,
+  "total_fee_r": 3.0171,
+  "net_total_r": -9.6953,
+  "net_total_r_long": -7.9973,
+  "net_total_r_short": -1.698,
+  "net_total_r_fee_only": -8.7933,
+  "net_expectancy_r": -0.5703,
+  "avg_win_r": 0.7203,
+  "max_mfe_r": 0.982,
+  "max_drawdown_r": 7.0,
+  "by_outcome": {
+    "stop": 11,
+    "target": 6
+  },
+  "by_year": {
+    "2025": {
+      "trades": 5,
+      "net_r": -2.1299
+    },
+    "2026": {
+      "trades": 12,
+      "net_r": -7.5654
+    }
+  },
+  "consistency": {
+    "months": 9,
+    "pct_months_positive": 22.2,
+    "consistency_ratio": -0.852,
+    "monthly_mean_r": -1.077,
+    "monthly_std_r": 1.265,
+    "worst_month_r": -3.501,
+    "max_consecutive_negative_months": 4,
+    "top_month_share": 0.0
+  }
+}

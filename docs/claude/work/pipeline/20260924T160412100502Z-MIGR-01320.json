@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "E48 lands: scha_trend_long_1d's arm reachability re-measured entry-conditioned against the REAL ceiling min(cap_R, tp_r) on the current geometry (tp_r 1.5, atr_stop_mult 3.0), the result written to config/lever_reachability.json REPLACING the stale 83.1%, and the operator's zero test applied to whatever that measurement says. A correction of the figure alone does NOT clear this -- the decision about the arm has to follow the new number.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E41-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E41",
+    "rerun": "python3 -c \"import yaml; s=yaml.safe_load(open('config/strategies.yaml'))['strategies']['scha_trend_long_1d']; print('arm', s.get('trail_decay_arm_r'), 'tp_r', s.get('tp_r'), 'sm', s.get('atr_stop_mult'), '-> ceiling in R is min(cap_R, tp_r); arm fires only if that >= arm')\""
+  },
+  "routed_to": "MANAGER-CHECKLIST.json row E48",
+  "state": "routed",
+  "what": "[strategy] config/lever_reachability.json grades scha_trend_long_1d's 2.00R arm '83.1% reachable' (54/65) and the 2026-09-22 strip dispatch cited it as the exemplar of a lever that FIRES -- but that figure is the VENUE cap only, measured 2026-08-16. M20 B4 has since cut this leg's tp_r 50.0 -> 1.5 and atr_stop_mult 2.5 -> 3.0. The placed TP is min(entry*(1+0.099), entry + tp_r*risk) (src/units/strategies/trend_donchian.py:393), so the ceiling is min(cap_R, 1.5) < the 2.00R arm on every entry: the leg held up as the working one looks inert. NOTHING WAS CHANGED -- the dispatch forbade touching this leg and this is the flag, not an action.\n\nOPERATOR DECISION 2026-09-24, given in chat as a popup answer with the measurement in front of them.\nVERDICT: **RE-MEASURE IT PROPERLY, THEN DECIDE. DO NOT STRIP ON THE CEILING ARGUMENT.** Operator chose this over stripping now on the arithmetic, and over merely correcting the registry figure.\nWHY THIS IS THE CAREFUL ANSWER AND NOT THE SLOW ONE: the 83.1% (54/65) is wrong in the DANGEROUS direction -- it is the number that persuaded everyone this lever works, and it was cited in the 2026-09-22 strip dispatch as the exemplar of a lever that FIRES. But the replacement reading is a CONSTRUCTION argument, not a measurement: min(cap_R, tp_r) with tp_r 1.5 is below the 2.00R arm on every entry, which is arithmetic about the placed TP (src/units/strategies/trend_donchian.py:393), not an observed firing rate. Replacing a wrong measured number with a correct derived one still leaves the registry holding something nobody measured. The operator declined to strip on a derivation.\nROUTED to checklist row **E48**. The arm is untouched meanwhile and nothing live changes.\n[!] THE STALE 83.1% STAYS IN config/lever_reachability.json UNTIL E48 LANDS, and that is a live trap the operator accepted knowingly: they were offered 'leave it and just correct the registry figure' as a cheap standalone fix and chose the fuller answer instead. Any session reading that row before E48 completes must read this item first. E48 carries the correction as part of its deliverable so the two cannot separate."
+}

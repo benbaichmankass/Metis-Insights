@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) a static guard that flags a hardcoded-literal-vs-now-window test and is proven on the pre-fix `test_newest_first` as a positive control, or (b) a documented decision that the class is rare enough to handle reactively — recorded WITH the sweep's method limitations above, so the next session does not re-derive the same broken dynamic detector and act on its false positives.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260812-WALLCLOCK-TIMEBOMB-TESTS-NO-SOUND-DETECTOR",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260812-WALLCLOCK-TIMEBOMB-TESTS-NO-SOUND-DETECTOR",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260812-WALLCLOCK-TIMEBOMB-TESTS-NO-SOUND-DETECTOR'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Wall-clock time-bomb tests (fixed date literal vs a now()-relative window) have no sound detector — one instance reddened main on 2026-08-12 and a 234-file sweep found no second, but the sweep instrument produces FALSE POSITIVES and cannot be trusted as a clean bill of health"
+}

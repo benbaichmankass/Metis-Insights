@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "THREE PARTS, and they are different facts - say WHICH you cleared rather than clearing on the easiest. (1) An exit-head CONSUMER exists in the ict_scalp unit ON MAIN - #11140 merged, or a successor. Re-measure with monitor_unit_for plus a grep for the call site; do not read the PR page. (2) The exit-head guard READS family - see BL-20260906-EXIT-HEAD-GUARD-DROPS-THE-FAMILY-CHECK-ITS-SIBLING-ENTRY-HEAD-GUARD-MAKES. Until then, publishing a scalp artifact is the step that converts a latent gap into a live one. (3) THEN a 5m/15m ict_scalp artifact is published AND the guard is OBSERVED admitting a real ict_scalp leg - a decision_state other than not_scored on a real row. !! A PASSING TEST IS NOT THAT OBSERVATION, and neither is reading the merged diff: merged is not deployed and deployed is not observed. !! DO NOT CLEAR (3) ON THE ARTIFACT APPEARING IN /api/diag/shadow_stats - it cannot appear there until it has scored, because that route aggregates prediction records, not published artifacts; if it DOES appear there, that IS the observation. !! WHEN DOING (3), PASS export_exit_head.py --family ict_scalp - the round dirs are per-leg and the derived token would be refused by _ACCEPTED_FAMILIES. !! AND DO NOT CLEAR THIS ROW BY BUILDING THE ARTIFACT ALONE. An artifact with no reader is the 'declared capability with no consumer' shape the operator's own 2026-08-23 SHIP BLOCKED verdict names, one layer over. If the operator DECIDES to pre-stage the artifact ahead of the consumer, tha",
+    "kind": "observation",
+    "last_checked": "2026-09-07"
+  },
+  "id": "OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] No 5m/15m scalp exit-head artifact exists - but the CONSUMER is missing too, so building the artifact first adds a latent hazard for no observable benefit"
+}

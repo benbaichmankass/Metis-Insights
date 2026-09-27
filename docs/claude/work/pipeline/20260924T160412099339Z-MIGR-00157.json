@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Detection is shipped. Remaining: (a) re-check the shipped gld_pullback_1h cell against a second feed, (b) thread boundary/feed-sensitivity through regime_cell_walkforward so the gate itself reports it. Any cell change is Tier-3 — propose only.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] [regime] per-regime net-R is feed-unstable — DETECTION SHIPPED (boundary exposure + feed sensitivity on regime_tag_emitted); the gld_pullback_1h re-check is the remaining open half"
+}

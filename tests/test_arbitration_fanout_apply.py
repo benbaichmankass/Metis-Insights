@@ -202,7 +202,10 @@ def test_incomplete_geometry_is_dropped_never_defaulted(missing):
         (bad,), accounts=_ROSTER, elect_fn=_elect_stub, intents_before_gate=1
     )
     assert plan["rounds"] == []
-    assert plan["per_account"]["bybit_1"]["state"] == "unknown"
+    # E35: `elected_undispatchable`, not `unknown` — we looked, it elected, and
+    # the winner cannot be dispatched. `unknown` hid it from every soak count.
+    assert plan["per_account"]["bybit_1"]["state"] == "elected_undispatchable"
+    assert plan["per_account"]["bybit_1"]["undispatchable"] == "trend_donchian_sol"
     assert plan["per_account"]["bybit_1"]["elected"] is None
 
 
@@ -241,64 +244,13 @@ def test_an_election_failure_grades_unknown_and_never_raises():
     assert plan["rounds"] == []
 
 
-# --- the pipeline's fail-closed read ---------------------------------------
-
-
-def test_apply_rounds_absent_means_no_fanout():
-    """At the shipped `annotate` default the key is absent -> unchanged path."""
-    from src.runtime.pipeline import _fanout_apply_rounds
-    assert _fanout_apply_rounds({"meta": {}}) == []
-    assert _fanout_apply_rounds({}) == []
-    assert _fanout_apply_rounds({"meta": {"arbitration_fanout": {}}}) == []
-
-
-@pytest.mark.parametrize("bad_round", [
-    {"strategy": "", "accounts": ["bybit_1"], "side": "long",
-     "entry": 1.0, "sl": 0.9, "tp": 1.2},
-    {"strategy": "s", "accounts": [], "side": "long",
-     "entry": 1.0, "sl": 0.9, "tp": 1.2},
-    {"strategy": "s", "accounts": ["bybit_1"], "side": "flat",
-     "entry": 1.0, "sl": 0.9, "tp": 1.2},
-    {"strategy": "s", "accounts": ["bybit_1"], "side": "long",
-     "entry": None, "sl": 0.9, "tp": 1.2},
-    {"strategy": "s", "accounts": ["bybit_1"], "side": "long",
-     "entry": 1.0, "sl": None, "tp": 1.2},
-    "not-a-dict",
-])
-def test_a_malformed_plan_fails_closed_to_the_unchanged_path(bad_round):
-    """Fail-CLOSED.
-
-    Losing the fan-out costs a starved account one tick — the state the system
-    is already in. Acting on a plan we could not read is a live order on
-    unverified routing.
-    """
-    from src.runtime.pipeline import _fanout_apply_rounds
-    signal = {"meta": {"arbitration_fanout": {"apply_rounds": [bad_round]}}}
-    assert _fanout_apply_rounds(signal) == []
-
-
-def test_round_package_uses_the_rounds_geometry_and_strips_the_plan():
-    from src.runtime.pipeline import _round_order_package
-    signal = {
-        "symbol": "SOLUSDT",
-        "meta": {
-            "strategy_name": "trend_donchian_sol_prop",   # the GLOBAL winner
-            "arbitration_fanout": {"apply_rounds": [{"strategy": "x"}]},
-        },
-    }
-    round_ = {
-        "strategy": "trend_donchian_sol", "accounts": ["bybit_1"],
-        "side": "long", "entry": 100.0, "sl": 95.0, "tp": 115.0,
-    }
-    pkg = _round_order_package(signal, round_, {})
-    assert pkg is not None
-    assert pkg.strategy == "trend_donchian_sol"      # NOT the global winner
-    assert (pkg.entry, pkg.sl, pkg.tp) == (100.0, 95.0, 115.0)
-    assert pkg.direction == "long"
-    assert pkg.meta["strategy_name"] == "trend_donchian_sol"
-    # The tick's plan is shared context, not this round's decision.
-    assert "arbitration_fanout" not in pkg.meta
-    assert pkg.meta["arbitration_fanout_round"]["accounts"] == ["bybit_1"]
+# --- the pipeline's reader --------------------------------------------------
+# RETIRED BY E35 (2026-09-25): `_fanout_apply_rounds` (all-or-nothing, fail-
+# closed to the GLOBAL dispatch) and `_round_order_package` (a round package
+# built from the global winner's meta) no longer exist. Their replacement,
+# `pipeline._dispatch_rounds`, drops a malformed round ALONE and renders each
+# round from the elected strategy's own signal — tested in
+# tests/test_e35_per_account_election.py.
 
 
 # --- the order-path scope is a narrowing, never a widening -----------------

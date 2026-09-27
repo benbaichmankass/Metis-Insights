@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "every automation/research-result-*, e35-bracket-corpus-*, replay-pregate-* and research-queue-stamp-* PR open at the E57 merge is merged or closed with a stated reason, and the detector's question A reads clean.",
+    "kind": "event"
+  },
+  "id": "PI-20260924-E57-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E57",
+    "rerun": "python3 scripts/ops/research_loss_detector.py --ref origin/main"
+  },
+  "routed_to": "MANAGER-CHECKLIST.json row E58",
+  "state": "routed",
+  "what": "[research-landing] ONCE E57 MERGES, stale-automation-sweep (every 2h, auto-merge ARMED on every automation/* PR) WILL LAND THE BACKLOG, so triage it BEFORE or IMMEDIATELY AFTER the merge. MEASURED 2026-09-24 ~13:00Z: (1) every automation/research-result-* branch on origin (13 of 13) is a PHANTOM -- research-exit-head-build fired on an unrelated issue, build SKIPPED, research_result job landed read_state=producer_failed. They carry no research and must be CLOSED, not merged (landing them writes 13 false records into a results store that holds none). The source is fixed in the E57 PR. (2) e35-bracket-corpus #12730 and #12781 CONFLICT with main on docs/research/e35-bracket-corpus-history.jsonl and have ZERO check runs; each is the second of two same-minute dispatches whose sibling already landed (#12728, #12780) -- read before closing. (3) ~12 open replay-pregate PRs back to #11916 (2026-09-12) will all land their .partial.json reports; confirm that is wanted. (4) three research-queue-stamp PRs (#12726, #12777, #12829): confirm an older stamp landing after a newer one cannot rewind last_dispatched_at."
+}

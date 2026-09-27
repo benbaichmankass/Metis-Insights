@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Closes when a parity run exists that (a) states its closed-trade denominator, (b) is restricted to finished trades via trades.status, and (c) reports per-leg or per-family rather than one fleet number. A run that reports a single pooled figure over a population including open trades does NOT close this row -- that is the artifact this row exists to prevent.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260816-M31-P4-PARITY-PRECONDITIONS",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260816-M31-P4-PARITY-PRECONDITIONS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260816-M31-P4-PARITY-PRECONDITIONS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] M31 P4 (backtest<->live MFE parity) preconditions: the quantities ARE comparable, the soak population is EMPTY (0 closed rows), and finality is only knowable via a join nothing enforces"
+}

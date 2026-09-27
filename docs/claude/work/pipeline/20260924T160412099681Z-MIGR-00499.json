@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A `GIT_TRACE=1 GIT_CURL_VERBOSE=1` capture of one failing delete is recorded with its actual HTTP status and response, establishing WHICH of the two reported shapes (403 vs sideband disconnect) is the real one and whether they are one failure or two — and either the delete then works from a sub-session container, or it is RECORDED as a standing limitation with the sweep that cleans up `probe-push-*` named and owned. ⚠️ A successful delete from an interactive or manager session clears NOTHING: the failing population is sub-session containers, and a delete from somewhere else does not sample it. ⚠️ And the stranded branches disappearing is not evidence either — record who removed them.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-GIT-PUSH-DELETE-OF-A-REMOTE-BRANCH-FAILS-FROM-SUB-SESSION-CONTAINERS-WHILE-ORDINARY-PUSH-WORKS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-GIT-PUSH-DELETE-OF-A-REMOTE-BRANCH-FAILS-FROM-SUB-SESSION-CONTAINERS-WHILE-ORDINARY-PUSH-WORKS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-GIT-PUSH-DELETE-OF-A-REMOTE-BRANCH-FAILS-FROM-SUB-SESSION-CONTAINERS-WHILE-ORDINARY-PUSH-WORKS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Three sub-sessions in one morning could push but could NOT `git push --delete` a remote branch, and the failure is reported two different ways — probe branches accumulate on the remote with no cleanup path"
+}

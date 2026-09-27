@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Rows ADDED to OPEN-PRS.json carry a creation-time field (R3 already requires one of `opened_at`/`as_of`/`settled_at`), and `check_register_ids.py --base origin/main` reports R2a coverage above 0% for both arrays. Existing rows stay ungraded rather than back-filled.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260903-OPEN-PRS-ROWS-CARRY-NO-CREATION-DATE-SO-IDENTITY-CANNOT-BE-CHECKED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260903-OPEN-PRS-ROWS-CARRY-NO-CREATION-DATE-SO-IDENTITY-CANNOT-BE-CHECKED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260903-OPEN-PRS-ROWS-CARRY-NO-CREATION-DATE-SO-IDENTITY-CANNOT-BE-CHECKED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] OPEN-PRS.json rows record no creation date, so register-id-guard's R2a covers 0% of them"
+}

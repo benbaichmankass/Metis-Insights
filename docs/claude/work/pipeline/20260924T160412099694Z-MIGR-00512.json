@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS, and they are different facts — say which you cleared. (1) THE INSTANCE: trade 5531 is disposed of by an OPERATOR decision (closed as unbacked, or established as genuinely backed), and a fresh read shows journal net == venue net for ib_paper/MGC. ⚠️ The position simply closing does NOT clear this — that makes the divergence unobservable rather than resolved. ⚠️ Nor does the over-cover page going quiet: it keys on DISJOINT OCA GROUPS, so it falls silent the moment one group is cancelled while the journal is still wrong. (2) THE CLASS: order_monitor reconciles journal-vs-venue quantity for interactive_brokers, not only for accounts whose exchange is 'bybit' — verified by finding an IB account in the netting-attribution pass, or an equivalent IB detector, and by a recurring probe that nets every open row per (account, symbol) against the venue and reports an UNREADABLE account as unreadable rather than as agreement.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-IB-PAPER-MGC-JOURNAL-HOLDS-43-LOTS-THE-BROKER-DOES-NOT-AND-A-43-LOT-STOP-RESTS-AGAINST-THE-PHANTOM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ib_paper/MGC: the journal holds 54 lots across two open rows while the broker holds 11 — trade 5531 (43 lots) is a phantom open row, and a live 43-lot protective STOP rests against it"
+}

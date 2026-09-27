@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO SEPARATE THINGS, and neither substitutes for the other. (a) THE REPORTING HALF: /api/diag/exchange_positions distinguishes WHY a read did not happen — at minimum a reason field separating 'account is dry, socket deliberately not opened' from 'this exchange has no position-read implementation' from 'the read was attempted and failed'. Today all three arrive as positions:null + error:null and a reader cannot tell a deliberate skip from an outage. Verify by reading the live response for ib_live and breakout_1 and showing the two now differ. (b) THE COVERAGE HALF: breakout_1 either gains a venue position read in src/units/accounts/clients.py::account_open_positions, or the repo RECORDS the decision that a live prop account is not venue-reconcilable and says what is relied on instead (prop_fills/prop_tickets, and whether anything compares them to the journal). A recorded decision closes (b) legitimately; silence does not. !! DO NOT CLEAR (b) BY SETTING breakout_1 TO dry_run — that converts an unreadable live account into an unreadable dry one and removes the read for a reason unrelated to the gap. !! DO NOT CLEAR EITHER HALF ON ib_live/oanda_practice being promoted to live — that changes those two accounts' state and leaves the null-vs-null ambiguity and the breakout gap exactly where they are.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-THREE-OF-ELEVEN-ACCOUNTS-HAVE-NO-VENUE-POSITION-READ-AND-BREAKOUT-1-CAN-NEVER-HAVE-ONE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-THREE-OF-ELEVEN-ACCOUNTS-HAVE-NO-VENUE-POSITION-READ-AND-BREAKOUT-1-CAN-NEVER-HAVE-ONE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-THREE-OF-ELEVEN-ACCOUNTS-HAVE-NO-VENUE-POSITION-READ-AND-BREAKOUT-1-CAN-NEVER-HAVE-ONE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/diag/exchange_positions returns positions:null for 3 of 11 declared accounts, for THREE different reasons — and breakout_1 (prop, mode:live) has no venue read path in the code at all"
+}

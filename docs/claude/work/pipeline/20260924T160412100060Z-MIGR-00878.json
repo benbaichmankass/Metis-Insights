@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260831-PROBE-SOAK-CRASHES-ON-A-BARE-LIST-PAYLOAD-AND-REPORTS-IT-AS-A-REAL-NEGATIVE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-PROBE-SOAK-CRASHES-ON-A-BARE-LIST-PAYLOAD-AND-REPORTS-IT-AS-A-REAL-NEGATIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-PROBE-SOAK-CRASHES-ON-A-BARE-LIST-PAYLOAD-AND-REPORTS-IT-AS-A-REAL-NEGATIVE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "probe_soak.py raises AttributeError on a bare-LIST diag payload and the unhandled traceback exits 1 — which its own contract defines as EXIT_FAIL, 'the log was READ and NOTHING matched'. A could-not-look is therefore reported as a real negative, and the module's correct `unrecognised envelope` branch is unreachable for this shape."
+}

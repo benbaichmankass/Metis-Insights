@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A committed INDEX.json carries evidence_horizon on its rows AND an evidence_horizon_summary, and a read of GET /api/bot/strategy-reviews against that date returns evidence.horizon.horizon_state with a value OTHER than 'unknown'. ⚠️ A PASSING TEST DOES NOT CLEAR THIS and neither does reading the merged diff — the harness is not the fleet. ⚠️ NOR DOES THE OFFLINE REPORT: scripts/ml/evidence_floor_report.py computes the same model from the same numbers and deliberately writes nothing into comms/, so a report that looks right says nothing about whether the GENERATOR published the block.",
+    "kind": "observation",
+    "last_checked": null
+  },
+  "id": "OI-20260902-EVIDENCE-HORIZON-PUBLISHED-BUT-NEVER-EMITTED-BY-A-REAL-RUN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-EVIDENCE-HORIZON-PUBLISHED-BUT-NEVER-EMITTED-BY-A-REAL-RUN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-EVIDENCE-HORIZON-PUBLISHED-BUT-NEVER-EMITTED-BY-A-REAL-RUN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[NEVER VERIFIED] The evidence-horizon block (src/runtime/evidence_horizon.py; five never-collapsed classes) is published by scripts/ml/strategy_review_packet.py and read by GET /api/bot/strategy-reviews' evidence.horizon — and NO REAL RUN HAS EVER EMITTED IT. Every committed index predates the field, so evidence.horizon grades 'unknown' (we could not look) on the only record that exists, which is the route WORKING while the condition persists, not the route failing. The numbers in docs/design/evidence-floor-horizon-PROPOSAL.md come from scripts/ml/evidence_floor_report.py computing over the committed artifacts OFFLINE — the same model, not the same code path."
+}

@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "DECLARED TIER-1 FIRST AND THE GUARD WAS RIGHT TO REFUSE. pr-landing-guard R5: config/mandates.yaml is Tier-2 by name, and its wording is the reason this was not argued down -- 'a path outside TIER1_SURFACE is not thereby dangerous; it is one the guard cannot certify, and self-landing is refused on it rather than granted by default.' Taking the stricter tier is the same call the E30 lane made on #12735, and under-declaring is the PR #1358 failure class. [!] WHAT THIS FILE ACTUALLY GRANTS: NOTHING. `mandates: []` is empty; the five entries sit under a separate `proposed:` key that no consumer reads. render_daily_brief.py::mandates_view reads doc['mandates'] only. So the runtime effect of merging is that a path which read `absent` now reads `read` with zero grants. [!] Needs one operator OK in chat, then the manager merges deliberately.",
+  "why": "Creates config/mandates.yaml (empty grant list + five clearly-separated proposals) and corrects CLAUDE.md's claim that the ladder is fully automated, which was false in the field because this store did not exist anywhere in git. Promoting any entry from `proposed:` into `mandates:` would be a separate act and is the OPERATOR's, never a session's -- this PR deliberately does not do it."
+}

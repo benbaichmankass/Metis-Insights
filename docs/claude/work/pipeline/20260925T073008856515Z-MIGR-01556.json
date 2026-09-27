@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-09-26",
+    "kind": "date"
+  },
+  "id": "PI-20260925-BN2S6RQZ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/12922",
+    "rerun": "python3 scripts/ops/leg_flow_report.py --window-hours 79 --json"
+  },
+  "state": "queued",
+  "what": "E18 leg_flow_detector first fleet-wide run (79h window, since the 2026-09-22 arbitration-allowlist change) graded 14 of 63 live legs `starved` (intents produced, zero received). 4 carry has_open_position: true (likely holding, not starved) and 2 carry held_back>0 (BLOCKED, not UNREACHED). The remaining ~8 -- notably qqq_trend_long_1d starved on BOTH ib_paper and alpaca_paper (198 intents, 0 received, 0 held back, no open position) -- are the cleanest reading of the E18 finding shape and need triage: is this genuine arbitration/routing starvation, a down IB Gateway connection (ib_paper specifically), or something else the detector does not check for. Not diagnosed in PR #12922, which built the detector, not the fix."
+}

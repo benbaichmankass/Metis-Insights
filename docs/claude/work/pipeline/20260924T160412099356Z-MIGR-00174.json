@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Bybit's funding-history range behaviour is MEASURED for these accounts and recorded here, and either the walk is ported or the puller is documented as correct at days=30.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-FUNDING-PULLER-SAME-RANGE-CAP-EXPOSURE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] exchange_funding_puller has the SAME single-call/no-chunking shape that made the fills puller silently return a wrong window — and it is invoked with days=30"
+}

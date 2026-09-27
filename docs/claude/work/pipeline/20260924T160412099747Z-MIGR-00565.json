@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO PARTS, different facts — say WHICH was cleared.\n\n(1) THE MEASUREMENT GAP IS CLOSED FIRST, because it is what let this go unremarked: the LIVE surface must not be able to read `within` while the durable record reads `breached`. Either the live grade carries the durable max beside its own, or requirement_state is computed from the soak rather than from per-process memory. ⚠️ This half is CHEAP and is the one that stops recurrence — the per-process reset is not a bug in itself (CLAUDE.md is right that max_interval_ms is legitimately per-process), but publishing it as THE requirement verdict is.\n\n(2) THE BREACH RATE ITSELF comes down, measured over a NEW population of comparable size — not the same rows re-read. Report in-process breach % and restart-gap breach % separately; they have different causes (tail latency vs cold-start) and a fix for one will not touch the other.\n\n⚠️ A QUIET WINDOW CLEARS NOTHING: 1.69% means ~1 breach per 59 intervals, so a short window will show zero by arithmetic. State the interval count. ⚠️ AND A GREEN requirement_state ON A FRESH PROCESS IS THE EXACT READING THAT IS ALREADY WRONG — do not clear on it. ⚠️ IF THE OPERATOR DECIDES 60s is the wrong requirement, this does NOT clear — it CHANGES, and the new bound must be recorded as a decision with the measured distribution beside it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-THE-60-SECOND-EXIT-EVALUATION-REQUIREMENT-IS-BREACHED-ON-THE-DURABLE-RECORD-WHILE-THE-PER-PROCESS-INSTRUMENT-READS-WITHIN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-THE-60-SECOND-EXIT-EVALUATION-REQUIREMENT-IS-BREACHED-ON-THE-DURABLE-RECORD-WHILE-THE-PER-PROCESS-INSTRUMENT-READS-WITHIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-60-SECOND-EXIT-EVALUATION-REQUIREMENT-IS-BREACHED-ON-THE-DURABLE-RECORD-WHILE-THE-PER-PROCESS-INSTRUMENT-READS-WITHIN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] M20's 60s exit-evaluation requirement is BREACHED — 1,219 of 72,148 intervals (1.69%, max 2.00x) and 77 of 462 restart gaps (16.7%, max 3.51x) — while the live per-process grade reads `within` because one 95-minute process did not draw the tail"
+}

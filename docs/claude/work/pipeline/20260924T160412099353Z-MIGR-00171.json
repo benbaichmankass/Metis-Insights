@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TWO HALVES, and the second was UNSATISFIABLE AS WRITTEN — re-stated 2026-09-12 so it can end. (1) An anchored row's provenance distinguishes CLOSE-time from DETECTION-time anchoring. Unchanged, and TIER-2 by path (src/runtime/exit_anchor.py + order_monitor.py): the anchor is applied only on `_close_trade_from_order_status`'s no-broker-record branch, which sets `closed_at = datetime.now()` and documents it as reconciler DETECTION time, deliberately not the fill time — so an anchored row today cannot say which of the two its timestamp is. (2) WAS: 'the accuracy figure quoted for the estimator is computed on the population it is applied to'. ⚠️ THAT CANNOT BE DONE DIRECTLY AND NO AMOUNT OF RE-VALIDATION WILL ACHIEVE IT: the applied population is DEFINED by having no broker price, so it has no ground truth to compare against. MEASURED 2026-09-12 over the newest 1000 trades rows — applied (`candle_at_close`) 355, validated (canonical MEASURED_SOURCES) 131, overlap ZERO by construction. THE ACHIEVABLE SUBSTITUTE, which is what (2) now asks for: measure the estimator on rows that DO carry broker truth AND share the applied population's defining property — a `closed_at` that is a DETECTION time rather than a fill time. Whether such rows exist is itself measurable and is the first step; if they do, that is the matched population and the figure computed on it is the one to quote. If they do NOT, then the honest output is that the estimator's accuracy on its applied population is UNMEAS …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260807-EXIT-ANCHOR-VALIDATED-ON-DISJOINT-POPULATION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260807-EXIT-ANCHOR-VALIDATED-ON-DISJOINT-POPULATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260807-EXIT-ANCHOR-VALIDATED-ON-DISJOINT-POPULATION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The exit-anchor estimator's 'median 1.33 bps' was measured on rows it is never applied to — the two populations are disjoint by construction"
+}

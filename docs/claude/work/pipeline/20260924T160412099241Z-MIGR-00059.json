@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A retirement is DONE — the thing is GONE and check_sunset_dispositions.py verified its absence on a `retired` row it did not write itself. ⚠️ A MERGE DOES NOT CLEAR THIS: shipping the pass is a deploy, not an observation, the same distinction that keeps OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION open. ⚠️ NOR DOES A PASSING SELF-TEST, and this is the specific trap here: both unreachable branches (E2's `enforcing`, E3's carry escalation) are asserted green by their own self-tests today, so a green suite proves the CODE works and says nothing about whether the MECHANISM ever fired. ⚠️ NOR DOES ANOTHER SUNSET PASS RUNNING: more candidates is more detection, and detection was never the missing half — check_unwired_artifacts has reported 115 findings and exited 0 for weeks. The observation wanted is a REMOVAL. ⚠️ AND A DISPOSITION OF `keep` ON EVERYTHING DOES NOT CLEAR IT EITHER: that is a legitimate answer per row and an illegitimate answer for the population, and it would mean the forcing function was answered into inertness — which is a more useful finding than a pass, and belongs in `observation` rather than being treated as a clear.",
+    "kind": "observation",
+    "last_checked": "2026-09-06"
+  },
+  "id": "OI-20260901-SUNSET-PASS-SHIPPED-AND-NOTHING-HAS-BEEN-RETIRED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260901-SUNSET-PASS-SHIPPED-AND-NOTHING-HAS-BEEN-RETIRED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260901-SUNSET-PASS-SHIPPED-AND-NOTHING-HAS-BEEN-RETIRED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] E3 shipped (Phase G): scripts/ops/sunset_pass.py grades retirement candidates weekly, docs/claude/SUNSET-DISPOSITIONS.json records answers, and check_sunset_dispositions.py escalates an unanswered one. Its first run named 10 candidates over 52 legs. ⚠️ NOTHING HAS BEEN RETIRED. The phase's own done-condition — 'something has actually been REMOVED' — is NOT met and was deliberately not claimed: every candidate is either Tier-3 (the operator's call) or a Tier-1 tool where the correct disposition is `wire`/`keep` rather than delete. Shipped and working are different states, and this is the row that keeps them apart."
+}

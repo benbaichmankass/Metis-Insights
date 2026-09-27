@@ -1,0 +1,21 @@
+{
+  "a10_note": "Not cleared and it is E30's own closing observation (E30's note names this id). EVIDENCE: MEASURED 2026-09-24: GET /api/bot/stats paper pnlCoverage 0.2281, pnlMeasuredCount 279, pnlEstimatedCount 681 (baseline 0.2236 / 267 at filing) — below the 0.30 bar; per-row exit_price_source not read.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "at least one pairs_* close on bybit_1 carries exit_price_source='exchange_fill' (MEASURED), AND paper pnlCoverage on /api/bot/stats has risen above 0.30",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "PI-20260922-54WQNHJX-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_017mdYduTwtyVPXU54wqNHJx, checklist row E30, branch claude/e30-pairs-pnl-measured-0922",
+    "rerun": "curl -sS https://ict-bot.duckdns.org/api/bot/stats | python3 -c \"import json,sys;d=json.load(sys.stdin)['paper'];print(d['pnlCoverage'],d['pnlMeasuredCount'],d['pnlEstimatedCount'])\" ; then page /api/diag/journal?table=trades and count classify_pnl()==MEASURED among rows whose exit_reason startswith 'pairs_'"
+  },
+  "routed_to": "E30 (landed_unproven): a pairs_* close with exit_price_source='exchange_fill' and paper pnlCoverage > 0.30",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "OBSERVE that the E30 pairs fix actually raises MEASURED coverage on the live paper book. MERGED-NOT-OBSERVED: the change makes pairs closes sweep-eligible; nothing yet proves a pairs row has reached exit_price_source='exchange_fill'. BASELINE, read 2026-09-22T12:36:53Z from GET https://ict-bot.duckdns.org/api/bot/stats and reproduced EXACTLY by classifying the full live trades table (n=6,059) with src.runtime.provenance.classify_pnl: paper pnlCoverage 0.2236 (M=267 E=664 F=128 U=135 of n=1,194); pairs_* closes 0 MEASURED of 365. EXPECTED after the fix: pairs closes begin resolving to exchange_fill and paper pnlCoverage trends toward ~0.53. IF IT DOES NOT MOVE the fix is inert, and the next suspect is exit_from_fills' qty/window match on pairs legs, NOT the sweep scope."
+}

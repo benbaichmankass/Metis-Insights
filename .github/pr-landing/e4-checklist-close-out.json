@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Tier-1 register-only update. ONE file, docs/claude/work/MANAGER-CHECKLIST.json, ONE row (E4) changed: state in_flight -> done, lane cleared, prs: [12967] added, note appended with the post-merge observation. Row E4 (this PR's own predecessor, #12967) merged as 5ef70fd; re-verified against origin/main post-merge, not just pre-merge CI -- symbol_data_binding_census.py reports 1 (the deliberately-deferred 17th site), check_corpus_row_floor.py reports 47 pairs with 0 below floor, and the two touched test files are 27/27 green. No code, no config, no workflow file touched."
+}

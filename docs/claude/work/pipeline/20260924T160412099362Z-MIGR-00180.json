@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The XAU 15m deep proxy is regenerated and its provenance recorded, ict_scalp_mgc_15m's stale_stop/giveback_stop verdicts are confirmed to reproduce (or corrected if they do not), and its exit_ladder cell carries a real verdict instead of blocked:data_missing.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260809-XAU-PROXY-DATASET-GONE-VERDICTS-UNREPRODUCIBLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] data/XAUUSD_15m_deep.csv is gone from the trainer — ict_scalp_mgc_15m's SHIPPED M27 verdicts cannot be reproduced"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "TWO PARTS, and they are different facts — say which you closed. (1) THE BLIND SPOT: over-cover is detectable when a position carries BOTH a Full-mode position-level stop AND resting Partial legs. That needs the full_position_stop branch to stop returning before it has looked, or a separate leg-count read; note it costs a get_open_orders call the branch currently avoids, so it is a real trade-off and not a free fix. Proven by an observed over-cover page on a mixed-mode bracket, never by a test. (2) THE RE-ARM: the adopt path's naked re-arm consults existing broker coverage before placing, or cancels the closing row's tracked legs. ⚠️ DO NOT RESOLVE (2) BY CANCELLING LEGS ON THE LIVE POSITION AS A ONE-OFF — BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG is what happened the last time that was attempted. The current 200% instance is expected to clear when the root cause lands and this position closes normally; if it clears that way, that is NOT evidence either half is fixed.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-A-FULL-MODE-NAKED-REARM-OVER-PARTIAL-LEGS-DOUBLES-THE-COVER-AND-THE-OVER-COVER-PAGE-IS-BLIND-TO-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-A-FULL-MODE-NAKED-REARM-OVER-PARTIAL-LEGS-DOUBLES-THE-COVER-AND-THE-OVER-COVER-PAGE-IS-BLIND-TO-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-A-FULL-MODE-NAKED-REARM-OVER-PARTIAL-LEGS-DOUBLES-THE-COVER-AND-THE-OVER-COVER-PAGE-IS-BLIND-TO-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The adopt path's naked re-arm places a Full-mode bracket over still-resting Partial legs, doubling the cover — and the over-cover trip is structurally blind to it because a Full-mode stop makes the reader return before it ever lists the legs"
+}

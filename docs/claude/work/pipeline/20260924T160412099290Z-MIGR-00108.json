@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "EIGHT SEPARATE OBSERVATIONS. Say WHICH you cleared and clear them one at a time; this row does NOT clear because most of them did, and it must not be closed on the easiest. (1) U7 IS THE CHEAPEST AND SHOULD BE DONE FIRST: read docs/claude/DUE.json on main and confirm `sources.red_crons.state` is `read` rather than `could_not_read`, on an artifact written AFTER #11897 merged — check the commit that wrote it, because the hourly error-feed-digest producer is the one whose token was missing and a stale artifact would look identical. (2) U1: a SCHEDULED pr-queue-watch run emits `conflict escalate: True` naming a real green-and-dirty PR. A replay against stored payloads is what already exists and is NOT this. (3) U3: a live audit run parses a real START whose bullets sit after a blank line and reports a non-zero declared-path count for it. (4) U4: register-field-loss FAILS a real PR that would have reverted a field — [!] a green run clears nothing here, since the guard is silent by design when nothing is lost. (5) U6: the probe is run from a FULL clone (fetch-depth 0) by something other than a human at a keyboard and its `landed` count is non-zero. [!] It is wired to NOTHING today (BL-20260912-THE-STUCK-BRANCH-PROBE-IS-WIRED-TO-NOTHING-SO-181-STRANDED-AUTOMATION-BRANCHES-ARE-SEEN-BY-NOBODY), so this cannot clear until a carrier exists. (6) U2-prevention #11889: a PR opened by claude-pr-automerge is observed being born WITH checks attached, or the arming gate is observed REFUSING a ",
+    "kind": "observation",
+    "last_checked": "2026-09-17"
+  },
+  "id": "OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] MI-280's eight landing/register instruments are merged-or-armed and only TWO have been observed acting on the fleet"
+}

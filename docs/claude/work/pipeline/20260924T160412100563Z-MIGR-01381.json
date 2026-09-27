@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "THREE PARTS, and they are different facts — say which you cleared rather than clearing the row on the easiest. (1) The operator gives the Tier-2 OK and PR #10858 merges, at which point install_systemd_units.sh's deploy/*.timer glob installs and enables the units on the next deploy. ⚠️ MERGING IS THE VM MUTATION HERE — there is no separate install step — which is exactly why it is Tier-2 and must not be merged on a session's own judgement. (2) The timer is OBSERVED firing: /api/diag/services shows ict-work-digest.timer enabled AND runtime_logs/work_digest_receipt.json carries `outcome: sent` from a SCHEDULED firing. Read /api/diag/log_file?name=work_digest_receipt, never the OnCalendar= line — a manual run writes an identical receipt, and the failure class being watched is a cadence that does not fire. (3) The now-redundant `schedule:` block is removed from work-digest.yml, leaving workflow_dispatch. ⚠️ (3) IS DELIBERATELY NOT IN THE SAME PR, so that a timer which fails to install cannot take the digest to ZERO. Until it lands BOTH carriers run and the operator sees ~5 duplicate digests a day — that is the accepted cost of not risking a silent outage, and it is a KNOWN state, not a defect to re-file. ⚠️ IF THE OPERATOR DECLINES the timer, this row does NOT clear — it CHANGES: the digest is then carried by an Actions cron measured at 5 firings a day against 24 declared, which is a legitimate decision and must be RECORDED as one with that consequence stated.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Subject retired by the 2026-09-21 operating reset: the work digest and digest-liveness-guard are retired. EVIDENCE: run_guards.py:184 'Removed: ... digest-liveness-guard, work-digest-source-coverage'.",
+  "what": "[LOUD] The hourly work digest has NO durable carrier, and the replacement is PREPARED BUT NOT APPLIED, held on a Tier-2 operator OK. .github/workflows/work-digest.yml declares `20 * * * *`; measured over its COMPLETE run history it fired 5 times in a day, at :19, :10, :33 and :47 — never on its declared minute. deploy/ict-work-digest.{service,timer} moves it onto the VM's own clock (OnCalendar=hourly), which is what demonstrably fires here — ict-git-sync pulls every ~5 min."
+}

@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "[!] CORRECTED 2026-09-12 by MI-282 — CLAUSE (1) IS NOT A VALID TEST ON THE CURRENT CODE AND CLAUSE (1)'s OWN CAVEAT IS BACKWARDS. A soak row showing breakout_1 in rounds_applied with apply_scope 'allowlisted' PROVES NOTHING about routing: 317 such rows already exist for bybit_1 while the fan-out dispatched nothing. A NEW CLAUSE (0) PRECEDES ALL THREE — [Tier-2, code] _attach_fanout_plan must carry the round's geometry into apply_rounds, and the seam test that hand-builds it must be FIXED (it writes plan['apply_rounds'] = plan['rounds'] with the comment '# what apply mode attaches', which is exactly what apply mode does not attach, so it passes over the defect). Until (0) lands, clause (1) is unachievable and attempting it manufactures a false pass. [!] AND THE CAVEAT '(1) WITHOUT (2) converts silent starvation into a silent stale-balance refusal' IS FALSE — the stale balance does not refuse; prop sizing substitutes the NOMINAL equity by operator design (2026-06-19), measured against two tickets emitted on 2026-09-05 with a 141h-stale snapshot. Clause (2), the emitted prop_tickets row traced to a fan-out round, is CORRECT and is now the ONLY sufficient evidence — read it, never a routing row. [!] The caveat 'A FRESH bal CLEARS ONLY THE SNAPSHOT, not (1)' remains TRUE and is unaffected. === THE ORIGINAL CRITERIA FOLLOW AND ARE PRESERVED: ALL THREE, and they are different facts -- say WHICH you cleared rather than clearing the row on the easiest. (1) ROUTED: a soak row shows bre",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Superseded by E17 (blocked): 'breakout_1 receives nothing' is that row's title and its diagnosis was re-opened on 2026-09-24. EVIDENCE: MANAGER-CHECKLIST.json: E17 blocked (#12708, #12755).",
+  "what": "[LOUD] breakout_1 (PROP, mode: live) has emitted no order package for ~12 days -- NOT because it was quiet, and NOT because of the low cushion; three blockers stack and clearing only the first makes it fail silently instead"
+}

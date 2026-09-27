@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "MEASURED 2026-09-08 by MI-188b. TWO populations, deliberately separate. (1) TAIL, n=1000 of a 641,866-byte file, spanning 2026-06-19T14:07Z -> 2026-09-08T06:01Z, 51 distinct strategies, venues api 945 / prop 55: ladder.n_rungs == 0 for ALL 1000 and differs_from_single_target == False for ALL 1000. (2) COMPLETE CENSUS of order_packages (n=4467, fetched total==4467) — this is what makes the tail conclusive rather than suggestive: a rung requires meta.tp2 distinct from tp (src/runtime/exit_plan.py L293), and exactly 3 of 4467 packages carry a tp2 EVER — pkg-b133100f432d4f47 (2026-05-10, orphaned), pkg-c5ac7d6ff4034131 (2026-06-02, orphaned), pkg-f6ec69a34e754e1f (2026-07-01, rejected), all turtle_soup, none reaching a managed exit. trades.take_profit_2 is positive on 0 of 5550 rows. So the soak whose stated purpose is the pre-flight evidence for the behaviour-changing P4 graduation has accrued ZERO evidence of a ladder to graduate to, and its own docstring says nothing reads it back — so nothing notices. SAME CLASS as BL-20260826-TARGET-EXTENSION-SOAK-IS-100PCT-SENTINEL-AND-CANNOT-YET-OBSERVE-THE-LEVER on a different soak; filed as a RECURRENCE of that class, not a duplicate of that row. NOT A CLAIM that the ladder is broken — it has never been reachable. RESOLVED WHEN: either (a) the soak records a run with n_rungs > 0 from a real executed order and that record is READ by something, or (b) an operator decision is RECORDED that the ladder is not being graduated, with the consequ …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-EXIT-LADDER-SOAK-HAS-NEVER-PRODUCED-A-RUNG-SO-IT-ACCRUES-NO-EVIDENCE-TO-GRADUATE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-EXIT-LADDER-SOAK-HAS-NEVER-PRODUCED-A-RUNG-SO-IT-ACCRUES-NO-EVIDENCE-TO-GRADUATE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-EXIT-LADDER-SOAK-HAS-NEVER-PRODUCED-A-RUNG-SO-IT-ACCRUES-NO-EVIDENCE-TO-GRADUATE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] exit_ladder_soak exists to accrue the evidence for graduating the multi-rung ladder to the real exit path, and every record it has written is a ZERO-RUNG ladder identical to the single target already placed — the precondition has been met 3 times in the system's entire history and all 3 were rejected"
+}

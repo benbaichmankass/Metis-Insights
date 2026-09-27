@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) the exact-tf backtest_ probe lands WITH a before/after enumeration over every live leg showing BTCUSDT@5m as the only changed resolution, and ict_scalp_5m's exit_head_ml cell is re-measured at live parity with its shorter book stated; or (b) a canonical BTCUSDT_5m series is built that extends to at least the 15m file's end date, so no leg loses history. A bare copy/symlink of the existing file into the canonical slot is REFUTED and must not be the fix.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-BTCUSDT-HAS-NO-CANONICAL-5M-CSV-SO-A-LIVE-LEG-CANNOT-BE-MEASURED-AT-ITS-OWN-TIMEFRAME'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ict_scalp_5m is a LIVE leg on BTCUSDT whose 5m data is unreachable to the sweep harnesses: every other 5m symbol has data/<SYM>_5m.csv, BTC has only data/backtest_BTCUSDT_5m.csv, and resolve_data's prefix set is {btcusdt, btc} so the backtest_-prefixed name matches nothing."
+}

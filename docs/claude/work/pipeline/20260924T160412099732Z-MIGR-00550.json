@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "An armed self-landing Tier-1 PR is OBSERVED landing on its first CI cycle during a period whose measured inter-merge interval is BELOW one full CI cycle -- i.e. the mechanism works under the load that currently defeats it. !! A quiet-period landing proves NOTHING and must not close this: PR #11717 eventually landed that way on its tenth attempt, which is the observation that OPENED this row. !! A green CI run proves nothing either -- CI was green on the sixth attempt and it still lost. !! If the operator decides the arming route should simply not be used for register-touching PRs, this does NOT close -- it CHANGES: that is a legitimate decision and must be RECORDED as one, with the consequence stated, rather than left looking like a fix that is coming.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260910-R13-MAKES-EVERY-ARMED-SELF-LANDING-PR-WRITE-THE-SAME-MERGE-SLOT-LINE-SO-CONCURRENT-ARMED-PRS-CONFLICT-BY-CONSTRUCTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-R13-MAKES-EVERY-ARMED-SELF-LANDING-PR-WRITE-THE-SAME-MERGE-SLOT-LINE-SO-CONCURRENT-ARMED-PRS-CONFLICT-BY-CONSTRUCTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-R13-MAKES-EVERY-ARMED-SELF-LANDING-PR-WRITE-THE-SAME-MERGE-SLOT-LINE-SO-CONCURRENT-ARMED-PRS-CONFLICT-BY-CONSTRUCTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] R13's merge-slot claim is a GUARANTEED conflict point, not a race lost by chance: every armed self-landing PR must write the same line in session-board.json, and the guard's own docstring concedes it does not serialize"
+}

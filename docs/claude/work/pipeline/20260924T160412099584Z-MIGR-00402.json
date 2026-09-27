@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A partial-mode leg is identified by CONTENT (its triggerPrice and qty, both of which this entry set and therefore knows) rather than by being the only new leg in a time window, so a concurrent same-symbol entry no longer forces an abstain. Closing this means leg-id coverage on the BUSIEST account (bybit_1, 26 strategies, measured 272/333 = 81.7%) reaching parity with the quietest (bybit_2, 6 strategies, 38/41 = 92.7%), measured the same way — filled rows since the change, per account — rather than an aggregate the quiet account carries. ⚠️ The abstain-rather-than-guess behaviour MUST survive: if two candidate legs match on both attributes, still return None. Mis-attributing a leg id amends a LIVE stop on the wrong trade, which is worse than the accumulation this closes. Tier-2 (live order path); stage on bybit_1, which is both the demo account and the one with the problem. NOT closable by assigning an orderLinkId — see the 2026-08-26T09:40 update for why that is infeasible for legs Bybit creates as a side effect of the entry.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-PARTIAL-LEG-ID-CAPTURE-IS-A-SNAPSHOT-DIFF-THAT-LOSES-THE-RACE-IT-MOST-NEEDS-TO-WIN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-PARTIAL-LEG-ID-CAPTURE-IS-A-SNAPSHOT-DIFF-THAT-LOSES-THE-RACE-IT-MOST-NEEDS-TO-WIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-PARTIAL-LEG-ID-CAPTURE-IS-A-SNAPSHOT-DIFF-THAT-LOSES-THE-RACE-IT-MOST-NEEDS-TO-WIN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Partial-mode leg-id capture is a before/after snapshot diff, so it abstains exactly when several strategies trade one symbol - which is the condition that makes leg accumulation matter"
+}

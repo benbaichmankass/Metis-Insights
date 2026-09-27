@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A candidate review exists as a repeatable pass (a skill step or a scheduled report) that ranks prop-eligible legs from /api/bot/performance on totalPnlMeasured BESIDE pnlCoverage, applies the three prop filters - symbol eligibility, survival under the $150 daily / $4,700 static floor, and swap-drag-aware economics - and runs account_compat_matrix.py under breakout.yaml at the resulting concentration for anything that survives. Manual-bridge fit is recorded as an expected-fill-rate NOTE and must rank nothing (operator-corrected 2026-08-23); a pass that filters candidates on answer-rate does not close this row. It must carry an explicit 'the answer may be none' branch so it cannot become a search for a reason to add a leg - but that branch must be reached by the compat matrix rejecting candidates, never by an a-priori filter. Closed when a reader can see, from the record, which legs were considered for prop and why each was rejected.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-NO-PROP-CANDIDATE-REVIEW-PROCESS",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-NO-PROP-CANDIDATE-REVIEW-PROCESS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-NO-PROP-CANDIDATE-REVIEW-PROCESS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Nothing periodically asks which EXISTING strategies have earned a prop route - routing has only ever been additive-by-request, and the ranking criterion is survival under the Breakout evaluation rules, NOT ticket answer-rate (operator-corrected 2026-08-23)"
+}

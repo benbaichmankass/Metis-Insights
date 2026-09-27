@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260912-THE-SIGN-SURVIVAL-CRITERION-IS-INSENSITIVE-TO-N-SO-IT-CAN-PASS-A-COMPARISON-WITH-NO-POWER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-THE-SIGN-SURVIVAL-CRITERION-IS-INSENSITIVE-TO-N-SO-IT-CAN-PASS-A-COMPARISON-WITH-NO-POWER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-SIGN-SURVIVAL-CRITERION-IS-INSENSITIVE-TO-N-SO-IT-CAN-PASS-A-COMPARISON-WITH-NO-POWER'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The sensitivity criterion MI-278 U18 introduced — impute the unnameable rows at both extremes and require the SIGN to survive the worst case — invents no alpha and is therefore also insensitive to n. Measured on U18's own population at a package denominator it PASSES on a comparison whose two-sided Fisher p is 0.1984, by a margin of 0.0044. The two criteria disagree, and a reader taking either alone reaches a confident answer the other contradicts."
+}

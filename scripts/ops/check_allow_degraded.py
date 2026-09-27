@@ -71,7 +71,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import pathlib
 import re
@@ -80,6 +79,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from check_backlog_refs import REF, filed_ids  # noqa: E402  (single source of id resolution)
+import pipeline as _pipeline  # noqa: E402 — the store's ONE reader/writer; stdlib-only itself
 
 REPO = pathlib.Path(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -96,8 +96,9 @@ UNTIL = re.compile(r"until:(\d{4}-\d{2}-\d{2})")
 
 #: The live follow-through pipeline — the post-reset intake for anything that
 #: needs picking up later, and therefore the register an allow-degraded
-#: exception is owned by.
-PIPELINE = "docs/claude/work/PIPELINE.jsonl"
+#: exception is owned by. ⚠️ RE-POINTED 2026-09-24 (E64): a directory, one
+#: file per record, not a single flat file — see `scripts/ops/pipeline.py`.
+PIPELINE = "docs/claude/work/pipeline"
 
 #: An OPEN pipeline row can still come back. A terminal one cannot, which is why
 #: citing one is refused for the same reason an expired `until:` is.
@@ -134,17 +135,21 @@ def pipeline_ids(repo: pathlib.Path) -> set[str]:
     has its own measurement of.
     """
     path = repo / PIPELINE
-    if not path.is_file():
+    if not path.exists():
         raise CouldNotLook(f"{PIPELINE} is missing")
+    res = _pipeline.read_log(path)
+    if not res.healthy:
+        first_loc, first_why = res.unreadable[0]
+        raise CouldNotLook(
+            f"{PIPELINE} has {len(res.unreadable)} unreadable record(s), "
+            f"e.g. {first_loc}: {first_why}")
+    # ⚠️ Scans EVERY record (unfolded), not just each id's CURRENT state --
+    # matching this guard's behaviour before the 2026-09-24 storage re-point.
+    # An id that was ever open stays citable even after a later record closed
+    # it, same as `check_soak_registered.py`'s identical choice; see that
+    # file's comment for why this is preserved rather than "fixed" here.
     out: set[str] = set()
-    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        line = line.strip()
-        if not line or line.startswith("//"):
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError as exc:
-            raise CouldNotLook(f"{PIPELINE}:{lineno} did not parse: {exc}") from exc
+    for row in res.raw:
         if isinstance(row, dict) and isinstance(row.get("id"), str) \
                 and row.get("state") in _OPEN_STATES:
             out.add(row["id"])

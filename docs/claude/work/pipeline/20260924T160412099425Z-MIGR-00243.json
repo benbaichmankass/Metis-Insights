@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The line number in an impossibility-claim finding resolves to the line carrying the claim when opened in the file, and an annotation placed within ANNOTATION_WINDOW lines of the claim satisfies the guard.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-IMPOSSIBILITY-GUARD-REPORTS-A-LINE-NUMBER-THAT-IS-NOT-THE-FILE-LINE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-IMPOSSIBILITY-GUARD-REPORTS-A-LINE-NUMBER-THAT-IS-NOT-THE-FILE-LINE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-IMPOSSIBILITY-GUARD-REPORTS-A-LINE-NUMBER-THAT-IS-NOT-THE-FILE-LINE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] impossibility-claim-guard reports a line number that does not match the file, and the drift is variable — so its own +-6 annotation window is anchored in the wrong place and can miss a `checked:` annotation sitting 3 lines from the claim."
+}

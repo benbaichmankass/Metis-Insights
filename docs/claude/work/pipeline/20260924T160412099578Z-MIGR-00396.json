@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A 110001 on a leg the same run already removed via its paired sibling is classified as already_gone rather than failed, so a run that reaches its intended post-state reports success. The states stay separate: already_gone (we removed it via its pair) must not be merged into cancelled (we cancelled it directly) nor into failed (the venue refused). A test asserts a run whose targets all return 110001 after their stops cancelled OK does not report partial_cancel.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-CANCEL-STALE-TPSL-LEGS-COUNTS-AN-ALREADY-CANCELLED-PAIRED-LEG-AS-A-FAILURE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-CANCEL-STALE-TPSL-LEGS-COUNTS-AN-ALREADY-CANCELLED-PAIRED-LEG-AS-A-FAILURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-CANCEL-STALE-TPSL-LEGS-COUNTS-AN-ALREADY-CANCELLED-PAIRED-LEG-AS-A-FAILURE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] cancel-stale-tpsl-legs reported 'partial_cancel - 7 failed' on a run that fully achieved its goal"
+}

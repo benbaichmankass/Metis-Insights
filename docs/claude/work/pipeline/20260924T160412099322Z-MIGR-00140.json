@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A per-gap disposition list, one line each, covering every gap the row names (dashboard /strategy/attribution + /pnl/exchange; android Accounts broker-truth): wired, or closed wont_fix with the reason. 'Wire incrementally when a consumer need arises' is a posture, not an exit condition, and is what has kept this row open - a row that can be satisfied by doing nothing indefinitely cannot be retired.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260726-CONSUMER-DISPLAY-GAPS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260726-CONSUMER-DISPLAY-GAPS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260726-CONSUMER-DISPLAY-GAPS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] BL-20260726-CONSUMER-DISPLAY-GAPS"
+}

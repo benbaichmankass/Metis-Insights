@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "E56 health-review: docs/comms only (docs/claude/work/PIPELINE.jsonl updates via scripts/ops/pipeline.py, and a new comms/reviews/health/*.json report). No runtime, order path, or config touched."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "(a) Every enabled leg declaring a reach-gated lever (trail_decay_arm_r, giveback_min_mfe_r) has its arm compared against a MEASURED peak under the live cap, with the unmeasured ones named as unmeasured rather than assumed reachable. (b) An inert arm is either removed or re-declared at a reachable value, per leg, as a Tier-3 change with its own evidence — NOT swept. (c) The comparison is repeatable without a live journal (see the sibling row on lever_reachability_audit.py). NOT sufficient: recording the two inert arms and leaving the other four unmeasured, since 'we did not look' is exactly what this row is about.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-DECLARED-TRAIL-DECAY-ARMS-ARE-INERT-UNDER-THE-VENUE-CAP",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-DECLARED-TRAIL-DECAY-ARMS-ARE-INERT-UNDER-THE-VENUE-CAP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-DECLARED-TRAIL-DECAY-ARMS-ARE-INERT-UNDER-THE-VENUE-CAP'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 2 of 4 measured `trail_decay_arm_r` values can NEVER fire under the live venue cap — including on trend_donchian_sol_4h, one of the fleet's better performers"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "OBSERVABLE: a reviewer either (a) sets the cell to `blocked:no_harness_levers` with this AST evidence in its ref and accepts the headline moving to 374/376, or (b) states why `pending` is the right status despite the harness having no such flag. Either closes it; leaving it `pending` with no note does not.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260817-PROP-REGIME-FLIP-EXIT-IS-PENDING-BUT-HARNESS-CANNOT-EXPRESS-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-PROP-REGIME-FLIP-EXIT-IS-PENDING-BUT-HARNESS-CANNOT-EXPRESS-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-PROP-REGIME-FLIP-EXIT-IS-PENDING-BUT-HARNESS-CANNOT-EXPRESS-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] trend_donchian_eth_prop/regime_flip_exit is statused `pending` (never attempted) but scripts/backtest_trend.py has NO regime/flip flag at all — it is blocked:no_harness_levers by the established precedent"
+}

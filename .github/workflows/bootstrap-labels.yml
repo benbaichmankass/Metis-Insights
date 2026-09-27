@@ -342,6 +342,16 @@ jobs:
                 description: 'Triggers trainer-capture-watch — grades the trainer order-flow capture on its DATA freshness (never ActiveState) and re-proves the alarm fires against planted staleness.',
               },
               {
+                name: 'dashboard-edge-watch-now',
+                color: '5319e7',
+                description: 'Triggers dashboard-edge-watch — outside-in HTTPS/cert-expiry/DNS-A-record/CORS probe of the SPA path (GitHub Pages -> Caddy -> ict-web-api). Read-only, off-VM.',
+              },
+              {
+                name: 'dashboard-edge-watch-alert',
+                color: 'd93f0b',
+                description: 'The outside-in dashboard-edge-watch probe (HTTPS / cert expiry / DNS A record / CORS) is not reporting ok.',
+              },
+              {
                 name: 'exit-head-replay-request',
                 color: '5319e7',
                 description: 'Triggers research-exit-head-replay-trainer — replays the PUBLISHED exit head over backtest trades on the trainer (the only place besides the live VM that holds the artifact). Read-only, light; no heavy VM lane needed.',

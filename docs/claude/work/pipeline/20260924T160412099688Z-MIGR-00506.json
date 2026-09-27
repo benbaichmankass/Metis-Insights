@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A row claiming an active state either CARRIES a dateable observation under ONE agreed key, or is rendered as STALE rather than as fact. Verified by reading SESSIONS.json at a moment when a session is known to have died and finding its row NOT asserting `working` — i.e. observe the decay happening, not the mechanism existing. THREE STATES MUST STAY APART: observed-active / observed-inactive / NOT-OBSERVED-SINCE-<t>; collapsing the third into the first is the present bug. NOT SUFFICIENT: a reconcile pass run by hand (three have been run and the rows went false again within the hour); the state_observed_at field merely EXISTING (it exists now, on 6 of 164 rows); or a green guard — check_manager_scope R6 already grades the RECORD of supervision and cannot see a row that is simply old.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-A-WORKING-REGISTRY-ROW-HAS-A-MEASURED-HALF-LIFE-OF-61-MINUTES-SO-ANY-DECAY-RULE-SLOWER-THAN-THAT-IS-WRONG-ABOUT-HALF-ITS-ROWS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-A-WORKING-REGISTRY-ROW-HAS-A-MEASURED-HALF-LIFE-OF-61-MINUTES-SO-ANY-DECAY-RULE-SLOWER-THAN-THAT-IS-WRONG-ABOUT-HALF-ITS-ROWS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-A-WORKING-REGISTRY-ROW-HAS-A-MEASURED-HALF-LIFE-OF-61-MINUTES-SO-ANY-DECAY-RULE-SLOWER-THAN-THAT-IS-WRONG-ABOUT-HALF-ITS-ROWS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] SESSIONS.json rows go false BY TIME PASSING, and the decay curve is now measured: median truth-lifetime 61.3 min, 47.9% dead within the hour — the number the existing 'no close writer' rows name the defect without supplying"
+}

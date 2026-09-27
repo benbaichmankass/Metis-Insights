@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "extreme() refuses an unrecognised side (raises or is typed to a closed set) AND first_touch is checked for the same shape, with a test that a wrong-vocabulary call FAILS rather than returning a number. [!] A COMMENT NAMING THE VOCABULARY DOES NOT CLOSE THIS -- the vocabulary was already discoverable by reading the function; what failed is that misuse is silent. [!] AND DO NOT CLOSE IT BY FIXING ONLY THE ONE CALLER THAT GOT IT WRONG: that caller is already fixed, and the finding is about the next one.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-EXTREME-ACCEPTS-ANY-SIDE-STRING-AND-SILENTLY-RETURNS-THE-MAX-HIGH-SO-MAE-COMES-BACK-EQUAL-TO-MFE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-EXTREME-ACCEPTS-ANY-SIDE-STRING-AND-SILENTLY-RETURNS-THE-MAX-HIGH-SO-MAE-COMES-BACK-EQUAL-TO-MFE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-EXTREME-ACCEPTS-ANY-SIDE-STRING-AND-SILENTLY-RETURNS-THE-MAX-HIGH-SO-MAE-COMES-BACK-EQUAL-TO-MFE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] stop_width_counterfactual's extreme() has a bare else on its side argument, so a caller with the wrong vocabulary gets max(high) for BOTH the adverse and favourable side — plausible numbers, no error"
+}

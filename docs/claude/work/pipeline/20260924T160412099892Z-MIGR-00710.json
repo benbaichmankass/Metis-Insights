@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "iter_records reads the rotated archives so the reference window covered matches the window DECLARED, AND the endpoint publishes the COVERED span beside the declared one so a future truncation announces itself instead of reading as a healthy denominator. ⚠️ THE SECOND HALF IS NOT OPTIONAL — fixing only the read leaves the next truncation just as silent, which is exactly how the sync-half fix of MB-20260712 left this.\n\nTHEN RE-GRADE ALL 34 and record the before/after verdict counts. ⚠️ DO NOT ACT ON ANY CURRENT drift_clean VERDICT BEFORE THIS LANDS — pass OR fail. In particular do not demote on the 24 `significant` verdicts: demoting on a statistic computed against 9.4% of its window is the unprovenanced-diagnostic trap this repo has a guard for. ⚠️ AND A CONSTANT-OUTPUT MODEL PASSING PERFECTLY MUST BE TREATED AS A GATE DEFECT IN ITS OWN RIGHT, not as a pass: a degenerate predictor should fail a drift gate, not ace it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-THE-DRIFT-GATE-READS-ONE-UNROTATED-FILE-SO-ITS-30-DAY-REFERENCE-WINDOW-COVERS-28-DAYS-AND-71-PERCENT-OF-THE-FLEET-IS-BLOCKED-ON-AN-UNTRUSTWORTHY-VERDICT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#BL-20260911-THE-DRIFT-GATE-READS-ONE-UNROTATED-FILE-SO-ITS-30-DAY-REFERENCE-WINDOW-COVERS-28-DAYS-AND-71-PERCENT-OF-THE-FLEET-IS-BLOCKED-ON-AN-UNTRUSTWORTHY-VERDICT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-DRIFT-GATE-READS-ONE-UNROTATED-FILE-SO-ITS-30-DAY-REFERENCE-WINDOW-COVERS-28-DAYS-AND-71-PERCENT-OF-THE-FLEET-IS-BLOCKED-ON-AN-UNTRUSTWORTHY-VERDICT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] drift_clean — a REQUIRED promotion gate — is computed against 9.4% of its own declared reference window because iter_records never opens the rotated archives, and it reports reference_window_start 2026-08-05 for a window holding ZERO rows; 24 of 32 models read `significant` on that input"
+}

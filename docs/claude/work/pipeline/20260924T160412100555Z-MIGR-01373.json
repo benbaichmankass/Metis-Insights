@@ -1,0 +1,21 @@
+{
+  "a10_note": "Live order-path adjacency on bybit_2 protection: the graded-coverage gate is armed only on this soak's evidence, and R5 is the row that reads soaks on a cadence. EVIDENCE: Unverifiable from a sandbox (needs /api/diag/log_file?name=bybit_coverage_soak). Not killed on inference.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "THE SOAK THRESHOLD IS STATED SO THIS CANNOT BE CLEARED BY IMPATIENCE OR RUN FOREVER. Clears when BOTH: (a) the soak log holds at least 20 graded rows spanning at least 3 distinct UTC days on at least one Bybit account, AND at least one row where the side-aware grade DIFFERS from the side-blind sum (verdicts_differ true); and (b) the operator, shown that row count and at least one concrete disagreement, decides to arm or not to arm. [!] A COUNT OF ROWS IS NOT THE CRITERION ON ITS OWN: 20 rows in which every grade agrees means the gate is inert on this book, and arming it would be a change with no measured effect. Record that and say so rather than arming to close the row. [!] DECIDING NOT TO ARM CLEARS THIS ROW TOO, and must be RECORDED as a decision rather than left looking like a soak still running: that is the failure mode the rule exists to catch. [!] AN EMPTY SOAK DOES NOT CLEAR IT AND IS ITSELF THE FINDING: zero rows after 3 days means the code is not deployed or not reached, which is a deploy defect, not a quiet book. Zero rows and twenty-agreeing rows are opposite facts and must never both be reported as 'the soak is quiet'.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK'), indent=2))\""
+  },
+  "routed_to": "R5 (soak-book read): bybit_coverage_soak — count graded rows / distinct UTC days / verdicts_differ:true, then the operator's widening decision",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[LOUD] #10746 (src/runtime/bybit_coverage_basis.py) is MERGED to main (af9af5e3) and its ARMING IS DELIBERATELY HELD, on an operator instruction given in-conversation 2026-09-02: 'hold it until the soak'. The gate grades a Bybit re-arm against the book actually being protected instead of a side-blind leg sum. It is held at the measurement stage: BYBIT_GRADED_COVERAGE_ACCOUNTS ships EMPTY, and for this knob an empty allowlist means NONE (the PROTECTION_REASSERT_ACCOUNTS polarity, deliberately opposite to CONVICTION_SIZING_ACCOUNTS). [!] THIS ROW EXISTS BECAUSE OF A STANDING OPERATOR RULE, not because the code is suspect: 'anything soaking needs to be logged with an alarm that has either a timer or a soak threshold, so that we know to get back to it when the soak is ready.' Without it the soak accrues and nobody returns, which is how a held decision becomes an abandoned one."
+}

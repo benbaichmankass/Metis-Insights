@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Any ONE of these, verifiable by reading the shard: (a) `build_equity_daily` records the fetched ticker INTO the shard -- a `ticker`/`source_symbol` field in the manifest or each row -- so a consumer can ask what it actually holds instead of inferring from the path, and `market_raw_to_csv.py` refuses (or renames) when the shard's recorded ticker does not match the symbol requested; or (b) the yfinance full-size series is written under its OWN key (`market_raw/GC_F/1d`) with `market_raw/MGC/1d` reserved for genuine MGC bars; or (c) a guard asserts that no `market_raw/<SYM>` shard is byte-identical to a declared `PROXY_DATA[<SYM>]` series without being labelled as that proxy.\n\nNOT resolved by adding a market_raw->CSV caller: over `datasets-out` that would mass-produce this mislabelling for every futures symbol at once. Explicitly supersedes BL-20260814-MARKET-RAW-TO-CSV-HAS-NO-CALLER, which mistook this shard for native data.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-EQUITY-DAILY-LABELS-PROXY-DATA-AS-THE-NATIVE-SYMBOL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] build_trainer_datasets.sh writes yfinance FULL-SIZE-contract bars into market_raw/<MICRO_SYMBOL>/, so market_raw/MGC/1d is GC=F wearing the MGC name -- any consumer that treats the shard name as provenance is misled"
+}

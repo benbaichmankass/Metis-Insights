@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The residual between summed realized pnl (+ journaled costs) and the latest venue balance minus $5,000 is explained to within $5, with each fill's pnl basis (gross/net) recorded.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-MQ3CDMU6-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-state-2026-09-24.md#3-baseline-realized-pl-since-inception-never-blended",
+    "rerun": "curl -sS 'https://ict-bot.duckdns.org/api/bot/prop/fills?account_id=breakout_1&limit=500' | python3 -c \"import json,sys;F=json.load(sys.stdin)['fills'];c=[f for f in F if f['status']=='closed'];print(len(c),round(sum(f['pnl'] or 0 for f in c),2))\""
+  },
+  "state": "queued",
+  "what": "breakout_1 baseline does not reconcile: sum of reported realized pnl over 18 closed fills = -146.52 (MEASURED) vs venue balance 4784.78 - 5000 = -215.22 (MEASURED); residual -68.70 unexplained. Reported pnl mixes gross-of-commission (#41) and net (#17) figures and financing is unjournaled, so a baseline cannot be stated net of costs from the journal."
+}

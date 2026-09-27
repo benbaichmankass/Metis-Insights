@@ -1,0 +1,6 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Registers only: docs/claude/work/PIPELINE.jsonl (three operator decisions recorded — two closed as `killed` with reasons, one `routed`) and docs/claude/work/MANAGER-CHECKLIST.json (two new queued rows, E48 and E49). No code, no config, no order path, no account mode, no roster membership, no strategy parameter. Both paths are under docs/**, which is in TIER1_SURFACE. The DECISIONS are Tier-3 in subject matter and were made by the operator in chat; recording them is Tier-1 and changes nothing live — notably all three decisions were 'leave it' or 're-measure first', so config/strategies.yaml is untouched.",
+  "verification": "check_manager_checklist_vocabulary.py EXIT 0; pipeline.py --check EXIT 0; check_pr_landing.py --base origin/main run BEFORE opening the PR rather than after CI rejected it, which is the remedy for the ~40 minutes of serialized CI that PR #12828 burned discovering these three files one failure at a time."
+}

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "arbitration_fanout_soak.jsonl carries a row newer than the check, OR the reason it legitimately stops is established and recorded (a real cause, not 'nothing contested' -- record() is not gated on contested candidates).",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-JN54P2HH-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01XQhayAHWdrSYv8jN54P2HH (manager), while verifying E17 before acting on it",
+    "rerun": "Dispatch a vm-diag-request issue whose BODY IS THE BARE PATH (no 'diag_path:' prefix, and the param is `lines` not `limit`): log_file?name=arbitration_fanout_soak&lines=5 . Read the LAST row's logged_at_utc, not the first -- the endpoint tails (content[-n:]). If it is still 2026-09-23T01:52:51Z the soak is still dead; if it has advanced, record what restarted it."
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": 2,
+  "what": "THE ARBITRATION-FANOUT SOAK HAS WRITTEN NOTHING FOR 32 HOURS WHILE ITS MODE READS `apply`, AND NOTHING ALERTED. Found while verifying E17 before acting on it, not by a watcher -- which is itself the finding.\nMEASURED 2026-09-24T09:55Z, three independent reads:\n  (1) diag log_file arbitration_fanout_soak (#12820): newest row 2026-09-23T01:52:51Z. size_bytes 1,413,493 at /data/bot-data/runtime_logs/arbitration_fanout_soak.jsonl. The last 35 rows span 2026-09-22T16:51 -> 2026-09-23T01:52.\n  (2) get-env ARBITRATION_FANOUT_MODE (#12822): process 'apply', declared 'apply'. ARMED.\n  (3) get-env ARBITRATION_FANOUT_ACCOUNTS (#12804): all 11 accounts present including breakout_1, process and declared agreeing.\nWHY THIS IS A DEFECT AND NOT A QUIET PERIOD, read from code rather than assumed: src/runtime/intent_multiplexer.py calls arbitration_fanout_soak.record() on EVERY arbitration where a winning intent is decided. record() returns early ONLY on mode == 'off'. It is NOT gated on >=2 candidates -- that is allocator_soak's contract, not this one. So 'nothing contested happened' does not explain 32 hours of nothing.\n[!] AND THE REASON NOBODY NOTICED IS DESIGNED IN: the record() call site is wrapped in a bare except that swallows everything, with the comment 'observe-only soak must never break a tick'. That is the right call for tick safety and it makes a BROKEN SOAK INVISIBLE -- it fails exactly as silently as it succeeds. A soak whose failure mode is indistinguishable from its quiet mode is the collapsed-state defect this repo names as a bug class, sitting on an observability surface.\nWHAT IT COSTS RIGHT NOW: E17's entire diagnosis rests on this log (apply_scope {breakout_1: 'not_allowlisted'}, starved_count 1) and CANNOT BE REPRODUCED, so that row is blocked on this one. More broadly the arbitration fanout is a LIVE ORDER-ELECTION path and its only observability surface has been dark for 32 hours.\n[!] NOT ESTABLISHED, and do not let a lane assume any of it: whether the WRITE is failing, whether arbitration is still running at all, or whether a log rotation moved the file. Three different causes, three different fixes. Candidate to rule out first: ict-shadow-log-rotate.service. The diag read returned 1.4MB of OLD content at the canonical path, which argues against a fresh rotated file existing there -- but that is an inference, not a measurement."
+}

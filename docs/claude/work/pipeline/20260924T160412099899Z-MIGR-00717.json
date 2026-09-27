@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "For gld_pullback_1h: an operator decision on the Tier-3 stop-multiplier change, taken on a walk-forward that CLEARS the current live geometry rather than on this sweep alone -- a passing CELL is not a passing LEVER DISPOSITION, and the sweep is a surface scan, not a walk-forward of the proposed config. For trend_donchian_1h: no action while the leg is shadow/disabled; this row is consulted if it is ever enabled. Closing either by editing config/strategies.yaml off this sweep is exactly what the regime-selectivity no-cosmetic-cell rule forbids by analogy.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260831-E35-RESWEEP-AT-POWER-SURFACES-TWO-BRACKET-GEOMETRY-LEADS-GLD-1H-AND-TREND-DONCHIAN-1H",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260831-E35-RESWEEP-AT-POWER-SURFACES-TWO-BRACKET-GEOMETRY-LEADS-GLD-1H-AND-TREND-DONCHIAN-1H",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-E35-RESWEEP-AT-POWER-SURFACES-TWO-BRACKET-GEOMETRY-LEADS-GLD-1H-AND-TREND-DONCHIAN-1H'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] The 2026-08-31 e35 re-sweep at split_target_oos=60 (run 33411906178) is the FIRST adequately-powered read of these legs, and two carry a bracket-geometry cell worth a Tier-3 look. gld_pullback_1h (LIVE, enabled:true / execution:live, n_oos=59): `sm1.5` +19.1188 OOS net_R at 5/6 effective folds, `tp6_sm1.5_to24` +17.7970 at 6/6, `tp4` +4.3415 on the STRONGER Path A gate at 4/6, zero inert folds anywhere. trend_donchian_1h (n_oos=57): `to96` +12.5856 on Path A at 4/6, `sm2_to96` +10.9243 at 5/6, `sm2` +7.5264 at 5/6 -- but the leg is enabled:false / execution:shadow, so there is NO live geometry to change and this row is what carries the finding to a future enablement."
+}

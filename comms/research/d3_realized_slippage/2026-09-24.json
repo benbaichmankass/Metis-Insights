@@ -1,0 +1,2461 @@
+{
+ "question": "D3: realized round-trip slippage per venue from MEASURED fills; Stage-0 verdict flips under RULE-D1-STAGE0-NET-OF-FULL-COST at that value",
+ "generated_by": "scripts/research/realized_slippage.py",
+ "reference_price": {
+  "entry": "order_packages.entry (intended entry at submit) vs VWAP of exchange_fills on trades.broker_order_id",
+  "exit": "order_packages.sl (sl/sl_cross) or .tp (tp/tp_cross), falling back to trades.stop_loss/take_profit_1 for pre-package rows (ref_source says which), vs trades.exit_price where exit_price_source is MEASURED",
+  "sign": "positive bps = adverse (paid)"
+ },
+ "source_query": {
+  "fills": "GET https://ict-bot.duckdns.org/api/bot/pnl/exchange/fills?days=90&limit=1000&account_id=<acct>[&symbol=<sym> when truncated]",
+  "trades": "GET https://ict-bot.duckdns.org/api/diag/journal?table=trades&limit=1000&offset=<k*1000>&envelope=true",
+  "order_packages": "GET https://ict-bot.duckdns.org/api/diag/journal?table=order_packages&limit=1000&offset=<k*1000>&envelope=true",
+  "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir D && python3 scripts/research/realized_slippage.py analyze --in-dir D --out <json>"
+ },
+ "min_n_per_side": 20,
+ "per_account": {
+  "alpaca_live": {
+   "account_class": "real_money",
+   "venue": "alpaca_equities",
+   "window": [
+    "2026-09-17T13:36:41.238332+00:00",
+    "2026-09-23T13:31:27.183686+00:00"
+   ],
+   "entry": {
+    "n": 3,
+    "mean": -49.801,
+    "trimmed_mean_5pct": -49.801,
+    "median": -18.812,
+    "p25": -131.417,
+    "p75": 0.825,
+    "p90": 0.825,
+    "min": -131.417,
+    "max": 0.825
+   },
+   "exit_all": {
+    "n": 0
+   },
+   "exit_sl": {
+    "n": 0
+   },
+   "exit_tp": {
+    "n": 0
+   },
+   "exit_all_package_ref_only": {
+    "n": 0
+   },
+   "exit_sl_package_ref_only": {
+    "n": 0
+   },
+   "exit_tp_package_ref_only": {
+    "n": 0
+   },
+   "exit_sources": {},
+   "roundtrip_bps": null,
+   "roundtrip_state": "unmeasurable: entry n=3, package-referenced exit n=0 (need >= 20 each)"
+  },
+  "alpaca_paper": {
+   "account_class": "paper",
+   "venue": "alpaca_equities",
+   "window": [
+    "2026-07-22 13:31:48",
+    "2026-09-21T15:39:17.602593+00:00"
+   ],
+   "entry": {
+    "n": 48,
+    "mean": 1.424,
+    "trimmed_mean_5pct": 0.749,
+    "median": -0.335,
+    "p25": -4.886,
+    "p75": 5.402,
+    "p90": 16.685,
+    "min": -36.737,
+    "max": 61.514
+   },
+   "exit_all": {
+    "n": 0
+   },
+   "exit_sl": {
+    "n": 0
+   },
+   "exit_tp": {
+    "n": 0
+   },
+   "exit_all_package_ref_only": {
+    "n": 0
+   },
+   "exit_sl_package_ref_only": {
+    "n": 0
+   },
+   "exit_tp_package_ref_only": {
+    "n": 0
+   },
+   "exit_sources": {},
+   "roundtrip_bps": null,
+   "roundtrip_state": "unmeasurable: entry n=48, package-referenced exit n=0 (need >= 20 each)"
+  },
+  "alpaca_portfolio": {
+   "account_class": "paper",
+   "venue": "alpaca_equities",
+   "window": [
+    "2026-07-23 14:33:53",
+    "2026-09-21T14:25:31.180778+00:00"
+   ],
+   "entry": {
+    "n": 60,
+    "mean": 0.256,
+    "trimmed_mean_5pct": -0.246,
+    "median": -0.139,
+    "p25": -3.182,
+    "p75": 2.058,
+    "p90": 10.38,
+    "min": -37.959,
+    "max": 59.729
+   },
+   "exit_all": {
+    "n": 0
+   },
+   "exit_sl": {
+    "n": 0
+   },
+   "exit_tp": {
+    "n": 0
+   },
+   "exit_all_package_ref_only": {
+    "n": 0
+   },
+   "exit_sl_package_ref_only": {
+    "n": 0
+   },
+   "exit_tp_package_ref_only": {
+    "n": 0
+   },
+   "exit_sources": {},
+   "roundtrip_bps": null,
+   "roundtrip_state": "unmeasurable: entry n=60, package-referenced exit n=0 (need >= 20 each)"
+  },
+  "bybit_1": {
+   "account_class": "paper",
+   "venue": "bybit_perps",
+   "window": [
+    "2026-05-21 10:50:28",
+    "2026-09-24T09:04:59.944324+00:00"
+   ],
+   "entry": {
+    "n": 947,
+    "mean": -0.241,
+    "trimmed_mean_5pct": -0.282,
+    "median": -0.889,
+    "p25": -5.196,
+    "p75": 4.931,
+    "p90": 7.982,
+    "min": -71.488,
+    "max": 40.685
+   },
+   "exit_all": {
+    "n": 110,
+    "mean": -0.011,
+    "trimmed_mean_5pct": 0.134,
+    "median": 0.077,
+    "p25": -0.607,
+    "p75": 0.905,
+    "p90": 3.711,
+    "min": -51.421,
+    "max": 20.103
+   },
+   "exit_sl": {
+    "n": 79,
+    "mean": 1.184,
+    "trimmed_mean_5pct": 0.861,
+    "median": 0.366,
+    "p25": 0.029,
+    "p75": 1.208,
+    "p90": 4.44,
+    "min": -7.692,
+    "max": 20.103
+   },
+   "exit_tp": {
+    "n": 31,
+    "mean": -3.057,
+    "trimmed_mean_5pct": -1.656,
+    "median": -0.607,
+    "p25": -1.877,
+    "p75": -0.171,
+    "p90": -0.004,
+    "min": -51.421,
+    "max": 4.661
+   },
+   "exit_all_package_ref_only": {
+    "n": 88,
+    "mean": -0.097,
+    "trimmed_mean_5pct": 0.138,
+    "median": 0.059,
+    "p25": -0.817,
+    "p75": 1.007,
+    "p90": 4.44,
+    "min": -51.421,
+    "max": 20.103
+   },
+   "exit_sl_package_ref_only": {
+    "n": 62,
+    "mean": 1.348,
+    "trimmed_mean_5pct": 0.945,
+    "median": 0.324,
+    "p25": 0.0,
+    "p75": 1.461,
+    "p90": 8.775,
+    "min": -7.692,
+    "max": 20.103
+   },
+   "exit_tp_package_ref_only": {
+    "n": 26,
+    "mean": -3.542,
+    "trimmed_mean_5pct": -1.889,
+    "median": -0.718,
+    "p25": -2.058,
+    "p75": -0.171,
+    "p90": -0.029,
+    "min": -51.421,
+    "max": 4.661
+   },
+   "exit_sources": {
+    "exchange_fill": 64,
+    "exchange": 15,
+    "bybit_closed_pnl": 31
+   },
+   "roundtrip_bps": {
+    "mean": -0.338,
+    "trimmed_mean_5pct": -0.144,
+    "median_sum_of_sides": -0.83,
+    "mean_bootstrap_ci95": [
+     -2.06,
+     1.22
+    ]
+   },
+   "roundtrip_incl_journal_ref": {
+    "mean": -0.252,
+    "trimmed_mean_5pct": -0.148,
+    "mean_bootstrap_ci95": [
+     -1.687,
+     0.989
+    ]
+   },
+   "roundtrip_state": "measured"
+  },
+  "bybit_2": {
+   "account_class": "real_money",
+   "venue": "bybit_perps",
+   "window": [
+    "2026-05-11 14:29:57",
+    "2026-09-24T05:04:21.027721+00:00"
+   ],
+   "entry": {
+    "n": 87,
+    "mean": -0.25,
+    "trimmed_mean_5pct": -0.777,
+    "median": -2.13,
+    "p25": -5.404,
+    "p75": 4.323,
+    "p90": 7.475,
+    "min": -20.975,
+    "max": 43.68
+   },
+   "exit_all": {
+    "n": 186,
+    "mean": -0.143,
+    "trimmed_mean_5pct": 0.255,
+    "median": 0.188,
+    "p25": -0.1,
+    "p75": 0.971,
+    "p90": 1.967,
+    "min": -37.881,
+    "max": 11.597
+   },
+   "exit_sl": {
+    "n": 150,
+    "mean": -0.157,
+    "trimmed_mean_5pct": 0.321,
+    "median": 0.304,
+    "p25": 0.068,
+    "p75": 1.037,
+    "p90": 1.852,
+    "min": -37.881,
+    "max": 11.597
+   },
+   "exit_tp": {
+    "n": 36,
+    "mean": -0.082,
+    "trimmed_mean_5pct": -0.15,
+    "median": -0.284,
+    "p25": -0.7,
+    "p75": -0.069,
+    "p90": 2.546,
+    "min": -2.501,
+    "max": 4.647
+   },
+   "exit_all_package_ref_only": {
+    "n": 42,
+    "mean": 1.118,
+    "trimmed_mean_5pct": 0.893,
+    "median": 0.58,
+    "p25": 0.147,
+    "p75": 1.501,
+    "p90": 3.545,
+    "min": -2.501,
+    "max": 11.597
+   },
+   "exit_sl_package_ref_only": {
+    "n": 33,
+    "mean": 1.556,
+    "trimmed_mean_5pct": 1.281,
+    "median": 0.712,
+    "p25": 0.309,
+    "p75": 1.61,
+    "p90": 4.314,
+    "min": 0.046,
+    "max": 11.597
+   },
+   "exit_tp_package_ref_only": {
+    "n": 9,
+    "mean": -0.491,
+    "trimmed_mean_5pct": -0.491,
+    "median": -0.142,
+    "p25": -1.462,
+    "p75": -0.014,
+    "p90": -0.0,
+    "min": -2.501,
+    "max": 2.425
+   },
+   "exit_sources": {
+    "bybit_closed_pnl": 112,
+    "bybit_closed_pnl_rebuild": 74
+   },
+   "roundtrip_bps": {
+    "mean": 0.868,
+    "trimmed_mean_5pct": 0.116,
+    "median_sum_of_sides": -1.55,
+    "mean_bootstrap_ci95": [
+     -0.911,
+     2.946
+    ]
+   },
+   "roundtrip_incl_journal_ref": {
+    "mean": -0.393,
+    "trimmed_mean_5pct": -0.522,
+    "mean_bootstrap_ci95": [
+     -2.195,
+     1.619
+    ]
+   },
+   "roundtrip_state": "measured"
+  },
+  "bybit_portfolio": {
+   "account_class": "paper",
+   "venue": "bybit_perps",
+   "window": [
+    "2026-07-17 18:14:39",
+    "2026-09-24T05:04:22.198306+00:00"
+   ],
+   "entry": {
+    "n": 63,
+    "mean": -1.307,
+    "trimmed_mean_5pct": -1.305,
+    "median": -2.321,
+    "p25": -5.102,
+    "p75": 3.852,
+    "p90": 6.702,
+    "min": -20.559,
+    "max": 15.109
+   },
+   "exit_all": {
+    "n": 16,
+    "mean": 8.6,
+    "trimmed_mean_5pct": 8.6,
+    "median": 0.277,
+    "p25": 0.197,
+    "p75": 2.272,
+    "p90": 20.018,
+    "min": -0.942,
+    "max": 105.951
+   },
+   "exit_sl": {
+    "n": 14,
+    "mean": 9.904,
+    "trimmed_mean_5pct": 9.904,
+    "median": 0.277,
+    "p25": 0.201,
+    "p75": 2.798,
+    "p90": 20.018,
+    "min": 0.05,
+    "max": 105.951
+   },
+   "exit_tp": {
+    "n": 2,
+    "mean": -0.526,
+    "trimmed_mean_5pct": -0.526,
+    "median": -0.942,
+    "p25": -0.942,
+    "p75": -0.111,
+    "p90": -0.111,
+    "min": -0.942,
+    "max": -0.111
+   },
+   "exit_all_package_ref_only": {
+    "n": 16,
+    "mean": 8.6,
+    "trimmed_mean_5pct": 8.6,
+    "median": 0.277,
+    "p25": 0.197,
+    "p75": 2.272,
+    "p90": 20.018,
+    "min": -0.942,
+    "max": 105.951
+   },
+   "exit_sl_package_ref_only": {
+    "n": 14,
+    "mean": 9.904,
+    "trimmed_mean_5pct": 9.904,
+    "median": 0.277,
+    "p25": 0.201,
+    "p75": 2.798,
+    "p90": 20.018,
+    "min": 0.05,
+    "max": 105.951
+   },
+   "exit_tp_package_ref_only": {
+    "n": 2,
+    "mean": -0.526,
+    "trimmed_mean_5pct": -0.526,
+    "median": -0.942,
+    "p25": -0.942,
+    "p75": -0.111,
+    "p90": -0.111,
+    "min": -0.942,
+    "max": -0.111
+   },
+   "exit_sources": {
+    "exchange_fill": 16
+   },
+   "roundtrip_bps": null,
+   "roundtrip_state": "unmeasurable: entry n=63, package-referenced exit n=16 (need >= 20 each)"
+  },
+  "ib_paper": {
+   "account_class": "paper",
+   "venue": "ibkr_futures",
+   "window": [
+    "2026-08-03T01:28:45.389099+00:00",
+    "2026-09-22T10:48:43.665293+00:00"
+   ],
+   "entry": {
+    "n": 22,
+    "mean": 8.126,
+    "trimmed_mean_5pct": 8.156,
+    "median": 6.438,
+    "p25": -1.868,
+    "p75": 19.289,
+    "p90": 20.478,
+    "min": -8.132,
+    "max": 23.784
+   },
+   "exit_all": {
+    "n": 7,
+    "mean": 14.052,
+    "trimmed_mean_5pct": 14.052,
+    "median": 18.704,
+    "p25": 10.733,
+    "p75": 20.666,
+    "p90": 21.483,
+    "min": -6.462,
+    "max": 33.143
+   },
+   "exit_sl": {
+    "n": 6,
+    "mean": 16.378,
+    "trimmed_mean_5pct": 16.378,
+    "median": 18.704,
+    "p25": 10.733,
+    "p75": 21.483,
+    "p90": 21.483,
+    "min": -6.462,
+    "max": 33.143
+   },
+   "exit_tp": {
+    "n": 1,
+    "mean": 0.094,
+    "trimmed_mean_5pct": 0.094,
+    "median": 0.094,
+    "p25": 0.094,
+    "p75": 0.094,
+    "p90": 0.094,
+    "min": 0.094,
+    "max": 0.094
+   },
+   "exit_all_package_ref_only": {
+    "n": 7,
+    "mean": 14.052,
+    "trimmed_mean_5pct": 14.052,
+    "median": 18.704,
+    "p25": 10.733,
+    "p75": 20.666,
+    "p90": 21.483,
+    "min": -6.462,
+    "max": 33.143
+   },
+   "exit_sl_package_ref_only": {
+    "n": 6,
+    "mean": 16.378,
+    "trimmed_mean_5pct": 16.378,
+    "median": 18.704,
+    "p25": 10.733,
+    "p75": 21.483,
+    "p90": 21.483,
+    "min": -6.462,
+    "max": 33.143
+   },
+   "exit_tp_package_ref_only": {
+    "n": 1,
+    "mean": 0.094,
+    "trimmed_mean_5pct": 0.094,
+    "median": 0.094,
+    "p25": 0.094,
+    "p75": 0.094,
+    "p90": 0.094,
+    "min": 0.094,
+    "max": 0.094
+   },
+   "exit_sources": {
+    "ib_execution": 7
+   },
+   "roundtrip_bps": null,
+   "roundtrip_state": "unmeasurable: entry n=22, package-referenced exit n=7 (need >= 20 each)"
+  }
+ },
+ "excluded_counts": {
+  "exit_measured_no_reference:pairs_revert": 4,
+  "exit_measured_no_reference:reconciler_filled": 220,
+  "exit_not_measured": 1348,
+  "exit_measured_no_reference:pairs_stop": 2,
+  "exit_measured_no_reference:exchange_flat_reconciled": 45,
+  "exit_measured_no_reference:intent_reduce_executed": 7,
+  "exit_measured_no_reference:stuck_strategy_watchdog": 4,
+  "exit_measured_no_reference:exit_head": 10,
+  "exit_measured_no_reference:stale_stop": 7,
+  "exit_measured_no_reference:operator_flatten_reconciled": 6,
+  "exit_measured_no_reference:exit_coverage_no_strategy": 1,
+  "exit_measured_no_reference:backfill_closed_pnl_recovery": 21,
+  "exit_measured_no_reference:vwap_cross": 35,
+  "exit_measured_no_reference:time_decay": 1,
+  "exit_measured_no_reference:adopted_orphan_disappeared": 17,
+  "unknown_account": 270
+ },
+ "venue_roundtrip_bps_used": {
+  "ibkr_futures": null,
+  "prop_breakout": null,
+  "bybit_perps": 0.868,
+  "alpaca_equities": null,
+  "oanda_fx": null
+ },
+ "venue_basis": {
+  "bybit_perps": "bybit_2 (real money): entry mean + package-referenced exit mean; 95% CI [-0.911, 2.946]",
+  "ibkr_futures": "unmeasurable: no real-money account with both sides at n>=20",
+  "prop_breakout": "unmeasurable: no real-money account with both sides at n>=20",
+  "alpaca_equities": "unmeasurable: no real-money account with both sides at n>=20",
+  "oanda_fx": "unmeasurable: no real-money account with both sides at n>=20"
+ },
+ "repriced": {
+  "measured_real_mean": [
+   {
+    "leg": "ada_pullback_2h",
+    "symbol": "ADAUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 21.9344,
+    "n_trades_oos": 44,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 21.9344,
+     "record_net_r_oos": 21.9344,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0002
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.8219,
+    "breakeven_slippage_bps": 138.44,
+    "new_net_r_oos": 22.6136,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.4985,
+    "new_expectancy_r": 0.5139
+   },
+   {
+    "leg": "avax_pullback_2h",
+    "symbol": "AVAXUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 12.6729,
+    "n_trades_oos": 45,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 12.6729,
+     "record_net_r_oos": 12.6729,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.7074,
+    "breakeven_slippage_bps": 94.57,
+    "new_net_r_oos": 13.2575,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2816,
+    "new_expectancy_r": 0.2946
+   },
+   {
+    "leg": "eth_pullback_2h",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -1.7548,
+    "n_trades_oos": 57,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "slippage_plus_funding_r_total_at_old": 2.6035,
+    "new_net_r_oos_interval": [
+     -1.7548,
+     0.3967
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown, and the interval straddles 0 -> undetermined",
+    "new_verdict": "undetermined",
+    "flipped": null
+   },
+   {
+    "leg": "eth_pullback_prop_2h",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -2.6137,
+    "n_trades_oos": 66,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "slippage_plus_funding_r_total_at_old": 2.4883,
+    "new_net_r_oos_interval": [
+     -2.6137,
+     -0.5574
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": -0.5574,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.0396,
+    "new_expectancy_r": -0.0084
+   },
+   {
+    "leg": "fade_breakout_4h",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 6.1101,
+    "n_trades_oos": 25,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 6.1101,
+     "record_net_r_oos": 6.1101,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0001
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.4703,
+    "breakeven_slippage_bps": 69.97,
+    "new_net_r_oos": 6.4987,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2444,
+    "new_expectancy_r": 0.2599
+   },
+   {
+    "leg": "fvg_range_15m",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -10.2594,
+    "n_trades_oos": 17,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "method": "not_repriced: no per-trade rows and no fee-only arm"
+   },
+   {
+    "leg": "gdx_pullback_1d",
+    "symbol": "GDX",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 14.6337,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "gld_pullback_1d",
+    "symbol": "GLD",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 13.8945,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "gld_pullback_1h",
+    "symbol": "GLD",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 16.0186,
+    "n_trades_oos": 56,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "htf_pullback_trend_2h",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 2.7979,
+    "n_trades_oos": 80,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 2.7979,
+     "record_net_r_oos": 2.7979,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0006
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 1.6173,
+    "breakeven_slippage_bps": 13.65,
+    "new_net_r_oos": 4.1345,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.035,
+    "new_expectancy_r": 0.0517
+   },
+   {
+    "leg": "iaum_pullback_1d",
+    "symbol": "IAUM",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 13.8738,
+    "n_trades_oos": 6,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "ict_scalp_5m",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -16.814,
+    "n_trades_oos": 193,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -16.814,
+     "record_net_r_oos": -16.814,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0008
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 20.3709,
+    "breakeven_slippage_bps": 0.87,
+    "new_net_r_oos": 0.0205,
+    "new_verdict": "pass",
+    "flipped": true,
+    "old_expectancy_r": -0.0871,
+    "new_expectancy_r": 0.0001
+   },
+   {
+    "leg": "ict_scalp_avax_5m",
+    "symbol": "AVAXUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -13.5621,
+    "n_trades_oos": 261,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -13.5621,
+     "record_net_r_oos": -13.5621,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0012
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 21.3949,
+    "breakeven_slippage_bps": 1.83,
+    "new_net_r_oos": 4.1187,
+    "new_verdict": "pass",
+    "flipped": true,
+    "old_expectancy_r": -0.052,
+    "new_expectancy_r": 0.0158
+   },
+   {
+    "leg": "ict_scalp_eth_15m",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 7.9357,
+    "n_trades_oos": 120,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 7.9357,
+     "record_net_r_oos": 7.9357,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0007
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 5.5013,
+    "breakeven_slippage_bps": 12.21,
+    "new_net_r_oos": 12.482,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0661,
+    "new_expectancy_r": 0.104
+   },
+   {
+    "leg": "ict_scalp_mgc_15m",
+    "symbol": "MGC",
+    "coverage_state": "harness_failed",
+    "venue": "ibkr_futures",
+    "old_verdict": null,
+    "old_net_r_oos": null,
+    "n_trades_oos": null,
+    "old_slippage_bps": null,
+    "new_slippage_bps": null,
+    "method": "not_repriced: no measured net_r_oos"
+   },
+   {
+    "leg": "ict_scalp_sol_15m",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 4.0692,
+    "n_trades_oos": 133,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 4.0692,
+     "record_net_r_oos": 4.0692,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 5.543,
+    "breakeven_slippage_bps": 8.67,
+    "new_net_r_oos": 8.6499,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0306,
+    "new_expectancy_r": 0.065
+   },
+   {
+    "leg": "ict_scalp_sol_5m",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -14.7099,
+    "n_trades_oos": 258,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -14.7099,
+     "record_net_r_oos": -14.7099,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0006
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 16.5883,
+    "breakeven_slippage_bps": 0.57,
+    "new_net_r_oos": -1.0013,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.057,
+    "new_expectancy_r": -0.0039
+   },
+   {
+    "leg": "ict_scalp_xrp_15m",
+    "symbol": "XRPUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 1.1225,
+    "n_trades_oos": 130,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 1.1225,
+     "record_net_r_oos": 1.1225,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0005
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 8.5397,
+    "breakeven_slippage_bps": 5.66,
+    "new_net_r_oos": 8.1797,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0086,
+    "new_expectancy_r": 0.0629
+   },
+   {
+    "leg": "ict_scalp_xrp_5m",
+    "symbol": "XRPUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -8.2061,
+    "n_trades_oos": 245,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -8.2061,
+     "record_net_r_oos": -8.2061,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0003
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 18.5349,
+    "breakeven_slippage_bps": 2.79,
+    "new_net_r_oos": 7.1111,
+    "new_verdict": "pass",
+    "flipped": true,
+    "old_expectancy_r": -0.0335,
+    "new_expectancy_r": 0.029
+   },
+   {
+    "leg": "ief_pullback_1d",
+    "symbol": "IEF",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 1.7081,
+    "n_trades_oos": 4,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "iwm_trend_long_1d",
+    "symbol": "IWM",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.034,
+    "n_trades_oos": 6,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "mes_trend_long_1d",
+    "symbol": "MES",
+    "coverage_state": "measured",
+    "venue": "ibkr_futures",
+    "old_verdict": "fail",
+    "old_net_r_oos": -1.2064,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "mgc_pullback_1d",
+    "symbol": "MGC",
+    "coverage_state": "measured",
+    "venue": "ibkr_futures",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.5384,
+    "n_trades_oos": 4,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "mgc_trend_1h",
+    "symbol": "MGC",
+    "coverage_state": "measured",
+    "venue": "ibkr_futures",
+    "old_verdict": "pass",
+    "old_net_r_oos": 21.7507,
+    "n_trades_oos": 118,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "mhg_pullback_1d",
+    "symbol": "MHG",
+    "coverage_state": "measured",
+    "venue": "ibkr_futures",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.2924,
+    "n_trades_oos": 10,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "qld_trend_long_1d",
+    "symbol": "QLD",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 6.8986,
+    "n_trades_oos": 3,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "qqq_pullback_1h",
+    "symbol": "QQQ",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 11.3698,
+    "n_trades_oos": 48,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "qqq_trend_long_1d",
+    "symbol": "QQQ",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 6.5977,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "scha_trend_long_1d",
+    "symbol": "SCHA",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 0.7882,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "slv_pullback_1d",
+    "symbol": "SLV",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 20.3638,
+    "n_trades_oos": 4,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "slv_trend_1h",
+    "symbol": "SLV",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 57.323,
+    "n_trades_oos": 58,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "sol_pullback_2h",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 7.2808,
+    "n_trades_oos": 16,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 7.2808,
+     "record_net_r_oos": 7.2808,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0003
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.1985,
+    "breakeven_slippage_bps": 188.38,
+    "new_net_r_oos": 7.4449,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.4551,
+    "new_expectancy_r": 0.4653
+   },
+   {
+    "leg": "splg_trend_long_1d",
+    "symbol": "SPLG",
+    "coverage_state": "harness_failed",
+    "venue": "alpaca_equities",
+    "old_verdict": null,
+    "old_net_r_oos": null,
+    "n_trades_oos": null,
+    "old_slippage_bps": null,
+    "new_slippage_bps": null,
+    "method": "not_repriced: no measured net_r_oos"
+   },
+   {
+    "leg": "spy_pullback_1h",
+    "symbol": "SPY",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "fail",
+    "old_net_r_oos": -11.2379,
+    "n_trades_oos": 57,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "spy_trend_long_1d",
+    "symbol": "SPY",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 7.1152,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "squeeze_breakout_4h",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -0.4874,
+    "n_trades_oos": 10,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -0.4874,
+     "record_net_r_oos": -0.4874,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.2128,
+    "breakeven_slippage_bps": -6.45,
+    "new_net_r_oos": -0.3115,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.0487,
+    "new_expectancy_r": -0.0312
+   },
+   {
+    "leg": "tlt_pullback_1d",
+    "symbol": "TLT",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "fail",
+    "old_net_r_oos": -4.4309,
+    "n_trades_oos": 8,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "tlt_pullback_1h",
+    "symbol": "TLT",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "fail",
+    "old_net_r_oos": -4.4077,
+    "n_trades_oos": 94,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "tqqq_trend_long_1d",
+    "symbol": "TQQQ",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.1661,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "trend_donchian",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -0.4245,
+    "n_trades_oos": 73,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "slippage_plus_funding_r_total_at_old": 6.6476,
+    "new_net_r_oos_interval": [
+     -0.4245,
+     5.0691
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown, and the interval straddles 0 -> undetermined",
+    "new_verdict": "undetermined",
+    "flipped": null
+   },
+   {
+    "leg": "trend_donchian_ada_4h",
+    "symbol": "ADAUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 8.5287,
+    "n_trades_oos": 38,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 8.5287,
+     "record_net_r_oos": 8.5287,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.4377,
+    "breakeven_slippage_bps": 102.42,
+    "new_net_r_oos": 8.8904,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2244,
+    "new_expectancy_r": 0.234
+   },
+   {
+    "leg": "trend_donchian_avax_4h",
+    "symbol": "AVAXUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 9.692,
+    "n_trades_oos": 48,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 9.692,
+     "record_net_r_oos": 9.692,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0001
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.7748,
+    "breakeven_slippage_bps": 67.54,
+    "new_net_r_oos": 10.3323,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2019,
+    "new_expectancy_r": 0.2153
+   },
+   {
+    "leg": "trend_donchian_eth",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 21.6753,
+    "n_trades_oos": 102,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 21.6753,
+     "record_net_r_oos": 21.6753,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0006
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 2.5192,
+    "breakeven_slippage_bps": 48.02,
+    "new_net_r_oos": 23.7572,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2125,
+    "new_expectancy_r": 0.2329
+   },
+   {
+    "leg": "trend_donchian_eth_4h",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 14.5275,
+    "n_trades_oos": 28,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "slippage_plus_funding_r_total_at_old": 2.1621,
+    "new_net_r_oos_interval": [
+     14.5275,
+     16.3143
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 16.3143,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.5188,
+    "new_expectancy_r": 0.5827
+   },
+   {
+    "leg": "trend_donchian_eth_prop",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 7.13,
+    "n_trades_oos": 169,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "slippage_plus_funding_r_total_at_old": 5.9178,
+    "new_net_r_oos_interval": [
+     7.13,
+     12.0205
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 12.0205,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0422,
+    "new_expectancy_r": 0.0711
+   },
+   {
+    "leg": "trend_donchian_sol",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 2.8045,
+    "n_trades_oos": 57,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 2.8045,
+     "record_net_r_oos": 2.8045,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0001
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 1.3247,
+    "breakeven_slippage_bps": 15.59,
+    "new_net_r_oos": 3.8993,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0492,
+    "new_expectancy_r": 0.0684
+   },
+   {
+    "leg": "trend_donchian_sol_4h",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 4.1648,
+    "n_trades_oos": 34,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 4.1648,
+     "record_net_r_oos": 4.1648,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0001
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.6007,
+    "breakeven_slippage_bps": 39.67,
+    "new_net_r_oos": 4.6612,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.1225,
+    "new_expectancy_r": 0.1371
+   },
+   {
+    "leg": "trend_donchian_sol_prop",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.4484,
+    "n_trades_oos": 63,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "slippage_plus_funding_r_total_at_old": 2.3027,
+    "new_net_r_oos_interval": [
+     3.4484,
+     5.3514
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 5.3514,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0547,
+    "new_expectancy_r": 0.0849
+   },
+   {
+    "leg": "trend_donchian_xrp_4h",
+    "symbol": "XRPUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 20.5617,
+    "n_trades_oos": 16,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "slippage_plus_funding_r_total_at_old": 0.4519,
+    "new_net_r_oos_interval": [
+     20.5617,
+     20.9352
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 20.9352,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 1.2851,
+    "new_expectancy_r": 1.3084
+   },
+   {
+    "leg": "turtle_soup",
+    "symbol": "BTCUSDT",
+    "coverage_state": "no_harness",
+    "venue": "bybit_perps",
+    "old_verdict": null,
+    "old_net_r_oos": null,
+    "n_trades_oos": null,
+    "old_slippage_bps": null,
+    "new_slippage_bps": 0.868,
+    "method": "not_repriced: no measured net_r_oos"
+   },
+   {
+    "leg": "uso_trend_1h",
+    "symbol": "USO",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 28.0566,
+    "n_trades_oos": 55,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "xrp_pullback_2h",
+    "symbol": "XRPUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 16.408,
+    "n_trades_oos": 44,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 0.868,
+    "slippage_plus_funding_r_total_at_old": 2.5063,
+    "new_net_r_oos_interval": [
+     16.408,
+     18.4792
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 18.4792,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.3729,
+    "new_expectancy_r": 0.42
+   }
+  ],
+  "measured_real_ci95_upper": [
+   {
+    "leg": "ada_pullback_2h",
+    "symbol": "ADAUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 21.9344,
+    "n_trades_oos": 44,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 21.9344,
+     "record_net_r_oos": 21.9344,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0002
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.8219,
+    "breakeven_slippage_bps": 138.44,
+    "new_net_r_oos": 22.272,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.4985,
+    "new_expectancy_r": 0.5062
+   },
+   {
+    "leg": "avax_pullback_2h",
+    "symbol": "AVAXUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 12.6729,
+    "n_trades_oos": 45,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 12.6729,
+     "record_net_r_oos": 12.6729,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.7074,
+    "breakeven_slippage_bps": 94.57,
+    "new_net_r_oos": 12.9635,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2816,
+    "new_expectancy_r": 0.2881
+   },
+   {
+    "leg": "eth_pullback_2h",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -1.7548,
+    "n_trades_oos": 57,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "slippage_plus_funding_r_total_at_old": 2.6035,
+    "new_net_r_oos_interval": [
+     -1.7548,
+     -0.6853
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": -0.6853,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.0308,
+    "new_expectancy_r": -0.012
+   },
+   {
+    "leg": "eth_pullback_prop_2h",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -2.6137,
+    "n_trades_oos": 66,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "slippage_plus_funding_r_total_at_old": 2.4883,
+    "new_net_r_oos_interval": [
+     -2.6137,
+     -1.5915
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": -1.5915,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.0396,
+    "new_expectancy_r": -0.0241
+   },
+   {
+    "leg": "fade_breakout_4h",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 6.1101,
+    "n_trades_oos": 25,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 6.1101,
+     "record_net_r_oos": 6.1101,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0001
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.4703,
+    "breakeven_slippage_bps": 69.97,
+    "new_net_r_oos": 6.3033,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2444,
+    "new_expectancy_r": 0.2521
+   },
+   {
+    "leg": "fvg_range_15m",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -10.2594,
+    "n_trades_oos": 17,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "method": "not_repriced: no per-trade rows and no fee-only arm"
+   },
+   {
+    "leg": "gdx_pullback_1d",
+    "symbol": "GDX",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 14.6337,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "gld_pullback_1d",
+    "symbol": "GLD",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 13.8945,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "gld_pullback_1h",
+    "symbol": "GLD",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 16.0186,
+    "n_trades_oos": 56,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "htf_pullback_trend_2h",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 2.7979,
+    "n_trades_oos": 80,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 2.7979,
+     "record_net_r_oos": 2.7979,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0006
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 1.6173,
+    "breakeven_slippage_bps": 13.65,
+    "new_net_r_oos": 3.4623,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.035,
+    "new_expectancy_r": 0.0433
+   },
+   {
+    "leg": "iaum_pullback_1d",
+    "symbol": "IAUM",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 13.8738,
+    "n_trades_oos": 6,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "ict_scalp_5m",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -16.814,
+    "n_trades_oos": 193,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -16.814,
+     "record_net_r_oos": -16.814,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0008
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 20.3709,
+    "breakeven_slippage_bps": 0.87,
+    "new_net_r_oos": -8.4456,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.0871,
+    "new_expectancy_r": -0.0438
+   },
+   {
+    "leg": "ict_scalp_avax_5m",
+    "symbol": "AVAXUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -13.5621,
+    "n_trades_oos": 261,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -13.5621,
+     "record_net_r_oos": -13.5621,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0012
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 21.3949,
+    "breakeven_slippage_bps": 1.83,
+    "new_net_r_oos": -4.7731,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.052,
+    "new_expectancy_r": -0.0183
+   },
+   {
+    "leg": "ict_scalp_eth_15m",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 7.9357,
+    "n_trades_oos": 120,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 7.9357,
+     "record_net_r_oos": 7.9357,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0007
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 5.5013,
+    "breakeven_slippage_bps": 12.21,
+    "new_net_r_oos": 10.1956,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0661,
+    "new_expectancy_r": 0.085
+   },
+   {
+    "leg": "ict_scalp_mgc_15m",
+    "symbol": "MGC",
+    "coverage_state": "harness_failed",
+    "venue": "ibkr_futures",
+    "old_verdict": null,
+    "old_net_r_oos": null,
+    "n_trades_oos": null,
+    "old_slippage_bps": null,
+    "new_slippage_bps": null,
+    "method": "not_repriced: no measured net_r_oos"
+   },
+   {
+    "leg": "ict_scalp_sol_15m",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 4.0692,
+    "n_trades_oos": 133,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 4.0692,
+     "record_net_r_oos": 4.0692,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 5.543,
+    "breakeven_slippage_bps": 8.67,
+    "new_net_r_oos": 6.3463,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0306,
+    "new_expectancy_r": 0.0477
+   },
+   {
+    "leg": "ict_scalp_sol_5m",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -14.7099,
+    "n_trades_oos": 258,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -14.7099,
+     "record_net_r_oos": -14.7099,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0006
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 16.5883,
+    "breakeven_slippage_bps": 0.57,
+    "new_net_r_oos": -7.8954,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.057,
+    "new_expectancy_r": -0.0306
+   },
+   {
+    "leg": "ict_scalp_xrp_15m",
+    "symbol": "XRPUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 1.1225,
+    "n_trades_oos": 130,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 1.1225,
+     "record_net_r_oos": 1.1225,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0005
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 8.5397,
+    "breakeven_slippage_bps": 5.66,
+    "new_net_r_oos": 4.6306,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0086,
+    "new_expectancy_r": 0.0356
+   },
+   {
+    "leg": "ict_scalp_xrp_5m",
+    "symbol": "XRPUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -8.2061,
+    "n_trades_oos": 245,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -8.2061,
+     "record_net_r_oos": -8.2061,
+     "reproduced": true,
+     "fee_only_identity_residual_r": -0.0003
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 18.5349,
+    "breakeven_slippage_bps": 2.79,
+    "new_net_r_oos": -0.592,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.0335,
+    "new_expectancy_r": -0.0024
+   },
+   {
+    "leg": "ief_pullback_1d",
+    "symbol": "IEF",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 1.7081,
+    "n_trades_oos": 4,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "iwm_trend_long_1d",
+    "symbol": "IWM",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.034,
+    "n_trades_oos": 6,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "mes_trend_long_1d",
+    "symbol": "MES",
+    "coverage_state": "measured",
+    "venue": "ibkr_futures",
+    "old_verdict": "fail",
+    "old_net_r_oos": -1.2064,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "mgc_pullback_1d",
+    "symbol": "MGC",
+    "coverage_state": "measured",
+    "venue": "ibkr_futures",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.5384,
+    "n_trades_oos": 4,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "mgc_trend_1h",
+    "symbol": "MGC",
+    "coverage_state": "measured",
+    "venue": "ibkr_futures",
+    "old_verdict": "pass",
+    "old_net_r_oos": 21.7507,
+    "n_trades_oos": 118,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "mhg_pullback_1d",
+    "symbol": "MHG",
+    "coverage_state": "measured",
+    "venue": "ibkr_futures",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.2924,
+    "n_trades_oos": 10,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "qld_trend_long_1d",
+    "symbol": "QLD",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 6.8986,
+    "n_trades_oos": 3,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "qqq_pullback_1h",
+    "symbol": "QQQ",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 11.3698,
+    "n_trades_oos": 48,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "qqq_trend_long_1d",
+    "symbol": "QQQ",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 6.5977,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "scha_trend_long_1d",
+    "symbol": "SCHA",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 0.7882,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "slv_pullback_1d",
+    "symbol": "SLV",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 20.3638,
+    "n_trades_oos": 4,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "slv_trend_1h",
+    "symbol": "SLV",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 57.323,
+    "n_trades_oos": 58,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "sol_pullback_2h",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 7.2808,
+    "n_trades_oos": 16,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 7.2808,
+     "record_net_r_oos": 7.2808,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0003
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.1985,
+    "breakeven_slippage_bps": 188.38,
+    "new_net_r_oos": 7.3624,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.4551,
+    "new_expectancy_r": 0.4601
+   },
+   {
+    "leg": "splg_trend_long_1d",
+    "symbol": "SPLG",
+    "coverage_state": "harness_failed",
+    "venue": "alpaca_equities",
+    "old_verdict": null,
+    "old_net_r_oos": null,
+    "n_trades_oos": null,
+    "old_slippage_bps": null,
+    "new_slippage_bps": null,
+    "method": "not_repriced: no measured net_r_oos"
+   },
+   {
+    "leg": "spy_pullback_1h",
+    "symbol": "SPY",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "fail",
+    "old_net_r_oos": -11.2379,
+    "n_trades_oos": 57,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "spy_trend_long_1d",
+    "symbol": "SPY",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 7.1152,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "squeeze_breakout_4h",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -0.4874,
+    "n_trades_oos": 10,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": -0.4874,
+     "record_net_r_oos": -0.4874,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.2128,
+    "breakeven_slippage_bps": -6.45,
+    "new_net_r_oos": -0.4,
+    "new_verdict": "fail",
+    "flipped": false,
+    "old_expectancy_r": -0.0487,
+    "new_expectancy_r": -0.04
+   },
+   {
+    "leg": "tlt_pullback_1d",
+    "symbol": "TLT",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "fail",
+    "old_net_r_oos": -4.4309,
+    "n_trades_oos": 8,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "tlt_pullback_1h",
+    "symbol": "TLT",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "fail",
+    "old_net_r_oos": -4.4077,
+    "n_trades_oos": 94,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "tqqq_trend_long_1d",
+    "symbol": "TQQQ",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.1661,
+    "n_trades_oos": 5,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "trend_donchian",
+    "symbol": "BTCUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "fail",
+    "old_net_r_oos": -0.4245,
+    "n_trades_oos": 73,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "slippage_plus_funding_r_total_at_old": 6.6476,
+    "new_net_r_oos_interval": [
+     -0.4245,
+     2.3063
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown, and the interval straddles 0 -> undetermined",
+    "new_verdict": "undetermined",
+    "flipped": null
+   },
+   {
+    "leg": "trend_donchian_ada_4h",
+    "symbol": "ADAUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 8.5287,
+    "n_trades_oos": 38,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 8.5287,
+     "record_net_r_oos": 8.5287,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.4377,
+    "breakeven_slippage_bps": 102.42,
+    "new_net_r_oos": 8.7085,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2244,
+    "new_expectancy_r": 0.2292
+   },
+   {
+    "leg": "trend_donchian_avax_4h",
+    "symbol": "AVAXUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 9.692,
+    "n_trades_oos": 48,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 9.692,
+     "record_net_r_oos": 9.692,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0001
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.7748,
+    "breakeven_slippage_bps": 67.54,
+    "new_net_r_oos": 10.0103,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2019,
+    "new_expectancy_r": 0.2085
+   },
+   {
+    "leg": "trend_donchian_eth",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 21.6753,
+    "n_trades_oos": 102,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 21.6753,
+     "record_net_r_oos": 21.6753,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0006
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 2.5192,
+    "breakeven_slippage_bps": 48.02,
+    "new_net_r_oos": 22.7102,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.2125,
+    "new_expectancy_r": 0.2226
+   },
+   {
+    "leg": "trend_donchian_eth_4h",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 14.5275,
+    "n_trades_oos": 28,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "slippage_plus_funding_r_total_at_old": 2.1621,
+    "new_net_r_oos_interval": [
+     14.5275,
+     15.4157
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 15.4157,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.5188,
+    "new_expectancy_r": 0.5506
+   },
+   {
+    "leg": "trend_donchian_eth_prop",
+    "symbol": "ETHUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 7.13,
+    "n_trades_oos": 169,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "slippage_plus_funding_r_total_at_old": 5.9178,
+    "new_net_r_oos_interval": [
+     7.13,
+     9.561
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 9.561,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0422,
+    "new_expectancy_r": 0.0566
+   },
+   {
+    "leg": "trend_donchian_sol",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 2.8045,
+    "n_trades_oos": 57,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 2.8045,
+     "record_net_r_oos": 2.8045,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0001
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 1.3247,
+    "breakeven_slippage_bps": 15.59,
+    "new_net_r_oos": 3.3487,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0492,
+    "new_expectancy_r": 0.0587
+   },
+   {
+    "leg": "trend_donchian_sol_4h",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 4.1648,
+    "n_trades_oos": 34,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "positive_control": {
+     "sum_net_r_at_recorded_bps": 4.1648,
+     "record_net_r_oos": 4.1648,
+     "reproduced": true,
+     "fee_only_identity_residual_r": 0.0001
+    },
+    "method": "exact: per-trade cost_slippage_r rescaled",
+    "slippage_r_total_at_old": 0.6007,
+    "breakeven_slippage_bps": 39.67,
+    "new_net_r_oos": 4.4116,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.1225,
+    "new_expectancy_r": 0.1298
+   },
+   {
+    "leg": "trend_donchian_sol_prop",
+    "symbol": "SOLUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 3.4484,
+    "n_trades_oos": 63,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "slippage_plus_funding_r_total_at_old": 2.3027,
+    "new_net_r_oos_interval": [
+     3.4484,
+     4.3943
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 4.3943,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.0547,
+    "new_expectancy_r": 0.0698
+   },
+   {
+    "leg": "trend_donchian_xrp_4h",
+    "symbol": "XRPUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 20.5617,
+    "n_trades_oos": 16,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "slippage_plus_funding_r_total_at_old": 0.4519,
+    "new_net_r_oos_interval": [
+     20.5617,
+     20.7473
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 20.7473,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 1.2851,
+    "new_expectancy_r": 1.2967
+   },
+   {
+    "leg": "turtle_soup",
+    "symbol": "BTCUSDT",
+    "coverage_state": "no_harness",
+    "venue": "bybit_perps",
+    "old_verdict": null,
+    "old_net_r_oos": null,
+    "n_trades_oos": null,
+    "old_slippage_bps": null,
+    "new_slippage_bps": 2.946,
+    "method": "not_repriced: no measured net_r_oos"
+   },
+   {
+    "leg": "uso_trend_1h",
+    "symbol": "USO",
+    "coverage_state": "measured",
+    "venue": "alpaca_equities",
+    "old_verdict": "pass",
+    "old_net_r_oos": 28.0566,
+    "n_trades_oos": 55,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": null,
+    "method": "not_repriced: venue slippage unmeasurable"
+   },
+   {
+    "leg": "xrp_pullback_2h",
+    "symbol": "XRPUSDT",
+    "coverage_state": "measured",
+    "venue": "bybit_perps",
+    "old_verdict": "pass",
+    "old_net_r_oos": 16.408,
+    "n_trades_oos": 44,
+    "old_slippage_bps": 5.0,
+    "new_slippage_bps": 2.946,
+    "slippage_plus_funding_r_total_at_old": 2.5063,
+    "new_net_r_oos_interval": [
+     16.408,
+     17.4376
+    ],
+    "method": "interval: no per-trade rows; fee-only diff = slippage+funding, split unknown; both ends give the same verdict",
+    "new_net_r_oos": 17.4376,
+    "new_verdict": "pass",
+    "flipped": false,
+    "old_expectancy_r": 0.3729,
+    "new_expectancy_r": 0.3963
+   }
+  ]
+ },
+ "flip_summary": {
+  "measured_real_mean": {
+   "flipped": [
+    "ict_scalp_5m: fail->pass",
+    "ict_scalp_avax_5m: fail->pass",
+    "ict_scalp_xrp_5m: fail->pass"
+   ],
+   "undetermined": [
+    "eth_pullback_2h",
+    "trend_donchian"
+   ],
+   "n_repriced": 24,
+   "n_not_repriced": 26
+  },
+  "measured_real_ci95_upper": {
+   "flipped": [],
+   "undetermined": [
+    "trend_donchian"
+   ],
+   "n_repriced": 25,
+   "n_not_repriced": 26
+  }
+ }
+}

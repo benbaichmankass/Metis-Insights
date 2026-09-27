@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) ib_live's ib_host/ib_port are corrected to an endpoint that a reader can demonstrate answers — evidenced by /api/diag/ib_state showing a client connected on the NEW host:port, or an explicit connect test, never by the config diff alone; OR (b) an operator decision is RECORDED that ib_live will not be promoted and is trusted flat because it is dry and has never traded, with that decision written into config/accounts.yaml's ib_live comment block AND MI-177's audit note corrected so 'resolves on promotion' no longer stands. A merge alone closes neither. Explicitly NOT sufficient: ib_live continuing to read positions:null (that is the dry gate, which is what hides this).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-AND-PROMOTION-WOULD-NOT-CONNECT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-AND-PROMOTION-WOULD-NOT-CONNECT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-AND-PROMOTION-WOULD-NOT-CONNECT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] ib_live (REAL MONEY) declares ib_host 127.0.0.1 / ib_port 7496 — no gateway listens there and 7496 is not this deployment's live port, so promoting it would NOT connect"
+}

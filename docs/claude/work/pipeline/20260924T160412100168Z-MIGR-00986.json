@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260906-BYBIT1-SOLUSDT-SL-LEGS-COVER-2393-PERCENT-OF-THE-POSITION-LIVE-TODAY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-BYBIT1-SOLUSDT-SL-LEGS-COVER-2393-PERCENT-OF-THE-POSITION-LIVE-TODAY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-BYBIT1-SOLUSDT-SL-LEGS-COVER-2393-PERCENT-OF-THE-POSITION-LIVE-TODAY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Live same-book SL over-accumulation on bybit_1: SOLUSDT legs total 797.0 against a 33.3 position (2393%), and ADAUSDT 143170.0 against 79855.0 (179%)"
+}

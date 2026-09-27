@@ -174,6 +174,50 @@ def _instrument_exchange_for(symbol: str) -> Optional[str]:
     return _INSTRUMENT_EXCHANGE_CACHE.get(symbol) or None
 
 
+# PI-20260926-KNSTSR8N-0003: ``multi_account_execute`` drops an account from a
+# dispatch round in two places WITHOUT writing a ``trades`` row —
+# ``_dispatch_exclusion_reason``'s pre-loop eligibility filter, and the
+# ``account_type`` scope filter inside the loop. Both are correct BY DESIGN
+# for the routine case (``tests/test_multi_account_execute_early_out_logs_refusal.py``:
+# "the per-account strategy filter runs before the dispatch loop and removes
+# unmatched accounts from ``results`` entirely — no rejection row written").
+# The defect this closes is not the missing journal row (removing it was a
+# deliberate 2026-05-08 anti-noise fix) — it is that "no journal row" had come
+# to mean "no trace of ANY kind": a genuinely mis-wired leg (``configured``
+# flipped False, a routing-table gap, an emptied ``strategies:`` list) reads
+# identically to the routine case from outside this function. This is
+# observe-only: it changes no dispatch decision, only whether the decision
+# leaves a line in the log.
+#
+# Two reasons stay at DEBUG because they are the high-volume, working-as-
+# designed cases: ``strategy_not_assigned`` fires for most accounts on most
+# strategies, every tick (the exact O(strategies × accounts × ticks) shape
+# CLAUDE.md's "Per-account strategy filter" section already retired at INFO),
+# and ``outside_account_scope`` is E35's per-account election losing
+# gracefully to a same-symbol sibling. Every other reason names a leg that DOES
+# belong on this account and is still not reaching it, so it logs at WARNING.
+_DISPATCH_DROP_ROUTINE_REASONS = ("strategy_not_assigned", "outside_account_scope")
+
+
+def _log_dispatch_drop(
+    *, account: str, strategy: str, symbol: str, reason: str, stage: str,
+) -> None:
+    """Structured, no-op trace for an account dropped from dispatch before
+    ``execute_pkg`` is ever reached — the one class of drop that writes no
+    ``trades`` row of any status. Never raises; a tracing failure must not be
+    able to affect dispatch.
+    """
+    try:
+        _routine = any(reason.startswith(r) for r in _DISPATCH_DROP_ROUTINE_REASONS)
+        _log = logger.debug if _routine else logger.warning
+        _log(
+            "dispatch_drop: account=%s strategy=%s symbol=%s stage=%s reason=%s",
+            account, strategy, symbol, stage, reason,
+        )
+    except Exception:  # noqa: BLE001 — a trace must never break dispatch
+        logger.debug("dispatch_drop: trace emission failed", exc_info=False)
+
+
 # ---------------------------------------------------------------------------
 # Coordinator
 # ---------------------------------------------------------------------------
@@ -869,9 +913,13 @@ class Coordinator:
             unchanged and is evaluated first. ``None`` (the default) is
             byte-for-byte the pre-2026-08-31 behaviour.
 
-            This is the per-account arbitration fan-out's dispatch handle
-            (``ARBITRATION_FANOUT_MODE=apply``). The global election picks ONE
-            winner per symbol before any account is consulted, so an account
+            This is the per-account election's dispatch handle (E35,
+            2026-09-25: ``pipeline._dispatch_rounds`` passes each round's
+            electing accounts; it was the ``ARBITRATION_FANOUT_MODE=apply``
+            fan-out's until then). It is LOAD-BEARING for no-double-place: a
+            package for strategy A must not reach an account that declares A
+            but elected B this tick. Historically: the global election picked
+            ONE winner per symbol before any account was consulted, so an account
             running its own candidate on that symbol is dropped here by
             ``pkg.strategy in assigned`` and produces no order package at all —
             invisible to the journal AND to every per-account detector
@@ -1158,7 +1206,7 @@ class Coordinator:
                     f"strategy_not_assigned: {pkg.strategy} not in "
                     f"{sorted(str(a) for a in assigned)}"
                 )
-            # Per-account arbitration fan-out (ARBITRATION_FANOUT_MODE=apply).
+            # Per-account election round scope (E35; pipeline._dispatch_rounds).
             # LAST, and NARROWING ONLY: every rule above has already passed, so
             # this can subtract an account from the eligible set but can never
             # add one. `None` = no fan-out in play = unchanged behaviour.
@@ -1178,7 +1226,13 @@ class Coordinator:
             if _reason is None:
                 _eligible.append(_acct)
             else:
-                excluded_by_account[str(getattr(_acct, "name", "?"))] = _reason
+                _acct_name = str(getattr(_acct, "name", "?"))
+                excluded_by_account[_acct_name] = _reason
+                _log_dispatch_drop(
+                    account=_acct_name, strategy=str(pkg.strategy or "?"),
+                    symbol=str(pkg.symbol or "?"), reason=_reason,
+                    stage="pre_loop_eligibility",
+                )
         accounts = _eligible
         logger.info(
             "[coordinator.dispatch] trace_id=%s strategy=%s symbol=%s eligible_accounts=%d",
@@ -1209,9 +1263,15 @@ class Coordinator:
                 # the pre-loop filter records its own: a round narrowed to
                 # ``account_type`` that matches nobody sizes nothing, and the
                 # refusal must be able to say so.
-                excluded_by_account[str(getattr(account, "name", "?"))] = (
+                _at_reason = (
                     f"account_type_mismatch: round wants {account_type}, "
                     f"account is {account.account_type}"
+                )
+                excluded_by_account[str(getattr(account, "name", "?"))] = _at_reason
+                _log_dispatch_drop(
+                    account=str(getattr(account, "name", "?")),
+                    strategy=str(pkg.strategy or "?"), symbol=str(pkg.symbol or "?"),
+                    reason=_at_reason, stage="account_type_scope",
                 )
                 continue
             # Reset per-iteration so intent_legs from a previous account

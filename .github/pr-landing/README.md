@@ -9,15 +9,7 @@ Enforced by `pr-landing-guard` (`scripts/ci/check_pr_landing.py`), which runs on
 every PR. Read that file's docstring for the rule-by-rule reasoning; this is the
 operator's-eye summary.
 
-> ### ⚠️ THE MERGE-SLOT CLAIM: USE THE PER-BRANCH ROUTE (2026-09-21)
->
-> **R13's first failure message names `docs/claude/session-board.json`, and the
-> 2026-09-21 operating reset ARCHIVED that file.** It is now at
-> `docs/archive/2026-09-21-operating-reset/registers/session-board.json`, along
-> with `board-pointer.json`, so a session that follows the error text lands on a
-> file that does not exist and a board it cannot resolve.
->
-> **The route that works, and the one R13 itself calls PREFERRED:**
+> ### THE MERGE-SLOT CLAIM: USE THE PER-BRANCH ROUTE
 >
 > ```bash
 > python3 scripts/ops/claim_merge_slot.py --branch-claim \
@@ -25,17 +17,23 @@ operator's-eye summary.
 > ```
 >
 > It writes `.github/merge-slots/<slug>.json`, which cannot conflict with another
-> branch's claim. Commit it in the same push that arms the route. Measured
-> 2026-09-21 on `claude/metis-insights-manager-9qmm63`: R13 went from
-> `session-board.json does not exist` to `OK — state=declared_self_land` on that
-> one command.
+> branch's claim. Commit it in the same push that arms the route.
 >
-> ⚠️ **This note is not the fix.** The guard still names the dead register first,
-> which bites every Tier-1 self-landing PR from here on. Filed as
-> `PI-20260921-0002` in `docs/claude/work/PIPELINE.jsonl` and routed to the E9
-> reader sweep. **Do not "fix" it by weakening R13** — it fails closed on purpose
-> and the loss it guards is real; the remedy TEXT and its ordering are what is
-> wrong.
+> ⚠️ **FIXED 2026-09-24 (E51).** Until then, R13's own failure message told you
+> to satisfy it by writing `merge_slot` into `docs/claude/session-board.json` —
+> a file the 2026-09-21 operating reset had archived (now at
+> `docs/archive/2026-09-21-operating-reset/registers/session-board.json`), so
+> the remedy the guard printed could not be performed. `check_pr_landing.py`'s
+> R13 message (and `slot_claim_state`'s underlying `detail`) now name the
+> per-branch route above and state plainly that the legacy file is retired and
+> must not be resurrected. This note originally filed the bug as
+> `PI-20260921-0002` in `docs/claude/work/PIPELINE.jsonl` — by the time E51
+> looked, that id had been silently overwritten by an unrelated finding
+> through the append-collision defect `docs/claude/work/PIPELINE.jsonl` itself
+> documents (`python3 scripts/ops/pipeline.py --check` lists it as one of 3
+> GRANDFATHERED collisions), so the original filing is no longer readable
+> there. The fix landed directly in code instead; this box is kept short as a
+> pointer, not a workaround.
 
 ## Why this exists
 
@@ -109,6 +107,51 @@ Tier-2 work that the operator has already approved, where the approval is
 ...plus the same arming file and merge-slot claim Tier-1 self-landing needs.
 See **R15** below and `docs/claude/work/approvals/README.md` for the record's
 shape. **Tier-3 never self-lands and no record admits it.**
+
+And **one Tier-3 shape lands on a MANDATE** (R16, 2026-09-25):
+
+```json
+{
+  "tier": 3,
+  "landing": "mandate",
+  "mandate": "MD-DEMOTE-S2-S1",
+  "run_id": "<the r4-demotion-gate run id, matching the branch>",
+  "workflow": ".github/workflows/r4-demotion-gate.yml",
+  "why": "automated Stage-2 roster cut under a granted derisk_only mandate"
+}
+```
+
+⚠️ **This is NOT a Tier-3 `landing: "self"`, and R4 is unchanged.** `"self"` at
+tier 3 still fails R4 outright and no record buys one. `"mandate"` is a separate
+route, graded clause by clause by `scripts/ci/check_mandate_autoland.py`
+(`mandate-autoland-guard`, which `pr-landing-guard` delegates to), admitting
+**exactly one diff shape**:
+
+| clause | what it checks |
+|---|---|
+| **A1** | every changed path is on a closed allowlist — the roster file, the mirror-window records and their source runs, the firing records, and this branch's own declaration and merge-slot claim. **`config/mandates.yaml` is not on it**, so the PR cannot grant its own authorization. |
+| **A2** | `config/accounts.yaml` changes by REMOVALS from `strategies:` rosters and nothing else — proven by filtering the removed legs out of the merge-base document and requiring the result to equal HEAD. |
+| **A3** | each removed leg carries a committed mirror-window record and a firing record added by this diff, citing it, naming a mandate, with matching accounts and a reachable `source_run`. |
+| **A4** | that mandate is in the **merge-base** `mandates:` list, is not `blocked_until`, and its `direction` is `derisk_only`. |
+| **A5** | `scripts/ops/mandate_resolver.py`, replayed over the merge-base configs plus this diff's evidence, returns **FIRE** and proposes exactly this removal and no addition. |
+| **A6** | the live account and its mirror are cut together, so the strict-equality mirror tests stay green. |
+| **A7** | the branch is `automation/r4-demotion-<run_id>`, every commit is authored *and* committed by `github-actions[bot]`, the PR's own author is that bot, and an attributable merge-slot claim names the run. |
+| **A8** | the granted mandate carries `autoland: true` — **the operator's arming switch**. |
+
+⚠️ **BUILT, NOT ARMED.** No entry in `config/mandates.yaml` carries
+`autoland: true`, so today every `r4-demotion-gate` run falls back to
+`landing: "hold"` and a human merges — by the route working, not by its absence.
+Adding that field is the operator's act, the same asymmetry that makes granting
+a mandate theirs. `tests/test_mandate_autoland.py::test_the_route_ships_unarmed`
+asserts it, and is meant to fail loudly on the arming commit.
+
+⚠️ **What the route rests on, said plainly.** A7 proves the branch carries the
+workflow's identity and that `github-actions[bot]` opened the PR — not that
+nobody could forge `git config user.email`. What stands behind it is that the PR
+author comes from a token no session holds, and that a forged branch is still
+worthless: it must carry a resolver FIRE over operator-granted evidence and may
+still only ever REMOVE. A wrong verdict here takes a leg **off** a real-money
+book.
 
 Anything a human must approve, or that is simply not ready:
 

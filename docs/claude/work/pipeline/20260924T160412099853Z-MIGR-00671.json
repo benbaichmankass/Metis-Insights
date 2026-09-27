@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "notes.margin_basis records the PRE-CLAMP risk-derived qty beside max_qty_by_margin, so 'the risk model asked for X and got the ceiling instead' is readable per order rather than inferable from two rows. AND an operator decision on record for this leg — sized down, re-parameterised, or left as-is with the reason stated. AND no ict_scalp_avax_5m order places at a size equal to a ceiling (margin OR venue) without that decision being in place.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] ict_scalp_avax_5m's order size IS the margin ceiling, not a risk number — position_size equals max_qty_by_margin exactly, on the worst paper strategy of the last 30d"
+}

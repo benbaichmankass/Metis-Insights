@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "check_unwired_artifacts.py enumerates shell tools as well as Python AND prints its denominator (how many files it scanned, by suffix) so a clean report carries its own scope — verified by the guard's own output naming scripts/ops/llm_capacity_benchmark.sh as unwired, or by that script gaining a runner or a `# wiring: manual-only` declaration. A pass that merely stays green does not clear this, because green is what it already reports.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-CHECK-UNWIRED-ARTIFACTS-SCANS-ONLY-PY-SO-EVERY-SHELL-TOOL-IS-OUT-OF-SCOPE-AND-READS-AS-WIRED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-CHECK-UNWIRED-ARTIFACTS-SCANS-ONLY-PY-SO-EVERY-SHELL-TOOL-IS-OUT-OF-SCOPE-AND-READS-AS-WIRED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-CHECK-UNWIRED-ARTIFACTS-SCANS-ONLY-PY-SO-EVERY-SHELL-TOOL-IS-OUT-OF-SCOPE-AND-READS-AS-WIRED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] check_unwired_artifacts.py enumerates `rglob('*.py')` only, so shell tools under scripts/ are outside its denominator entirely — its clean report is a SCOPE result, not a COVERAGE result"
+}

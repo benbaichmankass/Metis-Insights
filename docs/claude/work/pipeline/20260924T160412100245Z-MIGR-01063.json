@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-THE-M20-60S-EXIT-EVAL-PROMISE-WAS-BREACHED-ON-0907-AND-TODAYS-MARGIN-IS-48-MILLISECONDS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-THE-M20-60S-EXIT-EVAL-PROMISE-WAS-BREACHED-ON-0907-AND-TODAYS-MARGIN-IS-48-MILLISECONDS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-THE-M20-60S-EXIT-EVAL-PROMISE-WAS-BREACHED-ON-0907-AND-TODAYS-MARGIN-IS-48-MILLISECONDS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "RECURRENCE of BL-20260816-EXIT-EVAL-INTERVAL-AT-60S-REQUIREMENT, which reads `resolved` (closed 2026-08-22 by #10129 at requirement_state `within`, interval_breaches 0, n=147) -- and the requirement was breached again SIXTEEN DAYS LATER, on 2026-09-07. That the earlier fix did not hold is half the finding. Audit finding F-50, which reached the OPERATOR AS A DECISION AND HAD NO BACKLOG ROW TO LAND IN -- this row is that landing, filed after the fact by the manager, and the filing gap is itself half the point. The M20 60s exit-evaluation promise was BREACHED on 2026-09-07 (recorded fact, not inference) and today's worst observed interval clears the requirement by 48.8 ms. The distribution BODY is unchanged since 2026-08-25 -- only the tail moved -- so the '15.0 s of margin' CLAUDE.md records is gone while every instrument still reads `within` / `interval_breaches: 0`."
+}

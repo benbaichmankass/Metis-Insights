@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "A REAL CROSSING IS OBSERVED BEING REPORTED: docs/claude/work/CHECKLIST-ROUTING-AGE.json on main carries a non-empty `newly_stalled` naming a row that was NOT in the seed, AND that row appears in the CLAUDE.md session brief or in docs/claude/DUE.md. !! A GREEN GUARD CLEARS NOTHING HERE -- `checklist-routing-age-guard` is a self-test and 33 passing tests cannot reach a live crossing; that is exactly the half of MI-246's resolution_criteria the row itself says a guard does not clear. !! NEITHER DOES THE MERGE, NOR THE REGISTER SIMPLY EXISTING: the committed file today reads `newly_stalled: []` with `seeded_count: 68`, which is the ARMED state -- and a working detector and an inert one look alike in it. !! AN EMPTY `newly_stalled` IS NOT A NEGATIVE until `history_state` has been read as `derived` AND `generated_at` is recent. `could_not_read` means the git history was truncated -- we did not look -- and a STALE `generated_at` means the producer has stopped running, which is the OPPOSITE finding and clears this row into a defect rather than into a pass (see BL-20260911-THE-UNROUTED-ROW-REGISTER-CARRIES-GENERATED-AT-AND-NOTHING-GRADES-ITS-OWN-FRESHNESS). !! AND IF NO CROSSING HAS OCCURRED AT ALL, say so with the number: crossings were MEASURED at ~7/day over the same population, so a genuinely empty week is itself a finding about the producer, not evidence the checklist stopped accruing unrouted rows.",
+    "kind": "observation",
+    "last_checked": "2026-09-11"
+  },
+  "id": "OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "MI-246's unrouted-row detector is built and its first reading SEEDED 68 rows rather than reporting one -- deployed is not observed, and seeding is not a disposition"
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260917-A-GUARD-THAT-VALIDATES-A-FIELDS-TYPE-AND-NEVER-ITS-CONTENT-PASSES-ON-A-DEAD-INPUT-THREE-INSTANCES-MEASURED-IN-ONE-SESSION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-A-GUARD-THAT-VALIDATES-A-FIELDS-TYPE-AND-NEVER-ITS-CONTENT-PASSES-ON-A-DEAD-INPUT-THREE-INSTANCES-MEASURED-IN-ONE-SESSION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-A-GUARD-THAT-VALIDATES-A-FIELDS-TYPE-AND-NEVER-ITS-CONTENT-PASSES-ON-A-DEAD-INPUT-THREE-INSTANCES-MEASURED-IN-ONE-SESSION'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "A CLASS, not one bug: three guards in this repo read a field only far enough to check its TYPE or its SHAPE, then gate on something else entirely - so an input that is dead, stale or out of scope passes them. All three were measured in a single session on 2026-09-17, which is why they are filed as one row rather than three."
+}

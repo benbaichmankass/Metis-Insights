@@ -879,7 +879,6 @@ def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
             row = rows[0]
             direction = str(row.get("direction") or "").lower()
             qty = float(row.get("position_size") or 0.0)
-            entry = float(row.get("entry_price") or 0.0)
             # BL-20260721-BYBIT2-XRP-TPSL-LEGCAP: pass this leg's OWN tracked
             # Bybit Partial-tpsl order ids so `close_open_position` cancels them
             # after a confirmed close. Without them the venue keeps the legs of a
@@ -893,8 +892,8 @@ def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
             # legs were orphans: every one mapped to a journal row, so this is
             # the whole cause and not a contributing one.
             #
-            # The row is ALREADY in scope here — `direction`, `position_size` and
-            # `entry_price` are read off it three lines up — so this was never a
+            # The row is ALREADY in scope here — `direction` and
+            # `position_size` are read off it just above — so this was never a
             # missing-context problem. `close_open_position` treats a cancel
             # failure as logged-not-fatal (the position IS flat either way), so
             # passing them cannot turn a good close into a failed one.
@@ -907,12 +906,79 @@ def _close_pair(client: Any, account_cfg: dict, pair: Dict[str, Any],
                                symbol, strat, res.get("error"))
                 closed_ok = False
                 continue
-            # local-compute realised PnL (paper venue; broker-truth sweep may
-            # refine bybit later). long: (exit-entry)*qty ; short: (entry-exit)*qty
-            sign = 1.0 if direction == "long" else -1.0
-            pnl = round(sign * (float(last_px) - entry) * qty, 6) if entry > 0 else None
-            pnl_pct = (round(sign * (float(last_px) - entry) / entry * 100.0, 4)
-                       if entry > 0 else None)
+            # ── E30: DO NOT PRICE THE CLOSE HERE. LEAVE `pnl` NULL. ──────
+            # Checklist row E30 (docs/claude/work/MANAGER-CHECKLIST.json);
+            # the observation that closes it is PI-20260922-54WQNHJX-0001 in
+            # docs/claude/work/PIPELINE.jsonl. Deliberately NOT a new `BL-`
+            # id: the review backlogs were retired on 2026-09-21 and a fresh
+            # one would be a reference to nothing.
+            #
+            # This site used to local-compute `pnl` from `last_px` and write it
+            # with the close, under the comment *"broker-truth sweep may refine
+            # bybit later"*. THAT COMMENT WAS FALSE, and it is why it took a
+            # coverage investigation to find this: BOTH broker-truth sweeps
+            # select on `pnl IS NULL`
+            # (`order_monitor._sweep_pending_pnl_from_bybit`,
+            # `_sweep_local_pnl_for_unpriced`), so a row born with a non-NULL
+            # `pnl` is outside their scope FOREVER and can never be refined.
+            # Writing the number here did not race the sweep — it removed the
+            # row from it.
+            #
+            # The bot's PnL-resolution contract is stated in
+            # `_sweep_pending_pnl_from_bybit`'s own docstring: *"close paths now
+            # leave `pnl` NULL and this sweep fills it on the next monitor tick
+            # once the broker's record is available."* Every other close path
+            # honours it. This one — an ISOLATED order path that never goes
+            # through `multi_account_execute` or the monitor's close paths — was
+            # the single exception, so it never inherited the fix that wired
+            # demo fills into the journal (#8111,
+            # BL-20260730-BROKER-TRUTH-COLLECTED-NEVER-READ).
+            #
+            # MEASURED on the live journal 2026-09-22 (full `trades` table,
+            # n=6,059, pulled via /api/diag/journal): of **365** `pairs_*`
+            # closes — every one of them on `bybit_1` — **ZERO** are MEASURED
+            # under `provenance.classify_pnl`. Not a low rate: 0/365. Every
+            # other bybit_1 close path resolved 48 rows to `exchange_fill` in
+            # the same 14 days, off the same account, the same venue and the
+            # same fills store, which is the positive control that says the
+            # venue DOES serve these fills and only this path was missing them.
+            # UPPER BOUND, not a prediction: IF all 365 resolved to a fill,
+            # paper `pnlCoverage` would be 0.5293 (bybit_1 alone 0.5657).
+            # Some fraction will not match -- `exit_from_fills` REFUSES on
+            # qty tolerance and on its open/close window rather than
+            # approximating -- and that fraction was not measured. The
+            # floor is today's 0.2236, because this can only upgrade a row.
+            #
+            # WHY LEAVING IT NULL IS SUFFICIENT — the rest of the machinery is
+            # already built, tuned and running, and needed no change:
+            #   * `_sweep_pending_pnl_from_bybit` picks the row up, dispatches
+            #     through `clients.account_closed_pnl_for_trade`, whose DEMO
+            #     branch resolves from the exchange-fills store, and stamps
+            #     `exit_price_source` from the RECORD -> `exchange_fill`
+            #     (MEASURED). It deliberately does NOT relabel a `pairs_*`
+            #     `exit_reason` (its guard 2 names this path by name — the
+            #     author anticipated these rows arriving and they never did).
+            #   * Bybit fills carry no venue realised PnL, so that sweep writes
+            #     the measured exit PRICE and `_sweep_local_pnl_for_unpriced`
+            #     computes the PnL from it, without overwriting the stronger
+            #     stamp. `pnl_source: local_compute` describes the arithmetic;
+            #     `exit_price_source` carries the evidence.
+            #   * The 6h `_LOCAL_PNL_BROKER_DEFER_MS` grace is served by the
+            #     HOURLY `ict-exchange-fills-pull.timer` — OBSERVED active on
+            #     the live VM 2026-09-22T12:37Z, last trigger 12:21:11Z — which
+            #     exists for exactly this window. If no fill ever lands, the
+            #     fallback prices the row from the `exit_price` recorded below
+            #     and it stays `candle_at_close` (ESTIMATED), i.e. TODAY's
+            #     outcome. So the change can upgrade a row and can never
+            #     downgrade one.
+            #
+            # `exit_price` IS still written below, and still stamped
+            # `candle_at_close`: that is a true statement about the price on the
+            # row at this instant, and the broker sweep overwrites both together
+            # if and when a fill arrives. The stamp is not a claim that the
+            # number is final.
+            pnl = None
+            pnl_pct = None
             # ── M39(B): stamp provenance on this DECIDED close ──────────
             # Backlog row on ONE line so the id resolves (a wrapped id reads as
             # a dangling reference and `check_backlog_refs` refuses it):

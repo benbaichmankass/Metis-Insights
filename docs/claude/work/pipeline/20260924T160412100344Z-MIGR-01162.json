@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260912-MI-277-S-UNATTRIBUTED-0-0015-CLAMP-IS-THE-BREAK-EVEN-RATCHET-AND-ITS-FLOOR-INFERENCE-IS-WRONG",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260912-MI-277-S-UNATTRIBUTED-0-0015-CLAMP-IS-THE-BREAK-EVEN-RATCHET-AND-ITS-FLOOR-INFERENCE-IS-WRONG",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-MI-277-S-UNATTRIBUTED-0-0015-CLAMP-IS-THE-BREAK-EVEN-RATCHET-AND-ITS-FLOOR-INFERENCE-IS-WRONG'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "MI-277's unattributed 0.0015 stop-distance clamp is the break-even ratchet, and its INFERRED 'this is a floor' reading is wrong in a way that hid the real mechanism"
+}

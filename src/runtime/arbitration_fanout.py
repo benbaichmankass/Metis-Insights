@@ -1,4 +1,38 @@
-"""Lane P/P3 — what per-ACCOUNT arbitration would change, measured, not assumed.
+"""Per-ACCOUNT election — THE ROUTING since E35 (2026-09-25), plus its measurement.
+
+⚠️ **READ THIS FIRST: THE HISTORY BELOW DESCRIBES THE GLOBAL ELECTION THIS
+MODULE WAS WRITTEN TO MEASURE, AND THAT ELECTION NO LONGER ROUTES ANYTHING.**
+Since E35 (operator directive 2026-09-22, *"we need to fix the fanout
+mechanism"*) :func:`plan_per_account_election` IS the dispatch: every account
+elects from its OWN declared candidates off the one ``gate_intents`` set, and
+``pipeline`` dispatches one package per distinct elected strategy, scoped to
+exactly the accounts that elected it. There is no global winner left to starve
+anyone, so the ``ARBITRATION_FANOUT_MODE`` / ``ARBITRATION_FANOUT_ACCOUNTS``
+allowlist, ``scope_round_to_accounts``, ``accepted_rounds`` (all-or-nothing)
+and ``apply_state_for`` are RETIRED — measured 2026-09-22, a partial allowlist
+SUBTRACTED ``bybit_2`` / ``bybit_portfolio`` from 58 rounds each that they had
+already won (E33, E34). Do not reintroduce a scope knob on this path: an
+account is routed iff its own election produced a dispatchable winner.
+
+⚠️ **THE NO-DOUBLE-PLACE PROPERTY (E34's open question P1), stated so it can be
+checked:** each account elects exactly once per tick, so it appears in AT MOST
+ONE round (:func:`accounts_in_more_than_one_round` is the assertion, run again
+by the dispatcher); each round is ONE package for ONE strategy, dispatched with
+``account_scope`` = the accounts that elected it — so the same strategy cannot
+place twice on one account in a tick, and two accounts electing the same
+strategy share one package (one decision, one ``order_package_id``) rather than
+minting two. Across ticks the per-strategy monocle gates in ``pipeline`` run
+PER ROUND, keyed on the round's own strategy (they were keyed on the global
+winner until E35 — see ``pipeline._dispatch_rounds``).
+
+The global election is still computed — it is the tick's headline signal (the
+audit, the signal writer, the allocator soak read it) — and :func:`assess`
+still grades it, so the soak row can say which accounts the OLD routing would
+have dropped on the same tick (``global_would_drop``).
+
+---- the pre-E35 account, kept because every figure in it is still true ----
+
+Lane P/P3 — what per-ACCOUNT arbitration would change, measured, not assumed.
 
 THE DEFECT. ``intents.aggregate_intents`` picks ONE winner per SYMBOL
 **globally, before account fan-out**. Two accounts running the same strategy on
@@ -48,10 +82,10 @@ would have had a *contest of its own*; whether its candidate then survives its
 own regime gate and conflict resolution is unmeasured here, and asserting it
 would be exactly the unprovenanced inference this repo keeps paying for.
 
-Observe-only. This module reads no socket, opens no DB, places nothing, and
-cannot refuse a trade. The remedy it exists to size — actually fanning
-arbitration out per ``(account, symbol)`` — is **Tier-3** and stays behind the
-operator's flip.
+Pure. This module reads no socket, opens no DB and places nothing: it DECIDES
+the per-account routing and ``pipeline`` acts on the decision. (Until E35 this
+line read *"Observe-only … stays behind the operator's flip"*; the flip was the
+now-retired allowlist.)
 """
 from __future__ import annotations
 
@@ -132,112 +166,18 @@ WINNER_SCOPES = ("attributed", "no_winner", "unattributed")
 #: row ``rounds_applied`` is what :func:`accepted_rounds` passed and
 #: ``rounds_written`` is what the writer produced, so the two can never again be
 #: conflated by a reader.
-FANOUT_SCHEMA = 3
-
-#: The fields one dispatch round must carry for the pipeline to act on it.
-#: **This tuple is the CONTRACT, and it is deliberately in the pure module** so
-#: the writer (``intent_multiplexer._attach_fanout_plan``) and the reader
-#: (``pipeline._fanout_apply_rounds``) cannot hold two different opinions about
-#: it. They did, for twelve days, and nothing noticed: the writer rebuilt each
-#: round as a NEW dict carrying only ``strategy`` and ``accounts``, the reader
-#: refused every round missing ``side``/``entry``/``sl``/``tp``, and because
-#: the reader is fail-closed the fan-out degraded silently to the global
-#: dispatch on every tick since it shipped.
-ROUND_DISPATCH_FIELDS = ("strategy", "accounts", "side", "entry", "sl", "tp")
-
-#: Why the fan-out did or did not hand rounds to the dispatcher. Never
-#: collapsed — in particular ``refused_by_dispatcher`` is NOT a flavour of
-#: "nothing to apply": it is the writer producing rounds the reader throws
-#: away, which is the failure this vocabulary was added to make sayable.
-APPLY_STATES = (
-    "not_requested",          # mode is not `apply` — the shipped default
-    "no_allowlist",           # mode IS apply, allowlist EMPTY (= none, for this knob)
-    "no_allowlisted_account",  # allowlist set, but no round survived scoping this tick
-    "dispatchable",           # rounds written AND the dispatcher accepts every one
-    "refused_by_dispatcher",   # rounds written and the dispatcher accepts NONE — THE BUG
-)
-
-
-def scope_round_to_accounts(
-    round_: Mapping[str, Any], allow: Any
-) -> Optional[Dict[str, Any]]:
-    """Narrow one planned round to the allowlisted accounts, geometry intact.
-
-    Returns ``None`` when no account survives, so the caller drops the round.
-
-    ⚠️ **THE WHOLE ROUND IS CARRIED FORWARD (``dict(round_)``), NOT A HAND-PICKED
-    SUBSET OF ITS KEYS.** Enumerating the fields here is what caused the defect
-    this function exists to prevent: the projection listed ``strategy`` and
-    ``accounts``, the planner emitted five more, and the dispatcher required
-    four of those five. Copying the round wholesale means a field the planner
-    adds tomorrow reaches the dispatcher without anyone remembering to widen a
-    list — the drift is structurally impossible rather than merely discouraged.
-    Only ``accounts`` is replaced, because narrowing it is the entire purpose.
-    """
-    accounts = [a for a in (round_.get("accounts") or ()) if a in allow]
-    if not accounts:
-        return None
-    scoped = dict(round_)
-    scoped["accounts"] = accounts
-    return scoped
-
-
-def accepted_rounds(rounds: Any) -> List[Dict[str, Any]]:
-    """The rounds a dispatcher may act on. **ALL-OR-NOTHING and fail-closed.**
-
-    This is the single definition of *"will the pipeline dispatch this?"*.
-    ``pipeline._fanout_apply_rounds`` calls it to decide what to route, and the
-    writer calls it to decide what to REPORT — so the soak's ``applied`` can no
-    longer claim an effect the dispatcher refuses.
-
-    ⚠️ **One malformed round voids the WHOLE plan**, deliberately and unchanged:
-    a plan we cannot fully read is not a plan we should act on half of. That is
-    also why the writer must consult this rather than count what it wrote — a
-    single bad round means *nothing* dispatched, not *most of it* dispatched.
-
-    ⚠️ **Returning ``[]`` is never an error signal.** It is "no fan-out", which
-    the caller answers by taking the unchanged global-dispatch path. Losing the
-    fan-out costs a starved account one tick — the state the system is already
-    in — whereas acting on a plan we could not read is a live order on
-    unverified routing.
-    """
-    out: List[Dict[str, Any]] = []
-    try:
-        for r in rounds or ():
-            if not isinstance(r, Mapping):
-                return []
-            if not r.get("strategy") or not r.get("accounts"):
-                return []
-            if r.get("side") not in ("long", "short"):
-                return []
-            if r.get("entry") is None or r.get("sl") is None or r.get("tp") is None:
-                return []
-            out.append(dict(r))
-    except Exception:  # noqa: BLE001 — an unreadable plan is "no fan-out"
-        logger.debug("arbitration_fanout: rounds unreadable", exc_info=False)
-        return []
-    return out
-
-
-def apply_state_for(
-    mode: str, allow: Any, written: Any, accepted: Any
-) -> str:
-    """Which of :data:`APPLY_STATES` describes this tick. Pure.
-
-    ``written`` is what the writer put in ``apply_rounds``; ``accepted`` is what
-    :func:`accepted_rounds` returned for it. They are separate arguments rather
-    than one derived from the other inside here, because the caller has already
-    computed both and re-deriving would let the two drift apart in exactly the
-    way this whole change exists to stop.
-    """
-    if mode != "apply":
-        return "not_requested"
-    if not allow:
-        return "no_allowlist"
-    if not written:
-        return "no_allowlisted_account"
-    return "dispatchable" if accepted else "refused_by_dispatcher"
-
+#:
+#: ⚠️ **v4 (E35, 2026-09-25) CHANGES WHAT ``per_account[*].state`` IS GRADED
+#: AGAINST.** v1–v3 graded each account against the GLOBAL election (``starved``
+#: = another account took the one winner). v4 grades it against the
+#: PER-ACCOUNT election that now routes: ``routed`` = the account is in a
+#: dispatch round, ``no_winner`` = its own election came out flat, ``starved`` =
+#: it ELECTED a winner and is in NO round — which the design makes structurally
+#: impossible except for an undispatchable (incomplete-geometry) winner, so a
+#: non-zero v4 ``starved_count`` is a routing DEFECT, not a contest lost. The
+#: old grading survives on the row as ``global_would_drop``. Never pool a v4
+#: ``starved_count`` with a v≤3 one: they are different populations.
+FANOUT_SCHEMA = 4
 
 def accounts_by_strategy(
     accounts: Optional[Mapping[str, Mapping[str, Any]]],
@@ -405,8 +345,9 @@ def assess(
 PLAN_STATES = (
     "elected",         # this account elected a live winner from its OWN candidates
     "elected_flat",    # it has candidates, but its own election came out flat
+    "elected_undispatchable",  # it elected a winner whose geometry is incomplete
     "no_candidates",   # it runs none of this tick's candidates — correctly silent
-    "unknown",         # roster unreadable — we could not look
+    "unknown",         # roster unreadable / election raised — we could not look
 )
 
 
@@ -416,8 +357,16 @@ def plan_per_account_election(
     accounts: Optional[Mapping[str, Mapping[str, Any]]],
     elect_fn,
     intents_before_gate: Optional[int] = None,
+    keep_desired: bool = False,
 ) -> Dict[str, Any]:
     """Elect a winner PER ACCOUNT from one ALREADY-GATED candidate set.
+
+    ``keep_desired=True`` additionally returns ``_desired_by_strategy`` —
+    ``{strategy: DesiredPosition}`` from the (alphabetically) first account
+    that elected it — so the dispatcher can render each round through the SAME
+    ``_desired_to_pipeline_signal`` the global path uses, carrying the ELECTED
+    strategy's own meta rather than the global winner's. It is not
+    JSON-serialisable and the caller must pop it before persisting the plan.
 
     PURE, like :func:`assess` — no I/O, no audit emission, no order path. The
     election is **injected** (``elect_fn``) rather than imported, so this module
@@ -481,7 +430,8 @@ def plan_per_account_election(
         }
 
     rounds_by_strategy: Dict[str, list] = {}
-    for account_id, row in per_account.items():
+    desired_by_strategy: Dict[str, Any] = {}
+    for account_id, row in sorted(per_account.items()):
         own = tuple(by_name[s] for s in row["candidates"])
         if not own:
             row["state"] = "no_candidates"
@@ -516,6 +466,7 @@ def plan_per_account_election(
         row["elected"] = elected
         row["state"] = "elected"
         rounds_by_strategy.setdefault(elected, []).append(str(account_id))
+        desired_by_strategy.setdefault(elected, desired)
 
     # Each round carries the ELECTED strategy's OWN geometry. It must not
     # inherit the global winner's entry/sl/tp — that would place a different
@@ -537,7 +488,11 @@ def plan_per_account_election(
                 strategy, sorted(accts), side, entry, sl, tp,
             )
             for account_id in accts:
-                per_account[account_id]["state"] = "unknown"
+                # NOT `unknown`: we looked, it elected, and the winner cannot
+                # be dispatched. Grading it `unknown` hid this from every
+                # count on the soak row (E34 § 2, path 2).
+                per_account[account_id]["state"] = "elected_undispatchable"
+                per_account[account_id]["undispatchable"] = strategy
                 per_account[account_id]["elected"] = None
             continue
         rounds.append({
@@ -549,7 +504,7 @@ def plan_per_account_election(
             "tp": float(tp),
             "confidence": float(getattr(cand, "confidence", 0.0) or 0.0),
         })
-    return {
+    out = {
         "fanout_schema": FANOUT_SCHEMA,
         "roster_state": "read",
         "per_account": per_account,
@@ -561,6 +516,30 @@ def plan_per_account_election(
             1 for r in per_account.values() if r["state"] == "elected"
         ),
     }
+    if keep_desired:
+        dispatchable = {r["strategy"] for r in rounds}
+        out["_desired_by_strategy"] = {
+            k: v for k, v in desired_by_strategy.items() if k in dispatchable
+        }
+    return out
+
+
+def accounts_in_more_than_one_round(rounds: Any) -> List[str]:
+    """Accounts named by MORE THAN ONE round — each one would be a double-place.
+
+    Empty by construction (an account elects once, so it joins at most one
+    round). Asserted rather than assumed: the dispatcher calls this before it
+    places anything and refuses the duplicated accounts' later rounds, loudly,
+    so a future change that breaks the construction cannot turn into two
+    packages on one account for one tick.
+    """
+    seen: Dict[str, int] = {}
+    for r in rounds or ():
+        if not isinstance(r, Mapping):
+            continue
+        for a in r.get("accounts") or ():
+            seen[str(a)] = seen.get(str(a), 0) + 1
+    return sorted(a for a, n in seen.items() if n > 1)
 
 
 def _symbol_of(candidates: Sequence[Any]) -> str:
@@ -575,12 +554,8 @@ __all__ = [
     "FANOUT_STATES",
     "WINNER_SCOPES",
     "FANOUT_SCHEMA",
-    "ROUND_DISPATCH_FIELDS",
-    "APPLY_STATES",
-    "scope_round_to_accounts",
-    "accepted_rounds",
-    "apply_state_for",
     "PLAN_STATES",
+    "accounts_in_more_than_one_round",
     "accounts_by_strategy",
     "winner_scope_for",
     "fanout_state_for",

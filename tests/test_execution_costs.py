@@ -42,9 +42,55 @@ class TestVenueAwareCost:
         assert ec.is_perp("NOT_A_SYMBOL") is False
         assert ec.is_perp("") is False
 
-    def test_slippage_default_is_uniform_nonzero(self):
-        for sym in ("BTCUSDT", "MES", "GLD", "EURUSD"):
-            assert ec.slippage_bps_roundtrip_for(sym) == ec.DEFAULT_SLIPPAGE_BPS_ROUNDTRIP
+    # ---- E60: per-venue slippage (operator 2026-09-24, D3 record) ----------
+
+    def test_slippage_constants_are_the_decided_values(self):
+        assert ec.PERP_SLIPPAGE_BPS_ROUNDTRIP == 3.0
+        assert ec.DEFAULT_SLIPPAGE_BPS_ROUNDTRIP == 5.0
+
+    def test_bybit_linear_perps_slip_3bps(self):
+        self._reset()
+        for sym in ("BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"):
+            assert ec.slippage_bps_roundtrip_for(sym) == 3.0, sym
+
+    def test_bybit_inverse_perp_slips_3bps(self):
+        # instruments.yaml carries no inverse contract today, so inject one into
+        # the classifier cache: the rule must key on category, not on "*USDT".
+        self._reset()
+        ec.is_perp("BTCUSDT")  # populate the cache from the real file
+        ec._PERP_CATEGORY_CACHE["BTCUSD"] = "inverse"
+        try:
+            assert ec.slippage_bps_roundtrip_for("BTCUSD") == 3.0
+        finally:
+            self._reset()
+
+    def test_equities_positive_control_still_5bps(self):
+        """Positive control: an Alpaca equity reads the unchanged 5.0 — proves
+        the perp branch is not simply returning 3.0 for everything."""
+        self._reset()
+        for sym in ("SPY", "GLD", "TLT"):
+            assert ec.is_perp(sym) is False, sym
+            assert ec.slippage_bps_roundtrip_for(sym) == 5.0, sym
+
+    def test_ibkr_futures_and_fx_still_5bps(self):
+        self._reset()
+        for sym in ("MES", "MGC", "MHG", "EURUSD"):
+            assert ec.slippage_bps_roundtrip_for(sym) == 5.0, sym
+
+    def test_unclassified_symbol_still_5bps(self):
+        self._reset()
+        for sym in (None, "", "NOT_A_SYMBOL"):
+            assert ec.slippage_bps_roundtrip_for(sym) == 5.0, sym
+
+    def test_resolve_cost_policy_none_vs_explicit_zero_survives(self):
+        self._reset()
+        # None ⇒ venue default (now per-venue) …
+        assert ec.resolve_cost_policy("BTCUSDT")[0] == 3.0
+        assert ec.resolve_cost_policy("SPY")[0] == 5.0
+        # … explicit 0.0 is the fee-only arm and must NOT resolve to the default.
+        assert ec.resolve_cost_policy("BTCUSDT", slippage_bps_roundtrip=0.0)[0] == 0.0
+        assert ec.resolve_cost_policy("SPY", slippage_bps_roundtrip=0.0)[0] == 0.0
+        assert ec.resolve_cost_policy("SPY", slippage_bps_roundtrip=7.0)[0] == 7.0
 
 
 class TestFeeConstantSingleOwner:

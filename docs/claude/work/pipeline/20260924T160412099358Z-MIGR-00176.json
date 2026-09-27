@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "bybit_1/BNBUSDT journal qty matches the exchange within tolerance, and a pairs-sleeve divergence is reduced by a reconciler that owns those rows rather than being relabelled.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260808-PAIRS-DIVERGENCE-UNOWNED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260808-PAIRS-DIVERGENCE-UNOWNED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-PAIRS-DIVERGENCE-UNOWNED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pairs-sleeve journal/exchange divergence has NO owner — the netting reconciler refuses it by design and pairs_executor never reconciles its own legs"
+}

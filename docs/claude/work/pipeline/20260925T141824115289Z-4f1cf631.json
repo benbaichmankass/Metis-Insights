@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "`python3 scripts/ops/symbol_data_binding_census.py` reports **0** sites in `bound_to_a_concrete_file`, AND for at least two of the fifteen the fix is demonstrated the way the parent row's was — run the harness with a `--symbol` it cannot resolve and show it exits non-zero naming the missing input, rather than reading the diff. ⚠️ A site may also leave the census by being shown to have no `--symbol`/`--data` contradiction possible at all; if so, say which and why, because 'the count went down' is not by itself evidence of a repair. ⚠️ NOT resolved by registering the census in CI while findings remain — that reds every PR and is the ordering error the detail names. Once the count is 0, converting it to a guard IS the right final step and should be done in the same change that reaches 0, so the class cannot silently come back. ⚠️ AND NOT resolved by pointing every harness at a per-symbol file: the repair is that a NAMED symbol which cannot be bound REFUSES, which is what scripts/ops/backtest_data_source.py::resolve_or_refuse already implements and what these fifteen should call rather than re-deriving.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-FIFTEEN-MORE-HARNESSES-LET-SYMBOL-BE-A-LABEL-OVER-A-DEFAULTED-DATA-FILE-AND-FOURTEEN-SHARE-ONE-FIXTURE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-FIFTEEN-MORE-HARNESSES-LET-SYMBOL-BE-A-LABEL-OVER-A-DEFAULTED-DATA-FILE-AND-FOURTEEN-SHARE-ONE-FIXTURE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-FIFTEEN-MORE-HARNESSES-LET-SYMBOL-BE-A-LABEL-OVER-A-DEFAULTED-DATA-FILE-AND-FOURTEEN-SHARE-ONE-FIXTURE'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "Closed by row E4 (docs/claude/work/MANAGER-CHECKLIST.json, 2026-09-25). python3 scripts/ops/symbol_data_binding_census.py now reports 0 sites in bound_to_a_concrete_file (all 17: the 2 already fixed plus these 15, verified this session). Demonstrated on 2 of the 15 directly per the clears_when text: `backtest_chop_scalp.py --symbol DOESNOTEXISTUSDT` and `nbook_portfolio.py --symbol DOESNOTEXISTUSDT` both exit 2 naming the unresolvable symbol rather than silently running the BTC fixture. The census is now GATED in scripts/ci/run_guards.py (symbol-data-binding-guard) in the same change, so the class cannot silently come back.",
+  "what": "[health] The `--symbol` is a display label class is 15 harnesses, not the 2 that were filed — and 14 of them default to the same BTC fixture"
+}

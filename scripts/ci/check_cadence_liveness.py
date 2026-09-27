@@ -181,15 +181,27 @@ CADENCE_REGISTRY: dict[str, dict] = {
         "why": "commits its own watch file back to main, so the last commit "
                "touching it IS the receipt — no new artifact needed",
     },
+    # ── E57 (2026-09-24): the research loss detector. Its receipt is written
+    #    by the detector itself on every run and landed through commit-to-main,
+    #    so a detector that stops firing goes STALE here and reds CI rather
+    #    than leaving "no alert" to be read as "nothing lost".
+    "research-loss-detector.yml": {
+        "receipt": "docs/claude/work/RESEARCH-LOSS-RECEIPT.json",
+        "why": "the detector writes the receipt on every run and commits it "
+               "back through commit-to-main; the last commit touching it IS "
+               "the receipt",
+    },
     # ── workflows that COMMIT BACK, so a receipt is derivable from git and
     #    just has not been declared yet. Measured 2026-09-22: 9 of the 18
     #    scheduled workflows contain a commit-to-main / git push step. Naming
     #    the output path for each is the obvious next shrink of this file.
+    "r4-demotion-gate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch); a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
     "econ-calendar-produce.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "econ-event-study.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "macro-producer-liveness.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "macro-valuation-snapshot.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "replay-pregate-nightly.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
+    "soak-book-grade-weekly.yml": {"receipt": None, "why": "commits back (comms/research/soak_book_grade/<date>.json, a new filename per run, plus research/results/_unattributed/); no fixed path yet — a future latest.json pointer would make this gradeable"},
     "research-queue-dispatch.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "stale-automation-sweep.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
     "strategy-review-packets.yml": {"receipt": None, "why": "commits back; output path not yet declared"},
@@ -198,6 +210,12 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    network is a guard that reds on an outage). Declared, not graded.
     "alpaca-settlement-soak-watch.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "broker-bracket-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
+    "dashboard-edge-watch.yml": {
+        "receipt": None,
+        "why": "receipt is a per-run upload-artifact (7d retention), deliberately "
+               "not committed to main — hourly cadence would spam the tree; "
+               "liveness is also covered by claude-run-failure-alert.yml",
+    },
     "diag-relay-sweep.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "doc-audit-weekly.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "health-snapshot.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
@@ -237,9 +255,20 @@ CADENCE_REGISTRY: dict[str, dict] = {
 #: source file is gone — a baseline that outlives its subject accumulates slots
 #: nobody audits. Every `no_receipt` here is one declared-output-path away from
 #: being gradeable; that is what shrinking it looks like.
+#: ⚠️ REGISTERED AFTER THE BASELINE DATE, so NOT part of it. Found by E57
+#: (2026-09-24): the baseline below is DERIVED from CADENCE_REGISTRY, so every
+#: entry registered after 2026-09-22 silently became "baselined" -- and a
+#: baselined receipt that goes STALE only fails under `--strict`. A new
+#: registration therefore bought no freshness enforcement at all, and the list
+#: that "may only shrink" grew with every addition. Name every later entry here.
+REGISTERED_AFTER_BASELINE: frozenset[str] = frozenset({
+    "research-loss-detector.yml",   # E57, 2026-09-24
+})
+
 BASELINE_2026_09_22: dict[str, str] = {
     name: (NO_RECEIPT if spec["receipt"] is None else FRESH)
     for name, spec in CADENCE_REGISTRY.items()
+    if name not in REGISTERED_AFTER_BASELINE
 }
 
 

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Capture a per-trade handle for Alpaca protective legs at ENTRY, so identification stops depending on quantity. Either (a) persist the OCO parent/child order ids onto the trade row through the columns that already exist (`trades.sl_order_id` / `tp_order_id`) by widening `execute.execute_pkg`'s capture beyond the Bybit-partial gate, or (b) set a deterministic `client_order_id` on the protective legs at placement — the Alpaca analogue of IB's `oca-protect-t<trade_id>` — and look legs up by it. THEN make `AlpacaClient.modify_protective` prefer that handle and fall back to the qty heuristic only when the handle is absent (pre-migration rows). RESOLVED WHEN a modify on a symbol holding TWO simultaneously-open Alpaca rows OF EQUAL SIZE is observed patching only the named trade's leg — which is precisely the case that returns retCode 1 today, so the current refusal is the positive control and must be shown flipping. ⚠️ NOT sufficient: the qty-scoped path passing its unit tests, which is what already ships. ⚠️ NOT sufficient either: a modify succeeding on a symbol whose rows differ in size — the heuristic already handles that and such a pass proves nothing about the gap.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-ALPACA-PROTECTION-IS-NOT-TRADE-ATTRIBUTABLE-AT-ALL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-ALPACA-PROTECTION-IS-NOT-TRADE-ATTRIBUTABLE-AT-ALL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-ALPACA-PROTECTION-IS-NOT-TRADE-ATTRIBUTABLE-AT-ALL'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Alpaca protective legs carry NO per-trade handle — neither captured leg ids nor a deterministic OCO group — so modify_protective can only identify a trade's own stop by MATCHING ITS QUANTITY, and must refuse when two open rows are the same size"
+}

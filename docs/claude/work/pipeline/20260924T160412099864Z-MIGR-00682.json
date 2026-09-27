@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER of two opposite outcomes, and they are different findings -- say which. (a) A PER-ACCOUNT FLOOR IS SHIPPED, sized from a stated distribution per account rather than one global number -- the CAUSE_MIN_ROWS shape silent_refusal_alert already uses for exactly this reason (a global floor is right for a volume pattern and categorically wrong for a cause that arrives in ones and twos). It must be able to only ADD alerting, never suppress, so it cannot become a quiet way to disarm an account. (b) THE OPERATOR DECIDES a fleet-wide absolute is the right trade and it is RECORDED as that decision, with the consequence stated -- a sub-floor bleed on a small real-money account is then accepted as unwatched, which is legitimate and must not be left looking like an oversight. !! A GREEN TEST SUITE RESOLVES NEITHER: the floor is pinned by tests today and the tests say nothing about whether the NUMBER is right for an account that has not been funded yet. !! AND THIS BECOMES URGENT RATHER THAN LATENT THE MOMENT bybit_2 OR alpaca_live IS FUNDED UP -- re-read it at any real-money sizing change rather than on a calendar.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-LOSING-STREAK-SIZE-GATE-IS-A-FLEET-WIDE-ABSOLUTE-SO-IT-UNDER-SERVES-A-SMALL-REAL-MONEY-ACCOUNT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260911-LOSING-STREAK-SIZE-GATE-IS-A-FLEET-WIDE-ABSOLUTE-SO-IT-UNDER-SERVES-A-SMALL-REAL-MONEY-ACCOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-LOSING-STREAK-SIZE-GATE-IS-A-FLEET-WIDE-ABSOLUTE-SO-IT-UNDER-SERVES-A-SMALL-REAL-MONEY-ACCOUNT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] The losing-streak detector's $500 floor is a single fleet-wide absolute across accounts spanning three orders of magnitude in daily PnL, so a sub-$500 bleed on a small REAL-MONEY account is invisible to it by construction"
+}

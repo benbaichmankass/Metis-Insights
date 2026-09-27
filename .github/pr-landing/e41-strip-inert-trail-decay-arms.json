@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3: this removes declared exit-lever parameters from config/strategies.yaml on four legs, two of them on real-money rosters (xrp_pullback_2h routes to bybit_2; gld_pullback_1d and qqq_trend_long_1d to alpaca). The operator decided the SHAPE on 2026-09-22 ('strip the arms entirely' -- remove the reach-gate from the legs where it CANNOT fire); the manager lands the diff. Draft PR, not merged by this lane. TWO THINGS THE APPROVER MUST SEE BEFORE MERGING: (1) trend_donchian_sol_4h was one of the three legs dispatched for stripping and is NOT stripped here -- its evidence predates a 2026-08-29 atr_stop_mult cut 2.5 -> 1.5, and re-measured on today's geometry the arm reaches on 4 of 34 entries (11.8%), so 'cannot fire' no longer holds for it. (2) The second commit (gld + qqq) covers legs the operator was NOT shown and is deliberately separable -- drop it alone to ship exactly what was decided.",
+  "why": "config/strategies.yaml exit-lever parameters + config/lever_reachability.json measurements + one CI-guard enum value. No order-path code, no account mode, no roster membership, no strategy entry/stop/TP geometry changed. Tier-3 by path (config/strategies.yaml strategy parameters) per docs/CLAUDE-RULES-CANONICAL.md Permission Tiers."
+}

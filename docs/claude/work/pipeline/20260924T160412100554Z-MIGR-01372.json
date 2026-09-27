@@ -1,0 +1,19 @@
+{
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "A session that was NOT pointed at this change by its prompt needs an endpoint's shape, payload contract or field caveat, REACHES docs/reference/bot-api-reference.md, and says so — naming the route it looked up and where it saw the pointer. Record WHICH session. ⚠️ THE FILE EXISTING IS NOT EVIDENCE, and neither is CI passing: that is a deploy, not an observation — the same distinction that keeps OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION open. ⚠️ A SESSION POINTED HERE BY ITS PROMPT CANNOT CLEAR THIS; it has been told. ⚠️ AND THE INFORMATIVE FAILURE MUST NOT BE SCORED AS A PASS: if a session needed one of these rows, did NOT find it, and reasoned from stale memory or re-derived it from the code instead, that is the defect this row watches — write it into `observation` and leave the row OPEN rather than treating 'a session coped' as success. That finding is more valuable than a clean clear, and it is the signal to move content back.",
+    "kind": "observation",
+    "last_checked": "2026-09-24"
+  },
+  "id": "OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD-AND-NOT-YET-FOUND-AT-USE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD-AND-NOT-YET-FOUND-AT-USE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD-AND-NOT-YET-FOUND-AT-USE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "A10 2026-09-24: Subject overtaken: CLAUDE.md was re-cut by A2 with the reference table pointing at docs/reference/; 'a session found it unprompted' is not an observation any mechanism can make. EVIDENCE: CLAUDE.md § 'What this is' carries the reference table; A2 landed_unproven (#12668).",
+  "what": "[LOUD] The per-endpoint API reference (156,448 B: the /api/bot/* route table, BotStats, Position, CORS, and the /api/diag/* table) was moved VERBATIM out of CLAUDE.md into docs/reference/bot-api-reference.md, taking CLAUDE.md 430,453 -> 283,388 B (-34.2%). CLAUDE.md is the ONLY surface that reaches a session before it acts, so this deliberately removed that content from the pre-act channel. ⚠️ NOTHING HAS BEEN OBSERVED FINDING IT IN ITS NEW HOME. The whole risk of this change is the one the dispatch named: moving reference material into a file nobody opens is not a win if that material was preventing mistakes. Shipped and working are different states and only the first happened. verified_at is deliberately null: no observation has been made, and dating it today would be a claim of one."
+}

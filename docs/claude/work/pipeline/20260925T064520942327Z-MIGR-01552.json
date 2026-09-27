@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "the operator decides promote/hold/demote for both models (Tier-3), OR a re-run after live_parity clears (>=20 post-retrain rows) changes the blocking-gate picture enough to revise the proposal before it reaches the operator.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-JQHBBTOS-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane E72 /ml-review, session_01PrCFC3J9gYv64gJqHBBtos, comms/reviews/ml-review-20260924-210245.json",
+    "rerun": "trainer-vm-diag: `python -m ml stage-guard --db data/trade_journal.db` and `python -m ml gate-check <btc-regime-15m-lgbm-fc-pcv-v2|sol-regime-15m-lgbm-fc-pcv-v2> --db data/trade_journal.db --datasets-root datasets-out`."
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": 3,
+  "what": "Tier-3 DEMOTE PROPOSAL (advisory -> shadow) for btc-regime-15m-lgbm-fc-pcv-v2 AND sol-regime-15m-lgbm-fc-pcv-v2, both currently order-influencing. MEASURED, trainer-vm-diag #12902 (run 36058254309, 2026-09-24T21:00Z): `python -m ml stage-guard --db data/trade_journal.db` independently proposes demote for both on trigger 'score-distribution drift verdict is significant'. `python -m ml gate-check <model> --datasets-root datasets-out` (same pull) reports ready=false for both, blocking=[live_parity, drift_clean] for both. btc detail: drift_clean KS=0.2334 (>0.2 threshold); its stage-guard attribution over n=8 live closed trades reports win_rate=0.0 (0-for-8) and brier_lift=-0.84032 (worse than base-rate). sol detail: drift_clean KS=0.2153, PSI=0.1956 (both close to their 0.2/0.25 thresholds); stage-guard's attribution for sol is null -- MEASURED as 'no live trades yet' in the gate-check sample_sufficiency detail, so sol's live win/loss record could not be graded this session (honest gap, not zero-evidence-of-badness). Independently corroborated by api/bot/shadow/drift (read 2026-09-24T20:45Z): btc ks=0.2147/significant, sol ks=0.2201/significant psi=0.2127/moderate -- same direction, different window, same verdict. CONFOUND, stated plainly: both models were retrained THE SAME DAY (2026-09-24, per gate-check's own 'current artifact's training run' timestamps) so live_parity reads insufficient_data (btc 17/20 rows, sol 14/20 rows needed) rather than fail -- the blocking reasons besides live_parity (drift_clean, and for btc the live win-rate) stand independent of the retrain, but a full gate re-read after parity data accrues (~5h at MEASURED ~14min cadence) will sharpen the picture before the operator decides."
+}

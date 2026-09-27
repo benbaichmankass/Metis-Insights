@@ -1,0 +1,1692 @@
+{
+ "_doc": "A10 disposition of every item that was due or unrouted on 2026-09-24. Each row was written through scripts/ops/pipeline.append(intent='update'); this table is the human-readable index of those records. MEASURED vs INFERRED is stated inside each evidence field.",
+ "session": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+ "date": "2026-09-24",
+ "base_commit": "1665947",
+ "population": {
+  "before": {
+   "records": 1321,
+   "items": 1262,
+   "by_state": {
+    "queued": 777,
+    "due": 0,
+    "routed": 13,
+    "done": 10,
+    "killed": 462
+   },
+   "open": 790,
+   "due": 181,
+   "unrouted": 169,
+   "unreadable": 0,
+   "readable": true,
+   "collisions": 3
+  },
+  "after": {
+   "records": 1502,
+   "items": 1262,
+   "by_state": {
+    "queued": 609,
+    "due": 0,
+    "routed": 84,
+    "done": 28,
+    "killed": 541
+   },
+   "open": 693,
+   "due": 0,
+   "unrouted": 0,
+   "unreadable": 0,
+   "readable": true,
+   "collisions": 3
+  },
+  "due_items_dispositioned": 181,
+  "due_items_left_untouched": [],
+  "by_action": {
+   "done": 18,
+   "killed": 79,
+   "routed": 76,
+   "dated": 1,
+   "rerouted": 2,
+   "checked": 5
+  }
+ },
+ "unverifiable_from_sandbox_left_open": [
+  "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
+  "OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET",
+  "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
+  "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
+  "OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES",
+  "OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE",
+  "PI-20260924-JN54P2HH-0004"
+ ],
+ "rows": [
+  {
+   "id": "B2-ALPACA-MIRROR-ROSTER-EDIT-AWAITING-OPERATOR",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET: config/accounts.yaml::alpaca_portfolio.strategies == ['ief_pullback_1d','slv_pullback_1d'] and the rerun is green.",
+   "evidence": "MEASURED 2026-09-24 on origin/main 1665947: python3 -m pytest tests/test_paper_portfolio_accounts.py -q -> 6 passed, 1 skipped, exit 0; yaml parse of config/accounts.yaml: alpaca_portfolio ['ief_pullback_1d','slv_pullback_1d'], alpaca_live ['ief_pullback_1d','slv_pullback_1d','iaum_pullback_1d']. Checklist row B2 state=done (#12687). The manager applied the edit under exception MGR-20260921-B2-ROSTER-EDIT."
+  },
+  {
+   "id": "OI-20260826-DIAG-IB-ORDER-READ-IS-STALE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no real-money consequence: IB has no risk-bearing roster, so a stale ib_open_orders read can only mislead a paper read. The caveat stays readable in the archived record.",
+   "evidence": "MEASURED config/accounts.yaml 2026-09-24: ib_live mode=dry_run account_class=real_money strategies=[]; ib_paper account_class=paper. Clearing needs a real gateway (its own clears_when) — unverifiable from a sandbox, so this is a (d) kill, not a cleared-condition kill."
+  },
+  {
+   "id": "OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator (Tier-2): reconcile bybit_2 / alpaca_live / breakout_1 against their venues once, or approve a lane to automate it — no row owns journalTrust",
+   "reason": "Broker/journal disagreement class: journalTrust can only flag one account, so bybit_2/alpaca_live/breakout_1 disagreements are invisible. No checklist row owns journalTrust.",
+   "evidence": "Rerun is an archive lookup; the condition (every real-money account reconciled once, or automated reconciliation) is not something a sandbox can establish. Routed rather than killed because it is the instrument for broker-vs-journal on real money."
+  },
+  {
+   "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator: dispose of ib_paper/MGC trade 5531 (journal 54 lots vs venue 11 as of 2026-09-08) — a vm-diag read of journal+ib_open_orders first, then the operator decides",
+   "reason": "Live money at risk per the dispatch: a 43-lot journal/venue gap with a live protective stop resting against the unbacked row. Disposing of trade 5531 is an operator decision by its own clears_when.",
+   "evidence": "Cannot re-read the IB position from a sandbox (needs /api/diag with the token). Left LOUD and routed; not killed on inference."
+  },
+  {
+   "id": "OI-20260826-MHG-OVER-COVER-MECHANISM-UNVERIFIED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and consequence bounded to a paper account: the over-cover was cleared by hand and IB carries no real-money roster to protect.",
+   "evidence": "config/accounts.yaml 2026-09-24: ib_live strategies=[] mode=dry_run. Clearing needs a real gateway exercise; no checklist row asks for one."
+  },
+  {
+   "id": "OI-20260826-SESSION-BRIEF-NEVER-READ-BY-A-FRESH-SESSION",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: the generated SESSION-BRIEF block and its generator are gone.",
+   "evidence": "CLAUDE.md § 'This file was cut on 2026-09-21' names the block and generator as retired; the archived pre-cut file is at docs/archive/2026-09-21-operating-reset/CLAUDE.md.pre-cut."
+  },
+  {
+   "id": "OI-20260826-STRAY-OCA-SWEEP-SHIPPED-BUT-UNARMED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and consequence bounded to ib_paper: armed on a paper account, never cancelled, and IB carries no real-money roster.",
+   "evidence": "config/accounts.yaml 2026-09-24: PROTECTION_STRAY_GROUP_ACCOUNTS was ib_paper (per the record); ib_live strategies=[]. The observation needs the venue to produce a stray group; nothing owns watching for it."
+  },
+  {
+   "id": "OI-20260829-ALPACA-GOLIVE-BLOCKED-ON-T1-SETTLEMENT-MODEL",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no consequence: the T+1 model runs at `annotate` by design (operator settled CASH), binds nothing, and alpaca_live trades 3 legs today regardless of this row.",
+   "evidence": "config/accounts.yaml 2026-09-24: alpaca_live mode=live strategies=[ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d]. No checklist row asks to arm the model."
+  },
+  {
+   "id": "OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by checklist E41 (done: arm strip, operator 2026-09-22) and R7 (done: full corpus regraded with the cost stack). The gld/spy 1h proposal predates the corpus every geometry decision now reads.",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E41 done (#12737, #12745), R7 done (#12720). comms/strategy_evidence/ carries 52 records (R7)."
+  },
+  {
+   "id": "OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by R2 (done: fleet cut on the corpus) and E31/E32 (done: the running roster is readable from /api/bot/runtime-config). The live-verification question is now answered by that surface, not by this row.",
+   "evidence": "MANAGER-CHECKLIST.json: R2 done (#12707), E31/E32 done (#12738). #12828's merge message records a post-deploy runtime-config read (55 legs, verdict CURRENT)."
+  },
+  {
+   "id": "OI-20260831-ALPACA-LIVE-FIRST-REAL-MONEY-LEG-ROUTED-BUT-HAS-NEVER-TRADED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by A6 (#12673): tlt_pullback_1h was pulled off alpaca_live on 2026-09-21; the leg this row waits to see trade is no longer on the roster.",
+   "evidence": "MEASURED config/accounts.yaml 2026-09-24: alpaca_live strategies=[ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d]. CLAUDE.md § promotion ladder records A6 pulling tlt_pullback_1h and _1d."
+  },
+  {
+   "id": "OI-20260831-LIVE-WALLET-TRUTH-CANNOT-REPRODUCE-THE-LEDGER-WINDOW",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator: does bybit_2's lifetime wallet truth stay hand-maintained permanently (record it), or is the sub-account join worth a lane?",
+   "reason": "Broker/journal class on real money (bybit_2 lifetime truth): the open decision is the row's own second arm and only the operator can record it.",
+   "evidence": "Rerun is an archive lookup; the sub-account join is a code question nobody owns. Routed as a one-line decision rather than carried."
+  },
+  {
+   "id": "OI-20260831-LOCAL-LLM-VERDICT-PENDING-A-DIFFERENT-SIZE-ARM",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no consequence: a tooling experiment whose both size arms are measured in the archived record; nothing on a money or research path depends on the verdict.",
+   "evidence": "The record itself says both arms are measured and the verdict is the operator's; no checklist row references the local LLM."
+  },
+  {
+   "id": "OI-20260831-PER-ACCOUNT-ARBITRATION-SHIPPED-NOT-YET-ARMED-OR-EXERCISED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by checklist E17 (blocked), E33 (landed_unproven), E34 and E35 (queued), which own the arbitration fan-out end to end, including the 'never dispatched' fact.",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E17 blocked, E33 landed_unproven, E34/E35 queued with the operator's 2026-09-22 directive. PI-20260924-JN54P2HH-0004 carries the current soak reading."
+  },
+  {
+   "id": "OI-20260831-PROBE-READERS-SHIPPED-BUT-THE-ACTIONS-ONE-HAS-NEVER-RUN-FOR-REAL",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: probes.yml's schedule was commented out and probe-guard removed from run_guards.py.",
+   "evidence": "scripts/ci/run_guards.py:184 lists probe-guard under 'Removed'; PI-20260921-E01 records probes.yml as disarmed at the reset."
+  },
+  {
+   "id": "OI-20260831-PROBE-STALENESS-GRADING-ONLY-EVER-READ-FRESH",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: render_due_list.py / DUE.md are retired; due-list-guard removed.",
+   "evidence": "scripts/ci/run_guards.py:184 'Removed: ... due-list-guard, due-list-token-guard'; CLAUDE.md lists DUE.* as archived."
+  },
+  {
+   "id": "OI-20260831-PROP-RISK-GATE-ENFORCE-ARMED-BUT-HAS-NEVER-CAPPED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E17/E18 (no ticket reaches breakout_1 at all, so the cap cannot be exercised) and B6 (the prop bar). The observation this row wants is downstream of E17.",
+   "evidence": "MANAGER-CHECKLIST.json: E17 blocked ('breakout_1 receives nothing'), E18 queued, B6 queued."
+  },
+  {
+   "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no consequence: an unexercised grade path in the research queue; C1 and E5 now own the queue's schema and result contract.",
+   "evidence": "MANAGER-CHECKLIST.json: C1 queued, E5 landed_unproven. dispatch_queue.py today lists 11 units, none infeasible — a negative with no positive control, so not claimed as cleared."
+  },
+  {
+   "id": "OI-20260831-RESEARCH-READ-DEBT-11-UNREAD-AND-256-SUPERSEDED-UNREAD",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E5 (result contract) / C2 (corpus) and R4 (pre-registered questions): the pre-reset gld_compat corpus has no consumer under the new research loop.",
+   "evidence": "MANAGER-CHECKLIST.json: E5 landed_unproven (#12739, #12741), C2 queued, R4 done (#12706)."
+  },
+  {
+   "id": "OI-20260831-SCOPE-OVERLAP-ATTRIBUTOR-MISREADS-A-SESSIONS-OWN-START",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: scope-overlap-audit's schedule was commented out and scope-overlap-guard removed; the START it attributes was a board post.",
+   "evidence": "scripts/ci/run_guards.py:184 'Removed: ... scope-overlap-guard'; the board is archived under docs/archive/2026-09-21-operating-reset/registers/."
+  },
+  {
+   "id": "OI-20260831-SESSION-BRIEF-DIFF-SCOPING-SHIPPED-NEVER-REPORTED-INHERITED",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "Its own clears_when reads 'ALREADY CLEARED — BOTH halves are now met', retained only as an evidence carrier; the guard it describes was removed at the reset.",
+   "evidence": "clears_when text in the store; scripts/ci/run_guards.py:184 'Removed: ... session-brief-guard'."
+  },
+  {
+   "id": "OI-20260901-ALPACA-SHARE-HOLD-CLASSIFIER-SHIPPED-NOT-YET-OBSERVED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner: a merged, diagnostic-only classifier whose observation needs a real Alpaca give-up to occur; R5 reads the fleet on a cadence and would see it.",
+   "evidence": "The record states commit 839247cc is on main. Nothing else is owed by a session."
+  },
+  {
+   "id": "OI-20260901-CLAUDE-CHANNEL-SEPARATION-SHIPPED-BUT-UNPROVEN",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No money consequence and no owner: clause (a) was MEASURED met on 2026-09-12; what remains is the operator confirming which Telegram chat a ping landed in, which they will raise if it is wrong.",
+   "evidence": "clears_when and the record's 2026-09-12 correction (isolated=True on the live VM)."
+  },
+  {
+   "id": "OI-20260901-CONSTRAINT-READOUT-SHIPPED-AND-IT-REFUSES-NOBODY-HAS-ACTED-ON-THE-REFUSAL",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: the work store (objects/intents/steps) and READOUT.md are archived; constraint-readout-guard removed.",
+   "evidence": "CLAUDE.md § 'Retired 2026-09-21' names the work store and READOUT.md; run_guards.py:184 'Removed: ... constraint-readout-guard'."
+  },
+  {
+   "id": "OI-20260901-CYCLE-PRIORITY-IS-RENDERED-BUT-NO-SESSION-HAS-ACTED-ON-IT",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: CYCLE-PRIORITY.json rendered into the SESSION-BRIEF block, which is gone.",
+   "evidence": "CLAUDE.md § 'This file was cut on 2026-09-21'."
+  },
+  {
+   "id": "OI-20260901-DECISION-ROUNDTRIP-SHIPPED-AND-NO-DECISION-HAS-EVER-MADE-THE-ROUND-TRIP",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: decision_requests[] lived in docs/claude/work/objects/, which is archived; E15 (done) replaced the inbox with the checklist's recorded answers.",
+   "evidence": "ls docs/claude/work/objects -> No such file or directory (2026-09-24); MANAGER-CHECKLIST.json E15 done (#12693)."
+  },
+  {
+   "id": "OI-20260901-OPERATING-LAYER-BUILD-IS-IN-FLIGHT-AND-CARRIED-ONLY-BY-THIS-ROW",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: the operating-layer build it carried was replaced by docs/plans/OPERATING-PLAN-2026-09-21.md.",
+   "evidence": "CLAUDE.md instruction hierarchy item 3 names the plan of record; the work store it pointed at is archived."
+  },
+  {
+   "id": "OI-20260901-REVIEW-PACKET-CANNOT-PROPOSE-AN-ACTION-AND-ITS-EVIDENCE-BLOCK-IS-UNEXERCISED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by checklist B4 ('Re-scope the review packet — Stage 2 on money, Stage 1 on cost fidelity'), which owns what the packet is for.",
+   "evidence": "MANAGER-CHECKLIST.json: B4 queued; its note names the same INDEX.json and the 20-trade floor."
+  },
+  {
+   "id": "OI-20260901-SUNSET-PASS-SHIPPED-AND-NOTHING-HAS-BEEN-RETIRED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: sunset-disposition-guard removed; retirement of legs now runs through the ladder's demotion gate (B3/R2).",
+   "evidence": "run_guards.py:184 'Removed: ... sunset-disposition-guard'; R2 done cut the fleet."
+  },
+  {
+   "id": "OI-20260902-API-REFERENCE-SPLIT-OUT-OF-CLAUDE-MD-AND-NOT-YET-FOUND-AT-USE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject overtaken: CLAUDE.md was re-cut by A2 with the reference table pointing at docs/reference/; 'a session found it unprompted' is not an observation any mechanism can make.",
+   "evidence": "CLAUDE.md § 'What this is' carries the reference table; A2 landed_unproven (#12668)."
+  },
+  {
+   "id": "OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R5 (soak-book read): bybit_coverage_soak — count graded rows / distinct UTC days / verdicts_differ:true, then the operator's widening decision",
+   "reason": "Live order-path adjacency on bybit_2 protection: the graded-coverage gate is armed only on this soak's evidence, and R5 is the row that reads soaks on a cadence.",
+   "evidence": "Unverifiable from a sandbox (needs /api/diag/log_file?name=bybit_coverage_soak). Not killed on inference."
+  },
+  {
+   "id": "OI-20260902-BYBIT-GRADED-COVERAGE-SOAK-IS-THE-ONLY-EVIDENCE-FOR-WIDENING-AND-NOTHING-WATCHES-IT",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Duplicate: the same soak and the same verdicts_differ observation as OI-20260902-BYBIT-COVERAGE-BASIS-MERGED-WITH-ARMING-DELIBERATELY-HELD-FOR-A-SOAK, which is routed to R5 today.",
+   "evidence": "Both rows name runtime_logs/bybit_coverage_soak.jsonl and the same clause."
+  },
+  {
+   "id": "OI-20260902-COMMITTED-REVIEW-DAY-JOINS-TWO-RUNS-SILENTLY",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by B4, which re-scopes the strategy review packet; a run-boundary stamp is part of whatever B4 ships.",
+   "evidence": "MANAGER-CHECKLIST.json: B4 queued."
+  },
+  {
+   "id": "OI-20260902-CONSTRAINT-READOUT-CRON-SHIPPED-AND-HAS-NEVER-FIRED-ON-SCHEDULE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: constraint-readout.yml's schedule is commented out and its guard removed.",
+   "evidence": "grep -rl check_wip_ceiling .github/workflows/ -> constraint-readout.yml only, whose trigger is workflow_dispatch (PI-20260921-E02's measurement, re-run 2026-09-24)."
+  },
+  {
+   "id": "OI-20260902-DECISION-DRAIN-ROUTINE-DOES-NOT-EXIST-AND-NOTHING-HAS-EVER-DRAINED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: the decision round-trip and its work objects are archived.",
+   "evidence": "ls docs/claude/work/objects -> absent (2026-09-24)."
+  },
+  {
+   "id": "OI-20260902-DECISION-PROMPTS-MOVED-TO-CLAUDEBOT-AND-NO-TAP-HAS-LANDED-THERE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: work-decision prompts read docs/claude/work/objects/, which is archived.",
+   "evidence": "ls docs/claude/work/objects -> absent (2026-09-24)."
+  },
+  {
+   "id": "OI-20260902-E0-LIVE-ARM-LEG-SCOPING-SHIPPED-AND-NEVER-RUN-ON-THE-TRAINER",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no money path: an M20 exit-head research flag never exercised on the trainer; re-file when an exit-head round is actually dispatched (E8, which the plan puts last on purpose).",
+   "evidence": "MANAGER-CHECKLIST.json: E8 blocked, note 'IT GOES LAST ON PURPOSE'."
+  },
+  {
+   "id": "OI-20260902-EVIDENCE-HORIZON-PUBLISHED-BUT-NEVER-EMITTED-BY-A-REAL-RUN",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by B4 (review packet re-scope).",
+   "evidence": "MANAGER-CHECKLIST.json: B4 queued."
+  },
+  {
+   "id": "OI-20260902-HOURLY-DIGEST-CARRIER-PREPARED-AND-HELD-FOR-A-TIER-2-OK",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: the work digest and digest-liveness-guard are retired.",
+   "evidence": "run_guards.py:184 'Removed: ... digest-liveness-guard, work-digest-source-coverage'."
+  },
+  {
+   "id": "OI-20260902-PR-QUEUE-WATCHER-SHIPPED-AND-ITS-CRON-HAS-NEVER-FIRED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: pr-queue-watch.yml's schedule was commented out and pr-queue-watch-guard removed.",
+   "evidence": "run_guards.py:184 'Removed: ... pr-queue-watch-guard'; PI-20260921-E01 lists pr-queue-watch.yml among the disarmed."
+  },
+  {
+   "id": "OI-20260902-REAPER-SHIPPED-AND-THE-KILL-PROVED-A-PARTIAL-LOSS-NOT-A-CLEAN-ONE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired (SESSIONS.json archived) and superseded by E44's lane supervisor + archive gate, which is where 'who archives a lane and when' now lives.",
+   "evidence": "MANAGER-CHECKLIST.json: E44 queued (#12752, #12753, #12765); CLAUDE.md lists SESSIONS.json as archived."
+  },
+  {
+   "id": "OI-20260902-REPLAY-PREGATE-CANNOT-FINISH-BECAUSE-THE-TRAINER-IS-OUT-OF-MEMORY",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by checklist C3/E6 ('Unblock replay-pregate'), which owns the trainer-memory decision.",
+   "evidence": "MANAGER-CHECKLIST.json: C3 queued, E6 queued (same work, see PI-20260922-CHECKLIST-CARRIES-FOUR-TASKS-TWICE)."
+  },
+  {
+   "id": "OI-20260902-ROLE-PACKS-NOW-REACH-THE-OPERATING-LAYER-AND-NO-SESSION-HAS-BEEN-OBSERVED-USING-IT",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: the six situating packs it names are archived process skills and role-pack-operating-layer guard is removed.",
+   "evidence": "CLAUDE.md § Skills lists the ten retired skills; run_guards.py:184 'Removed: ... role-pack-operating-layer'."
+  },
+  {
+   "id": "OI-20260902-STRATEGY-REVIEW-PACKET-BLENDS-REAL-AND-PAPER-PNL",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by B4, whose title IS this finding ('Stage 2 on money, Stage 1 on cost fidelity').",
+   "evidence": "MANAGER-CHECKLIST.json: B4 queued."
+  },
+  {
+   "id": "OI-20260902-SUNSET-CANDIDATES-ARE-NOW-DUE-AND-NINE-ARE-UNDISPOSITIONED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: DUE.md and the sunset source are retired.",
+   "evidence": "run_guards.py:184; CLAUDE.md § Retired."
+  },
+  {
+   "id": "OI-20260902-TELEGRAM-DECISION-ROUNDTRIP-SHIPPED-AND-NO-TAP-HAS-EVER-BEEN-MADE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: the decision round-trip's objects are archived.",
+   "evidence": "ls docs/claude/work/objects -> absent."
+  },
+  {
+   "id": "OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator: clause (1) cleared today (scheduled run 131 + receipt on main); approve a Tier-2 exercise that makes capture_bad true so the alert path is seen executing, or record that the page stays unexercised",
+   "reason": "Irreplaceable data stream (trainer order-flow capture). Clause (1) is now MEASURED cleared; clause (2) — the stale PAGE executing — needs a deliberate Tier-2 exercise on the trainer and is not established.",
+   "evidence": "MEASURED 2026-09-24 via actions_get run 35996206966: event=schedule, conclusion=success, run_number 131, started 11:58:54Z; docs/claude/work/TRAINER-CAPTURE-WATCH.json on main generated_at 2026-09-24T11:59:19Z, run_url that run, capture_state fresh, controls_ok true (#12830). Receipts also landed on main from #12784, #12790, #12794. Clause (2) NOT established."
+  },
+  {
+   "id": "OI-20260903-CLOSE-WEDGE-LEDGER-MERGED-AND-HAS-NEVER-BEEN-OBSERVED-PRESENT-ON-THE-FLEET",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R5 (soak-book read): /api/diag/log_file?name=close_wedge_standing present:true with a fresh updated_at",
+   "reason": "Live order-path adjacency: a close that cannot complete on a real-money account is what this ledger surfaces. R5 is the row that reads fleet soaks.",
+   "evidence": "Unverifiable from a sandbox (needs /api/diag/log_file?name=close_wedge_standing). Not killed on inference."
+  },
+  {
+   "id": "OI-20260903-OPERATOR-COMMANDS-MOVED-OFF-THE-TRADER-BOT-PREPARED-AND-HELD",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no consequence: both routing halves are observed; what remains is the operator typing /status in the ClaudeBot chat, which needs no row to happen.",
+   "evidence": "The record's own 2026-09-03 correction: deployed as 0cc217ad, only the operator's typed check outstanding."
+  },
+  {
+   "id": "OI-20260904-MANAGER-WAKE-BUILT-AND-ITS-SCHEDULER-DOES-NOT-EXIST",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E44 (lane supervision) and PI-20260923-JN54P2HH-0001 (the hourly sweep's binding), which carry the current facts about what wakes the manager.",
+   "evidence": "MANAGER-CHECKLIST.json: E44 queued; PIPELINE.jsonl PI-20260923-JN54P2HH-0001 routed to E44 today."
+  },
+  {
+   "id": "OI-20260905-MI-128-SWEEP-WINDOW-REKEYED-AND-THE-PR-HOLDS-ON-A-BACKFILL-DECISION",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by checklist E30 (landed_unproven, #12735), which owns the paper-book P&L sweep and whose closing observation (PI-20260922-54WQNHJX-0001) is routed to it today.",
+   "evidence": "PR #11037 state=closed 2026-09-05 (search_pull_requests); E30 merged 2026-09-24 as a Tier-3 operator-approved change to the same sweep."
+  },
+  {
+   "id": "OI-20260906-ICT-SCALP-5M-DEMOTED-OFF-BYBIT2-AND-NOTHING-HAS-SEEN-IT-STOP",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "Clauses (1)-(2) MEASURED in the field: bybit_2's roster no longer carries ict_scalp_5m; clause (3) 'observed not trading' is now answered by E31/E32's runtime-config surface (done), not by this row.",
+   "evidence": "MEASURED config/accounts.yaml 2026-09-24: bybit_2 strategies=[xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h]. R2 done (#12707); E31/E32 done (#12738); #12828 records a post-deploy runtime-config read verdict CURRENT."
+  },
+  {
+   "id": "OI-20260906-ICT-SCALP-EXIT-HEAD-CONSUMER-SHIPPED-AND-CANNOT-SCORE-UNTIL-A-SCALP-HEAD-IS-PUBLISHED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no money path: an annotate-only consumer that cannot score until a 5m/15m exit head exists, and the M20 exit-head programme is parked behind E8 by the plan.",
+   "evidence": "MANAGER-CHECKLIST.json: E8 blocked."
+  },
+  {
+   "id": "OI-20260906-ML2-CALIBRATION-PASSED-BUT-THE-SHARPNESS-RESULT-IS-AGAINST-THE-WRONG-BASELINE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no consequence: the refutation is recorded in the archived row; the ML review that could re-read trainer-diag #11154 as a pass is not on the checklist.",
+   "evidence": "The row's own text says the sharpness question is ANSWERED; nothing on the checklist consumes ML-2."
+  },
+  {
+   "id": "OI-20260906-RESEARCH-THAT-SPECIFIES-WORK-IS-CARRIED-BY-NOTHING",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by A7 (the pipeline) and the plan's two-category taxonomy: an un-carried spec is now by definition a memo, and the checklist/queue are the only carriers.",
+   "evidence": "CLAUDE.md § 'Two categories'; A7 done."
+  },
+  {
+   "id": "OI-20260906-SCALP-EXIT-HEAD-ARTIFACT-IS-THE-SECOND-MISSING-HALF-NOT-THE-FIRST",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no money path (same reasoning as the consumer row); parked behind E8.",
+   "evidence": "MANAGER-CHECKLIST.json: E8 blocked."
+  },
+  {
+   "id": "OI-20260906-THE-BRACKET-CALIBRATION-INSTRUMENT-EXISTS-AND-ITS-VERDICT-HAS-NOT-BEEN-ACTED-ON",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E41 (done: the operator's 2026-09-22 Tier-3 decision on the arms) and E47/E48 (cut-points and the scha re-measure), which are where target geometry is now decided.",
+   "evidence": "MANAGER-CHECKLIST.json: E41 done, E47 queued, E48 queued (operator 2026-09-24)."
+  },
+  {
+   "id": "OI-20260907-CLOSE-CONFIRM-RESCOPE-IS-HELD-AND-MI-140-MUST-NOT-BE-FIXED-BEFORE-IT",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Clause (1) satisfied on the record (#11279 merged 2026-09-08); the remaining observation is on IB, which carries no real-money roster, and nothing owns it.",
+   "evidence": "config/accounts.yaml 2026-09-24: ib_live strategies=[] mode=dry_run."
+  },
+  {
+   "id": "OI-20260908-A-HEDGE-BOOK-FLAT-READ-IS-CLOSING-LIVE-BYBIT-POSITIONS-AND-THE-FLAP-GUARD-CANNOT-SEE-IT",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator (Tier-3): needs a checklist row — the Bybit hedge-book/netting-reconciler class (this, OI-20260913-...-HEDGE-BOOK-IS-NEVER-FETCHED, OI-20260917 remeasure) has no owner",
+   "reason": "Live order path on real money: the netting reconciler closed live Bybit positions off a flat hedge-book read. No checklist row owns the Bybit hedge-book / netting-reconciler class.",
+   "evidence": "Cannot establish from a sandbox whether 46e1efb1f (the fix OI-20260917 cites) is on main — the clone is shallow and the object is unreachable; clause (2) needs a netting_attribution_soak read. Not killed on inference."
+  },
+  {
+   "id": "OI-20260908-ALPACA-QUANTITY-COVERAGE-SHIPPED-AND-A-56-SHARE-NAKED-POSITION-IS-STANDING",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R5 (soak-book read): an alpaca_partial_stop_coverage row with size != stop_qty on a real position",
+   "reason": "Live money (alpaca_live): the detector observation needs a real partially-naked position on the fleet; R5 reads the fleet. The standing TLT condition is owned elsewhere per the row's own clause (2).",
+   "evidence": "Unverifiable from a sandbox (needs /api/bot/logs?level=error). Not killed on inference."
+  },
+  {
+   "id": "OI-20260908-QLD-TQQQ-EXAMINED-LOCALLY-AND-THE-CI-FEED-PATH-HAS-NEVER-RUN",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by R7: both legs now carry a committed measured evidence record produced by build_strategy_evidence.py; the e35-bracket-sweep runner feed this row waited on is C4/E7's concern.",
+   "evidence": "MEASURED 2026-09-24: comms/strategy_evidence/qld_trend_long_1d.json and tqqq_trend_long_1d.json coverage_state=measured. Both legs sit on a paper roster (config/accounts.yaml:1118-1119)."
+  },
+  {
+   "id": "OI-20260908-THE-REAL-MONEY-CLOSED-POPULATION-IS-447-NOT-15-AND-TWO-SURFACES-DISAGREE-ON-ITS-EXIT-LABELS",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E32 (done): docs/reference/verifying-what-is-trading.md is the mapping of which surface answers which question, which is where the window-vs-population trap now lives.",
+   "evidence": "MANAGER-CHECKLIST.json: E32 done (#12738)."
+  },
+  {
+   "id": "OI-20260909-CLOSED-FLAT-INVARIANT-CAN-FINALLY-SPEAK-AND-HAS-NOT-YET-SPOKEN",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R5 (soak-book read): a planted violation on /api/diag/log_file?name=invariant_violations AND the Level.ERROR reaching the operator",
+   "reason": "Live money: the closed->exchange-flat invariant is the one mechanism that can contradict 'closed' on a real-money book; a planted violation must be seen reported. R5 reads the fleet.",
+   "evidence": "Unverifiable from a sandbox (needs /api/diag/log_file?name=invariant_violations)."
+  },
+  {
+   "id": "OI-20260909-INTENT-REDUCE-LEG-RESIZE-SHIPPED-AND-NO-LEG-HAS-BEEN-OBSERVED-RESIZED",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "Its own clears_when reads 'ALREADY CLEARED 2026-09-12 -- all three clauses' (merged 7b8b6b51d, deployed, 6 of 6 legs observed resized incl. bybit_2), retained only as an evidence carrier.",
+   "evidence": "clears_when text in the store."
+  },
+  {
+   "id": "OI-20260909-POSITION-READ-STATE-SOAK-DECIDES-WHETHER-THE-COLLAPSED-READ-EVER-FIRES",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R5 (soak-book read): position_read_state_soak dropped_symbol_dedupe_count >= 1 (real) or a stated zero over a stated window (not real)",
+   "reason": "Live order path: this soak gates a Tier-3 decision on the real-money close path (observable-first, operator 2026-09-09). R5 reads soaks.",
+   "evidence": "Unverifiable from a sandbox (needs /api/diag/log_file?name=position_read_state_soak)."
+  },
+  {
+   "id": "OI-20260909-PROP-STATUS-REQUEST-TRIGGER-DEPLOYED-BUT-THE-SUPPRESSION-HAS-NEVER-BEEN-OBSERVED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E16 (landed_unproven, #12696: 'the status ask fires on the wrong trigger'), which owns the prop status request end to end.",
+   "evidence": "MANAGER-CHECKLIST.json: E16 landed_unproven."
+  },
+  {
+   "id": "OI-20260909-THE-FULL-SYSTEM-AUDITS-TIER-2-AND-TIER-3-PROPOSALS-ARE-FILED-AND-CARRIED-BY-NOTHING",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by A7: the proposals it carried now live as pipeline rows / checklist rows, and clause (1) was met on 2026-09-09 per its own text.",
+   "evidence": "clears_when: 'THIS CLAUSE IS MET as of 2026-09-09'; A7 done."
+  },
+  {
+   "id": "OI-20260909-THE-ROLLBACK-REGISTRY-IS-COLLAPSED-AND-THE-ROLLBACK-HAS-NEVER-BEEN-EXERCISED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner: exercising MULTI_STRATEGY_INTENT_LAYER=false is a Tier-2 act nobody proposes, and E34/E35 are re-working the intent layer's election anyway.",
+   "evidence": "MANAGER-CHECKLIST.json: E34/E35 queued."
+  },
+  {
+   "id": "OI-20260910-ALPACA-LIVE-OPTION-A-FOUR-LEGS-ADDED-TO-REAL-MONEY-AND-THE-ORDER-PATH-HAS-NEVER-BEEN-EXERCISED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by A6, R2 and B2: alpaca_live's roster is 3 legs today, not the five this row watches.",
+   "evidence": "MEASURED config/accounts.yaml 2026-09-24: alpaca_live strategies=[ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d]."
+  },
+  {
+   "id": "OI-20260910-EXIT-EVAL-NEAR-MISS-BAND-AND-RESTART-GAP-SHIPPED-AND-NEITHER-HAS-GRADED-A-LIVE-BOUNDARY",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no direct money consequence: an exit-loop latency grading whose observation needs a real restart boundary; R5 would read it if anyone cared.",
+   "evidence": "No checklist row references exit-interval soak."
+  },
+  {
+   "id": "OI-20260910-F39-STRANDED-PACKAGE-LEGS-DETECTOR-BUILT-AND-THE-REATTACH-AWAITS-AN-OPERATOR-YES-NO",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R5 (soak-book read): INV-PACKAGE-LEG-REACHABLE via scripts/ops/system_invariants.py against live payloads",
+   "reason": "Live money: stranded package legs on bybit_2. Clause (1) is settled (#11630 and #11652 closed 2026-09-10); the remaining fleet observation is a soak-book read.",
+   "evidence": "search_pull_requests 2026-09-24: #11630 closed 2026-09-10T04:42Z, #11652 closed 2026-09-10T12:05Z."
+  },
+  {
+   "id": "OI-20260910-IB-PER-PASS-BREAKER-ARMED-AND-HAS-SKIPPED-NOTHING",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and consequence bounded to a paper account (IB carries no real-money roster).",
+   "evidence": "config/accounts.yaml 2026-09-24: ib_live strategies=[]."
+  },
+  {
+   "id": "OI-20260910-ORPHAN-ADOPT-SIZE-GATE-DEPLOYED-AND-HAS-REFUSED-NOTHING",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner: merged and deployed; observing a decline needs the venue to produce a price-matching candidate, which nothing can force.",
+   "evidence": "Its own text: 'only the third is still open'."
+  },
+  {
+   "id": "OI-20260910-WORKFLOW-PAGE-SHIPPED-AND-THE-OPERATOR-HAS-NOT-SEEN-IT-RENDER",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by A9 (landed_unproven, #12692): the Workflow page is on the checklist as its own row, and the operator has been reading it (A10 was dispatched off a screenshot of it).",
+   "evidence": "MANAGER-CHECKLIST.json: A9 landed_unproven; row A10's note cites the page screenshot."
+  },
+  {
+   "id": "OI-20260911-BLOCKED-LANE-WATCH-SHIPPED-AND-NO-LANE-HAS-BEEN-WOKEN-BY-IT",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired (SESSIONS.json blocked_on edges are archived) and superseded by E44.",
+   "evidence": "MANAGER-CHECKLIST.json: E44 queued."
+  },
+  {
+   "id": "OI-20260911-THE-DIRECTIONAL-LEGS-BROKE-ON-2026-08-30-AND-THE-CAUSE-IS-UNATTRIBUTED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by the ladder's own rule and by R2/R7/R3: a live book never establishes edge, the roster was cut on the offline corpus, and live-vs-modelled cost is R3/D3's standing test. The attribution question has no owner because the plan answers it elsewhere.",
+   "evidence": "CLAUDE.md § promotion ladder; MANAGER-CHECKLIST.json: R2 done, R7 done, R3 queued, D3 blocked."
+  },
+  {
+   "id": "OI-20260911-THE-PROP-ACCOUNT-IS-STARVED-NOT-QUIET-AND-THE-UNBLOCK-IS-A-SEQUENCE-NOT-A-FIX",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E17 (blocked): 'breakout_1 receives nothing' is that row's title and its diagnosis was re-opened on 2026-09-24.",
+   "evidence": "MANAGER-CHECKLIST.json: E17 blocked (#12708, #12755)."
+  },
+  {
+   "id": "OI-20260911-THE-TWO-DETECTORS-ARE-BUILT-AND-NEITHER-HAS-EVER-FIRED-ON-THE-FLEET",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E18 (the detector the operator asked for, all accounts) and E17.",
+   "evidence": "MANAGER-CHECKLIST.json: E18 queued, E17 blocked."
+  },
+  {
+   "id": "OI-20260911-THE-UNROUTED-ROW-DETECTOR-IS-SEEDED-AND-HAS-REPORTED-NOTHING",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: checklist-routing-age-guard removed; unrouted_count() in scripts/ops/pipeline.py is the successor and is what A10 is dispatched against.",
+   "evidence": "run_guards.py:184 'Removed: ... checklist-routing-age-guard'."
+  },
+  {
+   "id": "OI-20260911-TIER-2-APPROVED-SELF-LANDING-IS-BUILT-AND-NO-PR-HAS-LANDED-OR-BEEN-REFUSED-BY-IT",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner: R15 exists and admits nothing until an approval record is written; re-file when a Tier-2 PR first uses it.",
+   "evidence": "Its own text: zero approval records under docs/claude/work/approvals/."
+  },
+  {
+   "id": "OI-20260911-WEBAPP-AUTH-SECRET-MAP-LANDED-AND-HAS-CARRIED-NO-VALUE",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no money consequence: the gated SPA tab is the operator's to want; nothing on the checklist asks for it.",
+   "evidence": "No checklist row references JWT_SIGNING_KEY / the auth tab."
+  },
+  {
+   "id": "OI-20260912-BYBIT-SYMBOL-DEDUPE-REPAIRED-AND-NO-FLEET-READ-HAS-BEEN-SEEN-WITHOUT-THE-DROP",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by the hedge-book rows routed today (OI-20260908-...-FLAT-READ and OI-20260913-...-NEVER-FETCHED): the second book on a symbol is the same defect class, and #11903 is settled.",
+   "evidence": "search_pull_requests 2026-09-24: #11903 closed 2026-09-12T19:47Z; #12069 records clause 3 'NOT satisfiable today'."
+  },
+  {
+   "id": "OI-20260912-FANOUT-APPLY-PATH-REPAIRED-AND-STILL-HAS-NEVER-DISPATCHED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E17/E33/E35 and PI-20260924-JN54P2HH-0004 (the soak has written nothing for 32h while armed), which carry the current fan-out facts.",
+   "evidence": "MANAGER-CHECKLIST.json: E17 blocked, E35 queued; PI-20260924-JN54P2HH-0004 routed to E17 today."
+  },
+  {
+   "id": "OI-20260912-MI280-SHIPPED-EIGHT-LANDING-AND-REGISTER-INSTRUMENTS-AND-MOST-HAVE-NEVER-BEEN-SEEN-WORKING",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: DUE.json, red_crons, the registers and their guards are archived/removed.",
+   "evidence": "CLAUDE.md § Retired; run_guards.py:184."
+  },
+  {
+   "id": "OI-20260912-THE-WINNER-SIZE-COLLAPSE-IS-AN-R-COLLAPSE-AND-ITS-MAGNITUDE-IS-NOT-ESTABLISHED",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by OI-20260917-THE-NETTING-POST-FIX-REMEASURE-..., whose instrument is exactly this row's clause (1) and which is dated to 2026-10-01 today.",
+   "evidence": "Both rows name the winner-R decomposition; the later one carries the instrument and the n arithmetic."
+  },
+  {
+   "id": "OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED-AND-NO-SURFACE-IN-THIS-REPO-CAN-SAY-WHETHER-IT-IS-STILL-THERE",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator (Tier-3): same missing checklist row as OI-20260908-A-HEDGE-BOOK-FLAT-READ — the Bybit hedge-book class on real money",
+   "reason": "Live money: operator-raised naked ETHUSDT short on bybit_2 and a read path that cannot see a symbol's second book. No checklist row owns it.",
+   "evidence": "Unverifiable from a sandbox (its own clause (1) says /api/diag/exchange_positions is unreachable from a session)."
+  },
+  {
+   "id": "OI-20260913-THE-DEFAULT-BRANCH-RED-READER-IS-DEPLOYED-AND-HAS-NEVER-QUERIED-THE-ACTIONS-API",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset (render_due_list / DUE.json) and the red-on-main problem itself is owned by E29 (landed_unproven).",
+   "evidence": "run_guards.py:184 'Removed: ... due-list-guard'; E29 landed_unproven (#12719)."
+  },
+  {
+   "id": "OI-20260917-THE-GENERATED-CONFLICT-RECOMPUTE-IS-PROVEN-IN-REPLAY-AND-HAS-NEVER-RUN-ON-A-RUNNER",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner: #12472 is settled and the automation-PR conflict class is E49's/E29's; nothing on the checklist asks to observe this composite action firing.",
+   "evidence": "search_pull_requests 2026-09-24: #12472 closed 2026-09-17T20:35Z. MANAGER-CHECKLIST.json: E49 queued, E29 landed_unproven."
+  },
+  {
+   "id": "OI-20260917-THE-NETTING-POST-FIX-REMEASURE-IS-RUNNABLE-AND-UNDER-POWERED-AND-ITS-N-ARRIVES-ON-A-DATE",
+   "old_state": "queued",
+   "action": "dated",
+   "new_state": "queued",
+   "routed_to": null,
+   "reason": "Its own clears_when says re-run ON OR AFTER a dated threshold (share arm 2026-09-28, winner-R arm 2026-10-01); asking every 7 days before then is noise. Converted to a dated due.",
+   "evidence": "clears_when names the two dates; the instrument scripts/research/netting_postfix_remeasure.py exists on main."
+  },
+  {
+   "id": "OI-20260918-THE-DECISION-CHANNEL-IS-REPAIRED-AND-NO-PROMPT-HAS-BEEN-OBSERVED-ARRIVING",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Subject retired by the 2026-09-21 operating reset: the work-decision channel's requests lived in docs/claude/work/objects/, which is archived.",
+   "evidence": "ls docs/claude/work/objects -> absent (2026-09-24)."
+  },
+  {
+   "id": "PI-20260921-0001",
+   "old_state": "routed",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET by PR #12691 (merged 2026-09-21T23:00Z): trainer-vm-diag.yml's heavy path wraps its SSH command in the real on-VM flock, and trainer-diag-relay.yml's comment states plainly it applies no serialization.",
+   "evidence": "pull_request_read #12691: merged=true, merged_at 2026-09-21T23:00:52Z. The first live heavy dispatch under the wrap is not observed — stated, not claimed."
+  },
+  {
+   "id": "PI-20260921-0002",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies: 28 non-archived files name board-pointer.json, including .claude/settings.json's SessionStart hook. E9 ('Retire what the reset orphaned') is scoped to exactly this reader-orphan class.",
+   "evidence": "MEASURED 2026-09-24: git grep -lI 'board-pointer.json' -- ':!docs/archive/**' | wc -l -> 28 (incl. .claude/settings.json, board-heartbeat/board-post/board-rotate/merge-claim-audit/scope-overlap-audit workflows)."
+  },
+  {
+   "id": "PI-20260921-0003",
+   "old_state": "routed",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET by E20 (#12740/#12742): check_manager_scope.py now derives the manager from a post-reset surface and reports rule liveness by name instead of a silent PASS.",
+   "evidence": "MEASURED 2026-09-24: python3 scripts/ci/check_manager_scope.py -> 'manager-scope: not_a_pr — no commits in origin/main..HEAD' with an explicit 'authorship could not be established ... NOT a clean bill of health' line; rule_liveness(): R2 live. The remaining dead rules R6/R7/R8 are PI-20260922-MANAGER-SCOPE-R6-R7-R8..., routed to E9 today."
+  },
+  {
+   "id": "PI-20260921-0005",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9 (needs a benbaichmankass/ict-trader-dashboard PR: Runbooks.svelte links + Work.svelte 'review backlogs' sentence)",
+   "reason": "Still applies (dashboard-repo orphans of the reset); E9 owns the class, and A3b proved a lane can open a dashboard-repo PR.",
+   "evidence": "Rerun needs a dashboard clone; not re-run. MANAGER-CHECKLIST.json: A3b done (dashboard SPA change)."
+  },
+  {
+   "id": "PI-20260921-0011",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET: `--population` reports passing == roster_slots.",
+   "evidence": "MEASURED 2026-09-24: python3 scripts/ci/check_roster_promotion_evidence.py --population -> 'roster slots: 9 (9 distinct legs)', 'clear the four-clause bar: 9/9'. The roster shrank 12 -> 9 via R2 and D1/R1 filled C3/C4."
+  },
+  {
+   "id": "PI-20260921-E01",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET on its second arm: reconcile-open-prs.yml is disarmed (trigger commented out 2026-09-22, E29 #12719); stale-automation-sweep.yml still runs but reads OPEN-PRS.json in comments only, never as input.",
+   "evidence": "MEASURED 2026-09-24: .github/workflows/reconcile-open-prs.yml lines 92-96 'RETIRED 2026-09-22 ... # push:'; grep OPEN-PRS in stale-automation-sweep.yml -> none in the workflow; scripts/ops/sweep_stale_automation_prs.py:479 'NEVER from a committed file'. The 14 stranded PRs are PI-20260922-RECONCILE-OPEN-PRS-14..., routed to E29 today."
+  },
+  {
+   "id": "PI-20260921-E02",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies: CEILING_ENFORCED=True and CEILING_STATE='enforced_in_ci' while wip-ceiling-guard is in run_guards.py's Removed list and only a workflow_dispatch-only workflow calls the script. A false claim about a retired mechanism is E9's class.",
+   "evidence": "MEASURED 2026-09-24: src/utils/work_facts.py:34,39; run_guards.py:184; grep -rl check_wip_ceiling .github/workflows/ -> constraint-readout.yml only."
+  },
+  {
+   "id": "PI-20260921-E16-BALANCE-FETCHER-PROP-BRANCH-RARELY-REACHED",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator (Tier-3): accept the two bypass paths around prop_sizing_balance, or approve a lane to make the prop branch unconditional for declared prop accounts",
+   "reason": "Tier-3 (prop sizing) and still a code fact; the decision the row asks for is the operator's.",
+   "evidence": "Not re-read this session (rerun is a full read of src/core/coordinator.py::_default_balance_fetcher); E16 landed_unproven, B6 queued."
+  },
+  {
+   "id": "PI-20260921-E16-PROP-TICKET-TTL-SHORTER-THAN-THE-HUMAN",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E17/E18: no ticket reaches breakout_1 at all today, so the TTL question is downstream and becomes askable only once tickets flow again.",
+   "evidence": "MEASURED 2026-09-24: GET /api/bot/prop/tickets?limit=200 -> 164 tickets, expired 8 (unchanged from filing); MANAGER-CHECKLIST.json: E17 blocked, E18 queued."
+  },
+  {
+   "id": "PI-20260921-E3-BACKTESTER-DUAL-COST-MODEL",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E7",
+   "reason": "Still applies; harness cost-model wiring is E7/C4's work ('Wire the 9 orphan backtest harnesses').",
+   "evidence": "MEASURED 2026-09-24 by the rerun grep: src/backtest/backtester.py:16-18 still hardcodes taker_fee_pct/maker_fee_pct/slippage_pct; no execution_costs import."
+  },
+  {
+   "id": "PI-20260921-E3-ORB-NO-SLIPPAGE",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E7",
+   "reason": "Still applies; harness cost-model wiring is E7/C4's work ('Wire the 9 orphan backtest harnesses').",
+   "evidence": "MEASURED 2026-09-24 by the rerun grep: scripts/backtest_orb.py:47 FEE_POINTS_ROUNDTRIP=0.5 and no execution_costs import."
+  },
+  {
+   "id": "PI-20260921-E3-XSEC-MOMENTUM-FUNDING-GAP",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E7",
+   "reason": "Still applies; harness cost-model wiring is E7/C4's work ('Wire the 9 orphan backtest harnesses').",
+   "evidence": "MEASURED 2026-09-24 by the rerun grep: scripts/backtest_xsec_momentum.py:268-491 carries slippage_bps but no funding term."
+  },
+  {
+   "id": "PI-20260921-LANE-BLOCKED-ON-AN-UNATTENDED-PERMISSION-PROMPT",
+   "old_state": "routed",
+   "action": "rerouted",
+   "new_state": "routed",
+   "routed_to": "E44 (lane supervision): walled lanes are its archive-gate population",
+   "reason": "Still open (the dispatch mechanism is unchanged); re-pointed from E20, whose lane has closed, to E44, which owns lane supervision and the walled-lane triage.",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E20 landed_unproven (lane closed), E44 queued (#12752, #12753, #12765)."
+  },
+  {
+   "id": "PI-20260921-M01",
+   "old_state": "routed",
+   "action": "checked",
+   "new_state": "routed",
+   "routed_to": null,
+   "reason": "Still applies, still routed to E9: R13's failure path emits 'session-board.json does not exist' before naming the per-branch route.",
+   "evidence": "MEASURED 2026-09-24: scripts/ci/check_pr_landing.py:676 returns f'{SESSION_BOARD} does not exist'; the --branch-claim remedy is at :682/:702."
+  },
+  {
+   "id": "PI-20260921-M04",
+   "old_state": "routed",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET: #12686 merged (E13 done) and --check on main's copy still reports the PI-20260921-0002 collision (grandfathered, never silenced) with no new collision.",
+   "evidence": "MEASURED 2026-09-24: python3 scripts/ops/pipeline.py --stats -> collisions 3, all on PI-20260921-0002 (lines 21, 30, 1201); MANAGER-CHECKLIST.json: E13 done (#12686)."
+  },
+  {
+   "id": "PI-20260921-M06",
+   "old_state": "routed",
+   "action": "checked",
+   "new_state": "routed",
+   "routed_to": null,
+   "reason": "Still applies, still routed to E12 (queued).",
+   "evidence": "MEASURED 2026-09-24: 28 queued checklist rows carry no PR (rerun command)."
+  },
+  {
+   "id": "PI-20260921-M07",
+   "old_state": "routed",
+   "action": "checked",
+   "new_state": "routed",
+   "routed_to": null,
+   "reason": "Still applies, still routed to E14 (queued).",
+   "evidence": "MEASURED 2026-09-24: python3 scripts/ops/render_daily_brief.py | wc -c -> 627894."
+  },
+  {
+   "id": "PI-20260921-M08",
+   "old_state": "routed",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "The deferral this row guarded was closed by the operator: R1 landed (done, #12705) and R6 was killed on operator instruction on 2026-09-22 with the reason recorded on the row — the operator's own act on the question, which is what this row waited for.",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: R1 done; R6 dropped, note 'KILLED 2026-09-22 ON OPERATOR INSTRUCTION'."
+  },
+  {
+   "id": "PI-20260921-M09",
+   "old_state": "routed",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET via E15 (done, #12693): the 'Waiting on you' panel no longer renders a false all-clear.",
+   "evidence": "MANAGER-CHECKLIST.json: E15 done. docs/claude/work/objects still absent; src/web/api/routers/work.py:1287 now documents the objects source as historical."
+  },
+  {
+   "id": "PI-20260922-54WQNHJX-0001",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E30 (landed_unproven): a pairs_* close with exit_price_source='exchange_fill' and paper pnlCoverage > 0.30",
+   "reason": "Not cleared and it is E30's own closing observation (E30's note names this id).",
+   "evidence": "MEASURED 2026-09-24: GET /api/bot/stats paper pnlCoverage 0.2281, pnlMeasuredCount 279, pnlEstimatedCount 681 (baseline 0.2236 / 267 at filing) — below the 0.30 bar; per-row exit_price_source not read."
+  },
+  {
+   "id": "PI-20260922-54WQNHJX-0002",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R3",
+   "reason": "The residual non-pairs Stage-1 coverage gap is a cost-fidelity measurement question, which R3 ('Cost fidelity as the standing Gate-1 test') owns.",
+   "evidence": "Not re-measured (needs a 6,000-row journal page); MANAGER-CHECKLIST.json: R3 queued."
+  },
+  {
+   "id": "PI-20260922-5GAYXBX5-0001",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET by E28 (#12743): the ict_scalp family routes to scripts/backtest_ict_scalp.py and all eight carry evidence records.",
+   "evidence": "MEASURED 2026-09-24: regime_debt_matrix.classify() leaves only ['turtle_soup'] unrouted; comms/strategy_evidence/ict_scalp_*.json: 7 measured + mgc_15m harness_failed (its own row, routed to E4 today)."
+  },
+  {
+   "id": "PI-20260922-5GAYXBX5-0002",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Duplicate of PI-20260922-R5-PATH-STATS-MISSING-FOR-THE-12-LEGS-WHOSE-SERIES-IS-IN-A-DEAD-TMP-DIR (routed to B6 today), which names the same 12 records and the decision they need.",
+   "evidence": "MEASURED 2026-09-24: 12 of 52 comms/strategy_evidence/*.json carry a /tmp source_run — the same set as the R5 row."
+  },
+  {
+   "id": "PI-20260922-ALLOW-DEGRADED-GUARD-IS-UNSATISFIABLE-SINCE-THE-RESET-ARCHIVED-EVERY-BACKLOG-IT-RESOLVES-IDS-AGAINST",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET by E45 (#12756): check_allow_degraded.py resolves ids against PIPELINE.jsonl.",
+   "evidence": "MEASURED 2026-09-24: scripts/ops/check_allow_degraded.py:36-41 documents its own PI- id shape and PIPELINE.jsonl universe; MANAGER-CHECKLIST.json: E45 done."
+  },
+  {
+   "id": "PI-20260922-ARCHIVED-REGISTERS-STILL-READ-BY-40-PATHS-ACROSS-LIVE-CI-SOURCES",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies (the missing detector); E9's remit is exactly the reader sweep.",
+   "evidence": "Not re-run (the probe needs a deepened clone); MANAGER-CHECKLIST.json: E9 queued."
+  },
+  {
+   "id": "PI-20260922-CHECKLIST-CARRIES-FOUR-TASKS-TWICE",
+   "old_state": "routed",
+   "action": "rerouted",
+   "new_state": "routed",
+   "routed_to": "manager (checklist owner): collapse C4/E7 and C3/E6 — whoever takes one kills the twin",
+   "reason": "Partly cleared: two of the four pairs are resolved (C5/D1/D2/R6 dropped); C4/E7 and C3/E6 are both still open. The checklist is the manager's, so the remaining collapse is named to them.",
+   "evidence": "MEASURED 2026-09-24 MANAGER-CHECKLIST.json: C4 queued, E7 queued (note says DUPLICATE OF C4); C3 queued, E6 queued; C5/D1/D2/R6 dropped."
+  },
+  {
+   "id": "PI-20260922-DIAG-RELAY-ERROR-MESSAGE-NAMES-THE-WRONG-CAUSE",
+   "old_state": "routed",
+   "action": "checked",
+   "new_state": "routed",
+   "routed_to": null,
+   "reason": "Still applies; stays routed as filed (small, bounded).",
+   "evidence": "MEASURED 2026-09-24: .github/workflows/vm-diag-snapshot.yml:812 still says 'The request parsed fine, so this is an infrastructure failure'."
+  },
+  {
+   "id": "PI-20260922-DISPATCHER-REPORTS-A-BLOCKED-UNIT-AS-INVALID",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "C1",
+   "reason": "The four units that showed the defect no longer exist, so there is no instance to re-observe; the code-order question is C1's (research-queue schema + guard).",
+   "evidence": "MEASURED 2026-09-24: research/queue/ has no RQ-20260922-001/002/006/010; dispatch_queue.py prints 0 `invalid` rows over 11 units and `not_due status=blocked` for 003/004/007 — a negative with no positive control, so not claimed as fixed."
+  },
+  {
+   "id": "PI-20260922-E27-MERGED-BUT-NO-ALLOWLISTED-ACTION-CAN-RESTART-THE-WEB-API",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E27",
+   "reason": "Still applies and E27 (queued) is the row it blocks.",
+   "evidence": "MEASURED 2026-09-24: grep -rn 'restart.web.api' docs/claude/system-actions.md .github/workflows/system-actions.yml -> empty; positive control grep -c restart-bot-service docs/claude/system-actions.md -> 14."
+  },
+  {
+   "id": "PI-20260922-E31-LAYER-4-COVERS-TWO-CONFIG-FILES-AND-THE-PAIRS-SLEEVE-IS-NOT-ONE-OF-THEM",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E36 (pairs sleeve): add config/pairs.yaml to the runtime_status loader stamps, or record why not",
+   "reason": "Still open (a DECIDED on the pairs sleeve's loader stamp); E36 is the pairs-sleeve build row.",
+   "evidence": "Rerun reads runtime_logs/runtime_status.json, a VM file not in the repo — unverifiable here. MANAGER-CHECKLIST.json: E36 queued."
+  },
+  {
+   "id": "PI-20260922-E32-ORDER-PACKAGES-OVER-LIMIT-RETURNS-ZERO-ROWS-INDISTINGUISHABLY-FROM-NO-DATA",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET: an over-limit request now returns an explicit error naming the cap.",
+   "evidence": "MEASURED 2026-09-24 against https://ict-bot.duckdns.org: /api/bot/order-packages?limit=200 -> rows; ?limit=201 -> HTTP 422 {'msg': 'Input should be less than or equal to 200', 'ctx': {'le': 200}}. The second defect it mentions (stale newest row) was not re-checked."
+  },
+  {
+   "id": "PI-20260922-E32-SIGNALS-RETURNS-ZERO-ROWS-AND-WE-COULD-NOT-ESTABLISH-WHY",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R5 (soak-book read): count the signals table directly via /api/diag/journal?table=signals as the denominator",
+   "reason": "Still unresolved: 0 rows again today and no denominator reachable from a session without the diag token; R5's fleet read is where a signals-table count comes from.",
+   "evidence": "MEASURED 2026-09-24: /api/bot/signals and ?limit=50&hours=2000 both return []; /api/bot/data/* returns 404 (no Data Explorer route at that path)."
+  },
+  {
+   "id": "PI-20260922-E32-THE-INVERSE-ROSTER-ANOMALY-DETECTOR-IS-NOT-BUILT",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E18 (detector family): alert when a leg NOT on an account's strategies: list closes a trade on it",
+   "reason": "Still not built; it is a sibling of E18's detector (a layer-2 anomaly over closed trades, all accounts).",
+   "evidence": "MEASURED 2026-09-24: grep -rln 'not on the account roster|roster_anomaly' src/ scripts/ -> 'still not built'."
+  },
+  {
+   "id": "PI-20260922-E41-0002",
+   "old_state": "routed",
+   "action": "checked",
+   "new_state": "routed",
+   "routed_to": null,
+   "reason": "Still applies, still routed to E48 (operator 2026-09-24: re-measure properly, do not strip).",
+   "evidence": "MEASURED 2026-09-24: config/strategies.yaml scha_trend_long_1d arm 2.0, tp_r 1.5, atr_stop_mult 3.0 — unchanged."
+  },
+  {
+   "id": "PI-20260922-E41-0003",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E48 (sibling: make check_lever_reachability fail when atr_stop_mult/tp_r moved since measured_at)",
+   "reason": "Still applies (the guard cannot see a geometry change); the fix rides the same lane as the scha re-measure, E48.",
+   "evidence": "MEASURED 2026-09-24: python3 scripts/ci/check_lever_reachability.py -> 'OK — every declared reach-gate has a current, disposed measurement' while scha's 83.1% is known stale (E48's note)."
+  },
+  {
+   "id": "PI-20260922-E41-0005",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET (second arm) by E46 (#12754): tp_r is in the omitted-levers accounting, so the record no longer grades faithful with omitted_levers [].",
+   "evidence": "MEASURED 2026-09-24: comms/strategy_evidence/qqq_trend_long_1d.json fidelity=approximate, omitted_levers=['tp_r'], generated_at 2026-09-24T10:28:53Z; config tp_r 3.0."
+  },
+  {
+   "id": "PI-20260922-E41-0006",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Duplicate of PI-20260924-JN54P2HH-0005 (the manager's sharper control-run statement of the same tp_r harness-fidelity artifact), routed to E7 today.",
+   "evidence": "Both rows: qqq_trend_long_1d net_r_oos moves with the arm because the harness models no take-profit; runs/2026-09-24 regenerated the record with tp_r still omitted."
+  },
+  {
+   "id": "PI-20260922-E41-0007",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E46 (landed_unproven): run the producer with the fetch broken and diff the committed record",
+   "reason": "The guard landed (E46 #12754) but the control demonstration the clears_when demands is exactly E46's landed_unproven observation.",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E46 landed_unproven."
+  },
+  {
+   "id": "PI-20260922-E42-EMPTY-ROSTER-ACCOUNTS-STILL-PULL-NO-DATA-AND-THE-REFRAME-MAY-WANT-THEM-TO",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator: should an account with strategies: [] keep pulling its declared symbols (ib_live MES, oanda_practice XAUUSD), or is symbols: on an inert account documentation only?",
+   "reason": "Still applies and it is a DECIDED the operator has to record.",
+   "evidence": "MEASURED 2026-09-24: config/accounts.yaml accounts with strategies: [] -> ib_live symbols [MES], oanda_practice symbols [XAUUSD]."
+  },
+  {
+   "id": "PI-20260922-E42-THE-NON-TICK-READERS-OF-ACCOUNTS-SYMBOLS-STILL-SEE-ONLY-THE-DECLARED-LIST",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator (Tier-2): is roster-symbol-reachability going red in CI sufficient protection, or should a lane route the three clients.py readers through the UNION helper?",
+   "reason": "Still applies on a real-money position cross-check path (bybit_2); the row's own alternative is an operator DECIDED, and widening the readers is Tier-2.",
+   "evidence": "Not re-grepped this session beyond confirming E42 is done (#12736, #12744, #12746, #12748) and did not touch clients.py's readers."
+  },
+  {
+   "id": "PI-20260922-E45-CHECK-BACKLOG-REFS-REF-DOES-NOT-MATCH-PI-IDS-SO-THE-LIVE-INTAKE-IS-INVISIBLE-TO-IT",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies; a live instruction, claim or module pointing at something the reset archived is E9's class.",
+   "evidence": "MEASURED 2026-09-24: filed_ids() -> 29, REF.findall('PI-20260922-X-Y') -> []."
+  },
+  {
+   "id": "PI-20260922-E45-GREEN-IS-NOT-EVIDENCE-RULE-2-NAMES-ARTIFACT-VALIDITY-GUARD-WHICH-THE-RESET-REMOVED",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies; a live instruction, claim or module pointing at something the reset archived is E9's class.",
+   "evidence": "MEASURED 2026-09-24: docs/CLAUDE-RULES-CANONICAL.md:326 still says 'Enforced by artifact-validity-guard'; run_guards.py:184 lists it under Removed."
+  },
+  {
+   "id": "PI-20260922-E45-SESSION-END-RECONCILIATION-STILL-ROUTES-SESSIONS-TO-THREE-ARCHIVED-BACKLOGS",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies; a live instruction, claim or module pointing at something the reset archived is E9's class.",
+   "evidence": "MEASURED 2026-09-24: docs/CLAUDE-RULES-CANONICAL.md:1164,1648,1651 still name docs/claude/*-review-backlog.json."
+  },
+  {
+   "id": "PI-20260922-E45-SRC-RUNTIME-OPERATOR-OWED-IS-IMPORTED-BY-NOTHING-OUTSIDE-ITS-OWN-TEST",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies; a live instruction, claim or module pointing at something the reset archived is E9's class.",
+   "evidence": "MEASURED 2026-09-24: importers today are scripts/ops/constraint_readout.py:125 and scripts/ops/render_due_list.py:426 — both retired tools, so the module still has no live consumer."
+  },
+  {
+   "id": "PI-20260922-E45-GUARD-LIVENESS-CALLS-A-GLOB-SCOPED-GUARD-DEAD-AND-STATED-POPULATION-WAS-THE-FALSE-POSITIVE",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET (second arm): check_guard_liveness.py states the glob limit in its own source, names this row, and no longer grades check_stated_population dead.",
+   "evidence": "MEASURED 2026-09-24: scripts/ci/check_guard_liveness.py:178-188 ('RECOVERED AS no_declared_subject ... its graded population is a GLOB'); run output dead: 0, degraded: 11 (baselined), live: 35."
+  },
+  {
+   "id": "PI-20260922-E45-SOAK-ALARM-GRADING-STILL-READS-THE-ARCHIVED-OPEN-ITEMS-REGISTER",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "R5 (soak-book read): re-point soak_alarm.py at PIPELINE.jsonl or retire it before the first cadence pass",
+   "reason": "Still applies and soak_alarm.py is R5's instrument (the four-state grading of every declared soak).",
+   "evidence": "MEASURED 2026-09-24: scripts/ops/soak_alarm.py:2,17 name docs/claude/OPEN-ITEMS.json; git cat-file -e HEAD:docs/claude/OPEN-ITEMS.json -> does not exist."
+  },
+  {
+   "id": "PI-20260922-E5-RESEARCH-QUEUE-IS-OUTSIDE-TIER1-SURFACE-SO-NO-LANE-CAN-SELF-LAND-A-QUEUE-FLIP",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator: add research/** to check_pr_landing.py::TIER1_SURFACE under a decision record, or state that a queue-status flip is deliberately human-gated",
+   "reason": "Still applies and it is an operator decision record either way.",
+   "evidence": "MEASURED 2026-09-24: _match('research/queue/RQ-20260922-003.yaml', TIER1_SURFACE) -> False; PR #12741 (the split) is still open as a draft."
+  },
+  {
+   "id": "PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "C2",
+   "reason": "Still open by construction (E5 wired two consumers); C2 is the row for the remaining producers.",
+   "evidence": "Not re-counted; MANAGER-CHECKLIST.json: C2 queued, E5 landed_unproven."
+  },
+  {
+   "id": "PI-20260922-EIGHT-CI-GUARDS-GRADE-NOTHING-AND-ELEVEN-MORE-ARE-SILENTLY-NARROWED-BECAUSE-THE-RESET-ARCHIVED-THEIR-SUBJECTS",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Partly cleared (dead 8 -> 0) and the remaining re-point-vs-retire calls on the 11 degraded guards are E9's job.",
+   "evidence": "MEASURED 2026-09-24: python3 scripts/ci/check_guard_liveness.py -> live 35, degraded 11 (baselined debt 11 of 11 still present), dead 0."
+  },
+  {
+   "id": "PI-20260922-EVIDENCE-RECORDS-CARRY-NO-PER-TRADE-DISPERSION",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E7 (evidence producer): per-trade sd of net_r over the OOS folds on every measured record",
+   "reason": "Still applies; a producer-side field in build_strategy_evidence.py, which the harness-wiring lane (E7) touches.",
+   "evidence": "MEASURED 2026-09-24: no key matching sd/std/var/disp across comms/strategy_evidence/*.json."
+  },
+  {
+   "id": "PI-20260922-EVIDENCE-SOURCE-RUN-IS-A-TMP-PATH",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Duplicate of PI-20260922-R5-PATH-STATS-MISSING-FOR-THE-12-LEGS-WHOSE-SERIES-IS-IN-A-DEAD-TMP-DIR (routed to B6 today): the 12 /tmp records are the same 12 legs.",
+   "evidence": "MEASURED 2026-09-24: 12 of 52 records carry a /tmp source_run."
+  },
+  {
+   "id": "PI-20260922-FANOUT-STARVATION-INVISIBLE-TO-ASSESS",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "Superseded by E35 ('fix the arbitration at source, retire the fan-out workaround' — operator directive 2026-09-22), E34, E33 and E17; a starvation grade inside a mechanism being retired has no owner of its own.",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E35 queued, E34 queued, E33 landed_unproven, E17 blocked."
+  },
+  {
+   "id": "PI-20260922-HDZFTGH2-0001",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies (the #1 canonical doc binds sessions to archived mechanisms); E9's class.",
+   "evidence": "MEASURED 2026-09-24: docs/CLAUDE-RULES-CANONICAL.md:1758-1768 still name session-coordination, session-board.json and issue #6927; origin/main:docs/claude/session-board.json absent; .claude/skills/session-coordination absent."
+  },
+  {
+   "id": "PI-20260922-HDZFTGH2-0002",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44",
+   "reason": "E44's own blocker (supervisor sessions wall on their first turn).",
+   "evidence": "MANAGER-CHECKLIST.json: E44 queued."
+  },
+  {
+   "id": "PI-20260922-JN54P2HH-0002",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "PR #12759 (E43 register merge driver)",
+   "reason": "Still open; the register merge driver is PR #12759 (E43), which is the place a per-row scalar assertion belongs.",
+   "evidence": "list_pull_requests 2026-09-24: #12759 open (claude/e43-register-merge-driver). E43 has no checklist row today — noted, not fixed here."
+  },
+  {
+   "id": "PI-20260922-JN54P2HH-0003",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E49 (landing machinery)",
+   "reason": "Still applies (automerge fires on claude/** only, nothing refuses landing: self on other prefixes); landing-machinery family, E49.",
+   "evidence": "MEASURED 2026-09-24: .github/workflows/claude-pr-automerge.yml:71-72 push branches ['claude/**']; grep 'lane/' in check_pr_landing.py and the manager SKILL.md -> none."
+  },
+  {
+   "id": "PI-20260922-JN54P2HH-0004",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E20 (manager-scope guard)",
+   "reason": "Still open (roster derived from every revision reachable from --all); E20 owns check_manager_scope.py.",
+   "evidence": "Not re-run (needs a lane-authored branch to grade). MANAGER-CHECKLIST.json: E20 landed_unproven."
+  },
+  {
+   "id": "PI-20260922-JN54P2HH-0006",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies (.gitattributes claims register-id-guard runs on every PR; it is wired nowhere); E9's class.",
+   "evidence": "MEASURED 2026-09-24: grep -rl check_register_ids .github/workflows/ scripts/ci/run_guards.py -> empty; control grep -rl run_guards .github/workflows/ -> guards.yml, pr-queue-watch.yml, main-tree-watch.yml."
+  },
+  {
+   "id": "PI-20260922-JN54P2HH-0007",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E14 (pipeline store discipline; E13 done)",
+   "reason": "Still applies (no mechanism refuses a non-append edit to PIPELINE.jsonl); store-discipline family, E14.",
+   "evidence": "MEASURED 2026-09-24: no PIPELINE-diff check in scripts/ci/run_guards.py (grep PIPELINE -> render/row-id references only)."
+  },
+  {
+   "id": "PI-20260922-JN54P2HH-0008",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E49 (landing machinery)",
+   "reason": "Still applies (nothing refuses a conflict marker in a pushed file); landing-machinery family, E49.",
+   "evidence": "MEASURED 2026-09-24: grep conflict-marker in scripts/ci/run_guards.py -> none."
+  },
+  {
+   "id": "PI-20260922-MANAGER-SCOPE-R6-R7-R8-HAVE-NO-SUBJECT-AFTER-THE-RESET-SO-THREE-OF-FOUR-RULES-GRADE-NOTHING",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E9",
+   "reason": "Still applies; retire-or-re-point is E9's remit.",
+   "evidence": "MEASURED 2026-09-24: rule_liveness() -> R2 live; R6 DEAD (MANAGER-LEASE.json, SESSIONS.json absent); R7 DEAD; R8 DEAD (MERGE-QUEUE.json absent)."
+  },
+  {
+   "id": "PI-20260922-NW5KGJN8-0001",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E21 (landed_unproven): a vm-diag snapshot health check named strategy_roster with ctx.state ok",
+   "reason": "E21's own closing observation (landed_unproven).",
+   "evidence": "MANAGER-CHECKLIST.json: E21 landed_unproven (#12710)."
+  },
+  {
+   "id": "PI-20260922-NW5KGJN8-0002",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET: merge-claim-audit was retired 2026-09-22 with a stated reason (trigger commented out, workflow_dispatch only), so it no longer posts red on PRs.",
+   "evidence": "MEASURED 2026-09-24: .github/workflows/merge-claim-audit.yml:95-101 'RETIRED 2026-09-22 ... # pull_request_target:' and only workflow_dispatch remains."
+  },
+  {
+   "id": "PI-20260922-ONE-BLOCKED-LANE-HAS-HELD-1343-USD-FOR-72-HOURS-HAVING-NEVER-COMMITTED-A-LINE-AND-22-FINISHED-LANES-SIT-UNARCHIVED",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44 (lane supervision; the connector/source grant is the operator's)",
+   "reason": "Lane supervision is E44's row; the operator grant it needs (connector + source on a Routine) is recorded there.",
+   "evidence": "Rerun needs the Claude Code Remote MCP (not run here). MANAGER-CHECKLIST.json: E44 queued."
+  },
+  {
+   "id": "PI-20260922-ROUTINE-FIRED-SESSIONS-GET-NO-REPO-AND-NO-MCP-WHICH-IS-THE-ONE-ROOT-CAUSE-BEHIND-BOTH-DEAD-WATCHDOGS",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44 (lane supervision; the connector/source grant is the operator's)",
+   "reason": "Lane supervision is E44's row; the operator grant it needs (connector + source on a Routine) is recorded there.",
+   "evidence": "Rerun needs the Claude Code Remote MCP (not run here). MANAGER-CHECKLIST.json: E44 queued."
+  },
+  {
+   "id": "PI-20260922-THE-LANE-WATCHDOG-ROUTINE-FIRES-SESSIONS-WITH-NO-REPO-AND-NO-MCP-SO-IT-IS-DISABLED-AND-THE-INVARIANT-IS-STILL-VOLUNTARY",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44 (lane supervision; the connector/source grant is the operator's)",
+   "reason": "Lane supervision is E44's row; the operator grant it needs (connector + source on a Routine) is recorded there.",
+   "evidence": "Rerun needs the Claude Code Remote MCP (not run here). MANAGER-CHECKLIST.json: E44 queued."
+  },
+  {
+   "id": "PI-20260922-THE-PUSH-ON-STOP-WIRE-COVERS-2-OF-60-SESSIONS-AND-ZERO-OF-THE-26-THAT-COST-MONEY-BECAUSE-BLOCKED-AND-COMPLETED-ARE-SILENT",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44 (lane supervision; the connector/source grant is the operator's)",
+   "reason": "Lane supervision is E44's row; the operator grant it needs (connector + source on a Routine) is recorded there.",
+   "evidence": "Rerun needs the Claude Code Remote MCP (not run here). MANAGER-CHECKLIST.json: E44 queued."
+  },
+  {
+   "id": "PI-20260922-ONLY-1-OF-38-IN-REPO-CADENCE-DECLARATIONS-CAN-BE-SEEN-TO-HAVE-RUN-AND-A-ROUTINE-CANNOT-BE-DERIVED-AT-ALL",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator: which cadence-liveness state becomes blocking, and should the 9 no-trace workflows start committing a receipt?",
+   "reason": "Still applies and the question (which state becomes blocking) is the operator's as filed.",
+   "evidence": "MEASURED 2026-09-24: python3 scripts/ci/check_cadence_liveness.py -> no_receipt 37, unregistered 0, baselined debt 38 of 38."
+  },
+  {
+   "id": "PI-20260922-PJVBLXLA-0001",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E7 (harness fidelity: forward --tp-cap-pct 0.099 or record the uncapped basis)",
+   "reason": "Still applies (no --tp-cap-pct forwarded); harness-fidelity family with PI-20260924-JN54P2HH-0005, E7.",
+   "evidence": "Not re-run; the qqq record regenerated 2026-09-24 still omits tp_r, which is the same class."
+  },
+  {
+   "id": "PI-20260922-R2-A-WEB-SESSION-CANNOT-RUN-THE-TEST-SUITE-AND-GETS-NO-SIGNAL-THAT-IT-COULD-NOT",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E8 (testing queue): a SessionStart install or a documented honest ceiling on what a web session can run",
+   "reason": "Still applies (150 collection errors on a fresh container even after pip install pytest); the testing infrastructure row is E8.",
+   "evidence": "MEASURED 2026-09-24: python3 -m pytest tests/ -q --co -> '15756 tests collected, 150 errors'."
+  },
+  {
+   "id": "PI-20260922-R5-CLAUDE-MD-FEE-ONLY-CORPUS-CLAIM-IS-STALE-FOR-FOUR-HARNESS-FAMILIES",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator: scope CLAUDE.md's fee-only claim to backtest_orb.py / src/backtest/backtester.py / xsec funding, or record that the arming block stands regardless",
+   "reason": "Still applies (CLAUDE.md's arming-block paragraph still says fee-only) and the correction touches the mandate arming condition, which is the operator's.",
+   "evidence": "MEASURED 2026-09-24: grep 'fee-only and optimistic' CLAUDE.md -> present; scripts/backtest_trend.py:72-82 resolves venue-aware slippage/funding in main()."
+  },
+  {
+   "id": "PI-20260922-R5-PATH-STATS-MISSING-FOR-THE-12-LEGS-WHOSE-SERIES-IS-IN-A-DEAD-TMP-DIR",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "B6 (prop bar): re-run the 12 legs so path_stats exists, or record that the prop half is settled without one",
+   "reason": "Still applies (12 measured records without path_stats) and the row's own alternative is an R8/B6 decision.",
+   "evidence": "MEASURED 2026-09-24: 12 measured records lack path_stats: trend_donchian, slv_pullback_1d, ief_pullback_1d, trend_donchian_eth_prop, eth_pullback_prop_2h, trend_donchian_sol_prop, trend_donchian_xrp_4h, fvg_range_15m, iaum_pullback_1d, trend_donchian_eth_4h, xrp_pullback_2h, eth_pullback_2h — every real-money and prop leg is in this list."
+  },
+  {
+   "id": "PI-20260922-R5-SPLG-FEED-RESOLVES-TO-ZERO-ROWS",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E4 (one way to get candles): SPLG symbol map or substitute feed",
+   "reason": "Still applies (data gap, not code); E4 is the candles/corpus row.",
+   "evidence": "MEASURED 2026-09-24: comms/strategy_evidence/splg_trend_long_1d.json coverage_state=harness_failed; splg sits on no risk-bearing roster (alpaca_live = ief/slv/iaum)."
+  },
+  {
+   "id": "PI-20260922-R5-STAGE0-VERDICT-FLIPS-ON-A-9-DAY-WINDOW-SHIFT",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "C1 (decision_rule schema): pin the window or add a minimum-n / interval clause",
+   "reason": "Still applies; a decision_rule precision/power clause is C1's schema work.",
+   "evidence": "Not re-run (a full producer run). MANAGER-CHECKLIST.json: C1 queued."
+  },
+  {
+   "id": "PI-20260922-RECONCILE-OPEN-PRS-14-STRANDED-PRS-NEED-CLOSING-NOT-MERGING",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E29 (landed_unproven): close the 14 automation/reconcile-open-prs-* PRs unmerged with a recorded disposition",
+   "reason": "Still applies (all 14 still open) and closing them is E29's cleanup (it retired the workflow).",
+   "evidence": "MEASURED 2026-09-24 via list_pull_requests: 14 open PRs with head automation/reconcile-open-prs-* (#12451, 12456, 12459, 12466, 12469, 12474, 12477, 12484, 12486, 12489, 12493, 12498, 12502, 12511)."
+  },
+  {
+   "id": "PI-20260922-RESEARCH-UNIT-STAMP-ONLY-ON-E35",
+   "old_state": "queued",
+   "action": "done",
+   "new_state": "done",
+   "routed_to": null,
+   "reason": "clears_when MET: m20-exit-lever-sweep.yml and research-exit-head-build.yml now declare research_unit and power_state.",
+   "evidence": "MEASURED 2026-09-24 by the rerun over .github/workflows/*.yml: e35-bracket-sweep.yml, m20-exit-lever-sweep.yml, research-exit-head-build.yml all declare both inputs. The RQ flips are PR #12741 (open draft, E5)."
+  },
+  {
+   "id": "PI-20260922-STRATEGY-EVIDENCE-IS-NOT-A-REGISTERED-CORPUS",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "C2 (corpus): register comms/strategy_evidence in research_disposition.CORPORA keyed on n_trades_oos",
+   "reason": "Still applies; corpus registration is C2's row.",
+   "evidence": "MEASURED 2026-09-24: grep strategy_evidence scripts/research/research_disposition.py -> none."
+  },
+  {
+   "id": "PI-20260922-UTN353OZ-0001",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator (Tier-3): demote the four failing ict_scalp 5m legs off bybit_1, keep them as soak instruments with the fail on record, or re-scope",
+   "reason": "Tier-3 as filed: four ict_scalp 5m legs FAIL the pre-registered rule on bybit_1 (a Stage-1 book), and the decision is the operator's.",
+   "evidence": "MEASURED 2026-09-24: comms/strategy_evidence/ict_scalp_*.json verdicts — 5m: ict_scalp_5m fail, sol_5m fail, avax_5m fail, xrp_5m fail; 15m: eth/sol/xrp pass; mgc_15m harness_failed."
+  },
+  {
+   "id": "PI-20260922-UTN353OZ-0002",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E7 (harness fidelity)",
+   "reason": "Still applies (harness cannot express off_cells); harness-fidelity family, E7.",
+   "evidence": "MEASURED 2026-09-24: grep -c off_cells scripts/backtest_ict_scalp.py -> 0; ict_scalp_xrp_5m.json fidelity=approximate omitted_levers=['off_cells','vol_spec']."
+  },
+  {
+   "id": "PI-20260922-UTN353OZ-0003",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E4 (one way to get candles): a 15m gold feed over the record's window",
+   "reason": "Still applies (Yahoo serves no 15m gold bars over 365d); E4 is the candles row.",
+   "evidence": "MEASURED 2026-09-24: ict_scalp_mgc_15m.json coverage_state=harness_failed, error 'yfinance returned no rows for GC=F'."
+  },
+  {
+   "id": "PI-20260922-UTN353OZ-0004",
+   "old_state": "queued",
+   "action": "killed",
+   "new_state": "killed",
+   "routed_to": null,
+   "reason": "No owner and no consequence: a research seam script's self-test crashes only in a sandbox lacking python-dotenv; nothing on a money or evidence path consumes it. Re-file if mi321 is re-run.",
+   "evidence": "Not re-run (the rerun uninstalls a package). No checklist row references mi321_ict_scalp_seam.py."
+  },
+  {
+   "id": "PI-20260923-HDZFTGH2-0001",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44",
+   "reason": "E44's own findings (archive gate, heartbeat grade, sweep binding, PR attribution).",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E44 queued (#12752, #12753, #12765)."
+  },
+  {
+   "id": "PI-20260923-HDZFTGH2-0002",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44",
+   "reason": "E44's own findings (archive gate, heartbeat grade, sweep binding, PR attribution).",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E44 queued (#12752, #12753, #12765)."
+  },
+  {
+   "id": "PI-20260923-JN54P2HH-0001",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44",
+   "reason": "E44's own findings (archive gate, heartbeat grade, sweep binding, PR attribution).",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E44 queued (#12752, #12753, #12765)."
+  },
+  {
+   "id": "PI-20260924-JN54P2HH-0001",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E44",
+   "reason": "E44's own findings (archive gate, heartbeat grade, sweep binding, PR attribution).",
+   "evidence": "MANAGER-CHECKLIST.json 2026-09-24: E44 queued (#12752, #12753, #12765)."
+  },
+  {
+   "id": "PI-20260923-JN54P2HH-0002",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E49 (landing machinery)",
+   "reason": "Still open (a PR opened by the automerge route gets no required checks until a later push); landing-machinery family, E49.",
+   "evidence": "Not re-measured this session. MANAGER-CHECKLIST.json: E49 queued."
+  },
+  {
+   "id": "PI-20260924-JN54P2HH-0002",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "ask_operator: re-enable the E44 supervisor Routine at ~$27/firing when lanes run again, or retire it with a reason",
+   "reason": "The per-firing price of the supervisor Routine is the operator's call, as filed.",
+   "evidence": "Not re-measured (needs get_session on the supervisor)."
+  },
+  {
+   "id": "PI-20260924-JN54P2HH-0004",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E17 (blocked): first read is the soak's last logged_at_utc; then the reason it stopped, or E35",
+   "reason": "HIGH, Tier-2, on the arbitration path bybit_2's rounds ride: the fan-out soak stopped writing while armed and nothing alerted. E17 is blocked on exactly this mechanism and the manager found it while verifying E17.",
+   "evidence": "Unverifiable from a sandbox (needs log_file?name=arbitration_fanout_soak&lines=5). Not killed on inference."
+  },
+  {
+   "id": "PI-20260924-JN54P2HH-0005",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E7 (harness fidelity): model tp_r in build_strategy_evidence.py, or a guard that refuses a net_r_oos move beyond a registered tolerance",
+   "reason": "HIGH: the offline harness models no tp_r, which inflates the corpus B1 reads for a real-money roster; harness-fidelity family, E7 (with PJVBLXLA-0001 and UTN353OZ-0002).",
+   "evidence": "MEASURED 2026-09-24: comms/strategy_evidence/qqq_trend_long_1d.json regenerated 10:28Z with omitted_levers=['tp_r'] and net_r_oos 6.5977 (the arm-OFF figure)."
+  },
+  {
+   "id": "PI-20260924-JN54P2HH-0006",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E14 (pipeline store discipline; E13 done)",
+   "reason": "Still applies (nothing refuses a terminal state followed by an open one for the same id); store-discipline family, E14.",
+   "evidence": "MEASURED 2026-09-24: grep weaker|revert in scripts/ops/pipeline.py -> none."
+  },
+  {
+   "id": "PI-20260924-JN54P2HH-0007",
+   "old_state": "queued",
+   "action": "routed",
+   "new_state": "routed",
+   "routed_to": "E12 (checklist state hygiene)",
+   "reason": "Still applies (the vocabulary guard reads no `lane` field); checklist-state hygiene is E12's row.",
+   "evidence": "MEASURED 2026-09-24 with the positive control: grep -c lane check_manager_checklist_vocabulary.py -> 0; grep -c '\"state\"' -> 6."
+  }
+ ]
+}

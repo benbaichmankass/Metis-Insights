@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "Either the operator approves a specific per-leg geometry change and it ships with the matrix flipped to `shipped` (at which point `matrix-bracket-values` enforces the values), or the set is explicitly declined and the matrix records why. Explicitly NOT sufficient: this proposal document existing — it is analysis, and `passed_unshipped` remains a measurement, never a recommendation. ⚠️ The set is now TWO legs; a clears_when written against the old '10 legs' framing would never be satisfiable.",
+    "kind": "observation",
+    "last_checked": "2026-08-31"
+  },
+  "id": "OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260829-E35-REVERSED-LEGS-ARE-A-TIER-3-PROPOSAL-SET-NOT-APPLIED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] ⚠️ THIS ROW SAID '15 SHIPPABLE gate-passing cells across 10 live legs' AND THAT IS STALE — do not re-quote it. Re-measured 2026-08-31 against docs/research/exit-refinement-coverage.json (updated_at 2026-08-30, 52 rows): `shipped` 8 -> 17 and `passed_unshipped` 12 -> 2. The 2026-08-30 Tier-3 approval (see OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS) shipped 9 legs, which accounts for the movement. THE REMAINING SET IS TWO LEGS: gld_pullback_1h and spy_pullback_1h. The per-leg proposal the operator asked for is written up at docs/research/e35-passed-unshipped-proposal-2026-08-31.md. Its finding: NEITHER matrix-named winner is a clean gate pass — both are path_b_wf_pass with BOTH the IS and OOS gates refusing on `maxdd_worse`. The only Path-A (strong-gate) pass on either leg is gld's `tp4` at zero drawdown cost, WHICH THE MATRIX DOES NOT NAME. spy is recommended DECLINE (OOS +4.46 against a +28.16 headline, one fold carrying +22.36 against another at -12.33, and the leg is flagged CONTAMINATED). Still Tier-3, still not applied."
+}

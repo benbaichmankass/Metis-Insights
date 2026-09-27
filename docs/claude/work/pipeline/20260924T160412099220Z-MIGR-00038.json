@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "BOTH, and they are different facts — say WHICH you cleared rather than clearing the row on the easier one. (1) A SCHEDULED run of trainer-capture-watch.yml is OBSERVED completing successfully AND its receipt docs/claude/work/TRAINER-CAPTURE-WATCH.json is on main carrying THAT run's `generated_at` — read the run history and that stamp, NEVER the cron expression, and record how late it fired against its declared slot. ⚠️ A workflow_dispatch run clears NOTHING here: dispatch is precisely what is already proven, and the failure class being watched is a cron that does not fire. (2) The capture-stale PAGE is observed EXECUTING — a `Telegram alert` step reaching a non-skipped conclusion — whether from a genuinely stale capture or from a deliberate exercise that makes capture_bad true. ⚠️ A GREEN RUN WITH BOTH ALERT STEPS `skipped` IS THE HEALTHY CASE AND CLEARS (2) NOT AT ALL; that is what every run so far has been, so 'it passed again' is not progress on this half. ⚠️ AND THE STEP REPORTING `success` IS NOT THE OPERATOR RECEIVING IT — that distinction keeps other rows in this file open; record which of the two you established. ⚠️ IF THE OPERATOR DECIDES the 6-hourly cadence is wrong, or that the watcher should not run, this row does NOT clear — it CHANGES: the capture is then unwatched on a schedule, which is a legitimate decision and must be RECORDED as one rather than left looking like a cadence about to start.",
+    "kind": "observation",
+    "last_checked": "2026-09-11"
+  },
+  "id": "OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] SUCCESSOR to OI-20260829-TRAINER-IS-NOW-A-DECIDED-DEPENDENCY-AND-IS-UNMONITORED, which CLEARED 2026-09-03 on its clause (a): trainer-capture-watch.yml run 33719856283 graded the trainer's order-flow capture from the DATA's mtime and PROVED it fires — planted-stale control graded `stale` at age=10800s against a 1800s threshold while the fresh control graded `fresh` at age=0s, controls_ok=true, and the receipt landed on main. ⚠️ THAT WAS A HUMAN PRESSING A BUTTON. The SCHEDULE has never produced a successful run: the one and only scheduled attempt (run 33716069132, event=schedule) fired 2026-09-03T04:43:09Z against a first eligible slot of 00:23Z — 4.34 HOURS LATE — and failed. An alarm that runs only when dispatched monitors nothing, and the capture is a forward-only stream nothing can re-derive."
+}

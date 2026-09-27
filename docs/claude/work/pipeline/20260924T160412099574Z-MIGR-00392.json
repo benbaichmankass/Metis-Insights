@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "RESOLVED when (a) the true firing RATE of `journal_qty_divergent` has been measured from the trader journal over a stated window — not inferred from its absence in the operator feed — and (b) either it pages through outcomes.report with a hazard statement specific to a phantom journal row and a level justified against the desensitized-alarm P1, or a written finding says it should not page and why. Both outcomes close it; silence does not.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260826-UNPAGED-DETECTION-CLASS-IS-NEARLY-EXHAUSTED-ONE-MEMBER-LEFT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-UNPAGED-DETECTION-CLASS-IS-NEARLY-EXHAUSTED-ONE-MEMBER-LEFT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-UNPAGED-DETECTION-CLASS-IS-NEARLY-EXHAUSTED-ONE-MEMBER-LEFT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The 'detected but paged nobody' class: my sweep said ONE member left and the sweep's own shape was too narrow — a fourth member was found minutes later in the order path, where no counter is incremented"
+}

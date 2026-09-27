@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TIER-2 — it changes live order routing on every allowlisted account (today bybit_1) and is NOT covered by the fan-out's original approval, which was given for a mechanism nobody knew was inert. THREE PARTS, different facts — say WHICH you cleared. (1) THE FIX LANDS: _attach_fanout_plan carries the whole round and scopes only the accounts list ({**r, 'accounts': [a for a in r['accounts'] if a in allow]}), AND the seam test is FIXED rather than supplemented — see BL-20260912-A-SEAM-TEST-THAT-CONSTRUCTS-THE-PRODUCER-S-OUTPUT-CANNOT-SEE-THE-PRODUCER. (2) DEPLOYED: /api/diag/version shows the merge commit as git_sha AND git_sha_on_disk with restart_pending false. A merge is not a deploy. (3) OBSERVED ON THE FLEET, and this is the only one that matters: a contested symbol produces TWO dispatch rounds — read as a real ORDER PACKAGE or ticket for the non-global-winner account, never as a rounds_applied row. [!] rounds_applied IS NOT EVIDENCE OF DISPATCH AND THIS ROW IS THE PROOF: 317 rows carried it while nothing dispatched. [!] A GREEN TEST SUITE CLEARS NOTHING — the existing suite is green TODAY, over this exact defect, which is how it survived for 12 days. [!] A QUIET SOAK CLEARS NOTHING: the fan-out only acts on a CONTESTED tick, so zero divergence over a quiet week may mean no contest; read starved_count BESIDE accounts_planned before reading any zero. [!] ESTABLISH CENTRALIZED_ALLOCATOR FIRST. If it is true the pipeline takes the typed-allocator branch ABOVE this code and never …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-THE-ARBITRATION-FANOUT-APPLY-PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-VALIDATES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-THE-ARBITRATION-FANOUT-APPLY-PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-VALIDATES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-THE-ARBITRATION-FANOUT-APPLY-PATH-HAS-NEVER-DISPATCHED-BECAUSE-APPLY-ROUNDS-DROPS-THE-GEOMETRY-ITS-OWN-READER-VALIDATES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The per-account arbitration fan-out has never dispatched an order on ANY account since it was built: _attach_fanout_plan writes apply_rounds as a two-key projection, dropping the side/entry/sl/tp that _fanout_apply_rounds validates, so the reader fail-closes to [] every tick and the pipeline silently falls back to the global-winner dispatch"
+}

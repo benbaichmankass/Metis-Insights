@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "SHIPPED as MI-280 U119, and shipping is NOT the criterion. It clears when a due-list run produced BY THE CRON (not by a session typing the command) is OBSERVED on main carrying a sources.red_main_runs.note that states the graded distance — read docs/claude/DUE.json's committed copy and check the commit that wrote it, because a stale artifact would look identical. !! A GREEN TEST SUITE CLEARS NOTHING: 31 tests pass and six planted defects are each caught, and a harness cannot reach the cron. !! THE LIVE RUN DONE WHILE BUILDING CLEARS NOTHING EITHER — that was this session invoking the function by hand with a token, which is precisely the 'a session typed the command' case. !! AND A note THAT READS '0 with distance_unknown' IS NOT THE ONLY PASS: distance_unknown appearing is the honest output when the commits page cannot be read or the graded commit is older than one page, and a run that never emits it may simply never have hit those conditions.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-RED-MAIN-RUNS-REPORTS-THE-DEFAULT-BRANCHS-HEALTH-FROM-A-COMMIT-THAT-MAY-BE-MANY-COMMITS-BEHIND-THE-TIP-AND-NEVER-SAYS-WHICH",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-RED-MAIN-RUNS-REPORTS-THE-DEFAULT-BRANCHS-HEALTH-FROM-A-COMMIT-THAT-MAY-BE-MANY-COMMITS-BEHIND-THE-TIP-AND-NEVER-SAYS-WHICH",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-RED-MAIN-RUNS-REPORTS-THE-DEFAULT-BRANCHS-HEALTH-FROM-A-COMMIT-THAT-MAY-BE-MANY-COMMITS-BEHIND-THE-TIP-AND-NEVER-SAYS-WHICH'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] src_red_main_runs grades 'the DEFAULT BRANCH' off the latest COMPLETED push run per workflow, which on an auto-merged PR is not the tip — and a green from an old commit renders as zero rows"
+}

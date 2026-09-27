@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260831-CASH-SETTLEMENT-GATE-HAS-NO-ACCOUNT-TYPE-GUARD",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-CASH-SETTLEMENT-GATE-HAS-NO-ACCOUNT-TYPE-GUARD",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-CASH-SETTLEMENT-GATE-HAS-NO-ACCOUNT-TYPE-GUARD'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "ALPACA_CASH_SETTLEMENT_MODE=apply applies cash-account arithmetic to ANY allowlisted account without checking capacity.multiplier, and on a MARGIN account with a negative cash balance it yields basis 0.00 — which halts that account's trading entirely rather than merely constraining it."
+}

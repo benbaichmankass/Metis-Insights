@@ -75,7 +75,7 @@ def _pipeline_row(rid, state, **extra):
            "due_when": {"kind": "date", "due_date": "2026-11-01"},
            "next_action": "check_observation"}
     row.update(extra)
-    return json.dumps(row)
+    return row
 
 
 def _mk_repo(tmp_path, workflow_body):
@@ -86,12 +86,17 @@ def _mk_repo(tmp_path, workflow_body):
     # The LIVE register the guard resolves against since the E45 re-point. Its
     # absence is `CouldNotLook`, never an empty universe, so every fixture root
     # must carry one -- that refusal is the property, not an inconvenience.
-    (tmp_path / "docs" / "claude" / "work").mkdir(parents=True)
-    (tmp_path / "docs" / "claude" / "work" / "PIPELINE.jsonl").write_text(
-        "// PIPELINE.jsonl -- append-only\n"
-        + _pipeline_row("PI-20260101-LIVE-ROW", "queued") + "\n"
-        + _pipeline_row("PI-20260101-CLOSED-ROW", "done",
-                        terminal_reason="answered") + "\n",
+    #
+    # ⚠️ RE-POINTED 2026-09-24 (E64): a DIRECTORY, one file per record, not a
+    # single flat file — see `scripts/ops/pipeline.py`'s module docstring.
+    store = tmp_path / "docs" / "claude" / "work" / "pipeline"
+    store.mkdir(parents=True)
+    (store / "0001.json").write_text(
+        json.dumps(_pipeline_row("PI-20260101-LIVE-ROW", "queued")),
+        encoding="utf-8")
+    (store / "0002.json").write_text(
+        json.dumps(_pipeline_row("PI-20260101-CLOSED-ROW", "done",
+                                  terminal_reason="answered")),
         encoding="utf-8")
     wf = tmp_path / ".github" / "workflows"
     wf.mkdir(parents=True)

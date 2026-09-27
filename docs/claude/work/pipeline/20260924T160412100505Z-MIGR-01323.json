@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either a change lands that makes a failing arbitration_fanout_soak.record() visible (a failure counter / last-error readable on the diag surface) and is observed reading 0 on the live VM, or the operator decides the latent risk is accepted and this is killed with that reason.",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-L1AUT4FF-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_019mw6kFz9EL3AuHL1AUT4ff (E50 lane)",
+    "rerun": "grep -n 'record failed' src/runtime/arbitration_fanout_soak.py src/runtime/intent_multiplexer.py  # both except blocks log at DEBUG only; if either now counts or surfaces the failure, this is cleared"
+  },
+  "severity": "medium",
+  "state": "queued",
+  "tier": 2,
+  "what": "A BROKEN arbitration_fanout_soak WOULD STILL BE INDISTINGUISHABLE FROM AN IDLE ONE -- latent, NOT what happened in PI-20260924-JN54P2HH-0004 (that soak was writing all along; the silence was a relay truncation). src/runtime/arbitration_fanout_soak.py::record() wraps its whole body in `except Exception: logger.debug(...)` and the call site in intent_multiplexer.py (~line 957) wraps it again the same way. The trader logs at INFO, so any failure (import error, schema drift in assess(), disk full) produces no row and no visible log line. Also note record() writes a row only for NOTABLE ticks (starved / no_winner / winner_unattributed / apply_rounds) -- the pipeline item's claim that it is 'not gated' was wrong: there IS a quiet-tick gate, so a legitimately quiet period also writes nothing. PROPOSED (observability only, election unchanged, but the module sits on the order-election path so Tier-2 and HELD): count swallowed failures in a module-level counter + last exception class/time, log the first failure per process at WARNING, and expose both (plus last_row_at) on a diag read so 'no rows' can be told apart from 'rows failing'. Not built by E50 because it was not the cause and the lane's ceiling is better spent on the actual defect."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Add a docstring note at `src/runtime/exit_plan_realism.py::clamp_exit_plan` (and/or the `exit_plan_state` column comment in `src/units/db/database.py`) stating that the clamped target is OBSERVE-ONLY and must not be read as the reachability ceiling, naming the venue cap as the operative one. Verifiable by grepping `DEFAULT_MAX_REACH_R` and confirming the observe-only status is stated where the value is produced, not only in the registry's basis_note (which a code-side reader never opens). Closing on 'the registry documents it' is NOT sufficient -- that is the surface that already had it and still produced two inverted revisions in one session.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260816-REACH-R-IS-CLAMPED-NOT-CAP-R'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[performance] exit_plan_state.targets[].reach_r is an OBSERVE-ONLY clamped counterfactual; reading it as the reachability ceiling manufactures false `inert` on any arm above 5.0R"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The `refusing_us` determination is reachable from something OTHER than regime_debt_matrix's single call site -- i.e. the positive-control probe has one owner and is imported, and at least one further yfinance importer is OBSERVED reporting it, or a guard fails a new yf.download whose empty result is read as an empty market. !! A GREEN GUARD SELF-TEST CLEARS NOTHING: a harness cannot reach Yahoo, which is the whole point of this class. !! AND RAISING THE PIN AGAIN CLEARS NOTHING -- a version floor is not a detector, and the 23 legs were lost precisely while a floor was in place.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260916-TWENTY-SCRIPTS-IMPORT-YFINANCE-AND-NOTHING-DETECTS-THE-VENUE-REFUSING-THE-WHOLE-FLEET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260916-TWENTY-SCRIPTS-IMPORT-YFINANCE-AND-NOTHING-DETECTS-THE-VENUE-REFUSING-THE-WHOLE-FLEET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260916-TWENTY-SCRIPTS-IMPORT-YFINANCE-AND-NOTHING-DETECTS-THE-VENUE-REFUSING-THE-WHOLE-FLEET'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The yfinance 429-by-User-Agent class silently zeroed 23 evidence legs and ~20 other importers carry the same unguarded pattern"
+}

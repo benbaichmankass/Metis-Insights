@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-A-LANE-BRANCH-MERGED-MAIN-TWELVE-TIMES-CHASING-MANAGER-REGISTER-WRITES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-A-LANE-BRANCH-MERGED-MAIN-TWELVE-TIMES-CHASING-MANAGER-REGISTER-WRITES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-A-LANE-BRANCH-MERGED-MAIN-TWELVE-TIMES-CHASING-MANAGER-REGISTER-WRITES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "PR #11514 merged origin/main TWELVE times over ~4h before landing, every round chasing a manager register PR into the same shared files (#11527, #11528, #11531, #11532, #11533 — plus automation PRs #11535, #11539, #11541, which are a SECOND and independent source of the same contention). Each merge voided a CI run of ~16 minutes that had not finished. The lane was doing nothing wrong: it resolved each conflict correctly and promptly, and that promptness is what kept it in the loop. It landed only after the manager FROZE its own register writes for ~20 minutes, which is a workaround held in one session's head and dies with that session. The manager's base duty is to SCHEDULE merges rather than resolve the conflicts that not scheduling them causes; MERGE-QUEUE.json exists and its one enforced invariant is at-most-one rebasing, which does not address a long-running branch being repeatedly dirtied by short manager writes into shared registers."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "A lever-OFF arm exists in the sweep, and each stale shipped cell has a corpus row comparing base-with-lever against base-without-lever at tp_cap_pct=0.099 on a window clearing MIN_OOS_TRADES. Enumerate the outstanding set with `python3 scripts/research/m20_coverage_rollup.py --stale-decisions`.\n\nEXPLICITLY NOT SUFFICIENT: a run of the CURRENT sweep over those legs. That measures alternatives on top of the shipped lever and returns delta 0.0 for the shipped cell itself -- it looks like a clean re-test and answers a different question. This clause exists because I ran exactly that and had to correct the conclusion.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260813-SEVENTEEN-SHIPPED-LEVERS-REST-ON-PRE-TP-PARITY-EVIDENCE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-SEVENTEEN-SHIPPED-LEVERS-REST-ON-PRE-TP-PARITY-EVIDENCE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-SEVENTEEN-SHIPPED-LEVERS-REST-ON-PRE-TP-PARITY-EVIDENCE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 17 SHIPPED exit levers on live legs are justified by evidence measured before the 2026-08-10 TP-parity cutover -- and the one case that was actually re-swept did NOT reproduce"
+}

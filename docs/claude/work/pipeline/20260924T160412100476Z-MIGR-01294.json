@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "a firing into a session idle >4h is OBSERVED to either (a) have a working checkout AND a returning list_sessions call -- the persistent route survives cold, arm it -- or (b) come back bare, in which case design 4 is dead like designs 1-3 and the kill is written up.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-HDZFTGH2-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01VsAt1BzrdspLn6hDzFTGh2, checklist row E44, PR #12753",
+    "rerun": "take a persistent session idle >4h (long enough for container reclaim), fire a persistent_session_id Routine at it, and read what the woken turn ACTUALLY had: git rev-parse run in bash, and a real list_sessions call. Do NOT infer either from get_session's session_context, which reports the request, not the container."
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": 1,
+  "what": "NOT MEASURED, and it is the reading that decides whether the E44 supervisor is real. The manager's addendum names it: a Routine with persist_session:false fires a session with sources:[] and no mcp__* tools, which is why trig_01TWdAvrwFLe6T9XFoNopTeo reported SUCCEEDED on ~480 firings while writing nothing. A persist_session:true Routine bound via persistent_session_id DOES deliver into a session holding its own checkout and tools -- but EVERY confirmation of that, this lane's included, is of a session that was still WARM. Containers are reclaimed after inactivity and a supervisor idles for hours BY DESIGN between firings. If it comes back bare, the persistent route is no better than the one that failed ~480 times. This lane did not wait hours and refused to assert it from the session record. PARTIAL MITIGATION ALREADY SHIPPED in PR #12753: the heartbeat carries a `capability` block and lane_reconcile.py --heartbeat-grade checks capability BEFORE recency, so a cold firing that comes back bare either writes nothing (-> `stale`, CI reds within 18h) or reports itself incapable (-> `fired_but_incapable`, CI reds). The unknown is therefore ARMED TO ANSWER ITSELF rather than depending on anyone remembering to check -- but it is still UNANSWERED, and until it is answered the supervisor must not be given archive authority. ⚠️ PARTIAL ANSWER, same session, 14:13Z and 14:22Z, and it moves the odds toward the route surviving: both woken supervisors had connection_status `disconnected` before their firing and external_metadata.turn_handoff.worker_epoch went 1 -> 2 across it, meaning the WORKER WAS TORN DOWN AND RE-PROVISIONED -- and the woken turn still had a working checkout and a callable list_sessions, evidenced by docs/claude/work/E44-SUPERVISOR-PROBE.md on branch claude/e44-supervisor-probe, which the woken session wrote and pushed. That is a CONTAINER-RESTART reading, materially stronger than `warm`, but it is NOT the hours-idle cold test: neither session had been idle more than ~14 minutes. This row stays OPEN for the hours-idle case."
+}

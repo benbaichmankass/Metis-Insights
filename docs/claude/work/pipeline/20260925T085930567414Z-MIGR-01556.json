@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a replay-pregate-nightly run's report shows n_scored == n_models (22) with no partial run",
+    "kind": "observation"
+  },
+  "id": "PI-20260925-PLUMBING-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist row E6 (build lane, session_018ZrLU4TiW7Dhjh8FX7sD8T), PR #12921",
+    "rerun": "Trigger replay-pregate-nightly.yml (schedule 04:00 UTC, or workflow_dispatch) after PR #12921 merges. Read the resulting runtime_logs/replay_pregate/<ts>.json (or latest.json if complete): n_scored vs n_models. n_scored==22 with no 'partial': true clears this; still <22 means the fix helped but did not fully resolve, and the next lever (further chunking the per-head candle/label read, or lowering --max-bars for the 5m/15m heads) is still open."
+  },
+  "state": "queued",
+  "what": "E6(b): observe whether the replay-pregate memory fix (PR #12921) actually gets a fleet run to grade all 22 shadow-stage heads. Fixed the harness's per-head memory lifetime (del label_rows/candle_rows right after their one use, gc.collect() per head in scripts/ml/replay_pregate_fleet.py) after diagnosing 6/6 nightly runs dying at head 10/22 (always the same head, always mid-BTC) against measured evidence of 5508/5909 MB used + 4 GB swap consumed at failure on the 1-OCPU/6-GB Ampere trainer (OCI pool full at 4/4 OCPU, so more memory is not available). landed_unproven until a run is observed grading 22/22 heads."
+}

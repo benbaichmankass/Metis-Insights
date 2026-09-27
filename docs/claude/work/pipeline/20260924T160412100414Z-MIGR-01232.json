@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "scha_trend_long_1d's registry row carries a reachability verdict computed against min(cap_R, tp_r) on the CURRENT geometry (tp_r 1.5, atr_stop_mult 3.0), and the operator has disposed of what it shows -- lower the arm, drop it, or record it inert. ⚠️ RE-RUNNING THE VENUE-CAP-ONLY COMPUTATION CLEARS NOTHING: that is the computation that produced the stale 83.1%.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E41-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "MANAGER-CHECKLIST.json#E41",
+    "rerun": "python3 -c \"import yaml; s=yaml.safe_load(open('config/strategies.yaml'))['strategies']['scha_trend_long_1d']; print('arm', s.get('trail_decay_arm_r'), 'tp_r', s.get('tp_r'), 'sm', s.get('atr_stop_mult'), '-> ceiling in R is min(cap_R, tp_r); arm fires only if that >= arm')\""
+  },
+  "state": "queued",
+  "what": "[strategy] config/lever_reachability.json grades scha_trend_long_1d's 2.00R arm '83.1% reachable' (54/65) and the 2026-09-22 strip dispatch cited it as the exemplar of a lever that FIRES -- but that figure is the VENUE cap only, measured 2026-08-16. M20 B4 has since cut this leg's tp_r 50.0 -> 1.5 and atr_stop_mult 2.5 -> 3.0. The placed TP is min(entry*(1+0.099), entry + tp_r*risk) (src/units/strategies/trend_donchian.py:393), so the ceiling is min(cap_R, 1.5) < the 2.00R arm on every entry: the leg held up as the working one looks inert. NOTHING WAS CHANGED -- the dispatch forbade touching this leg and this is the flag, not an action."
+}

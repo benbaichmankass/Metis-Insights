@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "M29 P4 backtest run with a recorded verdict: PASS -> a Tier-3 c_macro graduation proposal; FAIL -> an honest findings doc and the capability stays observe-only research. A rigorous negative is a completed outcome.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260723-M29-AI-SYSTEM-DYNAMICS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260723-M29-AI-SYSTEM-DYNAMICS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260723-M29-AI-SYSTEM-DYNAMICS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] [M29] AI-driven system-dynamics modelling — stock/flow/feedback engine + AI system-identification + scenario generation feeding M28 c_macro (PROPOSED, propose-only)"
+}

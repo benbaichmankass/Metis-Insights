@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only: MANAGER-CHECKLIST.json (three note appends on E20, E30, E44) and PIPELINE.jsonl (one append-only state update). No code, no config, no workflow, no strategy, no risk cap. It withdraws a factual claim the repo currently asserts in four places -- that only a human can clear a lane's permission prompt -- which was falsified on 2026-09-24 and, until this lands, is still the repo's position. Tier 1 per CLAUDE.md's table (docs / observability / read paths)."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260831-SCOPE-OVERLAP-ATTRIBUTOR-GRADES-A-SESSIONS-OWN-START-AS-ANOTHERS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260831-SCOPE-OVERLAP-ATTRIBUTOR-GRADES-A-SESSIONS-OWN-START-AS-ANOTHERS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-SCOPE-OVERLAP-ATTRIBUTOR-GRADES-A-SESSIONS-OWN-START-AS-ANOTHERS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "scope_overlap's attribution() compares a board START's branch to the PR's branch, so a session that posts ONE START and opens PRs from SEVERAL branches has its own START graded `other` and reported back at it. Same false-positive class as #10594, narrower form: that fix handled a START with no branch, this is a START with a DIFFERENT branch from the same session."
+}

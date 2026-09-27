@@ -27,10 +27,13 @@ def get_broker_truth(account_id: Optional[str] = Query(default=None)) -> dict[st
     """Authoritative per-account realized PnL from the committed broker-truth ledger.
 
     Shape: ``{present, count, account_id, accounts:[{account_id, realized_usd,
-    fees_usd, funding_usd, as_of, window_start, window_end, source, sub_accounts,
-    note}], updated_at}``. ``account_id`` filters to one account (still a list;
-    empty when unknown). Nulls where a figure isn't recorded (render as em-dash,
-    never 0).
+    fees_usd, funding_usd, as_of, as_of_age_days, stale, window_start,
+    window_end, source, sub_accounts, note}], updated_at}``. ``account_id``
+    filters to one account (still a list; empty when unknown). Nulls where a
+    figure isn't recorded (render as em-dash, never 0). ``as_of_age_days`` /
+    ``stale`` are computed at read time against this ledger's own ``as_of`` —
+    it has no scheduled refresh, so its age is the only signal a caller gets
+    that ``realized_usd`` may no longer reflect the account.
     """
     try:
         from src.runtime import broker_truth

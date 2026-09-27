@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "(1) The share of IB closes recording `pnl == 0.0` on a non-trivial price move is MEASURED over a stated window holding at least 20 IB closes, split by `exit_reason`. ⚠️ Five closes is not a denominator; do not re-quote this row's 5 as the population. (2) A close that cannot establish its PnL leaves the column NULL — demonstrated by a live row, not by a test, since the condition is a venue read the harness cannot reproduce. (3) The already-written zeros are dispositioned: either corrected with the basis recorded, or explicitly marked as unmeasured. ⚠️ DO NOT close this by back-filling a computed PnL onto the existing rows — the exit prices are `cost_source: estimate` and a derived number stamped over them would make an unmeasured close look measured, which is worse than the zero.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-EVERY-IB-CLOSE-IN-THE-WINDOW-RECORDS-A-PNL-OF-EXACTLY-ZERO-WHILE-THREE-OF-THEM-MOVED-35-POINTS-ON-DOZENS-OF-LOTS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-EVERY-IB-CLOSE-IN-THE-WINDOW-RECORDS-A-PNL-OF-EXACTLY-ZERO-WHILE-THREE-OF-THEM-MOVED-35-POINTS-ON-DOZENS-OF-LOTS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-EVERY-IB-CLOSE-IN-THE-WINDOW-RECORDS-A-PNL-OF-EXACTLY-ZERO-WHILE-THREE-OF-THEM-MOVED-35-POINTS-ON-DOZENS-OF-LOTS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Every closed IB trade in a 400-row window records `pnl: 0.0` (or NULL) while three of them moved 35-38 POINTS on 43-83 lots — a written zero, not an absent value, and it aggregates silently into every IB performance figure"
+}

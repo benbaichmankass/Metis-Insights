@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Observable, three parts, all checkable by running the guard: (a) `scripts/research/m20_coverage_rollup.py --validate` (or a new sibling check) FAILS on a bare `blocked` with no `:reason` suffix, demonstrated by a planted positive control - a temporarily bare-blocked cell must be REJECTED, since a quiet pass proves nothing; (b) the reason vocabulary is normalised to underscores and the validator rejects an unrecognised reason token, so the set is closed rather than free-text; (c) `xauusd_trend_1h / exit_head_ml` either carries a real recorded reason, or is re-statused to whatever it actually is, with the evidence cited. NOT resolution: adding a reason string to xauusd_trend_1h that was inferred rather than established - if the reason is unrecoverable, say so in the ref explicitly and close the row on (a)+(b) alone.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-COVERAGE-MATRIX-BLOCKED-REASON-VOCABULARY",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-COVERAGE-MATRIX-BLOCKED-REASON-VOCABULARY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-COVERAGE-MATRIX-BLOCKED-REASON-VOCABULARY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The coverage matrix's `blocked:<reason>` suffix is an unenforced convention: one cell carries a BARE `blocked` with no reason (which the legend requires), one uses a hyphen where every other uses underscores, and a mis-statused `n/a` sat in the blocked bucket until 2026-08-14"
+}

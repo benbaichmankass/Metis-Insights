@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260909-DAILY-LOSS-PCT-IS-A-FRACTION-IN-PRODUCTION-AND-A-PERCENT-IN-NINE-HARNESSES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-DAILY-LOSS-PCT-IS-A-FRACTION-IN-PRODUCTION-AND-A-PERCENT-IN-NINE-HARNESSES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-DAILY-LOSS-PCT-IS-A-FRACTION-IN-PRODUCTION-AND-A-PERCENT-IN-NINE-HARNESSES'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "daily_loss_pct carries a FRACTION in production and a PERCENT in nine harness files under the identical name and identical CLI flag, so passing the live value --daily-loss-pct 0.05 to a backtest simulates a daily-loss halt 100x tighter than live. This is the risk_pct twin, left unfixed when risk_pct was single-homed on 2026-08-20."
+}

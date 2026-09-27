@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER the operator records a DECIDED that an account with `strategies: []` should keep pulling its declared symbols (and _resolve_tick_symbols stops skipping such accounts for the DATA half while still excluding them from trading), OR records that the current skip is correct and `symbols:` on an inert account is documentation only. Also clears if both such accounts gain a non-empty roster, which makes the question moot.",
+    "kind": "observation"
+  },
+  "id": "PI-20260922-E42-EMPTY-ROSTER-ACCOUNTS-STILL-PULL-NO-DATA-AND-THE-REFRAME-MAY-WANT-THEM-TO",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01PDnYMJCPBohXArAKpUceZm, checklist row E42, branch lane/e42-roster-symbol-union",
+    "rerun": "python3 -c \"import yaml; a=yaml.safe_load(open('config/accounts.yaml'))['accounts']; print({n: c.get('symbols') for n,c in a.items() if isinstance(c.get('strategies'), list) and not c.get('strategies')})\"   # accounts whose roster is explicitly empty and whose declared symbols are therefore NOT fetched; {} == the question is moot"
+  },
+  "routed_to": "operator, at the next daily sync; checklist row E42 carries the same note",
+  "state": "queued",
+  "what": "MEASURED 2026-09-22 by the E42 lane against config/accounts.yaml at 06914ce2f: TWO accounts carry an explicit `strategies: []` -- ib_live (`symbols: [MES]`) and oanda_practice (`symbols: [XAUUSD]`) -- and `_resolve_tick_symbols` skips such an account ENTIRELY, so those 2 declared symbols are not fetched at all. That skip is unchanged by E42 and was deliberately left alone: removing it would ADD symbols to the live fetch set, which is a behaviour change the lane was not asked for. [!] BUT IT SITS AWKWARDLY WITH THE REFRAME THE LANE WAS BUILT TO IMPLEMENT. The operator's framing, verbatim, is that `symbols:` is 'additional data pulls unrelated to the strategies themselves' and that 'we can still continue pulling data... for other things even if they're not being traded'. An account that trades nothing is the purest case of that sentence, and it is the one case where the declaration is currently ignored. So today the pull list is additive EXCEPT when the roster is empty, where it is inert -- the roster still gates the data, just at the account level instead of the symbol level. [!] NOT A BUG TODAY, and saying so precisely: MES is fetched anyway (ib_paper rosters legs that trade it) and XAUUSD is fetched by nothing. So the only live consequence is that XAUUSD candles are not pulled for an account that declares them. The cost of getting this wrong in the other direction is real though -- fetching for an inert account spends broker calls per tick on an instrument nothing grades. OPERATOR CALL, not the lane's."
+}

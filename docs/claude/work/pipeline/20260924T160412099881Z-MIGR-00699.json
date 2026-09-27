@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) a live fc-geometry shadow-soak (exit_ladder_soak shape: log the fc-scaled SL/TP alongside the placed SL/TP per opening order, compare realized outcomes) shows a real net-R/maxDD improvement under the account rulesets, gating a Tier-3 proposal; or (b) the lever is closed as not-worth-pursuing after the soak shows no edge. A pure offline backtest is NOT sufficient (proven unfaithful here).",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "MB-20260705-FC-SLTP-GEOMETRY",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json#MB-20260705-FC-SLTP-GEOMETRY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='MB-20260705-FC-SLTP-GEOMETRY'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[ml] fc→SL/TP geometry offline backtest INCONCLUSIVE: forward triple-barrier re-sim fails reality-calibration (real-realized -0.68R vs fixed-resim -0.06R, ~0.6R gap) so the fc-vol-scaled +0.42R 'edge' is an in-simulator artifact, not a real-money result."
+}

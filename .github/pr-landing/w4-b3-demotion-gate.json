@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "B3: arms R4 as an enforcing Stage-2 DEMOTION gate (new scheduled workflow that can cut a leg from bybit_2/alpaca_live + mirror under MD-DEMOTE-S2-S1). Operator OK required; the manager brings it to the operator. Dry-run against 2026-09-25 live data demotes NOTHING (all 7 Stage-2 legs abstain_thin).",
+  "why": "adds scripts/ops/r4_demotion_gate.py (roster-cut enforcer over the existing R4 verdict + mandate resolver), its tests, and .github/workflows/r4-demotion-gate.yml (daily runner). No order-path code, no config change in this PR; the workflow's future output is a Tier-3 roster edit, held for a human merge."
+}

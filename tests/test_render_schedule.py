@@ -18,6 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.ops import pipeline  # noqa: E402
 from scripts.ops import render_schedule as rs  # noqa: E402
 
 
@@ -83,13 +84,11 @@ def _write_pipeline_item(store: Path, **over):
         "routed_to": None, "terminal_reason": None,
     }
     item.update(over)
-    store.parent.mkdir(parents=True, exist_ok=True)
-    with open(store, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps(item) + "\n")
+    pipeline.append(item, store, intent="new")
 
 
 def test_build_reads_all_three_inputs_from_an_isolated_root(tmp_path):
-    pipeline_store = tmp_path / "docs/claude/work/PIPELINE.jsonl"
+    pipeline_store = tmp_path / pipeline.STORE
     _write_pipeline_item(pipeline_store)
 
     decl = tmp_path / "docs/claude/work/SCHEDULE.json"
@@ -142,11 +141,10 @@ def test_an_unparseable_schedule_json_is_declared_not_silently_empty(tmp_path):
 # ── the split is pipeline.due(), never re-derived ──────────────────────────
 
 def test_decisions_and_monitoring_are_pipelines_own_due_rows(tmp_path):
-    store = tmp_path / "docs/claude/work/PIPELINE.jsonl"
+    store = tmp_path / pipeline.STORE
     _write_pipeline_item(store, id="D", next_action="ask_operator")
     _write_pipeline_item(store, id="M", next_action="dispatch_lane")
     import datetime
-    from scripts.ops import pipeline
     today = datetime.date(2026, 9, 21)
     b = rs.build(today=today, root=tmp_path)
     res = pipeline.read_log(store)

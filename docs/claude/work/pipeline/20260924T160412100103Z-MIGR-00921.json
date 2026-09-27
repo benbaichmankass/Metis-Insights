@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260902-THE-MANAGER-LEASE-HEARTBEAT-COSTS-A-FULL-CI-CYCLE-SO-IT-WILL-BE-SKIPPED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-THE-MANAGER-LEASE-HEARTBEAT-COSTS-A-FULL-CI-CYCLE-SO-IT-WILL-BE-SKIPPED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-THE-MANAGER-LEASE-HEARTBEAT-COSTS-A-FULL-CI-CYCLE-SO-IT-WILL-BE-SKIPPED'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Heartbeating the manager lease requires a PR through three required checks, so a ~20s liveness signal costs a ~10-18 minute CI cycle against a 90-minute TTL — the recurrence of a class twice marked resolved on lesser mechanisms"
+}

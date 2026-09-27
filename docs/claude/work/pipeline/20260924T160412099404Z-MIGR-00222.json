@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Observable: `_parse_last_updated` returns ONLY the first entry's summary -- i.e. its length stops growing as `- prior:` entries accumulate. A regression test that appends a second synthetic `- prior:` entry and asserts the returned summary is unchanged would pin it, since the defect is precisely that the field grows with history. Either fix is acceptable: terminate the summary at the first `) - prior:` boundary, or return a structured list of entries and let the consumer pick the first. NOT resolution: truncating the string to N characters, which would still be the whole chain, just clipped.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260814-ROADMAP-LASTUPDATED-SUMMARY-SWALLOWS-THE-PRIOR-CHAIN",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260814-ROADMAP-LASTUPDATED-SUMMARY-SWALLOWS-THE-PRIOR-CHAIN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260814-ROADMAP-LASTUPDATED-SUMMARY-SWALLOWS-THE-PRIOR-CHAIN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] roadmap.py::_parse_last_updated returns the ENTIRE prior-entry chain as the 'summary', so /api/bot/roadmap's lastUpdated summary is ~1000-1400 chars of history rather than the current entry"
+}

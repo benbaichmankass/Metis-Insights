@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The 2026-08-30 break is ATTRIBUTED: a session states which candidate it established, how, and over what population, and the e35 half is either reverted or cleared. The discriminating measurement above is run and its verdict recorded, which also discharges OI-20260830-E35-GEOMETRY-SHIPPED-TO-9-LEGS-NOT-YET-LIVE-VERIFIED. [!] 'THE MARKET CHOPPED' IS NOT A VERDICT UNLESS MEASURED -- it is the comfortable answer and needs the SAME evidence: the non-e35 control degrading equally. Asserting regime without the control is how a real parameter defect gets absorbed as weather. [!] PROFITABILITY RETURNING RESOLVES NOTHING -- the cause would stay unknown and the next occurrence just as invisible. [!] NOR DOES REVERTING e35 ALONE: without the control we never learn whether it was the cause, and ict_scalp_* stays unexplained. [!] AND A SEPARATE CLAUSE THAT MUST NOT BE FOLDED IN: nothing alarmed on fifteen consecutive losing days. A sustained per-book losing-streak detector is owed whatever the attribution turns out to be.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-A-DATED-REGIME-BREAK-ON-2026-08-30-COLLAPSED-THE-DIRECTIONAL-LEGS-WIN-RATE-AND-NOBODY-NOTICED-FOR-TWO-WEEKS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-A-DATED-REGIME-BREAK-ON-2026-08-30-COLLAPSED-THE-DIRECTIONAL-LEGS-WIN-RATE-AND-NOBODY-NOTICED-FOR-TWO-WEEKS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-A-DATED-REGIME-BREAK-ON-2026-08-30-COLLAPSED-THE-DIRECTIONAL-LEGS-WIN-RATE-AND-NOBODY-NOTICED-FOR-TWO-WEEKS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] Directional legs broke on 2026-08-30 — trend_donchian win rate 74.1% → 12.9%, ict_scalp 54.7% → 31.8%, bybit_1 has had FIFTEEN consecutive losing days, and no review or monitor raised it"
+}

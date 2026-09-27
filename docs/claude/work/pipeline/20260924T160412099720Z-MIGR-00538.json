@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) claude-pr-automerge FAILS LOUDLY (non-zero, named check) rather than exiting 0 when it cannot arm because the PR is a draft -- verified by a run log on a deliberately drafted PR showing the red; OR (b) it un-drafts a PR it ADOPTED (adoption is consent; it already correctly refuses to un-draft one it did not open), verified on a real PR; OR (c) CLAUDE.md's remedy paragraph states that the PR must be opened NON-DRAFT for the arming file to take, AND a session is observed following it. [!] (c) alone is a prose fix for a class this repo has twice paid for as prose -- prefer (a), which is the board-post.yml posture of refusing to report a post it did not make. [!] A GREEN SELF-TEST CLEARS NOTHING: the failure is that a real workflow exits 0 having armed nothing.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260909-OPENING-A-PR-AS-A-DRAFT-SILENTLY-DEFEATS-THE-ARMING-FILE-AND-MARKING-IT-READY-AFTERWARDS-DOES-NOT-ARM-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260909-OPENING-A-PR-AS-A-DRAFT-SILENTLY-DEFEATS-THE-ARMING-FILE-AND-MARKING-IT-READY-AFTERWARDS-DOES-NOT-ARM-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260909-OPENING-A-PR-AS-A-DRAFT-SILENTLY-DEFEATS-THE-ARMING-FILE-AND-MARKING-IT-READY-AFTERWARDS-DOES-NOT-ARM-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] RECURRENCE of BL-20260904 through CLAUDE.md's OWN newly-documented remedy: open-the-PR-yourself + create-as-draft leaves auto-merge unarmed, and marking it ready afterwards does not retroactively arm it"
+}

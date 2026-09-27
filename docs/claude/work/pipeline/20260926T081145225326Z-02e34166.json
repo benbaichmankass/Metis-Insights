@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the `grade` step wraps its `... | tee /tmp/grade.txt` pipe in a scoped `set +e` / `set -e` (or equivalent) so `rc`, `controls_broken` and `capture_bad` are written to $GITHUB_OUTPUT on every exit code of orderflow_capture_freshness.py, AND a run forced to exit 1 or 2 is observed to actually reach the paging step that keys on it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260926-P64CTNIO-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": ".github/workflows/trainer-capture-watch.yml:227-239 (step id: grade)",
+    "rerun": "grep -n -A15 'set -uo pipefail' .github/workflows/trainer-capture-watch.yml | grep -B5 PIPESTATUS && grep -n 'steps.grade.outputs' .github/workflows/trainer-capture-watch.yml"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "[ci] trainer-capture-watch.yml's `grade` step (id: grade, line ~227) has the same swallowed-exit-code bug just fixed in research-loss-detector.yml: `set -uo pipefail` does not clear the runner's default `-e`, so when `scripts/ops/orderflow_capture_freshness.py --require-controls | tee /tmp/grade.txt` exits 1 (stale capture) or 2 (controls misgraded), the pipe fails under pipefail+e and the step aborts before `rc=${PIPESTATUS[0]}` and the `rc`/`controls_broken`/`capture_bad` GITHUB_OUTPUT writes ever happen. `continue-on-error: true` on that step only stops the JOB from failing -- it does not let the script continue past the abort point. Downstream, the 'Page: capture stale/absent' step (if: steps.grade.outputs.capture_bad == 'true'), the 'Page: controls broken' step (if: steps.grade.outputs.controls_broken == 'true'), and the final verdict step's exit-1 checks (lines ~320-327) all key on outputs that were never written in exactly the failure case this alarm exists to catch -- the page silently does not fire on a stale trainer capture or on a broken control. Positive control: oci-inventory.yml already hit and fixed this identical shape (comment at its top, 'THE POSITIVE CONTROL FOUND A REAL DEFECT') with a scoped `set +e` before the pipe / `set -e` right after `rc=${PIPESTATUS[0]}`; the same PR that fixed research-loss-detector.yml applied that pattern there too and left this file untouched to keep that PR's scope to one workflow."
+}

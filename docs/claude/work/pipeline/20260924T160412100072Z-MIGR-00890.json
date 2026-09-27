@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260901-WORK-DIGEST-DAILY-LATCH-CANNOT-FIRE-ON-THE-ONLY-PATH-THAT-RUNS-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-WORK-DIGEST-DAILY-LATCH-CANNOT-FIRE-ON-THE-ONLY-PATH-THAT-RUNS-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-WORK-DIGEST-DAILY-LATCH-CANNOT-FIRE-ON-THE-ONLY-PATH-THAT-RUNS-IT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "work_digest.py's 'one digest per UTC day' latch lives under gitignored runtime_logs/, so a fresh Actions checkout never has it and the latch is inert in CI -- while it WOULD fire on the VM, so the same code queues 6 digests/day or 1 depending where it runs"
+}

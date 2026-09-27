@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) prop ticket sizing consults distance_to_dd_floor_usd and caps risk so that a single loss cannot take the account within one further loss of the floor -- observed on a real emitted ticket whose risk_usd is below the naive 1.5% figure BECAUSE of the floor, not because the balance fell; OR (b) the operator records a DECISION to accept the current sizing against the floor, with the two-losses-and-it-is-dead consequence stated in the decision itself. [!] A FRESH `bal` REPORT RESOLVES NOTHING HERE -- it fixes the freshness gate, which is a different row. If the new balance is higher the headroom grows and the arithmetic still has no guard. [!] AND THE ACCOUNT SURVIVING A TRADE IS NOT EVIDENCE: a winning trade says nothing about whether the sizing path can see the floor.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-PROP-TICKET-RISK-IS-75-DOLLARS-AGAINST-87-DOLLARS-OF-DRAWDOWN-FLOOR-SO-TWO-LOSSES-PERMANENTLY-DISABLE-THE-ACCOUNT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] breakout_1 sizes each ticket at ~$75 risk with $87.34 of static-drawdown headroom — two losing trades permanently disable the account, and nothing in the sizing path knows it"
+}

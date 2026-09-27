@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "BASIS: the percentages here are ARITHMETIC on two constants (29.0 / 60.0), not a\nsample - they state what one timeout WOULD cost whenever it fires. The observations\nthey are set against are max pass 58940.8ms over n=694 passes (process started\n2026-08-15T23:06:29Z) and max pass 40872.5ms over n=11 (process started\n2026-08-16T06:24:32Z). How OFTEN it fires is UNMEASURED, which is criterion 1 and the\nreason this row proposes no value.\n\n1. COUNT IT FIRST. Add a counter for the _IB_FETCH_QUEUE_TIMEOUT_S and\n_IB_USAGE_LOCK_WAIT_S paths (both currently log-only) so the firing RATE is a number\nrather than an inference from a max. Tier-1, and it is the prerequisite for the rest.\n2. Only then decide whether 29.0s belongs inside a 60s budget, and state explicitly\nwhat the alternative costs in degraded fetches - do not optimise the interval into a\nMONITOR BLIND.\n3. Consider decoupling the derivation: the queue timeout is currently a function of\nIB_FETCH_TIMEOUT_S, so tuning the per-request cap silently moves the exit budget too.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260816-IB-QUEUE-TIMEOUT-EXCEEDS-EXIT-BUDGET'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] A single IB fetch queue timeout consumes 48% of the 60s exit-evaluation budget, and the two numbers were set in different sessions with no reference to each other"
+}

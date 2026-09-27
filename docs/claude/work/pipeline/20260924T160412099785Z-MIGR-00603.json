@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "BOTH, and they are different facts -- say WHICH you cleared. (1) THE NINE BARE ROWS: each of the nine named above either carries a closure record (resolved_at plus one of resolution / resolution_note / a terminal `disposition` update) or is RE-OPENED because nobody can establish it was ever finished. Re-opening is an acceptable outcome and for the two HIGH ones may be the right one -- do not treat back-filling a plausible reason as clearing this, because inventing a closure record is strictly worse than the blank it replaces. (2) THE FLOOR EXISTS: a diff-scoped check refuses a row this change moves INTO a terminal status while carrying no closure record, and it is OBSERVED failing on a planted row and passing on a real one (both controls, not just the negative). [!] DO NOT CLEAR ON A WHOLE-TREE GATE: at 26% attributable it would fail every PR on day one and be switched off, which check_backlog_criteria's own comments already say in terms. [!] DO NOT CLEAR BY BACK-FILLING THE 114: 105 of them carry prose and the reason may genuinely be recoverable by reading; bulk-stamping them with a synthesised resolved_by would destroy the distinction between a documented closure and an undocumented one, which is the only thing this row is about. [!] AND IF THE OPERATOR DECIDES the closure record is not worth enforcing, this row does not clear -- it CHANGES: that is a legitimate decision and must be RECORDED as one rather than left looking like work about to start.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260912-NINE-BACKLOG-ROWS-ARE-MARKED-CLOSED-WITH-NO-DATE-NO-AUTHOR-NO-REASON-AND-NO-PROSE-ANYWHERE-IN-THE-ROW-SO-THE-BURN-DOWN-NUMBER-IS-UNAUDITABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260912-NINE-BACKLOG-ROWS-ARE-MARKED-CLOSED-WITH-NO-DATE-NO-AUTHOR-NO-REASON-AND-NO-PROSE-ANYWHERE-IN-THE-ROW-SO-THE-BURN-DOWN-NUMBER-IS-UNAUDITABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260912-NINE-BACKLOG-ROWS-ARE-MARKED-CLOSED-WITH-NO-DATE-NO-AUTHOR-NO-REASON-AND-NO-PROSE-ANYWHERE-IN-THE-ROW-SO-THE-BURN-DOWN-NUMBER-IS-UNAUDITABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] 819 closed rows, and only 53 record WHO closed them and on what basis — 114 carry a terminal status and none of the six closure fields, 9 of those carry no prose either, so `closed 71 rows in September` cannot be audited at all"
+}

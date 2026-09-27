@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "BOTH: (a) the `family` value on exit-head-donchian-1h-v1 is READ from the live mirror (trainer-vm-diag relay, or by allowlisting the exit_head artifact dir on /api/diag/log_file) and RECORDED here -- reading it is the whole blocker and is worth doing even if nothing else follows; and (b) either the donchian call site passes its family once that value is confirmed accepted, or a decision is recorded that donchian stays ungated and WHY. ⚠️ Do NOT close this on the ict_scalp half alone: that half is already done and closing on it would leave the live advisory path ungated behind a row that reads resolved.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260906-EXIT-HEAD-ARTIFACT-DECLARES-A-FAMILY-AND-THE-IN-DISTRIBUTION-GUARD-NEVER-READ-IT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260906-EXIT-HEAD-ARTIFACT-DECLARES-A-FAMILY-AND-THE-IN-DISTRIBUTION-GUARD-NEVER-READ-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260906-EXIT-HEAD-ARTIFACT-DECLARES-A-FAMILY-AND-THE-IN-DISTRIBUTION-GUARD-NEVER-READ-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The exit-head artifact has declared a `family` since export_exit_head.py:116 and the in-distribution guard never read it — tf+symbols cannot separate two strategies on the same symbol and timeframe"
+}

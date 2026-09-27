@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Ten consecutive pairs opens where both legs remain open until a pairs_revert / pairs_stop / max_hold_bars close, with zero half_open rows in the same window.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-PAIRS-SOL-ETH-STRANDS-ON-EVERY-OPEN'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] pairs_sol_eth has half-open-stranded on 8 of 8 opens since 08-18 — a pairs leg opposing a concurrent directional position on the same one-way-netting account is netted away within ~5 min and read as a broker close"
+}

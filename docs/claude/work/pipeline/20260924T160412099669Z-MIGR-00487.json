@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "A CHECK, not a reminder — a fourth restatement is the non-fix this repo has already paid for on MI-15. Either: (a) check_manager_scope.py R8 additionally FAILS when an entry in a non-terminal state (`rebasing`/`green`/`waiting`/`blocked`) names a PR that is closed or merged on main, so the phantom fails the next manager PR rather than waiting to be noticed; or (b) the merge-queue entry is advanced by the same mechanism that observes the merge. ⚠️ CLEARS ONLY ON AN OBSERVATION: the guard must be seen FAILING a real PR that carries a phantom entry, or seen PASSING a queue whose phantom was auto-advanced. A green self-test clears nothing — a harness is exactly what cannot reach a merge. ⚠️ AND IF THE OPERATOR DECIDES the queue should stay hand-maintained, this row does NOT clear, it CHANGES: the slot is then knowingly unguarded against phantoms and that must be RECORDED as a decision, with the consequence stated.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260908-MERGE-QUEUE-ENTRIES-NEVER-ADVANCE-WHEN-THE-PR-LANDS-SO-R8-S-ONE-SLOT-IS-HELD-BY-PHANTOMS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-MERGE-QUEUE-ENTRIES-NEVER-ADVANCE-WHEN-THE-PR-LANDS-SO-R8-S-ONE-SLOT-IS-HELD-BY-PHANTOMS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-MERGE-QUEUE-ENTRIES-NEVER-ADVANCE-WHEN-THE-PR-LANDS-SO-R8-S-ONE-SLOT-IS-HELD-BY-PHANTOMS'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] MERGE-QUEUE.json entries stay `rebasing` after their PR merges — TWO phantoms de-phantomed by hand in a single manager session, and the phantom holds the one slot R8 exists to protect"
+}

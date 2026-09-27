@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/skill-doc + comms review-output + pipeline JSONL only; no src/, config/, or live-path file touched"
+}

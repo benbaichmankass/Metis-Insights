@@ -1,0 +1,1 @@
+A10 lane: arm self-landing for PR #12851 (Tier-1, registers/docs only). Automerge cannot match lane/* (PI-20260922-JN54P2HH-0003) -- the manager merges.

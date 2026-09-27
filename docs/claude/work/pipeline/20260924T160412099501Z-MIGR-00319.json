@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "/api/diag/tick_cost (or a sibling diag read) reports _CANDLE_CACHE entry count and a cumulative wholesale-flush counter, so a session can state how often the map was cleared over a window instead of inferring it from fetch counts. LRU eviction instead of .clear() would also close it, and is the better fix if taken.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260821-CANDLE-CACHE-SIZE-AND-FLUSH-UNOBSERVABLE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-CANDLE-CACHE-SIZE-AND-FLUSH-UNOBSERVABLE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-CANDLE-CACHE-SIZE-AND-FLUSH-UNOBSERVABLE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] _CANDLE_CACHE clears itself WHOLESALE at >512 entries and neither its size nor the flush is reportable anywhere — so a poisoning source can be estimated but never observed"
+}

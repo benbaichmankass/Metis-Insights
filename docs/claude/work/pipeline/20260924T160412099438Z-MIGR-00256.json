@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A send-ping whose parsed message is materially shorter than the issue body's intended message either fails the action or is visibly reported as truncated in the issue comment; demonstrated by a deliberate multi-line `message: |` dispatch that does NOT close as a clean success.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260815-SEND-PING-BLOCK-SCALAR-DELIVERS-ONE-CHARACTER",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260815-SEND-PING-BLOCK-SCALAR-DELIVERS-ONE-CHARACTER",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260815-SEND-PING-BLOCK-SCALAR-DELIVERS-ONE-CHARACTER'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] send-ping silently delivered `|` for 8 consecutive hourly pings and exited 0"
+}

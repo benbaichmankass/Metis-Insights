@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "a shadow_predictions.jsonl row for model_id=exit-head-donchian-1h-v1, logged AFTER 2026-09-24T22:33Z, is observed with stage='shadow' (confirms the live-served artifact reflects the demotion), OR one is observed still carrying stage='advisory' (would mean the publish did not actually take effect on the live VM and needs re-diagnosis).",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-Y2NFASK3-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane E74, session_015rQJ6stNY7ixzRy2NfASk3, trainer-vm-diag issues #12910/#12911, comms/reviews/e74-ml-followups-20260924.json",
+    "rerun": "vm-diag-snapshot: `api/diag/log_file?name=shadow_predictions&lines=50` (or `api/bot/shadow/stats?model_id=exit-head-donchian-1h-v1`) once any of trend_donchian / trend_donchian_sol / trend_donchian_eth next opens a position -- confirm the next logged row for this model_id carries stage='shadow', not 'advisory'."
+  },
+  "severity": "high",
+  "state": "queued",
+  "tier": 2,
+  "what": "exit-head-donchian-1h-v1 was demoted advisory->shadow this session (E74, operator-approved: 'Investigate + demote (Recommended)', popup in manager session_01Ljhs6sFAdWHdMDhJpL5aBP ~21:50Z 2026-09-24) by patching the `stage` field of the trainer-side artifact JSON in place (runtime_logs/trainer_mirror/exit_head/exit-head-donchian-1h-v1.json -- this artifact has NO ml.registry-store entry, so `promote-stage` cannot act on it; see the finding in comms/reviews/e74-ml-followups-20260924.json part_b for why) and republishing via `bash scripts/ops/publish_trainer_mirror.sh`. MEASURED (trainer-vm-diag #12911, run 36068023081): trainer-side read-back confirms stage=shadow, and the publish step's own log ends `{\"status\":\"published\",\"dest\":\"ubuntu@141.145.193.91:/data/bot-data/runtime_logs/trainer_mirror\"}`. NOT YET VERIFIED: the live VM's SERVED behavior -- a shadow_predictions.jsonl row with model_id=exit-head-donchian-1h-v1 actually carrying stage='shadow' (not 'advisory'). None of the three wired legs (trend_donchian / trend_donchian_sol / trend_donchian_eth) currently has an open position, so the scorer has nothing to fire on yet; this is a genuine wait for the next donchian-family entry on one of those three legs, not a gap in the mechanism."
+}

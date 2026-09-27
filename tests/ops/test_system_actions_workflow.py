@@ -171,6 +171,13 @@ EXPECTED_ACTIONS = {
     # pending restart. No write, no restart, no socket; secret-NAMED keys are
     # fingerprinted, never printed (this action's stdout lands on a public issue).
     "get-env": "get_env_action.sh",
+    # 2026-09-25 (issue #12938) — the DELETE half neither set-env nor get-env
+    # provide. set-env's empty-value guard correctly refuses to blank a key,
+    # which also means it cannot retire one; this removes a key's line(s)
+    # from an env file (fixed RETIRABLE_KEYS allowlist inside the script,
+    # same doctrine as get_env.py::ALLOWED_KEYS) and restarts the service.
+    # Tier 2: .env mutation + service restart.
+    "unset-env": "unset_env.sh",
     # 2026-05-27 — strips systemd-EnvironmentFile-noncompliant lines from .env
     # (the orphan FCM-JSON-blob case that bled a PEM private key into the
     # journalctl tail on issue #2157). Tier 2: .env mutation + service restart.
@@ -366,6 +373,7 @@ TIER_2_ACTIONS = {
     "rotate-account-keys",
     "init-diag-token",
     "set-env",
+    "unset-env",
     "scrub-env-noncompliant",
     "pause-autoheal",
     "resume-autoheal",

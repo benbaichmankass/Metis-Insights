@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260824-THE-CI-NOT-ATTACHING-WORKAROUND-SCANS-THREE-FEWER-GUARDS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260824-THE-CI-NOT-ATTACHING-WORKAROUND-SCANS-THREE-FEWER-GUARDS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260824-THE-CI-NOT-ATTACHING-WORKAROUND-SCANS-THREE-FEWER-GUARDS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "The sanctioned remedy for BL-20260730-PR-CI-NOT-ATTACHING is a manual workflow_dispatch of guards/pytest-run/pytest-collect. Measured on PR #10215 (2026-08-24): a dispatched guards run reports the SAME headline as a pull_request run -- 'PASS 50 FAIL 0 SKIP 0' followed by 'All relevant guards passed' -- while having scanned THREE FEWER guards. The run footer says so ('NOT SCANNED on this event (3) -- no PR diff to scope by'): api-tier-policy-guard, test-schema-fidelity-guard and diagnostic-provenance-guard consume the {pr_diff} template variable, which is empty on a non-pull_request event. So the workaround for a bug whose whole danger is 'a check that silently did not run renders identically to green' itself renders a reduced scan identically to a full one, in the headline a reader quotes."
+}

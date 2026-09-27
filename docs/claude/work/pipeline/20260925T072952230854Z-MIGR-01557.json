@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "due_date": "2026-12-01",
+    "kind": "date"
+  },
+  "id": "PI-20260925-REVERIFY-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "MANAGER-CHECKLIST.json#E39 / PR fixing regime_debt_matrix.py classify()",
+    "rerun": "python3 -c \"import json; rows=[json.loads(l) for l in open('comms/strategy_evidence/runs/<date>/fade_breakout_4h__trades.jsonl')]; print('exit_time' in rows[0])\"  -- expect False until backtest_fade.py's Trade emission is extended"
+  },
+  "state": "queued",
+  "what": "[research] SECONDARY FINDING from E39's fade-harness fix (this PR): scripts/backtest_fade.py's --emit-trades rows carry NO exit_time field (confirmed: all 27 rows in comms/strategy_evidence/runs/2026-09-25/fade_breakout_4h__trades.jsonl read trades_without_exit_time=27/27), unlike backtest_trend.py/backtest_pullback.py's emitted rows. Does NOT affect net_r_oos or the RULE-D1 verdict (both come from the harness's own bt.json net_total_r, independent of path_stats), but it silently degrades path_stats.worst_day_r/worst_day_date to null for any leg on this harness -- currently only fade_breakout_4h, one leg, execution:shadow, no B6 prop-cushion decision reads it today. Also worth a corpus-wide check once a second fade-family leg exists: was any OTHER config/strategies.yaml leg silently misrouted by classify() sharing a structural key across two harness families the way fade_breakout_4h/trend_donchian shared `donchian`? Checked for THIS collision only (pierce_min confirmed unique fleet-wide, tests/test_regime_debt_matrix_fade.py::test_the_signature_key_is_unique_to_this_family) -- a fleet-wide sweep for OTHER such collisions was not run."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A DECISION recorded, then implemented — this is a design call, not a one-line fix. The options are (a) add a time component to measurement_key so re-sweeps accumulate, which grows the store without bound and needs a retention policy of its own; (b) keep superseding but write the superseded row to a history sidecar; (c) accept it and REWRITE RQ-20260831-002's question so it no longer claims to be longitudinal, since an accrual job that erases its own accrual is worse than no job. Resolved when the choice is written down with its reason AND a re-sweep is observed to leave the prior measurement readable (a) or (b), or the job's question no longer asks for it (c). A passing extractor test is not the criterion: the criterion is two dated measurements of one cell readable at the same time, or a question that does not need them.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260831-E35-CORPUS-SUPERSEDES-THE-BASELINE-ITS-MONTHLY-JOB-ASKS-ABOUT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260831-E35-CORPUS-SUPERSEDES-THE-BASELINE-ITS-MONTHLY-JOB-ASKS-ABOUT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-E35-CORPUS-SUPERSEDES-THE-BASELINE-ITS-MONTHLY-JOB-ASKS-ABOUT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[research] e35_corpus_extract.measurement_key has NO time component, so a re-sweep SUPERSEDES the prior measurement of the same cell. RQ-20260831-002 is a MONTHLY job whose question is explicitly longitudinal — 'are the shipped cells still behaving as they did when they shipped?' — so running it destroys the baseline it compares against. The job cannot answer its own question from the store it writes to."
+}

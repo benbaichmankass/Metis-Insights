@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A dispatched run is graded `infeasible` by the R4 gate and its rows land carrying research_power_state=infeasible, OBSERVED in the live corpus via research_disposition. ⚠️ TIGHTENED 2026-08-31: the original wording said 'any state other than not_queue_dispatched', which `accruing` met the same day — clearing on that would have retired a row whose id names a state nothing has produced. The generic 'does the stamp travel at all' question is SETTLED and recorded in the observation; only `infeasible` is still owed. If no queue unit can ever be graded `infeasible` (none is today, because that grade needs a corpus-grounded feasibility check that REFUTES the declared n), then the honest close is to say so and retire the state or the row — not to wait forever.",
+    "kind": "observation",
+    "last_checked": "2026-08-31"
+  },
+  "id": "OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260831-RESEARCH-QUEUE-INFEASIBLE-STATE-SHIPPED-BUT-NEVER-REACHED-LIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[LOUD] The stamp chain IS proven live as of 2026-08-31 (995 rows carry `accruing`, read from the corpus). What remains unproven is this row's own subject: the `infeasible` grade has never been produced by a real run. Do not cite `infeasible` as an exercised path."
+}

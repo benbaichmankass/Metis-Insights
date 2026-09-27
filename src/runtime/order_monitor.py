@@ -10760,7 +10760,7 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
         "reclassified": 0,
     }
 
-    # Scope: closed, non-backtest, pnl IS NULL, opened within
+    # Scope: closed, non-backtest, pnl IS NULL, CLOSED within
     # Bybit's 7-day closed-pnl retention window. Cap at 50 to
     # bound per-tick API load — the sweep runs every tick so a
     # backlog drains in a couple of minutes.
@@ -10776,9 +10776,14 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
                 " WHERE status = 'closed' "
                 "   AND COALESCE(is_backtest, 0) = 0 "
                 "   AND pnl IS NULL "
-                "   AND datetime(created_at) >= "
+                # E62: keyed on the CLOSE, like the local sweep since MI-128.
+                # Keyed on the open, a position held > 7 days was outside the
+                # window the moment it closed, and its broker truth was never
+                # asked for. Filed 2026-09-05 as
+                # BL-20260905-BYBIT-BROKER-PNL-SWEEP-WINDOW-ALSO-KEYS-ON-THE-OPEN.
+                "   AND datetime(COALESCE(closed_at, created_at)) >= "
                 "       datetime('now', '-7 days') "
-                " ORDER BY datetime(created_at) DESC "
+                " ORDER BY datetime(COALESCE(closed_at, created_at)) DESC "
                 " LIMIT 50"
             )
             rows = [dict(r) for r in cursor.fetchall()]
@@ -11045,7 +11050,10 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
       * Integration **with** a broker reader (Bybit): the Bybit sweep owns
         fee-accurate recovery within the convergence grace
         (``_LOCAL_PNL_BROKER_DEFER_MS`` = the INV-2 db-integrity grace). This
-        sweep only fills such a row once it is OLDER than that grace — i.e. the
+        sweep only fills such a row once its CLOSE is older than that grace
+        (E62: it was measured from the open, which left a >6h hold no grace) —
+        or once the fills resolver has already stamped ``exchange_fill``,
+        which is all that reader will ever provide — i.e. the
         broker reader has had its window and still can't provide the number (no
         closed-pnl record exists; BL-20260623-001) — so we never pre-empt the
         fee-accurate number (preserves the 2026-05-18 SSOT-from-broker directive)
@@ -11192,9 +11200,35 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
             # closed-pnl record exists — BL-20260623-001) so it converges to a
             # truthful realised pnl instead of stranding ``closed``/NULL until
             # the 7-day retention window and tripping INV-2.
-            if account_has_broker_pnl_reader(cfg):
-                created_ms = _isoformat_to_ms(row.get("created_at"))
-                if created_ms is None or (now_ms - created_ms) < _LOCAL_PNL_BROKER_DEFER_MS:
+            #
+            # E62 (2026-09-24): the grace is measured from the CLOSE. It was
+            # measured from `created_at`, the OPEN, so a position held longer
+            # than 6h reached its close with no grace left and was priced here
+            # on the very next tick from the close path's `verdict` price,
+            # before the hourly fills pull had landed its fill. That set `pnl`,
+            # and the broker sweep only selects `pnl IS NULL`, so it never
+            # looked. Measured on the live journal (trades ids <= 6141): all 30
+            # alpaca sl/tp/giveback closes since the Alpaca fills reader landed
+            # (#8111, 2026-07-31) were held >= 6h and 0 carry a MEASURED exit;
+            # the ib_paper sl/tp closes held < 6h resolved `ib_execution` 7 of 8
+            # times. Filed 2026-09-05 as
+            # BL-20260905-LOCAL-PNL-BROKER-DEFER-GRACE-KEYS-ON-THE-OPEN.
+            #
+            # A row whose exit the fills resolver has ALREADY priced
+            # (`exchange_fill`: Alpaca equities, Bybit demo) is not deferred:
+            # that reader returns a price and never a pnl, so waiting out the
+            # grace would buy nothing but a 6h NULL. `exchange` (Bybit real,
+            # stamped at close) is NOT exempt, since its fee-accurate closed-pnl
+            # record is still owed by the broker sweep.
+            if (
+                account_has_broker_pnl_reader(cfg)
+                and _decode_notes(row.get("notes")).get("exit_price_source")
+                != FILL_EXIT_SOURCE
+            ):
+                closed_ms = _isoformat_to_ms(
+                    row.get("closed_at") or row.get("created_at")
+                )
+                if closed_ms is None or (now_ms - closed_ms) < _LOCAL_PNL_BROKER_DEFER_MS:
                     summary["deferred_broker"] += 1
                     continue
 

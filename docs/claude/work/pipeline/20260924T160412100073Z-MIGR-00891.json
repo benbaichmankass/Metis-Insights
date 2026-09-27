@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260901-RESETTING-A-CLAUDE-BRANCH-ONTO-NEWER-MAIN-REFIRES-PR-OPENER-FOR-SOMEONE-ELSES-REQUEST",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-RESETTING-A-CLAUDE-BRANCH-ONTO-NEWER-MAIN-REFIRES-PR-OPENER-FOR-SOMEONE-ELSES-REQUEST",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-RESETTING-A-CLAUDE-BRANCH-ONTO-NEWER-MAIN-REFIRES-PR-OPENER-FOR-SOMEONE-ELSES-REQUEST'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "Rebasing/resetting a claude/** branch onto a newer main re-fires pr-opener for ANOTHER session's still-pending pr-request, and commits that result onto YOUR branch -- silently making a bot commit your PR head and disarming your CI"
+}

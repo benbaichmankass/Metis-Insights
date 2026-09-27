@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260901-AUTO-MERGE-DATA-PR-ABANDONED-ON-CONFLICT-AND-NOTHING-ALARMS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-AUTO-MERGE-DATA-PR-ABANDONED-ON-CONFLICT-AND-NOTHING-ALARMS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-AUTO-MERGE-DATA-PR-ABANDONED-ON-CONFLICT-AND-NOTHING-ALARMS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "econ-calendar-produce's auto-merge PR #10398 has sat mergeable_state=dirty since 2026-08-29 — that day's PIT snapshots never landed and nothing alarmed for 3 days"
+}

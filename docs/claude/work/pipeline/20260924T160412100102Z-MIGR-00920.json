@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260902-PR-QUEUE-WATCH-CONCURRENCY-SERIALISES-RUNS-NOT-RECEIPT-LANDINGS",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260902-PR-QUEUE-WATCH-CONCURRENCY-SERIALISES-RUNS-NOT-RECEIPT-LANDINGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260902-PR-QUEUE-WATCH-CONCURRENCY-SERIALISES-RUNS-NOT-RECEIPT-LANDINGS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "pr-queue-watch.yml's concurrency group serialises RUNS but not RECEIPT LANDINGS — a second run can read a main its predecessor's auto-merge receipt has not reached, write a conflicting receipt, strand the branch, and put a FALSE PAGE on the cron-failure channel"
+}

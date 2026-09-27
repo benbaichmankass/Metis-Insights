@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260905-PR-10895-IS-BLOCKED-BY-A-MERGE-CONFLICT-AND-AN-UNATTRIBUTED-R2-NOT-BY-R7",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260905-PR-10895-IS-BLOCKED-BY-A-MERGE-CONFLICT-AND-AN-UNATTRIBUTED-R2-NOT-BY-R7",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260905-PR-10895-IS-BLOCKED-BY-A-MERGE-CONFLICT-AND-AN-UNATTRIBUTED-R2-NOT-BY-R7'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "#10895's R7 face CLEARS when measured against #10895 itself, but the PR is blocked by a merge conflict and carries an unresolved R2 that main's guard now grades `unattributed`"
+}

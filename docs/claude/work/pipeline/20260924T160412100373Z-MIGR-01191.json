@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "scripts/backtest_xsec_momentum.py charges a funding cost per rebalance period (or a dated decision doc explicitly excludes it with a stated reason).",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-E3-XSEC-MOMENTUM-FUNDING-GAP",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "checklist E3 build lane, session_01HmQgaLfZv9rv7uuWfgA321",
+    "rerun": "grep -n \"FUNDING_BPS_PER_WINDOW\\|funding_bps_per_window\\|slippage_bps\" scripts/backtest_xsec_momentum.py"
+  },
+  "routed_to": null,
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "checklist E3: scripts/backtest_xsec_momentum.py was wired to execution_costs for SLIPPAGE (via the same per-rebalance turnover-cost mechanism as its existing fee), but FUNDING was deliberately left unwired. The harness holds WEIGHTS across a multi-symbol universe with rebalance-to-rebalance bookkeeping, not per-position entry/exit Trade objects, so there is no clean per-leg hold-duration to charge execution_costs' funding-window drag against. The book trades a crypto-perp universe (per its own docstring: \"crypto long/short, dollar-neutral\"), so funding IS a real, currently-unpriced cost. Needs either (a) a per-symbol position-duration tracker between rebalances so funding windows crossed can be computed per leg, or (b) an explicit, documented decision that funding is out of scope for this harness with a stated reason beyond \"not yet built\"."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "scripts/ops/diag_relay_render.py (the diag relay's comment renderer: a list over budget is now cut at whole elements and the marker states how many of how many survived and that the final element is NOT shown), tests/test_diag_relay_render.py (new), and docs/claude/work/PIPELINE.jsonl (closes PI-20260924-JN54P2HH-0004 with the measured cause; files PI-20260924-L1AUT4FF-0001). All TIER1_SURFACE (scripts/**, tests/**, docs/**). Changes only what a diag COMMENT shows -- no VM command, no query, no src/, no config/, no workflow, no order path. The E50 question touched the order-election path (intent_multiplexer / arbitration_fanout_soak) but NOTHING under src/ is changed: the soak was established to have been writing all along, so no runtime change was needed."
+}

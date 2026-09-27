@@ -6,6 +6,23 @@ bot state without poking the live process.
 
 Atomic write semantics: render into a sibling ``.tmp`` then ``os.replace``
 so a reader never sees a half-written file.
+
+⚠️ **``live`` AND ``strategies`` REPORT THE FILE, NOT THE PROCESS — and that
+is the E31 defect, stated here rather than left to be rediscovered.**
+``_read_live_per_account`` opens and parses ``config/accounts.yaml``;
+``_read_strategy_names`` opens and parses ``config/strategies.yaml``. Both run
+inside the trading process, on every tick, which is exactly why readers took
+them for runtime truth — ``/api/bot/config`` asserted *"the pipeline's runtime
+view"* and ``/api/bot/strategies`` published a ``loaded`` column documented as
+*"the names the running process actually loaded"*. Neither was true: **the
+pipeline wrote it** is not **the pipeline is using it**.
+
+Both keys stay as they are (the SPA consumes them, and a file view is a
+legitimate thing to publish — it is layer 5 of the verification mapping in
+``docs/reference/verifying-what-is-trading.md``). What is new is the
+``process`` block, which is layer 4: the roster and per-account gates the
+process ACTUALLY HOLDS, stamped by the loaders themselves and never
+re-derived from ``config/``. See ``src/runtime/loaded_config.py``.
 """
 from __future__ import annotations
 
@@ -74,6 +91,11 @@ def _resolve_git_sha() -> str:
 
 
 def _read_strategy_names(strategies_yaml: Path) -> List[str]:
+    """Enabled strategy names AS THE FILE DECLARES THEM.
+
+    A FILE read, not a process read — see the module docstring. The roster the
+    process holds is in the ``process`` block.
+    """
     try:
         import yaml
         with strategies_yaml.open(encoding="utf-8") as fh:
@@ -119,6 +141,35 @@ def _read_live_per_account(accounts_yaml: Path) -> Dict[str, bool]:
     return out
 
 
+def _process_snapshot() -> Dict[str, Any]:
+    """The calling process's loaded state; ``{}`` if it could not be built.
+
+    Wrapped because ``build_status`` runs on the trading tick: a failure to
+    OBSERVE must never propagate into the loop. ``{}`` is falsy but is still a
+    dict, and ``read_process_block`` grades a block without the loader stamps
+    as ``not_written`` rather than reporting an empty roster.
+    """
+    # collapsed-state: not_written — this module is the PRODUCER side and
+    # never branches on `process_state`. It only ever writes the block or
+    # writes `{}`; grading an artifact is the reader's job
+    # (`loaded_config.read_process_block`), and the three states are branched
+    # on there and in `routers/runtime_config.py`. The name appears above only
+    # to say what a `{}` here becomes downstream.
+    try:
+        from src.runtime.loaded_config import process_snapshot
+        return process_snapshot()
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged at WARN, and `{}` is the named `not_written` state downstream — never an empty roster; the breadth is required because this runs on the trading tick.
+        # The reason above, at length. It is NOT silent — it WARNs with the exception type and text,
+        # and the empty dict is a NAMED downstream state (`not_written`), never
+        # an empty roster. The breadth is the requirement, not a shortcut: this
+        # runs on the trading tick, and an observation surface that could raise
+        # into `run_pipeline` would let a failure to WATCH what trades become a
+        # failure to TRADE. Prime Directive § 5 — the trader keeps ticking.
+        logger.warning("runtime_status: process snapshot failed: %s: %s",
+                       type(exc).__name__, exc)
+        return {}
+
+
 def _atomic_write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -133,8 +184,15 @@ def build_status(
     strategies_yaml: Optional[Path] = None,
     accounts_yaml: Optional[Path] = None,
     git_sha: Optional[str] = None,
+    process: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Build the runtime_status.json payload. Pure-function for tests."""
+    """Build the runtime_status.json payload. Pure-function for tests.
+
+    *process* is injectable for tests; in production it is the calling
+    process's own snapshot, which is only meaningful because this function is
+    reached from inside the trading process (``pipeline.run_pipeline`` →
+    ``write_status``). No other process writes this file.
+    """
     now = now_utc or datetime.now(timezone.utc)
     start = start_monotonic if start_monotonic is not None else _START_MONOTONIC
     strategies_yaml = strategies_yaml or (_REPO_ROOT / "config" / "strategies.yaml")
@@ -145,6 +203,11 @@ def build_status(
         "live": _read_live_per_account(accounts_yaml),
         "strategies": _read_strategy_names(strategies_yaml),
         "git_sha": git_sha if git_sha is not None else _resolve_git_sha(),
+        # E31, layer 4: what THIS PROCESS holds, from the loaders' own stamps.
+        # Best-effort by construction (`_process_snapshot` never raises), but
+        # an absent block is a distinct, NAMED state on the reader side
+        # (`loaded_config.PROCESS_NOT_WRITTEN`) — never an empty roster.
+        "process": process if process is not None else _process_snapshot(),
         "last_tick_utc": now.replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z"),

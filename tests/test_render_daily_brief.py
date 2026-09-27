@@ -75,13 +75,11 @@ def _write_pipeline_item(store: Path, **over):
         "routed_to": None, "terminal_reason": None,
     }
     item.update(over)
-    store.parent.mkdir(parents=True, exist_ok=True)
-    with open(store, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps(item) + "\n")
+    pipeline.append(item, store, intent="new")
 
 
 def test_build_reads_all_three_inputs_from_an_isolated_root(tmp_path):
-    pipeline_store = tmp_path / "docs/claude/work/PIPELINE.jsonl"
+    pipeline_store = tmp_path / pipeline.STORE
     _write_pipeline_item(pipeline_store)
 
     checklist = tmp_path / "docs/claude/work/MANAGER-CHECKLIST.json"
@@ -134,7 +132,7 @@ def test_an_unparseable_checklist_is_declared_not_silently_empty(tmp_path):
 # ── §0/§5 are pipeline.py's own numbers, never re-derived ─────────────────
 
 def test_section0_and_section5_are_pipelines_own_numbers(tmp_path):
-    store = tmp_path / "docs/claude/work/PIPELINE.jsonl"
+    store = tmp_path / pipeline.STORE
     _write_pipeline_item(store, id="A", state="queued")
     _write_pipeline_item(store, id="B", state="routed", routed_to="A7",
                          terminal_reason=None)

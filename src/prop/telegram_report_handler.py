@@ -281,6 +281,11 @@ def _confirm_json(report: Dict[str, Any], out: Dict[str, Any],
         return (f"✅ account status recorded [{report.get('account_id')}] · "
                 f"to daily-loss {_cushion(rd.get('distance_to_daily_loss_usd'))} · "
                 f"to DD-floor {_cushion(rd.get('distance_to_dd_floor_usd'))}")
+    if kind == "amend":
+        return (f"✅ recorded STOP/TARGET MOVE {report.get('symbol')} "
+                f"(fill #{out.get('id')}) · sl {out.get('sl_before', '—')} → "
+                f"{out.get('sl', '—')} · tp {out.get('tp_before', '—')} → "
+                f"{out.get('tp', '—')}")
     sym = report.get("symbol")
     status = str(report.get("status") or out.get("status") or "").upper()
     tid = out.get("ticket_id")

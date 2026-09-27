@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "RESOLVED when a pairs close on bybit_1 is followed by a read showing that trade's tracked leg ids NO LONGER resting — measured on a real close, not a unit test — AND the four OPEN call sites above each carry a recorded disposition (fixed, or exempt with the reason its row is unavailable). A code citation does not close it: the fix being 'shipped' at one of ten sites is exactly what this row is about.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260825-CLOSE-SIDE-LEG-CANCEL-IS-WIRED-AT-1-OF-10-CALL-SITES",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260825-CLOSE-SIDE-LEG-CANCEL-IS-WIRED-AT-1-OF-10-CALL-SITES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260825-CLOSE-SIDE-LEG-CANCEL-IS-WIRED-AT-1-OF-10-CALL-SITES'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] The 2026-07-21 close-side leg-cancel fix is passed at 1 of 10 close_open_position call sites — the pairs sleeve was one of the nine, and it leaked 12 legs onto a live position"
+}

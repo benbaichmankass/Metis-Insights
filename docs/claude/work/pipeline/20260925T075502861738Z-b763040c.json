@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-09-28",
+    "kind": "date"
+  },
+  "id": "PI-20260925-BN2S6RQZ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/12922",
+    "rerun": "git show origin/main:.github/workflows/claude-pr-automerge.yml | sed -n \"/^on:/,/^jobs:/p\""
+  },
+  "state": "queued",
+  "what": "claude-pr-automerge.yml only triggers on push to branches[\"claude/**\"] (.github/workflows/claude-pr-automerge.yml on: push: branches). PR #12922 was on lane/e18-starvation-detector (the branch name this session was explicitly told to develop on) -- declared Tier-1 self-land, CI went fully green and mergeable_state clean, but the workflow never fired at all (0 runs on that branch) because the branch does not match the claude/** glob. Had to merge_pull_request directly instead of the intended self-land path. Any future lane/** branch with a self-land declaration will hit the same gap and require a session to notice and merge by hand rather than the relay doing it. Fix is likely widening the on.push.branches glob (or a second glob) to cover lane/**, or documenting that lane/** branches must be renamed/aliased to claude/** for the automerge relay to see them."
+}

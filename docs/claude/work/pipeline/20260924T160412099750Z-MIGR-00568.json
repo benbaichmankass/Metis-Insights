@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "TIER-2 (it changes when a live prop ticket may be emitted). Either (a) _reticket_suppress_reason stops blocking on an 'expiry_prompted' / 'awaiting_report' ticket whose valid_until passed by more than a bounded age, with the bound named and defaulted rather than infinite -- AND a fresh ticket is OBSERVED emitting for a (symbol, direction) whose prior ticket is in that state; or (b) the operator records a DECISION that an unanswered prompt SHOULD block indefinitely, with the consequence stated -- that a prop book stops trading until a human answers a Telegram question, and that nothing alarms when it does. !! A GREEN TEST CLEARS NEITHER: a harness cannot reproduce a live unanswered prompt, which is the whole condition. !! AND THE TWO LATCHES BEING CLEAR TODAY CLEARS NOTHING -- an operator answered them by hand on 2026-09-11; the mechanism that produced them is untouched.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260911-AN-UNANSWERED-EXPIRY-PROMPT-LATCHES-A-PROP-BOOK-FOREVER-BECAUSE-EXPIRY-PROMPTED-HAS-NO-TIMEOUT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260911-AN-UNANSWERED-EXPIRY-PROMPT-LATCHES-A-PROP-BOOK-FOREVER-BECAUSE-EXPIRY-PROMPTED-HAS-NO-TIMEOUT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-AN-UNANSWERED-EXPIRY-PROMPT-LATCHES-A-PROP-BOOK-FOREVER-BECAUSE-EXPIRY-PROMPTED-HAS-NO-TIMEOUT'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] breakout_executor's reticket guard treats 'expiry_prompted' as operator-mid-dialog and blocks every further ticket for that (account, symbol, direction) with NO timeout — ETHUSDT long and short were each latched 12 and 14 days and were cleared only by a human, today"
+}

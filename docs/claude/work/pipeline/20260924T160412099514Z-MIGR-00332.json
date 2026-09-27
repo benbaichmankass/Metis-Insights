@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A `rearm-ib-bracket` system-action exists that takes account+symbol (or trade_id), reads the journal's stop_loss and take_profit_1, and calls place_protective with the trade's oca_key so the repair is scoped to that trade and cannot destroy a sibling's protection on a netted contract. Dry-run by default like its siblings; Tier-2 to apply. Closed when a mispriced or half-missing IB bracket can be corrected in ONE dispatched action with no naked window, verified by broker_bracket_reconcile.py grading the position clean afterwards while MHG (the control) stays clean.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-NO-REARM-IB-BRACKET-ACTION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-NO-REARM-IB-BRACKET-ACTION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-NO-REARM-IB-BRACKET-ACTION'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] There is no `rearm-ib-bracket` action, so correcting a MISPRICED protective leg needs a bespoke multi-step workaround every time — and that is why one MES stop has bounced across sessions for a week"
+}

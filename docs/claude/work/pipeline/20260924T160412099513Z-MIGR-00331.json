@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The sizing path reads Alpaca's settled-cash fields and refuses an entry that would buy with unsettled proceeds, with its own named cause in the journal (distinct from risk_refused and zero_balance). Closed when a cash account can be shown, from the journal, to refuse an unsettled buy before placement — verified before alpaca_live is flipped to live.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-UNMODELLED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-UNMODELLED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-CASH-ACCOUNT-SETTLEMENT-UNMODELLED'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] T+1 settlement is modelled nowhere, and on a $200 CASH account the whole balance recycles every trade — a good-faith violation is one unsettled buy away"
+}

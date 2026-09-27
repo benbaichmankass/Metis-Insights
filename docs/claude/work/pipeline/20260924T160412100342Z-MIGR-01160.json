@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-21",
+    "kind": "date"
+  },
+  "id": "BL-20260911-THE-B4-GEOMETRY-CHANGE-LANDS-INSIDE-WHAT-EVERY-E35-ANALYSIS-CALLS-ITS-CONTROL",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#BL-20260911-THE-B4-GEOMETRY-CHANGE-LANDS-INSIDE-WHAT-EVERY-E35-ANALYSIS-CALLS-ITS-CONTROL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260911-THE-B4-GEOMETRY-CHANGE-LANDS-INSIDE-WHAT-EVERY-E35-ANALYSIS-CALLS-ITS-CONTROL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "unworked_since_never",
+  "what": "e35 is not the only bracket-geometry change in the 2026-08-30 window. Commit 91de68b9c ('M20 B4: declare validated bracket geometry on 8 legs') merged 2026-08-29T17:08:30Z -- the day before -- changing atr_stop_mult and/or tp_r on eight further legs. Every one of them grades as 'untouched control' in an analysis that splits only on e35, so such an analysis compares CHANGED against PARTLY-CHANGED and calls the second one a control. Separately, e35 itself is not the uniform '2.5 -> 2.0 on 9 legs' in circulation."
+}

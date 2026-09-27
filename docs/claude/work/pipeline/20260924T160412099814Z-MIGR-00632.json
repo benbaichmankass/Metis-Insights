@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) /api/diag/journal honours offset= and a probe demonstrates it — limit=1000&offset=1000 returns an id range DISJOINT from limit=1000&offset=0, verified by comparing the two id SETS rather than by reading the diff; OR (b) the route REFUSES an unsupported parameter with a 4xx naming it, so a caller learns immediately. A DOC NOTE ALONE DOES NOT CLOSE THIS: the /api/bot/performance days= precedent is already documented in CLAUDE.md and was still hit by a session on this same day, because the surface that lies is the one a caller reads, not the doc. AND A GREEN TEST CLEARS NOTHING: the defect is in what the LIVE route does with an extra query parameter; a harness asserting the cap does not exercise it.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260917-THE-DIAG-JOURNAL-OFFSET-PARAMETER-IS-SILENTLY-IGNORED-SO-A-SESSION-PAGING-FOR-A-WIDER-CORPUS-GETS-THE-SAME-1000-ROWS-EVERY-TIME",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260917-THE-DIAG-JOURNAL-OFFSET-PARAMETER-IS-SILENTLY-IGNORED-SO-A-SESSION-PAGING-FOR-A-WIDER-CORPUS-GETS-THE-SAME-1000-ROWS-EVERY-TIME",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260917-THE-DIAG-JOURNAL-OFFSET-PARAMETER-IS-SILENTLY-IGNORED-SO-A-SESSION-PAGING-FOR-A-WIDER-CORPUS-GETS-THE-SAME-1000-ROWS-EVERY-TIME'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] /api/diag/journal accepts offset= and IGNORES it — limit=1000&offset=1000 returns the IDENTICAL id range (4882,5881) as offset=0 with no error, so a session paging for a wider corpus gets the same 1000 rows every time and believes it has N x 1000"
+}

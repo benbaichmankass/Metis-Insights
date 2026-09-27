@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "On the LIVE VM tree (not the sandbox), `python3 scripts/send_ping.py --why x --target claude body` exits 1 AND `pending_claude_pings` gains no new file for it -- both halves checked, because a guard that reports failure and still enqueues the stripped body would deliver the ping it refused. ⚠️ A green CI run on PR #10695 does NOT close this: the wrapper runs the script from the VM's own clone, so the row closes only after the merge has reached that clone (/api/diag/version git_sha_on_disk carrying it). ⚠️ Nor does the workflow-layer refusal already shipped in #10683 -- that guards the ACTION path and this row is about direct invocation on the VM, which is the reason the script carries its own guards at all. Control that the fix is not over-broad: a plain `send_ping.py --target claude body` still exits 0 and queues one file.",
+    "kind": "observation",
+    "last_checked": "2026-09-21"
+  },
+  "id": "BL-20260901-SEND-PING-ACCEPTS-WHY-AND-UNPROVEN-WITHOUT-KIND-AND-SILENTLY-DISCARDS-THEM",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260901-SEND-PING-ACCEPTS-WHY-AND-UNPROVEN-WITHOUT-KIND-AND-SILENTLY-DISCARDS-THEM",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260901-SEND-PING-ACCEPTS-WHY-AND-UNPROVEN-WITHOUT-KIND-AND-SILENTLY-DISCARDS-THEM'), indent=2))\""
+  },
+  "state": "queued",
+  "what": "[health] scripts/send_ping.py accepted --why / --unproven with NO --kind, discarded them, and reported the send as successful -- so a caller who asked for a Format-B second line got a bare body and exit 0"
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "clears_when": "`git status --porcelain` is empty immediately after a local `scripts/ci/run_guards.py` run that did produce pytest-report.xml.",
+    "kind": "observation"
+  },
+  "id": "PI-20260921-M10",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "Manager session 2026-09-21 (session_01XQhayAHWdrSYv8jN54P2HH); the stop-hook reported untracked files and the file was a transient pytest-report.xml from a still-running guards job.",
+    "rerun": "cd <repo> && timeout 400 python3 scripts/ci/run_guards.py >/dev/null 2>&1; git status --porcelain | grep pytest-report.xml"
+  },
+  "routed_to": "One line in .gitignore. Verify by running the guards and re-running `git status --porcelain` — the negative control is that the file IS produced by that run, so a clean status after the ignore is not a no-op.",
+  "state": "routed",
+  "what": "pytest-report.xml is written into the repo root by the guards/pytest run and is not in .gitignore, so a session that runs the guards locally then finds an untracked file it did not create.",
+  "why_it_matters": "It is a false positive on the exact probe a session uses to decide whether it has unlanded work — this session's stop-hook fired on it. A recurring false positive on a completion check trains the check to be ignored, which is the same failure mode as a wall of undispositioned rows."
+}

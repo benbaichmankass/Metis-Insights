@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-3 config edit; operator approves the merge in the manager session. This PR REMOVES `trail_decay_arm_r: 2.0` and `trail_decay_tight_mult: 2.0` from scha_trend_long_1d in config/strategies.yaml on the operator's E48 decision ('Strip the arm'), mirroring PR #12737/E41. Strategy parameters in config/strategies.yaml are Tier-3 by docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers, and Tier-3 never self-lands: no auto-merge is armed and no merge-slot claim is taken by this lane. The evidence is committed on the branch (0 of 78 entry-conditioned trades reach the 2.00R arm against the real ceiling min(cap_R, tp_r); same-day arm-ON control produces byte-identical trades), but evidence is not approval. The manager merges after the operator says so.",
+  "why": "config/strategies.yaml carries this leg's strategy parameters — Tier-3 by path and by content — and no operator approval for the merge is recorded on main; config/lever_reachability.json moves with it to keep the registry and the config from disagreeing."
+}
