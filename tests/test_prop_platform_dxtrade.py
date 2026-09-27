@@ -40,6 +40,8 @@ from src.prop.platform.dxtrade import (
     parse_account_metrics,
     parse_number,
     positions_from_tables,
+    redact_text,
+    render_structure,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -203,8 +205,24 @@ def test_login_stops_with_a_feasibility_reason(after, reason):
     assert page.clicked == [SELECTORS["login_submit"]]
 
 
+def test_no_login_form_without_a_terminal_marker_is_unknown_not_logged_in():
+    # Run 36329607152 printed "login: ok" and parsed nothing: the classifier
+    # used to call ANY page without a login form "logged_in".
+    assert classify_login_state({}, "", "") == "unknown"
+    assert classify_login_state({}, "Welcome to Breakout\nDashboard", "Breakout") == "unknown"
+    assert classify_login_state({}, "Balance\n4,724.00\nEquity\n4,724.00", "") == "logged_in"
+    assert classify_login_state({}, "Account metrics", "") == "logged_in"
+
+
+def test_login_that_lands_on_an_unknown_page_is_a_feasibility_stop():
+    page = _FakeLoginPage({}, text="Some other page")
+    with pytest.raises(FeasibilityError) as ei:
+        DXtradeAdapter(timeout_ms=2_000).login(page, "https://app.example/", "u", "p")
+    assert ei.value.reason == "unknown_page"
+
+
 def test_login_ok_clicks_only_the_login_button():
-    page = _FakeLoginPage({})
+    page = _FakeLoginPage({}, text="Account metrics\nBalance 4,724.00")
     DXtradeAdapter(timeout_ms=2_000).login(page, "https://app.example/", "u", "p")
     assert page.clicked == [SELECTORS["login_submit"]]
     assert page.filled == {SELECTORS["login_username"]: "u", SELECTORS["login_password"]: "p"}
@@ -223,6 +241,7 @@ def test_login_refuses_without_credentials():
     ("$4,724.50", 4724.5), ("4,724.50 USD", 4724.5), ("(12.30)", -12.3),
     ("\u221212.30", -12.3), ("-$5", -5.0), ("+3.2", 3.2), ("0.00", 0.0),
     ("abc", None), ("1.2.3", None), ("", None), (None, None),
+    ("USD 4,724.00", 4724.0), ("4\u00a0724.00", 4724.0), ("\u2014", None),
 ])
 def test_parse_number(raw, val):
     assert parse_number(raw) == val
@@ -244,6 +263,75 @@ def test_parse_account_metrics_nothing_readable_is_all_unparsed():
     snap = parse_account_metrics("Log In\nUsername\nPassword\n")
     assert snap.balance is None and snap.equity is None
     assert {"balance", "equity"} <= set(snap.unparsed)
+
+
+def test_parse_account_metrics_on_the_dictionary_labels():
+    # Labels are the MEASURED strings of the served i18n dictionary
+    # (metric.name.short.*); the one-label-per-line layout is invented.
+    text = ("Account metrics\nBalance\n4,724.00\nEquity\n4,731.20\nP&L\n7.20\n"
+            "Day RPL\n-12.30\nUsed Margin\n150.00\nFree Margin\n4,581.20\nMargin Level, %\n3,154.13\n")
+    snap = parse_account_metrics(text)
+    assert (snap.balance, snap.equity, snap.unrealized, snap.realized_today,
+            snap.margin_used, snap.available) == (4724.0, 4731.2, 7.2, -12.3, 150.0, 4581.2)
+    assert snap.unparsed == []
+
+
+def test_parse_account_metrics_on_concatenated_inline_text():
+    # innerText joins adjacent inline spans with no separator.
+    snap = parse_account_metrics("Balance4,724.00Equity4,731.20\nFree Margin 4,581.20 USD\nBalance free of holdings")
+    assert (snap.balance, snap.equity, snap.available) == (4724.0, 4731.2, 4581.2)
+
+
+# Column headers as the served dictionary spells them.
+MULTIASSET_POS = {"headers": ["Symbol", "Side", "Position Qty", "Avg Fill Price", "Open P/L, acc", "Type"],
+                  "rows": [["MNQ", "Sell", "2", "20,100.25", "-15.00", "Future"]]}
+MULTIASSET_ORD = {"headers": ["Symbol", "Side", "Order Type", "Quantity", "Limit Price", "Stop Price",
+                              "Avg Price", "Status", "Order ID"],
+                  "rows": [["MNQ", "Buy", "Stop", "2", "", "20,200.00", "", "Working", "123"]]}
+
+
+def test_dictionary_spelled_tables_are_told_apart():
+    pos = positions_from_tables([MULTIASSET_ORD, MULTIASSET_POS])
+    assert [(p.symbol, p.side, p.quantity, p.entry_price, p.unrealized_pnl) for p in pos] == [
+        ("MNQ", "short", 2.0, 20100.25, -15.0)]
+    orders = orders_from_tables([MULTIASSET_POS, MULTIASSET_ORD])
+    assert [(o.symbol, o.side, o.order_type, o.quantity) for o in orders] == [("MNQ", "long", "Stop", 2.0)]
+
+
+def test_redact_text_strips_credentials_emails_and_tokens_but_keeps_balances():
+    out = redact_text("user bob@example.com pw hunter2 tok eyJhbGciOiJIUzI1NiJ9abcdefgh bal 4,724.00",
+                      "hunter2")
+    assert "bob@example.com" not in out and "hunter2" not in out and "eyJhbGci" not in out
+    assert "4,724.00" in out
+
+
+def test_redact_text_matches_secrets_case_insensitively():
+    # Pre-merge review of #13248: the terminal may render the login in a
+    # different case than the env var holds.
+    out = redact_text("Account: BO-JDOE77 | bo-jdoe77 | Bo-JDoe77", "bo-jdoe77")
+    assert "jdoe77" not in out.lower() and out.count("<redacted>") == 3
+
+
+def test_redact_text_keeps_url_origin_only():
+    # A short session id in a path or query is below the 24-char token rule.
+    out = redact_text("at https://app.example.com/s/ab12CD?sid=q1#f and wss://x.example/t9")
+    assert "ab12CD" not in out and "sid" not in out and "t9" not in out
+    assert "https://app.example.com/<path>" in out and "wss://x.example/<path>" in out
+
+
+def test_render_structure_is_redacted_and_carries_the_layout():
+    struct = {"title": "Breakout Terminal", "location": "https://app.example/t?session=abc#x",
+              "counts": {"tables": 0}, "roles": {"tab": 3},
+              "hits": [{"label": "Balance", "chain": ["span.metric-name", "div.metric"],
+                        "parent_text": "Balance 4,724.00", "grandparent_text": "me@example.com",
+                        "next_sibling_text": "4,724.00", "row_cells": ["Balance", "4,724.00"]}]}
+    lines = render_structure(struct, [{"url": "https://app.example/f?t=1", "text_len": 10}],
+                             "Balance\n4,724.00\nlogin me@example.com\npw s3cr3t", [], secrets=("s3cr3t",))
+    blob = "\n".join(lines)
+    assert "session=abc" not in blob and "t=1" not in blob
+    assert "me@example.com" not in blob and "s3cr3t" not in blob
+    assert "span.metric-name < div.metric" in blob and "4,724.00" in blob
+    assert lines[0].startswith("structure: BEGIN") and lines[-1] == "structure: END"
 
 
 POS_TABLE = {"headers": ["Symbol", "Side", "Quantity", "Open Price", "Stop Loss", "Take Profit", "P&L"],
@@ -337,3 +425,56 @@ def test_login_check_never_calls_an_order_method():
     src = (REPO / "scripts" / "prop" / "breakout_login_check.py").read_text()
     for name in ("place_bracket", "modify_bracket", "cancel_order", "flatten("):
         assert name not in src, name
+
+
+# ── the in-page JS, run in a real Chromium against an INVENTED div layout ──
+
+DIVGRID = REPO / "tests" / "fixtures" / "prop_dxtrade" / "terminal_divgrid.html.txt"
+
+
+@pytest.fixture(scope="module")
+def chromium_page():
+    sync_api = pytest.importorskip("playwright.sync_api")
+    import glob
+    # Playwright's own build first, then any pre-installed headless shell.
+    candidates = [None] + sorted(glob.glob("/opt/pw-browsers/chromium_headless_shell-*/chrome-linux/headless_shell"))
+    with sync_api.sync_playwright() as pw:
+        browser, errors = None, []
+        for exe in candidates:
+            try:
+                browser = pw.chromium.launch(headless=True, **({"executable_path": exe} if exe else {}))
+                break
+            except Exception as exc:  # no usable browser build here
+                errors.append(str(exc).splitlines()[0][:120])
+        if browser is None:
+            pytest.skip(f"chromium unavailable: {errors}")
+        page = browser.new_page()
+        page.set_content(DIVGRID.read_text())
+        yield page
+        browser.close()
+
+
+def test_extract_tables_js_reads_a_div_grid(chromium_page):
+    from src.prop.platform.dxtrade import EXTRACT_TABLES_JS
+    tables = chromium_page.evaluate(EXTRACT_TABLES_JS)
+    pos = positions_from_tables(tables)
+    assert [(p.symbol, p.side, p.quantity, p.entry_price, p.stop_loss, p.take_profit, p.unrealized_pnl)
+            for p in pos] == [("ETHUSD", "long", 0.5, 2950.0, 2900.0, 3050.0, 12.4)]
+    assert orders_from_tables(tables) == []  # looked; none working
+
+
+def test_adapter_reads_account_and_tables_from_a_real_dom(chromium_page):
+    a = DXtradeAdapter(timeout_ms=5_000)
+    snap = a.read_account(chromium_page)
+    assert (snap.balance, snap.equity, snap.unrealized, snap.realized_today,
+            snap.margin_used, snap.available) == (4724.0, 4731.2, 7.2, -12.3, 150.0, 4581.2)
+    assert a.wait_ready(chromium_page, timeout_ms=0) is True
+
+
+def test_structure_dump_from_a_real_dom_never_leaks_input_values(chromium_page):
+    lines = DXtradeAdapter(timeout_ms=5_000).structure(chromium_page, ("hunter2-secret",))
+    blob = "\n".join(lines)
+    assert "hunter2-secret" not in blob          # input value is never read
+    assert "someone@example.com" not in blob     # e-mail redacted
+    assert "structure.label: 'Balance'" in blob and "4,724.00" in blob
+    assert "div.grid-header" in blob             # header-row shape is reported

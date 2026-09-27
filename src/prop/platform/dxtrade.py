@@ -14,10 +14,21 @@ reuses them. Provenance of each selector:
 - ``login_*``, ``twofa_*``, ``password_expired_form``: **MEASURED** — the
   login markup Breakout serves (``https://wss.breakoutprop.com/``, curl,
   2026-09-27), saved as ``tests/fixtures/prop_dxtrade/login_page.html.txt``.
-- Everything after login: **NOT MEASURED**. Nobody has logged in from code
-  yet. The read path therefore keys on visible LABELS and table HEADER TEXT,
-  not class names, and reports what it could not parse (``unparsed``) instead
-  of returning zeros. The first live run is the only proof.
+- Post-login LABELS and COLUMN HEADERS: **MEASURED from the served i18n
+  dictionary** — the ``var dictionary={...}`` the terminal page embeds
+  (``https://wss.breakoutprop.com/``, curl, 2026-09-27, 5,571 keys; e.g.
+  ``metric.name.short.cashBalance = Balance``, ``metric.name.short.openPl =
+  P&L``, ``metric.name.short.dayClosedPl = Day RPL``,
+  ``position.column.name.quantity = Position Volume``). That is the text the
+  UI renders, not the DOM it renders it into.
+- Post-login DOM: **NOT MEASURED**. Run 36329607152 (issue #13239) printed
+  ``login: ok`` and parsed nothing. The first cut of ``classify_login_state``
+  returned ``logged_in`` whenever no login/2FA/CAPTCHA element was visible, so
+  that ``login: ok`` did not prove a logged-in terminal. ``logged_in`` now
+  needs a POSITIVE marker (:data:`TERMINAL_MARKERS` in the page text), and an
+  unparsed read prints :func:`render_structure` — a redacted structural dump
+  (labels, header rows, ancestor classes; never cookies, storage or input
+  values) — so the next fix is made against the real layout.
 
 No anti-detection of any kind: default headless Chromium, real typing via
 ``fill``, no stealth plugins, no fingerprint changes, no fake jitter
@@ -71,15 +82,30 @@ _CHALLENGE_MARKERS = (
     "enable javascript and cookies to continue",
 )
 
-# Account-metric labels as they are likely to appear in the DXtrade account
-# summary. NOT MEASURED — first live run confirms or corrects them.
+# Text that only a logged-in terminal renders. ``logged_in`` requires one of
+# these; "no login form visible" alone is not proof (run 36329607152).
+TERMINAL_MARKERS = (
+    "account metrics", "free margin", "used margin", "available funds",
+    "position volume", "day rpl", "day realized pl",
+)
+# Weaker markers: count only when TWO of them appear together.
+_TERMINAL_WEAK_MARKERS = ("balance", "equity", "positions", "orders", "p&l")
+
+# Account-metric labels. MEASURED from the served i18n dictionary (see module
+# docstring); the key each one comes from is noted. Most specific first.
 ACCOUNT_LABELS: Dict[str, Sequence[str]] = {
-    "balance": ("Balance",),
-    "equity": ("Equity", "Net Liquidation", "NAV"),
-    "unrealized": ("Open P&L", "Open PnL", "Unrealized P&L", "Unrealized PnL", "Floating P&L", "P&L"),
-    "realized_today": ("Today's P&L", "Daily P&L", "Realized P&L", "Closed P&L"),
-    "margin_used": ("Used Margin", "Margin Used", "Margin"),
-    "available": ("Available Funds", "Available Margin", "Free Margin", "Available"),
+    # metric.name.short.cashBalance / multicurrency ... cashBalance
+    "balance": ("Balance", "Total Balance"),
+    # metric.name.short.equity / netLiquidation / stock ... equity(long)
+    "equity": ("Equity", "Net Liquidation", "Net Value"),
+    # metric.name.long.openPl / short.openPl / dayOpenPl
+    "unrealized": ("Unrealized P&L", "Open P&L", "Open P/L", "P&L", "Day UPL", "Day Unrealized PL"),
+    # metric.name.short.dayClosedPl / long.dayClosedPl
+    "realized_today": ("Day RPL", "Day Realized PL", "Day Closed P&L", "Day closed P/L"),
+    # metric.name.margin.used / short.initialMargin(.otc)
+    "margin_used": ("Used Margin", "Initial Margin", "IM", "Margin"),
+    # metric.name.short.availableFunds (= "Free Margin") / multiasset.availableFunds
+    "available": ("Free Margin", "Available Funds", "Available"),
 }
 
 
@@ -97,7 +123,8 @@ def parse_number(text: Optional[str]) -> Optional[float]:
     neg = False
     if t.startswith("(") and t.endswith(")"):
         neg, t = True, t[1:-1]
-    t = t.replace("\u2212", "-").replace(",", "").replace(" ", "")
+    t = t.replace("\u2212", "-").replace(",", "").replace(" ", "").replace("\u00a0", "")
+    t = re.sub(r"^(USD|USDT|EUR|GBP)", "", t)
     t = re.sub(r"(USD|USDT|EUR|GBP)$", "", t)
     t = re.sub(r"[$€£]", "", t)
     m = re.fullmatch(r"([+-]?)(\d+(?:\.\d+)?)", t)
@@ -114,9 +141,10 @@ def classify_login_state(visible: Mapping[str, bool], page_text: str = "", title
 
     ``visible`` maps SELECTORS keys to whether that element is visible.
     Returns one of: ``challenge``, ``captcha``, ``2fa``, ``password_expired``,
-    ``login_error``, ``login_form``, ``logged_in``.
+    ``login_error``, ``login_form``, ``logged_in``, ``unknown``.
     Order matters: a challenge beats everything, and a visible login form is
-    never read as logged in.
+    never read as logged in. ``logged_in`` needs a POSITIVE terminal marker;
+    a page that is none of the known states is ``unknown``, never logged in.
     """
     low = f"{title}\n{page_text}".lower()
     if any(m in low for m in _CHALLENGE_MARKERS):
@@ -131,7 +159,24 @@ def classify_login_state(visible: Mapping[str, bool], page_text: str = "", title
         return "login_error"
     if visible.get("login_form"):
         return "login_form"
-    return "logged_in"
+    if looks_like_terminal(page_text):
+        return "logged_in"
+    return "unknown"
+
+
+def looks_like_terminal(page_text: str) -> bool:
+    """True when the text carries a marker only a logged-in terminal renders."""
+    low = (page_text or "").lower()
+    if any(m in low for m in TERMINAL_MARKERS):
+        return True
+    snap = parse_account_metrics(page_text)
+    if snap.balance is not None or snap.equity is not None:
+        return True
+    return sum(1 for m in _TERMINAL_WEAK_MARKERS if m in low) >= 2
+
+
+_LEADING_NUMBER_RE = re.compile(
+    r"(?:USD|USDT|EUR|GBP)?\s?[(+\-\u2212]?[$€£]?\d[\d,]*(?:\.\d+)?\)?(?:\s?(?:USD|USDT|EUR|GBP))?")
 
 
 def _label_value_pairs(lines: List[str], labels: Iterable[str]) -> Optional[str]:
@@ -146,6 +191,12 @@ def _label_value_pairs(lines: List[str], labels: Iterable[str]) -> Optional[str]
             rest = m.group(1).strip()
             if rest and parse_number(rest) is not None:
                 return rest
+            # Adjacent inline elements concatenate in innerText with no
+            # separator ("Balance4,724.00Equity4,731.20"): take the leading
+            # number only.
+            lead = _LEADING_NUMBER_RE.match(rest)
+            if lead and parse_number(lead.group(0)) is not None:
+                return lead.group(0)
             if not rest:
                 for nxt in lines[i + 1:i + 3]:
                     if nxt.strip() and parse_number(nxt.strip()) is not None:
@@ -155,7 +206,11 @@ def _label_value_pairs(lines: List[str], labels: Iterable[str]) -> Optional[str]
 
 def parse_account_metrics(page_text: str) -> AccountSnapshot:
     """Read labelled account metrics out of the page's visible text."""
-    lines = [ln for ln in (page_text or "").splitlines() if ln.strip()]
+    text = page_text or ""
+    # Split "…4,724.00Equity4,731.20" before any label that follows a digit.
+    all_labels = sorted({lb for lbs in ACCOUNT_LABELS.values() for lb in lbs}, key=len, reverse=True)
+    text = re.sub(r"(?<=[\d)])(?=(?:" + "|".join(re.escape(lb) for lb in all_labels) + r"))", "\n", text)
+    lines = [ln for ln in text.splitlines() if ln.strip()]
     snap = AccountSnapshot()
     for fld, labels in ACCOUNT_LABELS.items():
         raw = _label_value_pairs(lines, labels)
@@ -204,17 +259,39 @@ def _cell(row: Sequence[str], idx: Optional[int]) -> Optional[str]:
     return row[idx]
 
 
+# Column headers only one of the two tables carries (exact, case-insensitive),
+# from the served dictionary's position.column.* / table.header.*order* keys.
+_POSITION_ONLY = {"position id", "position volume", "position qty", "open p&l", "open p/l",
+                  "open p/l, acc", "avg fill price", "open price", "entry price", "current price",
+                  "average price", "open cost"}
+_ORDER_ONLY = {"order id", "order type", "limit price", "stop price", "order volume",
+               "order size", "left qty", "filled qty", "trigger price", "status", "sts",
+               "time in force", "duration", "order group id", "oco/bracket"}
+
+_QTY_NAMES = ("Position Volume", "Position Qty", "Quantity", "Qty", "Size", "Volume",
+              "Order Volume", "Order Size", "Amount")
+_OPEN_PRICE_NAMES = ("Open Price", "Entry Price", "Average Price", "Avg Fill Price",
+                     "Avg Price", "Fill price")
+
+
+def _has_any(headers: Sequence[str], names: Iterable[str]) -> bool:
+    norm = {_norm(h) for h in headers}
+    return any(n in norm for n in names)
+
+
 def _is_positions_table(headers: Sequence[str]) -> bool:
     return (_find_col(headers, "Symbol", "Instrument") is not None
-            and _find_col(headers, "Quantity", "Qty", "Size", "Volume", "Amount") is not None
-            and _find_col(headers, "Open Price", "Entry Price", "Avg Price", "Average Price") is not None)
+            and _find_col(headers, *_QTY_NAMES) is not None
+            and _find_col(headers, *_OPEN_PRICE_NAMES) is not None
+            and not _has_any(headers, _ORDER_ONLY))
 
 
 def _is_orders_table(headers: Sequence[str]) -> bool:
-    return (_find_col(headers, "Symbol", "Instrument") is not None
-            and _find_col(headers, "Type", "Order Type") is not None
-            and _find_col(headers, "Price", "Limit Price", "Stop Price") is not None
-            and _find_col(headers, "Open Price", "Entry Price", "Avg Price") is None)
+    if _find_col(headers, "Symbol", "Instrument") is None or _has_any(headers, _POSITION_ONLY):
+        return False
+    return (_has_any(headers, _ORDER_ONLY)
+            or (_find_col(headers, "Type", "Order Type") is not None
+                and _find_col(headers, "Price", "Limit Price", "Stop Price") is not None))
 
 
 def positions_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Position]]:
@@ -232,11 +309,11 @@ def positions_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[
         found = True
         c_sym = _find_col(headers, "Symbol", "Instrument")
         c_side = _find_col(headers, "Side", "Direction", "Type")
-        c_qty = _find_col(headers, "Quantity", "Qty", "Size", "Volume", "Amount")
-        c_open = _find_col(headers, "Open Price", "Entry Price", "Avg Price", "Average Price")
+        c_qty = _find_col(headers, *_QTY_NAMES)
+        c_open = _find_col(headers, *_OPEN_PRICE_NAMES)
         c_sl = _find_col(headers, "Stop Loss", "SL")
         c_tp = _find_col(headers, "Take Profit", "TP")
-        c_pnl = _find_col(headers, "P&L", "PnL", "Profit", "Unrealized")
+        c_pnl = _find_col(headers, "Open P&L", "Open P/L", "P&L", "PnL", "Unrealized")
         for row in t.get("rows") or []:
             sym = (_cell(row, c_sym) or "").strip()
             if not sym:
@@ -269,8 +346,8 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
         c_sym = _find_col(headers, "Symbol", "Instrument")
         c_side = _find_col(headers, "Side", "Direction")
         c_type = _find_col(headers, "Order Type", "Type")
-        c_qty = _find_col(headers, "Quantity", "Qty", "Size", "Volume", "Amount")
-        c_px = _find_col(headers, "Limit Price", "Stop Price", "Price")
+        c_qty = _find_col(headers, "Left Qty", *_QTY_NAMES)
+        c_px = _find_col(headers, "Price", "Limit Price", "Stop Price", "Trigger Price")
         for row in t.get("rows") or []:
             sym = (_cell(row, c_sym) or "").strip()
             if not sym:
@@ -286,27 +363,182 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
     return out if found else None
 
 
-# JS run in the page to extract every HTML table and ARIA grid as plain data.
-# Read-only: it walks the DOM and returns text; it does not click or type.
+# JS run in the page to extract every HTML table, ARIA grid and DIV grid as
+# plain data. Read-only: it walks the DOM and returns text; it does not click
+# or type. A "div grid" is found from its header row: a leaf element reading
+# "Symbol"/"Instrument", walked up to the first ancestor with >= 3 short-text
+# children (the header row); its data rows are later elements with the same
+# tag and child count under the nearest ancestor that holds more than one.
 EXTRACT_TABLES_JS = r"""
 () => {
   const txt = el => (el.innerText || el.textContent || '').trim();
   const out = [];
+  const seen = new Set();
+  const push = (kind, headers, rows) => {
+    const sig = kind === 'divgrid' ? headers.join('|') : null;
+    if (sig && seen.has(sig)) return;
+    if (sig) seen.add(sig);
+    out.push({kind, headers, rows});
+  };
   for (const t of document.querySelectorAll('table')) {
     const headers = [...t.querySelectorAll('thead th, tr:first-child th')].map(txt);
     const rows = [...t.querySelectorAll('tbody tr')].map(r => [...r.querySelectorAll('td')].map(txt));
-    if (headers.length) out.push({kind: 'table', headers, rows});
+    if (headers.length) push('table', headers, rows);
   }
   for (const g of document.querySelectorAll('[role=grid], [role=treegrid], [role=table]')) {
     const headers = [...g.querySelectorAll('[role=columnheader]')].map(txt);
     const rows = [...g.querySelectorAll('[role=row]')]
       .map(r => [...r.querySelectorAll('[role=gridcell], [role=cell]')].map(txt))
       .filter(r => r.length);
-    if (headers.length) out.push({kind: 'grid', headers, rows});
+    if (headers.length) push('grid', headers, rows);
+  }
+  const leaves = [...document.querySelectorAll('body *')].filter(el =>
+    el.children.length === 0 && /^(symbol|instrument)$/i.test(txt(el)) &&
+    !el.closest('table, [role=grid], [role=treegrid], [role=table]'));
+  for (const leaf of leaves) {
+    let row = leaf, hdr = null;
+    for (let i = 0; i < 5 && row && row.parentElement; i++) {
+      row = row.parentElement;
+      const kids = [...row.children];
+      if (kids.length >= 3 && kids.every(k => txt(k).length <= 40)) { hdr = row; break; }
+    }
+    if (!hdr) continue;
+    const headers = [...hdr.children].map(txt);
+    const n = hdr.children.length, tag = hdr.tagName;
+    let scope = hdr.parentElement, rows = [];
+    for (let i = 0; i < 4 && scope; i++, scope = scope.parentElement) {
+      const cands = [...scope.querySelectorAll(tag)].filter(r =>
+        r !== hdr && r.children.length === n && !r.contains(hdr) && !hdr.contains(r) &&
+        (hdr.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING));
+      if (cands.length) { rows = cands.map(r => [...r.children].map(txt)); break; }
+    }
+    push('divgrid', headers, rows);
   }
   return out;
 }
 """
+
+# JS for the redacted STRUCTURE dump (printed when a read does not parse).
+# It returns element SHAPE and visible label text only: tag, id, class, role,
+# data-* attribute NAMES (never their values), ancestor chains, and the short
+# visible text of the label's row. It never reads cookies, storage, input or
+# textarea values, or any attribute value other than class/id/role.
+STRUCTURE_JS = r"""
+(labels) => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const shape = el => {
+    if (!el || !el.tagName) return null;
+    const cls = (typeof el.className === 'string' ? el.className : '').trim().slice(0, 80);
+    const data = [...el.attributes].map(a => a.name).filter(n => n.startsWith('data-')).slice(0, 6);
+    return [el.tagName.toLowerCase() + (el.id ? '#' + el.id.slice(0, 40) : '') +
+            (cls ? '.' + cls.split(/\s+/).join('.') : ''),
+            el.getAttribute('role') || '', data.join(',')].filter(Boolean).join(' ');
+  };
+  const chain = el => { const c = []; for (let e = el, i = 0; e && e.tagName && i < 6; e = e.parentElement, i++) c.push(shape(e)); return c; };
+  const roles = {};
+  for (const el of document.querySelectorAll('[role]')) { const r = el.getAttribute('role'); roles[r] = (roles[r] || 0) + 1; }
+  const want = new Set(labels.map(l => l.toLowerCase()));
+  const hits = [], perLabel = {};
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.children.length !== 0 || el.closest('input, textarea, script, style')) continue;
+    const t = txt(el);
+    if (!t || !want.has(t.toLowerCase())) continue;
+    const key = t.toLowerCase();
+    perLabel[key] = (perLabel[key] || 0) + 1;
+    if (perLabel[key] > 2) continue;
+    const par = el.parentElement, gp = par && par.parentElement;
+    hits.push({label: t, chain: chain(el),
+               parent_text: par ? txt(par).slice(0, 120) : '',
+               grandparent_text: gp ? txt(gp).slice(0, 160) : '',
+               next_sibling_text: el.nextElementSibling ? txt(el.nextElementSibling).slice(0, 80) : '',
+               row_cells: par ? [...par.children].map(k => txt(k).slice(0, 40)).slice(0, 30) : []});
+    if (hits.length >= 40) break;
+  }
+  return {
+    title: document.title,
+    location: location.origin + location.pathname,
+    counts: {tables: document.querySelectorAll('table').length,
+             iframes: document.querySelectorAll('iframe').length,
+             canvases: document.querySelectorAll('canvas').length,
+             elements: document.querySelectorAll('*').length},
+    roles, hits,
+  };
+}
+"""
+
+# Labels whose elements the structure dump describes: every account label,
+# plus the column headers and tab names the table parsers key on.
+STRUCTURE_LABELS: List[str] = sorted({
+    *(lb for lbs in ACCOUNT_LABELS.values() for lb in lbs),
+    "Symbol", "Instrument", "Side", "Qty", "Quantity", "Position Volume", "Position Qty",
+    "Open Price", "Average Price", "Avg Fill Price", "Price", "Order Type", "Type",
+    "Positions", "Orders", "Account metrics", "Stop loss", "Take profit",
+})
+
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+_TOKENISH_RE = re.compile(r"[A-Za-z0-9_\-.=+/]{24,}")
+_URL_RE = re.compile(r"((?:https?|wss?)://[^\s/?#'\"]+)([/?#][^\s'\"]*)?", re.IGNORECASE)
+
+
+def redact_text(text: str, *secrets: str) -> str:
+    """Strip anything credential-shaped from text bound for a PUBLIC log:
+    the given secrets (username, password), e-mail addresses, and any 24+
+    character token-like run. Numbers (balances) survive; they are allowed."""
+    out = str(text or "")
+    for sec in secrets:
+        if sec:
+            # Case-insensitive: a terminal may render the login upper-cased.
+            out = re.sub(re.escape(sec), "<redacted>", out, flags=re.IGNORECASE)
+    # URLs keep their origin only: a path or query can carry a session id
+    # shorter than the token rule below.
+    out = _URL_RE.sub(lambda m: m.group(1) + "/<path>" if m.group(2) else m.group(1), out)
+    out = _EMAIL_RE.sub("<email>", out)
+    return _TOKENISH_RE.sub("<token>", out)
+
+
+def render_structure(struct: Mapping[str, Any], frames: Sequence[Mapping[str, Any]],
+                     page_text: str, tables: Sequence[Mapping[str, Any]],
+                     secrets: Sequence[str] = (), max_lines: int = 120) -> List[str]:
+    """Format the redacted structure dump as printable lines (pure; tested).
+
+    ``struct`` is :data:`STRUCTURE_JS`'s result for the main frame, ``frames``
+    is ``[{"url": ..., "text_len": ...}]``, ``page_text`` the all-frame text
+    and ``tables`` :data:`EXTRACT_TABLES_JS`'s result. Every string passes
+    :func:`redact_text`; URLs lose their query and fragment.
+    """
+    r = lambda t: redact_text(t, *secrets)  # noqa: E731
+    lines = ["structure: BEGIN (redacted: no cookies, storage, input values or tokens)"]
+    lines.append(f"structure.title: {r(struct.get('title', ''))}")
+    lines.append(f"structure.location: {r(_strip_url(struct.get('location', '')))}")
+    lines.append(f"structure.counts: {struct.get('counts', {})}")
+    lines.append(f"structure.roles: {struct.get('roles', {})}")
+    for f in frames:
+        lines.append(f"structure.frame: {r(_strip_url(f.get('url', '')))} text_len={f.get('text_len')}")
+    for t in tables:
+        lines.append(f"structure.table[{t.get('kind')}]: headers={[r(h) for h in t.get('headers') or []]} "
+                     f"rows={len(t.get('rows') or [])}")
+        for row in (t.get("rows") or [])[:5]:
+            lines.append(f"structure.table.row: {[r(c)[:40] for c in row]}")
+    for h in struct.get("hits") or []:
+        lines.append(f"structure.label: {r(h.get('label', ''))!r}")
+        lines.append(f"  chain: {' < '.join(r(c) for c in h.get('chain') or [])}")
+        lines.append(f"  parent_text: {r(h.get('parent_text', ''))!r}")
+        lines.append(f"  grandparent_text: {r(h.get('grandparent_text', ''))!r}")
+        lines.append(f"  next_sibling_text: {r(h.get('next_sibling_text', ''))!r}")
+        lines.append(f"  row_cells: {[r(c) for c in h.get('row_cells') or []]}")
+    text_lines = [ln.strip() for ln in (page_text or "").splitlines() if ln.strip()]
+    lines.append(f"structure.text: {len(text_lines)} non-empty lines; first {min(max_lines, len(text_lines))}:")
+    for ln in text_lines[:max_lines]:
+        lines.append(f"  | {r(ln)[:120]}")
+    lines.append("structure: END")
+    return lines
+
+
+def _strip_url(url: str) -> str:
+    """Origin only (scheme://host[:port]): paths and queries never reach a
+    public log, since either can carry a session id."""
+    m = _URL_RE.match(str(url or ""))
+    return m.group(1) if m else re.split(r"[/?#]", str(url or ""), maxsplit=1)[0]
 
 
 # ── the adapter ──────────────────────────────────────────────────────────
@@ -331,10 +563,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         keys = ("login_form", "login_error", "twofa_form", "twofa_backup_form",
                 "password_expired_form", "captcha_frame")
         visible = {k: self._visible(page, k) for k in keys}
-        try:
-            text = page.inner_text("body", timeout=5_000)
-        except Exception:
-            text = ""
+        parts = []
+        for fr in self._frames(page):
+            try:
+                parts.append(fr.inner_text("body", timeout=5_000))
+            except Exception:
+                continue
+        text = "\n".join(parts)
         try:
             title = page.title()
         except Exception:
@@ -354,7 +589,8 @@ class DXtradeAdapter(PropPlatformAdapter):
                 raise FeasibilityError(state, "bot challenge before the login form rendered")
             if state == "logged_in":
                 return  # an existing session (not expected on a fresh context)
-            raise FeasibilityError("unknown_page", f"login form never rendered (state={state})")
+            raise FeasibilityError("unknown_page", f"login form never rendered (state={state}, "
+                                                   f"at {self._where(page)})")
         state = self.page_state(page)
         if state in ("challenge", "captcha"):
             raise FeasibilityError(state, "bot challenge on the login page")
@@ -363,8 +599,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         page.fill(SELECTORS["login_password"], password)
         page.click(SELECTORS["login_submit"], timeout=self.timeout_ms)
 
-        # Wait for the form to go away, or for something that is not a login.
+        # Wait for the terminal to render (a POSITIVE marker), or for a stop.
         deadline_ms, step_ms, waited = self.timeout_ms, 1_000, 0
+        state = "login_form"
         while waited <= deadline_ms:
             page.wait_for_timeout(step_ms)
             waited += step_ms
@@ -375,13 +612,83 @@ class DXtradeAdapter(PropPlatformAdapter):
                 raise FeasibilityError(state, "after submitting the login form")
             if state == "login_error":
                 raise FeasibilityError("login_rejected", "the terminal showed a login error")
+        if state == "unknown":
+            # The form went away but nothing a logged-in terminal renders
+            # appeared. Not proof of a login, so not reported as one.
+            raise FeasibilityError("unknown_page", f"no terminal marker after submit (at {self._where(page)})")
         raise FeasibilityError("timeout", "still on the login form after submit")
 
+    @staticmethod
+    def _where(page: Any) -> str:
+        """Origin of the current page (no path, query or fragment)."""
+        try:
+            return _strip_url(page.url)
+        except Exception:
+            return "?"
+
+    @staticmethod
+    def _frames(page: Any) -> List[Any]:
+        """Main frame first, then child frames. Fakes without frames: [page]."""
+        try:
+            frames = list(page.frames)
+            return frames or [page]
+        except Exception:
+            return [page]
+
     def _page_text(self, page: Any) -> str:
-        return page.inner_text("body", timeout=self.timeout_ms)
+        """Visible text of every frame (the terminal may render in an iframe)."""
+        parts = []
+        for fr in self._frames(page):
+            try:
+                parts.append(fr.inner_text("body", timeout=self.timeout_ms))
+            except Exception:
+                continue
+        return "\n".join(parts)
 
     def _tables(self, page: Any) -> List[Dict[str, Any]]:
-        return page.evaluate(EXTRACT_TABLES_JS) or []
+        out: List[Dict[str, Any]] = []
+        for fr in self._frames(page):
+            try:
+                out.extend(fr.evaluate(EXTRACT_TABLES_JS) or [])
+            except Exception:
+                continue
+        return out
+
+    def wait_ready(self, page: Any, timeout_ms: Optional[int] = None) -> bool:
+        """Poll (read-only) until a balance or equity value is readable, up to
+        ``timeout_ms``. Returns whether it became readable; never raises."""
+        limit = self.timeout_ms if timeout_ms is None else timeout_ms
+        waited = 0
+        while True:
+            try:
+                snap = parse_account_metrics(self._page_text(page))
+                if snap.balance is not None or snap.equity is not None:
+                    return True
+            except Exception:
+                pass
+            if waited >= limit:
+                return False
+            page.wait_for_timeout(1_000)
+            waited += 1_000
+
+    def structure(self, page: Any, secrets: Sequence[str] = ()) -> List[str]:
+        """The redacted structure dump for a read that did not parse."""
+        frames, struct = [], {}
+        for i, fr in enumerate(self._frames(page)):
+            try:
+                n = len(fr.inner_text("body", timeout=5_000))
+            except Exception:
+                n = None
+            frames.append({"url": getattr(fr, "url", ""), "text_len": n})
+            try:
+                got = fr.evaluate(STRUCTURE_JS, STRUCTURE_LABELS) or {}
+            except Exception as exc:
+                got = {"title": f"(structure probe failed: {type(exc).__name__})"}
+            if i == 0:
+                struct = got
+            else:
+                struct.setdefault("hits", []).extend(got.get("hits") or [])
+        return render_structure(struct, frames, self._page_text(page), self._tables(page), secrets)
 
     def _show_tab(self, page: Any, key: str) -> bool:
         """Click a VIEW tab (Positions / Orders) if one exists. View only."""

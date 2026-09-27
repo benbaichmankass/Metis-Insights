@@ -1,0 +1,100 @@
+"""Every line ``scripts/prop/breakout_login_check.py`` prints lands in a PUBLIC
+issue comment. Drive ``main()`` end to end with a fake browser and a fake
+adapter whose every surface echoes the credentials (in another case, inside
+exceptions and URLs) and prove none of it reaches stdout.
+"""
+from __future__ import annotations
+
+import importlib.util
+import sys
+import types
+from pathlib import Path
+
+
+from src.prop.platform.base import AccountSnapshot, Position
+
+REPO = Path(__file__).resolve().parents[1]
+USER, PASSWORD = "bo-jdoe77", "Pa55-word!x"
+
+
+def _load_script():
+    spec = importlib.util.spec_from_file_location(
+        "breakout_login_check", REPO / "scripts" / "prop" / "breakout_login_check.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class _Page:
+    url = f"https://app.example.com/session/{USER.upper()}?sid=abc123"
+
+    def wait_for_timeout(self, *_a):
+        pass
+
+
+class _LeakyAdapter:
+    timeout_ms = 1_000
+
+    def login(self, page, url, username, password):
+        pass
+
+    def wait_ready(self, page, timeout_ms=None):
+        return False
+
+    def read_account(self, page):
+        return AccountSnapshot(unparsed=["balance", "equity"])
+
+    def read_positions(self, page):
+        return [Position(symbol=f"ETHUSD {USER.upper()}")]
+
+    def read_orders(self, page):
+        raise LookupError(f"no orders table for {USER.upper()} at https://x.example/p/{PASSWORD}")
+
+    def structure(self, page, secrets=()):
+        raise RuntimeError(f"probe died for {USER.upper()} pw={PASSWORD.lower()} "
+                           f"url=https://x.example/s/tok9?u={USER}")
+
+
+def _fake_playwright():
+    class _Browser:
+        def new_context(self):
+            return types.SimpleNamespace(new_page=lambda: _Page())
+
+        def close(self):
+            pass
+
+    class _PW:
+        chromium = types.SimpleNamespace(launch=lambda **k: _Browser())
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    sync_api = types.ModuleType("playwright.sync_api")
+    sync_api.sync_playwright = lambda: _PW()
+    pkg = types.ModuleType("playwright")
+    pkg.sync_api = sync_api
+    return pkg, sync_api
+
+
+def test_main_never_prints_credentials_even_from_exceptions(monkeypatch, capsys):
+    mod = _load_script()
+    pkg, sync_api = _fake_playwright()
+    monkeypatch.setitem(sys.modules, "playwright", pkg)
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", sync_api)
+    monkeypatch.setenv("BREAKOUT_DX_USERNAME", USER)
+    monkeypatch.setenv("BREAKOUT_DX_PASSWORD", PASSWORD)
+    monkeypatch.setattr(mod, "adapter_for_platform", lambda _p: _LeakyAdapter())
+
+    rc = mod.main(["--account", "breakout_1"])
+    out = capsys.readouterr().out
+
+    assert rc == mod.EXIT_UNPARSED
+    # The paths that were exercised, so a quiet stdout is not mistaken for safety.
+    assert "structure: FAILED (RuntimeError" in out
+    assert "orders: UNPARSED" in out and "landed: https://app.example.com/<path>" in out
+    low = out.lower()
+    for leaked in (USER.lower(), PASSWORD.lower(), "sid=abc123", "tok9"):
+        assert leaked not in low, leaked
