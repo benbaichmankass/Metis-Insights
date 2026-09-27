@@ -149,6 +149,9 @@ Two layers, never folded together:
     re-runs the inner simulation on each re-drawn history. The 5th-95th
     percentile of the per-history mean is the reported CI.
 
+# wiring: manual-only - a research CLI run by a session (and by P2's candidate lane) on
+# committed evidence; no schedule should score a prop book without a human reading it.
+
 Tier-1 research tooling. Pure, deterministic given a seed. No network, no live
 path, no config write.
 
@@ -165,7 +168,7 @@ import json
 import math
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -598,7 +601,7 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
     src = stream if stream is not None else trade_stream(hist, rng, cfg.block_days, H)
     pending = next(src, None)
 
-    def breached(now: float) -> Optional[str]:
+    def breached() -> Optional[str]:
         eq = bal + marks_sum
         if eq <= floor + 1e-9:
             return "static_drawdown"
@@ -699,7 +702,7 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
                 marks_sum += mark
                 life.trades_taken += 1
 
-        cause = breached(now)
+        cause = breached()
         if cause:
             life.died = True
             life.death_cause = cause
@@ -833,13 +836,14 @@ def resolve_book(book: str) -> Tuple[Dict[str, Path], Dict[str, Any]]:
     """Map each leg on `book` to the per-trade rows beside its committed evidence
     record, and verify the record still describes the leg's CURRENT params."""
     import yaml
+    sys.path.insert(0, str(REPO))
     sys.path.insert(0, str(REPO / "scripts" / "ci"))
     from check_roster_promotion_evidence import config_fingerprint  # byte-identical to the producer's
-    accounts = yaml.safe_load((REPO / "config" / "accounts.yaml").read_text())
-    acct = (accounts.get("accounts") or accounts).get(book) or {}
+    from src.config.accounts_loader import load_accounts_dict
+    acct = load_accounts_dict().get(book) or {}
     roster = list(acct.get("strategies") or [])
     if roster != list(BOOKS[book]):
-        raise SystemExit(f"{book} roster in config/accounts.yaml is {roster}, this tool's "
+        raise SystemExit(f"{book} roster in the canonical accounts config is {roster}, this tool's "
                          f"BOOKS entry is {list(BOOKS[book])} — update BOOKS deliberately")
     strategies = yaml.safe_load((REPO / "config" / "strategies.yaml").read_text())["strategies"]
     paths: Dict[str, Path] = {}
@@ -865,7 +869,8 @@ def resolve_book(book: str) -> Tuple[Dict[str, Path], Dict[str, Any]]:
 def _git_sha() -> str:
     try:
         return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip()
-    except Exception:  # noqa: BLE001
+    except (subprocess.CalledProcessError, OSError) as e:  # allow-silent: provenance label only; the result still says "unknown"
+        print(f"warning: could not read git HEAD ({e})", file=sys.stderr)
         return "unknown"
 
 
@@ -1076,7 +1081,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--trades", action="append", default=[], metavar="LEG=PATH",
                     help="per-leg trade JSONL (repeatable). See INPUT SCHEMA in --help / the module doc.")
     ap.add_argument("--ruleset", default=str(DEFAULT_RULESET))
-    ap.add_argument("--risk-pct", type=float, default=0.015, help="FRACTION of balance risked per trade")
+    ap.add_argument("--risk-pct", type=float, default=0.015,
+                    help="FRACTION of balance risked per trade (0.015 = breakout_routing.yaml's 1.5%%)")
     ap.add_argument("--sizing", choices=("balance", "start"), default="balance")
     ap.add_argument("--funded-start", choices=("fresh", "carry"), default="fresh")
     ap.add_argument("--approval-days", type=float, default=1.0)
