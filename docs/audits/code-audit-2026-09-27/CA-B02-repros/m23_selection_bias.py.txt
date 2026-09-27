@@ -1,0 +1,33 @@
+import random, json
+random.seed(7)
+
+# Simulate a NO-SKILL scorer: prob is pure noise, R outcome independent of prob.
+n = 400
+cost_r = 0.05
+rows = []
+for _ in range(n):
+    prob = random.random()
+    won = random.random() < 0.244  # base win rate matches the repo's own M23 base rate
+    r = random.gauss(1.5, 1.0) if won else random.gauss(-1.0, 0.3)
+    rows.append((prob, r))
+
+base_total_r = sum(r for _, r in rows)
+base_net_r = base_total_r - cost_r * n
+
+grid = sorted(set([0.0] + [round(p,4) for p,_ in rows] + [round(x/100,2) for x in range(0,101,2)]))
+best = None
+for t in grid:
+    sel = [r for p, r in rows if p >= t]
+    if not sel:
+        continue
+    net_r = sum(sel) - cost_r * len(sel)
+    if best is None or net_r > best[0]:
+        best = (net_r, t, len(sel))
+
+net_r, t, n_sel = best
+beats = net_r > base_net_r
+usable = beats and n_sel >= max(20, int(0.1*n))
+print(f"n={n} base_net_r={base_net_r:.2f}")
+print(f"picked-in-sample: t*={t} n_sel={n_sel} net_r={net_r:.2f} beats_takeall={beats} usable={usable}")
+print("This scorer has ZERO real skill (prob is pure random noise, independent of R) -- "
+      "yet the same in-sample-max selection procedure m23_ev_gate.py uses reports a verdict.")
