@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "P2 (or any future prop-candidate-search lane) either avoids proposing iaum_pullback_1d for breakout_1, or explicitly re-evaluates it against fresh data before proposing it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-YZRZQ725-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "W6-OPS performance-review, comms/reviews/performance-review-20260927-*.json; research-disposition-ledger.jsonl gld_compat/breakout_1",
+    "rerun": "python3 scripts/research/research_disposition.py --report | grep breakout_1; or re-run the gld compat matrix for iaum_pullback_1d if a newer run lands."
+  },
+  "state": "queued",
+  "what": "[performance] RQ-20260827-001 (gld_compat corpus, read this session -- research-disposition-ledger.jsonl) confirms breakout_1 should NOT carry iaum_pullback_1d: p_profitable=0.0647, EV -$3.65/trade over n=28 ledger trades (run 2026-09-10T08:38:18Z). Flagged for wave-6 P2 (prop candidate search, crypto on Breakout) so that lane does not re-propose this leg without seeing this evidence. Separately, iaum_pullback_1d is one of the R5 soak-grader starved-leg findings under active investigation (PI-20260926-X3QEGPJL-0005 / PI-20260927-BOVNQFJU-0001) on alpaca_paper -- this compat check is about breakout_1 eligibility specifically, a different question from why it is starved on alpaca_paper."
+}
