@@ -1,0 +1,16 @@
+import sys; sys.path.insert(0, "/home/user/Metis-Insights/tests"); sys.path.insert(0, "/home/user/Metis-Insights")
+from unittest.mock import patch
+from test_monitor_reconciler import tmp_db, _insert_trade, _not_found_status, _read_trade  # noqa
+from src.runtime import order_monitor as om
+
+def test_018(tmp_db, tmp_path, monkeypatch):
+    monkeypatch.setattr("src.runtime.execution_diagnostics.PENDING_PINGS_DIR", tmp_path / "p")
+    tid = _insert_trade(tmp_db, trade_id="1900000000000000009")
+    calls = []
+    def pos(cfg):
+        calls.append(1); return [{"symbol": "BTCUSDT", "side": "Buy", "size": 0.005}]
+    with patch("src.units.accounts.clients.account_order_status", return_value=_not_found_status("1900000000000000009")), \
+         patch("src.units.accounts.clients.account_open_positions", side_effect=pos):
+        s = om._reconcile_open_trades(tmp_db)
+    print("018 summary", s, "pos calls", len(calls), "row", _read_trade(tmp_db, tid))
+    assert _read_trade(tmp_db, tid)["status"] == "open"

@@ -1,7 +1,7 @@
 # H6 — Stacked best (top-2 by Sharpe): **htf_soft** + **slope_filter** (mode=rolling)
 
 Per-candidate ranking (≥100 trades qualifies):
-- **anchored_vwap**: sharpe=+0.79 win=19.21% trades=989 E[R]=+0.0604
+- **anchored_vwap**: sharpe=+0.81 win=19.23% trades=988 E[R]=+0.0615
 - **slope_filter**: sharpe=+1.42 win=30.14% trades=209 E[R]=+0.1890
 - **htf_soft**: sharpe=+1.62 win=36.89% trades=103 E[R]=+0.2938
 - **rsi_conf**: sharpe=+1.27 win=29.96% trades=227 E[R]=+0.1606

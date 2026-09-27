@@ -1,0 +1,1387 @@
+[
+ {
+  "id": "CA-A01-005",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "order_monitor.py:1098-1103 matcher = 'position size is zero' | 'retCode=30031|110017|110025'. execute.py:3242-3252: pybit raise -> error=f'{type(exc).__name__}: {exc}'; non-raise -> retMsg first (retCode= only if retMsg empty). Archived digest: 7x 'Last error: InvalidRequestError: current position is zero, cannot fix reduce-only order qty (ErrCode: 110017)' (bybit_1, api-demo); enqueue_close_failure has exactly one caller (order_monitor.py:1164) so these pages came from this branch. Repro /tmp/claude-0/-home-user-Metis-Insights/d7de28e2-0040-5b5b-ae23-8e57e5a6e7f1/scratchpad/test_g1_a.py::test_005 (FakeDB from tests/test_order_monitor_package_legs.py, verbatim msg) -> trade_writes [] errors 1 streak {('bybit_1','XRPUSDT','short'): 1}. grep tests for 110017/already_closed_on_exchange/'position is zero': 0 hits. HEAD c87258c (shallow); order_monitor.py last touched cef4aa2, no later fix. Live diag unavailable this session: diag_fetch.sh 'version' -> https://ict-bot.duckdns.org answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (L1092-1114); tests/test_order_monitor_package_legs.py (or new tests/test_order_monitor_already_flat.py)",
+   "change": "Replace substring matcher with a helper _is_bybit_already_flat(err_str): re.search(r'(?:retCode=|ErrCode:\\s*)(110017|30031)\\b', err_str) or 'position is zero' in err_str.lower() or 'position size is zero' in err_str.lower(). Drop 110025 (V5: position mode not modified; unrelated to flatness) unless a sample shows it. Optional follow-up: close_open_position returns ret_code field and branch on it.",
+   "test": "_apply_update close with _send_close_to_exchange returning {'ok':False,'error':<verbatim archived 110017 pybit string>} -> error_count==0, update_trade called with status closed, _CLOSE_FAIL_STREAK empty. Fails on current main (verified: errors 1, streak 1).",
+   "detector": "The test above pins the verbatim venue string; plus parametrize over both formats (pybit exception text and retMsg/retCode=).",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Severity: lane marks high but its own blast_radius is 'observability'. Direct harm is false 'won't flatten' pages and a delayed DB close (the forward reconciler's 2-observation flat branch closes the row later); money-at-risk only via CA-A01-006 (head-leg blocks siblings), which is its own finding.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-006",
+  "verdict": "CONFIRMED",
+  "evidence": "order_monitor.py:965 matched_trade = legs[0]; _package_open_legs (L806-866) sorts linked leg first, deterministic. Every non-success branch returns before considering another leg: cooldown L1014-1015, wedge suppression L1052-1053, defer L1088-1090, unsupported L1126, generic failure L1176-1178. Repro /tmp/claude-0/-home-user-Metis-Insights/d7de28e2-0040-5b5b-ae23-8e57e5a6e7f1/scratchpad/test_g1_a.py::test_006 (leg1 bybit_2 fails 'boom', leg2 bybit_portfolio would succeed, 3 ticks) -> close attempts [1, 1, 1]; leg 2 never attempted. Duration of the block: until the head leg leaves status=open. For 110017 (CA-A01-005) that is bounded by the forward reconciler; for an evidenced broker wedge (L1040-1055; comment cites a 12-day alpaca_paper GLD case) or a persistent failure it is unbounded. Which leg gets stranded depends on which is linked: usually the paper mirror sits behind a real-money head, but a soak/other head leaves the real-money leg stranded. HEAD c87258c (shallow); order_monitor.py last touched cef4aa2, no later fix. Live diag unavailable this session: diag_fetch.sh 'version' -> https://ict-bot.duckdns.org answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (_apply_update close branch L954-1178); tests/test_order_monitor_package_legs.py",
+   "change": "Choose the first leg that will actually be attempted this tick: loop over legs and skip any leg that is in _PENDING_CLOSE_RETRY_COOLDOWN, is wedge-suppressed (_close_retry_decision_for(...).attempt False), or failed this tick. Keep ONE exchange close per tick (IB socket constraint), but on a generic failure advance a per-package cursor (in-process dict pkg_id->next index) so the next tick tries the next leg instead of the same head.",
+   "test": "Two-leg package, leg[0] close always returns ok False -> within 2 ticks _send_close_to_exchange is called for leg[1] and leg[1] is closed. Also: leg[0] wedge-suppressed -> leg[1] closed on tick 1. Both fail on current main (verified [1,1,1]).",
+   "detector": "The unit tests, plus the existing package_leg_coverage / INV-PACKAGE-LEG-REACHABLE can grow a check: open package with a close verdict older than N ticks and an untouched open sibling (optional).",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Evidence says sibling = 'the bybit_portfolio / alpaca_portfolio real-money mirror'. Those mirrors are paper books. The real-money leg is stranded only when it is not the linked head.",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-007",
+  "verdict": "CONFIRMED",
+  "evidence": "order_monitor.py:1223-1291: update_trade is inside try/except that only logs a warning (L1286-1291). The re-read at L1310 still sees the row open -> summary.closed_count += 1; return (L1325-1336). Next tick re-selects the same open leg and sends a second close. Repro /tmp/claude-0/-home-user-Metis-Insights/d7de28e2-0040-5b5b-ae23-8e57e5a6e7f1/scratchpad/test_g1_a.py::test_007 (update_trade raises 'database is locked') -> sends [(1, 1.0), (1, 1.0)] closed 1 1 err 0 0 pkgw []. Real-world trigger: DB is WAL with busy_timeout=3000 (database.py:474, db_init.py:43), so write failures should be rare. Frequency not measured (no live access). Harm on a flat account: a 110017 reject, which becomes a false failure streak via 005. Harm on a netted one-way account with another open row on the same symbol/side: a reduce-only order that shrinks the sibling's position. HEAD c87258c (shallow); order_monitor.py last touched cef4aa2, no later fix. Live diag unavailable this session: diag_fetch.sh 'version' -> https://ict-bot.duckdns.org answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (_apply_update L1223-1336); tests/test_order_monitor_package_legs.py",
+   "change": "On update_trade exception after a confirmed exchange close: summary.error_count += 1 and record trade_id in an in-process _EXCHANGE_CLOSED_PENDING_DB dict (trade_id -> close_updates, ts). At the top of the close branch, if the matched leg is in that dict, skip _send_close_to_exchange and retry only the DB write, popping the entry on success. Do not count closed_count when the trade write failed.",
+   "test": "update_trade raises on the first call only -> the second _apply_update does not call _send_close_to_exchange (1 send in total), s1.error_count==1, and the second tick writes status closed. Fails on current main (verified 2 sends, 0 errors).",
+   "detector": "The unit test. Optionally a log counter 'exchange_closed_db_pending' surfaced in the tick summary so a persisting entry is visible.",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-018",
+  "verdict": "CONFIRMED",
+  "evidence": "order_monitor.py:4556 'if status_str == \"not_found\" or filled_qty <= 0: _mark_orphaned(db,row)' runs before positions_cache is ever fetched (fetch is lazy at L4588). No 2-observation confirm, unlike the flat branch L4621-4637. _mark_orphaned L6743+ writes orphaned_reason 'DB-open trade not present in exchange open-positions' (never checked) and closes the package ('reconciler'). 'not_found' = get_open_orders AND get_order_history both empty for the orderId (clients.py:299-309, 1166-1169). Repro /tmp/claude-0/-home-user-Metis-Insights/d7de28e2-0040-5b5b-ae23-8e57e5a6e7f1/scratchpad/test_g1_b.py (tests/test_monitor_reconciler fixtures, not_found + account_open_positions=[BTCUSDT Buy 0.005]) -> summary orphaned 1, pos calls 0, row status 'orphaned'. The existing tests/test_monitor_reconciler.py::test_db_open_orderid_not_found_marks_orphaned_and_pings pins orphan-on-single-not_found with no position patch. Downstream: the orphaned live position is then re-adopted as orphan_adopt by the reverse reconciler, which feeds 019/021. Trigger rate (Bybit order-history retention or lag for old/demo orders) not measured. HEAD c87258c (shallow); order_monitor.py last touched cef4aa2, no later fix. Live diag unavailable this session: diag_fetch.sh 'version' -> https://ict-bot.duckdns.org answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (_reconcile_open_trades L4545-4581; _mark_orphaned reason L6765); tests/test_monitor_reconciler.py",
+   "change": "In the not_found/zero-fill branch, first fetch positions_cache (same lazy fetch). If the fetch failed, skip the row (skipped_no_creds). If (symbol, side) is present, leave the row open, clear any pending entry and log a WARNING 'order not_found but position live'. Otherwise require the _PENDING_CLOSE_CONFIRM 2-observation arming before _mark_orphaned. Pass the evaluated predicate into _mark_orphaned so orphaned_reason says 'order not_found + position absent (confirmed x2)' or 'terminal zero-fill'.",
+   "test": "New: not_found + position present -> row stays open (fails on main, verified). not_found + position absent -> first pass pending, second pass orphaned. Update test_db_open_orderid_not_found_marks_orphaned_and_pings to patch account_open_positions=[] and run 2 passes.",
+   "detector": "The unit tests. Soak alarm: count of trades orphaned by monitor_reconciler whose (account, symbol, side) was re-adopted as orphan_adopt within 5 min (a signature of a false orphan).",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-019",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "order_monitor.py:3947-3950 'except Exception: return _OrphanAttribution(detail=\"order-package read failed\")' (refused=False, package=None). The caller at L3324-3333 routes package None + not refused to _close_unattributable_orphan (L4118), which sends a reduce-only venue close on the 2nd observation >= _close_confirm_seconds. Ran: python3 -c (DB stub raising) -> _OrphanAttribution(package=None, refused=False, ..., detail='order-package read failed'). Same collapse for entry_price 0: detail='no direction or no entry price'. The read failure is not counted in summary errors. Likelihood: get_recent_order_packages_for_symbol is a plain SELECT on a WAL DB with busy_timeout 3000 (database.py:474, 1712-1730). Readers essentially never hit 'locked', so this needs 2 consecutive failing passes with no successful read between them. HEAD c87258c (shallow); order_monitor.py last touched cef4aa2, no later fix. Live diag unavailable this session: diag_fetch.sh 'version' -> https://ict-bot.duckdns.org answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (_OrphanAttribution L3882, _recover_orphan_attribution L3947-3950, caller L3316-3340, _reattach_adopted_orphans L4044-4070)",
+   "change": "Add a field unreadable: bool=False and set it on the exception path; also set it for 'no direction or no entry price'. At L3324 and in _reattach_adopted_orphans, treat unreadable like refused: pop _PENDING_ORPHAN_NOSTRAT_CLOSE, increment summary['errors'] and summary['attribution_unreadable'], and never call _close_unattributable_orphan.",
+   "test": "get_recent_order_packages_for_symbol raises on every call; with RECONCILER_CLOSE_CONFIRM_SECONDS=0 and venue position alive, run _reconcile_orphan_exchange_positions twice -> _send_close_to_exchange never called and errors>=1. Fails on main (the lane measured a venue close sent; the code path is confirmed above).",
+   "detector": "The unit test; plus the collapsed-states guard (scripts/ci/check_collapsed_states.py) could list _OrphanAttribution as a tri-state type.",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Severity high overstated: the trigger needs SELECT failures on a WAL + busy_timeout DB on 2 consecutive passes. The code defect is real and the consequence (a live flatten) is severe, but likelihood is low. The lane also missed the entry_price==0 collapse onto the same flatten path.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-020",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "order_monitor.py:3260-3267 known.add((sym, canonical)) per open row; L3671-3672 'if (sym, canonical_side) in known: continue'; size is read only after that (L3676). The only qty comparison, _check_broker_naked_bybit_positions L10204-10260 (and netting reconciler L9683-9690), flags journal > exchange only ('if _j <= _backed*(1+FRAC): continue'). Venue > journal is never graded. Not run as a repro: the membership test is unambiguous from the code. Partial mitigation the lane omits: the broker-naked sweep grades SL coverage against the venue size, so an unprotected surplus in Partial-tpsl mode would be flagged or re-armed. In Full mode, position-level SL covers it. So the surplus is usually protected but invisible to the journal and risk reads. HEAD c87258c (shallow); order_monitor.py last touched cef4aa2, no later fix. Live diag unavailable this session: diag_fetch.sh 'version' -> https://ict-bot.duckdns.org answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (_check_broker_naked_bybit_positions divergence block ~L10204-10260, or _reconcile_orphan_exchange_positions)",
+   "change": "Detect-only first: in the existing divergence block, also flag _backed > _j*(1+_BYBIT_QTY_DIVERGENCE_FRAC) with _j>0 as 'VENUE SURPLUS' (summary['venue_qty_surplus'], ERROR log + rate-limited alert). Adopting the surplus qty as an orphan row is a separate JUDGMENT (it creates rows that the attribution and flatten paths then act on) and should not ship in this fix.",
+   "test": "Journal ETHUSDT long 1.0 open, venue Buy 10.0 -> summary['venue_qty_surplus']==1. Fails on main (key absent / no flag).",
+   "detector": "The alert itself is the detector. A unit test pins it.",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "'nothing alerts' is slightly overstated: the SL-coverage sweep grades against the venue size. The journal gap and the risk gap are real.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-021",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "order_monitor.py:4087-4091 (_reattach_adopted_orphans) and 4351-4356 (_adopt_orphan_position): update_order_package(opid, {status:'open', linked_trade_id:<orphan>, close_reason:None}) with no check of the current link or account class. Matcher is symbol+direction+price only (L3947-3970). _apply_partial_close L494-523 resolves ONLY linked_trade_id, so partial TPs go to whichever leg holds the link. database.py:1482 update_order_package_linked_trade_if_unset exists but is unused here. Not re-run, since the code path is unambiguous. The lane's own live check (2026-09-27): 0 of 4 real-money packages mis-linked, so the defect is latent. Reachability rises via CA-A01-018: a falsely orphaned paper-mirror leg is re-adopted and steals the link. Full closes still reach every leg via _package_open_legs, and venue brackets remain; the harm is partials routed to the paper leg and live/mirror divergence. HEAD c87258c (shallow); order_monitor.py last touched cef4aa2, no later fix. Live diag unavailable this session: diag_fetch.sh 'version' -> https://ict-bot.duckdns.org answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (L4087-4091, L4351-4356); src/units/db/database.py (reuse update_order_package_linked_trade_if_unset or add a guarded variant)",
+   "change": "Set status/close_reason as today, but write linked_trade_id only when the current link is NULL or names a trade that is not status='open'. Never replace a link to an open real_money trade with a paper-class trade. The orphan leg relies on trades.order_package_id (already set in trade_data).",
+   "test": "Package linked to open bybit_2 real_money trade 1; adopt ETHUSDT long orphan on bybit_portfolio -> linked_trade_id stays 1 (fails on main per lane repro). Same for _reattach_adopted_orphans.",
+   "detector": "Unit tests. A soak invariant: every open package with an open real_money leg has linked_trade_id pointing at a real_money leg (cheap SQL in system_invariants.py).",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Severity high is overstated for a latent path (the lane measured 0 live instances), and full closes are unaffected. The real impact is misrouted partial-TPs.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-033",
+  "verdict": "CONFIRMED",
+  "evidence": "_sweep_stuck_linked_packages order_monitor.py:4992-5068: UPDATE ... WHERE status='open' AND linked_trade_id IN (terminal trades), with no open-sibling check. _cascade_close_linked_package L6063-6100 resolves the package via trades.order_package_id FIRST (_resolve_linked_package_id L5989) and closes it unconditionally. So ANY leg closing, not only the linked one, closes the package. Callers L3619, 5807, 6417, 6727, plus the inline cascade in _mark_orphaned. Repro /tmp/claude-0/-home-user-Metis-Insights/d7de28e2-0040-5b5b-ae23-8e57e5a6e7f1/scratchpad/test_g1_c.py (real Database, pkg P, trades t1 bybit_1 linked + t2 bybit_2, both order_package_id=P): sweep with t1 closed -> affected 1, P closed 'stuck_cascade_recovered'; cascade on NON-linked t2 closed while linked t1 open -> True, P closed 'reconciler_filled'. scripts/ops/reattach_stranded_package_legs.py:15 records the production instance pkg-293021e2e84a48db (bybit_2 real-money leg 5474 stranded). The lane's live 2026-09-27 figures (4/28 open trades under closed packages) could not be re-read here. HEAD c87258c (shallow); order_monitor.py last touched cef4aa2, no later fix. Live diag unavailable this session: diag_fetch.sh 'version' -> https://ict-bot.duckdns.org answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (_sweep_stuck_linked_packages, _cascade_close_linked_package, _mark_orphaned package cascade ~L6795-6816, watchdog force-close ~L5755-5765); tests/test_monitor_reconciler.py",
+   "change": "Add a helper _package_has_other_open_leg(db, pkg_id, exclude_trade_id) that runs SELECT 1 FROM trades WHERE order_package_id=? AND status='open' AND COALESCE(is_backtest,0)=0 AND id<>?. Its read-failure state counts as 'yes, open' so the package is not closed. In the cascade, _mark_orphaned and the watchdog force-close: when another open leg exists, do not close; re-point linked_trade_id to that leg (prefer real_money) and log it. In the sweep SQL add AND NOT EXISTS (SELECT 1 FROM trades t WHERE t.order_package_id=order_packages.order_package_id AND t.status='open' AND COALESCE(t.is_backtest,0)=0), plus a second statement that re-links those packages to an open leg so the monocle gate state stays coherent.",
+   "test": "The two scenarios in test_g1_c.py (sweep with linked leg closed + sibling open; cascade on non-linked leg with linked open) -> package stays open. Both fail on current main (verified). Plus one test for the _mark_orphaned cascade.",
+   "detector": "package_leg_coverage / INV-PACKAGE-LEG-REACHABLE already detects the stranded result (scripts/ops/system_invariants.py:864). The new unit tests guard the producers.",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Understated: the cascade closes the package when ANY leg (even a non-linked one) goes terminal, because resolution uses trades.order_package_id first. The lane framed it as 'the ONE linked/resolved leg'.",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-034",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "Read order_monitor.py:5852-5876 at c87258c: unmatched-flat branch writes closed_at=now_iso, no exit_price. _sweep_local_pnl_for_unpriced (11022ff) anchors bar_close_at(symbol, row['closed_at']) and stamps ANCHOR_SOURCE='candle_at_close' (exit_anchor.py:65), which is in ESTIMATED_SOURCES (provenance.py:232-236). Watchdog candidates: order_packages updated_at <= now-30min (5553); position_alive keyed (symbol,direction) (5639-5641); alive branch bumps updated_at only once (5673). So: single-row key -> flat is seen within ~1 tick + confirm (lag up to 30 min only if package touched recently) = small bias. Netting key with >=2 rows (bybit_2: comment 5827-5834) -> a leg that exited earlier stays 'alive' until the whole (symbol,direction) goes flat, so its closed_at can be hours late. Live count of stuck_strategy_watchdog rows NOT read: diag_fetch.sh -> answered_401 (DIAG_READ_TOKEN rejected).",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "A: stamp notes.closed_at_basis='watchdog_observed'; the sweep declares UNMEASURED_MARKER (reason 'close_time_unobserved') for those rows instead of anchoring. Honest, loses a number on single-row keys where the bias is small.",
+    "B: stamp the first-flat observation time (_PENDING_WATCHDOG_FLAT_CONFIRM value) as closed_at, and anchor only when the (account,symbol,direction) held exactly one open row at finalize; declare UNMEASURED for multi-row netting keys.",
+    "C: keep anchoring but add a new ESTIMATED-vs-FABRICATED source 'candle_at_observed_close' classed FABRICATED."
+   ],
+   "recommendation": "B: keeps an ESTIMATED figure where the close time is bounded to about one tick, and refuses to price the netting case, where the time is unknown. Add a test that a two-row netting finalize yields pnl_source=unmeasured."
+  },
+  "duplicate_of": null,
+  "lane_error": "Says the real close could be 'anywhere between entry and now'. That holds only for multi-row netting keys. On a single-row key the watchdog sees flat within about one tick plus the confirm read (up to the 30-min threshold if the package was touched recently). Severity high overstates accounting-only harm.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-048",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "order_monitor.py:8713 covered=cov['covered_qty']; 8918 `if covered >= size - eps: covered+=1; continue`. ib_client.py:3877-3889 covered_qty = max per OCA group across sides + ungrouped legs; stop_qty/target_qty returned separately (3887-3893). grade_protection_price(resting_prices=[]) -> state 'no_resting_leg', which the sweep ignores (only PRICE_DIVERGES acts). Own repro (scratchpad/g2/test_g2_ib.py, reusing tests/test_ib_naked_rearm.py fixtures): coverage {size 10, covered 10, stop_qty 0, target_qty 10} -> summary covered=1, broker_naked=0, rearmed=0, target_naked=0, 0 place_protective calls. Population: config/accounts.yaml -> ib_paper live 9 legs; ib_live mode dry_run with 0 strategies. So paper only, no real-money route today. git log -5: no later fix.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/order_monitor.py (_check_broker_naked_ib_positions); tests/test_ib_naked_rearm.py",
+   "change": "Before the `covered >= size` skip, compute stop_q=float(cov.get('stop_qty') or 0) when the key is present. If stop_q < size - _IB_COVERAGE_EPSILON while covered >= size, count summary['stop_naked_target_covered'] and emit a CRITICAL page (_emit_partial_stop_coverage_alert(venue='ib', ...) or a dedicated emitter, 6h-latched). Include that key in run_reconciliation_tick's emit predicate. Do NOT auto re-arm on it: a keyed stop+TP re-arm beside an ungrouped entry-bracket TP (parentId child, ungrouped per ib_client.py:1681-1697) leaves two unlinked TPs and a stop that can fire after flat. The stop-only re-arm that joins the surviving TP's OCA group is a separate Tier-2 change.",
+   "test": "New test: fake returns {size:10,covered_qty:10,stop_qty:0,target_qty:10}. Assert summary['covered']==0, stop_naked counter==1 and alert emitted. Fails on main (covered==1).",
+   "detector": "The new counter in the reconciliation summary, plus the test. The _FakeIBClient fixture should also emit stop_qty/target_qty so every test exercises the side-aware keys.",
+   "tier": "1 (detection/paging only; no order change). The later re-arm is tier 2."
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Lane fix 're-arm on stop_qty' would duplicate a surviving ungrouped entry-bracket TP (an order-path hazard), and severity is high for a paper-only route.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-049",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "order_monitor.py:8637-8641 un-ORDERed SELECT; 8924-8951 each row reaching the loop with 0<covered<size is re-armed for its own qty; 8960 credits cov['covered_qty'] += row qty; partial only logger.warning (8926). grep: _emit_partial_stop_coverage_alert called only at 8248 (Alpaca). Own repro (scratchpad/g2/test_g2_ib.py): two 5-lot rows, coverage {size 10, covered 5, stop 5, oca_groups {'oca-protect-t1':5}}, 3 sweeps -> [(rearmed 1, partial 1, oca_keys ['1'])] x3. Row 2 is never re-armed and row 1 is re-armed every sweep (place_protective keyed pre-cancel of t1, then re-place). ib_paper only (ib_live dry_run, 0 legs).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/units/accounts/ib_client.py (protection_coverage: also return per-group stop qty `stop_oca_groups` and ungrouped stop legs with parent_id); src/runtime/order_monitor.py (_check_broker_naked_ib_positions, SELECT adds trades.order_id / entry order id); tests/test_ib_naked_rearm.py",
+   "change": "Attribute coverage per row. A row counts as own-covered if group 'oca-protect-t<id>' carries stop qty >= row qty, OR an ungrouped STP leg's parentId equals the row's entry order id (entry-bracket child). Re-arm only rows that are not own-covered. If venue stop_qty < size but every row reads own-covered (unattributable gap), do not re-arm; page via _emit_partial_stop_coverage_alert(venue='ib'). Also page any partial that persists more than one sweep.",
+   "test": "Two rows as in the repro: assert place_protective is called with oca_key '2' only, and row 1 is not re-armed. Fails on main (re-arms '1'). Second test: row 1 is protected by a parentId child. Assert it is not re-armed.",
+   "detector": "The tests, plus a new summary counter 'partial_unattributed' in the reconciliation emit predicate.",
+   "tier": "2"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The lane's fix keys only on 'oca-protect-t<id>'. Rows still protected by their original entry bracket (parentId children with no ocaGroup, ib_client.py:1681-1697) would be misread as naked and re-armed. Severity high for a paper-only route.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-053",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "order_monitor.py:8179 state=client.protection_state(symbol) is re-read per row (not memoized). 8288 `if state.get('stop'): continue`. The quantity grade at 8199-8256 is explicitly detection-only (comment 8194-8198: binding it is Tier-2 and needs an operator OK). alpaca_client.py:1783-1818 sets stop=True on any stop-type leg. place_protective (2157ff) calls _cancel_open_orders_for_symbol(sym) before placing the OCO (line ~2204). So after row 1's OCO (row qty) lands, row 2 reads stop=True and is skipped. Worse than claimed: a per-row re-arm cannot fix this, because each re-arm symbol-wide-cancels the sibling's OCO. Real-money reach: accounts.yaml alpaca_live = 3 legs (ief/slv/iaum_pullback_1d, 3 distinct symbols), so >=2 open rows on one symbol needs an adopted-orphan duplicate. alpaca_paper (19 legs) and alpaca_portfolio are paper. Live state not read (diag 401).",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "A: gate the re-arm on the quantity grade (stop_qty+eps<size), once per symbol. Place ONE OCO for the whole netted size (the pre-cancel is symbol-wide anyway) at the most protective declared SL among open rows and the nearest TP.",
+    "B: scope Alpaca's pre-cancel to this row's own legs (client_order_id prefix per trade id), then re-arm each row without own legs. Preserves per-row geometry and needs a client_order_id convention on every protective placement.",
+    "C: keep detection-only and raise the partial page to un-latched CRITICAL."
+   ],
+   "recommendation": "A now, B later. A is bounded and matches venue netting. Choosing the SL level (tightest vs per-row weighted) is the operator's risk call, so state the choice on the page."
+  },
+  "duplicate_of": null,
+  "lane_error": "The lane's fix mentions scoping the pre-cancel but does not state that any per-row fix is self-defeating under the current symbol-wide cancel. On real money the multi-row shape needs an orphan duplicate, so it is latent rather than high.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-054",
+  "verdict": "CONFIRMED",
+  "evidence": "Same root cause as CA-A01-073. order_monitor.py:9164-9178 returns None when select_position_row is not usable. Caller 10197-10199 `if state is None: continue` with no counter. select_position_row([Buy 0.694 idx1, Sell 0.003 idx2]) -> 'ambiguous_multi_book' False (ran it).",
+  "class": "NONE",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": "CA-A01-073",
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "DUPLICATE",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-057",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "order_monitor.py:10376-10381 and docstring 9111-9124: the graded basis binds only on BYBIT_GRADED_COVERAGE_ACCOUNTS (empty = NONE). Operator Tier-2 decision 2026-09-02 explicitly accepted bybit_2 exposure during the soak. Side-blind covered sums every SL leg (9270). Reachability is narrower than stated: when BOTH books hold size, the selector refuses (ambiguous_multi_book -> None, CA-A01-073) before this comparison runs. So the masking needs other-book SL legs resting while that other book is flat or zero-size. n=1 constructed, 0 observed (code comment). Live env and bybit_coverage_soak rows NOT read: diag_fetch.sh answered_401.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "A: read bybit_coverage_soak.jsonl for bybit_2 (coverage_basis_would_differ, coverage_side_ungradeable). If clean over a stated window, set BYBIT_GRADED_COVERAGE_ACCOUNTS=bybit_1,bybit_2 with MODE=apply via set-env (Tier-2, data-backed).",
+    "B: keep bybit_2 held back until bybit_1 shows a would_differ instance.",
+    "C: bind the graded basis on hedge-armed symbols only."
+   ],
+   "recommendation": "A. It is the staged change already built. The 2026-09-27 standing auth allows a data-backed Tier-2 flip once the soak rows are read; notify the operator."
+  },
+  "duplicate_of": null,
+  "lane_error": "Does not note that the two-live-books case never reaches this comparison (it is refused upstream, CA-A01-073), or that this exposure is a recorded operator decision rather than an unknown.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A01-073",
+  "verdict": "CONFIRMED",
+  "evidence": "order_monitor.py:10191 cache_key=(account_id, symbol.upper()); 10197-10199 `if state is None: continue`, no summary key incremented (keys at 10035ff have no refusal counter). The divergence and over-cover checks sit below that line, so they are skipped too. 12146-12149: __broker_naked_bybit__ is emitted only if broker_naked or errors. _bybit_position_protection 9159-9178 returns None for any non-usable selection. Ran select_position_row([Buy 0.694 idx1, Sell 0.003 idx2]) -> ambiguous_multi_book, is_usable False. The re-arm path is already hedge-aware (_attempt_naked_autoprotect ~7980: position_idx_for(account, symbol, direction)), so only selection and grading lack direction. Worse than claimed: bybit_2 (real money) rosters xrp_pullback_2h AND trend_donchian_xrp_4h (accounts.yaml), so opposite XRP books on mainnet are reachable if XRPUSDT is hedge-armed there. Live env not read: diag 401.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/bybit_position_book.py (select_position_row gains optional want_side / position_idx); src/runtime/order_monitor.py (_bybit_position_protection(client, category, symbol, want_side=None); _check_broker_naked_bybit_positions cache key (account, symbol, direction) on hedge symbols; summary + run_reconciliation_tick predicate); tests/test_bybit_naked_rearm.py",
+   "change": "Part A (tier 1, ship first): count every None-state skip in summary['protection_refused'], split as refused_ambiguous_book / refused_read_error / refused_no_rows. Add it to the __broker_naked_bybit__ emit predicate. Page when a symbol stays refused past N sweeps. Part B (tier 2): pass the row's direction and select the matching book (positionIdx 1 long / 2 short). Grade that book with graded_book_coverage(leg_side_split), NOT the side-blind covered_qty, whenever two books are live. Without that, the other book's legs mask a naked book, as in CA-A01-057, on non-allowlisted bybit_2.",
+   "test": "Fixture: bybit_2 BTCUSDT positions Buy 0.5 idx1 + Sell 0.2 idx2, no SL legs, journal rows long 0.5 + short 0.2 past grace. Part A: assert summary['protection_refused']>=1 and that the reconciliation summary is emitted (fails on main: {'checked':2,...} all zero). Part B: assert set_trading_stop is called for both positionIdx 1 and 2. Also: book 1 has its own SL and book 2 has none -> only idx 2 re-armed.",
+   "detector": "The protection_refused counter surfaced in reconciliation summaries, plus the tests.",
+   "tier": "2 (Part A alone is tier 1)"
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The lane classed it judgment-call. The fix is bounded, provided grading on dual-book symbols uses the graded (side-aware) coverage. Otherwise the per-book fix reintroduces the CA-A01-057 masking.",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A03-naked-sweep-blind-on-dual-book-hedge-symbols",
+  "verdict": "CONFIRMED",
+  "evidence": "Same root cause as CA-A01-073 (verified above): None on ambiguous_multi_book, cache per (account, symbol) at order_monitor.py:10191, silent continue at 10199. The claim that divergence checks are skipped holds: the anomaly block starts after the None check (10205ff).",
+  "class": "NONE",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": "CA-A01-073",
+  "lane_error": "The proposed fix (want_side + direction cache key) omits side-aware grading and the refusal counter. On its own it would expose the CA-A01-057 masking on bybit_2.",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "DUPLICATE",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A02-halt-flag-does-not-stop-pairs-sleeve",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "HEAD c87258c. grep -ni halt src/main.py -> 0 hits; grep -ni 'halt|pause' src/units/strategies/pairs_executor.py -> 0 hits. src/main.py:1138-1139 calls run_pairs_tick(settings) unconditionally each loop. The only live halt check is src/runtime/pipeline.py:1000 (elif os.path.exists(HALT_FLAG_PATH)), and multi_account_execute (pipeline.py:1161-1192) sits in its else-branch, so the main path halts and the pairs path does not. pairs_executor.py:644-701 _place_pair -> execute_pkg; execute.py only checks the per-account PAUSE sentinel (:184-206), not the flag. yaml read of config/pairs.yaml: account_id=bybit_1; live = pairs_bnb_btc, pairs_sol_eth. Nothing in src/scripts/.github writes the flag (grep trader_halt), so it is a manual kill switch. Downgraded because the only live route today is bybit_1, the Bybit demo endpoint (accounts.yaml:194-208, demo). No real money is exposed now.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/units/strategies/pairs_executor.py (run_pairs_tick); tests/test_pairs_executor.py",
+   "change": "In run_pairs_tick, read src.runtime.runtime_flags.is_halted() once per tick. While it is true, turn any 'open' decision on a live pair into a logged skip (soak row event='halted_open_skipped'). Let 'close' decisions proceed, so a halt never strands one leg of an open pair. This matches pipeline.run, which stops new placements while the monitor keeps managing exits.",
+   "test": "test_halt_flag_blocks_pair_open: set HALT_FLAG_PATH to a tmp file that exists, stub decide_pair to return an 'open' decision for an execution: live pair, patch _place_pair/execute_pkg with a MagicMock, run run_pairs_tick, and assert the mock is not called. Add a sibling test asserting a 'close' decision still calls _close_pair. The first test fails on current main.",
+   "detector": "The test above, plus a CI AST guard: every order-placing hook called from src/main.py's tick loop (run_pipeline, run_pairs_tick, and any future *_tick that reaches execute_pkg) must reference runtime_flags.is_halted/halt_flag_path.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Blast radius is overstated for today: the sleeve routes only to bybit_1, the demo endpoint. Related root cause to AUD-20260927-CA-A02-safe-place-order-guards-have-no-callers: the 'second, independent halt point' lives in the uncalled safe_place_order, so every path that bypasses pipeline.run has no halt check at all.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A02-safe-place-order-guards-have-no-callers",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "AST scan of every Call/Name node for safe_place_order over src/**/*.py and scripts/**/*.py -> only scripts/smoke_test_trade.py:215 (a manual smoke CLI). Zero in src/. grep: 15 test files reference it. Comments that still claim it is live: validation.py:213-238, risk_counters.py:5/34/154, order_monitor.py:3103, strategy_signal_builders.py:912. pipeline.py:1248 records that the legacy call was removed. orders.py:129-132 holds the halt check. The code claim is CONFIRMED. Downgraded because the lost caps (MAX_DAILY_LOSS_USD, MAX_OPEN_POSITIONS, MAX_POS_PER_STRATEGY, per-strategy loss, throttle) default to None/permissive. They are not declared in deploy/ (grep: 0 hits). The per-account RiskManager DAILY_LOSS_CAP and exposure caps are the live mechanisms. I did NOT check whether the VM .env sets these variables (diag returned 401 from this sandbox). If it does, a configured cap is silently inert and severity goes back to high.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "A: Delete safe_place_order's risk-cap block, risk_counters' per-tick SQL (inject_runtime_counters / inject_per_strategy_counters) and the validation.py keys. Correct the four comments. Retarget or delete the 15 tests. The halt check moves to execute_pkg or the tick hooks (see the halt finding).",
+    "B: Wire the still-wanted global checks (halt plus a global daily-loss cap) into Coordinator.multi_account_execute pre-dispatch and the pairs hook. Fix risk_counters' open-date/all-accounts window first (AUD-20260927-CA-A02-risk-counters-window-on-open-date-all-accounts), because reviving it as written would use a wrong window.",
+    "C: Keep the code and only correct the comments/docs (cheapest, but it leaves 15 tests green on dead code)."
+   ],
+   "recommendation": "A, plus one halt check at the order-hook level. The per-account RiskManager already owns the daily loss and exposure caps. A second, account-pooled cap with an open-date window would need a separate risk-policy decision (Tier-3) before it could be revived. First read the VM env (get_env relay) for MAX_* keys. If any are set, the operator must choose between B and removing them."
+  },
+  "duplicate_of": null,
+  "lane_error": "'money-at-risk' is only true if the VM env actually sets the MAX_* caps, and the lane did not check that. Same root-cause family as the halt-flag finding and the risk-counters window finding.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A02-net-position-read-failure-reads-flat",
+  "verdict": "CONFIRMED",
+  "evidence": "src/runtime/positions.py:92-134 has_open_trade_for_strategy returns False on missing file or exception. positions.py:137-200 current_net_position_qty returns 0.0 on missing file and on except ('treating as flat'). src/core/coordinator.py:88-105 _has_open_position returns False on except. Consumer coordinator.py:2100-2107: current_signed_qty feeds compute_execution_delta_for_package. The netting guard at :2150-2155 uses has_open_trade_for_strategy (fail-open too), so neither guard catches it. RUN: planted a tmp journal with an open long 0.5 on (a,BTCUSDT) -> 'healthy 0.5 True'. Then patched sqlite3.connect to raise OperationalError('database is locked') -> 'locked 0.0 False', with the WARNING '(treating as flat)'. No fix since then (git log -3 positions.py/coordinator.py: a603e16, cef4aa2, neither touches this). Mitigating factor: the journal is in WAL mode (src/utils/db_init.py), so read failures should be rare. The trigger is uncommon, but the result is a duplicate full-size open on any account, real money included.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/positions.py; src/core/coordinator.py (multi_account_execute intent branch ~2095-2160, _has_open_position ~88); tests/test_positions_broker_cache.py or a new tests/test_net_position_unreadable.py; scripts/ci/check_collapsed_states.py registry",
+   "change": "current_net_position_qty -> Optional[float]: None when the SELECT raises. A missing file on a deployed VM is also None; keep 0.0 only for a missing file under an explicit fresh-deploy check. has_open_trade_for_strategy and _has_open_position -> Optional[bool], with None on failure. In multi_account_execute, if either read returns None, refuse this account for this package: log_rejection_to_journal(reason='net_position_unreadable'), append a result row, continue. This is a per-trade refusal with a logged cause (Prime Directive compliant); the account stays live.",
+   "test": "Patch sqlite3.connect inside src.runtime.positions to raise sqlite3.OperationalError('database is locked'), run Coordinator.multi_account_execute on an intent-mode package, and assert execute_pkg is not called and the result error == 'net_position_unreadable'. On current main execute_pkg is called with action='open', so the test fails.",
+   "detector": "The test above plus a check_collapsed_states.py entry for positions.current_net_position_qty (None != 0.0).",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A03-over-cover-keeper-qty-unchecked",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "src/runtime/over_cover_decision.py:218 sums stop_qty across groups. :339-426 picks keep on price agreement only, and nothing compares groups[keep].stop_qty with qty. RUN decide_over_cover(position_qty=29, long, stop 6.31207143, target 7.141302, tick 0.0005, keep: STP20@6.312 + LMT20@7.1415, stray: STP29@6.2625 + LMT29@7.5) -> 'cancel_group ['keep'] ['stray'] 49.0 20.0 agrees'. Reason text: '...Cancel group(s) ['stray'] match nothing declared.' Executing it leaves 9 of 29 lots unstopped. The only consumer is scripts/ops/over_cover_proposal.py:155 (grep of .github/src: no automatic caller; order_monitor's stop_over_cover path does not import it). The output is a proposal that the operator reads before firing cancel-ib-order by hand, which is why I downgraded it. The reason line does print '49.0 of stop against 29.0', but it gives no warning about the keeper's size.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/over_cover_decision.py; tests/test_over_cover_decision.py; scripts/ci/check_collapsed_states.py (if states are registered there)",
+   "change": "After keep = matches[0], if groups[keep]['stop_qty'] < qty (with the module's float tolerance), return STATE_AMBIGUOUS with reason 'keeper stop qty X < position Y: cancelling the others would leave Y-X unstopped'. Optionally add a distinct state, keeper_undersized.",
+   "test": "test_undersized_keeper_refuses: the exact input above must return state != cancel_group and cancel_order_ids == []. Fails on current main (it returns cancel_group).",
+   "detector": "The test itself. over_cover_proposal.py should also print keep stop_qty against the position.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The reason text for a pure stray is 'match nothing declared', not 'loses nothing' (that wording only applies to covered partials). Severity is overstated for an operator-read proposal with no automatic executor.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A03-since-entry-window-includes-signal-bar",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "src/runtime/exit_levers.py:115 'filtered = candles_df[ts >= cutoff]'. trend_donchian.py:429 entry_time = df['timestamp'].iloc[-1] (the signal bar label). exit_head_shadow.py:476-482 already switched to 'ts > cutoff' for this exact off-by-one. RUN: 5-bar frame, entry_time = bar2 label -> since_entry rows [2,3,4], peak 102 (the signal-bar wick). giveback_verdict(meta giveback_min_mfe_r=1, giveback_r=1, entry 100, risk 2, price 98) -> {'action':'close','reason':'giveback_stop'} although the post-entry max is 100.3 (0.15R). Live reach is narrower than the lane says. grep config: giveback is declared on one leg only (strategies.yaml:2348, min_mfe 1.0, atr_stop_mult 2.0). trail_decay arm_r is 2.0-6.49R, which a signal-bar wick almost never reaches. The realistic effects: stall_bars legs (strategies.yaml:1301/1510/1660) can arm one bar early when the signal bar is the peak, and the chandelier HH is raised by the wick. Caveat: stale_stop_verdict (exit_levers.py:173 age_bars=len(window)-1) DEPENDS on the signal bar being included.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/exit_levers.py (since_entry, stale_stop_verdict age calc); src/units/strategies/trend_donchian.py (chandelier caller); src/runtime/trail_decay.py (window guard); tests/test_exit_levers_shared.py",
+   "change": "since_entry: use ts > cutoff. When the filter leaves no rows because the entry sits inside the fetched window (cutoff >= first ts), return an EMPTY frame. Do not fall back to the full frame, because with '>' that fallback would pull pre-entry bars into the chandelier and trail_decay. Keep the full-frame fallback only when cutoff is older than the whole window. stale_stop_verdict: age_bars = len(window) (no -1). Callers already treat an empty/<2-row window as 'not yet' (trail_decay len<2 -> base_mult; giveback returns None). Also check that the chandelier handles an empty window.",
+   "test": "Parity test: on the same frame, the since_entry peak equals the max high over bars strictly after entry (the backtest_trend.py:508-517 loop). Also: the giveback case above returns None, stale_stop age is unchanged for a fixed frame, and entry-at-last-bar returns an empty window. The parity and giveback tests fail on main.",
+   "detector": "The parity test pins exit_levers.since_entry to the harness's strictly-after semantics, shared with exit_head_shadow.",
+   "tier": 3
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The lane's one-line fix ('ts > cutoff') is incomplete. It shifts stale-stop age by one bar, and the empty-result-falls-back-to-full-frame branch would then feed pre-entry bars to the chandelier and trail_decay on the first managed tick. Live blast radius is overstated: giveback is live on one leg only, and trail_decay arm_r values are far above a signal-bar wick.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A03-closed-flat-partial-read-grades-flat",
+  "verdict": "CONFIRMED",
+  "evidence": "src/units/accounts/clients.py:1661-1693: a per-symbol cross-check exception is logged, recorded only in the internal obs dict as could_not_look, then 'continue'. The returned list simply lacks the symbol, and the function still returns a list, not None. The settleCoin page also yields [] for a non-dict resp (:1537-1538). RUN: stub client where settleCoin -> {'result':{'list':[]}} and symbol-scoped -> raises 'HTTP 503' -> account_open_positions = [], then closed_flat_invariant._residual_from_positions([], 'BTCUSDT', 'long') = ResidualRead(residual_state='flat'). WORSE than claimed: the same list feeds order_monitor._reconcile_open_trades (order_monitor.py:4587-4640). A symbol absent from positions_cache is treated as flat and, after the netting-guard confirm window, the journal row is CLOSED. That is the BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND false-close outcome (settleCoin omission plus a failed cross-check on two ticks). closed_flat_invariant itself only alerts. Last touched a20fba7 (2026-09-27, hedge-book read); that commit did not change this path.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/units/accounts/clients.py (account_open_positions bybit branch); src/runtime/closed_flat_invariant.py (_residual_from_positions); src/runtime/order_monitor.py (_reconcile_open_trades ~4587, ~5636 consumers); tests/test_accounts_clients_open_positions.py, tests/test_closed_flat_residual_state.py",
+   "change": "Return per-symbol unreadability without collapsing the whole read. Carry the set of symbols whose required cross-check failed (the symbol was not on the settleCoin page and its symbol-scoped read raised), e.g. a list subclass with .unreadable_symbols or a module accessor keyed by account. Treat a non-dict settleCoin resp as a failure (None). closed_flat_invariant: a symbol in unreadable_symbols grades could_not_look. _reconcile_open_trades: a row whose symbol is in unreadable_symbols is skipped (no close, pending-confirm not armed).",
+   "test": "(1) Stubbed client as above: account_open_positions(...).unreadable_symbols == {'BTCUSDT'} and the residual grades could_not_look. (2) Reconciler with an open BTCUSDT row and that read on two ticks past the confirm window does not close the row. Both fail on main.",
+   "detector": "The tests above plus a check_collapsed_states.py registration for account_open_positions per-symbol state.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The lane scoped it to the alert-only invariant. The shared root cause in account_open_positions also drives the reconciler's journal close (money-at-risk: position left unprotected and invisible).",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A04-daily-loss-cap-by-open-date",
+  "verdict": "CONFIRMED",
+  "evidence": "src/units/accounts/risk.py:446-470 _recompute_daily_pnl_from_db: 'AND substr(created_at,1,10)=?'. It is the sole live source: _maybe_roll_daily (:740-753) calls _refresh_daily_from_sources (:692-705), which overwrites daily_pnl with it. record_trade_result (:847) has no runtime callers (risk.py:418/750 say so; grep confirms only prop_risk super()). RUN: tmp journal row (acc, closed, pnl -6000, created_at=yesterday, closed_at=now) with _risk_db_path patched -> recompute -> 0.0. git log -3 risk.py: cef4aa2 only, no fix. I could NOT re-verify the lane's live cross-day stats (145/603 = 24%, -90.6k): diag_fetch returned answered_401 from this sandbox. That part is unverified by me; the code defect does not depend on it.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/units/accounts/risk.py (_recompute_daily_pnl_from_db + docstring); tests/test_daily_risk_state_persistence.py",
+   "change": "Predicate -> substr(COALESCE(closed_at, created_at),1,10)=? . Update the docstring to 'attributed to the UTC day the PnL was REALIZED'. Confirm closed_at is written in UTC ISO format by all close writers before merging (check database.py close paths).",
+   "test": "test_cross_day_loss_counts_today: a row created yesterday, closed today, pnl -6000 -> _recompute_daily_pnl_from_db() == -6000 and evaluate() refuses with DAILY_LOSS_CAP at equity 50000 / 5%. Fails on main (0.0).",
+   "detector": "The test above. A soak alarm is optional: compare daily_risk_state.daily_pnl with SUM(pnl) by closed_at per account/day.",
+   "tier": 3
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "None in the code claim. Same bug class (open-date attribution) as AUD-20260927-CA-A02-risk-counters-window-on-open-date-all-accounts, in a different module; fix both the same way.",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A04-monitor-dry-run-gate-reads-absent-attribute",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "src/runtime/order_monitor.py:1722 '\"mode\": getattr(acc, \"mode\", \"live\") or \"live\"'. Gates at :1804, :1938, :1999, :2078 test cfg.get('mode') == 'dry_run'. RUN: load_accounts() -> all 11 accounts hasattr(mode)=False. ib_live dry_run=True and oanda_practice dry_run=True still both resolve 'live'. So the four gates can never fire. The reconcile paths (:3218, :4513) read a differently built cfg. Downgraded: execute.py dry-run dispatches journal rejection rows (execute.py:435-458, 'dry_run_no_order_placed'), not open trades, so a dry_run account only holds open rows if a live account WITH positions is flipped via operator-gated set-account-mode. Today no such rows exist (lane figure; I could not re-read live diag, 401).",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "A: Fix the read ('mode': 'dry_run' if acc.dry_run else 'live'), so the documented gate fires. After a live->dry_run flip the monitor goes hands-off on existing positions: no trailing, no managed closes. Broker-side SL/TP stay resting.",
+    "B: Fix the read, but let reduce-only closes and protective modifies of positions that PRE-DATE the flip keep flowing, and declare that 'dry_run = no new risk, exits still managed'. Pin it with a test.",
+    "C: Delete the four dead gates and the comment, and declare that the monitor manages exits regardless of mode (today's actual behaviour)."
+   ],
+   "recommendation": "B. It honours the Prime Directive (never strand protection on a real position) and makes the contract explicit; today the contract is stated one way in accounts.yaml and behaves the other way. The test must build cfg from a REAL TradingAccount loaded from a mode: dry_run YAML, not from a MagicMock."
+  },
+  "duplicate_of": null,
+  "lane_error": "The fix is not purely mechanical. Making the gate fire changes exit management for a demoted account that holds positions, and whether that is wanted is an operator question. 'Gate-2 demotion shape' is loose: Gate-2 demotion is roster membership, not account mode:.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A04-ib-close-precancel-read-failure-collapsed",
+  "verdict": "DOWNGRADED",
+  "new_severity": "low",
+  "evidence": "src/units/accounts/ib_client.py:4731-4735 _open_trades: except -> []. :2642 _locked_close calls _cancel_resting_orders_for_symbol(ib, sym) and discards the return, then places the Step-2 MarketOrder. :2561 (already-flat branch) and :3627 do the same. The file's own note at :3355-3359 names the collapse. The code claim is CONFIRMED. Downgraded because the exception path is nearly unreachable: ib_insync's IB.openTrades() is an in-memory filter over wrapper.trades (no socket round-trip). I could not import it in the sandbox; this is from library knowledge, not run. A 'transient Gateway read failure' does not raise there, and connect() failures already return earlier (:2546-2550). The realistic way Step 1 sees nothing is the documented clientId scoping (:3500-3520, BL-20260814), which returns [] with no exception and which the proposed fix would not catch. Also, close() discards even a VERIFIED still_resting result, so a known surviving leg does not defer the flatten either.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "A (lane): read ib.openTrades() directly, return verify_state='unreadable', and DEFER the flatten. Risk: a position stays open because a read failed.",
+    "B: make the state distinct (unreadable), log an ERROR/alert, and proceed with the flatten. After the fill, run a post-close sweep using _req_all_open_orders (account-wide) and cancel any leg on the now-flat symbol.",
+    "C: fold into the existing trade-attributable-protection work (BL-20260814), which also fixes the clientId-scoped read that is the real blind spot."
+   ],
+   "recommendation": "B now (small, Tier-2), with C tracked. Deferring a risk-reducing close on an unreadable cache trades a possible naked reverse for a certain open position. An account-wide post-close sweep covers both the exception case and the clientId-scoped case."
+  },
+  "duplicate_of": null,
+  "lane_error": "The claimed trigger ('transient Gateway read failure') does not match how openTrades() works: it is a local cache read. The material gap is the discarded cancel result together with the session-scoped read, which the lane's fix does not address. The lane links this to CA-A01-001 (same MHG-flip outcome); treat those as one root-cause family.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "low",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A15-closeall-leg-id-not-forwarded",
+  "verdict": "DOWNGRADED",
+  "new_severity": "high",
+  "evidence": "Reachable: src/bot/telegram_query_bot.py:607 _do_close_all -> processor.close_open_positions (menu:closeall_confirm); unit deploy/ict-telegram-bot.service ExecStart -m src.bot.telegram_query_bot. Whether the unit is running today is UNVERIFIED (diag_fetch.sh -> answered_401, token rejected). processor.py:1634 SELECT omits sl_order_id/tp_order_id; :1722-1723 `row.get(...) if hasattr(row,'get') else None`; python3 -c hasattr(sqlite3.Row,'get') -> False. Repro (scratch script, Database() schema, trade seeded sl_order_id='SL-123', tp_order_id='TP-456', close_open_position patched): forwarded {'sl': None, 'tp': None}. The existing test passes (16 passed) because it checks only that the kwarg was passed. Why downgraded: execute.py:3102 legs are reduceOnly, and order_monitor.py:~7710 bybit_over_cover says so: 'NOT a naked-reverse hazard... the harm is the cap and a leg owned by a CLOSED trade cutting a live position'. That alert plus the cancel-stale-tpsl-legs action already detect it and clean it up. The path is operator-invoked only.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/units/ui/processor.py",
+    "tests/test_s031_pr4_closeall_helper.py"
+   ],
+   "change": "Add `sl_order_id, tp_order_id` to the SELECT at processor.py:1634. Replace lines 1722-1723 with `sl_order_id=row['sl_order_id'], tp_order_id=row['tp_order_id']`.",
+   "test": "Extend _insert_trade to accept sl_order_id/tp_order_id. New test seeds 'SL-123'/'TP-456' and asserts captured['sl_order_id']=='SL-123' and captured['tp_order_id']=='TP-456'. It fails on current main (both None).",
+   "detector": "That test, plus the existing runtime bybit_over_cover alert. Also add a grep guard (CI) against `hasattr(row, \"get\")` on sqlite3.Row call sites. It is always False; the only other site, bracket_calibration.py:163, falls back safely.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Severity overstated: the legs are reduceOnly and cannot open exposure, an existing runtime alert detects the over-cover, and the path is operator-only. The lane also asserted the telegram bot is deployed without a live read.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A15-bybit-positions-spot-category",
+  "verdict": "DOWNGRADED",
+  "new_severity": "low",
+  "evidence": "bybit_connector.py:98 does hardcode params={'category':'spot'}, and the docstring contradicts itself (confirmed). Reachability, however: `grep -rn '\\.get_positions()' src scripts` finds one caller, risk_counters.py:43 inject_runtime_counters. For the primary symbol, pipeline.py:1004 passes src/main.py BybitExchangeAdapter (main.py:33-46), which has NO get_positions attribute, so the hasattr guard skips it. CURRENT_OPEN_POSITIONS has one consumer, orders.py:154 safe_place_order, and `grep -rn 'safe_place_order(' src` shows zero call sites (the pipeline.py:1248 comment says the path was removed, E1-F1). So the wrong category has no effect on any live decision today. Nothing in config/deploy sets MAX_OPEN_POSITIONS either.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/exchange/bybit_connector.py",
+    "src/runtime/risk_counters.py",
+    "tests/"
+   ],
+   "change": "Change the category to 'linear' (or have the connector take market_type) and fix the docstring. Better: fold this into the disposition of A02's dead safe_place_order guards. If those guards are deleted, delete the positions half of inject_runtime_counters as well.",
+   "test": "Mock exchange.fetch_positions and assert params['category']=='linear'. It fails on main ('spot').",
+   "detector": "The unit test above. No runtime alarm is possible while the consumer is dead.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-A02-safe-place-order-guards-have-no-callers",
+  "lane_error": "The lane traced the consumer chain to safe_place_order but did not check its callers (there are none). It also missed that the primary-symbol client passed into the pipeline is BybitExchangeAdapter, which has no get_positions. The money-at-risk rating is unfounded.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "low",
+  "final_class": "DUPLICATE",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A15-passthrough-allocator-flat-risk",
+  "verdict": "DOWNGRADED",
+  "new_severity": "low",
+  "evidence": "allocator.py:83 does fall back to 0.005 (confirmed). The key fact is that the allocator qty is never used for sizing. coordinator.py:374-424 multi_account_execute_typed rebuilds a legacy OrderPackage with meta={'allocator_qty': qty} and calls multi_account_execute, where RiskManager sizes the order. The docstring reads 'allocator-computed qty is stored in meta[allocator_qty] for audit only \u2014 the RiskManager remains the single live-sizing authority'. `grep -rn allocator_qty src` -> only coordinator.py:384/416, with no reader. So even when CENTRALIZED_ALLOCATOR is armed (runtime_flags default 'false'; not set in config/, deploy/ or .github; live value UNVERIFIED), orders are sized at the account risk_pct. Side note: the typed path hardcodes confidence=0.0 (coordinator.py:415). That is harmless today because confidence_sizing defaults 'off' (risk.py:372-374) and accounts.yaml has no confidence_sizing key.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/core/allocator.py",
+    "src/core/portfolio_state.py"
+   ],
+   "change": "Docstrings only. State that the PassthroughAllocator qty is audit-only (meta.allocator_qty) and that RiskManager sizes, and remove the 'replicates risk.py exactly' claim. Optionally add a comment at coordinator.py:415 that confidence=0.0 drops confidence sizing if the allocator is ever armed with confidence_sizing on.",
+   "test": "None needed for docs. Optional: a test asserting that multi_account_execute_typed's per-account qty is independent of typed_pkg.qty (pins the audit-only contract).",
+   "detector": "The optional contract test above.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-A15-allocator-stale-parity-docstrings",
+  "lane_error": "The lane claimed 'NOT shadow-only when armed' and money-at-risk sizing. multi_account_execute_typed discards the allocator qty (audit-only meta) and RiskManager sizes, so the lane stopped tracing one call short.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "low",
+  "final_class": "DUPLICATE",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A15-run-backtest-summarize-fabricated-zeros",
+  "verdict": "DOWNGRADED",
+  "new_severity": "low",
+  "evidence": "Ran: summarize([{'net_pnl':100},{'net_pnl':-50},{'net_pnl':30}],...) -> total_pnl 80.0, max_drawdown 0.0, max_drawdown_pct 0.0, sharpe_ratio 0.0, total_pnl_pct 0.0 (run_backtest.py:116-120, confirmed). Reachability: the only runner is scripts/ops/run_serious_baseline.sh:180, a manual one-time trainer script (header: 'one-time serious baseline'). It writes TRADE_JOURNAL_DB=$BT_DB, a dedicated baseline DB, not the live journal. The only model config reading backtest_results is ml/configs/baseline-backtest-mean.yaml.disabled. ml/datasets/families/backtest_results.py:1-8 already warns 'rows carry FABRICATED 0.0 values... must not be trained on'. Columns are nullable REAL (ensure_tables), and /api/bot/backtests _coerce_float maps None to null.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/backtest/run_backtest.py",
+    "tests/test_run_backtest_summarize.py (new)"
+   ],
+   "change": "Set max_drawdown, max_drawdown_pct, sharpe_ratio and total_pnl_pct to None, not 0.0, or compute them (peak-to-trough on cumulative net_pnl for max_drawdown). Leave the pct fields None: there is no starting balance.",
+   "test": "summarize on the three-trade list asserts max_drawdown == 50.0 (or is None) and sharpe_ratio is None. It fails on main (0.0).",
+   "detector": "The new test. scripts/ci/check_collapsed_states.py could also flag hardcoded `: 0.0,` for metric keys in summary dicts, but that is optional.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The ML-dataset impact is overstated. The script is manual and one-off and writes a separate DB, the only consumer config is .disabled, and the dataset family already documents the fabricated zeros.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "low",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A15-db-loaders-stray-trade-journal-fallback",
+  "verdict": "DOWNGRADED",
+  "new_severity": "low",
+  "evidence": "data_loaders.py:47-52 has _TJ_CANDIDATES=[trade_journal_db_path(), REPO_ROOT/trade_journal.db] and next(...os.path.exists...) (confirmed). This is not a contradiction with the comment: lines 41-46 explicitly say 'then repo root as the existence-check fallback', and the candidate the comment says was 'dropped' is src/bot/trade_journal.db, a different path. The trigger needs the canonical live DB (/data/bot-data/trade_journal.db, pinned by the systemd TRADE_JOURNAL_DB drop-in per paths.py:311-312) to be absent at import time while a stray repo-root DB exists. Every other surface would also be broken in that state. The same pattern is at src/bot/telegram_query_bot.py:65-70 and src/backtest/run_backtest.py:18-22, which the lane missed. `ls /home/user/Metis-Insights/trade_journal.db` -> absent. Did not repro with a planted file (read-only repo). The logic is a plain next().",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/units/ui/data_loaders.py",
+    "src/bot/telegram_query_bot.py",
+    "src/backtest/run_backtest.py",
+    "scripts/check_canonical_db_resolver.py",
+    "tests/test_canonical_db_resolver.py"
+   ],
+   "change": "In all three modules, replace the candidate list plus next() with a direct `trade_journal_db_path()`. paths.py step 3 already falls back to the repo root when neither env var is set.",
+   "test": "With DATA_DIR=tmp (empty) and REPO_ROOT pointed at a tmp dir holding a planted trade_journal.db, importlib.reload(data_loaders) and assert TRADE_JOURNAL_DB == str(tmp/'trade_journal.db') under DATA_DIR. It fails on main.",
+   "detector": "A canonical-db-resolver rule that flags a `next(... os.path.exists(p) ...)` over a list containing a trade_journal.db join.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The lane misread the header comment (the dropped candidate is src/bot/trade_journal.db, and the comment openly documents the repo-root fallback). It rated the finding high for a state where the live journal is missing, and it missed the two sibling copies of the pattern.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "low",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A12-set-account-mode-not-durable",
+  "verdict": "CONFIRMED",
+  "evidence": "set_account_mode.sh edits ${REPO_DIR}/config/accounts.yaml in place and restarts the trader, with no git commit or push. deploy_pull_restart.sh:116-117 runs `git reset --hard origin/main`, and ict-git-sync.timer has OnUnitActiveSec=5min, so the edit is wiped within about 5 minutes. WORSE than claimed: the runtime does not keep the flipped mode until the next restart. pipeline.py:1133 builds `Coordinator()` per tick, and multi_account_execute calls `load_accounts(path)` on accounts.yaml at every dispatch with no cache (coordinator.py, grep load_accounts; no lru_cache in src/units/accounts/__init__.py). So the runtime mode reverts at the first dispatch after the git-sync reset, with no restart needed (the restart itself is gated on runtime commits, deploy_pull_restart.sh:228-304). Live /api/bot/config (public): 11 accounts, yaml_mode 9 live and 2 dry_run. There is no evidence of an in-flight flip, and I could not compare against a runtime field.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "A: The set-account-mode workflow commits the one-line mode change to main (with the check_dry_run_in_diff operator marker) and git-sync converges on it. Durable and visible in git, and keeps YAML as the only gate. Cost: the workflow needs push-to-main credentials and a bot commit path.",
+    "B: Retire the VM-side edit. A mode flip becomes a normal commit to main (Tier-2 or 3 with operator OK), and set_account_mode.sh only verifies the post-state after git-sync. Simplest, with no new credentials. Cost: up to about 5 minutes of latency, and emergency flips depend on GitHub being reachable.",
+    "C: Keep a VM-local override file that git-sync preserves. Fast, but it is a hidden third gate outside YAML and git, which contradicts CLAUDE.md's 'two execution gates'. Not recommended."
+   ],
+   "recommendation": "A (with B's post-state verification). It keeps the sanctioned audited action while making git the durable record. Until it lands, docs/claude/system-actions.md \u00a72.1 should state that a flip made through this action lasts at most about 5 minutes."
+  },
+  "duplicate_of": null,
+  "lane_error": "Understated: the lane said the runtime reverts 'at the next trader restart'. Because accounts.yaml is re-read on every dispatch, the runtime reverts within about 5 minutes with no restart.",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A12-orphan-history-package-double-attribution",
+  "verdict": "NOT-REPRODUCED",
+  "evidence": "The matcher does ignore account and size (reconcile_orphan_history.py:182-218, confirmed), and nothing de-duplicates across clusters. But the claimed defect ('one package attributed to at most one trade') contradicts the data model. The order_packages schema (database.py CREATE TABLE) has NO account_id column. coordinator.py:1105-1125 logs ONE package per dispatch round and stamps it so 'every trade row this decision fans out to carries order_package_id', which means several accounts share one package by design (for example bybit_2 and its bybit_portfolio mirror, which CLAUDE.md requires to take identical trades). The lane's repro (bybit_1 and bybit_2 both mapped to pkg-1) is exactly that legitimate shape. The proposed cross-cluster dedup and linked_trade_id exclusion would wrongly mark real mirror trades unreconciled. The live matcher the script mirrors, order_monitor._recover_orphan_order_package (~:3992), is also size-ungated by construction (docstring: 'Ungated by construction').",
+  "class": "NONE",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The lane assumed a 1:1 package-to-trade model. Packages fan out across accounts, so a shared order_package_id across accounts is correct, and the proposed fix would break mirror attribution. A size-support gate (src.runtime.orphan_attribution.assess_size_support) could be a separate low-severity hardening, but it is not this finding.",
+  "final_verdict": "NOT-REPRODUCED",
+  "final_sev": "none",
+  "final_class": "NONE",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A05-001",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read src/runtime/strategy_signal_builders.py:726-855 (_ict_scalp_variant_builder) in full: no `htf` token anywhere in the function (grep confirms 0 hits), vs ict_scalp_signal_builder (612-648) which fetches HTF candles + sets cfg['htf_close']/['htf_ema']. Gate at src/units/strategies/ict_scalp.py:435-456 only fires `if htf_close is not None and htf_ema is not None`, so for the variant builder it is structurally always None -> filter never fires. Verified config/strategies.yaml directly (python3 yaml parse): all 7 (ict_scalp_sol_5m/xrp_5m/avax_5m/xrp_15m/eth_15m/sol_15m/mgc_15m) have enabled=True, htf_trend_filter_enabled=True, execution=live. Confirmed tests/test_ict_scalp_variants.py:72 hardcodes htf_trend_filter_enabled:False (sidesteps gap); tests/test_ict_scalp_runtime.py only covers the flagship builder.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/runtime/strategy_signal_builders.py"
+   ],
+   "change": "Extract the HTF-fetch block (lines 612-648 of ict_scalp_signal_builder) into a shared helper `_fetch_htf_bias(symbol, exchange, ict_cfg)` returning (htf_close, htf_ema); call it from _ict_scalp_variant_builder before building cfg, gated on vcfg.get('htf_trend_filter_enabled', True), same as the flagship path.",
+   "test": "New test in tests/test_ict_scalp_variants.py asserting fetch_candles is called at the variant's htf_filter_timeframe (and cfg['htf_close']/['htf_ema'] get set) for at least one variant-backed strategy with htf_trend_filter_enabled:True. Must fail on current main (fetch_candles call count for HTF timeframe is currently 0 for the variant builder).",
+   "detector": "The new test above; no existing test/guard catches this today.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "JUDGMENT",
+  "lead_note": "Lead: reclassified FIX\u2192JUDGMENT (Tier 3). Wiring the HTF bias filter turns on a filter that has NEVER run on 7 live-configured legs; that is new strategy behaviour with no backtest behind it, not a bug fix."
+ },
+ {
+  "id": "CA-A05-002",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "grep -rln 'write_event_links(|resolve_all(|write_events(|write_signals(' --include=*.py . excluding tests/ and event_store.py itself -> only src/units/strategies/macro_thesis/macro_signals.py (defines write_signals, never called elsewhere) and event_store.py. Read thesis_tick.py:1-20,110-145 in full: form_tick_theses calls form_theses_from_reads with no watched_events_by_symbol/signal_ids_by_symbol args; thesis_engine.py:116-138 shows these are Optional, default None -> watched=[]/sigs=[] for every symbol. ls comms/macro/ (26 files) has no macro_events.jsonl/thesis_event_links.jsonl. Design doc docs/research/M28-macro-value-speculation-DESIGN.md:16 says P2 'DONE'.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "docs/research/M28-macro-value-speculation-DESIGN.md"
+   ],
+   "change": "Correct the P2 DONE status line to 'built, unit-tested, NOT wired end-to-end (zero production caller of write_events/resolve_all/write_event_links; thesis_tick.py never threads watched_events_by_symbol/signal_ids_by_symbol)'. File a checklist row for the join as a separate build item; do not silently reclassify DONE.",
+   "test": "n/a (docs-only correction)",
+   "detector": "grep -rln 'write_event_links(|resolve_all(|write_events(|write_signals(' --include=*.py . | grep -v tests/ | grep -v macro_thesis/event_store.py \u2014 currently 1 hit (macro_signals.py, itself unconsumed); could be wired into a CI doc-freshness check.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: design-doc status drift; no runtime effect."
+ },
+ {
+  "id": "CA-A05-004",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read src/ict_detection/liquidity.py:118-159 in full. Docstring (121-126) requires pierce THEN reversal. Implementation (137-155): `if candle_high > pool['price']: pool['swept']=True; break` (mirrored for sell_side lows) \u2014 no subsequent-bar reversal check exists anywhere in the function or file. grep confirms detect_liquidity_sweeps/LiquidityDetector called only from src/runtime/liquidity_state.py -> written to runtime_logs/liquidity_state.json -> read only by src/web/api/routers/liquidity.py (dashboard). grep across all *.py for any strategy importing liquidity_state: none \u2014 confirms dashboard-only, no live strategy reads this back.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/ict_detection/liquidity.py"
+   ],
+   "change": "Either (a) rewrite the docstring at lines 121-126 to say 'A break occurs when price pierces through the level' (matching current break-only behavior), or (b) add a real reversal check (e.g. close back below/above the level within N bars) before setting swept=True. Given zero live strategy consumes this and it is dashboard-observability only, (a) is the minimal-risk fix; (b) is a behavior change needing its own test.",
+   "test": "tests/test_liquidity.py: new case with a pool broken at bar N that trends onward for 15 bars without reversing \u2014 asserts current documented behavior (swept=True on pierce, if docstring is fixed to 'break') or asserts swept=False (if reversal logic is added). Must fail against current code+docstring mismatch.",
+   "detector": "New test above; none exists today.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: consumer is dashboard-only (verifier); no live decision reads it."
+ },
+ {
+  "id": "CA-A05-005",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "python3 -c \"import json; d=json.load(open('comms/macro/thesis_p4_scorecard.json')); print(d['scorecard']['calibration_rank'], d['scorecard']['edge_vs_baseline']); print(d['meta'])\" -> calibration_rank=-0.003723470409909561, edge_vs_baseline=-0.004677893508962371, meta={rebalances:263, horizon_days:30.0, fee_frac:0.0, carry_frac_per_day:0.0, snapshot_records:10125, symbols_with_candles:[GLD,IEF,SLV,SPY,TLT], entries_scored:1104} \u2014 every number in the finding matches exactly. docs/research/M28-macro-value-speculation-DESIGN.md:16 marks (P1-P4 merge set) DONE with no pointer to this scorecard's negative verdict.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "docs/research/M28-macro-value-speculation-DESIGN.md"
+   ],
+   "change": "Add a line beside the P4 DONE status pointing to comms/macro/thesis_p4_scorecard.json and stating the verdict in words: fails its own gate even at zero cost (calibration_rank ~0, edge_vs_baseline negative, n=1104, well-powered) \u2014 DONE means the harness/gate is built and ran, not that the sleeve has edge.",
+   "test": "n/a (docs-only)",
+   "detector": "python3 -c \"import json; d=json.load(open('comms/macro/thesis_p4_scorecard.json')); assert d['scorecard']['edge_vs_baseline'] > 0\" \u2014 currently fails, proving the gate result; could be wired into doc-freshness as a check that DONE sections link a verdict when a scorecard file exists.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: doc omits a committed negative result; sleeve status is a docs fix."
+ },
+ {
+  "id": "CA-A05-006",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read src/units/strategies/htf_pullback_trend_2h.py:1-2 verbatim: 'SCAFFOLD, not wired... inert until the Tier-3 activation PR.' Traced all callers of its order_package: 13 direct-import builders in strategy_signal_builders.py (htf_pullback_trend_2h, mgc/mhg_pullback_1d via _metals_pullback_signal_builder, gld/iaum/tlt/slv/gdx/ief_pullback_1d, gld/spy/qqq/tlt_pullback_1h) + 6 via shared _htf_pullback_variant_builder (eth_pullback_2h/_prop_2h, sol/xrp/ada/avax_pullback_2h) = 19 total, matching the finding exactly. python3 yaml-parsed config/strategies.yaml for all 19: enabled=True x19, execution=live x16 / shadow x3 (htf_pullback_trend_2h, eth_pullback_prop_2h, avax_pullback_2h) \u2014 the '16/19 clones still execution:live' claim is exact. intent_multiplexer.py:258 dispatches it live.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/units/strategies/htf_pullback_trend_2h.py"
+   ],
+   "change": "Rewrite the opening docstring (lines 1-2) to state current reality: live-wired since 2026-06-02 into intent_multiplexer.py/strategy_signal_builders.py/config/strategies.yaml; 19 enabled legs route to this unit, 16 execution:live; base BTC 2h leg demoted to shadow 2026-08-23.",
+   "test": "n/a for the docstring; add the CI guard below as the durable fix.",
+   "detector": "New CI guard (does not exist today): grep for 'not wired'/'SCAFFOLD'/'inert' in src/units/strategies/*.py module docstrings, cross-referenced against intent_multiplexer.SIGNAL_BUILDERS keys and strategies.yaml enabled flags \u2014 fail if a docstring claims not-wired while an enabled strategy dispatches to it.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: docstring drift; code is correct."
+ },
+ {
+  "id": "AUD-20260927-CA-A06-decision-push-collapse",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "ls docs/claude/work/objects -> No such file or directory (confirmed retired 2026-09-21 per CLAUDE.md). Ran `python3 scripts/ops/push_decisions_back.py --queue`: exit=0, stdout 'push_decisions_back \u2014 queue depth 0' with all counts 0, note says record empty run so 'nothing to do' stays distinguishable from 'drain died' \u2014 but nothing in the output actually distinguishes them here. Read scripts/ops/push_decisions_back.py:90 (OBJECTS_DIR) and :108-113 (_iter_objects: `if not OBJECTS_DIR.exists(): return out` before any glob) \u2014 confirmed verbatim. Contrast: ran `python3 scripts/ci/check_decision_answers.py`: exit=1, stderr 'docs/claude/work/objects is not a directory' \u2014 this sibling correctly fails loud on the identical missing dir. render_due_list.py:1715 also checks `.is_dir()` first. decision_push.py:246 still hard-codes 'docs/claude/work/objects/{object_id}.yaml' in operator-facing push text \u2014 confirmed via grep.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/ops/push_decisions_back.py",
+    "src/runtime/decision_push.py"
+   ],
+   "change": "In push_decisions_back.py::_iter_objects(), replace `if not OBJECTS_DIR.exists(): return out` with a distinguishable 'could not look' signal (e.g. raise a typed exception or return a sentinel the caller reports as such), mirroring check_decision_answers.py's main() guard or factoring out its is_dir() check for reuse. Update decision_push.py:246 to stop naming the retired docs/claude/work/objects/ path (or to name wherever decision_requests now live).",
+   "test": "New test asserting that with OBJECTS_DIR absent, push_decisions_back.py's queue/run output reports a could-not-look state distinct from a genuinely-empty (dir exists, 0 files) queue. Must fail on current main (both currently produce identical 'queue depth 0' output).",
+   "detector": "None today for this specific reader; check_decision_answers.py already proves the correct pattern is achievable on the same directory.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: tooling reads a retired store; no trading path."
+ },
+ {
+  "id": "AUD-20260927-CA-A07-testping-journals-and-can-suppress-real-trade",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read src/prop/breakout_executor.py::emit_prop_ticket in full (lines ~155-400): the reticket-suppress check (_reticket_suppress_reason, called at line 184) runs BEFORE any journal write and keys ONLY on (account_id, symbol, direction) via prop_journal.list_tickets \u2014 never strategy. The unconditional 'emitted' journal write (lines ~357-390) fires whenever leg.decision=='place', in a try/except that runs BEFORE the `if _emitter is not None` branch (confirmed by reading the emitter dispatch further down) \u2014 so send_test_ping.py's --no-push/--no-telegram path (which only substitutes the emitter) still writes the same real row. Confirmed script defaults: send_test_ping.py argparse defaults account=breakout_1, symbol=SOLUSDT, side=long, strategy=trend_donchian_sol (lines 66-73); send_prop_test_ping_action.sh calls it with only --symbol/--strategy overridable, same defaults. config/prop_rulesets/breakout_routing.yaml confirms breakout_1's real routed strategies are exactly trend_donchian_sol/trend_donchian_eth on SOLUSDT/ETHUSDT. grep confirms zero tests/test_prop_send_test_ping*.py exists.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/prop/breakout_executor.py",
+    "scripts/prop/send_test_ping.py",
+    "scripts/ops/send_prop_test_ping_action.sh",
+    "docs/claude/system-actions.md"
+   ],
+   "change": "Give emit_prop_ticket a way to journal a test ticket under a status _reticket_suppress_reason's status check explicitly excludes (e.g. status='test_ping' instead of 'emitted'), threaded from send_test_ping.py via a new param; OR exclude a ticket carrying the '[TEST PING' strategy marker from the suppression scan. Then correct the three now-false 'nothing journaled' claims in send_test_ping.py's docstring/note, send_prop_test_ping_action.sh's comment, and docs/claude/system-actions.md:255-257.",
+   "test": "New tests/test_prop_send_test_ping.py: (1) assert a test-ping invocation does NOT create a ticket with status='emitted' that _reticket_suppress_reason would match; (2) assert a real trend_donchian_sol signal on SOLUSDT/long fired immediately after a test ping is NOT suppressed. Both must fail against current main (test ping does write status='emitted' and does suppress).",
+   "detector": "The regression test above; none exists today.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A07-prop-sl-tp-alert-zero-test-coverage",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "`ls tests/ | grep -i sl_tp` and `grep -rln 'run_prop_sl_tp_alert|_sl_crossed|_tp_crossed' tests/` both return nothing (reconfirmed independently). Only reference is a docstring mention at tests/test_prop_fills_staleness.py:287; :413 monkeypatches `fs._sl_tp_state` with a synthetic dict, never calling the real module. Read src/prop/prop_sl_tp_alert.py in full (223 lines). Independently ran the real module's core loop (not the lane's claim, this session's own repro): monkeypatched m.find_open_prop_positions + m._fetch_current_price, fed a short ETHUSDT position (sl=2050) at price 2060 -> fired sl_alert once (tick1), did NOT re-fire at same price (tick2, sl_fired=0), correctly fired tp on later crossing (tick3), and pruned state to {} once the position closed (tick4). Confirms the module currently behaves correctly per its own contract \u2014 this is a coverage gap, not a demonstrated live bug, exactly as the lane stated.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "tests/test_prop_sl_tp_alert.py (new)"
+   ],
+   "change": "Add direct unit tests for src/prop/prop_sl_tp_alert.py covering: SL/TP crossing for long+short at the boundary; one-alert-per-level-per-lifetime (no re-fire); state pruning on position close; price-fetch-failure path leaves state unchanged and doesn't crash; and an integration test feeding the real on-disk state file into prop_fills_staleness.assess_crossings (replacing/supplementing the synthetic-dict monkeypatch at test_prop_fills_staleness.py:413).",
+   "test": "The new test file itself is the test; it must currently fail to exist (0 coverage) which is itself the proof of the gap.",
+   "detector": "The new test suite; none exists today across the whole repo (verified by two independent greps).",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Lane's own `fix_class` field said 'judgment-call', but the fix (write missing unit tests for an existing, already-correct module) is unambiguous and bounded \u2014 no operator trade-off is involved. Classified here as FIX, tier 1, not JUDGMENT.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: verifier ran the module and found behaviour correct; a coverage gap, not a defect."
+ },
+ {
+  "id": "AUD-20260927-CA-A08-diag-venue-reads-collapse-could-not-look",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "grep -n 'list_accounts failed' src/web/api/routers/diag.py -> 9 hits (lines 2297,2415,2541,2728,3246,3340,3438,3560,3663), matching the claimed 9 routes exactly. Independently reproduced via fastapi TestClient (pip-installed fastapi/httpx/email-validator in this sandbox; app=src.web.api.main.app) on the current working tree with DIAG_READ_TOKEN set and Authorization: Bearer header: (a) monkeypatched data_loaders.list_accounts to raise -> GET /api/diag/exchange_positions -> 200 {'requested_account_id': None, 'requested_symbol': None, 'accounts': []}; (b) list_accounts returning [] -> byte-identical 200 body; (c) list_accounts=[{'account_id':'bybit_2'}], GET /api/diag/ib_open_orders?account_id=bybit_typo -> 200 {'requested_account_id':'bybit_typo','count':0,'accounts':[]...} \u2014 all three match the lane's claimed outputs exactly. Confirmed docs/api-tier-policy.md:291 states the ib_open_orders contract as 'count is null, never 0, when we could not look,' contradicted by (c).",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/web/api/routers/diag.py"
+   ],
+   "change": "In each of the 9 routes: on list_accounts() raising, return 503 {'error':'accounts_unreadable'} (matching the existing import-failure 503 two lines above) instead of swallowing to accounts=[]; when account_id is given and matches no configured account, return 404 {'error':'unknown_account_id'}; set count/record_count to None (not 0) when the account-level read could not happen. Make _load_yaml_accounts (data_loaders.py:191-215) surface its errors list to callers instead of silently returning [].",
+   "test": "For each of the 9 routes: a test monkeypatching list_accounts to raise and asserting the body carries an explicit could-not-look state (503 or an explicit field), not accounts:[]; and a test requesting an unknown account_id asserting 404/unknown_account_id. Must fail on current main (reproduced above \u2014 currently 200 with accounts:[]).",
+   "detector": "Proposed generalized guard: flag `accounts = []` inside an `except` block in routers/diag.py. Does not exist today.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A08-critical-alert-dropped-on-send-failure",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read src/main.py:871-901 (_drain_critical_alerts) in full: `for alert in pop_alerts(): ... try: telegram_client.send_message(...) except Exception: logger.exception(...)`. pop_alerts() (src/units/dashboards/alerts.py:113) is destructive \u2014 the alert is gone from the queue the moment it's popped, before send is attempted. Confirmed _AlertManagerAdapter.send_message (main.py:55-61) is a one-line passthrough to AlertManager.send_alert. Read src/bot/alert_manager.py:22-36: send_alert wraps the Telegram send in `try/except Exception as exc: logger.warning('Alert failed: %s', type(exc).__name__)` \u2014 never re-raises. Independently reproduced (this session, not the lane's claim): monkeypatched telegram.Bot to raise RuntimeError('network down') inside send_alert -> AlertManager.send_alert returned None (no exception propagated), logged only 'Alert failed: RuntimeError'. Confirmed main() (line 974) builds telegram_client via _build_telegram_client(), the only production path, which returns this exact _AlertManagerAdapter when credentials are present -- so _drain_critical_alerts' except-branch (line 898) is unreachable in production; the alert is silently gone with only a WARNING (type name only) in the trader log.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/bot/alert_manager.py",
+    "src/main.py"
+   ],
+   "change": "Have AlertManager.send_alert return a bool (True on confirmed send, False on failure) and log the exception message, not just its type name. Have _drain_critical_alerts (src/main.py:889-901) check that return value (or catch a re-raised exception) and re-queue the alert (bounded retries, e.g. re-push onto the alerts queue or a small in-memory retry list) instead of discarding it silently on failure.",
+   "test": "New test: monkeypatch telegram.Bot.send_message to raise inside AlertManager.send_alert, assert send_alert returns False (or raises) instead of swallowing to None; a second test asserting _drain_critical_alerts leaves the alert re-queued (or writes an undelivered record) on a False/raised result. Must fail on current main (reproduced above: send_alert currently returns None on failure with no requeue path).",
+   "detector": "The tests above; none exist today.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-A09-autoland-pr-author-pat",
+  "verdict": "CONFIRMED",
+  "evidence": "config/mandates.yaml:462-473 confirms MD-DEMOTE-S2-S1 autoland:true, armed 2026-09-27. r4-demotion-gate.yml:139 sets GH_TOKEN=secrets.BRANCH_PROTECTION_TOKEN for the 'gh pr create'/'gh pr merge' step (line 233,241); docs/github-actions-workflows.md:1199 confirms this secret is a fine-grained PAT, and its own \u00a7on reconcile-open-prs.yml text states 'the landing PRs (#10785,#10781,#10398) are all PAT-authored under the human login benbaichmankass' \u2014 an existing, independent precedent for this exact token producing a human-login-authored PR. scripts/ci/check_mandate_autoland.py::pr_author_login (line 521-545) reads pull_request.user.login verbatim from the CI event payload; check_author (591-612): 'elif login != BOT_LOGIN: fails.append(A7 the PR was opened by ...)'. Since the PR is opened under the PAT owner's login, not github-actions[bot], R16/A7 will FAIL on every real (non-pre-flight) run of pr-landing-guard against the resulting PR. --pre-flight (line 201-204 of the workflow) only skips this read for the producer's OWN run before the PR exists; the merge gate is pr-landing-guard on the PR itself, which never passes that flag. Not yet observed on a live fire (0 r4-demotion-gate PR runs recorded). git log -5 for both files shows no recent fix.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "(a) Extend A7 to also accept the PAT-owner login, but ONLY when every other clause already holds (branch matches automation/r4-demotion-<run_id>, all commits authored+committed by github-actions[bot] email, run_id/workflow fields match, merge-slot claim held by the same run) \u2014 i.e. trust the PAT-authored PR only when independent provenance already proves no session/human hand-edited it. Cheapest, keeps CI triggering (PAT pushes DO trigger required checks, unlike GITHUB_TOKEN pushes).",
+    "(b) Open the PR with the default GITHUB_TOKEN (github.token) instead of the PAT so the author really is github-actions[bot] \u2014 but GITHUB_TOKEN-authored pushes do NOT trigger other workflows, so pytest-collect/pytest-run/guards (the three required status checks) would never fire and the PR could never satisfy branch protection at all. This breaks the route more thoroughly than option (a) and needs a second workaround (e.g. a follow-up PAT-authenticated empty commit solely to retrigger CI) to even work.",
+    "(c) Leave A7 as-is and correct the mandates.yaml/CLAUDE.md text to say the route always requires a human merge in practice \u2014 cheapest, but defeats the operator's explicit 2026-09-27 arming decision and the whole point of building the auto-land route."
+   ],
+   "recommendation": "(a): add a provenance-based exception to check_mandate_autoland.py's A7 clause. It costs one clause change to one CI script, changes no runtime/order-path code, and preserves the safety property (a session/human PR still fails A7 because it fails the branch-name/commit-authorship sub-checks first). Ship it with a new self-test case asserting a PAT-authored PR on the correct branch/commits still passes, and (unchanged) a PAT-authored PR on ANY other branch still fails."
+  },
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-A09-hold-merge-unenforced",
+  "verdict": "CONFIRMED",
+  "evidence": "Live curl https://api.github.com/repos/benbaichmankass/Metis-Insights/branches/main: protected=true, required_status_checks.contexts=[pytest-collect,pytest-run,guards], enforcement_level=everyone (required_pull_request_reviews not exposed unauthenticated, matching the lane's own caveat). scripts/ci/check_pr_landing.py:1525-1530 returns 'declared_hold' with no fails for tier!=1, i.e. exits 0 inside the required 'guards' check. .claude/settings.json line 30/68: permissions.allow includes 'mcp__github' (broad, includes merge_pull_request); the PreToolUse merge-slot-guard hook matcher is literally 'mcp__github__merge_pull_request|mcp__github__enable_pr_auto_merge' (line 68) \u2014 its own _comment (line 71) states 'MEASURED 2026-08-20: this hook is NEVER INVOKED on Claude Code on the web ... enforces nothing there'. Confirmed the matcher does NOT cover the session's other GitHub MCP server (mcp__2a2ac591-...__merge_pull_request), which also is not in permissions.allow at all. So on the web runtime, a green declared-hold Tier-2/3 PR can be merged via mcp__github__merge_pull_request with zero mechanical gate.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "Add branch-protection required_pull_request_reviews / a CODEOWNERS gate on TIER3_PATHS (config/accounts.yaml, config/strategies.yaml, src/runtime/orders.py, etc.) \u2014 strongest, but slows every legitimate Tier-2/3 human-approved merge with an extra click and needs the operator to be the reviewer or a second account.",
+    "Add a post-merge push:main detector workflow that reads the merged PR's .github/pr-landing declaration and pages the operator (loudly) if a tier-2/3 `hold` PR merged with no recorded approval \u2014 catches it after the fact rather than blocking it, cheap and non-disruptive.",
+    "Add settings.json permission rules (`ask` instead of `allow`) for merge_pull_request/enable_pr_auto_merge on BOTH GitHub MCP server names present in a session, so at least the in-session approval prompt fires even though the PreToolUse hook does not run on the web."
+   ],
+   "recommendation": "Do (2) immediately (cheap, no workflow friction, catches every case retroactively) and let the operator decide separately whether they want the stronger, more disruptive (1). (3) is a good complement regardless."
+  },
+  "duplicate_of": null,
+  "lane_error": "Same underlying failure class ('a mechanism assumes the CLI/desktop hook runtime, which the web session does not have') as two items already in the pipeline store: PI-20260921-M05 (session-start hooks referencing the merge-slot guard) and PI-20260925-PPXZFQSC-0001 (claude-pr-automerge's branches filter excludes lane/** so lane PRs also have no automated landing path). Worth fixing together rather than as three unrelated tickets.",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A10-001",
+  "verdict": "CONFIRMED",
+  "evidence": ".github/workflows/system-actions.yml lines 662-666: tier=1 case lists exactly 16 actions; tier=2 case (read in full, lines 664-667) lists exactly 75 actions, verbatim-matching the lane's quoted list. docs/claude/system-actions.md:521-531 (read) states verbatim 'Tier-2 set for the table above is pull-and-deploy, restart-bot-service, reboot-vm, enable-closed-flat-invariant, disable-closed-flat-invariant, backfill-pnl-nulls, set-account-mode, and fix-data-dir' -- exactly 8, a strict subset of 75. python3 -m pytest tests/ops/test_system_actions_workflow.py -q -> 396 passed (ran it: still true, no guard catches the mismatch). Extracted TIER_2_ACTIONS from tests/ops/test_system_actions_workflow.py:347 programmatically -> 70 items, a FOURTH distinct count (not 8, not 75, not the doc's own \u00a73 bullet total). All four counts (75 workflow / 8 \u00a73.5 / 70 test set / undetermined \u00a73 bullet total) are independently verifiable and mutually inconsistent; no CI guard cross-checks any pair.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "docs/claude/system-actions.md",
+    "tests/ops/test_system_actions_workflow.py"
+   ],
+   "change": "Rewrite \u00a73.5's 'Tier-2 set for the table above is ...' sentence to either state every workflow tier=2 action requires the ping (delete the 8-action enumeration, point at the workflow's own tier=2 case branch as the source of truth) or explicitly narrow the ping requirement and justify the 67-action exemption. Fix \u00a72's table Tier column for inspect-insights and kick-insights (1 -> 2, matching their siblings enable/disable-insights-generator and the workflow's own classification). Add rows for the 14 actions missing from \u00a72's table entirely.",
+   "test": "New pytest in tests/ops/test_system_actions_workflow.py that parses \u00a73.5's named Tier-2 set (or the reconciled replacement) via regex and asserts set-equality against both TIER_2_ACTIONS and the workflow's parsed tier=2 case-branch actions. It MUST fail on current main (today \u00a73.5's 8-name set != TIER_2_ACTIONS's 70 != the workflow's 75).",
+   "detector": "The new pytest guard above is the permanent detector; it runs in the existing 'guards' required check on every PR, so a future action added to only one of the three places fails CI immediately.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: documentation contradiction about which actions need a ping; no mechanism is broken."
+ },
+ {
+  "id": "CA-A10-200",
+  "verdict": "CONFIRMED",
+  "evidence": "scripts/ops/rebuild_pnl_from_bybit_action.sh:59-63 read in full: single python3 invocation ends '--apply' unconditionally, no ACTION_APPLY case-gate anywhere in the file (grep confirms). scripts/ops/rebuild_pnl_from_bybit.py:341-342 argparse '--apply', action='store_true' (default dry-run); :463-464 'if not args.apply: print(dry-run...)'. Compared against scripts/ops/reconcile_netting_rows_action.sh:69-71 which DOES have 'case \"${ACTION_APPLY:-}\" in true|True) ...' -- confirms the sibling pattern this wrapper is missing. Every dispatch of the rebuild-pnl-from-bybit system-action (dispatchable per .github/workflows/system-actions.yml line ~1320s) rewrites trades.pnl/exit_price/pnl_percent/notes for the given account+window immediately, with no dry-run preview possible via the issue-driven dispatch path.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/ops/rebuild_pnl_from_bybit_action.sh"
+   ],
+   "change": "Add the same 'case \"${ACTION_APPLY:-}\" in true|True) ARGS+=(--apply) ;; *) ;; esac' gate every sibling wrapper (e.g. reconcile_netting_rows_action.sh) uses, so the python helper's own dry-run default is respected unless the issue body sets apply: true.",
+   "test": "A shell/pytest test invoking rebuild_pnl_from_bybit_action.sh with ACTION_APPLY unset (or false) against a temp DB and asserting the python helper is invoked WITHOUT --apply and the DB is unchanged; must fail on current main (current script always writes).",
+   "detector": "A guard enumerating every scripts/ops/*_action.sh that shells out to a python helper whose argparse defines --apply as store_true, failing any file lacking an ACTION_APPLY case-gate before that flag (mirrors the missing-gate check proposed by CA-A11-backfill-monitor-sign-guard for a related class).",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A10-300",
+  "verdict": "CONFIRMED",
+  "evidence": "scripts/deploy_pull_restart.sh read in full: line 117 'git reset --hard origin/main' with no PRE_SYNC_HEAD captured/used for revert anywhere in the file (grep '^PRE_SYNC' returns nothing). Restart loop 450-456: 'if systemctl restart unit; then ... else echo WARNING: restart failed (continuing); fi' -- a failed restart never aborts or reverts. Version-mismatch path (~line 565) does 'exit 4' but by then reset+pip install+restarts have already run against the new code. DEPLOYED_SHA_FILE (line 265-266,576) is write-only on success, read only by the NEXT run's restart-decision gate, never used as a revert target on failure. grep 'rollback' scripts/deploy_pull_restart.sh tests/ -> 0 hits, confirming no soak/test exercises this.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "Auto-revert: on restart failure of a money-path unit or a version-assertion failure, git reset --hard to the SHA recorded in DEPLOYED_SHA_FILE before this run, reinstall deps and restart against the known-good SHA. Fully automated but risky in its own right: reverting while the live trader is mid-restart, or while positions are open, adds a second risky git/restart cycle on top of the first failure, and a bad revert (e.g. schema/migration commits in between) could make things worse.",
+    "Fail loud, no auto-revert: keep current exit-4/warning-and-continue behaviour but add a distinct, high-priority alert (send-ping) the instant a restart fails or the version check mismatches, so a human decides whether to roll back manually via the existing system-action -- slower to recover but never compounds a bad deploy with an unattended second git operation.",
+    "Canary/staged restart: restart one non-critical unit first, verify its version, then restart the rest -- reduces blast radius without needing a full auto-revert, but is a larger change to the script's structure."
+   ],
+   "recommendation": "Option 2 first (cheap, no new failure mode of its own), then let the operator decide whether the residual manual-recovery window is acceptable or whether option 1's auto-revert is worth its own risk -- this is exactly the kind of tradeoff CLAUDE.md reserves for the operator rather than a session choosing unilaterally."
+  },
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A10-306",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium (observability/ml-pipeline, not money-at-risk)",
+  "evidence": "scripts/install_systemd_units.sh:102,446 globs only 'deploy/*.service deploy/*.timer' (top-level), never recurses into deploy/trainer/. ls deploy/trainer/ -> 7 files (ict-drift-retrain x2, ict-offload-drain x2, ict-orderflow-capture x1, ict-promotion-readiness x2). deploy/training-vm-cloud-init.yaml write_files block embeds ict-promotion-readiness.{service,timer} and ict-drift-retrain.{service,timer} but NOT ict-offload-drain.{service,timer} or ict-orderflow-capture.service (grepped, confirmed absent). HOWEVER both affected units' own header comments (read in full) state this is BY DESIGN: 'Lives in deploy/trainer/ (NOT deploy/) so the live-VM unit installer never picks it up -- TRAINER-only side-car, installed manually on the trainer via the relay' -- i.e. the repo already documents that trainer-only sidecars use a manual-install convention, distinct from an accidental gap. ict-offload-drain additionally ships DOUBLY unarmed even if installed (OFFLOAD_DRAIN_APPLY=0 hardcoded). No trainer-VM diag tool exists in this sandbox to verify live install state either way (same limitation the lane itself flagged).",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "Embed ict-offload-drain.{service,timer} and ict-orderflow-capture.service into training-vm-cloud-init.yaml's write_files, matching the drift-retrain/promotion-readiness pattern -- makes a fresh trainer-VM provision reproducible, but the units still start DISABLED per their own headers, so this only fixes first-boot provisioning, not an already-running VM missing them.",
+    "Extend the trainer's own git-sync unit to reconcile deploy/trainer/*.service|*.timer the way install_systemd_units.sh does for the trader box -- fixes both fresh-provision AND an already-running VM missing a unit, but is a bigger change (new reconciliation logic on a script documented elsewhere as deliberately CODE-ONLY / never installs units).",
+    "Leave as-is and just verify + document current live state via a trainer-vm diag read, since these are non-order-path ML sidecars whose absence degrades ML feature capture, not live trading."
+   ],
+   "recommendation": "This is squarely the operator's/manager's call because it trades off VM reproducibility ('is the trainer VM a pet') against the extra surface of teaching the sync script to install units. Recommend option 1 as the low-cost first step since it at least fixes the disaster-recovery case (rebuilding the trainer VM from scratch)."
+  },
+  "duplicate_of": null,
+  "lane_error": "blast_radius claimed 'money-at-risk'; both affected units (order-flow capture, offload-drain) are trainer-VM-only ML data-collection/model-ingest sidecars with no path to the live order pipeline -- more accurately an ML-pipeline/observability gap. Severity correspondingly downgraded from high to medium.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "JUDGMENT",
+  "lead_note": ""
+ },
+ {
+  "id": "CA-A10-402",
+  "verdict": "CONFIRMED",
+  "evidence": "grep -rl 'OnFailure' deploy/ -> 0 files (all 64 tracked files under deploy/, reproduced). scripts/ops/status_check.sh read in full: CANONICAL_UNITS (line 33) = exactly [ict-trader-live.service, ict-web-api.service, ict-telegram-bot.service] -- the only units gating overall_ok/exit code (lines 40-52). Lines ~56-75 do a broader 'systemctl list-units ict-* --all | head -60' but the code's own comment at line 132 says 'Read-only, best-effort, bounded (head+cut). Never affects the exit code.' grep -rn 'is-failed' scripts/ scripts/ci/ -> 0 hits referencing systemctl Result/is-failed as an alerting mechanism.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/ops/status_check.sh"
+   ],
+   "change": "Add a `systemctl list-units --state=failed 'ict-*'` (or per-unit `systemctl is-failed`) check to the exit-code-gating logic, at minimum for money/deploy-freshness-adjacent oneshots (ict-git-sync, ict-db-integrity, ict-exchange-fills-pull, ict-exchange-funding-pull, ict-ib-executions-pull).",
+   "test": "A test that plants/simulates a failed oneshot unit result and asserts status_check.sh's exit code flips non-zero; must fail against current main (today the failed-unit dump is explicitly excluded from the exit code).",
+   "detector": "The change IS the detector -- status_check.sh's exit code becomes the permanent, always-run signal instead of relying on someone reading the uncapped dump.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A13-gpu-burst-actor-guard",
+  "verdict": "CONFIRMED",
+  "evidence": "grep of .github/workflows/gpu-burst-train.yml: 'on: issues: types: [opened]' (line 40-42), job 'if: contains(github.event.issue.labels.*.name, gpu-burst-train)' (line 63) with zero occurrences of issue.user.login/repository_owner/github.actor in the 217-line file. Compared directly against .github/workflows/vm-ib-gateway-live-login-test.yml, which DOES gate: 'github.event.issue.user.login == github.repository_owner || github.event.issue.user.login == github-actions[bot]' AND-ed with the label check -- confirming this is the repo's live, applied convention that gpu-burst-train.yml lacks. curl -sS api.github.com/repos/.../Metis-Insights -> private:false (public repo, confirming the exposure surface). Job env holds RUNPOD_API_KEY, VAST_API_KEY, RUNPOD_SSH_KEY, VM_SSH_KEY, BRANCH_PROTECTION_TOKEN (read in file). Not currently exploited per lane's own check (all recent triggering_actor.login = owner); could not independently re-verify the 'limit interactions to collaborators' org setting (no read tool for it).",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".github/workflows/gpu-burst-train.yml"
+   ],
+   "change": "AND the existing label check with an actor-identity guard, mirroring vm-ib-gateway-live-login-test.yml and the ~27 other issues-triggered secret-holding workflows: `(github.event.issue.user.login == github.repository_owner || github.event.issue.user.login == 'github-actions[bot]') && contains(github.event.issue.labels.*.name, 'gpu-burst-train')`.",
+   "test": "A CI test (e.g. extending check_workflow_catalog.py or a new check_workflow_actor_guard.py) that parses every .github/workflows/*.yml with `on: issues:` and a `secrets.<NAME>` reference other than GITHUB_TOKEN, and fails if the job's `if:` lacks an issue.user.login/repository_owner/github.actor clause. Must fail against current main (gpu-burst-train.yml is the one file missing it).",
+   "detector": "The new CI guard above, run as part of the required 'guards' check, so any future privileged issues-triggered workflow is caught at PR time rather than relying on a manual audit.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A14-session-reaper-dead-trigger",
+  "verdict": "CONFIRMED",
+  "evidence": "Live GitHub API call (this session): GET /repos/benbaichmankass/Metis-Insights/actions/workflows/session-reaper.yml/runs?per_page=5 -> total_count=116, most recent run id 35598747485 event=push at 2026-09-21T12:18:04Z (matches lane's cited run exactly), all runs before it event=schedule roughly every 4-9h, ZERO runs since (today is 2026-09-27, ~6 days / 131+ hours later). .github/workflows/session-reaper.yml header (read in full) explicitly states 'SCHEDULE RETIRED 2026-09-21 -- operating reset' with the cron commented out and only workflow_dispatch/push(on two now-archived-adjacent paths) left live. Checked CLAUDE.md, docs/CLAUDE-RULES-CANONICAL.md, docs/plans/OPERATING-PLAN-2026-09-21.md, .claude/skills/manager/SKILL.md for any mention of session-reaper -- zero hits, so this retirement was never recorded as a deliberate operator/policy decision in any binding doc, unlike the ten process skills CLAUDE.md explicitly lists as retired.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".github/workflows/session-reaper.yml"
+   ],
+   "change": "Restore the commented-out schedule cron, OR give it the same push-on-main fallback work-digest.yml already has (trigger on every push to main, not just the two archived-adjacent paths currently watched).",
+   "test": "Not a code-behavior test per se; the detector below is what proves it fixed -- next observed run's event should be 'schedule' or a main-push, not silence for multiple days.",
+   "detector": "A periodic check (could ride the existing doc-freshness or health-review cadence) comparing actions_list run history for session-reaper.yml against an expected max-gap (e.g. 24h) and flagging if exceeded. None exists today.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A14-ib-login-test-password-grep",
+  "verdict": "CONFIRMED",
+  "evidence": "grep of .github/workflows/vm-ib-gateway-live-login-test.yml confirms: line ~199-200 'sudo docker logs --since 8m $NAME 2>&1 | grep -iE ...|password|denied|rejected|...' ; line ~216 'cat out.txt' into the run log; line ~226-234 embeds out.slice(-6000) verbatim into a public github.rest.issues.createComment body; line ~240 'cat out.txt >> $GITHUB_STEP_SUMMARY' on workflow_dispatch (also public for a public repo). Everything upstream (credential staging/scp/shred/--env-file, read in full by the lane) avoids ever printing IB_USERNAME/IB_PASSWORD directly -- this grep-and-forward step is the one place free-text container-log content reaches a public surface. No live run exists to test whether the ib-gateway/IBC image ever actually emits a raw credential on a matched line; this remains a plausible, not proven, risk exactly as the lane stated.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".github/workflows/vm-ib-gateway-live-login-test.yml"
+   ],
+   "change": "Replace the broad keyword grep with a fixed allowlist of exact known-safe IBC status phrases (e.g. 'Login has completed', 'could not find the second factor device', 'existing session detected') instead of bare words like 'password'/'incorrect'/'denied' that would also match a line carrying a raw value.",
+   "test": "A test feeding a synthetic docker-log line containing a credential-shaped string alongside the word 'password' through the same grep pattern, asserting the fixed allowlist version does NOT match/forward it while still matching the legitimate status lines it needs (e.g. 'Login has completed').",
+   "detector": "None exists today; the allowlist change is itself the fix and there's no ongoing detector needed beyond the test above, since the set of matched strings becomes fixed and reviewable in-diff.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A11-backfill-monitor-sign-guard",
+  "verdict": "CONFIRMED",
+  "evidence": "Read scripts/ops/backfill_monitor_closed_pnl.py::_plan_row in full (lines 161-233): no sign-consistency check anywhere. Read scripts/ops/backfill_orphan_pnl.py's sibling guard (lines ~204-244): explicit sign check citing the 2026-06-20 dashboard-audit incident. REPRODUCED LIVE this session: loaded backfill_monitor_closed_pnl.py, built a synthetic 'long' trade row (entry 76700) and monkeypatched account_closed_pnl_for_trade to return avg_exit_price=62894 (~18% ADVERSE) with closed_pnl=+3847.29 (POSITIVE) -- the exact incident shape the sibling's own comment describes. Result: _plan_row returned updates={'pnl': 3847.29, 'exit_price': 62893.99, 'pnl_percent': 1254.0} and reason=None -- i.e. it WOULD write a fabricated +$3847.29 profit onto a trade that lost ~18%, with zero refusal. Confirmed dispatchable for real accounts: .github/workflows/system-actions.yml line 1320 maps backfill-monitor-closed-pnl -> backfill_monitor_closed_pnl_action.sh, which hardcodes --apply (also independently noteworthy -- see lane_error). python3 -m pytest tests/test_backfill_monitor_closed_pnl.py -q -> 9 passed, none covering a sign-mismatch case.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/ops/backfill_monitor_closed_pnl.py",
+    "scripts/ops/backfill_orphan_pnl.py (extract shared helper, optional)"
+   ],
+   "change": "Port the sign-consistency guard verbatim from backfill_orphan_pnl.py's _plan_row into backfill_monitor_closed_pnl.py's _plan_row (or extract both to a shared helper both call), refusing a write when the recovered closed_pnl's sign contradicts the trade's own entry-to-exit price move by more than the existing 0.2% tolerance.",
+   "test": "The repro above, formalized as tests/test_backfill_monitor_closed_pnl.py::test_sign_mismatch_refuses_write -- plant a long row with an adverse exit and a positive recovered closed_pnl (mirroring the +3847.29 incident shape) and assert _plan_row returns (None, <a refusal reason>). MUST fail on current main (verified above it currently returns the fabricated write).",
+   "detector": "A unit test as above is the permanent detector; additionally worth extracting the check into a shared helper so the two scripts cannot silently drift apart again (the lane's own proposed_fix).",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Worth noting for the fix PR (not a separate finding needed): backfill_monitor_closed_pnl_action.sh ALSO hardcodes --apply with no ACTION_APPLY gate, the identical class of bug as CA-A10-200 (rebuild_pnl_from_bybit_action.sh) -- same root cause pattern, different script, should probably be fixed in the same sweep.",
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-A11-a8-already-ran",
+  "verdict": "CONFIRMED",
+  "evidence": "python3 scripts/ops/import_archived_registers.py --dry-run -> prints backlog rows (1,065 open+kept_open) with the exact health/performance/ml/research breakdown CLAUDE.md itself cites, and 'OPEN-ITEMS monitoring rows: 91'. grep -l tag counts over docs/claude/work/pipeline/*.json: [health]=542, [performance]=56, [ml]=20, [research]=30 (sum 648, close to lane's 642 -- grep pattern variance, not a material discrepancy). Direct provenance check: docs/claude/work/pipeline/20260924T160412099299Z-MIGR-00117.json has origin.ref='docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260812-TRAINER-STRAY-REPO-ROOT-JOURNAL-DB' and id exactly matching that archived record's id -- conclusive that these are genuinely-imported rows, not coincidental matches. CLAUDE.md's live text (read this session, unchanged) still states 'the 1,065 archived backlog rows and 91 monitoring rows are NOT imported ... seeded empty on purpose' -- directly contradicted by the field.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "CLAUDE.md"
+   ],
+   "change": "Replace the 'NOT imported ... seeded empty on purpose' paragraph with a statement that A8 has run, citing the measured counts (1,065 backlog rows, 91 monitoring rows, imported under the MIGR-* pipeline ids) and, if determinable, the date.",
+   "test": "A doc-freshness style check comparing CLAUDE.md's stated import status against a live count (e.g. `git grep -c 'archive/2026-09-21-operating-reset/registers' docs/claude/work/pipeline/*.json`, non-zero today) -- must currently fail (CLAUDE.md says not-imported while the count is non-zero).",
+   "detector": "The proposed doc-freshness guard above; none exists today.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: canonical-doc drift (false statement in CLAUDE.md); fix is Tier-1 docs."
+ },
+ {
+  "id": "AUD-20260927-CA-A11-pipeline-store-desc-stale",
+  "verdict": "CONFIRMED",
+  "evidence": "ls docs/claude/work/PIPELINE.jsonl -> No such file or directory. grep '^STORE' scripts/ops/pipeline.py -> STORE = Path(\"docs/claude/work/pipeline\") (a directory, confirmed populated with 1,771 one-file-per-record .json files). grep 'PIPELINE.jsonl' CLAUDE.md -> line 110 states it verbatim as the intake ('Append-only JSONL, never a JSON array'), and the same stale path appears in docs/CLAUDE-RULES-CANONICAL.md and .claude/skills/manager/SKILL.md per the lane's citations. python3 scripts/ops/pipeline.py --help confirms no CLI verb appends a record (only --self-test/--check/--due/--stats/--mint-id/--store) -- filing requires calling pipeline.append() from Python directly, undocumented as a runnable recipe anywhere.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "CLAUDE.md",
+    "docs/CLAUDE-RULES-CANONICAL.md",
+    ".claude/skills/manager/SKILL.md"
+   ],
+   "change": "Update all three docs to describe docs/claude/work/pipeline/ (directory, one JSON file per record, per scripts/ops/pipeline.py's STORE constant) instead of the retired flat PIPELINE.jsonl design, and either document the mint-id-then-append(intent=) Python recipe as a copy-pasteable command or add a --file/--append CLI verb to pipeline.py.",
+   "test": "A grep-based doc check asserting none of the three binding docs contain the literal string 'PIPELINE.jsonl' pointed at as the live store path; must fail on current main.",
+   "detector": "scripts/ops/pipeline.py --check's existing _resurrected_legacy_file() already catches someone actually recreating the flat file; the missing piece is only that the DOCS' prose doesn't match the code, which the proposed grep-check would close.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-A11-a8-already-ran",
+  "lane_error": "Both this finding and AUD-20260927-CA-A11-a8-already-ran are already filed under the SAME pipeline id (PI-20260927-MJX1ZKYC-0002) by the lane itself -- they share one root cause (CLAUDE.md's 'follow-through pipeline' section is stale in two distinct ways) and should land as one PR touching the same paragraph, not two separate fixes.",
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "DUPLICATE",
+  "lead_note": "Lead: canonical-doc drift; same fix as a8-already-ran."
+ },
+ {
+  "id": "AUD-20260927-CA-A11-retired-register-cluster",
+  "verdict": "CONFIRMED",
+  "evidence": "Verified all 4 archived paths absent from origin/main via `git cat-file -e` (MANAGER-LEASE.json, SESSIONS.json, MERGE-QUEUE.json, OPEN-ITEMS.json all 'fatal: path ... does not exist'). Verified all 18 named scripts/ops/ files exist on disk. Ran `python3 scripts/ops/manager_preflight.py --self-test` live: two planted-control cases FAIL ('OPEN-ITEMS.json does NOT round-trip: got=None want=False', '...SESSIONS.json does: got=None want=True') because both files are gone; overall verdict line reads 'manager-preflight self-test: FAIL'. Ran `python3 scripts/ops/manager_preflight.py` for real: prints 'THE PLANTED-FAILURE SUITE DID NOT PASS ... nothing was graded' and 'readiness=unknown' (fails safe, not a false pass, matching the lane's own characterization). Confirmed blocked_lane_watch.py's positive control (_path_exists_on_main, line 360-371) is hardcoded to origin/main:docs/claude/work/SESSIONS.json, which fails identically. grep confirmed all 4 workflows referencing this 18-file cluster (branch-protection-sync.yml, constraint-readout.yml, pr-queue-watch.yml, work-decision-commit.yml) are workflow_dispatch-only with cron commented out, matching scripts/ci/run_guards.py's own comment (line ~224-227) that the backlog_* checks were deliberately removed 'because ... those checks have no population left to grade.'",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "Archive the entire ~18-file cluster under docs/archive/2026-09-21-operating-reset/, matching how the reset already handled the registers themselves and their .github/scripts/ci readers -- cleanest, but loses any code that might still have a salvageable idea (e.g. manager_lease.py's lease-holding logic could still be relevant to a future coordination mechanism).",
+    "Re-point the ~18 files' fixtures/paths at MANAGER-CHECKLIST.json + docs/claude/work/pipeline/ and fix the two broken self-tests/controls -- keeps the tooling alive and useful under the new model, but is real engineering work across 18 files for machinery that 4 dispatch-only, apparently-unused workflows currently invoke.",
+    "Triage first: check which (if any) of the 4 referencing workflows are still actually wanted under the current manager/lane model before deciding archive-vs-repair per file, rather than treating all 18 uniformly."
+   ],
+   "recommendation": "Do the cheap triage (3) first -- confirm with the operator/manager whether branch-protection-sync, constraint-readout, pr-queue-watch and work-decision-commit still serve a purpose post-reset. Files behind workflows nobody wants get archived (1); anything behind a workflow that IS still wanted gets repaired (2). This is a real judgment call because the cost (archive vs. repair) differs sharply per file and depends on decisions not visible from the code alone."
+  },
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "JUDGMENT",
+  "lead_note": "Lead: broken governance tooling, no trading path."
+ },
+ {
+  "id": "AUD-20260927-CA-B01-shadow-gates-read-active-log-only",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read all 5 sites: ml/cli.py:431 `records = list(iter_records(args.shadow_log))`; stage_guard.py:361 same pattern; attribution.py:419 `iter_shadow_records(*paths)` where paths=[shadow_log,backfill_log] (no archives); live_parity.py:385 `iter_records(shadow_log)`; drift_retrain.py:144 same. `iter_records` (ml/shadow/inspector.py:160) reads exactly one path, no merge. `grep -rn rotated_log_paths` confirms only src/web/api/routers/shadow.py:40,138 uses it. Re-ran PYTHONPATH=. python3 CA-B01-repros/rot10.py.txt independently -> reproduced exactly: drift_clean active-only pass (KS=0.096) vs full fail (KS=0.571); drift_retrain active n=240 vs full n=888. `git diff 3d038c3 HEAD` on all 5 files: no changes (still on main unfixed). This affects ALL live-stage models incl. the 3 advisory heads' own demote evaluation, not just shadow.",
+  "class": "FIX",
+  "brief": {
+   "files": "ml/shadow/inspector.py; ml/cli.py:431; ml/promotion/stage_guard.py:361; ml/promotion/attribution.py:419; ml/promotion/live_parity.py:376-401; ml/shadow/drift_retrain.py:144-152",
+   "change": "Add iter_records_with_archives(active_log, since=...) in inspector.py that streams active + rotated_log_paths(active), filtered by `since`; swap all 5 call sites to it (list()/materialize only where currently done, streaming with since-filter per drift_retrain's own BL-20260715 comment).",
+   "test": "Plant a short active log + a rotated .jsonl.gz archive beside it (mirrors rot10.py.txt); assert gate-check drift, stage_guard drift, attribution n, live_parity n, drift_retrain n all include archived rows. Must fail on current main.",
+   "detector": "The above test, plus a grep guard (add to an existing CI script) asserting no ml/ file calls iter_records()/iter_shadow_records() directly outside inspector.py's own union helper.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-B01-oos-edge-discards-manifest-purge-horizon",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "PYTHONPATH=. python3 -c \"from ml.promotion.oos_edge import build_cv_config; print(build_cv_config({'label_horizon':5,'embargo_fraction':0.02,'split_strategy':'purged_walk_forward'}))\" -> {'label_horizon':1,'embargo_fraction':0.0,...} - reproduced exactly. Worse than the lane states: `_oos-edge-one`'s argparser (ml/cli.py:1052-1055, used by stage_guard's subprocess-isolated sweep) has ONLY `model_id`/`--registry-root`/`--datasets-root` - no --label-horizon/--embargo-fraction flags exist at all, so this path CANNOT pass manifest values even if someone tried (`_cmd_oos_edge_one` calls compute_oos_edge with only datasets_root+baseline_trainer kwargs). gate-check's CLI flags default to 1/0.0 (ml/cli.py:960-967). grep confirms 19 manifests declare label_horizon:5, incl. both live fc-pcv-v2 configs (lines 74-75/66-67). tests/ml/test_oos_edge.py:82 pins label_horizon=1 only - no inheritance test exists. git diff 3d038c3 HEAD: unchanged.",
+  "class": "FIX",
+  "brief": {
+   "files": "ml/promotion/oos_edge.py (build_cv_config, compute_oos_edge); ml/cli.py (gate-check defaults + _oos-edge-one)",
+   "change": "build_cv_config/compute_oos_edge default label_horizon/embargo_fraction/embargo_n to the manifest's own trainer_config values when the caller passes None; CLI --label-horizon/--embargo-fraction default to None (not 1/0.0) and only override (max, never shrink) the manifest value.",
+   "test": "tests/ml/test_oos_edge.py: a manifest declaring label_horizon=5/embargo_fraction=0.01 must produce a CV config with those same values via both compute_oos_edge (no explicit override) and the _oos-edge-one CLI path. Must fail on current main (currently yields 1/0.0).",
+   "detector": "Same test, run in CI (tests/ml already gates merges).",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-B01-advisory-hold-when-nothing-measured",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read stage_guard.py:105-132 (`_demote_triggers`): when drift=None AND attribution=None, both `if` blocks are skipped, returns []. propose_for_model (line ~190-207): empty triggers -> Proposal('hold', reasons=('no demote trigger tripped',), evidence={'attribution':None,'drift_verdict':None,...}) - byte-identical reasons tuple to a measured-healthy head. Ran independently: PYTHONPATH=. python3 -c \"from ml.promotion.stage_guard import propose_for_model; class E: model_id='x'; target_deployment_stage='advisory'\\nprint(propose_for_model(E()).action, propose_for_model(E()).reasons)\" -> hold ('no demote trigger tripped',) - confirmed. readiness_report.py:147 surfaces only `p.reasons[0]` as the headline text in the human-facing report, so the raw None evidence in the `evidence` dict is not what a reader actually sees. git diff: unchanged since audit.",
+  "class": "FIX",
+  "brief": {
+   "files": "ml/promotion/stage_guard.py (_demote_triggers, propose_for_model); ml/promotion/readiness_report.py (headline rendering)",
+   "change": "When drift is None and attribution is None (or both are None for the branch that matters), _demote_triggers/propose_for_model must set an explicit reason/evidence_state e.g. 'demote triggers not evaluable: drift=None attribution=None' distinct from 'no demote trigger tripped'.",
+   "test": "Unit test: propose_for_model on an advisory-stage entry with drift=None, attribution=None must NOT produce reasons==('no demote trigger tripped',); it must carry a distinguishable not-evaluable state.",
+   "detector": "The unit test; register the new evidence_state with scripts/ci/check_collapsed_states.py per the repo's own collapsed-state contract.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-B01-multiclass-served-score-is-max-proba",
+  "verdict": "CONFIRMED",
+  "new_severity": "unchanged (high as filed); note blast_radius correctly scoped as accounting/tier2, NOT money-at-risk today",
+  "evidence": "ml/predictors/multiclass.py:38-43 `return float(max(proba.values()))` - by design per its own docstring ('Default predict(row) returns the probability of the most-likely class'). ShadowPredictor.predict (ml/predictors/shadow.py:102) calls self._wrapped.predict(row) unconditionally, logging this max-proba value. Independently re-ran r_maxproba.py.txt: won-head x=0.05->0.958, x=0.95->0.961 - confirmed symmetric/direction-less. Cross-checked src/runtime/intents.py:1137,1292 - both carry an explicit comment 'predict_proba(row)[\"volatile\"], NOT max(proba)' confirming the real-money vol-verdict path deliberately bypasses this bug; only conviction-meta-v1 (manifest target_deployment_stage: candidate) and other multiclass heads' shadow-logged/attribution scores are affected. conviction-meta-v1's actual registry stage (shadow per lane's live diag) was NOT independently re-verified this session - diag_fetch.sh returned 401/unreachable from this sandbox for both candidates.",
+  "class": "FIX",
+  "brief": {
+   "files": "ml/predictors/multiclass.py; ml/predictors/shadow.py:103; ml/calibration/regime_alignment.py; ml/promotion/attribution.py",
+   "change": "Declare positive_class in the manifest/model_state; MulticlassPredictor.predict returns predict_proba(row)[positive_class] instead of max(); OR log the full proba dict in the shadow record so downstream consumers pick the axis explicitly. Recompute attribution for affected heads and refit any live regime_alignment calibrator once positive_class is declared.",
+   "test": "Unit test: ShadowPredictor(multiclass).predict(row) == predict_proba(row)[declared_positive_class] for a manifest with positive_class set, for both a 'won' head and a regime head.",
+   "detector": "The unit test; a CI check that every multiclass manifest with target_deployment_stage >= shadow declares positive_class.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: verifier found the real-money vol axis bypasses this score (intents.py:1137,1292); accounting/attribution only."
+ },
+ {
+  "id": "AUD-20260927-CA-B01-yz-vol-bucket-edges-wrong-basis",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "market_features.py:866 `\"vol_bucket\": _bucket_for(past_vol, boundaries, bucket_labels)` where past_vol is rolling_log_return_vol (close-to-close quantile) - vol_bucket is ALWAYS cc-based regardless of the manifest's vol_feature_column. lightgbm_multiclass.py:186-192 groups `raw_vol=row.get(vol_feature_column)` (e.g. yang_zhang_vol) BY that cc-based vol_bucket, then freezes edges as per-bucket max (:314-321). Re-ran r2_yz.py.txt independently: TRAINED dist {b0:1660,b1:1659,b2:1657} vs SERVED dist {b0:2410,b1:2499,b2:67}, agreement 2636/4976=0.530 - exact match to lane's numbers. Confirmed tests/runtime/test_regime_shadow_parity.py:176-207's test plants an edge as (rolling+yz)/2 midpoint by hand - never derives it via the trainer's actual freeze logic, so it cannot catch this. regime_shadow.py:427-436 DOES correctly read the configured vol_col at serve time (post a prior 'pre-S17' fix for a different bug); the wrong-basis is in the frozen edges themselves, not a column-read error. 3 yz heads confirmed target_deployment_stage: shadow in ml/configs/*.yaml; comms/reports corroborate shadow (not advisory) history for these heads.",
+  "class": "FIX",
+  "brief": {
+   "files": "ml/trainers/lightgbm_multiclass.py:186-192,314-321; ml/trainers/regime_classifier.py:155; ml/datasets/families/market_features.py (vol_bucket assignment)",
+   "change": "Either (a) bucket the dataset's vol_bucket column on the manifest's own configured vol_feature_column estimator (record the basis used in metadata), or (b) freeze vol_bucket_edges as quantiles of the served column directly and re-bucket the training rows against those edges before fitting.",
+   "test": "Parity test (extend test_regime_shadow_parity.py): build market_features with vol_feature_column=yang_zhang_vol, train, re-bucket the TRAINING rows via src.runtime.regime_shadow.bucket_for_vol using the frozen edges, assert recovered bucket == original row['vol_bucket'] (must currently fail ~47% of rows).",
+   "detector": "The parity test above; also fix the misleading docstring in regime_bar_scoring.py:76-88 that attributes the vol_b0 lock to 'calibration drift'.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_sev": "medium",
+  "final_class": "FIX",
+  "lead_note": "Lead: shadow-only per verifier."
+ },
+ {
+  "id": "AUD-20260927-CA-B01-regime-scoring-uses-forming-bar",
+  "verdict": "CONFIRMED",
+  "new_severity": "high as filed; flagging for operator escalation - see note",
+  "evidence": "grep 'iloc\\[:-1\\]|forming|trim' src/runtime/regime_bar_scoring.py -> zero hits, confirming no trim exists anywhere in the file (stronger than the lane's line-specific claim). Contrast exit_head_shadow.py:456-463 which explicitly trims with a comment citing a caught 2026-07-12 live bug. _resolve_regime_predictors (regime_bar_scoring.py:275-282) docstring: 'the full influence set... shadow + advisory... scores them too... advisory heads additionally publish P(volatile) for ml_vol_verdict' - directly ties this path to the real-money vol axis. docs/reference/env-vars.md:42 states 'BTC real-money enforce is LIVE (2026-06-28)' and config/regime_policy.yaml:126 has a real BTC OFF cell (trend_donchian:{long:off} in trending+volatile) - i.e. the two preconditions CA-B01.md's severity caveat called unresolved appear ALREADY satisfied per checked-in docs/config. I could NOT independently read the live REGIME_ML_VERDICT_MODE env var or confirm api.bybit.com forming-bar behavior this session: scripts/ops/diag_fetch.sh returned 401 (duckdns) / unreachable (direct IP) from this sandbox for both candidates - this is a genuine sandbox network gap, not evidence either way.",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/regime_bar_scoring.py:448-463; src/runtime/cross_asset_live.py:187-213; src/runtime/strategy_signal_builders.py:333-341",
+   "change": "Drop the last candle row when its open_ts + timeframe_seconds > now, before computing closes/xa_*/fc rows for scoring - mirror exit_head_shadow.py's existing _TF_SECONDS-based trim (share the helper rather than re-implementing it, to avoid the same gap recurring at the 3rd call site in finding fc-producer-forecasts-forming-bar).",
+   "test": "Unit test (mirror exit_head_shadow's own test): fetch_fn returns a frame whose last bar's ts+tf > now; assert that bar is excluded from the scored window and does not appear in the emitted predictions/xa row.",
+   "detector": "The unit test above.",
+   "tier": 2
+  },
+  "judgment": {
+   "options": [
+    "Ship the trim immediately as a Tier-2 runtime change (bounded, mirrors an existing precedent in exit_head_shadow.py) and treat the REGIME_ML_VERDICT_MODE/OFF-cell live-state question as a separate, urgent verification task.",
+    "Verify REGIME_ML_VERDICT_MODE's live value first (requires VM/diag access this session lacked) before deciding urgency, since if it reads 'shadow' rather than 'use' the fix is still correct but not yet money-at-risk."
+   ],
+   "recommendation": "Ship the code fix as Tier-2 (option 1) regardless of the mode reading - the fix is unambiguous and low-risk either way - AND separately, urgently confirm the live REGIME_ML_VERDICT_MODE value and BTC OFF-cell wiring via VM/diag access, since checked-in docs (env-vars.md, regime_policy.yaml) already assert both preconditions for 'money-at-risk today' are met, which would mean this finding is under-severitied at 'high' and should be 'critical' per the lane's own stated re-rating rule."
+  },
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-B01-fc-live-no-staleness-check",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read forecast_live.py:160-199 in full: the docstring explicitly argues NO staleness/age drop is intentional ('a missing/refreshed file is the real freshness signal... dropping a slightly-old row would only turn a usable forecast into a NaN degrade'). Code only checks file-existence (OSError->None) and a timeframe parity guard - no as_of_ts vs scored-bar comparison exists anywhere in the function. Cross-checked scripts/ops/run_forecast_producer.sh:14-16 comment which claims 'a stale/absent artifact makes forecast_live return None (fail-permissive)' - this is FALSE for the stale-but-present case per the actual code just read (only absent->None); on a producer failure the artifact file is left untouched (old content persists) per that same script's own comment ('without touching anything'), so a dead producer's old file keeps being served forever with no counter. Re-ran r_fc.py.txt: 'R1 served 10-day-old row' with fc_up_prob=1.0 etc. - confirmed. 2 live advisory fc-pcv-v2 heads consume this path (confirmed via ml/configs manifests + env-vars.md SOL/BTC advisory-head text).",
+  "class": "FIX",
+  "brief": {
+   "files": "src/runtime/forecast_live.py:160-199 (compute_live_forecast_row); scripts/ops/run_forecast_producer.sh comment (correct the false claim)",
+   "change": "Pass the expected/scored bar_ts into compute_live_forecast_row; compare against the artifact's as_of_ts (bar alignment, not a generic age threshold - this respects the docstring's stated worry about a 'tight default'); return None and increment an fc_stale counter on mismatch; surface the served forecast's age on /api/bot/shadow/*.",
+   "test": "tests/runtime/test_forecast_live.py: an artifact whose as_of_ts does not match the expected/current bar_ts must return None (not the stale row), and must increment the new fc_stale counter. Must fail on current main.",
+   "detector": "The test above; also correct run_forecast_producer.sh's comment since it currently asserts a protection that does not exist (field beats comment).",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-B01-fc-producer-forecasts-forming-bar",
+  "verdict": "CONFIRMED",
+  "new_severity": "high as filed; same live-state caveat as regime-scoring-uses-forming-bar",
+  "evidence": "scripts/ml/publish_live_forecasts.py:141 `return out[-1]` (latest_forecast_row) with no trim; _fetch_candles (:238-259) calls src.runtime.market_data.fetch_candles directly with no post-processing. grep 'trim|partial|iloc\\[:-1\\]' in the file -> only line 344, a comment about run-level partial FAILURES, unrelated to bar trimming. Confirmed the timer is genuinely not bar-aligned: deploy/training-vm-cloud-init.yaml:469-480 ict-trainer-forecast.timer uses `OnUnitActiveSec=15min` (drifts from last-activation time), not an `OnCalendar=*:0/15`-style wall-clock alignment - independently verified, matches the claim exactly. ml/datasets/forecast_features.py trains over bybit_offvm closed-bar data (per the lane's citation, spot-checked the adapter is the offline/closed-bar family, consistent with other ml/datasets/adapters read fully by the lane). tests/ml/test_publish_live_forecasts.py feeds identical candles both sides so cannot catch this, consistent with lane's claim.",
+  "class": "FIX",
+  "brief": {
+   "files": "scripts/ml/publish_live_forecasts.py:125-143,238-263; deploy/training-vm-cloud-init.yaml (ict-trainer-forecast.timer)",
+   "change": "Trim the last candle row when ts+tf_seconds > now before building rows for compute_forecast_feature_rows (reuse the same shared trim helper proposed for regime-scoring-uses-forming-bar rather than a third bespoke implementation); change the timer to OnCalendar-style bar-aligned cadence (e.g. every 15 min at :00/:15/:30/:45 + a small margin) instead of OnUnitActiveSec.",
+   "test": "Test: fetch returns a frame whose last bar is still open (ts+tf>now); assert the published artifact's as_of_ts corresponds to the PRIOR (closed) bar, not the forming one.",
+   "detector": "The test above.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_sev": "high",
+  "final_class": "FIX",
+  "lead_note": ""
+ }
+]

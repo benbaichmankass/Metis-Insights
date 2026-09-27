@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 offline research (docs/evidence, a new scripts/research tool, one pipeline item) but it flips research/queue/RQ-20260922-003.yaml to done with a result block, and research/queue/** is outside TIER1_SURFACE. Held for the manager, who merges it (W6-PROP-O1 dispatch: 'open a normal PR; the manager merges it').",
+  "why": "No config, roster, sizing, execution or runtime change; research write-up + evidence JSON + research CLI + queue-unit result."
+}

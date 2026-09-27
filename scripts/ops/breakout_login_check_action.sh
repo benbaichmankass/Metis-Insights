@@ -62,12 +62,71 @@ fi
 PW_VERSION="1.48.0"
 BASE="${HOME}/.cache/metis-prop-browser"
 VENV="${BASE}/venv"
+# Overridable so tests can point the bootstrap at a stub interpreter instead
+# of the real system Python.
+PY3="${PY3:-/usr/bin/python3}"
 export PLAYWRIGHT_BROWSERS_PATH="${BASE}/browsers"
 mkdir -p "${BASE}"
-if [ ! -x "${VENV}/bin/python" ]; then
-    log "Creating isolated browser venv at ${VENV}"
-    /usr/bin/python3 -m venv --system-site-packages "${VENV}"
-fi
+
+# A venv whose `bin/python` exists but whose pip is missing or broken is not
+# usable — that is exactly the partial state a prior `ensurepip`-missing
+# failure leaves behind (issue #13210: `venv` created bin/python, then died
+# before pip finished setting up).
+venv_pip_ok() {
+    local venv="$1"
+    [ -x "${venv}/bin/python" ] || return 1
+    [ -x "${venv}/bin/pip" ] || return 1
+    "${venv}/bin/python" -m pip --version >/dev/null 2>&1
+}
+
+# Bootstraps `${1}` into a usable venv, installing the matching
+# python3.X-venv apt package first if `ensurepip` is not importable (the
+# Debian/Ubuntu split-package case `python3 -m venv` fails on otherwise).
+ensure_venv() {
+    local venv="$1"
+    if venv_pip_ok "${venv}"; then
+        return 0
+    fi
+    if [ -e "${venv}" ]; then
+        log "Removing broken venv at ${venv} (bin/python present, pip not working)"
+        rm -rf "${venv}"
+    fi
+    if ! "${PY3}" -c 'import ensurepip' >/dev/null 2>&1; then
+        if ! sudo -n true >/dev/null 2>&1; then
+            log "environment: python3-venv missing and cannot install (no passwordless sudo)"
+            record_audit "breakout-login-check" "environment" \
+                "{\"account\": \"${ACCOUNT}\", \"exit\": 5, \"stage\": \"venv_bootstrap\"}" >/dev/null || true
+            exit 5
+        fi
+        local pyver installed_pkg=""
+        pyver="$("${PY3}" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+        local pkg
+        for pkg in "python${pyver}-venv" "python3-venv"; do
+            log "Installing ${pkg} via apt (ensurepip unavailable for venv creation)"
+            if sudo -n apt-get install -y "${pkg}" >&2; then
+                installed_pkg="${pkg}"
+                break
+            fi
+        done
+        if [ -z "${installed_pkg}" ]; then
+            log "environment: python3-venv missing and cannot install"
+            record_audit "breakout-login-check" "environment" \
+                "{\"account\": \"${ACCOUNT}\", \"exit\": 5, \"stage\": \"venv_bootstrap\"}" >/dev/null || true
+            exit 5
+        fi
+        log "Installed ${installed_pkg}"
+    fi
+    log "Creating isolated browser venv at ${venv}"
+    "${PY3}" -m venv --system-site-packages "${venv}"
+    if ! venv_pip_ok "${venv}"; then
+        log "environment: python3-venv missing and cannot install"
+        record_audit "breakout-login-check" "environment" \
+            "{\"account\": \"${ACCOUNT}\", \"exit\": 5, \"stage\": \"venv_bootstrap\"}" >/dev/null || true
+        exit 5
+    fi
+}
+
+ensure_venv "${VENV}"
 if ! "${VENV}/bin/python" -c "import playwright, sys; from importlib.metadata import version; sys.exit(0 if version('playwright') == '${PW_VERSION}' else 1)" 2>/dev/null; then
     log "Installing playwright==${PW_VERSION} into the isolated venv"
     "${VENV}/bin/pip" install --quiet --disable-pip-version-check "playwright==${PW_VERSION}"
