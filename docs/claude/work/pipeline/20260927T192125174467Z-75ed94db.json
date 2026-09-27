@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "both TemporaryDirectory() sites in check_mandate_autoland.py pass ignore_cleanup_errors=True (or the scratch repos disable git auto-maintenance)",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-D9R6QTDB-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "build lane session_01PyohkPdSE4VrqUd9R6qTdB 2026-09-27 (PR #13297 CI)",
+    "rerun": "grep -n 'TemporaryDirectory(' scripts/ci/check_mandate_autoland.py ; for i in 1 2 3 4 5; do python3 scripts/ci/check_mandate_autoland.py --self-test >/dev/null 2>&1 || echo FAIL; done"
+  },
+  "state": "queued",
+  "what": "scripts/ci/check_mandate_autoland.py --self-test can fail CI on its own temp-dir CLEANUP, not on a verdict: run 36341422348 (PR #13297, head d95d63f) failed tests/test_mandate_autoland.py::test_planted_defect_suite_passes with _case() -> tempfile.TemporaryDirectory().__exit__ -> shutil.rmtree -> OSError [Errno 39] Directory not empty: '.git' after NEGATIVE 3's scratch repo was already graded; the one re-run passed. Something writes into the scratch repo's .git while rmtree runs. Proposed Tier-1 fix: TemporaryDirectory(ignore_cleanup_errors=True) at the two call sites (lines ~876, ~1121) and `-c gc.auto=0 -c maintenance.auto=false` in _run(), so fixture cleanup can never fail grading it already finished."
+}

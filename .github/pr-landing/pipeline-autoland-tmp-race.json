@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs/register only: files one pipeline record (PI-20260927-D9R6QTDB-0001) for a CI-only defect — scripts/ci/check_mandate_autoland.py --self-test failed PR #13297's pytest-run on temp-dir cleanup (OSError Errno 39 '.git' not empty), not on a verdict; one re-run passed. No code, config, order path or runtime file changes."
+}
