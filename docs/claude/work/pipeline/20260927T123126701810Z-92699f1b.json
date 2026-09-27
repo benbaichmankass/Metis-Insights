@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the trail_decay_arm_r: 2.99 comment in config/strategies.yaml no longer claims the change is unapproved/unmerged",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-JUANCRRZ-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "w6-prop-ev lane, session_013wNhAh3Z3EPTFyJuANcRrz",
+    "rerun": "grep -n 'NOT yet' config/strategies.yaml | grep -n '' ; git log --oneline -1 cadb0d2d"
+  },
+  "state": "done",
+  "terminal_reason": "comment fixed on branch claude/w6-prop-sizing-decisions (held Tier-3 PR; manager merges): config/strategies.yaml trend_donchian_eth_prop.trail_decay_arm_r now reads '[DECIDED] operator 2026-09-26, #13015; deployed #13020; reversal = delete the line'. Comment only; value 2.99 unchanged.",
+  "what": "config/strategies.yaml line ~1317 (trend_donchian_eth_prop.trail_decay_arm_r: 2.99) is commented 'PROPOSED Tier-3 - held for operator approval, NOT yet approved (this PR lands on a branch and is NOT merged; ... landing: hold)'. FALSE IN THE FIELD: it merged to main as cadb0d2d (#13015, 'Tier-3, operator-decided 2026-09-26') and per the R4 checklist note was deployed via #13020. Field beats comment; the comment on a Tier-3 routing line must be corrected to [DECIDED] operator 2026-09-26, #13015, reversal = delete the line. Comment-only edit, but in a Tier-3 file -> not done by the w6-prop-ev lane, which was scoped to change no config. | 2026-09-27: fixed (comment only) on branch claude/w6-prop-sizing-decisions (held Tier-3 PR; manager merges), directed by the operator's 11:12Z decisions routed via the manager."
+}
