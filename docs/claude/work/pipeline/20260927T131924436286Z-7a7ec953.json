@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "check_mandate_autoland A7 accepts the identity r4-demotion-gate.yml actually opens PRs as (a test ties the workflow's PR-opening token to BOT_LOGIN or the accepted login), merged; or MD-DEMOTE-S2-S1 disarmed with the reason stated",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-GU9VGVPE-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A09 (session_01CTCL5m5svVvXSgGu9VGVpe), finding AUD-20260927-A09-autoland-pr-author-pat",
+    "rerun": "grep -n 'GH_TOKEN\\|gh pr create' .github/workflows/r4-demotion-gate.yml (token used for PR creation) ; read the user.login of the newest PR whose head starts automation/ (mcp search_pull_requests 'head:automation/'); compare with BOT_LOGIN and the login check in scripts/ci/check_mandate_autoland.py check_author. The finding holds while the PR-opening token is the PAT and A7 demands github-actions[bot]."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-A09, AUD-20260927-A09-autoland-pr-author-pat): the ARMED auto-land route for MD-DEMOTE-S2-S1 cannot land. .github/workflows/r4-demotion-gate.yml opens the demotion PR with `gh pr create` under GH_TOKEN=secrets.BRANCH_PROTECTION_TOKEN, a fine-grained PAT owned by `benbaichmankass` (docs/github-actions-workflows.md:441,1199). MEASURED: PR #13158, opened by the identical mechanism (commit-to-main action, gh pr create with that PAT), has user.login=benbaichmankass. pr-landing-guard R16 -> check_mandate_autoland.check_author (scripts/ci/check_mandate_autoland.py:600-610) requires pull_request.user.login == 'github-actions[bot]' and fails otherwise; `guards` is a required check with enforce_admins. So on the first FIRE the pre-flight says ADMISSIBLE (it skips the author read), the PR body and the send-ping say 'lands itself on green', auto-merge is enabled, and then guards goes RED and the de-risk cut never merges -- the net-negative real-money leg keeps trading until someone rewrites the declaration to hold and merges by hand. No test can catch it: every self-test fixture plants login='github-actions[bot]'. FIX (Tier-2, landing machinery): either (a) accept the PAT owner in A7 only together with a second token-provenance fact the PR carries (e.g. head commit authored+committed by the bot AND the branch pushed by the r4-demotion-gate run, cross-checked via the Actions API run's head_branch), or (b) open the PR with GITHUB_TOKEN (bot author) and solve the no-CI-on-bot-PR problem separately (PI-20260927 CI-auth item). Add a test that parses r4-demotion-gate.yml and asserts the token used for `gh pr create` produces the login A7 requires."
+}
