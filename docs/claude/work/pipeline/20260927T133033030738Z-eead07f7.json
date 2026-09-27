@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "htf_pullback_trend_2h.py's module docstring is rewritten to state current reality (live-wired, N enabled legs, M execution:live), merged AND deployed (git_sha on /api/diag/version contains the fix), AND a CI guard exists that would catch this class recurring",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-CAA05-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A05, finding CA-A05-006",
+    "rerun": "grep -n \"SCAFFOLD\\|not yet wired\\|inert until\" src/units/strategies/htf_pullback_trend_2h.py, and cross-check config/strategies.yaml for enabled blocks whose signal builder resolves to this module via src/runtime/intent_multiplexer.py. Finding holds while the docstring still claims not-wired/inert and at least one such block is enabled:true."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-A05-006, MEASURED 2026-09-27): src/units/strategies/htf_pullback_trend_2h.py's module docstring states the unit is a \"SCAFFOLD, not wired\" and \"inert until the Tier-3 activation PR\" -- but it is the live implementation behind 19 enabled strategies in config/strategies.yaml (16 execution:live, 3 shadow), one of which (the base BTC 2h leg) traded real money on bybit_2 for ~3 months (promoted 2026-06-02, demoted to shadow only 2026-08-23 after losses, OOS net_R -13.933). src/runtime/intent_multiplexer.py:258 dispatches htf_pullback_trend_2h_signal_builder; strategy_signal_builders.py:1412 calls the unit's order_package(). The same file elsewhere admits \"19 ENABLED legs the intent multiplexer routes to this module\" -- directly contradicting its own opening line. This is a docs-vs-code drift finding (docstring says inert, code/config say live), not a new logic bug -- the risk is a future session trusting the docstring and treating changes to this file as low-risk/scaffold-only when they in fact touch a live real-money-eligible order path. FIX: rewrite the opening docstring to state current reality (live-wired since 2026-06-02); add a CI guard failing when a strategy docstring contains \"not wired\"/\"SCAFFOLD\"/\"inert\" while config/strategies.yaml has an enabled block pointing at it. Full finding: docs/audits/code-audit-2026-09-27/CA-A05.findings.jsonl id CA-A05-006."
+}
