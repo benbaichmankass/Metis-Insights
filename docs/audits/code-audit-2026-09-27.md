@@ -10,6 +10,8 @@
 **Last consolidation:** 2026-09-27 ~17:40Z against `origin/main` @ `1247cc8` (CA-LEAD turn 3).
 **Lanes consolidated: all 24 findings files (Wave A and Wave B).** Turn 3 (17:40Z) added B02–B05 and B07–B09; §4.4 has the Wave-B table.
 
+**Final (turn 4, 23:20Z).** **All 32 evidence-settled briefs are merged:** FIX-CA-01…25 in turn 2, FIX-CA-26…29 in #13314, FIX-CA-30…32 in #13316, and FIX-CA-01c in #13241. Merge was checked against `git log origin/main`; deployment was not verified by the lead. **Six judgment calls, JC-CA-01…06, are outstanding with the operator** (§6).
+
 **Turn-3 headline.** Wave B filed 39 critical/high findings: 7 confirmed, 28 downgraded, 4 not reproduced. They produce **7 new evidence-settled fixes, FIX-CA-26…32** (all Tier 1 except FIX-CA-31, which is Tier 2), and **1 new judgment call, JC-CA-06**. **FIX-CA-01…25 are all merged** (§5). Deployment is reported by the manager but not lead-verified, because diag is still 401.
 
 ## 0. Headline
@@ -653,7 +655,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 
 ### Turn 3 — Wave B evidence-settled fixes (FIX-CA-26 … 32)
 
-### FIX-CA-26 — `CA-B04-m21-entry-sweep-inert-fold-inflation` (Tier 1) — **NEW, not dispatched**
+### FIX-CA-26 — `CA-B04-m21-entry-sweep-inert-fold-inflation` (Tier 1) — **MERGED #13314**
 - **Finding:** Module docstring: yearly walk-forward PASS requires >=2/3 usable folds; the printed wins/usable fraction is cited verbatim in config/strategies.yaml as shipped evidence for LIVE real-money entry-filter legs.
 - **Pipeline:** PI-20260927-ZGQPHR3D-0001
 - **Files:** ['scripts/research/m21_entry_sweep.py', 'tests/test_m21_entry_sweep_inert_folds.py (new)', 'scripts/research/m21_regrade_inert.py (new, optional)']
@@ -664,7 +666,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **What the lane got wrong:** Undercounted citations (said 3 on 2 legs; actually 8 on 7 legs, 3 cells on 2 real-money legs). Severity critical overstated: the defect is a possibly-inflated WF count, not a demonstrated wrong number; IS+OOS strict gate precedes WF; an inert entry filter is neutral rather than loss-making. The live-decision consequence (keep/remove the 3 real-money declares) waits on the offline re-grade and would be Tier 3.
 - **Follow-on (Tier 3, only if the re-grade fails):** if a re-graded fold count drops `trend_donchian_xrp_4h` skip_h0 / vol_hi90 or `ada_pullback_2h` vol_lo10 below the pre-registered ≥2/3 rule, the keep-or-remove call on that lever on `bybit_2` + `bybit_portfolio` goes to the operator (or is taken under the data-backed Tier-3 authorization with notice, since the re-grade *is* the evidence record).
 
-### FIX-CA-27 — `CA-B02-fc-geometry-join-ignores-strategy` (Tier 1) — **NEW, not dispatched**
+### FIX-CA-27 — `CA-B02-fc-geometry-join-ignores-strategy` (Tier 1) — **MERGED #13314**
 - **Finding:** scripts/ml/fc_geometry_resolve.py:_join_real_r() joins the 'real' realized-R arm of the fc-geometry live-vs-counterfactual comparison to the closed trades table by (symbol, nearest timestamp within 900s) only -- it never filters on trades.strategy_name (or account_id), although the soak row it resolves for carries both fields and config/strategies.yaml runs 9 distinct strategies on BTCUSDT alone that can each close …
 - **Pipeline:** PI-20260927-CAB02-0002
 - **Files:** ['scripts/ml/fc_geometry_resolve.py']
@@ -673,7 +675,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The test above; no CI guard currently covers this file.
 - **Tier:** 1
 
-### FIX-CA-28 — `CA-B03-exit-head-workflow-never-applies-net-of-fee-cost` (Tier 1) — **NEW, not dispatched**
+### FIX-CA-28 — `CA-B03-exit-head-workflow-never-applies-net-of-fee-cost` (Tier 1) — **MERGED #13314**
 - **Finding:** The M30xM20 exit-head production pipeline (.github/workflows/research-exit-head-build.yml -> build_intrabar_exit_panel.py -> analyze_exit_head.py) never passes --cost-r or --exit-fee-r, so both default to 0.0, making the pipeline's own 'net-of-fee EXIT POLICY sim' and its pre-registered promotion bar ('positive net-of-fee R improvement') actually GROSS, contradicting analyze_exit_head.py's own docstring and verdict …
 - **Pipeline:** PI-20260927-4RNJRRFS-0002
 - **Files:** ['.github/workflows/research-exit-head-build.yml', 'scripts/research/build_intrabar_exit_panel.py', 'scripts/research/analyze_exit_head.py']
@@ -682,7 +684,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The test/guard above; none exists today.
 - **Tier:** 1
 
-### FIX-CA-29 — `CA-B03-exit-sweep-shared-tmp-race` (Tier 1) — **NEW, not dispatched**
+### FIX-CA-29 — `CA-B03-exit-sweep-shared-tmp-race` (Tier 1) — **MERGED #13314**
 - **Finding:** m20_exit_sweep.py::run_cell — the P2 'hard-lever sweep' harness the exit-refinement skill names as the currently-active step of the pipeline (.claude/skills/exit-refinement/SKILL.md:49) — writes every cell's --json output to a single hardcoded shared path (/tmp/m20_cell.json) and reads it back, the identical BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH defect class already found and fixed in the sibling m20_fleet_e…
 - **Pipeline:** PI-20260927-4RNJRRFS-0004
 - **Files:** ['scripts/research/m20_exit_sweep.py']
@@ -692,7 +694,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 1
 - **Scope:** covers `m20_exit_sweep.py` **and** `m20_trail_resweep.py` (CA-B03-trail-resweep-shared-tmp-race folded in).
 
-### FIX-CA-30 — `CA-B08-ci-guard-env-gate-blind-to-core-and-main` (Tier 1) — **NEW, not dispatched**
+### FIX-CA-30 — `CA-B08-ci-guard-env-gate-blind-to-core-and-main` (Tier 1) — **MERGED #13316**
 - **Finding:** check_env_gate_in_diff.py exists to block a new default-off *_ENABLED/*_DISABLED/MONITOR_* gate landing in a protected runtime path -- CLAUDE.md names this "the pattern that stranded MES." Its _PROTECTED_PREFIXES (lines 55-59) is ("src/runtime/", "src/units/", "src/web/") -- it omits src/core/ (home of coordinator.py, which CLAUDE.md itself names as the fold point for mode/execution gate resolution in Coordinator.mu…
 - **Pipeline:** PI-20260927-EJ89Y6IE-0002
 - **Files:** ['scripts/check_env_gate_in_diff.py']
@@ -701,7 +703,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The new test, run in CI alongside the guard.
 - **Tier:** 1
 
-### FIX-CA-31 — `CA-B08-pull-alpaca-fills-collapses-api-failure-as-empty` (Tier 2) — **NEW, not dispatched**
+### FIX-CA-31 — `CA-B08-pull-alpaca-fills-collapses-api-failure-as-empty` (Tier 2) — **MERGED #13316**
 - **Finding:** scripts/pull_alpaca_fills.py's docstring says it is "fail-soft: an account whose creds aren't set is skipped with a warning, not a hard abort," feeding runtime_state/exchange_fills.sqlite -> /api/bot/pnl/exchange and the broker-truth cost sweep. Its _fetch_page (lines 85-96) treats ANY Alpaca API failure (auth error, rate limit, 5xx, or a network exception -- AlpacaClient._request never raises, it returns {"retCode"…
 - **Pipeline:** PI-20260927-EJ89Y6IE-0005
 - **Files:** ['scripts/pull_alpaca_fills.py:85-96,108-144']
@@ -710,7 +712,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The new test in a tests/test_pull_alpaca_fills.py mirroring tests/test_exchange_fills_alpaca.py's coverage pattern.
 - **Tier:** 2
 
-### FIX-CA-32 — `CA-B09-third-execution-gate-undocumented` (Tier 1) — **NEW, not dispatched**
+### FIX-CA-32 — `CA-B09-third-execution-gate-undocumented` (Tier 1) — **MERGED #13316**
 - **Finding:** docs/CLAUDE-RULES-CANONICAL.md's Prime Directive states there are exactly two declared, default-permissive execution gates (accounts.yaml::mode, strategies.yaml::execution) and 'never add a third gate.'
 - **Pipeline:** PI-20260927-CAB09-0001
 - **Files:** ['docs/CLAUDE-RULES-CANONICAL.md (Prime Directive)', 'src/web/runtime_status.py:124-125', 'src/web/routers/runtime_config.py or wherever /api/bot/config assembles its per-account block']
@@ -720,6 +722,15 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 1
 - **Lead note:** Lead read coordinator.py:1409-1419 directly: account_state.yaml is folded into effective_dry live (dry-only, fail-open). Split: FIX (surface + document, Tier 1) and JC-CA-06 (keep vs retire).
 - **What the lane got wrong:** The lane understated the defect: it framed the gap as 'undocumented and unsurfaced', but src/web/runtime_status.py:124-125 contains an affirmatively FALSE comment claiming the override mechanism 'was removed' -- a stronger field-vs-comment violation than a silent omission.
+
+### 5.9 Defects found by reviewers and fixed before merge
+
+Each was caught in the manager's pre-merge review and fixed on the PR before it landed:
+- **#13244** (FIX-CA-07/08/10): the strategy-open read ran before the delta was known, and an unreadable read also refused reduce, close and flip. It now refuses only an open or increase. #13251's new `not_found` branch did not record unreadable symbols, so a filled row on an unreadable symbol could be closed or orphaned. Both have regression tests that fail without the fix.
+- **#13241** (FIX-CA-01c): `pull_and_deploy.sh` cleared the operator-stop marker but never started a trader that git-sync was holding. A stop race was closed too, and every trader restarter now clears the marker.
+- **#13248** (prop DXtrade read): redaction was case-sensitive, full URLs were printed, and exceptions were printed unredacted. Now it redacts case-insensitively, keeps only the URL origin, and redacts every printed exception.
+- **#13297** (prop terminal host): page text was cut before it was redacted, so a secret straddling the cut leaked its prefix. It now redacts before truncating on every public-log path.
+- **#13316** (FIX-CA-31): making `pull_alpaca_fills.py` exit non-zero on an API failure would have aborted the `Type=oneshot` `ict-exchange-fills-pull` unit before the Bybit wallet ledger step ran. Alpaca fills now run in their own unit.
 
 ## 6. Judgment calls (for the operator — daily brief section 2)
 
@@ -1140,3 +1151,4 @@ Not visible to the lead: CA-B09's spend, CA-LANDING's spend, the fix lanes FIX-C
 - 2026-09-27 ~13:15Z — report created (turn 1). CA-A01-001 CONFIRMED; FIX-CA-01 brief written.
 - 2026-09-27 ~15:10Z — turn 2. Consolidated 17 findings files (Wave A plus B01 and B06). Re-verified 64 critical/high: final 30 confirmed, 33 downgraded, 1 not reproduced (verifiers 42/21/1 before lead overrides); 2 folded into CA-A01-073. Wrote FIX-CA-02…25 and JC-CA-01…05. Recorded that B06 did not meet its brief and that diag access is lost.
 - 2026-09-27 ~17:40Z — turn 3. Consolidated Wave B (B02, B03, B04, B05, B07, B08, B09). Re-verified all 39 of their critical/high: 7 confirmed, 28 downgraded, 4 not reproduced. Wrote FIX-CA-26…32 and JC-CA-06. Marked FIX-CA-01…25 merged, each against its PR. Recorded spend (§11). Recorded that B05's method is flawed.
+- 2026-09-27 ~23:20Z — turn 4 (final). FIX-CA-26…32 marked merged (#13314, #13316). All 32 briefs are merged; JC-CA-01…06 are outstanding with the operator. Recorded the five defects reviewers caught before merge (§5.9). No new findings consolidated.
