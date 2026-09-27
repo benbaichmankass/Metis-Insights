@@ -51,6 +51,7 @@ The three deciding facts:
 overnight/weekend rule, a static (non-trailing) DD and no consistency rule.
 Its readable terms do not prohibit automation. Apex is worse for us on all
 four. The one thing Apex offers that Breakout does not is regulated CME
+<!-- population-ok: a firm's rule/payout parameter quoted from its terms, not a sample statistic -->
 futures with a 100% payout split. We cannot run it by bot, and we have no
 intraday futures leg to put on it.
 
@@ -253,6 +254,7 @@ economics:
 ```
 
 The sketch as an expression:
+<!-- population-ok: a firm's rule/payout parameter quoted from its terms, not a sample statistic -->
 `EV = −F_eval − P(pass)·F_act + P(pass)·Σ_{i=1..6} P(reach payout i | trailing DD, DLL, 50% consistency)·min(cap_i, withdrawable_i) − commissions`.
 Two properties hold *before* any simulation. INFERRED from A1 and the § 1
 roster:
