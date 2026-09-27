@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01Bf9Xnenv6vF5rSqbhr1EYj",
+  "branch": "claude/w6-b4-post-merge-check",
+  "claimed_at": "2026-09-27T10:08:30Z",
+  "purpose": "B4: record VM-sync-race finding on first live run, re-dispatch confirmed"
+}

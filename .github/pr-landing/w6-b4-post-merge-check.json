@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Single-field update to docs/claude/work/MANAGER-CHECKLIST.json row B4's note, recording a verified finding (the first live run of the newly-merged generator used stale VM code due to a git-sync race, not a code defect) and re-dispatch status. Docs-only, no runtime/order-path/config touched -- matches TIER1_SURFACE (docs/**) exactly."
+}
