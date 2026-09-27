@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-27T18:04:40Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-27T18:00:50Z",
       "rows_graded": 0,
       "by_state": {
@@ -350,9 +366,9 @@
       }
     }
   ],
-  "updated_at": "2026-09-27T18:00:50Z",
+  "updated_at": "2026-09-27T18:04:40Z",
   "latest": {
-    "generated_at": "2026-09-27T18:00:50Z",
+    "generated_at": "2026-09-27T18:04:40Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
