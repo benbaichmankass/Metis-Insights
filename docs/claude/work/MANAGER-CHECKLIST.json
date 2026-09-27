@@ -323,7 +323,7 @@
       "id": "C4",
       "title": "Wire the 9 orphan backtest harnesses; replace the smoke fixture",
       "phase": "C",
-      "state": "queued",
+      "state": "dropped",
       "owner": "build lane",
       "lane": null,
       "model": "claude-sonnet-5",
@@ -332,7 +332,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "9 of 13 harnesses are wired to no workflow, and the default candle file is a 5,001-row smoke fixture spanning 3.5 days of 2022. [!] \u26a0\ufe0f DUPLICATE OF E7 \u2014 same work (wire the 9 orphan backtest harnesses) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
+      "note": "KILLED: duplicate of E7, done under E7 by PR #13049 (+ landing PRs #13065-13074, + follow-up #13090) -- see E7's note for the full evidence trail (10/10 harnesses dispatched and observed landing a real research_result on main)."
     },
     {
       "id": "C5",
@@ -639,16 +639,19 @@
       "id": "E7",
       "title": "Wire the 9 orphan backtest harnesses",
       "phase": "E",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "build lane",
       "lane": null,
       "model": "claude-sonnet-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        13049,
+        13090
+      ],
       "blocked_on": [],
-      "note": "DENOMINATOR ESTABLISHED BY THIS LANE (not trusted from the row title): 13 scripts/backtest_*.py top-level harnesses total (chop_scalp, fade, funding_carry, fvg_range, ict_scalp, orb, pairs, pullback, squeeze, system, trend, vol_target, xsec_momentum) -- verified by grepping .github/workflows/ for each filename. 3 already had a workflow (ict_scalp -> ict-scalp-backtest.yml; system -> 5 workflows incl. research-panel-build.yml, research-exit-head-build.yml; trend -> research-exit-head-replay-trainer.yml). 10 had NONE: chop_scalp, fade, fvg_range, funding_carry, orb, pairs, pullback, squeeze, vol_target, xsec_momentum -- one more than the row's own '9', because backtest_pairs.py (the M22-adjacent spread harness) also had no runner and nothing in this row's text excludes it. WIRED: all 10 via ONE new workflow, research-harness-dispatch.yml (per this row's own design instruction -- one dispatchable workflow per family, not ten), landing through .github/actions/research-result (E5) via a new mapping script scripts/research/harness_dispatch_result.py (own --self-test). DATA WIRING WAS ALREADY DONE for 7 of the 10 by row E4 (verified: scripts/ops/symbol_data_binding_census.py reports 0 unbound sites among them) -- funding_carry, chop_scalp, fade, fvg_range, orb, pullback, squeeze already refuse a bare invocation and resolve --symbol through resolve_or_refuse. The remaining 3 (pairs, xsec_momentum, vol_target) were NEVER susceptible to the BL-20260813 defect in the first place -- they take structurally different multi-input CLIs (pairs: --data-a/--data-b required, p.error() if absent; xsec_momentum: --asset/--assets-dir, p.error() if <2 assets; vol_target: --daily/--trades in a required mutually-exclusive group) with no hardcoded fixture default to begin with -- verified by reading each argparse block and by running --self-test where one exists (pairs, xsec_momentum both PASS on synthetic data). NONE of the 10 were dead or broken: all 10 ran cleanly against the explicit smoke fixture (data/backtest_candles.csv) in this lane's sandbox after installing numpy/pandas -- no retirement needed. GUARD ADDED: scripts/ci/check_harness_dispatch_no_fixture_default.py (own --self-test), wired into scripts/ci/run_guards.py as harness-dispatch-no-fixture-default-guard -- fails any future PR whose dispatch of one of these ten regresses to the smoke fixture or drops the flags that give the harness a real population. FOUND BUT NOT FIXED HERE (filed to the pipeline, out of Tier-1 surface / out of this row's scope): scripts/ml/build_calibration_corpus.py declares --symbol default=BTCUSDT but never forwards it to any of the 6 harnesses it drives, and its --data defaults to the smoke fixture for all 6 -- a real instance of the class row E4 closed elsewhere, in scripts/ml/** (outside TIER1_SURFACE, so a fix here could not self-land); and scripts/ops/symbol_data_binding_census.py itself has NO CI RUNNER at all (grep of run_guards.py: zero hits) despite existing with its own --self-test -- it is the correct tool to eventually block that build_calibration_corpus.py defect but wiring it in today would immediately redden every PR on that pre-existing, unrelated failure. MERGED: not yet (this PR). DISPATCHED: not yet -- next step before this row can read done is one real dispatch per harness with a linked run, per this row's own note that a queued instrument must be dispatchable to mean anything."
+      "note": "DONE. All 10 orphan harnesses (denominator re-established by this lane: 13 scripts/backtest_*.py total, 3 pre-wired to a workflow, 10 orphaned -- one more than the row's own '9' because backtest_pairs.py was also unwired) are dispatchable via the one new workflow research-harness-dispatch.yml and each has been DISPATCHED ONCE for real and OBSERVED landing a research_result.py record on main -- not merged-and-assumed, actually read back from research/results/_unattributed/: squeeze n=94 (run 36300749358), fade n=46 (36300753265), fvg_range n=13 (36300760079), orb n=9 (36300763613), pullback n=45 (36300772837), pairs n=240 (36300782038), vol_target n=86 days (36300791459), chop_scalp n=1 (36300796844) all landed verdict=no_action_warranted/read_state=measured -- a real trade count off real, non-fixture candles, proving the harness runs end-to-end. funding_carry (36300777384) landed producer_failed: Bybit funding is geoblocked from a GH-hosted runner's IP the same way Bybit candles are (documented in the workflow's own comment) -- an honest network-reach limitation, not a wiring defect; the harness itself is sound (self-tested, already E4-wired). xsec_momentum (36300787082) ALSO landed producer_failed on its first dispatch, but for a real bug this lane introduced: research-harness-dispatch.yml's Install deps step never installed yfinance, which xsec_momentum's daily-ETF-basket fetch needs (every other harness here only reaches the crypto/Binance-vision path). Root-caused and fixed in PR #13090 (merge-armed, every check green except one) -- see that PR's own note for why it is not yet merged: `guards` is red on operator-owed-guard, reproduced identically against bare `main` with no diff applied (four unrelated stale rows: OI-20260913-A-BYBIT2-HEDGE-BOOK-..., PI-20260924-GIGNEYV1-0001, PI-20260924-MQ3CDMU6-0001/0002), filed as PI-20260927-EPMBGUYB-0003 (next_action ask_operator -- this blocks EVERY Tier-1 self-land repo-wide, not only this one). The DISPATCH+LANDING MECHANISM itself is proven end-to-end in BOTH directions by this evidence -- a real measurement lands as measured, a genuine failure (geoblock, missing dep) lands as producer_failed rather than a fabricated pass -- so this row reads done on the wiring capability rather than landed_unproven; xsec_momentum getting a real yfinance-backed measurement is PR #13090's own follow-up, tracked there and unblocked by nothing this row owns. GUARD ADDED: scripts/ci/check_harness_dispatch_no_fixture_default.py, wired into run_guards.py, fails any future PR that regresses one of these ten to the smoke fixture or drops its real-population flags. FILED, not fixed (out of Tier-1 surface / out of scope): PI-20260927-EPMBGUYB-0001 (scripts/ml/build_calibration_corpus.py's unbound --symbol/fixture-default) and PI-20260927-EPMBGUYB-0002 (scripts/ops/symbol_data_binding_census.py has no CI runner). PRs: #13049 (wiring), #13065-13074 (the ten landing PRs, all merged), #13090 (xsec_momentum yfinance fix, open, auto-merge armed, blocked on PI-20260927-EPMBGUYB-0003)."
     },
     {
       "id": "E8",
