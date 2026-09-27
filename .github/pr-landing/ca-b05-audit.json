@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "read-only analysis + documentation; audit findings and summary MD added to docs/audits/, document index updated"
+}
