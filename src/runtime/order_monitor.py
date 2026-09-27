@@ -1982,11 +1982,14 @@ def _cancel_trade_scoped_protection(
         )
 
 
-def _cancel_closed_row_protection(row: Any) -> None:
+def _cancel_closed_row_protection(row: Any, db: Any = None) -> None:
     """Call :func:`_cancel_resting_protection_after_flat` scoped to *row*.
 
     *row* is a ``sqlite3.Row`` or dict for a trade that was just finalised on
-    a flat-at-exchange observation. Never raises.
+    a flat-at-exchange observation. The Bybit tracked-leg ids are read from
+    ``trades`` by id in a SEPARATE best-effort query rather than added to the
+    callers' SELECTs — a journal predating the ``sl_order_id`` migration must
+    still close the row; it only loses the leg cancel. Never raises.
     """
     try:
         def _g(key: str) -> Any:
@@ -1994,9 +1997,24 @@ def _cancel_closed_row_protection(row: Any) -> None:
         tid = _g("id")
         if tid is None:
             return
+        sl_id, tp_id = _g("sl_order_id"), _g("tp_order_id")
+        if sl_id is None and tp_id is None and db is not None:
+            try:
+                conn = db.connect()
+                try:
+                    got = conn.execute(
+                        "SELECT sl_order_id, tp_order_id FROM trades WHERE id=?",
+                        (int(tid),),
+                    ).fetchone()
+                finally:
+                    conn.close()
+                if got is not None:
+                    sl_id, tp_id = got[0], got[1]
+            except Exception:  # noqa: BLE001  # allow-silent: pre-migration journal has no leg-id columns; IB keyed cancel needs none
+                pass
         _cancel_resting_protection_after_flat(
             _g("account_id"), _g("symbol"), trade_id=int(tid),
-            sl_order_id=_g("sl_order_id"), tp_order_id=_g("tp_order_id"),
+            sl_order_id=sl_id, tp_order_id=tp_id,
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: _cancel_closed_row_protection raised: %s", exc)
@@ -4555,8 +4573,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
             conn.row_factory = __import__("sqlite3").Row
             rows = conn.execute(
                 "SELECT id, account_id, symbol, direction, notes, created_at, "
-                "       entry_price, position_size, setup_type, "
-                "       sl_order_id, tp_order_id "
+                "       entry_price, position_size, setup_type "
                 "  FROM trades WHERE status='open' AND COALESCE(is_backtest,0)=0"
             ).fetchall()
         finally:
@@ -5701,8 +5718,7 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                 db_conn.row_factory = __import__("sqlite3").Row
                 trade_row = db_conn.execute(
                     "SELECT id, status, notes, account_id, symbol, "
-                    "       direction, position_size, entry_price, created_at, "
-                    "       sl_order_id, tp_order_id "
+                    "       direction, position_size, entry_price, created_at "
                     "FROM trades WHERE id=?",
                     (trade_id,),
                 ).fetchone()
@@ -5909,7 +5925,7 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                     db.update_trade(int(trade_row["id"]), recovered)
                     # CA-A01-001: flat-finalise → cancel THIS trade's own
                     # resting protection (keyed group / tracked legs).
-                    _cancel_closed_row_protection(trade_row)
+                    _cancel_closed_row_protection(trade_row, db)
                     _cascade_close_linked_package(
                         db, trade_row["id"],
                         close_reason=recovered.get(
@@ -5984,7 +6000,7 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
                     # left oca-protect-t5836 (STP + LMT, 15 MES) resting GTC on
                     # a flat book. Cancel THIS trade's own group — scoped, so a
                     # sibling trade's keyed group on the contract survives.
-                    _cancel_closed_row_protection(trade_row)
+                    _cancel_closed_row_protection(trade_row, db)
                     summary["closed_local_unmatched"] += 1
                     logger.warning(
                         "_watchdog_stuck_strategies: FINALIZED CLOSED "
@@ -6433,8 +6449,7 @@ def _cascade_close_netted_siblings(
             conn.row_factory = __import__("sqlite3").Row
             sibs = conn.execute(
                 "SELECT id, account_id, symbol, direction, position_size, "
-                "       entry_price, notes, created_at, setup_type, "
-                "       sl_order_id, tp_order_id "
+                "       entry_price, notes, created_at, setup_type "
                 "  FROM trades "
                 " WHERE status='open' AND COALESCE(is_backtest,0)=0 "
                 "   AND account_id=? AND symbol=? AND direction=? AND id != ?",
@@ -6534,7 +6549,7 @@ def _cascade_close_netted_siblings(
                 # CA-A01-001: the netted position is flat, so this sibling's
                 # own resting protection protects nothing — cancel it (scoped
                 # to THIS row; never symbol-wide).
-                _cancel_closed_row_protection(s)
+                _cancel_closed_row_protection(s, db)
                 closed += 1
                 logger.info(
                     "_cascade_close_netted_siblings: closed netted sibling "
@@ -6834,7 +6849,7 @@ def _close_trade_from_order_status(
     # CA-A01-001: this is a flat-FINALISE path — it never calls
     # close_open_position, so nothing else cancels the row's own resting
     # protection (IB keyed group / Bybit tracked legs). Scoped to this row.
-    _cancel_closed_row_protection(row)
+    _cancel_closed_row_protection(row, db)
 
     # Cascade by canonical link (order_packages.linked_trade_id), not
     # by notes-JSON scraping. Pre-2026-05-16 this used
