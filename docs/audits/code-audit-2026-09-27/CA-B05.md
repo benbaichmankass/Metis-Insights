@@ -1,5 +1,7 @@
 # CA-B05: CI Guards Part 1 Audit
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## Summary
 
 **Scope:** First 44 CI guards from `python3 scripts/ci/run_guards.py --list`  
