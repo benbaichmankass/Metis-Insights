@@ -129,6 +129,22 @@ def main(argv: List[str]) -> int:
     harness = _load_harness()
     cost_basis = _apply_venue_cost_policy(harness, a.symbol)
     df = harness._load_candles(res.path)
+    if res.resample:
+        # BUG FIXED HERE (was silently absent): backtest_data_source flags
+        # `resample` whenever the resolver had to fall back to a finer native
+        # grain than the requested timeframe (SOLUSDT/ETHUSDT have no native
+        # 1h file, only 5m/15m, so a 1h request resolves to the 5m CSV with
+        # resample="1h"). Every OTHER caller of this resolver applies the flag
+        # (exit_head_replay.py::_load_candles(path, resample) is the sibling
+        # pattern this mirrors) -- this driver read the flag into `res` and
+        # then never consulted it, so the two prior dispatches of this unit
+        # silently ran the leg's 1h-geometry params (donchian/atr/trail_mult/
+        # timeout_bars=200) against RAW 5-MINUTE bars: ~12x the intended bar
+        # count (a real cost-of-runtime driver, this is why both prior
+        # dispatches hit the trainer-vm-diag 60-minute job cap) and a
+        # different instrument entirely from what config/strategies.yaml
+        # declares for this leg.
+        df = harness._resample(df, res.resample)
 
     trades: List[Any] = []
     baseline = harness.run_backtest(
