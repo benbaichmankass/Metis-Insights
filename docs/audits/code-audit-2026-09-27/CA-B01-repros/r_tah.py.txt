@@ -1,0 +1,8 @@
+from ml.experiments.splitters import split, split_purged_walk_forward
+rows=[{"ts":f"t{i:05d}","i":i} for i in range(1000)]
+m=5  # market_features forward_window_m default; label of row i reads bars i+1..i+5
+tr,te=split(rows,{"split_strategy":"time_aware_holdout","time_column":"ts","holdout_fraction":0.2})
+t0=te[0]["i"]
+print("time_aware_holdout: n_train",len(tr),"n_test",len(te),"train rows whose label window reaches the test block:",sum(1 for r in tr if r["i"]+m>=t0),"gap rows:",t0-tr[-1]["i"]-1)
+f=split_purged_walk_forward(rows,{"n_folds":5,"time_column":"ts","label_horizon":5,"embargo_fraction":0.01})
+print("purged_wf last fold gap rows:",f[-1][1][0]["i"]-f[-1][0][-1]["i"]-1)

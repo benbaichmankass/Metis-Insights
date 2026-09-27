@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for AUD-20260927-CA-B01-yz-vol-bucket-edges-wrong-basis is merged with a test that fails on the old code (detector: Parity test: build market_features, train with vol_feature_column=yang_zhang_vol, re-bucket the training rows via src.runtime.regime_shadow.bucket_for_vol and assert == row['vol_bucket'].), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-3WM5HADW-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B01 (session_01M6NBQHKgKXsvrB3Wm5HAdW), finding AUD-20260927-CA-B01-yz-vol-bucket-edges-wrong-basis in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B01-yz-vol-bucket-edges-wrong-basis (evidence field) in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl, re-read ml/trainers/lightgbm_multiclass.py:186-192,314-321 (also ml/trainers/regime_classifier.py:155); ml/datasets/families/market_features.py:802-806,866; serve src/runtime/regime_shadow.py:427-436 on main, and re-run the stated command / repro in docs/audits/code-audit-2026-09-27/CA-B01-repros/; the finding holds while the quoted code is unchanged."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit AUD-20260927-CA-B01-yz-vol-bucket-edges-wrong-basis): For regime heads with vol_feature_column: yang_zhang_vol, the trainer freezes vol_bucket_edges as the MAX yang_zhang_vol inside each vol_bucket, but the dataset assigns vol_bucket from close-to-close rolling-vol quantiles, and serving buckets the live YZ value against those edges; on the model's own training bars the served vol_bucket agrees with the trained one only 53% of the time and bucket b2 collapses (1657 -> 67 of 4976) — three such heads are at shadow live. LOCATION: ml/trainers/lightgbm_multiclass.py:186-192,314-321 (also ml/trainers/regime_classifier.py:155); ml/datasets/families/market_features.py:802-806,866; serve src/runtime/regime_shadow.py:427-436. PROPOSED FIX: Either bucket the dataset on the configured estimator (record the basis in metadata) or freeze edges as quantiles of the served column and re-bucket training rows before fitting; fix the regime_bar_scoring docstring; retrain + re-gate the yz heads."
+}

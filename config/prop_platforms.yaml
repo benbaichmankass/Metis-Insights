@@ -18,7 +18,6 @@ accounts:
     platform: dxtrade
     login_url: https://app.breakoutprop.com/
     # Env-var NAMES (never values) holding the login. They reach the VM .env
-    # via .github/workflows/sync-vm-secrets.yml (optional secrets) once that
-    # workflow lists them — pending, see PI-20260927-R6FQK6DS-0002.
+    # via .github/workflows/sync-vm-secrets.yml as optional secrets.
     username_env: BREAKOUT_DX_USERNAME
     password_env: BREAKOUT_DX_PASSWORD
