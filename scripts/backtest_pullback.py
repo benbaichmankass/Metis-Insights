@@ -55,6 +55,11 @@ from src.runtime import execution_costs  # noqa: E402  (the ONE shared cost mode
 # class _regime_score_semantics.py exists to prevent.
 from src.runtime.position_telemetry import r_distances  # noqa: E402
 import capital_efficiency  # noqa: E402  (the ONE capital-efficiency definition)
+# scripts/research/, not src/research/ — see the identical comment in
+# backtest_trend.py (Tier-1 self-land: TIER1_SURFACE covers `scripts/research/**`,
+# not `src/**`).
+sys.path.insert(0, str(_REPO_ROOT / "scripts" / "research"))  # noqa: E402
+from regime_weight import soft_regime_weight, soft_weight_armed  # noqa: E402
 
 # Execution-realism cost knobs (P1, FAITHFUL-BACKTEST-PLATFORM-DESIGN § 3.B).
 # MANDATORY venue-aware cost is applied by main() (the CLI / production path): unset
@@ -86,6 +91,10 @@ class Trade:
     r_multiple: float
     mfe_r: float
     confidence: float = 0.0
+    # SRQ-20260618-002 soft regime-weight refinement — see backtest_trend.py's
+    # identical fields and scripts/research/regime_weight.py for the shared rule.
+    adx_at_entry: Optional[float] = None
+    regime_weight: float = 1.0
 
 
 def _load_candles(path: str) -> pd.DataFrame:
@@ -176,6 +185,9 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  adx_min: Optional[float] = None,
                  adx_max: Optional[float] = None,
                  adx_period: int = 14,
+                 adx_soft_weight_floor: Optional[float] = None,
+                 adx_soft_weight_ceiling: Optional[float] = None,
+                 adx_soft_weight_min: float = 0.0,
                  direction_filter: str = "off",
                  be_floor_r: float = 0.0,
                  stale_exit_bars: Optional[int] = None,
@@ -282,7 +294,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
     df["pr_lo"] = df["low"].rolling(pullback_lookback).min().shift(1)
     # ADX regime filter (recombination lever): only computed/consulted when a
     # band is set, so the default (None/None) run is byte-identical to before.
-    adx_active = adx_min is not None or adx_max is not None
+    # SRQ-20260618-002 refinement: the SOFT weight lever also needs the series —
+    # see the identical comment in backtest_trend.py.
+    soft_weight_on = soft_weight_armed(adx_soft_weight_floor, adx_soft_weight_ceiling)
+    adx_active = adx_min is not None or adx_max is not None or soft_weight_on
     if adx_active:
         df["adx"] = _adx(df, adx_period)
     # Direction-aware regime filter (Phase 2, MB-20260717 / BL-20260717-REGIME-COVERAGE-DEBT):
@@ -687,12 +702,25 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
              else (entry - exit_price) / risk)
         if banked:
             r = bank_frac * bank_at_r + (1.0 - bank_frac) * r
+        # SRQ-20260618-002 soft regime-weight lever — see the identical block
+        # (and its rationale) in backtest_trend.py.
+        adx_at_entry = None
+        regime_weight = 1.0
+        if adx_active:
+            _adx_entry = df["adx"].iloc[i]
+            adx_at_entry = None if pd.isna(_adx_entry) else float(_adx_entry)
+            if soft_weight_on:
+                regime_weight = soft_regime_weight(
+                    adx_at_entry, adx_soft_weight_floor, adx_soft_weight_ceiling,
+                    weight_min=adx_soft_weight_min)
+                r = r * regime_weight
         trades.append(Trade(
             entry_index=i, entry_time=df["timestamp"].iloc[i], direction=direction,
             entry=entry, sl=sl, risk=risk, exit_index=exit_idx,
             exit_time=df["timestamp"].iloc[exit_idx], exit_price=exit_price,
             outcome=exit_reason, r_multiple=round(r, 4), mfe_r=round(mfe, 3),
-            confidence=confidence))
+            confidence=confidence, adx_at_entry=adx_at_entry,
+            regime_weight=round(regime_weight, 4)))
         next_idx = exit_idx + 1 + cooldown_bars
         i = next_idx
     if emit_path:
@@ -729,6 +757,7 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                     "cost_funding_r": round(cb["funding_r"], 5),
                     "funding_windows": round(cb["funding_windows"], 3),
                     "confidence": t.confidence,
+                    "adx_at_entry": t.adx_at_entry, "regime_weight": t.regime_weight,
                     # M20 E0 exit-head dataset fields (additive — existing
                     # consumers .get() what they need): trade geometry so the
                     # builder can reconstruct the per-bar in-trade path.
@@ -772,6 +801,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         params["adx_max"] = adx_max
     if adx_active:
         params["adx_period"] = adx_period
+    if soft_weight_on:
+        params["adx_soft_weight_floor"] = adx_soft_weight_floor
+        params["adx_soft_weight_ceiling"] = adx_soft_weight_ceiling
+        params["adx_soft_weight_min"] = adx_soft_weight_min
     if direction_filter != "off":
         params["direction_filter"] = direction_filter
     summary = _summarize(trades, df, timeframe=timeframe, symbol=symbol, params=params,
@@ -1017,6 +1050,13 @@ def main(argv: List[str]) -> int:
                    help="Regime filter: skip entries whose Wilder ADX is above this (None=off).")
     p.add_argument("--adx-period", type=int, default=14,
                    help="Wilder ADX period for the regime filter (default 14).")
+    p.add_argument("--adx-soft-weight-floor", type=float, default=None,
+                   help="SRQ-20260618-002 soft regime-weight lever — see backtest_trend.py's "
+                        "identical flag for the full description.")
+    p.add_argument("--adx-soft-weight-ceiling", type=float, default=None,
+                   help="See --adx-soft-weight-floor.")
+    p.add_argument("--adx-soft-weight-min", type=float, default=0.0,
+                   help="See --adx-soft-weight-floor.")
     p.add_argument("--direction-filter", choices=["off", "di", "slope"], default="off",
                    help="Phase-2 direction-aware regime gate (default off, byte-identical): "
                         "skip a long in a DOWN regime / a short in an UP regime. "
@@ -1206,6 +1246,9 @@ def main(argv: List[str]) -> int:
                        adx_min=args.adx_min,
                        adx_max=args.adx_max,
                        adx_period=args.adx_period,
+                       adx_soft_weight_floor=args.adx_soft_weight_floor,
+                       adx_soft_weight_ceiling=args.adx_soft_weight_ceiling,
+                       adx_soft_weight_min=args.adx_soft_weight_min,
                        direction_filter=args.direction_filter,
                        stale_exit_bars=args.stale_exit_bars,
                        stale_exit_below_r=args.stale_exit_below_r,
