@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Single-field update to docs/claude/work/MANAGER-CHECKLIST.json row B4: marks it done with the observed first live stage-aware run's result (verified by reading the actual committed comms/strategy_reviews/2026-09-27/INDEX.json, not just the issue-comment summary). Docs-only, no runtime/order-path/config touched -- matches TIER1_SURFACE (docs/**) exactly."
+}
