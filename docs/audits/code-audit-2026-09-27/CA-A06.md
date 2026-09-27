@@ -1,5 +1,7 @@
 # CA-A06 — Code audit Wave A: rest of `src/runtime` (alerts, telegram, reports, health, provenance, insights, soaks)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · a dated audit artifact, not a living doc — read it as a point-in-time finding, not as current state.
+
 Lane: CA-A06 · session_01R1zbNc2v4Rkxs93z13XiHK · model claude-sonnet-5 · ceiling $45
 Findings file: `CA-A06.findings.jsonl` (5 entries: 1 high, 2 medium, 1 low, 1 verified-non-issue)
 
