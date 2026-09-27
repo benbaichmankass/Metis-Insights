@@ -1130,6 +1130,25 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # MANAGER-CHECKLIST.json row E7. Nine of the thirteen scripts/backtest_*.py
+        # harnesses had NO WORKFLOW AT ALL, so nothing could regress their data
+        # source -- there was no runner to regress. research-harness-dispatch.yml
+        # is the first one any of them get, and the moment a runner exists so does
+        # the failure mode row E4 removed one layer down: a workflow step that
+        # pins the smoke fixture as a convenience default. `when: None` for the
+        # same reason as its two siblings above -- the defect is defined by
+        # `.github/workflows/*.yml` content, not by which file happened to change,
+        # and a diff-scoped guard would miss a fixture default already sitting on
+        # `main` in a workflow this PR did not touch.
+        "name": "harness-dispatch-no-fixture-default-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_harness_dispatch_no_fixture_default.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_harness_dispatch_no_fixture_default.py"],
+        ],
+    },
+    {
         "name": "json-extract-guard",
         "when": {"regex": r"\.py$|\.sh$"},
         "steps": [["python3", "scripts/ci/check_json_extract_guarded.py", "--verbose"]],
