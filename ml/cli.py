@@ -964,12 +964,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="purged WF-CV fold count for the OOS-edge gate",
     )
     p_gate.add_argument(
-        "--label-horizon", type=int, default=1,
-        help="purge width (rows each label spans forward) for the OOS-edge gate",
+        "--label-horizon", type=int, default=None,
+        help="purge width (rows each label spans forward) for the OOS-edge "
+             "gate; default = the manifest's own evaluator_config value (or 1 "
+             "if undeclared); a value can only widen it, never shrink it",
     )
     p_gate.add_argument(
-        "--embargo-fraction", type=float, default=0.0,
-        help="embargo buffer as a fraction of the dataset for the OOS-edge gate",
+        "--embargo-fraction", type=float, default=None,
+        help="embargo buffer as a fraction of the dataset for the OOS-edge "
+             "gate; default = the manifest's own value (or 0.0); widen-only",
     )
     p_gate.add_argument(
         "--no-live-regime-auc", action="store_true", default=False,
