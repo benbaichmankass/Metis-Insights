@@ -1,0 +1,23 @@
+from ml.promotion.attribution import JoinedScore, aggregate_attribution
+from ml.promotion.stage_guard import propose_for_model
+from ml.promotion.gates import evaluate_gates, regime_classifier_thresholds, GateThresholds
+from ml.promotion.live_parity import dead_features, labels_accruing_from_counts
+from datetime import datetime, timedelta, timezone
+class E: model_id="dm"; target_deployment_stage="advisory"; metrics={"brier":0.2}; manifest={}; runs=(); stage_history=()
+a1 = aggregate_attribution([JoinedScore("dm","advisory","t1",0.6,True,1.0)])
+p = propose_for_model(E(), attribution=a1[0], drift=None); print("n=1:", p.action, p.reasons)
+a2 = aggregate_attribution([JoinedScore("dm","advisory","t1",0.4,True,1.0),JoinedScore("dm","advisory","t2",0.6,False,-1.0)])
+p = propose_for_model(E(), attribution=a2[0], drift=None); print("n=2:", p.action, p.reasons)
+# sample_sufficiency with zero live trades
+class S: model_id="rg"; target_deployment_stage="shadow"; metrics={"n_eval":5000,"f1_range":0.6,"f1_volatile":0.5,"macro_f1":0.55}; manifest={}; runs=(); stage_history=()
+r = evaluate_gates(S(), attribution=None, thresholds=regime_classifier_thresholds())
+g = {x.name:(x.status,x.required,x.detail) for x in r.results}; print("sample_sufficiency (regime, 0 live trades):", g["sample_sufficiency"])
+# dead features over <1 UTC day of live rows (post-rotation active log)
+t0 = datetime(2026,9,26,6,40,tzinfo=timezone.utc)
+live = [{"dayofweek": (t0+timedelta(minutes=15*i)).weekday(), "x": i*0.1} for i in range(60)]  # 15h, same UTC day
+train = [{"dayofweek": i%7, "x": i*0.3} for i in range(500)]
+print("dead_live over 60 post-rotation rows:", dead_features(live, train, restrict_to={"dayofweek","x"}))
+# labels overstatement: all rescores raise in RG4 -> counted labeled
+la = labels_accruing_from_counts("rg", n_live_rows=100, n_unlabeled=0)
+r = evaluate_gates(S(), labels_accruing=la, thresholds=regime_classifier_thresholds())
+print("labels_accruing:", [ (x.status,x.detail) for x in r.results if x.name=="labels_accruing"])
