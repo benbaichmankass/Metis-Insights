@@ -87,12 +87,17 @@ def _fixture(tmp_path: Path, *, armed: bool) -> Path:
     (root / "config").mkdir(parents=True)
     for rel in (mr.ACCOUNTS_REL, mr.MANDATES_REL, mr.STRATEGIES_REL):
         shutil.copy2(REPO / rel, root / rel)
+    # The real store has been ARMED on MD-DEMOTE-S2-S1 since 2026-09-27
+    # (operator). Normalise to the requested state either way, so the fixture
+    # tests the route rather than whatever the live store happens to hold.
+    text = (root / mr.MANDATES_REL).read_text(encoding="utf-8")
+    marker = "  - id: MD-DEMOTE-S2-S1\n"
+    assert marker in text, "MD-DEMOTE-S2-S1 is no longer spelled this way in the store"
+    arm_line = f"    {autoland.ARM_FIELD}: true\n"
+    text = text.replace(arm_line, "")
     if armed:
-        text = (root / mr.MANDATES_REL).read_text(encoding="utf-8")
-        marker = "  - id: MD-DEMOTE-S2-S1\n"
-        assert marker in text, "MD-DEMOTE-S2-S1 is no longer spelled this way in the store"
-        text = text.replace(marker, marker + f"    {autoland.ARM_FIELD}: true\n", 1)
-        (root / mr.MANDATES_REL).write_text(text, encoding="utf-8")
+        text = text.replace(marker, marker + arm_line, 1)
+    (root / mr.MANDATES_REL).write_text(text, encoding="utf-8")
     _git(root.parent, "init", "-q", "-b", "main", str(root))
     _git(root, "add", "-A")
     _git(root, "commit", "-qm", "base", env=BOT_ENV)
@@ -152,22 +157,21 @@ def test_the_fixture_leg_is_really_on_the_live_roster_and_its_mirror():
     assert LEG in (accounts[MIRROR_ACCOUNT] or {}).get("strategies", [])
 
 
-def test_the_route_ships_unarmed():
-    """No granted mandate carries the arming switch, on `main`, today.
+# test_the_route_ships_unarmed was DELETED 2026-09-27 in the operator's arming
+# commit, as its own docstring required: the operator (Ben) armed
+# MD-DEMOTE-S2-S1 by popup in manager session session_01Ljhs6sFAdWHdMDhJpL5aBP
+# ("Arm MD-DEMOTE-S2-S1 only (Recommended)"). The replacement below pins that
+# EXACTLY ONE entry is armed, so a second arming still meets a failing test.
 
-    This is the assertion that makes 'built, not armed' a CHECKED fact rather
-    than a sentence in a PR body — and the one that will fail, deliberately and
-    loudly, on the operator's arming commit, so whoever arms it meets this test
-    and deletes it knowingly.
-    """
+
+def test_only_the_operator_armed_entry_is_armed():
     doc = yaml.safe_load((REPO / mr.MANDATES_REL).read_text(encoding="utf-8")) or {}
     armed = [m.get("id") for m in (doc.get("mandates") or [])
              if isinstance(m, dict) and m.get(autoland.ARM_FIELD) is True]
-    assert armed == [], (
-        f"mandate(s) {armed} carry `{autoland.ARM_FIELD}: true`. If the operator has armed "
-        f"the route, delete this test in the same commit and say so; if a session added the "
-        f"field, that is a session writing its own authorization.")
-
+    assert armed == ["MD-DEMOTE-S2-S1"], (
+        f"armed mandates are {armed}; the operator armed ONLY MD-DEMOTE-S2-S1 on "
+        f"2026-09-27. Arming another is the operator's act -- update this test in "
+        f"that commit and cite the grant.")
 
 def test_real_producer_output_refuses_on_the_arming_switch_alone(tmp_path):
     """The shipped state: the producer's real output clears everything but A8."""
