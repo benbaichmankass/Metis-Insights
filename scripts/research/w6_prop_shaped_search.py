@@ -187,6 +187,14 @@ def _grade_job(args):
                  "n_trades": d["inputs"]["n_trades"], "legs": d["inputs"]["legs"]}
 
 
+def _grade_job_light(args):
+    legs, seed, out = args
+    d = run_prop(legs, seed, Path(out), lives=1000, outer=30, lpo=100)
+    p = d["results"]["path"]
+    return out, {"ev_point": p["ev_net_usd_per_life"], "n_trades": d["inputs"]["n_trades"],
+                 **{k: p["evidence_ci"][k] for k in ("ev_net_usd_p5", "ev_net_usd_p50", "ev_net_usd_p95")}}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", default="/tmp/w6r3")
@@ -310,6 +318,34 @@ def main(argv=None) -> int:
             "alone": {str(s): res[str(work / "grade" / f"R2_alone_s{s}.json")] for s in SEEDS},
             "plus_base": {str(s): res[str(work / "grade" / f"R2_plusbase_s{s}.json")] for s in SEEDS},
         }
+
+    # DESCRIPTIVE ONLY, added AFTER the registered grade ran (never enters the verdict):
+    # per-fold alone grades (light MC, one seed) and the POST-HOC replacement arm.
+    if "perfold" in phases:
+        jobs = []
+        for key in ("trend_BTCUSDT", "trend_ETHUSDT", "trend_SOLUSDT",
+                    "pullback_BTCUSDT", "pullback_ETHUSDT", "pullback_SOLUSDT"):
+            rows = load(work / "grade" / f"cand_{key}.jsonl")
+            for fn, fs, fe in FOLDS:
+                p = work / "grade" / f"fold_{key}_{fn}.jsonl"
+                p.write_text("".join(json.dumps(r) + "\n" for r in oos_rows(rows, fs, fe)))
+                jobs.append(({key: str(p)}, IS_SEED, str(work / "grade" / f"PF_{key}_{fn}.json")))
+        res = dict(pool.map(_grade_job_light, jobs))
+        summary["perfold_alone_descriptive"] = {k.split("/")[-1]: v for k, v in res.items()}
+    if "posthoc" in phases:
+        eth = work / "grade" / "cand_trend_ETHUSDT.jsonl"
+        sol = work / "grade" / "base_trend_donchian_sol_prop.jsonl"
+        jobs = [({"trend_ETHUSDT": str(eth), "trend_donchian_sol_prop": str(sol)}, s,
+                 str(work / "grade" / f"POSTHOC_replace_s{s}.json")) for s in SEEDS]
+        res = dict(pool.map(_grade_job, jobs))
+        summary["posthoc_replacement_descriptive"] = {str(s): res[str(work / "grade" / f"POSTHOC_replace_s{s}.json")]
+                                                      for s in SEEDS}
+    if a.out and phases & {"perfold", "posthoc"} and not phases & {"grade", "r2"}:
+        prev = json.loads(Path(a.out).read_text())
+        for k in ("perfold_alone_descriptive", "posthoc_replacement_descriptive"):
+            if k in summary:
+                prev[k] = summary[k]
+        Path(a.out).write_text(json.dumps(prev, indent=1, default=str) + "\n")
 
     if a.out and "grade" in phases:
         prev = json.loads(Path(a.out).read_text()) if Path(a.out).exists() else {}

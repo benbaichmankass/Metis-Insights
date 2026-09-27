@@ -3,7 +3,7 @@ title: >-
   W6-PROP-R3 — can trend_donchian / htf_pullback parameters be tuned FOR the
   Breakout prop objective (E[net-$ per account life]) so a BTC/ETH/SOL leg
   clears RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 robustly out of sample?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -166,4 +166,18 @@ related:
   - 'config/prop_rulesets/breakout.yaml (limits, sizing #13154)'
   - 'checklist row W6-PROP-R3'
 
-last_dispatched_at: null
+result_2026_09_27: >-
+  LANDED (session-local run, producer committed at b382cc5 before any output).
+  Verdict under RULE-RQ0927-005-PROP-SHAPED-WF: NULL -- zero PASS. 1
+  STANDALONE_ONLY: trend ETHUSDT (fold picks cells 31,29,29,29 = donchian 40 /
+  atr_stop 2.5 / trail 3.5 / tp_r 6->3 / stale_exit 12), OOS n=357, alone p5
+  +96.57/+65.22/+83.33/+145.70/+41.37 on 5/5 seeds, p_ev_positive >= 0.99 each
+  (multiplicity_robust alone) -- but baseline+candidate point EV fell on 5/5
+  seeds (~$48 vs ~$134). 5 NULL_INDETERMINATE (trend BTC/SOL, pullback
+  BTC/ETH/SOL: alone p5 < 0 on every seed). All 6 additions lowered baseline
+  point EV on 30/30 seed-cells. Round-2 item: trend_donchian_eth at full default
+  MC clears alone 0/5 (was 2/5 at 1000/30/100), +baseline 0/5 (unchanged) --
+  read weakens. No proposal. Follow-up PI-20260927-2SKAFUF5-0001 (replacement /
+  leg-count question on the canonical feed). Report:
+  docs/research/b6-prop-ev/w6-prop-shaped-search-2026-09-27.md.
+last_dispatched_at: '2026-09-27T15:10:00+00:00'

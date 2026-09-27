@@ -1,0 +1,3112 @@
+{
+ "unit": "RQ-20260927-005",
+ "rule": "RULE-RQ0927-005-PROP-SHAPED-WF",
+ "folds": [
+  [
+   "F1",
+   "2023-10-01",
+   "2024-07-01"
+  ],
+  [
+   "F2",
+   "2024-07-01",
+   "2025-04-01"
+  ],
+  [
+   "F3",
+   "2025-04-01",
+   "2026-01-01"
+  ],
+  [
+   "F4",
+   "2026-01-01",
+   "2026-09-25"
+  ]
+ ],
+ "seeds": [
+  20260927,
+  1,
+  2,
+  3,
+  4
+ ],
+ "candidates": {
+  "trend_BTCUSDT": {
+   "per_fold": [
+    {
+     "fold": "F1",
+     "oos": [
+      "2023-10-01",
+      "2024-07-01"
+     ],
+     "cell": 30,
+     "params": {
+      "symbols": [
+       "BTCUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.6
+     },
+     "is_n": 185,
+     "is_ev_point": 471.22,
+     "is_ev_se": 21.85,
+     "is_rank2_ev": 347.55,
+     "oos_n": 92,
+     "oos_net_r_breakout": -1.618
+    },
+    {
+     "fold": "F2",
+     "oos": [
+      "2024-07-01",
+      "2025-04-01"
+     ],
+     "cell": 30,
+     "params": {
+      "symbols": [
+       "BTCUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.6
+     },
+     "is_n": 276,
+     "is_ev_point": 166.67,
+     "is_ev_se": 12.0,
+     "is_rank2_ev": 151.27,
+     "oos_n": 94,
+     "oos_net_r_breakout": -2.799
+    },
+    {
+     "fold": "F3",
+     "oos": [
+      "2025-04-01",
+      "2026-01-01"
+     ],
+     "cell": 30,
+     "params": {
+      "symbols": [
+       "BTCUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.6
+     },
+     "is_n": 371,
+     "is_ev_point": 131.62,
+     "is_ev_se": 11.33,
+     "is_rank2_ev": 103.37,
+     "oos_n": 89,
+     "oos_net_r_breakout": -10.753
+    },
+    {
+     "fold": "F4",
+     "oos": [
+      "2026-01-01",
+      "2026-09-25"
+     ],
+     "cell": 30,
+     "params": {
+      "symbols": [
+       "BTCUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.6
+     },
+     "is_n": 460,
+     "is_ev_point": 61.58,
+     "is_ev_se": 8.33,
+     "is_rank2_ev": 60.92,
+     "oos_n": 81,
+     "oos_net_r_breakout": 0.872
+    }
+   ],
+   "oos_n": 356,
+   "oos_net_r_breakout": -14.298,
+   "alone": {
+    "20260927": {
+     "ev_point": -19.01,
+     "ev_se": 1.58,
+     "ev_net_usd_p5": -40.32,
+     "ev_net_usd_p50": -7.85,
+     "ev_net_usd_p95": 98.0,
+     "p_ev_positive": 0.38,
+     "p_pass_eval": 0.224,
+     "v2": "indeterminate",
+     "n_trades": 356,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      }
+     }
+    },
+    "1": {
+     "ev_point": -21.7,
+     "ev_se": 1.4,
+     "ev_net_usd_p5": -42.46,
+     "ev_net_usd_p50": -20.06,
+     "ev_net_usd_p95": 68.99,
+     "p_ev_positive": 0.25,
+     "p_pass_eval": 0.2127,
+     "v2": "indeterminate",
+     "n_trades": 356,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      }
+     }
+    },
+    "2": {
+     "ev_point": -21.61,
+     "ev_se": 1.51,
+     "ev_net_usd_p5": -41.89,
+     "ev_net_usd_p50": -17.44,
+     "ev_net_usd_p95": 67.41,
+     "p_ev_positive": 0.27,
+     "p_pass_eval": 0.2095,
+     "v2": "indeterminate",
+     "n_trades": 356,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      }
+     }
+    },
+    "3": {
+     "ev_point": -18.1,
+     "ev_se": 1.58,
+     "ev_net_usd_p5": -41.3,
+     "ev_net_usd_p50": -11.96,
+     "ev_net_usd_p95": 73.3,
+     "p_ev_positive": 0.36,
+     "p_pass_eval": 0.216,
+     "v2": "indeterminate",
+     "n_trades": 356,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      }
+     }
+    },
+    "4": {
+     "ev_point": -20.22,
+     "ev_se": 1.61,
+     "ev_net_usd_p5": -42.67,
+     "ev_net_usd_p50": -14.24,
+     "ev_net_usd_p95": 75.37,
+     "p_ev_positive": 0.36,
+     "p_pass_eval": 0.208,
+     "v2": "indeterminate",
+     "n_trades": 356,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      }
+     }
+    }
+   },
+   "plus_base": {
+    "20260927": {
+     "ev_point": 26.23,
+     "ev_se": 3.47,
+     "ev_net_usd_p5": -17.62,
+     "ev_net_usd_p50": 27.32,
+     "ev_net_usd_p95": 102.34,
+     "p_ev_positive": 0.82,
+     "p_pass_eval": 0.3578,
+     "v2": "indeterminate",
+     "n_trades": 1085,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "1": {
+     "ev_point": 29.58,
+     "ev_se": 3.54,
+     "ev_net_usd_p5": -26.41,
+     "ev_net_usd_p50": 34.92,
+     "ev_net_usd_p95": 119.23,
+     "p_ev_positive": 0.73,
+     "p_pass_eval": 0.374,
+     "v2": "indeterminate",
+     "n_trades": 1085,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "2": {
+     "ev_point": 30.6,
+     "ev_se": 3.44,
+     "ev_net_usd_p5": -8.48,
+     "ev_net_usd_p50": 30.73,
+     "ev_net_usd_p95": 113.43,
+     "p_ev_positive": 0.82,
+     "p_pass_eval": 0.3723,
+     "v2": "indeterminate",
+     "n_trades": 1085,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "3": {
+     "ev_point": 28.63,
+     "ev_se": 3.38,
+     "ev_net_usd_p5": -26.34,
+     "ev_net_usd_p50": 25.64,
+     "ev_net_usd_p95": 178.75,
+     "p_ev_positive": 0.71,
+     "p_pass_eval": 0.3668,
+     "v2": "indeterminate",
+     "n_trades": 1085,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "4": {
+     "ev_point": 34.82,
+     "ev_se": 3.76,
+     "ev_net_usd_p5": -22.8,
+     "ev_net_usd_p50": 29.24,
+     "ev_net_usd_p95": 120.91,
+     "p_ev_positive": 0.78,
+     "p_pass_eval": 0.366,
+     "v2": "indeterminate",
+     "n_trades": 1085,
+     "legs": {
+      "trend_BTCUSDT": {
+       "n": 356,
+       "net_r_total_after_cost_model": -14.2979,
+       "expectancy_r": -0.0402,
+       "mean_cost_r": 0.0935,
+       "rows_with_mfe": 356
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    }
+   },
+   "alone_seeds_p5_pos": 0,
+   "portfolio_seeds_improved": 0,
+   "verdict": "NULL_INDETERMINATE"
+  },
+  "trend_ETHUSDT": {
+   "per_fold": [
+    {
+     "fold": "F1",
+     "oos": [
+      "2023-10-01",
+      "2024-07-01"
+     ],
+     "cell": 31,
+     "params": {
+      "symbols": [
+       "ETHUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.6,
+      "stale_exit_bars": 12,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 228,
+     "is_ev_point": 258.64,
+     "is_ev_se": 13.47,
+     "is_rank2_ev": 249.72,
+     "oos_n": 88,
+     "oos_net_r_breakout": 9.201
+    },
+    {
+     "fold": "F2",
+     "oos": [
+      "2024-07-01",
+      "2025-04-01"
+     ],
+     "cell": 29,
+     "params": {
+      "symbols": [
+       "ETHUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.6,
+      "stale_exit_bars": 12,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 319,
+     "is_ev_point": 265.92,
+     "is_ev_se": 14.04,
+     "is_rank2_ev": 236.96,
+     "oos_n": 99,
+     "oos_net_r_breakout": 11.526
+    },
+    {
+     "fold": "F3",
+     "oos": [
+      "2025-04-01",
+      "2026-01-01"
+     ],
+     "cell": 29,
+     "params": {
+      "symbols": [
+       "ETHUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.6,
+      "stale_exit_bars": 12,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 419,
+     "is_ev_point": 291.16,
+     "is_ev_se": 14.29,
+     "is_rank2_ev": 287.86,
+     "oos_n": 83,
+     "oos_net_r_breakout": 20.368
+    },
+    {
+     "fold": "F4",
+     "oos": [
+      "2026-01-01",
+      "2026-09-25"
+     ],
+     "cell": 29,
+     "params": {
+      "symbols": [
+       "ETHUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.6,
+      "stale_exit_bars": 12,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 502,
+     "is_ev_point": 374.05,
+     "is_ev_se": 17.01,
+     "is_rank2_ev": 370.93,
+     "oos_n": 87,
+     "oos_net_r_breakout": 4.772
+    }
+   ],
+   "oos_n": 357,
+   "oos_net_r_breakout": 45.867,
+   "alone": {
+    "20260927": {
+     "ev_point": 396.49,
+     "ev_se": 8.66,
+     "ev_net_usd_p5": 96.57,
+     "ev_net_usd_p50": 390.11,
+     "ev_net_usd_p95": 742.56,
+     "p_ev_positive": 1.0,
+     "p_pass_eval": 0.762,
+     "v2": "pass",
+     "n_trades": 357,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      }
+     }
+    },
+    "1": {
+     "ev_point": 380.09,
+     "ev_se": 8.34,
+     "ev_net_usd_p5": 65.22,
+     "ev_net_usd_p50": 349.31,
+     "ev_net_usd_p95": 1018.23,
+     "p_ev_positive": 1.0,
+     "p_pass_eval": 0.7602,
+     "v2": "pass",
+     "n_trades": 357,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      }
+     }
+    },
+    "2": {
+     "ev_point": 374.93,
+     "ev_se": 8.57,
+     "ev_net_usd_p5": 83.33,
+     "ev_net_usd_p50": 299.77,
+     "ev_net_usd_p95": 839.28,
+     "p_ev_positive": 0.99,
+     "p_pass_eval": 0.7502,
+     "v2": "pass",
+     "n_trades": 357,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      }
+     }
+    },
+    "3": {
+     "ev_point": 383.39,
+     "ev_se": 8.59,
+     "ev_net_usd_p5": 145.7,
+     "ev_net_usd_p50": 380.23,
+     "ev_net_usd_p95": 893.77,
+     "p_ev_positive": 1.0,
+     "p_pass_eval": 0.7495,
+     "v2": "pass",
+     "n_trades": 357,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      }
+     }
+    },
+    "4": {
+     "ev_point": 396.0,
+     "ev_se": 8.74,
+     "ev_net_usd_p5": 41.37,
+     "ev_net_usd_p50": 382.12,
+     "ev_net_usd_p95": 951.85,
+     "p_ev_positive": 0.99,
+     "p_pass_eval": 0.7558,
+     "v2": "pass",
+     "n_trades": 357,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      }
+     }
+    }
+   },
+   "plus_base": {
+    "20260927": {
+     "ev_point": 44.13,
+     "ev_se": 3.81,
+     "ev_net_usd_p5": -0.27,
+     "ev_net_usd_p50": 52.95,
+     "ev_net_usd_p95": 186.86,
+     "p_ev_positive": 0.94,
+     "p_pass_eval": 0.459,
+     "v2": "indeterminate",
+     "n_trades": 1086,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "1": {
+     "ev_point": 50.37,
+     "ev_se": 4.18,
+     "ev_net_usd_p5": -3.98,
+     "ev_net_usd_p50": 51.04,
+     "ev_net_usd_p95": 134.62,
+     "p_ev_positive": 0.93,
+     "p_pass_eval": 0.468,
+     "v2": "indeterminate",
+     "n_trades": 1086,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "2": {
+     "ev_point": 48.09,
+     "ev_se": 3.89,
+     "ev_net_usd_p5": -3.16,
+     "ev_net_usd_p50": 56.88,
+     "ev_net_usd_p95": 166.61,
+     "p_ev_positive": 0.92,
+     "p_pass_eval": 0.452,
+     "v2": "indeterminate",
+     "n_trades": 1086,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "3": {
+     "ev_point": 52.9,
+     "ev_se": 4.1,
+     "ev_net_usd_p5": -1.92,
+     "ev_net_usd_p50": 56.71,
+     "ev_net_usd_p95": 161.87,
+     "p_ev_positive": 0.94,
+     "p_pass_eval": 0.4788,
+     "v2": "indeterminate",
+     "n_trades": 1086,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "4": {
+     "ev_point": 45.71,
+     "ev_se": 3.9,
+     "ev_net_usd_p5": 6.34,
+     "ev_net_usd_p50": 55.67,
+     "ev_net_usd_p95": 147.99,
+     "p_ev_positive": 0.98,
+     "p_pass_eval": 0.4605,
+     "v2": "pass",
+     "n_trades": 1086,
+     "legs": {
+      "trend_ETHUSDT": {
+       "n": 357,
+       "net_r_total_after_cost_model": 45.8666,
+       "expectancy_r": 0.1285,
+       "mean_cost_r": 0.0626,
+       "rows_with_mfe": 357
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    }
+   },
+   "alone_seeds_p5_pos": 5,
+   "portfolio_seeds_improved": 0,
+   "verdict": "STANDALONE_ONLY"
+  },
+  "trend_SOLUSDT": {
+   "per_fold": [
+    {
+     "fold": "F1",
+     "oos": [
+      "2023-10-01",
+      "2024-07-01"
+     ],
+     "cell": 4,
+     "params": {
+      "symbols": [
+       "SOLUSDT"
+      ],
+      "donchian": 20,
+      "atr_period": 14,
+      "atr_stop_mult": 1.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.6
+     },
+     "is_n": 331,
+     "is_ev_point": 39.51,
+     "is_ev_se": 6.83,
+     "is_rank2_ev": 38.72,
+     "oos_n": 125,
+     "oos_net_r_breakout": 12.783
+    },
+    {
+     "fold": "F2",
+     "oos": [
+      "2024-07-01",
+      "2025-04-01"
+     ],
+     "cell": 14,
+     "params": {
+      "symbols": [
+       "SOLUSDT"
+      ],
+      "donchian": 20,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.6
+     },
+     "is_n": 399,
+     "is_ev_point": 92.95,
+     "is_ev_se": 8.93,
+     "is_rank2_ev": 64.62,
+     "oos_n": 108,
+     "oos_net_r_breakout": 10.964
+    },
+    {
+     "fold": "F3",
+     "oos": [
+      "2025-04-01",
+      "2026-01-01"
+     ],
+     "cell": 30,
+     "params": {
+      "symbols": [
+       "SOLUSDT"
+      ],
+      "donchian": 40,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.6
+     },
+     "is_n": 379,
+     "is_ev_point": 118.34,
+     "is_ev_se": 9.91,
+     "is_rank2_ev": 107.12,
+     "oos_n": 81,
+     "oos_net_r_breakout": -10.125
+    },
+    {
+     "fold": "F4",
+     "oos": [
+      "2026-01-01",
+      "2026-09-25"
+     ],
+     "cell": 14,
+     "params": {
+      "symbols": [
+       "SOLUSDT"
+      ],
+      "donchian": 20,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.6
+     },
+     "is_n": 618,
+     "is_ev_point": 68.0,
+     "is_ev_se": 7.73,
+     "is_rank2_ev": 63.43,
+     "oos_n": 97,
+     "oos_net_r_breakout": 14.481
+    }
+   ],
+   "oos_n": 411,
+   "oos_net_r_breakout": 28.103,
+   "alone": {
+    "20260927": {
+     "ev_point": 77.69,
+     "ev_se": 4.22,
+     "ev_net_usd_p5": -9.79,
+     "ev_net_usd_p50": 67.27,
+     "ev_net_usd_p95": 305.12,
+     "p_ev_positive": 0.9,
+     "p_pass_eval": 0.4665,
+     "v2": "indeterminate",
+     "n_trades": 411,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      }
+     }
+    },
+    "1": {
+     "ev_point": 80.24,
+     "ev_se": 4.24,
+     "ev_net_usd_p5": -20.33,
+     "ev_net_usd_p50": 76.62,
+     "ev_net_usd_p95": 237.0,
+     "p_ev_positive": 0.89,
+     "p_pass_eval": 0.4682,
+     "v2": "indeterminate",
+     "n_trades": 411,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      }
+     }
+    },
+    "2": {
+     "ev_point": 77.13,
+     "ev_se": 4.07,
+     "ev_net_usd_p5": -6.33,
+     "ev_net_usd_p50": 82.08,
+     "ev_net_usd_p95": 234.33,
+     "p_ev_positive": 0.92,
+     "p_pass_eval": 0.48,
+     "v2": "indeterminate",
+     "n_trades": 411,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      }
+     }
+    },
+    "3": {
+     "ev_point": 75.71,
+     "ev_se": 4.19,
+     "ev_net_usd_p5": -20.51,
+     "ev_net_usd_p50": 52.06,
+     "ev_net_usd_p95": 312.64,
+     "p_ev_positive": 0.82,
+     "p_pass_eval": 0.468,
+     "v2": "indeterminate",
+     "n_trades": 411,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      }
+     }
+    },
+    "4": {
+     "ev_point": 71.08,
+     "ev_se": 4.03,
+     "ev_net_usd_p5": -10.33,
+     "ev_net_usd_p50": 74.19,
+     "ev_net_usd_p95": 302.91,
+     "p_ev_positive": 0.89,
+     "p_pass_eval": 0.4562,
+     "v2": "indeterminate",
+     "n_trades": 411,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      }
+     }
+    }
+   },
+   "plus_base": {
+    "20260927": {
+     "ev_point": 8.05,
+     "ev_se": 2.97,
+     "ev_net_usd_p5": -27.49,
+     "ev_net_usd_p50": 13.0,
+     "ev_net_usd_p95": 79.12,
+     "p_ev_positive": 0.69,
+     "p_pass_eval": 0.3872,
+     "v2": "indeterminate",
+     "n_trades": 1140,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "1": {
+     "ev_point": 11.62,
+     "ev_se": 3.18,
+     "ev_net_usd_p5": -25.93,
+     "ev_net_usd_p50": 18.95,
+     "ev_net_usd_p95": 106.13,
+     "p_ev_positive": 0.71,
+     "p_pass_eval": 0.4027,
+     "v2": "indeterminate",
+     "n_trades": 1140,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "2": {
+     "ev_point": 7.73,
+     "ev_se": 3.04,
+     "ev_net_usd_p5": -28.03,
+     "ev_net_usd_p50": 17.81,
+     "ev_net_usd_p95": 103.44,
+     "p_ev_positive": 0.68,
+     "p_pass_eval": 0.4015,
+     "v2": "indeterminate",
+     "n_trades": 1140,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "3": {
+     "ev_point": 5.97,
+     "ev_se": 3.06,
+     "ev_net_usd_p5": -27.25,
+     "ev_net_usd_p50": 10.67,
+     "ev_net_usd_p95": 105.46,
+     "p_ev_positive": 0.6,
+     "p_pass_eval": 0.3937,
+     "v2": "indeterminate",
+     "n_trades": 1140,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "4": {
+     "ev_point": 7.58,
+     "ev_se": 3.13,
+     "ev_net_usd_p5": -21.8,
+     "ev_net_usd_p50": 16.48,
+     "ev_net_usd_p95": 95.06,
+     "p_ev_positive": 0.68,
+     "p_pass_eval": 0.3885,
+     "v2": "indeterminate",
+     "n_trades": 1140,
+     "legs": {
+      "trend_SOLUSDT": {
+       "n": 411,
+       "net_r_total_after_cost_model": 28.1026,
+       "expectancy_r": 0.0684,
+       "mean_cost_r": 0.0569,
+       "rows_with_mfe": 411
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    }
+   },
+   "alone_seeds_p5_pos": 0,
+   "portfolio_seeds_improved": 0,
+   "verdict": "NULL_INDETERMINATE"
+  },
+  "pullback_BTCUSDT": {
+   "per_fold": [
+    {
+     "fold": "F1",
+     "oos": [
+      "2023-10-01",
+      "2024-07-01"
+     ],
+     "cell": 7,
+     "params": {
+      "symbols": [
+       "BTCUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 1.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.0,
+      "stale_exit_bars": 6,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 344,
+     "is_ev_point": -37.45,
+     "is_ev_se": 1.71,
+     "is_rank2_ev": -40.29,
+     "oos_n": 120,
+     "oos_net_r_breakout": 20.054
+    },
+    {
+     "fold": "F2",
+     "oos": [
+      "2024-07-01",
+      "2025-04-01"
+     ],
+     "cell": 7,
+     "params": {
+      "symbols": [
+       "BTCUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 1.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.0,
+      "stale_exit_bars": 6,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 465,
+     "is_ev_point": -19.16,
+     "is_ev_se": 3.18,
+     "is_rank2_ev": -22.28,
+     "oos_n": 110,
+     "oos_net_r_breakout": 1.698
+    },
+    {
+     "fold": "F3",
+     "oos": [
+      "2025-04-01",
+      "2026-01-01"
+     ],
+     "cell": 14,
+     "params": {
+      "symbols": [
+       "BTCUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.0
+     },
+     "is_n": 318,
+     "is_ev_point": -15.8,
+     "is_ev_se": 3.26,
+     "is_rank2_ev": -16.77,
+     "oos_n": 67,
+     "oos_net_r_breakout": 7.827
+    },
+    {
+     "fold": "F4",
+     "oos": [
+      "2026-01-01",
+      "2026-09-25"
+     ],
+     "cell": 15,
+     "params": {
+      "symbols": [
+       "BTCUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.0,
+      "stale_exit_bars": 6,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 668,
+     "is_ev_point": 5.92,
+     "is_ev_se": 5.26,
+     "is_rank2_ev": 5.13,
+     "oos_n": 129,
+     "oos_net_r_breakout": -5.956
+    }
+   ],
+   "oos_n": 426,
+   "oos_net_r_breakout": 23.623,
+   "alone": {
+    "20260927": {
+     "ev_point": 63.89,
+     "ev_se": 3.76,
+     "ev_net_usd_p5": -2.91,
+     "ev_net_usd_p50": 81.19,
+     "ev_net_usd_p95": 289.58,
+     "p_ev_positive": 0.93,
+     "p_pass_eval": 0.437,
+     "v2": "indeterminate",
+     "n_trades": 426,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      }
+     }
+    },
+    "1": {
+     "ev_point": 64.93,
+     "ev_se": 3.99,
+     "ev_net_usd_p5": -10.37,
+     "ev_net_usd_p50": 76.74,
+     "ev_net_usd_p95": 277.75,
+     "p_ev_positive": 0.91,
+     "p_pass_eval": 0.4397,
+     "v2": "indeterminate",
+     "n_trades": 426,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      }
+     }
+    },
+    "2": {
+     "ev_point": 65.71,
+     "ev_se": 3.92,
+     "ev_net_usd_p5": -8.61,
+     "ev_net_usd_p50": 93.94,
+     "ev_net_usd_p95": 319.76,
+     "p_ev_positive": 0.91,
+     "p_pass_eval": 0.4472,
+     "v2": "indeterminate",
+     "n_trades": 426,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      }
+     }
+    },
+    "3": {
+     "ev_point": 67.59,
+     "ev_se": 3.95,
+     "ev_net_usd_p5": -7.04,
+     "ev_net_usd_p50": 72.01,
+     "ev_net_usd_p95": 305.29,
+     "p_ev_positive": 0.89,
+     "p_pass_eval": 0.4497,
+     "v2": "indeterminate",
+     "n_trades": 426,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      }
+     }
+    },
+    "4": {
+     "ev_point": 60.23,
+     "ev_se": 3.86,
+     "ev_net_usd_p5": -14.68,
+     "ev_net_usd_p50": 64.28,
+     "ev_net_usd_p95": 192.81,
+     "p_ev_positive": 0.86,
+     "p_pass_eval": 0.4437,
+     "v2": "indeterminate",
+     "n_trades": 426,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      }
+     }
+    }
+   },
+   "plus_base": {
+    "20260927": {
+     "ev_point": 96.71,
+     "ev_se": 5.48,
+     "ev_net_usd_p5": 4.6,
+     "ev_net_usd_p50": 99.61,
+     "ev_net_usd_p95": 245.61,
+     "p_ev_positive": 0.97,
+     "p_pass_eval": 0.492,
+     "v2": "pass",
+     "n_trades": 1155,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "1": {
+     "ev_point": 94.02,
+     "ev_se": 5.43,
+     "ev_net_usd_p5": 15.37,
+     "ev_net_usd_p50": 98.57,
+     "ev_net_usd_p95": 297.42,
+     "p_ev_positive": 0.99,
+     "p_pass_eval": 0.4813,
+     "v2": "pass",
+     "n_trades": 1155,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "2": {
+     "ev_point": 90.11,
+     "ev_se": 5.24,
+     "ev_net_usd_p5": 8.17,
+     "ev_net_usd_p50": 95.2,
+     "ev_net_usd_p95": 259.59,
+     "p_ev_positive": 0.95,
+     "p_pass_eval": 0.4798,
+     "v2": "pass",
+     "n_trades": 1155,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "3": {
+     "ev_point": 90.01,
+     "ev_se": 5.44,
+     "ev_net_usd_p5": 10.4,
+     "ev_net_usd_p50": 103.28,
+     "ev_net_usd_p95": 271.67,
+     "p_ev_positive": 0.98,
+     "p_pass_eval": 0.4833,
+     "v2": "pass",
+     "n_trades": 1155,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "4": {
+     "ev_point": 97.97,
+     "ev_se": 5.69,
+     "ev_net_usd_p5": 12.12,
+     "ev_net_usd_p50": 102.92,
+     "ev_net_usd_p95": 309.49,
+     "p_ev_positive": 0.98,
+     "p_pass_eval": 0.4798,
+     "v2": "pass",
+     "n_trades": 1155,
+     "legs": {
+      "pullback_BTCUSDT": {
+       "n": 426,
+       "net_r_total_after_cost_model": 23.6232,
+       "expectancy_r": 0.0555,
+       "mean_cost_r": 0.0937,
+       "rows_with_mfe": 426
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    }
+   },
+   "alone_seeds_p5_pos": 0,
+   "portfolio_seeds_improved": 0,
+   "verdict": "NULL_INDETERMINATE"
+  },
+  "pullback_ETHUSDT": {
+   "per_fold": [
+    {
+     "fold": "F1",
+     "oos": [
+      "2023-10-01",
+      "2024-07-01"
+     ],
+     "cell": 12,
+     "params": {
+      "symbols": [
+       "ETHUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.0
+     },
+     "is_n": 188,
+     "is_ev_point": -32.51,
+     "is_ev_se": 1.92,
+     "is_rank2_ev": -37.86,
+     "oos_n": 71,
+     "oos_net_r_breakout": 5.594
+    },
+    {
+     "fold": "F2",
+     "oos": [
+      "2024-07-01",
+      "2025-04-01"
+     ],
+     "cell": 15,
+     "params": {
+      "symbols": [
+       "ETHUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.0,
+      "stale_exit_bars": 6,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 459,
+     "is_ev_point": 29.26,
+     "is_ev_se": 5.77,
+     "is_rank2_ev": 7.01,
+     "oos_n": 122,
+     "oos_net_r_breakout": -10.035
+    },
+    {
+     "fold": "F3",
+     "oos": [
+      "2025-04-01",
+      "2026-01-01"
+     ],
+     "cell": 6,
+     "params": {
+      "symbols": [
+       "ETHUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 1.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.0
+     },
+     "is_n": 413,
+     "is_ev_point": 18.44,
+     "is_ev_se": 6.03,
+     "is_rank2_ev": 3.92,
+     "oos_n": 96,
+     "oos_net_r_breakout": 25.938
+    },
+    {
+     "fold": "F4",
+     "oos": [
+      "2026-01-01",
+      "2026-09-25"
+     ],
+     "cell": 6,
+     "params": {
+      "symbols": [
+       "ETHUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 1.5,
+      "trail_mult": 3.5,
+      "tp_r": 6.0,
+      "min_confidence": 0.0
+     },
+     "is_n": 510,
+     "is_ev_point": 47.59,
+     "is_ev_se": 7.81,
+     "is_rank2_ev": 29.36,
+     "oos_n": 99,
+     "oos_net_r_breakout": -18.325
+    }
+   ],
+   "oos_n": 388,
+   "oos_net_r_breakout": 3.172,
+   "alone": {
+    "20260927": {
+     "ev_point": 13.49,
+     "ev_se": 2.56,
+     "ev_net_usd_p5": -34.26,
+     "ev_net_usd_p50": 16.45,
+     "ev_net_usd_p95": 144.68,
+     "p_ev_positive": 0.65,
+     "p_pass_eval": 0.33,
+     "v2": "indeterminate",
+     "n_trades": 388,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      }
+     }
+    },
+    "1": {
+     "ev_point": 11.57,
+     "ev_se": 2.5,
+     "ev_net_usd_p5": -30.78,
+     "ev_net_usd_p50": 14.21,
+     "ev_net_usd_p95": 126.9,
+     "p_ev_positive": 0.66,
+     "p_pass_eval": 0.321,
+     "v2": "indeterminate",
+     "n_trades": 388,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      }
+     }
+    },
+    "2": {
+     "ev_point": 14.7,
+     "ev_se": 2.7,
+     "ev_net_usd_p5": -30.16,
+     "ev_net_usd_p50": 19.1,
+     "ev_net_usd_p95": 166.45,
+     "p_ev_positive": 0.68,
+     "p_pass_eval": 0.3245,
+     "v2": "indeterminate",
+     "n_trades": 388,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      }
+     }
+    },
+    "3": {
+     "ev_point": 10.33,
+     "ev_se": 2.51,
+     "ev_net_usd_p5": -31.95,
+     "ev_net_usd_p50": 11.8,
+     "ev_net_usd_p95": 129.13,
+     "p_ev_positive": 0.59,
+     "p_pass_eval": 0.312,
+     "v2": "indeterminate",
+     "n_trades": 388,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      }
+     }
+    },
+    "4": {
+     "ev_point": 11.58,
+     "ev_se": 2.48,
+     "ev_net_usd_p5": -32.8,
+     "ev_net_usd_p50": 14.16,
+     "ev_net_usd_p95": 131.56,
+     "p_ev_positive": 0.63,
+     "p_pass_eval": 0.326,
+     "v2": "indeterminate",
+     "n_trades": 388,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      }
+     }
+    }
+   },
+   "plus_base": {
+    "20260927": {
+     "ev_point": 60.51,
+     "ev_se": 4.45,
+     "ev_net_usd_p5": -4.64,
+     "ev_net_usd_p50": 67.85,
+     "ev_net_usd_p95": 244.82,
+     "p_ev_positive": 0.93,
+     "p_pass_eval": 0.454,
+     "v2": "indeterminate",
+     "n_trades": 1117,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "1": {
+     "ev_point": 72.58,
+     "ev_se": 4.98,
+     "ev_net_usd_p5": -4.14,
+     "ev_net_usd_p50": 74.99,
+     "ev_net_usd_p95": 253.24,
+     "p_ev_positive": 0.93,
+     "p_pass_eval": 0.43,
+     "v2": "indeterminate",
+     "n_trades": 1117,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "2": {
+     "ev_point": 67.1,
+     "ev_se": 4.67,
+     "ev_net_usd_p5": 8.39,
+     "ev_net_usd_p50": 72.01,
+     "ev_net_usd_p95": 211.12,
+     "p_ev_positive": 0.97,
+     "p_pass_eval": 0.4358,
+     "v2": "pass",
+     "n_trades": 1117,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "3": {
+     "ev_point": 67.68,
+     "ev_se": 4.75,
+     "ev_net_usd_p5": -4.56,
+     "ev_net_usd_p50": 54.04,
+     "ev_net_usd_p95": 191.6,
+     "p_ev_positive": 0.91,
+     "p_pass_eval": 0.4373,
+     "v2": "indeterminate",
+     "n_trades": 1117,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "4": {
+     "ev_point": 67.05,
+     "ev_se": 4.66,
+     "ev_net_usd_p5": -4.55,
+     "ev_net_usd_p50": 70.13,
+     "ev_net_usd_p95": 246.25,
+     "p_ev_positive": 0.93,
+     "p_pass_eval": 0.4385,
+     "v2": "indeterminate",
+     "n_trades": 1117,
+     "legs": {
+      "pullback_ETHUSDT": {
+       "n": 388,
+       "net_r_total_after_cost_model": 3.1722,
+       "expectancy_r": 0.0082,
+       "mean_cost_r": 0.0663,
+       "rows_with_mfe": 388
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    }
+   },
+   "alone_seeds_p5_pos": 0,
+   "portfolio_seeds_improved": 0,
+   "verdict": "NULL_INDETERMINATE"
+  },
+  "pullback_SOLUSDT": {
+   "per_fold": [
+    {
+     "fold": "F1",
+     "oos": [
+      "2023-10-01",
+      "2024-07-01"
+     ],
+     "cell": 13,
+     "params": {
+      "symbols": [
+       "SOLUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.0,
+      "stale_exit_bars": 6,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 329,
+     "is_ev_point": 647.95,
+     "is_ev_se": 17.03,
+     "is_rank2_ev": 499.69,
+     "oos_n": 136,
+     "oos_net_r_breakout": 3.359
+    },
+    {
+     "fold": "F2",
+     "oos": [
+      "2024-07-01",
+      "2025-04-01"
+     ],
+     "cell": 12,
+     "params": {
+      "symbols": [
+       "SOLUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.0
+     },
+     "is_n": 286,
+     "is_ev_point": 429.36,
+     "is_ev_se": 17.59,
+     "is_rank2_ev": 417.37,
+     "oos_n": 71,
+     "oos_net_r_breakout": 5.148
+    },
+    {
+     "fold": "F3",
+     "oos": [
+      "2025-04-01",
+      "2026-01-01"
+     ],
+     "cell": 12,
+     "params": {
+      "symbols": [
+       "SOLUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.0
+     },
+     "is_n": 357,
+     "is_ev_point": 359.63,
+     "is_ev_se": 15.97,
+     "is_rank2_ev": 334.05,
+     "oos_n": 87,
+     "oos_net_r_breakout": -0.549
+    },
+    {
+     "fold": "F4",
+     "oos": [
+      "2026-01-01",
+      "2026-09-25"
+     ],
+     "cell": 13,
+     "params": {
+      "symbols": [
+       "SOLUSDT"
+      ],
+      "trend_lookback": 40,
+      "pullback_lookback": 10,
+      "pullback_frac": 0.5,
+      "atr_period": 14,
+      "atr_stop_mult": 2.5,
+      "trail_mult": 3.5,
+      "tp_r": 3.0,
+      "min_confidence": 0.0,
+      "stale_exit_bars": 6,
+      "stale_exit_below_r": 0.0
+     },
+     "is_n": 717,
+     "is_ev_point": 327.0,
+     "is_ev_se": 13.95,
+     "is_rank2_ev": 295.14,
+     "oos_n": 134,
+     "oos_net_r_breakout": -17.822
+    }
+   ],
+   "oos_n": 428,
+   "oos_net_r_breakout": -9.865,
+   "alone": {
+    "20260927": {
+     "ev_point": -4.23,
+     "ev_se": 1.99,
+     "ev_net_usd_p5": -41.0,
+     "ev_net_usd_p50": -13.31,
+     "ev_net_usd_p95": 96.29,
+     "p_ev_positive": 0.33,
+     "p_pass_eval": 0.2517,
+     "v2": "indeterminate",
+     "n_trades": 428,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      }
+     }
+    },
+    "1": {
+     "ev_point": -1.16,
+     "ev_se": 2.09,
+     "ev_net_usd_p5": -40.88,
+     "ev_net_usd_p50": -15.08,
+     "ev_net_usd_p95": 141.39,
+     "p_ev_positive": 0.44,
+     "p_pass_eval": 0.2502,
+     "v2": "indeterminate",
+     "n_trades": 428,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      }
+     }
+    },
+    "2": {
+     "ev_point": -4.93,
+     "ev_se": 2.07,
+     "ev_net_usd_p5": -40.59,
+     "ev_net_usd_p50": -7.07,
+     "ev_net_usd_p95": 165.42,
+     "p_ev_positive": 0.46,
+     "p_pass_eval": 0.2465,
+     "v2": "indeterminate",
+     "n_trades": 428,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      }
+     }
+    },
+    "3": {
+     "ev_point": -7.09,
+     "ev_se": 1.87,
+     "ev_net_usd_p5": -43.78,
+     "ev_net_usd_p50": -10.84,
+     "ev_net_usd_p95": 144.95,
+     "p_ev_positive": 0.42,
+     "p_pass_eval": 0.2457,
+     "v2": "indeterminate",
+     "n_trades": 428,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      }
+     }
+    },
+    "4": {
+     "ev_point": -7.65,
+     "ev_se": 1.91,
+     "ev_net_usd_p5": -40.89,
+     "ev_net_usd_p50": -3.15,
+     "ev_net_usd_p95": 165.38,
+     "p_ev_positive": 0.46,
+     "p_pass_eval": 0.2345,
+     "v2": "indeterminate",
+     "n_trades": 428,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      }
+     }
+    }
+   },
+   "plus_base": {
+    "20260927": {
+     "ev_point": 82.87,
+     "ev_se": 4.81,
+     "ev_net_usd_p5": 7.4,
+     "ev_net_usd_p50": 83.62,
+     "ev_net_usd_p95": 217.69,
+     "p_ev_positive": 0.96,
+     "p_pass_eval": 0.426,
+     "v2": "pass",
+     "n_trades": 1157,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "1": {
+     "ev_point": 90.4,
+     "ev_se": 4.96,
+     "ev_net_usd_p5": 5.76,
+     "ev_net_usd_p50": 78.28,
+     "ev_net_usd_p95": 233.41,
+     "p_ev_positive": 0.95,
+     "p_pass_eval": 0.4535,
+     "v2": "pass",
+     "n_trades": 1157,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "2": {
+     "ev_point": 83.01,
+     "ev_se": 4.79,
+     "ev_net_usd_p5": 3.18,
+     "ev_net_usd_p50": 106.23,
+     "ev_net_usd_p95": 247.94,
+     "p_ev_positive": 0.95,
+     "p_pass_eval": 0.4522,
+     "v2": "pass",
+     "n_trades": 1157,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "3": {
+     "ev_point": 90.76,
+     "ev_se": 4.94,
+     "ev_net_usd_p5": 7.28,
+     "ev_net_usd_p50": 77.78,
+     "ev_net_usd_p95": 220.78,
+     "p_ev_positive": 0.96,
+     "p_pass_eval": 0.4535,
+     "v2": "pass",
+     "n_trades": 1157,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    },
+    "4": {
+     "ev_point": 83.07,
+     "ev_se": 4.79,
+     "ev_net_usd_p5": 12.18,
+     "ev_net_usd_p50": 91.23,
+     "ev_net_usd_p95": 303.13,
+     "p_ev_positive": 0.97,
+     "p_pass_eval": 0.4412,
+     "v2": "pass",
+     "n_trades": 1157,
+     "legs": {
+      "pullback_SOLUSDT": {
+       "n": 428,
+       "net_r_total_after_cost_model": -9.8646,
+       "expectancy_r": -0.023,
+       "mean_cost_r": 0.0374,
+       "rows_with_mfe": 428
+      },
+      "trend_donchian_eth_prop": {
+       "n": 529,
+       "net_r_total_after_cost_model": 38.4504,
+       "expectancy_r": 0.0727,
+       "mean_cost_r": 0.0632,
+       "rows_with_mfe": 529
+      },
+      "trend_donchian_sol_prop": {
+       "n": 200,
+       "net_r_total_after_cost_model": 21.9513,
+       "expectancy_r": 0.1098,
+       "mean_cost_r": 0.0529,
+       "rows_with_mfe": 200
+      }
+     }
+    }
+   },
+   "alone_seeds_p5_pos": 0,
+   "portfolio_seeds_improved": 0,
+   "verdict": "NULL_INDETERMINATE"
+  }
+ },
+ "baseline": {
+  "trend_donchian_eth_prop": {
+   "oos_n": 529,
+   "oos_net_r_breakout": 38.45
+  },
+  "trend_donchian_sol_prop": {
+   "oos_n": 200,
+   "oos_net_r_breakout": 21.951
+  }
+ },
+ "baseline_grades": {
+  "20260927": {
+   "ev_point": 145.18,
+   "ev_se": 5.71,
+   "ev_net_usd_p5": 10.15,
+   "ev_net_usd_p50": 125.12,
+   "ev_net_usd_p95": 347.5,
+   "p_ev_positive": 0.97,
+   "p_pass_eval": 0.5577,
+   "v2": "pass",
+   "n_trades": 729,
+   "legs": {
+    "trend_donchian_eth_prop": {
+     "n": 529,
+     "net_r_total_after_cost_model": 38.4504,
+     "expectancy_r": 0.0727,
+     "mean_cost_r": 0.0632,
+     "rows_with_mfe": 529
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  },
+  "1": {
+   "ev_point": 131.06,
+   "ev_se": 5.42,
+   "ev_net_usd_p5": 10.65,
+   "ev_net_usd_p50": 121.04,
+   "ev_net_usd_p95": 324.98,
+   "p_ev_positive": 0.99,
+   "p_pass_eval": 0.549,
+   "v2": "pass",
+   "n_trades": 729,
+   "legs": {
+    "trend_donchian_eth_prop": {
+     "n": 529,
+     "net_r_total_after_cost_model": 38.4504,
+     "expectancy_r": 0.0727,
+     "mean_cost_r": 0.0632,
+     "rows_with_mfe": 529
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  },
+  "2": {
+   "ev_point": 132.45,
+   "ev_se": 5.54,
+   "ev_net_usd_p5": 13.59,
+   "ev_net_usd_p50": 130.39,
+   "ev_net_usd_p95": 466.58,
+   "p_ev_positive": 0.98,
+   "p_pass_eval": 0.5393,
+   "v2": "pass",
+   "n_trades": 729,
+   "legs": {
+    "trend_donchian_eth_prop": {
+     "n": 529,
+     "net_r_total_after_cost_model": 38.4504,
+     "expectancy_r": 0.0727,
+     "mean_cost_r": 0.0632,
+     "rows_with_mfe": 529
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  },
+  "3": {
+   "ev_point": 135.22,
+   "ev_se": 5.66,
+   "ev_net_usd_p5": 10.27,
+   "ev_net_usd_p50": 115.66,
+   "ev_net_usd_p95": 361.42,
+   "p_ev_positive": 0.97,
+   "p_pass_eval": 0.5427,
+   "v2": "pass",
+   "n_trades": 729,
+   "legs": {
+    "trend_donchian_eth_prop": {
+     "n": 529,
+     "net_r_total_after_cost_model": 38.4504,
+     "expectancy_r": 0.0727,
+     "mean_cost_r": 0.0632,
+     "rows_with_mfe": 529
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  },
+  "4": {
+   "ev_point": 127.84,
+   "ev_se": 5.46,
+   "ev_net_usd_p5": -6.83,
+   "ev_net_usd_p50": 118.47,
+   "ev_net_usd_p95": 345.8,
+   "p_ev_positive": 0.92,
+   "p_pass_eval": 0.5377,
+   "v2": "indeterminate",
+   "n_trades": 729,
+   "legs": {
+    "trend_donchian_eth_prop": {
+     "n": 529,
+     "net_r_total_after_cost_model": 38.4504,
+     "expectancy_r": 0.0727,
+     "mean_cost_r": 0.0632,
+     "rows_with_mfe": 529
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  }
+ },
+ "round2_trend_donchian_eth_full_mc": {
+  "inputs": {
+   "trend_donchian_eth": "/home/user/Metis-Insights/comms/strategy_evidence/runs/2026-09-25/trend_donchian_eth__trades.jsonl",
+   "trend_donchian_eth_prop": "/home/user/Metis-Insights/comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
+   "trend_donchian_sol_prop": "/home/user/Metis-Insights/comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl"
+  },
+  "alone": {
+   "20260927": {
+    "ev_point": 139.87,
+    "ev_se": 5.61,
+    "ev_net_usd_p5": -29.56,
+    "ev_net_usd_p50": 181.98,
+    "ev_net_usd_p95": 984.49,
+    "p_ev_positive": 0.88,
+    "p_pass_eval": 0.6068,
+    "v2": "indeterminate",
+    "n_trades": 107,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     }
+    }
+   },
+   "1": {
+    "ev_point": 147.48,
+    "ev_se": 5.67,
+    "ev_net_usd_p5": -29.33,
+    "ev_net_usd_p50": 146.9,
+    "ev_net_usd_p95": 763.67,
+    "p_ev_positive": 0.85,
+    "p_pass_eval": 0.5968,
+    "v2": "indeterminate",
+    "n_trades": 107,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     }
+    }
+   },
+   "2": {
+    "ev_point": 132.08,
+    "ev_se": 5.36,
+    "ev_net_usd_p5": -26.79,
+    "ev_net_usd_p50": 130.3,
+    "ev_net_usd_p95": 699.88,
+    "p_ev_positive": 0.85,
+    "p_pass_eval": 0.6068,
+    "v2": "indeterminate",
+    "n_trades": 107,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     }
+    }
+   },
+   "3": {
+    "ev_point": 134.17,
+    "ev_se": 5.48,
+    "ev_net_usd_p5": -6.08,
+    "ev_net_usd_p50": 125.4,
+    "ev_net_usd_p95": 737.32,
+    "p_ev_positive": 0.92,
+    "p_pass_eval": 0.5978,
+    "v2": "indeterminate",
+    "n_trades": 107,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     }
+    }
+   },
+   "4": {
+    "ev_point": 138.51,
+    "ev_se": 5.56,
+    "ev_net_usd_p5": -12.69,
+    "ev_net_usd_p50": 205.42,
+    "ev_net_usd_p95": 1131.83,
+    "p_ev_positive": 0.9,
+    "p_pass_eval": 0.599,
+    "v2": "indeterminate",
+    "n_trades": 107,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     }
+    }
+   }
+  },
+  "plus_base": {
+   "20260927": {
+    "ev_point": 7.7,
+    "ev_se": 2.84,
+    "ev_net_usd_p5": -36.12,
+    "ev_net_usd_p50": 9.48,
+    "ev_net_usd_p95": 147.4,
+    "p_ev_positive": 0.64,
+    "p_pass_eval": 0.3605,
+    "v2": "indeterminate",
+    "n_trades": 341,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     },
+     "trend_donchian_eth_prop": {
+      "n": 169,
+      "net_r_total_after_cost_model": 12.9574,
+      "expectancy_r": 0.0767,
+      "mean_cost_r": 0.0689,
+      "rows_with_mfe": 169
+     },
+     "trend_donchian_sol_prop": {
+      "n": 65,
+      "net_r_total_after_cost_model": 5.0492,
+      "expectancy_r": 0.0777,
+      "mean_cost_r": 0.0634,
+      "rows_with_mfe": 65
+     }
+    }
+   },
+   "1": {
+    "ev_point": 14.71,
+    "ev_se": 3.03,
+    "ev_net_usd_p5": -37.1,
+    "ev_net_usd_p50": 16.99,
+    "ev_net_usd_p95": 205.6,
+    "p_ev_positive": 0.61,
+    "p_pass_eval": 0.36,
+    "v2": "indeterminate",
+    "n_trades": 341,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     },
+     "trend_donchian_eth_prop": {
+      "n": 169,
+      "net_r_total_after_cost_model": 12.9574,
+      "expectancy_r": 0.0767,
+      "mean_cost_r": 0.0689,
+      "rows_with_mfe": 169
+     },
+     "trend_donchian_sol_prop": {
+      "n": 65,
+      "net_r_total_after_cost_model": 5.0492,
+      "expectancy_r": 0.0777,
+      "mean_cost_r": 0.0634,
+      "rows_with_mfe": 65
+     }
+    }
+   },
+   "2": {
+    "ev_point": 9.88,
+    "ev_se": 2.84,
+    "ev_net_usd_p5": -37.45,
+    "ev_net_usd_p50": 16.85,
+    "ev_net_usd_p95": 230.17,
+    "p_ev_positive": 0.64,
+    "p_pass_eval": 0.3528,
+    "v2": "indeterminate",
+    "n_trades": 341,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     },
+     "trend_donchian_eth_prop": {
+      "n": 169,
+      "net_r_total_after_cost_model": 12.9574,
+      "expectancy_r": 0.0767,
+      "mean_cost_r": 0.0689,
+      "rows_with_mfe": 169
+     },
+     "trend_donchian_sol_prop": {
+      "n": 65,
+      "net_r_total_after_cost_model": 5.0492,
+      "expectancy_r": 0.0777,
+      "mean_cost_r": 0.0634,
+      "rows_with_mfe": 65
+     }
+    }
+   },
+   "3": {
+    "ev_point": 9.15,
+    "ev_se": 2.88,
+    "ev_net_usd_p5": -37.54,
+    "ev_net_usd_p50": 4.47,
+    "ev_net_usd_p95": 140.39,
+    "p_ev_positive": 0.53,
+    "p_pass_eval": 0.3578,
+    "v2": "indeterminate",
+    "n_trades": 341,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     },
+     "trend_donchian_eth_prop": {
+      "n": 169,
+      "net_r_total_after_cost_model": 12.9574,
+      "expectancy_r": 0.0767,
+      "mean_cost_r": 0.0689,
+      "rows_with_mfe": 169
+     },
+     "trend_donchian_sol_prop": {
+      "n": 65,
+      "net_r_total_after_cost_model": 5.0492,
+      "expectancy_r": 0.0777,
+      "mean_cost_r": 0.0634,
+      "rows_with_mfe": 65
+     }
+    }
+   },
+   "4": {
+    "ev_point": 8.22,
+    "ev_se": 2.86,
+    "ev_net_usd_p5": -36.63,
+    "ev_net_usd_p50": 12.41,
+    "ev_net_usd_p95": 178.14,
+    "p_ev_positive": 0.61,
+    "p_pass_eval": 0.3478,
+    "v2": "indeterminate",
+    "n_trades": 341,
+    "legs": {
+     "trend_donchian_eth": {
+      "n": 107,
+      "net_r_total_after_cost_model": 15.643,
+      "expectancy_r": 0.1462,
+      "mean_cost_r": 0.0778,
+      "rows_with_mfe": 107
+     },
+     "trend_donchian_eth_prop": {
+      "n": 169,
+      "net_r_total_after_cost_model": 12.9574,
+      "expectancy_r": 0.0767,
+      "mean_cost_r": 0.0689,
+      "rows_with_mfe": 169
+     },
+     "trend_donchian_sol_prop": {
+      "n": 65,
+      "net_r_total_after_cost_model": 5.0492,
+      "expectancy_r": 0.0777,
+      "mean_cost_r": 0.0634,
+      "rows_with_mfe": 65
+     }
+    }
+   }
+  }
+ },
+ "perfold_alone_descriptive": {
+  "PF_trend_BTCUSDT_F1.json": {
+   "ev_point": -34.74,
+   "n_trades": 92,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": -12.51,
+   "ev_net_usd_p95": 139.37
+  },
+  "PF_trend_BTCUSDT_F2.json": {
+   "ev_point": -27.01,
+   "n_trades": 94,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": -22.73,
+   "ev_net_usd_p95": 249.7
+  },
+  "PF_trend_BTCUSDT_F3.json": {
+   "ev_point": -31.61,
+   "n_trades": 89,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": -39.83,
+   "ev_net_usd_p95": 52.02
+  },
+  "PF_trend_BTCUSDT_F4.json": {
+   "ev_point": 48.17,
+   "n_trades": 81,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": 38.47,
+   "ev_net_usd_p95": 1267.79
+  },
+  "PF_trend_ETHUSDT_F1.json": {
+   "ev_point": 312.81,
+   "n_trades": 88,
+   "ev_net_usd_p5": 11.81,
+   "ev_net_usd_p50": 386.93,
+   "ev_net_usd_p95": 1674.85
+  },
+  "PF_trend_ETHUSDT_F2.json": {
+   "ev_point": 358.6,
+   "n_trades": 99,
+   "ev_net_usd_p5": 9.05,
+   "ev_net_usd_p50": 464.68,
+   "ev_net_usd_p95": 2296.98
+  },
+  "PF_trend_ETHUSDT_F3.json": {
+   "ev_point": 1029.41,
+   "n_trades": 83,
+   "ev_net_usd_p5": 177.53,
+   "ev_net_usd_p50": 1060.55,
+   "ev_net_usd_p95": 2831.56
+  },
+  "PF_trend_ETHUSDT_F4.json": {
+   "ev_point": 100.65,
+   "n_trades": 87,
+   "ev_net_usd_p5": -39.61,
+   "ev_net_usd_p50": 84.12,
+   "ev_net_usd_p95": 743.64
+  },
+  "PF_trend_SOLUSDT_F1.json": {
+   "ev_point": 63.84,
+   "n_trades": 125,
+   "ev_net_usd_p5": -34.93,
+   "ev_net_usd_p50": 40.29,
+   "ev_net_usd_p95": 398.63
+  },
+  "PF_trend_SOLUSDT_F2.json": {
+   "ev_point": 132.16,
+   "n_trades": 108,
+   "ev_net_usd_p5": 10.33,
+   "ev_net_usd_p50": 261.2,
+   "ev_net_usd_p95": 1578.98
+  },
+  "PF_trend_SOLUSDT_F3.json": {
+   "ev_point": -43.7,
+   "n_trades": 81,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": -44.75,
+   "ev_net_usd_p95": -21.64
+  },
+  "PF_trend_SOLUSDT_F4.json": {
+   "ev_point": 435.65,
+   "n_trades": 97,
+   "ev_net_usd_p5": -24.44,
+   "ev_net_usd_p50": 219.97,
+   "ev_net_usd_p95": 1792.46
+  },
+  "PF_pullback_BTCUSDT_F1.json": {
+   "ev_point": 222.49,
+   "n_trades": 120,
+   "ev_net_usd_p5": -17.24,
+   "ev_net_usd_p50": 150.51,
+   "ev_net_usd_p95": 1678.2
+  },
+  "PF_pullback_BTCUSDT_F2.json": {
+   "ev_point": 17.32,
+   "n_trades": 110,
+   "ev_net_usd_p5": -41.28,
+   "ev_net_usd_p50": 14.75,
+   "ev_net_usd_p95": 259.24
+  },
+  "PF_pullback_BTCUSDT_F3.json": {
+   "ev_point": 170.2,
+   "n_trades": 67,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": 135.09,
+   "ev_net_usd_p95": 1178.47
+  },
+  "PF_pullback_BTCUSDT_F4.json": {
+   "ev_point": -34.44,
+   "n_trades": 129,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": -35.73,
+   "ev_net_usd_p95": 98.3
+  },
+  "PF_pullback_ETHUSDT_F1.json": {
+   "ev_point": 89.66,
+   "n_trades": 71,
+   "ev_net_usd_p5": -35.06,
+   "ev_net_usd_p50": 105.64,
+   "ev_net_usd_p95": 1249.05
+  },
+  "PF_pullback_ETHUSDT_F2.json": {
+   "ev_point": -42.6,
+   "n_trades": 122,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": -45.0,
+   "ev_net_usd_p95": -15.82
+  },
+  "PF_pullback_ETHUSDT_F3.json": {
+   "ev_point": 151.01,
+   "n_trades": 96,
+   "ev_net_usd_p5": -21.57,
+   "ev_net_usd_p50": 133.57,
+   "ev_net_usd_p95": 671.75
+  },
+  "PF_pullback_ETHUSDT_F4.json": {
+   "ev_point": -32.54,
+   "n_trades": 99,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": -31.15,
+   "ev_net_usd_p95": 47.53
+  },
+  "PF_pullback_SOLUSDT_F1.json": {
+   "ev_point": 79.2,
+   "n_trades": 136,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": 149.67,
+   "ev_net_usd_p95": 876.71
+  },
+  "PF_pullback_SOLUSDT_F2.json": {
+   "ev_point": 100.6,
+   "n_trades": 71,
+   "ev_net_usd_p5": -32.15,
+   "ev_net_usd_p50": 59.95,
+   "ev_net_usd_p95": 572.05
+  },
+  "PF_pullback_SOLUSDT_F3.json": {
+   "ev_point": -3.62,
+   "n_trades": 87,
+   "ev_net_usd_p5": -39.87,
+   "ev_net_usd_p50": -15.39,
+   "ev_net_usd_p95": 449.12
+  },
+  "PF_pullback_SOLUSDT_F4.json": {
+   "ev_point": -44.46,
+   "n_trades": 134,
+   "ev_net_usd_p5": -45.0,
+   "ev_net_usd_p50": -44.55,
+   "ev_net_usd_p95": 71.26
+  }
+ },
+ "posthoc_replacement_descriptive": {
+  "20260927": {
+   "ev_point": 246.37,
+   "ev_se": 7.67,
+   "ev_net_usd_p5": 64.45,
+   "ev_net_usd_p50": 255.68,
+   "ev_net_usd_p95": 645.18,
+   "p_ev_positive": 1.0,
+   "p_pass_eval": 0.651,
+   "v2": "pass",
+   "n_trades": 557,
+   "legs": {
+    "trend_ETHUSDT": {
+     "n": 357,
+     "net_r_total_after_cost_model": 45.8666,
+     "expectancy_r": 0.1285,
+     "mean_cost_r": 0.0626,
+     "rows_with_mfe": 357
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  },
+  "1": {
+   "ev_point": 253.84,
+   "ev_se": 7.67,
+   "ev_net_usd_p5": 98.24,
+   "ev_net_usd_p50": 242.99,
+   "ev_net_usd_p95": 656.49,
+   "p_ev_positive": 0.99,
+   "p_pass_eval": 0.6773,
+   "v2": "pass",
+   "n_trades": 557,
+   "legs": {
+    "trend_ETHUSDT": {
+     "n": 357,
+     "net_r_total_after_cost_model": 45.8666,
+     "expectancy_r": 0.1285,
+     "mean_cost_r": 0.0626,
+     "rows_with_mfe": 357
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  },
+  "2": {
+   "ev_point": 264.4,
+   "ev_se": 7.92,
+   "ev_net_usd_p5": 49.49,
+   "ev_net_usd_p50": 263.0,
+   "ev_net_usd_p95": 620.94,
+   "p_ev_positive": 1.0,
+   "p_pass_eval": 0.6783,
+   "v2": "pass",
+   "n_trades": 557,
+   "legs": {
+    "trend_ETHUSDT": {
+     "n": 357,
+     "net_r_total_after_cost_model": 45.8666,
+     "expectancy_r": 0.1285,
+     "mean_cost_r": 0.0626,
+     "rows_with_mfe": 357
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  },
+  "3": {
+   "ev_point": 251.39,
+   "ev_se": 7.84,
+   "ev_net_usd_p5": 83.72,
+   "ev_net_usd_p50": 252.58,
+   "ev_net_usd_p95": 660.86,
+   "p_ev_positive": 0.99,
+   "p_pass_eval": 0.6675,
+   "v2": "pass",
+   "n_trades": 557,
+   "legs": {
+    "trend_ETHUSDT": {
+     "n": 357,
+     "net_r_total_after_cost_model": 45.8666,
+     "expectancy_r": 0.1285,
+     "mean_cost_r": 0.0626,
+     "rows_with_mfe": 357
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  },
+  "4": {
+   "ev_point": 251.12,
+   "ev_se": 7.67,
+   "ev_net_usd_p5": 64.72,
+   "ev_net_usd_p50": 297.2,
+   "ev_net_usd_p95": 783.44,
+   "p_ev_positive": 0.99,
+   "p_pass_eval": 0.6685,
+   "v2": "pass",
+   "n_trades": 557,
+   "legs": {
+    "trend_ETHUSDT": {
+     "n": 357,
+     "net_r_total_after_cost_model": 45.8666,
+     "expectancy_r": 0.1285,
+     "mean_cost_r": 0.0626,
+     "rows_with_mfe": 357
+    },
+    "trend_donchian_sol_prop": {
+     "n": 200,
+     "net_r_total_after_cost_model": 21.9513,
+     "expectancy_r": 0.1098,
+     "mean_cost_r": 0.0529,
+     "rows_with_mfe": 200
+    }
+   }
+  }
+ }
+}
