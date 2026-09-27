@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research/evidence only: comms/strategy_evidence/runs/2026-09-27-w6-prop/ (committed prop_ev_sim.py output JSON), docs/research/b6-prop-ev/ writeup, docs/DOCUMENT-INDEX.md registration, research/results/_unattributed/ (E5 contract landing), and three docs/claude/work/pipeline/ follow-up filings. Tier-1 by the canonical doc's own list (backtest/research tooling output, docs, pipeline filings). Touches NO src/, NO deploy/, NO config/accounts.yaml or config/strategies.yaml, NO order path, NO risk caps, NO live-VM unit file, and adds no new code (the scoring tool it used, scripts/research/prop_ev_sim.py, belongs to the separate P1 lane on branch claude/w6-prop-ev and is not copied into this PR)."
+}
