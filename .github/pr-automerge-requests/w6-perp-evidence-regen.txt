@@ -1,0 +1,3 @@
+Tier-1 self-land. Adds one append-only pipeline record re-verifying
+PI-20260924-JCVFRWEA-0001 (clause (a) of MD-PROMOTE-S1-S2.blocked_until).
+Docs-only.
