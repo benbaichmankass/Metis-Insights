@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "Manager register only. Notes on B3 (first R4 run 0/7, auto-land route merged unarmed), E6 (09-26 nightly partial 15/22), E18 (post-E35 triage merged). No src/, config/, scripts/ or workflow change."
+  "landing": "hold",
+  "why": "Operator directive 2026-09-27: put the lane-answers-to-manager chain of authority where lanes read it at session start (docs/CLAUDE-RULES-CANONICAL.md + CLAUDE.md pointer). Held for the operator to merge because it changes the top-of-hierarchy rules governing the manager's own authority.",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Rules text that governs the manager's own authority over lanes; the operator directed it and merges it themselves after reading the diff."
 }

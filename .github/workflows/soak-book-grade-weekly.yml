@@ -46,14 +46,45 @@ permissions:
   issues: write
 
 jobs:
+  # schedule-keeper (scripts/ops/schedule_keeper.py, W6-OPS-R 2026-09-27):
+  # GitHub creates this repo's scheduled runs ~4-6h late, so
+  # .github/workflows/schedule-keeper.yml dispatches this workflow near its
+  # slot. This job skips the LATE scheduled run of a slot the keeper already
+  # ran, so each slot runs once. It only ever decides WHETHER this run
+  # proceeds, never what it computes. Fails open: an error here means "run".
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
   grade:
+    needs: dedupe
     if: |
+      !cancelled() && needs.dedupe.outputs.skip != 'true' && (
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
        (github.event.issue.user.login == github.repository_owner ||
         github.event.issue.user.login == 'github-actions[bot]') &&
        contains(github.event.issue.labels.*.name, 'soak-book-grade-now'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:

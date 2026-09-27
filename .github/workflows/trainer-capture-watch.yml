@@ -225,9 +225,17 @@ jobs:
         continue-on-error: true
         run: |
           set -uo pipefail
+          # `set -uo pipefail` does NOT clear the runner's default `-e`
+          # (`bash -eo pipefail`), so a grader exit of 1 (stale) or 2 (controls
+          # broken) used to abort HERE, before rc / capture_bad /
+          # controls_broken reached $GITHUB_OUTPUT — the page never fired in
+          # exactly the case it exists for (PI-20260926-P64CTNIO-0001). Same
+          # scoped pattern as oci-inventory.yml and research-loss-detector.yml.
+          set +e
           python3 scripts/ops/orderflow_capture_freshness.py \
             --observations observation.json --require-controls | tee /tmp/grade.txt
           rc=${PIPESTATUS[0]}
+          set -e
           python3 scripts/ops/orderflow_capture_freshness.py \
             --observations observation.json --require-controls --json > /tmp/grade.json || true
           echo "rc=${rc}" >> "$GITHUB_OUTPUT"

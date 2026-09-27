@@ -100,6 +100,8 @@ FILE_UNITS: Dict[str, str] = {
     # fraction: value is used directly, as the LIVE sizer does
     "scripts/research/pairs_dollar_lots.py": UNIT_FRACTION,
     "scripts/prop/emit_breakout_ticket.py": UNIT_FRACTION,
+    # VERIFIED: simulate_life sizes `cfg.risk_pct * balance` with no /100.
+    "scripts/research/prop_ev_sim.py": UNIT_FRACTION,
 }
 
 #: site -> (measured_ratio_at_filing, why). Ratio is harness ÷ live.

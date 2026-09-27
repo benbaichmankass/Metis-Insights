@@ -1,12 +1,30 @@
 #!/usr/bin/env python3
-"""Re-arm ONE GTC OCO protective sized to an Alpaca position's LIVE net qty.
+"""Re-arm Alpaca protection: ONE GTC OCO for the LIVE net qty, or (``--row``)
+ONE GTC OCO for exactly one journal row, cancelling nothing.
+
+Two modes
+---------
+* **net mode** (default): cancel the resting protective legs and place ONE
+  OCO for the whole net position. Only valid when every open row declares the
+  same levels — it refuses ``ambiguous_levels`` otherwise.
+* **row mode** (``--row <journal id>``): place ONE OCO for exactly that row's
+  ``position_size`` at that row's journal SL/TP, **cancelling nothing**. For a
+  netted symbol where the OTHER rows are already correctly protected and one
+  row is naked. Refuses if ``qty_available`` < the row's size (the shares are
+  held by other orders), if the row is closed / backtest / on another account
+  or symbol, if protection matching the row's qty + levels already rests, if
+  the new OCO would push stop coverage above the net, or on any could-not-look.
 
 Why this exists
 ---------------
-``alpaca_paper``/SPY, diagnosed 2026-09-26 (pipeline record
-``PI-20260926-HJPL5ABP-0001``): the broker holds a netted **19**-share long
-(journal trade 6131 = 8, plus an untracked earlier 11). The only resting
-protection is a stale GTC OCO sized **11**. Trade 6131's own bracket was
+``alpaca_paper``/SPY (pipeline record ``PI-20260926-HJPL5ABP-0001``): the
+broker holds a netted **19**-share long made of TWO tracked journal rows —
+4347 (``spy_trend_long_1d``, 11 sh, SL 744.477 / TP 830.426, opened
+2026-08-03) and 6131 (``spy_pullback_1h``, 8 sh, SL 760.639 / TP 840.653).
+The resting GTC OCO (qty 11 @ 744.48 / 830.43) is row 4347's OWN, correct
+protection. ⚠️ The 2026-09-26 diagnosis called those 11 shares "untracked" and
+the OCO "stale"; the net-mode dry run (issue #13064) refused
+``ambiguous_levels`` and exposed that — hence row mode. Trade 6131's own bracket was
 ``time_in_force: day`` (``AlpacaClient.place``) and Alpaca cancelled it at the
 close, so 8 shares are naked. There was no sanctioned way to repair it: the only
 Alpaca system action was ``flatten-alpaca-position``, and the only code path
@@ -37,8 +55,8 @@ The level rule (stated, because a netted position can carry several rows)
   which is BL-20260908-ALPACA-TRAILING-AMEND-PATCHED-A-SIBLING-TRADES-STOP in a
   different shape. The rule is echoed in the output as ``level_rule``.
 
-Shares the journal does not account for (the untracked 11 on SPY) are covered
-at the journal row's levels. That is reported (``untracked_qty``), not refused:
+Shares the journal does not account for are covered at the journal row's
+levels. That is reported (``untracked_qty``), not refused:
 covering them is the point. A journal that claims MORE than the broker holds is
 refused — that geometry is not understood.
 
@@ -150,6 +168,29 @@ def _open_rows(account_id: str, symbol: str) -> Optional[List[Dict[str, Any]]]:
         return [dict(r) for r in rows]
     except Exception:  # noqa: BLE001
         return None
+    finally:
+        conn.close()
+
+
+def _row_by_id(row_id: int) -> Tuple[str, Optional[Dict[str, Any]]]:
+    """One journal row by id, READ-ONLY: ``("ok", row)`` / ``("missing", None)``
+    / ``("could_not_look", None)``. Status/account/symbol are checked by the
+    caller so each mismatch is refused by name."""
+    from src.utils.paths import trade_journal_db_path
+
+    try:
+        conn = sqlite3.connect(f"file:{trade_journal_db_path()}?mode=ro", uri=True)
+    except Exception:  # noqa: BLE001
+        return "could_not_look", None
+    try:
+        conn.row_factory = sqlite3.Row
+        r = conn.execute(
+            "SELECT id, account_id, symbol, direction, position_size, stop_loss, "
+            "take_profit_1, strategy_name, status, COALESCE(is_backtest,0) AS is_backtest, "
+            "created_at FROM trades WHERE id=?", (int(row_id),)).fetchone()
+        return ("ok", dict(r)) if r else ("missing", None)
+    except Exception:  # noqa: BLE001
+        return "could_not_look", None
     finally:
         conn.close()
 
@@ -600,6 +641,182 @@ def rearm(account_id: str, symbol: str, *, apply: bool,
                        "coverage_after before doing anything else")
 
 
+# ─────────────────────────────────────────────────────────── row mode
+def rearm_row(account_id: str, symbol: str, row_id: int, *, apply: bool,
+              out: Optional[Dict[str, Any]] = None) -> Tuple[int, Dict[str, Any]]:
+    """Place ONE GTC OCO for exactly one journal row. Cancels NOTHING.
+
+    Every other resting order is left exactly as it is, so a refusal or a
+    failed place leaves the book in its pre-run state — there is no gap and
+    nothing to restore. Exit 1 here means "place refused, nothing changed".
+    """
+    sym = symbol.upper()
+    if out is None:
+        out = {}
+    out.update({"account": account_id, "symbol": sym, "apply": bool(apply),
+                "mode": "row", "row": row_id, "cancels": "none — row mode cancels nothing"})
+
+    def done(code: int, **kw) -> Tuple[int, Dict[str, Any]]:
+        out.update(kw)
+        out["exit_code"] = code
+        return code, out
+
+    cfg = _load_account(account_id)
+    if cfg is None:
+        return done(EXIT_COULD_NOT_LOOK, state="could_not_look",
+                    detail=f"account {account_id!r} not found in accounts.yaml")
+    if str(cfg.get("exchange") or "").lower() != "alpaca":
+        return done(EXIT_REFUSED, state="refused_not_alpaca",
+                    detail=f"account {account_id!r} is exchange={cfg.get('exchange')!r}")
+
+    # (1) the row — levels and size come from here, never from the caller
+    rstate, row = _row_by_id(row_id)
+    if rstate == "could_not_look":
+        return done(EXIT_COULD_NOT_LOOK, state="could_not_look",
+                    detail="journal read failed — cannot establish the row's levels")
+    if rstate == "missing":
+        return done(EXIT_REFUSED, state="refused_row_missing",
+                    detail=f"no journal row id={row_id}")
+    out["journal_row"] = row
+    if str(row.get("status") or "").lower() != "open":
+        return done(EXIT_REFUSED, state="refused_row_not_open",
+                    detail=f"row {row_id} status={row.get('status')!r}")
+    if row.get("is_backtest"):
+        return done(EXIT_REFUSED, state="refused_row_backtest",
+                    detail=f"row {row_id} is a backtest row")
+    if row.get("account_id") != account_id:
+        return done(EXIT_REFUSED, state="refused_row_wrong_account",
+                    detail=f"row {row_id} is on {row.get('account_id')!r}, not {account_id!r}")
+    if str(row.get("symbol") or "").upper() != sym:
+        return done(EXIT_REFUSED, state="refused_row_wrong_symbol",
+                    detail=f"row {row_id} is {row.get('symbol')!r}, not {sym!r}")
+    sl, tp = row.get("stop_loss"), row.get("take_profit_1")
+    if not (sl or 0) > 0 or not (tp or 0) > 0:
+        return done(EXIT_REFUSED, state="refused_levels_missing",
+                    detail=f"row {row_id} declares no stop_loss and/or take_profit_1")
+    sl, tp = round(float(sl), 2), round(float(tp), 2)
+    try:
+        rqty = float(row.get("position_size"))
+    except (TypeError, ValueError):
+        rqty = 0.0
+    if rqty <= 0 or abs(rqty - round(rqty)) > _QTY_EPS:
+        return done(EXIT_REFUSED, state="refused_row_qty",
+                    detail=f"row {row_id} position_size={row.get('position_size')!r} is not "
+                           "a positive whole share count")
+    rq = int(round(rqty))
+    out["levels"] = {"sl": sl, "tp": tp, "qty": rq, "source_row": row_id}
+
+    client = _build_client(cfg)
+    if client is None:
+        return done(EXIT_COULD_NOT_LOOK, state="could_not_look",
+                    detail="alpaca_client_for returned None (creds unset)")
+
+    # (2) the venue
+    pstate, pos = _read_position(client, sym)
+    if pstate == "could_not_look":
+        return done(EXIT_COULD_NOT_LOOK, state="could_not_look",
+                    detail="position read failed — refusing to act blind")
+    if pstate == "flat":
+        return done(EXIT_REFUSED, state="refused_flat",
+                    detail="broker reads FLAT — nothing to protect (the row may be stranded)")
+    out["live_position"] = pos
+    side = pos["side"]
+    want_dir = {"buy": "long", "sell": "short"}.get(
+        str(row.get("direction") or "").lower(), str(row.get("direction") or "").lower())
+    if want_dir != side:
+        return done(EXIT_REFUSED, state="refused_direction_mismatch",
+                    detail=f"row {row_id} is {row.get('direction')!r}; broker holds {side}")
+    if rq > pos["qty"] + _QTY_EPS:
+        return done(EXIT_REFUSED, state="refused_row_exceeds_position",
+                    detail=f"row qty {rq} > broker net {pos['qty']}")
+
+    orders = _read_orders(client, sym)
+    if orders is None:
+        return done(EXIT_COULD_NOT_LOOK, state="could_not_look",
+                    detail="open-orders read failed — this is NOT 'no orders rest'")
+    out["resting_orders"] = [_summarize(o) for o in orders]
+    reducing = "sell" if side == "long" else "buy"
+    g = _grade_orders(orders, reducing)
+    if g["blockers"]:
+        return done(EXIT_REFUSED, state="refused_non_protective_order",
+                    blockers=[_summarize(o) for o in g["blockers"]],
+                    detail="a resting order is not a reducing-side stop/limit leg — "
+                           "the book is not understood")
+    if g["unreadable"]:
+        return done(EXIT_REFUSED, state="refused_unreadable_leg",
+                    detail="a protective leg's qty could not be read")
+
+    # Does THIS row's protection already rest? Match on qty + levels.
+    def _match(o, kind, price):
+        return (_leg_kind(o) == kind and abs((_leg_qty(o) or -1) - rq) <= _QTY_EPS
+                and _leg_price(o, kind) is not None
+                and round(_leg_price(o, kind), 2) == price)
+    stop_hit = [o for o in g["protective"] if _match(o, "stop", sl)]
+    tgt_hit = [o for o in g["protective"] if _match(o, "target", tp)]
+    out["existing_coverage"] = {"stop_qty": g["stop_qty"], "target_qty": g["target_qty"],
+                                "net_qty": pos["qty"]}
+    if stop_hit and tgt_hit:
+        return done(EXIT_OK, state="already_armed",
+                    detail=f"a stop and a target for {rq} at sl={sl}/tp={tp} already rest")
+    if stop_hit or tgt_hit:
+        return done(EXIT_REFUSED, state="refused_row_protection_partially_rests",
+                    detail="one leg matching this row's qty + level already rests; adding an "
+                           "OCO would double it. Not guessed.")
+    # Checked AFTER the already-armed match: an armed row's own OCO holds its
+    # shares, so qty_available is only meaningful once we know it is not armed.
+    avail = pos.get("qty_available")
+    if avail is None:
+        return done(EXIT_COULD_NOT_LOOK, state="could_not_look",
+                    detail="qty_available unreadable — cannot tell whether the shares are free")
+    if avail + _QTY_EPS < rq:
+        return done(EXIT_REFUSED, state="refused_qty_unavailable",
+                    detail=f"qty_available={avail} < row qty {rq}: the shares are held by "
+                           "other orders. Row mode cancels nothing, so it cannot free them.")
+    if g["stop_qty"] + rq > pos["qty"] + _QTY_EPS:
+        return done(EXIT_REFUSED, state="refused_would_overcover",
+                    detail=f"resting stop qty {g['stop_qty']} + {rq} > net {pos['qty']}")
+
+    px = pos.get("current_price")
+    long_ = side == "long"
+    if (long_ and not sl < tp) or (not long_ and not sl > tp):
+        return done(EXIT_REFUSED, state="refused_levels_wrong_side",
+                    detail=f"sl={sl} / tp={tp} are inverted for a {side} position")
+    if px is not None and ((long_ and not sl < px < tp) or (not long_ and not tp < px < sl)):
+        return done(EXIT_REFUSED, state="refused_levels_wrong_side",
+                    detail=f"current price {px} is not between sl={sl} and tp={tp}: "
+                           "the OCO would trigger on placement")
+
+    out["market_open"] = _market_open(client)
+    body = _oco_body(sym, reducing, rq, sl, tp)
+    out["plan"] = {"cancel": [], "place": body}
+    if not apply:
+        return done(EXIT_OK, state="ready", action="dry_run",
+                    detail=f"DRY-RUN — would place ONE GTC OCO {reducing} {rq} {sym} "
+                           f"sl={sl} tp={tp} for row {row_id}, cancelling nothing. "
+                           "Re-run with apply: true to execute.")
+
+    placed = _place_oco(client, body, _env_float("ALPACA_PLACE_CONFIRM_S", 3.0))
+    out["place_result"] = placed
+    if not placed["ok"]:
+        return done(EXIT_FAILED_RESTORED, state="place_failed_nothing_changed",
+                    detail=f"the OCO was refused ({placed.get('retMsg')}); nothing was "
+                           "cancelled, so the book is exactly as before the run")
+    after = _read_orders(client, sym)
+    if after is None:
+        return done(EXIT_UNCONFIRMED, state="placed_unconfirmed",
+                    detail="the OCO was accepted but the verification read failed")
+    ga = _grade_orders(after, reducing)
+    out["coverage_after"] = {"stop_qty": ga["stop_qty"], "target_qty": ga["target_qty"],
+                             "net_qty": pos["qty"], "orders": [_summarize(o) for o in after]}
+    if ([o for o in ga["protective"] if _match(o, "stop", sl)]
+            and [o for o in ga["protective"] if _match(o, "target", tp)]):
+        return done(EXIT_OK, state="rearmed_row",
+                    detail=f"ONE GTC OCO {reducing} {rq} {sym} sl={sl} tp={tp} rests for "
+                           f"row {row_id} (verified by re-read); nothing else was touched")
+    return done(EXIT_UNCONFIRMED, state="rearm_unverified",
+                detail="accepted, but the re-read does not show the row's stop + target")
+
+
 def _env_float(name: str, default: float) -> float:
     try:
         return float(os.environ.get(name, "") or default)
@@ -612,10 +829,16 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--account", required=True)
     ap.add_argument("--symbol", required=True)
     ap.add_argument("--apply", action="store_true")
+    ap.add_argument("--row", type=int, default=None,
+                    help="row mode: protect exactly this journal row, cancelling nothing")
     args = ap.parse_args(argv)
     out: Dict[str, Any] = {}
     try:
-        code, out = rearm(args.account, args.symbol, apply=args.apply, out=out)
+        if args.row is not None:
+            code, out = rearm_row(args.account, args.symbol, args.row,
+                                  apply=args.apply, out=out)
+        else:
+            code, out = rearm(args.account, args.symbol, apply=args.apply, out=out)
     except Exception as exc:  # noqa: BLE001 — report, never a bare traceback
         # Once a cancel has been issued, an unexpected error can have left the
         # position naked — say so at the urgent exit, never as could-not-look.
