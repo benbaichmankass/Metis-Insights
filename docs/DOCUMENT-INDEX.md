@@ -466,6 +466,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/github-actions-workflows.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
 | `docs/hf_claude_patch.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/integrations/breakout-compliance-2026-06-16.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
+| `docs/integrations/breakout-instruments-2026-09-27.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
 | `docs/integrations/breakout-poc-manual-bridge-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/integrations/bybit-ai-skill.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
 | `docs/integrations/dxtrade-contract-template.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
@@ -658,6 +659,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/alpaca-roster-phase2-capital-efficiency-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-roster-phase3-compat-gate-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/artifacts/m27/coverage.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/backtest-live-exit-fidelity-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/banking-half-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/be-floor-sweep-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
