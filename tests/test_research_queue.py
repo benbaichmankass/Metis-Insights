@@ -985,9 +985,12 @@ def test_w4_the_workflow_declares_research_unit_and_power_state(unit_id, workflo
 def test_w4_unit_is_queued_and_threads_its_own_identity(unit_id, workflow_path):
     job = _load_w4_unit(unit_id)
     assert job.valid, f"{unit_id}: {job.errors}"
-    assert job.status == "queued", (
-        f"{unit_id} must be flipped to queued once its blocker clears; "
-        f"got status={job.status!r}"
+    # `done` is the unit's legitimate END, not a regression: RQ-20260922-003
+    # was answered offline on 2026-09-27 (W6-PROP-O1). What W4 protects is
+    # that the unit never slides back to `blocked`.
+    assert job.status in ("queued", "done"), (
+        f"{unit_id} must be flipped to queued once its blocker clears "
+        f"(or be done); got status={job.status!r}"
     )
     declared = ((job.raw.get("run") or {}).get("inputs") or {}).get("research_unit")
     assert declared == unit_id, (
@@ -1066,7 +1069,8 @@ def test_w4_dispatcher_dry_run_selects_the_unit(unit_id, _wf):
         row["outcome"] == "not_due"
         and str(row.get("reason", "")).startswith("cadence=") and "it ran at" in row.get("reason", "")
     )
-    assert row["outcome"] == "would_dispatch" or already_fired, (
+    completed = row["outcome"] == "not_due" and row.get("reason") == "status=done"
+    assert row["outcome"] == "would_dispatch" or already_fired or completed, (
         f"{unit_id} should be selected on a dry run, or already have fired "
         f"once under its own cadence; got {row}"
     )
