@@ -230,12 +230,41 @@ jobs:
           print(f"OK -- panel has {rows} rows from {trades} trades.")
           PYEOF
 
+      # FIX-CA-28 (code audit 2026-09-27, CA-B03-exit-head-workflow-never-applies-
+      # net-of-fee-cost): the analyzer's cost flags default to 0.0 and this
+      # workflow never set them, so the "net-of-fee" policy sim and its
+      # pre-registered bar were graded GROSS. Resolve the venue-aware cost for
+      # THIS run's symbol from src.runtime.execution_costs (the one cost
+      # definition) and pass it explicitly; the analyzer converts bps to each
+      # trade's own R via the panel's per-row r_per_bp.
+      #   cost_bps      = round-trip fee + slippage, charged to BOTH arms
+      #   exit_fee_bps  = one side of slippage, charged only on an early exit
+      #                   (a discretionary market exit vs the resting bracket)
+      # Funding is NOT charged (hold-duration dependent) — a known remaining gap.
+      - name: Resolve venue cost (bps) for the symbol
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF' >> "$GITHUB_ENV"
+          import os, sys
+          sys.path.insert(0, ".")
+          from src.runtime import execution_costs as ec
+          sym = os.environ["eh_symbol"]
+          slip = ec.slippage_bps_roundtrip_for(sym)
+          cost = ec.DEFAULT_FEE_BPS_ROUNDTRIP + slip
+          exit_fee = slip / 2.0
+          assert cost > 0 and exit_fee > 0, (sym, cost, exit_fee)
+          print(f"eh_cost_bps={cost}")
+          print(f"eh_exit_fee_bps={exit_fee}")
+          print(f"venue cost {sym}: cost_bps={cost} exit_fee_bps={exit_fee}", file=sys.stderr)
+          PYEOF
+
       - name: Analyze the exit head
         run: |
           set -euo pipefail
           python scripts/research/analyze_exit_head.py \
             --panel artifacts/research/exit_panel.jsonl \
             --exit-threshold "${eh_thr}" \
+            --cost-bps "${eh_cost_bps}" --exit-fee-bps "${eh_exit_fee_bps}" \
             --out artifacts/research/exit_head.json
 
       - name: Summarize verdict
@@ -267,6 +296,10 @@ jobs:
           else:
               L.append(f"- not computed: {reg.get('note')}")
           L.append(f"- FDR survivors: {fdr.get('survivors') or 'none'}")
+          L.append("")
+          cfg = r.get("config", {})
+          L.append(f"- cost basis: **{cfg.get('cost_basis')}** · cost_bps={cfg.get('cost_bps')} "
+                   f"exit_fee_bps={cfg.get('exit_fee_bps')} (funding not charged)")
           L.append("")
           L.append("## Net-of-fee exit-policy vs the fixed SL/TP")
           if pol.get("computed"):

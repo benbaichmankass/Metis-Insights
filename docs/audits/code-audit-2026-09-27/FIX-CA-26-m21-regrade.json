@@ -1,0 +1,483 @@
+{
+ "record": "FIX-CA-26 offline re-grade of the M21 E-2 entry-sweep walk-forwards",
+ "finding": "CA-B04-m21-entry-sweep-inert-fold-inflation",
+ "generated": "2026-09-27",
+ "source": {
+  "data": "trainer:~/ict-trading-bot/runtime_logs/m21_entry_sweep/{2026-07-13,2026-07-14}/results.jsonl (window=fold rows, base+lever per fold)",
+  "retrieved_via": "trainer-vm-diag issue #13310, run 36343900238 (read-only)",
+  "grader": "scripts/research/m21_entry_sweep.py::grade_walkforward (inert = d_net_r==0 AND d_max_dd==0 via m20_wf_effective.is_inert; effective excludes inert folds from wins AND usable; PASS = usable>=4 and wins*3>=usable*2)"
+ },
+ "population": "the 8 cells cited in config/strategies.yaml as M21 E-2 walk-forward evidence (7 legs); newest run each. Raw counts reproduce every config citation.",
+ "note_mgc_xauusd": "the 2021-2023 inert folds for mgc_trend_1h/xauusd_trend_1h are base AND lever with net 0 / dd 0 (no trades in either arm, proxy data window) - effectively no data, graded inert either way.",
+ "rerun": "re-dispatch the trainer-vm-diag command in issue #13310, then feed the rows to grade_walkforward",
+ "cells": [
+  {
+   "leg": "xauusd_trend_1h",
+   "cell": "confirm_1",
+   "run_dir": "2026-07-13",
+   "roster": "no roster",
+   "walkforward_raw": "5/6",
+   "verdict_raw": "PASS",
+   "inert": 3,
+   "inert_folds": [
+    "2021",
+    "2022",
+    "2023"
+   ],
+   "walkforward_effective": "2/3",
+   "verdict_effective": "wf_fail",
+   "folds": [
+    {
+     "fold": "2021",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.0,
+     "d_max_dd": 0.0,
+     "inert": true
+    },
+    {
+     "fold": "2022",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.0,
+     "d_max_dd": 0.0,
+     "inert": true
+    },
+    {
+     "fold": "2023",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.0,
+     "d_max_dd": 0.0,
+     "inert": true
+    },
+    {
+     "fold": "2024",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 19.8106,
+     "d_max_dd": -15.0205
+    },
+    {
+     "fold": "2025",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 4.3282,
+     "d_max_dd": -1.5697
+    },
+    {
+     "fold": "2026",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -0.9754,
+     "d_max_dd": 1.7765
+    }
+   ]
+  },
+  {
+   "leg": "mgc_trend_1h",
+   "cell": "confirm_1",
+   "run_dir": "2026-07-13",
+   "roster": "shadow",
+   "walkforward_raw": "5/6",
+   "verdict_raw": "PASS",
+   "inert": 3,
+   "inert_folds": [
+    "2021",
+    "2022",
+    "2023"
+   ],
+   "walkforward_effective": "2/3",
+   "verdict_effective": "wf_fail",
+   "folds": [
+    {
+     "fold": "2021",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.0,
+     "d_max_dd": 0.0,
+     "inert": true
+    },
+    {
+     "fold": "2022",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.0,
+     "d_max_dd": 0.0,
+     "inert": true
+    },
+    {
+     "fold": "2023",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.0,
+     "d_max_dd": 0.0,
+     "inert": true
+    },
+    {
+     "fold": "2024",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 19.8106,
+     "d_max_dd": -15.0205
+    },
+    {
+     "fold": "2025",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 4.3282,
+     "d_max_dd": -1.5697
+    },
+    {
+     "fold": "2026",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -0.9754,
+     "d_max_dd": 1.7765
+    }
+   ]
+  },
+  {
+   "leg": "trend_donchian_xrp_4h",
+   "cell": "skip_h0",
+   "run_dir": "2026-07-14",
+   "roster": "bybit_2 + bybit_portfolio (REAL MONEY)",
+   "walkforward_raw": "5/6",
+   "verdict_raw": "PASS",
+   "inert": 0,
+   "inert_folds": [],
+   "walkforward_effective": "5/6",
+   "verdict_effective": "PASS",
+   "folds": [
+    {
+     "fold": "2021",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.1974,
+     "d_max_dd": 0.0
+    },
+    {
+     "fold": "2022",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 3.1069,
+     "d_max_dd": -2.538
+    },
+    {
+     "fold": "2023",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 2.9334,
+     "d_max_dd": -0.7857
+    },
+    {
+     "fold": "2024",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 1.4731,
+     "d_max_dd": -0.0993
+    },
+    {
+     "fold": "2025",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -1.5005,
+     "d_max_dd": 0.6007
+    },
+    {
+     "fold": "2026",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 1.5882,
+     "d_max_dd": -0.9865
+    }
+   ]
+  },
+  {
+   "leg": "spy_pullback_1h",
+   "cell": "skip_late",
+   "run_dir": "2026-07-14",
+   "roster": "alpaca_paper (paper)",
+   "walkforward_raw": "5/6",
+   "verdict_raw": "PASS",
+   "inert": 1,
+   "inert_folds": [
+    "2023"
+   ],
+   "walkforward_effective": "4/5",
+   "verdict_effective": "PASS",
+   "folds": [
+    {
+     "fold": "2021",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 1.1654,
+     "d_max_dd": 0.0
+    },
+    {
+     "fold": "2022",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -0.3737,
+     "d_max_dd": -1.3189
+    },
+    {
+     "fold": "2023",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.0,
+     "d_max_dd": 0.0,
+     "inert": true
+    },
+    {
+     "fold": "2024",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 3.2116,
+     "d_max_dd": -1.1896
+    },
+    {
+     "fold": "2025",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 4.4739,
+     "d_max_dd": -3.2819
+    },
+    {
+     "fold": "2026",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 2.1765,
+     "d_max_dd": -2.1765
+    }
+   ]
+  },
+  {
+   "leg": "trend_donchian_eth",
+   "cell": "vol_lo10",
+   "run_dir": "2026-07-14",
+   "roster": "bybit_1 (paper)",
+   "walkforward_raw": "4/6",
+   "verdict_raw": "PASS",
+   "inert": 0,
+   "inert_folds": [],
+   "walkforward_effective": "4/6",
+   "verdict_effective": "PASS",
+   "folds": [
+    {
+     "fold": "2021",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -3.9276,
+     "d_max_dd": 0.3472
+    },
+    {
+     "fold": "2022",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 8.0778,
+     "d_max_dd": -6.1401
+    },
+    {
+     "fold": "2023",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 5.5245,
+     "d_max_dd": -6.8642
+    },
+    {
+     "fold": "2024",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 3.791,
+     "d_max_dd": -4.9303
+    },
+    {
+     "fold": "2025",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 6.1399,
+     "d_max_dd": -1.7002
+    },
+    {
+     "fold": "2026",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -0.3461,
+     "d_max_dd": 0.0
+    }
+   ]
+  },
+  {
+   "leg": "trend_donchian_xrp_4h",
+   "cell": "vol_hi90",
+   "run_dir": "2026-07-14",
+   "roster": "bybit_2 + bybit_portfolio (REAL MONEY)",
+   "walkforward_raw": "4/6",
+   "verdict_raw": "PASS",
+   "inert": 0,
+   "inert_folds": [],
+   "walkforward_effective": "4/6",
+   "verdict_effective": "PASS",
+   "folds": [
+    {
+     "fold": "2021",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -1.4224,
+     "d_max_dd": 2.0156
+    },
+    {
+     "fold": "2022",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 1.8825,
+     "d_max_dd": -0.2345
+    },
+    {
+     "fold": "2023",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -1.1254,
+     "d_max_dd": -1.4483
+    },
+    {
+     "fold": "2024",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.5847,
+     "d_max_dd": 0.0
+    },
+    {
+     "fold": "2025",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.9904,
+     "d_max_dd": -0.9904
+    },
+    {
+     "fold": "2026",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 1.0169,
+     "d_max_dd": -1.017
+    }
+   ]
+  },
+  {
+   "leg": "ada_pullback_2h",
+   "cell": "vol_lo10",
+   "run_dir": "2026-07-14",
+   "roster": "bybit_2 + bybit_portfolio (REAL MONEY)",
+   "walkforward_raw": "4/6",
+   "verdict_raw": "PASS",
+   "inert": 0,
+   "inert_folds": [],
+   "walkforward_effective": "4/6",
+   "verdict_effective": "PASS",
+   "folds": [
+    {
+     "fold": "2021",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 4.9516,
+     "d_max_dd": -0.0012
+    },
+    {
+     "fold": "2022",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -1.4532,
+     "d_max_dd": -0.4863
+    },
+    {
+     "fold": "2023",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -6.6432,
+     "d_max_dd": -1.7784
+    },
+    {
+     "fold": "2024",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 2.1757,
+     "d_max_dd": -1.1477
+    },
+    {
+     "fold": "2025",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 2.0484,
+     "d_max_dd": -1.0212
+    },
+    {
+     "fold": "2026",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 1.0295,
+     "d_max_dd": -1.0295
+    }
+   ]
+  },
+  {
+   "leg": "avax_pullback_2h",
+   "cell": "vol_lo10",
+   "run_dir": "2026-07-14",
+   "roster": "shadow",
+   "walkforward_raw": "4/6",
+   "verdict_raw": "PASS",
+   "inert": 1,
+   "inert_folds": [
+    "2021"
+   ],
+   "walkforward_effective": "3/5",
+   "verdict_effective": "wf_fail",
+   "folds": [
+    {
+     "fold": "2021",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.0,
+     "d_max_dd": 0.0,
+     "inert": true
+    },
+    {
+     "fold": "2022",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 2.142,
+     "d_max_dd": 0.0
+    },
+    {
+     "fold": "2023",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -1.1696,
+     "d_max_dd": -1.7328
+    },
+    {
+     "fold": "2024",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 3.2823,
+     "d_max_dd": 0.0
+    },
+    {
+     "fold": "2025",
+     "usable": true,
+     "ok": false,
+     "d_net_r": -2.1565,
+     "d_max_dd": -1.0476
+    },
+    {
+     "fold": "2026",
+     "usable": true,
+     "ok": true,
+     "d_net_r": 0.6962,
+     "d_max_dd": -0.6962
+    }
+   ]
+  }
+ ]
+}

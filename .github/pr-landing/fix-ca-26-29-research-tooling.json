@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 research/ML tooling, but `scripts/ml/fc_geometry_resolve.py` (FIX-CA-27) sits outside TIER1_SURFACE, so this guard cannot certify self-landing. Per the manager's dispatch the manager merges. Every other path is inside the surface: scripts/research/**, tests/**, .github/workflows/**, docs/**.",
+  "why": "Code-audit 2026-09-27 fixes FIX-CA-26/27/28/29, dispatched by the manager as Tier 1. Research harnesses and an offline trainer-side resolver only: no src/, no config/, no order path, no strategy/risk/sizing change. FIX-CA-26 adds an effective walk-forward grade beside the raw one (raw verdict unchanged) and commits an offline re-grade record; it changes no config. FIX-CA-28 changes how the research exit-head workflow costs its policy sim (research-only, observe-only)."
+}

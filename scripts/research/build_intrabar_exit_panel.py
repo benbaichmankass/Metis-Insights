@@ -306,6 +306,10 @@ def build_intrabar_exit_panel(
                 "size": ml.get("size"),
                 "touch": tb.get("touch"),
                 "trade_realized_r": _f(st.r_multiple),
+                # R per 1 bp of notional for THIS trade (entry / |entry-stop| / 1e4).
+                # Lets the analyzer charge a venue cost quoted in bps in each
+                # trade's own R units (FIX-CA-28) instead of one flat R figure.
+                "r_per_bp": round(entry / abs(entry - stop) / 1.0e4, 8),
             }
             # dense in-trade features (feat_ prefix); context cats carried for conditioning
             for k in INTRABAR_FEATURE_NAMES:

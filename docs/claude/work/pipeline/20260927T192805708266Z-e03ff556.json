@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ZGQPHR3D-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-m21-entry-sweep-inert-fold-inflation",
+    "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-m21-entry-sweep-inert-fold-inflation against current scripts/research/m21_entry_sweep.py:204"
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-26 fixed in PR #13314: m21_entry_sweep.grade_walkforward reports raw + effective (inert-excluded) walk-forward; tests/test_m21_entry_sweep_inert_folds.py. Offline re-grade committed (docs/audits/code-audit-2026-09-27/FIX-CA-26-m21-regrade.json): the 3 real-money cells hold (0 inert folds); 3 non-real-money cells fail effective, filed as PI-20260927-ADM2F2AD-0001.",
+  "what": "CA-B04 audit finding (critical): scripts/research/m21_entry_sweep.py:204 — Module docstring: yearly walk-forward PASS requires >=2/3 usable folds; the printed wins/usable fraction is cited verbatim in config/strategies.yaml as shipped evidence for LIVE re"
+}
