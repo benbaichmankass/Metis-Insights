@@ -5297,6 +5297,36 @@ def _sweep_stuck_linked_packages(db) -> int:
         try:
             now_iso = datetime.now(timezone.utc).isoformat()
             placeholders = ",".join("?" * len(_TERMINAL_TRADE_STATUSES))
+            # FIX-CA-05 (CA-A01-033): a package whose LINKED leg is terminal
+            # but which still has another open leg is not stuck — it is
+            # mis-linked. Re-link it to that open leg (real-money first) so
+            # the monocle gate and watchdog follow a live leg, and never
+            # close it: closing strands the open leg outside the monitor.
+            _open_leg = (
+                "SELECT t.id FROM trades t "
+                " WHERE t.order_package_id = order_packages.order_package_id "
+                "   AND t.status = 'open' AND COALESCE(t.is_backtest, 0) = 0"
+            )
+            conn.execute(
+                "UPDATE order_packages "
+                f"SET linked_trade_id = ({_open_leg} ORDER BY "
+                + _OPEN_LEG_PREFERENCE_SQL.format(t="t.") + " LIMIT 1), "
+                "    updated_at = ? "
+                "WHERE status = 'open' "
+                "  AND linked_trade_id IS NOT NULL "
+                f"  AND linked_trade_id IN ("
+                f"      SELECT id FROM trades WHERE status IN ({placeholders})"
+                f"  ) "
+                f"  AND EXISTS ({_open_leg})",
+                (now_iso, *_TERMINAL_TRADE_STATUSES),
+            )
+            relinked = conn.execute("SELECT changes()").fetchone()[0]
+            if relinked:
+                logger.info(
+                    "_sweep_stuck_linked_packages: re-linked %d package(s) "
+                    "whose linked leg is terminal to a still-open leg",
+                    relinked,
+                )
             conn.execute(
                 "UPDATE order_packages "
                 "SET status = 'closed', "
@@ -5311,7 +5341,8 @@ def _sweep_stuck_linked_packages(db) -> int:
                 "  AND linked_trade_id IS NOT NULL "
                 f"  AND linked_trade_id IN ("
                 f"      SELECT id FROM trades WHERE status IN ({placeholders})"
-                f"  )",
+                f"  ) "
+                f"  AND NOT EXISTS ({_open_leg})",
                 (now_iso, now_iso, *_TERMINAL_TRADE_STATUSES),
             )
             affected = conn.execute("SELECT changes()").fetchone()[0]
@@ -6027,25 +6058,34 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             _PENDING_WATCHDOG_FLAT_CONFIRM.pop(tid_confirm, None)
 
         # Position is genuinely flat at the exchange — true orphan.
-        # Force-close the package + cascade the trade as before.
-        try:
-            updated_meta = dict(meta)
-            updated_meta.setdefault("stuck_alert_emitted_at", now_iso)
-            updated_meta["stuck_force_cleared_at"] = now_iso
-            updated_meta["stuck_force_cleared_by"] = "stuck_strategy_watchdog"
-            db.update_order_package(pkg_id, {
-                "status": "closed",
-                "close_reason": "stuck_strategy_watchdog",
-                "meta": updated_meta,
-            })
-            summary["auto_cleared"] += 1
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "_watchdog_stuck_strategies: package force-close failed "
-                "for pkg_id=%s: %s",
-                pkg_id, exc,
-            )
-            summary["errors"] += 1
+        # Force-close the package + cascade the trade as before — unless
+        # another leg of the package is still open (FIX-CA-05): then the
+        # package stays open, re-linked to that leg, and only THIS trade is
+        # finalised below.
+        _held_for_leg = _hold_package_for_open_leg(
+            db, pkg_id, trade_id, caller="_watchdog_stuck_strategies")
+        if _held_for_leg:
+            summary["held_open_for_leg"] = (
+                summary.get("held_open_for_leg", 0) + 1)
+        else:
+            try:
+                updated_meta = dict(meta)
+                updated_meta.setdefault("stuck_alert_emitted_at", now_iso)
+                updated_meta["stuck_force_cleared_at"] = now_iso
+                updated_meta["stuck_force_cleared_by"] = "stuck_strategy_watchdog"
+                db.update_order_package(pkg_id, {
+                    "status": "closed",
+                    "close_reason": "stuck_strategy_watchdog",
+                    "meta": updated_meta,
+                })
+                summary["auto_cleared"] += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_watchdog_stuck_strategies: package force-close failed "
+                    "for pkg_id=%s: %s",
+                    pkg_id, exc,
+                )
+                summary["errors"] += 1
 
         # Cascade the linked trade if it's still open.
         #
@@ -6344,6 +6384,77 @@ def _resolve_linked_package_id(db, trade_id: Any) -> Optional[str]:
     return str(pkg_id)
 
 
+# The one ordering rule for "which open leg should a package be linked to":
+# a real-money leg before a paper one, then the oldest (FIX-CA-05).
+_OPEN_LEG_PREFERENCE_SQL = (
+    "CASE WHEN COALESCE({t}account_class, 'real_money') = 'real_money' "
+    "THEN 0 ELSE 1 END, {t}id"
+)
+
+
+def _hold_package_for_open_leg(db, pkg_id: Any, closing_trade_id: Any, *,
+                               caller: str) -> bool:
+    """True when *pkg_id* must stay OPEN because another leg is still open.
+
+    FIX-CA-05 (CA-A01-033). Every package-closing cascade closed the order
+    package as soon as ONE leg went terminal — and since resolution goes
+    through ``trades.order_package_id`` first, ANY leg, linked or not. The
+    monitor selects packages by ``status='open'``, so every still-open sibling
+    then dropped out of the exit path for good (trail, verdict close, watchdog).
+
+    When another open, non-backtest leg exists the package is held open and,
+    if it was linked to the leg that is closing (or to nothing), re-linked to
+    that open leg (real-money first) so the strategy-monocle gate and the
+    watchdog keep looking at a live leg. A read failure is "we could not
+    look", and holds the package open — the safe direction: the next close of
+    any leg, or ``_sweep_stuck_linked_packages``, re-decides it.
+    """
+    try:
+        conn = db.connect()
+        try:
+            other = conn.execute(
+                "SELECT id FROM trades WHERE order_package_id = ? "
+                "  AND status = 'open' AND COALESCE(is_backtest, 0) = 0 "
+                "  AND id <> ? ORDER BY "
+                + _OPEN_LEG_PREFERENCE_SQL.format(t="") + " LIMIT 1",
+                (str(pkg_id),
+                 int(closing_trade_id) if closing_trade_id is not None else -1),
+            ).fetchone()
+            linked = conn.execute(
+                "SELECT linked_trade_id FROM order_packages "
+                "WHERE order_package_id = ?", (str(pkg_id),),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "%s: open-leg check FAILED for pkg_id=%s (closing trade_id=%s): %s "
+            "— holding the package OPEN rather than closing it blind",
+            caller, pkg_id, closing_trade_id, exc,
+        )
+        return True
+    if other is None:
+        return False
+    other_id = other[0]
+    cur_linked = linked[0] if linked is not None else None
+    relinked = False
+    if cur_linked is None or str(cur_linked) == str(closing_trade_id):
+        try:
+            db.update_order_package(pkg_id, {"linked_trade_id": other_id})
+            relinked = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "%s: re-link of pkg_id=%s to open leg %s failed: %s",
+                caller, pkg_id, other_id, exc,
+            )
+    logger.info(
+        "%s: pkg_id=%s kept OPEN — trade_id=%s closed but leg %s is still "
+        "open%s", caller, pkg_id, closing_trade_id, other_id,
+        " (re-linked to it)" if relinked else "",
+    )
+    return True
+
+
 def _cascade_close_linked_package(
     db,
     trade_id: Any,
@@ -6365,6 +6476,8 @@ def _cascade_close_linked_package(
     """
     pkg_id = _resolve_linked_package_id(db, trade_id)
     if not pkg_id:
+        return False
+    if _hold_package_for_open_leg(db, pkg_id, trade_id, caller=caller):
         return False
     try:
         affected = db.update_order_package(pkg_id, {
@@ -7098,6 +7211,9 @@ def _mark_orphaned(db, row: Dict[str, Any],
     # was doing all the work. PR claude/cascade-fix-by-linked-trade-id.
     pkg_id = _resolve_linked_package_id(db, row.get("id"))
     if not pkg_id:
+        return
+    if _hold_package_for_open_leg(db, pkg_id, row.get("id"),
+                                  caller="_mark_orphaned"):
         return
 
     last_exc: Optional[BaseException] = None

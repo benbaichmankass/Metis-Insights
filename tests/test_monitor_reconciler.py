@@ -3178,3 +3178,117 @@ class TestNotFoundConsultsPositions:
         notes = _read_trade_full(tmp_db, tid)["notes"]
         assert "terminal zero-fill" in notes
         assert "not present in exchange open-positions" not in notes
+
+
+# ---------------------------------------------------------------------------
+# FIX-CA-05 (CA-A01-033): a package is never closed while another leg is open
+# ---------------------------------------------------------------------------
+
+
+def _linked(db, pkg_id="P"):
+    c = db.connect()
+    try:
+        return int(c.execute("SELECT linked_trade_id FROM order_packages "
+                             "WHERE order_package_id=?", (pkg_id,)).fetchone()[0])
+    finally:
+        c.close()
+
+
+class TestPackageStaysOpenWhileALegIsOpen:
+    """Every package-closing cascade used to close the order package as soon
+    as ONE leg (the linked one, or ANY leg — resolution goes through
+    trades.order_package_id first) went terminal, stranding the still-open
+    siblings outside the monitor's `status='open'` package selection."""
+
+    def _two_legs(self, db, linked_account="bybit_2", other_account="bybit_1"):
+        _insert_package(db, pkg_id="P")
+        t1 = _insert_trade(db, account_id=linked_account)
+        t2 = _insert_trade(db, account_id=other_account)
+        c = db.connect()
+        c.execute("UPDATE trades SET order_package_id='P'")
+        c.commit()
+        c.close()
+        db.update_order_package("P", {"linked_trade_id": t1})
+        return t1, t2
+
+    def test_sweep_keeps_the_package_and_relinks_the_open_leg(self, tmp_db):
+        t1, t2 = self._two_legs(tmp_db)
+        tmp_db.update_trade(t1, {"status": "closed"})
+        assert _sweep_stuck_linked_packages(tmp_db) == 0
+        pkg = _read_package(tmp_db, "P")
+        assert pkg["status"] == "open"
+        assert _linked(tmp_db) == t2
+
+    def test_sweep_still_closes_a_package_with_no_open_leg(self, tmp_db):
+        t1, t2 = self._two_legs(tmp_db)
+        tmp_db.update_trade(t1, {"status": "closed"})
+        tmp_db.update_trade(t2, {"status": "closed"})
+        assert _sweep_stuck_linked_packages(tmp_db) == 1
+        assert _read_package(tmp_db, "P")["status"] == "closed"
+
+    def test_cascade_from_a_non_linked_leg_keeps_the_package(self, tmp_db):
+        t1, t2 = self._two_legs(tmp_db)
+        tmp_db.update_trade(t2, {"status": "closed"})
+        from src.runtime.order_monitor import _cascade_close_linked_package
+        assert _cascade_close_linked_package(
+            tmp_db, t2, close_reason="reconciler_filled", caller="t") is False
+        pkg = _read_package(tmp_db, "P")
+        assert pkg["status"] == "open"
+        assert _linked(tmp_db) == t1
+
+    def test_cascade_from_the_linked_leg_relinks_the_open_sibling(self, tmp_db):
+        t1, t2 = self._two_legs(tmp_db)
+        tmp_db.update_trade(t1, {"status": "closed"})
+        from src.runtime.order_monitor import _cascade_close_linked_package
+        _cascade_close_linked_package(
+            tmp_db, t1, close_reason="reconciler_filled", caller="t")
+        pkg = _read_package(tmp_db, "P")
+        assert pkg["status"] == "open"
+        assert _linked(tmp_db) == t2
+
+    def test_cascade_closes_the_package_on_its_last_leg(self, tmp_db):
+        t1, t2 = self._two_legs(tmp_db)
+        tmp_db.update_trade(t1, {"status": "closed"})
+        tmp_db.update_trade(t2, {"status": "closed"})
+        from src.runtime.order_monitor import _cascade_close_linked_package
+        assert _cascade_close_linked_package(
+            tmp_db, t2, close_reason="reconciler_filled", caller="t") is True
+        assert _read_package(tmp_db, "P")["status"] == "closed"
+
+    def test_mark_orphaned_keeps_the_package_while_a_sibling_is_open(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "p")
+        t1, t2 = self._two_legs(tmp_db)
+        _mark_orphaned(tmp_db, _read_trade_full(tmp_db, t1))
+        assert _read_trade(tmp_db, t1)["status"] == "orphaned"
+        pkg = _read_package(tmp_db, "P")
+        assert pkg["status"] == "open"
+        assert _linked(tmp_db) == t2
+
+    def test_watchdog_force_close_keeps_the_package_for_an_open_sibling(
+        self, tmp_db, tmp_path, monkeypatch,
+    ):
+        from src.runtime import order_monitor as _om
+        _om._PENDING_WATCHDOG_FLAT_CONFIRM.clear()
+        monkeypatch.setattr(
+            "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+            tmp_path / "p")
+        t1, t2 = self._two_legs(tmp_db)
+        c = tmp_db.connect()
+        c.execute("UPDATE order_packages SET updated_at="
+                  "datetime('now','-45 minutes'), "
+                  "created_at=datetime('now','-45 minutes')")
+        c.commit()
+        c.close()
+        with patch("src.units.accounts.clients.account_open_positions",
+                   return_value=[]):
+            _watchdog_to_close(tmp_db)
+        _om._PENDING_WATCHDOG_FLAT_CONFIRM.clear()
+        assert _read_trade(tmp_db, t1)["status"] == "closed"
+        assert _read_trade(tmp_db, t2)["status"] == "open"
+        pkg = _read_package(tmp_db, "P")
+        assert pkg["status"] == "open", "stranded the open leg t2"
+        assert _linked(tmp_db) == t2
