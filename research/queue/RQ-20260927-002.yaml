@@ -1,6 +1,6 @@
 id: RQ-20260927-002
 title: exit-head-donchian-1h-v1 recovered_R, multi-fold embargoed walk-forward
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -188,4 +188,25 @@ related:
   - RQ-20260927-001 (the single-split unit this one extends to multiple folds)
   - RQ-20260922-007 (the original, uncontrolled full-window attribution)
   - PI-20260926-96NDZSOD-0001 (independent precondition, unaffected by this unit's verdict)
-last_dispatched_at: null
+last_dispatched_at: '2026-09-27T07:18:00Z'
+
+result: >-
+  LANDED research/results/RQ-20260927-002/36302273043.jsonl (trainer-vm-diag,
+  workflow_dispatch run 36302273043, 2026-09-27). FAIL under
+  RULE-RQ0927-002-EXIT-HEAD-OOS-MULTIFOLD: pooled recovered_R_oos = -14.6597
+  over n_oos_total=1041 (mean -0.01408R/trade, pooled across all 3 folds,
+  each n=347), and only 1 of 3 folds individually positive -- fold 1
+  (test_start 2022-10-29) recovered_R_oos -13.2047, fold 2 (test_start
+  2023-12-20) -20.6382, fold 3 (test_start 2025-03-26) +19.1832. Both FAIL
+  branches of the pre-registered rule are independently met (pooled mean <=
+  0 AND fewer than 2/3 folds positive). This REVERSES RQ-20260927-001's
+  single-split PASS (+1.3127R over n=119): that unit's split
+  (2025-01-06T16:00:00Z onward) falls inside this unit's fold 3 -- the ONE
+  positive fold -- so RQ-20260927-001's own stated caveat ("a sign test at
+  one split, not a robustness-across-splits claim") is now confirmed: the
+  favourable split was not representative of the other two, earlier folds.
+  attributable_to: strategy -- exit-head-donchian-1h-v1 does not generalize
+  across splits and should NOT be promoted to advisory on recovered_R
+  evidence. PI-20260926-96NDZSOD-0001 (twin-dedup) remains an independent,
+  now largely moot precondition (this verdict already recommends against
+  promotion on its own).
