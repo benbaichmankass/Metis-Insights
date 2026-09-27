@@ -429,7 +429,7 @@ def test_modify_open_order_routes_alpaca():
     # because this caller passes no qty; the monitor's modify path passes the
     # leg row's `position_size`.
     alp_client.modify_protective.assert_called_once_with(
-        "SPY", sl=495.0, tp=None, qty=None, sole_open_row=False)
+        "SPY", sl=495.0, tp=None, qty=None)
     assert res["ok"] is True
 
 
@@ -520,8 +520,7 @@ def test_send_modify_to_exchange_ib_forwards_context(monkeypatch):
 
     def _modify(client, c, *, symbol, sl=None, tp=None,
                 side=None, qty=None, cur_sl=None, cur_tp=None,
-                sl_order_id=None, tp_order_id=None, trade_id=None,
-                sole_open_row=False):
+                sl_order_id=None, tp_order_id=None, trade_id=None):
         captured.update(
             symbol=symbol, sl=sl, tp=tp, side=side, qty=qty,
             cur_sl=cur_sl, cur_tp=cur_tp, trade_id=trade_id,
