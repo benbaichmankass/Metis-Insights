@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01BDZbyNvCSWEKSjjCNfEgTN",
+  "branch": "claude/c2-research-durable-results",
+  "claimed_at": "2026-09-27T13:46:06Z",
+  "purpose": "C2: route artifact-only research workflows through the durable research-result landing path + guard"
+}

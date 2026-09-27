@@ -284,3 +284,5 @@ jobs:
             action-output.txt
           retention-days: 7
           if-no-files-found: warn
+
+# no-durable-result: credential-rotation ops action, no verdict computed

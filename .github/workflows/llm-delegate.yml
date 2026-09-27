@@ -234,3 +234,5 @@ jobs:
           path: /tmp/out/
           if-no-files-found: warn
           retention-days: 7
+
+# no-durable-result: generic delegated-subtask worker; a subtask's own durable landing, if any, is the subtask's responsibility, not this dispatcher's

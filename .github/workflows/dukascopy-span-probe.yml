@@ -27,6 +27,18 @@
 #
 # Read-only, free lane: no VM, no trainer, writes no repo data. Each probe
 # fetches a 3-day window, so the whole run is ~66 small requests.
+#
+# LANDING (C2, 2026-09-27): this used to be upload-artifact + nothing else —
+# a real measurement that expired in 90 days with no later session able to
+# grep for it, one of the class `docs/claude/work/pipeline/…MIGR-01480…`
+# (PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT)
+# named. Now lands one `research_result.py` record PER INSTRUMENT (the
+# `.github/actions/research-result` composite action E5 already built, the
+# SAME mechanism `research-exit-head-build.yml` / `m20-exit-lever-sweep.yml`
+# use) via `scripts/research/dukascopy_span_probe_result.py` (its own
+# `--self-test`), never inline in this YAML — a mapping with real judgement
+# calls belongs in a file that can be planted with a broken input and
+# asserted against.
 name: dukascopy-span-probe
 
 on:
@@ -89,3 +101,82 @@ jobs:
             /tmp/dukascopy_span.json
             /tmp/dukascopy_span.md
           if-no-files-found: error
+
+  # ---------------------------------------------------------------- landing
+  # A SEPARATE job, mirroring research-harness-dispatch.yml / m20-exit-lever-
+  # sweep.yml: commit-to-main needs a PAT-authenticated checkout, and the probe
+  # job above (which shells out to the dukascopy-python package against a
+  # third-party venue) stays credential-free. `if: always()` because a FAILED
+  # probe is itself a result worth landing (`read_state: producer_failed` on
+  # every instrument is "we looked, and it broke" — a different, more
+  # actionable fact than silence).
+  research_result:
+    needs: [probe]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # REQUIRED by `.github/actions/commit-to-main`: it pushes with a bare
+          # `git push origin`, so it uses whatever credential the CHECKOUT
+          # configured. Under the default GITHUB_TOKEN the PR it opens never
+          # receives its required checks and auto-merge waits forever.
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/download-artifact@v4
+        id: fetch
+        continue-on-error: true
+        with:
+          name: dukascopy-span-probe
+          path: collected
+
+      - name: Map this run's JSON onto one record per instrument
+        id: derive
+        run: |
+          set -euo pipefail
+          mkdir -p rr
+          if [ -f collected/dukascopy_span.json ]; then
+            python3 scripts/research/dukascopy_span_probe_result.py \
+              --probe-json collected/dukascopy_span.json \
+              --out rr/records.jsonl
+            n=$(wc -l < rr/records.jsonl | tr -d ' ')
+          else
+            echo "::warning::no probe artifact downloaded (probe job: ${{ needs.probe.result }}) — landing a single producer_failed record."
+            printf '%s\n' '{"verdict":"not_applicable","read_state":"producer_failed","population":"dukascopy-span-probe run produced no artifact","n":null}' > rr/records.jsonl
+            n=1
+          fi
+          echo "min_rows=${n}" >> "$GITHUB_OUTPUT"
+
+      - name: Land the per-instrument results on main
+        uses: ./.github/actions/research-result
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          # Manual probe, not queue-dispatched — legally unattributed (README
+          # of the action: empty means "not queue-dispatched", not "untested").
+          research-unit: ""
+          power-state: ""
+          # Registered before this landing path's first dispatch.
+          decision-rule-id: RULE-DUKASCOPY-SPAN-FEEDS-E35-SOURCE
+          decision-rule-registered-at: '2026-09-27'
+          records-file: rr/records.jsonl
+          # ⚠️ `min-rows` IS THE FAN-OUT WIDTH (one per instrument this run
+          # probed), not 1 — a run that landed fewer records than it probed
+          # instruments is a defect, not a partial success.
+          min-rows: ${{ steps.derive.outputs.min_rows }}
+          # Unused when `records-file` is set (each part carries its own), but
+          # the action requires them; the per-instrument values win.
+          verdict: not_applicable
+          read-state: not_attempted
+          population: per-instrument; see each record
+          n: 'null'
+          artifact-store: research/results/
+          tool: scripts/research/dukascopy_span_probe.py + scripts/research/dukascopy_span_probe_result.py

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Checklist row C2 (docs/claude/work/MANAGER-CHECKLIST.json), closing pipeline item PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT. Diff is entirely .github/workflows/** (one workflow converted to land through the existing .github/actions/research-result path, 22 annotated `# no-durable-result:` as ops/deploy/relay/training workflows that legitimately compute no research verdict), scripts/ci/** (new research-workflow-landing-guard + self-test, wired into run_guards.py), scripts/research/** (new dukascopy_span_probe_result.py mapper + self-test), and docs/** (checklist row + pipeline item update). No src/, no config/, no order path, no deploy/, no live-VM runtime file — matches TIER1_SURFACE exactly."
+}

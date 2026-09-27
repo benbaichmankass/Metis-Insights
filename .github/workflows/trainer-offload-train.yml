@@ -559,3 +559,5 @@ jobs:
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.issue.number, body,
             });
+
+# no-durable-result: ML training run tracked by the model registry, not the research/results queue
