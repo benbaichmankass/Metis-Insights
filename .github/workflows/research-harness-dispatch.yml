@@ -1,0 +1,270 @@
+name: research-harness-dispatch
+
+# MANAGER-CHECKLIST.json row E7 ("Wire the 9 orphan backtest harnesses";
+# C4 is its duplicate, killed in the same push that landed this).
+#
+# BEFORE THIS WORKFLOW: nine of the thirteen scripts/backtest_*.py harnesses
+# (chop_scalp, fade, fvg_range, orb, pullback, squeeze, funding_carry, pairs,
+# xsec_momentum) plus vol_target (a tenth, counted separately below) had NO
+# WORKFLOW AT ALL — "a harness with no workflow runs when a human remembers
+# it, which is never" (E7's own note). This is the ONE dispatchable workflow
+# for that whole family, taking `harness` + a corpus (`symbol`/`timeframe`,
+# or a fixed real basket for the two harnesses that are not single-symbol) as
+# inputs, per row E7's own design instruction — not ten separate workflows.
+#
+# WHAT IT DOES NOT DO. It never passes `--data` pointing at
+# data/backtest_candles.csv (the smoke fixture) — every harness below already
+# refuses a bare invocation and resolves `--symbol`/`--timeframe` through
+# `scripts/ops/backtest_data_source.py::resolve_or_refuse` on its own (row
+# E4); this workflow's only job is to hand it a REAL, freshly-fetched corpus
+# and a symbol, never a path. `harness-dispatch-no-fixture-default-guard`
+# (scripts/ci/check_harness_dispatch_no_fixture_default.py, wired into
+# scripts/ci/run_guards.py) fails any future PR that regresses this.
+#
+# THE TEN HARNESSES AND THEIR CORPUS SHAPE:
+#   chop_scalp / fade / fvg_range / orb / pullback / squeeze / funding_carry
+#     — single-symbol `--symbol`/`--timeframe` harnesses (funding_carry also
+#       needs a funding-rate series, fetched separately — Bybit funding is
+#       geoblocked from GitHub-hosted runners the same way Bybit candles are,
+#       so this leg's dispatch may legitimately land `read_state:
+#       producer_failed` on a GH runner; that is an honest network-reach
+#       limitation, not a wiring defect, and is landed as such rather than
+#       silently retried into a fabricated pass).
+#   pairs — a two-leg spread harness; needs `symbol` AND `symbol_b`.
+#   xsec_momentum — a cross-sectional BASKET harness (>=2 assets); dispatched
+#       against a fixed real daily-ETF basket (SPY/QQQ/GLD/TLT/IWM — already
+#       in the committed corpus, so no resample step is needed to prove real
+#       cross-sectional wiring; the harness itself is symbol-agnostic despite
+#       its crypto-framed docstring).
+#   vol_target — a pure OVERLAY over another harness's own daily trade
+#       series; it has no raw-candle corpus of its own, so this dispatch runs
+#       `backtest_squeeze.py --emit-trades` first (same symbol/timeframe,
+#       same run) and feeds vol_target from that.
+#
+# LANDING: a durable `research_result.py` record via the existing
+# `.github/actions/research-result` composite action — the SAME mechanism
+# `research-exit-head-build.yml` already uses (R1/E5). The mapping from this
+# run's own JSON summary to verdict/read_state/population/n lives in
+# `scripts/research/harness_dispatch_result.py` (its own `--self-test`), not
+# in this YAML — a transform embedded here could not be planted with a
+# broken input and asserted against.
+#
+# Tier-1: runs entirely on the GitHub-hosted runner, reads public market data,
+# writes only `research/results/**`. No live path, no order path, no VM.
+
+on:
+  workflow_dispatch:
+    inputs:
+      harness:
+        description: "Which E7 harness to dispatch"
+        required: true
+        type: choice
+        options:
+          - chop_scalp
+          - fade
+          - fvg_range
+          - orb
+          - pullback
+          - squeeze
+          - funding_carry
+          - pairs
+          - xsec_momentum
+          - vol_target
+      symbol:
+        description: "Primary symbol (base/only leg; ignored by xsec_momentum)"
+        default: "BTCUSDT"
+      symbol_b:
+        description: "Second leg symbol — pairs only"
+        default: "ETHUSDT"
+      timeframe:
+        description: "Candle timeframe — ignored by xsec_momentum (fixed 1d basket)"
+        default: "1h"
+      research_unit:
+        description: "RQ-YYYYMMDD-NNN if this run is queue-dispatched (blank if not)"
+        default: ""
+      power_state:
+        description: "Pass-through dispatcher power-state, if any"
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-harness-dispatch-${{ github.event.inputs.harness }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas pyyaml requests
+
+      - name: Fetch corpus and run the harness
+        id: run
+        env:
+          HARNESS: ${{ inputs.harness }}
+          SYM: ${{ inputs.symbol }}
+          SYM_B: ${{ inputs.symbol_b }}
+          TF: ${{ inputs.timeframe }}
+        run: |
+          set -euo pipefail
+
+          fetch() {
+            # The one owner of (symbol, timeframe) -> data/<SYMBOL>_<tf>.csv —
+            # see scripts/reference/backtest-data-loading.md. Never re-derived
+            # here.
+            python3 scripts/ops/fetch_backtest_corpus.py --symbol "$1" --timeframe "$2"
+          }
+
+          case "$HARNESS" in
+            chop_scalp|fade|fvg_range|orb|pullback|squeeze)
+              fetch "$SYM" "$TF"
+              python3 "scripts/backtest_${HARNESS}.py" \
+                --symbol "$SYM" --timeframe "$TF" \
+                --json result.json --emit-trades trades.jsonl
+              ;;
+            funding_carry)
+              fetch "$SYM" "$TF"
+              # Bybit funding, like Bybit candles, is geoblocked from a
+              # GH-hosted runner's IP — NO swallowing here (`set -euo
+              # pipefail` above already means a failed fetch fails this
+              # step): the run correctly lands `read_state: producer_failed`,
+              # an honest network-reach limitation rather than a fabricated
+              # pass with an empty/missing funding series quietly used.
+              python3 scripts/ops/fetch_bybit_funding.py --symbol "$SYM" --days 180 \
+                --output "data/${SYM}_funding.csv"
+              python3 scripts/backtest_funding_carry.py \
+                --symbol "$SYM" --timeframe "$TF" \
+                --funding-data "data/${SYM}_funding.csv" \
+                --json result.json --emit-trades trades.jsonl
+              ;;
+            pairs)
+              fetch "$SYM" "$TF"
+              fetch "$SYM_B" "$TF"
+              python3 scripts/backtest_pairs.py \
+                --symbol-a "$SYM" --symbol-b "$SYM_B" \
+                --data-a "data/${SYM}_${TF}.csv" --data-b "data/${SYM_B}_${TF}.csv" \
+                --timeframe "$TF" \
+                --json result.json --emit-trades trades.jsonl
+              ;;
+            xsec_momentum)
+              # Fixed real daily-ETF basket — already in the committed corpus
+              # at 1d, so no resample step is needed to prove the harness runs
+              # end-to-end against real, non-fixture data. The harness is
+              # symbol-agnostic; its docstring's crypto framing is a research
+              # label, not a mechanism constraint.
+              for s in SPY QQQ GLD TLT IWM; do fetch "$s" 1d; done
+              python3 scripts/backtest_xsec_momentum.py \
+                --asset "SPY=data/SPY_1d.csv" --asset "QQQ=data/QQQ_1d.csv" \
+                --asset "GLD=data/GLD_1d.csv" --asset "TLT=data/TLT_1d.csv" \
+                --asset "IWM=data/IWM_1d.csv" \
+                --json result.json
+              ;;
+            vol_target)
+              # A pure overlay over another harness's own daily trade series —
+              # it has no candle corpus of its own. Run squeeze first (same
+              # symbol/timeframe, same job) and feed vol_target from ITS
+              # --emit-trades output.
+              fetch "$SYM" "$TF"
+              python3 scripts/backtest_squeeze.py \
+                --symbol "$SYM" --timeframe "$TF" \
+                --emit-trades base_trades.jsonl --json base_result.json
+              python3 scripts/backtest_vol_target.py \
+                --trades base_trades.jsonl --json result.json
+              ;;
+            *)
+              echo "::error::unknown harness ${HARNESS}"
+              exit 1
+              ;;
+          esac
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-harness-dispatch-${{ inputs.harness }}-${{ github.run_id }}
+          path: |
+            result.json
+            base_result.json
+            trades.jsonl
+            base_trades.jsonl
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------- landing
+  # A SEPARATE job, mirroring research-exit-head-build.yml: commit-to-main
+  # needs a PAT-authenticated checkout, and giving the build job (which runs
+  # a chosen research script against freshly-fetched market data) write
+  # credentials would widen the blast radius of the one job that isn't purely
+  # this repo's own code. `if: always()` because a FAILED build is itself a
+  # result worth landing (`read_state: producer_failed` is "we looked, and it
+  # broke" — a different, more actionable fact than silence).
+  research_result:
+    needs: [build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/download-artifact@v4
+        id: fetch
+        continue-on-error: true
+        with:
+          name: research-harness-dispatch-${{ inputs.harness }}-${{ github.run_id }}
+          path: collected
+
+      - name: Derive the result record from this run's own output
+        id: derive
+        env:
+          IN_HARNESS: ${{ inputs.harness }}
+          IN_SYMBOL: ${{ inputs.harness == 'xsec_momentum' && 'SPY,QQQ,GLD,TLT,IWM' || inputs.symbol }}
+          IN_TF: ${{ inputs.harness == 'xsec_momentum' && '1d' || inputs.timeframe }}
+        run: |
+          set -euo pipefail
+          python3 scripts/research/harness_dispatch_result.py \
+            --harness "${IN_HARNESS}" --symbol "${IN_SYMBOL}" --timeframe "${IN_TF}" \
+            --build-result "${{ needs.build.result }}" \
+            --result-json collected/result.json \
+            --out-dir rr
+
+      - name: Land the result on main
+        uses: ./.github/actions/research-result
+        with:
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          research-unit: ${{ inputs.research_unit }}
+          power-state: ${{ inputs.power_state }}
+          decision-rule-id: RULE-E7-HARNESS-DISPATCHABLE
+          decision-rule-registered-at: '2026-09-27'
+          verdict: ${{ steps.derive.outputs.verdict }}
+          read-state: ${{ steps.derive.outputs.read_state }}
+          population: ${{ steps.derive.outputs.population }}
+          n: ${{ steps.derive.outputs.n }}
+          tool: scripts/backtest_${{ inputs.harness }}.py
+          measurement-file: rr/measurement.json
+          artifact-store: research/results/
+          artifact-locator: >-
+            the `measurement` block on this record. `result.json` /
+            `trades.jsonl` are expiring run artifacts (retention-days 14, not
+            committed) — MEASURED (source not durably retrievable beyond that
+            window).
