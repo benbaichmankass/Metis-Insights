@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "E7: one new dispatchable workflow (research-harness-dispatch.yml) for the ten orphan scripts/backtest_*.py harnesses, its result-derivation script and CI guard (scripts/research/**, scripts/ci/**), the workflow-catalog row, the E7 checklist note, and two pipeline filings (docs/**) -- all inside TIER1_SURFACE. No config/, no live src/, no roster change, no order path, no VM."
+}
