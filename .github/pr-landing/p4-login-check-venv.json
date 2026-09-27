@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "VM action script (scripts/ops/breakout_login_check_action.sh) that provisions the browser venv and runs sudo apt-get on the live VM; manager merges (operator-directed P4 Breakout DXtrade build, issue #13210).",
+  "why": "runtime/system-action script touching VM package install + venv provisioning, Tier-2 by path"
+}
