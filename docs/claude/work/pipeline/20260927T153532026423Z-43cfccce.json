@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either send_test_ping.py no longer writes a real emitted-status journal row (or the reticket-suppression guard explicitly excludes test-ping tickets), the three now-false \"nothing journaled\" doc/comment claims are corrected, and a regression test exists asserting this — or the operator has reviewed the finding and explicitly decided not to change it.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-CAA07-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A07 code audit lane, session_01CFHeaBLPVuLw2V2LvHWuCE, docs/audits/code-audit-2026-09-27/CA-A07.findings.jsonl",
+    "rerun": "Read src/prop/breakout_executor.py::emit_prop_ticket in full and confirm the prop_journal.record_ticket call (status=\"emitted\") still runs unconditionally on leg.decision==\"place\" ahead of the _emitter branch; grep for tests/test_prop_send_test_ping*.py to see if coverage now exists."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-11 fixed in PR #13246: send_test_ping journals status=test_ping (not emitted), the reticket guard no longer sees it, the 3 false claims are corrected; regression test tests/test_prop_send_test_ping.py (fails on main 7d002927).",
+  "what": "CA-A07 code audit: scripts/prop/send_test_ping.py (the send-prop-test-ping Tier-1 system-action) is documented in 3 places (its own docstring, scripts/ops/send_prop_test_ping_action.sh, docs/claude/system-actions.md) as 'nothing journaled', but breakout_executor.emit_prop_ticket unconditionally writes a real 'emitted' ticket to prop_journal whenever leg.decision=='place', regardless of the _emitter injection used by --no-push/--no-telegram. With the action's own defaults (breakout_1, SOLUSDT, long, 1h) that row exactly matches the account's real routed strategy/symbol/direction and can silently suppress a genuine subsequent trend_donchian_sol/eth signal via _reticket_suppress_reason for up to ~1h (its TTL). Finding: AUD-20260927-CA-A07-testping-journals-and-can-suppress-real-trade in docs/audits/code-audit-2026-09-27/CA-A07.findings.jsonl. Tier-2 fix needed (exclude test-ping tickets from the reticket-suppression status check, or route the test ping through a path that never journals status='emitted'), plus a regression test (none exists today) asserting the journal/suppression state is unaffected by a test-ping invocation."
+}

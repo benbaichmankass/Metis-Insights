@@ -162,6 +162,22 @@ jobs:
           ENVF=/tmp/ib-livetest.env.staged
           IMAGE="ghcr.io/gnzsnz/ib-gateway:stable"
           echo ">>> host: $(hostname) [$(hostname -I 2>/dev/null | awk '{print $1}')]"
+          # --- auth_log_filter BEGIN (tested: tests/ops/test_ib_login_test_log_filter.py)
+          # The log tail below is posted into a PUBLIC issue comment / step
+          # summary. FIX-CA-18: a fixed allowlist of IBC status PHRASES (fixed
+          # strings, not bare words like password/incorrect/denied that also
+          # match a line carrying a raw value), then a hard drop of any line
+          # that mentions a credential at all, whatever phrase it matched.
+          auth_log_filter() {
+            grep -iF \
+                -e 'login has completed' -e 'second factor' -e 'could not find' \
+                -e 'in the list' -e 'select device' -e 'existing session' \
+                -e 'competing' -e 'already logged' -e 'starting application' \
+                -e 'farm connection' -e 'paper log in' -e 'live log in' \
+                -e 'login failed' \
+              | grep -viE 'passw|pwd|secret|token|credential|user ?(id|name)|_user|denied|incorrect|invalid'
+          }
+          # --- auth_log_filter END
           command -v docker >/dev/null 2>&1 || { echo "docker not found"; rm -f "$ENVF"; exit 1; }
           # Guarantee teardown + cred shred on ANY exit — no lingering live session.
           cleanup() { sudo docker rm -f "$NAME" >/dev/null 2>&1 || true; sudo rm -f "$ENVF" 2>/dev/null || true; }
@@ -197,7 +213,7 @@ jobs:
           # the EXACT picker label if TWOFA_DEVICE didn't match — pass the right
           # one back via the issue-body `device:` line on the next run.
           sudo docker logs --since 8m "$NAME" 2>&1 \
-            | grep -iE 'second[ -]?factor|2fa|authenticat|could not find|in the list|select.*device|login has completed|paper log in|live log in|log in|farm connection|existing session|competing|already logged|invalid|incorrect|password|denied|rejected|starting application' \
+            | auth_log_filter \
             | tail -60 || true
           echo
           echo ">>> tearing down test container (trap will also run)"

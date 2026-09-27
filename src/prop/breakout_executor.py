@@ -136,6 +136,7 @@ def emit_prop_ticket(
     *,
     timeframe: Optional[str] = None,
     _emitter: Any = None,
+    test_ping: bool = False,
 ) -> str:
     """Build this account's leg from its ruleset and emit it as a ``prop_signal``.
 
@@ -154,6 +155,13 @@ def emit_prop_ticket(
 
     ``_emitter`` is an injection seam for tests (defaults to
     ``src.prop.breakout_notify.emit_prop_signal``).
+
+    ``test_ping=True`` (the ``send-prop-test-ping`` action only) journals the
+    ticket as ``status='test_ping'`` instead of ``'emitted'`` and skips the
+    exit-ladder soak record. FIX-CA-11: an ``emitted`` row is what
+    ``_reticket_suppress_reason`` (and the expiry/invalidation/reconcile
+    scans) key on, so a synthetic test ticket used to suppress the next real
+    signal for the same (account, symbol, direction) until it expired.
     """
     from src.prop.breakout_ticket import BreakoutSignal
     from src.prop.multi_account_ticket import build_account_leg
@@ -322,21 +330,23 @@ def emit_prop_ticket(
     # P3 observe-only soak: log the laddered ticket that WOULD be emitted (the
     # materialized ExitPlan sized against this leg) next to the single-target
     # ticket actually sent. Best-effort — never changes or blocks the emission.
-    try:
-        from src.runtime.exit_ladder_soak import record_exit_ladder_soak
-        record_exit_ladder_soak(
-            venue="prop",
-            strategy=sig.strategy, symbol=symbol, direction=sig.direction,
-            entry=sig.entry, sl=sig.sl, tp=sig.tp, qty=leg.ticket.qty_units,
-            account_id=account_id,
-            account_class=str(getattr(leg, "account_class", "") or ""),
-            timeframe=sig.timeframe,
-            order_meta=(order.get("meta") if isinstance(order.get("meta"), dict) else None),
-            extra={"side": leg.ticket.side, "rr": leg.ticket.rr,
-                   "qty_units": leg.ticket.qty_units},
-        )
-    except Exception as exc:  # noqa: BLE001 — observe-only metadata
-        logger.debug("exit_ladder_soak(prop) skipped for %s: %s", symbol, exc)
+    # A synthetic test ping is not a signal, so it records no soak row.
+    if not test_ping:
+        try:
+            from src.runtime.exit_ladder_soak import record_exit_ladder_soak
+            record_exit_ladder_soak(
+                venue="prop",
+                strategy=sig.strategy, symbol=symbol, direction=sig.direction,
+                entry=sig.entry, sl=sig.sl, tp=sig.tp, qty=leg.ticket.qty_units,
+                account_id=account_id,
+                account_class=str(getattr(leg, "account_class", "") or ""),
+                timeframe=sig.timeframe,
+                order_meta=(order.get("meta") if isinstance(order.get("meta"), dict) else None),
+                extra={"side": leg.ticket.side, "rr": leg.ticket.rr,
+                       "qty_units": leg.ticket.qty_units},
+            )
+        except Exception as exc:  # noqa: BLE001 — observe-only metadata
+            logger.debug("exit_ladder_soak(prop) skipped for %s: %s", symbol, exc)
 
     # Record the OUTBOUND ticket to the prop journal so the inbound report-back
     # (P2) can reconcile a fill against it and un-acted tickets are detectable
@@ -370,7 +380,7 @@ def emit_prop_ticket(
             "risk_usd": leg.ticket.risk_usd,
             "signal_time": sig.signal_time.isoformat(),
             "valid_until": leg.ticket.valid_until.isoformat(),
-            "status": "emitted",
+            "status": "test_ping" if test_ping else "emitted",
             # The execute_pkg breakout branch passes the package id in
             # order["meta"]["order_package_id"] (the order dict has no top-level
             # key), so the previous order.get("order_package_id") was ALWAYS
