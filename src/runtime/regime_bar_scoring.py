@@ -513,8 +513,10 @@ def emit_regime_bar_predictions(
                 )
 
                 if group_needs_forecast(group):
+                    # bar_ts = the closed bar being scored: a forecast
+                    # not aligned to it is refused + counted (FIX-CA-24).
                     forecast_row = compute_live_forecast_row(
-                        symbol, timeframe=timeframe,
+                        symbol, timeframe=timeframe, bar_ts=bar_ts,
                     )
             except Exception:  # noqa: BLE001 — never break the tick
                 forecast_row = None

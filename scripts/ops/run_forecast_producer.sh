@@ -13,8 +13,12 @@
 # CPU model, sub-second per symbol; the real per-run cost is the per-symbol
 # Bybit candle fetch. Best-effort: a fetch / dep failure logs and exits
 # non-zero (the timer just retries next cycle) without touching anything the
-# live path reads — a stale/absent artifact makes forecast_live return None
-# (fail-permissive), never a fabricated row.
+# live path reads. An ABSENT artifact makes forecast_live return None. A STALE
+# one (a failed run leaves the last artifact in place) is refused by the live
+# per-bar scorer only because src/runtime/forecast_live.py compares the
+# artifact's as_of_ts with the bar being scored (FIX-CA-24, >1 bar behind →
+# None + fc_stale counter); before that check this comment claimed a
+# protection that did not exist.
 #
 # Env knobs:
 #   REPO_ROOT           — defaults to /home/ubuntu/ict-trading-bot

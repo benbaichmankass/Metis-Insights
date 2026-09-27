@@ -760,3 +760,23 @@ def test_signal_time_shadow_preds_score_closed_bars(tmp_path, monkeypatch):
     ssb._emit_shadow_preds("s", sig, {}, "BTCUSDT", timeframe="5m",
                            candles_df=_FrameLike(rows))
     assert pred.wrapped.calls and pred.wrapped.calls[0]["vol_bucket"] == "vol_b0"
+
+
+def test_forecast_read_is_bar_aligned_to_scored_closed_bar(tmp_path, monkeypatch):
+    """FIX-CA-24: the per-bar scorer passes the scored CLOSED bar's ts to the
+    forecast reader so a frozen artifact can be refused."""
+    import src.runtime.forecast_live as fl
+
+    seen_bar = {}
+    monkeypatch.setattr(fl, "group_needs_forecast", lambda g: True)
+    monkeypatch.setattr(
+        fl, "compute_live_forecast_row",
+        lambda symbol, timeframe=None, bar_ts=None: seen_bar.setdefault("ts", bar_ts),
+    )
+    pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
+    frame = TestFormingBarTrim()._forming_frame()
+    emit_regime_bar_predictions(
+        predictors=[pred], fetch_fn=lambda s, t: frame,
+        seen={}, wall_cache={}, now=lambda: TestFormingBarTrim.NOW,
+    )
+    assert seen_bar["ts"] == frame["timestamp"][-2]

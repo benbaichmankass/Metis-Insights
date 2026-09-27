@@ -380,3 +380,31 @@ class TestRouterMounted:
         assert "/api/bot/shadow/predictions" in spec["paths"]
         assert "/api/bot/shadow/stats" in spec["paths"]
         assert "/api/bot/shadow/drift" in spec["paths"]
+
+
+class TestForecastServeBlock:
+    """FIX-CA-24: /stats surfaces the served forecast's bar lag."""
+
+    def test_not_written_when_absent(self, client):
+        c, log = client
+        body = c.get("/api/bot/shadow/stats").json()
+        assert body["forecast_serve"]["read_state"] == "not_written"
+        assert body["forecast_serve"]["status"] is None
+
+    def test_observed_status_is_surfaced(self, client):
+        c, log = client
+        log.parent.mkdir(parents=True, exist_ok=True)
+        (log.parent / "forecast_live_status.json").write_text(json.dumps({
+            "counters": {"fc_served": 3, "fc_stale": 1},
+            "symbols": {"BTCUSDT": {"served": False, "lag_bars": 960}},
+        }))
+        fs = c.get("/api/bot/shadow/stats").json()["forecast_serve"]
+        assert fs["read_state"] == "observed"
+        assert fs["status"]["symbols"]["BTCUSDT"]["lag_bars"] == 960
+
+    def test_unreadable_is_distinct(self, client):
+        c, log = client
+        log.parent.mkdir(parents=True, exist_ok=True)
+        (log.parent / "forecast_live_status.json").write_text("{not json")
+        fs = c.get("/api/bot/shadow/stats").json()["forecast_serve"]
+        assert fs["read_state"] == "unreadable"
