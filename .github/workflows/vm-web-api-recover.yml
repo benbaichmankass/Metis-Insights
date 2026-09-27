@@ -265,3 +265,5 @@ jobs:
               state: 'closed',
               state_reason: 'not_planned'
             });
+
+# no-durable-result: ops recovery action, no verdict computed

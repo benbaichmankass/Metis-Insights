@@ -2061,3 +2061,5 @@ jobs:
               state: 'closed',
               state_reason: isSuccess ? 'completed' : 'not_planned'
             });
+
+# no-durable-result: ops dispatcher for the system-action allowlist, no verdict computed

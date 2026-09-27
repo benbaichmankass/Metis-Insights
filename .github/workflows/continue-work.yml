@@ -242,3 +242,5 @@ jobs:
           path: ${{ env.HANDOFF_FILE }}
           retention-days: 7
           if-no-files-found: warn
+
+# no-durable-result: session-handoff mechanism; validates/surfaces a handoff artifact, computes no research verdict

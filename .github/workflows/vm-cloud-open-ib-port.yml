@@ -270,3 +270,5 @@ jobs:
             apply.err
           retention-days: 7
           if-no-files-found: warn
+
+# no-durable-result: ops mutation (firewall rule), no verdict computed
