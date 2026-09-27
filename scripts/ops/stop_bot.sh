@@ -119,6 +119,18 @@ else
     log "WARNING: trade journal not found — open-position report is UNREAD, not empty."
 fi
 
+# THE GIT-SYNC HOLD (PI-20260927-YDVVYLKH-0002). ict-git-sync runs
+# deploy_pull_restart.sh every ~5 min and used to `systemctl restart` every
+# ict-*.service whenever main advanced -- which STARTS a stopped unit. On
+# 2026-09-27 that revived this stop twice inside 7 min and the cancels the stop
+# was taken for hit Error 326. The marker tells git-sync not to start the
+# trader; start/restart-bot-service and pull-and-deploy clear it. Written BEFORE
+# the stop so a sync tick landing between the two cannot revive it.
+mkdir -p "$(dirname "${TRADER_STOP_MARKER}")"
+printf '{"stopped_at": "%s", "action": "stop-bot-service", "pre": "%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${pre_state}" > "${TRADER_STOP_MARKER}"
+log "Wrote operator-stop marker ${TRADER_STOP_MARKER} (git-sync will not start ${UNIT})."
+
 log "Stopping ${UNIT}…"
 "${SYSTEMCTL[@]}" stop "${UNIT}"
 heal_devnull || true

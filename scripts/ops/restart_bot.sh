@@ -76,6 +76,10 @@ if [ -f "${INSTALL_UNITS}" ]; then
     fi
 fi
 
+# An explicit restart is an explicit start: release any git-sync hold
+# stop_bot.sh placed (PI-20260927-YDVVYLKH-0002).
+clear_trader_stop_marker "restart-bot-service"
+
 log "Restarting ${UNIT}…"
 "${SYSTEMCTL[@]}" restart "${UNIT}"
 

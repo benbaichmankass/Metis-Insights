@@ -245,3 +245,48 @@ def test_refusal_note_names_the_code_that_came_back(monkeypatch):
     _, out = _run(monkeypatch, [[_ORDER_6]], ["--order-id", "6", "--apply"],
                   cancel=_REFUSED)
     assert "10147" in out["note"]
+
+
+# PI-20260927-YDVVYLKH-0003. IBKR 10148 "cannot be cancelled, state:
+# PendingCancel" means a cancel is ALREADY in flight, not that the venue refused.
+# Measured 2026-09-27 on ib_paper MES 907 (#13216): its OCA sibling 906 had just
+# been cancelled, and the tool graded 907 `refused_by_venue` with a note saying
+# the order "is still resting" and nothing would change that.
+
+_PENDING_CANCEL = {"retCode": 1, "retMsg": "venue REFUSED the cancel",
+                   "refusal": {"code": 10148,
+                               "message": "OrderId 907 that needs to be cancelled "
+                                          "cannot be cancelled, state: PendingCancel."}}
+
+
+def test_10148_pending_cancel_is_in_flight_not_refused(monkeypatch):
+    rc, out = _run(monkeypatch, [[_ORDER_6]], ["--order-id", "6", "--apply"],
+                   cancel=_PENDING_CANCEL)
+    assert rc == 3  # unconfirmed, not a failure (1) and not "gone" (0)
+    assert out["action"] == "cancel_in_flight"
+    assert out["verify_state"] == "pending_cancel"
+    assert out["venue_event"]["code"] == 10148
+    assert "refusal" not in out
+    assert "still resting" not in out["note"]
+    assert "Do NOT re-issue" in out["note"]
+
+
+def test_10148_other_state_stays_a_refusal(monkeypatch):
+    """Allowlist: only PendingCancel is in flight; any other 10148 is loud."""
+    other = {"retCode": 1, "retMsg": "venue REFUSED the cancel",
+             "refusal": {"code": 10148,
+                         "message": "OrderId 6 that needs to be cancelled cannot "
+                                    "be cancelled, state: Filled."}}
+    rc, out = _run(monkeypatch, [[_ORDER_6]], ["--order-id", "6", "--apply"],
+                   cancel=other)
+    assert rc == 1
+    assert out["action"] == "refused_by_venue"
+
+
+def test_pending_cancel_text_under_another_code_stays_a_refusal():
+    assert mod._is_cancel_in_flight({"code": 10148, "message": "state: PendingCancel"})
+    assert mod._is_cancel_in_flight({"code": "10148", "message": "state:pendingcancel"})
+    assert not mod._is_cancel_in_flight({"code": 10147, "message": "state: PendingCancel"})
+    assert not mod._is_cancel_in_flight({"code": 10148, "message": None})
+    assert not mod._is_cancel_in_flight({"code": "x", "message": "state: PendingCancel"})
+    assert not mod._is_cancel_in_flight(None)

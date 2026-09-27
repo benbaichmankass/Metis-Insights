@@ -435,6 +435,36 @@ if [ "${#ICT_UNITS[@]}" -eq 0 ]; then
     ICT_UNITS=(ict-trader-live.service ict-web-api.service ict-telegram-bot.service)
 fi
 
+# ---------------------------------------------------------------------------
+# PI-20260927-YDVVYLKH-0002: `systemctl restart` STARTS an inactive unit, so this
+# loop used to revive a trader the operator had stopped on purpose. MEASURED
+# 2026-09-27: stop-bot-service stopped ict-trader-live at 14:15:23Z; this script
+# restarted it at 14:16:59Z and 14:22:27Z, and the forced IB cancels the stop
+# was taken for hit Error 326 (clientId 497 held by the revived trader).
+#
+# Two holds, neither of which gives up the stale-code redeploy of a RUNNING
+# trader (BL-20260714-DEPLOY-STALE-ON-OOB-SYNC):
+#
+#   1. ict-trader-live: stop_bot.sh writes TRADER_STOP_MARKER; start/restart-
+#      bot-service and pull-and-deploy clear it. While it exists AND the trader
+#      is not active, skip it -- never start it from here. A marker with an
+#      ACTIVE trader is stale (someone started it by another path), so it is
+#      removed and the trader is restarted as before. Without a marker the
+#      behaviour is unchanged, including reviving a crashed/failed trader.
+#      Path must match scripts/ops/_lib.sh::TRADER_STOP_MARKER (this script
+#      cannot source _lib.sh; a test pins the two).
+#   2. ict-liveness-watchdog.service is the timer's ONESHOT payload
+#      (check_heartbeat.py, which can itself `systemctl restart` the trader).
+#      Restarting it runs one watchdog check, so doing that while
+#      pause-autoheal has stopped its timer re-arms the dead-man switch the
+#      operator paused. Skip it whenever the timer is not active; when the
+#      timer is active it fires within 60 s anyway.
+# ---------------------------------------------------------------------------
+TRADER_UNIT="ict-trader-live.service"
+TRADER_STOP_MARKER="${REPO_DIR}/runtime_logs/trader_operator_stop.json"
+WATCHDOG_ONESHOT="ict-liveness-watchdog.service"
+WATCHDOG_TIMER="ict-liveness-watchdog.timer"
+
 echo ">>> Restarting services (enumeration: ${#ICT_UNITS[@]} ict-* unit(s))..."
 RESTARTED_UNITS=()
 for unit in "${ICT_UNITS[@]}"; do
@@ -448,6 +478,22 @@ for unit in "${ICT_UNITS[@]}"; do
     if [ "${skip}" -eq 1 ]; then
         echo ">>>   skip ${unit} (in DEPLOY_RESTART_SKIP)"
         continue
+    fi
+    if [ "${unit}" = "${TRADER_UNIT}" ] && [ -f "${TRADER_STOP_MARKER}" ]; then
+        trader_state="$("${SYSTEMCTL[@]}" is-active "${unit}" 2>/dev/null || true)"
+        if [ "${trader_state}" != "active" ]; then
+            echo ">>>   hold ${unit} (operator stop marker present, unit '${trader_state:-unknown}') — NOT starting it; start-bot-service releases the hold."
+            continue
+        fi
+        echo ">>>   ${unit} is active despite an operator stop marker — marker is stale; removing it and restarting as normal."
+        rm -f "${TRADER_STOP_MARKER}" 2>/dev/null || true
+    fi
+    if [ "${unit}" = "${WATCHDOG_ONESHOT}" ]; then
+        wd_timer_state="$("${SYSTEMCTL[@]}" is-active "${WATCHDOG_TIMER}" 2>/dev/null || true)"
+        if [ "${wd_timer_state}" != "active" ]; then
+            echo ">>>   skip ${unit} (${WATCHDOG_TIMER} is '${wd_timer_state:-unknown}' — autoheal paused; not re-running the watchdog)"
+            continue
+        fi
     fi
     if "${SYSTEMCTL[@]}" restart "${unit}"; then
         echo ">>>   restarted ${unit}"

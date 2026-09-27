@@ -113,6 +113,12 @@ PRE_UNIT_FP="$(unit_start_fingerprint)"
 log "Pre-deploy HEAD: ${PRE_HEAD}"
 log "Pre-deploy state of ${UNIT}: ${PRE_UNIT_STATE}"
 
+# pull-and-deploy is an explicit operator deploy that verifies the trader is
+# active afterwards, so it releases the git-sync hold stop_bot.sh placed
+# (PI-20260927-YDVVYLKH-0002); otherwise deploy_pull_restart.sh would honour it
+# and this wrapper would then fail its own post-state check.
+clear_trader_stop_marker "pull-and-deploy"
+
 echo "===== running deploy_pull_restart.sh ====="
 # Don't capture into a variable — let stdout/stderr stream so the
 # workflow's run-log shows progress in real time.
