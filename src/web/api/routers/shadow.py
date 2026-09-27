@@ -25,7 +25,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -37,6 +37,7 @@ from ml.shadow.inspector import (
     iter_records,
     mean_cadence_seconds,
     resolve_soak_start,
+    rotated_log_paths,
     soak_start_basis,
     stage_entry_times,
     stage_registration_times,
@@ -120,6 +121,23 @@ def _log_path() -> Path:
     # helper so DATA_DIR / RUNTIME_LOGS_DIR overrides apply.
     override = os.environ.get("SHADOW_PREDICTIONS_LOG")
     return Path(override) if override else runtime_logs_dir() / "shadow_predictions.jsonl"
+
+
+def _iter_active_and_rotated(log: Path) -> tuple[Iterator[Any], list[Path]]:
+    """Records from *log* UNION every rotated archive beside it.
+
+    ``ict-shadow-log-rotate.timer`` renames the active log to a dated archive
+    roughly every 25-29 days (production-observed cadence) and starts a fresh
+    empty file. Reading only ``log`` therefore truncates any reference window
+    longer than that cadence at the last rotation boundary — the drift
+    endpoint's default ``reference_days=30`` is exactly such a window
+    (PI-20260927-YZRZQ725-0001 / review-pack D1). Returns the merged record
+    iterator plus the archive paths that were actually read, so the caller can
+    disclose them rather than silently widening the read.
+    """
+    archives = rotated_log_paths(log)
+    records = (r for p in (log, *archives) for r in iter_records(p))
+    return records, archives
 
 
 def _parse_since(raw: str | None) -> datetime | None:
@@ -215,8 +233,13 @@ def drift(
     now = datetime.now(timezone.utc)
     current_start = now - timedelta(days=current_days)
     reference_start = current_start - timedelta(days=reference_days)
+    # UNION active + rotated archives so a reference window longer than the
+    # rotation cadence (~25-29d observed, vs. this endpoint's 30d default) is
+    # actually filled, rather than truncated at the last rotation boundary.
+    # See `_iter_active_and_rotated` (PI-20260927-YZRZQ725-0001 / D1).
+    merged_records, archives = _iter_active_and_rotated(log)
     all_records = list(filter_records(
-        iter_records(log), model_id=model_id, stage=stage,
+        merged_records, model_id=model_id, stage=stage,
     ))
     reference_scores = [
         r.score for r in all_records
@@ -235,6 +258,20 @@ def drift(
         "current_window_start": current_start.isoformat(),
         "reference_count": len(reference_scores),
         "current_count": len(current_scores),
+        # Provenance for the union read above: a reader can tell "the window
+        # was filled from the active log alone" from "rotation made this a
+        # multi-file read" without re-deriving it from the filesystem.
+        "rotated_logs_read": {
+            "count": len(archives),
+            "paths": [str(p) for p in archives],
+            "note": (
+                "Archives from ict-shadow-log-rotate.timer whose records fell "
+                "inside [reference_window_start, now) and were folded into "
+                "reference_count/current_count above. count:0 means either "
+                "no rotation has happened yet, or none exists next to the "
+                "active log at log_path — not that the window is unfilled."
+            ),
+        },
     }
     if not reference_scores or not current_scores:
         return {**base_envelope, "verdict": "insufficient_data"}
