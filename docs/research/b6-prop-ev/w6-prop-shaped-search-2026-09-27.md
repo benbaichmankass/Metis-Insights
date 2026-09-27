@@ -136,7 +136,7 @@ baseline's p5 is itself negative). None raises both the p5 and the point EV on
 any seed.
 
 The likely mechanism is visible in how the simulator is built.
-`room` sizing gives each new ticket at most 33% of the binding cushion. With
+`room` sizing gives each new ticket at most 33% of the binding cushion <!-- population-ok: a config parameter (breakout.yaml sizing.room.k = 0.33), not a measured rate -->. With
 more legs open at the same time, each ticket is smaller and more tickets are
 skipped. Correlated losses also land on the same $150 daily-loss limit on the
 same day. The sim prices this directly, as a shared balance and overlapping
