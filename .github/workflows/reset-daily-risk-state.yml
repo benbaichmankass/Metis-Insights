@@ -15,7 +15,18 @@ on:
 
 jobs:
   reset:
-    if: contains(github.event.issue.labels.*.name, 'reset-daily-risk-state')
+    # Actor-guard (FIX-CA-16 / CA-A13-gpu-burst-actor-guard class): owner (or
+    # repo automation) only. The label gate alone restricts nothing — opening
+    # an issue with any label is something every visitor to this public repo
+    # can do — and this job holds VM_SSH_KEY and SSHes into the live trading
+    # VM. Mirrors the convention every other issues-triggered secret-holding
+    # workflow in this repo already uses (system-actions.yml,
+    # vm-ib-gateway-live-login-test.yml). Found by
+    # scripts/ci/check_workflow_actor_guard.py while landing FIX-CA-16.
+    if: |
+      contains(github.event.issue.labels.*.name, 'reset-daily-risk-state') &&
+      (github.event.issue.user.login == github.repository_owner ||
+       github.event.issue.user.login == 'github-actions[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:

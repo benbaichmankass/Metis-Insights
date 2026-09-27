@@ -182,6 +182,26 @@ GUARDS: List[Dict[str, Any]] = [
                    "--self-test"],
                   ["python3", "scripts/ci/check_action_input_wiring.py"]],
     },
+    {
+        # FIX-CA-16 / CA-A13-gpu-burst-actor-guard, 2026-09-27: the label gate
+        # alone on an `issues:`-triggered workflow restricts nothing — opening
+        # an issue with any label is something every visitor to this public
+        # repo can do. `gpu-burst-train.yml` held five provider/VM secrets
+        # behind exactly that gate with no actor-identity check, unlike the
+        # ~27 sibling issues-triggered secret-holding workflows that AND the
+        # label check with `issue.user.login == repository_owner` (or the
+        # bot). This guard is the permanent detector so the next privileged
+        # issues-triggered workflow is caught at PR time rather than by a
+        # manual audit; its own self-test runs first, same reasoning as every
+        # sibling guard here — a green that has never been shown capable of
+        # turning red is not evidence.
+        "name": "workflow-actor-guard",
+        "when": {"globs": [".github/workflows/*.yml", ".github/workflows/*.yaml",
+                            "scripts/ci/check_workflow_actor_guard.py"]},
+        "steps": [["python3", "scripts/ci/check_workflow_actor_guard.py",
+                   "--self-test"],
+                  ["python3", "scripts/ci/check_workflow_actor_guard.py"]],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
