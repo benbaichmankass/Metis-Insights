@@ -1,6 +1,6 @@
 # Recurring validations audit — 2026-09-27 (lane W6-OPS-R)
 
-> **Doc status:** `live` · category `research` · written 2026-09-27 by lane W6-OPS-R
+> Written 2026-09-27 by lane W6-OPS-R
 > (dispatched by manager session_01Ljhs6sFAdWHdMDhJpL5aBP). Operator ask, same day:
 > *"the ops lane needs to investigate and fix the misfiring recurring validations
 > (demotions checks, performance reviews, eg.)"*. Work is tracked by the pipeline
