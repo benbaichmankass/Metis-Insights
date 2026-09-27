@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-27",
+    "kind": "date"
+  },
+  "id": "PI-20260927-YDVVYLKH-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A01-001",
+    "rerun": "system-action cancel-ib-order DRY-RUN: account ib_paper, order 907 -> expect lookup_state not_found; plus vm-diag-request exchange_positions -> ib_paper has no MES row"
+  },
+  "state": "done",
+  "terminal_reason": "OBSERVED 2026-09-27 after the CME reopen: cancel-ib-order DRY-RUN #13363 (run 36354986088, 22:22Z) reads order 907 lookup_state not_found on a clean account-wide read (orders_on_account 2, was 5 at 14:58Z); flatten-ib-position DRY-RUN #13366 (run 36355119401) reads the LIVE exchange position: noop_already_flat, no MES position on ib_paper — so 907 cancelled rather than filled. The /api/diag/exchange_positions read (#13364) returned positions=null/error=null (could-not-look, not flat) and is not relied on. Closed by manager session_01KAQRJxRbRwpYTkPgBjNVyQ.",
+  "what": "ib_paper MES order 907 (SELL LMT 15 @8390.5, oca-protect-t5836, owner clientId 497) is stuck PendingCancel after the CA-A01-001 cancel window (#13215 cancelled 906 with IBKR 202; #13216 found 907 already PendingCancel, 10148). Fresh-process read 14:58Z (#13224) still PendingCancel, orders_on_account 5, MES flat. CME closed until ~22:00Z Sunday; expected to finalise at reopen. If still present after reopen, re-run the stop window (pause-autoheal, stop, cancel 907 apply+force_protective+force_client_id, start, resume) timed right after a git-sync tick."
+}

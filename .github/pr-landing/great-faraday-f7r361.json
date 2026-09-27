@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "manager register update (MANAGER-CHECKLIST.json) + one pipeline record; no runtime, order path, or config touched"
+  "why": "pipeline records only (close PI-...YDVVYLKH-0001 as observed; file one new diag collapsed-state item); no runtime, order path or config touched"
 }
