@@ -1,7 +1,5 @@
 {
-  "tier": 2,
-  "landing": "hold",
-  "hold_reason": "tier_2_3_needs_approval",
-  "hold_text": "new order-mutating system action (rearm-alpaca-protective): operator approved the remedy 2026-09-27 (MANAGER-CHECKLIST R4 decision 2); the manager merges, then dispatches dry-run first",
-  "why": "adds an allowlisted system action that cancels and places Alpaca protective orders; Tier-2 by the operator-actions-allowlist rule"
+  "tier": 1,
+  "landing": "self",
+  "why": "one pipeline record (docs/claude/work/pipeline/) naming the observation that proves #13047 live; no runtime, order path or config touched"
 }

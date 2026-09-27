@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-R6FQK6DS-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-automation-options-2026-09-27.md section D.6",
+    "rerun": "Read section D.6 of the spec. Check that breakout_1 is still a DXtrade account (config/accounts.yaml breakout_1; Breakout FAQ https://intercom.help/breakoutprop/en/articles/14215629) and that the D.6 infeasibility list has not already been triggered."
+  },
+  "state": "queued",
+  "what": "OPERATOR DECISION (W6-P3 automation spec, option D): authorise the READ-ONLY feasibility probe for driving breakout_1's DXtrade account from our VM. Step 0 is a documented DXtrade REST login plus one read (this is option C). Steps 1-2 are a Playwright read-only login and a 72h session keep-alive. It needs BREAKOUT_DX_USERNAME/PASSWORD/DOMAIN as Actions secrets, which the operator originates, and a Tier-2 secret sync to the VM. No order-placing code is involved; that is a later held Tier-2 PR."
+}
