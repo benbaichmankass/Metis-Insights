@@ -1,0 +1,431 @@
+{
+  "request_id": "REQ-20260927-W6OPS-performance-review",
+  "reviewed_at": "2026-09-27T07:29:44+00:00",
+  "reviewer": "claude",
+  "window_start": "2026-09-24T16:00:00+00:00",
+  "window_end": "2026-09-27T07:29:44+00:00",
+  "_window_note": "window_start = the previous performance-review's window_end (comms/reviews/performance-review-20260924-160000.json, REQ-20260924-E67-performance-review).",
+  "_scope_note": "MEASURED via vm-diag-snapshot issues #13083/#13088, read 2026-09-27T07:1x-07:2xZ. order-packages?limit=200 returned count=69 but the comment-size cap truncated the body to 5 of 69 full rows (the relay's own truncation marker) -- full per-decision signal_logic is available for those 5 only, so trade_decision_grades[] below covers the population this session COULD fully evaluate (7 clean-exit trades, graded from trades/closed's own fields + the 5 order-package rows that overlap them), not all 69 decisions. trades/closed?limit=200 returned 51 of an unstated total closed count, 95% delivered before the comment cap cut the tail mid-record (1984 of 29484 bytes not shown) -- 50 of 51 have a non-null realizedPnl and are the population for every aggregate below. NOT run this session, stated rather than silently skipped: the diversified paper-book tracker (needs a full untruncated bybit_1 book pull, a separate diag round trip) and the real-money allocation benchmark (no new live-promotion candidate is queued this window per the W5-night/wave-6 registers; the standing SRQ-20260715-REALMONEY-ALLOC-BENCHMARK pipeline item is re-validated below without a fresh pull).",
+  "overall_assessment": "investigate",
+  "_headline": "86% of this window's 51 closed trades (44) are technical artifacts, not clean strategy round-trips (scripts/analysis/classify_paper_records.py: bucket A=7, B=44, C=0) -- of the 44, ~25 are pairs_sol_eth_*/pairs_bnb_btc_* legs closing 'other' (their own bilateral management exit, likely a classifier COVERAGE GAP rather than a bug) and ~19 (10 reconciler + 9 non-pairs 'other') are the genuine artifact-health signal. The 7 gradeable (clean sl/tp) trades are 1-for-7, net -$2693.69 (paper $, all bybit_1) -- a small, noisy sample, not by itself evidence of a broken strategy. THE MORE URGENT FINDING: bybit_2 (real money) closed exactly 3 trades this window and ALL THREE are bucket-B (2 reconciler, 1 other) -- zero cleanly-gradeable real-money exits in 63 hours, net -$10.93. All three also carry journalTrust=known_divergent, which MEASURED here is NOT a new regression -- it matches the standing, already-tracked bybit_2 SUB-subaccount credential gap (pipeline record referencing '[E71]' / PI-20260924-PN2PXMTE-0001-class, the broker-truth ledger stuck at as_of=2026-07-13) -- but it means this review cannot independently verify bybit_2's real-money PnL against broker truth for this window either. M13 insights cross-checked cleanly on the one trade both surfaces cite (id 6186).",
+  "strategy_performance": [
+    {
+      "strategy": "ada_pullback_2h",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 5,
+      "n_rejected": null,
+      "win_rate": 0.0,
+      "pnl_total": -2517.16,
+      "pnl_avg_per_trade": -503.43,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1",
+        "bybit_2",
+        "bybit_portfolio"
+      ],
+      "note": "0/5 bucket-A (all reconciler/other -- 0 gradeable). Includes the sole bybit_2 (real-money) close this window (-$3.49, reconciler). Do not read the -$2517 as a strategy verdict -- it is 5 ungraded closes, dominated by bybit_1/bybit_portfolio paper notional."
+    },
+    {
+      "strategy": "xrp_pullback_2h",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 4,
+      "n_rejected": null,
+      "win_rate": 0.0,
+      "pnl_total": -1403.0,
+      "pnl_avg_per_trade": -350.75,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1",
+        "bybit_2"
+      ],
+      "note": "1/4 bucket-A (1 sl at -$249.80 on bybit_1, 0-for-1 win). Includes the sole bybit_2 close this window (-$3.71, 'other', pnlProvenance=estimated -- not measured)."
+    },
+    {
+      "strategy": "ict_scalp_avax_5m",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 5,
+      "n_rejected": null,
+      "win_rate": 0.4,
+      "pnl_total": 1947.93,
+      "pnl_avg_per_trade": 389.59,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "2/5 bucket-A (2 sl, both losses: -$188.83, -$299.95). The +$1947.93 aggregate is dominated by the 3 non-gradeable (bucket-B) rows and large bybit_1 paper notional -- do NOT read as a positive strategy signal without the ungraded rows' own context."
+    },
+    {
+      "strategy": "ict_scalp_xrp_5m",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 2,
+      "n_rejected": null,
+      "win_rate": 0.5,
+      "pnl_total": -959.03,
+      "pnl_avg_per_trade": -479.52,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "1/2 bucket-A: 1 tp at +$136.90 (bybit_1). The one gradeable decision this window for this strategy was a correct call."
+    },
+    {
+      "strategy": "trend_donchian_eth",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 1,
+      "n_rejected": null,
+      "win_rate": 0.0,
+      "pnl_total": -872.55,
+      "pnl_avg_per_trade": -872.55,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "1/1 bucket-A (sl, -$872.55, bybit_1 paper). Single closed trade -- n too small for any verdict."
+    },
+    {
+      "strategy": "trend_donchian_sol",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 1,
+      "n_rejected": null,
+      "win_rate": 0.0,
+      "pnl_total": -670.31,
+      "pnl_avg_per_trade": -670.31,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "1/1 bucket-A (sl, -$670.31, bybit_1 paper). Single closed trade -- n too small for any verdict."
+    },
+    {
+      "strategy": "ict_scalp_5m",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 1,
+      "n_rejected": null,
+      "win_rate": 0.0,
+      "pnl_total": -549.15,
+      "pnl_avg_per_trade": -549.15,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "1/1 bucket-A (sl, -$549.15, bybit_1 paper). Single closed trade -- n too small for any verdict."
+    },
+    {
+      "strategy": "ict_scalp_eth_15m",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 2,
+      "n_rejected": null,
+      "win_rate": 0.5,
+      "pnl_total": -429.97,
+      "pnl_avg_per_trade": -214.99,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "0/2 bucket-A (both 'other'). Ungraded -- do not read the PnL as a decision-quality signal."
+    },
+    {
+      "strategy": "ict_scalp_sol_15m",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 1,
+      "n_rejected": null,
+      "win_rate": 0.0,
+      "pnl_total": -146.12,
+      "pnl_avg_per_trade": -146.12,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "0/1 bucket-A ('other'). Ungraded."
+    },
+    {
+      "strategy": "ict_scalp_sol_5m",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 3,
+      "n_rejected": null,
+      "win_rate": null,
+      "pnl_total": -1810.94,
+      "pnl_avg_per_trade": null,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "0/3 bucket-A (all 'other'; one row has realizedPnl=null -- an instant open==close 'other' row, itself a candidate technical artifact, e.g. an immediately-cancelled/failed order). Ungraded."
+    },
+    {
+      "strategy": "pairs_sol_eth_a",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 7,
+      "n_rejected": null,
+      "win_rate": 0.143,
+      "pnl_total": -14.35,
+      "pnl_avg_per_trade": -2.05,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "0/7 bucket-A -- ALL 7 close 'other', which is this pairs leg's OWN management exit (not a fixed SL/TP), not currently a category classify_paper_records.py recognizes. Small, near-flat notional net (-$14.35) despite 0 bucket-A rows."
+    },
+    {
+      "strategy": "pairs_sol_eth_b",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 7,
+      "n_rejected": null,
+      "win_rate": 0.857,
+      "pnl_total": 18.68,
+      "pnl_avg_per_trade": 2.67,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "Same as pairs_sol_eth_a's B-leg -- 0/7 bucket-A, all 'other' (pairs-management exit). Net near-flat."
+    },
+    {
+      "strategy": "pairs_bnb_btc_a",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 6,
+      "n_rejected": null,
+      "win_rate": 0.333,
+      "pnl_total": -1.94,
+      "pnl_avg_per_trade": -0.32,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "0/6 bucket-A, same pairs-management-exit shape as pairs_sol_eth_*. Near-flat net."
+    },
+    {
+      "strategy": "pairs_bnb_btc_b",
+      "execution": "live",
+      "n_decisions": null,
+      "n_filled": 6,
+      "n_rejected": null,
+      "win_rate": 0.333,
+      "pnl_total": -0.1,
+      "pnl_avg_per_trade": -0.02,
+      "avg_hold_seconds": null,
+      "rejection_cluster": null,
+      "accounts_touched": [
+        "bybit_1"
+      ],
+      "note": "0/6 bucket-A, same pairs-management-exit shape. Effectively flat net."
+    }
+  ],
+  "trade_decision_grades": [
+    {
+      "order_package_id": "unknown -- order-packages pull truncated to 5/69 rows and this trade_id was not among them",
+      "trade_id": 6213,
+      "timestamp": "2026-09-27T06:12:49.101796+00:00",
+      "symbol": "AVAXUSDT",
+      "direction": "unknown",
+      "setup": "ict_scalp_avax_5m",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": null,
+      "exit_reason": "sl",
+      "decision_grade": "C",
+      "decision_grade_score": 2,
+      "entry_quality": "unknown",
+      "exit_quality": "sl_appropriate",
+      "risk_management": "unknown",
+      "rationale": "Clean sl exit, realizedPnl -$188.83. Signal_logic not retrieved this session (order-packages truncated) -- grade reflects the exit mechanism only (a hit stop is not itself a bad decision), not entry-quality judgement.",
+      "alternative_action": "none assessable without signal_logic"
+    },
+    {
+      "order_package_id": "unknown (see above)",
+      "trade_id": 6202,
+      "timestamp": "2026-09-26T16:14:45.722702+00:00",
+      "symbol": "XRPUSDT",
+      "direction": "unknown",
+      "setup": "ict_scalp_xrp_5m",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": null,
+      "exit_reason": "tp",
+      "decision_grade": "B",
+      "decision_grade_score": 3,
+      "entry_quality": "unknown",
+      "exit_quality": "tp_appropriate",
+      "risk_management": "unknown",
+      "rationale": "Clean tp exit, realizedPnl +$136.90 -- the one correct-and-verifiable decision this window. Signal_logic not retrieved.",
+      "alternative_action": "none"
+    },
+    {
+      "order_package_id": "unknown (see above)",
+      "trade_id": 6195,
+      "timestamp": "2026-09-26T10:35:02.911211+00:00",
+      "symbol": "AVAXUSDT",
+      "direction": "unknown",
+      "setup": "ict_scalp_avax_5m",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": null,
+      "exit_reason": "sl",
+      "decision_grade": "C",
+      "decision_grade_score": 2,
+      "entry_quality": "unknown",
+      "exit_quality": "sl_appropriate",
+      "risk_management": "unknown",
+      "rationale": "Second ict_scalp_avax_5m stop-out this window, -$299.95. Two consecutive avax losses is worth watching next review, not yet a pattern at n=2.",
+      "alternative_action": "none assessable without signal_logic"
+    },
+    {
+      "order_package_id": "unknown (see above)",
+      "trade_id": 6163,
+      "timestamp": "2026-09-25T12:21:19.279530+00:00",
+      "symbol": "SOLUSDT",
+      "direction": "unknown",
+      "setup": "trend_donchian_sol",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": null,
+      "exit_reason": "sl",
+      "decision_grade": "C",
+      "decision_grade_score": 2,
+      "entry_quality": "unknown",
+      "exit_quality": "sl_appropriate",
+      "risk_management": "unknown",
+      "rationale": "Clean sl exit, -$670.31, bybit_1 paper. n=1 for this strategy this window.",
+      "alternative_action": "none assessable without signal_logic"
+    },
+    {
+      "order_package_id": "unknown (see above)",
+      "trade_id": 6162,
+      "timestamp": "2026-09-25T12:19:16.003232+00:00",
+      "symbol": "ETHUSDT",
+      "direction": "unknown",
+      "setup": "trend_donchian_eth",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": null,
+      "exit_reason": "sl",
+      "decision_grade": "C",
+      "decision_grade_score": 2,
+      "entry_quality": "unknown",
+      "exit_quality": "sl_appropriate",
+      "risk_management": "unknown",
+      "rationale": "Clean sl exit, -$872.55, bybit_1 paper. n=1 for this strategy this window.",
+      "alternative_action": "none assessable without signal_logic"
+    },
+    {
+      "order_package_id": "unknown (see above)",
+      "trade_id": 6135,
+      "timestamp": "2026-09-25T11:18:15.153999+00:00",
+      "symbol": "XRPUSDT",
+      "direction": "unknown",
+      "setup": "xrp_pullback_2h",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": null,
+      "exit_reason": "sl",
+      "decision_grade": "C",
+      "decision_grade_score": 2,
+      "entry_quality": "unknown",
+      "exit_quality": "sl_appropriate",
+      "risk_management": "unknown",
+      "rationale": "Clean sl exit, -$249.80, bybit_1 paper. The only bucket-A xrp_pullback_2h row; the window's sole bybit_2 xrp_pullback_2h close was 'other' (ungraded, real money, -$3.71, pnlProvenance=estimated).",
+      "alternative_action": "none assessable without signal_logic"
+    },
+    {
+      "order_package_id": "unknown (see above)",
+      "trade_id": 6149,
+      "timestamp": "2026-09-24T22:19:27.440000+00:00",
+      "symbol": "BTCUSDT",
+      "direction": "unknown",
+      "setup": "ict_scalp_5m",
+      "entry_price": null,
+      "exit_price": null,
+      "stop_loss": null,
+      "take_profit_1": null,
+      "position_size": null,
+      "exit_reason": "sl",
+      "decision_grade": "C",
+      "decision_grade_score": 2,
+      "entry_quality": "unknown",
+      "exit_quality": "sl_appropriate",
+      "risk_management": "unknown",
+      "rationale": "Clean sl exit, -$549.15, bybit_1 paper. n=1 for this strategy this window.",
+      "alternative_action": "none assessable without signal_logic"
+    }
+  ],
+  "_trade_decision_grades_note": "All 7 grades above are LIMITED (exit-mechanism-only, not entry-quality) because order-packages' signal_logic was truncated to 5/69 rows by the relay's comment-size cap and none of the 5 delivered rows happened to be among these 7 trade_ids. A follow-up targeted pull (order-packages filtered by strategy, or trade_id-keyed) could recover full entry-quality grading if the operator wants it; not pursued this session given the ceiling on this lane.",
+  "insights_review": [
+    {
+      "endpoint": "summary",
+      "finding": "M13's 24h summary (1 trade, ada_pullback_2h, -$3.49, id implied by 'Worst: trade #6186') matches this review's own trade id 6186 (bybit_2, ada_pullback_2h, -$3.4863, reconciler) exactly. No disagreement.",
+      "severity": "nit",
+      "cache_age_seconds": 62
+    },
+    {
+      "endpoint": "recent",
+      "finding": "M13's last-20-closed window (2026-09-02 to 2026-09-26, net -$51.56, 1W/17L) partially overlaps this review's window but starts 22 days earlier and is not directly comparable population-to-population; both surfaces agree directionally (recent activity thin and net-negative). No contradiction found, but the two windows should not be quoted as the same population.",
+      "severity": "nit",
+      "cache_age_seconds": 62
+    },
+    {
+      "endpoint": "health",
+      "finding": "8/8 checks green, snapshot 6s old at read time. Healthy.",
+      "severity": "nit",
+      "cache_age_seconds": 62
+    }
+  ],
+  "proposed_tweaks": [],
+  "_proposed_tweaks_note": "No Tier-3 tweak is proposed this run. Per the underperformance->diagnose-don't-demote rule, none of the per-strategy samples this window (max n=7 gradeable) clear the bar for even a diagnosis, let alone a demote/tune proposal -- the dominant finding is a MEASUREMENT gap (86% artifact rate), not a strategy-quality one.",
+  "backlog_drain": [],
+  "_backlog_drain_note": "docs/claude/performance-review-backlog.json does not exist (retired under the 2026-09-21 operating reset). Per the skill's 2026-09-24 correction, performance-tagged pipeline items were drained in this lane's prior commit on this branch (research-disposition-ledger.jsonl: RQ-20260922-005, RQ-20260827-001; see comms/reviews/ -- filed as PI-20260927-YZRZQ725-0003). docs/claude/strategy-refinement-queue.json's 2 open items (SRQ-20260618-001/-002) were also re-checked in that same commit. Not repeated here to avoid a duplicate disposition record.",
+  "paper_book_tracker": null,
+  "_paper_book_tracker_note": "NOT RUN this session -- requires a full, untruncated account_id=bybit_1 closed-trades pull (no `since`) as a separate diag round trip, which this lane's remaining budget did not cover after the order-packages/trades-closed retry. Flagged rather than fabricated; a follow-up session should run scripts/ops/paper_book_tracker.py against a fresh full pull.",
+  "real_money_allocation_benchmark": null,
+  "_real_money_allocation_benchmark_note": "NOT RUN this session. No new live-promotion candidate is queued in the wave-6 registers this window (the standing SRQ-20260715-REALMONEY-ALLOC-BENCHMARK pipeline item's subject, the shelved alpaca_live ETF sleeve, is unchanged since the last review per this session's read of the W6 checklist). A fresh incumbent-vs-candidate pull was not performed; re-run when a candidate is actually queued for promotion.",
+  "anomalies": [
+    "86% artifact rate this window (44/51 bucket-B via classify_paper_records.py), the same class of finding docs/audits/order-packages-zero-qty-2026-06-26.md recorded once before (0/48 gradeable). ~25/44 are pairs_sol_eth_*/pairs_bnb_btc_* legs closing 'other' -- LIKELY a classifier coverage gap (pairs strategies manage exits bilaterally, not via a fixed bracket), not a bug -- but the classifier has no category for it, so every pairs review to date has silently excluded these legs from win-rate/expectancy. The remaining ~19 (10 reconciler + 9 non-pairs 'other') are the genuine artifact-health signal. Filed as PI-20260927-YZRZQ725-0004 for health-review (the classifier coverage gap) since this skill may not edit scripts/analysis/.",
+    "bybit_2 (real money): 3 closed trades this window, ALL bucket-B (2 reconciler, 1 other), 0 cleanly-gradeable, all journalTrust=known_divergent. Cross-checked against the standing pipeline record (bybit_2 SUB-subaccount credential gap, broker-truth ledger stuck at as_of=2026-07-13): this is the SAME pre-existing condition, not a new regression -- but it means real-money accounting for this window's 3 trades could not be independently verified against broker truth by this review either.",
+    "One trade (ict_scalp_sol_5m, bybit_1) has realizedPnl=null with openedAt==closedAt and exitPrice=null -- an instantly-closed/failed-fill row, itself a technical-artifact candidate not yet in classify_paper_records.py's taxonomy.",
+    "order-packages count=69 for the window but the relay delivered full detail for only 5 -- a scope limitation on this review's decision-grading coverage, stated in trade_decision_grades' own note above, not silently absorbed."
+  ],
+  "recommended_action": "No Tier-3 action from this review. Two Tier-1 follow-ups filed: (1) PI-20260927-YZRZQ725-0004, extend classify_paper_records.py with a pairs-strategy-aware category so pairs legs stop silently reading as 100% artifact; (2) a targeted order-packages re-pull (by strategy or trade_id) if full entry-quality grading of this window's 7 gradeable trades is wanted. bybit_2's known_divergent journalTrust is not new -- tracked on the existing SUB-subaccount pipeline record, not re-filed.",
+  "operator_attention_required": false,
+  "claude_channel_ping": {
+    "delivered_via": "skipped (lane task -- this session reports to the manager per the lane's operating model; see the final chat summary for the operator-facing headline)",
+    "priority": "normal",
+    "message": "/performance-review W6-OPS -- 51 closed trades, 86% technical-artifact (mostly pairs-strategy exit-mechanism gap in the classifier), 7 gradeable 1-for-7 net -$2694 (paper, noisy n). bybit_2 real money 0/3 gradeable this window, known_divergent (pre-existing). No Tier-3 action."
+  }
+}
