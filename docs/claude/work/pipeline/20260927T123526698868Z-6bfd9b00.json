@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "a separate Breakout Terminal account is opened AND its roster is being evaluated for a CL leg -- until then this stays killed.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-ODDTM5QY-0005",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md",
+    "rerun": "python3 scripts/backtest_trend.py --symbol CL --data <CL futures candle file> ... # then re-run scripts/research/prop_ev_sim.py on the resulting trades.jsonl with --swap-model prorated"
+  },
+  "state": "killed",
+  "terminal_reason": "CL is confirmed unreachable on breakout_1 (DXtrade, PR #13124 + first-party S7); the basis-quality question this row asked no longer has a decision it would inform for this account.",
+  "what": "[W6/B6] uso_trend_1h alone clears RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 (evidence-CI p5=+$42.7, n=56) when mapped to Breakout's CL symbol, but the evidence is priced off USO ETF data, and USO is a documented poor proxy for WTI/CL futures under contango (its methodology rolls near-month contracts and has diverged materially from spot/futures WTI, most visibly in 2020). Before treating this as decision-grade for CL, re-price the same signal against actual CL futures/CFD price data. -- SUPERSEDED 2026-09-27 ~12:30Z: CL is confirmed Breakout-Terminal-exclusive (first-party S7, intercom.help/breakoutprop/en/articles/16188026) and breakout_1 is confirmed DXtrade (PR #13124). CL is unreachable on breakout_1 regardless of basis quality, so re-pricing this signal no longer informs any breakout_1 decision. Killed; kept only as a lead for a hypothetical future Breakout Terminal account."
+}

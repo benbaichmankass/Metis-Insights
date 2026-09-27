@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "xrp_pullback_2h's evidence trades.jsonl grows past ~120 trades (roughly double this run's n=57) AND a re-run's evidence-CI p5 is positive across at least 3 distinct seeds, or the leg is dropped as not clearing.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-ODDTM5QY-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md",
+    "rerun": "python3 scripts/research/prop_ev_sim.py --trades xrp_pullback_2h=comms/strategy_evidence/runs/<latest>/xrp_pullback_2h__trades.jsonl --ruleset config/prop_rulesets/breakout.yaml --rule v2 --lives 4000 --outer 100 --lives-per-outer 200 --seed <try 3+ seeds>"
+  },
+  "state": "queued",
+  "what": "[W6/B6] xrp_pullback_2h is the closest crypto candidate to clearing RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 on breakout_1 (alone: PASS on seed 20260927, indeterminate p5=-3.34 on seed 999) but is not robust to reseeding -- re-run once its evidence window is longer (more trades resolve the seed-sensitivity) before any Tier-3 roster proposal."
+}
