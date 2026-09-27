@@ -9,7 +9,9 @@ identical to the CLI from PART-1.
 """
 from __future__ import annotations
 
+import gzip
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -24,6 +26,11 @@ from src.web.api import main as api_main  # noqa: E402
 _TS_EARLY = "2026-05-10T10:00:00+00:00"
 _TS_MID = "2026-05-10T12:00:00+00:00"
 _TS_LATE = "2026-05-10T14:00:00+00:00"
+
+
+def _ts_ago(days: float) -> str:
+    """ISO-8601 UTC timestamp `days` before "now" (wall clock at test run)."""
+    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
 
 def _record(
@@ -46,6 +53,26 @@ def _record(
 def _seed_log(path: Path, records: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+
+
+def _seed_rotated(active_log: Path, suffix: str, records: list[dict], *, gz: bool = False) -> Path:
+    """Write a rotated archive next to `active_log`, named the way
+    `scripts/ops/rotate_shadow_log.py` names one:
+    `<stem>.<suffix>.jsonl` (optionally gzipped to `...jsonl.gz`, which is
+    how production runs it — `deploy/ict-shadow-log-rotate.service` passes
+    `--gzip`)."""
+    active_log.parent.mkdir(parents=True, exist_ok=True)
+    stem = active_log.stem
+    ext = active_log.suffix or ".jsonl"
+    body = "\n".join(json.dumps(r) for r in records) + "\n"
+    if gz:
+        target = active_log.with_name(f"{stem}.{suffix}{ext}.gz")
+        with gzip.open(target, "wt", encoding="utf-8") as fh:
+            fh.write(body)
+    else:
+        target = active_log.with_name(f"{stem}.{suffix}{ext}")
+        target.write_text(body)
+    return target
 
 
 @pytest.fixture
@@ -223,6 +250,128 @@ class TestStatsEndpoint:
         assert row["row_keys_seen"] == ["a", "b", "c"]
 
 
+class TestDriftEndpointRotation:
+    """PI-20260927-YZRZQ725-0001 / review-pack D1.
+
+    `ict-shadow-log-rotate.timer` rotates the active log roughly every
+    25-29 days in production, which is SHORTER than this endpoint's default
+    30-day `reference_days` window. A drift read that only opens the active
+    log therefore truncates its own reference window at the last rotation
+    boundary, and every advisory model reads `insufficient_data` for 1-2
+    weeks after each rotation — which is why no drift-based demote/hold
+    decision this repo has made (including "E72") was ever computed on a
+    genuinely full window. These tests construct that exact rotation
+    boundary inside the window and assert the fix reads through it, plus a
+    positive control proving the fix does not just always report
+    "sufficient".
+    """
+
+    def test_rotation_boundary_inside_window_fills_reference_window(self, client):
+        """Active log covers the last ~5 days; a rotated (gzipped) archive
+        covers the prior ~25 days. The rotation boundary between them sits
+        squarely inside the default 30-day reference window (37d-7d ago).
+        Pre-fix, only the active log is read and the reference window comes
+        back empty -> `insufficient_data`. Post-fix it must read through the
+        archive and return real drift stats."""
+        c, log = client
+        # Rotated archive: 5 records spread across ~30d ago to ~8d ago, all
+        # inside [reference_start, current_start) = [now-37d, now-7d).
+        _seed_rotated(
+            log, "2026-08-27",
+            [
+                _record(model_id="mes-regime-5m-lgbm-v2", score=s, ts=_ts_ago(d))
+                for d, s in [(30, 0.10), (25, 0.15), (20, 0.20), (14, 0.25), (8, 0.30)]
+            ],
+            gz=True,
+        )
+        # Active log (post-rotation, fresh file): 3 records in the current
+        # window [now-7d, now).
+        _seed_log(log, [
+            _record(model_id="mes-regime-5m-lgbm-v2", score=s, ts=_ts_ago(d))
+            for d, s in [(5, 0.60), (3, 0.65), (1, 0.70)]
+        ])
+        r = c.get("/api/bot/shadow/drift", params={"model_id": "mes-regime-5m-lgbm-v2"})
+        assert r.status_code == 200
+        body = r.json()
+        # The whole point of the fix: this must NOT be insufficient_data.
+        assert body["verdict"] != "insufficient_data", body
+        assert body["reference_count"] == 5
+        assert body["current_count"] == 3
+        assert body["rotated_logs_read"]["count"] == 1
+        assert body["rotated_logs_read"]["paths"][0].endswith(".gz")
+        # Real stats were actually computed, not just a non-"insufficient" label.
+        assert body["reference_mean"] == pytest.approx(0.20, abs=1e-6)
+        assert body["current_mean"] == pytest.approx(0.65, abs=1e-6)
+        assert isinstance(body["ks"], float)
+        assert isinstance(body["psi"], float)
+
+    def test_multiple_rotations_all_read(self, client):
+        """Two rotation events (one gzipped, one plain) both inside the
+        window are both folded in — the union is not just "the single most
+        recent archive"."""
+        c, log = client
+        _seed_rotated(
+            log, "2026-08-01",
+            [_record(model_id="m-a", score=0.1, ts=_ts_ago(32))],
+            gz=False,
+        )
+        _seed_rotated(
+            log, "2026-08-20",
+            [_record(model_id="m-a", score=0.2, ts=_ts_ago(15))],
+            gz=True,
+        )
+        _seed_log(log, [_record(model_id="m-a", score=0.9, ts=_ts_ago(2))])
+        r = c.get("/api/bot/shadow/drift", params={"model_id": "m-a"})
+        body = r.json()
+        assert body["rotated_logs_read"]["count"] == 2
+        assert body["reference_count"] == 2
+        assert body["current_count"] == 1
+        assert body["verdict"] != "insufficient_data"
+
+    def test_genuinely_insufficient_data_still_reported_as_such(self, client):
+        """Positive control: an archive is present and gets read (proving the
+        fix isn't dormant), but every one of its records sits BEFORE the
+        reference window's own start, and the active log has nothing in the
+        reference window either. `reference_count` must be genuinely 0 and
+        the verdict must still be `insufficient_data` — the fix must not make
+        every case report as sufficient regardless of the real data."""
+        c, log = client
+        # 60 days ago is well before reference_start (now-37d) -- out of
+        # window entirely, so it must NOT be counted.
+        _seed_rotated(
+            log, "2026-06-01",
+            [_record(model_id="m-b", score=0.4, ts=_ts_ago(60))],
+        )
+        # Active log only has current-window data -- no reference-window
+        # coverage from either source.
+        _seed_log(log, [_record(model_id="m-b", score=0.9, ts=_ts_ago(2))])
+        r = c.get("/api/bot/shadow/drift", params={"model_id": "m-b"})
+        assert r.status_code == 200
+        body = r.json()
+        # The archive WAS read...
+        assert body["rotated_logs_read"]["count"] == 1
+        # ...but correctly contributed nothing to the reference window.
+        assert body["reference_count"] == 0
+        assert body["current_count"] == 1
+        assert body["verdict"] == "insufficient_data"
+
+    def test_no_rotation_present_behaves_as_before(self, client):
+        """No archive next to the active log -> unchanged single-file
+        behavior, `rotated_logs_read.count == 0`."""
+        c, log = client
+        _seed_log(log, [
+            _record(model_id="m-c", score=0.3, ts=_ts_ago(20)),
+            _record(model_id="m-c", score=0.9, ts=_ts_ago(1)),
+        ])
+        r = c.get("/api/bot/shadow/drift", params={"model_id": "m-c"})
+        body = r.json()
+        assert body["rotated_logs_read"]["count"] == 0
+        assert body["rotated_logs_read"]["paths"] == []
+        assert body["reference_count"] == 1
+        assert body["current_count"] == 1
+        assert body["verdict"] != "insufficient_data"
+
+
 class TestRouterMounted:
     def test_predictions_route_in_openapi(self, client):
         c, log = client
@@ -230,3 +379,4 @@ class TestRouterMounted:
         spec = r.json()
         assert "/api/bot/shadow/predictions" in spec["paths"]
         assert "/api/bot/shadow/stats" in spec["paths"]
+        assert "/api/bot/shadow/drift" in spec["paths"]
