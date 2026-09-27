@@ -1,5 +1,5 @@
 {
-  "last_fired_at": "2026-09-27T12:44:52Z",
+  "last_fired_at": "2026-09-27T18:45:18Z",
   "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
   "trigger": "trig_01LFo98oHRUBpoMA6H9ra2QP",
   "served_model": "claude-sonnet-5",
@@ -7,13 +7,12 @@
     "checkout_present": true,
     "list_sessions_callable": true,
     "container_was_cold": false,
-    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent, main advanced 46 commits since prior check -- busy period elsewhere in the repo), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD b8705cba, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=24, connection_status=connected, cumulative cost_usd=169.36; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 73 rows (73/73 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading."
+    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent, main advanced 97 commits since prior check -- very busy period elsewhere in the repo), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 9bc91269, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=25, connection_status=connected, cumulative cost_usd=173.88; list_sessions(mine=true, limit=60) returned 60 rows, list_pull_requests(state=open) returned 69 rows (69/69 carried body), list_triggers(limit=100) returned 100 rows; continuously-running session, not a fresh wake, so not a cold-start reading."
   },
   "acted": {"archived": [], "raised": [], "held": 0},
   "unrouted": [
     "STEP 1 structural verification passed again: top-level supervisor_lane on claude/e44-lane-supervisor-build's MANAGER-CHECKLIST.json still names session_01R9WFrBK1sbBcpTYgBmvG1q (this session).",
-    "BOTH remaining stubborn archives (E70, E64) are now gone from the dump -- the last one (E70) resolved out-of-band between this firing and the last, same pattern as before. 0 authorised, 0 held this firing -- the archive backlog this supervisor could never clear is now empty by other means, not by this session's action.",
-    "7 fresh raises, all new W6-lane activity (6 READY-uncollected/BLOCKED, one BLOCKED with cost COULD NOT LOOK). None have single-id-shaped titles fileable against the checklist (W6 OPS/P2/P4/C1/OPS-R lane names, plus a PIPELINE.jsonl item id 'PI-20260927-YZRZQ725-0005' which is a pipeline entry id, not a checklist row id) -- same class of gap as prior firings.",
+    "0 authorised, 0 held, 4 raised: a new 'Manager Session 2026-09-27' lane (BLOCKED, $64.06), a code-audit lead session (READY, consolidating docs/audits/code-audit-2026-09-27.md), an ML-serving-fixes session (BLOCKED, FIX-CA-ML), and a DXtrade parser session (READY, P4b). None have single-id-shaped titles matching a checklist row -- same class of gap as prior firings, new names this time. Given the 97-commit jump on main, this looks like a large multi-lane push landed/started since the last firing; nothing here needed this supervisor's action either way.",
     "No coordination-board hook fired this turn."
   ]
 }
