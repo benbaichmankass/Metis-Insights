@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "order_monitor._build_account_client derives cfg['mode'] from the account's resolved dry_run (acc.dry_run -> 'dry_run') or the raw YAML mode, with a test that builds the cfg from a REAL TradingAccount (not a MagicMock) for a mode: dry_run account and asserts _send_close_to_exchange / _send_modify_to_exchange / _send_partial_close_to_exchange return skipped='dry_run' without calling the client; merged AND deployed (git_sha on /api/diag/version)",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-KRAKE1TG-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A04 (session_01L6oxNwzTguNk5ZKRaKE1tG), finding AUD-20260927-CA-A04-monitor-dry-run-gate-reads-absent-attribute (docs/audits/code-audit-2026-09-27/CA-A04.findings.jsonl)",
+    "rerun": "PYTHONPATH=. python3 -c \"from src.units.accounts import load_accounts; [print(a.name, hasattr(a,'mode'), a.dry_run, getattr(a,'mode','live') or 'live') for a in load_accounts()]\" -- the finding holds while any account prints dry_run=True next to 'live' AND grep -n 'getattr(acc, \\\"mode\\\"' src/runtime/order_monitor.py still matches."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-A04): the monitor's dry_run short-circuit on every exchange-side management call can never fire. order_monitor._build_account_client (order_monitor.py:1722) sets cfg['mode'] = getattr(acc, 'mode', 'live') or 'live', but TradingAccount has no .mode attribute -- the resolved state lives in acc.dry_run. MEASURED with the real config: all 11 accounts print hasattr(mode)=False and resolve to 'live', including ib_live (dry_run=True, real money, 'no socket opened, no orders placed') and oanda_practice (dry_run=True). So _send_close_to_exchange (:1804), _send_partial_close_to_exchange (:1938), _capture_fill_details (:1999) and _send_modify_to_exchange (:2078) would build a real client and send close/modify orders for any open trade row on a mode: dry_run account. Not firing today: 0 open rows on dry_run accounts among the last 1000 trades, and ib_live has an empty roster. It fires the moment a live account holding positions is demoted to dry_run (the Gate-2 demotion shape). Tests miss it because they use MagicMock accounts (which fabricate .mode) or patch _build_account_client. FIX (Tier-2, order path): 'mode': 'dry_run' if acc.dry_run else 'live', plus the real-TradingAccount test. Found by a CA-A04 reader sub-agent; re-verified by the lane."
+}
