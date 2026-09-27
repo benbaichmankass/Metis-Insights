@@ -202,7 +202,101 @@ manager's instruction was explicit ("record that as your E16 finding rather
 than re-deriving it") — so this section states what was relayed and marks
 it as such rather than as this lane's own diag read.
 
-## 5. Pipeline follow-ups filed
+## 5. Non-crypto candidates — legs already running on Alpaca/IBKR, mapped to Breakout Terminal CFDs
+
+**NEW PRIORITY, operator direction relayed 2026-09-27T08:29Z**: before widening crypto
+past SOL/ETH, check whether anything already running on `alpaca_paper`/`alpaca_live`/`ib_paper`
+maps onto Breakout's non-crypto CFDs (traded on the "Breakout Terminal", not DXTrade).
+Confirmed 2026-09-27 (`config/prop_rulesets/breakout.yaml`'s comment trail + the operator's
+transcription, cross-checked): Breakout Terminal instruments carry the SAME 0.04%/side
+commission and 0.033%/day financing as the DXTrade crypto pairs, but the financing is
+DEDUCTED every 4 hours instead of once daily at UTC midnight — `scripts/research/prop_ev_sim.py`
+already has a lever for exactly this distinction (`--swap-model prorated` vs the crypto legs'
+`--swap-model dxtrade`), used throughout this section rather than re-deriving a second cost
+model.
+
+**Instrument mapping and basis caveats — read before trusting any number below:**
+
+| Breakout symbol | our leg(s) | instrument today | basis relationship | material gap |
+|---|---|---|---|---|
+| S&P500 | `spy_trend_long_1d`, `spy_pullback_1h` | SPY ETF (alpaca_paper) | SPY tracks the S&P 500 index within its ~0.09%/yr expense ratio; for short-horizon swing R-multiples this is a close proxy | SPY only trades/gates on US cash-session hours (`market_hours us_equity`); a Breakout S&P500 CFD trades far closer to 24h — after-hours gap risk this evidence never saw is unpriced |
+| S&P500 | `mes_trend_long_1d` | MES micro futures (ib_paper) | MES **is** an S&P-500-tracking instrument (not an ETF proxy) — the repo's own leg comment already validates it against "SPX500-CFD" as the same underlying (docs/research/overnight-strategy-research-2026-06-01.md) | live MES history is short (~16 months per that same comment); this evidence window is a fraction of that |
+| XYZ100 | `qqq_trend_long_1d`, `qqq_pullback_1h`, `tqqq_trend_long_1d`, `qld_trend_long_1d` | QQQ / TQQQ (3x) / QLD (2x) ETFs (alpaca_paper) | XYZ100 = Nasdaq-100 index CFD, WEB-corroborated by two independent sources (2026-09-27) — Breakout's own page could not be fetched (see §6). QQQ tracks Nasdaq-100 closely; TQQQ/QLD are LEVERAGED ETFs whose daily-reset compounding path diverges from the raw index over any multi-day hold, so their R-multiples are NOT a clean XYZ100 proxy — reported for completeness, not treated as decision-grade for the unleveraged CFD | same US cash-session gating as SPY |
+| SILVER | `slv_pullback_1d` | SLV ETF (**alpaca_live real money**, also alpaca_paper) | SLV tracks spot silver minus a small (~0.50%/yr) management/storage fee — close proxy for short holds | same cash-session gating; SLV is already REAL MONEY on alpaca_live today, which the fresh-$5k-account framing here does not touch |
+| CL (crude oil) | `uso_trend_1h` | USO ETF (alpaca_paper) | ⚠️ **USO is a POOR proxy for CL/WTI.** USO's methodology rolls near-month futures and has a well-documented history of diverging materially from spot/futures WTI under contango (most visibly during the 2020 negative-WTI episode, when USO restructured its holdings across the curve). This is a structural, not cosmetic, basis gap — the R-series below reflects USO's ETF-roll behavior, not CL futures/CFD behavior, and should not be read as evidence for the CL CFD without independently re-pricing against CL futures data | same cash-session gating |
+
+**Scored** (fresh $5,000 account, `--swap-model prorated`, same
+`RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2` bar; evidence source
+`comms/strategy_evidence/runs/2026-09-24-e55/` except `qqq_trend_long_1d`
+which only has a 2026-09-24 run):
+
+| leg | n | honest n (≥20)? | alone verdict | alone EV p5/p50/p95 ($) | baseline+leg verdict |
+|---|--:|---|---|---|---|
+| `uso_trend_1h` | 56 | yes | **PASS** | 42.7 / 395.3 / 1055.1 | indeterminate (−39.8 / 16.0 / 193.8) |
+| `qqq_pullback_1h` | 55 | yes | indeterminate | −45.0 / −3.5 / 266.5 | indeterminate (−39.9 / −22.0 / 38.5) |
+| `spy_pullback_1h` | 61 | yes | indeterminate | −45.0 / −41.4 / 17.4 | **FAIL** (−45.0 / −41.4 / −25.4) |
+| `slv_pullback_1d` | 11 | **NO** | indeterminate (unmeasured) | −45.0 / −6.9 / 290.0 | indeterminate |
+| `spy_trend_long_1d` | 11 | **NO** | indeterminate (unmeasured) | −45.0 / −43.6 / 1.8 | indeterminate |
+| `tqqq_trend_long_1d` | 12 | **NO** | indeterminate (unmeasured) | −45.0 / −37.6 / 105.1 | indeterminate |
+| `qld_trend_long_1d` | 9 | **NO** | indeterminate (unmeasured) | −45.0 / −19.9 / 211.1 | indeterminate |
+| `qqq_trend_long_1d` | **5** | **NO** | fail (unmeasured — do not trust) | −45.0 / −45.0 / −20.3 | indeterminate |
+| `mes_trend_long_1d` | **5** | **NO** | fail (unmeasured — do not trust) | −45.0 / −45.0 / −16.5 | indeterminate |
+
+**Findings:**
+
+1. **`uso_trend_1h` alone clears the PASS bar cleanly and by a wide margin** (evidence-CI
+   entirely positive, p5 = +$42.7) — a stronger, less borderline result than any crypto
+   candidate in §2. **But this is exactly the leg with the worst basis caveat**: it is
+   priced off USO's ETF-roll behavior, which is known to diverge from actual CL futures
+   under contango. This result is NOT read as "CL clears the bar" — it is read as "USO's
+   *own* historical path clears the bar," which is a different and much weaker claim.
+   Filed to the pipeline (below) as a naming-the-gap follow-up: re-price against CL
+   futures/CFD data before treating this as decision-grade for Breakout's CL symbol.
+2. **`spy_pullback_1h` flips the baseline to FAIL when added** — the same shape as
+   `eth_pullback_prop_2h` in §3: a leg whose own alone-evidence already leans negative
+   (median −$41.4) makes the combined book actively worse, not merely neutral.
+3. **Five of nine legs are below the 20-trade honesty floor** (n=5 to n=12) — this
+   reflects that most of these ETF/futures legs are daily-bar strategies on a ~1-year
+   window, which structurally caps trade count. `mes_trend_long_1d` and
+   `qqq_trend_long_1d` at n=5 read "fail" from the tool, but **n=5 is not evidence of
+   anything** — do not act on either verdict.
+4. **Leveraged-ETF legs (`tqqq_trend_long_1d`, `qld_trend_long_1d`) are reported but not
+   decision-grade for XYZ100**: their daily-reset compounding means their multi-day R
+   distribution is a property of the leveraged ETF, not of the underlying Nasdaq-100
+   index a CFD would track.
+5. **Correlation risk, stated rather than measured this lane** (no combo run of
+   multiple index-linked legs together — out of this lane's remaining time budget):
+   `spy_*`, `qqq_*`, `tqqq_*`, and `qld_*` are all large-cap-US-equity-beta legs: S&P500
+   and XYZ100 (Nasdaq-100) are themselves highly correlated indices. Combining several
+   of them on one $5k book concentrates one macro factor, echoing §3's xrp+ada finding
+   that pooling correlated legs onto one shared drawdown budget can make the combined
+   book WORSE, not better — the manager's own instruction to "watch the correlation
+   between S&P500 and XYZ100" is right to flag this before any Tier-3 proposal, and it
+   remains unanswered by this lane's numbers, not resolved by them.
+6. **`slv_pullback_1d` is already REAL MONEY on `alpaca_live` today.** This lane's
+   fresh-$5k framing does not bear on that live position at all — it only asks "if this
+   same leg's signal history were replayed on a *fresh* Breakout account, would it
+   clear the bar" — and at n=11 the honest answer is "not enough evidence either way."
+
+## 6. Instrument list verification
+
+The operator supplied a transcription of `https://www.breakoutprop.com/symbols/` (screenshot,
+2026-09-27) and separately asked this lane to verify it against the live page. **The live page
+could not be fetched from this sandbox — confirmed, not merely attempted-and-skipped**: both
+`WebFetch` and a direct `curl` (with a browser User-Agent, through the environment's proxy) on
+`https://www.breakoutprop.com/symbols/` at 2026-09-27T08:39:05Z returned HTTP 403 with response
+header `cf-mitigated: challenge` — Cloudflare's interactive bot-challenge, which no non-browser
+HTTP client can pass. This is a verifiable technical block, not an assumption: the header is
+in the raw response. Every figure attributed to the operator's screenshot below is marked
+**`[operator screenshot, unverified against the live page]`** per that fallback, and the two
+that were independently corroborated via `WebSearch` (a different retrieval path than the
+blocked direct fetch) are marked accordingly. Filed to the pipeline (below) so a session with a
+real browser or a different network path re-attempts the live fetch.
+
+See [`docs/integrations/breakout-instruments-2026-09-27.md`](../../integrations/breakout-instruments-2026-09-27.md)
+for the full committed instrument table.
+
+## 7. Pipeline follow-ups filed
 
 See `docs/claude/work/pipeline/` for the individual records (ids below).
 Each carries `due_when` + `origin.rerun` per the pipeline schema.

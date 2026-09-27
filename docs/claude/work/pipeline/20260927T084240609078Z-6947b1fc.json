@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a CL-futures-priced (not USO-ETF-priced) re-run of uso_trend_1h's signal exists and its RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 verdict is read, whichever way it goes.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-ODDTM5QY-0005",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md",
+    "rerun": "python3 scripts/backtest_trend.py --symbol CL --data <CL futures candle file> ... # then re-run scripts/research/prop_ev_sim.py on the resulting trades.jsonl with --swap-model prorated"
+  },
+  "state": "queued",
+  "what": "[W6/B6] uso_trend_1h alone clears RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 (evidence-CI p5=+$42.7, n=56) when mapped to Breakout's CL symbol, but the evidence is priced off USO ETF data, and USO is a documented poor proxy for WTI/CL futures under contango (its methodology rolls near-month contracts and has diverged materially from spot/futures WTI, most visibly in 2020). Before treating this as decision-grade for CL, re-price the same signal against actual CL futures/CFD price data."
+}
