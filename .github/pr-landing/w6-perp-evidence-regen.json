@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Adds one append-only pipeline record (docs/claude/work/pipeline/*.json) confirming an independent re-verification of PI-20260924-JCVFRWEA-0001. No code, no strategy_evidence record, no config, no order path touched -- the stale perp records this item tracks were already regenerated and merged in PR #12937 before this lane ran; this lane only re-measured and recorded that clause (a) of MD-PROMOTE-S1-S2's blocked_until still holds. Docs-only, Tier-1 by path."
+}

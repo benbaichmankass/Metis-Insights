@@ -1632,8 +1632,20 @@ def account_open_positions(
                 "query_state": "rows_returned" if raw else "no_rows",
                 "row_count": len(raw),
             })
+            # Every book the PAGE listed, zero-size rows included, keyed by
+            # symbol -- the input to the hedge-sibling backfill below. Recorded
+            # before ``_emit`` so a zero-size row still counts as "the venue
+            # told us about this book".
+            page_books: Dict[str, set] = {}
             for p in raw:
+                if isinstance(p, dict) and isinstance(p.get("symbol"), str):
+                    page_books.setdefault(p["symbol"], set()).add(
+                        _bybit_book_key(p.get("positionIdx")))
                 _emit(p)
+            # Symbols a symbol-scoped read ANSWERED this pass. A symbol-scoped
+            # ``get_positions(symbol=...)`` returns every book on that symbol,
+            # so the hedge-sibling backfill never needs to ask twice.
+            symbol_scoped_answered: set = set()
 
             # BL-20260713-BYBIT2-BTC-SETTLECOIN-BLIND: a single
             # ``settleCoin=USDT`` position/list page can silently omit a
@@ -1681,7 +1693,87 @@ def account_open_positions(
                     "query_state": "rows_returned" if lst2 else "no_rows",
                     "row_count": len(lst2),
                 })
+                symbol_scoped_answered.add(sym)
                 for p in lst2:
+                    _emit(p)
+
+            # OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED (operator-
+            # approved 2026-09-27). The settleCoin page returns ONE row per
+            # symbol on bybit_2 -- measured 148 of 148 reads on 2026-09-13,
+            # ETHUSDT listed at positionIdx 1 only, XRPUSDT at 2 only -- and
+            # the cross-check above skips every symbol the page already
+            # surfaced (``sym in seen``), so a hedge symbol's SECOND book was
+            # never asked for at all. That is how a real-money ETHUSDT short
+            # sat naked and invisible to every bot surface.
+            #
+            # So: any symbol the page listed in a HEDGE book (idx 1 or 2)
+            # without its sibling gets one symbol-scoped read. One-way symbols
+            # (idx 0) are complete from the page and cost nothing. The added
+            # REST calls are bounded by the hedge symbols the page lists, not
+            # by the roster -- the unbounded per-tick round-trip the ``seen``
+            # comment above warns against is not reintroduced.
+            #
+            # A sibling read that FAILS is ``could_not_look`` (scope
+            # ``hedge_sibling``) and therefore increments the soak row's
+            # ``could_not_look_count`` -- the missing book is never again a
+            # silent 0. The read itself still returns what it has, exactly
+            # like a failed roster cross-check above: collapsing the whole
+            # account to ``None`` on one symbol's hiccup is a separate,
+            # wider behaviour change and is not taken here.
+            for sym in sorted(page_books):
+                books = page_books[sym]
+                if not (books & {1, 2}) or {1, 2} <= books:
+                    continue
+                if sym in symbol_scoped_answered:
+                    continue
+                missing = sorted({1, 2} - books)
+                try:
+                    r3 = client.get_positions(category=category, symbol=sym)
+                    lst3 = (
+                        r3.get("result", {}).get("list", [])
+                        if isinstance(r3, dict)
+                        else []
+                    )
+                except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look on this query; the page read still stands
+                    logger.warning(
+                        "account_open_positions(%s): hedge-sibling read for %s "
+                        "(missing book(s) %s) failed: %s",
+                        account.get("account_id") or "unknown", sym, missing, exc,
+                    )
+                    obs["queries"].append({
+                        "scope": "hedge_sibling",
+                        "symbol": sym,
+                        "query_state": "could_not_look",
+                        "row_count": None,
+                        "books_missing_from_page": missing,
+                        "error": repr(exc)[:200],
+                    })
+                    continue
+                returned = sorted(
+                    {_bybit_book_key(p.get("positionIdx"))
+                     for p in lst3 if isinstance(p, dict)},
+                    key=str,
+                )
+                obs["queries"].append({
+                    "scope": "hedge_sibling",
+                    "symbol": sym,
+                    "query_state": "rows_returned" if lst3 else "no_rows",
+                    "row_count": len(lst3),
+                    "books_missing_from_page": missing,
+                    "books_returned": returned,
+                })
+                symbol_scoped_answered.add(sym)
+                for p in lst3:
+                    # The book the page already listed comes back too; it is
+                    # the SAME book re-read, not a venue duplicate, so it is
+                    # skipped here rather than sent through ``_emit``'s
+                    # dedupe (which would page it as an anomaly every read).
+                    # A row for any OTHER symbol is not an answer to this
+                    # query and is ignored.
+                    if not isinstance(p, dict) or p.get("symbol") != sym:
+                        continue
+                    if _bybit_book_key(p.get("positionIdx")) in books:
+                        continue
                     _emit(p)
             _record_position_read_observation(obs)
             return out
@@ -2188,7 +2280,13 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
         # SYMBOL so no extra venue call is introduced.
         seen_books: set = set()
         seen: set = set()
+        # Every book the page LISTED (zero-size included), for the hedge-
+        # sibling backfill below.
+        page_books: Dict[str, set] = {}
         for p in praw:
+            if isinstance(p, dict) and isinstance(p.get("symbol"), str):
+                page_books.setdefault(p["symbol"], set()).add(
+                    _bybit_book_key(p.get("positionIdx")))
             size = _f(p.get("size"))
             if size <= 0:
                 continue
@@ -2210,11 +2308,13 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
         # MODE: UNION (E42) — same reasoning as `_bybit_configured_symbols`,
         # and routed through the same resolver so the two halves of this
         # cross-check cannot drift apart in their denominator.
+        roster_answered: set = set()
         for sym in _bybit_configured_symbols(account):
             if not sym or sym in seen:
                 continue
             try:
                 one = client.get_positions(category=category, symbol=sym)
+                roster_answered.add(sym)
                 for p in (((one or {}).get("result") or {}).get("list") or []):
                     if _f(p.get("size")) <= 0:
                         continue
@@ -2227,6 +2327,43 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
                     "account_bybit_open_orders(%s): symbol cross-check %s failed: %s",
                     aid, sym, exc,
                 )
+
+        # OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED: the same sibling
+        # blindness as ``account_open_positions`` -- the page lists ONE book of
+        # a hedge symbol on bybit_2 and the cross-check above skips any symbol
+        # the page surfaced, so this protection surface could not show a naked
+        # second book. Same bounded backfill: one symbol-scoped read per hedge
+        # symbol listed without its sibling. A failure is NAMED in
+        # ``hedge_sibling_could_not_look`` rather than reading as "no book".
+        hedge_sibling_could_not_look: list = []
+        hedge_sibling_read: list = []
+        for sym in sorted(page_books):
+            books = page_books[sym]
+            if not (books & {1, 2}) or {1, 2} <= books:
+                continue
+            if sym in roster_answered:
+                continue  # already read symbol-scoped: every book is in hand
+            try:
+                one = client.get_positions(category=category, symbol=sym)
+            except Exception as exc:  # noqa: BLE001  # allow-silent: named in hedge_sibling_could_not_look; never an exception into the caller
+                logger.warning(
+                    "account_bybit_open_orders(%s): hedge-sibling read %s failed: %s",
+                    aid, sym, exc,
+                )
+                hedge_sibling_could_not_look.append(sym)
+                continue
+            hedge_sibling_read.append(sym)
+            for p in (((one or {}).get("result") or {}).get("list") or []):
+                if not isinstance(p, dict) or p.get("symbol") != sym:
+                    continue
+                key = _bybit_book_key(p.get("positionIdx"))
+                if key in books or (sym, key) in seen_books:
+                    continue
+                if _f(p.get("size")) <= 0:
+                    continue
+                seen_books.add((sym, key))
+                seen.add(sym)
+                positions.append(_bybit_position_row(p, settlecoin_blind=True))
 
         def _shape_order(o, ofilter, blind=False):
             row = {
@@ -2331,6 +2468,11 @@ def account_bybit_open_orders(account: Dict[str, Any]) -> Optional[Dict[str, Any
         # short `orders` list is never mistaken for a complete one.
         "order_symbols_unchecked": order_symbols_unchecked,
         "order_symbols_cross_checked": sorted(s for s in seen if s),
+        # Hedge symbols the page listed with only ONE book, and whether the
+        # sibling read ran. A symbol in ``..._could_not_look`` may hold a book
+        # this payload does not show.
+        "hedge_sibling_read": hedge_sibling_read,
+        "hedge_sibling_could_not_look": hedge_sibling_could_not_look,
     }
 
 
@@ -2927,6 +3069,111 @@ def account_bybit_raw_positions(account: Dict[str, Any]) -> Optional[Dict[str, A
             str(r["symbol"]) for r in graded if (r["size"] or 0.0) > 0 and r["symbol"]
         }),
         "symbols_queried": [f"{q['category']}:{q['query']}" for q in queries],
+    }
+
+
+def account_bybit_symbol_books(
+    account: Dict[str, Any], symbol: str,
+) -> Optional[Dict[str, Any]]:
+    """Every position book the venue holds on ONE symbol, read symbol-scoped.
+
+    Backs ``/api/diag/exchange_positions?symbol=`` (OI-20260913-A-BYBIT2-
+    HEDGE-BOOK-IS-NEVER-FETCHED). Until this existed the route took
+    ``account_id`` only and an appended ``&symbol=ETHUSDT`` returned a
+    BYTE-IDENTICAL payload, so no session could ask the venue whether a hedge
+    symbol's second book was open -- every surface read through the page that
+    omits it.
+
+    One ``get_positions(category, symbol=...)`` call. Bybit v5 has no
+    ``positionIdx`` filter on ``/v5/position/list``; a symbol-scoped read
+    returns every book on the symbol (idx 0 in one-way mode, idx 1 AND 2 in
+    hedge mode), which is why this is the read the reconciler's page cannot
+    substitute for. ``books_read`` states which books the venue actually
+    answered with, so "we read both hedge books" is checkable rather than
+    asserted; ``hedge_books_missing`` names a hedge book the venue did NOT
+    return, which is a finding, never silently a flat book.
+
+    Reduces NOTHING: zero-size rows are kept, ``size_raw`` sits beside the
+    float, and ``stop_loss`` / ``take_profit`` are the position-level levels
+    (``None`` when unset -- a ``"0"`` is the venue saying "no stop", never a
+    stop at zero).
+
+    Returns ``None`` when this is not a Bybit account or no client can be
+    built. A raising venue call is ``query_state: "could_not_look"`` with
+    ``rows: None`` -- never ``[]``. Read-only: places, modifies and cancels
+    nothing. Never raises.
+    """
+    if not isinstance(account, dict):
+        return None
+    if (account.get("exchange") or "unknown").lower() != "bybit":
+        return None
+    aid = account.get("account_id") or "unknown"
+    client = bybit_client_for(account)
+    if client is None:
+        return None
+    sym = str(symbol or "").strip().upper()
+    try:
+        from src.units.accounts.execute import _bybit_category
+        category = _bybit_category(account)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look below; never an exception into the caller
+        logger.warning(
+            "account_bybit_symbol_books(%s): category resolve failed: %s", aid, exc)
+        return {"symbol": sym, "category": None, "query_state": "could_not_look",
+                "rows": None, "books_read": None, "hedge_books_missing": None,
+                "error": f"{type(exc).__name__}: {exc}"}
+    try:
+        resp = client.get_positions(category=category, symbol=sym)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: recorded as could_not_look; never an exception into the caller
+        logger.warning(
+            "account_bybit_symbol_books(%s): %s read failed: %s", aid, sym, exc)
+        return {"symbol": sym, "category": category,
+                "query_state": "could_not_look", "rows": None,
+                "books_read": None, "hedge_books_missing": None,
+                "error": f"{type(exc).__name__}: {exc}"}
+    raw = (((resp.get("result") or {}).get("list") or [])
+           if isinstance(resp, dict) else [])
+    rows: list = []
+    for p in raw:
+        if not isinstance(p, dict):
+            continue
+        raw_size = p.get("size")
+        try:
+            size: Optional[float] = float(raw_size)
+        except (TypeError, ValueError):
+            size = None
+        rows.append({
+            "symbol": p.get("symbol"),
+            "position_idx": _bybit_book_key(p.get("positionIdx")),
+            "side": p.get("side") or None,
+            "size": size,
+            "size_raw": None if raw_size is None else str(raw_size),
+            "size_parsed": size is not None,
+            "avg_price": _bybit_venue_price(p.get("avgPrice")),
+            "mark_price": _bybit_venue_price(p.get("markPrice")),
+            "stop_loss": _bybit_venue_price(p.get("stopLoss")),
+            "take_profit": _bybit_venue_price(p.get("takeProfit")),
+            "tpsl_mode": p.get("tpslMode") or None,
+            "unrealised_pnl": _bybit_venue_price(p.get("unrealisedPnl")),
+            "created_time": p.get("createdTime"),
+            "updated_time": p.get("updatedTime"),
+        })
+    books = {r["position_idx"] for r in rows}
+    hedge = bool(books & {1, 2})
+    return {
+        "symbol": sym,
+        "category": category,
+        "query_state": "rows_returned" if rows else "no_rows",
+        "rows": rows,
+        "books_read": sorted(books, key=str),
+        # ``None`` when the symbol is not in hedge mode (or the venue returned
+        # nothing), so "one-way, nothing missing" and "hedge, nothing missing"
+        # stay distinguishable.
+        "hedge_books_missing": sorted({1, 2} - books) if hedge else None,
+        "nonzero_books": sorted(
+            (r["position_idx"] for r in rows
+             if r["size_parsed"] and (r["size"] or 0.0) > 0),
+            key=str),
+        "error": None,
     }
 
 

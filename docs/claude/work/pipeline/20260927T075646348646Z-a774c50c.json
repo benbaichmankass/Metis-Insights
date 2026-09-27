@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "the operator decides whether to widen TIER1_SURFACE to include scripts/ml/** (or declines to), OR another PR touching scripts/ml/** trips the same self-land refusal again -- either way this stops being open.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-QBHR1EYJ-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Bf9Xnenv6vF5rSqbhr1EYj / PR #13093 (checklist row B4)",
+    "rerun": "python3 -c \"import sys; sys.path.insert(0,'scripts/ci'); import check_pr_landing as c; print('scripts/ml/**' in c.TIER1_SURFACE)\"  # False today"
+  },
+  "state": "queued",
+  "what": "scripts/ci/check_pr_landing.py::TIER1_SURFACE excludes scripts/ml/**, even though root CLAUDE.md's own Tier-1 examples plainly cover review tooling like scripts/ml/strategy_review_packet.py (which documents itself as Tier-1 in its own module docstring). Surfaced 2026-09-27 while landing checklist row B4: an in-place edit to that file would have been refused self-land on R5's 'diff outside TIER1_SURFACE' clause, so B4's fix was built as a new scripts/ops/ module instead. Mirrors the MI-242 precedent (scripts/backtest_*.py was in the same gap until an operator-approved widening). Not fixed here: widening TIER1_SURFACE is the operator's act, not a session's -- the same asymmetry CLAUDE.md names for granting a mandate."
+}
