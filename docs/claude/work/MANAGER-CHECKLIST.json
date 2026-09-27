@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-27T06:25:00Z",
-  "updated_by": "session_01Ljhs6sFAdWHdMDhJpL5aBP",
+  "updated_at": "2026-09-27T07:55:00Z",
+  "updated_by": "session_01Bf9Xnenv6vF5rSqbhr1EYj",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -242,16 +242,18 @@
       "id": "B4",
       "title": "Re-scope the review packet \u2014 Stage 2 on money, Stage 1 on cost fidelity",
       "phase": "B",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01Bf9Xnenv6vF5rSqbhr1EYj",
       "model": "claude-sonnet-5",
       "ceiling_usd": 20,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        13093
+      ],
       "blocked_on": [],
-      "note": "Without this it keeps grading 52 legs against a 20-trade floor and emitting nothing, forever. comms/strategy_reviews/2026-09-20/INDEX.json: 52 graded, 71 closes in window, actionable 0, its own days_to_grade_all_reachable_point 140.0, unbounded_no_closes 23."
+      "note": "PR #13093 open (branch claude/w6-b4-review-packet), self-land declared (.github/pr-landing/w6-b4-review-packet.json tier:1 landing:self), CI running. DELIVERED: scripts/ops/strategy_review_stage_aware.py, a new Tier-1 generator wired into generate_strategy_review_packets_action.sh's all_strategies path. Stage 2 (bybit_2/alpaca_live + mirrors) graded on money by calling scripts/ops/r4_demotion_gate.py's own evaluate() read-only (never --apply, never touches config/accounts.yaml); Stage 1 (bybit_1, alpaca_paper) graded on mechanics + cost fidelity by calling scripts/ops/soak_book_grade.py's own build_report() -- neither verdict re-derived. Every row states verdict_reached (R4/R5 reached a verdict) as distinct from actionable (asking for a decision). The legacy per-strategy expectancy matrix (scripts/ml/strategy_review_packet.py) is UNCHANGED and keeps serving GET /api/bot/strategies/{name}/review. WHY IT LIVES IN scripts/ops/ RATHER THAN EDITING scripts/ml/strategy_review_packet.py IN PLACE: verified scripts/ci/check_pr_landing.py::TIER1_SURFACE directly -- it covers scripts/ops/** but NOT scripts/ml/**, so an in-place edit would have failed R5's 'diff outside TIER1_SURFACE' self-land check; confirmed the actual diff (docs/**, scripts/ops/**, tests/**, .github/**) clears TIER1_SURFACE with zero barred/unvouched paths before declaring self-land. VERIFIED (not merely run): 97 tests pass (tests/test_strategy_review_stage_aware.py + the existing test_strategy_review_index/test_strategy_review_gate/test_r4_demotion_gate suites), soak_book_grade.py --self-test PASS, ruff clean, check_pr_landing.py --branch claude/w6-b4-review-packet locally reads 'state=declared_self_land', and check_collapsed_states/check_roster_symbol_reachability/check_dry_run_in_diff all read clean and unaffected. MERGED: no. DEPLOYED: no. OBSERVED: no -- the generator needs the live trade journal and the cron workflow checks out main, so the FIRST real run (actionable count with denominators per stage) can only happen after this merges; that run is this row's next step, not yet done. FILED AS A FOLLOW-UP, not fixed here: scripts/ci/check_pr_landing.py::TIER1_SURFACE excludes scripts/ml/** despite root CLAUDE.md's own Tier-1 examples plainly covering review tooling like strategy_review_packet.py (which documents itself as Tier-1) -- widening it is the operator's act (same asymmetry as granting a mandate), left to the operator per the MI-242 precedent."
     },
     {
       "id": "B5",
