@@ -221,6 +221,7 @@ def _reset_close_state():
     om._CLOSE_FAIL_STREAK.clear()
     om._PENDING_CLOSE_RETRY_COOLDOWN.clear()
     om._PACKAGE_CLOSE_SKIP.clear()
+    om._EXCHANGE_CLOSED_PENDING_DB.clear()
 
 
 def _close_common(monkeypatch):
@@ -303,3 +304,40 @@ def test_every_leg_suppressed_is_still_a_quiet_no_change(monkeypatch):
     assert calls == []
     assert s.no_change_count == 1 and s.error_count == 0
 
+
+
+# ------------------------------- close: venue closed, DB write failed (CA-A01-007)
+#
+# FIX-CA-03. The exchange close succeeded but the trade-row write raised; the
+# failure was swallowed, closed_count went up, and the next tick sent a SECOND
+# reduce-only market close for the same qty.
+
+
+def test_a_failed_trade_write_after_a_venue_close_never_resends(monkeypatch):
+    _close_common(monkeypatch)
+    db = FakeDB([_leg(1, "bybit_2")])
+    calls = []
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda t: calls.append(t["id"]) or
+                        {"ok": True, "exchange_order_id": "X"})
+    writes = []
+
+    def _update_trade(tid, updates):
+        writes.append((tid, updates))
+        if len(writes) == 1:
+            raise RuntimeError("database is locked")
+        db.trades = [t for t in db.trades if t["id"] != tid]
+    monkeypatch.setattr(db, "update_trade", _update_trade)
+
+    s1 = om._StrategyTickSummary()
+    om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, s1)
+    s2 = om._StrategyTickSummary()
+    om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, s2)
+
+    assert calls == [1], "a second reduce-only close was sent for a closed venue leg"
+    assert (s1.error_count, s1.closed_count) == (1, 0)
+    assert writes[1][1]["status"] == "closed"
+    assert writes[1][1] == writes[0][1], "the retry must write the original close"
+    assert s2.closed_count == 1
+    assert [w["status"] for w in db.package_writes] == ["closed"]
+    assert om._EXCHANGE_CLOSED_PENDING_DB == {}

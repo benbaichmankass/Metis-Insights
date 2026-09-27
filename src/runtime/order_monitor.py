@@ -886,6 +886,85 @@ def _legs_after_failed(legs: list, failed_id) -> list:
     return list(legs)
 
 
+# Venue-closed, DB-write-pending legs (FIX-CA-03 / CA-A01-007): trade id (str)
+# → (the close_updates we failed to write, when the venue close confirmed). A leg
+# in here is CLOSED ON THE VENUE; the close branch retries only its DB write and
+# never sends another exchange close for it. In-process: after a restart the
+# row is still open and the next close attempt meets the venue's own "position
+# is zero" answer (30031/110017/110025), which already routes to the DB update.
+_EXCHANGE_CLOSED_PENDING_DB: Dict[str, tuple] = {}
+
+
+def _finish_package_after_leg_close(db, open_pkg: dict, matched_trade: dict,
+                                    reason: str,
+                                    summary: _StrategyTickSummary) -> None:
+    """After ONE leg's trade row is written closed: flip the parent package only
+    when no open leg remains. Shared by the exchange-first close and the
+    venue-closed-DB-pending retry (FIX-CA-03)."""
+    pkg_id = open_pkg.get("order_package_id")
+    # Realised-PnL booking (2026-05-18 SSOT refactor): pnl is no
+    # longer computed locally at close time. The Bybit-truth sweep
+    # ``_sweep_pending_pnl_from_bybit`` (invoked from
+    # ``run_monitor_tick``) fills ``pnl`` / ``exit_price`` /
+    # ``notes.bybit_closed_pnl`` from Bybit's
+    # ``/v5/position/closed-pnl`` endpoint within a few ticks of
+    # close. Until that lookup succeeds, ``pnl`` stays NULL and
+    # the dashboard renders an em-dash for the row. This deletes
+    # the historical fee-blind gross-PnL write that produced
+    # silent dashboard / Bybit discrepancies (e.g. trade #1540's
+    # gross +$1.03 vs Bybit's net of fees).
+    # (Was: ``_compute_close_pnl(matched_trade, actual_exit_price)``
+    # followed by ``db.update_trade(trade_id, pnl_updates)``.)
+
+    # Flip the PARENT only when no open leg remains. This is the whole
+    # repair: the loop selects packages by `status="open"`, so flipping it
+    # while a sibling leg is still open removes that leg from the exit path
+    # for good. Re-read rather than deducing from `legs` — the row we just
+    # closed is one of them, and another tick or the reconciler may have
+    # moved a sibling underneath us.
+    remaining, remaining_state = _package_open_legs(db, open_pkg)
+    if remaining_state != "resolved":
+        # We cannot show the package is drained, so we must not say it is.
+        # Leaving it OPEN is the safe direction: the next tick re-reads,
+        # and a package with nothing left simply closes then.
+        logger.warning(
+            "order_monitor: closed trade %s but could not re-read pkg=%s "
+            "legs — leaving the package OPEN; next tick re-checks.",
+            matched_trade.get("id"), pkg_id,
+        )
+        summary.closed_count += 1
+        return
+    if remaining:
+        logger.info(
+            "order_monitor: closed leg %s (%s) for pkg=%s; %d open leg(s) "
+            "remain (%s) — package stays OPEN so the next tick closes the "
+            "next one.",
+            matched_trade.get("id"), matched_trade.get("account_id"),
+            pkg_id, len(remaining),
+            ", ".join(f"{r.get('id')}/{r.get('account_id')}"
+                      for r in remaining),
+        )
+        summary.closed_count += 1
+        return
+
+    try:
+        db.update_order_package(pkg_id, {
+            "status": "closed",
+            "close_reason": reason,
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "order_monitor: order_packages close write failed for %s: %s",
+            pkg_id, exc,
+        )
+        summary.error_count += 1
+        summary.errors.append(f"{pkg_id}: close-write failed")
+        return
+
+    summary.closed_count += 1
+    return
+
+
 def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                   summary: _StrategyTickSummary) -> None:
     """Translate a non-None monitor verdict into DB writes.
@@ -1002,6 +1081,35 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 summary.errors.append(f"{pkg_id}: close-write failed")
                 return
             summary.closed_count += 1
+            return
+
+        # A leg already CLOSED ON THE VENUE whose trade-row write failed
+        # (FIX-CA-03): retry only the write. Never a second exchange close.
+        for _cand in legs:
+            _pending = _EXCHANGE_CLOSED_PENDING_DB.get(str(_cand.get("id")))
+            if _pending is None:
+                continue
+            _updates, _since = _pending
+            try:
+                db.update_trade(int(_cand.get("id")), _updates)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "order_monitor: venue-closed trade %s (pkg=%s) DB write "
+                    "still failing since %s: %s — no exchange close sent.",
+                    _cand.get("id"), pkg_id, _since.isoformat(), exc,
+                )
+                summary.error_count += 1
+                summary.errors.append(
+                    f"{pkg_id}: trade close write still failing: {exc}")
+                return
+            _EXCHANGE_CLOSED_PENDING_DB.pop(str(_cand.get("id")), None)
+            logger.info(
+                "order_monitor: venue-closed trade %s (pkg=%s) DB write "
+                "recovered.", _cand.get("id"), pkg_id,
+            )
+            _finish_package_after_leg_close(
+                db, open_pkg, {**_cand, **_updates},
+                _updates.get("exit_reason") or reason, summary)
             return
 
         # WHICH LEG THIS TICK (FIX-CA-02 / CA-A01-006). Still ONE exchange close
@@ -1264,13 +1372,13 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # below sees post-close truth. The exchange call has already succeeded
         # at this point, so neither order risks a journal that claims a
         # still-open position is closed.
+        closed_at_iso = datetime.now(timezone.utc).isoformat()
+        close_updates: Dict[str, Any] = {
+            "status": "closed",
+            "exit_reason": reason,
+            "closed_at": closed_at_iso,
+        }
         try:
-            closed_at_iso = datetime.now(timezone.utc).isoformat()
-            close_updates: Dict[str, Any] = {
-                "status": "closed",
-                "exit_reason": reason,
-                "closed_at": closed_at_iso,
-            }
             if actual_exit_price is not None:
                 close_updates["exit_price"] = actual_exit_price
             # ── STAMP EVERY OUTCOME, INCLUDING THE GOOD ONE ───────────────
@@ -1329,71 +1437,28 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                 db.update_trade(int(trade_id), close_updates)
                 matched_trade = {**matched_trade, **close_updates}
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "order_monitor: trades close-side update failed for %s: %s",
-                pkg_id, exc,
+            # FIX-CA-03 (CA-A01-007). The VENUE close already happened. This
+            # used to be swallowed: closed_count went up, the row stayed open,
+            # and the next tick sent a SECOND reduce-only market close for the
+            # same qty. Remember the leg as venue-closed-DB-pending so the next
+            # tick retries ONLY the write, and count it as the error it is.
+            trade_id = matched_trade.get("id")
+            logger.error(
+                "order_monitor: exchange close CONFIRMED but trades close-side "
+                "update failed for pkg=%s trade=%s: %s — will retry the DB write "
+                "only; no further exchange close for this leg.",
+                pkg_id, trade_id, exc,
             )
-
-        # Realised-PnL booking (2026-05-18 SSOT refactor): pnl is no
-        # longer computed locally at close time. The Bybit-truth sweep
-        # ``_sweep_pending_pnl_from_bybit`` (invoked from
-        # ``run_monitor_tick``) fills ``pnl`` / ``exit_price`` /
-        # ``notes.bybit_closed_pnl`` from Bybit's
-        # ``/v5/position/closed-pnl`` endpoint within a few ticks of
-        # close. Until that lookup succeeds, ``pnl`` stays NULL and
-        # the dashboard renders an em-dash for the row. This deletes
-        # the historical fee-blind gross-PnL write that produced
-        # silent dashboard / Bybit discrepancies (e.g. trade #1540's
-        # gross +$1.03 vs Bybit's net of fees).
-        # (Was: ``_compute_close_pnl(matched_trade, actual_exit_price)``
-        # followed by ``db.update_trade(trade_id, pnl_updates)``.)
-
-        # Flip the PARENT only when no open leg remains. This is the whole
-        # repair: the loop selects packages by `status="open"`, so flipping it
-        # while a sibling leg is still open removes that leg from the exit path
-        # for good. Re-read rather than deducing from `legs` — the row we just
-        # closed is one of them, and another tick or the reconciler may have
-        # moved a sibling underneath us.
-        remaining, remaining_state = _package_open_legs(db, open_pkg)
-        if remaining_state != "resolved":
-            # We cannot show the package is drained, so we must not say it is.
-            # Leaving it OPEN is the safe direction: the next tick re-reads,
-            # and a package with nothing left simply closes then.
-            logger.warning(
-                "order_monitor: closed trade %s but could not re-read pkg=%s "
-                "legs — leaving the package OPEN; next tick re-checks.",
-                matched_trade.get("id"), pkg_id,
-            )
-            summary.closed_count += 1
-            return
-        if remaining:
-            logger.info(
-                "order_monitor: closed leg %s (%s) for pkg=%s; %d open leg(s) "
-                "remain (%s) — package stays OPEN so the next tick closes the "
-                "next one.",
-                matched_trade.get("id"), matched_trade.get("account_id"),
-                pkg_id, len(remaining),
-                ", ".join(f"{r.get('id')}/{r.get('account_id')}"
-                          for r in remaining),
-            )
-            summary.closed_count += 1
-            return
-
-        try:
-            db.update_order_package(pkg_id, {
-                "status": "closed",
-                "close_reason": reason,
-            })
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "order_monitor: order_packages close write failed for %s: %s",
-                pkg_id, exc,
-            )
+            if trade_id is not None:
+                _EXCHANGE_CLOSED_PENDING_DB[str(trade_id)] = (
+                    dict(close_updates), datetime.now(timezone.utc))
             summary.error_count += 1
-            summary.errors.append(f"{pkg_id}: close-write failed")
+            summary.errors.append(f"{pkg_id}: trade close write failed "
+                                  f"after exchange close: {exc}")
             return
 
-        summary.closed_count += 1
+        _finish_package_after_leg_close(db, open_pkg, matched_trade, reason,
+                                        summary)
         return
 
     # Modification — sl / tp (other keys are silently ignored). Both are
