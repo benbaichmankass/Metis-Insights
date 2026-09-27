@@ -1,5 +1,7 @@
 # CA-A03 — Code audit Wave A: execution core II (exits, positions, fills, invariants, protection, broker truth)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Lane question:** does the code in scope do what it declares, and where does it not?
 **Findings file:** [`CA-A03.findings.jsonl`](CA-A03.findings.jsonl), 22 rows in the §5 schema.
 **Method:** the lane read 6 protection modules itself. Three read-only subagents each fully read one group of 13–14 modules and reproduced defects with crafted inputs. The lane then re-checked every HIGH itself, by re-running the proof or by crafting its own input and reading the cited lines. Where a claim could be settled against live state, the lane read the diag relay and the public API itself.
