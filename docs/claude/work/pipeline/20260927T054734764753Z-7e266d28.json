@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "either PR #13002's _log_dispatch_drop WARNING pattern (or an equivalent trace one layer up in arbitration_fanout.plan_per_account_election / src/runtime/pipeline.py::_dispatch_rounds) names why alpaca_paper/tqqq_trend_long_1d produces zero orders despite N actionable intents and no same-account contender; OR a leg_flow_report rerun shows it receiving",
+    "kind": "observation"
+  },
+  "id": "PI-20260926-X3QEGPJL-0006",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "R5 soak-book-grade 2026-09-26",
+    "rerun": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out comms/research/soak_book_grade/<date>.json"
+  },
+  "state": "queued",
+  "what": "R5 soak-book grade PROPOSES kill: alpaca_paper/tqqq_trend_long_1d — starved (308 actionable intent(s), 2 episode(s), 0 order(s)/ticket(s) received, held_back=2, no open position held) over the 168h window ending 2026-09-26T22:39:52.948694+00:00. Cost fidelity insufficient_n (0 fills) — consistent with zero orders reaching the exchange. This is Stage-1 soak mechanics, NOT an expectancy call; the leg is a PROPOSAL to remove from the alpaca_paper roster as mechanically dead, Tier-3, operator-approved only. -- UPDATE 2026-09-27 (w5d-starved-legs lane, manager session_01Ljhs6sFAdWHdMDhJpL5aBP): mechanics finding, NOT a strategy verdict -- re-routed off the kill proposal, but the root cause is UNDETERMINED, not fixed -- the SAME shape as PI-20260926-X3QEGPJL-0004 (iaum_pullback_1d). tqqq_trend_long_1d is the SOLE strategy trading TQQQ anywhere in config/strategies.yaml -- no same-account contender exists. Ruled out: not_configured (/api/diag/status: alpaca_paper.configured=true, dry_run=false, ~18 other strategies on the same account route fine this window); execution (tqqq_trend_long_1d is execution:live, enabled). UNDETERMINED: no static, config-only check available in this repo distinguishes an uncontested leg never reaching Coordinator.multi_account_execute from one that reaches it and is dropped there. Genuinely needs a live observation."
+}

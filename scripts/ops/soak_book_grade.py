@@ -229,6 +229,36 @@ def disposition_for_leg(*, mech: Optional[Dict[str, Any]],
                     "n_needed": "an entry signal observed while this leg is FLAT "
                                 "(no open position), in some future window",
                     "eta": "re-check next scheduled pass"}
+        # PI-20260926-X3QEGPJL / w5d-starved-legs: a `starved` leg that shares
+        # its symbol with >=1 other LIVE strategy on the SAME account is not
+        # distinguishable, from intents/received alone, from a leg that never
+        # reaches dispatch — `src/runtime/intents.py`'s per-account,
+        # per-symbol election (`aggregate_intents` /
+        # `arbitration_fanout.plan_per_account_election`) lets exactly ONE
+        # strategy win that (account, symbol) slot per tick, REGARDLESS of
+        # `execution: shadow` vs `live` on either side. Grading this `kill`
+        # would repeat the exact false-kill-proposal PI-20260926-X3QEGPJL-0001
+        # through -0006 filed against bybit_1/trend_donchian(_eth_4h) and four
+        # alpaca_paper legs — all six were starved purely because a sibling on
+        # the same account/symbol wins the tick's election, not because the
+        # leg is mechanically dead.
+        contenders = mech.get("same_symbol_live_contenders") or []
+        if contenders:
+            return {"disposition": INSUFFICIENT,
+                    "reason": (f"starved ({mech['intents']} intent(s), 0 received, "
+                              f"no open position) but contends its symbol on this "
+                              f"SAME account against live sibling(s) {contenders} — "
+                              f"src/runtime/intents.py elects only ONE strategy per "
+                              f"(account, symbol) per tick, so losing that election "
+                              f"every time produces this exact shape without the "
+                              f"leg ever being mechanically dead. Cannot be graded "
+                              f"kill without a live per-tick election trace."),
+                    "n_needed": "a per-tick account-election read (e.g. the "
+                                "conviction_arbitration/arbitration_fanout_soak log, "
+                                "or a live dispatch trace) showing this leg either "
+                                "winning at least once, or never winning across a "
+                                "large contested-tick sample",
+                    "eta": "re-check next scheduled pass"}
         return {"disposition": KILL,
                 "reason": (f"starved: {mech['intents']} actionable intent(s) "
                           f"({mech.get('intent_episodes')} episode(s)) in the "
@@ -423,6 +453,25 @@ def _self_test() -> int:
     v = disposition_for_leg(mech=starved_holding, cost_cell=cell(r3.CONSISTENT))
     ck("starved BUT holding a pre-window position -> insufficient-data, never kill",
        v["disposition"] == INSUFFICIENT and "ALREADY HOLDING" in v["reason"])
+
+    # PI-20260926-X3QEGPJL / w5d-starved-legs SHAPE: starved, no open
+    # position, but contends its symbol against a live sibling on the SAME
+    # account. Must NOT be `kill` either — same false-positive class as the
+    # has_open_position case above, caught by a different signal.
+    starved_contended = lfd.assess_leg(intents=25, received=0, held_back=0)
+    starved_contended["same_symbol_live_contenders"] = ["eth_pullback_2h", "ict_scalp_eth_15m"]
+    v = disposition_for_leg(mech=starved_contended, cost_cell=cell(r3.CONSISTENT))
+    ck("starved BUT contends its symbol against a live same-account sibling "
+       "-> insufficient-data, never kill",
+       v["disposition"] == INSUFFICIENT and "eth_pullback_2h" in v["reason"])
+
+    # Negative control: starved, no open position, NO contenders -> still kill.
+    # The new check must not swallow the genuine E18 finding.
+    starved_uncontended = lfd.assess_leg(intents=21, received=0, held_back=0)
+    starved_uncontended["same_symbol_live_contenders"] = []
+    v = disposition_for_leg(mech=starved_uncontended, cost_cell=cell(r3.CONSISTENT))
+    ck("starved, no open position, NO contenders -> still kill (negative control)",
+       v["disposition"] == KILL)
 
     v = disposition_for_leg(mech=lfd.assess_leg(intents=0, received=0), cost_cell=cell(r3.CONSISTENT))
     ck("no_intents -> insufficient-data, never healthy", v["disposition"] == INSUFFICIENT)

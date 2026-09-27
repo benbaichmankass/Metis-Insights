@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01GPKnHn4hoX1PSEboVNqfJU",
+  "branch": "claude/w5d-starved-legs",
+  "claimed_at": "2026-09-27T05:42:52Z",
+  "purpose": "Tier-1 self-land: distinguish same-account-symbol-contention starvation from a genuine dead leg in leg_flow_detector/soak_book_grade"
+}
