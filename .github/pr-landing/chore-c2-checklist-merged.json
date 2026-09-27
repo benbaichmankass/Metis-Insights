@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/MANAGER-CHECKLIST.json only -- transitions checklist row C2 to landed_unproven, recording PR #13185 merged as 816dc482e and stating the exact observation that would close it. No src/, no config/, no order path, no deploy/, no live-VM runtime file."
+}

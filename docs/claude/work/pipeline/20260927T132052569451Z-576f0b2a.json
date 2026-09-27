@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-pairs-close-ignores-account-dry-run",
+    "rerun": "grep -n 'dry\\|\"mode\"' src/units/strategies/pairs_executor.py  # empty => still open"
+  },
+  "state": "queued",
+  "what": "[AUD-20260927-CA-A02-pairs-close-ignores-account-dry-run] The pairs sleeve's close and leg-imbalance unwind paths call close_open_position directly, which has no mode/dry_run gate, so an account flipped to mode: dry_run still has pair closes/unwinds sent to the venue. Proposed fix: In _close_pair/_unwind_legs, short-circuit when acct_cfg.get('mode') == 'dry_run' (journal as dry close), mirroring order_monitor. (Tier 2; audit lanes do not enact fixes.)"
+}

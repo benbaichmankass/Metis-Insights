@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Research/evidence only: docs/research/b6-prop-ev/w6-candidates-v2-2026-09-27.md writeup, docs/DOCUMENT-INDEX.md registration, and three docs/claude/work/pipeline/ follow-up filings (closing PI-20260927-ODDTM5QY-0001/-0003, filing PI-20260927-NLMC4E9Z-0001). Tier-1 by the canonical doc's own list (research output, docs, pipeline filings). Touches NO src/, NO deploy/, NO config/accounts.yaml, config/strategies.yaml or config/prop_rulesets/, NO order path, NO risk caps, NO live-VM unit file, and adds no new code — scores existing legs with the already-merged scripts/research/prop_ev_sim.py (PR #13084), unmodified. Same shape and same tier as the round-1 precedent, PR #13092 (.github/pr-landing/w6-prop-candidates.json)."
+}

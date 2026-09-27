@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "CA-A14's own dispatch instruction: 'Do not set up auto-merge; the repo owner's manager session reviews and merges it.'",
+  "why": "docs-only code-audit output (2 findings files under docs/audits/**) plus 2 pipeline follow-up records under docs/claude/work/pipeline/** -- Tier-1 by path (all under docs/**), held per the dispatching instruction rather than self-landed"
+}
