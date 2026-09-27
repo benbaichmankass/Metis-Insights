@@ -1383,5 +1383,865 @@
   "final_sev": "high",
   "final_class": "FIX",
   "lead_note": ""
+ },
+ {
+  "id": "AUD-20260927-CA-B04-m21-entry-sweep-inert-fold-inflation",
+  "verdict": "DOWNGRADED",
+  "new_severity": "high",
+  "evidence": "origin/main=1247cc8; git log -- scripts/research/m21_entry_sweep.py: only cef4aa2 (#13066), no FIX-CA touches it. m21_entry_sweep.py:203-209 inline WF: ok=(fc.net>=fb.net and fc.dd<=fb.dd); a fold with fc==fb counts as a win; no is_inert import (sibling m20_fleet_exit_sweep.py:67,:2132 uses is_inert). Mitigation: a cell reaches WF only after beats() on IS AND OOS, so the lever is non-inert over full history; per-fold inert count unmeasured (no local XRP/ADA data). Citations (parsed strategies.yaml + accounts.yaml): 8 lines/7 legs. REAL MONEY bybit_2(+bybit_portfolio mirror): trend_donchian_xrp_4h L1423 skip_h0 wf5/6, L1424 vol_hi90 wf4/6; ada_pullback_2h L2835 vol_lo10 wf4/6. Paper: trend_donchian_eth L1189 (bybit_1), spy_pullback_1h L2209 (alpaca_paper). Shadow: avax_pullback_2h L2899, mgc_trend_1h L1777. No roster: xauusd_trend_1h L1731. Evidence records: docs/sprint-logs/S-M21-ENTRY-REFINEMENT-2026-07-13.md L363-432, docs/research/entry-refinement-coverage.json. The wf4/6 passes sit exactly on threshold: one inert fold makes them 3/6 wf_fail.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/m21_entry_sweep.py",
+    "tests/test_m21_entry_sweep_inert_folds.py (new)",
+    "scripts/research/m21_regrade_inert.py (new, optional)"
+   ],
+   "change": "Import is_inert/grade_folds from m20_wf_effective; per fold compute d_net_r/d_max_dd, record inert; write walkforward (raw) AND walkforward_effective (wins excluding inert, inert count, usable) in verdicts.json and console; verdict_effective gates on effective wins (inert folds are neither wins nor usable). Then re-grade the 2026-07-13/14 runs OFFLINE from the trainer's runtime_logs/m21_entry_sweep/2026-07-14 results jsonl (log_result already stores base+lever per fold, L198-199) via trainer-vm-diag; post effective fractions for the 8 cited cells.",
+   "test": "Factor the WF loop into a pure function; feed 6 folds where 2 are fc==fb and 2 real wins: must return raw 4/6 PASS and effective wf_fail. Fails on main (no such function / counts ties).",
+   "detector": "The new test plus extend the existing inert-fold guard family (tests/test_e35_gate_inert_folds.py pattern) to assert every WF grader under scripts/research imports m20_wf_effective.is_inert.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Undercounted citations (said 3 on 2 legs; actually 8 on 7 legs, 3 cells on 2 real-money legs). Severity critical overstated: the defect is a possibly-inflated WF count, not a demonstrated wrong number; IS+OOS strict gate precedes WF; an inert entry filter is neutral rather than loss-making. The live-decision consequence (keep/remove the 3 real-money declares) waits on the offline re-grade and would be Tier 3.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "high"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-ict-scalp-exit-sweep-inert-fold",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "scripts/research/m27/ict_scalp_exit_sweep.py:162-167 beats_or_ties uses >=/<=; :206-207 pass_n += ok; grep 'inert' in file = 0 hits; git log: only cef4aa2. Usable fold needs >=10 baseline trades (:174), so an inert fold needs zero stale exits in >=10 trades (possible but not likely for stale12 on 15m). LANE WRONG on population: config/strategies.yaml:753-764 SHIPPED stale_exit_bars: 12 on ict_scalp_eth_15m citing 'walk-forward 3/4 usable folds (2023/2024/2026 PASS, 2025 fail)'. Roster (accounts.yaml) = ['bybit_1'] only = paper/demo soak. No real-money leg rests on it. exit-refinement-coverage.json refs run 30384837775; all other ict_scalp rows are honest_negative (failed IS/OOS before WF).",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/m27/ict_scalp_exit_sweep.py",
+    "tests/test_ict_scalp_exit_sweep_inert.py (new)"
+   ],
+   "change": "In walk_forward() mark a fold inert when d_netR==0 and d_maxDD==0 (fields already on the row, ~L209-210) via m20_wf_effective.is_inert; report pass_effective/inert beside pass_folds; verdict on effective count.",
+   "test": "Call walk_forward's grading with a synthetic fold set where cell==base on 2 folds: effective pass must exclude them. Fails on main.",
+   "detector": "Same shared guard as the m21 brief (all WF graders must use is_inert).",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-B04-m21-entry-sweep-inert-fold-inflation",
+  "lane_error": "Said no live config traces to this tool; ict_scalp_eth_15m stale_exit_bars:12 is shipped on its 3/4 WF (paper bybit_1 only).",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-pair-funding-drag-silent-empty-pass",
+  "verdict": "DOWNGRADED",
+  "new_severity": "low",
+  "evidence": "scripts/research/pair_funding_drag.py:62-63 returns {'intervals':0,'error':...}; main() :94-107 never checks 'error', prints fields and returns 0. But output literally prints 'intervals=0' and None (not 0) for every metric, and the JSON carries the 'error' key; not readable as 'negligible'. No workflow/script caller (grep: only tests/test_pair_funding_drag.py, docs). Sole committed use docs/research/small-tf-directions-2026-07-15.md:347 reports real numbers (SOL/ETH 0.75 bps/8h), so it was not an empty run. Pairs sleeve is paper-only (config/pairs.yaml account_id bybit_1).",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/pair_funding_drag.py",
+    "tests/test_pair_funding_drag.py"
+   ],
+   "change": "In main(), if out.get('error') or out.get('intervals',0)==0: print ERROR to stderr, still write --json with the error, return 2.",
+   "test": "test_main_nonoverlap_returns_nonzero: two CSVs with disjoint timestamps -> main() != 0. Fails on main (returns 0).",
+   "detector": "The test itself; no broader detector warranted.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "'indistinguishable from negligible' overstated: intervals=0 and None values are printed.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "low"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "scripts/research/pairs_universe_scan.py:361 --adf-max-tstat default -2.86; :112-137 _adf_tstat regresses ds on const+s(t-1) (plain DF with constant). Using DF crit on a residual from an estimated hedge ratio is too lenient (EG 2-var with constant 5% ~ -3.34, MacKinnon). BUT oos_robust (:206-208, doc pairs-extensions-2026-07-15.md:36-41) ANDs IS ADF, OOS ADF, OOS net-of-fee expectancy>0 with min_trades, HL stability and HL band, so the lane's 20% single-test FPR overstates the joint gate's FPR. Consumer: M22 pairs sleeve config/pairs.yaml, account_id bybit_1, 'NO pairs config on a real-money account' (pairs.yaml:26). No workflow invokes the scan. Paper-only; no real money.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/pairs_universe_scan.py",
+    "tests/test_pairs_universe_scan_eg_crit.py (new)"
+   ],
+   "change": "Default --adf-max-tstat to the MacKinnon (2010) 2-variable constant-only EG 5% value (-3.34, or response surface c(n)= -3.3377-5.967/T-8.98/T^2); if the hedge beta is supplied externally (not fitted on the same window) allow DF value only behind an explicit flag; fix the docstrings at :117 and :362.",
+   "test": "Monte Carlo 300 independent random-walk pairs, OLS-fit beta, _adf_tstat residual: rejection rate at default must be <=8%. Fails on main (~20% per lane; re-run to confirm).",
+   "detector": "The Monte Carlo test (seeded, fast at n=300).",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Proposed fix names the no-constant case; the regression includes a constant, so the constant-only EG value applies. FPR measured on one ANDed condition only.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-session-gating-in-sample-best-subset",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "scripts/research/session_gating.py:165-174 best_subset = union of killzones with in-sample taker net>0, no holdout. Mechanism confirmed by reading. Only committed consumer docs/research/small-tf-directions-2026-07-15.md:223-232 ALREADY discounts the ETH london_close flip as 'post-hoc best-of-6-killzone selection ... far more likely in-sample overfitting', 'NOT a candidate'. No config/strategies.yaml leg cites it; no workflow invokes it. Feeds no committed decision -> medium at most.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/session_gating.py",
+    "tests/test_session_gating.py"
+   ],
+   "change": "Split trades into time-ordered halves; select positive killzones on first half, report the subset's net on second half as 'oos_subset'; label best_subset 'in_sample (selection-biased)' in JSON and markdown; 'flips' requires oos_subset>0.",
+   "test": "Synthetic negative-edge, uniform-hour trades (seeded): flip rate on oos_subset < 15% while in-sample best_subset flips >40%. Fails on main (no oos field).",
+   "detector": "The test.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-B02-recurring-in-sample-sweep-selection-class",
+  "lane_error": "Did not notice the only consumer already caveats the result as in-sample overfitting.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-validate-corr-stale-json-reuse",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "scripts/research/validate_corr.py:17-18 OUT=/tmp/research/corr, mkdir exist_ok (never cleared); :34 subprocess.run(... timeout=240) no check, returncode unread; :37 only FileNotFoundError handled -> stale file from a prior run is read on crash. Confirmed by reading. Reach: no .github workflow or script invokes it (grep); cited once, docs/research/overnight-strategy-research-2026-06-01.md:100-112 (one-off 2026-06-01 pre-shadow gate; 3 candidates wired SHADOW on bybit_1). /tmp is fresh on Actions runners; stale reuse needs a re-run on a persistent box after a harness crash. No evidence it happened; htf_pullback_trend_2h is still shadow on bybit_1.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/validate_corr.py",
+    "scripts/research/validate_robustness.py",
+    "scripts/research/sweep_wave1_families.py",
+    "scripts/research/sweep_wave2_momentum.py",
+    "tests/test_research_subprocess_no_stale_json.py (new)"
+   ],
+   "change": "In all four: unlink the fixed output path before each subprocess.run; check returncode (or check=True) and record the cell as failed/None (ok:False) on nonzero exit; better, write to a per-run tempfile like m20_fleet_exit_sweep.run_cell (L1808-1833).",
+   "test": "Monkeypatch subprocess.run to return rc=1 with a pre-seeded stale JSON at the path: each script's cell must read failed/None. Fails on main for all four.",
+   "detector": "A CI grep guard: in scripts/research, any subprocess.run followed by reading a fixed --json path must check returncode (or use a tempfile). Or the shared test above parametrised over the 4 modules.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "High overstated: one-off research scripts, /tmp output, no scheduled caller, and the only gated outcome was shadow wiring.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-validate-robustness-stale-json-reuse",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "validate_robustness.py:18-19 OUT=/tmp/research/validate exist_ok; :49 subprocess.run no check; :50 reads jp unconditionally; :52 broad except only catches read failures, so a stale file passes. Same reach as validate_corr: no workflow caller; one citation overnight-strategy-research-2026-06-01.md:100-110; outcome was shadow wiring on bybit_1.",
+  "class": "FIX",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-B04-validate-corr-stale-json-reuse",
+  "lane_error": "Severity; same root cause as validate_corr, fix in one brief.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-sweep-wave1-stale-json-reuse",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "sweep_wave1_families.py:22-23 OUT=/tmp/research exist_ok; :89 subprocess.run no check; :90 json.loads(jpath.read_text()) then 'ok': True (:98); except (:100) only fires if no file. Timeout raises and is caught (ok False), so only nonzero-exit crash leaks stale data. No workflow caller; cited only in RESEARCH-CAPABILITY-INDEX.md and scripts/research/README.md, no decision record.",
+  "class": "FIX",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-B04-validate-corr-stale-json-reuse",
+  "lane_error": "Severity; feeds no committed decision.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-sweep-wave2-stale-json-reuse",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "sweep_wave2_momentum.py:17-18 OUT=/tmp/research exist_ok; :52 subprocess.run no check; :53 reads jpath; :58 ok True; :59 except. Same as wave1. No workflow caller, no decision record cites it.",
+  "class": "FIX",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-B04-validate-corr-stale-json-reuse",
+  "lane_error": "Severity; feeds no committed decision.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B04-ws-a-s3-significance-winners-curse",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "ws_a_s3_significance.py:52-60 hardcoded SURVIVORS (Gold trend, Gold pullback, Copper pullback) picked from ws_a_s2_retune.py itertools.product grids (:57-68,:127); block_bootstrap :105-126 resamples only the winner's own trades, no search correction. Mechanism confirmed. Consumers: config/strategies.yaml:1583-1632 mgc_pullback_1d and mhg_pullback_1d cite 'WS-A S2/S3'; both roster ONLY ib_paper (paper). Doc ws-a-s3-significance-2026-06-02.md:43 already says 'still not a Tier-3 basis' but lacks a multiple-comparisons caveat. Paper Stage-1 only, no real money.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "(1) Tier-1 caveat only: print and doc-state that p05 is not search-adjusted; mark mgc/mhg_pullback_1d evidence as 'unadjusted for S2 search'.",
+    "(2) Queue a research unit: permutation/White reality-check across the full S2 grid for the two paper legs before any Gate-2 proposal.",
+    "(3) Treat Stage-0 as unproven for both legs and require a fresh pre-registered backtest (roll-adjusted, full cost stack) before promotion."
+   ],
+   "recommendation": "(1) now plus (2) as a research/queue item that must clear before either leg is proposed for Stage 2; no roster change today since both are paper-only."
+  },
+  "duplicate_of": "AUD-20260927-CA-B02-recurring-in-sample-sweep-selection-class",
+  "lane_error": "Did not name the two live paper legs (mgc_pullback_1d, mhg_pullback_1d on ib_paper) that rest on it.",
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B02-training-harness-swallows-signal-errors-as-zero-trades",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "Confirmed unchanged on main (git log: cef4aa2 only, no fix): scripts/training/backtest_helpers.py:26-28 `except Exception: sig = None`; no-trades path (:47-48) returns byte-identical zero-dict regardless of cause. `grep -rl scripts.training tests/` = 0 hits (still no tests). .github/workflows/training-run.yml + training-rerun-5m.yml exist and are current (touched today). Downgrade rationale: docs/claude/training-improvement-workflow.md:16-17,182 shows Stage 4 has an operator-approval gate BEFORE any code change lands (RECOMMENDATIONS PR -> operator approves -> separate IMPLEMENT PR); found no evidence any hypothesis run has actually reached a merged IMPLEMENT PR off this harness's output (only unrelated experiments/2026-05-08 SUMMARY.md exists). Real bug, not yet cited by any committed decision.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/training/backtest_helpers.py",
+    "scripts/training/run_experiment.py"
+   ],
+   "change": "Count build_signal() exceptions separately (e.g. `build_signal_errors` field in simple_backtest's return dict) instead of collapsing them into the same `sig=None` path as a legitimate no-signal bar; surface the count as a column/flag in run_experiment.py's SUMMARY.md row so an exception-only hypothesis cannot render as a clean 'OK'.",
+   "test": "New tests/scripts/test_training_backtest_helpers.py: call simple_backtest with a build_signal that raises on every call vs one that returns None on every call, assert the two results are distinguishable (must fail on current main, where both return the identical zero-dict).",
+   "detector": "The test above, run in CI (add scripts/training/** to a globbed guard or just to the default pytest collection, which already covers tests/scripts/).",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B02-fc-geometry-join-ignores-strategy",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Confirmed unchanged: scripts/ml/fc_geometry_resolve.py:119-146 _join_real_r's SQL (`WHERE symbol=? AND status='closed' AND ... is_backtest=0`) has no strategy_name predicate; picks nearest-in-time match only. Caller at :214-216 has `r.get('strategy')` available but never passes it in. Verified this is an ACTIVE, money-relevant gate, not a dead script: grep hits MB-20260705-FC-SLTP-GEOMETRY across 8+ sprint logs/research docs, gate defined as 'real net-R/maxDD improvement under account rulesets; any geometry change Tier-3' (S-M19-SOL-FC-GRADUATION-2026-07-06.md:56). 9 live strategies share BTCUSDT per config/strategies.yaml (re-verified). No test exists for this file.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/ml/fc_geometry_resolve.py"
+   ],
+   "change": "Thread strategy_name (and ideally account_id) from the soak row into _join_real_r() and add `AND strategy_name=?` to the SQL join.",
+   "test": "New regression test: two concurrent same-symbol closes from different strategies within the 900s window; assert _join_real_r returns the SAME strategy's row, not merely the nearest in time. Must fail on current main.",
+   "detector": "The test above; no CI guard currently covers this file.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "high"
+ },
+ {
+  "id": "AUD-20260927-CA-B03-chop-scalp-study-fee-only-not-net-of-cost",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "Re-ran independently: `PYTHONPATH=. python3 -c 'import scripts.backtest_chop_scalp as cs, scripts.backtest_fvg_range as fr; print(cs.SLIPPAGE_BPS_ROUNDTRIP, cs.FUNDING_BPS_PER_WINDOW, fr.SLIPPAGE_BPS_ROUNDTRIP, fr.FUNDING_BPS_PER_WINDOW)'` -> `0.0 0.0 0.0 0.0`; `inspect.getsource(chop_scalp_study._run_chop_cfg)` contains no `resolve_cost_policy` call. Bug is real and unchanged (git log: cef4aa2 only). Downgrade: checked whether the flawed output is CITED by a live decision. config/strategies.yaml:871-905 shows fvg_range_15m is `execution: shadow` (demoted 2026-07-28 for DORMANT-live reasons, citing a DIFFERENT evidence doc, docs/audits/fvg-range-complement-2026-05-30.md) -- not this study. The study's own conclusion (docs/research/chop-scalp-capital-efficiency-2026-07-15.md:121) states 'No Tier-3 strategy proposal accompanies this report.' chop_scalp itself was never wired live.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/chop_scalp_study.py"
+   ],
+   "change": "Before calling cs.run_backtest()/fr.run_backtest(), resolve and assign the venue-aware cost policy via execution_costs.resolve_cost_policy(symbol, None, None), same as each harness's own main(); correct the module docstring's unqualified 'Net-of-fee.' claim.",
+   "test": "A test asserting cs.SLIPPAGE_BPS_ROUNDTRIP == execution_costs.slippage_bps_roundtrip_for('BTCUSDT') (nonzero) at the point run_backtest is invoked from chop_scalp_study; must fail on current main.",
+   "detector": "The test above; none exists today (`grep -rl chop_scalp_study tests/` = 0 hits).",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B03-exit-head-workflow-never-applies-net-of-fee-cost",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "`grep -n 'cost-r\\|exit-fee-r' .github/workflows/research-exit-head-build.yml` = 0 hits, confirming both flags still default to 0.0 (argparse defaults unchanged, checked build_intrabar_exit_panel.py/analyze_exit_head.py). This is NOT inert: `python3 -c` scan of docs/research/exit-refinement-coverage.json found 53 cells whose `ref` cites an exit_head run, including 2 `shipped` and 2 `shipped_gate_failed` (i.e. LIVE decisions), vs 0 refs to VERDICT.md/analyze_exit_head as literal substrings (refs embed run ids instead) -- confirmed via the exit_head substring match. Money-at-risk stands: a live exit-head take/skip verdict and its net-R-improvement gate are graded GROSS, not net, exactly as claimed.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".github/workflows/research-exit-head-build.yml",
+    "scripts/research/build_intrabar_exit_panel.py",
+    "scripts/research/analyze_exit_head.py"
+   ],
+   "change": "Add --cost-r/--exit-fee-r to the workflow's invocations of both scripts, threaded from a workflow_dispatch input defaulted to execution_costs' venue-aware fee/slippage-derived R value for the run's symbol (rather than leaving argparse's 0.0 default to silently mean zero cost).",
+   "test": "A CI check that fails if the workflow step invoking either script omits a nonzero --cost-r/--exit-fee-r value; or change the scripts' own argparse defaults to a documented nonzero value so an omitted flag can no longer mean zero.",
+   "detector": "The test/guard above; none exists today.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "high"
+ },
+ {
+  "id": "AUD-20260927-CA-B03-exit-sweep-shared-tmp-race",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read scripts/research/m20_exit_sweep.py:30 (unchanged, git log cef4aa2 only): `tmp = \"/tmp/m20_cell.json\"` written and read back by run_cell, no tempfile.mkstemp, no salt. No internal threading/multiprocessing in this script (grep for ThreadPool/concurrent.futures/multiprocessing = 0 hits), so the race requires a SECOND concurrent invocation (another sweep, or a manual re-run) -- exactly the class already measured to cross-contaminate results in the sibling m20_fleet_exit_sweep.py before its 2026-08-20 fix (three legs read back the same net_R=-9.6113). `grep -rl m20_exit_sweep tests/` = 0 hits.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/m20_exit_sweep.py"
+   ],
+   "change": "Replace `tmp = \"/tmp/m20_cell.json\"` with a `tempfile.mkstemp(prefix=\"m20_exit_cell_\", suffix=\".json\")`-derived unique path per call, closing/unlinking it after use -- matching the already-fixed sibling m20_fleet_exit_sweep.py::run_cell.",
+   "test": "A concurrency unit test: run two run_cell() invocations with different args on separate threads, assert each returns its own result (must fail on current main, which reads whichever writer finished last).",
+   "detector": "The test above; a CI guard grepping m20_*.py's run_cell-shaped functions for a hardcoded /tmp/*.json literal used as both write-target and read-source would catch recurrences of this class mechanically.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "high"
+ },
+ {
+  "id": "AUD-20260927-CA-B03-trail-resweep-shared-tmp-race",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read scripts/research/m20_trail_resweep.py:103 (unchanged, git log cef4aa2 only): `tmp = \"/tmp/m20_trail_cell.json\"`, same write-then-read-back shape, no tempfile use. Same BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH class as the sibling finding (exit-sweep-shared-tmp-race) and as the pre-fix m20_fleet_exit_sweep.py; they share ONE root cause (the pattern was fixed in only one of three sibling files) but need independent per-file fixes, so not collapsed into a single finding. `grep -rl m20_trail_resweep tests/` finds only an unrelated string match, no exercise of run_cell.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/research/m20_trail_resweep.py"
+   ],
+   "change": "Replace `tmp = \"/tmp/m20_trail_cell.json\"` with `tempfile.mkstemp(prefix=\"m20_trail_cell_\", suffix=\".json\")`, unlinking in a finally block, matching m20_fleet_exit_sweep.py::run_cell.",
+   "test": "Same concurrency test pattern as exit-sweep-shared-tmp-race, applied to this file's run_cell; must fail on current main.",
+   "detector": "Same as exit-sweep-shared-tmp-race -- ideally one shared CI guard covering all m20_*.py run_cell-shaped functions so this class cannot recur in a fourth file.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-B03-exit-sweep-shared-tmp-race",
+  "lane_error": "Shares root cause with AUD-20260927-CA-B03-exit-sweep-shared-tmp-race (same BL-20260820 pattern, third of three sibling harnesses to carry it) -- not a lane error, but worth batching the two fixes plus one shared CI guard in a single PR.",
+  "final_verdict": "CONFIRMED",
+  "final_class": "DUPLICATE",
+  "lead_note": "Lead: folded into the exit-sweep race brief (same root cause, one fix across both files).",
+  "final_sev": "high"
+ },
+ {
+  "id": "AUD-20260927-CA-B05-17",
+  "verdict": "NOT-REPRODUCED",
+  "new_severity": "info",
+  "evidence": "guard_name=arch-doc-guard, script=scripts/arch_doc_guard.py. tests/test_arch_doc_guard.py exists: 19 pytest cases (ran `pytest tests/test_arch_doc_guard.py -q` -> 19 passed) directly exercising classify()/format_warning()/main(), including test_emits_warning_when_high_impact_without_doc (the exact 'defect' scenario) and test_silent_when_arch_doc_also_changed (the negative case). The script's own docstring (:1-32) documents it ALWAYS exits 0 by design ('Advisory beats adversarial'); there is no failure path to plant -- the warning annotation IS the assertion surface, and it is fully pytest-covered. Lane's 'no --self-test and no pytest' check apparently only grepped run_guards.py's step list for a literal '--self-test' flag and missed the separate, comprehensive pytest file.",
+  "class": "NONE",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Claimed 'no pytest' when tests/test_arch_doc_guard.py (19 cases) exists and passes; also treated 'failure path unproven' as a defect for a guard whose docstring declares it never fails by design -- a category error, not a gap.",
+  "final_verdict": "NOT-REPRODUCED",
+  "final_class": "NONE",
+  "lead_note": "",
+  "final_sev": "none"
+ },
+ {
+  "id": "AUD-20260927-CA-B05-28",
+  "verdict": "NOT-REPRODUCED",
+  "new_severity": "info",
+  "evidence": "guard_name=exit-coverage-matrix-guard, script=scripts/research/m20_coverage_rollup.py, step=`--check` (real failure path: validate(matrix) -> return 1 on defects). `grep -rl m20_coverage_rollup tests/` finds 10 files; tests/test_m20_coverage_join.py + tests/test_m20_tp_geometry_guard.py call `m20.validate(matrix)` directly with PLANTED mutated matrices (24 tests; ran `pytest` on both -> 24 passed). I independently re-verified end-to-end: copied docs/research/exit-refinement-coverage.json to scratch, planted an invalid status ('bogus_status_planted_defect'), ran `python3 scripts/research/m20_coverage_rollup.py --matrix <bad> --check` -> exit=1, 'trail_geometry status ... not in legend'; the clean copy -> exit=0, 'OK'. Failure path is real, tested and proven.",
+  "class": "NONE",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "Claimed 'no pytest for scripts/research/m20_coverage_rollup.py' -- false; 10 test files reference it, 2 with 24 tests directly exercising validate() against planted defects. Also missed that `--check` (not `--self-test`) is this guard's real, working failure path.",
+  "final_verdict": "NOT-REPRODUCED",
+  "final_class": "NONE",
+  "lead_note": "",
+  "final_sev": "none"
+ },
+ {
+  "id": "AUD-20260927-CA-B05-33",
+  "verdict": "NOT-REPRODUCED",
+  "new_severity": "info",
+  "evidence": "guard_name=impossibility-claim-guard. Read scripts/ci/run_guards.py:918-922: this guard's OWN step list (the exact list the lane parsed) is `[[\"python3\",\"scripts/check_impossibility_claims.py\",\"--base\",...],[\"python3\",\"scripts/ci/guard_selftests.py\",\"impossibility-claim\"]]` -- a self-test step IS present, just dispatched via a shared `guard_selftests.py <name>` file rather than a `--self-test` flag on check_impossibility_claims.py itself. Ran it: `python3 scripts/ci/guard_selftests.py impossibility-claim` -> 'failure path verified: bare claim flagged, fake checked: path rejected, real one accepted, annotation window scoped per file type', exit 0. Read the source (guard_selftests.py:119-227): it plants 8 distinct defect/edge cases and SystemExits with `::error::guard did NOT flag...` on any failure -- a real, working, enforced self-test.",
+  "class": "NONE",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The lane's methodology (grep the guard's steps for a literal '--self-test' substring) missed the repo-wide `scripts/ci/guard_selftests.py <name>` self-test dispatch pattern -- even though that exact call is present in the same step list the lane must have parsed to build the guard/script mapping it cited. This same blind spot likely affects other guards the lane classified 'exit-0-only' or 'could-not-test' in its 44-guard sweep; worth a spot-check beyond this session's 3.",
+  "final_verdict": "NOT-REPRODUCED",
+  "final_class": "NONE",
+  "lead_note": "",
+  "final_sev": "none"
+ },
+ {
+  "id": "AUD-20260927-CA-B07-watchdog-flatclose-test-blind-to-cancel",
+  "verdict": "NOT-REPRODUCED",
+  "new_severity": null,
+  "evidence": "Fixed by #13187 (FIX-CA-01, commit 245b45d). order_monitor.py:6224 (the closed_local_unmatched branch this finding targets) now calls `_cancel_closed_row_protection(trade_row, db)`. Same PR added tests/test_watchdog_flat_close_protection_cancel.py (281 lines, new file) whose test_watchdog_flat_close_cancels_the_closing_trades_keyed_group asserts `summary['closed_local_unmatched']==1` AND `fake.group_cancels==[('MES', str(tid))]` -- the exact missing assertion this finding called for -- plus a sibling test proving a SIBLING trade's group survives. Ran `pytest tests/test_watchdog_flat_close_protection_cancel.py -q` -> 6 passed. The OLD test (test_position_flat_no_broker_record_finalizes_closed_local in test_monitor_reconciler.py) still doesn't assert cancellation, but the suite as a whole is no longer blind to this path.",
+  "class": "NONE",
+  "brief": null,
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "NOT-REPRODUCED",
+  "final_class": "NONE",
+  "lead_note": "",
+  "final_sev": "none"
+ },
+ {
+  "id": "AUD-20260927-CA-B07-orphan-readfail-untested",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "Underlying code unchanged: order_monitor.py:4176-4178 `except Exception: return _OrphanAttribution(detail=\"order-package read failed\")` -- still collapses to the same shape as the 'no candidate' case (:4217), still routes to _close_unattributable_orphan. No test added (`grep -rn get_recent_order_packages_for_symbol|OperationalError tests/test_reverse_reconciler.py` = 0 hits). This is the test-companion of CA-A01-019, which the lead's own turn-2 review already DOWNGRADED high->medium (docs/audits/code-audit-2026-09-27.md:122,232): 'likelihood is low... needs SELECT failures on a WAL + busy_timeout DB on 2 consecutive passes', classified FIX tier 2 (lower priority, section 7). Downgrading mine to match for the same reason.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "tests/test_reverse_reconciler.py"
+   ],
+   "change": "Add a test with a Database stub whose get_recent_order_packages_for_symbol always raises, asserting _send_close_to_exchange is never called and the read failure is counted in summary['errors'] once CA-A01-019's code fix lands.",
+   "test": "The test above; must fail on current main (today it would pass trivially since the current code has no error-counting to assert, so the test should assert the FIXED behavior and be landed together with CA-A01-019's code change).",
+   "detector": "Same as CA-A01-019's own detector text: land test + fix together.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": "CA-A01-019",
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B07-protection-price-test-pins-bug",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "Confirmed unchanged: tests/test_protection_price.py:303-311 still asserts `out['covered_qty']==10.0` for stopLoss='banana', with the comment acknowledging this pins the bug. No fix landed for CA-A01-056 in FIX-CA-01..25. This finding IS CA-A01-056's own test evidence, and CA-A01 lane itself rates CA-A01-056 'medium' severity, tier 2 (docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl), not high -- downgrading mine to match, since it is the identical underlying defect viewed through its test.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "src/runtime/order_monitor.py",
+    "tests/test_protection_price.py"
+   ],
+   "change": "Use `_px is not None and _px > 0` as the Full-mode covered test (route an unparseable non-empty stopLoss to ungradeable/None rather than covered); flip the test's assertion (covered_qty==0.0 / explicit ungradeable marker) in the SAME PR as the code fix so the suite cannot go green on the unfixed code.",
+   "test": "The flipped test_full_mode_with_an_unparseable_stop_yields_NO_price_not_zero itself, landed together with the code change.",
+   "detector": "The test is the detector; none exists today beyond it (and it currently asserts the wrong oracle).",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": "CA-A01-056",
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B07-account-mode-gate-test-never-asserts-mode",
+  "verdict": "DOWNGRADED",
+  "new_severity": "medium",
+  "evidence": "Confirmed unchanged: order_monitor.py:1831 `\"mode\": getattr(acc, \"mode\", \"live\") or \"live\"`; src/units/accounts/account.py's TradingAccount still has only `.dry_run` (line 103), no `.mode` property. `grep -n \"cfg\\['mode'\\]\" tests/test_order_monitor_build_account_client.py` = 0 hits (unchanged). This is the test-companion of CA-A04-monitor-dry-run-gate-reads-absent-attribute, which the lead's own turn-2 review already DOWNGRADED high->medium and classified JUDGMENT, not FIX (docs/audits/code-audit-2026-09-27.md:141,251,629): 'the fix is not purely mechanical... whether that is wanted is an operator question' (making the gate fire changes exit management for a demoted account holding positions). Downgrading and reclassifying mine to match.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "A. Give TradingAccount a real `.mode` property derived from `.dry_run` (mode='dry_run' if dry_run else 'live'), activating the 4 monitor-side dry_run gates for the first time on any operator-flipped dry_run account holding open positions -- a real behavior change, which is why CA-A04's own lane made it JUDGMENT, not FIX.",
+    "B. Write the missing tests against TODAY's actual (broken) behavior first -- closing the '0 assertions on cfg[mode]' blind spot immediately with no runtime change -- and leave the semantic fix (option A) to the already-open CA-A04 JUDGMENT ticket."
+   ],
+   "recommendation": "B for this finding specifically: land the test coverage now (uncontroversial, Tier-1, makes the gap visible instead of silent) without coupling it to the operator decision already tracked under CA-A04-monitor-dry-run-gate-reads-absent-attribute. Do not duplicate-track the operator decision itself here."
+  },
+  "duplicate_of": "CA-A04-monitor-dry-run-gate-reads-absent-attribute",
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B08-ci-guard-impossibility-claims-scans-zero-of-three-backlogs",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Ran `python3 scripts/check_impossibility_claims.py --all --ratchet` -> \"398 file(s) scanned ... 0 regression(s), 0 improvement(s)\", exit 0. `test -f` on all 3 SCAN_GLOBS entries (scripts/check_impossibility_claims.py:73-77) confirms all 3 missing (docs/claude/{health,performance,ml}-review-backlog.json). _tracked_files():352 filters via `(REPO/g).exists()` -> silently drops all 3, no error. git log -3 -- scripts/check_impossibility_claims.py shows only the shallow-clone floor commit (cef4aa2) -- not touched by any turn-2 FIX-CA landing today. Not fixed by current main.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/check_impossibility_claims.py"
+   ],
+   "change": "In _tracked_files() (or main()'s scanned-count reporting), hard-fail (or clearly warn+non-zero) when a declared SCAN_GLOBS entry resolves to zero files, naming the missing glob(s) -- mirror the 2026-09-22 check_claim_basis.py fix referenced in this guard's own sibling.",
+   "test": "New unit test asserting a SCAN_GLOBS entry pointing at a nonexistent path makes the guard exit non-zero and name the missing path. Must fail on current main (reproduced: guard exits 0 today with all 3 entries missing and no mention of it).",
+   "detector": "The new test itself, run in CI (scripts/ci/run_guards.py already invokes this guard); no separate soak/alarm needed since this is a build-time check.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B08-ci-guard-env-gate-blind-to-core-and-main",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "grep confirms _PROTECTED_PREFIXES (scripts/check_env_gate_in_diff.py:55-59) = (src/runtime/, src/units/, src/web/) -- no src/core/, no src/main.py. Independently reproduced in-process: imported check_env_gate_in_diff, called _path_is_protected('src/core/coordinator.py') -> False, _path_is_protected('src/main.py') -> False, _path_is_protected('src/units/strategies/foo.py') -> True (control). Ran scan_diff() on a synthetic diff adding `PAIRS_TRADING_ENABLED = os.environ.get(...)` to both src/core/coordinator.py and src/main.py -> `[]` (clean), confirming the guard misses both. git log -3 shows no recent change to this file.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/check_env_gate_in_diff.py"
+   ],
+   "change": "Add \"src/core/\" and \"src/main.py\" to _PROTECTED_PREFIXES.",
+   "test": "Add a case (e.g. tests/test_check_env_gate_in_diff.py) planting a new *_ENABLED line in src/core/coordinator.py and in src/main.py, asserting scan_diff() flags both. Must fail on current main (reproduced this session: scan_diff returns [] for both).",
+   "detector": "The new test, run in CI alongside the guard.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "high"
+ },
+ {
+  "id": "AUD-20260927-CA-B08-ci-guard-canonical-config-loader-blind-to-module-level",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read _gather_offenders() (scripts/check_canonical_config_loaders.py:112-135): `for node in ast.walk(tree): if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)): ... _scan_function(node)` -- only visits Call nodes inside function bodies. Reproduced in a scratch file (not committed) with a module-level `yaml.safe_load(open(\"config/accounts.yaml\"))`; running the guard's own _scan_function logic against it in-process found 0 offenders (the module-level call sits outside any FunctionDef, so the outer ast.walk never dispatches into it). git log -3 shows no recent change.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/check_canonical_config_loaders.py"
+   ],
+   "change": "Change the offender-gathering walk to inspect Call nodes for yaml.safe_load found anywhere via a direct `ast.walk(tree)` (matching against ast.Call), not only inside FunctionDef/AsyncFunctionDef bodies.",
+   "test": "Add a fixture file with a module-level (non-function) yaml.safe_load(open(\"config/accounts.yaml\")) call and assert the guard flags it as an offender. Must fail on current main (reproduced: 0 offenders found for this exact shape).",
+   "detector": "The new fixture test, run in CI.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B08-run-backtest-sh-stub-vs-architecture-doc",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "`cat scripts/run_backtest.sh` -> exactly 2 lines, `echo \"Backtest script coming soon\"`. `grep -rln 'run_backtest\\.sh' .` -> only .git/index and docs/ARCHITECTURE-CANONICAL.md:460. .claude/skills/backtesting/SKILL.md (the binding backtesting doc) lists 7 real harnesses and never mentions run_backtest.sh. git log -3 on both files shows no recent change; not touched by any FIX-CA landing today.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "docs/ARCHITECTURE-CANONICAL.md",
+    "scripts/run_backtest.sh (optional deletion)"
+   ],
+   "change": "Fix docs/ARCHITECTURE-CANONICAL.md:460 to name the real backtest entry points (per .claude/skills/backtesting/SKILL.md) instead of the unimplemented scripts/run_backtest.sh stub; delete the stub or mark it clearly WIP.",
+   "test": "A doc-freshness check that a script named as a dispatch mechanism in ARCHITECTURE-CANONICAL.md is non-trivial (not a 1-line echo stub) and has at least one real caller. Must fail on current main (script is a 2-line stub, 0 callers).",
+   "detector": "The doc-freshness check, added as a cheap CI guard or folded into doc-freshness skill's routine pass.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B08-pull-alpaca-fills-collapses-api-failure-as-empty",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read scripts/pull_alpaca_fills.py:85-96: _fetch_page returns [] both when resp.get('retCode') != 0 (API failure, just logs a warning) and on a genuine empty page -- identical shape. src/units/accounts/alpaca_client.py:455-476 confirmed: _request never raises, returns {'retCode':-1,...} on any network Exception. main()'s --all-alpaca-accounts loop (108-144) has no try/except around _pull_one_account; `ran` increments unconditionally and the function returns 0 whenever ran>0, regardless of whether inserts silently failed. Contrast confirmed: pull_exchange_fills.py:184-224 does track ok/failed/skipped. Not touched by any FIX-CA landing today (git log -3 shows only the 2026-08-15 GTC fix, unrelated).",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/pull_alpaca_fills.py:85-96,108-144"
+   ],
+   "change": "Make _fetch_page raise (or return a distinguishable sentinel) when resp.get('retCode') != 0, instead of returning [] identically to an empty page; wrap each account in the --all-alpaca-accounts loop in try/except, track ok/failed/skipped separately (mirroring pull_exchange_fills.py:184-224), and exit non-zero if any account failed.",
+   "test": "Mock AlpacaClient.account_activities to return retCode=-1 and assert the puller reports a failed account / non-zero exit, distinct from a mocked genuine empty page (which stays exit 0). Must fail on current main (reproduced: both cases currently return [] / exit 0 identically).",
+   "detector": "The new test in a tests/test_pull_alpaca_fills.py mirroring tests/test_exchange_fills_alpaca.py's coverage pattern.",
+   "tier": 2
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "CONFIRMED",
+  "final_class": "FIX",
+  "lead_note": "",
+  "final_sev": "high"
+ },
+ {
+  "id": "AUD-20260927-CA-B08-print-runtime-profile-stale-signature-crashes",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "grep confirms src/runtime/validation.py:65 `def validate_startup() -> None` and :195 `def build_settings_from_env() -> dict` -- both zero-arg. scripts/print_runtime_profile.py:13 calls `build_settings_from_env(os.environ)`. Reproduced directly: `python3 -c \"from src.runtime.validation import build_settings_from_env; import os; build_settings_from_env(os.environ)\"` -> `TypeError: build_settings_from_env() takes 0 positional arguments but 1 was given`. git log -3 shows no fix landed on either file today.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/print_runtime_profile.py:13,16"
+   ],
+   "change": "Call build_settings_from_env() and validate_startup() with their current zero-arg signatures.",
+   "test": "Restore/add a regression test (tests/test_print_runtime_profile.py) asserting main() completes without TypeError against the current validation.py signatures. Must fail on current main (reproduced TypeError this session).",
+   "detector": "The restored regression test, run in CI.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B08-spot-margin-smoke-broken-since-cutover",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "config/accounts.yaml:386 bybit_2.market_type: linear (with an explicit comment: 'PR 3 cutover ... Was spot-margin pre-cutover'). scripts/sprint047/spot_margin_smoke.py:73-77 hard-requires market_type == 'spot-margin' or SystemExit('...expected 'spot-margin'. Run T1 first.'). Since market_type is 'linear' today, _load_bybit2_cfg SystemExits at the very first config-load step on every invocation. docs/runbooks/spot-margin.md:282 still cites this script as the current testnet rehearsal. git log -3 shows no fix on any of the 3 files today.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "scripts/sprint047/spot_margin_smoke.py",
+    "docs/runbooks/spot-margin.md (section 6)"
+   ],
+   "change": "Delete scripts/sprint047/spot_margin_smoke.py (its premise -- a spot-margin bybit_2 -- no longer exists in config/accounts.yaml) and remove the docs/runbooks/spot-margin.md section 6 pointer to it, unless spot-margin trading is reintroduced on some account.",
+   "test": "n/a for a deletion; if kept instead, a test asserting the script fails with a message naming the actual stale-premise cause rather than 'Run T1 first'.",
+   "detector": "A runbook-freshness check that a cited operator script's hard-required config precondition is satisfiable against the live config/accounts.yaml before the runbook step is trusted.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B08-deploy-pull-restart-no-rollback-corroborated",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read scripts/deploy_pull_restart.sh in full: line 117 `git reset --hard origin/main`; DEPLOYED_SHA_FILE (265-266) is written (330, 639) but never read back to revert on a restart/version-mismatch failure -- confirmed no `reset --hard \"${LAST_DEPLOYED_SHA}\"` or equivalent exists anywhere in the file. This is the same finding already on record as JC-CA-05 / CA-A10-300 in docs/audits/code-audit-2026-09-27.md section 6 (3 options A/B/C given, lead recommends B first). Lane's own disposition correctly marks it 'corroborates, not re-filed'.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "(A) Auto-revert on restart failure or version-assertion mismatch to the SHA in DEPLOYED_SHA_FILE -- fully automated but risky in its own right (a second unattended git/restart cycle mid-incident, possible bad-revert on a schema/migration commit).",
+    "(B) Fail loud, no auto-revert: keep current behavior but add a distinct high-priority alert the instant a restart fails or version mismatches, so a human decides on manual rollback via the existing system-action.",
+    "(C) Canary/staged restart: restart one non-critical unit first, verify its version, then restart the rest -- reduces blast radius without a full auto-revert, larger structural change."
+   ],
+   "recommendation": "(B) first, as JC-CA-05 already recommends -- cheap, no new failure mode, and preserves the operator's standing preference that Tier-2 rollback decisions on the live-money deploy path get a human in the loop rather than a second unattended git operation."
+  },
+  "duplicate_of": "JC-CA-05 (CA-A10-300, PI-20260927-R1DJ7SUQ-0003)",
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B09-third-execution-gate-undocumented",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read src/core/coordinator.py:1412-1419: `state_dry = account_state_dry_run(account.name); if state_dry is True and not effective_dry: ... effective_dry = True` -- confirmed real third fold. src/runtime/orders.py:34-47 confirms account_state_dry_run() reads config/account_state.yaml (exists, populated: bybit_1/bybit_2 dry_run:false today). src/web/runtime_status.py:114-126 `_read_live_per_account` resolves live/dry from accounts.yaml mode ONLY, with a comment literally stating 'The in-memory override layer was removed in the 2026-06-10 dead-code cleanup; mode: in accounts.yaml is the only source' -- FALSE against coordinator.py's live code. grep confirms account_state nowhere in src/web/ or src/runtime/loaded_config.py's process_snapshot(). Finding is worse than stated: the doc AND a code comment both assert the third gate doesn't exist.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "docs/CLAUDE-RULES-CANONICAL.md (Prime Directive)",
+    "src/web/runtime_status.py:124-125",
+    "src/web/routers/runtime_config.py or wherever /api/bot/config assembles its per-account block"
+   ],
+   "change": "Document config/account_state.yaml as a named third, dry-only, belt-and-suspenders input in the Prime Directive's gate description; correct runtime_status.py's stale 'override layer was removed' comment; add an account_state fold indicator to /api/bot/config's per-account output so the third gate is observable, not just present in code.",
+   "test": "A doc-coherence test grepping coordinator.py for 'effective_dry =' assignments and asserting every contributing file is named in CLAUDE-RULES-CANONICAL.md's gate description. A unit test on the /api/bot/config per-account builder asserting it reflects account_state.yaml's dry_run:true when set. Must fail on current main (the field/indicator does not exist).",
+   "detector": "Extend canonical-doc-coherence per the lane's own proposed_fix.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": "The lane understated the defect: it framed the gap as 'undocumented and unsurfaced', but src/web/runtime_status.py:124-125 contains an affirmatively FALSE comment claiming the override mechanism 'was removed' -- a stronger field-vs-comment violation than a silent omission.",
+  "final_verdict": "CONFIRMED",
+  "final_class": "FIX",
+  "lead_note": "Lead read coordinator.py:1409-1419 directly: account_state.yaml is folded into effective_dry live (dry-only, fail-open). Split: FIX (surface + document, Tier 1) and JC-CA-06 (keep vs retire).",
+  "final_sev": "high"
+ },
+ {
+  "id": "AUD-20260927-CA-B09-pipeline-store-stale-path",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "`ls docs/claude/work/PIPELINE.jsonl` -> No such file. `ls docs/claude/work/pipeline/ | wc -l` -> 1835 files (grew from the finding's cited 1749, consistent with an actively-used directory store). scripts/ops/pipeline.py:490 def append(item, store=STORE...); :1113 `legacy = store.parent / 'PIPELINE.jsonl'` confirms the flat file is explicitly treated as a legacy/resurrection hazard, not the live store. Matches claim exactly; not fixed by any FIX-CA landing today.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    "CLAUDE.md",
+    "docs/CLAUDE-RULES-CANONICAL.md",
+    ".claude/skills/manager/SKILL.md",
+    ".claude/skills/health-review/SKILL.md",
+    ".claude/skills/performance-review/SKILL.md",
+    ".claude/skills/ml-review/SKILL.md"
+   ],
+   "change": "Replace every 'docs/claude/work/PIPELINE.jsonl (flat, append-only JSONL)' description with 'docs/claude/work/pipeline/ (directory, one immutable JSON record file per item)', matching scripts/ops/pipeline.py's actual STORE.",
+   "test": "A doc-coherence check asserting no binding doc names the literal path docs/claude/work/PIPELINE.jsonl without qualifying it as retired/legacy. Must fail on current main (multiple live docs still describe it as the current store).",
+   "detector": "Extend canonical-doc-coherence to assert every docs/claude/work/ path cited from CLAUDE.md/CLAUDE-RULES-CANONICAL.md exists on disk at HEAD -- exactly the detector CA-A11 already proposed.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": "AUD-20260927-CA-A11-pipeline-store-desc-stale",
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "DUPLICATE",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B09-system-report-dangling-pointer",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read .claude/skills/system-report/SKILL.md:16-17 in full: 'invoke /system-review and follow .claude/skills/system-review/SKILL.md verbatim'. `test -d .claude/skills/system-review` -> missing; confirmed only present under docs/archive/2026-09-21-operating-reset/skills/system-review/. .claude/settings.json's SessionStart hook text (grepped) independently states '(The /system-review roll-up is RETIRED and archived; do not invoke it.)' -- directly contradicting the still-catalog-listed system-report skill's own body. Not fixed by any commit today.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".claude/skills/system-report/SKILL.md"
+   ],
+   "change": "Rewrite the skill body to redirect to the three live review skills (health-review, performance-review, ml-review) per CLAUDE.md's 'the three reviews stay separate' section, instead of pointing at the archived system-review/SKILL.md.",
+   "test": "A link-checker asserting every cross-skill reference '.claude/skills/<name>/SKILL.md' inside any live SKILL.md resolves to an existing file. Must fail on current main (system-report/SKILL.md points at a missing path).",
+   "detector": "Add the link-checker as a cheap CI guard over .claude/skills/**/SKILL.md.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B09-merge-slot-claim-undocumented-in-manager",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "grep -in 'claim_merge_slot|merge-slot|pr-landing' .claude/skills/manager/SKILL.md .claude/skills/git-actions/SKILL.md -> 0 matches in either. .claude/settings.json's PreToolUse hook (matcher mcp__github__merge_pull_request|...enable_pr_auto_merge) does encode the rule, but its own comment states it is MEASURED to never fire on Claude Code on the web (0 hooks registered, ~120 sessions). Confirmed .github/merge-slots/ and .github/pr-landing/ both exist with real content, so the mechanism is live and load-bearing; the two SKILL.md files a web-run manager session would actually consult are silent on it.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".claude/skills/manager/SKILL.md",
+    ".claude/skills/git-actions/SKILL.md"
+   ],
+   "change": "Add an explicit precondition step documenting `python3 scripts/ops/claim_merge_slot.py --branch-claim --branch <branch> --held-by <session-id>` plus the .github/merge-slots/<slug>.json + .github/pr-landing/<slug>.json artifacts as required before merge_pull_request/enable_pr_auto_merge, independent of whether the local PreToolUse hook fires.",
+   "test": "A grep-based CI check requiring both skill files to mention 'claim_merge_slot'. Must fail on current main (0 matches today).",
+   "detector": "The same grep check, added to a doc-coherence guard.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B09-drift-remediation-required-gate-stale",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read .claude/skills/drift-remediation/SKILL.md:30-32: lists live_regime_discrimination among 5 'required capability gates'. grep ml/promotion/gates.py: line 108 `require_live_regime_discrimination: bool = False`; line 103 comment 'MECHANICS. live_regime_discrimination is therefore ADVISORY'; line 178 `require_live_regime_discrimination=False` in the regime profile. Confirms the skill doc is stale relative to the 2026-07-19 M25 change; git log -3 shows no fix today.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".claude/skills/drift-remediation/SKILL.md:30-32"
+   ],
+   "change": "Drop live_regime_discrimination from the 'required' gate list (or explicitly mark it advisory-only for regime heads since 2026-07-19 M25), matching ml/promotion/gates.py:108's require_live_regime_discrimination=False default.",
+   "test": "A small doc-vs-code guard: grep ml/promotion/gates.py's require_live_regime_discrimination default and diff against the skill's required-gate list. Must fail on current main (skill lists it required, code default is False).",
+   "detector": "The same guard, cheap and mechanical, analogous to check_collapsed_states.py.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B09-vm-migration-stop-micro-zombie-missing",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "`find .github/workflows -iname '*zombie*'` -> no results (149 workflow files total). `grep -rl stop-micro-zombie .github/ scripts/ src/` -> 0 hits anywhere except the 2 doc citations (vm-migration/SKILL.md:90, live-vm-migration-ampere.md:75,154-155). Checked docs/claude/system-actions.md's allowlist for this label -- no entry. Confirmed: the documented mitigation for the real-money BL-20260615-MICRO-ZOMBIE incident does not exist as a dispatchable mechanism anywhere in the repo.",
+  "class": "JUDGMENT",
+  "brief": null,
+  "judgment": {
+   "options": [
+    "(A) Build .github/workflows/stop-micro-zombie.yml as a label-dispatched job (following the repo's standard system-actions pattern) that disables the entire ict-* fleet on a named retired host -- matches the documented intent, but is new Tier-2 automation that needs building and testing before it can be trusted during a real decommission.",
+    "(B) Strike the dead 'stop-micro-zombie' references from vm-migration/SKILL.md and docs/runbooks/live-vm-migration-ampere.md, and document the already-working manual fallback (terminate-instance: mode:list -> get OCID -> terminate) as the sole decommission-hygiene path."
+   ],
+   "recommendation": "Do (B) immediately -- it is a bounded, Tier-1 doc fix that removes the false belief that automated fleet-kill exists, and is safety-relevant on its own (an operator following the runbook today would dispatch a label that does nothing while believing the fleet was disabled). Separately flag to the operator whether the actual automated kill-switch (A) is worth building given how infrequently VM migrations happen -- a spend/build decision, not a doc fix."
+  },
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "JUDGMENT",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B09-coordination-board-retired-in-ml-health-review",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "Read ml-review/SKILL.md:37-43 and health-review/SKILL.md:40-44 verbatim: both instruct posting to 'the live coordination board (GitHub issue #6927, docs/claude/coordination-board.md)'. Read docs/claude/coordination-board.md:9-11: '#6927 was the board from 2026-07-19 until 2026-09-07T11:28:17Z ... It is retired ... Do not post there.' `test -f docs/claude/board-pointer.json` -> missing. performance-review/SKILL.md (last-verified 2026-09-24) already carries corrected language per the lane's citation. Not fixed by any commit today.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".claude/skills/ml-review/SKILL.md:37-43",
+    ".claude/skills/health-review/SKILL.md:40-44"
+   ],
+   "change": "Replace the 'post to the live coordination board (issue #6927)' paragraph in both files with performance-review/SKILL.md's already-corrected language describing the manager-checklist/lane model.",
+   "test": "`rg -n 'coordination-board|issue #6927' .claude/skills/` with an allowlist for already-corrected 'retired' mentions, asserting ml-review and health-review no longer instruct posting to it. Must fail on current main (both still instruct posting).",
+   "detector": "The same rg check, cheap, fold into doc-freshness or canonical-doc-coherence.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
+ },
+ {
+  "id": "AUD-20260927-CA-B09-ml-review-backlog-file-missing",
+  "verdict": "CONFIRMED",
+  "new_severity": null,
+  "evidence": "grep -n 'ml-review-backlog.json' .claude/skills/ml-review/SKILL.md -> 6 hits including the 'Draining the backlog' completion gate. `ls docs/claude/*-review-backlog.json` -> no matches; file exists only under docs/archive/2026-09-21-operating-reset/registers/ml-review-backlog.json. performance-review/SKILL.md already carries an equivalent fix (points at the pipeline store). Note: performance-review's own fix still names the stale 'docs/claude/work/PIPELINE.jsonl' path per the sibling pipeline-store-stale-path finding -- so a correct ml-review fix should point at the real directory store, not copy performance-review's citation verbatim. Not fixed by any commit today.",
+  "class": "FIX",
+  "brief": {
+   "files": [
+    ".claude/skills/ml-review/SKILL.md (6 references incl. 'Draining the backlog')"
+   ],
+   "change": "Repoint the backlog-drain gate at the live pipeline store (docs/claude/work/pipeline/, via scripts/ops/pipeline.append with an ml-review-tagged item), and redefine 'count_untriaged == 0' against records queryable from that store rather than a nonexistent flat JSON file.",
+   "test": "The same `ls docs/claude/*-review-backlog.json` self-check health-review/SKILL.md already runs, extended to gate ml-review's session-start/CI too. Must fail on current main (file absent, gate currently unsatisfiable by construction).",
+   "detector": "The extended self-check, cheap.",
+   "tier": 1
+  },
+  "judgment": null,
+  "duplicate_of": null,
+  "lane_error": null,
+  "final_verdict": "DOWNGRADED",
+  "final_class": "FIX",
+  "lead_note": "Lead: docs/skills drift or a dead/unused script \u2014 no money, promotion or live-control path; medium per the severity rule.",
+  "final_sev": "medium"
  }
 ]
