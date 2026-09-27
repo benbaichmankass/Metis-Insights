@@ -208,3 +208,136 @@ def test_modify_refuses_on_an_unconfirmed_leg_read(monkeypatch):
     om._apply_update(db, _pkg(), {"sl": 0.95}, summary)
     assert sent == []
     assert summary.error_count == 1
+
+
+# ------------------------------------------ close: a stuck head leg (CA-A01-006)
+#
+# FIX-CA-02. The close branch effectuated only legs[0] (the linked leg) each
+# tick, so while that leg's close kept failing, was wedge-suppressed, or sat in
+# the IB close-retry cooldown, every sibling leg was never attempted at all.
+
+
+def _reset_close_state():
+    om._CLOSE_FAIL_STREAK.clear()
+    om._PENDING_CLOSE_RETRY_COOLDOWN.clear()
+    om._PACKAGE_CLOSE_SKIP.clear()
+    om._EXCHANGE_CLOSED_PENDING_DB.clear()
+
+
+def _close_common(monkeypatch):
+    _reset_close_state()
+    monkeypatch.setattr(om, "_capture_fill_details", lambda t, o: None)
+    monkeypatch.setattr(om, "mark_active_close", lambda a, s: None)
+    monkeypatch.setattr(om, "_should_alert_close_failure", lambda k, s: False)
+
+
+def test_a_failing_head_leg_does_not_strand_its_sibling(monkeypatch):
+    _close_common(monkeypatch)
+    db = FakeDB([_leg(1, "bybit_2"), _leg(2, "bybit_portfolio")])
+    calls = []
+
+    def _send(t):
+        calls.append(t["id"])
+        return ({"ok": False, "error": "boom"} if t["id"] == 1
+                else {"ok": True, "exchange_order_id": None})
+    monkeypatch.setattr(om, "_send_close_to_exchange", _send)
+
+    for _ in range(2):
+        om._apply_update(db, _pkg(linked=1),
+                         {"action": "close", "reason": "x"},
+                         om._StrategyTickSummary())
+
+    assert calls == [1, 2], "still ONE exchange close per tick, next leg next tick"
+    assert [t for t, _ in db.trade_writes] == [2]
+    assert db.trade_writes[0][1]["status"] == "closed"
+
+
+def test_a_wedge_suppressed_head_leg_does_not_block_its_sibling(monkeypatch):
+    from collections import namedtuple
+    _close_common(monkeypatch)
+    D = namedtuple("D", "attempt state reason last_seen")
+    monkeypatch.setattr(
+        om, "_close_retry_decision_for",
+        lambda t: (D(False, "suppressed", "wedged", None) if t["id"] == 1
+                   else D(True, "no_standing", "", None)))
+    db = FakeDB([_leg(1, "alpaca_live"), _leg(2, "alpaca_portfolio")])
+    calls = []
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda t: calls.append(t["id"]) or
+                        {"ok": True, "exchange_order_id": None})
+
+    om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"},
+                     om._StrategyTickSummary())
+
+    assert calls == [2]
+    assert [t for t, _ in db.trade_writes] == [2]
+
+
+def test_a_cooling_down_head_leg_does_not_block_its_sibling(monkeypatch):
+    _close_common(monkeypatch)
+    om._PENDING_CLOSE_RETRY_COOLDOWN[("ib_live", "XRPUSDT", "short")] = (
+        om.datetime.now(om.timezone.utc))
+    db = FakeDB([_leg(1, "ib_live"), _leg(2, "ib_paper")])
+    calls = []
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda t: calls.append(t["id"]) or
+                        {"ok": True, "exchange_order_id": None})
+
+    om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"},
+                     om._StrategyTickSummary())
+
+    assert calls == [2]
+
+
+def test_every_leg_suppressed_is_still_a_quiet_no_change(monkeypatch):
+    from collections import namedtuple
+    _close_common(monkeypatch)
+    D = namedtuple("D", "attempt state reason last_seen")
+    monkeypatch.setattr(om, "_close_retry_decision_for",
+                        lambda t: D(False, "suppressed", "wedged", None))
+    db = FakeDB([_leg(1, "a"), _leg(2, "b")])
+    calls = []
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda t: calls.append(t) or {"ok": True})
+    s = om._StrategyTickSummary()
+    om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, s)
+    assert calls == []
+    assert s.no_change_count == 1 and s.error_count == 0
+
+
+
+# ------------------------------- close: venue closed, DB write failed (CA-A01-007)
+#
+# FIX-CA-03. The exchange close succeeded but the trade-row write raised; the
+# failure was swallowed, closed_count went up, and the next tick sent a SECOND
+# reduce-only market close for the same qty.
+
+
+def test_a_failed_trade_write_after_a_venue_close_never_resends(monkeypatch):
+    _close_common(monkeypatch)
+    db = FakeDB([_leg(1, "bybit_2")])
+    calls = []
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda t: calls.append(t["id"]) or
+                        {"ok": True, "exchange_order_id": "X"})
+    writes = []
+
+    def _update_trade(tid, updates):
+        writes.append((tid, updates))
+        if len(writes) == 1:
+            raise RuntimeError("database is locked")
+        db.trades = [t for t in db.trades if t["id"] != tid]
+    monkeypatch.setattr(db, "update_trade", _update_trade)
+
+    s1 = om._StrategyTickSummary()
+    om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, s1)
+    s2 = om._StrategyTickSummary()
+    om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, s2)
+
+    assert calls == [1], "a second reduce-only close was sent for a closed venue leg"
+    assert (s1.error_count, s1.closed_count) == (1, 0)
+    assert writes[1][1]["status"] == "closed"
+    assert writes[1][1] == writes[0][1], "the retry must write the original close"
+    assert s2.closed_count == 1
+    assert [w["status"] for w in db.package_writes] == ["closed"]
+    assert om._EXCHANGE_CLOSED_PENDING_DB == {}

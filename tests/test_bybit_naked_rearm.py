@@ -1265,3 +1265,155 @@ def test_both_env_keys_are_readable_with_get_env():
     spec.loader.exec_module(mod)
     assert "BYBIT_GRADED_COVERAGE_MODE" in mod.ALLOWED_KEYS
     assert "BYBIT_GRADED_COVERAGE_ACCOUNTS" in mod.ALLOWED_KEYS
+
+
+# ---------------------------------------------------------------------------
+# FIX-CA-06 (CA-A01-073): a refused protection read is never a SILENT skip,
+# and a dual-book hedge symbol is graded + re-armed PER BOOK.
+# ---------------------------------------------------------------------------
+
+
+class _FakeBybitBooks(_FakeBybit):
+    """``positions`` maps SYMBOL -> a LIST of position rows (one per book)."""
+
+    def get_positions(self, category=None, symbol=None):
+        if self._raise_pos:
+            raise RuntimeError("pos read boom")
+        return {"retCode": 0,
+                "result": {"list": list(self._positions.get(symbol, []))}}
+
+
+_BOOK_LONG = {"symbol": "BTCUSDT", "side": "Buy", "size": "0.5",
+              "positionIdx": 1, "stopLoss": ""}
+_BOOK_SHORT = {"symbol": "BTCUSDT", "side": "Sell", "size": "0.2",
+               "positionIdx": 2, "stopLoss": ""}
+
+
+def _dual_book_db(tmp_path):
+    db = _FakeDB(tmp_path / "j.db")
+    _insert(db, id=1, account_id="bybit_2", symbol="BTCUSDT", direction="long",
+            position_size=0.5, stop_loss=38000.0, take_profit_1=44000.0,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    _insert(db, id=2, account_id="bybit_2", symbol="BTCUSDT",
+            direction="short", position_size=0.2, stop_loss=46000.0,
+            take_profit_1=39000.0,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    return db
+
+
+def _sweep(db, client, monkeypatch, tmp_path):
+    om._BYBIT_PROTECTION_REFUSED_STREAK.clear()
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.PENDING_PINGS_DIR",
+        tmp_path / "pings")
+    return _run(db, client, monkeypatch, tmp_path)
+
+
+# ---- Part A: count every None-state skip, and report it ------------------
+def test_a_no_rows_refusal_is_counted_and_reported(tmp_path, monkeypatch):
+    db = _btc_db(tmp_path)
+    client = _FakeBybitBooks(positions={"BTCUSDT": []})
+    s = _sweep(db, client, monkeypatch, tmp_path)
+    assert s["protection_refused"] == 1
+    assert s["refused_no_rows"] == 1
+    assert om._bybit_naked_summary_reportable(s), (
+        "the refusal must reach the reconciliation summary, not vanish")
+    assert client.stops_set == []
+
+
+def test_a_read_error_refusal_is_counted(tmp_path, monkeypatch):
+    db = _btc_db(tmp_path)
+    client = _FakeBybitBooks(positions={}, raise_pos=True)
+    s = _sweep(db, client, monkeypatch, tmp_path)
+    assert (s["protection_refused"], s["refused_read_error"]) == (1, 1)
+
+
+def test_a_symbol_is_counted_once_per_sweep_not_once_per_row(
+        tmp_path, monkeypatch):
+    db = _btc_db(tmp_path)
+    _insert(db, id=2, account_id="bybit_2", symbol="BTCUSDT", direction="long",
+            position_size=0.01, stop_loss=38698.6, take_profit_1=44000.0,
+            created_at="2026-07-01T00:00:00+00:00", status="open")
+    s = _sweep(db, _FakeBybitBooks(positions={"BTCUSDT": []}),
+               monkeypatch, tmp_path)
+    assert s["protection_refused"] == 1
+
+
+def test_a_clean_sweep_is_still_not_reported(tmp_path, monkeypatch):
+    db = _btc_db(tmp_path)
+    client = _FakeBybitBooks(
+        positions={"BTCUSDT": [{**_BOOK_LONG, "size": "0.018",
+                                "stopLoss": "38698.6"}]})
+    s = _sweep(db, client, monkeypatch, tmp_path)
+    assert s["protection_refused"] == 0
+    assert not om._bybit_naked_summary_reportable(s)
+
+
+def test_a_symbol_refused_past_n_sweeps_pages_once(tmp_path, monkeypatch):
+    db = _btc_db(tmp_path)
+    client = _FakeBybitBooks(positions={"BTCUSDT": []})
+    pages = []
+    monkeypatch.setattr(
+        "src.runtime.execution_diagnostics.enqueue_bybit_protection_refused",
+        lambda **kw: pages.append(kw))
+    _sweep(db, client, monkeypatch, tmp_path)  # clears the streak once
+    for _ in range(om._BYBIT_PROTECTION_REFUSED_PAGE_AFTER * 2):
+        _run(db, client, monkeypatch, tmp_path)
+    assert len(pages) == 1
+    assert pages[0]["account"] == "bybit_2" and pages[0]["symbol"] == "BTCUSDT"
+    assert pages[0]["state"] == "no_rows"
+
+
+# ---- Part B: grade + re-arm each live book on a dual-book symbol ---------
+def test_both_naked_books_on_a_hedge_symbol_are_rearmed(tmp_path, monkeypatch):
+    db = _dual_book_db(tmp_path)
+    client = _FakeBybitBooks(positions={"BTCUSDT": [_BOOK_LONG, _BOOK_SHORT]},
+                             stop_legs={"BTCUSDT": []})
+    s = _sweep(db, client, monkeypatch, tmp_path)
+    assert s["protection_refused"] == 0
+    assert sorted(c["positionIdx"] for c in client.stops_set) == [1, 2]
+    by_idx = {c["positionIdx"]: c for c in client.stops_set}
+    assert by_idx[1]["stopLoss"] == "38000.0"
+    assert by_idx[2]["stopLoss"] == "46000.0"
+    assert s["rearmed"] == 2
+
+
+def test_only_the_naked_book_is_rearmed(tmp_path, monkeypatch):
+    """Book 1 (long) carries its own Sell SL; book 2 (short) carries none."""
+    db = _dual_book_db(tmp_path)
+    own_long_sl = {"stopOrderType": "PartialStopLoss", "side": "Sell",
+                   "qty": "0.5", "orderId": "long-sl", "positionIdx": 1}
+    client = _FakeBybitBooks(positions={"BTCUSDT": [_BOOK_LONG, _BOOK_SHORT]},
+                             stop_legs={"BTCUSDT": [own_long_sl]})
+    s = _sweep(db, client, monkeypatch, tmp_path)
+    assert [c["positionIdx"] for c in client.stops_set] == [2]
+    assert s["rearmed"] == 1
+
+
+def test_the_other_books_legs_do_not_mask_a_naked_book(tmp_path, monkeypatch):
+    """CA-A01-057 masking: the long book's 0.5 Sell SL must not be banked as
+    coverage of the 0.2 short book — even though bybit_2 is NOT on the graded
+    coverage allowlist (the shipped default)."""
+    db = _dual_book_db(tmp_path)
+    own_long_sl = {"stopOrderType": "PartialStopLoss", "side": "Sell",
+                   "qty": "0.5", "orderId": "long-sl", "positionIdx": 1}
+    client = _FakeBybitBooks(positions={"BTCUSDT": [_BOOK_LONG, _BOOK_SHORT]},
+                             stop_legs={"BTCUSDT": [own_long_sl]})
+    s = _sweep(db, client, monkeypatch, tmp_path)
+    assert 2 in [c["positionIdx"] for c in client.stops_set]
+    assert s["coverage_graded_basis_bound"] >= 1
+
+
+def test_select_position_row_picks_the_wanted_book():
+    from src.runtime.bybit_position_book import select_position_row
+    rows = [_BOOK_LONG, _BOOK_SHORT]
+    assert select_position_row(rows).state == "ambiguous_multi_book"
+    long_ = select_position_row(rows, want_side="long")
+    short = select_position_row(rows, want_side="short")
+    assert (long_.state, long_.position_idx, long_.size) == ("selected", 1, 0.5)
+    assert (short.state, short.position_idx, short.size) == ("selected", 2, 0.2)
+    # a side we cannot read is never guessed
+    blind = [{**_BOOK_LONG, "side": ""}, {**_BOOK_SHORT, "side": "",
+                                          "positionIdx": None}]
+    assert select_position_row(blind, want_side="short").state == (
+        "ambiguous_multi_book")
