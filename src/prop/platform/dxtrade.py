@@ -469,7 +469,7 @@ STRUCTURE_JS = r"""
 # Labels whose elements the structure dump describes: every account label,
 # plus the column headers and tab names the table parsers key on.
 STRUCTURE_LABELS: List[str] = sorted({
-    *(l for ls in ACCOUNT_LABELS.values() for l in ls),
+    *(lb for lbs in ACCOUNT_LABELS.values() for lb in lbs),
     "Symbol", "Instrument", "Side", "Qty", "Quantity", "Position Volume", "Position Qty",
     "Open Price", "Average Price", "Avg Fill Price", "Price", "Order Type", "Type",
     "Positions", "Orders", "Account metrics", "Stop loss", "Take profit",
