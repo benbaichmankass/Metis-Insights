@@ -44,7 +44,9 @@ name: system-actions
 #   * VM_SSH_KEY        — contents of ict-bot-ovm-private.key
 #   * DIAG_READ_TOKEN   — bearer for the read-only diag surface
 #                         (used for post-action /api/diag/services
-#                         verification only)
+#                         verification; init-diag-token ROTATES it)
+#   * BRANCH_PROTECTION_TOKEN — repo PAT; read ONLY by init-diag-token, to
+#                         write the rotated value back to DIAG_READ_TOKEN
 #
 # Optional repo variables:
 #   * VM_SSH_HOST       — defaults to 141.145.193.91 (Ampere live trader; was the
@@ -1280,6 +1282,12 @@ jobs:
           # Consumed by the set-mobile-push-secrets action (and by set-env
           # when env_key=FCM_SERVICE_ACCOUNT_JSON + env_value blank).
           SECRET_FCM_SERVICE_ACCOUNT_JSON: ${{ secrets.FCM_SERVICE_ACCOUNT_JSON }}
+          # init-diag-token ONLY (resolved empty for every other action): the
+          # CURRENT diag bearer, to prove it dies (old -> 401), and the repo PAT
+          # that can write Actions secrets (same one init-actions-secrets.yml
+          # uses), to install the new value as secrets.DIAG_READ_TOKEN.
+          ROTATE_OLD_DIAG_TOKEN: ${{ env.ACTION == 'init-diag-token' && secrets.DIAG_READ_TOKEN || '' }}
+          ROTATE_GH_TOKEN: ${{ env.ACTION == 'init-diag-token' && secrets.BRANCH_PROTECTION_TOKEN || '' }}
         run: |
           set -euo pipefail
           # Each action maps to ONE script under scripts/ops/. The
@@ -1745,6 +1753,31 @@ jobs:
             fi
           fi
 
+          # init-diag-token is ORCHESTRATED FROM THE RUNNER, not a plain VM
+          # wrapper call (SEC-DT, 2026-09-27). The new value is born HERE, masked
+          # in this step's log at once, and reaches the VM only on ssh STDIN.
+          # ⚠️ ::add-mask:: protects the RUN LOG only — action-output.txt is
+          # posted verbatim to the issue on a PUBLIC repo, which is why neither
+          # script ever prints the value (tests/ops/test_init_diag_token_rotation.py).
+          if [ "${ACTION}" = "init-diag-token" ]; then
+            NEW_TOKEN_FILE="${RUNNER_TEMP}/diag_new_token"
+            ( umask 077; openssl rand -hex 32 | tr -d '\n' > "${NEW_TOKEN_FILE}" )
+            echo "::add-mask::$(cat "${NEW_TOKEN_FILE}")"
+            set +e
+            NEW_TOKEN_FILE="${NEW_TOKEN_FILE}" \
+            OLD_DIAG_READ_TOKEN="${ROTATE_OLD_DIAG_TOKEN}" \
+            GH_TOKEN="${ROTATE_GH_TOKEN}" \
+            SSH_KEY="${HOME}/.ssh/id_rsa" \
+              bash scripts/ops/rotate_diag_token_runner.sh > action-output.txt 2>&1
+            rc=$?
+            set -e
+            rm -f "${NEW_TOKEN_FILE}"
+            echo "exit_code=${rc}" >>"$GITHUB_OUTPUT"
+            echo ">>> Rotation exit code: ${rc}"
+            cat action-output.txt
+            exit "${rc}"
+          fi
+
           # Capture both stdout and exit code; never let the SSH wrap
           # swallow the wrapper's exit status.
           set +e
@@ -1799,6 +1832,13 @@ jobs:
           DIAG_READ_TOKEN: ${{ secrets.DIAG_READ_TOKEN }}
         run: |
           set -euo pipefail
+          if [ "${ACTION}" = "init-diag-token" ]; then
+            # The job-start secret IS the retired token after a rotation, so a
+            # snapshot with it would 401 and read as a failure. The rotation's
+            # own verification (new -> 200, old -> 401) is in action-output.txt.
+            echo '{"diag_skipped": "init-diag-token: job-start secret is the retired token; see DIAG_ROTATION_RESULT in action-output.txt"}' > post-state.json
+            exit 0
+          fi
           if [ -z "${DIAG_READ_TOKEN}" ]; then
             echo '{"diag_skipped": true}' > post-state.json
             exit 0
@@ -1847,6 +1887,11 @@ jobs:
               "exit_code": os.environ.get("EXIT_CODE", ""),
               "pre_state": load("pre-state.json"),
               "post_state": load("post-state.json"),
+              # init-diag-token: the yes/no verdict line, lifted out of the transcript.
+              "diag_rotation": next((json.loads(l.split("=", 1)[1])
+                                     for l in (pathlib.Path("action-output.txt").read_text().splitlines()
+                                               if pathlib.Path("action-output.txt").exists() else [])
+                                     if l.startswith("DIAG_ROTATION_RESULT=")), None),
               "action_output_excerpt": pathlib.Path("action-output.txt").read_text()[-4000:]
                   if pathlib.Path("action-output.txt").exists() else "",
           }
