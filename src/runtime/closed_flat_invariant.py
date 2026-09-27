@@ -365,6 +365,11 @@ def _residual_from_positions(
         # is the same call `account_open_positions` makes on a non-dict account.
         return ResidualRead(RESIDUAL_STATE_COULD_NOT_LOOK,
                             reason="unreadable_positions_type")
+    if symbol in getattr(positions, "unreadable_symbols", ()):
+        # FIX-CA-08: the read answered for OTHER symbols but its required
+        # cross-check for THIS one failed — absence here is not flat.
+        return ResidualRead(RESIDUAL_STATE_COULD_NOT_LOOK,
+                            reason="symbol_unreadable")
     total = 0.0
     for p in positions:
         if not isinstance(p, dict):

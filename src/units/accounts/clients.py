@@ -1407,6 +1407,25 @@ def _bybit_book_key(raw: Any) -> Any:
         return ("unparsed", str(raw))
 
 
+class OpenPositions(list):
+    """A position list that also says which symbols it could NOT look at.
+
+    FIX-CA-08 (CA-A03, 2026-09-27). A Bybit symbol the ``settleCoin`` page
+    omitted, whose symbol-scoped cross-check then RAISED, used to be simply
+    absent from the list — byte-identical to "the venue says it is flat" — so
+    ``closed_flat_invariant`` graded it ``flat`` and ``_reconcile_open_trades``
+    closed an open journal row on it. ``unreadable_symbols`` carries those
+    symbols without collapsing the whole read to ``None`` (a per-symbol hiccup
+    must not blind every other symbol). Still a ``list``: every existing caller
+    is unchanged unless it opts in via ``getattr(positions,
+    "unreadable_symbols", ())``.
+    """
+
+    def __init__(self, rows=(), *, unreadable_symbols=()):
+        super().__init__(rows)
+        self.unreadable_symbols: frozenset = frozenset(unreadable_symbols)
+
+
 def account_open_positions(
     account: Dict[str, Any],
 ) -> Optional[list]:
@@ -1535,8 +1554,19 @@ def account_open_positions(
                 # through spot now.
                 return []
             resp = client.get_positions(category=category, settleCoin="USDT")
-            raw = resp.get("result", {}).get("list", []) if isinstance(resp, dict) else []
+            if not isinstance(resp, dict):
+                # FIX-CA-08: a non-dict page is a FAILED read, not an empty
+                # account — returning [] here graded every symbol flat.
+                logger.warning(
+                    "account_open_positions(%s): settleCoin page returned a "
+                    "non-dict (%s) — could not read, returning None",
+                    account.get("account_id") or "unknown", type(resp).__name__,
+                )
+                return None
+            raw = resp.get("result", {}).get("list", [])
             out: list = []
+            # FIX-CA-08: symbols whose required read FAILED this pass.
+            unreadable: set = set()
             # TWO sets, and conflating them is the defect this change repairs.
             #
             # ``seen_books`` keys the EMIT dedupe on ``(symbol, book)`` -- the
@@ -1686,6 +1716,7 @@ def account_open_positions(
                         "row_count": None,
                         "error": repr(exc)[:200],
                     })
+                    unreadable.add(sym)
                     continue
                 obs["queries"].append({
                     "scope": "symbol_scoped",
@@ -1748,6 +1779,9 @@ def account_open_positions(
                         "books_missing_from_page": missing,
                         "error": repr(exc)[:200],
                     })
+                    # The sibling book is unknown — the symbol cannot be
+                    # graded flat on that side either.
+                    unreadable.add(sym)
                     continue
                 returned = sorted(
                     {_bybit_book_key(p.get("positionIdx"))
@@ -1776,7 +1810,7 @@ def account_open_positions(
                         continue
                     _emit(p)
             _record_position_read_observation(obs)
-            return out
+            return OpenPositions(out, unreadable_symbols=unreadable)
         if ex == "alpaca":
             # Dry alpaca accounts are never dialled from the read path
             # (mirrors the IB branch above) — return None ("could not read")
