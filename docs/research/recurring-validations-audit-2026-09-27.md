@@ -1,5 +1,7 @@
 # Recurring validations audit — 2026-09-27 (lane W6-OPS-R)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 > Written 2026-09-27 by lane W6-OPS-R
 > (dispatched by manager session_01Ljhs6sFAdWHdMDhJpL5aBP). Operator ask, same day:
 > *"the ops lane needs to investigate and fix the misfiring recurring validations
