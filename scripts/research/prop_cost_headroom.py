@@ -56,7 +56,7 @@ def _ts(s: str) -> datetime:
 
 def load_leg(leg: str) -> Dict[str, Any]:
     rec = json.loads((REPO / "comms" / "strategy_evidence" / f"{leg}.json").read_text())
-    rows = [json.loads(l) for l in (REPO / rec["source_run"]).read_text().splitlines() if l.strip()]
+    rows = [json.loads(line) for line in (REPO / rec["source_run"]).read_text().splitlines() if line.strip()]
     return {"record": rec, "rows": rows}
 
 
@@ -177,7 +177,7 @@ def main(argv: List[str] | None = None) -> int:
     if not a.leg:
         ap.error("give --leg at least once")
     doc = {"tool": "scripts/research/prop_cost_headroom.py", "research_unit": "RQ-20260922-003",
-           "decision_rule": "RULE-RQ0922-003-COST-BREAKEVEN", "legs": [analyse(l) for l in a.leg]}
+           "decision_rule": "RULE-RQ0922-003-COST-BREAKEVEN", "legs": [analyse(leg) for leg in a.leg]}
     text = json.dumps(doc, indent=2)
     if a.out:
         Path(a.out).write_text(text + "\n")
