@@ -69,8 +69,15 @@ decision_rule:
     `multi_axis_candidate` — two independent regime features agreeing on the
     same cell is stronger evidence than either alone, and is the one case
     that would justify combining axes (a SEPARATE, not-yet-registered unit).
-    IF neither direction rescues any cell -> REFUTED for this axis, record
-    `refuted_realised_vol_soft_weight`, close `no_action_warranted`.
+    IF neither direction rescues any cell at THIS floor/ceiling anchor ->
+    record `refuted_at_this_band` (mirroring RQ-20260927-004's own
+    band-scoped, not axis-scoped, disposition) and close
+    `no_action_warranted` on the band. This does NOT close the
+    realised-vol-soft-weight axis itself — per the operator's standing
+    principle (never kill an idea on one pass), the next pre-registerable
+    arm is a different percentile anchor or a non-zero `weight_min` (sizing
+    down rather than to zero), named as the open follow-up rather than left
+    implied.
   what_it_does_not_do: >-
     Does not combine the ADX and vol axes into one weight — that composition
     is a distinct hypothesis (does the PRODUCT of two soft weights out-perform
