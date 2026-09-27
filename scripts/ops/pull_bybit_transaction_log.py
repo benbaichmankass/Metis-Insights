@@ -19,12 +19,14 @@ which currencies, what ``change`` means — lives in
 is arguable in tests rather than embedded in a puller. It never touches
 ``trade_journal.db`` and never reaches the order path.
 
-RUNTIME SHAPE. Rides the EXISTING hourly ``ict-exchange-fills-pull`` service as a
-third ExecStart rather than adding a timer — a smaller deploy surface on a path
-that already works. Overlapping windows are the normal case for an hourly puller
-with a lookback, so the store is keyed on the venue's own row id and a re-pull
-inserts nothing (asserted in tests: a double-count here would MOVE an
-account-level P&L figure, which is worse than a duplicated fill).
+RUNTIME SHAPE. Rides the EXISTING hourly ``ict-exchange-fills-pull`` service as
+its FIRST ExecStart (moved there 2026-09-27, FIX-CA-OPS2, so no other
+ExecStart in that unit can ever fail-and-skip it) rather than adding a timer —
+a smaller deploy surface on a path that already works. Overlapping windows are
+the normal case for an hourly puller with a lookback, so the store is keyed on
+the venue's own row id and a re-pull inserts nothing (asserted in tests: a
+double-count here would MOVE an account-level P&L figure, which is worse than
+a duplicated fill).
 """
 from __future__ import annotations
 

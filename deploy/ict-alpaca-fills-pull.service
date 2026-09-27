@@ -1,0 +1,70 @@
+# ============================================
+# ICT ALPACA-FILLS PULL (FIX-CA-OPS2, 2026-09-27)
+# Refreshes runtime_state/exchange_fills.sqlite with the last 7 days of REAL
+# Alpaca FILL activities for every live Alpaca sub-account (alpaca_paper /
+# alpaca_portfolio / alpaca_options_paper / alpaca_live — distinct creds from
+# the trader .env) so /api/bot/pnl/exchange + the broker-truth cost sweep
+# cover the equity accounts too.
+#
+# Why a SEPARATE unit rather than a third ExecStart on
+# ict-exchange-fills-pull.service (where it lived until this fix): manager
+# pre-merge review of PR #13316 (FIX-CA-31) found that FIX-CA-31 made
+# scripts/pull_alpaca_fills.py exit non-zero on a genuine Alpaca API failure
+# (a revoked key, a rate limit, a 5xx — previously silently returned an empty
+# page, the exact defect class FIX-CA-31 exists to fix). Under systemd's
+# Type=oneshot multi-ExecStart contract, that would have started SKIPPING the
+# REMAINING ExecStart lines on the shared unit whenever Alpaca failed —
+# including the Bybit wallet ledger (scripts/ops/pull_bybit_transaction_log.py),
+# the real-money bybit_2 reconciliation feed
+# (BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED).
+# Splitting Alpaca into its own unit means an Alpaca-side failure can NEVER
+# block anything Bybit-side, and Alpaca's own failure stays LOUD and visible
+# — this unit's own systemd failed-state, gated by
+# scripts/ops/status_check.sh's failed-unit gate (GATE_ONESHOTS) exactly like
+# its Bybit sibling, rather than swallowed with a `-` ExecStart prefix (which
+# would have kept the chain unblocked but made the unit itself never report
+# failed — the opposite of what FIX-CA-31 exists to fix).
+#
+# LIVE-TRADER BOX ONLY. Reads Alpaca over the public REST API using each
+# sub-account's ALPACA_API_KEY_ID_* / ALPACA_API_SECRET_KEY_* (or the
+# per-account overrides in config/accounts.yaml::api_key_env /
+# api_secret_env) from the trader .env; read-only on the exchange side
+# (account_activities). Touches NO service and NO trade_journal.db table.
+# The store's primary key is exec_id, so the hourly 7-day over-sampling is
+# idempotent (duplicate fills are dropped).
+#
+# DATA_DIR: this unit MUST resolve runtime_state_dir() to the SAME root as
+# ict-web-api (the reader) — /data/bot-data. Set explicitly below, mirroring
+# ict-exchange-fills-pull.service.
+#
+# Save to: /etc/systemd/system/ict-alpaca-fills-pull.service
+# (installed automatically by scripts/install_systemd_units.sh's
+#  deploy/*.service glob during deploy_pull_restart.sh — no separate
+#  system-action needed beyond a normal Tier-2 deploy)
+# ============================================
+
+[Unit]
+Description=ICT Alpaca-fills pull — keep /api/bot/pnl/exchange + broker-truth cost fresh for the equity accounts (FIX-CA-OPS2)
+After=network-online.target ict-trader-live.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+# Load the trader .env for every Alpaca sub-account's creds.
+EnvironmentFile=-/home/ubuntu/ict-trading-bot/.env
+# Pin DATA_DIR so runtime_state_dir() resolves to the block-volume root the
+# web-api reads from, regardless of whether .env carries it.
+Environment=DATA_DIR=/data/bot-data
+# Quick REST call per account; generous cap for a slow session. A read/auth
+# failure exits non-zero (FIX-CA-31) and the unit is marked failed — the next
+# timer fire retries; no state is left half-written (exec_id PK).
+TimeoutStartSec=300
+# Run under the trader venv, matching the Bybit sibling.
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_alpaca_fills.py --all-alpaca-accounts --days 7
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

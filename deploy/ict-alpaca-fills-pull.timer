@@ -1,0 +1,34 @@
+# ============================================
+# ICT ALPACA-FILLS PULL TIMER (FIX-CA-OPS2, 2026-09-27)
+# Fires the Alpaca fills pull HOURLY, split off ict-exchange-fills-pull.timer
+# so an Alpaca-side failure can never block the Bybit wallet ledger sharing
+# that unit — see deploy/ict-alpaca-fills-pull.service for the full reasoning.
+#
+# Cadence rationale: HOURLY at :23 — offset from the Bybit sibling's :20 (and
+# the IB executions pull's :17) so the three read-only pulls don't cluster,
+# and the RandomizedDelaySec windows (IB 120s, Bybit 300s, this 300s) do not
+# overlap even at their widest. Same --days 7 over-sampling rationale as the
+# Bybit sibling: idempotent on exec_id, so the only cost of over-sampling is
+# request volume, and hourly with a week of look-back tolerates ~168 missed
+# runs before losing coverage of the default 7-day window.
+#
+# Auto-enabled on the trader box by scripts/install_systemd_units.sh (it is
+# not a gateway-only or retired timer); the gateway VM + trainer never enable
+# it.
+# Save to: /etc/systemd/system/ict-alpaca-fills-pull.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-alpaca-fills-pull hourly (broker truth for the equity accounts, independent of the Bybit wallet ledger)
+Requires=ict-alpaca-fills-pull.service
+
+[Timer]
+OnCalendar=*-*-* *:23:00
+# Spread the fire a few minutes so it never lands exactly on another job.
+RandomizedDelaySec=300
+# Catch up one missed run if the VM was down at fire time.
+Persistent=true
+Unit=ict-alpaca-fills-pull.service
+
+[Install]
+WantedBy=timers.target
