@@ -10,8 +10,11 @@
 ## 0. What this answers, and what tool scored it
 
 Row B6 ([`docs/claude/work/MANAGER-CHECKLIST.json`](../../claude/work/MANAGER-CHECKLIST.json))
-is the operator's EV bar: *"we want to promote strategies that create a
+is the operator's EV bar (quoted verbatim from the checklist row; not a fresh
+measurement, so no population applies):
+*"we want to promote strategies that create a
 portfolio that we would statistically expect to produce a profit (over the
+<!-- population-ok: verbatim quote of the operator's own directive, not a fresh measurement -->
 initial account cost of about 1%) before the account dies."* A parallel lane
 (P1, branch `claude/w6-prop-ev`) built the canonical simulator for this —
 `scripts/research/prop_ev_sim.py`, registering
@@ -79,9 +82,12 @@ marks `[WEB; CONFIRM]` rather than `[CONFIRMED — FAQ]`):
   UNCONFIRMED (could be the 5x tier or the 2-3x tier).
 - Costs (independently corroborates what
   `config/prop_rulesets/breakout.yaml` already had CONFIRMED for swap, and
-  is NEW information for commission): **0.04% notional per side (0.08%
+  is NEW information for commission):
+  <!-- population-ok: fee/swap RATES (cost parameters quoted from the venue), not sample statistics with a denominator -->
+  **0.04% notional per side (0.08%
   round-trip) commission**, plus the already-known **0.033%/day static
-  swap**. `scripts/research/prop_ev_sim.py`'s `--costs breakout` default
+  swap**.
+  `scripts/research/prop_ev_sim.py`'s `--costs breakout` default
   (`commission-bps-rt=8.0`, `swap-daily=0.00033`) already matches this
   exactly — it was derived independently and agrees.
 - Per-instrument position caps (`breakout.yaml::limits.max_position_pct`)
