@@ -1,5 +1,7 @@
 # CA-A12 — scripts/ops part 2 (code audit, 2026-09-27)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 Lane: checklist row **CA-A12**. This lane only reads and reports: it changes no code or config, and nothing live. The findings are in
 [`CA-A12.findings.jsonl`](CA-A12.findings.jsonl), one JSON object per finding in the format of
 `docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md` §3/§5.

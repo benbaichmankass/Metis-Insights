@@ -1,6 +1,8 @@
 # CA-A07 code audit — src/prop/**, scripts/prop/**, breakout_1 config
 
-**Doc status:** `live` · dated 2026-09-27 · lane `CA-A07` of the 2026-09-27 code
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+lane `CA-A07` of the 2026-09-27 code
 audit (tracked on `docs/claude/work/MANAGER-CHECKLIST.json` row CA-A07, filed
 via PR #13156). Read-only analysis; this PR changes no code, config, or
 anything live.
