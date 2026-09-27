@@ -61,7 +61,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO / ".github" / "workflows"
@@ -86,8 +86,25 @@ HARNESS_REQUIRED_FLAGS: Dict[str, Tuple[str, ...]] = {
     "vol_target": ("--trades", "--daily"),
 }
 
-_SCRIPT_RE = re.compile(
-    r"scripts/backtest_(" + "|".join(re.escape(h) for h in HARNESS_REQUIRED_FLAGS) + r")\.py")
+def _script_re() -> "re.Pattern[str]":
+    """Built inside a function, deliberately, and not a module-level constant.
+
+    `scripts/ci/check_guard_liveness.py` reads every MODULE-LEVEL string
+    literal starting with a repo prefix as a declared subject path this guard
+    depends on. A module-level `re.compile("scripts/backtest_(" + ...)` would
+    hand it the fragment `scripts/backtest_(`, which is not a path at all —
+    exactly the false subject that instrument's own docstring says function
+    bodies are excluded to avoid. Memoised so it is still built once.
+    """
+    global _SCRIPT_RE_CACHE
+    if _SCRIPT_RE_CACHE is None:
+        _SCRIPT_RE_CACHE = re.compile(
+            "scripts/backtest_(" + "|".join(re.escape(h) for h in HARNESS_REQUIRED_FLAGS)
+            + r")\.py")
+    return _SCRIPT_RE_CACHE
+
+
+_SCRIPT_RE_CACHE: "Optional[re.Pattern[str]]" = None
 
 
 def _logical_lines(text: str) -> List[str]:
@@ -112,7 +129,7 @@ def scan_text(text: str) -> List[str]:
     """Every problem found in ONE workflow file's text. Empty == clean."""
     problems: List[str] = []
     for ln in _logical_lines(text):
-        m = _SCRIPT_RE.search(ln)
+        m = _script_re().search(ln)
         if not m:
             continue
         harness = m.group(1)
@@ -224,7 +241,7 @@ def main(argv: List[str] = None) -> int:
     files_scanned = 0
     for path in sorted(WORKFLOWS_DIR.glob("*.yml")):
         text = path.read_text(encoding="utf-8")
-        if not _SCRIPT_RE.search(text):
+        if not _script_re().search(text):
             continue
         files_scanned += 1
         for p in scan_text(text):

@@ -136,13 +136,13 @@ jobs:
             funding_carry)
               fetch "$SYM" "$TF"
               # Bybit funding, like Bybit candles, is geoblocked from a
-              # GH-hosted runner's IP — this step is allowed to fail; the
-              # harness invocation right after it will then correctly refuse
-              # (no --funding-data to point at) and this run lands
-              # `read_state: producer_failed`, an honest network-reach
-              # limitation rather than a fabricated pass.
+              # GH-hosted runner's IP — NO swallowing here (`set -euo
+              # pipefail` above already means a failed fetch fails this
+              # step): the run correctly lands `read_state: producer_failed`,
+              # an honest network-reach limitation rather than a fabricated
+              # pass with an empty/missing funding series quietly used.
               python3 scripts/ops/fetch_bybit_funding.py --symbol "$SYM" --days 180 \
-                --output "data/${SYM}_funding.csv" || true
+                --output "data/${SYM}_funding.csv"
               python3 scripts/backtest_funding_carry.py \
                 --symbol "$SYM" --timeframe "$TF" \
                 --funding-data "data/${SYM}_funding.csv" \
