@@ -1,0 +1,147 @@
+id: RQ-20260927-004
+title: >-
+  Does a fixed-band SOFT regime weight (continuous ADX ramp, not a hard gate)
+  clear the same 5-fold holdout that killed the per-cell tuned hard gate?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  SRQ-20260618-001/-002's per-cell TUNED hard ADX gate (adx_min in {15,20,25,30},
+  picked per cell to maximize its own k-fold) passed every fold at the exact
+  5-fold/0.40 split and FAILED at k=6, k=7, train_frac 0.35/0.45 for all four
+  candidates -- an in-sample artifact, not a robust regime edge. Does a SOFT,
+  CONTINUOUS regime weight -- one fixed [15, 25] ADX ramp shared across all 10
+  cells, with zero per-cell tuning -- clear the SAME 5-fold/0.40 gate net of the
+  standard 7.5/15 bps fee band, on trend_donchian_{eth,sol,xrp,ada,avax}_4h and
+  htf_pullback_{eth,sol,xrp,ada,avax}_2h?
+
+why_this_matters: >-
+  MEASURED, docs/claude/strategy-refinement-queue.json SRQ-20260618-001/-002
+  resweep_results (2026-06-18): round 1 (flat adx_min=20, no per-cell tuning)
+  found real, cell-dependent signal -- HELPED ETH (trend +42.3R vs +27.9R
+  ungated) and ADA pullback (+41.4R vs +30.0R), HURT XRP/SOL/AVAX (e.g. trend
+  XRP +19.3R gated vs +45.0R ungated, i.e. gating discarded profitable trending
+  trades). Round 2 (per-cell tuned 15/20/25/30) turned that same signal into 4
+  cells passing every fold -- and round 3's holdout showed the TUNING, not the
+  ADX signal itself, was what failed to generalize (pass held only at the exact
+  fold config the threshold was picked on). The soft weight tests whether the
+  round-1 signal survives WITHOUT the round-2 tuning: same fixed band for every
+  cell, no per-cell degree of freedom to overfit, but no longer a one-bit
+  admit/reject -- weak-ADX bars are sized down continuously rather than
+  discarded outright, so a cell that round 1 showed gating actively HURT (XRP,
+  SOL, AVAX) is not zeroed out, only down-weighted in its weakest bars.
+
+power:
+  expected_n: null
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    The per-fold NET R (soft-weighted vs the existing 7.5bps ungated baseline
+    already on record, see m15-ws-c-alt-sweep panel) is the paired comparison
+    unit; floor at d=0.3 is (1.96+0.8416)^2/0.3^2 = 87.2 fold-comparisons. Ten
+    cells x 5 folds x 2 families = 100 fold-level comparisons if every cell
+    runs clean, which clears the floor -- but this is a DESIGN-level count, not
+    an observed one (see feasibility below), and the true requirement is
+    higher than the normal-approximation floor per the queue README (fold
+    trades are autocorrelated and folds overlap).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      DECLARED, not measured. The original 2026-06-18 resweep_results record
+      per-cell fold VERDICTS and net-R totals but not per-cell trade COUNTS for
+      this trend_4h/pullback_2h family (unlike the 15m ict_scalp family, whose
+      n IS recorded in SRQ-20260618-003 at 130-280 per leg). So expected_n
+      above is a fold-count design target, not an achieved corpus statistic --
+      this is exactly the gap `research/queue/README.md`'s `source: none` +
+      `accrual_basis` combination exists to make legible rather than paper
+      over with an invented number. WHAT WOULD CLEAR THIS: read n_trades off
+      `results/m15_ws_c_soft_weight_kfold/fold_*.json` once this unit's own run
+      lands -- the exact same files the decision_rule below reads for the
+      verdict itself.
+
+decision_rule:
+  id: RULE-RQ0927-004-SOFT-WEIGHT-HOLDOUT
+  registered_at: '2026-09-27'
+  registered_before_run: true
+  statistic: >-
+    Per cell (10 total: trend_{eth,sol,xrp,ada,avax}_4h,
+    pullback_{eth,sol,xrp,ada,avax}_2h): every_fold_positive_75bps (net R > 0
+    in ALL 5 folds at 7.5 bps) AND total_positive_15bps (pooled net R > 0 at 15
+    bps) -- the IDENTICAL two-part bar `m15_ws_b_fold_report.py --mode net`
+    already applies to the ungated baseline and to round 2's tuned-hard-gate
+    candidates, read straight off this run's own `fold_*.json` verdict field
+    (never re-derived by hand).
+  rule: >-
+    IF a cell passes BOTH parts under the soft weight AND the identical cell
+    already passes under the flat ungated baseline (i.e. the weight preserved
+    or improved a working cell) -> record `soft_weight_neutral_or_positive`
+    for that cell; no promotion follows from this unit alone (Tier-3 stays a
+    separate gate; this only clears the backtest evidence step).
+    IF a cell FAILS ungated but PASSES under the soft weight -> record
+    `soft_weight_candidate`, and this is the interesting case: a chop-fold
+    save without the round-2 tuning artifact. This cell alone is then
+    eligible for the SAME holdout stress this item's history already ran on
+    round 2 (k=6, k=7, train_frac 0.35/0.45) BEFORE it may be cited toward any
+    Tier-3 packet -- passing only the nominal 5-fold/0.40 split a second time
+    would repeat the exact failure this unit exists to avoid re-making.
+    IF ZERO cells reach `soft_weight_candidate` -> the soft-weight axis is
+    REFUTED at this band for this family (record `refuted_at_band_15_25`,
+    close `no_action_warranted` on the band, but do NOT close the general
+    soft-weight hypothesis -- a different [floor, ceiling] or a per-family
+    (rather than per-cell) band is a distinct, separately pre-registerable
+    arm, not covered by this rule).
+    IF the run fails to produce a fold_*.json for a cell (RUN_FAILED /
+    REPORT_FAILED in the script's own stdout) -> record `could_not_measure`
+    for that cell specifically; a missing file is never read as a fail verdict.
+  what_it_does_not_do: >-
+    Cuts nothing and flips no live gate. A `soft_weight_candidate` cell still
+    needs the holdout stress above AND a Tier-3 packet before any real-money or
+    demo-routing change; this unit only answers whether the fixed-band soft
+    weight clears the SAME bar the hard gate failed.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: >-
+    Trainer-VM-resident data/<SYM>_15m.csv (the WS-C alt panel) -- same data
+    dependency as the original m15_ws_c_kfold.sh this script is a direct
+    sibling of. Not a workflow_dispatch sweep input; dispatched as a bash
+    command on the trainer VM via trainer-vm-diag.yml (this exact mechanism is
+    how the 2026-06-18 resweep this item refines was itself run -- "vm-driver
+    on trainer, MCP-independent" -- predating the research/queue/
+    dispatch_queue.py workflow_dispatch convention, which this family's
+    ad-hoc driver script does not use).
+
+run:
+  workflow: trainer-vm-diag.yml
+  inputs:
+    cmd: bash scripts/ops/m15_ws_c_soft_weight_kfold.sh
+    research_unit: RQ-20260927-004
+  note: >-
+    SOFT_WEIGHT_FLOOR/CEILING/MIN default to 15/25/0.0 inside the script
+    (env-overridable) -- the fixed band this decision_rule is written against.
+    A different band is a different, separately pre-registered arm.
+
+lands:
+  store: results/m15_ws_c_soft_weight_kfold/
+  assert_field: label
+  min_rows: 10
+  note: >-
+    One fold_<label>.json per cell (10 cells); the dispatching issue's
+    trainer-vm-diag.yml comment is the durable pointer until/unless this
+    result is additionally written into docs/research/ as a dated report,
+    mirroring docs/research/recombination-sweep-2026-06-18.md's pattern for
+    this same item family.
+
+related:
+  - 'SRQ-20260618-001 (trend_donchian family)'
+  - 'SRQ-20260618-002 (htf_pullback family)'
+  - 'review-pack-2026-09-27.md D6 (operator: dispatch a backtesting-skill lane rather than kill the row)'
+  - 'scripts/research/regime_weight.py (the shared soft-weight rule this unit exercises)'
+last_dispatched_at: null
