@@ -2232,6 +2232,7 @@ def get_shadow_stats(
 async def get_exchange_positions(
     request: Request,
     account_id: str | None = None,
+    symbol: str | None = None,
 ) -> dict[str, Any]:
     """Read-only **exchange-side** open positions per account — the BROKER's
     truth, not the journal.
@@ -2256,10 +2257,32 @@ async def get_exchange_positions(
       * ``[]``    — genuinely flat on the exchange.
       * ``[{symbol, side, size, entry_price, unrealised_pnl}, ...]`` — live.
 
+    ``symbol`` (OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED, 2026-09-27)
+    narrows to one instrument AND changes how it is read. Before it existed an
+    appended ``&symbol=`` was accepted and IGNORED — the payload was
+    byte-identical — so a session that did not diff the two responses would
+    have "checked" a symbol on nothing. Now, per account:
+
+      * **Bybit** — ``symbol_books`` carries a symbol-scoped venue read
+        (``account_bybit_symbol_books``): every book on the symbol, zero-size
+        rows included, with ``books_read`` naming which ``positionIdx`` the
+        venue answered with (both 1 and 2 on a hedge symbol) and
+        ``hedge_books_missing`` naming any it did not. This does NOT go
+        through the settleCoin page, which is the read that omits a hedge
+        symbol's second book. ``positions`` is the normal account read,
+        filtered to the symbol, so the two can be compared in one response.
+      * **Other venues** — ``positions`` filtered to the symbol;
+        ``symbol_books`` is ``null`` with ``symbol_read`` saying why.
+
+    ``requested_symbol`` is echoed so a reader can prove the parameter was
+    honoured. Still places, modifies and cancels nothing.
+
     Tier 1 — read-only, token-gated, best-effort per account.
     """
     _require_diag_token(request)
+    want_symbol = (symbol or "").strip().upper() or None
     try:
+        from src.units.accounts.clients import account_bybit_symbol_books
         from src.units.ui.data_loaders import account_open_positions, list_accounts
     except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
         logger.warning("get_exchange_positions: import failed: %s", exc)
@@ -2290,17 +2313,44 @@ async def get_exchange_positions(
         except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + positions=null), logged; one account must not fail the call
             err = f"{type(exc).__name__}: {exc}"
             logger.warning("get_exchange_positions: %s raised %s", aid, exc)
-        out.append({
+        row: dict[str, Any] = {
             "account_id": aid,
             "exchange": (acc or {}).get("exchange"),
-            # null = could-not-read; [] = flat; list = live positions.
-            "positions": positions,
-            "count": (len(positions) if isinstance(positions, list) else None),
-            "error": err,
-        })
+        }
+        if want_symbol is not None:
+            if isinstance(positions, list):
+                positions = [
+                    p for p in positions
+                    if str((p or {}).get("symbol") or "").upper() == want_symbol
+                ]
+            is_bybit = ((acc or {}).get("exchange") or "").lower() == "bybit"
+            books: Any = None
+            books_err: str | None = None
+            if is_bybit:
+                try:
+                    books = await run_account_read(
+                        account_bybit_symbol_books, acc, want_symbol)
+                except Exception as exc:  # noqa: BLE001  # allow-silent: surfaced in the row (symbol_read=could_not_look + error), logged
+                    books_err = f"{type(exc).__name__}: {exc}"
+                    logger.warning(
+                        "get_exchange_positions: %s symbol read %s raised %s",
+                        aid, want_symbol, exc)
+            row["symbol_read"] = (
+                "not_bybit" if not is_bybit
+                else (books or {}).get("query_state") if isinstance(books, dict)
+                else "could_not_look"
+            )
+            row["symbol_books"] = books
+            row["symbol_books_error"] = books_err
+        # null = could-not-read; [] = flat; list = live positions.
+        row["positions"] = positions
+        row["count"] = len(positions) if isinstance(positions, list) else None
+        row["error"] = err
+        out.append(row)
     return {
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "requested_account_id": account_id,
+        "requested_symbol": want_symbol,
         "accounts": out,
     }
 
