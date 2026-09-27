@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "CA-A01-056's code fix lands together with an inverted assertion in this test (or the item is killed with a stated reason).",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-JT7JW9CR-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B07 (session_0176ddjoUxwveWpnJT7Jw9cr), finding AUD-20260927-CA-B07-protection-price-test-pins-bug in docs/audits/code-audit-2026-09-27/CA-B07.findings.jsonl",
+    "rerun": "Read tests/test_protection_price.py:296-311 on main and re-run `python3 -m pytest tests/test_protection_price.py -k unparseable -q`. The finding holds while the test asserts covered_qty == 10.0 for stopLoss='banana'."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-B07, MEASURED): tests/test_protection_price.py::test_full_mode_with_an_unparseable_stop_yields_NO_price_not_zero (L303-311) asserts the CA-A01-056 defect (PI not separately listed in that row; same fix as over-cover PI-20260927-ENGC5EUD-0001 per CA-A03) -- an unparseable Bybit stopLoss string like 'banana' graded FULLY covered -- as the test's own correct, expected output, with a code comment acknowledging it: '\"banana\" is non-empty and not \"0\", so the LEGACY string test still grades it covered -- the quantity verdict is deliberately unchanged.' `assert out[\"covered_qty\"] == 10.0` for a garbage stop string. This test will itself FAIL the moment CA-A01-056's proposed fix (`_px is not None and _px > 0`) lands, unless someone remembers to flip it -- it actively pins the bug rather than merely missing it. LOCATION: tests/test_protection_price.py:296-311. PROPOSED FIX: land the assertion flip (covered_qty == 0.0 / an explicit ungradeable marker) in the SAME PR as CA-A01-056's code fix so the suite cannot stay green on the unfixed code."
+}
