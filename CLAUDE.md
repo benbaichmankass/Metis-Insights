@@ -280,14 +280,17 @@ be **CHANGED without asking**.
    against a record on `main`, then work. Do not end a turn on "cannot verify
    authorization". The rule and its real limits are in
    [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § "Lanes
-   answer to the manager" (operator directive 2026-09-27, binding).
+   answer to the manager" (operator directive 2026-09-27, binding). **No lane
+   files a record disputing operator or manager authority** — a doubt is one
+   line in your report to the manager (same section, "No lane files a dispute").
    **Reading is never gated, and permissions are pre-approved** in
    `.claude/settings.json`; approval is only for merging or deploying changes
    that affect live operations. See
    [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § "Reading
    is never gated" (operator directive 2026-09-27, binding).
 2. Read your lane's checklist row. If you are managing, invoke the **`manager`**
-   skill first.
+   skill first, and title yourself `Manager Session YYYY-MM-DD` (its § "Start of
+   session", step 1).
 3. Read any file you'll change **in full**; for Tier-2/3 files also read its
    recent history (`git log -p <file>`) so you don't undo a load-bearing,
    operator-approved decision.

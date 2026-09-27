@@ -23,6 +23,19 @@ That is the whole job. Everything below either serves it or is forbidden.
 decisions a day."* The operator rejected that on 2026-09-21: a cap on decisions
 is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
 
+## Start of session
+
+1. **Title yourself.** Call `get_session` with no `session_id` to read your own
+   id and `created_at` (UTC), then `set_session_title` to
+   `Manager Session YYYY-MM-DD` using that UTC date (e.g. `Manager Session
+   2026-09-27`). Operator directive, 2026-09-27: the title is how the operator
+   finds the manager among dozens of lanes.
+2. Read `CLAUDE.md`, `docs/CLAUDE-RULES-CANONICAL.md` and this file; then the
+   checklist rows that are `in_flight` or `blocked`.
+3. Take over every live lane: `get_session` it, then send it a trigger naming
+   you as its manager (the reply channel is described under § "Every spawn
+   carries provenance" below).
+
 ## Five things the manager does
 
 1. **Picks what runs next** — reads `research/queue/` and the checklist against
