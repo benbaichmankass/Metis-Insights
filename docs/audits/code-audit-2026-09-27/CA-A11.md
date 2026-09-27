@@ -1,5 +1,9 @@
 # CA-A11 — Code audit Wave A: scripts/ops part 1
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+> lane CA-A11 of the 2026-09-27 code audit · session `session_01T11UhxVEa3ri1EMJX1ZKyc` · reports to manager `session_01KAQRJxRbRwpYTkPgBjNVyQ` · audited HEAD `65b0de18e` (origin/main at 2026-09-27T13:32Z)
+
 Lane: CA-A11 (dispatched by the manager, session_01KAQRJxRbRwpYTkPgBjNVyQ, under the
 operator's 2026-09-27 code-audit decision, checklist row `CA`). Model: Sonnet.
 Ceiling: $40.
