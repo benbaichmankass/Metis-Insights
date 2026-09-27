@@ -1,0 +1,175 @@
+id: RQ-20260927-001
+title: RQ-20260922-007's exit-head-donchian-1h-v1 recovered_R, genuinely out-of-sample
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  RQ-20260922-007 read "pass" (recovered_R +3.7796, attributable_to
+  omitted_exit_head) on a replay covering exit-head-donchian-1h-v1's ENTIRE
+  353-trade population, while the head artifact was trained on 1,662 trades
+  spanning bar_t 2021-07-11 -> 2026-07-07 (MEASURED this session,
+  trainer-vm-diag issue #13041, run 36297746162: rows.jsonl bar_t_max
+  2026-07-07T05:00:00Z over 34,338 harness rows). Every one of the 353 replay
+  trades therefore falls inside or only marginally after the training window
+  (comms/reviews/w5n-exit-head-reconcile-20260926.json already flagged this:
+  "n=353 is the FULL window and NOT out-of-sample... In-sample bias favours
+  the head"). Does the head still recover positive R on trades a walk-forward
+  retrain never saw?
+
+why_this_matters: >-
+  Operator decision 2026-09-27 (docs/claude/work/MANAGER-CHECKLIST.json row
+  R4, "OPERATOR DECISIONS 2026-09-27" item (3), commit 37411e692 on
+  claude/tender-mayer-2g1vtq): "exit-head-donchian-1h-v1 promotion: NOT YET.
+  Re-run RQ-007 with a proper train/test split first." PI-20260926-6M9R1WSA-0001
+  (state done) and its own filed follow-up PI-20260926-96NDZSOD-0002 (RQ-007's
+  grader compares populations that are not comparable — a 353-trade
+  full-window figure minus a 73-trade different-population evidence baseline)
+  both say the same thing needed to change the operator's promotion decision:
+  a replay whose head-on and head-off arms are both net of cost on the SAME
+  genuinely out-of-sample trades. This unit is that replay.
+
+power:
+  expected_n: 119
+  min_detectable_effect: 0.35
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Copied from RQ-20260922-007's own registered floor (identical paired
+    design: the head-on and head-off arms score the same decision bars, so
+    the unit is the per-trade difference): (1.96+0.8416)^2 / 0.35^2 = 64.07.
+    expected_n=119 is MEASURED, not assumed: of the 353 BTCUSDT trend_donchian
+    trades in RQ-20260922-007's own replay artifact (downloaded this session
+    from the exit-head-replay-36257896539 run artifact, still live,
+    expires_at 2026-10-10), 119 have entry_time strictly after
+    2025-01-06T16:00:00Z — the split chosen below. Clears the floor by 54.93.
+    ⚠️ The single-split-at-the-ORIGINAL-train_end approach (no retrain, just
+    restrict RQ-007's existing replay to trades after 2026-07-07) was
+    evaluated FIRST and rejected for power: only 18-20 of the 353 trades enter
+    after the model's actual training cutoff, well under the 64.07 floor. That
+    is why this unit retrains rather than only re-slices.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Declared `source: none` for the same reason RQ-20260922-007 declared it
+      (see that unit's own feasibility.accrual_basis): the n=119 above is
+      MEASURED from a downloaded GitHub Actions run artifact
+      (exit-head-replay-36257896539) and this unit's own trainer-vm-diag reads
+      (#13039/#13041), not from `research_disposition.CORPORA`'s three
+      registered corpora (e35, m20, gld_compat). n is fixed by history
+      (BTCUSDT bar count since 2025-01-06), not accruing — this is a one-shot
+      historical replay, not a live soak.
+
+decision_rule:
+  id: RULE-RQ0927-001-EXIT-HEAD-OOS-ATTRIBUTION
+  registered_at: '2026-09-27'
+  registered_before_run: true
+  statistic: >-
+    recovered_R_oos = sum(replayed_r_i) - sum(baseline_r_i), summed over every
+    trend_donchian BTCUSDT 1h trade (from the SAME live-faithful
+    scripts/backtest_trend.py harness RQ-20260922-007 used) whose entry_time
+    is STRICTLY AFTER the split, 2025-01-06T16:00:00Z. replayed_r_i comes from
+    replaying a WALK-FORWARD-RETRAINED exit head: scripts/ml/train_exit_head.py
+    train_model() (unchanged recipe: LightGBM on target=holding_pays,
+    features=base) fit ONLY on
+    datasets-out/exit_head/1h/donchian/rows.jsonl rows with bar_t <=
+    2024-12-30T16:00:00Z (the split minus a 7-day embargo — the SAME embargo
+    width this model family's own original training already used, per
+    docs/research/M20-exit-refinement-2026-07-12.md § 8, "purged per-year
+    walk-forward with last-bar purge + 7-day embargo"), scored with the
+    unchanged below_half_r @ tau=0.10 policy (shape {"policy": "below_half_r",
+    "tau": 0.10, "below_r": 0.5} — the winning arm from § 9 of that doc, the
+    same shape carried on the live artifact) via the imported, unmodified
+    src.runtime.exit_head_shadow.would_exit_for / _feature_row and
+    scripts/ml/exit_head_replay.py replay_trade. Net-of-full-cost BY
+    CONSTRUCTION, not by a separate cost step: both arms (baseline held-to-exit
+    vs replayed early-exit) are charged the IDENTICAL per-trade
+    src.runtime.execution_costs-resolved fee_r(original trade) — the same
+    convention scripts/research/exit_head_attribution_result.py's own
+    derivation documents (L29-45) — so the paired delta is cost-neutral and
+    recovered_R_oos computed from gross r_multiple equals the net figure.
+    The retrained booster is a SCRATCH artifact, written only under /tmp on
+    the trainer; it is never written to runtime_logs/trainer_mirror/exit_head/
+    and never served live.
+  rule: >-
+    IF recovered_R_oos > 0 AND n_oos >= 64 (this unit's own power floor,
+    identical derivation to RQ-20260922-007's): PASS. attributable_to
+    omitted_exit_head, and this time on a genuinely out-of-sample population —
+    the finding is usable as promotion-supporting evidence for
+    exit-head-donchian-1h-v1's shadow->advisory decision, subject to every
+    other caveat already on record (drift ks/psi at demote time; the
+    twin-dedup bug PI-20260926-96NDZSOD-0001, which must land first regardless
+    of this unit's verdict).
+    IF recovered_R_oos <= 0: FAIL. attributable_to strategy — the RQ-007
+    "pass" was in-sample bias, not a real edge, and exit-head-donchian-1h-v1
+    should NOT be promoted on this evidence. This is the outcome the
+    reconciliation packet's own gross paired delta (-34.92R over the full,
+    heavily in-sample window) already predicts.
+    IF n_oos < 64 at run time (a mechanical failure changed the population,
+    e.g. the candle fetch returns fewer bars than measured here): record
+    read_state producer_failed / attributable_to unestablishable — never
+    silently lower the floor to manufacture a verdict.
+  what_it_does_not_do: >-
+    Changes no live exit-head artifact, threshold, gate, or config. Writes no
+    file under runtime_logs/trainer_mirror/. Exit logic stays Tier-3
+    (exit-refinement); this unit measures, it does not ship, and a PASS here
+    does not itself promote anything — PI-20260926-96NDZSOD-0001 (twin-dedup)
+    is an independent precondition for any re-promotion regardless of this
+    unit's verdict.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 30
+  basis: >-
+    Trainer (158.178.209.121), same routing as RQ-20260922-007 and for the
+    identical reason: datasets-out/exit_head/1h/donchian/rows.jsonl (34,919
+    rows, MEASURED present this session, trainer-vm-diag issue #13039/#13041)
+    is not committed and lives only on the trainer. Retraining a LightGBM
+    booster on a SUBSET of the 1,662-trade dataset is cheaper than the
+    original full-dataset training run that already completed successfully on
+    this same 1-OCPU box.
+
+cleared_blocker: >-
+  Population and split MEASURED this session (trainer-vm-diag #13037/#13038
+  reconstructing the traceback into a fixed one-liner, #13039/#13041 with the
+  real script) before this rule was registered. No run against this rule's
+  statistic has been executed as of registration.
+
+run:
+  workflow: 'trainer-vm-diag (manual issue dispatch — no dedicated workflow_dispatch input exists for a walk-forward retrain; see note)'
+  inputs:
+    strategy: trend_donchian
+    symbol: BTCUSDT
+    timeframe: 1h
+    split_at: '2025-01-06T16:00:00Z'
+    train_cutoff: '2024-12-30T16:00:00Z'
+    research_unit: RQ-20260927-001
+  note: >-
+    Dispatched as a one-off trainer-vm-diag command (issue label
+    trainer-vm-diag-request) rather than a new workflow_dispatch input,
+    because this is a single pre-registered historical replay, not a
+    recurring job — adding a permanent workflow input for a one-shot split
+    would be scope creep this unit does not need. The command imports and
+    reuses scripts/ml/exit_head_replay.py + scripts/ml/train_exit_head.py +
+    src/runtime/exit_head_shadow.py unmodified; it does not patch or fork
+    them.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: >-
+    Same contract as every other unit (scripts/ci/check_research_results.py):
+    research/results/RQ-20260927-001/<run_id_or_manual-tag>.jsonl, built via
+    scripts/research/research_result.py.
+
+related:
+  - RQ-20260922-007 (the unit this one re-grades on a fixed population)
+  - PI-20260926-6M9R1WSA-0001 (the promotion-evidence thread this closes out)
+  - PI-20260926-96NDZSOD-0002 (the population-mismatch finding this resolves)
+  - PI-20260926-96NDZSOD-0001 (independent precondition, unaffected by this unit's verdict)
+last_dispatched_at: null
