@@ -94,6 +94,8 @@ import os
 import time
 from typing import Any, Callable, Mapping
 
+from src.runtime.closed_bars import drop_forming_bar
+
 logger = logging.getLogger(__name__)
 
 # Per-process dedup cache: model_id -> last scored bar timestamp. A head is
@@ -455,6 +457,12 @@ def emit_regime_bar_predictions(
             # Mark fetch wall-clock only AFTER a candle frame is in hand, so
             # a transient fetch failure does not delay the next retry.
             wcache[(symbol, timeframe)] = current_now
+            # Score the last CLOSED bar only: the live fetch ends on the
+            # still-forming bar and every training row is a closed bar
+            # (FIX-CA-23 / CA-B01-regime-scoring-uses-forming-bar). Trimmed
+            # BEFORE the dedup key, closes, xa_* and fc rows are derived, so
+            # all of them see the same closed window.
+            candles_df = drop_forming_bar(candles_df, timeframe, now=current_now)
             bar_ts = _last_bar_timestamp(candles_df)
             # Pre-compute the shared closes view once per (symbol, timeframe)
             # — the per-head ``feature_row_for_predictor`` re-derives the OHLC
@@ -480,8 +488,12 @@ def emit_regime_bar_predictions(
                 )
 
                 if group_needs_cross_asset(symbol, group):
+                    # Peers are trimmed on the same clock as the target.
+                    def _closed_fetch(sym, tf, _now=current_now):
+                        return drop_forming_bar(fetch_fn(sym, tf), tf, now=_now)
+
                     cross_asset_row = compute_live_cross_asset_row(
-                        symbol, timeframe, candles_df, fetch_fn,
+                        symbol, timeframe, candles_df, _closed_fetch,
                     )
             except Exception:  # noqa: BLE001 — never break the tick
                 cross_asset_row = None
