@@ -1,6 +1,8 @@
 # Code audit 2026-09-27 — consolidated report (living)
 
-> **Doc status:** `live` · category `audit report` · owner: lane **CA-LEAD** (Opus) ·
+> **Doc status:** `unknown` · category `evidence` · last verified `2026-09-27` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) (audits are measurements; the index does not assess them)
+>
+> Living report · owner: lane **CA-LEAD** (Opus) ·
 > operator decision: checklist row **CA** (verbatim there) · method:
 > [`docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md`](../plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md) §3, §5 ·
 > per-lane outputs: `docs/audits/code-audit-2026-09-27/<ID>.findings.jsonl` + `<ID>.md`
