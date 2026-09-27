@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "clears_when": "scripts/ops/symbol_data_binding_census.py reports 0 unbound sites (currently 1: scripts/ml/build_calibration_corpus.py)",
+    "kind": "event"
+  },
+  "id": "PI-20260927-EPMBGUYB-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/claude/work/MANAGER-CHECKLIST.json row E7",
+    "rerun": "python3 scripts/ops/symbol_data_binding_census.py"
+  },
+  "state": "queued",
+  "what": "scripts/ml/build_calibration_corpus.py declares --symbol (default BTCUSDT) but never forwards it to any of the 6 harnesses it drives (trend_donchian, fade_breakout_4h, squeeze_breakout_4h, htf_pullback_trend_2h, fvg_range_15m, ict_scalp_5m), and its --data defaults to the smoke fixture (data/backtest_candles.csv) for all 6 -- the same symbol-is-a-label/data-defaults-to-BTC shape row E4 closed elsewhere. Found while wiring row E7's orphan-harness dispatcher; not fixed there because scripts/ml/** is outside TIER1_SURFACE (scripts/ci/check_pr_landing.py) so a fix could not self-land, and it is a different file from E7's own 10 harnesses."
+}

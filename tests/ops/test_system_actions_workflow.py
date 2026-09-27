@@ -224,6 +224,11 @@ EXPECTED_ACTIONS = {
     # reserving protective bracket (held_for_orders) then market-closes — the
     # on-demand fix for BL-20260708-ALPACA-CLOSE-QTY-AVAILABLE.
     "flatten-alpaca-position": "flatten_alpaca_position_action.sh",
+    # 2026-09-27 — re-arm ONE GTC OCO sized to an Alpaca position's live net
+    # qty, SL/TP from the journal (never caller-supplied). Cancels the stale
+    # protective legs first; refuses on a non-protective order, an unreadable
+    # read, missing/ambiguous levels (PI-20260926-HJPL5ABP-0001).
+    "rearm-alpaca-protective": "rearm_alpaca_protective_action.sh",
     # 2026-07-15 — JOURNAL-side companion to flatten-alpaca-position: close a
     # stranded open journal row whose broker position is already flat (the
     # shelved-dry_run-account gap where the reconciler can't close-on-disappear).
@@ -386,6 +391,7 @@ TIER_2_ACTIONS = {
     "flatten-bybit-position",
     "switch-bybit-position-mode",
     "flatten-alpaca-position",
+    "rearm-alpaca-protective",
     "close-stranded-journal-row",
     "reconcile-orphan-history",
     "supersede-options-adoption-artifacts",

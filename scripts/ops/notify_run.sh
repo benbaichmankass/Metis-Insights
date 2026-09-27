@@ -257,6 +257,21 @@ case "${action}" in
             *) result="FAILED/refused (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    rearm-alpaca-protective)
+        # 2026-09-27: cancel the resting Alpaca protective legs and place ONE GTC
+        # OCO sized to the live net qty at the journal's SL/TP
+        # (PI-20260926-HJPL5ABP-0001). Exit codes are distinct on purpose.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok (dry-run plan, already armed, or re-armed + VERIFIED)"; priority="normal" ;;
+            1) result="new OCO REFUSED — old protection re-placed; still partially naked"; priority="urgent" ;;
+            2) result="COULD NOT LOOK — NOT evidence either way; nothing was changed"; priority="high" ;;
+            3) result="OCO accepted but NOT verified by re-read — inspect before re-running"; priority="urgent" ;;
+            4) result="refused by a safety guard — nothing was cancelled"; priority="high" ;;
+            5) result="NAKED or cancel unsettled — position may be UNPROTECTED, act now"; priority="urgent" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
     attach-ib-target)
         # 2026-08-16: attach the declared TP to a target-naked IB position by
         # joining the stop's existing OCA group. Cancels nothing.

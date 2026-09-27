@@ -646,7 +646,31 @@ def _board_claim_sentence() -> str:
     EXECUTABLE line — only a leading `#` or `//` counts as a comment — so a
     retired board number may not be named here even in prose. The `#`-comment
     block at `SESSION_BOARD` above is where that history lives.)
+
+    ⚠️ A FOURTH STATE, ADDED 2026-09-27, AND IT IS NOT A VARIANT OF
+    `could_not_check`. The 2026-09-21 operating reset archived
+    ``docs/claude/board-pointer.json`` itself (now under
+    ``docs/archive/2026-09-21-operating-reset/registers/``), so
+    ``board_pointer.resolve()`` reads a missing file and reports
+    `could_not_check` — its own vocabulary for "we did not look", built for a
+    board that is temporarily unreachable. A permanently retired board is a
+    different fact: nobody failed to look, there is nothing to repair, and
+    telling a reader to "repair" or "rotate" it points them at resurrecting an
+    archived subject the canonical doc says not to touch. So the missing-file
+    case is distinguished HERE, before calling into `board_pointer` at all,
+    rather than folded into its three-state return.
     """
+    if not (REPO / board_pointer.POINTER_PATH).exists():
+        return (f"The coordination board was RETIRED in the 2026-09-21 "
+                f"operating reset — {board_pointer.POINTER_PATH} and the board "
+                f"it named are archived under "
+                f"docs/archive/2026-09-21-operating-reset/registers/ "
+                f"(CLAUDE.md: 'do not resurrect them'). There is no live "
+                f"`🔒 MERGE SLOT CLAIM` comment to post and nothing to repair — "
+                f"the per-branch claim (`python3 scripts/ops/claim_merge_slot.py "
+                f"--branch-claim --branch <branch> --held-by <session>`, "
+                f"writing `.github/merge-slots/<slug>.json`) is the only claim "
+                f"this repo makes now.")
     code, num, _ptr, why = board_pointer.resolve()
     if code == board_pointer.RESOLVED:
         return (f"This does NOT replace the `🔒 MERGE SLOT CLAIM` comment on the "
