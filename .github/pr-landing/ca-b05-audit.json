@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "branch carries accumulated commits from multiple sessions (28 commits), including changes to other pr-landing files and config paths. requires operator review for dispatch.",
+  "why": "read-only analysis + documentation; CA-B05 audit findings and summary MD added to docs/audits/, document index updated. note: this branch accumulated other work; the ca-b05-audit changes alone are tier-1 docs-only."
+}

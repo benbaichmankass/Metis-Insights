@@ -1,0 +1,16 @@
+{
+  "id": "PI-20260927-CAB09-0001",
+  "what": "[operating-model] docs/CLAUDE-RULES-CANONICAL.md's Prime Directive (\u00a7 rule 6, last verified 2026-09-07) states there are exactly two declared execution gates (accounts.yaml::mode, strategies.yaml::execution) and 'never a third gate'. Code has a third fold into effective_dry: src/core/coordinator.py's multi_account_execute() also reads config/account_state.yaml via account_state_dry_run() (src/runtime/orders.py) -- a real belt-and-suspenders gate (PR-3/M2) that can force an account dry regardless of the two documented YAML fields, and is invisible on /api/bot/config (src/web/runtime_status.py::_read_live_per_account reads only accounts.yaml::mode). scripts/research/declared_vs_effective_dry.py already quotes the 'no third gate' language and flags this contradiction itself.",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B09 / docs/audits/code-audit-2026-09-27/CA-B09.findings.jsonl#AUD-20260927-CA-B09-third-execution-gate-undocumented",
+    "rerun": "grep -n 'account_state_dry_run\\|effective_dry' src/core/coordinator.py; test -f config/account_state.yaml && echo exists; grep -n 'no third gate\\|Never add a third gate' docs/CLAUDE-RULES-CANONICAL.md"
+  },
+  "due_when": {
+    "kind": "observation",
+    "check_every_days": 14,
+    "clears_when": "docs/CLAUDE-RULES-CANONICAL.md's Prime Directive either documents config/account_state.yaml as a named third input to effective_dry (updating 'exactly two gates'), or the account_state.yaml fold is removed from coordinator.py so the two-gate claim is true again, and /api/bot/config surfaces whichever gates actually exist."
+  },
+  "next_action": "ask_operator",
+  "state": "queued"
+}
