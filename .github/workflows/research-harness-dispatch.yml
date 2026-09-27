@@ -107,7 +107,18 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas pyyaml requests
+          # yfinance>=1.7.0 (never lower -- MI-287: 0.2.x is silently starved
+          # by Yahoo's curl-UA 429, see requirements-backtest.txt's own note)
+          # is required for the xsec_momentum dispatch's daily-ETF basket
+          # fetch (fetch_backtest_candles.py --source yfinance); every other
+          # harness here only reaches the crypto/Binance-vision path and would
+          # run without it, but installing it unconditionally is one line
+          # against a silent BL-20260813-shaped failure the next harness added
+          # to this family would otherwise hit the same way xsec_momentum did
+          # on its first real dispatch (run 36300787082: producer_failed,
+          # "No such file or directory: 'data/SPY_1d.csv'" -- the fetch step
+          # degraded to a GAP rather than installing its own dependency).
+          pip install numpy pandas pyyaml requests "yfinance>=1.7.0"
 
       - name: Fetch corpus and run the harness
         id: run

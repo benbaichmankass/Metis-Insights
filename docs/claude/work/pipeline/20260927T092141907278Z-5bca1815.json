@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-09-28",
+    "kind": "date"
+  },
+  "id": "PI-20260927-W6OPSR-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "docs/research/recurring-validations-audit-2026-09-27.md § F2",
+    "rerun": "latest stale-automation-sweep job log: grep -E '#[0-9]+ (absent_on_main|carries_append_only|superseded)'; and list open PRs with head automation/*"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "[ops] 53 of 77 open PRs (2026-09-27 ~09:20Z) are stranded automation/* landings; stale-automation-sweep reports the ones it will not refresh 'for a human read' and no reader exists. Urgent subset: #12996 carries 9 append-only rows of comms/macro/valuation_snapshots.jsonl absent from main (needs a refresh on a green base so it lands); #12989 is superseded by #13003 (close with disposition); #12979 is a superseded trainer-capture receipt (close). Then decide a standing owner for the sweep's human-read list."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "classify_paper_records.py (or src/analysis/paper_record_classifier.py) gains a pairs-aware category -- e.g. classifying a pairs leg's own management exit against its own target/stop logic rather than leaving it unclassified -- and a subsequent performance-review shows pairs_* legs no longer reading 100% bucket-B by construction.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-YZRZQ725-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "W6-OPS performance-review, comms/reviews/performance-review-20260927-072944.json",
+    "rerun": "python3 scripts/analysis/classify_paper_records.py --json <a fresh trades/closed pull> --format md -- re-check the \"By strategy\" section for pairs_* rows: if they still read A=0 for every leg while closeReason=other, the gap still stands."
+  },
+  "state": "queued",
+  "what": "[performance] scripts/analysis/classify_paper_records.py has no category for a pairs-strategy leg's own bilateral management exit (closeReason='other'), so every pairs_* leg reads 100% bucket-B (technical artifact) on every performance-review to date, silently excluding them from win-rate/expectancy rather than genuinely finding them un-gradeable. MEASURED this session (W6-OPS performance-review, comms/reviews/performance-review-20260927-072944.json), window 2026-09-24T16:00Z-2026-09-27T07:29Z: 51 closed trades, classify_paper_records.py bucket A=7/B=44/C=0 (86% artifact); of the 44 bucket-B rows, 26 are pairs_sol_eth_a/b + pairs_bnb_btc_a/b, ALL closing 'other' with 0/26 in bucket A. This reads identically whether the pairs exits are actually good or bad -- the classifier cannot currently distinguish a well-timed pairs unwind from a stuck/artifact close for this strategy family. Distinct from the remaining ~18 non-pairs bucket-B rows (10 reconciler + 8 non-pairs 'other'), which are the genuine artifact-health signal this window."
+}

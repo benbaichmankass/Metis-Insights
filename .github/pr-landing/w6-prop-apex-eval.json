@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "platform correction to a research doc + append-only pipeline records; no runtime, config, order path or src touched"
+}

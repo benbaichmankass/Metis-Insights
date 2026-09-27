@@ -1,0 +1,162 @@
+{
+  "request_id": "ml-review-20260927-063330",
+  "reviewed_at": "2026-09-27T06:52:00+00:00",
+  "reviewer": "claude",
+  "session": "lane claude/w6-ml-review (W6 M1), dispatched by manager session_01Ljhs6sFAdWHdMDhJpL5aBP under the wave-6 operator decision recorded on MANAGER-CHECKLIST.json row R4 (\"OPERATOR DECISIONS 2026-09-27 (wave 6, ...)\")",
+  "window_start": "2026-09-24T21:02:45+00:00",
+  "window_end": "2026-09-27T06:52:00+00:00",
+  "_window_note": "window_start = the previous ml-review's window_end (comms/reviews/ml-review-20260924-210245.json, request_id E72). Two Tier-1 lanes ran inside this window and are cited, not repeated: the W4 re-verify (comms/reviews/ml-reverify-demotes-20260925.json / PR #12960, 2026-09-25) and the W5N exit-head reconcile (comms/reviews/w5n-exit-head-reconcile-20260926.json, 2026-09-26).",
+  "overall_assessment": "caution",
+  "_headline": "BOTH TIER-3 DEMOTE PROPOSALS FROM E72 ARE HELD, unchanged from PR #12960 -- but the fresh stage-guard read that now shows 'no demote trigger tripped' for btc/sol is NOT evidence the drift resolved. It is MEASURED this session that the drift and live-regime-discrimination gates went from computable ('significant'/'pass' verdicts in E72 and the W4 re-verify) to insufficient_data for EVERY advisory model (btc, sol, AND the previously-clean mes), because the trainer's active shadow-prediction log rotated on 2026-09-26T06:39:57Z (a normal, ~monthly, size-triggered rotation -- ict-shadow-log-rotate.timer is enabled and healthy) and /api/bot/shadow/drift + ml gate-check's drift_clean/live_regime_discrimination gates read ONLY the active log, with no fallback to the four gzipped archives sitting next to it. This is a NEW, fleet-wide finding, filed as PI-20260927-YZRZQ725-0001: the ~25-29 day observed rotation cadence is SHORTER than the ~37 days (30d reference + 7d current) the drift endpoint's own default window needs, so no drift verdict fed into any past demote/hold decision -- including E72's 'significant' KS readings -- was ever computed on a full, non-truncated reference window, and for roughly the first two weeks after every rotation the instrument is fully blind (reference_count=0) rather than merely noisy. mes-regime-5m-lgbm-v2 is judged UNCHANGED (still healthy) because its now-insufficient_data gates (live_parity 17-18 rows, labels_accruing 0/17, several dead_live features) are explained by the SAME post-rotation small-sample effect on a model whose pre-rotation record (37/37 parity, 0.89 label coverage, clean drift, AUC 0.738) was clean -- not by a new capability failure. All three numbers are MEASURED this session via trainer-vm-diag issues #13050/#13052-13056/#13058-13062 and vm-diag-snapshot issue #13051, read 2026-09-27T06:24-06:35Z. Training since the last review: both btc-regime-15m-lgbm-fc-pcv-v2 and sol-regime-15m-lgbm-fc-pcv-v2 retrained cleanly on both 2026-09-26 and 2026-09-27 (overall_rc=0, 0 failed, 0 manifest_quarantine events across the fleet). exit-head-donchian-1h-v1 (M2-owned, cited not re-derived): still shadow/inert (demoted by E74 on 2026-09-24, reconciled by W5N on 2026-09-26), and RQ-20260927-001 (PR #13046, merged) delivered the proper train/test-split OOS re-grade the operator asked for on 2026-09-27~05:30Z -- PASS but marginal (recovered_R_oos +1.3127 over n=119, +0.011R/trade, single split) -- and does not by itself license promotion; the Tier-2 twin-dedup mirror-divergence bug (PI-20260926-96NDZSOD-0001) remains an independent precondition, unresolved.",
+  "trainer_findings": {
+    "trainer_service": {
+      "status": "ok",
+      "note": "MEASURED trainer-vm-diag #13050 (run 36299989619), 2026-09-27T06:24-06:27Z: ict-trainer.service disabled/inactive, ict-trainer.timer enabled/active, ExecMainStatus=0. Cycle log shows two cycle_end events per day (a full retrain ~01:0x-01:4x UTC training 69/skipping 7 non-fatal, then a no-op re-check ~05:1x-05:3x UTC training 0/already_done=76+), on both 2026-09-26 and 2026-09-27, overall_rc=0 both times. Zero manifest_quarantine_tripped/manifest_quarantined events in the tail (grep over last 200 cycle-log lines)."
+    },
+    "trainer_datasets": {
+      "status": "ok",
+      "note": "Cycle log (same pull) shows only routine, already-known non-fatal skips (manifest_dataset_empty for exit-policy-v1 and mes-execution-quality; manifest_stale_optional_declaration for conviction-meta-v1-bt). No new dataset failures observed this session."
+    },
+    "trainer_registry": {
+      "status": "watch",
+      "note": "Not independently re-derived this session (out of ceiling) -- the E72 finding that stage-guard's N_PROPOSALS=96 does not arithmetically reconcile with the live-VM's 4 advisory + 29 shadow + ~92 candidate + 3 baseline count (PI-20260924-JQHBBTOS-0004) was neither re-measured nor closed. Carried forward as still open; >=1 model at shadow+ is trivially true (4 advisory alone), so the floor is met."
+    },
+    "trainer_models": {
+      "status": "concern",
+      "note": "operator_attention_required=true, but for a DIFFERENT reason than E72: not a live-harmful drift signal, but a fleet-wide gate-instrumentation blind spot (PI-20260927-YZRZQ725-0001) that degrades the operator's ability to see ANY advisory model's drift/live-discrimination state for a stretch after each shadow-log rotation, on a cadence (~25-29d) shorter than the gate's own required window (~37d)."
+    }
+  },
+  "model_status": [
+    {
+      "model_id": "btc-regime-15m-lgbm-fc-pcv-v2",
+      "stage": "advisory",
+      "registry_status": "advisory",
+      "last_training": {
+        "run_id": "20260927T010716Z",
+        "at": "2026-09-27T01:05:59+00:00",
+        "code_revision": "unknown -- not pulled this session",
+        "headline_metric": "macro_f1: candidate 0.58170 vs baseline 0.32808, OOS edge +0.25363 over 5 purged WF-CV folds (MEASURED, gate-check, trainer-vm-diag #13053)",
+        "n_eval": 87636,
+        "trend_vs_prior_run": "flat -- cross_run_stability std(macro_f1)=0.0021 over last 10 runs (pass); E72 measured +0.25065, W4 re-verify +0.25165, this run +0.25363 -- all within noise"
+      },
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": 104,
+        "score_summary": "mean=0.9938, min=0.9655, max=0.9996 over 104 predictions retained since the 2026-09-26T06:39:57Z log rotation (MEASURED api/bot/shadow/stats, vm-diag-snapshot #13051, read 2026-09-27T06:24Z). soak_days=54.03 (registry-sourced, unaffected by the log rotation).",
+        "drift": "insufficient_data (MEASURED api/bot/shadow/drift, vm-diag-snapshot #13051: reference_window_start=2026-08-21, current_window_start=2026-09-20, reference_count=0, current_count=104). gate-check drift_clean also insufficient_data ('no drift report supplied', trainer-vm-diag #13053). This is NOT a resolved-drift signal -- see PI-20260927-YZRZQ725-0001. E72 read ks=0.2147 (minor/significant per instrument); W4 re-verify read ks=0.2435/0.2573 (significant) on the SAME (never-rotated-until-now) log.",
+        "realized": "not re-derived this session (would need a fresh trades/scores + attribution pull beyond this lane's ceiling). W4 re-verify (2026-09-25, PR #12960) measured the real-money population as unchanged since 09-11: n=8 closed bybit_2 BTC trades, 0-for-8, but the head could not have caused any of them (its only real-money path can only DROP intents) and its measured influence is 16 ML-enforced OFF-cell drops since 09-01 that a demote would remove."
+      },
+      "note": "HOLD (unchanged from PR #12960). Fresh gate-check ready=false, blocking=[live_parity, drift_clean] -- MEASURED trainer-vm-diag #13053. live_parity: 14 rows since the 2026-09-27T01:07:16Z retrain (need >=20) -- PI-20260925-D9FNL9SC-0001 still reproducing, now compounded by the rotation. drift_clean: insufficient_data, not 'significant' -- see the fleet-wide finding. non_degenerate/oos_edge/cross_run_stability/sample_sufficiency/shadow_soak all PASS."
+    },
+    {
+      "model_id": "sol-regime-15m-lgbm-fc-pcv-v2",
+      "stage": "advisory",
+      "registry_status": "advisory",
+      "last_training": {
+        "run_id": "20260927T012941Z (approx, per cycle-log 'started' timestamp)",
+        "at": "2026-09-27T01:29:41+00:00",
+        "code_revision": "unknown -- not pulled this session",
+        "headline_metric": "macro_f1: candidate 0.54573 vs baseline 0.30912, OOS edge +0.23661 over 5 purged WF-CV folds (MEASURED, gate-check, trainer-vm-diag #13060)",
+        "n_eval": 82988,
+        "trend_vs_prior_run": "flat -- cross_run_stability std(macro_f1)=0.0061 (pass); E72 +0.23532, W4 re-verify +0.23273, this run +0.23661"
+      },
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": 100,
+        "score_summary": "mean=0.8559, min=0.5100, max=0.9834 over 100 predictions since the 2026-09-26T06:39:57Z rotation (MEASURED vm-diag-snapshot #13051). soak_days=56.09.",
+        "drift": "insufficient_data (reference_count=0, current_count=100 -- MEASURED vm-diag-snapshot #13051; gate-check drift_clean also insufficient_data, trainer-vm-diag #13060). Same fleet-wide cause as btc, not a resolved-drift signal. E72 read ks=0.2201; W4 re-verify read ks=0.2224/0.2241 (both significant).",
+        "realized": "not re-derived this session. W4 re-verify (PR #12960) measured 0 real-money SOL trades ever and 0 regime_hard_gate rows for SOLUSDT across the full audit-table history -- no OFF-cell names a SOL strategy, so this head's 'advisory' stage has no measured real-money order effect regardless of its drift state."
+      },
+      "note": "HOLD (unchanged from PR #12960; a demote would be a real-money no-op). Fresh gate-check ready=false, blocking=[live_parity, drift_clean] -- MEASURED trainer-vm-diag #13060. live_parity: 9 rows since the 2026-09-27T01:29:41Z retrain (need >=20). labels_accruing PASSES (0.75, 71/95). non_degenerate/oos_edge/cross_run_stability/sample_sufficiency/shadow_soak all PASS. Open Tier-3 policy question from the W4 re-verify (should SOL strategies get trend_vol OFF-cells so 'advisory' means something for this head) remains unactioned."
+    },
+    {
+      "model_id": "mes-regime-5m-lgbm-v2",
+      "stage": "advisory",
+      "registry_status": "advisory",
+      "last_training": {
+        "run_id": "20260926T013914Z (most recent retrain seen in the 200-line cycle-log tail; MEASURED trainer-vm-diag #13050)",
+        "at": "2026-09-26T01:39:07+00:00",
+        "code_revision": "unknown -- not pulled this session",
+        "headline_metric": "macro_f1: candidate 0.65663 vs baseline 0.26921, OOS edge +0.38742 over 5 purged WF-CV folds (MEASURED, gate-check, trainer-vm-diag #13061) -- strongest OOS edge of the 3 heads reviewed",
+        "n_eval": 8510,
+        "trend_vs_prior_run": "flat -- cross_run_stability std(macro_f1)=0.0064 (pass); E72 measured OOS edge as macro_f1 0.65111 vs baseline 0.25302 (+0.39809) -- consistent within noise"
+      },
+      "live_shadow": {
+        "influence": "advisory",
+        "predictions": 18,
+        "score_summary": "mean=0.5193, min=0.5188, max=0.5268 over 18 predictions since the 2026-09-26T06:39:57Z rotation (MEASURED vm-diag-snapshot #13051). soak_days=68.27 (registry-sourced, unaffected).",
+        "drift": "insufficient_data (reference_count=0, current_count=18 -- vm-diag-snapshot #13051; gate-check drift_clean also insufficient_data, trainer-vm-diag #13061). E72 read this head's drift as CLEAN (ks=0.0825, psi=0.0263) -- the pre-rotation record was healthy, so this is read as an accrual gap, not a regression.",
+        "realized": "not re-derived this session (E72's clean read was AUC=0.738, live_regime_discrimination pass, 37/37 parity, labels_accruing 0.89 -- the best-evidenced of the 4 advisory models at that time)."
+      },
+      "note": "HOLD, judged UNCHANGED/healthy despite gate-check ready=false, blocking=[live_parity, labels_accruing, drift_clean] (MEASURED trainer-vm-diag #13061: live_parity 17 rows vs need>=20; labels_accruing 0/17=0.00; dead_live=[dayofweek, hour_of_day, log_return, log_return_lag_1, log_return_lag_2, rolling_log_return_vol, vol_bucket]). This reads as the same post-rotation small-sample effect as btc/sol (only ~18 rows have accrued since the 06:39:57Z rotation at a ~5000s/83min cadence -- the 20-row floor should clear within hours) rather than a new capability failure or a genuine dead-feature bug, because E72 (pre-rotation) measured this exact head's live parity/labels/drift as clean. Flagged rather than asserted: a re-check once predictions>=20 (due_when below) should be treated as the tie-breaker, and if dead_live features are STILL flagged at n>=20 that would be the xa-class bug this skill's Soak Integrity Audit exists to catch, not an accrual artifact. non_degenerate/oos_edge/cross_run_stability/sample_sufficiency/shadow_soak all PASS."
+    }
+  ],
+  "soak_audit": [
+    {
+      "head": "btc-regime-15m-lgbm-fc-pcv-v2",
+      "parity": "ok (pre-rotation: 0 mismatched of 14 sampled, dead_live=[], MEASURED trainer-vm-diag #13053)",
+      "label_coverage": "0.72 (71/98)",
+      "evidence_destination": "shadow->advisory gate is already cleared (this head IS advisory); ongoing soak feeds the demote/hold decision. Accrual: yes (14 new rows since the 01:07Z retrain), but capped below the 20-row live_parity floor by PI-20260925-D9FNL9SC-0001."
+    },
+    {
+      "head": "sol-regime-15m-lgbm-fc-pcv-v2",
+      "parity": "ok (0 mismatched of 9 sampled, dead_live=[], trainer-vm-diag #13060)",
+      "label_coverage": "0.75 (71/95)",
+      "evidence_destination": "same as btc; additionally feeds the open Tier-3 policy question (does SOL need a trend_vol OFF-cell)."
+    },
+    {
+      "head": "mes-regime-5m-lgbm-v2",
+      "parity": "FLAGGED, not BUG -- dead_live=[dayofweek, hour_of_day, log_return, log_return_lag_1, log_return_lag_2, rolling_log_return_vol, vol_bucket] over only 17 sampled rows (trainer-vm-diag #13061). E72 measured this same head's train/serve parity as clean 37/37 with zero dead-feature divergence pre-rotation. Read as a small-sample false positive (17 rows post-rotation is not enough to see dayofweek/hour_of_day vary), NOT re-confirmed as a genuine dead-feature bug this session -- due_when below asks for a re-check once the log re-accrues past 20 rows.",
+      "label_coverage": "0.00 (0/17) -- accrual gap, not a labeling-pipeline defect (E72 measured 0.89 pre-rotation on the same head).",
+      "evidence_destination": "already advisory; ongoing soak feeds demote/hold. Currently starved by the rotation, self-clearing on the stated timeline."
+    }
+  ],
+  "promotion_recommendations": [],
+  "_promotion_recommendations_note": "No promotion or demotion is recommended this run. Both E72 Tier-3 demote proposals (btc/sol regime, advisory->shadow) stay HELD per PR #12960's unchanged real-money-influence analysis; today's fresh reads do not weaken that hold (if anything the drift signal that motivated the original demote proposal is now unmeasurable, which argues for MORE caution about acting on it, not less). exit-head-donchian-1h-v1 (M2-owned) stays at shadow per the operator's 2026-09-27 'NOT YET' decision; RQ-20260927-001's marginal OOS pass (PR #13046) does not on its own change that, and PI-20260926-96NDZSOD-0001 (Tier-2 mirror-divergence fix) remains an unmet precondition for any future promotion.",
+  "experiments_proposed": [
+    {
+      "kind": "new_feature",
+      "name": "shadow-drift-archive-fallback",
+      "rationale": "The drift_clean and live_regime_discrimination gates, and /api/bot/shadow/drift, read only the ACTIVE shadow_predictions.jsonl. Rotation (ict-shadow-log-rotate.timer, enabled, size-triggered, observed firing 2026-07-07/08-05/09-01/09-26 -- a ~25-29 day cadence) resets that file to empty, and the endpoint's default reference_days=30/current_days=7 window (~37 days) is LONGER than the observed rotation cadence, so no drift verdict this repo has ever fed into a Tier-3 decision was computed on a full, un-truncated reference window, and for roughly the first 1-2 weeks after every rotation the gate is fully blind (reference_count=0) rather than merely thin.",
+      "input_changes": "src/web/api/routers/shadow.py's drift handler (and/or ml/gate_check.py's drift_clean gate) would need to fall back to the rotated .jsonl.gz archives under runtime_logs/ when the active log alone cannot fill the reference window.",
+      "expected_metric_signal": "A drift read taken right after a rotation returns a populated reference_count instead of insufficient_data, and a historical backtest of past 'significant' drift verdicts against an archive-inclusive re-computation shows whether any past demote proposal (E72's btc/sol) would have read differently on a true 37-day window.",
+      "tier": 1,
+      "next_step": "PR touching src/web/api/routers/shadow.py + ml gate-check's drift consumption, read/observability-path only (Tier-1 per docs/CLAUDE-RULES-CANONICAL.md's tier table); out of this skill's scope to implement (ml-review may not touch src/) -- filed as PI-20260927-YZRZQ725-0001 for a build lane."
+    },
+    {
+      "kind": "hyperparam_sweep",
+      "name": "mes-post-rotation-recheck",
+      "rationale": "mes-regime-5m-lgbm-v2's gate-check regressed from ready-adjacent-healthy (E72) to blocking=[live_parity, labels_accruing, drift_clean] purely on accrual grounds (17-18 rows since the 09-26 rotation vs the model's own pre-rotation clean record). A same-model re-check once >=20 rows accrue (expected within hours at the measured ~5000s cadence) would either confirm the accrual read (labels_accruing and live_parity flip to pass, dead_live empties) or surface a genuine regression that the small sample is currently hiding either way.",
+      "input_changes": "none -- a re-read of gate-check mes-regime-5m-lgbm-v2 after the log has accrued >=20 rows post-rotation",
+      "expected_metric_signal": "live_parity and labels_accruing gates flip from insufficient_data to pass/fail on a real (not floor-blocked) sample; dead_live list empties or is confirmed as a genuine feature regression",
+      "tier": 1,
+      "next_step": "trainer-vm-diag: python -m ml gate-check mes-regime-5m-lgbm-v2 --db data/trade_journal.db --datasets-root datasets-out, after roughly 2026-09-27T10:00Z"
+    },
+    {
+      "kind": "new_manifest",
+      "name": "sol-trend-vol-off-cell",
+      "rationale": "sol-regime-15m-lgbm-fc-pcv-v2 has been at 'advisory' since 2026-08-02 with ZERO regime_hard_gate rows across the full audit history (W4 re-verify, PR #12960) because no config/regime_policy.yaml trend_vol OFF-cell names a SOL strategy. The head is healthy (oos_edge +0.237, non_degenerate pass) but currently has no real-money lever to pull regardless of its drift state -- an unresolved policy question flagged twice now (E72's re-verify and this review) without being actioned.",
+      "input_changes": "config/regime_policy.yaml -- author a trend_vol OFF-cell for a SOL strategy (candidate: trend_donchian_sol per the regime-selectivity skill's no-cosmetic-cell + walk-forward-before-Tier-3 rules)",
+      "expected_metric_signal": "a regime_cell_walkforward result showing the candidate cell drops net-money-losing trades without gutting the leg's edge, at the declared power",
+      "tier": 3,
+      "next_step": "regime-selectivity skill: author + walk-forward-validate a candidate SOL trend_vol cell before any Tier-3 regime-router flip"
+    }
+  ],
+  "backlog_drain": [],
+  "_backlog_drain_note": "docs/claude/ml-review-backlog.json does not exist (retired under the 2026-09-21 operating reset; root CLAUDE.md: 'Do not resurrect them'). Per the same instruction and E72's precedent, follow-up items are filed as pipeline records instead (see below). backlog_coverage is intentionally omitted -- there is no live backlog file for this skill to drain, per the same gap E23 already recorded for the sibling review skills.",
+  "anomalies": [
+    "PI-20260927-YZRZQ725-0001 (new, filed this session): the shadow-drift reference window is structurally undercut by the shadow-log rotation cadence, fleet-wide -- see _headline and the shadow-drift-archive-fallback experiment above. This is the dominant finding of this review.",
+    "PI-20260925-D9FNL9SC-0001 (pre-existing, still reproducing): live_parity remains capped below its 20-row floor for daily-retrained heads (btc 14 rows, sol 9 rows since their respective 09-27 retrains) -- updated with today's numbers.",
+    "mes-regime-5m-lgbm-v2's gate-check newly reports dead_live features and 0% label coverage; judged a post-rotation small-sample artifact, not re-confirmed as a genuine defect this session -- see soak_audit and the mes-post-rotation-recheck experiment.",
+    "Two of my four gate-check/stage-guard diag issues (#13054, #13055 -- the FIRST attempt at sol/mes gate-check) never triggered a workflow run despite being opened with the correct label, seconds after siblings that did fire cleanly (#13052, #13053). Not root-caused this session (possibly a GitHub webhook burst/coalescing effect); worked around by re-filing as #13060/#13061, which fired normally. Noting rather than silently retrying, per RULE ONE.",
+    "ict-git-sync.service reads 'failed' on the live VM (MEASURED vm-diag-snapshot #13063, services path, read 2026-09-27T06:34Z) while its timer is active. This is a health-review-scoped finding (deploy/pipeline plumbing, not ML), noted here only because it was seen incidentally while checking ict-shadow-log-rotate's sibling units -- not investigated further in this lane. Filed as PI-20260927-YZRZQ725-0002 for health-review.",
+    "trainer_registry's E72 count-reconciliation gap (PI-20260924-JQHBBTOS-0004) was not re-measured this session (see trainer_findings.trainer_registry)."
+  ],
+  "recommended_action": "No Tier-3 action this run: HOLD btc-regime-15m-lgbm-fc-pcv-v2 and sol-regime-15m-lgbm-fc-pcv-v2 at advisory (unchanged from the operator's prior direction on PR #12960); exit-head-donchian-1h-v1 stays at shadow (M2-owned, operator's 'NOT YET' stands). The one decision that IS new and needs an operator read: whether to prioritize a Tier-1 build lane on PI-20260927-YZRZQ725-0001 (shadow-drift archive fallback) -- until it lands, every future ml-review's drift verdict on EVERY advisory model will periodically (every ~25-29 days) go blind for 1-2 weeks at a stretch, and no drift-based demote proposal filed to date (including E72's) was ever computed on the endpoint's own intended 30-day reference window.",
+  "operator_attention_required": true,
+  "claude_channel_ping": {
+    "delivered_via": "skipped (lane task -- this session reports to the manager per the lane's operating model; see the final chat summary for the operator-facing headline)",
+    "priority": "high",
+    "message": "/ml-review W6-M1 -- btc/sol regime demotes stay HELD (unchanged). NEW: shadow-drift gate is structurally blind ~1-2wk after every log rotation (fleet-wide, PI-20260927-YZRZQ725-0001) -- past drift verdicts were never on a full window. mes gate-check dip is accrual, not regression. exit-head stays shadow (M2)."
+  }
+}

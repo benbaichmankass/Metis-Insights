@@ -351,3 +351,215 @@ def test_open_rows_reads_exact_symbol_read_only(monkeypatch, tmp_path):
     monkeypatch.setattr(paths, "trade_journal_db_path", lambda: str(db))
     rows = ra._open_rows("alpaca_paper", "spy")
     assert [r["id"] for r in rows] == [6131]      # not SPYG, not the backtest row
+
+
+# ═════════════════════════════════════════════════════════ ROW MODE
+# The corrected SPY geometry (dry run, issue #13064): the 11 shares are open
+# row 4347 (spy_trend_long_1d) and the resting OCO is ITS OWN protection. Only
+# row 6131 is naked; qty_available is 8.
+ROW_4347 = {"id": 4347, "account_id": "alpaca_paper", "symbol": "SPY", "direction": "long",
+            "position_size": 11.0, "stop_loss": 744.47714286, "take_profit_1": 830.42638,
+            "strategy_name": "spy_trend_long_1d", "status": "open", "is_backtest": 0,
+            "created_at": "2026-08-03"}
+ROW_6131_FULL = dict(ROW_6131, account_id="alpaca_paper", status="open", is_backtest=0)
+
+
+def _oco_4347():
+    return _oco(qty=11, stop=744.48, limit=830.43)
+
+
+def test_net_mode_refuses_the_real_spy_geometry_as_ambiguous(run):
+    """Pins the dry-run outcome of #13064: two tracked rows, different levels."""
+    c = FakeAlpaca(orders=_oco_4347())
+    code, out = run(c, rows=(ROW_4347, ROW_6131), apply=True)
+    assert code == ra.EXIT_REFUSED and out["state"] == "ambiguous_levels"
+    assert c.deletes == [] and c.posts == []
+
+
+@pytest.fixture
+def run_row(monkeypatch):
+    def _run(client, row=ROW_6131_FULL, row_state="ok", apply=False, row_id=6131,
+             symbol="spy", account="alpaca_paper"):
+        monkeypatch.setattr(ra, "_load_account",
+                            lambda a: {"account_id": a, "exchange": "alpaca"})
+        monkeypatch.setattr(ra, "_build_client", lambda cfg: client)
+        monkeypatch.setattr(ra, "_row_by_id",
+                            lambda rid: (row_state, None if row is None else dict(row)))
+        monkeypatch.setattr(ra, "_sleep", lambda s: None)
+        monkeypatch.setenv("ALPACA_PLACE_CONFIRM_S", "0")
+        return ra.rearm_row(account, symbol, row_id, apply=apply)
+    return _run
+
+
+def test_row_dry_run_plans_one_oco_for_the_row_and_cancels_nothing(run_row):
+    c = FakeAlpaca(orders=_oco_4347())
+    code, out = run_row(c)
+    assert code == ra.EXIT_OK and out["state"] == "ready"
+    body = out["plan"]["place"]
+    assert (body["qty"], body["side"], body["time_in_force"]) == ("8", "sell", "gtc")
+    assert body["stop_loss"]["stop_price"] == "760.64"
+    assert body["take_profit"]["limit_price"] == "840.65"
+    assert out["plan"]["cancel"] == []
+    assert c.posts == [] and c.deletes == []
+
+
+def test_row_apply_places_and_verifies_leaving_the_sibling_oco_alone(run_row):
+    c = FakeAlpaca(orders=_oco_4347())
+    code, out = run_row(c, apply=True)
+    assert code == ra.EXIT_OK, out
+    assert out["state"] == "rearmed_row"
+    assert c.deletes == []                        # row 4347's OCO untouched
+    assert len(c.posts) == 1 and c.posts[0]["qty"] == "8"
+    assert out["coverage_after"]["stop_qty"] == 19.0   # 11 (4347) + 8 (6131)
+
+
+def test_row_already_armed_is_a_noop(run_row):
+    c = FakeAlpaca(orders=_oco_4347() + _oco(qty=8, stop=760.64, limit=840.65,
+                                               ids=("a", "b")), held=19)
+    code, out = run_row(c, apply=True)
+    assert code == ra.EXIT_OK and out["state"] == "already_armed" and c.posts == []
+
+
+def test_row_refuses_when_one_matching_leg_already_rests(run_row):
+    stop_only = [_oco(qty=8, stop=760.64, ids=("a", "b"))[1]]
+    c = FakeAlpaca(orders=_oco_4347() + stop_only, held=11)
+    code, out = run_row(c, apply=True)
+    assert out["state"] == "refused_row_protection_partially_rests" and c.posts == []
+
+
+def test_row_refuses_when_shares_are_held(run_row):
+    c = FakeAlpaca(orders=_oco_4347(), held=15)          # qty_available 4 < 8
+    code, out = run_row(c, apply=True)
+    assert code == ra.EXIT_REFUSED and out["state"] == "refused_qty_unavailable"
+    assert c.posts == []
+
+
+@pytest.mark.parametrize("patch,state", [
+    ({"status": "closed"}, "refused_row_not_open"),
+    ({"is_backtest": 1}, "refused_row_backtest"),
+    ({"account_id": "alpaca_live"}, "refused_row_wrong_account"),
+    ({"symbol": "QQQ"}, "refused_row_wrong_symbol"),
+    ({"stop_loss": None}, "refused_levels_missing"),
+    ({"take_profit_1": 0}, "refused_levels_missing"),
+    ({"position_size": 8.5}, "refused_row_qty"),
+    ({"direction": "short"}, "refused_direction_mismatch"),
+    ({"position_size": 25.0}, "refused_row_exceeds_position"),
+])
+def test_row_refusals(run_row, patch, state):
+    c = FakeAlpaca(orders=_oco_4347())
+    code, out = run_row(c, row=dict(ROW_6131_FULL, **patch), apply=True)
+    assert code == ra.EXIT_REFUSED and out["state"] == state, out
+    assert c.posts == [] and c.deletes == []
+
+
+def test_row_missing_is_refused(run_row):
+    code, out = run_row(FakeAlpaca(orders=_oco_4347()), row=None, row_state="missing")
+    assert out["state"] == "refused_row_missing"
+
+
+@pytest.mark.parametrize("kw", [
+    {"row_state": "could_not_look", "row": None},
+])
+def test_row_journal_unreadable_is_could_not_look(run_row, kw):
+    code, out = run_row(FakeAlpaca(orders=_oco_4347()), **kw)
+    assert code == ra.EXIT_COULD_NOT_LOOK
+
+
+def test_row_position_unreadable_is_could_not_look(run_row):
+    c = FakeAlpaca(orders=_oco_4347(), pos_fail=True)
+    code, out = run_row(c, apply=True)
+    assert code == ra.EXIT_COULD_NOT_LOOK and c.posts == []
+
+
+def test_row_orders_unreadable_is_could_not_look(run_row):
+    c = FakeAlpaca(orders=_oco_4347(), orders_fail=True)
+    code, out = run_row(c, apply=True)
+    assert code == ra.EXIT_COULD_NOT_LOOK and c.posts == []
+
+
+def test_row_refuses_flat_position(run_row):
+    code, out = run_row(FakeAlpaca(orders=[], qty=0, held=0), apply=True)
+    assert out["state"] == "refused_flat"
+
+
+def test_row_refuses_a_non_protective_order(run_row):
+    stray = {"id": "s", "symbol": "SPY", "side": "buy", "type": "limit", "status": "new",
+             "qty": "2", "limit_price": "700"}
+    c = FakeAlpaca(orders=_oco_4347() + [stray])
+    code, out = run_row(c, apply=True)
+    assert out["state"] == "refused_non_protective_order" and c.posts == []
+
+
+def test_row_refuses_overcover(run_row):
+    """A differently-priced 8-share OCO already rests: 11+8+8 > 19."""
+    other = _oco(qty=8, stop=750.0, limit=850.0, ids=("x", "y"))
+    c = FakeAlpaca(orders=_oco_4347() + other, held=11)   # avail forced to 8
+    code, out = run_row(c, apply=True)
+    assert out["state"] == "refused_would_overcover" and c.posts == []
+
+
+def test_row_refuses_levels_not_straddling_price(run_row):
+    code, out = run_row(FakeAlpaca(orders=_oco_4347(), price=755.0), apply=True)
+    assert out["state"] == "refused_levels_wrong_side"
+
+
+def test_row_place_failure_changes_nothing(run_row):
+    c = FakeAlpaca(orders=_oco_4347(), place_fail=1)
+    code, out = run_row(c, apply=True)
+    assert code == ra.EXIT_FAILED_RESTORED
+    assert out["state"] == "place_failed_nothing_changed" and c.deletes == []
+
+
+def test_row_by_id_is_read_only_and_real(monkeypatch, tmp_path):
+    db = tmp_path / "j.db"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        "CREATE TABLE trades (id INTEGER PRIMARY KEY, account_id TEXT, symbol TEXT,"
+        " direction TEXT, position_size REAL, stop_loss REAL, take_profit_1 REAL,"
+        " strategy_name TEXT, created_at TEXT, status TEXT, is_backtest INTEGER);"
+        "INSERT INTO trades VALUES (6131,'alpaca_paper','SPY','long',8,760.6,840.6,"
+        "'spy_pullback_1h','2026-09-24','open',0);")
+    conn.commit()
+    conn.close()
+    import src.utils.paths as paths
+    monkeypatch.setattr(paths, "trade_journal_db_path", lambda: str(db))
+    assert ra._row_by_id(6131)[0] == "ok"
+    assert ra._row_by_id(9999) == ("missing", None)
+
+
+def test_cli_row_flag_routes_to_row_mode(monkeypatch, capsys):
+    seen = {}
+    monkeypatch.setattr(ra, "rearm_row",
+                        lambda a, s, r, apply, out: (seen.update(r=r, a=apply) or (0, {"ok": 1})))
+    monkeypatch.setattr(ra, "rearm", lambda *a, **k: pytest.fail("net mode must not run"))
+    assert ra.main(["--account", "alpaca_paper", "--symbol", "SPY", "--row", "6131"]) == 0
+    assert seen == {"r": 6131, "a": False}
+
+
+# ───────────────────────────────── wrapper banner matches the mode
+def _banner(apply, row):
+    import subprocess
+    wrapper = _ROOT / "scripts" / "ops" / "rearm_alpaca_protective_action.sh"
+    script = (f"source <(sed -n '/^rearm_banner()/,/^}}/p' {wrapper}); "
+              f"rearm_banner '{apply}' '{row}' alpaca_paper SPY")
+    return subprocess.run(["bash", "-c", script], capture_output=True,
+                          text=True, check=True).stdout
+
+
+def test_row_mode_apply_banner_never_says_cancel():
+    """Dispatch #13115 (row-mode apply) printed 'cancel the resting protective
+    legs' although row mode cancels nothing."""
+    out = _banner("true", "6131")
+    assert "ROW MODE" in out and "cancels NOTHING" in out
+    assert "cancel the resting" not in out
+
+
+def test_net_mode_apply_banner_says_it_cancels():
+    out = _banner("true", "")
+    assert "NET MODE" in out and "cancel the resting protective legs" in out
+
+
+@pytest.mark.parametrize("row,mode", [("6131", "ROW MODE"), ("", "NET MODE")])
+def test_dry_run_banner_names_the_mode(row, mode):
+    out = _banner("", row)
+    assert "DRY-RUN" in out and mode in out and "cancel the resting" not in out

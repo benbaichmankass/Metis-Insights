@@ -2,6 +2,37 @@
 
 > **Doc status:** `unknown` · category `unknown` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../docs/DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 
+> ⚠️ **Checklist row B4 (2026-09-27) re-scoped the CRON/COMMITTED path.** The
+> matrix this doc describes below graded every strategy uniformly on
+> expectancy with a 20-closed-trade floor. Committed 2026-09-20:
+> `comms/strategy_reviews/2026-09-20/INDEX.json` graded 52 legs, 0 actionable,
+> `days_to_grade_all_reachable_point: 140` — because roughly half that
+> population is Stage-1 SOAK legs, and root `CLAUDE.md`'s promotion ladder
+> says a soak book never establishes edge in the first place ("a live or
+> paper book never establishes edge. It checks mechanics and cost."). That
+> matrix would read "0 actionable" forever for that half, regardless of n.
+>
+> `scripts/ops/generate_strategy_review_packets_action.sh` (the only caller of
+> either generator, dispatched daily by
+> `.github/workflows/strategy-review-packets.yml`) now routes `all_strategies:
+> true` to a NEW generator, **`scripts/ops/strategy_review_stage_aware.py`**,
+> instead of this file's `--all-strategies`: Stage 2 (`bybit_2`/`alpaca_live` +
+> their strict mirrors) is graded on MONEY by reusing R4's verdict
+> (`scripts/ops/r4_demotion_gate.py`, read-only — never `--apply`); Stage 1
+> (`bybit_1`, `alpaca_paper`) is graded on MECHANICS + COST FIDELITY by reusing
+> R5 wholesale (`scripts/ops/soak_book_grade.py`), never expectancy. It lives
+> outside this file's module (`scripts/ml/`) because
+> `scripts/ci/check_pr_landing.py::TIER1_SURFACE` — the allowlist a Tier-1
+> self-land is checked against — covers `scripts/ops/**` but not
+> `scripts/ml/**`; see that new module's docstring for the row schema
+> (`stage`, `account`, `verdict_source`, `verdict_reached`, `actionable`).
+>
+> The matrix and decision table below are **unchanged** and still answer a
+> genuinely different, still-valid question — "how did this ONE named
+> strategy do over this window" — for `--strategy NAME` /
+> `GET /api/bot/strategies/{name}/review`. They are not what decides the
+> committed daily index's `actionable` count any more.
+
 > **Status:** Canonical for M7. Adopted in sprint **S-M7-STRATEGY-REVIEW-GATE** (2026-06-09).
 > **Scope:** the *mechanical* decision gate on top of `/performance-review`.
 > The gate produces one of `{promote, hold, tune, demote_shadow, kill}` per

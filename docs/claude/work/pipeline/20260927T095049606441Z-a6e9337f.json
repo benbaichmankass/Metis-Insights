@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a written reply from Breakout support is recorded on this row",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-R6FQK6DS-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/prop-automation-options-2026-09-27.md",
+    "rerun": "Re-grep the Breakout FAQ (https://intercom.help/breakoutprop/en/ , 4 collections) for bot|API|automat|algorith|copier. Any new first-party statement supersedes the question."
+  },
+  "state": "queued",
+  "what": "OPERATOR ACTION (W6-P3 automation spec): send the drafted Breakout support question, the text is in the spec's section 'The one question for Breakout support'. It asks whether the DXtrade REST/Push API is enabled for Breakout accounts for self-placed orders from our own server, whether browser automation on one's own login is OK, and whether the Breakout Terminal has an API. The answer settles options C, D and F1. Paste the written reply into this row. -- UPDATE 2026-09-27 ~10:05Z: the question text was REWRITTEN after the operator's platform correction. It now asks (1) which terminal account 823528 is on, (2) whether DXTrade is being retired and when, (3) whether the proprietary Breakout terminal has or will have an API, (4) whether the DXTrade REST/Push API is enabled and from which IPs, and (5) whether own-login browser automation is permitted. Send the NEW text in the spec, not the first draft."
+}
