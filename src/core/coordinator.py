@@ -2021,6 +2021,21 @@ class Coordinator:
                 # routed signal (the sizer runs before the risk gate).
                 if effective_dry:
                     error_msg = f"dry_run_sizing_skip: {error_msg}"
+                # Sizing refusals (risk_refused / zero_balance / …) previously
+                # left no journalctl trace at all — only a trades-table row —
+                # which is why PR #13002's dispatch_drop WARNING pattern (pre-
+                # sizing exclusions only) could not explain a leg that IS
+                # elected and dispatched but sized to zero. Mirror
+                # _log_dispatch_drop's routine/WARNING split: an effective-dry
+                # account's refusal is an expected policy hold (DEBUG); any
+                # other account that reaches here DOES belong live and still
+                # got sized to zero, so it logs at WARNING.
+                _sizing_log = logger.debug if effective_dry else logger.warning
+                _sizing_log(
+                    "sizing_refused: account=%s strategy=%s symbol=%s reason=%s",
+                    account.name, str(pkg.strategy or "?"),
+                    str(pkg.symbol or "?"), error_msg,
+                )
                 from src.units.accounts.execute import log_rejection_to_journal
                 log_rejection_to_journal(
                     pkg, _early_account_cfg,
