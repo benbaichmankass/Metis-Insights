@@ -250,3 +250,5 @@ jobs:
         run: |
           echo "::error::dashboard-edge-watch overall=${{ steps.probe.outputs.overall }} — ${{ steps.probe.outputs.summary }}"
           exit 1
+
+# no-durable-result: infra watchdog (Caddy/TLS-cert/DuckDNS), not a research measurement
