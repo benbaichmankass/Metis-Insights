@@ -59,9 +59,7 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO / ".github" / "workflows"
@@ -73,7 +71,7 @@ FIXTURE_PATH = "backtest_candles.csv"
 #: real population was named). Scoped to exactly the ten E7 orphans — see
 #: module docstring for why the three pre-existing-workflow harnesses are
 #: deliberately excluded.
-HARNESS_REQUIRED_FLAGS: Dict[str, Tuple[str, ...]] = {
+HARNESS_REQUIRED_FLAGS: dict[str, tuple[str, ...]] = {
     "chop_scalp": ("--symbol",),
     "fade": ("--symbol",),
     "fvg_range": ("--symbol",),
@@ -86,7 +84,7 @@ HARNESS_REQUIRED_FLAGS: Dict[str, Tuple[str, ...]] = {
     "vol_target": ("--trades", "--daily"),
 }
 
-def _script_re() -> "re.Pattern[str]":
+def _script_re() -> re.Pattern[str]:
     """Built inside a function, deliberately, and not a module-level constant.
 
     `scripts/ci/check_guard_liveness.py` reads every MODULE-LEVEL string
@@ -104,14 +102,14 @@ def _script_re() -> "re.Pattern[str]":
     return _SCRIPT_RE_CACHE
 
 
-_SCRIPT_RE_CACHE: "Optional[re.Pattern[str]]" = None
+_SCRIPT_RE_CACHE: re.Pattern[str] | None = None
 
 
-def _logical_lines(text: str) -> List[str]:
+def _logical_lines(text: str) -> list[str]:
     """Join backslash line-continuations so a wrapped shell command reads as
     ONE line — the same command a reader (and a shell) sees as one."""
     lines = text.splitlines()
-    out: List[str] = []
+    out: list[str] = []
     buf = ""
     for ln in lines:
         stripped = ln.rstrip()
@@ -125,9 +123,9 @@ def _logical_lines(text: str) -> List[str]:
     return out
 
 
-def scan_text(text: str) -> List[str]:
+def scan_text(text: str) -> list[str]:
     """Every problem found in ONE workflow file's text. Empty == clean."""
-    problems: List[str] = []
+    problems: list[str] = []
     for ln in _logical_lines(text):
         m = _script_re().search(ln)
         if not m:
@@ -224,7 +222,7 @@ def _self_test() -> int:
     return 0 if ok else 1
 
 
-def main(argv: List[str] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--self-test", action="store_true")
@@ -237,7 +235,7 @@ def main(argv: List[str] = None) -> int:
         print(f"::error::{WORKFLOWS_DIR} not found")
         return 1
 
-    total_problems: List[str] = []
+    total_problems: list[str] = []
     files_scanned = 0
     for path in sorted(WORKFLOWS_DIR.glob("*.yml")):
         text = path.read_text(encoding="utf-8")

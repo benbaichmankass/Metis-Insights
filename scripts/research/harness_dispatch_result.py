@@ -74,7 +74,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 DECISION_RULE_ID = "RULE-E7-HARNESS-DISPATCHABLE"
 DECISION_RULE_REGISTERED_AT = "2026-09-27"
@@ -85,7 +85,7 @@ _XSEC = "xsec_momentum"
 _VOL_TARGET = "vol_target"
 
 
-def extract_n(harness: str, result: Dict[str, Any]) -> Optional[int]:
+def extract_n(harness: str, result: dict[str, Any]) -> int | None:
     """The population count this dispatch measured, or None if unreadable.
 
     Checked in this order so a harness that happens to carry BOTH a
@@ -109,8 +109,8 @@ def extract_n(harness: str, result: Dict[str, Any]) -> Optional[int]:
 
 
 def derive(*, harness: str, symbol: str, timeframe: str, build_result: str,
-          result: Optional[Dict[str, Any]], read_error: str = "",
-          ) -> Tuple[str, str, str, Optional[int], Dict[str, Any], str]:
+          result: dict[str, Any] | None, read_error: str = "",
+          ) -> tuple[str, str, str, int | None, dict[str, Any], str]:
     """Returns (verdict, read_state, population_description, n, measurement, note)."""
     population = (
         f"{harness} dispatched via research-harness-dispatch.yml against "
@@ -125,9 +125,9 @@ def derive(*, harness: str, symbol: str, timeframe: str, build_result: str,
         return "not_applicable", "producer_failed", population, None, {}, note
     n = extract_n(harness, result)
     if n is None:
-        note = (f"build succeeded but no recognized population field "
-                f"(total_trades / summary.n_days / baseline.n_days) was found "
-                f"in its JSON summary — treating as unwired, not measured")
+        note = ("build succeeded but no recognized population field "
+                "(total_trades / summary.n_days / baseline.n_days) was found "
+                "in its JSON summary — treating as unwired, not measured")
         return "not_applicable", "producer_failed", population, None, {}, note
     measurement = {k: result[k] for k in (
         "total_trades", "net_total_r", "win_rate_pct", "net_expectancy_r",
@@ -145,8 +145,8 @@ def derive(*, harness: str, symbol: str, timeframe: str, build_result: str,
     return "no_action_warranted", "measured", population, n, measurement, note
 
 
-def _write_outputs(verdict: str, read_state: str, n: Optional[int],
-                   measurement: Dict[str, Any], population: str,
+def _write_outputs(verdict: str, read_state: str, n: int | None,
+                   measurement: dict[str, Any], population: str,
                    out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "measurement.json").write_text(
@@ -166,8 +166,8 @@ def _self_test() -> int:
     failures = 0
 
     def case(label: str, harness: str, build_result: str,
-             result: Optional[Dict[str, Any]], want_verdict: str,
-             want_state: str, want_n: Optional[int]) -> None:
+             result: dict[str, Any] | None, want_verdict: str,
+             want_state: str, want_n: int | None) -> None:
         nonlocal failures
         verdict, state, _pop, n, _meas, _note = derive(
             harness=harness, symbol="BTCUSDT", timeframe="1h",
@@ -214,7 +214,7 @@ def _self_test() -> int:
     # a mapping that produces a record the validator refuses turns a
     # successful dispatch into a failed landing, at the last step.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from research_result import build, validate  # noqa: E402
+    from research_result import build, validate
     for label, harness, br, result in [
         ("measured", "squeeze", "success", {"total_trades": 42}),
         ("producer_failed", "squeeze", "failure", None),
@@ -245,7 +245,7 @@ def _self_test() -> int:
     return 1 if failures else 0
 
 
-def main(argv: Optional[list] = None) -> int:
+def main(argv: list | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--self-test", action="store_true")
@@ -260,7 +260,7 @@ def main(argv: Optional[list] = None) -> int:
     if args.self_test:
         return _self_test()
 
-    result: Optional[Dict[str, Any]] = None
+    result: dict[str, Any] | None = None
     read_error = ""
     src = Path(args.result_json)
     if src.exists():
