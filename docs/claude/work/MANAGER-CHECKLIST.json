@@ -19,8 +19,8 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-27T10:38:00Z",
-  "updated_by": "session_01Bf9Xnenv6vF5rSqbhr1EYj",
+  "updated_at": "2026-09-27T11:45:00Z",
+  "updated_by": "session_016SRkbKeFEJ84QVZPuXjftr",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
@@ -1806,7 +1806,105 @@
         13085
       ],
       "blocked_on": [],
-      "note": "Final assignment of the wave-6 OPS lane, per the operator's 2026-09-27 ~08:15Z request (relayed by the manager): a single decision-shaped pack for the upcoming joint review, drawn from R4/E71's ml-review + performance-review + audit-scoping outputs. Delivered: docs/plans/review-pack-2026-09-27.md -- 12 numbered accept/reject decisions (D1-D3 ml-review: shadow-drift archive fallback, exit-head twin-dedup fix, SOL trend_vol OFF-cell; D4-D6 performance-review: pairs classifier coverage gap, breakout_1/iaum_pullback_1d drop, SRQ-20260618 dispatch-or-kill; D7-D10 the audit proposal's own four operator questions; D11 a newly-found repo-wide operator-owed-guard CI instability (PI-20260927-EPMBGUYB-0003) currently blocking Tier-1 self-land on multiple PRs including both of this wave's; D12 a synthesis connecting two operator-owed pipeline rows (PI-20260924-MQ3CDMU6-0001/-0002) with PR #13084's fresh breakout_1 EV-simulator finding into one sizing decision), plus a table of operator-owed items currently closest to their due window (MEASURED via check_operator_owed.py --verbose, 2026-09-27T08:28Z). Does not edit OPERATING-PLAN, ROADMAP.md, or checklist priorities itself -- every row/priority change is a proposal for the joint session to accept or reject."
+      "note": "Final assignment of the wave-6 OPS lane, per the operator's 2026-09-27 ~08:15Z request (relayed by the manager): a single decision-shaped pack for the upcoming joint review, drawn from R4/E71's ml-review + performance-review + audit-scoping outputs. Delivered: docs/plans/review-pack-2026-09-27.md -- 12 numbered accept/reject decisions (D1-D3 ml-review: shadow-drift archive fallback, exit-head twin-dedup fix, SOL trend_vol OFF-cell; D4-D6 performance-review: pairs classifier coverage gap, breakout_1/iaum_pullback_1d drop, SRQ-20260618 dispatch-or-kill; D7-D10 the audit proposal's own four operator questions; D11 a newly-found repo-wide operator-owed-guard CI instability (PI-20260927-EPMBGUYB-0003) currently blocking Tier-1 self-land on multiple PRs including both of this wave's; D12 a synthesis connecting two operator-owed pipeline rows (PI-20260924-MQ3CDMU6-0001/-0002) with PR #13084's fresh breakout_1 EV-simulator finding into one sizing decision), plus a table of operator-owed items currently closest to their due window (MEASURED via check_operator_owed.py --verbose, 2026-09-27T08:28Z). Does not edit OPERATING-PLAN, ROADMAP.md, or checklist priorities itself -- every row/priority change is a proposal for the joint session to accept or reject. [!] JOINT REVIEW HELD 2026-09-27 ~11:12Z: the operator's actual answers to D1-D12 are recorded on the rows below (E74 D3, E75 D7-D10, E76 D6, E77 D2, P2 D5, P1b D12) rather than duplicated here -- this row stays the pack's own tracking row; it is not where the decisions live."
+    },
+    {
+      "id": "E74",
+      "title": "SOL trend_vol OFF-cell for sol-regime-15m-lgbm-fc-pcv-v2 (review-pack D3)",
+      "phase": "E",
+      "state": "queued",
+      "owner": "research lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D3), verbatim: \"Add the row.\" sol-regime-15m-lgbm-fc-pcv-v2 has been advisory since 08-02 with zero regime_hard_gate rows for SOL ever -- no real-money lever exists for it at all today. WORK: author + walk-forward-validate a SOL trend_vol OFF-cell per the `regime-selectivity` skill's three binding rules (no-cosmetic-cell, walk-forward-before-Tier-3, axis-fidelity), so the model has a real-money lever to flip at all. NEEDS OFFLINE VALIDATION FIRST: the walk-forward validation is the Tier-1/research precondition and must clear BEFORE any Tier-3 flip proposal goes to the operator -- this row is the authoring + validation step, not the flip itself, which is why tier is recorded as 3 (the change the row is FOR) while the immediate next action is research-only. Not yet dispatched by this PR (documentation-only, no lane assigned)."
+    },
+    {
+      "id": "E75",
+      "title": "System audit (E71/E73 review-pack D7-D10): scope, cadence, model and budget decided -- lanes launch when the operator says go",
+      "phase": "E",
+      "state": "queued",
+      "owner": "manager",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": 270,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "operator_decision",
+          "ref": "operator go-ahead to dispatch AUD-1..AUD-8 + the lead consolidation session",
+          "what": "the four questions below are answered and the audit's shape is decided; the lanes themselves launch only when the operator says go"
+        }
+      ],
+      "note": "OPERATOR DECISIONS 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D7-D10, against docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md §6's four operator questions; E71 is the proposal, E73 is the pack it was put to the operator in). SCOPE (D7, the (a) all-8 vs (b) 3-area subset choice), verbatim: \"All 8 areas.\" CADENCE (D8, one-off vs standing), verbatim: \"One-off now, decide cadence after.\" MODEL for the §4.6 CI guard-coverage lane (D9, AUD-6 -- widen to claude-haiku-4-5 per the manager skill's E11 candidate criterion), verbatim: \"Yes.\" FINDINGS-REVIEW CAPACITY (D10, dedicated session vs folding in), verbatim: \"Fold into daily brief.\" BUDGET, verbatim: \"Separate audit budget, $270\" -- this is the HIGH END of SYSTEM-AUDIT-PROPOSAL-2026-09-27.md §7's own $165-270 all-8-areas estimate, and it REPLACES/SETS ceiling_usd for the audit wave as a whole (the per-lane AUD-1..AUD-8 + lead-session ceilings in §7 sum inside this figure; it is not an additional per-lane amount). ⚠️ THE LANES LAUNCH WHEN THE OPERATOR SAYS GO: these four answers decide the audit's SHAPE (what/how/which model/where findings go), not its dispatch -- nothing here dispatches AUD-1..AUD-8 or the lead-session consolidation, and state stays `queued` until that go-ahead is given. Documentation-only PR; no lane touched, no PR opened for the audit itself."
+    },
+    {
+      "id": "E76",
+      "title": "SRQ-20260618-001/-002 (soft regime weight / recombination orchestrator regime_filter axis): dispatch + new research lines (review-pack D6)",
+      "phase": "E",
+      "state": "in_flight",
+      "owner": "research lane (backtesting skill)",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D6), verbatim: \"2, as well as developing new lines of research for this general idea\" -- i.e. option 2 (dispatch a `backtesting`-skill lane on SRQ-20260618-001/-002, un-worked 6+ weeks since the hard-ADX-gate hypothesis was refuted 08-11), PLUS separately developing new lines of research on the soft-regime-weight / recombination-orchestrator `regime_filter` general idea, rather than killing the row or deferring further. THIS PR DOES NOT DISPATCH THE LANE -- it records the decision only. CHECKED THIS SESSION: no existing checklist row or lane id anywhere in this file references SRQ-20260618 or a `regime_filter` recombination lane (grep over the whole file, single hit: this row), so the lane reference is NOT YET ASSIGNED -- the session that dispatches it must backfill `lane`/`prs` here rather than a new id being invented for it now. `state` is set to `in_flight` per the dispatch decision having been made and acted on by the operator, not because a lane id is known yet; the next session touching this row should either fill in the lane or, if dispatch has not actually started, correct the state honestly."
+    },
+    {
+      "id": "E77",
+      "title": "Exit-head shadow-scoring twin-dedup fix for PI-20260926-96NDZSOD-0001 (review-pack D2)",
+      "phase": "E",
+      "state": "landed_unproven",
+      "owner": "build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        13076
+      ],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D2), verbatim: \"Dispatch now\" for a Tier-2 build lane fixing PI-20260926-96NDZSOD-0001 (exit-head shadow-scoring twin-dedup bug -- the sole blocker to evaluating exit-head-donchian-1h-v1's shadow->advisory promotion, which already has a marginal-pass OOS re-grade sitting idle, +1.3127R n=119, PR #13046). The build lane that already did this work was session_01WGMUnzr1kaHpJB9TqLiVur (PR #13076) -- recorded here in prose rather than in the structured `lane` field, since that lane has already landed and this row's `lane` reflects who is CURRENTLY working it (nobody, right now). ALREADY DONE, VERIFIED THIS SESSION rather than assumed (RULE ONE): MERGED -- PR #13076 (\"fix(exit_head_shadow): cache the per-bar score so twin accounts both get the verdict\") read via the GitHub PR API shows merged:true, merged_at 2026-09-27T09:37:52Z, base main, head commit b1253206; `git log origin/main` independently confirms commit 4a8b29e (\"...#13076\") is on origin/main. DEPLOYED -- confirmed via GitHub Actions run 36309997882 (\"system-action: pull-and-deploy 63348e7a3 (#13047 Alpaca GTC entry brackets + #13076 exit-head twin cache)\"), status completed, conclusion success, started 2026-09-27T09:38:10Z, i.e. within a minute of the merge, and naming #13076 explicitly in its title. OBSERVED -- NOT established this session: no fresh diag/runtime read of the running trader's exit_head_shadow.py behaviour was taken here, so per RULE ONE (\"merged is not deployed is not observed\") only the first two facts are claimed. The fix is stated INERT on arrival regardless (every exit-head artifact is currently stage=shadow; exit_head_verdict only acts on stage=advisory), so there is no live order-path behaviour change to observe yet even once a read is taken. PI-20260926-96NDZSOD-0001 should be closed/updated against this PR by whoever next reads the pipeline store, per the PR's own stated follow-up note."
+    },
+    {
+      "id": "P2",
+      "title": "Prop-candidate-search lane (breakout_1): candidates ONLY from the Breakout symbols list",
+      "phase": "P",
+      "state": "in_flight",
+      "owner": "research lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "FIRST TRACKING ROW for the wave-6 \"P2 prop candidate search, crypto on Breakout\" lane -- dispatched per the operator's wave-6 launch decision already recorded on row R4 (\"launch WAVE 6 now... P2 prop candidate search, crypto on Breakout\"), but no distinct checklist row existed for it before this PR (checked: grep of this file for P1/P1b/P2 as an `id` before this edit returns nothing). OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D5), verbatim, in response to breakout_1/iaum_pullback_1d being evaluated as a drop candidate on an account it was never tradable on: \"Why was it even checked if it can't be traded? We are only supposed to checking candidates from the symbols list I gave you.\" STANDING CONSTRAINT recorded by this row: every prop-candidate this lane (or any breakout_1/prop-account candidate search) considers must come ONLY from https://www.breakoutprop.com/symbols/. This does not reopen or dispute RQ-20260827-001's own finding that breakout_1 should drop iaum_pullback_1d (p_profitable=0.0647, EV -$3.65/trade, gld_compat) -- that specific drop stands. The operator's point is upstream of it: a candidate should never have been scoped or evaluated at all if it is not on the approved, tradable symbols list. Documentation-only PR; no candidate-list code or scoping logic changed here -- the dispatching/continuing session must apply the constraint going forward and should update this row's `lane`/`prs` once it has a session id."
+    },
+    {
+      "id": "P1b",
+      "title": "breakout_1 sizing decision (flat $75 vs DD-cushion-fit) -- attributed to lane P1b (review-pack D12)",
+      "phase": "P",
+      "state": "in_flight",
+      "owner": "research/build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "FIRST TRACKING ROW for lane P1b (the continuation of the wave-6 \"P1 prop EV evaluator\" lane, session_01LDBj5SQ3KpCZDsCstGv2yt) -- no distinct checklist row existed for it before this PR. This row's `lane` field is null rather than session_01LDBj5SQ3KpCZDsCstGv2yt -- that lane was dispatched separately, before and outside this PR, and this row only records where it is, not a fresh assignment made here. ATTRIBUTION recorded per the joint operator/manager review (docs/plans/review-pack-2026-09-27.md D12): the sizing decisions from the 2026-09-27 ~11:12Z joint-review discussion sit WITH this lane/session, not as a fresh decision made or taken in this PR. D12 SYNTHESIS, carried here as context rather than re-decided: three independently-filed findings point at the same breakout_1 gap -- flat $75 tickets vs a $94.76 DD-floor cushion (PI-20260924-MQ3CDMU6-0001), the operator-approved PROP_TICKET_RISK_GATE_MODE=enforce (08-31) having no code path that actually caps size (PI-20260924-MQ3CDMU6-0002), and PR #13084's fresh B6 EV-simulator reading the CURRENT 1.5%-risk flat-$75 sizing as INDETERMINATE (central estimate -$10.08/account-life) vs +$173 at a cushion-fit 1.0% sizing. SEE ALSO E59, where the operator's earlier 2026-09-24 decision (\"Leave flat $75\", made without the B6 simulator's numbers) is recorded and PI-20260924-MQ3CDMU6-0001 was KILLED on that basis -- D12 revisits the question with new evidence rather than being independent of E59. Tier 3 because any resulting sizing/gate-enforcement change is a risk-caps/sizing change on a live prop account. THIS PR DOES NOT IMPLEMENT OR AUTHORIZE the sizing fix itself -- it only records where the decision now lives. See lane P1b / session_01LDBj5SQ3KpCZDsCstGv2yt for the actual disposition."
     }
   ]
 }
