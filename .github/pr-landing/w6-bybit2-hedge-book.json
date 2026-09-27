@@ -1,7 +1,7 @@
 {
-  "tier": 2,
+  "tier": 1,
   "landing": "hold",
-  "hold_reason": "tier_2_3_needs_approval",
-  "hold_text": "Tier-2 (src/units/accounts/clients.py + src/web/api/routers/diag.py). Operator approved BUILDING it by popup 2026-09-27 (~08:35Z, 'Build the read + fix (Recommended)') for OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED. The manager merges after CI and deploys under MD-DEPLOY-AN-APPROVED-MERGE. LIVE READ PATH CHANGE: account_open_positions (bybit) now issues one extra symbol-scoped get_positions per hedge symbol the settleCoin page lists with only one of its two books, and RETURNS the sibling book when it is non-zero. Consumers that see a newly-visible book act through their EXISTING paths only (reverse reconciler per ORPHAN_POSITION_POLICY; forward reconciler stops reading a live sibling as absent). No order-placing code is added or modified.",
-  "why": "Makes a hedge symbol's second Bybit book readable (diag symbol= parameter) and complete on the normal position read, or counted as could_not_look when the sibling read fails."
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "W6 lane dispatch: the manager merges. Follow-up to merged #13099 — pipeline record only.",
+  "why": "One append-only pipeline record (docs/claude/work/pipeline/) recording the post-deploy observation for OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED. Docs only; no runtime/order-path/config touched -- Tier-1 by path."
 }
