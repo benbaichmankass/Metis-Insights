@@ -12,6 +12,11 @@ What it does, in order:
 3. Logs in with the username/password env vars named in that config.
 4. Reads balance/equity, open positions and working orders.
 5. Prints them. Never prints the username, the password, or a cookie.
+   When part of the read does not parse, also prints the adapter's REDACTED
+   structure dump (``DXtradeAdapter.structure``: label elements, header rows,
+   ancestor classes, visible text with e-mails/tokens/credentials stripped) so
+   the selectors can be fixed from the public run log. Balances are printed;
+   the operator allows them (the journal already records them).
 6. Only with ``--emit-status``: posts ONE ``account_status`` to the local
    ``POST /api/bot/prop/report`` (the existing ingest chokepoint). Default OFF.
 
@@ -140,7 +145,14 @@ def main(argv: Optional[list] = None) -> int:
                               username, password))
                 return EXIT_ERROR
             print("login: ok")
+            try:
+                print(f"landed: {_redact(page.url.split('?')[0].split('#')[0], username, password)}")
+            except Exception:
+                pass
             page.wait_for_timeout(5_000)  # let the terminal populate its panels
+            if hasattr(adapter, "wait_ready"):
+                ready = adapter.wait_ready(page, timeout_ms=20_000)
+                print(f"ready: {'balance/equity visible' if ready else 'NOT within 25s'}")
 
             snap = adapter.read_account(page).as_dict()
             print("account: " + json.dumps({k: v for k, v in snap.items() if k != "unparsed"}))
@@ -160,6 +172,13 @@ def main(argv: Optional[list] = None) -> int:
                 except LookupError as le:
                     print(f"{label}: UNPARSED ({le})")
                     rc = EXIT_UNPARSED
+
+            if rc == EXIT_UNPARSED and hasattr(adapter, "structure"):
+                try:
+                    for line in adapter.structure(page, (username, password)):
+                        print(line)
+                except Exception as exc:
+                    print(f"structure: FAILED ({type(exc).__name__}: {str(exc)[:200]})")
 
             if args.dump_dir:
                 d = Path(args.dump_dir)

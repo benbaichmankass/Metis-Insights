@@ -1,0 +1,29 @@
+<!-- INVENTED post-login layout (NOT a copy of the real terminal): exercises
+     EXTRACT_TABLES_JS / STRUCTURE_JS in a real Chromium. Labels and column
+     headers are the MEASURED strings from the served i18n dictionary
+     (wss.breakoutprop.com, 2026-09-27); the DIV structure is invented. -->
+<!DOCTYPE html>
+<html><head><title>Breakout Terminal</title></head>
+<body>
+<div class="tabs"><div role="tab">Positions</div><div role="tab">Orders</div><div role="tab">Account metrics</div></div>
+<div class="metrics">
+  <div class="metric"><span class="metric-name">Balance</span><span class="metric-value">4,724.00</span></div>
+  <div class="metric"><span class="metric-name">Equity</span><span class="metric-value">4,731.20</span></div>
+  <div class="metric"><span class="metric-name">P&amp;L</span><span class="metric-value">7.20</span></div>
+  <div class="metric"><span class="metric-name">Day RPL</span><span class="metric-value">-12.30</span></div>
+  <div class="metric"><span class="metric-name">Used Margin</span><span class="metric-value">150.00</span></div>
+  <div class="metric"><span class="metric-name">Free Margin</span><span class="metric-value">4,581.20</span></div>
+  <div class="metric"><span class="metric-name">Login</span><span class="metric-value">someone@example.com</span></div>
+</div>
+<input id="password" type="password" value="hunter2-secret">
+<div class="grid positions">
+  <div class="grid-header"><div>Symbol</div><div>Side</div><div>Position Volume</div><div>Average Price</div><div>Stop loss</div><div>Take profit</div><div>P&amp;L</div></div>
+  <div class="grid-body">
+    <div class="grid-row"><div>ETHUSD</div><div>Buy</div><div>0.5</div><div>2,950.00</div><div>2,900.00</div><div>3,050.00</div><div>12.40</div></div>
+  </div>
+</div>
+<div class="grid orders">
+  <div class="grid-header"><div>Symbol</div><div>Side</div><div>Type</div><div>Order Volume</div><div>Price</div><div>Status</div></div>
+  <div class="grid-body"></div>
+</div>
+</body></html>

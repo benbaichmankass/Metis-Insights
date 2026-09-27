@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only prop probe, operator pre-authorised 2026-09-27",
+  "why": "Makes the breakout-login-check read parse, or explain why it does not. Run 36329607152 (#13239) printed 'login: ok' and parsed nothing. Root cause 1: classify_login_state returned logged_in whenever no login/2FA/CAPTCHA element was visible, so 'login: ok' did not prove a terminal. It now needs a positive marker, otherwise 'feasibility: unknown_page (at <origin+path>)'. Root cause 2: labels and headers were guesses. They are now the MEASURED strings from the i18n dictionary the terminal page serves (Balance / Equity / P&L / Day RPL / Used Margin / Free Margin; Position Volume, Avg Fill Price, Order ID ...). Also: reads walk every frame; a DIV-grid extractor; a wait for balance/equity; innerText-concatenation handling; and an unparsed read now prints a REDACTED structure dump to the public run log (never cookies, storage, input values or tokens). Read-only: no order control is added; emit-status stays off. Touches src/prop/platform/dxtrade.py and scripts/prop/breakout_login_check.py (Tier-2 by path: the system action runs them on the live VM)."
+}
