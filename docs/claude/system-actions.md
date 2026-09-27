@@ -255,8 +255,11 @@ Claude may dispatch these without operator approval:
 - `vwap-backtest-sweep`
 - `send-ping`
 - `send-prop-test-ping` — fires one synthetic TEST prop ticket through the
-  real `emit_prop_signal` path (FCM + prop Telegram bot); notify-only, nothing
-  journaled
+  real `emit_prop_signal` path (FCM + prop Telegram bot); no `trades` row and
+  no exchange socket, but ONE `prop_tickets` row journaled as
+  `status='test_ping'`, which the one-ticket-per-trade suppression ignores
+  (FIX-CA-11 — until then the row was `emitted` and could suppress the next
+  real signal for the same account/symbol/direction)
 - `generate-strategy-review-packets` — fires
   `scripts/ml/strategy_review_packet.py` against the live
   `trade_journal.db` and writes M7 review packets
