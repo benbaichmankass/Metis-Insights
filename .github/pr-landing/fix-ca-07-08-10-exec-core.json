@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges under the data-backed Tier-2/3 authority (audit brief evidence)",
+  "why": "Code audit 2026-09-27 fix lane: FIX-CA-07 (CA-A02, a journal read failure read as a flat net position and let intent-mode dispatch a fresh full-size open), FIX-CA-08 (CA-A03, a Bybit symbol whose settleCoin cross-check failed graded flat and let _reconcile_open_trades close a live row), FIX-CA-10 (CA-A15, /closeall never forwarded the row's tracked SL/TP leg ids). All three briefs are Tier 2 in docs/audits/code-audit-2026-09-27.md section 5; each commit carries a test that fails on main. Execution-core runtime change: takes effect only after a trader restart."
+}
