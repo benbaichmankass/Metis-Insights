@@ -316,6 +316,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/code-audit-2026-09-27/CA-A03.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-A04.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-A06.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A08.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-A09.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-A10.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/code-audit-2026-09-27/CA-A11.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
