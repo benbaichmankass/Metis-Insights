@@ -1,6 +1,6 @@
 # System audit — a proposal, not a dispatch
 
-> **Doc status:** `live` · category `plan` · last verified `2026-09-27` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `plan` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 > **This document proposes work. It does not authorize any of it.** Nothing here
 > runs until the operator picks a scope and says go. Filed per the wave-6 OPS
 > lane's third assignment (`docs/claude/work/MANAGER-CHECKLIST.json` row R4, "OPS
