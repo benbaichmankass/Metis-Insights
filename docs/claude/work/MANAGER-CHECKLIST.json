@@ -2266,7 +2266,7 @@
       "owner": "research lane",
       "model": "claude-sonnet-5",
       "ceiling_usd": 20,
-      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260922-003 cost break-even for trend_donchian_eth_prop, repeated for trend_donchian_sol_prop, at Breakout DXtrade costs (incl. 0.033%/day swap), judged also against RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 under #13154 sizing. One question: how much cost headroom do the two live prop legs have."
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260922-003 cost break-even for trend_donchian_eth_prop, repeated for trend_donchian_sol_prop, at Breakout DXtrade costs (incl. the 0.033%/day swap declared in config/strategies.yaml ~L2687; eth_prop evidence record n=169 OOS trades, sol_prop per its own record), judged also against RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 under #13154 sizing. One question: how much cost headroom do the two live prop legs have."
     },
     {
       "phase": "W6",
