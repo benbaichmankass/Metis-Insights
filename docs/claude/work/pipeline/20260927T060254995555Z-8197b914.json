@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-3QJJAY5Y-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/13047",
+    "rerun": "grep -n 'NOT escalating to a symbol-wide' src/units/accounts/alpaca_client.py  (the refusal branch); then diag-relay journalctl -u ict-trader-live --since '-7d' | grep -c 'refused for want of available shares'  -- nonzero means it has fired live"
+  },
+  "state": "queued",
+  "what": "Alpaca trade-scoped PARTIAL close is refused while sibling tranches' protective legs hold all shares. AlpacaClient._close_partial (DELETE /v2/positions/{sym}?qty=N) deliberately pre-cancels nothing, so on a symbol with several open journal rows each carrying its own bracket, qty_available is 0 and the venue refuses 'insufficient qty available' (logged loudly, no over-close, no naked position). Happens intraday today with DAY legs; PR #13047 (GTC entry legs, HELD) extends it past the RTH close. Candidate fix (Tier-3, order path): cancel only the legs whose qty equals the closing trade's qty (the same identification heuristic modify_protective uses) before the partial DELETE, re-arming the remainder on failure. INFERRED from code reading (alpaca_client.py _close_partial docstring + body) -- not measured on a live multi-row position this session."
+}
