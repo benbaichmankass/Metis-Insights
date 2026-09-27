@@ -11,5 +11,5 @@
     "rerun": "read docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl and re-check the finding AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value against current scripts/research/pairs_universe_scan.py:361"
   },
   "state": "queued",
-  "what": "CA-B04 audit finding (high): scripts/research/pairs_universe_scan.py:361 — --adf-max-tstat default -2.86 (docstring: \"5% crit ≈ -2.86\") grades the Engle-Granger cointegration test on adf_tstat/oos_adf_tstat, the latter called out in-code as \"the key false"
+  "what": "CA-B04 audit finding (high): scripts/research/pairs_universe_scan.py:361 uses the wrong Engle-Granger critical value (-2.86, the plain single-series ADF value, not the more-negative 2-variable MacKinnon value), inflating false cointegration detections to 60/300 trials (20%) in a Monte Carlo of genuinely independent random-walk pairs, vs. the claimed 5% — see docs/audits/code-audit-2026-09-27/CA-B04.findings.jsonl#AUD-20260927-CA-B04-pairs-universe-scan-wrong-eg-critical-value for full evidence."
 }
