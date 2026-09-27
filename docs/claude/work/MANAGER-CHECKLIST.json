@@ -2687,7 +2687,7 @@
       ],
       "blocked_on": [],
       "title": "P4b: DXtrade (Breakout) read parser -- balance/positions/orders",
-      "note": "2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13248 held once by review (case-sensitive username redaction into a PUBLIC run log); fixed (case-insensitive, URLs cut to origin, every printed line redacted), merged f5193fd, running on the live VM at 9b2884c. Lane re-running breakout-login-check to report the parsed balance vs ~$4,724. Read-only; emit-status stays off."
+      "note": "2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13248 held once by review (case-sensitive username redaction into a PUBLIC run log); fixed (case-insensitive, URLs cut to origin, every printed line redacted), merged f5193fd, running on the live VM at 9b2884c. Lane re-running breakout-login-check to report the parsed balance vs the last journalled breakout_1 balance ($4,724, population: the single most recent prop account_status record, #21, 2026-09-27). Read-only; emit-status stays off."
     }
   ]
 }
