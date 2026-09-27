@@ -325,3 +325,38 @@ def test_run_stage_guard_end_to_end(tmp_path: Path):
     assert len(proposals) == 1
     # No live data + freshly registered → not promotable → hold.
     assert proposals[0].action == "hold"
+
+
+# --- FIX-CA-22: "we did not look" is not "looked, fine" ----------------------
+# CA-B01-advisory-hold-when-nothing-measured (PI-20260927-3WM5HADW-0003).
+
+
+def test_live_hold_with_nothing_measured_is_not_evaluable():
+    from ml.promotion.stage_guard import DEMOTE_EVIDENCE_NOT_EVALUABLE
+
+    p = propose_for_model(_entry("advisory"), attribution=None, drift=None)
+    assert p.action == "hold"
+    assert p.reasons != ("no demote trigger tripped",)
+    assert "not evaluable" in p.reasons[0]
+    assert p.evidence["demote_evidence_state"] == DEMOTE_EVIDENCE_NOT_EVALUABLE
+
+
+def test_live_hold_measured_healthy_is_evaluated():
+    from ml.promotion.stage_guard import DEMOTE_EVIDENCE_EVALUATED
+
+    class _D:
+        overall_verdict = "none"
+
+    p = propose_for_model(_entry("advisory"), attribution=_good_attr(), drift=_D())
+    assert p.action == "hold"
+    assert p.reasons == ("no demote trigger tripped",)
+    assert p.evidence["demote_evidence_state"] == DEMOTE_EVIDENCE_EVALUATED
+
+
+def test_live_hold_half_measured_is_partial():
+    from ml.promotion.stage_guard import DEMOTE_EVIDENCE_PARTIAL
+
+    p = propose_for_model(_entry("advisory"), attribution=_good_attr(), drift=None)
+    assert p.action == "hold"
+    assert p.evidence["demote_evidence_state"] == DEMOTE_EVIDENCE_PARTIAL
+    assert "drift" in p.reasons[0] and "not evaluable" in p.reasons[0]

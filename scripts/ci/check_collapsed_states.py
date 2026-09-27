@@ -1732,6 +1732,29 @@ CONTRACTS: List[Dict[str, object]] = [
             "synthetic fixtures."
         ),
     },
+    {
+        "name": "stage_guard.demote_evidence_state",
+        "producer": "ml/promotion/stage_guard.py",
+        # The producer OWNS the vocabulary: module constants
+        # DEMOTE_EVIDENCE_*; the consumer (readiness_report.py) branches on
+        # the constant names.
+        "producer_field": "",
+        "consumer_token": (r"\bDEMOTE_EVIDENCE_EVALUATED\b|"
+                           r"\bDEMOTE_EVIDENCE_PARTIAL\b|"
+                           r"\bDEMOTE_EVIDENCE_NOT_EVALUABLE\b"),
+        "states": ["evaluated", "partial", "not_evaluable"],
+        "why": (
+            "FIX-CA-22, 2026-09-27 (CA-B01-advisory-hold-when-nothing-"
+            "measured). THE PAIR THAT MUST NOT COLLAPSE is `not_evaluable` vs "
+            "`evaluated`: an advisory (live-influencing) head whose drift and "
+            "attribution were never computed held on 'no demote trigger "
+            "tripped' -- byte-identical to a measured-healthy head -- and the "
+            "readiness report rendered both as a bare model line. After "
+            "every shadow-log rotation (~25-29d) that was every advisory head "
+            "for ~1-2 weeks, so the daily readiness packet read 'fine' "
+            "exactly when nothing had been looked at."
+        ),
+    },
 ]
 
 # `# collapsed-state: <state> — <reason>`
