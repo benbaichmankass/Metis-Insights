@@ -85,8 +85,12 @@ def balance_none_refusal_message(account_name: str, exchange: str) -> str:
     )
 
 
-def _has_open_position(account_name: str, symbol: str) -> bool:
-    """Return True if account already has an open live trade for symbol."""
+def _has_open_position(account_name: str, symbol: str) -> Optional[bool]:
+    """Return True if account already has an open live trade for symbol.
+
+    ``None`` when the journal read fails ("could not look", FIX-CA-07) — the
+    caller refuses rather than reading a locked journal as "no position".
+    """
     import sqlite3
     from src.utils.paths import trade_journal_db_path
     db_path = trade_journal_db_path()
@@ -101,8 +105,12 @@ def _has_open_position(account_name: str, symbol: str) -> bool:
                 (account_name, symbol),
             ).fetchone()
         return bool(row and row[0] > 0)
-    except Exception:  # noqa: BLE001
-        return False
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_has_open_position: read failed for account=%s symbol=%s: %s "
+            "(could not look -> None)", account_name, symbol, exc,
+        )
+        return None
 
 
 # In-process pause sentinels (PR #122 will replace with persistent flags).
@@ -2100,6 +2108,41 @@ class Coordinator:
                     current_signed_qty = current_net_position_qty(
                         account.name, pkg.symbol,
                     )
+                    # FIX-CA-07 (CA-A02): an unreadable journal is "could not
+                    # look", not flat — reading it as 0.0 dispatched a fresh
+                    # full-size open on an account already holding the symbol.
+                    # Refuse this account for this package; the account stays
+                    # live (per-trade refusal with a logged cause).
+                    _holds_open = (
+                        has_open_trade_for_strategy(
+                            account.name, pkg.symbol, pkg.strategy,
+                        )
+                        if position_netting_guard_active_for(account.name)
+                        else False
+                    )
+                    if current_signed_qty is None or _holds_open is None:
+                        logger.warning(
+                            "[coordinator] net position unreadable for %s/%s "
+                            "— refusing package (not treating as flat)",
+                            account.name, pkg.symbol,
+                        )
+                        from src.units.accounts.execute import log_rejection_to_journal
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason="net_position_unreadable",
+                            status="rejected",
+                            sized_qty=0.0,
+                            margin_basis=margin_basis or None,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": "net_position_unreadable",
+                        })
+                        continue
                     _existing_pos_info = (
                         get_existing_position_info(account.name, pkg.symbol)
                         if current_signed_qty != 0 else None
@@ -2147,13 +2190,7 @@ class Coordinator:
                     # POSITION_NETTING_GUARD_ENABLED env flag was removed (Prime
                     # Directive: a required correctness fix must not sit behind a
                     # default-off gate that an env drop could silently revert).
-                    if (
-                        position_netting_guard_active_for(account.name)
-                        and delta.action in ("open", "increase")
-                        and has_open_trade_for_strategy(
-                            account.name, pkg.symbol, pkg.strategy,
-                        )
-                    ):
+                    if delta.action in ("open", "increase") and _holds_open:
                         _guard_reason = (
                             f"reentry_suppressed_netting_guard:{delta.action}"
                         )
@@ -2432,7 +2469,14 @@ class Coordinator:
                     # Legacy single-strategy / first-wins multiplexer
                     # path. Binary open-position guard stays — see
                     # block comment above for the rationale.
-                    if _has_open_position(account.name, pkg.symbol):
+                    _open = _has_open_position(account.name, pkg.symbol)
+                    if _open is None:
+                        risk_reason = "net_position_unreadable"
+                        raise RiskBreach(
+                            f"Account '{account.name}' open-position read for "
+                            f"{pkg.symbol} failed — refusing (not treating as flat)"
+                        )
+                    if _open:
                         risk_reason = "open_position_exists"
                         raise RiskBreach(
                             f"Account '{account.name}' already has an open "
