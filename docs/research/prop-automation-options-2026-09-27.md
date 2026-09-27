@@ -21,20 +21,76 @@ blocked. It does not mean the fact is absent.
 
 ---
 
+> ### ⚠️ CORRECTED 2026-09-27 (~10:00Z): platform
+>
+> **What the first version (merged in PR #13102) assumed:** breakout_1 runs on
+> **DXtrade**. It built option C (the DXtrade REST API) and D.6 step 0 (a
+> DXtrade REST login) on that assumption.
+>
+> **Why that was wrong to assume:** the assumption came from the repo's
+> June design docs. Those docs *describe* a DXtrade bridge; they never
+> *measured* which terminal the account is on. The operator believes
+> breakout_1 is on the proprietary Breakout Terminal. Breakout has two
+> platforms, and an account stays on the one it was bought on.
+>
+> **What this session established:** first-party material **cannot say which
+> platform breakout_1 is on.** It does say how to tell: *"Breakout terminal
+> accounts — access via your dashboard by clicking 'Open Terminal'. DXTrade
+> terminal accounts — access via https://app.breakoutprop.com/"* (S3).
+>
+> ⚠️ The on-screen name does not settle it. Breakout's **DXtrade**
+> white-label is *itself titled "Breakout Terminal"*. MEASURED 2026-09-27 by
+> this session: `curl https://wss.breakoutprop.com/` returned 200 with
+> `<title>Breakout Terminal</title>`, a `DXTFID` cookie,
+> `"about.us.logo":"dxTrade"` and `"client.totp.authentication.issuer":"dxTrade5"`.
+> So "we're on the Breakout terminal" and "we're on DXtrade" can both be true
+> of the same screen.
+>
+> **This version therefore specs both branches.** It makes identifying the
+> platform D.6 **step 0**, which is one operator answer and needs no
+> credentials. **Option C is downgraded**: see § C for the measured
+> `RBAC: access denied` on the DXtrade REST path. Sections changed: § 0,
+> § Which platform, § D.6, § D.8, § C, § B, § F, the ranking, the support
+> question, the roster note and the operator decisions. Everything else
+> (D.1–D.5, D.7, A, E) is platform-neutral and unchanged.
+
+## Which platform is breakout_1 on? (added by the correction)
+
+| evidence | what it shows | current or dated |
+|---|---|---|
+| Breakout FAQ 14215629 (S3, updated 2026-09-03) | Two terminals exist; an account keeps the one it was bought on. The **login path** identifies it: dashboard "Open Terminal" means the proprietary terminal, `app.breakoutprop.com` means DXtrade. | current, first-party |
+| FAQ 14215018 / 14215682 / 14215706 (S4, S23, S24; all 2026-03-25) | No migration. The proprietary terminal opens from the dashboard. The two mobile apps are *"two separate and distinct applications"*. | first-party; the terminal existed by 2026-03-25 |
+| X post from @breakoutprop (S25) | *"The Breakout terminal is now live in four new countries. Turkey. Great Britain. Australia. Canada. Global rollout coming soon."* The date **2026-04-06** is decoded from the post id, and the page itself **could not be read** (402). | first-party text via search title only; date inferred |
+| breakout_1's purchase | about 2026-06-16 (PB-20260616-004, `config/accounts.yaml`). **Both terminals existed then**, so the date does not decide it. | repo, dated June |
+| repo code and config (`breakout_routing.yaml` `dxtrade_symbol`, `breakout_executor.py`, `accounts.yaml` comments, `metacopier-bridge-DESIGN.md`) | All say DXTrade. **These are June design assumptions, never a measurement.** | dated 2026-06-16/17 |
+| prop-report issues #12808, #13086, #10521 (2026-08-30 → 2026-09-27) | The operator's screenshots are transcribed as "the Breakout terminal": account `823528`, exec ids like `38033351:6827565`, "Position Effect Closing", margin level. **Given the finding above, "Breakout terminal" is ambiguous.** No transcribed field is tied to a platform by any first-party source we have. | current, not decisive |
+
+**Verdict: UNDETERMINED from any source this session can read. The operator's
+belief (proprietary terminal) is the working hypothesis.** One operator answer
+settles it:
+
+> *"Do you reach breakout_1 by clicking **Open Terminal** on the Breakout
+> dashboard (portal.breakoutprop.com), or by logging in at
+> **app.breakoutprop.com** with a separate username?"*
+
+A secondary signal: if the terminal login page offers TOTP with an
+authenticator app that labels the entry `dxTrade5`, it is DXtrade.
+
 ## 0. The answer in five lines
 
 1. **D is ranked first, as the operator directed.** D is a bot that drives
-   breakout_1's own DXtrade terminal with the operator's own credentials, at our
+   breakout_1's own web terminal with the operator's own credentials, at our
    normal cadence. It is **gated on feasibility and cost, not on the terms.**
-   Its **first probe step also tests C**: DXtrade publishes a REST API that
-   authenticates with the *same* username, domain and password. If Breakout
-   has it switched on, D keeps its whole design but swaps DOM clicks for
-   documented REST calls. That is strictly better and needs no new credential.
-2. **D has a shelf life, tied to breakout_1 itself.** Breakout no longer sells
-   DXtrade accounts. New evaluations exist only on the proprietary "Breakout
-   Terminal", and existing DXtrade accounts cannot migrate. A breach or a
-   re-buy therefore moves us to a different UI, and the D build does not carry
-   over (S3, S4).
+   *(Corrected 2026-09-27.)* **Which terminal that is has not been
+   established**, so D's probe **step 0 is now identifying the platform**,
+   which takes one operator answer and no credentials (§ Which platform). The
+   DXtrade and proprietary branches differ in login, reachability and
+   feasibility (§ D.6).
+2. **The proprietary Breakout Terminal is the durable target; DXtrade is
+   not.** Breakout no longer sells DXtrade accounts. New accounts exist only
+   on the proprietary terminal, and accounts cannot migrate (S3, S4). A D
+   build for DXtrade dies with breakout_1. A build for the proprietary
+   terminal survives a re-buy. **No API was found for either** (§ C).
 3. **A (cut operator toil) is the fallback and is partly built already.** It
    has no ToS exposure. Screenshot parsing, the Telegram report grammar and the
    single `ingest_report` chokepoint all exist.
@@ -108,7 +164,7 @@ route is out of scope by construction** (operator re-scope, item 2).
 
 ---
 
-## Option D — a bot drives breakout_1's DXtrade terminal (LEAD)
+## Option D — a bot drives breakout_1's web terminal (LEAD; platform per § Which platform)
 
 ### D.1 What it is
 
@@ -218,31 +274,45 @@ same cycle.** They are never computed from a journal snapshot.
 - **Structure.** No SL or TP means no click. A size that rounds to zero means
   no click. A symbol absent from `breakout_routing.yaml` means no click.
 
-### D.6 Feasibility probe (smallest sequence that proves or kills D)
+### D.6 Feasibility probe (smallest sequence that proves or kills D). CORRECTED 2026-09-27
+
+*The first version's step 0 was a DXtrade REST login. It is replaced, because
+the platform is not established and the DXtrade REST path is refused at the
+gateway (§ C).*
 
 | step | what | "works" means | Tier |
 |---|---|---|---|
-| **0: C check (no browser)** | Using the operator's credentials from a VM secret, `POST` the documented DXtrade REST login (username + **domain** + password, S10) against breakout_1's DXtrade server. Then make one read call (account metrics or positions). Nothing else. | We get a token and a read returns breakout_1's balance. **If yes, C is the transport for everything below.** If the response is 401 or 403 with "API not permitted", or the IP is refused (S15: *"your broker or prop firm controls the IPs permitted"*), fall through to DOM. | 1-equivalent read, but it needs a Tier-2 **secret-sync** of the credential to the VM |
-| **1: read-only DOM login** | Playwright logs in and reads balance, positions, orders and whether each order has a comment/label field. It writes one `account_status` via `ingest_report`. **No order controls are touched.** | Login succeeds with default Chromium from the VM's IP, with **no bot challenge.** The values match the operator's own screen. Repeating it 24 times over a day does not force re-login beyond the session expiry. | same as step 0 |
-| **2: session keep-alive** | Run step 1 every 5 min for 72 h. | Session expiry and re-login work unattended. 2FA (if any) does not block unattended re-login. Measure selector stability. | same |
-| **3: one minimum-size bracket, operator watching** | A held **Tier-2** PR adds `place_bracket`. The executor places one minimum-size bracket on a real ticket while the operator watches the terminal live. | The entry, SL and TP all rest, as confirmed by the re-read. The report lands. Closing via TP/SL is picked up by reconciliation. | **Tier-2**, operator OK |
-| **4: soak** | Executor live on breakout_1's roster, with the manual bridge still emitting. | **14 days** with zero unconfirmed submits, zero orphans, zero naked positions and all closes reconciled. After that the manual ping becomes informational. | Tier-2 |
+| **0: identify the platform (no credentials)** | The operator answers the one question in § Which platform: dashboard "Open Terminal" or `app.breakoutprop.com`. | A definite answer, recorded on `PI-20260927-R6FQK6DS-0002`. **Nothing below is built until this is recorded.** | none (an operator answer) |
+| **1: unauthenticated reachability from the VM** | Default headless Playwright Chromium, run on the live VM, loads **only the login page** of the confirmed platform. DXtrade: `app.breakoutprop.com` (the host S3 names). Proprietary: `portal.breakoutprop.com/sign-in`, then "Open Terminal" after login. No credentials are entered. | The login form renders with **no bot challenge.** ⚠️ From this sandbox, `app.`, `portal.` and `trade.breakoutprop.com` all return **403 Cloudflare challenge** to non-browser clients (MEASURED 2026-09-27 with curl). `wss.breakoutprop.com` (a DXtrade login page) returned **200 with no challenge**. Whether a real browser from the VM's IP passes is exactly what this step measures. **If it gets a challenge, D is infeasible** under the no-evasion boundary. | Tier-2 held PR (a new script run on the VM) |
+| **2: read-only login** | Log in, read balance, equity, open positions and orders, and whether an order carries a label/comment field. Write **one** `account_status` via `POST /api/bot/prop/report` (or a dry print). **No order control is touched**; the probe has no code path that clicks one. | Login succeeds unattended. The values match the operator's screen. | Tier-2 held PR plus the operator's secrets |
+| **3: session keep-alive** | Repeat step 2 every 5 min for 72 h. | Re-login works unattended, and 2FA does not need a human each time. Selector stability is measured. | same |
+| **4: one minimum-size bracket, operator watching** | A **separate** held Tier-2 PR adds `place_bracket`. | Entry, SL and TP all rest, confirmed by re-read. The report lands. | Tier-2, operator OK |
+| **5: soak** | Executor live on breakout_1's roster, with the manual bridge still emitting. | 14 days with zero unconfirmed submits, orphans or naked positions. | Tier-2 |
+
+**Branch-specific feasibility, from what can be learned without logging in:**
+
+| | DXtrade branch (`app.breakoutprop.com`) | Proprietary branch (dashboard → "Open Terminal") |
+|---|---|---|
+| login | **username + password, plus TOTP 2FA and backup codes.** Seen in the DXtrade login page's own markup at `wss.breakoutprop.com` (`Dx2FAForm`, `securityCode`, `backupCode`, TOTP issuer `dxTrade5`), MEASURED 2026-09-27. A TOTP seed can be stored as a secret, so unattended login is feasible if the account has TOTP on or off (**not an emailed code**). | **unknown.** The dashboard at `portal.breakoutprop.com` is behind a Cloudflare challenge. One Google Play user review (third-party, 2026-06-09) describes an **email number-match verification** at sign-in. If that happens on every login, it is the *"hard 2FA … needs a human"* infeasibility below. INFERRED from one review, not verified. |
+| front door | the login page at `wss.` served with no challenge. `app.` returned a challenge to curl. | `portal.` returned a challenge to curl |
+| UI | the dxTrade web app. Charts are canvas (dxcharts/TradingView strings seen). Whether the **order ticket** is DOM or canvas is unknown until step 2. | unknown; the stack is behind Cloudflare. A "built on Kraken infrastructure, TradingView charts" claim is an unread search summary |
+| API fallback | the documented REST path is refused at the gateway (§ C) | none documented (0 hits in 94 FAQ articles, S1-series) |
+| shelf life | dies with breakout_1 | survives a re-buy |
 
 **Build effort (INFERRED, a planning figure, not a measurement):**
-- Steps 0–2: about 2–3 lane-days, including the secret-sync plumbing.
-- Step 3: about 3–5 lane-days for the order path, reconciliation, failure
+- Steps 1–3: about 2–3 lane-days, including the secret-sync plumbing.
+- Step 4: about 3–5 lane-days for the order path, reconciliation, failure
   handling and tests.
 - The soak is calendar time.
-- If step 0 succeeds, the order path is simpler: REST calls with defined
-  responses instead of DOM selectors.
 
 **What makes D infeasible** (each one is a finding to report, not a thing to
 work around):
 - a Cloudflare-style bot challenge or CAPTCHA at login from the VM. We
   *measured* this class on `breakoutprop.com` itself, where every fetch
   returned `cf-mitigated: challenge` (P2's `breakout-instruments-2026-09-27.md`
-  and S-could-not-look). Whether the **DXtrade terminal domain** does the same
-  is unknown until step 1;
+  and S-could-not-look). This session confirmed the same challenge on `app.`,
+  `portal.` and `trade.breakoutprop.com` (curl, 2026-09-27). Whether a real
+  browser from the VM passes is unknown until step 1;
 - hard 2FA on every login, such as an emailed code or an app push with no
   "remember device";
 - a canvas- or WebGL-rendered order ticket with no DOM or accessibility hooks,
@@ -272,9 +342,15 @@ work around):
 
 ### D.8 Credentials and 2FA
 
-- `BREAKOUT_DX_USERNAME`, `BREAKOUT_DX_PASSWORD` and `BREAKOUT_DX_DOMAIN` are
-  **Actions secrets synced to the VM env** through the existing
-  `sync-vm-secrets` route (the `credentials-and-vm-mutations` skill).
+- **Secret names depend on the step-0 answer** (corrected 2026-09-27). They
+  are **Actions secrets synced to the VM env** through the existing
+  `sync-vm-secrets` route (the `credentials-and-vm-mutations` skill):
+  - **DXtrade branch:** `BREAKOUT_DX_USERNAME`, `BREAKOUT_DX_PASSWORD`, and
+    `BREAKOUT_DX_TOTP_SEED` only if 2FA is enabled on the account.
+  - **Proprietary branch:** `BREAKOUT_PORTAL_EMAIL`, `BREAKOUT_PORTAL_PASSWORD`,
+    and `BREAKOUT_PORTAL_TOTP_SEED` only if the dashboard offers
+    authenticator-app 2FA. An emailed code on every login makes this branch
+    infeasible; there is no secret to store for it.
 - They never go into git, logs, screenshots or reports. The executor redacts
   them from Playwright traces, and **trace recording is off by default.**
 - The operator originates the values. Everything else is ours.
@@ -299,8 +375,22 @@ by hand, and it reports through the same grammar).
   account's own platform credentials. Default rate limit: *"10 per second"*.
 - **The gate:** *"Brokers and prop firms may decide to open up the APIs for
   external use, most do."* Also: *"your broker or prop firm controls the IPs
-  permitted"* (S15). **Whether Breakout has it open is unknown, and D.6 step 0
-  answers it in one call.**
+  permitted"* (S15).
+- ⚠️ **CORRECTED 2026-09-27: C is downgraded to "blocked, pending support".**
+  MEASURED by this session, unauthenticated, from the sandbox (not the VM's
+  IP):
+  - `GET https://wss.breakoutprop.com/dxsca-web/` returned `403 RBAC: access
+    denied`.
+  - `POST …/dxsca-web/login` with an empty body returned `403`. That is refused
+    at the gateway *before* any credential check; a disabled-credentials
+    case would be a 400/401.
+  - The same host serves the DXtrade login page with a 200.
+
+  INFERRED: Breakout's gateway does not expose the REST API on this host to
+  arbitrary clients. It may be IP-allowlisted (S15), so the VM's IP *could*
+  differ, but nothing suggests it.
+- **C also does not apply at all if breakout_1 is on the proprietary
+  terminal**, which has no documented API.
 - **Credentials:** the same three as D. Nothing goes to a third party.
 - **ToS risk:** the same as D or lower. It is the platform vendor's documented
   interface, not UI automation.
@@ -309,7 +399,7 @@ by hand, and it reports through the same grammar).
   to use the REST API is revoked"*, S10) shows up as a 401 and halts.
 - **Effort (INFERRED):** lower than D's order path, about 2–4 lane-days after
   the probe.
-- **Shelf life:** the same as D. DXtrade only, so breakout_1 only (S3, S4).
+- **Shelf life:** DXtrade only, so breakout_1 only (S3, S4).
 
 ## Option A — stay manual, cut the toil (FALLBACK)
 
@@ -350,9 +440,11 @@ by hand, and it reports through the same grammar).
   copier adds a vendor-side failure surface (lag, divergence) that we cannot
   reconcile except through its webhooks.
 - **Effort:** low for our side. It is vendor setup.
-- **Verdict:** rank it last. It needs the same probe (is DXtrade API access
-  open for Breakout?) as C. If that is open, C does the same job without the
-  third party.
+- **Verdict:** rank it third. Copiers reach DXtrade through its API, and that
+  API is refused at Breakout's gateway (§ C, MEASURED 2026-09-27). On the
+  proprietary terminal, Copygram says it is *"not a direct Copygram
+  destination"* (S11). **B is effectively unavailable on either branch**
+  unless support says otherwise.
 
 ## Option E — Apex (for comparison; details in the companion doc)
 
@@ -377,9 +469,11 @@ Option E is therefore **not an automation option.** It is ranked last.
 
 ## Option F — other routes found
 
-- **F1: a Breakout Terminal API.** If Breakout publishes an API for its own
-  terminal, it is the only automation route that survives a re-buy. Nothing
-  first-party was found and the candidate hosts were Cloudflare-blocked. **Ask
+- **F1: a proprietary Breakout Terminal API.** If Breakout publishes an API
+  for its own terminal, it is the best route of all: official, and it
+  survives a re-buy. Nothing first-party was found (0 hits for
+  api/webhook/"API key" across all 94 FAQ articles; probe check: the same
+  search finds "DXTrade"). The candidate hosts are Cloudflare-blocked. **Ask
   support** (question text below).
 - **F2: move automation to another venue.** We checked Apex (§ E) and ruled
   it out: automation is banned there. No other futures prop was evaluated in
@@ -391,27 +485,41 @@ Option E is therefore **not an automation option.** It is ranked last.
 
 | rank | option | gate | why |
 |---|---|---|---|
-| **1** | **D, with C as its transport if D.6 step 0 passes** | feasibility probe D.6 steps 0–2 (read-only) | Operator-directed lead. No first-party clause read prohibits it. Credentials stay ours. The existing ticket, report and reconcile path is reused whole. |
-| 2 | A (A1–A3) | none | Zero ToS risk. It is the fallback if D.6 kills D, and worth doing anyway because D's soak keeps the manual path live. |
-| 3 | B (copier) | written confirmation from Breakout plus MetaCopier confirming Breakout | Highest ToS exposure of the Breakout options (it shares access). C beats it whenever it would work. |
-| 4 | E (Apex) | none possible; the ban is explicit | Automation is prohibited outright on all Apex account types, and overnight holds are banned. See the companion doc's verdict. |
+*(Re-ranked 2026-09-27 after the platform correction.)*
+
+| rank | option | gate | why |
+|---|---|---|---|
+| **1** | **D on the confirmed platform** | D.6 step 0 (operator answer), then step 1 (no challenge from the VM) | Operator-directed lead. No first-party clause read prohibits it. Credentials stay ours. The existing ticket, report and reconcile path is reused whole. The DXtrade branch has a known, storable login (user/pass/TOTP); the proprietary branch may be blocked by emailed-code login. |
+| 2 | A (A1–A3) | none | Zero ToS risk. It is the fallback if D.6 kills D, and worth doing anyway. |
+| 3 | F1 (proprietary-terminal API) | support answer | The best route if it exists; nothing found today. |
+| 4 | C (DXtrade REST) | support answer; gateway currently refuses it | MEASURED `403 RBAC: access denied` before auth. Applies only if breakout_1 is DXtrade. |
+| 5 | B (copier) | needs C's API, or a copier supporting the proprietary terminal | Unavailable on either branch as far as we can see, and has the highest ToS exposure. |
+| 6 | E (Apex) | none possible; the ban is explicit | Operator confirmed do-not-pursue 2026-09-27 (`PI-20260927-R6FQK6DS-0001`, closed). |
 
 ### The one question for Breakout support (the operator sends it; drafted here)
 
 The operator chose not to gate D on the terms. The question is still worth
-asking, because the answer is free and it also settles C and F1.
+asking, because the answer is free. It settles the platform question, the
+DXtrade sunset question, C and F1.
 
-> Hello — I hold a Breakout funded/evaluation account on the **DXTrade**
-> terminal (account: \[id\]). I trade my own systematic strategy, a few trades
-> a day on hourly bars, always with a stop-loss and take-profit attached. Two
-> questions:
-> 1. Is the **DXtrade REST / Push API** enabled for Breakout accounts, and may
->    I place and manage my own orders through it from my own server, using my
->    own login (no third party involved)? If it is not enabled, may I place my
->    own orders through the web terminal with a browser-automation script
->    running on my own server under my own login?
-> 2. Does the **Breakout Terminal** offer, or plan to offer, an API for account
->    holders?
+*(Rewritten 2026-09-27 for the platform correction. The earlier draft
+assumed DXtrade.)*
+
+> Hello — I hold a Breakout account (account number \[823528 — operator to
+> confirm\]). I trade my own systematic strategy: a few trades a day on hourly
+> bars, always with a stop-loss and take-profit attached. I have some
+> questions about platforms and automation.
+> 1. **Which terminal is my account on**, the Breakout terminal or DXTrade?
+> 2. **Is the DXTrade terminal being retired?** If so, on what date, and what
+>    happens to existing DXTrade accounts?
+> 3. Does the **Breakout terminal** offer an API for account holders (REST,
+>    WebSocket, or API keys), or is one planned? If so, where is it
+>    documented?
+> 4. For DXTrade accounts, is the **DXTrade REST/Push API** enabled for
+>    Breakout, and from which IPs?
+> 5. If no API is available, **may I place my own orders through the web
+>    terminal with a browser-automation script** running on my own server,
+>    under my own login, with no third party involved?
 >
 > I want to stay fully within the rules. Please confirm in writing either way.
 
@@ -428,15 +536,16 @@ asking, because the answer is free and it also settles C and F1.
   `ict_scalp_*_15m` legs. INFERRED; each still needs its own prop-EV row (P2's
   `w6-crypto-candidates-2026-09-27.md` on branch `claude/w6-prop-candidates`).
 - **Non-crypto legs (S&P500, XYZ100, SILVER, CL) exist only on the Breakout
-  Terminal** (S7, and P2's `breakout-instruments-2026-09-27.md`). **D and C as
-  specced (DXtrade) cannot reach them.** Automating them would need F1 or a
-  second D build against the Breakout Terminal UI, *and* a Breakout Terminal
-  account, which breakout_1 is not. P2's non-crypto scoring
+  Terminal** (S7, and P2's `breakout-instruments-2026-09-27.md`). *(Corrected
+  2026-09-27.)* **If breakout_1 is on the proprietary terminal (the
+  operator's belief), these instruments are already tradable on it**, and a D
+  build on that branch reaches them too. If it is on DXtrade they are
+  unreachable on it. P2's non-crypto scoring
   (`mes_trend_long_1d`, `spy_*`, `qqq_*`, `slv_pullback_1d`, `uso_trend_1h`)
   is therefore only reachable on a **new** Breakout Terminal account or on
   Apex (futures).
-- **A two-account setup** (keep DXtrade breakout_1 and add a Breakout
-  Terminal account for non-crypto) runs into *"trading multiple accounts from
+- **A two-account setup** (if breakout_1 turns out to be DXtrade and a
+  proprietary-terminal account is added for non-crypto) runs into *"trading multiple accounts from
   the same… IP address"* during an **evaluation** (S1). Funded accounts may
   stack to $200k combined (S17). The automation host must not trade two
   *evaluations* from one IP.
@@ -445,11 +554,13 @@ asking, because the answer is free and it also settles C and F1.
 
 ## Operator decisions this spec raises (filed to the pipeline)
 
-1. **`PI-20260927-R6FQK6DS-0002`: authorise the D.6 step 0–2 read-only probe.** It needs the three DXtrade
-   credentials as Actions secrets. The operator originates them; Claude syncs
-   them to the VM (Tier-2 secret-sync, one OK).
+1. **`PI-20260927-R6FQK6DS-0002`: the read-only probe.** The operator
+   pre-authorised it by popup at about 2026-09-27 09:42Z, *conditional on the
+   platform being established first*. **The platform is not established**
+   (§ Which platform), so D.6 step 0, one operator answer, comes first. The
+   secrets it then needs depend on that answer (§ D.8).
 2. **`PI-20260927-R6FQK6DS-0003`: send the Breakout support question** above.
-3. The Apex verdict is `PI-20260927-R6FQK6DS-0001` (companion doc).
+3. The Apex verdict, `PI-20260927-R6FQK6DS-0001`, was **closed** by the operator (confirmed do-not-pursue, 2026-09-27).
 
 ---
 
@@ -480,6 +591,11 @@ Retrieved 2026-09-27 by this lane's research agents with WebFetch/WebSearch.
 | S18 | Apex Prohibited Activities ("No Automation or Algorithm Usage allowed") | https://apextraderfunding.com/help-center/getting-started/prohibited-activities/ | Apex (1st) | published 2026-09-24/25 (likely a site-wide re-publish) |
 | S19 | Apex legacy PA compliance (automation penalty) | https://apextraderfunding.com/help-center/performance-accounts-pa/legacy-performance-account-pa-compliance/ | Apex (1st) | same |
 | S20 | Tradovate API access requirements | https://api.tradovate.com/ | Tradovate (1st) | undated |
+| S23 | Open Terminal from the dashboard | https://intercom.help/breakoutprop/en/articles/14215682 | Breakout (1st) | 2026-03-25 |
+| S24 | Two separate mobile apps | https://intercom.help/breakoutprop/en/articles/14215706 | Breakout (1st) | 2026-03-25 |
+| S25 | "The Breakout terminal is now live in four new countries…" (search-result title; page 402, date decoded from the post id) | https://x.com/breakoutprop/status/2041226299449250236 | Breakout (1st), could not open | 2026-04-06 (inferred) |
+| S26 | Breakout's DXtrade login page, titled "Breakout Terminal" (dxTrade markup); `/dxsca-web/` returns `403 RBAC: access denied` | https://wss.breakoutprop.com/ | measured by this session with curl | 2026-09-27 |
+| S27 | Google Play listing ("backed by Kraken"; user review describing email verification) | https://play.google.com/store/apps/details?id=com.breakoutprop.app | Breakout (1st) listing; the review is 3rd party | updated 2026-09-19 |
 
 **Could not look** (Cloudflare 403 challenge, or a connection reset on
 web.archive.org):
