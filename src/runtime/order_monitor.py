@@ -867,6 +867,25 @@ def _package_open_legs(db, open_pkg: dict) -> tuple:
     return rows, "resolved"
 
 
+# Per-package close rotation (FIX-CA-02 / CA-A01-006): order_package_id → the id
+# of the leg whose close attempt FAILED on its last tick. The next tick tries the
+# legs after it first, so one leg that cannot close (a refused order, an
+# unsupported integration, a market-session defer) never starves its siblings.
+# In-process; a restart simply starts again from the linked head.
+_PACKAGE_CLOSE_SKIP: Dict[Any, Any] = {}
+
+
+def _legs_after_failed(legs: list, failed_id) -> list:
+    """``legs`` rotated so the leg after ``failed_id`` comes first and the failed
+    leg comes last. Unchanged when ``failed_id`` is None or no longer open."""
+    if failed_id is None:
+        return list(legs)
+    for i, leg in enumerate(legs):
+        if str(leg.get("id")) == str(failed_id):
+            return list(legs[i + 1:]) + list(legs[:i + 1])
+    return list(legs)
+
+
 def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                   summary: _StrategyTickSummary) -> None:
     """Translate a non-None monitor verdict into DB writes.
@@ -985,72 +1004,93 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
             summary.closed_count += 1
             return
 
-        # Close-retry cooldown (BL-20260624-MHG-CLOSE-CONFIRM, follow-up). When a
-        # prior close was ACCEPTED but never confirmed flat (IBClient.close →
-        # retCode 1 "not confirmed flat" — e.g. a venue that can't fill right now:
-        # market closed for the contract, gateway mid-reset), re-attempting the
-        # close every tick would cancel the re-armed protective bracket (close()
-        # Step 1) and place another non-filling order — churn that leaves the
-        # position briefly naked each tick and keeps cancelling the very stop that
-        # would flatten it when the venue reopens. While cooling down we DEFER the
-        # active close and leave the bracket armed to do the job; the marker is set
-        # below on an unconfirmed close and cleared on a confirmed one.
-        # ``IB_CLOSE_RETRY_COOLDOWN_S <= 0`` disables (retry every tick).
-        _close_key = (
-            str(matched_trade.get("account_id") or ""),
-            str(matched_trade.get("symbol") or ""),
-            str(matched_trade.get("direction") or "").lower(),
-        )
+        # WHICH LEG THIS TICK (FIX-CA-02 / CA-A01-006). Still ONE exchange close
+        # per tick (the per-tick-cost and shared-IB-socket reasons above), but it
+        # is the first leg that will actually be ATTEMPTED — not blindly legs[0].
+        # Effectuating only the linked head meant that while its close kept
+        # failing, was wedge-suppressed, or sat in the IB cooldown, every sibling
+        # leg was never attempted at all, for as long as the head stayed stuck.
+        # A leg that is cooling down or wedge-suppressed is skipped THIS tick; a
+        # leg whose attempt fails is rotated to the back for the NEXT tick
+        # (`_PACKAGE_CLOSE_SKIP`), so a permanently failing head cannot starve
+        # the rest. Single-leg packages behave exactly as before.
         _cooldown_s = _close_retry_cooldown_seconds()
-        if _cooldown_s > 0:
-            _last_unconfirmed = _PENDING_CLOSE_RETRY_COOLDOWN.get(_close_key)
-            if _last_unconfirmed is not None:
-                _age = (datetime.now(timezone.utc) - _last_unconfirmed).total_seconds()
-                if _age < _cooldown_s:
-                    logger.info(
-                        "order_monitor: close retry cooling down for %s "
-                        "(%.0fs/%ss since last unconfirmed close) — bracket left "
-                        "armed, deferring active close. pkg=%s",
-                        _close_key, _age, _cooldown_s, pkg_id,
-                    )
-                    summary.no_change_count += 1
-                    return
-                # Window elapsed → drop the stale marker and retry the close.
-                _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
-
-        # Mark this (account, symbol) as actively-closing THIS tick so the
-        # broker-naked equity re-arm (which runs later in the same tick) does not
-        # re-place a protective OCO on a position we're trying to flatten — that
-        # fight is BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT (see the set's comment).
-        mark_active_close(
-            matched_trade.get("account_id"), matched_trade.get("symbol"),
-        )
-
-        # DO NOT RE-ATTEMPT A CLOSE WE HAVE ALREADY PROVED CANNOT WORK.
-        # `classify_share_hold`'s own constant says of `broker_cancel_wedged`:
-        # "NO app-level retry can clear it" — and this loop re-attempted the
-        # alpaca_paper GLD close every ~35s for twelve days anyway, cancelling
-        # the position's own resting protective bracket on each pass. Operator,
-        # 2026-09-08: "this has been going on for weeks, and it needs to be
-        # fixed already".
-        #
-        # ⚠️ A CADENCE, NOT A STOP — see `close_wedge_standing`'s section header.
-        # Every probe re-runs the full classification, refreshes the ledger's
-        # `last_seen` (which `sweep_vanished` reads, so suppressing forever would
-        # MANUFACTURE a `vanished_unattributed`), and re-arms per-tick retry the
-        # instant the evidence changes. It keys on the EVIDENCED determination
-        # only, never on the failure repeating, and every uncertainty — an
-        # unreadable ledger, an unparseable timestamp, a raise — ATTEMPTS.
-        _retry = _close_retry_decision_for(matched_trade)
-        if not _retry.attempt:
-            logger.info(
-                "order_monitor: close SUPPRESSED (evidenced broker wedge) "
-                "pkg=%s account=%s symbol=%s — %s. The wedge is still carried "
-                "in close_wedge_standing.json and in the digest; the DB row "
-                "stays OPEN and the protective bracket stays RESTING.",
-                pkg_id, matched_trade.get("account_id"),
-                matched_trade.get("symbol"), _retry.reason,
+        matched_trade = None
+        _retry = None
+        for _cand in _legs_after_failed(legs, _PACKAGE_CLOSE_SKIP.get(pkg_id)):
+            _cand_key = (
+                str(_cand.get("account_id") or ""),
+                str(_cand.get("symbol") or ""),
+                str(_cand.get("direction") or "").lower(),
             )
+            # Close-retry cooldown (BL-20260624-MHG-CLOSE-CONFIRM, follow-up).
+            # When a prior close was ACCEPTED but never confirmed flat
+            # (IBClient.close → retCode 1 "not confirmed flat" — e.g. a venue
+            # that can't fill right now: market closed for the contract, gateway
+            # mid-reset), re-attempting the close every tick would cancel the
+            # re-armed protective bracket (close() Step 1) and place another
+            # non-filling order — churn that leaves the position briefly naked
+            # each tick and keeps cancelling the very stop that would flatten it
+            # when the venue reopens. While cooling down we DEFER the active
+            # close and leave the bracket armed to do the job; the marker is set
+            # below on an unconfirmed close and cleared on a confirmed one.
+            # ``IB_CLOSE_RETRY_COOLDOWN_S <= 0`` disables (retry every tick).
+            if _cooldown_s > 0:
+                _last_unconfirmed = _PENDING_CLOSE_RETRY_COOLDOWN.get(_cand_key)
+                if _last_unconfirmed is not None:
+                    _age = (datetime.now(timezone.utc)
+                            - _last_unconfirmed).total_seconds()
+                    if _age < _cooldown_s:
+                        logger.info(
+                            "order_monitor: close retry cooling down for %s "
+                            "(%.0fs/%ss since last unconfirmed close) — bracket "
+                            "left armed, deferring active close. pkg=%s",
+                            _cand_key, _age, _cooldown_s, pkg_id,
+                        )
+                        continue
+                    # Window elapsed → drop the stale marker and retry the close.
+                    _PENDING_CLOSE_RETRY_COOLDOWN.pop(_cand_key, None)
+
+            # Mark this (account, symbol) as actively-closing THIS tick so the
+            # broker-naked equity re-arm (which runs later in the same tick) does
+            # not re-place a protective OCO on a position we're trying to flatten
+            # — that fight is BL-20260708-ALPACA-REARM-VS-CLOSE-FIGHT (see the
+            # set's comment).
+            mark_active_close(_cand.get("account_id"), _cand.get("symbol"))
+
+            # DO NOT RE-ATTEMPT A CLOSE WE HAVE ALREADY PROVED CANNOT WORK.
+            # `classify_share_hold`'s own constant says of `broker_cancel_wedged`:
+            # "NO app-level retry can clear it" — and this loop re-attempted the
+            # alpaca_paper GLD close every ~35s for twelve days anyway, cancelling
+            # the position's own resting protective bracket on each pass.
+            # Operator, 2026-09-08: "this has been going on for weeks, and it
+            # needs to be fixed already".
+            #
+            # ⚠️ A CADENCE, NOT A STOP — see `close_wedge_standing`'s section
+            # header. Every probe re-runs the full classification, refreshes the
+            # ledger's `last_seen` (which `sweep_vanished` reads, so suppressing
+            # forever would MANUFACTURE a `vanished_unattributed`), and re-arms
+            # per-tick retry the instant the evidence changes. It keys on the
+            # EVIDENCED determination only, never on the failure repeating, and
+            # every uncertainty — an unreadable ledger, an unparseable timestamp,
+            # a raise — ATTEMPTS.
+            _cand_retry = _close_retry_decision_for(_cand)
+            if not _cand_retry.attempt:
+                logger.info(
+                    "order_monitor: close SUPPRESSED (evidenced broker wedge) "
+                    "pkg=%s account=%s symbol=%s — %s. The wedge is still "
+                    "carried in close_wedge_standing.json and in the digest; the "
+                    "DB row stays OPEN and the protective bracket stays RESTING.",
+                    pkg_id, _cand.get("account_id"), _cand.get("symbol"),
+                    _cand_retry.reason,
+                )
+                continue
+            matched_trade, _retry, _close_key = _cand, _cand_retry, _cand_key
+            break
+
+        if matched_trade is None:
+            # Every open leg is cooling down or wedge-suppressed: a quiet
+            # no-change, exactly as a single suppressed leg always was.
             summary.no_change_count += 1
             return
         if _retry.state == "reprobe_due":
@@ -1087,6 +1127,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                     pkg_id, matched_trade.get("account_id"), err_str,
                 )
                 _clear_close_fail_alert_state(_close_key)  # a defer clears the streak
+                _PACKAGE_CLOSE_SKIP[pkg_id] = matched_trade.get("id")
                 summary.no_change_count += 1
                 return
             # Bybit signals "position already gone" with retCode 30031
@@ -1121,6 +1162,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                     account_id=matched_trade.get("account_id"),
                     integration=ex_result.get("integration"), err_str=err_str,
                 )
+                _PACKAGE_CLOSE_SKIP[pkg_id] = matched_trade.get("id")
                 summary.error_count += 1
                 summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
                 return
@@ -1173,6 +1215,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
                             "order_monitor: close-failure alert enqueue failed "
                             "pkg=%s: %s", pkg_id, exc,
                         )
+                _PACKAGE_CLOSE_SKIP[pkg_id] = matched_trade.get("id")
                 summary.error_count += 1
                 summary.errors.append(f"{pkg_id}: exchange close failed: {err_str}")
                 return
@@ -1182,6 +1225,7 @@ def _apply_update(db, open_pkg: dict, verdict: Dict[str, Any],
         # direction) so a future close isn't needlessly deferred / re-alerted.
         _PENDING_CLOSE_RETRY_COOLDOWN.pop(_close_key, None)
         _clear_close_fail_alert_state(_close_key)
+        _PACKAGE_CLOSE_SKIP.pop(pkg_id, None)
         # A standing broker-side wedge for this key is now OVER, and this is the
         # only path that can say so with ATTRIBUTION — we watched the close
         # confirm. Retiring it here (rather than letting the staleness sweep find
