@@ -331,10 +331,64 @@ def enumerate_live_legs(
     return legs
 
 
+def live_symbol_contenders(
+    strategy: str, account_id: str,
+    config: Dict[str, Any], strategies: Dict[str, Any],
+) -> List[str]:
+    """Other LIVE strategies declared on ``account_id`` that share >=1 symbol
+    with ``strategy`` — the same-account, same-symbol single-winner-per-tick
+    contest ``src/runtime/intents.py`` (``aggregate_intents`` /
+    ``arbitration_fanout.plan_per_account_election``) runs before an intent
+    ever reaches ``Coordinator.multi_account_execute``. Exactly ONE strategy
+    can win an (account, symbol) slot per tick; every other candidate that
+    tick produces no order, and — per ``src/runtime/intents.py``'s own
+    documented example (``eth_pullback_prop_2h`` beating ``trend_donchian_eth``
+    head-to-head) — losing this election has NOTHING to do with
+    ``execution: shadow`` vs ``live``, so a live, mechanically-healthy leg can
+    lose it every single time it is actionable.
+
+    A ``starved`` leg (E18 shape: intents > 0, received == 0) with >=1
+    live_symbol_contenders here is NOT distinguishable, from the intents/
+    received counts alone, from a leg that is simply outranked by a sibling
+    on every contested tick rather than one that never reaches dispatch —
+    the two need different remedies (a live per-tick election trace vs a
+    dispatch/config fix) and must not be graded identically. See
+    ``scripts/ops/soak_book_grade.py::disposition_for_leg``, which reads this
+    the same way it already reads ``has_open_position``: as a reason to grade
+    ``insufficient-data`` rather than ``kill``.
+
+    Pure; no I/O. Same shadow/enabled filter as :func:`enumerate_live_legs`,
+    so a shadow-only rival (which cannot win a LIVE order regardless of the
+    election) is not counted as a contender.
+    """
+    strat_by_name = {
+        s.get("name"): s for s in (strategies.get("strategies") or []) if s.get("name")
+    }
+    acc = next((a for a in config.get("accounts") or [] if a.get("id") == account_id), None)
+    if acc is None:
+        return []
+    target_symbols = set((strat_by_name.get(strategy) or {}).get("symbols") or [])
+    if not target_symbols:
+        # No declared symbol for this strategy — we cannot say what it would
+        # contend for, so report no contenders rather than guess.
+        return []
+    contenders: List[str] = []
+    for other_name in acc.get("strategies") or []:
+        if other_name == strategy:
+            continue
+        srow = strat_by_name.get(other_name)
+        if srow is not None and (srow.get("execution") == "shadow" or srow.get("enabled") is False):
+            continue
+        other_symbols = set((srow or {}).get("symbols") or [])
+        if target_symbols & other_symbols:
+            contenders.append(other_name)
+    return sorted(contenders)
+
+
 __all__ = [
     "LEG_UNREADABLE", "LEG_NO_INTENTS", "LEG_STARVED", "LEG_FLOWING", "LEG_STATES",
     "PROP_RECEIVED_STATUSES", "PROP_NOT_RECEIVED_STATUSES",
     "count_intents", "count_intent_episodes",
     "count_received_standard", "count_received_prop",
-    "assess_leg", "enumerate_live_legs",
+    "assess_leg", "enumerate_live_legs", "live_symbol_contenders",
 ]
