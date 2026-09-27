@@ -390,3 +390,5 @@ jobs:
               state: 'closed',
               state_reason: 'not_planned'
             });
+
+# no-durable-result: inbound manual-bridge relay (POST fill/close report-back), not research

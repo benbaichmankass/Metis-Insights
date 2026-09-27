@@ -377,6 +377,8 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/bracket_expectation_census.py", "--selftest"],
             ["python3", "scripts/research/adx_entry_distribution.py", "--selftest"],
             ["python3", "scripts/research/bracket_reachability_audit.py", "--selftest"],
+            # C2 — the dukascopy-span-probe.yml -> research-result mapper.
+            ["python3", "scripts/research/dukascopy_span_probe_result.py", "--self-test"],
             ["python3", "-m", "pytest", "tests/test_check_research_index.py", "-q"],
         ],
     },
@@ -1542,6 +1544,22 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/m20_sweep_result.py", "--self-test"],
             ["python3", "scripts/ci/check_research_results.py", "--self-test"],
             ["python3", "scripts/ci/check_research_results.py"],
+        ],
+    },
+    {
+        "name": "research-workflow-landing-guard",
+        # C2 (docs/claude/work/MANAGER-CHECKLIST.json) — closes
+        # PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT.
+        # Whole-tree, UNGATED (same reasoning as soak-registered-guard /
+        # unwired-artifact-guard's --dir mode): a diff-scoped version of "does
+        # every artifact-producing workflow land durably" passes vacuously on
+        # nearly every PR, which is a green that checks nothing. The debt this
+        # PR did not convert is carried in the script's own dated `BASELINE`,
+        # visible and shrink-only.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_research_workflow_landing.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_workflow_landing.py"],
         ],
     },
     {
