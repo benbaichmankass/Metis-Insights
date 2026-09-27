@@ -135,6 +135,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -213,6 +214,31 @@ def _age_days(iso: str, now: _dt.datetime) -> float:
     return (now - _dt.datetime.fromisoformat(iso)).total_seconds() / 86400.0
 
 
+#: A directory-store record's filename is `{YYYYMMDDTHHMMSSffffff}Z-{rand}.json`
+#: (`scripts/ops/pipeline.py::_record_filename()`), stamped with the AUTHORING
+#: session's own `datetime.now(timezone.utc)` at the moment the record was
+#: written -- independent of git entirely. This is the row's own declared
+#: timestamp, in the sense CLAUDE.md means it, and it is what `record_ages()`
+#: now prefers. See that function's docstring for why: this field used to be
+#: read (correctly) but never consulted, and the git commit date used instead
+#: is NOT the same thing.
+_FILENAME_TS_RE = re.compile(r"^(\d{8}T\d{12})Z-")
+
+
+def _filename_timestamp(name: str) -> Optional[_dt.datetime]:
+    """The authoring timestamp embedded in a directory-store record's
+    filename, or ``None`` when `name` does not carry one (a legacy flat-file
+    `"line N"` source, or a malformed name -- both fall back to git)."""
+    match = _FILENAME_TS_RE.match(name)
+    if not match:
+        return None
+    try:
+        parsed = _dt.datetime.strptime(match.group(1), "%Y%m%dT%H%M%S%f")
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=_dt.timezone.utc)
+
+
 def record_ages(
     repo: pathlib.Path,
     path: str,
@@ -221,20 +247,57 @@ def record_ages(
     ids: List[str],
     now: Optional[_dt.datetime] = None,
 ) -> Tuple[Dict[str, Optional[float]], Dict[str, int]]:
-    """CONTENT AGE IN DAYS, and an observed-record count, per id -- from git.
+    """CONTENT AGE IN DAYS, and an observed-record count, per id.
 
     ⚠️ RE-POINTED 2026-09-24 (E64): the register moved from one shared
     append-only file to a directory, one IMMUTABLE file per record
     (`scripts/ops/pipeline.py`'s module docstring has the full reasoning).
-    That removes the reason the ORIGINAL design here had to diff many
+    That removed the reason the ORIGINAL design here had to diff many
     historical snapshots of one shared file to find when a row's content
-    last changed: a record file is never edited after it is written, so the
-    commit that ADDED the file currently holding an id's latest record --
-    `sources[id]`, from `pipeline.read_log()` -- already IS the answer. One
-    `git log -1` per due+owed row replaces a full-history walk-and-diff.
+    last changed: a record file is never edited after it is written.
 
-    `None` age means no source file could be resolved, or git has no history
-    for it yet (staged but uncommitted) -- NOT MEASURABLE, never zero.
+    ⚠️ **CORRECTED 2026-09-27 (D11, `PI-20260927-EPMBGUYB-0003`) -- THE
+    PARAGRAPH THIS REPLACED WAS WRONG, AND FIELD BEAT IT.** It said "the
+    commit that ADDED the file ... already IS the answer" and read that
+    commit's date with `git log -1 --format=%cI`. **That is the commit's
+    COMMITTER date -- when the PR carrying the file was MERGED -- not when
+    the record was WRITTEN**, and this repo lands PRs through a serialized
+    self-land queue (`scripts/ops/claim_merge_slot.py`) that can hold a ready
+    PR for anywhere from minutes to most of a day before its slot frees.
+    MEASURED 2026-09-27 over the 110 most recent non-migration record files:
+    **every one** (0 of 110) has a committer date at or after its own
+    filename timestamp (never before, as expected), median gap **35.6
+    minutes**, mean **107.6 minutes**, max **1673.7 minutes (~27.9h)**, and
+    **98 of 110 (89%)** exceed 10 minutes. Using the committer date as
+    "content age" was therefore measuring *time since this PR's merge-queue
+    slot freed*, not *time since the row last changed* -- a value that moves
+    with queue congestion, not with the row. That is the exact, confirmed
+    mechanism behind the intermittent reads the filing row describes: a row
+    freshly re-routed by a lane (filename timestamp seconds old) still read
+    as its STALE prior generation on a CI run whose checkout predated that
+    PR's merge, then read fresh once the merge landed minutes later -- same
+    row, same eventual git history, two different snapshots of an
+    asynchronous queue. Confirmed NOT the cause, checked directly against the
+    code and this workflow rather than assumed: (a) naive/aware timezone
+    confusion -- every timestamp on this path (`%cI`'s ISO offset, this
+    module's `_dt.datetime.now(_dt.timezone.utc)`) is aware and correctly
+    offset, and Python's aware-datetime subtraction is correct for any two
+    differing offsets; (b) a shallow clone -- `.github/workflows/guards.yml`
+    (the ONLY workflow that runs this guard, confirmed by grepping
+    `.github/workflows/` for `check_operator_owed`) checks out with
+    `fetch-depth: 0`, and its "Run guards" step never shallows further.
+
+    So: prefer the record's OWN authoring timestamp -- embedded in its
+    filename by `pipeline._record_filename()`, a plain `datetime.now(UTC)` at
+    write time, untouched by any subsequent git operation -- and fall back to
+    the git commit date only when that cannot be read (the legacy flat-file
+    store's `"line N"` sources, or a malformed filename). The filename
+    timestamp cannot be reset by a merge landing late, because it is fixed at
+    write time and carried inside the file's own name rather than derived
+    from when git happened to see it.
+
+    `None` age means no source file could be resolved and no timestamp -- of
+    either kind -- could be read from it -- NOT MEASURABLE, never zero.
 
     The record count (this id's total RAW records, from `pipeline.read_log`'s
     unfolded stream) replaces the old snapshot-diff "transitions" count: it
@@ -248,6 +311,14 @@ def record_ages(
         if not src:
             ages[row_id] = None
             continue
+
+        fname_ts = _filename_timestamp(src)
+        if fname_ts is not None:
+            ages[row_id] = max(0.0, (now - fname_ts).total_seconds() / 86400.0)
+            continue
+
+        # Fall back to git only when the record's own timestamp cannot be
+        # read -- the legacy flat-file store's "line N" sources, chiefly.
         rel = f"{path}/{src}" if (repo / path).is_dir() else path
         out = _git("log", "-1", "--format=%cI", "--", rel, cwd=repo)
         iso = out.strip().splitlines()[0] if out.strip() else None

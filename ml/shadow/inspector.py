@@ -23,6 +23,7 @@ operational data, not a source-of-truth artifact.
 """
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import math
@@ -167,12 +168,18 @@ def iter_records(
     logged at WARNING and skipped. Returning an empty iterator when
     the file does not exist is intentional — calling code shouldn't
     branch on `Path.exists()`.
+
+    Transparently reads a ``.gz`` file (text mode via :mod:`gzip`) —
+    ``scripts/ops/rotate_shadow_log.py`` runs with ``--gzip`` in production
+    (``deploy/ict-shadow-log-rotate.service``), so every rotated archive this
+    module is asked to read (see :func:`rotated_log_paths`) is gzipped.
     """
     log = logger if logger is not None else _LOGGER
     path = Path(log_path)
     if not path.is_file():
         return
-    with path.open("r", encoding="utf-8") as fh:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="utf-8") as fh:
         for lineno, raw in enumerate(fh, start=1):
             line = raw.strip()
             if not line:
@@ -219,6 +226,61 @@ def filter_records(
         if since is not None and r.predicted_at_utc < since:
             continue
         yield r
+
+
+# --- Rotated-archive discovery ---------------------------------------------
+#
+# `scripts/ops/rotate_shadow_log.py` (`ict-shadow-log-rotate.timer`, daily)
+# renames the ACTIVE log to `<stem>.<YYYY-MM-DD>[.N].<ext>` (gzipped to
+# `...<ext>.gz` in production — `deploy/ict-shadow-log-rotate.service` runs
+# with `--gzip`) in the SAME directory, then touches a fresh empty file back
+# at the original path. Observed cadence in production is ~25-29 days
+# (rotation at 2026-09-26T06:39:57Z is the one on record).
+#
+# A window-based read (`/api/bot/shadow/drift`'s `reference_days`, default
+# 30) that only opens the active log therefore silently truncates its own
+# reference window at the last rotation boundary whenever that cadence is
+# shorter than the window — which it is here (~25-29d < 30d). Every model
+# reads `insufficient_data` for roughly 1-2 weeks after each rotation, and no
+# drift-based demote/hold decision this repo has made was ever computed on a
+# genuinely full window (PI-20260927-YZRZQ725-0001 / review-pack D1).
+#
+# `rotated_log_paths` closes that gap by finding the archives so a caller can
+# read active + rotated as one stream; it does not itself apply any window
+# filter — that stays the caller's job (records outside the requested window
+# are just as irrelevant whether they came from the active log or an
+# archive).
+
+
+def rotated_log_paths(active_log: Path | str) -> list[Path]:
+    """Rotated archives of *active_log* sitting alongside it, oldest-name-first.
+
+    Matches `<stem>.<anything>.<ext>` and `<stem>.<anything>.<ext>.gz` in the
+    active log's own directory (e.g. `shadow_predictions.2026-09-26.jsonl` or
+    `shadow_predictions.2026-09-26.1.jsonl.gz` next to
+    `shadow_predictions.jsonl`) — the exact naming
+    `scripts/ops/rotate_shadow_log.py::_next_rotated_path` produces. The
+    active log itself is never included. Returns `[]` when the directory
+    does not exist (nothing has ever been written) — never raises, matching
+    `iter_records`' "missing means empty" contract.
+    """
+    path = Path(active_log)
+    parent = path.parent
+    if not parent.is_dir():
+        return []
+    prefix = f"{path.stem}."          # e.g. "shadow_predictions."
+    bare_ext = (path.suffix or ".jsonl").lstrip(".")  # e.g. "jsonl"
+    out: list[Path] = []
+    for candidate in parent.iterdir():
+        if candidate == path or not candidate.is_file():
+            continue
+        name = candidate.name
+        if not name.startswith(prefix):
+            continue
+        rest = name[len(prefix):]
+        if rest.endswith(f"{bare_ext}.gz") or rest.endswith(bare_ext):
+            out.append(candidate)
+    return sorted(out)
 
 
 @dataclass
