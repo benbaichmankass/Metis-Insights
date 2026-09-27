@@ -477,6 +477,7 @@ STRUCTURE_LABELS: List[str] = sorted({
 
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 _TOKENISH_RE = re.compile(r"[A-Za-z0-9_\-.=+/]{24,}")
+_URL_RE = re.compile(r"((?:https?|wss?)://[^\s/?#'\"]+)([/?#][^\s'\"]*)?", re.IGNORECASE)
 
 
 def redact_text(text: str, *secrets: str) -> str:
@@ -486,7 +487,11 @@ def redact_text(text: str, *secrets: str) -> str:
     out = str(text or "")
     for sec in secrets:
         if sec:
-            out = out.replace(sec, "<redacted>")
+            # Case-insensitive: a terminal may render the login upper-cased.
+            out = re.sub(re.escape(sec), "<redacted>", out, flags=re.IGNORECASE)
+    # URLs keep their origin only: a path or query can carry a session id
+    # shorter than the token rule below.
+    out = _URL_RE.sub(lambda m: m.group(1) + "/<path>" if m.group(2) else m.group(1), out)
     out = _EMAIL_RE.sub("<email>", out)
     return _TOKENISH_RE.sub("<token>", out)
 
@@ -530,7 +535,10 @@ def render_structure(struct: Mapping[str, Any], frames: Sequence[Mapping[str, An
 
 
 def _strip_url(url: str) -> str:
-    return re.split(r"[?#]", str(url or ""), maxsplit=1)[0]
+    """Origin only (scheme://host[:port]): paths and queries never reach a
+    public log, since either can carry a session id."""
+    m = _URL_RE.match(str(url or ""))
+    return m.group(1) if m else re.split(r"[/?#]", str(url or ""), maxsplit=1)[0]
 
 
 # ── the adapter ──────────────────────────────────────────────────────────
@@ -612,7 +620,7 @@ class DXtradeAdapter(PropPlatformAdapter):
 
     @staticmethod
     def _where(page: Any) -> str:
-        """Origin + path of the current page (no query, no fragment)."""
+        """Origin of the current page (no path, query or fragment)."""
         try:
             return _strip_url(page.url)
         except Exception:

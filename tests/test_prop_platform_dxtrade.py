@@ -305,6 +305,20 @@ def test_redact_text_strips_credentials_emails_and_tokens_but_keeps_balances():
     assert "4,724.00" in out
 
 
+def test_redact_text_matches_secrets_case_insensitively():
+    # Pre-merge review of #13248: the terminal may render the login in a
+    # different case than the env var holds.
+    out = redact_text("Account: BO-JDOE77 | bo-jdoe77 | Bo-JDoe77", "bo-jdoe77")
+    assert "jdoe77" not in out.lower() and out.count("<redacted>") == 3
+
+
+def test_redact_text_keeps_url_origin_only():
+    # A short session id in a path or query is below the 24-char token rule.
+    out = redact_text("at https://app.example.com/s/ab12CD?sid=q1#f and wss://x.example/t9")
+    assert "ab12CD" not in out and "sid" not in out and "t9" not in out
+    assert "https://app.example.com/<path>" in out and "wss://x.example/<path>" in out
+
+
 def test_render_structure_is_redacted_and_carries_the_layout():
     struct = {"title": "Breakout Terminal", "location": "https://app.example/t?session=abc#x",
               "counts": {"tables": 0}, "roles": {"tab": 3},

@@ -81,10 +81,10 @@ def post_status(report: Dict[str, Any], api_base: str) -> Dict[str, Any]:
 
 
 def _redact(text: str, *secrets: str) -> str:
-    for s in secrets:
-        if s:
-            text = text.replace(s, "<redacted>")
-    return text
+    """Everything this script prints goes to a PUBLIC issue comment: strip the
+    secrets case-insensitively, URL paths/queries, e-mails and token runs."""
+    from src.prop.platform.dxtrade import redact_text
+    return redact_text(text, *secrets)
 
 
 def main(argv: Optional[list] = None) -> int:
@@ -125,8 +125,8 @@ def main(argv: Optional[list] = None) -> int:
         try:
             browser = pw.chromium.launch(headless=True)
         except Exception as exc:  # missing browser build or system libraries
-            print(f"environment: chromium failed to launch ({type(exc).__name__}: "
-                  f"{str(exc).splitlines()[0][:300]})")
+            print(_redact(f"environment: chromium failed to launch ({type(exc).__name__}: "
+                          f"{str(exc).splitlines()[0][:300]})", username, password))
             return EXIT_ENV
         try:
             context = browser.new_context()
@@ -146,7 +146,7 @@ def main(argv: Optional[list] = None) -> int:
                 return EXIT_ERROR
             print("login: ok")
             try:
-                print(f"landed: {_redact(page.url.split('?')[0].split('#')[0], username, password)}")
+                print(f"landed: {_redact(page.url, username, password)}")
             except Exception:
                 pass
             page.wait_for_timeout(5_000)  # let the terminal populate its panels
@@ -168,17 +168,18 @@ def main(argv: Optional[list] = None) -> int:
                     print(f"{label}: {len(items)}")
                     for it in items:
                         it.pop("raw", None)
-                        print(f"  {json.dumps(it)}")
+                        print(_redact(f"  {json.dumps(it)}", username, password))
                 except LookupError as le:
-                    print(f"{label}: UNPARSED ({le})")
+                    print(_redact(f"{label}: UNPARSED ({le})", username, password))
                     rc = EXIT_UNPARSED
 
             if rc == EXIT_UNPARSED and hasattr(adapter, "structure"):
                 try:
                     for line in adapter.structure(page, (username, password)):
-                        print(line)
+                        print(_redact(line, username, password))
                 except Exception as exc:
-                    print(f"structure: FAILED ({type(exc).__name__}: {str(exc)[:200]})")
+                    print(_redact(f"structure: FAILED ({type(exc).__name__}: {str(exc)[:200]})",
+                                  username, password))
 
             if args.dump_dir:
                 d = Path(args.dump_dir)
@@ -199,7 +200,7 @@ def main(argv: Optional[list] = None) -> int:
                         res = post_status(report, args.api_base)
                         print(f"emit_status: ok id={res.get('id')}")
                     except Exception as exc:
-                        print(f"emit_status: FAILED ({type(exc).__name__}: {exc})")
+                        print(_redact(f"emit_status: FAILED ({type(exc).__name__}: {exc})", username, password))
                         rc = rc or EXIT_ERROR
             else:
                 print("emit_status: off (default)")
