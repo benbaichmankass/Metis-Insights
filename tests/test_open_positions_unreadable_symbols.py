@@ -24,13 +24,17 @@ from src.runtime.closed_flat_invariant import (
     _residual_from_positions,
 )
 from src.units.accounts.clients import account_open_positions
-from tests.test_monitor_reconciler import (  # noqa: F401  (fixture)
+from tests import test_monitor_reconciler as _reconciler
+from tests.test_monitor_reconciler import (
     _filled_status,
     _insert_trade,
     _read_trade,
     _reconcile_to_close,
-    tmp_db,
 )
+
+# Fixture reused from the reconciler suite (bound, not imported, so the test
+# parameter that requests it is not an import redefinition).
+tmp_db = _reconciler.tmp_db
 
 _ACCOUNT = {
     "account_id": "bybit_2", "exchange": "bybit",

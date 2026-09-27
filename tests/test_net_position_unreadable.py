@@ -15,22 +15,24 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
-
 import src.runtime.positions as positions_mod
 from src.runtime.positions import (
     current_net_position_qty,
     has_open_trade_for_strategy,
 )
-from tests.test_intent_delta_dispatch import (  # noqa: F401  (fixtures)
+from tests import test_intent_delta_dispatch as _dispatch
+from tests.test_intent_delta_dispatch import (
     _init_trade_journal,
     _insert_trade,
     _intent_pkg,
     _patch_dispatch_deps,
-    accounts_yaml,
-    coord,
-    trade_db,
 )
+
+# Fixtures reused from the intent-dispatch suite (bound, not imported, so the
+# test parameters that request them are not import redefinitions).
+accounts_yaml = _dispatch.accounts_yaml
+coord = _dispatch.coord
+trade_db = _dispatch.trade_db
 
 
 def _locked_connect(*_a, **_k):
