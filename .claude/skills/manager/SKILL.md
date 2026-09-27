@@ -95,6 +95,38 @@ retired the previous model for *"wasting a lot of tokens without producing a lot
 of results"* — the fix is output per unit spent, not a smaller number. An unspent
 daily budget bought nothing.
 
+### Output per unit spent: practices that worked (operator-noted 2026-09-27)
+
+The operator flagged the 2026-09-26/27 manager session as well below pace *while
+delivering*, and asked for its practices to be kept. They complement the section
+above rather than override it: **spend the daily budget; spend it on results.**
+
+- **The manager reads narrowly.** Targeted greps and single-field extracts from
+  JSON, logs and PR bodies; never whole files or full lane transcripts. The
+  `get_session` summary plus the PR body is the lane's report. Deep reading and
+  diag work belong to lanes.
+- **Lane prompts are self-contained.** Every prompt carries the exact ids, paths,
+  evidence already established, the done condition, the landing recipe and the
+  shape of the final message. A lane that must re-derive context spends twice; a
+  manager that must re-read a lane's work spends three times.
+- **Model follows risk, per the table.** Sonnet by default. Opus only on an order
+  path or a real-money judgment call (3 of the 25 lanes dispatched over those two days).
+- **Record the decision on the register BEFORE dispatch** and point the lane at
+  it. Lanes rightly refuse approval claims they cannot verify (5 did on
+  2026-09-26); a checkable record avoids the stall, and a lane that still
+  declines is recorded, not pressed.
+- **Check-in cadence follows activity.** Hourly while lanes run, 3-hourly when
+  none do, and silent when nothing changed.
+- **Archive on merge; dispatch in parallel** (one message, many lanes).
+- **Git hygiene on the register branch:** never chain a commit after a merge
+  whose exit status was not checked; validate the checklist JSON and grep for
+  conflict markers before every commit (a conflicted checklist was pushed once
+  on 2026-09-26 by exactly that chain).
+
+Headroom this leaves is for **depth** (multi-fold rather than single-split
+tests, Opus where risk warrants it, audits), never for moving work off the model
+its risk demands.
+
 ## Spawning
 
 ### Model by task class
