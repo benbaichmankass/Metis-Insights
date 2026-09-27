@@ -27,6 +27,7 @@ import os
 import re
 import stat
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -158,13 +159,33 @@ def test_marker_with_inactive_trader_holds_it_stopped(fake):
     assert "operator stop marker present" in res.stdout
 
 
-def test_marker_with_active_trader_is_stale_and_trader_still_redeploys(fake):
+def _age(path: Path, seconds: int) -> None:
+    old = time.time() - seconds
+    os.utime(path, (old, old))
+
+
+def test_old_marker_with_active_trader_is_stale_and_trader_still_redeploys(fake):
     """A running trader must still pick up new code (BL-20260714)."""
     fake["marker"].write_text('{"action": "stop-bot-service"}\n')
+    _age(fake["marker"], 3600)
     res = _run(fake)
     assert res.returncode == 0, res.stdout + res.stderr
     assert TRADER in _restarted(fake)
     assert not fake["marker"].exists()
+
+
+def test_fresh_marker_with_active_trader_is_a_stop_in_progress(fake):
+    """Review finding 2 (the race). stop_bot.sh writes the marker seconds BEFORE
+    its `systemctl stop`; a git-sync tick in that gap sees an ACTIVE trader.
+    It must not delete the marker and restart the trader -- that would revive
+    the stop and leave it with no marker for the next tick."""
+    fake["marker"].write_text('{"action": "stop-bot-service"}\n')
+    res = _run(fake)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert TRADER not in _restarted(fake), res.stdout
+    assert fake["marker"].exists()
+    assert "a stop is in progress" in res.stdout
+    assert "ict-web-api.service" in _restarted(fake)
 
 
 def test_no_marker_inactive_trader_is_still_restarted(fake):
@@ -221,3 +242,101 @@ def test_clear_trader_stop_marker_helper(tmp_path):
     assert res.returncode == 0, res.stderr
     assert not marker.exists()
     assert res.stderr.count("Cleared operator-stop marker") == 1
+
+
+def test_stop_bot_rewrites_the_marker_after_the_stop():
+    """Review finding 2: the marker is written before AND after the stop."""
+    src = (OPS / "stop_bot.sh").read_text()
+    stop_at = src.index('stop "${UNIT}"')
+    assert src.index('write_trader_stop_marker "pre-stop"') < stop_at
+    assert src.index('write_trader_stop_marker "post-stop"') > stop_at
+
+
+_TRADER_RESTART = re.compile(
+    r'^\s*(?!#).*(restart "\$\{UNIT\}"|systemctl restart ict-trader-live)', re.M)
+
+
+def test_every_ops_script_that_restarts_the_trader_clears_the_marker():
+    """Review finding 3. Any ops script that restarts ict-trader-live is an
+    explicit start and must release the git-sync hold, or a leftover marker
+    could later stop git-sync reviving a crashed trader."""
+    offenders, checked = [], []
+    for path in sorted(OPS.glob("*.sh")):
+        src = path.read_text()
+        if path.name in {"_lib.sh", "stop_bot.sh"}:
+            continue
+        if not _TRADER_RESTART.search(src):
+            continue
+        unit = re.search(r'^UNIT="([^"]+)"', src, re.M)
+        if unit and unit.group(1) != TRADER and "ict-trader-live" not in _TRADER_RESTART.search(src).group(0):
+            continue  # restarts a different unit
+        checked.append(path.name)
+        n_restarts = len(_TRADER_RESTART.findall(src))
+        n_clears = src.count("clear_trader_stop_marker ")
+        if n_clears < n_restarts:
+            offenders.append(f"{path.name}: {n_restarts} restart(s), {n_clears} clear(s)")
+    # denominator: the probe must actually find the known restarters
+    assert {"restart_bot.sh", "set_account_mode.sh", "sync_vm_secrets.sh"} <= set(checked), checked
+    assert not offenders, offenders
+
+
+# ---------------------------------------------------------------------------
+# Review finding 1: pull-and-deploy must always END with the trader active,
+# even when the deploy marker already equals HEAD (a git-sync tick that held
+# the stopped trader still records it) and deploy_pull_restart.sh restarts
+# nothing.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def wrapper(tmp_path: Path):
+    repo = tmp_path / "repo"
+    (repo / "scripts" / "ops").mkdir(parents=True)
+    (repo / "runtime_logs").mkdir()
+    (repo / "scripts" / "ops" / "pull_and_deploy.sh").write_text((OPS / "pull_and_deploy.sh").read_text())
+    (repo / "scripts" / "ops" / "_lib.sh").write_text((OPS / "_lib.sh").read_text())
+    # The inner deploy is the "already deployed; nothing to deploy" no-op.
+    _make_stub(repo / "scripts" / "deploy_pull_restart.sh",
+               '#!/bin/bash\necho ">>> Running processes already deployed; nothing to deploy."\nexit 0\n')
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    state = tmp_path / "trader_state"
+    state.write_text("inactive")
+    starts = tmp_path / "starts.log"
+    _make_stub(bindir / "git", '#!/bin/bash\ncase "$1" in rev-parse) echo samesha ;; esac\nexit 0\n')
+    _make_stub(bindir / "systemctl", f"""#!/bin/bash
+case "$1" in
+  --version) echo "systemd 250" ;;
+  list-units) ;;
+  is-active) s=$(cat "{state}"); echo "$s"; [ "$s" = active ] ;;
+  start) echo "$2" >> "{starts}"; echo active > "{state}" ;;
+  show) case "$3" in ActiveEnterTimestampMonotonic) echo "ActiveEnterTimestampMonotonic=$(cat "{starts}" 2>/dev/null | wc -l)1" ;; MainPID) echo "MainPID=1" ;; esac ;;
+  *) exit 0 ;;
+esac
+""")
+    _make_stub(bindir / "journalctl", "#!/bin/bash\nexit 0\n")
+    _make_stub(bindir / "sudo", '#!/bin/bash\nwhile [[ "$1" == -* ]]; do shift; done\nexec "$@"\n')
+    marker = repo / "runtime_logs" / "trader_operator_stop.json"
+    marker.write_text("{}")
+    return {"repo": repo, "bindir": bindir, "state": state, "starts": starts, "marker": marker}
+
+
+def _run_wrapper(w):
+    env = {**os.environ, "PATH": f"{w['bindir']}:/usr/bin:/bin", "REPO_DIR": str(w["repo"])}
+    return subprocess.run(["bash", str(w["repo"] / "scripts" / "ops" / "pull_and_deploy.sh")],
+                          capture_output=True, text=True, env=env, timeout=120)
+
+
+def test_pull_and_deploy_starts_a_held_trader_when_nothing_was_redeployed(wrapper):
+    res = _run_wrapper(wrapper)
+    out = res.stdout + res.stderr
+    assert res.returncode == 0, out
+    assert wrapper["starts"].read_text().split() == [TRADER], out
+    assert wrapper["state"].read_text().strip() == "active"
+    assert not wrapper["marker"].exists()
+
+
+def test_pull_and_deploy_does_not_start_an_already_active_trader(wrapper):
+    wrapper["state"].write_text("active")
+    res = _run_wrapper(wrapper)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert not wrapper["starts"].exists()

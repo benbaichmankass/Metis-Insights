@@ -448,9 +448,14 @@ fi
 #   1. ict-trader-live: stop_bot.sh writes TRADER_STOP_MARKER; start/restart-
 #      bot-service and pull-and-deploy clear it. While it exists AND the trader
 #      is not active, skip it -- never start it from here. A marker with an
-#      ACTIVE trader is stale (someone started it by another path), so it is
-#      removed and the trader is restarted as before. Without a marker the
-#      behaviour is unchanged, including reviving a crashed/failed trader.
+#      ACTIVE trader is either a stop in progress (marker younger than
+#      TRADER_STOP_MARKER_GRACE_S, default 300 s: skip, do not restart) or stale
+#      (older: someone started the trader by another path -- remove it and
+#      restart as before). Without a marker the behaviour is unchanged,
+#      including reviving a crashed/failed trader. A held trader still gets the
+#      deploy marker written below: nothing restarts it here, and whatever
+#      starts it next (start/restart-bot-service, pull-and-deploy) loads the
+#      synced tree, so it is not left on stale code.
 #      Path must match scripts/ops/_lib.sh::TRADER_STOP_MARKER (this script
 #      cannot source _lib.sh; a test pins the two).
 #   2. ict-liveness-watchdog.service is the timer's ONESHOT payload
@@ -462,6 +467,7 @@ fi
 # ---------------------------------------------------------------------------
 TRADER_UNIT="ict-trader-live.service"
 TRADER_STOP_MARKER="${REPO_DIR}/runtime_logs/trader_operator_stop.json"
+TRADER_STOP_MARKER_GRACE_S="${TRADER_STOP_MARKER_GRACE_S:-300}"
 WATCHDOG_ONESHOT="ict-liveness-watchdog.service"
 WATCHDOG_TIMER="ict-liveness-watchdog.timer"
 
@@ -485,7 +491,18 @@ for unit in "${ICT_UNITS[@]}"; do
             echo ">>>   hold ${unit} (operator stop marker present, unit '${trader_state:-unknown}') — NOT starting it; start-bot-service releases the hold."
             continue
         fi
-        echo ">>>   ${unit} is active despite an operator stop marker — marker is stale; removing it and restarting as normal."
+        # Active + marker. stop_bot.sh writes the marker a few seconds BEFORE its
+        # `systemctl stop`, so a FRESH marker on an active trader is a stop in
+        # progress, not a stale one: deleting it and restarting here is exactly
+        # the race that would revive the stop. Only a marker older than the grace
+        # window is stale (the trader was started by some other path).
+        marker_mtime="$(stat -c %Y "${TRADER_STOP_MARKER}" 2>/dev/null || echo 0)"
+        marker_age=$(( $(date +%s) - marker_mtime ))
+        if [ "${marker_age}" -lt "${TRADER_STOP_MARKER_GRACE_S}" ]; then
+            echo ">>>   skip ${unit} (operator stop marker is ${marker_age}s old — a stop is in progress; not restarting it)"
+            continue
+        fi
+        echo ">>>   ${unit} is active with a ${marker_age}s-old operator stop marker — marker is stale; removing it and restarting as normal."
         rm -f "${TRADER_STOP_MARKER}" 2>/dev/null || true
     fi
     if [ "${unit}" = "${WATCHDOG_ONESHOT}" ]; then

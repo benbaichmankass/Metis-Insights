@@ -124,11 +124,22 @@ fi
 # ict-*.service whenever main advanced -- which STARTS a stopped unit. On
 # 2026-09-27 that revived this stop twice inside 7 min and the cancels the stop
 # was taken for hit Error 326. The marker tells git-sync not to start the
-# trader; start/restart-bot-service and pull-and-deploy clear it. Written BEFORE
-# the stop so a sync tick landing between the two cannot revive it.
-mkdir -p "$(dirname "${TRADER_STOP_MARKER}")"
-printf '{"stopped_at": "%s", "action": "stop-bot-service", "pre": "%s"}\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${pre_state}" > "${TRADER_STOP_MARKER}"
+# trader; start/restart-bot-service, pull-and-deploy and every other ops script
+# that restarts the trader clear it.
+#
+# Written BEFORE the stop so a git-sync tick that lands after the stop finds
+# it. A tick that lands BETWEEN the write and the stop sees an ACTIVE trader;
+# deploy_pull_restart.sh treats a marker younger than its grace window
+# (TRADER_STOP_MARKER_GRACE_S, 300 s) on an active trader as a stop in
+# progress and skips the trader rather than deleting the marker and restarting
+# it. The marker is written again after the stop (write_trader_stop_marker
+# below) so it exists, fresh, even if anything removed it in between.
+write_trader_stop_marker() {
+    mkdir -p "$(dirname "${TRADER_STOP_MARKER}")"
+    printf '{"stopped_at": "%s", "action": "stop-bot-service", "pre": "%s", "phase": "%s"}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${pre_state}" "$1" > "${TRADER_STOP_MARKER}"
+}
+write_trader_stop_marker "pre-stop"
 log "Wrote operator-stop marker ${TRADER_STOP_MARKER} (git-sync will not start ${UNIT})."
 
 log "Stopping ${UNIT}…"
@@ -145,6 +156,7 @@ while [ "$(date +%s)" -lt "${deadline}" ]; do
     sleep 2
 done
 log "Post-stop state of ${UNIT}: ${post_state}"
+write_trader_stop_marker "post-stop"
 
 echo
 echo "===== post-stop journalctl (last 20 lines) ====="

@@ -170,6 +170,7 @@ if [ "${changed}" -eq 0 ]; then
 fi
 
 echo ">>> Restarting ict-trader-live ..."
+clear_trader_stop_marker "sync-vm-secrets"  # an explicit restart releases the stop_bot.sh git-sync hold
 sudo systemctl restart ict-trader-live
 sleep 3
 if ! systemctl is-active --quiet ict-trader-live; then

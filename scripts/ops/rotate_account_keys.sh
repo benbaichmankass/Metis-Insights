@@ -112,6 +112,7 @@ fi
 # ── Restart services ─────────────────────────────────────────────────────────
 
 echo ">>> Restarting ict-trader-live ..."
+clear_trader_stop_marker "rotate-account-keys"  # an explicit restart releases the stop_bot.sh git-sync hold
 sudo systemctl restart ict-trader-live
 sleep 3
 if ! systemctl is-active --quiet ict-trader-live; then

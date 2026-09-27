@@ -140,6 +140,19 @@ fi
 heal_devnull || true
 POST_HEAD="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
+# pull-and-deploy must always END with the trader running. deploy_pull_restart.sh
+# decides its restart from the deploy marker (deployed_sha.txt), and a git-sync
+# tick that HELD an operator-stopped trader still records HEAD there (nothing
+# restarted it, and whatever starts it next loads the synced tree). So after a
+# stop-bot-service window this wrapper would otherwise hit "Running processes
+# already deployed … nothing to deploy", restart nothing, and leave the trader
+# down (PI-20260927-YDVVYLKH-0002 review). The marker is already cleared above;
+# start the trader explicitly if it is not active.
+if [ "$("${SYSTEMCTL[@]}" is-active "${UNIT}" 2>/dev/null || true)" != "active" ]; then
+    log "${UNIT} is not active after deploy_pull_restart.sh — starting it (pull-and-deploy never leaves the trader stopped)."
+    "${SYSTEMCTL[@]}" start "${UNIT}" || log "WARNING: systemctl start ${UNIT} failed — see the post-state check below."
+fi
+
 # Verify post-state. Allow up to 60 s for systemd to settle (deploy
 # can take longer than a bare restart because of pip install).
 deadline=$(( $(date +%s) + 60 ))
