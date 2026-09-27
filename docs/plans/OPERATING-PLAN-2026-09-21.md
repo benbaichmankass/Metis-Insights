@@ -189,6 +189,11 @@ cadences. The machine is running against an empty input.
 - **Kill** → closes the question and lands in the ledger. A null is an asset,
   not a memo.
 
+⚠️ **The default is refinement, not a one-strike kill** (operator, 2026-09-27):
+*"our default is never to just kill ideas because of one bad pass, we should
+always strive for refinement/testing/more research. Only kill things when
+we're certain they are no longer worth our time."*
+
 **Shadowing is part of the loop, not a parking lot.** The soak book
 (`bybit_1`, `alpaca_paper`) is where legs that have not passed make decisions
 on real-time data so we can see the outcomes and learn how to tweak them.
