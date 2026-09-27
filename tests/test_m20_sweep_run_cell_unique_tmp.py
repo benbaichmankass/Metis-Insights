@@ -47,7 +47,10 @@ def _race(call_a, call_b) -> dict:
     got: dict = {}
     ta = threading.Thread(target=lambda: got.__setitem__("A", call_a()))
     tb = threading.Thread(target=lambda: got.__setitem__("B", call_b()))
-    ta.start(); tb.start(); ta.join(); tb.join()
+    ta.start()
+    tb.start()
+    ta.join()
+    tb.join()
     return got
 
 
