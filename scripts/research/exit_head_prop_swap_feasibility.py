@@ -147,15 +147,15 @@ def main(argv: List[str]) -> int:
         return 2
     artifact, booster = heads[0]
 
+    # This BINARY LightGBM booster (train_exit_head.py trains on the binary
+    # target `holding_pays` via lgb.LGBMClassifier) is exported as a raw
+    # lgb.Booster; on a binary objective, Booster.predict() returns the
+    # positive-class probability, never a class label or a multiclass max —
+    # there is no multiclass head in this family. Interpreted by
+    # would_exit_for per the artifact's declared shape, same as
+    # exit_head_replay.py's own identical closure.
     def predict(vec):
-        # provenance: predict — the head's RAW score, P(class=1) for this
-        # BINARY LightGBM booster (train_exit_head.py trains on the binary
-        # target `holding_pays` via lgb.LGBMClassifier, exported to a raw
-        # lgb.Booster; Booster.predict() on a binary objective returns the
-        # positive-class probability, never a class label or a multiclass
-        # max — there is no multiclass head in this family). Interpreted by
-        # would_exit_for per the artifact's declared shape, same as
-        # exit_head_replay.py's own identical closure.
+        # provenance: predict — the head's RAW score, P(class=1) for this binary booster (see above)
         return booster.predict(vec)[0]
 
     # Bypassed by design (see module docstring): this leg declares no

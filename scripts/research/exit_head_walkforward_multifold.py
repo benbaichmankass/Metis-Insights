@@ -195,15 +195,15 @@ def main(argv: List[str]) -> int:
         booster = teh.train_model(train_rows)
         artifact = {"features": teh.FEATURES, "shape": SHAPE}
 
+        # This BINARY LightGBM booster (train_model() above trains on the
+        # binary target `holding_pays` via lgb.LGBMClassifier) exports a raw
+        # lgb.Booster; on a binary objective, Booster.predict() returns the
+        # positive-class probability, never a class label or a multiclass
+        # max — there is no multiclass head in this family. Interpreted by
+        # would_exit_for per SHAPE, matching exit_head_replay.py's own
+        # identical closure.
         def predict(vec, _booster=booster):
-            # provenance: predict — the head's RAW score, P(class=1) for this
-            # BINARY LightGBM booster (train_model() above trains on the
-            # binary target `holding_pays` via lgb.LGBMClassifier; a raw
-            # lgb.Booster's predict() on a binary objective returns the
-            # positive-class probability, never a class label or a
-            # multiclass max — there is no multiclass head in this family).
-            # Interpreted by would_exit_for per SHAPE, matching
-            # exit_head_replay.py's own identical closure.
+            # provenance: predict — the head's RAW score, P(class=1) for this binary booster (see above)
             return float(_booster.predict(vec)[0])
 
         records = [replay_trade(df, t, artifact, predict, ACTION) for t in test_trades]
