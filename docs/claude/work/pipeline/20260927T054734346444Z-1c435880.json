@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator decides whether to accept the same-account election loss as permanent (per PI-20260926-BN2S6RQZ) or reprioritize the bybit_1 BTCUSDT roster; OR a live per-tick election trace shows trend_donchian actually winning its account's BTCUSDT slot at least once",
+    "kind": "event"
+  },
+  "id": "PI-20260926-X3QEGPJL-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "R5 soak-book-grade 2026-09-26",
+    "rerun": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out comms/research/soak_book_grade/<date>.json"
+  },
+  "routed_to": "PR #13044 (claude/w5d-starved-legs)",
+  "state": "routed",
+  "what": "R5 soak-book grade PROPOSES kill: bybit_1/trend_donchian — starved (24 actionable intent(s), 3 episode(s), 0 order(s)/ticket(s) received, held_back=0, no open position held) over the 168h window ending 2026-09-26T22:39:52.948694+00:00. Cost fidelity insufficient_n (0 fills) — consistent with zero orders reaching the exchange. This is Stage-1 soak mechanics, NOT an expectancy call; the leg is a PROPOSAL to remove from the bybit_1 roster as mechanically dead, Tier-3, operator-approved only. -- UPDATE 2026-09-27 (w5d-starved-legs lane, manager session_01Ljhs6sFAdWHdMDhJpL5aBP): this is a mechanics finding, NOT a strategy verdict -- re-routed off the kill proposal. ROOT CAUSE (code-confirmed): src/runtime/intents.py's per-account election (aggregate_intents / arbitration_fanout.plan_per_account_election, live since E35 2026-09-25) lets exactly ONE strategy win the (bybit_1, BTCUSDT) slot per tick. bybit_1 declares 7 BTCUSDT strategies (trend_donchian, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h) and intents.py's own docstring states plainly that execution:shadow does NOT exclude a strategy from this contest (documented example: eth_pullback_prop_2h, shadow, beats trend_donchian_eth, live, head-to-head) -- so any of the 5 non-trend_donchian siblings, live or shadow, can silently win the slot every time trend_donchian is actionable. This is the SAME mechanism already graded 'working as designed' for trend_donchian_sol_4h/ict_scalp_xrp_15m/ict_scalp_sol_15m in PI-20260926-BN2S6RQZ. config/regime_policy.yaml's 2-D trend_vol block additionally carries trend_donchian: {long: off} in trending+volatile / transitional+calm / chop+calm (3 of 6 cells) -- a compounding, not yet independently re-confirmed live this session, factor if that 2-D gate is actually enforced (REGIME_ML_VERDICT_MODE) rather than shadow-logging only. FIX: PR #13044 (claude/w5d-starved-legs) (Tier-1, self-landed) teaches scripts/ops/soak_book_grade.py to grade a starved leg with a live same-account/same-symbol contender as insufficient-data, not kill, so future runs stop re-proposing this. OPEN QUESTION for the operator: accept the permanent same-account starvation as with the BN2S6RQZ precedent, or reprioritize bybit_1's BTCUSDT roster so trend_donchian can win contested ticks (a Tier-3 config change, not shipped here)."
+}
