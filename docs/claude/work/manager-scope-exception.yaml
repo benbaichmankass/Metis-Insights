@@ -33,6 +33,11 @@ exceptions:
       pointer in CLAUDE.md." Both name the MANAGER as the author, so the
       guard's normal remedy (route it to a session) is not what was asked.
 
+      ALSO (operator, 2026-09-27, verbatim): "the only acceptable way for
+      resolving these issues is for the manager to be temporarily taken on of
+      auto mode ... Make sure that is in the manager skill" -- covers the new
+      manager-skill section on classifier refusals.
+
       WHAT IT COVERS: PR #13160 only — the new § "Start of session" in the
       manager skill, the new subsection "No lane files a dispute of operator
       authority" in CLAUDE-RULES-CANONICAL, and the two CLAUDE.md pointer
