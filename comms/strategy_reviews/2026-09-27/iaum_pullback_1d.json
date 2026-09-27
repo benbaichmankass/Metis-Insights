@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "strategy": "iaum_pullback_1d",
+  "window_start": "2026-09-20T09:23:33.875691+00:00",
+  "window_end": "2026-09-27T09:23:33.875691+00:00",
+  "execution": "live",
+  "enabled": true,
+  "headline": {
+    "n_decisions": 2,
+    "n_filled": 1,
+    "last_fill_at": "2026-09-23T13:31:24.737932+00:00",
+    "n_closed": 0,
+    "n_closed_untrusted_pnl": 0,
+    "n_wins": 0,
+    "win_rate": null,
+    "pnl_total": 0.0,
+    "expectancy": null,
+    "max_drawdown": 0.0,
+    "avg_hold_seconds": null,
+    "fill_rate": 0.5,
+    "rejection_cluster": null
+  },
+  "regime_cells": [
+    {
+      "cell": {
+        "trend": "chop",
+        "vol": "unknown"
+      },
+      "n_decisions": 2,
+      "n_closed": 0,
+      "n_closed_untrusted_pnl": 0,
+      "n_wins": 0,
+      "win_rate": null,
+      "pnl_total": 0.0,
+      "expectancy": null,
+      "regime_policy_cell": "unknown"
+    }
+  ],
+  "execution_diagnostics": {
+    "entry_slippage_bps": 0.0,
+    "fill_rate": 0.5,
+    "dispatch_latency_seconds": 2.446,
+    "confidence_distribution": {
+      "min": 0.0074,
+      "max": 0.1907,
+      "p50": 0.09905,
+      "std": 0.09165000000000001,
+      "n": 2
+    }
+  },
+  "backtest_anchor": null,
+  "offline_evidence": {
+    "state": "approximate",
+    "fidelity": "approximate",
+    "coverage_state": "measured",
+    "basis": "harness_timefolds",
+    "net_r_oos": 7.6621,
+    "n_trades_oos": 7,
+    "folds": 4,
+    "folds_positive": 3,
+    "omitted_levers": [
+      "trail_decay_stall_bars",
+      "trail_decay_tight_mult"
+    ],
+    "config_fingerprint": "sha256:7f3f836cd4a5e173b15fa384fcf707aa",
+    "detail": null
+  },
+  "evidence_horizon": {
+    "floor": 20,
+    "n_closed": 0,
+    "window_days": 7.0,
+    "funnel_stage": "filled_not_closed",
+    "confidence": 0.95,
+    "shortfall": 20,
+    "observed_close_rate_per_day": null,
+    "days_to_floor_optimistic": 46.7,
+    "days_to_floor_point": null,
+    "days_to_floor_conservative": null,
+    "structural_reason": null,
+    "horizon_class": "unbounded_no_closes",
+    "basis": "0 closes over 7d, so NO close rate was measured and no finite horizon can be projected from this window. The one defensible number is the optimistic bound: at 95% confidence the rate is below 0.4280/day, so reaching n=20 takes AT LEAST 46.7d. Zero observed is not a rate of zero."
+  },
+  "proposed_action": "hold",
+  "reasons": [
+    "no closed trades in window \u2014 insufficient evidence.",
+    "offline edge record present (fidelity=approximate); live rows would prove MECHANICS, not edge."
+  ],
+  "alternative": "none",
+  "tier": 1,
+  "sla_due_by": null,
+  "generated_at": "2026-09-27T09:23:35.495325+00:00",
+  "generated_by": "scripts/ml/strategy_review_packet.py v1.0"
+}
