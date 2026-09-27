@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane dispatch (row CA-A15, docs/claude/work/MANAGER-CHECKLIST.json / the audit task's own instructions): 'commit on branch claude/ca-a15-audit, push, and open a normal pull request ... Do not set up auto-merge; the repo owner's manager session reviews and merges it.'",
+  "why": "Two audit output files (CA-A15.findings.jsonl, CA-A15.md), 5 pipeline follow-up records, and this landing/document-index paperwork -- docs-only, no runtime/order-path/config touched. Tier-1 by path, held per the audit lane's own explicit instruction rather than self-landed."
+}
