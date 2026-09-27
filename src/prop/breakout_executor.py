@@ -219,6 +219,45 @@ def emit_prop_ticket(
         signal_time=datetime.now(timezone.utc),
     )
     unit = unit_for_account(account_id, account_cfg)
+
+    # SIZING MODE (operator 2026-09-27 ~11:12Z, declared in the ruleset's
+    # `sizing:` block): `flat` returns no override and reads nothing, so the
+    # ticket below is the pre-existing ticket byte for byte; `room` sizes
+    # min(risk_pct x live balance, k x binding cushion) and skips below the
+    # minimum or when the cushion cannot be read. See src/prop/prop_sizing.py.
+    from src.prop import prop_sizing
+    sizing = prop_sizing.resolve(
+        account_id, ruleset_path=unit.source, risk_pct=unit.risk_pct)
+    if sizing.skip_reason:
+        trade_id = f"{MANUAL_FILL_PREFIX}{uuid.uuid4().hex[:12]}"
+        logger.info(
+            "breakout_executor: %s leg SKIPPED by %s sizing for %s %s (%s) → %s",
+            account_id, sizing.mode, symbol, direction, sizing.skip_reason, trade_id,
+        )
+        try:
+            from src.prop import prop_journal
+
+            prop_journal.record_ticket({
+                "ticket_id": trade_id,
+                "account_id": account_id,
+                "strategy": strategy,
+                "symbol": symbol,
+                "direction": direction,
+                "entry": entry, "sl": sl, "tp": tp,
+                "signal_time": sig.signal_time.isoformat(),
+                "status": "skipped",
+                "message": sizing.skip_reason,
+                "order_package_id": order.get("order_package_id") or (
+                    order["meta"].get("order_package_id")
+                    if isinstance(order.get("meta"), dict) else None
+                ),
+                "meta": {"sizing_mode": sizing.mode, "sizing": sizing.detail},
+            })
+        except Exception as exc:  # noqa: BLE001 — audit row is best-effort
+            logger.warning(
+                "breakout_executor: sizing-skip journal write failed: %s", exc)
+        return trade_id
+
     leg = build_account_leg(
         sig, unit,
         dxtrade_symbol=_per_symbol(routing, symbol, "dxtrade_symbol", None),
@@ -226,6 +265,7 @@ def emit_prop_ticket(
             _per_symbol(routing, symbol, "contract_value_usd_per_point", 1.0)),
         entry_band_frac=float(routing.get("entry_band_frac") or 0.25),
         ttl_bars=float(routing.get("ttl_bars") or 1.0),
+        risk_usd_override=sizing.risk_usd,
     )
 
     trade_id = f"{MANUAL_FILL_PREFIX}{uuid.uuid4().hex[:12]}"
@@ -300,6 +340,10 @@ def emit_prop_ticket(
                 or (order.get("meta") or {}).get("order_package_id")
             ),
             "message": ticket_message,
+            # ROOM mode only: how the size was reached. Flat rows stay exactly
+            # as they were (no meta key), so the flat journal row is unchanged.
+            **({"meta": {"sizing_mode": sizing.mode, "sizing": sizing.detail}}
+               if sizing.mode != prop_sizing.FLAT else {}),
         })
     except Exception as exc:  # noqa: BLE001 — journaling never blocks emission
         logger.warning("breakout_executor: ticket journal failed for %s: %s",

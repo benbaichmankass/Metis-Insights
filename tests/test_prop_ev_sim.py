@@ -32,6 +32,15 @@ def test_ruleset_read_from_breakout_yaml():
     assert (r.fee, r.profit_split, r.first_payout_after_days, r.payout_frequency_days) == (45.0, 0.80, 14.0, 7.0)
 
 
+def test_operator_confirmed_breakout_terms_are_the_defaults():
+    # Operator popup 2026-09-27 ~11:12Z: "Resets to a fresh $5,000" and "No
+    # refund". Declared in the ruleset; the CLI defaults read them from there.
+    r = sim.PropRules.from_yaml(sim.DEFAULT_RULESET)
+    assert (r.funded_start, r.first_payout_refund) == ("fresh", False)
+    assert sim.SimConfig().funded_start == "fresh"
+    assert sim.SimConfig().first_payout_refund is False
+
+
 def _write(tmp_path: Path, name: str, rows) -> Path:
     p = tmp_path / name
     p.write_text("".join(json.dumps(r) + "\n" for r in rows))

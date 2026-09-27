@@ -64,6 +64,10 @@ class TicketConfig:
                                                # DXTrade instrument's contract size)
     entry_band_frac: float = 0.25         # band = ± this × (entry→SL distance)
     ttl_bars: float = 1.0                 # signal valid for this many bars after signal_time
+    # ROOM sizing (src/prop/prop_sizing.py): the $ risk already sized against
+    # the live balance + cushion. ``None`` (the default, and ``flat`` mode)
+    # keeps the original risk_pct x account_size_usd formula untouched.
+    risk_usd_override: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -93,7 +97,10 @@ def build_ticket(sig: BreakoutSignal, cfg: TicketConfig) -> Ticket:
     tp_dist = abs(sig.tp - sig.entry)
     rr = tp_dist / sl_dist if sl_dist else 0.0
 
-    risk_usd = (cfg.risk_pct / 100.0) * cfg.account_size_usd
+    if cfg.risk_usd_override is not None:
+        risk_usd = float(cfg.risk_usd_override)
+    else:
+        risk_usd = (cfg.risk_pct / 100.0) * cfg.account_size_usd
     cvpp = cfg.contract_value_usd_per_point or 1.0
     qty_units = risk_usd / (sl_dist * cvpp)
 
@@ -149,6 +156,27 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
         f"${c.account_size_usd:.0f} (= ${t.risk_usd:.2f} risk at the stop). "
         f"RECOMPUTE against your live balance (see Sizing)."
     )
+    sizing_line = (
+        f"  Sizing   : RISK {c.risk_pct}% of your CURRENT live balance. "
+        f"Risk per 1 {base_coin} at the stop = ${risk_per_unit:.4f}. "
+        f"FINAL size = ({c.risk_pct}% × your live balance) ÷ ${risk_per_unit:.4f}. "
+        f"Last step before placing: read the live balance, do this calc, then size."
+    )
+    context_risk = f"${t.risk_usd:.2f} ({c.risk_pct}% of balance)"
+    if c.risk_usd_override is not None:
+        # ROOM mode: the bot already sized against the live balance AND the
+        # remaining cushion; "recompute at risk_pct" would undo exactly that.
+        contract_note = (
+            f"{t.qty_units} {base_coin} — ROOM-SIZED (= ${t.risk_usd:.2f} risk at "
+            f"the stop, capped by the remaining cushion). Place THIS size."
+        )
+        sizing_line = (
+            f"  Sizing   : ROOM mode — risk = min({c.risk_pct}% of live balance, "
+            f"a fixed share of the cushion left to the binding limit) = "
+            f"${t.risk_usd:.2f}. Risk per 1 {base_coin} at the stop = "
+            f"${risk_per_unit:.4f}. Do NOT scale this up to {c.risk_pct}%."
+        )
+        context_risk = f"${t.risk_usd:.2f} (room-sized)"
     # THE CUSHION THE SYSTEM ALREADY KNOWS, read at last.
     #
     # `daily_cap` / `dd_floor` above are the STATIC rule (3% / 6% of the
@@ -200,10 +228,7 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
         f"  Symbol   : {sym}",
         f"  Side     : {t.side} ({s.direction})",
         f"  Size     : {contract_note}",
-        f"  Sizing   : RISK {c.risk_pct}% of your CURRENT live balance. "
-        f"Risk per 1 {base_coin} at the stop = ${risk_per_unit:.4f}. "
-        f"FINAL size = ({c.risk_pct}% × your live balance) ÷ ${risk_per_unit:.4f}. "
-        f"Last step before placing: read the live balance, do this calc, then size.",
+        sizing_line,
         f"  Entry    : {s.entry}   (only if live price is within {t.entry_min} … {t.entry_max})",
         f"  Stop     : {s.sl}",
         f"  Target   : {s.tp}   (R:R ≈ {t.rr})",
@@ -215,7 +240,7 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
         f"  Valid until: {t.valid_until.astimezone(timezone.utc).isoformat()}",
         "",
         f"  Prop context (${c.account_size_usd:.0f} 1-Step Classic): this risks "
-        f"${t.risk_usd:.2f} ({c.risk_pct}% of balance). Account killers — daily "
+        f"{context_risk}. Account killers — daily "
         f"loss ${daily_cap:.0f} (3%), static drawdown floor ${dd_floor:.0f} (6% "
         f"off start). Breaching either permanently disables the account.",
     ]
