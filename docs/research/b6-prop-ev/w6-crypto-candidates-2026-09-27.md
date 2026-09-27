@@ -7,6 +7,16 @@
 > sizing or config change. Adding a leg to `breakout_1` is Tier-3 and this
 > document PROPOSES, it does not decide.
 
+> ## ⚠️ CORRECTION 2026-09-27 ~12:30Z — operator directive: candidates come ONLY from Breakout's tradable symbol list, and §5 is now DISQUALIFIED
+>
+> The operator (joint review, relayed by the manager): *"Why was it even checked if it can't be traded? We are only supposed to checking candidates from the symbols list I gave you."* Two things follow, both now resolved on `main`:
+>
+> 1. **`breakout_1` is CONFIRMED a DXtrade account** — the operator logs in at `https://app.breakoutprop.com/`, which Breakout's own FAQ (S3, `intercom.help/breakoutprop/en/articles/14215629`) maps to DXTrade. Landed as PR [#13124](https://github.com/benbaichmankass/Metis-Insights/pull/13124) (`docs/research/prop-automation-options-2026-09-27.md`), a parallel lane, merged 2026-09-27T10:23:57Z.
+> 2. **First-party source (S7, `intercom.help/breakoutprop/en/articles/16188026`, Breakout, dated 2026-08-06), quoted verbatim: "available exclusively on the Breakout Terminal and are not available on DXTrade."** That source names S&P500, XYZ100, SILVER and CL as the Terminal-exclusive set. **Every §5 candidate (`spy_*`, `qqq_*`, `tqqq_trend_long_1d`, `qld_trend_long_1d`, `slv_pullback_1d`, `uso_trend_1h`, `mes_trend_long_1d`) is therefore NOT TRADABLE on `breakout_1` as it exists today** — §5 is retained below for the record (the scoring work and basis caveats stand as an analysis of what a *separate, future Breakout Terminal account* could carry) but **every one of its candidates is WITHDRAWN, not proposed.**
+> 3. **Correction to an earlier draft of this note**: this session's own `WebSearch` (not this repo's citation trail) initially returned a synthesized claim that XYZ100 specifically is available on DXTrade, contradicting S7's first-party, directly-quoted quote. Per RULE ONE (field/first-party source beats an AI-synthesized summary), **S7's direct quote wins** — XYZ100 is treated as Terminal-only same as the other three, and the earlier WebSearch claim is retracted rather than left standing.
+> 4. **§2's crypto candidates are NOT affected** — BTC/ETH/SOL/XRP/ADA/AVAX are DXTrade-native crypto pairs (the same platform `breakout_1` already trades SOL/ETH on), confirmed by this repo's own existing DXTrade wiring (`config/prop_rulesets/breakout_routing.yaml`) for BTC/ETH/SOL and by Breakout's own crypto-majors product list (operator screenshot + WebSearch corroboration, `docs/integrations/breakout-instruments-2026-09-27.md`) for XRP/ADA/AVAX. See the per-candidate symbol-mapping table added to §2.
+> 5. **No permission refusal was hit** obtaining any of this — the correction was reachable entirely from already-merged `main` content (PR #13124) plus `WebSearch` (no blocked call).
+
 ## 0. What this answers, and what tool scored it
 
 Row B6 ([`docs/claude/work/MANAGER-CHECKLIST.json`](../../claude/work/MANAGER-CHECKLIST.json))
@@ -108,18 +118,22 @@ committed run for every leg except `trend_donchian_eth_prop`, which has a
 baseline leg). n and window are the evidence record's own (single ~363-day
 window per leg, 2025-09-25 → 2026-09-24/25).
 
-| leg | symbol | n | honest n (≥20)? | alone verdict | alone EV p5/p50/p95 ($) | baseline+leg verdict |
-|---|---|--:|---|---|---|---|
-| `trend_donchian_sol_prop` (baseline) | SOLUSDT | 65 | yes | — | — | — |
-| `trend_donchian_eth_prop` (baseline) | ETHUSDT | 169 | yes | — | — | — |
-| **`xrp_pullback_2h`** | XRPUSDT | 57 | yes | **pass** (seed 20260927) / indeterminate (seed 999, p5 −3.34) | 15.17 / 279 / 996 | indeterminate (−45.0 / −11.2 / 53.5) |
-| `ada_pullback_2h` | ADAUSDT | 57 | yes | indeterminate | −15.65 / 147.7 / 668 | indeterminate (−43.9 / −25.6 / 111.3) |
-| `trend_donchian` (BTC) | BTCUSDT | 73 | yes | indeterminate | −43.43 / 13.5 / 102.4 | indeterminate (−45.0 / −29.0 / 11.5) |
-| `trend_donchian_eth_4h`\* | ETHUSDT | 44 | yes | indeterminate | −43.19 / 114.5 / 733.2 | indeterminate (−45.0 / −31.3 / 18.7) |
-| `avax_pullback_2h` | AVAXUSDT | 57 | yes | indeterminate | −40.92 / 21.6 / 531.7 | indeterminate (−41.4 / −18.9 / 20.5) |
-| `trend_donchian_xrp_4h`\* | XRPUSDT | **16** | **NO** | indeterminate (unmeasured) | −38.05 / 520 / 1817 | indeterminate |
-| `sol_pullback_2h` | SOLUSDT | **18** | **NO** | indeterminate (unmeasured) | −45.0 / 157.8 / 1026 | indeterminate |
-| `eth_pullback_prop_2h` | ETHUSDT | 70 | yes | indeterminate | −45.0 / −23.0 / 146.1 | **FAIL** (−45.0 / −36.0 / −4.4) |
+**Breakout symbol mapping and platform reachability** (operator directive
+2026-09-27: candidates must map to a symbol on Breakout's actual tradable
+list, on `breakout_1`'s actual platform — DXTrade, confirmed above):
+
+| leg | symbol | n | honest n (≥20)? | Breakout symbol | DXTrade-reachable? | alone verdict | alone EV p5/p50/p95 ($) | baseline+leg verdict |
+|---|---|--:|---|---|---|---|---|---|
+| `trend_donchian_sol_prop` (baseline) | SOLUSDT | 65 | yes | SOLUSD | yes — confirmed, already routed (`breakout_routing.yaml`) | — | — | — |
+| `trend_donchian_eth_prop` (baseline) | ETHUSDT | 169 | yes | ETHUSD | yes — confirmed, already routed | — | — | — |
+| **`xrp_pullback_2h`** | XRPUSDT | 57 | yes | XRPUSD | yes — Breakout crypto-majors list (operator screenshot); not individually DXTrade-confirmed like SOL/ETH | **pass** (seed 20260927) / indeterminate (seed 999, p5 −3.34) | 15.17 / 279 / 996 | indeterminate (−45.0 / −11.2 / 53.5) |
+| `ada_pullback_2h` | ADAUSDT | 57 | yes | ADAUSD | yes, same caveat as XRP | indeterminate | −15.65 / 147.7 / 668 | indeterminate (−43.9 / −25.6 / 111.3) |
+| `trend_donchian` (BTC) | BTCUSDT | 73 | yes | BTCUSD | yes — confirmed (`breakout_routing.yaml`), not yet routed | indeterminate | −43.43 / 13.5 / 102.4 | indeterminate (−45.0 / −29.0 / 11.5) |
+| `trend_donchian_eth_4h`\* | ETHUSDT | 44 | yes | ETHUSD | yes — confirmed | indeterminate | −43.19 / 114.5 / 733.2 | indeterminate (−45.0 / −31.3 / 18.7) |
+| `avax_pullback_2h` | AVAXUSDT | 57 | yes | AVAXUSD | yes, same caveat as XRP/ADA | indeterminate | −40.92 / 21.6 / 531.7 | indeterminate (−41.4 / −18.9 / 20.5) |
+| `trend_donchian_xrp_4h`\* | XRPUSDT | **16** | **NO** | XRPUSD | yes, same caveat | indeterminate (unmeasured) | −38.05 / 520 / 1817 | indeterminate |
+| `sol_pullback_2h` | SOLUSDT | **18** | **NO** | SOLUSD | yes — confirmed | indeterminate (unmeasured) | −45.0 / 157.8 / 1026 | indeterminate |
+| `eth_pullback_prop_2h` | ETHUSDT | 70 | yes | ETHUSD | yes — confirmed | indeterminate | −45.0 / −23.0 / 146.1 | **FAIL** (−45.0 / −36.0 / −4.4) |
 | baseline alone (today's 2 legs) | — | 234 | — | indeterminate | −42.08 / −23.29 / 61.75 | — |
 | `xrp_pullback_2h` + `ada_pullback_2h` (no baseline) | — | 114 | — | indeterminate | −37.96 / −8.8 / 63.2 | — |
 | baseline + xrp + ada | — | 348 | — | indeterminate | −45.0 / −21.5 / 31.5 | — |
@@ -202,7 +216,22 @@ manager's instruction was explicit ("record that as your E16 finding rather
 than re-deriving it") — so this section states what was relayed and marks
 it as such rather than as this lane's own diag read.
 
-## 5. Non-crypto candidates — legs already running on Alpaca/IBKR, mapped to Breakout Terminal CFDs
+## 5. Non-crypto candidates — WITHDRAWN 2026-09-27 ~12:30Z, not reachable on `breakout_1`
+
+> ⚠️ **Every candidate in this section is DISQUALIFIED, not proposed.**
+> `breakout_1` is confirmed DXTrade (PR #13124); S&P500, XYZ100, SILVER and CL
+> are confirmed Terminal-exclusive, first-party (S7,
+> `intercom.help/breakoutprop/en/articles/16188026`: *"available exclusively
+> on the Breakout Terminal and are not available on DXTrade"*). None of
+> `spy_trend_long_1d`, `spy_pullback_1h`, `qqq_trend_long_1d`,
+> `qqq_pullback_1h`, `tqqq_trend_long_1d`, `qld_trend_long_1d`,
+> `slv_pullback_1d`, `uso_trend_1h`, or `mes_trend_long_1d` can be routed to
+> `breakout_1` as it exists today. The scoring below is kept as a record of
+> work done (and as input if a *separate* Breakout Terminal account is ever
+> opened) — it answers "how would this signal perform on that CFD", not
+> "should this be added to `breakout_1`". Treat every "clears the bar" verdict
+> in this section as **not a `breakout_1` candidate**, per the operator's
+> correction at the top of this document.
 
 **NEW PRIORITY, operator direction relayed 2026-09-27T08:29Z**: before widening crypto
 past SOL/ETH, check whether anything already running on `alpaca_paper`/`alpaca_live`/`ib_paper`

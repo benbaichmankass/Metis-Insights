@@ -60,6 +60,23 @@ every `[operator screenshot]` row below.
 
 ## Non-crypto instruments (Breakout Terminal only) `[operator screenshot, unverified against the live page]`
 
+> ⚠️ **CORRECTION 2026-09-27 ~12:30Z, upgraded to first-party source.**
+> This section's own header already said "Breakout Terminal only" from the
+> operator's screenshot; a parallel lane (PR
+> [#13124](https://github.com/benbaichmankass/Metis-Insights/pull/13124),
+> merged) subsequently (a) confirmed `breakout_1` is a **DXTrade** account
+> (the operator logs in at `app.breakoutprop.com`; Breakout FAQ
+> `intercom.help/breakoutprop/en/articles/14215629` maps that URL to
+> DXTrade) and (b) found a **first-party** citation for the Terminal-only
+> claim: `intercom.help/breakoutprop/en/articles/16188026` (Breakout,
+> 2026-08-06), quoted verbatim: *"available exclusively on the Breakout
+> Terminal and are not available on DXTrade."* **All four rows below are
+> therefore confirmed UNREACHABLE on `breakout_1` as it exists today** — this
+> is now `[CONFIRMED — FAQ]` for reachability, even though the size/leverage
+> figures themselves remain `[operator screenshot, unverified]`. See
+> [`docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md`](../research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md)
+> §5 for the candidates this disqualifies.
+
 | symbol | market | max total position size (USD) | leverage |
 |---|---|--:|--:|
 | CL | Crude oil | 200,000 | 5x |
