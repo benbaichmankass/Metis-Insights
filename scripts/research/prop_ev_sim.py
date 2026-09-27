@@ -268,6 +268,7 @@ class SimConfig:
     risk_pct: float = 0.015
     sizing: str = "balance"          # balance | start | room
     room_frac: float = 0.45          # `room` sizing: max share of the binding cushion one new trade may risk
+    min_risk_usd: float = 1.0        # a trade whose sized risk is below this is skipped (counted)
     start_balance: Optional[float] = None  # resume an EXISTING eval account at this balance (flat)
     funded_start: str = "fresh"      # fresh | carry
     approval_days: float = 1.0
@@ -697,7 +698,7 @@ def simulate_life(hist: History, rules: PropRules, cfg: SimConfig, mode: str,
                     risk_usd = min(cfg.risk_pct * bal, cfg.room_frac * max(0.0, room))
                 else:
                     risk_usd = cfg.risk_pct * (bal if cfg.sizing == "balance" else start)
-                if risk_usd < 1.0:
+                if risk_usd < cfg.min_risk_usd:
                     counters["skipped_no_room"] = counters.get("skipped_no_room", 0) + 1
                     continue
                 pnl = t.net_r * risk_usd
@@ -1111,6 +1112,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="room = min(risk_pct x balance, room_frac x binding cushion), cushion = the "
                          "smaller of equity-to-static-floor and equity-to-today's-daily-limit")
     ap.add_argument("--room-frac", type=float, default=0.45)
+    ap.add_argument("--min-risk", type=float, default=1.0, help="skip a trade sized below this many USD of risk")
     ap.add_argument("--start-balance", type=float, default=None,
                     help="resume an EXISTING evaluation account at this (flat) balance; pair with "
                          "--fee 0 when the account fee is already sunk")
@@ -1165,6 +1167,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                        slippage_bps_rt=args.slippage_bps_rt, swap_daily=args.swap_daily,
                        swap_model=args.swap_model)
     cfg = SimConfig(risk_pct=args.risk_pct, sizing=args.sizing, room_frac=args.room_frac,
+                    min_risk_usd=args.min_risk,
                     start_balance=args.start_balance, funded_start=args.funded_start,
                     approval_days=args.approval_days, horizon_days=args.horizon_days,
                     block_days=args.block_days, first_payout_refund=args.first_payout_refund)
