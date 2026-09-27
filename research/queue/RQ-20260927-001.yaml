@@ -1,6 +1,6 @@
 id: RQ-20260927-001
 title: RQ-20260922-007's exit-head-donchian-1h-v1 recovered_R, genuinely out-of-sample
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -172,4 +172,13 @@ related:
   - PI-20260926-6M9R1WSA-0001 (the promotion-evidence thread this closes out)
   - PI-20260926-96NDZSOD-0002 (the population-mismatch finding this resolves)
   - PI-20260926-96NDZSOD-0001 (independent precondition, unaffected by this unit's verdict)
-last_dispatched_at: null
+last_dispatched_at: '2026-09-27T05:44:37Z'
+
+result: >-
+  LANDED research/results/RQ-20260927-001/36298075573.jsonl (trainer-vm-diag
+  issue #13045, run 36298075573, 2026-09-27). PASS: recovered_R_oos +1.3127
+  over n=119 genuinely out-of-sample trades (walk-forward retrain, embargoed
+  split at 2025-01-06T16:00:00Z), clearing the n>=64.07 floor. Small effect
+  (+0.011R/trade) and a single split -- read as marginal support, not
+  decisive, and PI-20260926-96NDZSOD-0001 (twin-dedup) remains an independent
+  precondition for any re-promotion regardless of this verdict.

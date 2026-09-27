@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "The grader is fixed to compute the paired statistic (head-on minus head-off over the same trades) and RQ-20260922-007 is re-graded on it, OR a session records why the cross-population subtraction is intended. In either case the 'pass / attributable_to omitted_exit_head' disposition stops being cited as promotion evidence until then.",
+    "kind": "observation"
+  },
+  "id": "PI-20260926-96NDZSOD-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "research/results/RQ-20260922-007/36257896539.jsonl; scripts/research/exit_head_attribution_result.py L169-170; comms/reviews/w5n-exit-head-reconcile-20260926.json",
+    "rerun": "Read measurement.{baseline_summary_net_total_r, delta_gross_r, population.trades, evidence.n_trades_oos} on the newest research/results/RQ-20260922-007/*.jsonl and check whether recovered_r still subtracts an n_trades_oos-population figure from a population.trades-population figure."
+  },
+  "severity": "medium",
+  "state": "done",
+  "terminal_reason": "RESOLVED 2026-09-27 (lane claude/w5d-rq007-oos): a fixed re-grade was run, not just proposed. RQ-20260927-001 (research/results/RQ-20260927-001/36298075573.jsonl) computes the paired statistic correctly this time -- head-on vs head-off over the SAME trades -- and additionally restricts it to a genuinely out-of-sample population (walk-forward retrain, embargoed split 2025-01-06, n=119) rather than RQ-007s heavily in-sample full window. Verdict: recovered_R_oos +1.3127 (small, +0.011R/trade), PASS under the newly pre-registered RULE-RQ0927-001-EXIT-HEAD-OOS-ATTRIBUTION. RQ-20260922-007s original +3.78 cross-population figure and its own -34.92 full-window paired delta are both superseded by this for any promotion decision; cite RQ-20260927-001 instead.",
+  "tier": 1,
+  "what": "RQ-20260922-007's 'pass' (recovered_R +3.78, attributable_to omitted_exit_head) is a cross-population comparison. exit_head_attribution_result.py computes head_simulated = baseline_summary_net_total_r (353 full-window trades, 2021-09-22..2026-09-25) + delta_gross_r, then subtracts evidence net_r_oos 4.6017, which comes from 73 walk-forward OOS trades in a different record. The SAME payload's paired arms are head-off +43.30R and head-on +8.38R net over identical trades, a delta of -34.92R. The unit's own power.basis declares a PAIRED design. Under that design the head LOSES about 0.099R per trade, in-sample-biased in its favour (train_window_present=false). The pass verdict therefore inverts the sign of the paired evidence. It should not be read as support for promoting exit-head-donchian-1h-v1, and the RQ-007 pipeline item already quoted it as 'real recovered_R on the table'."
+}
