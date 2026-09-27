@@ -9,7 +9,8 @@
 # VM's mirror, where src/runtime/forecast_live.py serves the fc_* row to the
 # shadow / per-bar regime scorer. This script only PRODUCES; publish MIRRORS.
 #
-# Cadence: 15 min (the 15m bar the fc head scores). chronos-bolt-tiny is a 9M
+# Cadence: bar-aligned, 30 s after each 15m bar closes (FIX-CA-25; the 15m
+# bar the fc head scores). chronos-bolt-tiny is a 9M
 # CPU model, sub-second per symbol; the real per-run cost is the per-symbol
 # Bybit candle fetch. Best-effort: a fetch / dep failure logs and exits
 # non-zero (the timer just retries next cycle) without touching anything the

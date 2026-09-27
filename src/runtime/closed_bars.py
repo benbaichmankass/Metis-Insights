@@ -12,9 +12,10 @@ fourth call site does not re-implement it.
 
 A bar is forming when ``open_ts + timeframe_seconds > now``. ``timestamp`` is
 the bar's OPEN time (Bybit kline start). Duck-typed: accepts a pandas
-DataFrame (live) or any frame whose ``["timestamp"]`` yields a list and whose
+DataFrame (live), any frame whose ``["timestamp"]`` yields a list and whose
 rows can be sliced (``iloc`` or a ``_rows`` list — the regime tests'
-``_FrameLike``). An unknown timeframe or an unparsable timestamp returns the
+``_FrameLike``), or a list of row mappings keyed ``timestamp`` / ``ts`` /
+``time`` (the forecast producer's records). An unknown timeframe or an unparsable timestamp returns the
 frame unchanged: trimming needs certainty, and a spurious trim would drop a
 closed bar.
 """
@@ -22,7 +23,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Mapping
 
 #: Bar length in seconds per timeframe string.
 TF_SECONDS: dict[str, int] = {
@@ -65,6 +66,14 @@ def _epoch_seconds(value: Any) -> float | None:
 
 
 def _last_timestamp(candles: Any) -> Any:
+    if isinstance(candles, (list, tuple)):  # list of row mappings
+        if not candles or not isinstance(candles[-1], Mapping):
+            return None
+        last = candles[-1]
+        for key in ("timestamp", "ts", "time"):
+            if last.get(key) is not None:
+                return last[key]
+        return None
     try:
         col = candles["timestamp"]
     except Exception:  # noqa: BLE001
@@ -105,7 +114,7 @@ def drop_forming_bar(candles: Any, timeframe: str, *, now: float | None = None) 
     rows = getattr(candles, "_rows", None)
     if isinstance(rows, list):
         return type(candles)(rows[:-1])
-    if isinstance(candles, list):
+    if isinstance(candles, (list, tuple)):
         return candles[:-1]
     return candles
 
