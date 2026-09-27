@@ -1,0 +1,169 @@
+id: RQ-20260927-005
+title: >-
+  W6-PROP-R3 — can trend_donchian / htf_pullback parameters be tuned FOR the
+  Breakout prop objective (E[net-$ per account life]) so a BTC/ETH/SOL leg
+  clears RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 robustly out of sample?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Round 2 (docs/research/b6-prop-ev/w6-candidates-v2-2026-09-27.md, PR #13195)
+  scored 20 existing legs, all tuned for Bybit expectancy, against the B6 prop
+  bar and found none robust. The binding constraints on breakout_1 are a $150
+  daily-loss limit and a $300 static-DD floor on $5,000 (breakout.yaml), with
+  room sizing k=0.33 / min_risk $10 on a fresh account (#13154). Question: if
+  the SAME strategy families are re-tuned with the prop objective itself as
+  the in-sample selection criterion (which rewards lower per-trade variance,
+  fewer clustered same-day losses and shorter holds under 0.033%/day swap),
+  does the walk-forward OUT-OF-SAMPLE stitched leg on a DXtrade-mapped symbol
+  (BTCUSDT / ETHUSDT / SOLUSDT) clear the B6 V2 bar on every seed, AND does
+  adding it improve the current two-leg breakout_1 portfolio's B6 EV?
+
+power:
+  expected_n: 250
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Unit of analysis = one OOS trade of the stitched walk-forward leg. Floor at
+    d=0.3: (1.96+0.8416)^2/0.3^2 = 87.2 trades. Expected n: the OOS span is
+    2023-10-01 -> 2026-09-24 (~36 months). The CURRENT trend_donchian_eth_prop
+    params on the same fetched ETHUSDT 1h candles produce 893 trades over
+    2021-10 -> 2026-09 (60 months, measured in this session before
+    registration) ~= 535 per 36 months; trend_donchian_sol_prop (long-only,
+    conf 0.8) 320 per 60 months ~= 190 per 36. Pullback 2h legs are sparser
+    (round 2's sol_pullback_2h n=18/yr is the low end). 250 is a middle
+    figure; per-candidate OOS n is REPORTED and any candidate with OOS n < 88
+    is graded `underpowered`, never pass. Note the B6 predicate is not a mean
+    test: its CI is the outer block-bootstrap of calendar history, which the
+    normal-approximation floor does not describe — the floor is a sanity
+    lower bound only (research/queue/README.md § "The power floor is a floor").
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Not one of research_disposition.CORPORA's registered corpora: n comes
+      from a fresh harness replay over Binance-vision USDT-M 1h candles
+      fetched this session (scripts/ops/fetch_backtest_candles.py --source
+      auto; Bybit is geoblocked from this runner so `auto` fell back to
+      binance_vision). One-shot historical replay, fixed by history — nothing
+      accrues. The measured counts quoted in `basis` are what would clear
+      this; they are re-read from the run's own output and reported per
+      candidate.
+
+design:
+  families_and_symbols: >-
+    trend_donchian (scripts/backtest_trend.py, 1h) and htf_pullback
+    (scripts/backtest_pullback.py, 1h candles resampled 2h), each on BTCUSDT,
+    ETHUSDT, SOLUSDT = 6 (family, symbol) candidates. argv built by the
+    canonical translator scripts/research/regime_debt_matrix.py::
+    build_harness_cmd (live-capped TP: --tp-cap-pct 0.099 --tp-r <tp_r>).
+  grid: >-
+    trend_donchian (32 cells): donchian {20,40} x atr_stop_mult {1.5,2.5} x
+    trail_mult {2.0,3.5} x tp_r {3.0,6.0} x stale_exit_bars {off,12}
+    (stale_exit_below_r 0.0); min_confidence 0.6, both sides, fixed.
+    htf_pullback (16 cells): atr_stop_mult {1.5,2.5} x trail_mult {2.0,3.5} x
+    tp_r {3.0,6.0} x stale_exit_bars {off,6}; trend_lookback 40,
+    pullback_lookback 10, pullback_frac 0.5, min_confidence 0.0, no ADX gate,
+    both sides, fixed. Session filter / max-trades-per-day are NOT in the
+    grid (declared out of scope to keep the multiplicity small; the
+    live-suppressed same-leg re-entry is already modelled by prop_ev_sim).
+  walk_forward: >-
+    Anchored expanding, 4 folds, OOS blocks of ~9 months:
+    F1 OOS 2023-10-01..2024-06-30 (IS 2021-10-01..2023-09-30);
+    F2 OOS 2024-07-01..2025-03-31; F3 OOS 2025-04-01..2025-12-31;
+    F4 OOS 2026-01-01..2026-09-24. Each cell is run ONCE over the full
+    candle history (the harnesses are causal — indicators use past bars only)
+    and its trades are split by time. IS for fold k = trades with
+    exit_time < OOS_k start (a trade still open at the cut is excluded:
+    its outcome was unknowable at selection time). OOS for fold k = trades of
+    the cell SELECTED on fold k's IS, with entry_time in [OOS_k start,
+    OOS_k end). The stitched OOS leg = concatenation of the 4 folds.
+  selection_objective_in_sample_only: >-
+    scripts/research/prop_ev_sim.py, the cell ALONE, --costs breakout (8 bps
+    commission RT, 3 bps slippage RT, 0.033%/day swap, dxtrade schedule),
+    --sizing room --room-frac 0.33 --min-risk 10 --risk-pct 0.015, mode
+    `path`, 1000 lives, --outer 0 (point estimate), seed 20260927 (common
+    random numbers across cells). Objective = ev_net_usd_per_life. Cells with
+    fewer than 30 IS trades are ineligible. Highest objective wins; ties
+    broken by the lower grid index. OOS data is never read during selection.
+  oos_grading: >-
+    prop_ev_sim at its FULL default MC size (--lives 4000 --outer 100
+    --lives-per-outer 200), mode path, same costs and sizing, seeds
+    {20260927, 1, 2, 3, 4}. Arms per candidate: (a) ALONE; (b) BASELINE +
+    candidate, where BASELINE = trend_donchian_eth_prop + trend_donchian_sol_prop
+    at their CURRENT config/strategies.yaml params (faithful argv, same
+    candles), restricted to entries in the same OOS span; plus (c) BASELINE
+    alone at the same 5 seeds, as the comparator.
+
+decision_rule:
+  id: RULE-RQ0927-005-PROP-SHAPED-WF
+  registered_at: '2026-09-27'
+  registered_before_run: true
+  statistic: >-
+    For each of the 6 stitched OOS candidates and each seed s in the 5 seeds:
+    A_s = path-mode evidence-CI ev_net_usd_p5 of the candidate ALONE;
+    P_s / Pm_s = evidence p5 / point ev_net_usd_per_life of BASELINE+candidate;
+    B_s / Bm_s = the same for BASELINE alone. Also reported, descriptive only:
+    per-fold selected cell, per-fold OOS n and Breakout-cost net R, and
+    p_ev_positive.
+  rule: >-
+    PASS (proposal-eligible) IF OOS n >= 88 AND A_s > 0 for ALL 5 seeds AND
+    (P_s > B_s AND Pm_s > Bm_s) for ALL 5 seeds. A PASS is additionally
+    labelled `multiplicity_robust` only if the ALONE p_ev_positive >= 0.99 on
+    every seed (Bonferroni over the 6 candidates at one-sided 5%); a PASS
+    without that label is reported as "passes the primary rule, not
+    multiplicity-robust" and the proposal says so in its first line.
+    STANDALONE_ONLY IF A_s > 0 on all 5 seeds but the portfolio clause fails
+    on any seed -> no roster-ADDITION proposal (the pre-registered question
+    was addition); reported as a candidate for a separately pre-registered
+    replacement question, nothing more.
+    FAIL IF A_s p95 < 0 on any seed (evidence-p95 below zero).
+    NULL / INDETERMINATE otherwise (any seed with A_s <= 0) -> no proposal.
+    UNDERPOWERED IF OOS n < 88 -> never pass regardless of A_s.
+    Round-2 read-change check (task item 3), graded separately: re-run
+    trend_donchian_eth (evidence file comms/strategy_evidence/runs/2026-09-25/
+    trend_donchian_eth__trades.jsonl) alone and + the two baseline legs'
+    committed evidence rows at the full default MC size, 5 seeds, room
+    sizing. The round-2 read ("2/5 alone, 0/5 added") CHANGES iff the number
+    of seeds with p5 > 0 changes in either arm; it FLIPS TO PASS only at 5/5.
+  what_it_does_not_do: >-
+    Edits nothing under config/, places nothing, flips no gate. A PASS yields
+    a Tier-3 PROPOSAL to the operator via the manager; adding a leg to
+    breakout_1 (and wiring any new param set as a strategies.yaml leg with
+    its own committed evidence record) remains a separate, operator-approved
+    step. The OOS grade is on Binance-vision candles, not the Bybit candles
+    the live signal uses; a PASS would need its evidence record rebuilt on the
+    canonical feed before any wiring.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 120
+  basis: >-
+    Runs in a Claude Code web session (4 cores): 144 cell replays (~1.5 s
+    each), 576 in-sample prop sims (~8 s), 6x5x2+5 full-size OOS prop sims
+    (~3 min each), parallel over 4 processes.
+
+run:
+  workflow: 'none — session-local run of scripts/research/w6_prop_shaped_search.py (committed with this unit)'
+  inputs:
+    script: scripts/research/w6_prop_shaped_search.py
+    research_unit: RQ-20260927-005
+    candles: 'data/ohlcv/{BTC,ETH,SOL}USDT_1h_w6r3.csv (fetched, gitignored)'
+
+lands:
+  store: docs/research/b6-prop-ev/w6-prop-shaped-search-2026-09-27.json
+  assert_field: verdict
+  min_rows: 6
+
+related:
+  - 'docs/research/b6-prop-ev/w6-candidates-v2-2026-09-27.md (round 2, PR #13195)'
+  - 'scripts/research/prop_ev_sim.py (RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2)'
+  - 'config/prop_rulesets/breakout.yaml (limits, sizing #13154)'
+  - 'checklist row W6-PROP-R3'
+
+last_dispatched_at: null
