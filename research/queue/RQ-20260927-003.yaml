@@ -144,4 +144,42 @@ lands:
 related:
   - RQ-20260927-002 (the methodology this scopes a possible follow-up for)
   - RQ-20260922-007 (the original flagship-leg attribution this generalizes from)
-last_dispatched_at: null
+last_dispatched_at: '2026-09-27T07:10:23Z'
+
+result: >-
+  LANDED research/results/RQ-20260927-003/36302282489.jsonl -- BOTH legs
+  read_state: producer_failed / verdict: not_applicable / population.n: null.
+  trainer-vm-diag workflow_dispatch run 36302282489 dispatched both legs
+  (SOL then ETH) as ONE sequential SSH session; the "Run command on trainer
+  VM" step ran exactly 60m10s (07:21:41Z-08:21:51Z) and was CANCELLED by the
+  workflow's own timeout-minutes: 60 (.github/workflows/trainer-vm-diag.yml:176)
+  -- confirmed via get_workflow_job (conclusion=cancelled) and the workflow's
+  own honest-cancellation comment naming timeout-minutes as the overwhelming
+  cause. Dispatched via direct workflow_dispatch (not an issue), so no output
+  was streamed back before the cutoff and no artifact was uploaded ('Upload
+  artifact' step itself skipped) -- there is no way to tell from this run
+  whether SOL, ETH, both, or neither leg finished before cancellation.
+  attributable_to: unestablishable for both legs -- per this unit's own
+  decision_rule, a producer failure never gets a fabricated followup/
+  deprioritize verdict. root_cause candidate (NOT confirmed, since the run
+  produced zero visibility into progress): the driver itself
+  (scripts/research/exit_head_prop_swap_feasibility.py) does one backtest +
+  one replay pass per leg with no retrain/loop that would plausibly cost
+  60+ minutes; est_minutes=20 in this unit's own routing.basis was set
+  assuming SOLUSDT/ETHUSDT candle data resolves as fast as BTCUSDT's, but
+  unlike BTCUSDT (already warm from RQ-20260927-001/-002's repeated use)
+  neither symbol's 1h history has been fetched on the trainer by this family
+  before -- a cold candle fetch is the leading (unconfirmed) suspect.
+  SCOPED FOLLOW-UP: re-dispatch as TWO SEPARATE single-leg workflow_dispatch
+  calls (never re-combine into one SSH session), ETH first --
+  docs/research/exit-refinement-coverage.json already records ETH's own
+  dedicated round as PASSED-but-stranded (auc=0.6138, beats_actual=20/24,
+  n_oos=902, no published artifact to pin), and this unit's option (ii)
+  (re-measure against exit-head-donchian-1h-v1, ship only if THAT clears
+  the gate) is the coverage row's own stated unblock path for that stranded
+  finding. If a single leg alone still exceeds 60 minutes, that isolates the
+  cost to the candle-fetch step, and the fix is a one-time cache warm on the
+  trainer, not a driver rewrite. Not re-dispatched further in this session
+  (wave-6 lane M2) to avoid tying up the shared 1-OCPU trainer relay
+  indefinitely on an unconfirmed root cause; left for the next session
+  touching this unit.
