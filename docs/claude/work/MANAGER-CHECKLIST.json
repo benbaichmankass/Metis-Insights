@@ -296,7 +296,7 @@
       "id": "C2",
       "title": "Make the 19 artifact-only research workflows commit to a corpus",
       "phase": "C",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
       "lane": null,
       "model": "claude-sonnet-5",
@@ -305,7 +305,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "19 of 23 produce an artifact and an issue comment and nothing else. A result nobody can query later is not evidence."
+      "note": "19 of 23 produce an artifact and an issue comment and nothing else. A result nobody can query later is not evidence. | OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Dispatched as the eng queue-moving slot (stops research results being lost)."
     },
     {
       "id": "C3",
@@ -2253,6 +2253,68 @@
       "prs": [],
       "blocked_on": [],
       "note": "Opus per the operator. Consolidates, dedupes, independently re-verifies every critical/high finding, splits evidence-settled fixes (-> manager fix lanes) from judgment calls (-> daily brief section 2), files pipeline items for what is not fixed at once. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01FEyBLv4xbJQoAzTRs4df3M (claude-opus-5-5; fresh)."
+    },
+    {
+      "phase": "W6",
+      "state": "in_flight",
+      "lane": null,
+      "spend_usd": null,
+      "prs": [],
+      "blocked_on": [],
+      "id": "W6-PROP-O1",
+      "title": "Optimize the two live breakout_1 legs (trend_donchian_eth_prop, trend_donchian_sol_prop) against the B6 EV-per-account-life bar",
+      "owner": "research lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260922-003 (cost break-even for eth_prop; same for sol_prop) at Breakout DXtrade costs, sizing under #13154's flat-1.5%/room-k=0.33 rule, and M2's deferred 'exit-head-for-prop-legs' look. Output: evidence records + any Tier-3 param proposal to the manager. Sonnet: research, not an order path."
+    },
+    {
+      "phase": "W6",
+      "state": "in_flight",
+      "lane": null,
+      "spend_usd": null,
+      "prs": [],
+      "blocked_on": [],
+      "id": "W6-PROP-R2",
+      "title": "Breakout candidate search v2: every DXtrade-tradable symbol x every corpus strategy family, scored with the merged prop_ev_sim",
+      "owner": "research lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Candidates ONLY from https://www.breakoutprop.com/symbols/ (operator), DXtrade side (breakout_1 is DXtrade). Re-runs PI-20260927-ODDTM5QY-0003 on merged prop_ev_sim (#13084); multi-seed robustness for xrp (ODDTM5QY-0001). Roster proposal comes to the operator via the manager. Sonnet: research."
+    },
+    {
+      "phase": "W6",
+      "state": "blocked",
+      "lane": null,
+      "spend_usd": null,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "P4",
+          "what": "first breakout-login-check must succeed with the operator's creds (#13159 merge + sync-vm-secrets)"
+        }
+      ],
+      "id": "W6-PROP-E1",
+      "title": "breakout-login-check reads DXtrade instrument specs (symbol + contract size) \u2014 resolves ODDTM5QY-0002/0004 without an operator ask",
+      "owner": "build lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Read-only extension of src/prop/platform/dxtrade.py + the action; Tier-2 held PR."
+    },
+    {
+      "phase": "W6",
+      "state": "in_flight",
+      "lane": null,
+      "spend_usd": null,
+      "prs": [],
+      "blocked_on": [],
+      "id": "W6-RQ007",
+      "title": "RQ-20260922-007: trend_donchian on bybit_2 net-negative under the full cost stack",
+      "owner": "research lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Queue-moving slot: real-money leg, highest-value non-prop research unit."
     }
   ]
 }
