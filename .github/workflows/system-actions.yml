@@ -1538,8 +1538,13 @@ jobs:
           if [ "${ACTION}" = "bybit-bracket-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-}") ${REMOTE_CMD}"
           fi
+          # rebuild-pnl-from-bybit / backfill-monitor-closed-pnl: `apply: true`
+          # gates the write; the wrappers default to dry-run (FIX-CA-14).
           if [ "${ACTION}" = "rebuild-pnl-from-bybit" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "backfill-monitor-closed-pnl" ]; then
+            REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "strategy-performance-audit" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") ACTION_DAYS=$(printf '%q' "${ACTION_DAYS}") ${REMOTE_CMD}"
