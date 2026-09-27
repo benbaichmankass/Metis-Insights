@@ -1,6 +1,7 @@
 # W6 — crypto-leg candidates for `breakout_1`, scored against the B6 EV bar
 
-> **Doc status:** `live` · category `research` · generated 2026-09-27.
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+>
 > Lane: W6 (checklist row B6), dispatched by manager session
 > `session_01Ljhs6sFAdWHdMDhJpL5aBP`. Tier-1 research — no roster, execution,
 > sizing or config change. Adding a leg to `breakout_1` is Tier-3 and this
