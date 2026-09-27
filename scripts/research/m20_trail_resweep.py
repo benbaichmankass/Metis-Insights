@@ -70,6 +70,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
 REPO = os.environ.get("M20_REPO") or os.path.dirname(
@@ -101,22 +102,33 @@ def base_args(a) -> List[str]:
 
 def run_cell(a, extra: List[str], start: Optional[str],
              end: Optional[str]) -> Dict[str, Any]:
-    tmp = "/tmp/m20_trail_cell.json"
+    # A UNIQUE PATH PER CALL (FIX-CA-29). This was the fixed literal
+    # "/tmp/m20_trail_cell.json", so two sweeps on one box served each other's
+    # results — BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH, fixed the same
+    # way in the sibling m20_fleet_exit_sweep.run_cell.
+    fd, tmp = tempfile.mkstemp(prefix="m20_trail_cell_", suffix=".json")
+    os.close(fd)
     cmd = [sys.executable, HARNESS] + base_args(a) + list(extra)
     if start:
         cmd += ["--start", start]
     if end:
         cmd += ["--end", end]
     cmd += ["--json", tmp]
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=a.timeout)
-    if p.returncode != 0:
-        # Surfaced, never swallowed: an ERR cell must not read as a clean zero.
-        return {"error": (p.stderr or p.stdout).strip()[-200:]}
     try:
-        with open(tmp, encoding="utf-8") as fh:
-            return json.load(fh)
-    except (OSError, json.JSONDecodeError) as exc:
-        return {"error": f"json read: {exc}"}
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=a.timeout)
+        if p.returncode != 0:
+            # Surfaced, never swallowed: an ERR cell must not read as a clean zero.
+            return {"error": (p.stderr or p.stdout).strip()[-200:]}
+        try:
+            with open(tmp, encoding="utf-8") as fh:
+                return json.load(fh)
+        except (OSError, json.JSONDecodeError) as exc:
+            return {"error": f"json read: {exc}"}
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 
 def cell_grid(a) -> List[Tuple[str, List[str]]]:

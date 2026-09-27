@@ -18,6 +18,7 @@ import argparse
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # Run from the repo root (the trainer runs a /tmp copy, so __file__ is not a
@@ -28,15 +29,26 @@ REPO = Path(os.environ.get("M20_REPO", Path.cwd()))
 
 
 def run_cell(harness: str, args: list[str]) -> dict:
-    tmp = "/tmp/m20_cell.json"
+    # A UNIQUE PATH PER CALL (FIX-CA-29). This was the fixed literal
+    # "/tmp/m20_cell.json", so two sweeps on one box served each other's
+    # results — BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH, fixed the same
+    # way in the sibling m20_fleet_exit_sweep.run_cell.
+    fd, tmp = tempfile.mkstemp(prefix="m20_exit_cell_", suffix=".json")
+    os.close(fd)
     cmd = [sys.executable, str(REPO / harness), *args, "--json", tmp]
-    p = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-    if p.returncode != 0:
-        return {"error": (p.stderr or p.stdout)[-300:]}
     try:
-        return json.loads(Path(tmp).read_text())
-    except (OSError, json.JSONDecodeError) as exc:
-        return {"error": f"json read: {exc}"}
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        if p.returncode != 0:
+            return {"error": (p.stderr or p.stdout)[-300:]}
+        try:
+            return json.loads(Path(tmp).read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            return {"error": f"json read: {exc}"}
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 
 def line(tag: str, res_in: dict, res_oos: dict) -> str:
