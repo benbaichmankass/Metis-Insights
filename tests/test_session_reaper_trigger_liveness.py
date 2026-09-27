@@ -46,10 +46,7 @@ def test_the_dead_path_no_longer_exists_anywhere_in_the_live_tree():
     """Sanity-checks the defect itself: SESSIONS.json really is gone, so a
     `paths:` filter naming it really would never fire."""
     assert not (REPO / "docs" / "claude" / "work" / "SESSIONS.json").exists()
-    archived = (
-        REPO / "docs" / "archive" / "2026-09-21-operating-reset"
-        / "work" / "SESSIONS.json"
-    )
+    archived = REPO / "docs" / "archive" / "2026-09-21-operating-reset" / "work" / "SESSIONS.json"
     assert archived.exists(), (
         "expected SESSIONS.json to have been moved under the 2026-09-21 "
         "operating-reset archive — if it moved elsewhere, this test's "
