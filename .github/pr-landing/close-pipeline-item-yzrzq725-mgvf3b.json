@@ -1,1 +1,1 @@
-{"tier": 1, "landing": "self", "why": "Register/docs only -- closes pipeline item PI-20260927-YZRZQ725-0005 (append-only done record) and edits MANAGER-CHECKLIST.json row R4's note. No src/, config/, or ml/configs/ change, and no landing-machinery change (the w6-ops-authority-flag landing-record deletion is split into its own held PR)."}
+{"tier": 1, "landing": "self", "why": "Register only -- operator directive 2026-09-27: trims MANAGER-CHECKLIST.json row R4's note. No src/, config/, ml/configs/ or landing-machinery change."}
