@@ -34,6 +34,9 @@ def load_platform_config(account_id: str, path: Optional[Path] = None) -> Dict[s
     if platform not in KNOWN_PLATFORMS:
         raise ValueError(
             f"{account_id!r}: unknown platform {platform!r} (known: {', '.join(KNOWN_PLATFORMS)})")
+    url = str(entry.get("login_url") or "")
+    if not url.startswith("https://"):
+        raise ValueError(f"{account_id!r}: login_url must be an https:// URL (got {url!r})")
     return entry
 
 

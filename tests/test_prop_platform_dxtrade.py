@@ -41,6 +41,7 @@ from src.prop.platform.dxtrade import (
     parse_number,
     positions_from_tables,
     redact_text,
+    render_page_shape,
     render_structure,
 )
 
@@ -368,14 +369,39 @@ def test_could_not_look_is_distinct_from_none_open():
 def test_breakout_1_is_dxtrade_from_config():
     cfg = load_platform_config("breakout_1")
     assert cfg["platform"] == "dxtrade"
-    assert cfg["login_url"] == "https://app.breakoutprop.com/"
+    # The DXtrade terminal's HTTP host, where the login selectors were measured;
+    # app.breakoutprop.com is the dashboard (run 36337076971: unknown_page).
+    assert cfg["login_url"] == "https://wss.breakoutprop.com/"
     assert (cfg["username_env"], cfg["password_env"]) == ("BREAKOUT_DX_USERNAME", "BREAKOUT_DX_PASSWORD")
     assert isinstance(get_adapter("breakout_1"), DXtradeAdapter)
 
 
+def test_login_url_must_be_https(tmp_path):
+    p = tmp_path / "p.yaml"
+    p.write_text("accounts:\n  x:\n    platform: dxtrade\n    login_url: http://wss.example/\n")
+    with pytest.raises(ValueError):
+        load_platform_config("x", p)
+    p.write_text("accounts:\n  x:\n    platform: dxtrade\n")
+    with pytest.raises(ValueError):
+        load_platform_config("x", p)
+
+
+def test_render_page_shape_is_redacted():
+    shape = {"title": "Sign in", "location": "https://app.example.com/login?next=/x",
+             "forms": [{"id": "f", "cls": "auth", "action": "/api/login", "visible": True}],
+             "inputs": [{"id": "email", "name": "email", "type": "email"}],
+             "buttons": ["Log in", "BO-JDOE77"], "iframes": ["https://challenges.example/t/abc?x=1"]}
+    lines = render_page_shape(shape, "Welcome bo-jdoe77\nme@example.com", secrets=("bo-jdoe77",))
+    blob = "\n".join(lines)
+    assert "jdoe77" not in blob.lower() and "me@example.com" not in blob and "next=" not in blob
+    assert "page_shape.form: id='f' class='auth' action='/api/login' visible=True" in blob
+    assert "page_shape.iframe: https://challenges.example" in blob
+    assert lines[0].startswith("page_shape: BEGIN") and lines[-1] == "page_shape: END"
+
+
 def test_unknown_platform_and_account_raise(tmp_path):
     p = tmp_path / "p.yaml"
-    p.write_text("accounts:\n  x:\n    platform: mt5\n")
+    p.write_text("accounts:\n  x:\n    platform: mt5\n    login_url: https://x.example/\n")
     with pytest.raises(ValueError):
         load_platform_config("x", p)
     with pytest.raises(KeyError):
@@ -478,3 +504,15 @@ def test_structure_dump_from_a_real_dom_never_leaks_input_values(chromium_page):
     assert "someone@example.com" not in blob     # e-mail redacted
     assert "structure.label: 'Balance'" in blob and "4,724.00" in blob
     assert "div.grid-header" in blob             # header-row shape is reported
+
+
+def test_page_shape_on_the_measured_login_page_never_reads_input_values(chromium_page):
+    # The REAL login markup Breakout serves, with values typed into both fields.
+    chromium_page.set_content(FIXTURE.read_text())
+    chromium_page.fill(SELECTORS["login_username"], "bo-jdoe77")
+    chromium_page.fill(SELECTORS["login_password"], "Pa55-word!x")
+    blob = "\n".join(DXtradeAdapter(timeout_ms=5_000).page_shape(chromium_page))
+    assert "bo-jdoe77" not in blob and "Pa55-word!x" not in blob
+    assert "class='loginForm loginForm-main'" in blob and "action='api/auth/login'" in blob
+    assert "page_shape.input: id='password'" in blob
+    chromium_page.set_content(DIVGRID.read_text())  # leave the shared page as the other tests expect

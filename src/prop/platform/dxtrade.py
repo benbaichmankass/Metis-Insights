@@ -475,6 +475,54 @@ STRUCTURE_LABELS: List[str] = sorted({
     "Positions", "Orders", "Account metrics", "Stop loss", "Take profit",
 })
 
+# JS for the PAGE-SHAPE dump printed when login ends ``unknown_page`` or
+# ``timeout``: what page did we land on? Title, each form's id/class/action
+# path, each input's id/name/type (NEVER its value), and button/link text.
+PAGE_SHAPE_JS = r"""
+() => {
+  const cut = (s, n) => String(s || '').trim().replace(/\s+/g, ' ').slice(0, n);
+  const forms = [...document.querySelectorAll('form')].slice(0, 10).map(f => ({
+    id: cut(f.id, 40), cls: cut(typeof f.className === 'string' ? f.className : '', 80),
+    action: cut((f.getAttribute('action') || '').split(/[?#]/)[0], 80),
+    visible: !!(f.offsetWidth || f.offsetHeight || f.getClientRects().length),
+  }));
+  const inputs = [...document.querySelectorAll('input, select, textarea')].slice(0, 30).map(i => ({
+    id: cut(i.id, 40), name: cut(i.getAttribute('name'), 40),
+    type: cut(i.getAttribute('type') || i.tagName.toLowerCase(), 20),
+  }));
+  const buttons = [...document.querySelectorAll('button, [role=button], input[type=submit], a')]
+    .map(b => cut(b.innerText || b.getAttribute('aria-label') || '', 40)).filter(Boolean).slice(0, 30);
+  const iframes = [...document.querySelectorAll('iframe')].slice(0, 10)
+    .map(f => cut((f.getAttribute('src') || '').split(/[?#]/)[0], 120));
+  return {title: cut(document.title, 120), location: location.origin, forms, inputs, buttons, iframes};
+}
+"""
+
+
+def render_page_shape(shape: Mapping[str, Any], page_text: str,
+                      secrets: Sequence[str] = (), max_lines: int = 40) -> List[str]:
+    """Format the redacted page-shape dump as printable lines (pure; tested)."""
+    r = lambda t: redact_text(t, *secrets)  # noqa: E731
+    lines = ["page_shape: BEGIN (redacted: no input values, cookies, storage or tokens)"]
+    lines.append(f"page_shape.title: {r(shape.get('title', ''))}")
+    lines.append(f"page_shape.location: {r(_strip_url(shape.get('location', '')))}")
+    for f in shape.get("forms") or []:
+        lines.append(f"page_shape.form: id={r(f.get('id', ''))!r} class={r(f.get('cls', ''))!r} "
+                     f"action={r(f.get('action', ''))!r} visible={f.get('visible')}")
+    for i in shape.get("inputs") or []:
+        lines.append(f"page_shape.input: id={r(i.get('id', ''))!r} name={r(i.get('name', ''))!r} "
+                     f"type={r(i.get('type', ''))!r}")
+    lines.append(f"page_shape.buttons: {[r(b) for b in shape.get('buttons') or []]}")
+    for src in shape.get("iframes") or []:
+        lines.append(f"page_shape.iframe: {r(_strip_url(src)) if '://' in src else r(src)}")
+    text_lines = [ln.strip() for ln in (page_text or "").splitlines() if ln.strip()]
+    lines.append(f"page_shape.text: {len(text_lines)} non-empty lines; first {min(max_lines, len(text_lines))}:")
+    for ln in text_lines[:max_lines]:
+        lines.append(f"  | {r(ln)[:120]}")
+    lines.append("page_shape: END")
+    return lines
+
+
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 _TOKENISH_RE = re.compile(r"[A-Za-z0-9_\-.=+/]{24,}")
 _URL_RE = re.compile(r"((?:https?|wss?)://[^\s/?#'\"]+)([/?#][^\s'\"]*)?", re.IGNORECASE)
@@ -670,6 +718,19 @@ class DXtradeAdapter(PropPlatformAdapter):
                 return False
             page.wait_for_timeout(1_000)
             waited += 1_000
+
+    def page_shape(self, page: Any, secrets: Sequence[str] = ()) -> List[str]:
+        """The redacted page-shape dump for a login that landed somewhere
+        unrecognised (``unknown_page`` / ``timeout``). Read-only."""
+        try:
+            shape = page.evaluate(PAGE_SHAPE_JS) or {}
+        except Exception as exc:
+            shape = {"title": f"(page-shape probe failed: {type(exc).__name__})"}
+        try:
+            text = self._page_text(page)
+        except Exception:
+            text = ""
+        return render_page_shape(shape, text, secrets)
 
     def structure(self, page: Any, secrets: Sequence[str] = ()) -> List[str]:
         """The redacted structure dump for a read that did not parse."""

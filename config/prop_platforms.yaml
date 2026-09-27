@@ -12,11 +12,30 @@
 #
 # breakout_1 is DXtrade: the operator logs in at app.breakoutprop.com
 # (2026-09-27 ~10:17Z), which Breakout FAQ 14215629 maps to DXTrade accounts.
-# Accounts cannot migrate between the two terminals.
+# Accounts cannot migrate between the two terminals. BREAKOUT_DX_* are the
+# DXtrade TERMINAL login, not the app.breakoutprop.com dashboard login
+# (operator, 2026-09-27 18:20Z).
+#
+# login_url is the DXtrade web terminal, NOT app.breakoutprop.com. MEASURED
+# 2026-09-27 (curl + DNS, read-only):
+#   - wss.breakoutprop.com is a DNS-only CNAME to the AWS load balancer
+#     aws-breakout-prod-lb-*.elb.ap-southeast-1 (not proxied by Cloudflare).
+#     `GET /` returns 200 "Breakout Terminal" from `server: envoy`, sets the
+#     DXtrade DXTFID cookie, and serves form.loginForm-main (action
+#     api/auth/login). Despite the name it is the terminal's HTTP host, and
+#     it is where every login selector in src/prop/platform/dxtrade.py was
+#     measured.
+#   - app.breakoutprop.com is proxied by Cloudflare (403 "Just a moment..."
+#     to curl). On the VM, run 36337076971 (issue #13239's successor #13279)
+#     ended `unknown_page (login form never rendered ... at
+#     https://app.breakoutprop.com)`: it is not the DXtrade login page.
+#     The earlier "login: ok" (run 36329607152) never typed the credentials.
+#   - Every other *.breakoutprop.com name probed (trade, dx, dxtrade,
+#     terminal, platform, www) is Cloudflare's 403 too, so it says nothing.
 accounts:
   breakout_1:
     platform: dxtrade
-    login_url: https://app.breakoutprop.com/
+    login_url: https://wss.breakoutprop.com/
     # Env-var NAMES (never values) holding the login. They reach the VM .env
     # via .github/workflows/sync-vm-secrets.yml as optional secrets.
     username_env: BREAKOUT_DX_USERNAME

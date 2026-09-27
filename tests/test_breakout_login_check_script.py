@@ -11,7 +11,7 @@ import types
 from pathlib import Path
 
 
-from src.prop.platform.base import AccountSnapshot, Position
+from src.prop.platform.base import AccountSnapshot, FeasibilityError, Position
 
 REPO = Path(__file__).resolve().parents[1]
 USER, PASSWORD = "bo-jdoe77", "Pa55-word!x"
@@ -98,3 +98,28 @@ def test_main_never_prints_credentials_even_from_exceptions(monkeypatch, capsys)
     low = out.lower()
     for leaked in (USER.lower(), PASSWORD.lower(), "sid=abc123", "tok9"):
         assert leaked not in low, leaked
+
+
+class _UnknownPageAdapter(_LeakyAdapter):
+    def login(self, page, url, username, password):
+        raise FeasibilityError("unknown_page", f"login form never rendered (at https://x.example/{USER})")
+
+    def page_shape(self, page, secrets=()):
+        return ["page_shape: BEGIN", f"page_shape.buttons: ['{USER.upper()}']", "page_shape: END"]
+
+
+def test_unknown_page_prints_the_page_shape_redacted(monkeypatch, capsys):
+    mod = _load_script()
+    pkg, sync_api = _fake_playwright()
+    monkeypatch.setitem(sys.modules, "playwright", pkg)
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", sync_api)
+    monkeypatch.setenv("BREAKOUT_DX_USERNAME", USER)
+    monkeypatch.setenv("BREAKOUT_DX_PASSWORD", PASSWORD)
+    monkeypatch.setattr(mod, "adapter_for_platform", lambda _p: _UnknownPageAdapter())
+
+    rc = mod.main(["--account", "breakout_1"])
+    out = capsys.readouterr().out
+
+    assert rc == mod.EXIT_FEASIBILITY
+    assert "feasibility: unknown_page" in out and "page_shape: BEGIN" in out
+    assert USER.lower() not in out.lower()

@@ -138,6 +138,15 @@ def main(argv: Optional[list] = None) -> int:
             except FeasibilityError as fe:
                 print(_redact(f"feasibility: {fe.reason}" + (f" ({fe.detail})" if fe.detail else ""),
                               username, password))
+                # Where did we land? Only for an unrecognised page, never to
+                # probe a challenge further.
+                if fe.reason in ("unknown_page", "timeout") and hasattr(adapter, "page_shape"):
+                    try:
+                        for line in adapter.page_shape(page, (username, password)):
+                            print(_redact(line, username, password))
+                    except Exception as exc:
+                        print(_redact(f"page_shape: FAILED ({type(exc).__name__}: {str(exc)[:200]})",
+                                      username, password))
                 return EXIT_FEASIBILITY
             except Exception as exc:
                 # Playwright errors can echo call logs; redact before printing.
