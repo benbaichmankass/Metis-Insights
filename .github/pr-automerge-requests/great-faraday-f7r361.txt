@@ -1,1 +1,1 @@
-auto-merge on green: manager register update (lane ids, spend, fix-lane rows)
+auto-merge on green: manager register update 17:30Z

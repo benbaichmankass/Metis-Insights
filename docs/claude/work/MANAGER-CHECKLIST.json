@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-27T15:30:00Z",
+  "updated_at": "2026-09-27T17:30:00Z",
   "updated_by": "manager session_01KAQRJxRbRwpYTkPgBjNVyQ",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -2106,7 +2106,7 @@
       "id": "CA-B02",
       "title": "Code audit Wave B: scripts/ml + scripts/training",
       "phase": "CA",
-      "state": "in_flight",
+      "state": "done",
       "owner": "audit lane",
       "lane": "session_018nPWVCBmAyJ95AQwR6G7sZ",
       "model": "claude-sonnet-5",
@@ -2123,13 +2123,13 @@
           "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
         }
       ],
-      "note": "Scope: scripts/ml/** (72 files) and scripts/training/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B02.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL)."
+      "note": "Scope: scripts/ml/** (72 files) and scripts/training/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B02.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
     },
     {
       "id": "CA-B03",
       "title": "Code audit Wave B: scripts/research part 1",
       "phase": "CA",
-      "state": "in_flight",
+      "state": "done",
       "owner": "audit lane",
       "lane": "session_01MfuDr6cUra2SbX4rnjrrFs",
       "model": "claude-sonnet-5",
@@ -2146,13 +2146,13 @@
           "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
         }
       ],
-      "note": "Scope: scripts/research/ files 1\u201397 in `ls scripts/research` order (through m20_u1_winner_close_inventory.py). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B03.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL)."
+      "note": "Scope: scripts/research/ files 1\u201397 in `ls scripts/research` order (through m20_u1_winner_close_inventory.py). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B03.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
     },
     {
       "id": "CA-B04",
       "title": "Code audit Wave B: scripts/research part 2",
       "phase": "CA",
-      "state": "in_flight",
+      "state": "done",
       "owner": "audit lane",
       "lane": "session_01BGcK6MYWNqsX3BZGQPhr3D",
       "model": "claude-sonnet-5",
@@ -2169,13 +2169,13 @@
           "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
         }
       ],
-      "note": "Scope: scripts/research/ files 98\u2013185 in `ls scripts/research` order (from m20_u2_winner_close_attribution.py to the end). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B04.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL)."
+      "note": "Scope: scripts/research/ files 98\u2013185 in `ls scripts/research` order (from m20_u2_winner_close_attribution.py to the end). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B04.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
     },
     {
       "id": "CA-B05",
       "title": "Code audit Wave B: CI guards part 1 \u2014 each proven to fail on its defect",
       "phase": "CA",
-      "state": "in_flight",
+      "state": "done",
       "owner": "audit lane",
       "lane": "session_019T77vFGQ7zPvNNronM6LfN",
       "model": "claude-haiku-4-5-20251001",
@@ -2192,7 +2192,7 @@
           "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
         }
       ],
-      "note": "Scope: The first 44 guards in `python3 scripts/ci/run_guards.py --list` order (through candle-fixture-variance-guard), and each guard's script under scripts/ci/ or scripts/. Model reason: Haiku \u2014 mechanical plant-a-defect-and-run per guard; operator named Haiku. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B05.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL)."
+      "note": "Scope: The first 44 guards in `python3 scripts/ci/run_guards.py --list` order (through candle-fixture-variance-guard), and each guard's script under scripts/ci/ or scripts/. Model reason: Haiku \u2014 mechanical plant-a-defect-and-run per guard; operator named Haiku. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B05.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
     },
     {
       "id": "CA-B06",
@@ -2265,12 +2265,12 @@
       "id": "CA-B09",
       "title": "Code audit Wave B: skills and canonical docs vs code",
       "phase": "CA",
-      "state": "in_flight",
+      "state": "done",
       "owner": "audit lane",
       "lane": "session_018bJ1sbCPELjF9s3th2sPgL",
       "model": "claude-sonnet-5",
       "ceiling_usd": 30,
-      "spend_usd": null,
+      "spend_usd": 15.81,
       "tier": 1,
       "prs": [
         13226
@@ -2282,7 +2282,7 @@
           "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
         }
       ],
-      "note": "Scope: .claude/skills/**/SKILL.md and docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md, CLAUDE.md, docs/reference/*. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B09.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL)."
+      "note": "Scope: .claude/skills/**/SKILL.md and docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md, CLAUDE.md, docs/reference/*. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B09.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
     },
     {
       "id": "CA-LEAD",
@@ -2299,7 +2299,7 @@
         13227
       ],
       "blocked_on": [],
-      "note": "Opus per the operator. Consolidates, dedupes, independently re-verifies every critical/high finding, splits evidence-settled fixes (-> manager fix lanes) from judgment calls (-> daily brief section 2), files pipeline items for what is not fixed at once. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01FEyBLv4xbJQoAzTRs4df3M (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): consolidated report merged #13227 (docs/audits/code-audit-2026-09-27.md): 1 critical + 29 high after re-verification; 24 evidence-settled briefs FIX-CA-02..25 dispatched to 6 fix lanes; 5 judgment calls JC-CA-01..05 -> daily brief. Lead re-consolidates after #13226 lands."
+      "note": "Opus per the operator. Consolidates, dedupes, independently re-verifies every critical/high finding, splits evidence-settled fixes (-> manager fix lanes) from judgment calls (-> daily brief section 2), files pipeline items for what is not fixed at once. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01FEyBLv4xbJQoAzTRs4df3M (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): consolidated report merged #13227 (docs/audits/code-audit-2026-09-27.md): 1 critical + 29 high after re-verification; 24 evidence-settled briefs FIX-CA-02..25 dispatched to 6 fix lanes; 5 judgment calls JC-CA-01..05 -> daily brief. Lead re-consolidates after #13226 lands. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): turn 3 dispatched 17:17Z (trig_01CcJn2btM5Lbndf7SdwMCPB): consolidate Wave B, FIX-CA-26+/JC-CA-06+, mark 01..25 landed; ceiling $30."
     },
     {
       "id": "E74",
@@ -2401,9 +2401,9 @@
     },
     {
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "lane": "session_01Nee3UDjx7N9HSG5ybxXT8q",
-      "spend_usd": null,
+      "spend_usd": 7.44,
       "prs": [
         13223
       ],
@@ -2413,21 +2413,23 @@
       "owner": "research lane",
       "model": "claude-sonnet-5",
       "ceiling_usd": 20,
-      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260922-003 cost break-even for trend_donchian_eth_prop, repeated for trend_donchian_sol_prop, at Breakout DXtrade costs (incl. the 0.033%/day swap declared in config/strategies.yaml ~L2687; eth_prop evidence record n=169 OOS trades, sol_prop per its own record), judged also against RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 under #13154 sizing. One question: how much cost headroom do the two live prop legs have. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13223 (cost headroom + B6 V2 grade): both legs indeterminate 5/5 fresh-account; no proposal. Held unvouchable_paths (research/queue); manager merges on green under MD-LAND-RESEARCH-RESULT."
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260922-003 cost break-even for trend_donchian_eth_prop, repeated for trend_donchian_sol_prop, at Breakout DXtrade costs (incl. the 0.033%/day swap declared in config/strategies.yaml ~L2687; eth_prop evidence record n=169 OOS trades, sol_prop per its own record), judged also against RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 under #13154 sizing. One question: how much cost headroom do the two live prop legs have. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13223 (cost headroom + B6 V2 grade): both legs indeterminate 5/5 fresh-account; no proposal. Held unvouchable_paths (research/queue); manager merges on green under MD-LAND-RESEARCH-RESULT. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13223 merged 56de0b7 after its W4 queue tests were fixed (test updated to accept a terminal unit with a result block, not skipped). Both breakout_1 legs indeterminate 5/5 fresh-account; no proposal. Lane archived."
     },
     {
       "phase": "W6",
-      "state": "in_flight",
+      "state": "done",
       "lane": "session_01MYq794bQXtq7nHy1h6HySr",
-      "spend_usd": null,
-      "prs": [],
+      "spend_usd": 18.25,
+      "prs": [
+        13255
+      ],
       "blocked_on": [],
       "id": "W6-PROP-O2",
       "title": "RQ-20260927-003: exit-head-for-prop-legs feasibility (score breakout_1 legs' own trades with exit-head-donchian-1h-v1, incl. swap saved)",
       "owner": "research lane",
       "model": "claude-sonnet-5",
       "ceiling_usd": 20,
-      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260927-003 as written (scoping, not promotion). One question: is a prop-geometry exit-head retrain worth doing."
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260927-003 as written (scoping, not promotion). One question: is a prop-geometry exit-head retrain worth doing. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13255 merged 77fcb62: real resample-skip bug fixed (1h params ran on 5m bars); the exit-head question itself stays open (corrected run too slow on the shared trainer, PI-20260927-F4CD9293-0001). Lane archived."
     },
     {
       "phase": "W6",
@@ -2513,87 +2515,99 @@
     },
     {
       "phase": "W6",
-      "spend_usd": null,
+      "spend_usd": 8.05,
       "blocked_on": [],
       "owner": "fix lane",
       "id": "FIX-CA-01c",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "lane": "session_01To8QXkNwBZNW7VXZMgdpem",
-      "prs": [],
+      "prs": [
+        13241
+      ],
       "model": "claude-opus-5-5",
       "ceiling_usd": 25,
       "title": "FIX-CA-01c: PI-20260927-YDVVYLKH-0002 (deploy_pull_restart",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): PI-20260927-YDVVYLKH-0002 (deploy_pull_restart.sh must not start a stopped ict-trader-live) + -0003 (10148 PendingCancel graded refused_by_venue) + confirm #13187 is running. Tier-2 data-backed; manager merges."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): PI-20260927-YDVVYLKH-0002 (deploy_pull_restart.sh must not start a stopped ict-trader-live) + -0003 (10148 PendingCancel graded refused_by_venue) + confirm #13187 is running. Tier-2 data-backed; manager merges. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): review HELD it: pull-and-deploy could leave a held trader down; a stop-marker race; other restart scripts not clearing the marker. All fixed (d4e5ff5), merged e3af98f. DEPLOYED and OBSERVED running: /api/diag/status (issue #13278) read git_sha 9b2884c, bot_uptime 429 s, last tick 17:26:35Z, heartbeat 21 s -- contains the merge. The next stop window will be the first real observation. Lane archived."
     },
     {
       "phase": "W6",
-      "spend_usd": null,
+      "spend_usd": 9.65,
       "blocked_on": [],
       "owner": "fix lane",
       "id": "FIX-CA-OM",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "lane": "session_01UvLYi7DiqLG9z5YpScuGqX",
-      "prs": [],
+      "prs": [
+        13251
+      ],
       "model": "claude-opus-5-5",
       "ceiling_usd": 45,
       "title": "FIX-CA-OM: FIX-CA-02",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-02..06 (order_monitor.py) per docs/audits/code-audit-2026-09-27.md s5. Tier 2; manager merges under data-backed authority."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-02..06 (order_monitor.py) per docs/audits/code-audit-2026-09-27.md s5. Tier 2; manager merges under data-backed authority. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13251 merged f1ce436 after an independent pre-merge review (206/206 on branch, 33 fail on main). DEPLOYED and OBSERVED running at f089c40 (#13263). Effect on a real close not yet observed. Lane archived."
     },
     {
       "phase": "W6",
-      "spend_usd": null,
+      "spend_usd": 8.1,
       "blocked_on": [],
       "owner": "fix lane",
       "id": "FIX-CA-EXEC",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "lane": "session_01M98QLqhmJNHvLknCM1LQA3",
-      "prs": [],
+      "prs": [
+        13244
+      ],
       "model": "claude-opus-5-5",
       "ceiling_usd": 35,
       "title": "FIX-CA-EXEC: FIX-CA-07, 08, 10 (execution core)",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-07, 08, 10 (execution core). Tier 2."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-07, 08, 10 (execution core). Tier 2. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): review HELD it twice: (1) a None strategy read refused close/reduce/flip deltas; (2) cross-PR with #13251, whose not_found branch skipped unreadable_syms, so a probe closed a live BTC row on a failed read. Both fixed with regression tests (8652c74), merged 3f60a7e. DEPLOYED and OBSERVED running: /api/diag/status (issue #13278) read git_sha 9b2884c, bot_uptime 429 s, last tick 17:26:35Z, heartbeat 21 s -- contains the merge. Lane archived."
     },
     {
       "phase": "W6",
-      "spend_usd": null,
+      "spend_usd": 5.14,
       "blocked_on": [],
       "owner": "fix lane",
       "id": "FIX-CA-RISK",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "lane": "session_01DkqJWZsHsYTkP7ba49Gepj",
-      "prs": [],
+      "prs": [
+        13245
+      ],
       "model": "claude-opus-5-5",
       "ceiling_usd": 35,
       "title": "FIX-CA-RISK: FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notif",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notify operator)."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notify operator). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Tier-3 data-backed: daily-loss cap now attributes PnL by close date. Merged a334a23; running at f089c40 (#13263); operator notified in chat 16:50Z with the revert. Not yet observed changing a cap decision. Lane archived."
     },
     {
       "phase": "W6",
-      "spend_usd": null,
+      "spend_usd": 8.66,
       "blocked_on": [],
       "owner": "fix lane",
       "id": "FIX-CA-OPS",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "lane": "session_01Cx9QwbJtJPJSPFgLnd26Ax",
-      "prs": [],
+      "prs": [
+        13246
+      ],
       "model": "claude-opus-5-5",
       "ceiling_usd": 40,
       "title": "FIX-CA-OPS: FIX-CA-11",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-11..14, 18, 19 (ops/alerting/security). Tier 2."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-11..14, 18, 19 (ops/alerting/security). Tier 2. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): merged dda726d after review (1610 pass; 63/100 new tests fail on main); running at f089c40. Lane archived."
     },
     {
       "phase": "W6",
-      "spend_usd": null,
+      "spend_usd": 11.51,
       "blocked_on": [],
       "owner": "fix lane",
       "id": "FIX-CA-CI",
-      "state": "in_flight",
+      "state": "done",
       "lane": "session_01Phg9t2xAaNUEF99cVHhhG1",
-      "prs": [],
+      "prs": [
+        13247
+      ],
       "model": "claude-sonnet-5",
       "ceiling_usd": 20,
       "title": "FIX-CA-CI: FIX-CA-15",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-15..17 (Tier 1, self-land)."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-15..17 (Tier 1, self-land). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13247 self-landed 9a9f9e7 (Tier 1). Lane archived."
     },
     {
       "phase": "W6",
@@ -2603,19 +2617,22 @@
       "id": "FIX-CA-ML",
       "state": "in_flight",
       "lane": "session_01XojX3GqpCRSf2G2nyVDmVJ",
-      "prs": [],
+      "prs": [
+        13252,
+        13253
+      ],
       "model": "claude-opus-5-5",
       "ceiling_usd": 40,
       "title": "FIX-CA-ML: FIX-CA-20",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-20..25 (ML serving/gates; 20-22 Tier 1, 23-25 Tier 2)."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-20..25 (ML serving/gates; 20-22 Tier 1, 23-25 Tier 2). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13252 (T1 gates) merged 011e122, #13253 (closed bars) merged 1ea0374 after review; the live scorer is running at f089c40. The trainer-side reinstall (install_trainer_publish_units.sh, *:0/15:30 timer) is with the lane: until it lands, fc_* rows can be refused (NaN) on the live side, which is observe-only."
     },
     {
       "phase": "W6",
-      "spend_usd": null,
+      "spend_usd": 8.68,
       "blocked_on": [],
       "owner": "fix lane",
       "id": "CA-LANDING",
-      "state": "in_flight",
+      "state": "done",
       "lane": "session_01CU8BpBc81jLSv3sMj9zsPb",
       "prs": [
         13199,
@@ -2624,7 +2641,7 @@
       "model": "claude-sonnet-5",
       "ceiling_usd": null,
       "title": "CA-LANDING",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): landing steward: combines audit PRs that conflict on docs/DOCUMENT-INDEX.md. Wave A = #13199 (merged); Wave B = #13226 (refreshing)."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): landing steward: combines audit PRs that conflict on docs/DOCUMENT-INDEX.md. Wave A = #13199 (merged); Wave B = #13226 (refreshing). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13226 merged 1247cc8. The 4 experiments/ vwap result files a bot had pushed onto the branch were resolved to main's copy (manager decision); filed PI-20260927-PGBJNVYQ-0001. Lane archived."
     },
     {
       "phase": "W6",
@@ -2646,7 +2663,7 @@
       "blocked_on": [],
       "owner": "fix lane",
       "id": "P4-FIX",
-      "state": "landed_unproven",
+      "state": "done",
       "lane": "session_01My6w5rLi7Yy3y1bDJ25pHy",
       "prs": [
         13218
@@ -2654,7 +2671,23 @@
       "model": "claude-sonnet-5",
       "ceiling_usd": null,
       "title": "P4-FIX",
-      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): breakout-login-check venv bootstrap. #13218 merged 15:16Z; the #13231 rerun at 15:16:59Z still ran the pre-merge script (git-sync had not pulled). Rerun pending; operator to be told whether BREAKOUT_DX_* creds work."
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): breakout-login-check venv bootstrap. #13218 merged 15:16Z; the #13231 rerun at 15:16:59Z still ran the pre-merge script (git-sync had not pulled). Rerun pending; operator to be told whether BREAKOUT_DX_* creds work. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13218 worked: #13238 got past the venv; #13239 (apply: install-deps) logged in to breakout_1 (login: ok, credentials VALID); operator told 15:30Z."
+    },
+    {
+      "id": "P4b",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01PyohkPdSE4VrqUd9R6qTdB",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "prs": [
+        13248
+      ],
+      "blocked_on": [],
+      "title": "P4b: DXtrade (Breakout) read parser -- balance/positions/orders",
+      "note": "2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13248 held once by review (case-sensitive username redaction into a PUBLIC run log); fixed (case-insensitive, URLs cut to origin, every printed line redacted), merged f5193fd, running on the live VM at 9b2884c. Lane re-running breakout-login-check to report the parsed balance vs ~$4,724. Read-only; emit-status stays off."
     }
   ]
 }
