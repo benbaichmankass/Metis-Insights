@@ -2,7 +2,7 @@ id: RQ-20260927-004
 title: >-
   Does a fixed-band SOFT regime weight (continuous ADX ramp, not a hard gate)
   clear the same 5-fold holdout that killed the per-cell tuned hard gate?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -144,4 +144,18 @@ related:
   - 'SRQ-20260618-002 (htf_pullback family)'
   - 'review-pack-2026-09-27.md D6 (operator: dispatch a backtesting-skill lane rather than kill the row)'
   - 'scripts/research/regime_weight.py (the shared soft-weight rule this unit exercises)'
-last_dispatched_at: null
+  - 'docs/research/rq-20260927-004-soft-weight-band-15-25-result.md (the landed result + full disposition)'
+
+result_2026_09_27: >-
+  LANDED. trainer-vm-diag issue #13151, run 36320461693, dispatched against
+  this branch's commit d1da2ecdd. All 10 cells FAIL gate_all_folds_positive
+  at floor=15/ceiling=25/weight_min=0.0 -- zero reach soft_weight_candidate,
+  so per RULE-RQ0927-004-SOFT-WEIGHT-HOLDOUT this closes
+  `refuted_at_band_15_25` / `no_action_warranted`. Per the rule's own text:
+  this refutes the BAND, not the soft-weight axis -- pooled OOS net_r stayed
+  strongly positive on most cells (e.g. pullback_ETHUSDT_2h +43.79R,
+  pullback_ADAUSDT_2h +30.21R at 7.5bps) even though individual folds went
+  negative, so the underlying signal has not disappeared. Full table + the
+  next pre-registerable arm (a wider or per-family band):
+  docs/research/rq-20260927-004-soft-weight-band-15-25-result.md.
+last_dispatched_at: '2026-09-27T13:12:00+00:00'
