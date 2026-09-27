@@ -278,6 +278,22 @@ which only has a 2026-09-24 run):
    same leg's signal history were replayed on a *fresh* Breakout account, would it
    clear the bar" — and at n=11 the honest answer is "not enough evidence either way."
 
+## 5a. "Crypto beyond SOL/ETH" — checked against §6's full symbol list, nothing new to score
+
+The manager's re-prioritized order of work named this step 2, after non-crypto. **Checked
+this lane** (`grep` over `config/strategies.yaml` and `comms/strategy_evidence/` for every
+crypto ticker in §6's instrument table beyond the six already scored in §2): **no strategy
+config and no evidence record exists for any of the ~40 remaining Breakout-listed crypto
+symbols** — BNBUSD, HYPEUSD, TRXUSD, AAVEUSD, FILUSD, ONDOUSD, DOGEUSD, LINKUSD, LTCUSD,
+SUIUSD, UNIUSD, ZECUSD, or any of the smaller alts. This is a negative result stated with
+its probe, not a silent skip: this repo has never built a `trend_donchian`/pullback variant
+for any of them, so there is no per-trade R-series to reprice or score — that would be new
+strategy authoring (`new-strategy` skill scope, off-the-shelf data acquisition included),
+not candidate scoring, and is out of this Tier-1 research lane's scope. §2's 8 crypto
+candidates (BTC, ETH-4h, XRP-4h/pullback, ADA-pullback, SOL-pullback, AVAX-pullback) are
+therefore the FULL set of "crypto beyond SOL/ETH" this lane can check without building new
+strategies first.
+
 ## 6. Instrument list verification
 
 The operator supplied a transcription of `https://www.breakoutprop.com/symbols/` (screenshot,
