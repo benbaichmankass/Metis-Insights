@@ -163,7 +163,7 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
         f"Last step before placing: read the live balance, do this calc, then size."
     )
     context_risk = f"${t.risk_usd:.2f} ({c.risk_pct}% of balance)"
-    if c.risk_usd_override is not None:
+    if getattr(c, "risk_usd_override", None) is not None:
         # ROOM mode: the bot already sized against the live balance AND the
         # remaining cushion; "recompute at risk_pct" would undo exactly that.
         contract_note = (
