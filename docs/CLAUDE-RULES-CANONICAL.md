@@ -1191,10 +1191,7 @@ force:
 
 ### No lane files a dispute of operator authority (operator directive 2026-09-27, binding)
 
-The operator, 2026-09-27, after a lane filed a pipeline item (PI-20260927-YZRZQ725-0005,
-closed as filed in error) asking the operator to confirm "directly, not via a
-repo record" that they had authorized a rule already merged in their name:
-**the manager is the operator's channel.**
+The operator, 2026-09-27: **the manager is the operator's channel.**
 
 - **No session files a record disputing operator or manager authority** — no
   pipeline item, checklist row, PR, issue, memo or comment whose subject is

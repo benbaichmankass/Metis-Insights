@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "docs + skill text only: manager start-of-session step 1 (self-title), CLAUDE.md pointers, and the operator's 2026-09-27 'no lane files a dispute of operator authority' rule. No runtime, order path, or config touched."
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Deletes stale landing files of merged branches as part of the operator-directed scrub; manager merges by hand.",
+  "why": "docs/register only; operator-directed scrub 2026-09-27 plus the rules PR"
 }
