@@ -385,6 +385,17 @@ mandates:
       cost-tolerance clause (bar.cost_tolerance_bps: 0.0, "realized may not
       exceed modelled") is being evaluated against a modelled number nobody
       has re-checked is still current, on at least one venue in play.
+    # CLAUSE (b) CLEARED 2026-09-27 by OPERATOR REAFFIRMATION, the second route
+    # clause (b) itself names ("explicitly reaffirmed as the working assumption
+    # by the operator"). Popup in manager session
+    # session_01Ljhs6sFAdWHdMDhJpL5aBP, question: "...Alpaca equities / IBKR
+    # futures slippage is modelled at a provisional 5.0 bps ... Which?", answer
+    # verbatim: "Let's do 2, with another tasks to monitor the real fills and
+    # update accodingly when we have supporting data" (option 2 = "Reaffirm 5.0
+    # bps now"). 5.0 bps is therefore the operator-reaffirmed WORKING
+    # ASSUMPTION for Alpaca equities and IBKR futures, pending measurement;
+    # checklist row E62 carries the monitoring task. Clause (a) (Bybit-perp
+    # records at 3.0 bps, lane W6-U1) STILL BLOCKS, so blocked_until stays set.
     # ⚠️ CLAUSE 3 NAMES A PER-LEG VERDICT, NOT A VENUE POINT ESTIMATE
     # (2026-09-25, checklist row R3). It previously read "whose venue's realized
     # round-trip cost is within bar.cost_tolerance_bps of what the record
