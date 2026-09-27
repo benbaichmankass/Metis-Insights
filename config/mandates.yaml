@@ -62,7 +62,8 @@
 #                       "a mandate with no bar is not a mandate".
 #   cap:                basis / max_auto_share. Required for `add_risk`.
 #
-# ⚠️ ONE FURTHER FIELD, ADDED 2026-09-25 AND DELIBERATELY UNSET ON EVERY ENTRY:
+# ⚠️ ONE FURTHER FIELD, ADDED 2026-09-25, SHIPPED UNSET, AND ARMED ON EXACTLY ONE
+# ENTRY (MD-DEMOTE-S2-S1) BY THE OPERATOR ON 2026-09-27 -- see that entry:
 #
 #   autoland:           `true` arms the AUTO-LAND ROUTE for a `derisk_only`
 #                       mandate -- `scripts/ci/check_mandate_autoland.py`
@@ -384,6 +385,17 @@ mandates:
       cost-tolerance clause (bar.cost_tolerance_bps: 0.0, "realized may not
       exceed modelled") is being evaluated against a modelled number nobody
       has re-checked is still current, on at least one venue in play.
+    # CLAUSE (b) CLEARED 2026-09-27 by OPERATOR REAFFIRMATION, the second route
+    # clause (b) itself names ("explicitly reaffirmed as the working assumption
+    # by the operator"). Popup in manager session
+    # session_01Ljhs6sFAdWHdMDhJpL5aBP, question: "...Alpaca equities / IBKR
+    # futures slippage is modelled at a provisional 5.0 bps ... Which?", answer
+    # verbatim: "Let's do 2, with another tasks to monitor the real fills and
+    # update accodingly when we have supporting data" (option 2 = "Reaffirm 5.0
+    # bps now"). 5.0 bps is therefore the operator-reaffirmed WORKING
+    # ASSUMPTION for Alpaca equities and IBKR futures, pending measurement;
+    # checklist row E62 carries the monitoring task. Clause (a) (Bybit-perp
+    # records at 3.0 bps, lane W6-U1) STILL BLOCKS, so blocked_until stays set.
     # ⚠️ CLAUSE 3 NAMES A PER-LEG VERDICT, NOT A VENUE POINT ESTIMATE
     # (2026-09-25, checklist row R3). It previously read "whose venue's realized
     # round-trip cost is within bar.cost_tolerance_bps of what the record
@@ -450,6 +462,14 @@ mandates:
   - id: MD-DEMOTE-S2-S1
     grants: demote a Stage-2 leg when the mirror goes net-negative net-of-cost
     direction: derisk_only
+    autoland: true
+    # ARMED 2026-09-27 by the OPERATOR (Ben), popup in manager session
+    # session_01Ljhs6sFAdWHdMDhJpL5aBP, answered verbatim "Arm MD-DEMOTE-S2-S1
+    # only (Recommended)" to: "Arm auto-land for de-risk cuts? The cut then
+    # lands with no human merge, after the 8-clause guard (removal only,
+    # committed evidence the resolver re-checks, workflow-authored)." Only this
+    # entry was armed; MD-DEMOTE-S1-OFF and MD-DERISK-ONLY-ROSTER-CUT were
+    # offered and NOT armed.
     granted_by: operator (Ben)
     granted_at: '2026-09-24'
     source: >-
@@ -558,5 +578,98 @@ mandates:
 # arriving twice in the same shape is raised as 'should this become a mandate?'"
 #
 # ⚠️ A SESSION MAY PROPOSE HERE. ONLY THE OPERATOR MOVES AN ENTRY UP.
+
+  - id: MD-LAND-RESEARCH-RESULT
+    grants: land_without_asking
+    proposed_by: session_01Ljhs6sFAdWHdMDhJpL5aBP
+    proposed_at: '2026-09-27'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-27'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27 ~08:05Z. Question:
+      "Grant any of these new mandates?"; the operator selected all three
+      (MD-LAND-RESEARCH-RESULT, MD-PROP-JOURNAL-FROM-OPERATOR,
+      MD-PAPER-PROTECTIVE-REPAIR), each offered with the one-line description
+      quoted in its grants field.
+    recurrence: >-
+      #13046 (RQ-20260927-001) on 2026-09-27 and the RQ-007 routing on
+      2026-09-26 -- each held only because it registers a decision rule, and
+      each merged by the manager after asking.
+    fires_when: >-
+      A research PR is CI-green and its landing declaration is held ONLY
+      because it registers or amends a decision rule (check_pr_landing's
+      unvouchable-paths refusal), and its diff is limited to research/queue/,
+      research/results/, docs/claude/work/pipeline/, and the branch's own
+      .github/pr-landing / merge-slot / automerge files.
+    never: >-
+      Never when the diff touches config/, src/, scripts/ outside
+      scripts/research/, a workflow, or a test. Never to change a rule AFTER
+      its result is known (a rule amended in the same PR that lands a result
+      under it goes to the operator). Never promotes, demotes or edits a
+      roster: a passing result still reaches a book only through its own gate.
+    evidence_required: >-
+      The PR's file list showing only allowed paths, and the CI run id.
+
+  - id: MD-PROP-JOURNAL-FROM-OPERATOR
+    grants: prop_journal_write
+    proposed_by: session_01Ljhs6sFAdWHdMDhJpL5aBP
+    proposed_at: '2026-09-27'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-27'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27 ~08:05Z. Question:
+      "Grant any of these new mandates?"; the operator selected all three
+      (MD-LAND-RESEARCH-RESULT, MD-PROP-JOURNAL-FROM-OPERATOR,
+      MD-PAPER-PROTECTIVE-REPAIR), each offered with the one-line description
+      quoted in its grants field.
+    recurrence: >-
+      2026-09-24 (fill #44 from a terminal screenshot) and twice on 2026-09-27
+      (close fill #45, account status #21), each a separate Tier-2 ask.
+    fires_when: >-
+      The operator supplies Breakout terminal evidence in chat (a screenshot or
+      pasted figures) of a prop fill, close, amendment or account status. The
+      session logs it through the prop-report workflow, linked to the ticket
+      the journal already holds, after reading /prop/tickets and /prop/fills
+      to rule out a duplicate or a mis-link.
+    never: >-
+      Never places, modifies or cancels an order -- journal writes only. Never
+      on inferred or estimated figures: every number comes from the operator's
+      evidence (derived arithmetic, e.g. net of commissions, goes in the
+      reason text, not in place of the terminal figure). Never links a close
+      to a ticket without reading the open fill it closes.
+    evidence_required: >-
+      The prop-report issue with the endpoint's 200 response, and the
+      pre-write read of tickets/fills.
+
+  - id: MD-PAPER-PROTECTIVE-REPAIR
+    grants: place_missing_protective_on_paper
+    proposed_by: session_01Ljhs6sFAdWHdMDhJpL5aBP
+    proposed_at: '2026-09-27'
+    granted_by: operator (Ben)
+    granted_at: '2026-09-27'
+    source: >-
+      Popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27 ~08:05Z. Question:
+      "Grant any of these new mandates?"; the operator selected all three
+      (MD-LAND-RESEARCH-RESULT, MD-PROP-JOURNAL-FROM-OPERATOR,
+      MD-PAPER-PROTECTIVE-REPAIR), each offered with the one-line description
+      quoted in its grants field.
+    recurrence: >-
+      alpaca_paper SPY on 2026-09-27 (trade 6131's DAY-TIF bracket cancelled at
+      the close); recurs for any Alpaca entry until the GTC fix (#13047)
+      lands.
+    fires_when: >-
+      An open journal row on a PAPER account (accounts.yaml mode/ownership
+      marks it paper) has no resting protective order covering it, and a
+      sanctioned action (e.g. rearm-alpaca-protective row mode) can place ONE
+      protective for exactly that row's size at that row's journal SL/TP,
+      cancelling nothing. A dry run must show exactly that plan before apply.
+    never: >-
+      Never on a real-money account (alpaca_live, bybit_2, *_portfolio,
+      breakout_1) -- those stay Tier-2 asks. Never cancels or amends an
+      existing order. Never uses caller-supplied levels. Never on a read that
+      could not look.
+    evidence_required: >-
+      The dry-run issue showing the exact plan, the apply issue's exit 0 with
+      its re-read verification.
 
 proposed: []

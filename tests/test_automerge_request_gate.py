@@ -97,10 +97,12 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
 
     `pat` / `pat_create_fails` model `BRANCH_PROTECTION_TOKEN` in its three
     states: absent, present-and-working, and present-but-REFUSED (the PR-create
-    scope nobody has been able to verify). `@actions/github` is not installed
-    here — it ships inside `actions/github-script` — so `require` is shimmed to
-    hand back a stub client rather than being left to throw, which would make
-    every PAT path untestable instead of merely unexercised.
+    scope nobody has been able to verify). The PAT-authenticated PR-open call is
+    a single `fetch` (2026-09-27 — it no longer goes through
+    `require('@actions/github')`, which is not resolvable inside a
+    `github-script@v7` user script; see `test_automerge_pat_client_fallback.py`
+    for the incident that measured that), so `globalThis.fetch` is stubbed
+    rather than `require`.
 
     `checks_raise` models the check read FAILING, which is a third thing from
     an empty list and from a malformed payload. `cwd` runs the step from a
@@ -126,22 +128,20 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
     const MERGE_BASE_SHA = %(merge_base_sha)s;
     const COMPARE_RAISES = %(compare_raises)s;
 
-    // `@actions/github` is bundled into actions/github-script and is NOT
-    // installed here, so a bare require would throw and no PAT path could ever
-    // be exercised. The shim is passed in as the script's own `require`.
-    const realRequire = require;
-    const patClient = { rest: { pulls: { create: async () => {
-      CALLS.push({ call: 'pat.pulls.create' });
+    // The PAT-authenticated PR-open call is a single `fetch` POST to
+    // `.../pulls` (2026-09-27) — no Octokit client, so no `require` shim is
+    // needed; the script's ambient `require` stays the real Node one, which
+    // `fs`/`child_process` (used by the arming gate, unrelated to the PAT)
+    // still need untouched.
+    globalThis.fetch = async (url, opts) => {
+      CALLS.push({ call: 'pat.pulls.create', url });
       if (PAT_CREATE_FAILS) {
-        const e = new Error('Resource not accessible by personal access token');
-        e.status = 403; throw e;
+        return { ok: false, status: 403,
+                 json: async () => ({ message: 'Resource not accessible by personal access token' }) };
       }
-      return { data: { number: 777, node_id: 'N', draft: false,
-                       head: { sha: '%(sha)s' } } };
-    } } } };
-    const requireShim = (m) => m === '@actions/github'
-      ? { getOctokit: () => { CALLS.push({ call: 'getOctokit' }); return patClient; } }
-      : realRequire(m);
+      return { ok: true, json: async () => ({ number: 777, node_id: 'N', draft: false,
+                                              head: { sha: '%(sha)s' } }) };
+    };
 
     const context = {
       ref: 'refs/heads/%(branch)s',
@@ -196,9 +196,19 @@ def run_gate(*, branch: str, head_sha: str, blobs: dict, existing_pr=None,
     };
 
     (async () => {
-      try { await (async (require) => {
+      // The inner IIFE boundary is load-bearing, not decorative: the
+      // production script `return`s early in most of its branches (the
+      // request-gate refusal, the draft refusal, "not arming", the arm
+      // success path, ...). Inlining the script directly into THIS try block
+      // would make every one of those returns exit the harness itself,
+      // skipping the console.log below and reporting an empty result for
+      // every non-error path — which is silent, not a pass. The catch here
+      // is for the genuinely-uncaught-exception case only.
+      try {
+        await (async () => {
 %(script)s
-      })(requireShim); } catch (e) { CALLS.push({ call: 'threw', m: String(e.message) }); }
+        })();
+      } catch (e) { CALLS.push({ call: 'threw', m: String(e.message) }); }
       console.log('___RESULT___' + JSON.stringify(CALLS));
     })();
     """ % {
@@ -437,7 +447,6 @@ def test_a_pat_is_used_to_open_the_pr_when_one_is_present():
         pat="ghp_fake",
     )
     kinds = _kinds(res)
-    assert "getOctokit" in kinds, f"a present PAT must be used: {kinds}"
     assert "pat.pulls.create" in kinds, f"the PR must be opened UNDER the PAT: {kinds}"
     assert "pulls.create" not in kinds, "it must not also open one under GITHUB_TOKEN"
 
@@ -451,7 +460,7 @@ def test_a_missing_pat_still_opens_the_pr_and_says_so_loudly():
         pat="", check_runs=[{"name": "open-and-automerge"}],
     )
     kinds = _kinds(res)
-    assert "getOctokit" not in kinds
+    assert "pat.pulls.create" not in kinds, "no fetch should be tried with no PAT"
     assert "pulls.create" in kinds, f"a missing PAT must still open the PR: {kinds}"
     assert any(c["call"] == "warning" and "BRANCH_PROTECTION_TOKEN is NOT set" in c["m"]
                for c in res["calls"]), "the fallback must announce itself"
