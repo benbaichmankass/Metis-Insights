@@ -51,6 +51,8 @@ class SizingConfig:
     k: float = 0.33
     min_risk_usd: float = 10.0
     on_cushion_unknown: str = "skip"
+    #: flat mode's declared cap (``sizing.flat.max_risk_usd``); ``None`` = not declared.
+    flat_max_risk_usd: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,10 @@ class SizingDecision:
     risk_usd: Optional[float] = None
     skip_reason: Optional[str] = None
     detail: Optional[Dict[str, Any]] = None
+    #: The configured per-ticket cap the ENFORCE risk gate holds a ticket to:
+    #: flat -> ``sizing.flat.max_risk_usd``; room -> the room-formula risk.
+    #: ``None`` = no cap known (enforce then refuses).
+    cap_usd: Optional[float] = None
 
 
 def load_sizing_config(ruleset_path: str | Path) -> SizingConfig:
@@ -83,11 +89,14 @@ def load_sizing_config(ruleset_path: str | Path) -> SizingConfig:
     if mode not in MODES:
         raise ValueError(f"{ruleset_path}: sizing.mode must be one of {MODES}, got {mode!r}")
     room = block.get("room") or {}
+    flat = block.get("flat") or {}
     cfg = SizingConfig(
         mode=mode,
         k=float(room.get("k", SizingConfig.k)),
         min_risk_usd=float(room.get("min_risk_usd", SizingConfig.min_risk_usd)),
         on_cushion_unknown=str(room.get("on_cushion_unknown") or "skip").strip().lower(),
+        flat_max_risk_usd=(float(flat["max_risk_usd"])
+                           if flat.get("max_risk_usd") is not None else None),
     )
     if not (0.0 < cfg.k <= 1.0):
         raise ValueError(f"{ruleset_path}: sizing.room.k must be in (0, 1], got {cfg.k}")
@@ -161,7 +170,7 @@ def resolve(
     if cfg.mode == FLAT:
         # Deliberately reads nothing else: the flat ticket must be the
         # pre-existing ticket, byte for byte.
-        return SizingDecision(mode=FLAT)
+        return SizingDecision(mode=FLAT, cap_usd=cfg.flat_max_risk_usd)
 
     if rule_distance is None:
         try:
@@ -187,4 +196,5 @@ def resolve(
         risk_pct_frac=risk_pct / 100.0, balance_usd=balance, cushion_usd=cushion,
         k=cfg.k, min_risk_usd=cfg.min_risk_usd,
     )
-    return SizingDecision(mode=ROOM, risk_usd=risk, skip_reason=skip, detail=detail)
+    return SizingDecision(mode=ROOM, risk_usd=risk, skip_reason=skip, detail=detail,
+                          cap_usd=risk)

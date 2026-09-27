@@ -141,6 +141,15 @@ economics:
 sizing:
   mode: flat                       # flat | room — CURRENT instance: flat $75
   next_instance_mode: room         # what the flip sets `mode` to for a FRESH account
+  flat:
+    max_risk_usd: 75               # the flat cap = 1.5% x $5,000. With
+                                   # PROP_TICKET_RISK_GATE_MODE=enforce a ticket
+                                   # whose risk exceeds the CURRENT mode's cap
+                                   # (this in flat mode; the room formula in room
+                                   # mode) is resized down to it, or refused when
+                                   # no cap is known — with a logged cause.
+                                   # (operator 2026-09-27 ~08:40Z, "Implement it
+                                   # with the sizing decision"; PI-20260924-MQ3CDMU6-0002)
   room:
     k: 0.33                        # max share of the binding cushion one new ticket may risk
     min_risk_usd: 10               # below this the ticket is skipped, not shrunk further

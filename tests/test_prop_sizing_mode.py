@@ -60,7 +60,8 @@ def _emit(order: dict, acct: dict):
 # --------------------------------------------------------------------------
 # The current account is unchanged.
 # --------------------------------------------------------------------------
-def test_current_breakout_1_flat_tickets_byte_identical_to_pre_room_golden():
+@pytest.mark.parametrize("gate_mode", ["off", "annotate", "enforce"])
+def test_current_breakout_1_flat_tickets_byte_identical_to_pre_room_golden(gate_mode, monkeypatch):
     """breakout_1 as declared today (sizing.mode: flat) emits EXACTLY the
     tickets the pre-room code emitted: same Ticket fields, same $75 risk, same
     qty, same rendered text, byte for byte.
@@ -68,7 +69,15 @@ def test_current_breakout_1_flat_tickets_byte_identical_to_pre_room_golden():
     The only permitted difference in the Ticket repr is the NEW
     ``risk_usd_override=None`` field on TicketConfig, which is stripped and
     asserted to be None — i.e. the override is provably unused.
+
+    Run under every PROP_TICKET_RISK_GATE_MODE, ENFORCE included (the live VM
+    reads `enforce`): the flat $75 ticket sits at its $75 cap, so the gate
+    leaves it alone. The golden was captured under the default (annotate); the
+    rendered cushion caveat is empty here (isolated journal, no snapshot) in
+    every mode except `off`, which suppresses it, so `off` is compared on the
+    Ticket only.
     """
+    monkeypatch.setenv("PROP_TICKET_RISK_GATE_MODE", gate_mode)
     assert prop_sizing.load_sizing_config(_RULESET).mode == prop_sizing.FLAT
     golden = json.loads(_GOLDEN.read_text())["cases"]
     assert len(golden) == 3
@@ -82,7 +91,8 @@ def test_current_breakout_1_flat_tickets_byte_identical_to_pre_room_golden():
         assert now_repr == case["ticket_repr"]
         rendered = render_ticket(t, now=_FIXED, account_id="breakout_1",
                                  ticket_id="prop-manual-golden")
-        assert rendered == case["rendered"]
+        if gate_mode != "off":
+            assert rendered == case["rendered"]
 
 
 def test_flat_mode_reads_no_rule_distance(monkeypatch: pytest.MonkeyPatch):
@@ -94,7 +104,7 @@ def test_flat_mode_reads_no_rule_distance(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(prop_reconcile, "compute_rule_distance", _boom)
     d = prop_sizing.resolve("breakout_1", ruleset_path=_RULESET, risk_pct=1.5)
-    assert d == prop_sizing.SizingDecision(mode="flat")
+    assert d == prop_sizing.SizingDecision(mode="flat", cap_usd=75.0)
 
 
 def test_declared_config_is_flat_now_room_k033_next():
@@ -200,3 +210,101 @@ def test_unknown_mode_refuses(tmp_path):
     p.write_text(yaml.safe_dump(data))
     with pytest.raises(ValueError):
         prop_sizing.load_sizing_config(p)
+
+
+# --------------------------------------------------------------------------
+# Risk gate ENFORCE (operator 2026-09-27 ~08:40Z; PI-20260924-MQ3CDMU6-0002).
+# --------------------------------------------------------------------------
+from src.prop import prop_risk_gate as gate  # noqa: E402
+
+
+@pytest.mark.parametrize("gm", ["off", "annotate"])
+def test_gate_off_and_annotate_never_touch_size(gm):
+    r = gate.enforce_ticket_cap(risk_usd=75.0, cap_usd=50.0, gate_mode=gm, sizing_mode="flat")
+    assert (r["action"], r["risk_usd"]) == (gate.CAP_NOT_ENFORCED, 75.0)
+    r = gate.enforce_ticket_cap(risk_usd=75.0, cap_usd=None, gate_mode=gm)
+    assert (r["action"], r["risk_usd"]) == (gate.CAP_NOT_ENFORCED, 75.0)
+
+
+def test_gate_enforce_flat_at_cap_unchanged_above_cap_resized_no_cap_refused():
+    r = gate.enforce_ticket_cap(risk_usd=75.0, cap_usd=75.0, gate_mode="enforce", sizing_mode="flat")
+    assert (r["action"], r["risk_usd"], r["cause"]) == (gate.CAP_UNCHANGED, 75.0, None)
+    r = gate.enforce_ticket_cap(risk_usd=90.0, cap_usd=75.0, gate_mode="enforce", sizing_mode="flat")
+    assert (r["action"], r["risk_usd"]) == (gate.CAP_RESIZED, 75.0)
+    assert "exceeds the flat-mode cap $75.00" in r["cause"]
+    r = gate.enforce_ticket_cap(risk_usd=75.0, cap_usd=None, gate_mode="enforce", sizing_mode="flat")
+    assert (r["action"], r["risk_usd"]) == (gate.CAP_REFUSED, None) and r["cause"]
+
+
+def test_gate_enforce_room_caps_at_room_formula():
+    r = gate.enforce_ticket_cap(risk_usd=75.0, cap_usd=49.5, gate_mode="enforce", sizing_mode="room")
+    assert (r["action"], r["risk_usd"]) == (gate.CAP_RESIZED, 49.5)
+    r = gate.enforce_ticket_cap(risk_usd=49.5, cap_usd=49.5, gate_mode="enforce", sizing_mode="room")
+    assert r["action"] == gate.CAP_UNCHANGED
+
+
+def _ruleset_with(tmp_path: Path, **sizing_over) -> Path:
+    data = yaml.safe_load(_RULESET.read_text())
+    for k, v in sizing_over.items():
+        if isinstance(v, dict):
+            data["sizing"].setdefault(k, {}).update(v)
+        else:
+            data["sizing"][k] = v
+    p = tmp_path / "prop_rulesets" / "breakout_x.yaml"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(yaml.safe_dump(data))
+    return p
+
+
+_SOL = {"symbol": "SOLUSDT", "direction": "long", "side": "Buy",
+        "entry": 150.0, "sl": 145.0, "tp": 162.0, "strategy": "trend_donchian_sol_prop"}
+
+
+@pytest.mark.parametrize("gm,expected", [("off", 75.0), ("annotate", 75.0), ("enforce", 50.0)])
+def test_executor_flat_ticket_over_its_cap_is_resized_only_under_enforce(tmp_path, monkeypatch, gm, expected):
+    # A flat cap declared BELOW the formula's $75 (drift between the two) is
+    # the case enforce exists for: only enforce cuts it, and says why.
+    monkeypatch.setenv("PROP_TICKET_RISK_GATE_MODE", gm)
+    rows = []
+    from src.prop import prop_journal
+    monkeypatch.setattr(prop_journal, "record_ticket", lambda row: rows.append(row))
+    acct = _breakout_1_cfg()
+    acct["backtest_ruleset"] = str(_ruleset_with(tmp_path, flat={"max_risk_usd": 50}))
+    _, t = _emit(dict(_SOL), acct)
+    assert t is not None and t.risk_usd == expected
+    emitted = [r for r in rows if r["status"] == "emitted"]
+    assert len(emitted) == 1
+    if gm == "enforce":
+        assert emitted[0]["meta"]["risk_gate"]["action"] == "resized"
+        assert abs(t.qty_units - 50.0 / 5.0) < 1e-9
+    else:
+        assert "meta" not in emitted[0]
+
+
+def test_executor_enforce_refuses_when_no_cap_is_declared(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROP_TICKET_RISK_GATE_MODE", "enforce")
+    data = yaml.safe_load(_RULESET.read_text())
+    data["sizing"].pop("flat")
+    p = tmp_path / "prop_rulesets" / "nocap.yaml"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(yaml.safe_dump(data))
+    rows = []
+    from src.prop import prop_journal
+    monkeypatch.setattr(prop_journal, "record_ticket", lambda row: rows.append(row))
+    acct = _breakout_1_cfg()
+    acct["backtest_ruleset"] = str(p)
+    tid, t = _emit(dict(_SOL), acct)
+    assert t is None and be.is_manual_fill_id(tid)
+    assert [r["status"] for r in rows] == ["skipped"]
+    assert rows[0]["meta"]["risk_gate"]["action"] == "refused"
+
+
+def test_executor_room_mode_under_enforce_emits_room_size(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROP_TICKET_RISK_GATE_MODE", "enforce")
+    from src.prop import prop_reconcile
+    monkeypatch.setattr(prop_reconcile, "compute_rule_distance",
+                        lambda _a, *k, **kw: _rd(balance=5000.0, dd=300.0, daily=150.0))
+    acct = _breakout_1_cfg()
+    acct["backtest_ruleset"] = str(_ruleset_with(tmp_path, mode="room"))
+    _, t = _emit(dict(_SOL), acct)
+    assert t is not None and t.risk_usd == 49.5

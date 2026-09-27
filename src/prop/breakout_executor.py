@@ -269,6 +269,49 @@ def emit_prop_ticket(
     )
 
     trade_id = f"{MANUAL_FILL_PREFIX}{uuid.uuid4().hex[:12]}"
+
+    # RISK GATE, ENFORCE (operator 2026-09-27 ~08:40Z, PI-20260924-MQ3CDMU6-0002):
+    # hold the ticket to the CURRENT sizing mode's configured cap. `off` /
+    # `annotate` never touch the size; under `enforce` a flat $75 ticket is AT
+    # its $75 cap, so it is unchanged and not rebuilt (byte-identical).
+    gate_cap = None  # set only when the gate RESIZED the ticket
+    if leg.decision == "place" and leg.ticket is not None:
+        from src.prop import prop_risk_gate
+        cap = prop_risk_gate.enforce_ticket_cap(
+            risk_usd=leg.ticket.risk_usd, cap_usd=sizing.cap_usd, sizing_mode=sizing.mode)
+        if cap["action"] == prop_risk_gate.CAP_RESIZED:
+            logger.warning("breakout_executor: %s %s %s — %s",
+                           account_id, symbol, direction, cap["cause"])
+            gate_cap = cap
+            leg = build_account_leg(
+                sig, unit,
+                dxtrade_symbol=_per_symbol(routing, symbol, "dxtrade_symbol", None),
+                contract_value_usd_per_point=float(
+                    _per_symbol(routing, symbol, "contract_value_usd_per_point", 1.0)),
+                entry_band_frac=float(routing.get("entry_band_frac") or 0.25),
+                ttl_bars=float(routing.get("ttl_bars") or 1.0),
+                risk_usd_override=cap["risk_usd"],
+            )
+        elif cap["action"] == prop_risk_gate.CAP_REFUSED:
+            logger.warning("breakout_executor: %s %s %s REFUSED — %s → %s",
+                           account_id, symbol, direction, cap["cause"], trade_id)
+            try:
+                from src.prop import prop_journal
+
+                prop_journal.record_ticket({
+                    "ticket_id": trade_id, "account_id": account_id,
+                    "strategy": strategy, "symbol": symbol, "direction": direction,
+                    "entry": entry, "sl": sl, "tp": tp,
+                    "signal_time": sig.signal_time.isoformat(),
+                    "status": "skipped", "message": cap["cause"],
+                    "order_package_id": (order.get("order_package_id")
+                                         or (order.get("meta") or {}).get("order_package_id")),
+                    "meta": {"risk_gate": cap},
+                })
+            except Exception as exc:  # noqa: BLE001 — audit row is best-effort
+                logger.warning("breakout_executor: gate-refusal journal write failed: %s", exc)
+            return trade_id
+
     if leg.decision != "place" or leg.ticket is None:
         logger.info(
             "breakout_executor: %s leg SKIP for %s (%s) — journaled, no push → %s",
@@ -342,8 +385,11 @@ def emit_prop_ticket(
             "message": ticket_message,
             # ROOM mode only: how the size was reached. Flat rows stay exactly
             # as they were (no meta key), so the flat journal row is unchanged.
-            **({"meta": {"sizing_mode": sizing.mode, "sizing": sizing.detail}}
-               if sizing.mode != prop_sizing.FLAT else {}),
+            # A flat ticket the gate left alone adds no meta key, so its row is
+            # unchanged; room sizing and any gate resize are recorded.
+            **({"meta": {"sizing_mode": sizing.mode, "sizing": sizing.detail,
+                         "risk_gate": gate_cap}}
+               if (sizing.mode != prop_sizing.FLAT or gate_cap is not None) else {}),
         })
     except Exception as exc:  # noqa: BLE001 — journaling never blocks emission
         logger.warning("breakout_executor: ticket journal failed for %s: %s",
