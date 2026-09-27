@@ -292,9 +292,11 @@ Lanes marked *unstated* did not supply the §3.3 statement; that is recorded, no
 
 ## 5. Evidence-settled fixes (for the manager to dispatch)
 
+**Landing status (turn 3, 17:25Z).** FIX-CA-01 through 25 are all **merged** on `main`: the lead checked every PR number against `git log origin/main`. The manager reports them **deployed and live**. The lead could **not** confirm deployment independently, because `/api/diag/version` answers 401. Being merged is not proof of being deployed or observed; each pipeline item's `clears_when` is the closing observation.
+
 Ordered roughly by blast radius: order-path correctness first (02–13), then ops/security (14–19), then ML serving and gates (20–25). Each brief can be dispatched verbatim. The tier is the lane/verifier assessment as reviewed by the lead. A Tier-3 brief (FIX-CA-09) falls under the data-backed Tier-2/3 standing authorization: ship, verify, and notify the operator at once.
 
-### FIX-CA-01 — dispatched (code fix #13187 + FIX-CA-01b cancel of 906/907)
+### FIX-CA-01 — **MERGED #13187** (code fix); FIX-CA-01b (cancel of 906/907) dispatched by the manager; FIX-CA-01c (git-sync never restarts an operator-stopped trader; IBKR 10148 graded as cancel-in-flight) **MERGED #13241**
 
 Not re-briefed. The turn-1 text is kept below for the record.
 
@@ -338,7 +340,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
   - **Closes when:** pipeline item's `clears_when` — no `oca-protect-t5836`
     legs, fix merged **and** deployed (`/api/diag/version` sha contains it).
 
-### FIX-CA-02 — `CA-A01-006` (Tier 2)
+### FIX-CA-02 — `CA-A01-006` (Tier 2) — **MERGED #13251**
 - **Finding:** A multi-leg package's close verdict is effectuated only against legs[0] (the linked leg) each tick, so if that leg's close fails, is wedge-suppressed, or is in IB cooldown, every sibling leg (e.g. the bybit_portfolio / alpaca_portfolio real-money mirror) is never closed for as long as the head leg stays stuck.
 - **Pipeline:** PI-20260927-KFWRL9R1-0003
 - **Files:** src/runtime/order_monitor.py (_apply_update close branch L954-1178); tests/test_order_monitor_package_legs.py
@@ -348,7 +350,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 2
 - **What the lane got wrong:** Evidence says sibling = 'the bybit_portfolio / alpaca_portfolio real-money mirror'. Those mirrors are paper books. The real-money leg is stranded only when it is not the linked head.
 
-### FIX-CA-03 — `CA-A01-007` (Tier 2)
+### FIX-CA-03 — `CA-A01-007` (Tier 2) — **MERGED #13251**
 - **Finding:** When the exchange close succeeds but the trade-row write raises, the failure is swallowed, closed_count is incremented, and the next tick sends a SECOND reduce-only market close for the same qty on the same account/symbol.
 - **Pipeline:** PI-20260927-KFWRL9R1-0004
 - **Files:** src/runtime/order_monitor.py (_apply_update L1223-1336); tests/test_order_monitor_package_legs.py
@@ -357,7 +359,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The unit test. Optionally a log counter 'exchange_closed_db_pending' surfaced in the tick summary so a persisting entry is visible.
 - **Tier:** 2
 
-### FIX-CA-04 — `CA-A01-018` (Tier 2)
+### FIX-CA-04 — `CA-A01-018` (Tier 2) — **MERGED #13251**
 - **Finding:** _reconcile_open_trades marks a DB-open trade 'orphaned' on a single account_order_status 'not_found' read without consulting the venue position view, so a trade whose position is still open on Bybit is removed from the open journal and stamped with a reason ('not present in exchange open-positions') that was never checked.
 - **Pipeline:** PI-20260927-KFWRL9R1-0005
 - **Files:** src/runtime/order_monitor.py (_reconcile_open_trades L4545-4581; _mark_orphaned reason L6765); tests/test_monitor_reconciler.py
@@ -366,7 +368,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The unit tests. Soak alarm: count of trades orphaned by monitor_reconciler whose (account, symbol, side) was re-adopted as orphan_adopt within 5 min (a signature of a false orphan).
 - **Tier:** 2
 
-### FIX-CA-05 — `CA-A01-033` (Tier 2)
+### FIX-CA-05 — `CA-A01-033` (Tier 2) — **MERGED #13251**
 - **Finding:** _sweep_stuck_linked_packages and _cascade_close_linked_package (called from _close_trade_from_order_status, _cascade_close_netted_siblings and the watchdog; plus the identical inline cascade in _mark_orphaned and the watchdog force-close) close an order package as soon as the ONE linked/resolved leg is terminal, even while other trade rows with the same order_package_id are still open, stranding …
 - **Pipeline:** PI-20260927-KFWRL9R1-0009
 - **Files:** src/runtime/order_monitor.py (_sweep_stuck_linked_packages, _cascade_close_linked_package, _mark_orphaned package cascade ~L6795-6816, watchdog force-close ~L5755-5765); tests/test_monitor_reconciler.py
@@ -376,7 +378,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 2
 - **What the lane got wrong:** Understated: the cascade closes the package when ANY leg (even a non-linked one) goes terminal, because resolution uses trades.order_package_id first. The lane framed it as 'the ONE linked/resolved leg'.
 
-### FIX-CA-06 — `CA-A01-073` (Tier 2 (Part A alone is tier 1))
+### FIX-CA-06 — `CA-A01-073` (Tier 2 (Part A alone is tier 1)) — **MERGED #13251**
 - **Finding:** _check_broker_naked_bybit_positions silently skips every symbol whose protection read returns None (hedge symbol with BOTH books live, no_rows, size_unreadable, or a broker error): no re-arm for either book, no summary counter, and run_reconciliation_tick drops the summary because broker_naked==0 and errors==0.
 - **Pipeline:** PI-20260927-KFWRL9R1-0015
 - **Files:** src/runtime/bybit_position_book.py (select_position_row gains optional want_side / position_idx); src/runtime/order_monitor.py (_bybit_position_protection(client, category, symbol, want_side=None); _check_broker_naked_bybit_positions cache key (account, symbol, direction) on hedge symbols; summary + run_reconciliation_tick predicate); tests/test_bybit_naked_rearm.py
@@ -386,7 +388,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 2 (Part A alone is tier 1)
 - **What the lane got wrong:** The lane classed it judgment-call. The fix is bounded, provided grading on dual-book symbols uses the graded (side-aware) coverage. Otherwise the per-book fix reintroduces the CA-A01-057 masking.
 
-### FIX-CA-07 — `CA-A02-net-position-read-failure-reads-flat` (Tier 2)
+### FIX-CA-07 — `CA-A02-net-position-read-failure-reads-flat` (Tier 2) — **MERGED #13244**
 - **Finding:** When the journal read fails (e.g. sqlite 'database is locked'), current_net_position_qty returns 0.0 ('treating as flat') and both open-position guards (has_open_trade_for_strategy, coordinator._has_open_position) return False, so an intent-mode package on an account that already holds the symbol is dispatched as a fresh full-size 'open' instead of noop/hold/increase.
 - **Pipeline:** PI-20260927-ECILBBVH-0003
 - **Files:** src/runtime/positions.py; src/core/coordinator.py (multi_account_execute intent branch ~2095-2160, _has_open_position ~88); tests/test_positions_broker_cache.py or a new tests/test_net_position_unreadable.py; scripts/ci/check_collapsed_states.py registry
@@ -395,7 +397,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The test above plus a check_collapsed_states.py entry for positions.current_net_position_qty (None != 0.0).
 - **Tier:** 2
 
-### FIX-CA-08 — `CA-A03-closed-flat-partial-read-grades-flat` (Tier 2)
+### FIX-CA-08 — `CA-A03-closed-flat-partial-read-grades-flat` (Tier 2) — **MERGED #13244**
 - **Finding:** The closed->flat invariant grades a Bybit symbol 'flat' when the settleCoin page omits it and the per-symbol cross-check fails.
 - **Pipeline:** PI-20260927-ENGC5EUD-0003
 - **Files:** src/units/accounts/clients.py (account_open_positions bybit branch); src/runtime/closed_flat_invariant.py (_residual_from_positions); src/runtime/order_monitor.py (_reconcile_open_trades ~4587, ~5636 consumers); tests/test_accounts_clients_open_positions.py, tests/test_closed_flat_residual_state.py
@@ -405,7 +407,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 2
 - **What the lane got wrong:** The lane scoped it to the alert-only invariant. The shared root cause in account_open_positions also drives the reconciler's journal close (money-at-risk: position left unprotected and invisible).
 
-### FIX-CA-09 — `CA-A04-daily-loss-cap-by-open-date` (Tier 3)
+### FIX-CA-09 — `CA-A04-daily-loss-cap-by-open-date` (Tier 3) — **MERGED #13245**
 - **Finding:** RiskManager's daily-loss cap attributes realized PnL to the UTC day a trade OPENED (trades.created_at), so a loss realized today on a position opened on an earlier day is invisible to today's DAILY_LOSS_CAP gate and sizing budget.
 - **Pipeline:** PI-20260927-KRAKE1TG-0001
 - **Files:** src/units/accounts/risk.py (_recompute_daily_pnl_from_db + docstring); tests/test_daily_risk_state_persistence.py
@@ -415,7 +417,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 3
 - **What the lane got wrong:** None in the code claim. Same bug class (open-date attribution) as AUD-20260927-CA-A02-risk-counters-window-on-open-date-all-accounts, in a different module; fix both the same way.
 
-### FIX-CA-10 — `CA-A15-closeall-leg-id-not-forwarded` (Tier 2)
+### FIX-CA-10 — `CA-A15-closeall-leg-id-not-forwarded` (Tier 2) — **MERGED #13244**
 - **Finding:** src/units/ui/processor.py::close_open_positions (the /closeall operator command) always forwards sl_order_id=None, tp_order_id=None to close_open_position(), so a manual close-all on a Bybit partial-TP/SL account never cancels the position's resting qty-scoped legs.
 - **Pipeline:** PI-20260927-RLBXQDGK-0002
 - **Files:** ['src/units/ui/processor.py', 'tests/test_s031_pr4_closeall_helper.py']
@@ -425,7 +427,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 2
 - **What the lane got wrong:** Severity overstated: the legs are reduceOnly and cannot open exposure, an existing runtime alert detects the over-cover, and the path is operator-only. The lane also asserted the telegram bot is deployed without a live read.
 
-### FIX-CA-11 — `CA-A07-testping-journals-and-can-suppress-real-trade` (Tier 2)
+### FIX-CA-11 — `CA-A07-testping-journals-and-can-suppress-real-trade` (Tier 2) — **MERGED #13246**
 - **Finding:** The 'send-prop-test-ping' Tier-1 system-action, documented in three independent places as journaling nothing, ALWAYS writes a real 'emitted' ticket row into the live trade_journal.db for the account's real routed symbol/direction, which can silently suppress the next genuine trade signal.
 - **Pipeline:** PI-20260927-CAA07-0001
 - **Files:** ['src/prop/breakout_executor.py', 'scripts/prop/send_test_ping.py', 'scripts/ops/send_prop_test_ping_action.sh', 'docs/claude/system-actions.md']
@@ -434,7 +436,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The regression test above; none exists today.
 - **Tier:** 2
 
-### FIX-CA-12 — `CA-A08-diag-venue-reads-collapse-could-not-look` (Tier 2)
+### FIX-CA-12 — `CA-A08-diag-venue-reads-collapse-could-not-look` (Tier 2) — **MERGED #13246**
 - **Finding:** Nine token-gated venue-truth diag routes (exchange_positions, venue_session, ib_open_orders, broker_account_status, bybit_open_orders, bybit_raw_order_history, bybit_raw_closed_pnl, bybit_raw_positions, alpaca_open_orders) answer HTTP 200 with accounts:[] (and ib_open_orders count:0) when list_accounts() raises OR when the requested account_id matches nothing, so 'could not look / wrong account i…
 - **Pipeline:** PI-20260927-XWFDEQSN-0001
 - **Files:** ['src/web/api/routers/diag.py']
@@ -443,7 +445,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** Proposed generalized guard: flag `accounts = []` inside an `except` block in routers/diag.py. Does not exist today.
 - **Tier:** 2
 
-### FIX-CA-13 — `CA-A08-critical-alert-dropped-on-send-failure` (Tier 2)
+### FIX-CA-13 — `CA-A08-critical-alert-dropped-on-send-failure` (Tier 2) — **MERGED #13246**
 - **Finding:** A critical alert (e.g. 'Account auto-paused after N consecutive exchange rejections') is popped from the in-process queue before sending, and AlertManager.send_alert swallows every send exception, so a failed Telegram send permanently drops the alert and the caller's except-branch that would log it is dead code.
 - **Pipeline:** PI-20260927-XWFDEQSN-0002
 - **Files:** ['src/bot/alert_manager.py', 'src/main.py']
@@ -452,7 +454,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The tests above; none exist today.
 - **Tier:** 2
 
-### FIX-CA-14 — `CA-A10-200` (Tier 2)
+### FIX-CA-14 — `CA-A10-200` (Tier 2) — **MERGED #13246**
 - **Finding:** rebuild-pnl-from-bybit's wrapper hardcodes --apply on every dispatch with no ACTION_APPLY gate and no dry-run preview, even though its own python helper supports and defaults to dry-run, and every other Tier-2 money-DB-writing sibling action in this repo (mark-operator-flattened, reconcile-netting-rows, repair-netted-rows, repair-malformed-notes, supersede-*, reconcile-orphan-history, prop_fix_mi…
 - **Pipeline:** lane-filed (see lane file)
 - **Files:** ['scripts/ops/rebuild_pnl_from_bybit_action.sh']
@@ -461,7 +463,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** A guard enumerating every scripts/ops/*_action.sh that shells out to a python helper whose argparse defines --apply as store_true, failing any file lacking an ACTION_APPLY case-gate before that flag (mirrors the missing-gate check proposed by CA-A11-backfill-monitor-sign-guard for a related class).
 - **Tier:** 2
 
-### FIX-CA-15 — `CA-A10-402` (Tier 1)
+### FIX-CA-15 — `CA-A10-402` (Tier 1) — **MERGED #13247**
 - **Finding:** Zero of the 64 files under deploy/ (47 top-level .service/.timer pairs + 7 trainer + others) declare OnFailure=, so NO systemd unit in this repo has any push-alerting hook for its own failure — a failed oneshot is visible only if a session or the operator happens to pull /api/diag/services or run status-check and specifically looks for it. Separately, scripts/ops/status_check.sh (the Tier-1 statu…
 - **Pipeline:** lane-filed (see lane file)
 - **Files:** ['scripts/ops/status_check.sh']
@@ -470,7 +472,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The change IS the detector -- status_check.sh's exit code becomes the permanent, always-run signal instead of relying on someone reading the uncapped dump.
 - **Tier:** 1
 
-### FIX-CA-16 — `CA-A13-gpu-burst-actor-guard` (Tier 1)
+### FIX-CA-16 — `CA-A13-gpu-burst-actor-guard` (Tier 1) — **MERGED #13247**
 - **Finding:** .github/workflows/gpu-burst-train.yml triggers on `issues: opened` (public repo, so any account that can open an issue can start the workflow run) and its job's sole gate is `contains(github.event.issue.labels.*.name, 'gpu-burst-train')` (line 63), with no actor-identity check anywhere in the file, unlike every other in-scope issues-triggered workflow that reads a sensitive secret.
 - **Pipeline:** PI-20260924-5V6UVR9J-0002, PI-20260927-CAA13-0001
 - **Files:** ['.github/workflows/gpu-burst-train.yml']
@@ -479,7 +481,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The new CI guard above, run as part of the required 'guards' check, so any future privileged issues-triggered workflow is caught at PR time rather than relying on a manual audit.
 - **Tier:** 1
 
-### FIX-CA-17 — `CA-A14-session-reaper-dead-trigger` (Tier 1)
+### FIX-CA-17 — `CA-A14-session-reaper-dead-trigger` (Tier 1) — **MERGED #13247**
 - **Finding:** session-reaper.yml has had no automatic trigger fire since 2026-09-21T12:18:04Z and none is possible on the file as it stands, so stale/orphaned Claude sessions and lane branches are no longer being reaped.
 - **Pipeline:** PI-20260927-NQRDRZWZ-0001
 - **Files:** ['.github/workflows/session-reaper.yml']
@@ -488,7 +490,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** A periodic check (could ride the existing doc-freshness or health-review cadence) comparing actions_list run history for session-reaper.yml against an expected max-gap (e.g. 24h) and flagging if exceeded. None exists today.
 - **Tier:** 1
 
-### FIX-CA-18 — `CA-A14-ib-login-test-password-grep` (Tier 2)
+### FIX-CA-18 — `CA-A14-ib-login-test-password-grep` (Tier 2) — **MERGED #13246**
 - **Finding:** vm-ib-gateway-live-login-test.yml's remote log-tail step captures any docker-log line matching a broad keyword set including the literal word 'password', and posts matched lines verbatim into a public GitHub issue comment or step summary; if the ib-gateway/IBC container ever emits a raw credential on such a line, this would publish it.
 - **Pipeline:** PI-20260927-NQRDRZWZ-0002
 - **Files:** ['.github/workflows/vm-ib-gateway-live-login-test.yml']
@@ -497,7 +499,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** None exists today; the allowlist change is itself the fix and there's no ongoing detector needed beyond the test above, since the set of matched strings becomes fixed and reviewable in-diff.
 - **Tier:** 2
 
-### FIX-CA-19 — `CA-A11-backfill-monitor-sign-guard` (Tier 2)
+### FIX-CA-19 — `CA-A11-backfill-monitor-sign-guard` (Tier 2) — **MERGED #13246**
 - **Finding:** scripts/ops/backfill_monitor_closed_pnl.py::_plan_row writes a Bybit-recovered pnl/exit_price with no sign-consistency check, unlike its sibling backfill_orphan_pnl.py::_plan_row which calls the identical account_closed_pnl_for_trade lookup and refuses the write when the recovered sign contradicts the trade's own entry-to-exit price move.
 - **Pipeline:** PI-20260927-MJX1ZKYC-0001
 - **Files:** ['scripts/ops/backfill_monitor_closed_pnl.py', 'scripts/ops/backfill_orphan_pnl.py (extract shared helper, optional)']
@@ -507,7 +509,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Tier:** 2
 - **What the lane got wrong:** Worth noting for the fix PR (not a separate finding needed): backfill_monitor_closed_pnl_action.sh ALSO hardcodes --apply with no ACTION_APPLY gate, the identical class of bug as CA-A10-200 (rebuild_pnl_from_bybit_action.sh) -- same root cause pattern, different script, should probably be fixed in the same sweep.
 
-### FIX-CA-20 — `CA-B01-shadow-gates-read-active-log-only` (Tier 1)
+### FIX-CA-20 — `CA-B01-shadow-gates-read-active-log-only` (Tier 1) — **MERGED #13252**
 - **Finding:** Every ml/ consumer of the shadow-prediction log that applies a time window or a minimum n — gate-check's drift_clean (ml/cli.py:431), the fleet stage-guard / promotion-readiness sweep (ml/promotion/stage_guard.py:361), attribution (ml/promotion/attribution.py:419), live_parity (ml/promotion/live_parity.py:385) and drift-retrain (ml/shadow/drift_retrain.py:150) — reads only the ACTIVE log, so the …
 - **Pipeline:** PI-20260927-3WM5HADW-0001
 - **Files:** ml/shadow/inspector.py; ml/cli.py:431; ml/promotion/stage_guard.py:361; ml/promotion/attribution.py:419; ml/promotion/live_parity.py:376-401; ml/shadow/drift_retrain.py:144-152
@@ -516,7 +518,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The above test, plus a grep guard (add to an existing CI script) asserting no ml/ file calls iter_records()/iter_shadow_records() directly outside inspector.py's own union helper.
 - **Tier:** 1
 
-### FIX-CA-21 — `CA-B01-oos-edge-discards-manifest-purge-horizon` (Tier 1)
+### FIX-CA-21 — `CA-B01-oos-edge-discards-manifest-purge-horizon` (Tier 1) — **MERGED #13252**
 - **Finding:** The oos_edge promotion gate's 'purged & embargoed' CV overwrites each manifest's declared label_horizon=5 / embargo_fraction=0.01 with label_horizon=1 / embargo_fraction=0.0 (the sweep path cannot pass them at all), so the OOS edge for the 19 manifests declaring a 5-bar horizon — including both live advisory BTC/SOL fc-pcv-v2 heads — is measured with 4 bars of label overlap at every fold boundary.
 - **Pipeline:** PI-20260927-3WM5HADW-0002
 - **Files:** ml/promotion/oos_edge.py (build_cv_config, compute_oos_edge); ml/cli.py (gate-check defaults + _oos-edge-one)
@@ -525,7 +527,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** Same test, run in CI (tests/ml already gates merges).
 - **Tier:** 1
 
-### FIX-CA-22 — `CA-B01-advisory-hold-when-nothing-measured` (Tier 1)
+### FIX-CA-22 — `CA-B01-advisory-hold-when-nothing-measured` (Tier 1) — **MERGED #13252**
 - **Finding:** stage_guard reports an advisory (live-influencing) head with drift=None and attribution=None as 'hold: no demote trigger tripped' — the identical verdict a measured-healthy head gets — so 'we did not look' is indistinguishable from 'looked, fine' in the daily readiness packet, and combined with the active-log-only read this is every advisory head for roughly the first week after each rotation.
 - **Pipeline:** PI-20260927-3WM5HADW-0003
 - **Files:** ml/promotion/stage_guard.py (_demote_triggers, propose_for_model); ml/promotion/readiness_report.py (headline rendering)
@@ -534,7 +536,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The unit test; register the new evidence_state with scripts/ci/check_collapsed_states.py per the repo's own collapsed-state contract.
 - **Tier:** 1
 
-### FIX-CA-23 — `CA-B01-regime-scoring-uses-forming-bar` (Tier 2)
+### FIX-CA-23 — `CA-B01-regime-scoring-uses-forming-bar` (Tier 2) — **MERGED #13253**
 - **Finding:** emit_regime_bar_predictions scores every regime head (and builds the xa_* cross-asset row) on the LAST row of fetch_candles, which on Bybit is the still-forming bar, whereas every market_features training row is a closed bar — so live log_return / range-vol / vol_bucket / xa_* are partial-bar values; for the advisory heads this P(volatile) is what ml_vol_verdict publishes into the regime router's…
 - **Pipeline:** PI-20260927-3WM5HADW-0006
 - **Files:** src/runtime/regime_bar_scoring.py:448-463; src/runtime/cross_asset_live.py:187-213; src/runtime/strategy_signal_builders.py:333-341
@@ -543,7 +545,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The unit test above.
 - **Tier:** 2
 
-### FIX-CA-24 — `CA-B01-fc-live-no-staleness-check` (Tier 2)
+### FIX-CA-24 — `CA-B01-fc-live-no-staleness-check` (Tier 2) — **MERGED #13253**
 - **Finding:** compute_live_forecast_row merges the published fc_row whatever its age and never compares artifact['as_of_ts'] with the bar being scored, so if the trainer-side forecast producer stops, the two live advisory fc-pcv-v2 heads keep scoring 6 of their 13 features on one frozen forecast with no counter or alarm.
 - **Pipeline:** PI-20260927-3WM5HADW-0007
 - **Files:** src/runtime/forecast_live.py:160-199 (compute_live_forecast_row); scripts/ops/run_forecast_producer.sh comment (correct the false claim)
@@ -552,7 +554,7 @@ Not re-briefed. The turn-1 text is kept below for the record.
 - **Detector:** The test above; also correct run_forecast_producer.sh's comment since it currently asserts a protection that does not exist (field beats comment).
 - **Tier:** 2
 
-### FIX-CA-25 — `CA-B01-fc-producer-forecasts-forming-bar` (Tier 2)
+### FIX-CA-25 — `CA-B01-fc-producer-forecasts-forming-bar` (Tier 2) — **MERGED #13253**
 - **Finding:** scripts/ml/publish_live_forecasts.py builds the served fc_row from fetch_candles() whose last row is the still-forming bar (latest_forecast_row returns out[-1], no trim), and the producer timer is not bar-aligned, while training forecasts (ml/datasets/forecast_features.py over bybit_offvm closed bars) condition on closed bars — so the ln(q/last_close) denominators of all 6 fc_* features are parti…
 - **Pipeline:** PI-20260927-3WM5HADW-0008
 - **Files:** scripts/ml/publish_live_forecasts.py:125-143,238-263; deploy/training-vm-cloud-init.yaml (ict-trainer-forecast.timer)
