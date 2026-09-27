@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only prop probe, operator pre-authorised 2026-09-27",
+  "why": "Run 36358563148 (#13385): #13349's tab click worked — the working-orders table rendered with headers Sts, Status, Symbol, Side, Size, Price, Type, Stop loss, Take profit, Current Price, Date and Time Modified, Expiration, Order ID, Fill Price — but orders still read UNPARSED because 'current price' was on the positions-only header list, so the orders classifier rejected it. One-line removal (positions stay identified by Position ID / Open P&L). Regression tests on both MEASURED header sets fail on main and pass here. Read-only; emit-status stays off."
+}
