@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "research-exit-head-build.yml passes a nonzero, venue-aware --cost-r / --exit-fee-r (or the scripts' own argparse defaults become nonzero), so the workflow's committed VERDICT.md is genuinely net-of-fee as documented; a decision on whether any past run's verdict must be re-derived is also made.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-4RNJRRFS-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B03 / docs/audits/code-audit-2026-09-27/CA-B03.findings.jsonl#AUD-20260927-CA-B03-exit-head-workflow-never-applies-net-of-fee-cost",
+    "rerun": "cd /home/user/Metis-Insights && grep -n 'cost-r\\|exit-fee-r' .github/workflows/research-exit-head-build.yml (expect: nonzero occurrences once fixed; today: zero) && grep -n '\"--cost-r\"\\|\"--exit-fee-r\"' scripts/research/build_intrabar_exit_panel.py scripts/research/analyze_exit_head.py (shows both argparse defaults; today both default=0.0)"
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-28 fixed in PR #13314: research-exit-head-build.yml resolves venue cost bps from execution_costs and passes --cost-bps/--exit-fee-bps; analyzer converts per trade via panel r_per_bp and reports cost_basis; tests/test_exit_head_workflow_cost_basis.py. Funding not charged (stated in VERDICT.md).",
+  "what": "[trading-correctness] The M30xM20 exit-head production pipeline (.github/workflows/research-exit-head-build.yml -> build_intrabar_exit_panel.py -> analyze_exit_head.py) never passes --cost-r or --exit-fee-r, so both default to 0.0 (confirmed: grep for either flag in the workflow returns zero hits, while sibling flags like --time-stop-bars/--tp-r/--exit-threshold are explicitly wired). This makes the pipeline's own 'net-of-fee EXIT POLICY sim' and its pre-registered promotion bar ('positive net-of-fee R improvement') actually GROSS, contradicting analyze_exit_head.py's own docstring and verdict labeling (criterion_b_net_r_improvement_positive). Established by static trace of the workflow YAML + argparse defaults; the full multi-hour workflow was not executed end to end this pass, so whether a real promotion decision has already relied on this gap is UNSETTLED. Filed by code-audit lane CA-B03 (docs/audits/code-audit-2026-09-27/CA-B03.findings.jsonl, finding AUD-20260927-CA-B03-exit-head-workflow-never-applies-net-of-fee-cost)."
+}
