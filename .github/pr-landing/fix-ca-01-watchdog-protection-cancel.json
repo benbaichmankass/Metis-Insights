@@ -1,0 +1,1 @@
+{"tier": 2, "landing": "hold", "hold_reason": "tier_2_3_needs_approval", "hold_text": "touches src/runtime/order_monitor.py + src/units/accounts/ib_client.py (order path); manager merges and deploys under the data-backed Tier-2 authorization", "why": "order path; manager merges under data-backed Tier-2 authorization (CA-A01-001)"}

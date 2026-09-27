@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "set-account-mode's flip survives a git-sync cycle and a trader restart: either the action commits the mode change to main (as the Tier-2 carve-out) or deploy_pull_restart.sh preserves it, and a test asserts the post-sync mode equals the flipped mode.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-DPSCDUBQ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A12 / AUD-20260927-CA-A12-set-account-mode-not-durable",
+    "rerun": "grep -n 'git reset --hard origin/main' scripts/deploy_pull_restart.sh; grep -n 'git commit\\|git push' scripts/ops/set_account_mode.sh .github/workflows/system-actions.yml; grep OnUnitActiveSec deploy/ict-git-sync.timer"
+  },
+  "state": "queued",
+  "what": "set-account-mode is not durable: scripts/ops/set_account_mode.sh edits config/accounts.yaml `mode:` in the VM working tree only (no commit to main), and ict-git-sync (deploy/ict-git-sync.timer, every 5 min) runs scripts/deploy_pull_restart.sh which does `git reset --hard origin/main` (line 117) — the YAML edit is reverted within ~5 min and the runtime keeps the flipped mode only until the next trader restart, after which it silently returns to origin/main's mode. An operator emergency flip to dry_run silently reverts to live. Finding AUD-20260927-CA-A12-set-account-mode-not-durable (docs/audits/code-audit-2026-09-27/CA-A12.findings.jsonl)."
+}
