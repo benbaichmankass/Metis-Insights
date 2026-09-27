@@ -1,0 +1,45 @@
+import sys; sys.path.insert(0, "/home/user/Metis-Insights/tests"); sys.path.insert(0, "/home/user/Metis-Insights")
+from test_order_monitor_package_legs import FakeDB, _leg, _pkg
+from src.runtime import order_monitor as om
+
+MSG = ("InvalidRequestError: current position is zero, cannot fix reduce-only order qty "
+       "(ErrCode: 110017) (ErrTime: 02:27:19).")
+
+def _common(monkeypatch):
+    monkeypatch.setattr(om, "_capture_fill_details", lambda t, o: None)
+    monkeypatch.setattr(om, "mark_active_close", lambda a, s: None)
+    om._CLOSE_FAIL_STREAK.clear(); om._PENDING_CLOSE_RETRY_COOLDOWN.clear()
+
+def test_005_110017_recognised(monkeypatch):
+    _common(monkeypatch)
+    db = FakeDB([_leg(1, "bybit_1")])
+    monkeypatch.setattr(om, "_send_close_to_exchange", lambda t: {"ok": False, "error": MSG})
+    s = om._StrategyTickSummary()
+    om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, s)
+    print("005 trade_writes", db.trade_writes, "errors", s.error_count, "streak", dict(om._CLOSE_FAIL_STREAK))
+    assert s.error_count == 0
+
+def test_006_sibling_drains(monkeypatch):
+    _common(monkeypatch)
+    db = FakeDB([_leg(1, "bybit_2"), _leg(2, "bybit_portfolio")])
+    calls = []
+    def send(t):
+        calls.append(t["id"])
+        return {"ok": False, "error": "boom"} if t["id"] == 1 else {"ok": True, "exchange_order_id": None}
+    monkeypatch.setattr(om, "_send_close_to_exchange", send)
+    for _ in range(3):
+        om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, om._StrategyTickSummary())
+    print("006 close attempts", calls)
+    assert 2 in calls
+
+def test_007_no_double_close(monkeypatch):
+    _common(monkeypatch)
+    db = FakeDB([_leg(1, "bybit_2")])
+    calls = []
+    monkeypatch.setattr(om, "_send_close_to_exchange", lambda t: (calls.append((t["id"], t["position_size"])) or {"ok": True, "exchange_order_id": "X"}))
+    def boom(*a, **k): raise RuntimeError("database is locked")
+    monkeypatch.setattr(db, "update_trade", boom)
+    s1 = om._StrategyTickSummary(); om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, s1)
+    s2 = om._StrategyTickSummary(); om._apply_update(db, _pkg(linked=1), {"action": "close", "reason": "x"}, s2)
+    print("007 sends", calls, "closed", s1.closed_count, s2.closed_count, "err", s1.error_count, s2.error_count, "pkgw", db.package_writes)
+    assert len(calls) == 1
