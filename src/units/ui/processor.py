@@ -1632,7 +1632,8 @@ def close_open_positions(
         params.append(str(account))
     sql = (
         "SELECT id, symbol, direction, position_size, strategy_name, "
-        "account_id FROM trades WHERE " + " AND ".join(where)
+        "account_id, sl_order_id, tp_order_id FROM trades WHERE "
+        + " AND ".join(where)
     )
 
     try:
@@ -1719,8 +1720,12 @@ def close_open_positions(
         outcome = close_open_position(
             client, account_cfg,
             symbol=symbol, side=direction, qty=qty,
-            sl_order_id=row.get("sl_order_id") if hasattr(row, "get") else None,
-            tp_order_id=row.get("tp_order_id") if hasattr(row, "get") else None,
+            # FIX-CA-10: ``row`` is a sqlite3.Row, which has no ``.get`` — the
+            # prior ``hasattr(row, "get")`` guard was always False and forwarded
+            # None, so close-all never cancelled the legs. Index it directly;
+            # the SELECT above reads both columns.
+            sl_order_id=row["sl_order_id"],
+            tp_order_id=row["tp_order_id"],
         )
         ok = bool(outcome.get("ok"))
         order_id = outcome.get("exchange_order_id")
