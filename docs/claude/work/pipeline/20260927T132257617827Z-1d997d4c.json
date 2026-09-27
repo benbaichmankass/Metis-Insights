@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the naked sweep grades each book of a two-book hedge symbol separately, with a test, merged AND deployed",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-ENGC5EUD-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A03 (session_01RjVA2i43wfnwqFEnGc5euD), finding AUD-20260927-CA-A03-naked-sweep-blind-on-dual-book-hedge-symbols",
+    "rerun": "python3 -c \"from src.runtime.bybit_position_book import select_position_row as s; r=s([{'size':'1.2','side':'Buy','positionIdx':1},{'size':'0.5','side':'Sell','positionIdx':2}]); print(r.state, r.is_usable)\" -- holds while this prints ambiguous_multi_book False and order_monitor's naked sweep keys protection_cache on (account_id, symbol) only."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-A03): on a Bybit HEDGE-mode symbol where both books hold size, bybit_position_book.select_position_row returns ambiguous_multi_book, order_monitor._bybit_position_protection returns None (order_monitor.py ~9164-9178) and the naked sweep `continue`s (~10194-10200) -- so NEITHER book gets a protective re-arm and the journal/broker divergence check is skipped, for as long as both books are open. The sweep iterates journal rows that carry row['direction'], but caches protection by (account, symbol) only (~10191), discarding the side that would disambiguate. Hedge mode is armed on bybit_1/bybit_2 (env-vars.md BYBIT_HEDGE_MODE_SYMBOLS, 12 account:symbol pairs per its 2026-08-30 row; not re-read live this session). FIX (Tier-2): pass want_side (long->positionIdx 1, short->2) into select_position_row, key the cache on (account, symbol, direction), refuse only when the requested book is ambiguous; sweep test with a two-book fixture."
+}
