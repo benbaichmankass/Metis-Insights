@@ -8,6 +8,8 @@
 #   ACCOUNT_ID    - account_id in accounts.yaml (e.g. alpaca_paper)  [required]
 #   ACTION_SYMBOL - bot symbol (e.g. SPY)                            [required]
 #   ACTION_APPLY  - "true" to execute; anything else = dry-run       [optional]
+#   ACTION_ROW    - journal trade id → ROW MODE: one OCO for exactly that row,
+#                   cancelling nothing                                [optional]
 #
 # Exit codes (mapped in notify_run.sh): 0 ok · 1 new OCO refused, OLD protection
 # restored · 2 could not look · 3 placed but unverified · 4 refused by a guard
@@ -62,6 +64,11 @@ PY="${REPO_DIR}/.venv/bin/python3"
 [ -x "${PY}" ] || PY="python3"
 
 ARGS=(--account "${ACCOUNT_ID}" --symbol "${ACTION_SYMBOL}")
+ACTION_ROW="${ACTION_ROW:-}"
+if [ -n "${ACTION_ROW}" ]; then
+  echo ">>> rearm-alpaca-protective: ROW MODE — row ${ACTION_ROW}; cancels NOTHING"
+  ARGS+=(--row "${ACTION_ROW}")
+fi
 case "${ACTION_APPLY}" in
   true|True)
     echo ">>> rearm-alpaca-protective: APPLY — cancel the resting protective legs and place ONE GTC OCO for the net qty on ${ACCOUNT_ID}/${ACTION_SYMBOL}"
