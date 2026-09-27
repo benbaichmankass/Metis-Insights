@@ -143,7 +143,7 @@ def _run(fake):
 
 def _restarted(fake) -> list[str]:
     log = fake["restart_log"]
-    return [l.strip() for l in log.read_text().splitlines() if l.strip()] if log.exists() else []
+    return [ln.strip() for ln in log.read_text().splitlines() if ln.strip()] if log.exists() else []
 
 
 def test_marker_with_inactive_trader_holds_it_stopped(fake):
