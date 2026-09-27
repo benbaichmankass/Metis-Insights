@@ -143,27 +143,45 @@ def build_cv_config(
     *,
     n_folds: int = 5,
     min_train_fraction: float = 0.5,
-    label_horizon: int = 1,
-    embargo_fraction: float = 0.0,
+    label_horizon: int | None = None,
+    embargo_fraction: float | None = None,
     embargo_n: int | None = None,
 ) -> dict[str, Any]:
     """Force a manifest's evaluator_config onto purged walk-forward CV.
 
     Keeps the authored ``target_column`` / ``metrics`` / ``time_column``
     (whatever the trainer + evaluator need) but overrides the split
-    strategy and its knobs — exactly the override
+    strategy and its fold knobs — exactly the override
     ``scripts/ml/eval_split_compare.py`` applies, so the no-leakage path
     is identical to the one S-MLOPT-S1 validated.
+
+    The PURGE knobs (``label_horizon`` / ``embargo_fraction`` /
+    ``embargo_n``) are the manifest's own: a label spanning 5 bars forward
+    needs a 5-bar purge, and until FIX-CA-21 this overwrote the declared
+    5 / 0.01 with 1 / 0.0 (CA-B01-oos-edge-discards-manifest-purge-horizon).
+    A caller value may only WIDEN the declared purge (``max``), never shrink
+    it; undeclared and not passed falls back to the historical 1 / 0.0.
     """
+    def _widest(declared: Any, override: Any, default: Any, cast: Any) -> Any:
+        vals = [cast(v) for v in (declared, override) if v is not None]
+        return max(vals) if vals else default
+
     cfg = dict(base_evaluator_config)
     cfg["split_strategy"] = "purged_walk_forward"
     cfg["n_folds"] = n_folds
     cfg["min_train_fraction"] = min_train_fraction
-    cfg["label_horizon"] = label_horizon
-    if embargo_n is not None:
-        cfg["embargo_n"] = embargo_n
-    else:
-        cfg["embargo_fraction"] = embargo_fraction
+    cfg["label_horizon"] = _widest(
+        base_evaluator_config.get("label_horizon"), label_horizon, 1, int,
+    )
+    cfg["embargo_fraction"] = _widest(
+        base_evaluator_config.get("embargo_fraction"), embargo_fraction, 0.0, float,
+    )
+    # `embargo_n` wins over the fraction in the splitter
+    # (ml.experiments.splitters._embargo_n_from_config), so it is only set
+    # when the manifest or the caller names one.
+    n = _widest(base_evaluator_config.get("embargo_n"), embargo_n, None, int)
+    if n is not None:
+        cfg["embargo_n"] = n
     return cfg
 
 
@@ -217,11 +235,15 @@ def compute_oos_edge(
     baseline_trainer_config: Mapping[str, Any] | None = None,
     n_folds: int = 5,
     min_train_fraction: float = 0.5,
-    label_horizon: int = 1,
-    embargo_fraction: float = 0.0,
+    label_horizon: int | None = None,
+    embargo_fraction: float | None = None,
     embargo_n: int | None = None,
 ) -> OOSEdgeResult | None:
     """Candidate-vs-baseline OOS edge for one registry ``entry`` under purged WF-CV.
+
+    ``label_horizon`` / ``embargo_*`` default to the manifest's own
+    ``evaluator_config`` values; a passed value can only widen them (see
+    :func:`build_cv_config`).
 
     ``entry`` is a ``ml.registry.model_registry.RegistryEntry`` whose
     ``manifest`` is the full training manifest (as ``run_experiment``

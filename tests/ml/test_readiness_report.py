@@ -186,3 +186,24 @@ def test_build_readiness_report_end_to_end(tmp_path: Path):
     payload = report.to_dict()
     assert payload["summary"]["hold_count"] == 2
     assert payload["summary"]["promote"] == []
+
+
+def test_format_markdown_distinguishes_unevaluated_live_hold():
+    """FIX-CA-22: an advisory hold with nothing measured must not render like
+    a measured-healthy one (both previously rendered as a bare model line)."""
+    from ml.promotion.stage_guard import propose_for_model
+    from ml.registry.model_registry import RegistryEntry
+
+    entry = RegistryEntry(
+        model_id="adv", status="candidate", manifest={"model_id": "adv"},
+        model_state_path="x", metrics={"macro_f1": 0.7}, code_revision="a",
+        created_at=datetime.now(timezone.utc), target_deployment_stage="advisory",
+    )
+    hold = propose_for_model(entry, attribution=None, drift=None)
+    report = ReadinessReport(
+        generated_at_utc=datetime(2026, 9, 27, tzinfo=timezone.utc),
+        proposals=(hold,), datasets_root_used="/x",
+    )
+    md = format_markdown(report)
+    line = next(ln for ln in md.splitlines() if "**adv**" in ln)
+    assert "NOT EVALUABLE" in line, line

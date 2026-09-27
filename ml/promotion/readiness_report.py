@@ -32,7 +32,13 @@ from pathlib import Path
 from typing import Any
 
 from .gates import GateThresholds
-from .stage_guard import Proposal, run_stage_guard
+from .stage_guard import (
+    DEMOTE_EVIDENCE_EVALUATED,
+    DEMOTE_EVIDENCE_NOT_EVALUABLE,
+    DEMOTE_EVIDENCE_PARTIAL,
+    Proposal,
+    run_stage_guard,
+)
 
 
 @dataclass(frozen=True)
@@ -112,11 +118,26 @@ def build_readiness_report(
 # ---------------------------------------------------------------------------
 
 
+def _demote_evidence_line(proposal: Proposal) -> str:
+    """A live-stage hold's demote-evidence state (FIX-CA-22): a head whose
+    drift and attribution were never computed must not render like one that
+    was measured and found healthy."""
+    state = proposal.evidence.get("demote_evidence_state") if proposal.evidence else None
+    if state == DEMOTE_EVIDENCE_NOT_EVALUABLE:
+        return "⚠️ demote triggers NOT EVALUABLE (drift=None, attribution=None) — not a healthy read"
+    if state == DEMOTE_EVIDENCE_PARTIAL:
+        reason = proposal.reasons[0] if proposal.reasons else ""
+        return f"⚠️ demote evidence PARTIAL — {reason}"
+    if state == DEMOTE_EVIDENCE_EVALUATED:
+        return "demote triggers evaluated: none tripped"
+    return ""
+
+
 def _gate_summary_line(proposal: Proposal) -> str:
     """One-line gate verdict: which gates blocked / what edge we have."""
     gate_report = proposal.evidence.get("gate_report") if proposal.evidence else None
     if not isinstance(gate_report, dict):
-        return ""
+        return _demote_evidence_line(proposal)
     blocking = gate_report.get("blocking") or []
     if blocking:
         return f"blocking: {', '.join(blocking)}"
