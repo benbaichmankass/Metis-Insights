@@ -130,6 +130,13 @@ COVERED = {
         "spawn edits this file) and included anyway: a register write-back IS the "
         "diff that can revert a field, so excluding it would exempt exactly the "
         "change the guard exists for",
+    "docs/archive/2026-09-21-operating-reset/work/SESSIONS.json":
+        "test_session_reaper_trigger_liveness (FIX-CA-17) asserts this ARCHIVED "
+        "file exists at this exact path, as the evidence that session-reaper.yml's "
+        "old push-trigger `paths:` filter (which named the pre-archive location) "
+        "was permanently dead. Near-zero ongoing cost -- this tree is frozen by "
+        "convention -- but a moved/deleted file would falsify the test's premise "
+        "on a green tick from a run that executed nothing",
     "docs/claude/work/objects/WO-20260908-BUILD-THE-N-BOOK-RANKING-KEY-HARNESS.yaml":
         "test_decision_subject reads this REAL object AND globs the whole "
         "objects/ directory, asserting no live decision_request declares a "

@@ -154,7 +154,10 @@ def test_account_id_filter(client, monkeypatch):
     assert [r["account_id"] for r in payload["accounts"]] == ["ib_paper"]
 
 
-def test_list_accounts_failure_still_answers(client, monkeypatch):
+def test_list_accounts_failure_is_could_not_look(client, monkeypatch):
+    """FIX-CA-12: an unreadable account list is 503 accounts_unreadable.
+    This test used to assert 200 ``accounts: []`` — the exact collapse of
+    *could not look* into *looked, found nothing* the audit flagged."""
     import src.units.ui.data_loaders as dl
 
     def _boom():
@@ -162,8 +165,8 @@ def test_list_accounts_failure_still_answers(client, monkeypatch):
 
     monkeypatch.setattr(dl, "list_accounts", _boom)
     r = client.get("/api/diag/ib_open_orders", headers=_bearer())
-    assert r.status_code == 200
-    assert r.json()["accounts"] == []
+    assert r.status_code == 503
+    assert r.json()["detail"]["error"] == "accounts_unreadable"
 
 
 # --- the client-side half: IBClient.list_open_orders -------------------------

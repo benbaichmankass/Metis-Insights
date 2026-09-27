@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Dispatch instruction for this task: 'Commit on branch claude/w6-prop-o2-exit-head, open a normal PR (not a draft); the manager merges it.'",
+  "why": "Research-tooling bug fix (scripts/research/exit_head_prop_swap_feasibility.py) + regression test + a landed research result + a doc write-up + a filed pipeline row -- docs/tests/research only, no runtime/order-path/config touched. Tier-1 by path, held per the dispatching instruction rather than self-landed."
+}

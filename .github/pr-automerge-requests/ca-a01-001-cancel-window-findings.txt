@@ -1,0 +1,1 @@
+auto-merge on green: three CA-A01-001 pipeline records (#13228)

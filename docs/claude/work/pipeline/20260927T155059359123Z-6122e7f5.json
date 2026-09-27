@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for AUD-20260927-CA-B01-advisory-hold-when-nothing-measured is merged with a test that fails on the old code (detector: Unit test: advisory proposal with drift=None and attribution=None carries an 'insufficient evidence' reason/state (collapsed-state contract).), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-3WM5HADW-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B01 (session_01M6NBQHKgKXsvrB3Wm5HAdW), finding AUD-20260927-CA-B01-advisory-hold-when-nothing-measured in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B01-advisory-hold-when-nothing-measured (evidence field) in docs/audits/code-audit-2026-09-27/CA-B01.findings.jsonl, re-read ml/promotion/stage_guard.py:105-132 (_demote_triggers returns [] when both inputs are None), :203-211 on main, and re-run the stated command / repro in docs/audits/code-audit-2026-09-27/CA-B01-repros/; the finding holds while the quoted code is unchanged."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-22 fixed in PR #13252 (merged = done for this item's clears_when); a test that fails on the old code lands with it — see the PR table",
+  "what": "HIGH (code audit AUD-20260927-CA-B01-advisory-hold-when-nothing-measured): stage_guard reports an advisory (live-influencing) head with drift=None and attribution=None as 'hold: no demote trigger tripped' — the identical verdict a measured-healthy head gets — so 'we did not look' is indistinguishable from 'looked, fine' in the daily readiness packet, and combined with the active-log-only read this is every advisory head for roughly the first week after each rotation. LOCATION: ml/promotion/stage_guard.py:105-132 (_demote_triggers returns [] when both inputs are None), :203-211. PROPOSED FIX: Emit an explicit not-evaluable reason and add evidence_state to Proposal.evidence; register it with scripts/ci/check_collapsed_states.py."
+}

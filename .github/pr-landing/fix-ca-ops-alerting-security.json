@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges under the data-backed Tier-2/3 authority (audit brief evidence)",
+  "why": "Code-audit 2026-09-27 fix lane, six evidence-settled briefs from docs/audits/code-audit-2026-09-27.md section 5 (FIX-CA-11/12/13/14/18/19), each verified CONFIRMED in docs/audits/code-audit-2026-09-27/CA-LEAD.verdicts.json. Every brief is Tier 2: src/prop/breakout_executor.py (prop ticket journal status), src/main.py + src/bot/alert_manager.py (the trader's critical-alert drain), src/web/api/routers/diag.py (token-gated diag read contract), system-action wrappers that write trades rows (rebuild-pnl-from-bybit, backfill-monitor-closed-pnl), and a workflow that posts live-gateway log lines publicly. No order path, no strategy/risk/sizing/mode change. Each fix carries a test that fails on origin/main 7d002927 and passes on this branch."
+}

@@ -190,3 +190,81 @@ def test_end_to_end_produce_then_serve_matches(monkeypatch, tmp_path):
     # What the live reader serves for the same symbol/cadence.
     served = fl.compute_live_forecast_row("BTCUSDT", timeframe="15m")
     assert served == expected  # bit-for-bit parity at the serve boundary
+
+
+# --------------------------------------------------------------------------- #
+# FIX-CA-24: a forecast that is not for the scored bar is not served
+# CA-B01-fc-live-no-staleness-check (PI-20260927-3WM5HADW-0007)
+# --------------------------------------------------------------------------- #
+_BAR = datetime.fromisoformat("2026-09-27T12:00:00+00:00")
+
+
+def _write_fc(tmp_path, as_of):
+    (tmp_path / "BTCUSDT.json").write_text(json.dumps({
+        "symbol": "BTCUSDT", "timeframe": "15m", "as_of_ts": as_of,
+        "fc_row": {c: 1.0 for c in FORECAST_FEATURE_COLUMNS},
+    }))
+
+
+def _stale_setup(monkeypatch, tmp_path):
+    _point_dir(fl, monkeypatch, tmp_path)
+    monkeypatch.setattr(fl, "_status_path", lambda: str(tmp_path / "status.json"))
+    fl.reset_serve_counters()
+
+
+def test_stale_artifact_returns_none_and_counts(monkeypatch, tmp_path):
+    _stale_setup(monkeypatch, tmp_path)
+    # The producer stopped 10 days ago: its last artifact is frozen.
+    _write_fc(tmp_path, str(int((_BAR - timedelta(days=10)).timestamp() * 1000)))
+    bar_ts = int(_BAR.timestamp() * 1000)
+    assert fl.compute_live_forecast_row("BTCUSDT", timeframe="15m", bar_ts=bar_ts) is None
+    assert fl.serve_counters()["fc_stale"] == 1
+    status = json.loads((tmp_path / "status.json").read_text())
+    assert status["symbols"]["BTCUSDT"]["served"] is False
+    assert status["symbols"]["BTCUSDT"]["lag_bars"] == 960
+    assert status["counters"]["fc_stale"] == 1
+
+
+def test_forecast_for_scored_bar_is_served(monkeypatch, tmp_path):
+    _stale_setup(monkeypatch, tmp_path)
+    _write_fc(tmp_path, _BAR.isoformat())
+    row = fl.compute_live_forecast_row(
+        "BTCUSDT", timeframe="15m", bar_ts=int(_BAR.timestamp() * 1000),
+    )
+    assert row is not None
+    assert fl.serve_counters() == {"fc_served": 1, "fc_stale": 0}
+
+
+def test_one_bar_publication_lag_is_served(monkeypatch, tmp_path):
+    """The producer publishes a bar's forecast after the bar closes, and the
+    mirror rsyncs it up to 2 min later; the scorer scores at the close. The
+    previous bar's forecast is the in-flight case, not a frozen producer."""
+    _stale_setup(monkeypatch, tmp_path)
+    _write_fc(tmp_path, (_BAR - timedelta(minutes=15)).isoformat())
+    assert fl.compute_live_forecast_row(
+        "BTCUSDT", timeframe="15m", bar_ts=_BAR.isoformat(),
+    ) is not None
+    _write_fc(tmp_path, (_BAR - timedelta(minutes=30)).isoformat())
+    fl._artifact_cache.clear()
+    assert fl.compute_live_forecast_row(
+        "BTCUSDT", timeframe="15m", bar_ts=_BAR.isoformat(),
+    ) is None
+
+
+def test_forecast_ahead_of_scored_bar_is_not_served(monkeypatch, tmp_path):
+    """A forecast conditioned on a bar AFTER the scored one is lookahead."""
+    _stale_setup(monkeypatch, tmp_path)
+    _write_fc(tmp_path, (_BAR + timedelta(minutes=15)).isoformat())
+    assert fl.compute_live_forecast_row(
+        "BTCUSDT", timeframe="15m", bar_ts=_BAR.isoformat(),
+    ) is None
+
+
+def test_missing_as_of_ts_is_stale_when_bar_given(monkeypatch, tmp_path):
+    _stale_setup(monkeypatch, tmp_path)
+    (tmp_path / "BTCUSDT.json").write_text(json.dumps({
+        "timeframe": "15m", "fc_row": {c: 1.0 for c in FORECAST_FEATURE_COLUMNS},
+    }))
+    assert fl.compute_live_forecast_row(
+        "BTCUSDT", timeframe="15m", bar_ts=_BAR.isoformat(),
+    ) is None

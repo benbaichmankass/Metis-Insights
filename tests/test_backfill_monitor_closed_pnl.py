@@ -286,6 +286,43 @@ class TestPlanRow:
         assert updates is None
         assert "closed_pnl=None" in reason
 
+    def test_sign_mismatch_refuses_write(
+        self, script, tmp_db, fake_cfgs,
+    ):
+        """FIX-CA-19 (CA-A11): a long with an exit ~18% ADVERSE to entry
+        but a POSITIVE recovered closed_pnl is a mismatched Bybit record
+        (the +3847.29 incident shape backfill_orphan_pnl.py already
+        refuses). Writing it would fabricate a profit on a losing trade."""
+        row = _read_row(tmp_db, 1540)  # long, entry 76700
+        with patch.object(
+            script, "account_closed_pnl_for_trade",
+            return_value={
+                "avg_exit_price": 62893.99,
+                "closed_pnl": 3847.29,
+                "qty": 0.004, "side": "Sell", "closed_at": None,
+            },
+        ):
+            updates, reason = script._plan_row(row, fake_cfgs["bybit_2"])
+        assert updates is None
+        assert reason is not None and "ADVERSE" in reason
+
+    def test_sign_mismatch_refuses_fabricated_loss(
+        self, script, tmp_db, fake_cfgs,
+    ):
+        """Mirror case: a favourable exit with a negative recovered pnl."""
+        row = _read_row(tmp_db, 1540)  # long, entry 76700
+        with patch.object(
+            script, "account_closed_pnl_for_trade",
+            return_value={
+                "avg_exit_price": 80000.0,
+                "closed_pnl": -12.5,
+                "qty": 0.004, "side": "Sell", "closed_at": None,
+            },
+        ):
+            updates, reason = script._plan_row(row, fake_cfgs["bybit_2"])
+        assert updates is None
+        assert reason is not None and "FAVORABLE" in reason
+
 
 class TestEndToEnd:
     def test_apply_writes_recovered_rows(

@@ -6,6 +6,49 @@
 # this guard must remain "route the work to a session", because that is the
 # behaviour wanted.
 exceptions:
+  - id: MGR-20260927-TITLE-AND-NO-DISPUTE-RULE
+    status: active
+    expires: "2026-09-30"
+    paths:
+      - ".claude/skills/manager/SKILL.md"
+      - "CLAUDE.md"
+      - "docs/CLAUDE-RULES-CANONICAL.md"
+      - ".github/merge-slots/w6-ops-authority-flag.json"
+      - ".github/merge-slots/close-pipeline-item-yzrzq725-mgvf3b.json"
+    reason: >-
+      SCRUB (operator, 2026-09-27, verbatim): "I told the session to fully
+      scrub that discrepency, I do not want to take any changes of degenerate
+      behavior poising future sessions." The two merge-slot paths are stale
+      claims of already-merged branches, deleted as part of that scrub; no
+      live merge is affected.
+
+      OPERATOR GRANT, 2026-09-27, verbatim, in the operator's own first message
+      to manager session_01KAQRJxRbRwpYTkPgBjNVyQ: (1) "Title yourself ... Then
+      make this permanent: add it as step 1 of the start-of-session procedure
+      in .claude/skills/manager/SKILL.md, plus a one-line pointer under
+      CLAUDE.md § 'Every session' item 2. Tier-1 self-land." (2) on the "No lane
+      files a dispute of operator authority" rule: "If the rule isn't on main
+      within the hour, land it yourself: a binding subsection in
+      CLAUDE-RULES-CANONICAL § 'Lanes answer to the manager' plus a one-line
+      pointer in CLAUDE.md." Both name the MANAGER as the author, so the
+      guard's normal remedy (route it to a session) is not what was asked.
+
+      ALSO (operator, 2026-09-27, verbatim): "the only acceptable way for
+      resolving these issues is for the manager to be temporarily taken on of
+      auto mode ... Make sure that is in the manager skill" -- covers the new
+      manager-skill section on classifier refusals.
+
+      WHAT IT COVERS: PR #13160 only — the new § "Start of session" in the
+      manager skill, the new subsection "No lane files a dispute of operator
+      authority" in CLAUDE-RULES-CANONICAL, and the two CLAUDE.md pointer
+      lines. Nothing else in those files.
+
+      WHY NOW: the rule was first asked of cleanup lane
+      session_01G5QWpSxtgbTPVizhiP3wAn, which did not write it; the operator's
+      one-hour fallback then made it the manager's. The guard only began
+      grading this branch once the same PR recorded the manager's session on
+      the register, which is how it surfaced.
+
   - id: MGR-20260921-SPAWN-PROVENANCE
     status: active
     expires: "2026-09-24"

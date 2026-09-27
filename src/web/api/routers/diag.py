@@ -1089,6 +1089,56 @@ def _require_diag_token(request: Request) -> None:
         )
 
 
+def _diag_accounts(
+    route: str,
+    list_accounts: Any,
+    account_id: str | None = None,
+    *,
+    require_known: bool = True,
+) -> list[dict[str, Any]]:
+    """The configured accounts for a venue-truth diag route, or an HTTP error.
+
+    FIX-CA-12 (CA-A08): these routes used to swallow a failed account read to
+    ``accounts = []`` and answer 200, and to answer 200 ``accounts: []`` for an
+    ``account_id`` that matches nothing — so *could not look* and *wrong id*
+    read exactly like *looked, the venue holds nothing*. Now:
+
+    * ``list_accounts()`` raised, or returned ``[]`` because ``accounts.yaml``
+      failed to read -> 503 ``accounts_unreadable``;
+    * ``require_known`` and ``account_id`` matches no configured account ->
+      404 ``unknown_account_id``.
+    """
+    try:
+        accounts = list_accounts() or []
+        unreadable: str | None = None
+        if not accounts:
+            from src.units.ui.data_loaders import accounts_yaml_read_errors
+            errs = accounts_yaml_read_errors()
+            if errs:
+                unreadable = "; ".join(
+                    str(e.get("error") or e) for e in errs)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        unreadable = f"{type(exc).__name__}: {exc}"
+    if unreadable is not None:
+        logger.warning("%s: list_accounts failed: %s", route, unreadable)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "accounts_unreadable", "detail": unreadable},
+        )
+    if require_known and account_id and not any(
+            (a or {}).get("account_id") == account_id for a in accounts):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "unknown_account_id",
+                "account_id": account_id,
+                "configured": sorted(
+                    str((a or {}).get("account_id")) for a in accounts),
+            },
+        )
+    return accounts
+
+
 def _clamp(value: int | None, default: int, max_: int) -> int:
     if value is None or value < 1:
         return default
@@ -2291,11 +2341,7 @@ async def get_exchange_positions(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_exchange_positions: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_exchange_positions", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -2409,11 +2455,7 @@ async def get_venue_session(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_venue_session: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_venue_session", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -2535,11 +2577,7 @@ async def get_ib_open_orders(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_ib_open_orders: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_ib_open_orders", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -2722,11 +2760,7 @@ def get_broker_account_status(
             detail={"error": "loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, empty accounts so the call still answers
-        logger.warning("get_broker_account_status: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_broker_account_status", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -3240,11 +3274,7 @@ async def get_bybit_open_orders(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_bybit_open_orders: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_bybit_open_orders", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -3334,11 +3364,10 @@ async def get_bybit_raw_order_history(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, still answers
-        logger.warning("get_bybit_raw_order_history: list_accounts failed: %s", exc)
-        accounts = []
+    # Unknown account_id keeps its explicit read_state below; only an
+    # unreadable account list is an error here (FIX-CA-12).
+    accounts = _diag_accounts("get_bybit_raw_order_history", list_accounts, account_id,
+                              require_known=False)
 
     acc = next((a for a in accounts if (a or {}).get("account_id") == account_id), None)
     if acc is None:
@@ -3432,11 +3461,10 @@ async def get_bybit_raw_closed_pnl(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, still answers
-        logger.warning("get_bybit_raw_closed_pnl: list_accounts failed: %s", exc)
-        accounts = []
+    # Unknown account_id keeps its explicit read_state below; only an
+    # unreadable account list is an error here (FIX-CA-12).
+    accounts = _diag_accounts("get_bybit_raw_closed_pnl", list_accounts, account_id,
+                              require_known=False)
 
     acc = next((a for a in accounts if (a or {}).get("account_id") == account_id), None)
     if acc is None:
@@ -3554,11 +3582,7 @@ async def get_bybit_raw_positions(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_bybit_raw_positions: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_bybit_raw_positions", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -3657,11 +3681,7 @@ async def get_alpaca_open_orders(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_alpaca_open_orders: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_alpaca_open_orders", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:

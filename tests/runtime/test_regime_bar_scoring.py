@@ -666,3 +666,117 @@ class TestAdvisoryPublish:
         assert n == 1
         assert _p_volatile_from_cache("btc-regime-5m") is None
         clear_ml_vol_cache()
+
+
+# --- FIX-CA-23: score the last CLOSED bar, never the forming one --------------
+# CA-B01-regime-scoring-uses-forming-bar (PI-20260927-3WM5HADW-0006). Bybit's
+# fetch returns the still-forming bar last; every market_features training row
+# is a closed bar. Mirrors exit_head_shadow's own trim (2026-07-12).
+
+
+class TestFormingBarTrim:
+    NOW = 1_800_000_000.0  # epoch seconds, bar-aligned (divisible by 300)
+
+    def _forming_frame(self, spike: bool = True):
+        """30 closed 5m bars + one bar opened 60 s ago (still forming), whose
+        close is a 10x spike so a partial-bar read is visible in vol_bucket."""
+        rows = []
+        for i in range(30):
+            ts = int(self.NOW) - 300 * (31 - i)
+            rows.append({"timestamp": ts * 1000, "open": 100.0, "high": 100.1,
+                         "low": 99.9, "close": 100.0 * (1.0001 ** i), "volume": 1.0})
+        rows.append({"timestamp": (int(self.NOW) - 60) * 1000, "open": 100.0,
+                     "high": 1000.0, "low": 99.0,
+                     "close": 1000.0 if spike else 100.0, "volume": 1.0})
+        return _FrameLike(rows)
+
+    def test_forming_bar_excluded_from_scored_window(self, tmp_path):
+        pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
+        seen: dict = {}
+        frame = self._forming_frame()
+        n = emit_regime_bar_predictions(
+            predictors=[pred], fetch_fn=lambda s, t: frame,
+            seen=seen, wall_cache={}, now=lambda: self.NOW,
+        )
+        assert n == 1
+        last_closed_ts = frame["timestamp"][-2]
+        # Dedup key is the last CLOSED bar, not the forming one.
+        assert seen["btc-regime-5m"] == last_closed_ts
+        # The forming bar's 10x spike must not reach the feature row: with it
+        # the rolling vol lands in the top bucket; without it, the bottom.
+        assert pred.wrapped.calls[0]["vol_bucket"] == "vol_b0"
+
+    def test_closed_last_bar_is_kept(self, tmp_path):
+        pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
+        seen: dict = {}
+        frame = self._forming_frame(spike=False)
+        # 5 minutes later the "forming" bar has closed → it IS scored.
+        n = emit_regime_bar_predictions(
+            predictors=[pred], fetch_fn=lambda s, t: frame,
+            seen=seen, wall_cache={}, now=lambda: self.NOW + 300,
+        )
+        assert n == 1
+        assert seen["btc-regime-5m"] == frame["timestamp"][-1]
+
+    def test_cross_asset_row_built_on_closed_bars(self, tmp_path, monkeypatch):
+        import src.runtime.cross_asset_live as cal
+
+        captured = {}
+
+        def _spy(symbol, timeframe, target, fetch_fn, **kw):
+            captured["target_last_ts"] = target["timestamp"][-1]
+            captured["peer_last_ts"] = fetch_fn("ETHUSDT", timeframe)["timestamp"][-1]
+            return None
+
+        monkeypatch.setattr(cal, "group_needs_cross_asset", lambda s, g: True)
+        monkeypatch.setattr(cal, "compute_live_cross_asset_row", _spy)
+        pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
+        frame = self._forming_frame()
+        emit_regime_bar_predictions(
+            predictors=[pred], fetch_fn=lambda s, t: frame,
+            seen={}, wall_cache={}, now=lambda: self.NOW,
+        )
+        assert captured["target_last_ts"] == frame["timestamp"][-2]
+        assert captured["peer_last_ts"] == frame["timestamp"][-2]
+
+
+def test_signal_time_shadow_preds_score_closed_bars(tmp_path, monkeypatch):
+    """FIX-CA-23, third call site: the signal-time regime row
+    (strategy_signal_builders._emit_shadow_preds) also drops the forming bar."""
+    import time as _time
+
+    import src.runtime.strategy_signal_builders as ssb
+
+    now = _time.time()
+    bar0 = int(now // 300) * 300  # current (forming) 5m bar's open
+    rows = [{"timestamp": (bar0 - 300 * (30 - i)) * 1000, "open": 100.0,
+             "high": 100.1, "low": 99.9, "close": 100.0 * (1.0001 ** i),
+             "volume": 1.0} for i in range(30)]
+    rows.append({"timestamp": bar0 * 1000, "open": 100.0, "high": 1000.0,
+                 "low": 99.0, "close": 1000.0, "volume": 1.0})
+    pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
+    monkeypatch.setattr(ssb, "_resolve_shadow_predictors", lambda *a, **k: [pred])
+    sig = {"side": "buy", "symbol": "BTCUSDT", "meta": {}}
+    ssb._emit_shadow_preds("s", sig, {}, "BTCUSDT", timeframe="5m",
+                           candles_df=_FrameLike(rows))
+    assert pred.wrapped.calls and pred.wrapped.calls[0]["vol_bucket"] == "vol_b0"
+
+
+def test_forecast_read_is_bar_aligned_to_scored_closed_bar(tmp_path, monkeypatch):
+    """FIX-CA-24: the per-bar scorer passes the scored CLOSED bar's ts to the
+    forecast reader so a frozen artifact can be refused."""
+    import src.runtime.forecast_live as fl
+
+    seen_bar = {}
+    monkeypatch.setattr(fl, "group_needs_forecast", lambda g: True)
+    monkeypatch.setattr(
+        fl, "compute_live_forecast_row",
+        lambda symbol, timeframe=None, bar_ts=None: seen_bar.setdefault("ts", bar_ts),
+    )
+    pred = _regime_predictor("btc-regime-5m", _spec(), tmp_path / "s.jsonl")
+    frame = TestFormingBarTrim()._forming_frame()
+    emit_regime_bar_predictions(
+        predictors=[pred], fetch_fn=lambda s, t: frame,
+        seen={}, wall_cache={}, now=lambda: TestFormingBarTrim.NOW,
+    )
+    assert seen_bar["ts"] == frame["timestamp"][-2]

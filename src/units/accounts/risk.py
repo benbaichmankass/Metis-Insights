@@ -42,7 +42,7 @@ State persistence (A-1 + self-healing rebuild):
     max-drawdown caps reset to 0 on every restart), the manager rebuilds
     today's state from authoritative sources on init and on every gate
     check: realized PnL is summed from ``trades`` (this account, closed,
-    today UTC by open date) and current equity is read from
+    realized today UTC, by ``closed_at``) and current equity is read from
     ``runtime_logs/balance_snapshots.json``. The reconciled state is
     persisted so a row always exists for today.
   - Persistence is keyed by ``account_id`` (the YAML account name, e.g.
@@ -446,11 +446,15 @@ class RiskManager:
     def _recompute_daily_pnl_from_db(self) -> Optional[float]:
         """Sum realized PnL for this account's trades attributed to today.
 
-        Day attribution uses the trade's ``created_at`` (UTC open date) —
-        deterministic, join-free, and a close-enough proxy for this
-        intraday bot (positions open and close within the same UTC day in
-        the overwhelming majority of cases). Read-only; returns None when
-        the journal is unavailable so the caller keeps its in-memory value.
+        Realized PnL is attributed to the UTC day it was REALIZED: the
+        trade's ``closed_at``, normalised by the canonical
+        ``src.utils.closed_at.closed_at_norm_sql`` (ISO with any offset →
+        UTC; raw epoch-ms → UTC), falling back to ``created_at`` only when
+        ``closed_at`` is absent. Until FIX-CA-09 (2026-09-27) this keyed on
+        ``created_at`` (the open date), so a loss realized today on a
+        position opened on an earlier UTC day was invisible to today's
+        DAILY_LOSS_CAP and sizing budget. Read-only; returns None when the
+        journal is unavailable so the caller keeps its in-memory value.
         """
         if not self.account_id:
             return None
@@ -458,11 +462,16 @@ class RiskManager:
             import sqlite3
             today = str(self._today_utc())
             uri = "file:%s?mode=ro" % self._risk_db_path()
+            from src.utils.closed_at import closed_at_norm_sql
+            realized_day = (
+                f"date(COALESCE({closed_at_norm_sql('closed_at')}, "
+                f"datetime(created_at)))"
+            )
             with sqlite3.connect(uri, uri=True, timeout=5) as conn:
                 row = conn.execute(
                     "SELECT COALESCE(SUM(pnl), 0.0) FROM trades "
                     "WHERE account_id=? AND status='closed' "
-                    "AND pnl IS NOT NULL AND substr(created_at,1,10)=?",
+                    f"AND pnl IS NOT NULL AND {realized_day}=?",
                     (self.account_id, today),
                 ).fetchone()
             return float(row[0]) if row and row[0] is not None else 0.0

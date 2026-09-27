@@ -283,6 +283,66 @@ def rotated_log_paths(active_log: Path | str) -> list[Path]:
     return sorted(out)
 
 
+# Default look-back for an un-windowed consumer that MATERIALIZES the union
+# (drift_retrain, live_parity). Two rotation cycles (~25-29d each): enough
+# that a read just after a rotation still spans a full cycle, bounded because
+# the archive set is never pruned.
+DEFAULT_ARCHIVE_LOOKBACK_DAYS = 60.0
+
+
+def iter_records_with_archives(
+    active_log: Path | str,
+    *,
+    since: datetime | None = None,
+    archives_since: datetime | None = None,
+    logger: logging.Logger | None = None,
+) -> Iterator[ShadowRecord]:
+    """Stream records from every rotated archive of *active_log*, then the
+    active log itself, keeping only rows at/after *since* (inclusive).
+
+    *archives_since* prunes whole archive FILES only (same mtime test as
+    below) and filters no rows — for a consumer that has always read every
+    row of the active log and should keep doing so, but must not open the
+    never-pruned archive set back to the beginning. *since* implies it.
+
+    Every ml/ consumer that applies a time window or a minimum n must read
+    through this rather than :func:`iter_records` on the active path alone:
+    ``ict-shadow-log-rotate.timer`` moves the active log to an archive every
+    ~25-29 days, so an active-only read silently truncates the window at the
+    last rotation boundary (CA-B01-shadow-gates-read-active-log-only /
+    PI-20260927-3WM5HADW-0001; the API half was #13146).
+
+    Archives are never pruned (``rotate_shadow_log.py`` has no retention),
+    so a caller that materializes the stream should pass *since*. An archive
+    whose mtime is older than *since* is skipped unopened: its mtime is its
+    last append (rename keeps it; ``--gzip`` writes it at rotation time), so
+    it cannot hold a real-time row inside the window.
+    """
+    if since is not None and since.tzinfo is None:
+        since = since.replace(tzinfo=timezone.utc)
+    if archives_since is not None and archives_since.tzinfo is None:
+        archives_since = archives_since.replace(tzinfo=timezone.utc)
+    cutoff = max(
+        (t for t in (since, archives_since) if t is not None), default=None,
+    )
+    paths: list[Path] = []
+    for archive in rotated_log_paths(active_log):
+        if cutoff is not None:
+            try:
+                mtime = datetime.fromtimestamp(archive.stat().st_mtime, tz=timezone.utc)
+            except OSError:
+                continue
+            if mtime < cutoff:
+                continue
+        paths.append(archive)
+    paths.append(Path(active_log))
+    for path in paths:
+        for r in iter_records(path, logger=logger):
+            if since is not None and r.predicted_at_utc < since:
+                continue
+            yield r
+
+
 @dataclass
 class ModelStats:
     """Per-(model_id, stage) aggregate over a record stream."""

@@ -183,3 +183,73 @@ result: >-
   (wave-6 lane M2) to avoid tying up the shared 1-OCPU trainer relay
   indefinitely on an unconfirmed root cause; left for the next session
   touching this unit.
+
+  | 2026-09-27 (next session touching this unit, branch
+  claude/w6-prop-o2-exit-head): re-dispatched ETH alone per the scoped
+  follow-up above, as a single-leg trainer-vm-diag issue. FOUND A REAL,
+  CONFIRMED (not candidate) root cause for the ORIGINAL 60-minute
+  cancellation, DIFFERENT from the "cold candle fetch" guess above: the
+  driver (scripts/research/exit_head_prop_swap_feasibility.py) resolves
+  SOLUSDT/ETHUSDT 1h data via backtest_data_source.resolve_or_refuse, which
+  -- because NEITHER symbol has a native 1h CSV on the trainer, only 5m/15m
+  -- falls back to the 5m file and flags `resample="1h"`. The driver read
+  that flag onto `res.resample` and NEVER CONSULTED IT: `df =
+  harness._load_candles(res.path)` ran straight into `run_backtest` on the
+  RAW 5-MINUTE bars. So the leg's 1h-geometry params (donchian window,
+  atr_stop_mult, trail_mult 3.5, timeout_bars=200) were silently applied to
+  ~12x the intended bar count -- confirmed by diag (`data/*SOL*1h*` /
+  `data/*ETH*1h*` do not exist on the trainer; only `*_5m.csv`/`*_15m.csv`
+  do) and by a local regression test
+  (tests/test_exit_head_prop_swap_feasibility_resample.py, verified to FAIL
+  against the pre-fix code at 288 raw bars and PASS against the fix at ~24
+  resampled bars). FIXED in the same PR (calls `harness._resample(df,
+  res.resample)` when the resolver flags it -- mirrors
+  exit_head_replay.py::_load_candles(path, resample), the sibling pattern
+  this driver should have used from the start).
+
+  Re-ran the CORRECTED driver on ETH alone, first synchronously (hit the
+  55-minute internal `timeout` wrapper, RC=124, at exactly the same
+  trainer-vm-diag 60-minute job cap as the original run -- so even ONE
+  correctly-resampled leg does not fit the standard synchronous dispatch
+  window), then DETACHED (nohup + sentinel file, per
+  docs/claude/trainer-vm-mode.md Sec.10's own guidance for jobs likely to
+  exceed an hour). The detached run was STILL RUNNING after 68+ minutes of
+  sustained ~97% CPU (`ps`: ELAPSED 4160s, TIME 01:07:20, RSS 279MB --
+  genuinely progressing, not hung) when this session had to stop polling it.
+  For scale: RQ-20260927-002's BTCUSDT 3-fold walk-forward RETRAIN (three
+  LightGBM fits + replay, materially more compute than one no-retrain
+  backtest+replay pass) completed in ~20 minutes on the same box. A
+  recurring ~hourly `drift_retrain` heavy job held the trainer's shared CPU
+  three separate times during this session's polling window (13:02, 14:02,
+  15:03 UTC) and, per src/utils/trainer_heavy_lock.py's own docstring, a
+  light per-strategy research backtest like this one is deliberately NOT
+  queued behind that lock (runs direct) -- so it competed for the single
+  CPU rather than being serialized behind it. Whether CPU contention, a
+  genuine algorithmic cost specific to this leg's trade population (long
+  trail_mult/tp_r geometry -> long average holds, which both
+  run_backtest's per-bar loop and replay_trade's per-trade forward
+  bar-scan pay for), or both, dominates was NOT isolated this session --
+  filed as PI-20260927-F4CD9293-0001 (due_when set, rerun stated: a timed
+  re-run on an idle box) rather than guessed.
+
+  result (session 2): read_state producer_failed / verdict not_applicable /
+  population.n null, for BOTH legs, UNCHANGED from session 1 -- SOL was not
+  even attempted this session (ETH alone already demonstrated the box
+  cannot answer this unit inside a practical dispatch window). The real
+  contribution this session: a CONFIRMED (not speculative) code-level bug
+  fixed and regression-tested, and a NEW, distinct, filed capacity finding
+  (PI-20260927-F4CD9293-0001) that must clear before a THIRD attempt is
+  worth dispatching. attributable_to: unestablishable (n_fired not reached
+  for either leg; the decision_rule's own producer-failure branch applies
+  a second time, on a different and now-confirmed cause). NOT reconciled
+  with docs/research/exit-refinement-coverage.json's SOL honest_negative /
+  ETH passed_unshipped rows beyond what session 1's why_this_matters
+  already states, since no new measurement exists to reconcile against them.
+  recommendation to the manager: retrain-worth-it is UNDECIDABLE from this
+  session's evidence for both legs -- the blocking number is "does a timed,
+  idle-box, single-leg run of the CORRECTED driver finish, and in how
+  long", not recovered_R or swap_saved (neither was measured). Do not
+  re-dispatch a third attempt the same way (short synchronous or
+  short-lived detached poll); either give the detached run several
+  contention-free hours and poll less frequently, or profile/vectorize the
+  backtest loop first.

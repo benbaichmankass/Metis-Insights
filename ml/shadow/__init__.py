@@ -28,6 +28,7 @@ from .inspector import (
     format_inspect_table,
     format_stats_table,
     iter_records,
+    iter_records_with_archives,
     record_from_dict,
 )
 
@@ -50,6 +51,7 @@ __all__ = [
     "interpret_ks",
     "interpret_psi",
     "iter_records",
+    "iter_records_with_archives",
     "ks_statistic",
     "psi",
     "record_from_dict",

@@ -330,6 +330,17 @@ the old exemption forward.
 Token-gated read-only surface for PM-side Claude / operator scripts. All
 endpoints return 503 if `DIAG_READ_TOKEN` is unset, 401 on bad bearer.
 
+**Per-account venue reads** (`exchange_positions`, `venue_session`,
+`ib_open_orders`, `broker_account_status`, `bybit_open_orders`,
+`bybit_raw_positions`, `alpaca_open_orders`, `bybit_raw_order_history`,
+`bybit_raw_closed_pnl`) return **503 `{"error": "accounts_unreadable"}`** when
+the configured-account list cannot be read, never `200 accounts: []`. The first
+seven return **404 `{"error": "unknown_account_id"}`** for an `account_id` that
+matches no configured account. The two raw single-account routes keep their
+explicit `read_state: "unknown_account"`. Before FIX-CA-12 (2026-09-27), both
+cases answered `200 accounts: []`, the same body as a clean read of a flat
+venue.
+
 | Endpoint | Returns |
 |----------|---------|
 | `GET /api/diag/snapshot?limit=N` | bundle: heartbeat, status, audit tail, order_packages, trades, vm_health, service states |

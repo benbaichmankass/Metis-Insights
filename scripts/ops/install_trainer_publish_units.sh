@@ -8,7 +8,7 @@
 # before a given unit was added is missing it. This script materializes the
 # unit files, reloads systemd, and enables:
 #   - ict-trainer-publish.timer  (2-min mirror-publish heartbeat)
-#   - ict-trainer-forecast.timer (15-min M19 fc_* forecast producer)
+#   - ict-trainer-forecast.timer (bar-aligned 15m M19 fc_* forecast producer)
 #
 # Idempotent: re-running is safe. Each unit file is rewritten from this
 # script, daemon-reload is fired, and the timer is left enabled+running.
@@ -105,13 +105,16 @@ chmod 0644 "$FC_SERVICE"
 chown root:root "$FC_SERVICE"
 
 cat >"$FC_TIMER" <<'UNIT'
-# 15-minute cadence for the live TSFM forecast producer (matches the 15m bar).
+# Live TSFM forecast producer, BAR-ALIGNED: 30 s after each 15m bar closes
+# (FIX-CA-25). Was OnUnitActiveSec=15min, which drifts from the bar grid.
+# Keep in sync with deploy/training-vm-cloud-init.yaml.
 [Unit]
 Description=Periodic live TSFM forecast production
 
 [Timer]
 OnBootSec=90sec
-OnUnitActiveSec=15min
+OnCalendar=*:0/15:30
+AccuracySec=1s
 Persistent=true
 
 [Install]

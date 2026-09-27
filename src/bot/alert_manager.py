@@ -16,9 +16,13 @@ class AlertManager:
         if not self.enabled:
             logger.warning("Telegram credentials missing. Alerts disabled.")
 
-    def send_alert(self, message: str):
+    def send_alert(self, message: str) -> bool:
+        """Send *message* to Telegram. Returns True on a confirmed send,
+        False when disabled or on any failure (FIX-CA-13: a failure used to
+        be swallowed to None, so callers could not tell an alert was lost).
+        """
         if not self.enabled:
-            return
+            return False
         try:
             from src.utils.log_redact import suppress_httpx_logging
             suppress_httpx_logging()
@@ -32,5 +36,11 @@ class AlertManager:
                         parse_mode=None,
                     )
             asyncio.run(_send())
+            return True
         except Exception as exc:
-            logger.warning("Alert failed: %s", type(exc).__name__)
+            # Message text is redacted: an httpx error can embed the
+            # bot-token URL.
+            from src.utils.log_redact import _redact
+            logger.warning("Alert failed: %s: %s", type(exc).__name__,
+                           _redact(str(exc)))
+            return False

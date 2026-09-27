@@ -140,6 +140,26 @@ def _iter_active_and_rotated(log: Path) -> tuple[Iterator[Any], list[Path]]:
     return records, archives
 
 
+def _forecast_serve_block(log: Path) -> dict[str, Any]:
+    """The live fc_* serve state the trader persists
+    (``src/runtime/forecast_live.py::_record_serve``, FIX-CA-24): per symbol,
+    the forecast's ``as_of_ts`` vs the scored bar and its ``lag_bars``, plus
+    the process-lifetime ``fc_served`` / ``fc_stale`` counters.
+
+    Three read states, never collapsed: ``observed`` (read), ``not_written``
+    (no file — the trader has not yet done a bar-checked forecast read since
+    it started writing one; says nothing about freshness) and ``unreadable``.
+    """
+    path = log.parent / "forecast_live_status.json"
+    if not path.is_file():
+        return {"read_state": "not_written", "path": str(path), "status": None}
+    try:
+        status = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"read_state": "unreadable", "path": str(path), "status": None}
+    return {"read_state": "observed", "path": str(path), "status": status}
+
+
 def _parse_since(raw: str | None) -> datetime | None:
     if raw is None:
         return None
@@ -363,6 +383,8 @@ def stats(
 
     rows = [_row(s) for s in aggregate(records)]
     envelope = _envelope(log, rows)
+    # Served-forecast age for the fc_* heads (FIX-CA-24).
+    envelope["forecast_serve"] = _forecast_serve_block(log)
     envelope["registry_soak_source"] = {
         "present": registry_present,
         "rows": len(registry_rows),

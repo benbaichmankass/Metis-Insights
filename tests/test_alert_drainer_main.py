@@ -121,3 +121,127 @@ def test_drainer_handles_missing_message_or_source():
     _drain_critical_alerts(tg)
 
     assert len(tg.sent) == 1
+
+
+# --- FIX-CA-13 (CA-A08-critical-alert-dropped-on-send-failure) -------------
+
+
+def _critical_in_queue():
+    from src.units.dashboards.alerts import list_alerts
+    return [a for a in list_alerts() if a.get("level") == "critical"]
+
+
+def test_alert_manager_send_alert_reports_failure(monkeypatch):
+    """A failed Telegram send must be reported (False), not swallowed to
+    None — otherwise no caller can tell the alert was lost."""
+    import telegram
+
+    from src.bot.alert_manager import AlertManager
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:" + "A" * 35)
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "42")
+
+    class _BoomBot:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def send_message(self, **_k):
+            raise RuntimeError("network down")
+
+    monkeypatch.setattr(telegram, "Bot", _BoomBot)
+    am = AlertManager()
+    assert am.send_alert("hello") is False
+
+
+def test_alert_manager_send_alert_reports_success(monkeypatch):
+    import telegram
+
+    from src.bot.alert_manager import AlertManager
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:" + "A" * 35)
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "42")
+    sent = []
+
+    class _OkBot:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def send_message(self, **k):
+            sent.append(k["text"])
+
+    monkeypatch.setattr(telegram, "Bot", _OkBot)
+    assert AlertManager().send_alert("hello") is True
+    assert sent == ["hello"]
+
+
+def test_adapter_propagates_send_result():
+    from src.main import _AlertManagerAdapter
+
+    class _AM:
+        def send_alert(self, _m):
+            return False
+
+    assert _AlertManagerAdapter(_AM()).send_message("x") is False
+
+
+def test_drainer_requeues_critical_on_raised_send():
+    from src.main import _drain_critical_alerts
+
+    class _BoomClient:
+        def send_message(self, _msg: str) -> None:
+            raise RuntimeError("telegram is down")
+
+    _push("critical", "account auto-paused")
+    _drain_critical_alerts(_BoomClient())
+    q = _critical_in_queue()
+    assert len(q) == 1 and q[0]["message"] == "account auto-paused"
+
+
+def test_drainer_requeues_critical_on_false_send_then_delivers():
+    from src.main import _drain_critical_alerts
+
+    class _FlakyClient:
+        def __init__(self):
+            self.ok = False
+            self.sent = []
+
+        def send_message(self, msg: str):
+            if not self.ok:
+                return False
+            self.sent.append(msg)
+            return True
+
+    _push("critical", "account auto-paused")
+    tg = _FlakyClient()
+    _drain_critical_alerts(tg)
+    assert len(_critical_in_queue()) == 1  # kept for the next tick
+    tg.ok = True
+    _drain_critical_alerts(tg)
+    assert _critical_in_queue() == []
+    assert len(tg.sent) == 1 and "account auto-paused" in tg.sent[0]
+
+
+def test_drainer_retries_are_bounded(caplog):
+    from src.main import _CRITICAL_ALERT_MAX_ATTEMPTS, _drain_critical_alerts
+
+    class _AlwaysFalse:
+        def send_message(self, _msg: str):
+            return False
+
+    _push("critical", "never delivered")
+    for _ in range(_CRITICAL_ALERT_MAX_ATTEMPTS + 2):
+        _drain_critical_alerts(_AlwaysFalse())
+    assert _critical_in_queue() == []
+    assert any("UNDELIVERED" in r.getMessage() for r in caplog.records)

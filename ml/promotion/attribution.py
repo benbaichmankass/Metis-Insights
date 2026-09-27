@@ -44,6 +44,7 @@ Metrics per model (all pure-stdlib, no numpy/scipy):
 """
 from __future__ import annotations
 
+import itertools
 import json
 import logging
 import sqlite3
@@ -52,7 +53,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping
 
-from ..shadow.inspector import ShadowRecord, iter_records
+from ..shadow.inspector import ShadowRecord, iter_records, iter_records_with_archives
 
 logger = logging.getLogger(__name__)
 
@@ -416,8 +417,12 @@ def compute_attribution(
 ) -> list[ModelAttribution]:
     """End-to-end: load trades + shadow records, join, aggregate."""
     trades = load_closed_trades(db_path, limit=trade_limit, include_demo=include_demo)
-    paths = [shadow_log] + ([backfill_log] if backfill_log else [])
-    # Stream the shadow log (never materialize it) — BL-20260715.
-    records = iter_shadow_records(*paths)
+    # Stream the shadow log (never materialize it) — BL-20260715 — through
+    # its rotated archives too, or every trade older than the last rotation
+    # drops out of n (FIX-CA-20 / PI-20260927-3WM5HADW-0001).
+    records = itertools.chain(
+        iter_records_with_archives(shadow_log),
+        iter_shadow_records(backfill_log) if backfill_log else (),
+    )
     joined = join_scores_to_trades(trades, records)
     return aggregate_attribution(joined)
