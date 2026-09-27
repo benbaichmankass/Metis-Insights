@@ -1,5 +1,9 @@
 # CA-A14 — Code audit 2026-09-27: GitHub workflows, part 2
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
+> lane CA-A14 of the 2026-09-27 code audit · audited HEAD `f5353c3` (origin/main at 2026-09-27T13:00Z)
+
 **Scope:** `.github/workflows/` files 75–149 in `ls .github/workflows` order
 (`provision-live-vm.yml` through `yfinance-lane-proof.yml`; 149 files total in
 the directory, so this lane covers the second (upper) half). Full list saved
