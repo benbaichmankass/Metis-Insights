@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "the SELECT in close_open_positions() fetches sl_order_id/tp_order_id, the ternary is removed (or fixed to actually read the row), and tests/test_s031_pr4_closeall_helper.py's fixture seeds non-null leg ids with an assertion that the forwarded kwargs equal the seeded values.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-RLBXQDGK-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-A15",
+    "rerun": "python3 -m pytest tests/test_s031_pr4_closeall_helper.py -q (currently green despite the bug -- the point is that it should start asserting real values)"
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-10 fixed in PR #13244 (branch fix/ca-07-08-10-exec-core); regression test tests/test_s031_pr4_closeall_helper.py::test_forwards_the_rows_tracked_leg_ids fails on main, passes on the branch. MERGED != DEPLOYED: takes effect only after an ict-trader-live restart post-merge.",
+  "what": "AUD-20260927-CA-A15-closeall-leg-id-not-forwarded: src/units/ui/processor.py close_open_positions() (the /closeall operator command) always passes sl_order_id=None, tp_order_id=None to close_open_position() because (a) its SELECT (around line 1633) does not fetch the sl_order_id/tp_order_id columns, and (b) the ternary `row.get(\"sl_order_id\") if hasattr(row, \"get\") else None` (around line 1722) always evaluates the else-branch because sqlite3.Row has no .get() method (hasattr always False). Result: a manual /closeall on a Bybit partial-TP/SL-mode account never cancels the position's resting qty-scoped legs, reproducing the bug class named in the code's own adjacent comment (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP / BL-20260825-CLOSE-SIDE-LEG-CANCEL-IS-WIRED-AT-1-OF-10-CALL-SITES). The existing regression test tests/test_s031_pr4_closeall_helper.py only asserts the kwarg was passed, not that it carries the row's real value, and its fixture never seeds a non-null sl_order_id/tp_order_id, so it cannot catch this."
+}

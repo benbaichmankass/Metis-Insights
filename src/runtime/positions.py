@@ -25,10 +25,12 @@ Schema reference
   - account_id      TEXT
   - symbol          TEXT
 
-Best-effort: a journal-read failure returns ``0.0`` (treated as flat) and
-logs a warning. The dispatcher then falls back to risk-manager sized
-qty for the order, which is the same behaviour as today — the delta
-path is an optimisation on top of the existing safe default.
+A journal-read failure returns ``None`` ("we could not look"), never ``0.0``
+("we looked and it is flat"). Until FIX-CA-07 (CA-A02, 2026-09-27) it
+returned ``0.0`` and the intent-mode dispatcher then sent a fresh full-size
+``open`` on an account that already held the symbol; the dispatcher now
+refuses that account for that package with ``net_position_unreadable``. A
+missing journal file still reads as flat (no rows can exist yet).
 """
 from __future__ import annotations
 
@@ -95,7 +97,7 @@ def has_open_trade_for_strategy(
     strategy_name: Optional[str],
     *,
     db_path: Optional[str] = None,
-) -> bool:
+) -> Optional[bool]:
     """Return True if ``(strategy_name, account_id, symbol)`` already has an
     open live trade in the journal.
 
@@ -106,10 +108,11 @@ def has_open_trade_for_strategy(
     strategy-monocle gate keys on (so a prematurely-closed package can't
     free the gate while the position is genuinely still open).
 
-    Best-effort: a missing journal or read failure returns ``False``
-    (i.e. "no open trade known" → don't block) — fail-permissive, matching
-    every other guard helper so a transient SQLite hiccup never strands a
-    live signal.
+    A missing journal returns ``False``. A read failure returns ``None``
+    ("could not look", FIX-CA-07) — NOT ``False``: the netting guard must not
+    read a locked journal as "no open trade" and let a re-entry through. The
+    coordinator refuses on ``None``; the pairs executor's truthiness checks
+    treat it as not-open, which is its pre-fix behaviour.
     """
     if not strategy_name:
         return False
@@ -128,10 +131,10 @@ def has_open_trade_for_strategy(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "has_open_trade_for_strategy: read failed for account=%s "
-            "symbol=%s strategy=%s: %s (treating as no-open-trade)",
+            "symbol=%s strategy=%s: %s (could not look -> None)",
             account_id, symbol, strategy_name, exc,
         )
-        return False
+        return None
 
 
 def current_net_position_qty(
@@ -139,7 +142,7 @@ def current_net_position_qty(
     symbol: str,
     *,
     db_path: Optional[str] = None,
-) -> float:
+) -> Optional[float]:
     """Return the signed net position qty for an ``(account, symbol)``.
 
     Sum of ``position_size`` across rows with ``status='open'`` AND
@@ -163,11 +166,14 @@ def current_net_position_qty(
 
     Returns
     -------
-    float
+    float or None
         Signed net qty. ``0.0`` when:
           * no open rows match, OR
-          * the trade journal file does not exist (fresh deploy), OR
-          * the SELECT fails.
+          * the trade journal file does not exist (fresh deploy).
+        ``None`` when the SELECT fails — "could not look" is not "flat"
+        (FIX-CA-07). Not registered in scripts/ci/check_collapsed_states.py:
+        that guard keys on string state tokens and a None-vs-0.0 return has
+        none; tests/test_net_position_unreadable.py is the detector.
 
     Notes
     -----
@@ -194,10 +200,10 @@ def current_net_position_qty(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "current_net_position_qty: read failed for account=%s symbol=%s: %s "
-            "(treating as flat)",
+            "(could not look -> None, NOT flat)",
             account_id, symbol, exc,
         )
-        return 0.0
+        return None
 
     net = 0.0
     for direction, qty in rows:

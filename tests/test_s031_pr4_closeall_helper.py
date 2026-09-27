@@ -51,15 +51,16 @@ def tmp_journal(tmp_path, monkeypatch):
 def _insert_trade(
     db_path, *, symbol="BTCUSDT", direction="long", qty=0.001,
     status="open", strategy="vwap", account_id="bybit_2",
-    is_backtest=0,
+    is_backtest=0, sl_order_id=None, tp_order_id=None,
 ):
     conn = sqlite3.connect(str(db_path))
     cur = conn.execute(
         "INSERT INTO trades (timestamp, symbol, direction, entry_price, "
-        "position_size, status, is_backtest, strategy_name, account_id) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "position_size, status, is_backtest, strategy_name, account_id, "
+        "sl_order_id, tp_order_id) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         ("2026-05-02 12:00:00", symbol, direction, 100.0, qty, status,
-         is_backtest, strategy, account_id),
+         is_backtest, strategy, account_id, sl_order_id, tp_order_id),
     )
     trade_id = cur.lastrowid
     conn.commit()
@@ -258,6 +259,43 @@ class TestDispatchThroughExecutePkg:
         # And the helper must NOT have called client.place_order
         # directly — that would be the Rule-3 violation.
         fake_client.place_order.assert_not_called()
+
+    def test_forwards_the_rows_tracked_leg_ids(self, tmp_journal, monkeypatch):
+        """FIX-CA-10 (CA-A15): the tracked SL/TP leg ids reach the close helper.
+
+        The prior assertion above only proves the kwargs are PASSED. On main
+        they were always ``None``: ``hasattr(sqlite3.Row, "get")`` is False
+        and the SELECT did not read the columns, so a manual close-all never
+        cancelled the position's resting qty-scoped legs.
+        """
+        from src.units.ui import processor
+        _insert_trade(
+            tmp_journal, account_id="bybit_2", strategy="vwap",
+            sl_order_id="SL-123", tp_order_id="TP-456",
+        )
+        self._stub_accounts(monkeypatch, [
+            {"account_id": "bybit_2", "exchange": "bybit"},
+        ])
+        captured = {}
+
+        def fake_close(client, account_cfg, *, symbol, side, qty,
+                       sl_order_id=None, tp_order_id=None):
+            captured["sl_order_id"] = sl_order_id
+            captured["tp_order_id"] = tp_order_id
+            return {"ok": True, "exchange_order_id": "x", "error": None,
+                    "exchange_response": {}}
+
+        with patch(
+            "src.units.accounts.clients.bybit_client_for",
+            return_value=MagicMock(),
+        ), patch(
+            "src.units.accounts.execute.close_open_position",
+            side_effect=fake_close,
+        ):
+            processor.close_open_positions(strategy="vwap")
+
+        assert captured["sl_order_id"] == "SL-123"
+        assert captured["tp_order_id"] == "TP-456"
 
     def test_successful_close_marks_trade_closed(
         self, tmp_journal, monkeypatch,

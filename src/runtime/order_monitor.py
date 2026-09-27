@@ -4748,6 +4748,7 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
         # failed". Subsequent rows on the same account that need the
         # cross-check reuse the cached set.
         positions_cache: Any = ...
+        unreadable_syms: frozenset = frozenset()
 
         for row in trade_rows:
             trade_id_str = _extract_trade_id_from_notes(row.get("notes"))
@@ -4795,8 +4796,20 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                         positions_cache = (
                             None if pos is None else _exchange_position_set(pos)
                         )
+                        # FIX-CA-08: this fetch fills the per-tick cache too,
+                        # so it must record the unreadable symbols as well —
+                        # otherwise the filled branch below reuses the cache
+                        # and never learns them.
+                        unreadable_syms = frozenset(
+                            getattr(pos, "unreadable_symbols", ()) or ()
+                        )
                     if positions_cache is None:
                         # Could not look → never orphan on a half-known view.
+                        summary["skipped_no_creds"] += 1
+                        continue
+                    if row.get("symbol") in unreadable_syms:
+                        # FIX-CA-08: absent on an unreadable symbol is not
+                        # "position absent" — no orphan, no confirm armed.
                         summary["skipped_no_creds"] += 1
                         continue
                     _nf_tid = row.get("id")
@@ -4864,6 +4877,10 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                 positions_cache = (
                     None if pos is None else _exchange_position_set(pos)
                 )
+                # FIX-CA-08: symbols the read could not look at this tick.
+                unreadable_syms = frozenset(
+                    getattr(pos, "unreadable_symbols", ()) or ()
+                )
             if positions_cache is None:
                 # Position-read failed → skip conservatively (don't
                 # close on a half-known view).
@@ -4871,6 +4888,11 @@ def _reconcile_open_trades(db) -> Dict[str, int]:
                 continue
 
             sym = row["symbol"]
+            if sym in unreadable_syms:
+                # FIX-CA-08: this symbol's read failed — absent is not flat.
+                # Skip: no close, and no close-confirm armed on it.
+                summary["skipped_no_creds"] += 1
+                continue
             side = str(row["direction"] or "").lower()
             _tid = row.get("id")
             if (sym, side) in positions_cache:
@@ -5944,6 +5966,8 @@ def _watchdog_stuck_strategies(db) -> Dict[str, int]:
             pos = positions_cache[aid]
             if pos is None:
                 position_alive = None  # read failure → conservative
+            elif str(symbol) in getattr(pos, "unreadable_symbols", ()):
+                position_alive = None  # FIX-CA-08: symbol unreadable ≠ flat
             else:
                 live_set = _exchange_position_set(pos)
                 position_alive = (str(symbol), direction) in live_set
