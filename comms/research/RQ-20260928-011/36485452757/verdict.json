@@ -1,0 +1,414 @@
+{
+  "verdict": "pass",
+  "read_state": "measured",
+  "population": "2 leg(s) [trend_donchian_eth_prop, trend_donchian_sol_prop], 234 committed trades in total; grade=cushion_vs_flat, overall=all",
+  "n": 234,
+  "measurement": {
+    "leg_verdicts": {
+      "trend_donchian_eth_prop": "pass",
+      "trend_donchian_sol_prop": "pass"
+    },
+    "grade": "cushion_vs_flat",
+    "overall": "all",
+    "cells": 50
+  },
+  "note": "trend_donchian_eth_prop: CUSHION_FIT_WINS: C-0.25 beats A on ev with >= survival on all 5 seeds; trend_donchian_sol_prop: CUSHION_FIT_WINS: C-0.33 beats A on ev with >= survival on all 5 seeds",
+  "records": [
+    {
+      "verdict": "pass",
+      "read_state": "measured",
+      "population": "trend_donchian_eth_prop: 169 committed trades from comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl (evidence record comms/strategy_evidence/trend_donchian_eth_prop.json -> cost_stack.source); prop_ev_sim path-mode over 5 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+      "n": 169,
+      "measurement": {
+        "leg": "trend_donchian_eth_prop",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-26/trend_donchian_eth_prop__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 128.04,
+              "ev_se": 5.92,
+              "p_net_positive": 0.3115,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 128.38,
+              "ev_se": 5.76,
+              "p_net_positive": 0.3063,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 139.94,
+              "ev_se": 6.27,
+              "p_net_positive": 0.3225,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 131.05,
+              "ev_se": 5.67,
+              "p_net_positive": 0.3227,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 132.98,
+              "ev_se": 6.11,
+              "p_net_positive": 0.2988,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "B": {
+            "1": {
+              "ev": 126.54,
+              "ev_se": 5.95,
+              "p_net_positive": 0.306,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 137.2,
+              "ev_se": 5.94,
+              "p_net_positive": 0.32,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 122.77,
+              "ev_se": 5.83,
+              "p_net_positive": 0.3028,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 135.9,
+              "ev_se": 5.82,
+              "p_net_positive": 0.329,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 134.0,
+              "ev_se": 6.22,
+              "p_net_positive": 0.3123,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C-0.25": {
+            "1": {
+              "ev": 237.32,
+              "ev_se": 6.54,
+              "p_net_positive": 0.5102,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 248.67,
+              "ev_se": 6.69,
+              "p_net_positive": 0.535,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 254.35,
+              "ev_se": 6.73,
+              "p_net_positive": 0.5315,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 242.42,
+              "ev_se": 6.69,
+              "p_net_positive": 0.5215,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 235.12,
+              "ev_se": 6.39,
+              "p_net_positive": 0.5325,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C-0.33": {
+            "1": {
+              "ev": 212.65,
+              "ev_se": 6.96,
+              "p_net_positive": 0.441,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 201.79,
+              "ev_se": 6.74,
+              "p_net_positive": 0.4402,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 204.52,
+              "ev_se": 6.8,
+              "p_net_positive": 0.4308,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 198.76,
+              "ev_se": 6.6,
+              "p_net_positive": 0.4318,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 197.31,
+              "ev_se": 6.54,
+              "p_net_positive": 0.4387,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C-0.5": {
+            "1": {
+              "ev": 161.64,
+              "ev_se": 6.6,
+              "p_net_positive": 0.3463,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 160.9,
+              "ev_se": 6.23,
+              "p_net_positive": 0.362,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 161.65,
+              "ev_se": 6.53,
+              "p_net_positive": 0.348,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 160.01,
+              "ev_se": 6.37,
+              "p_net_positive": 0.3548,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 156.3,
+              "ev_se": 6.18,
+              "p_net_positive": 0.3595,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "CUSHION_FIT_WINS: C-0.25 beats A on ev with >= survival on all 5 seeds"
+    },
+    {
+      "verdict": "pass",
+      "read_state": "measured",
+      "population": "trend_donchian_sol_prop: 65 committed trades from comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl (evidence record comms/strategy_evidence/trend_donchian_sol_prop.json -> cost_stack.source); prop_ev_sim path-mode over 5 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+      "n": 65,
+      "measurement": {
+        "leg": "trend_donchian_sol_prop",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-25/trend_donchian_sol_prop__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 121.77,
+              "ev_se": 5.25,
+              "p_net_positive": 0.3508,
+              "p_alive_at_horizon": 0.0083,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 118.04,
+              "ev_se": 5.06,
+              "p_net_positive": 0.3628,
+              "p_alive_at_horizon": 0.008,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 114.42,
+              "ev_se": 4.97,
+              "p_net_positive": 0.352,
+              "p_alive_at_horizon": 0.0077,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 109.56,
+              "ev_se": 4.85,
+              "p_net_positive": 0.3448,
+              "p_alive_at_horizon": 0.009,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 117.39,
+              "ev_se": 5.1,
+              "p_net_positive": 0.3603,
+              "p_alive_at_horizon": 0.0065,
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "B": {
+            "1": {
+              "ev": 111.47,
+              "ev_se": 5.06,
+              "p_net_positive": 0.3395,
+              "p_alive_at_horizon": 0.0073,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 117.15,
+              "ev_se": 5.01,
+              "p_net_positive": 0.3513,
+              "p_alive_at_horizon": 0.0067,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 118.38,
+              "ev_se": 5.13,
+              "p_net_positive": 0.3568,
+              "p_alive_at_horizon": 0.0105,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 115.49,
+              "ev_se": 4.94,
+              "p_net_positive": 0.3545,
+              "p_alive_at_horizon": 0.0065,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 115.21,
+              "ev_se": 4.92,
+              "p_net_positive": 0.3518,
+              "p_alive_at_horizon": 0.007,
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C-0.25": {
+            "1": {
+              "ev": 107.17,
+              "ev_se": 3.92,
+              "p_net_positive": 0.4313,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 96.3,
+              "ev_se": 3.62,
+              "p_net_positive": 0.4233,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 102.69,
+              "ev_se": 3.79,
+              "p_net_positive": 0.4268,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 104.18,
+              "ev_se": 3.83,
+              "p_net_positive": 0.424,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 99.55,
+              "ev_se": 3.73,
+              "p_net_positive": 0.4198,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C-0.33": {
+            "1": {
+              "ev": 140.23,
+              "ev_se": 4.82,
+              "p_net_positive": 0.4407,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 136.4,
+              "ev_se": 4.72,
+              "p_net_positive": 0.4313,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 136.89,
+              "ev_se": 4.79,
+              "p_net_positive": 0.431,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 144.65,
+              "ev_se": 4.85,
+              "p_net_positive": 0.443,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 135.53,
+              "ev_se": 4.81,
+              "p_net_positive": 0.4218,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          },
+          "C-0.5": {
+            "1": {
+              "ev": 109.13,
+              "ev_se": 4.82,
+              "p_net_positive": 0.3535,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": 118.12,
+              "ev_se": 5.01,
+              "p_net_positive": 0.359,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": 122.96,
+              "ev_se": 5.08,
+              "p_net_positive": 0.3658,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": 111.78,
+              "ev_se": 4.91,
+              "p_net_positive": 0.3495,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": 113.6,
+              "ev_se": 4.95,
+              "p_net_positive": 0.347,
+              "p_alive_at_horizon": 1.0,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "CUSHION_FIT_WINS: C-0.33 beats A on ev with >= survival on all 5 seeds"
+    }
+  ]
+}
