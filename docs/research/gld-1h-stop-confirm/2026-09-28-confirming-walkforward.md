@@ -1,5 +1,7 @@
 # gld_pullback_1h stop-geometry confirming walk-forward — 2026-09-28
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 **Dispatched by:** operator decision, popup 2026-09-28 ~11:55Z, on pipeline item
 `BL-20260831-E35-RESWEEP-AT-POWER-SURFACES-TWO-BRACKET-GEOMETRY-LEADS-GLD-1H-AND-TREND-DONCHIAN-1H`.
 Verbatim: *"A research lane runs the confirming walk-forward of the exact
