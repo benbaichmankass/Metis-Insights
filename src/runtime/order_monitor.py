@@ -1925,6 +1925,7 @@ def _send_close_to_exchange(matched_trade: Dict[str, Any]) -> Dict[str, Any]:
             qty=float(matched_trade.get("position_size") or 0.0),
             sl_order_id=matched_trade.get("sl_order_id"),
             tp_order_id=matched_trade.get("tp_order_id"),
+            trade_id=matched_trade.get("id"),
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("order_monitor: exchange close failed: %s", exc)
