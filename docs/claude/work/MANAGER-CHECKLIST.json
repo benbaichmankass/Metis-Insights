@@ -19,10 +19,23 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-28T06:30:00Z",
+  "updated_at": "2026-09-28T09:00:00Z",
   "updated_by": "manager session_01KAQRJxRbRwpYTkPgBjNVyQ",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
+  "priorities": {
+    "decided": "operator, AskUserQuestion popup in manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28 ~08:55Z, verbatim answer \"Prop first (Recommended)\"",
+    "floor": "anything broken on a live-money or prop money path jumps the queue, whatever its theme",
+    "order": [
+      "1 Prop account \u2014 roster (candidates ONLY from https://www.breakoutprop.com/symbols/), sizing, exits",
+      "2 Active trade management (M20)",
+      "3 Independent AI trader (M19)",
+      "4 New strategies and models",
+      "5 Macro sleeve (M28 re-shape via research; M29 dormant until it reads out)"
+    ],
+    "how_used": "Lanes are assigned top-down; the research queue is weighted ~30/25/20/15/10 in this order; Fable goes to the highest-value research items at the manager's discretion (operator 2026-09-28: most Fable budget to high-value research, not every research task). Operator decisions surface as popups ranked by this order.",
+    "change_by": "operator only"
+  },
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
   "states": {
     "queued": "scoped and agreed, nobody started it",
@@ -2705,7 +2718,7 @@
       "model": "claude-sonnet-5",
       "ceiling_usd": 30,
       "tier": 2,
-      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Dispatched per the operator decisions recorded on the CA row. Sonnet: small CI/config/script changes; manager reviews the Tier-2 deploy-script PR independently."
+      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Dispatched per the operator decisions recorded on the CA row. Sonnet: small CI/config/script changes; manager reviews the Tier-2 deploy-script PR independently. | 2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13505 (JC-CA-02 flag removal + RQ-20260928-001 + fingerprint refresh, only config_fingerprint changed in the 7 records) merged 6a29960. Not yet deployed-observed; zero behaviour change by its own test."
     },
     {
       "phase": "W6",
@@ -2724,18 +2737,97 @@
     },
     {
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "owner": "fix lane",
       "blocked_on": [],
       "spend_usd": null,
-      "prs": [],
+      "prs": [
+        13504
+      ],
       "id": "W6-PROP-FEED",
       "title": "Breakout step 2: 5-min VM timer running the read-only terminal check with emit-status into the prop journal",
       "lane": "session_016Np9Ac9hgbbV4g4UnXYjia",
       "model": "claude-opus-5-5",
       "ceiling_usd": 35,
       "tier": 2,
-      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISION 'Feed now on schedule' (resolves PI-20260927-D9R6QTDB-0002). Opus: logs in to a live prop account on a schedule. Lane must first establish whether a 5-min login kicks the operator's own terminal session, and back off on failed logins; stops and reports if it does."
+      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISION 'Feed now on schedule' (resolves PI-20260927-D9R6QTDB-0002). Opus: logs in to a live prop account on a schedule. Lane must first establish whether a 5-min login kicks the operator's own terminal session, and back off on failed logins; stops and reports if it does. | 2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13504 merged a1b3d383 after independent Opus review (MERGE, no blockers). Observation that closes it: ict-prop-feed.timer listed on the VM, journal shows `session: reused` on most ticks, prop_account_status rows ~5 min apart with source=breakout_login_check, relogins_today low. Follow-up in the same lane (trig_01HDd4TB6GvY4P4PreBqsmWa): relogin ceiling, failed-attempt counting, reset-feed ordering."
+    },
+    {
+      "title": "Map ADAUSDT->ADAUSD, XRPUSDT->XRPUSD on Breakout (operator-confirmed specs)",
+      "phase": "W6",
+      "state": "done",
+      "owner": "fix lane",
+      "lane": "session_01TH2dUuCf3p9NXgUjF6eCAD",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 15,
+      "spend_usd": 2.52,
+      "tier": 3,
+      "prs": [
+        13522
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): merged 4cef5fb (operator: \"Add both + min-size note\"). Mapping only, no leg routed. Venue 10-lot minimum unenforced: PI-20260928-PGBJNVYQ-0001 must land before either leg routes. Lane archived.",
+      "id": "PROP-MAP"
+    },
+    {
+      "title": "Research queue runs end-to-end: dispatcher cancellations, session-run units, 48h staleness alarm",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "ops lane",
+      "lane": "session_01NceHayuAx2a9H58Vx8j8TX",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator asked for ops lanes that make the research routines run correctly. MEASURED: research-queue-dispatch scheduled runs start ~11:50-13:00Z (not 06:20Z); 5 of the last 8 runs ended cancelled at ~33-36 min (appears to be the stamp-PR verify wait). Sonnet: bounded ops fix.",
+      "id": "RQ-OPS"
+    },
+    {
+      "title": "Clear the 123 ask_operator pipeline items: kill / decide-under-authority / batch genuine calls as popups",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "ops lane",
+      "lane": "session_01W8AKVjLw568KJoPkcwJcUY",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Triage lane (Recommended)\". Population counted by manager: 123 open items with next_action=ask_operator on origin/main. Output ranked by the priorities block.",
+      "id": "TRIAGE"
+    },
+    {
+      "title": "Arm MD-PROMOTE-S1-S2 at bar.cost_tolerance_bps 2.0 (operator decision)",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "fix lane",
+      "lane": "session_018BZ1UA5jk19hJYuFRbWu3A",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Arm, tolerance 2 bps\" (manager had recommended keep unarmed). Both blocked_until clauses verified cleared: (a) PI-20260924-JCVFRWEA-0001 done and 0 of 27 Bybit-perp cost-stacked records differ from slippage_bps_roundtrip_for; (b) operator reaffirmation 2026-09-27. No auto-land arming; promotion PRs held for manager merge + operator ping. Held Tier-3 PR, manager merges.",
+      "id": "MANDATE-ARM"
+    },
+    {
+      "title": "M28 re-shape via research: wire-and-rescore + reshaped-thesis units",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "research lane",
+      "lane": "session_015JePcaHfBSBVrcGyu2QtAo",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Re-shape via research (Recommended)\". Basis: comms/macro/thesis_p4_scorecard.json n=1,104, 2005-2026, zero cost: calibration_rank -0.0037, edge_vs_baseline -0.0047; P2 event join never wired (PI-20260927-CAA05-0002). Offline harness only; M29 dormant until it reads out.",
+      "id": "MACRO-RESHAPE"
     }
   ]
 }
