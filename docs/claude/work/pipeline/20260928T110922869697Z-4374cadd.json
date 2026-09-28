@@ -1,0 +1,48 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "notes.margin_basis records the PRE-CLAMP risk-derived qty beside max_qty_by_margin, so 'the risk model asked for X and got the ceiling instead' is readable per order rather than inferable from two rows. AND an operator decision on record for this leg — sized down, re-parameterised, or left as-is with the reason stated. AND no ict_scalp_avax_5m order places at a size equal to a ceiling (margin OR venue) without that decision being in place.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed notes.margin_basis is now stamped on orders (src/units/accounts/execute.py) but only records max_qty_by_margin/basis/leverage, NOT the pre-clamp risk-derived qty the clears_when requires (grepped for pre_clamp/risk_derived_qty in risk.py/execute.py — absent). docs/research/RESEARCH-CAPABILITY-INDEX.md's U37 measurement (2026-09-13) shows 30 ict_scalp_avax_5m/bybit_1 rows still sitting at ratio >=0.999 of the margin ceiling, and no operator decision (sized down / re-parameterised / left as-is) is recorded in MANAGER-CHECKLIST.json. bybit_1 is a paper/demo account (mode: live, demo: true), so this is not real money, but it's still the worst-performing leg in the book and the sizing-vs-risk conflation is still live and unresolved.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "one build lane",
+          "label": "Fix the venue-max clamp only",
+          "risk": "converts loud venue refusals into silent ceiling-sized fills on the worst leg — explicitly flagged by two prior sprint logs as making things WORSE without also fixing the sizing",
+          "what_happens": "orders get capped at the venue ceiling instead of refused"
+        },
+        {
+          "cost": "one build lane + backtest re-check",
+          "label": "Re-parameterise the strategy's risk sizing (lower leverage assumption or risk_pct for this leg)",
+          "risk": "may reduce the leg's edge; needs re-measurement",
+          "what_happens": "size no longer routinely hits the margin ceiling"
+        },
+        {
+          "cost": "none",
+          "label": "Leave as-is, record the reason",
+          "risk": "the worst leg in the book keeps being sized off margin, not risk, indefinitely",
+          "what_happens": "no code change; documented as an accepted state"
+        }
+      ],
+      "priority_tier": 4,
+      "question": "ict_scalp_avax_5m (worst paper leg, -$7,620 over 20 trades) is still routinely sized at the margin ceiling rather than a risk-derived number, and the venue-max clamp that would cap it is still inert. Should we (a) fix the clamp so it stops emitting sizes above the venue max, (b) re-parameterise/derisk the strategy so its risk-derived size stops exceeding available margin at 3x leverage, or (c) leave it as-is with that stated as the accepted reason?",
+      "recommendation": "Option (b) — the clamp fix alone was already flagged twice as making outcomes worse; the actual defect is that the strategy's risk-derived size routinely wants more than 3x-leverage margin allows."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] ict_scalp_avax_5m's order size IS the margin ceiling, not a risk number — position_size equals max_qty_by_margin exactly, on the worst paper strategy of the last 30d\n\n[TRIAGE 2026-09-28] OPERATOR (tier 4) — ict_scalp_avax_5m (worst paper leg, -$7,620 over 20 trades) is still routinely sized at the margin ceiling rather than a risk-derived number, and the venue-max clamp that would cap it is still inert. Should we (a) fix the clamp so it stops emitting sizes above the venue max, (b) re-parameterise/derisk the strategy so its risk-derived size stops exceeding available margin at 3x leverage, or (c) leave it as-is with that stated as the accepted reason? Recommendation: Option (b) — the clamp fix alone was already flagged twice as making outcomes worse; the actual defect is that the strategy's risk-derived size routinely wants more than 3x-leverage margin allows."
+}

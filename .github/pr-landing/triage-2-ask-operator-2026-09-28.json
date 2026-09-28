@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs-only: new pipeline record files under docs/claude/work/pipeline/ (append-only, one file per record, validated by scripts/ops/pipeline.py) plus a triage summary doc. No code, config, or live behavior touched."
+}

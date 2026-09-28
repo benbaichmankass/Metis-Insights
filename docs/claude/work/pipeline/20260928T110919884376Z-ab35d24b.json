@@ -1,0 +1,42 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either (a) shorting is enabled broker-side on the Alpaca live account AND the short book earns a forward record (it is currently 0-for-7, -$4,254 on alpaca_portfolio), or (b) a short gate refuses the signal at the coordinator with a logged cause for any account whose broker reports shorting_enabled false — so the refusal is attributable from the journal rather than from a venue error. (b) is Tier-3 order-path work and is worth doing regardless of (a). Closed when a non-shorting account can be shown, from the journal, to refuse a short with a named cause before placement.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-CONSUMED'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Grepped for shorting_enabled across src/: only two hits, both in the diag surface (src/units/accounts/alpaca_client.py's account snapshot, src/web/api/routers/diag.py's docstring). Grepped src/core/coordinator.py and src/units/accounts/risk.py for any short-side gate keyed off this flag: none found. Confirms the flag is still read-and-displayed only, never consumed on the order path.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "Tier-3 order-path change, needs careful testing",
+          "label": "Add a short gate now (refuse with logged cause when shorting_enabled is false)",
+          "risk": "low if scoped correctly; a bug here could wrongly refuse legitimate shorts",
+          "what_happens": "Coordinator refuses short signals for any account reporting shorting_enabled:false, with an attributable journal entry."
+        },
+        {
+          "cost": "none now",
+          "label": "Defer until a short-side Alpaca leg is actually proposed for live",
+          "risk": "if a short leg is promoted to alpaca_live without anyone remembering this, the failure mode (60.1% of flow unfillable) recurs",
+          "what_happens": "Row stays open, rechecked every 14 days per due_when."
+        }
+      ],
+      "priority_tier": 6,
+      "question": "shorting_enabled is read on the Alpaca diag surface but nothing on the order path checks it. If alpaca_live is ever flipped to a roster with short legs, orders would be sent to a broker that may reject them with no attributable refusal in the journal. Add a coordinator-level short gate now (Tier-3 order-path work), or defer since alpaca_live currently has no short legs live?",
+      "recommendation": "Build the gate now while it's cheap and low-risk, rather than wait for a promotion to expose the gap."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] `shorting_enabled` is read on the diag surface and consumed by NOTHING on the order path — flipping alpaca_live to live would send 60.1% of its flow to a broker that cannot fill it\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — shorting_enabled is read on the Alpaca diag surface but nothing on the order path checks it. If alpaca_live is ever flipped to a roster with short legs, orders would be sent to a broker that may reject them with no attributable refusal in the journal. Add a coordinator-level short gate now (Tier-3 order-path work), or defer since alpaca_live currently has no short legs live? Recommendation: Build the gate now while it's cheap and low-risk, rather than wait for a promotion to expose the gap."
+}

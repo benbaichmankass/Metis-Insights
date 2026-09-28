@@ -1,0 +1,48 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Basis for the counts above: scripts/ops/exit_path_coverage.py run 2026-08-18 against the live journal, 34 open non-backtest rows, self-test 7/7 with planted controls. RESOLVED when either (a) the price_only count is driven down by operator-approved declares plus the pullback-family mechanism work, or (b) the operator records a decision that price-only is the intended posture for a named subset, with that subset carried in the audit as an accepted exclusion rather than a finding. Progress is measurable by re-running the audit: it prints by_verdict and the cause split.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed scripts/ops/exit_path_coverage.py still exists and is the named rerun tool, but this sandbox has no trade_journal.db / live VM access (no DB file found, no diag relay reachable), so the 22-of-34 price-only count from the original run cannot be re-derived here. Part (b) of clears_when is explicitly an operator decision about whether price-only exits are an accepted posture for open real-money trades, which cannot be settled from static code alone.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "low",
+          "label": "Re-run the audit now via a diag-capable lane, then decide",
+          "risk": "none, just delays the decision slightly",
+          "what_happens": "Get a current count before deciding anything."
+        },
+        {
+          "cost": "none",
+          "label": "Accept price-only exits for the named subset as intended",
+          "risk": "open real-money trades keep no adaptive exit",
+          "what_happens": "Recorded as an accepted exclusion in the audit rather than an open finding."
+        },
+        {
+          "cost": "dev time",
+          "label": "Prioritize decision-driven exit mechanism work (exit-refinement pipeline)",
+          "risk": "none directly, but doesn't help currently-open trades until shipped",
+          "what_happens": "Dispatch a lane under the exit-refinement skill to extend coverage."
+        }
+      ],
+      "priority_tier": 2,
+      "question": "As of the last audit (2026-08-18), 22 of 34 open trades could close only by price reaching a level fixed at entry, with no path that closes them on anything learned since. Should we (a) accept price-only exits as intended for a named subset of legs, or (b) prioritize the pullback-family/decision-driven-exit mechanism work to bring that count down?",
+      "recommendation": "Have a lane re-run scripts/ops/exit_path_coverage.py against current the live journal first (this session could not reach it), then bring the fresh number to the operator."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] 22 of 34 open trades can close ONLY by price reaching a level fixed at entry - no path closes them on anything learned since\n\n[TRIAGE 2026-09-28] OPERATOR (tier 2) — As of the last audit (2026-08-18), 22 of 34 open trades could close only by price reaching a level fixed at entry, with no path that closes them on anything learned since. Should we (a) accept price-only exits as intended for a named subset of legs, or (b) prioritize the pullback-family/decision-driven-exit mechanism work to bring that count down? Recommendation: Have a lane re-run scripts/ops/exit_path_coverage.py against current the live journal first (this session could not reach it), then bring the fresh number to the operator."
+}

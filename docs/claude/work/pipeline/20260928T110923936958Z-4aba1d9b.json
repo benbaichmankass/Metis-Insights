@@ -1,0 +1,23 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "scripts/check_claim_basis.py either moves under scripts/ci/ or is added to TIER1_SURFACE with a dated operator approval",
+    "kind": "observation"
+  },
+  "id": "PI-20260924-KDCZMHX8-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Fp1yQRKuy82VcsKDCZMhX8 (build lane, E64, PR #12876)",
+    "rerun": "python3 scripts/ci/check_pr_landing.py --base origin/main --branch <any PR touching scripts/check_claim_basis.py>"
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed scripts/check_claim_basis.py still sits at top-level scripts/ (not under scripts/ci/), and TIER1_SURFACE in scripts/ci/check_pr_landing.py (read in full, lines 310-345) has not been widened for it -- only scripts/ci/**, scripts/ops/**, scripts/research/**, scripts/reports/**, and scripts/backtest_*.py are covered. The script is registered as claim-basis-guard in scripts/ci/run_guards.py (a CI guard), matching its siblings' location.",
+    "date": "2026-09-28",
+    "decision_text": "Move scripts/check_claim_basis.py to scripts/ci/check_claim_basis.py (it functions as a CI guard, already registered as claim-basis-guard, and its siblings all live there) rather than widen TIER1_SURFACE for a one-off exception. This is a reversible file move + reference update (docs/CLAUDE-RULES-CANONICAL.md and sprint-log mentions), squarely Tier-1 tooling/doc work -- no operator approval needed for the move itself, unlike the TIER1_SURFACE-widening alternative which would need the MI-242-style dated approval.",
+    "disposition": "DECIDE",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "E64's PR (#12876, re-pointing docs/claude/work/PIPELINE.jsonl to a directory) could not self-land: pr-landing-guard's R5 refuses because scripts/check_claim_basis.py -- which that PR must modify, since it hand-parsed the old flat file directly -- sits at the top-level scripts/ directory, outside TIER1_SURFACE by deliberate policy (scripts/ci/check_pr_landing.py's own comment: 'every other loose script at scripts/ top level stays outside Tier-1', MI-242). The script is functionally a CI guard (registered as claim-basis-guard in scripts/ci/run_guards.py) and its siblings all live under scripts/ci/. Moving it there would fix the classification, but touches docs/CLAUDE-RULES-CANONICAL.md (the #1 doc) and several sprint-log references -- out of a narrow storage-migration lane's scope. A session with room to touch canonical docs should decide whether to relocate scripts/check_claim_basis.py to scripts/ci/, or widen TIER1_SURFACE for it specifically (operator approval, per the MI-242 precedent already in that allowlist).\n\n[TRIAGE 2026-09-28] DECIDE — Move scripts/check_claim_basis.py to scripts/ci/check_claim_basis.py (it functions as a CI guard, already registered as claim-basis-guard, and its siblings all live there) rather than widen TIER1_SURFACE for a one-off exception. This is a reversible file move + reference update (docs/CLAUDE-RULES-CANONICAL.md and sprint-log mentions), squarely Tier-1 tooling/doc work -- no operator approval needed for the move itself, unlike the TIER1_SURFACE-widening alternative which would need the MI-242-style dated approval."
+}
