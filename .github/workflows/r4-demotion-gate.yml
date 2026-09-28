@@ -103,8 +103,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          # ⚠️ github.sha, NOT `main` (JC-CA-03 re-decision 2026-09-28, "Keep PAT,
+          # verify run"). check_mandate_autoland.py A7 now reads this run through
+          # the API and requires its head_sha to equal the commit this branch
+          # is cut from. Checking out `main` by name could land on a newer commit
+          # if main moved between the trigger and the checkout, and then the
+          # route would refuse its own genuine output. For schedule and
+          # workflow_dispatch on main, github.sha IS main at trigger time.
+          ref: ${{ github.sha }}
           fetch-depth: 1
+          # Stays the PAT: a GITHUB_TOKEN PR gets no required checks
+          # (measured on probe PR #13502, PI-20260928-TURC5MJC-0004).
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
 
       - uses: actions/setup-python@v5

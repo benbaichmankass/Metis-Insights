@@ -69,8 +69,13 @@ hold; there is no override and no marker that buys a pass.
                 the legs removed from the mirror.
   A7 AUTHOR     the branch is `automation/r4-demotion-<run_id>`, the declaration
                 names that run and workflow, every commit in the range is authored
-                AND committed by `github-actions[bot]`, and — when the GitHub event
-                payload is readable — the PR's own author is that bot too.
+                AND committed by `github-actions[bot]`, and — the part a pushed
+                branch cannot forge — GitHub's API says run <run_id> is a run of
+                `.github/workflows/r4-demotion-gate.yml` on `main` in THIS repo,
+                started by `schedule` or `workflow_dispatch`, whose `head_sha` is
+                exactly the commit this branch was cut from (the merge-base).
+                The PR opener's login is NOT trusted (operator re-decision
+                JC-CA-03, 2026-09-28: "Keep PAT, verify run").
   A8 ARMED      the granted mandate carries `autoland: true`. The operator's
                 switch; absent means refuse. ⚠️ CHECKED LAST, so an unarmed
                 mandate still gets every other clause graded and reported —
@@ -80,14 +85,22 @@ hold; there is no override and no marker that buys a pass.
 
 WHAT THIS DOES NOT ESTABLISH, SAID PLAINLY
 ------------------------------------------
-A7 proves the branch and its commits carry the workflow's identity and that the
-PR was opened by `github-actions[bot]`. It does NOT prove that no human or
-session could ever forge that: `git config user.email` is settable by anybody
-who can push. What stands behind it is that the PR author comes from the token
-that opened the PR (`r4-demotion-gate.yml` uses `BRANCH_PROTECTION_TOKEN`, a repo
-secret no session holds), and that A1-A6 make a forged branch worthless — it
-still has to carry a resolver FIRE over operator-granted evidence and may still
-only ever remove. This is the same shape as `_APPROVAL_RESIDUAL` in
+A7 USED TO trust the PR opener's login, and that was forgeable both ways. It was
+measured by lane JC-GIT on 2026-09-28 (PI-20260928-TURC5MJC-0004):
+`r4-demotion-gate.yml` opens its PR with `BRANCH_PROTECTION_TOKEN`, so the
+genuine author is the PAT OWNER, not the bot, and the route refused its own
+producer. Meanwhile `pr-opener.yml` opens ANY session-pushed branch as
+`github-actions[bot]`, so the bot login proved nothing. What A7 now checks is
+the RUN: a session cannot mint a run of `r4-demotion-gate.yml` on `main`, and
+the run's `head_sha` must be the exact commit the branch was cut from.
+
+⚠️ THE RESIDUAL, STATED RATHER THAN HIDDEN. A session could REPLAY a real run
+id. It would branch from that run's exact `head_sha` (an older `main`), forge
+bot-emailed commits, and push `automation/r4-demotion-<that id>`. What stops
+the replay being worth anything is A1-A6: the diff may only REMOVE legs, under
+a granted derisk_only mandate, with a resolver FIRE over the evidence it
+carries. A run-produced artifact naming the pushed head SHA would close the
+replay too; that is filed, not built (PI-20260928-TURC5MJC-0004). This is the same shape as `_APPROVAL_RESIDUAL` in
 `check_pr_landing.py`, and it travels with the grant for the same reason.
 
 ⚠️ A2 compares PARSED documents, so a pure COMMENT change in
@@ -113,7 +126,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 for _p in (str(REPO), str(REPO / "scripts" / "ops")):
@@ -141,6 +154,9 @@ WORKFLOW_REL = ".github/workflows/r4-demotion-gate.yml"
 BRANCH_RE = re.compile(r"^automation/r4-demotion-(\d+)$")
 BOT_LOGIN = "github-actions[bot]"
 BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
+#: The events that legitimately start the producer: its own cron, or
+#: schedule-keeper / an operator dispatching it.
+RUN_EVENTS = ("schedule", "workflow_dispatch")
 
 #: The arming switch, read from the GRANTED mandate entry at the merge-base.
 #: Absent or not exactly `True` refuses. See the module docstring.
@@ -545,9 +561,64 @@ def pr_author_login(event_path: Optional[str] = None) -> Tuple[Optional[str], st
     return login, "from the GitHub event payload"
 
 
+RunFetch = Callable[[str], Tuple[Optional[Dict[str, Any]], str]]
+
+
+def fetch_run(run_id: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """(run, how). `None` means WE COULD NOT LOOK, never 'the run is fine'.
+
+    GET /repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}, authenticated with the
+    job's GITHUB_TOKEN when present (`guards.yml` grants `actions: read`)."""
+    import urllib.error
+    import urllib.request
+    repo = (os.environ.get("GITHUB_REPOSITORY") or "").strip()
+    if not repo:
+        return None, "GITHUB_REPOSITORY is unset, so there is no repository to ask"
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/actions/runs/{run_id}",
+        headers={"Accept": "application/vnd.github+json",
+                 "X-GitHub-Api-Version": "2022-11-28"})
+    tok = os.environ.get("GITHUB_TOKEN") or ""
+    if tok:
+        req.add_header("Authorization", f"Bearer {tok}")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return json.loads(resp.read().decode("utf-8")), f"GET {repo} actions/runs/{run_id}"
+    except urllib.error.HTTPError as exc:
+        return None, f"GET actions/runs/{run_id} returned HTTP {exc.code}"
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return None, f"GET actions/runs/{run_id} failed ({type(exc).__name__}: {exc})"
+
+
+def check_run(run: Dict[str, Any], run_id: str, mb: str) -> List[str]:
+    """Every way run `run_id` fails to be THE producer run for a branch cut at `mb`."""
+    fails: List[str] = []
+    path = str(run.get("path") or "").split("@", 1)[0]
+    if path != WORKFLOW_REL:
+        fails.append(f"A7 run {run_id} is a run of {path or '(no path)'!r}, not {WORKFLOW_REL!r}. "
+                     f"Only the demotion gate's own run may land this route.")
+    if run.get("head_branch") != "main":
+        fails.append(f"A7 run {run_id} ran on branch {run.get('head_branch')!r}, not `main`. "
+                     f"A workflow edited on a branch is not the reviewed producer.")
+    if run.get("event") not in RUN_EVENTS:
+        fails.append(f"A7 run {run_id} was started by event {run.get('event')!r}; the "
+                     f"producer runs only on {', '.join(RUN_EVENTS)}.")
+    want_repo = (os.environ.get("GITHUB_REPOSITORY") or "").lower()
+    got_repo = str(((run.get("repository") or {}).get("full_name")) or "").lower()
+    if want_repo and got_repo != want_repo:
+        fails.append(f"A7 run {run_id} belongs to {got_repo or '(unknown)'!r}, not {want_repo!r}.")
+    if str(run.get("head_sha") or "") != mb:
+        fails.append(f"A7 run {run_id} ran at main {str(run.get('head_sha'))[:8]}, but this "
+                     f"branch was cut from {mb[:8]}. The producer commits on top of the "
+                     f"exact commit its run checked out, so a mismatch is a branch that run "
+                     f"did not write.")
+    return fails
+
+
 def check_author(root: Path, mb: str, branch: str, decl: Dict[str, Any],
                  *, pre_flight: bool = False, event_path: Optional[str] = None,
-                 in_actions: Optional[bool] = None) -> Tuple[List[str], List[str]]:
+                 in_actions: Optional[bool] = None,
+                 run_fetch: Optional[RunFetch] = None) -> Tuple[List[str], List[str]]:
     """`pre_flight` is the PRODUCER's own run, inside
     `.github/workflows/r4-demotion-gate.yml`, BEFORE the PR exists — so there is
     no `pull_request.user.login` to read and demanding one would make the
@@ -588,28 +659,35 @@ def check_author(root: Path, mb: str, branch: str, decl: Dict[str, Any],
             f"session wrote part of a real-money roster cut, and the whole point of this route "
             f"is that no session is in the path.")
 
-    login, how = pr_author_login(event_path)
     in_ci = ((os.environ.get("GITHUB_ACTIONS") or "").lower() == "true"
              if in_actions is None else in_actions)
-    if pre_flight and login is None:
-        notes.append(f"A7 PR author NOT CHECKED — pre-flight run, no PR exists yet ({how}). "
-                     f"The authoritative read is pr-landing-guard R16 on the PR itself, which "
-                     f"fails closed on it. Commit authorship above still applied.")
-    elif login is None:
+    # The opener is REPORTED, never trusted (JC-CA-03 re-decision 2026-09-28).
+    login, how = pr_author_login(event_path)
+    if login is not None:
+        notes.append(f"A7 PR opened by {login} ({how}). Reported only: the opener login is "
+                     f"forgeable both ways and is not what this clause trusts.")
+    if pre_flight:
+        notes.append(f"A7 originating run NOT CHECKED: this is the producer's own pre-flight, "
+                     f"i.e. run {run_id} itself. The authoritative read is pr-landing-guard R16 "
+                     f"on the PR, which fails closed on it. Commit authorship above still applied.")
+        return fails, notes
+    run, rhow = (run_fetch or fetch_run)(run_id)
+    if run is None:
         if in_ci:
-            fails.append(f"A7 running in GitHub Actions but the PR author could not be read "
-                         f"({how}). That is *we could not look*, and this route fails closed on "
-                         f"it — the identity of whoever opened the PR is the one check a pushed "
-                         f"branch cannot forge.")
+            fails.append(f"A7 running in GitHub Actions but run {run_id} could not be read "
+                         f"({rhow}). That is *we could not look*, and this route fails closed "
+                         f"on it: the originating run is the one fact a pushed branch cannot "
+                         f"forge.")
         else:
-            notes.append(f"A7 PR author NOT CHECKED here ({how}) — this run is outside CI. The "
-                         f"commit-authorship check above still applied.")
-    elif login != BOT_LOGIN:
-        fails.append(f"A7 the PR was opened by {login!r}, not `{BOT_LOGIN}` ({how}). A PR a "
-                     f"session or a person opened does not auto-land, whatever its branch is "
-                     f"called.")
-    else:
-        notes.append(f"A7 PR author {login} ({how}); {len(rows)} commit(s) all by the bot")
+            notes.append(f"A7 originating run NOT CHECKED here ({rhow}). This run is outside "
+                         f"CI. The commit-authorship check above still applied.")
+        return fails, notes
+    rfails = check_run(run, run_id, mb)
+    fails += rfails
+    if not rfails:
+        notes.append(f"A7 run {run_id} verified ({rhow}): {WORKFLOW_REL} on main via "
+                     f"{run.get('event')}, head_sha {mb[:8]} == this branch's base; "
+                     f"{len(rows)} commit(s) all by the bot")
     return fails, notes
 
 
@@ -644,7 +722,8 @@ def check_slot(root: Path, mb: str, changed: List[str], slug: str,
 def verdict(root: Path, base: str, branch: Optional[str], decl: Dict[str, Any],
             changed: List[str], slug: str, *, pre_flight: bool = False,
             event_path: Optional[str] = None,
-            in_actions: Optional[bool] = None) -> Tuple[bool, List[str], List[str]]:
+            in_actions: Optional[bool] = None,
+            run_fetch: Optional[RunFetch] = None) -> Tuple[bool, List[str], List[str]]:
     """(ok, failures, notes). Every clause runs, so one PR reports every defect."""
     fails: List[str] = []
     notes: List[str] = []
@@ -670,7 +749,7 @@ def verdict(root: Path, base: str, branch: Optional[str], decl: Dict[str, Any],
         fails += f
         notes += n
     f, n = check_author(root, mb, branch, decl, pre_flight=pre_flight,
-                        event_path=event_path, in_actions=in_actions)
+                        event_path=event_path, in_actions=in_actions, run_fetch=run_fetch)
     fails += f
     notes += n
     f, n = check_slot(root, mb, changed, slug, branch)
@@ -859,16 +938,46 @@ def _event(root: Path, login: Optional[str]) -> Optional[str]:
     return str(path)
 
 
+_FIXTURE_REPO = "fixture-owner/fixture-repo"
+
+
+def _genuine_run(mb: str, **over: Any) -> Dict[str, Any]:
+    """What GET actions/runs/<RUN_ID> returns for the real producer run."""
+    run = {"id": int(RUN_ID), "path": WORKFLOW_REL, "head_branch": "main",
+           "event": "schedule", "head_sha": mb,
+           "repository": {"full_name": _FIXTURE_REPO}}
+    run.update(over)
+    return run
+
+
 def _finish(root: Path, decl: dict, *, branch: str = BRANCH, env: Optional[dict] = None,
             author: Optional[str] = BOT_LOGIN, in_actions: bool = True,
+            run: Any = "genuine",
             ) -> Tuple[bool, List[str], List[str]]:
+    """`run` is what the PLANTED run API returns: "genuine" (the real producer
+    run at this branch's base), a dict of overrides applied to it, or None
+    (the API could not be read). No fixture ever calls the real API."""
     event_path = _event(root, author)
     _run(root, "checkout", "-q", "-b", branch)
     _run(root, "add", "-A")
     _run(root, "commit", "-qm", "cut", env=env or _BOT_ENV)
     changed = _changed(root, "mainbase") or []
-    return verdict(root, "mainbase", branch, decl, changed, _slug(branch),
-                   event_path=event_path, in_actions=in_actions)
+    mb = merge_base(root, "mainbase") or ""
+
+    def fetch(run_id: str):
+        if run is None:
+            return None, "planted: the run API could not be read"
+        return _genuine_run(mb, **(run if isinstance(run, dict) else {})), "planted run API"
+    old = os.environ.get("GITHUB_REPOSITORY")
+    os.environ["GITHUB_REPOSITORY"] = _FIXTURE_REPO
+    try:
+        return verdict(root, "mainbase", branch, decl, changed, _slug(branch),
+                       event_path=event_path, in_actions=in_actions, run_fetch=fetch)
+    finally:
+        if old is None:
+            os.environ.pop("GITHUB_REPOSITORY", None)
+        else:
+            os.environ["GITHUB_REPOSITORY"] = old
 
 
 def _case(label: str, build, *, expect_ok: bool, expect_clause: Optional[str] = None,
@@ -1085,33 +1194,65 @@ def self_test(quiet: bool = False) -> int:
           preflight_still_checks_commits, expect_ok=False, expect_clause="A7",
           results=results, quiet=quiet)
 
-    # ── the PR-AUTHOR clause, which the suite used to inherit from its own
-    # environment. Each case plants its OWN payload; none reads the ambient one.
-    def opened_by_a_person(tmp: Path):
+    # ── the ORIGINATING-RUN clause (JC-CA-03 re-decision 2026-09-28, "Keep PAT,
+    # verify run"). Each case plants its OWN event payload AND its own run API
+    # answer; none reads the ambient environment or the network.
+    def pat_opened_genuine(tmp: Path):
         root = _base_repo(tmp)
         _cut(root, ["bybit_2", "bybit_portfolio"])
         _evidence(root)
         return _finish(root, _paperwork(root), author="benbaichmankass")
-    _case("a PR opened by a PERSON refuses, however bot-authored its commits are (A7)",
-          opened_by_a_person, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+    _case("POSITIVE: the GENUINE producer PR, opened with the PAT (so its author is the PAT "
+          "owner), lands on a verified originating run (A7)",
+          pat_opened_genuine, expect_ok=True, results=results, quiet=quiet)
 
-    def no_payload_in_ci(tmp: Path):
+    def forged_opener(tmp: Path):
+        """The measured forgery: pr-opener.yml opens a session-pushed branch as
+        github-actions[bot]. Everything a push can write is right, but the run
+        id names a run of a DIFFERENT workflow."""
         root = _base_repo(tmp)
         _cut(root, ["bybit_2", "bybit_portfolio"])
         _evidence(root)
-        return _finish(root, _paperwork(root), author=None, in_actions=True)
-    _case("an UNREADABLE event payload inside CI fails closed — 'we could not look' "
-          "is not 'it is the bot' (A7)",
-          no_payload_in_ci, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+        return _finish(root, _paperwork(root), author=BOT_LOGIN,
+                       run={"path": ".github/workflows/pr-opener.yml", "event": "push"})
+    _case("FORGED: a bot-opened PR whose run id is not a demotion-gate run refuses, "
+          "however bot-shaped the rest is (A7)",
+          forged_opener, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
 
-    def no_payload_locally(tmp: Path):
+    def run_on_branch(tmp: Path):
         root = _base_repo(tmp)
         _cut(root, ["bybit_2", "bybit_portfolio"])
         _evidence(root)
-        return _finish(root, _paperwork(root), author=None, in_actions=False)
-    _case("POSITIVE: outside CI the same cut passes with the PR-author read NOTED as "
-          "unchecked, never silently assumed",
-          no_payload_locally, expect_ok=True, results=results, quiet=quiet)
+        return _finish(root, _paperwork(root), run={"head_branch": "claude/edited-producer"})
+    _case("a demotion-gate run on a BRANCH (an edited producer) refuses (A7)",
+          run_on_branch, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def replayed_run(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), run={"head_sha": "0" * 40})
+    _case("a REAL run id whose head_sha is not this branch's base refuses: a replayed "
+          "run did not write this branch (A7)",
+          replayed_run, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def run_unreadable_in_ci(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), run=None, in_actions=True)
+    _case("an UNREADABLE run API inside CI fails closed. 'We could not look' is "
+          "not 'it is the producer' (A7)",
+          run_unreadable_in_ci, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def run_unreadable_locally(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), author=None, run=None, in_actions=False)
+    _case("POSITIVE: outside CI the same cut passes with the run read NOTED as unchecked, "
+          "never silently assumed",
+          run_unreadable_locally, expect_ok=True, results=results, quiet=quiet)
 
     # ⚠️ THE REGRESSION CONTROL FOR THE ONE REAL DEFECT THIS ROUTE SHIPPED WITH.
     # An earlier draft grouped A8 among the evidence clauses, so an UNARMED

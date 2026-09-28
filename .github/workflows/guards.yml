@@ -71,6 +71,12 @@ permissions:
   # repo keeps paying for. Read-only, and it is consulted ONLY on the path
   # where the guard was already about to fail.
   pull-requests: read
+  # ⚠️ ADDED 2026-09-28 FOR `mandate-autoland-guard` A7 (JC-CA-03 re-decision,
+  # "Keep PAT, verify run"). A7 reads GET actions/runs/<run_id> to prove that
+  # an auto-landing roster cut came from the scheduled r4-demotion-gate run on
+  # main. It fails CLOSED when it cannot read the run, so without this scope
+  # the route would refuse every genuine PR. Read-only.
+  actions: read
 
 # THE STACKING FIX. Without this, a re-run of a PR whose jobs are still queued
 # leaves the old batch queued too, and both compete for the same scarce runners.
