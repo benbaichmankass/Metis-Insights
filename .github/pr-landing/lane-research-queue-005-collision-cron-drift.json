@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "research/** and docs/claude/work/pipeline/** are on the Tier-1 surface: no src/, config/, scripts/, or workflow change. Renumbers one blocked (never-run) research unit to clear an id collision with a landed, already-referenced unit, and updates its two sibling units' cross-references to match; files one pipeline finding about the research-queue-dispatch cron. Nothing here changes runtime behaviour, order-path code, or any account/strategy config."
+}
