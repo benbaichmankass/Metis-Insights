@@ -2016,6 +2016,12 @@ strategies:
     # mgc_pullback_1d params). Phase-0: pullback1d GLD train +4.9R /
     # OOS +19.7R. alpaca_paper (PAPER money), bracket orders, US-session
     # gate.
+    # ⚠️ LONG-ONLY, ACCEPTED PERMANENTLY (operator triage 2026-09-28,
+    # BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED): no inverse-ETF proxy
+    # is declared, so this leg's short-side signals go fully inert under
+    # alpaca_live's long-only real-money mode. Expected contribution is
+    # restated on that basis — long-side flow only, not the bidirectional
+    # figure the Phase-0 backtest above measured.
     model: null
     signal_prefixes: [gld_pullback]
     enabled: true
@@ -2419,6 +2425,11 @@ strategies:
     # Runs on alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27).
     # Whole-share bracket orders; risk_pct inherited from strategy config.
     # PROVENANCE: mirrors gld_pullback_1d parameters (SRQ-20260627-SLV).
+    # ⚠️ LONG-ONLY, ACCEPTED PERMANENTLY (operator triage 2026-09-28,
+    # BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED): no inverse-ETF proxy
+    # is declared, so this leg's short-side signals go fully inert under
+    # alpaca_live's long-only real-money mode. Expected contribution is
+    # restated on that basis — long-side flow only.
     model: null
     signal_prefixes: [slv_pullback]
     enabled: true
@@ -2454,6 +2465,11 @@ strategies:
     # Runs on alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27).
     # Whole-share bracket orders.
     # PROVENANCE: mirrors gld_pullback_1d parameters (SRQ-20260627-GDX).
+    # ⚠️ LONG-ONLY, ACCEPTED PERMANENTLY (operator triage 2026-09-28,
+    # BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED): no inverse-ETF proxy
+    # is declared, so this leg's short-side signals go fully inert under
+    # alpaca_live's long-only real-money mode. Expected contribution is
+    # restated on that basis — long-side flow only.
     model: null
     signal_prefixes: [gdx_pullback]
     enabled: true
@@ -2538,6 +2554,14 @@ strategies:
     # gld_pullback_1d. alpaca_paper (PAPER money), bracket orders, US-session
     # gate. NOTE: IAUM's own price history only starts 2021 (fund inception);
     # GLD's full-history +52R edge is the deeper evidence base.
+    # ⚠️ LONG-ONLY, ACCEPTED PERMANENTLY (operator triage 2026-09-28,
+    # BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED): no inverse-ETF proxy
+    # is declared, so this leg's short-side signals go fully inert under
+    # alpaca_live's long-only real-money mode. Expected contribution is
+    # restated on that basis — long-side flow only. (Note: iaum_pullback_1d
+    # is also one of the two declared affordability proxies dropped from the
+    # alpaca_portfolio mirror per CLAUDE.md's Stage-2 invariant — a separate,
+    # unrelated carve-out from this one.)
     model: null
     signal_prefixes: [iaum_pullback]
     enabled: true

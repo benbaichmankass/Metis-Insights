@@ -993,6 +993,16 @@ accounts:
   # ib_live: IB live account U25907316 on the live gateway (7496).
   # mode: dry_run → real money held safe; no socket opened, no orders
   # placed. Promote to live only via set-account-mode (Tier-3).
+  #
+  # ⚠️ PARKED (operator triage 2026-09-28, BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-
+  # AND-PROMOTION-WOULD-NOT-CONNECT): ib_host/ib_port below (127.0.0.1:7496) name
+  # the LIVE-TRADER VM ITSELF, not the isolated IB Gateway box (10.0.0.251) —
+  # no gateway listens on 127.0.0.1:7496 in this deployment. Promoting this
+  # account to live TODAY WOULD NOT CONNECT. It is currently mode: dry_run with
+  # strategies: [] so there is no active risk from this, but do not trust this
+  # endpoint at face value later — re-verify ib_host/ib_port against the actual
+  # live gateway before any future promotion. Comment-only note; no field below
+  # was changed by this edit.
   ib_live:
     type: regular
     exchange: interactive_brokers
@@ -1832,3 +1842,13 @@ accounts:
                                        # ticket sizes from breakout_routing.yaml
                                        # risk_pct, in PERCENT; this fraction is
                                        # the PropRiskManager mirror).
+      breach_guards: report            # OPERATOR 2026-09-28 ~13:40Z/13:45Z (relayed
+                                       # by manager session_01KAQRJxRbRwpYTkPgBjNVyQ,
+                                       # confirmed by the operator in this lane's
+                                       # popup): "we can breach the account and
+                                       # just buy a new one ... We shouldn't reject
+                                       # tickets because the risk will breach."
+                                       # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN and the
+                                       # cushion caveat LOG + ALERT instead of
+                                       # refusing. Every other account defaults to
+                                       # `enforce`. Rollback: delete this line.

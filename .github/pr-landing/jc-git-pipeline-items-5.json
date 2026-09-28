@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Files one pipeline item: mandate_resolver.py and r4_demotion_gate.py decide the armed auto-land route's A5 FIRE and cut selection, but are not landing machinery. This is a pre-existing gap from the manager's re-review of #13609. The PR adds one new record file under docs/claude/work/pipeline/ and changes no code, config or runtime."
+}

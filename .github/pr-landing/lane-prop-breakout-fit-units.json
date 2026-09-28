@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Three brand-new research/queue/*.yaml registrations carrying pre-registered decision rules -- same shape as #13540/#13568 on this lane's prior turns: pr-landing-guard's stamp-only-surface rule doesn't vouch for a new queue-unit registration's substance ('a new queue unit is a registration, not a stamp'). Per this turn's dispatch instruction ('Land queue units as PRs held for me (I read the decision rules and merge)'), holding by default rather than attempting self-land. Also includes a pipeline finding (PI-20260928-PEVRECON-0001, plain data, no decision rule) and a self-caught/self-corrected incident log -- neither changes the hold posture, the queue-unit registrations already require one.",
+  "why": "research/queue/**, docs/claude/work/pipeline/** only. No src/, config/strategies.yaml, config/prop_rulesets/**, breakout_executor.py, or workflow change -- no live/paper order path touched, no sizing or geometry actually changed anywhere. All three units are session-local (workflow: none) re-pricings of ALREADY-COMMITTED trade evidence under different cost-stack/sizing args -- no new backtests, no new candle fetch."
+}
