@@ -260,3 +260,13 @@ def test_login_attempt_not_announced_on_reuse_or_for_the_action(harness, tmp_pat
     assert rc == 0 and "session: reused" in out and "login_attempt" not in out
     rc, out = _run([], capsys)
     assert rc == 0 and "session: fresh" in out and "login_attempt" not in out
+
+
+def test_every_session_line_is_flushed():
+    """The feed reads these lines through a pipe and counts them even when a
+    hard timeout kills the check: each must be printed with flush=True."""
+    import re
+    src = (REPO / "scripts" / "prop" / "breakout_login_check.py").read_text()
+    lines = re.findall(r'print\(f?"session:[^\n]*', src)
+    assert len(lines) >= 8
+    assert all("flush=True" in ln for ln in lines), [ln for ln in lines if "flush=True" not in ln]

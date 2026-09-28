@@ -130,7 +130,7 @@ def load_storage_state(path: str) -> Optional[Dict[str, Any]]:
             raise ValueError("not a storage_state object")
         return state
     except Exception as exc:
-        print(f"session: saved state unusable ({type(exc).__name__}); deleted")
+        print(f"session: saved state unusable ({type(exc).__name__}); deleted", flush=True)
         discard_storage_state(path)
         return None
 
@@ -158,7 +158,7 @@ def save_storage_state(context: Any, path: str) -> None:
     with os.fdopen(fd, "w") as fh:
         json.dump(state, fh)
     os.replace(tmp, p)
-    print("session: state saved")
+    print("session: state saved", flush=True)
 
 
 def _redact(text: str, *secrets: str, limit: int = 0) -> str:
@@ -253,7 +253,7 @@ def main(argv: Optional[list] = None) -> int:
                 try:
                     context, page, captured_responses = open_page(saved)
                 except Exception as exc:
-                    print(f"session: saved state rejected by the browser ({type(exc).__name__}); deleted")
+                    print(f"session: saved state rejected by the browser ({type(exc).__name__}); deleted", flush=True)
                     discard_storage_state(args.storage_state)
                     context = None
                 if context is not None:
@@ -270,9 +270,9 @@ def main(argv: Optional[list] = None) -> int:
                         st = f"error {type(exc).__name__}"
                     if st == "logged_in":
                         reused = True
-                        print("session: reused")
+                        print("session: reused", flush=True)
                     else:
-                        print(f"session: saved state not accepted ({st}); deleted, logging in")
+                        print(f"session: saved state not accepted ({st}); deleted, logging in", flush=True)
                         discard_storage_state(args.storage_state)
                         try:
                             context.close()
@@ -287,9 +287,9 @@ def main(argv: Optional[list] = None) -> int:
                         # Printed BEFORE the attempt so the feed counts every
                         # credential submission, including rejected or
                         # timed-out ones (its per-day relogin ceiling).
-                        print("session: login_attempt")
+                        print("session: login_attempt", flush=True)
                     adapter.login(page, cfg["login_url"], username, password)
-                    print("session: relogin" if args.storage_state else "session: fresh")
+                    print("session: relogin" if args.storage_state else "session: fresh", flush=True)
             except FeasibilityError as fe:
                 print(_redact(f"feasibility: {fe.reason}" + (f" ({fe.detail})" if fe.detail else ""),
                               username, password))
@@ -314,7 +314,7 @@ def main(argv: Optional[list] = None) -> int:
                     save_storage_state(context, args.storage_state)
                 except Exception as exc:
                     # Not fatal: the next tick simply logs in again.
-                    print(f"session: state NOT saved ({type(exc).__name__})")
+                    print(f"session: state NOT saved ({type(exc).__name__})", flush=True)
             try:
                 print(f"landed: {_redact(page.url, username, password)}")
             except Exception:

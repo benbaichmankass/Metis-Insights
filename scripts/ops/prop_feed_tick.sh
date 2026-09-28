@@ -44,6 +44,13 @@
 #     fresh login per 2 h: far above what a working saved session needs, far
 #     below the 288/day of no reuse at all) the feed TRIPS exactly like a
 #     feasibility stop.
+#     The counter is per UTC day and resets at 00:00 UTC; `reset-feed` does
+#     NOT clear it, so a same-day re-arm after a ceiling trip re-trips on the
+#     very next credential login (only reused-session ticks run until
+#     midnight UTC). That is deliberate: a same-day re-arm must not buy a
+#     fresh 12. To allow logins again the same day, fix reuse first, or wait
+#     for the UTC rollover. A corrupt or unwritable relogin counter trips the
+#     feed (fails closed).
 #     Separately, the first time a UTC day ends with ticks but ZERO
 #     `session: reused`, it pings ONCE (ever; marker `noreuse-pinged`), since
 #     that is the signature of reuse not working at all.
@@ -95,7 +102,11 @@ fi
 trip() {
     # Args: rc reason
     local rc="$1" reason="$2"
-    printf '%s rc=%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${rc}" "${reason}" > "${TRIP_FILE}"
+    # An empty marker still stops every later tick ([ -f ] is the test), so
+    # fall back to creating one when the full write fails (e.g. disk full).
+    printf '%s rc=%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${rc}" "${reason}" > "${TRIP_FILE}" 2>/dev/null \
+        || : > "${TRIP_FILE}" 2>/dev/null \
+        || log "CANNOT write the trip marker ${TRIP_FILE}; the next tick will not see this trip"
     log "TRIPPING feed: ${reason} (exit ${rc})"
     record_audit "prop-feed" "tripped" \
         "{\"account\": \"${ACCOUNT}\", \"exit\": ${rc}, \"reason\": \"${reason}\"}" >/dev/null || true
@@ -146,20 +157,36 @@ OUT="$(mktemp "${STATE_DIR}/.tick-out.XXXXXX")"
 trap 'rm -f "${OUT}"' EXIT
 set +e
 ( cd "${REPO_DIR}" && timeout --kill-after=15 "${TIMEOUT_S}" \
-    "${VENV}/bin/python" scripts/prop/breakout_login_check.py \
+    env PYTHONUNBUFFERED=1 "${VENV}/bin/python" -u scripts/prop/breakout_login_check.py \
     --account "${ACCOUNT}" --emit-status --symbols= \
     --storage-state "${SESSION_STATE}" ) 2>&1 | tee "${OUT}"
 rc=${PIPESTATUS[0]}
 set -e
 
 bump() {
-    # Args: file -> increments the integer in it, prints the new value.
+    # Args: file. Increments the integer in it; the new value lands in BUMP_N.
+    # Returns non-zero (and sets BUMP_ERR) when the counter is CORRUPT
+    # (present but not a plain integer) or cannot be WRITTEN (e.g. disk full).
+    # Deliberately not called inside $(...): a subshell would swallow both the
+    # failure and set -e.
     local f="$1" n=0
-    [ -f "${f}" ] && n="$(cat "${f}" 2>/dev/null || echo 0)"
-    case "${n}" in ''|*[!0-9]*) n=0 ;; esac
-    n=$((n + 1))
-    echo "${n}" > "${f}"
-    echo "${n}"
+    BUMP_N=0; BUMP_ERR=""
+    if [ -e "${f}" ] && [ ! -f "${f}" ]; then
+        BUMP_ERR="corrupt (not a regular file)"; return 1
+    fi
+    if [ -f "${f}" ]; then
+        n="$(tr -d '[:space:]' < "${f}" 2>/dev/null)" || { BUMP_ERR="unreadable"; return 1; }
+        case "${n}" in
+            '') n=0 ;;
+            *[!0-9]*) BUMP_ERR="corrupt (non-numeric)"; return 1 ;;
+        esac
+    fi
+    n=$((10#${n} + 1))
+    if ! printf '%s\n' "${n}" > "${f}.tmp" 2>/dev/null || ! mv -fT "${f}.tmp" "${f}" 2>/dev/null; then
+        rm -f "${f}.tmp" 2>/dev/null || true
+        BUMP_ERR="write failed"; return 1
+    fi
+    BUMP_N="${n}"
 }
 
 day="$(date -u +%Y%m%d)"
@@ -176,21 +203,29 @@ for tfile in "${STATE_DIR}"/ticks-*; do
             "{\"account\": \"${ACCOUNT}\", \"day_utc\": \"${d}\", \"ticks\": $(cat "${tfile}" 2>/dev/null || echo 0)}" >/dev/null || true
         "${PING_PY}" "${REPO_DIR}/scripts/send_ping.py" --target claude --priority normal \
             --kind state_change \
-            --why "session reuse may not be working: every tick that day logged in" \
-            "[prop-feed] ${ACCOUNT}: UTC day ${d} had no reused session (every tick logged in). One-time notice; the ${MAX_RELOGINS}/day relogin ceiling still applies." \
+            --why "session reuse may not be working: no tick that day reused a saved session" \
+            "[prop-feed] ${ACCOUNT}: UTC day ${d} had ticks but no reused session. One-time notice; the ${MAX_RELOGINS}/day relogin ceiling still applies." \
             >/dev/null 2>&1 || log "ping enqueue failed (audit record still written)"
     fi
 done
 find "${STATE_DIR}" -maxdepth 1 \( -name 'ticks-*' -o -name 'reused-*' -o -name 'relogins-*' \) \
     ! -name "*-${day}" -delete 2>/dev/null || true
 
-bump "${STATE_DIR}/ticks-${day}" >/dev/null
+# ticks/reused feed only the one-time zero-reuse notice: best-effort.
+bump "${STATE_DIR}/ticks-${day}" || log "ticks counter: ${BUMP_ERR} (best-effort; not tripping)"
 if grep -q '^session: reused$' "${OUT}"; then
-    bump "${STATE_DIR}/reused-${day}" >/dev/null
+    bump "${STATE_DIR}/reused-${day}" || log "reused counter: ${BUMP_ERR} (best-effort; not tripping)"
     log "session: reused"
 fi
 if grep -q '^session: login_attempt$' "${OUT}"; then
-    rn="$(bump "${STATE_DIR}/relogins-${day}")"
+    # The relogin counter is the ceiling's only input, so it FAILS CLOSED: a
+    # counter that is corrupt or cannot be written trips the feed rather than
+    # silently reading as 0 or sticking at 1.
+    if ! bump "${STATE_DIR}/relogins-${day}"; then
+        trip "${rc}" "relogin counter ${BUMP_ERR} (${STATE_DIR}/relogins-${day}) — failing closed"
+        exit "${rc}"
+    fi
+    rn="${BUMP_N}"
     ok=false; grep -q '^session: relogin$' "${OUT}" && ok=true
     log "session: credential login attempt ${rn}/${MAX_RELOGINS} today (UTC ${day}, succeeded=${ok})"
     record_audit "prop-feed" "relogin" \
