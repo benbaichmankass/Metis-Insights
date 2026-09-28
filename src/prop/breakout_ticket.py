@@ -201,7 +201,8 @@ def render_ticket(t: Ticket, *, now: Optional[datetime] = None,
             if prop_risk_gate.mode() != "off":
                 _verdict = prop_risk_gate.grade_account_ticket_risk(
                     account_id, risk_usd=t.risk_usd)
-                caveat = prop_risk_gate.caveat_lines(_verdict)
+                caveat = prop_risk_gate.caveat_lines(
+                    _verdict, breach_guards=prop_risk_gate.breach_guards_for(account_id))
                 # The soak row records the EFFECT (`annotated`), not just the
                 # request — a graded ticket whose caveat never reached the
                 # operator must not read as one that did. Best-effort inside
