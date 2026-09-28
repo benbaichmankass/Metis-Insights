@@ -944,10 +944,31 @@ ORDER_FORM_JS = r"""
     }
     return (inp.getAttribute('placeholder') || '').trim();
   };
+  // An INPUT's label on the live sidebar (probe #13816) is the nearest
+  // earlier sibling with text of the input or one of its ancestors ("Lots x 1
+  // SOL", "Stop Loss:"); the parent-text walk would find the SL/TP "Price"
+  // mode select first. A sibling that holds another input ends the search at
+  // that level (never borrow the previous field's label).
+  const prevLabel = inp => {
+    let e = inp;
+    for (let i = 0; i < 6 && e && e !== document.body; i++, e = e.parentElement) {
+      for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.matches('input, select, textarea') || s.querySelector('input, select, textarea')) break;
+        const t = txt(s); if (t) return t.split(/\n/)[0].trim();
+      }
+    }
+    return '';
+  };
+  const labelOfInput = inp => {
+    const a = inp.getAttribute('aria-label'); if (a) return a.trim();
+    if (inp.id) { const l = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`); if (l) return txt(l); }
+    const wrap = inp.closest('label'); if (wrap) { const t = txt(wrap); if (t) return t; }
+    return prevLabel(inp) || labelOf(inp);
+  };
   const inputs = [...document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), [role=spinbutton]')].filter(vis);
   const hits = {};
   for (const inp of inputs) {
-    const lab = labelOf(inp);
+    const lab = labelOfInput(inp);
     for (const [k, r] of Object.entries(FP)) if (r.test(lab)) (hits[k] = hits[k] || []).push({el: inp, label: lab});
   }
   // The form container: the smallest ancestor of the quantity input that also
@@ -958,6 +979,18 @@ ORDER_FORM_JS = r"""
     for (let e = q.el.parentElement; e && e !== document.body; e = e.parentElement) {
       const has = k => (hits[k] || []).some(h => e.contains(h.el));
       if (has('stop_loss') && has('take_profit')) { form = e; break; }
+    }
+  }
+  // On the live sidebar the fields' smallest common container can stop short
+  // of the ticket's own symbol input and order-type row (probe #13816: three
+  // sibling sections). Widen it to the smallest ancestor that also holds the
+  // ticket's BUY, SELL and symbol_input: the same anchor the probe's panel
+  // dump uses. Terminals without those test ids keep the fields' container.
+  if (form) {
+    for (let e = form; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=BUY]') && e.querySelector('[data-test-id=SELL]')
+          && e.querySelector('[data-test-id=symbol_input]')) { form = e; break; }
+      if (!document.querySelector('[data-test-id=BUY]')) break;
     }
   }
   const out = {found: !!form, fields: {}, buttons: {}, ambiguous: [], checkboxes: [],
@@ -975,11 +1008,31 @@ ORDER_FORM_JS = r"""
                      value: (el.value !== undefined ? String(el.value) : txt(el))};
   }
   const btns = [...form.querySelectorAll('button, [role=button], input[type=submit]')].filter(vis);
+  const bname = b => txt(b) || b.getAttribute('aria-label') || b.value || '';
   for (const [k, r] of Object.entries(BP)) {
-    const m = btns.filter(b => r.test(txt(b) || b.getAttribute('aria-label') || b.value || ''));
+    let m = btns.filter(b => r.test(bname(b)));
+    if (k === 'submit' && m.length === 0) {
+      // The live sidebar's submit sits OUTSIDE the fields' container (probe
+      // #13816: not in the panel, below y 735). Look in the form's ancestors,
+      // only within the form's own column, and require exactly one.
+      const fr = form.getBoundingClientRect();
+      let anc = form.parentElement;
+      for (let i = 0; i < 4 && anc && anc !== document.body && m.length === 0; i++, anc = anc.parentElement) {
+        m = [...anc.querySelectorAll('button, [role=button], input[type=submit]')].filter(b => {
+          if (form.contains(b) || !r.test(bname(b))) return false;
+          const br = b.getBoundingClientRect();
+          return br.width > 0 && br.left >= fr.left - 10 && br.right <= fr.right + 10;
+        });
+      }
+      if (m.length) out.submit_outside_form = true;
+    }
     if (m.length === 1) { m[0].setAttribute('data-metis-btn', k); out.buttons[k] = txt(m[0]) || m[0].getAttribute('aria-label') || ''; }
     else if (m.length > 1) out.ambiguous.push('btn:' + k);
   }
+  // The venue symbol the ticket is set to: the sidebar's own symbol_input
+  // value (an instrument name, never account data; letters/digits only).
+  const symIn = form.querySelector('[data-test-id=symbol_input]');
+  if (symIn && /^[A-Za-z0-9._\/-]{1,20}$/.test(String(symIn.value || ''))) out.symbol_value = String(symIn.value);
   // SL / TP enabling switches: a checkbox / switch role, or (MEASURED on the
   // live sidebar, probe #13760) a div whose data-value reads "true"/"false".
   const toggleSel = 'input[type=checkbox], [role=checkbox], [role=switch], [data-value="true"], [data-value="false"]';
@@ -1023,6 +1076,18 @@ ORDER_FORM_JS = r"""
     if (el.tagName === 'INPUT' && el.type === 'radio') return !!el.checked;
     return [...el.querySelectorAll('input[type=radio], input[type=checkbox]')].some(i => i.checked);
   };
+  // The live sidebar marks the chosen side / order type ONLY by background
+  // (probe #13816: Market rgb(80,87,179), BUY rgb(26,143,109), every other
+  // toggle rgb(64,66,94)). The "unselected" colour is the one most of the
+  // form's side/type toggles share (unique, held by 2+); a tagged button in
+  // any other colour is the selected one.
+  const toggles = [...form.querySelectorAll('button, [role=button]')].filter(b =>
+    vis(b) && /^(buy|sell|market|limit|stop|oco)$/i.test(txt(b)));
+  const bgOf = b => getComputedStyle(b).backgroundColor;
+  const counts = {};
+  toggles.forEach(b => { counts[bgOf(b)] = (counts[bgOf(b)] || 0) + 1; });
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const unsel = (ranked.length && ranked[0][1] >= 2 && (ranked.length === 1 || ranked[0][1] > ranked[1][1])) ? ranked[0][0] : null;
   const pick = (keys) => {
     const on = keys.filter(k => out.buttons[k] !== undefined && isOn(form.querySelector('[data-metis-btn=' + k + ']')));
     if (on.length === 1) return on[0];
@@ -1031,6 +1096,12 @@ ORDER_FORM_JS = r"""
       const o = sel.options[sel.selectedIndex]; const t = o ? txt(o) : '';
       const hit = keys.filter(k => BP[k].test(t));
       if (hit.length === 1) return hit[0];
+    }
+    if (unsel) {
+      const styled = keys.filter(k => out.buttons[k] !== undefined
+        && bgOf(form.querySelector('[data-metis-btn=' + k + ']')) !== unsel);
+      if (styled.length === 1) return styled[0];
+      if (styled.length > 1) return 'ambiguous';
     }
     return null;
   };
@@ -1227,8 +1298,39 @@ TICKET_PANEL_DUMP_JS = r"""
     rows.push(d);
     if (rows.length >= 300) break;
   }
+  // Where the submit lives (probe #13816: not in the panel) and what scrolls:
+  // every button in the panel's column OUTSIDE the panel, and the panel's
+  // parent chain with its scroll sizes.
+  const pr = panel.getBoundingClientRect();
+  const submit_candidates = [...document.querySelectorAll('button, [role=button], input[type=submit]')].filter(b => {
+    if (panel.contains(b)) return false;
+    const r = b.getBoundingClientRect();
+    return r.left >= pr.left - 10 && r.right <= pr.right + 10 && !(r.width === 0 && r.height === 0 && !b.textContent.trim());
+  }).slice(0, 30).map(b => {
+    const r = b.getBoundingClientRect();
+    return {tag: b.tagName.toLowerCase(), tid: mask(b.getAttribute('data-test-id')), text: mask(b.innerText || b.textContent || ''),
+            aria: mask(b.getAttribute('aria-label')), disabled: !!(b.disabled || b.getAttribute('aria-disabled') === 'true'),
+            box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]};
+  });
+  const panel_parents = [];
+  for (let e = panel, i = 0; e && e !== document.body && i < 6; e = e.parentElement, i++) {
+    const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+    panel_parents.push({level: i, tag: e.tagName.toLowerCase(), cls: mask(typeof e.className === 'string' ? e.className : ''),
+                        box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+                        scroll: [e.scrollHeight, e.clientHeight], overflow_y: cs.overflowY, children: e.children.length});
+  }
+  // The quantity input's own numeric constraints (UI limits, not account
+  // data): the only digits this dump lets through.
+  const num = /^-?[0-9]*[.]?[0-9]+(e-?[0-9]+)?$/i;
+  const qty_constraints = [...panel.querySelectorAll('input')].map(i => {
+    const c = {};
+    for (const a of ['min', 'max', 'step', 'aria-valuemin', 'aria-valuemax', 'data-min', 'data-step', 'data-precision']) {
+      const v = i.getAttribute(a); if (v !== null && num.test(v.trim())) c[a] = v.trim();
+    }
+    return Object.keys(c).length ? {tid: mask(i.getAttribute('data-test-id')), ...c} : null;
+  }).filter(Boolean);
   return {found: true, n: rows.length, truncated: rows.length >= 300,
-          scroll: [panel.scrollHeight, panel.clientHeight], rows};
+          scroll: [panel.scrollHeight, panel.clientHeight], rows, submit_candidates, panel_parents, qty_constraints};
 }
 """
 
@@ -1364,7 +1466,15 @@ def verify_form_values(fields: Mapping[str, Mapping[str, Any]], want: Mapping[st
 def form_names_symbol(form: Mapping[str, Any], venue_symbol: str) -> bool:
     """Pure: the form's visible text names ``venue_symbol`` as a whole word.
     An order typed into a ticket for the wrong symbol is the worst silent
-    failure here, so this is checked at open AND again at read-back."""
+    failure here, so this is checked at open AND again at read-back.
+
+    When the form carries its own symbol input (the live sidebar's
+    ``symbol_input``, probe #13816: its visible text says only "SOL"), THAT
+    value decides: it must equal ``venue_symbol`` (letters/digits compared),
+    and a mismatch refuses even if the text happens to name the symbol."""
+    norm = lambda v: re.sub(r"[^A-Z0-9]", "", str(v or "").upper())
+    if form.get("symbol_value"):
+        return norm(form["symbol_value"]) == norm(venue_symbol)
     return bool(re.search(r"(?<![A-Z0-9])" + re.escape(str(venue_symbol).upper()) + r"(?![A-Z0-9])",
                           str(form.get("form_text") or "").upper()))
 
@@ -1885,18 +1995,17 @@ class DXtradeAdapter(PropPlatformAdapter):
         # When the ticket did not open, or it opened but side / order type is
         # not readable (place_bracket would refuse), include the digit-masked
         # control map so the opener and the side/type reader can be built.
-        sel = form.get("selected") or {}
-        unreadable = not sel or any(v in (None, "ambiguous") for v in sel.values())
-        if not opened.get("opened") or unreadable:
-            # The sidebar's own structure when it is on the page (compact);
-            # the whole-page control map only when it is not (the run log
-            # keeps just its last ~50k characters).
-            panel = self.ticket_panel_dump(page)
-            if panel.get("found"):
-                result["ticket_panel"] = panel
-            else:
-                result["ticket_panel_why"] = panel.get("why") or panel.get("error")
-                result["controls_dump"] = self.controls_dump(page)
+        result["symbol_value"] = form.get("symbol_value")
+        result["submit_outside_form"] = bool(form.get("submit_outside_form"))
+        # A probe is a measurement: always attach the sidebar's own structure
+        # (compact) when it is on the page, and the whole-page control map
+        # only when it is not (the run log keeps its last ~50k characters).
+        panel = self.ticket_panel_dump(page)
+        if panel.get("found"):
+            result["ticket_panel"] = panel
+        else:
+            result["ticket_panel_why"] = panel.get("why") or panel.get("error")
+            result["controls_dump"] = self.controls_dump(page)
         if opened.get("opened"):
             result["closed"] = self.close_order_ticket(page)
         return result

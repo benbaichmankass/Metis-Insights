@@ -1288,3 +1288,137 @@ def test_ticket_panel_dump_refuses_two_buy_buttons(tpage):
             "<button data-test-id='BUY'>Buy</button><button data-test-id='SELL'>Sell</button></div>")
     dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
     assert dump["found"] is False and "2 [data-test-id=BUY]" in dump["why"]
+
+
+# A replica of the order-ticket sidebar MEASURED in probe #13816: selection is
+# shown ONLY by background colour; the quantity label is the previous sibling
+# of the input's container; SL / TP inputs and their "Price" select are
+# disabled until their data-value toggle (placed BEFORE the label) is on; the
+# visible text says "SOL", the symbol_input carries the venue symbol; the
+# submit sits in a footer BELOW the fields' panel, in a short scrolling column.
+MEASURED_SIDEBAR = """
+<html><body style="margin:0">
+<style>.tb{background:rgb(64,66,94)} .row{display:flex}</style>
+<script>
+const SEL = {type: 'rgb(80, 87, 179)', BUY: 'rgb(26, 143, 109)', SELL: 'rgb(200, 50, 50)'};
+function pickType(b){document.querySelectorAll('.tp').forEach(x=>x.style.background='');b.style.background=SEL.type}
+function pickSide(b){document.querySelectorAll('.sd').forEach(x=>x.style.background='');
+  b.style.background=SEL[b.dataset.testId];document.getElementById('sub').textContent=b.textContent+' %SYM%'}
+function tog(d){ if(d.hasAttribute('data-stuck')) return; const on=d.getAttribute('data-value')!=='true';
+  d.setAttribute('data-value', on?'true':'false');
+  d.closest('.blk').querySelectorAll('input,button').forEach(x=>x.disabled=!on) }
+</script>
+<div id="col" style="position:absolute;left:903px;top:0;width:330px;height:300px;overflow-y:auto">
+ <div id="panel">
+  <section id="s1">
+   <div><div>Symbol</div><div><div><input data-test-id="symbol_input" value="%SYMVAL%"></div></div></div>
+   <div>SOL</div>
+   <div class="row">
+    <button class="tb tp" onclick="pickType(this)" style="background:rgb(80, 87, 179)"><span>Market</span></button>
+    <button class="tb tp" onclick="pickType(this)"><span>Limit</span></button>
+    <button class="tb tp" onclick="pickType(this)"><span>Stop</span></button>
+    <button class="tb tp" onclick="pickType(this)"><span>OCO</span></button>
+   </div>
+  </section>
+  <section id="s2">
+   <div class="row">
+    <button class="tb sd" data-test-id="SELL" onclick="pickSide(this)"><span>Sell</span></button>
+    <button class="tb sd" data-test-id="BUY" onclick="pickSide(this)" style="background:rgb(26, 143, 109)"><span>Buy</span></button>
+   </div>
+   <div>
+    <div>Lots x 1 SOL</div>
+    <div><div><input id="q" inputmode="numeric" step="0.01" min="0.01"><button></button><button></button></div></div>
+   </div>
+   <div><div>Current Price (Ask)</div><span>120.00</span></div>
+  </section>
+  <section id="s3">
+   <div>Protection</div>
+   <div class="blk">
+    <div class="row"><div id="slt" data-value="false" onclick="tog(this)" style="width:26px;height:16px"></div><div>Stop Loss:</div></div>
+    <div class="row"><div><div><input id="sl" inputmode="numeric" disabled><button disabled></button></div></div>
+      <button disabled><div><div>%SLMODE%</div></div></button></div>
+    <div><div>Pips</div><div>0.0</div></div>
+   </div>
+   <div class="blk">
+    <div class="row"><div id="tpt" data-value="false" onclick="tog(this)" style="width:26px;height:16px"></div><div>Take Profit:</div></div>
+    <div class="row"><div><div><input id="tp" inputmode="numeric" disabled><button disabled></button></div></div>
+      <button disabled><div><div>Price</div></div></button></div>
+    <div><div>Pips</div><div>0.0</div></div>
+   </div>
+  </section>
+ </div>
+ <div id="footer" style="padding-top:200px"><button id="sub" onclick="window.__submits=(window.__submits||0)+1">Buy %SYM%</button></div>
+</div>
+</body></html>
+"""
+
+
+def _measured(sym="SOLUSD", symval="SOLUSD", slmode="Price"):
+    return MEASURED_SIDEBAR.replace("%SYMVAL%", symval).replace("%SYM%", sym).replace("%SLMODE%", slmode)
+
+
+def test_measured_sidebar_is_recognised_labels_selection_symbol_submit(tpage):
+    p = tpage(html=_measured())
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)
+    assert form["found"], form
+    assert form["fields"]["quantity"]["label"].startswith("Lots x")
+    assert form["fields"]["stop_loss"]["label"] == "Stop Loss:" and form["fields"]["take_profit"]["label"] == "Take Profit:"
+    assert form["selected"] == {"side": "buy", "order_type": "market"}      # by background only
+    assert form["symbol_value"] == "SOLUSD" and form["submit_outside_form"] is True
+    assert form["buttons"]["submit"] == "Buy SOLUSD"
+    assert [c["field"] for c in form["checkboxes"]] == ["stop_loss", "take_profit"]
+
+
+def test_measured_sidebar_disarmed_walk_passes_the_full_read_back(tpage):
+    p = tpage(html=_measured())
+    spec = BracketSpec("t1", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
+    assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert p.evaluate("window.__submits") is None
+
+
+def test_measured_sidebar_sell_is_selected_and_read_back_by_colour(tpage):
+    p = tpage(html=_measured())
+    spec = BracketSpec("t2", "SOLUSD", "short", 0.01, 126.0, 118.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+    assert att.form["selected"]["side"] == "sell" and att.form["submit"]["text"] == "Sell SOLUSD"
+
+
+def test_measured_sidebar_refuses_another_symbol(tpage):
+    p = tpage(html=_measured(sym="ETHUSD", symval="ETHUSD"))
+    spec = BracketSpec("t3", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and "does not name SOLUSD" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_measured_sidebar_stuck_toggle_refuses(tpage):
+    p = tpage(html=_measured().replace('id="tpt" data-value="false"', 'id="tpt" data-value="false" data-stuck="1"'))
+    spec = BracketSpec("t4", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and p.evaluate("window.__submits") is None
+
+
+def test_colour_selection_needs_a_unique_unselected_colour(tpage):
+    # Every toggle a different colour: no majority "unselected" colour → not readable.
+    html = _measured().replace('class="tb tp" onclick="pickType(this)"><span>Limit', 'class="tp" style="background:rgb(1,1,1)" onclick="pickType(this)"><span>Limit') \
+                      .replace('class="tb tp" onclick="pickType(this)"><span>Stop', 'class="tp" style="background:rgb(2,2,2)" onclick="pickType(this)"><span>Stop') \
+                      .replace('class="tb tp" onclick="pickType(this)"><span>OCO', 'class="tp" style="background:rgb(3,3,3)" onclick="pickType(this)"><span>OCO') \
+                      .replace('class="tb sd" data-test-id="SELL"', 'class="sd" style="background:rgb(4,4,4)" data-test-id="SELL"')
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(tpage(html=html))
+    assert form["selected"]["order_type"] is None
+
+
+def test_probe_on_the_measured_sidebar_reports_submit_candidates(tpage):
+    p = tpage(html=_measured())
+    got = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
+    assert got["surface"] == "dom" and got["symbol_value"] == "SOLUSD" and got["submit_outside_form"] is True
+    tp_ = got["ticket_panel"]
+    assert any(c["text"] == "Buy SOLUSD" for c in tp_["submit_candidates"])
+    assert {"step": "0.01", "min": "0.01"}.items() <= next(c for c in tp_["qty_constraints"]).items()
+    assert any(pp["overflow_y"] == "auto" for pp in tp_["panel_parents"])
+    assert p.evaluate("window.__submits") is None
