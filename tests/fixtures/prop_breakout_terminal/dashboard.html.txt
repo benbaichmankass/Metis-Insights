@@ -1,0 +1,5 @@
+<html><head><title>Breakout | Dashboard</title></head><body>
+<h1>Accounts</h1>
+<div class="card"><div>Balance</div><div>5,000.00</div><div>Equity</div><div>5,000.00</div>
+<a href="/terminal" target="_blank">Open Terminal</a></div>
+</body></html>

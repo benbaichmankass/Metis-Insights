@@ -633,7 +633,7 @@ def test_login_url_must_be_https(tmp_path):
     p.write_text("accounts:\n  x:\n    platform: dxtrade\n    login_url: http://wss.example/\n")
     with pytest.raises(ValueError):
         load_platform_config("x", p)
-    p.write_text("accounts:\n  x:\n    platform: dxtrade\n")
+    p.write_text("accounts:\n  x:\n    platform: dxtrade\n    login_url: ''\n")
     with pytest.raises(ValueError):
         load_platform_config("x", p)
 
@@ -662,13 +662,10 @@ def test_unknown_platform_and_account_raise(tmp_path):
         adapter_for_platform("mt5")
 
 
-def test_breakout_terminal_is_scoped_only():
-    a = adapter_for_platform("breakout_terminal")
-    assert isinstance(a, BreakoutTerminalAdapter)
-    for call in (lambda: a.login(None, "", "u", "p"), lambda: a.read_account(None),
-                 lambda: a.read_positions(None), lambda: a.read_orders(None)):
-        with pytest.raises(NotImplementedError):
-            call()
+def test_breakout_terminal_is_selectable():
+    # Built by PROP-TERM (2026-09-28); its behaviour is tested in
+    # tests/test_prop_platform_breakout_terminal.py.
+    assert isinstance(adapter_for_platform("breakout_terminal"), BreakoutTerminalAdapter)
 
 
 # ── order-control boundary, no anti-detection ──────────────────────────
@@ -676,18 +673,10 @@ def test_breakout_terminal_is_scoped_only():
 # adapter only; their behaviour is tested in tests/test_prop_executor.py.
 
 
-def test_breakout_terminal_order_controls_are_not_implemented():
-    a = adapter_for_platform("breakout_terminal")
-    for call in (lambda: a.place_bracket(None, None), lambda: a.modify_bracket(None, None, 1.0, 2.0),
-                 lambda: a.cancel_order(None, None), lambda: a.flatten(None),
-                 lambda: a.probe_order_ticket(None, "SOLUSD")):
-        with pytest.raises(NotImplementedError):
-            call()
-
-
-def test_dxtrade_order_controls_default_to_disarmed():
+@pytest.mark.parametrize("platform", ["dxtrade", "breakout_terminal"])
+def test_order_controls_default_to_disarmed(platform):
     import inspect
-    a = adapter_for_platform("dxtrade")
+    a = adapter_for_platform(platform)
     for name in ("place_bracket", "modify_bracket", "cancel_order", "flatten"):
         assert inspect.signature(getattr(a, name)).parameters["arm"].default is False, name
 
@@ -700,6 +689,9 @@ SLICE1_FILES = [
     REPO / "src" / "prop" / "prop_executor.py",
     REPO / "scripts" / "prop" / "prop_executor_tick.py",
     REPO / "scripts" / "ops" / "prop_executor_tick.sh",
+    REPO / "src" / "prop" / "platform" / "breakout_terminal.py",
+    REPO / "scripts" / "prop" / "breakout_terminal_probe.py",
+    REPO / "scripts" / "ops" / "breakout_terminal_probe_action.sh",
 ]
 
 

@@ -1,0 +1,3 @@
+<html><head><title>Breakout | Dashboard</title></head><body>
+<h1>Welcome</h1><p>You don't have any accounts yet.</p><a href="/shop">Buy a challenge</a>
+</body></html>

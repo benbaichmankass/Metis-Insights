@@ -166,6 +166,18 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
+    breakout-terminal-probe)
+        # READ-ONLY measurement of Breakout's proprietary terminal (PROP-TERM).
+        # Exit 4 is a FEASIBILITY finding, not a crash.
+        tier=2
+        case "${exit_code}" in
+            0) result="ok — probe completed (see run log)"; priority="normal" ;;
+            3) result="reached the terminal, read path partly unparsed"; priority="normal" ;;
+            4) result="feasibility stop (see run log)"; priority="high" ;;
+            5) result="environment — browser venv/Chromium unusable on the VM"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
+        esac
+        ;;
     breakout-login-check)
         # READ-ONLY prop-terminal login check. Exit 4 is a FEASIBILITY finding
         # (challenge / CAPTCHA / 2FA / login rejected), not a crash.

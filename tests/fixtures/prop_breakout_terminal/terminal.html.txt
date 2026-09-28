@@ -1,0 +1,33 @@
+<html><head><title>Breakout Terminal</title></head><body>
+<div class="metrics">
+  <div><span>Balance</span><span>5,012.40 USD</span></div>
+  <div><span>Equity</span><span>5,020.15 USD</span></div>
+  <div><span>Unrealized PnL</span><span>7.75</span></div>
+  <div><span>Available Balance</span><span>4,700.00</span></div>
+</div>
+<div role="tablist"><div role="tab">Positions (1)</div><div role="tab">Open Orders (1)</div></div>
+<div class="grid" id="pos">
+  <div class="row hdr"><div>Market</div><div>Side</div><div>Size</div><div>Entry Price</div><div>Mark Price</div><div>TP/SL</div><div>Unrealized PnL</div><div>Close</div></div>
+  <div class="row"><div>BTCUSD</div><div>Long</div><div>0.01</div><div>65,100.0</div><div>65,875.0</div><div>67,000.0 / 64,000.0</div><div>7.75</div><div><button>Close</button></div></div>
+</div>
+<table id="ord"><thead><tr><th>Market</th><th>Side</th><th>Type</th><th>Size</th><th>Price</th><th>TP/SL</th><th>Order ID</th><th></th></tr></thead>
+<tbody><tr><td>ETHUSD</td><td>Sell</td><td>Limit</td><td>0.5</td><td>3,100.0</td><td>2,950.0 / 3,180.0</td><td>A77</td><td><button>Cancel</button></td></tr></tbody></table>
+<div><span>One-click trading</span><input type="checkbox" id="oc"></div>
+<button id="open-ticket">New Order</button>
+<div id="ticket" style="display:none">
+  <div>BTCUSD</div>
+  <button id="b">Buy / Long</button><button id="s">Sell / Short</button>
+  <button id="m">Market</button><button id="l">Limit</button>
+  <label>Price <input id="px"></label>
+  <label>Size <input id="qty"></label>
+  <label>Take Profit <input id="tp"></label>
+  <label>Stop Loss <input id="sl"></label>
+  <button id="submit">Place Order</button><button id="x">Cancel</button>
+</div>
+<script>
+window.__clicks = [];
+document.getElementById('open-ticket').onclick = () => { document.getElementById('ticket').style.display = 'block'; };
+document.getElementById('x').onclick = () => { document.getElementById('ticket').style.display = 'none'; };
+for (const id of ['b','s','m','l','submit']) document.getElementById(id).addEventListener('click', () => window.__clicks.push(id));
+</script>
+</body></html>
