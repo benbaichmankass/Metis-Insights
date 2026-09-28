@@ -11,13 +11,21 @@ What it does, in order:
    stealth plugin, no user-agent or fingerprint change, no fake jitter.
 3. Logs in with the username/password env vars named in that config.
 4. Reads balance/equity, open positions and working orders.
-5. Prints them. Never prints the username, the password, or a cookie.
+5. Reads per-symbol instrument specs (digits, contract size, min qty, qty
+   step) for ``--symbols`` (default: ``BTCUSD,ETHUSD,SOLUSD,ADAUSD,XRPUSD`` —
+   BTC/ETH/SOL confirmed dxtrade symbols, ADA/XRP candidates pending
+   ``PI-20260927-ODDTM5QY-0002``). **NOT MEASURED** against this terminal —
+   a best-effort search + info-panel probe (``DXtradeAdapter.read_instrument_specs``);
+   a symbol it cannot read specs for reports every field ``None`` plus a
+   short redacted excerpt, never a fabricated number. ``--symbols=''`` skips
+   this read entirely.
+6. Prints all of it. Never prints the username, the password, or a cookie.
    When part of the read does not parse, also prints the adapter's REDACTED
    structure dump (``DXtradeAdapter.structure``: label elements, header rows,
    ancestor classes, visible text with e-mails/tokens/credentials stripped) so
    the selectors can be fixed from the public run log. Balances are printed;
    the operator allows them (the journal already records them).
-6. Only with ``--emit-status``: posts ONE ``account_status`` to the local
+7. Only with ``--emit-status``: posts ONE ``account_status`` to the local
    ``POST /api/bot/prop/report`` (the existing ingest chokepoint). Default OFF.
 
 What it can NOT do: click any order control. The adapter's order methods
@@ -48,6 +56,13 @@ if str(_REPO_ROOT) not in sys.path:
 from src.prop.platform import FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
 
 EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV = 0, 1, 3, 4, 5
+
+# BTCUSD/ETHUSD/SOLUSD are the operator-confirmed DXtrade symbols in
+# config/prop_rulesets/breakout_routing.yaml (2026-06-23). ADAUSD/XRPUSD are
+# CANDIDATE names only — the venue's convention of dropping the perp "T"
+# suffix, unconfirmed (PI-20260927-ODDTM5QY-0002) — this read either
+# confirms or refutes them, it does not assume them.
+DEFAULT_INSTRUMENT_SYMBOLS = ("BTCUSD", "ETHUSD", "SOLUSD", "ADAUSD", "XRPUSD")
 
 
 def build_status_report(account_id: str, snapshot: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -100,6 +115,10 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--dump-dir", default="",
                     help="write the post-login page text + extracted tables here (on the VM, "
                          "never to stdout) so selectors can be fixed from the first live run")
+    ap.add_argument("--symbols", default=None,
+                    help="comma-separated symbols to read instrument specs for "
+                         f"(default: {','.join(DEFAULT_INSTRUMENT_SYMBOLS)}); "
+                         "--symbols='' (empty) skips the instrument-spec read entirely")
     args = ap.parse_args(argv)
 
     cfg = load_platform_config(args.account)
@@ -184,6 +203,33 @@ def main(argv: Optional[list] = None) -> int:
                 except LookupError as le:
                     print(_redact(f"{label}: UNPARSED ({le})", username, password))
                     rc = EXIT_UNPARSED
+
+            if args.symbols is None:
+                symbols = list(DEFAULT_INSTRUMENT_SYMBOLS)
+            elif args.symbols == "":
+                symbols = []
+            else:
+                symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+            if symbols and hasattr(adapter, "read_instrument_specs"):
+                try:
+                    specs = adapter.read_instrument_specs(page, symbols)
+                except Exception as exc:
+                    print(_redact(f"instruments: ERROR ({type(exc).__name__}: {exc})",
+                                  username, password, limit=400))
+                    specs = []
+                for spec in specs:
+                    d = spec.as_dict()
+                    snippet = d.pop("raw_snippet", None)
+                    print(_redact(f"instrument: {json.dumps(d)}", username, password))
+                    if spec.unparsed:
+                        print(_redact(f"instrument_unparsed: {spec.symbol}: {', '.join(spec.unparsed)}",
+                                      username, password))
+                        rc = rc or EXIT_UNPARSED
+                    if snippet:
+                        print(_redact(f"instrument_raw_snippet[{spec.symbol}]: {snippet}",
+                                      username, password, limit=280))
+            elif symbols:
+                print("instruments: SKIPPED (adapter has no read_instrument_specs)")
 
             if rc == EXIT_UNPARSED and hasattr(adapter, "structure"):
                 try:

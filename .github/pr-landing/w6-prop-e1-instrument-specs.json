@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only prop probe, operator pre-authorised 2026-09-27",
+  "why": "Extends the read-only breakout-login-check to report per-symbol INSTRUMENT SPECS (DXtrade symbol, contract size, min/step quantity, digits) so PI-20260927-ODDTM5QY-0002 (ADAUSD/XRPUSD contract-size confirmation) and PI-20260927-ODDTM5QY-0004 (a real-browser cross-check of the Cloudflare-blocked /symbols/ page) can resolve without an operator ask. Adds DXtradeAdapter.read_instrument_specs (search a symbol, open an accessible-name specification panel if one exists, parse label/value pairs) and InstrumentSpec on the shared platform base; labels are explicitly marked NOT MEASURED (no served i18n dictionary entry for instrument specs has been found, unlike the account/table labels). A symbol with nothing parseable returns every field None plus a short redacted excerpt, never a fabricated number. breakout_login_check.py gains --symbols (default BTCUSD,ETHUSD,SOLUSD,ADAUSD,XRPUSD; --symbols='' skips it) and prints each spec through the existing redaction path; a new test plants a credential in the raw excerpt and proves it never reaches stdout. Still READ-ONLY: no code path clicks an order control, emit-status stays off by default. Touches src/prop/platform/base.py, src/prop/platform/dxtrade.py, src/prop/platform/__init__.py and scripts/prop/breakout_login_check.py (Tier-2 by path: the system action runs them on the live VM)."
+}

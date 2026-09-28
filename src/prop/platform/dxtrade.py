@@ -3,10 +3,20 @@
 Spec: ``docs/research/prop-automation-options-2026-09-27.md`` § 2.3.
 
 Slice 1 is the READ path only: ``login``, ``read_account``, ``read_positions``,
-``read_orders``. The order-control methods inherit the base class's
-``NotImplementedError``. Nothing in this module clicks an order control; the
-only clicks are the login button and (optionally) the Positions / Orders
-*view tabs*, which change what is displayed and nothing else.
+``read_orders``, ``read_instrument_specs``. The order-control methods
+inherit the base class's ``NotImplementedError``. Nothing in this module
+clicks an order control; the only clicks are the login button, the
+Positions / Orders *view tabs*, and (for ``read_instrument_specs``) a
+symbol search fill plus an instrument-info panel open by accessible name —
+none of them change anything, only what is displayed.
+
+``read_instrument_specs`` (W6-PROP-E1, 2026-09-28) is a best-effort probe:
+:data:`INSTRUMENT_SPEC_LABELS` and :data:`_INSTRUMENT_INFO_NAMES` are **NOT
+MEASURED** against this terminal — no served i18n dictionary entry for
+instrument specs has been found, unlike the account/position/order labels
+below. A symbol the terminal does not expose specs for (via this search+
+info-panel path) returns every field ``None`` with a short redacted
+``raw_snippet`` for debugging, never a fabricated number.
 
 Every DXtrade selector lives in :data:`SELECTORS` so the order-placing slice
 reuses them. Provenance of each selector:
@@ -46,6 +56,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 from src.prop.platform.base import (
     AccountSnapshot,
     FeasibilityError,
+    InstrumentSpec,
     Position,
     PropPlatformAdapter,
     WorkingOrder,
@@ -69,7 +80,22 @@ SELECTORS: Dict[str, str] = {
     # ── post-login view tabs (NOT MEASURED: matched by accessible name) ──
     "tab_positions": "Positions",
     "tab_orders": "Orders",
+    # ── instrument search / info (NOT MEASURED: best-effort guesses at
+    # common DXtrade white-label conventions, unverified against THIS
+    # terminal — see read_instrument_specs and its module-level note) ──
+    "symbol_search": ('input[type=search], input[placeholder*="Search" i], '
+                      'input[placeholder*="Symbol" i], [role=searchbox]'),
 }
+
+# Accessible names tried, in order, to open a per-symbol specification
+# panel. NOT MEASURED against this terminal — common DXtrade/MT-style
+# labels, tried across several ARIA roles since the panel's real markup is
+# unknown until a live run reports which (if any) matched.
+_INSTRUMENT_INFO_NAMES: Sequence[str] = (
+    "Instrument Info", "Symbol Info", "Contract Specification",
+    "Specification", "Instrument Details", "Info",
+)
+_INSTRUMENT_INFO_ROLES: Sequence[str] = ("tab", "button", "menuitem", "link")
 
 # Text markers of an interstitial bot challenge (Cloudflare and similar).
 _CHALLENGE_MARKERS = (
@@ -106,6 +132,19 @@ ACCOUNT_LABELS: Dict[str, Sequence[str]] = {
     "margin_used": ("Used Margin", "Initial Margin", "IM", "Margin"),
     # metric.name.short.availableFunds (= "Free Margin") / multiasset.availableFunds
     "available": ("Free Margin", "Available Funds", "Available"),
+}
+
+# Per-instrument specification labels. **NOT MEASURED** — unlike
+# ACCOUNT_LABELS these are not sourced from a served i18n dictionary (no
+# such dictionary entry for instrument specs has been found yet); they are
+# best-effort guesses at common DXtrade/MT-style terminology, most specific
+# first. A field this misses stays ``None`` and lands in
+# ``InstrumentSpec.unparsed`` rather than being fabricated.
+INSTRUMENT_SPEC_LABELS: Dict[str, Sequence[str]] = {
+    "digits": ("Digits", "Price Precision", "Decimal Places"),
+    "contract_size": ("Contract Size", "Lot Size", "Unit Size", "Contract Unit"),
+    "min_qty": ("Min Volume", "Minimum Volume", "Min Lot", "Min Quantity", "Min Qty"),
+    "qty_step": ("Volume Step", "Lot Step", "Qty Step", "Volume Increment", "Step"),
 }
 
 
@@ -223,6 +262,32 @@ def parse_account_metrics(page_text: str) -> AccountSnapshot:
             if m and not snap.currency:
                 snap.currency = m.group(1)
     return snap
+
+
+def parse_instrument_spec(symbol: str, page_text: str, raw_snippet: Optional[str] = None) -> InstrumentSpec:
+    """Read labelled instrument-spec fields out of the visible page text.
+
+    Same label/value scanning as :func:`parse_account_metrics`, over
+    :data:`INSTRUMENT_SPEC_LABELS` instead of ``ACCOUNT_LABELS``. ``digits``
+    is coerced to ``int`` when parseable; every other field stays a float.
+    Never fabricates a number for a label it did not find.
+    """
+    text = page_text or ""
+    all_labels = sorted({lb for lbs in INSTRUMENT_SPEC_LABELS.values() for lb in lbs},
+                        key=len, reverse=True)
+    text = re.sub(r"(?<=[\d)])(?=(?:" + "|".join(re.escape(lb) for lb in all_labels) + r"))", "\n", text)
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    spec = InstrumentSpec(symbol=symbol, raw_snippet=raw_snippet)
+    for fld, labels in INSTRUMENT_SPEC_LABELS.items():
+        raw = _label_value_pairs(lines, labels)
+        val = parse_number(raw)
+        if val is None:
+            spec.unparsed.append(fld)
+        elif fld == "digits":
+            spec.digits = int(val)
+        else:
+            setattr(spec, fld, val)
+    return spec
 
 
 def _norm(h: str) -> str:
@@ -823,3 +888,55 @@ class DXtradeAdapter(PropPlatformAdapter):
         if got is None:
             raise LookupError("no orders table found on the page (selector drift or unmeasured layout)")
         return got
+
+    # ---- instrument specs (NOT MEASURED — best-effort; see the module note
+    # on INSTRUMENT_SPEC_LABELS) -----------------------------------------
+    def _search_symbol(self, page: Any, symbol: str) -> bool:
+        """Type ``symbol`` into a search box, if one exists. Read-only: it
+        fills an input and never submits an order form."""
+        try:
+            loc = page.locator(SELECTORS["symbol_search"])
+            if loc.count() == 0:
+                return False
+            loc.first.fill(symbol, timeout=3_000)
+            page.wait_for_timeout(800)
+            return True
+        except Exception:
+            return False
+
+    def _open_instrument_info(self, page: Any) -> bool:
+        """Click a specification/info panel by accessible name, if one
+        exists among :data:`_INSTRUMENT_INFO_NAMES`. View-only, like
+        :meth:`_show_tab` — never a button whose text is not an exact name
+        from that list."""
+        for name in _INSTRUMENT_INFO_NAMES:
+            name_re = self._tab_name_re(name)
+            for role in _INSTRUMENT_INFO_ROLES:
+                try:
+                    loc = page.get_by_role(role, name=name_re)
+                    if loc.count() > 0:
+                        loc.first.click(timeout=3_000)
+                        page.wait_for_timeout(500)
+                        return True
+                except Exception:
+                    continue
+        return False
+
+    def read_instrument_specs(self, page: Any, symbols: Sequence[str]) -> List[InstrumentSpec]:
+        out: List[InstrumentSpec] = []
+        for sym in symbols:
+            self._search_symbol(page, sym)
+            self._open_instrument_info(page)
+            text = self._page_text(page)
+            snippet = None
+            spec = parse_instrument_spec(sym, text)
+            if spec.unparsed == list(INSTRUMENT_SPEC_LABELS.keys()):
+                # Nothing at all parsed for this symbol: keep a short
+                # excerpt around the symbol's own mention, if it appears,
+                # to help fix selectors from the (redacted) public log.
+                idx = text.lower().find(sym.lower())
+                if idx >= 0:
+                    snippet = text[max(0, idx - 80):idx + 200].strip()
+                spec.raw_snippet = snippet
+            out.append(spec)
+        return out

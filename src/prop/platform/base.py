@@ -84,6 +84,32 @@ class WorkingOrder:
         return asdict(self)
 
 
+@dataclass
+class InstrumentSpec:
+    """Per-symbol instrument specification as read off the terminal.
+
+    ``symbol`` is the name this read searched for (the terminal's own
+    symbol, e.g. ``ADAUSD``, not the bot's canonical ``ADAUSDT``). A field
+    that could not be read is ``None`` — never ``0`` or ``1`` — and its
+    label is listed in ``unparsed`` so "we could not look" stays
+    distinguishable from "we looked and it is zero/one". ``raw_snippet`` is
+    a short, redacted-before-print excerpt of the panel text near the
+    symbol, kept only to help fix selectors when nothing else parsed —
+    never printed unredacted (see ``dxtrade.redact_text``).
+    """
+
+    symbol: str
+    digits: Optional[int] = None
+    contract_size: Optional[float] = None
+    min_qty: Optional[float] = None
+    qty_step: Optional[float] = None
+    unparsed: List[str] = field(default_factory=list)
+    raw_snippet: Optional[str] = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
 class PropPlatformAdapter:
     """One terminal. ``page`` is a Playwright ``Page`` (sync API)."""
 
@@ -100,6 +126,18 @@ class PropPlatformAdapter:
         raise NotImplementedError
 
     def read_orders(self, page: Any) -> List[WorkingOrder]:
+        raise NotImplementedError
+
+    def read_instrument_specs(self, page: Any, symbols: List[str]) -> List["InstrumentSpec"]:
+        """One :class:`InstrumentSpec` per requested symbol, same order.
+
+        Read-only: looks up each symbol (e.g. via a search box) and reads
+        whatever specification panel that surfaces, if any. Never clicks an
+        order control. A symbol the terminal does not expose specs for
+        returns an ``InstrumentSpec`` with every field ``None`` and all of
+        them listed in ``unparsed`` — not a raised error — so a caller can
+        report per-symbol coverage rather than failing the whole read.
+        """
         raise NotImplementedError
 
     # ── slice 2: order controls — deliberately NOT implemented ─────────

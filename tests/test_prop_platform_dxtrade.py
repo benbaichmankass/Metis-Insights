@@ -38,6 +38,7 @@ from src.prop.platform.dxtrade import (
     classify_login_state,
     orders_from_tables,
     parse_account_metrics,
+    parse_instrument_spec,
     parse_number,
     positions_from_tables,
     redact_text,
@@ -283,6 +284,122 @@ def test_parse_account_metrics_on_concatenated_inline_text():
     assert (snap.balance, snap.equity, snap.available) == (4724.0, 4731.2, 4581.2)
 
 
+# ── instrument specs (INVENTED post-panel fixtures — NOT MEASURED against
+# this terminal; see the read_instrument_specs module note) ────────────────
+
+
+def test_parse_instrument_spec_on_invented_labels():
+    text = "Contract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"
+    spec = parse_instrument_spec("ETHUSD", text)
+    assert spec.symbol == "ETHUSD"
+    assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (1.0, 2, 0.01, 0.01)
+    assert spec.unparsed == []
+
+
+def test_parse_instrument_spec_nothing_readable_is_all_unparsed_never_fabricated():
+    spec = parse_instrument_spec("ADAUSD", "Log In\nUsername\nPassword\n")
+    assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (None, None, None, None)
+    assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
+
+
+def test_parse_instrument_spec_partial_read_names_only_the_missing_fields():
+    spec = parse_instrument_spec("XRPUSD", "Contract Size\n1.00\n")
+    assert spec.contract_size == 1.0
+    assert set(spec.unparsed) == {"digits", "min_qty", "qty_step"}
+
+
+class _SpecLocator:
+    def __init__(self, count: int = 0, on_first_action=None) -> None:
+        self._count = count
+        self._on_first_action = on_first_action
+        self.filled: list = []
+        self.clicked = 0
+
+    def count(self):
+        return self._count
+
+    @property
+    def first(self):
+        return self
+
+    def fill(self, value, timeout=None):
+        self.filled.append(value)
+        if self._on_first_action:
+            self._on_first_action()
+
+    def click(self, timeout=None):
+        self.clicked += 1
+        if self._on_first_action:
+            self._on_first_action()
+
+
+class _SpecFakePage:
+    """Enough of a Page to drive DXtradeAdapter.read_instrument_specs. No
+    ``.frames`` attribute, so ``_frames`` falls back to ``[page]`` (the
+    documented fake-without-frames case)."""
+
+    def __init__(self, before: str, after: str = "", has_search: bool = True,
+                info_role: str = "", info_name: str = "") -> None:
+        self.text = before
+        self._after = after
+        self.has_search = has_search
+        self._info_role, self._info_name = info_role, info_name
+        # The search box only fills; opening the specs panel is a separate
+        # click, so only that locator's action reveals ``after``.
+        self.search_locator = _SpecLocator(1 if has_search else 0)
+
+    def _open(self):
+        self.text = self._after
+
+    def locator(self, sel):
+        if sel == SELECTORS["symbol_search"]:
+            return self.search_locator
+        return _SpecLocator(0)
+
+    def get_by_role(self, role, name=None):
+        if role == self._info_role and self._info_name and name.match(self._info_name):
+            return _SpecLocator(1, on_first_action=self._open)
+        return _SpecLocator(0)
+
+    def inner_text(self, *a, **k):
+        return self.text
+
+    def wait_for_timeout(self, *a):
+        pass
+
+
+def test_read_instrument_specs_parses_after_search_and_info_panel_click():
+    page = _SpecFakePage(
+        before="Log In\nUsername\nPassword\n",
+        after="Contract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n",
+        info_role="tab", info_name="Instrument Info",
+    )
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ETHUSD"])
+    assert len(specs) == 1
+    assert page.search_locator.filled == ["ETHUSD"]
+    assert (specs[0].contract_size, specs[0].digits) == (1.0, 2)
+    assert specs[0].unparsed == [] and specs[0].raw_snippet is None
+
+
+def test_read_instrument_specs_when_the_terminal_exposes_nothing_names_every_field_and_keeps_a_snippet():
+    # No search box, no info panel — the terminal never surfaces specs this
+    # way. Every field stays None (never fabricated) and a short excerpt
+    # around the symbol's own mention is kept for the next fix.
+    page = _SpecFakePage(before="Watchlist\nADAUSD 0.4210 +1.2%\nXRPUSD 0.5820 -0.3%", has_search=False)
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"])
+    assert len(specs) == 1
+    spec = specs[0]
+    assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (None, None, None, None)
+    assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
+    assert spec.raw_snippet and "ADAUSD" in spec.raw_snippet
+
+
+def test_read_instrument_specs_preserves_symbol_order():
+    page = _SpecFakePage(before="nothing here", has_search=False)
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["BTCUSD", "ETHUSD", "SOLUSD"])
+    assert [s.symbol for s in specs] == ["BTCUSD", "ETHUSD", "SOLUSD"]
+
+
 # Column headers as the served dictionary spells them.
 MULTIASSET_POS = {"headers": ["Symbol", "Side", "Position Qty", "Avg Fill Price", "Open P/L, acc", "Type"],
                   "rows": [["MNQ", "Sell", "2", "20,100.25", "-15.00", "Future"]]}
@@ -414,7 +531,8 @@ def test_breakout_terminal_is_scoped_only():
     a = adapter_for_platform("breakout_terminal")
     assert isinstance(a, BreakoutTerminalAdapter)
     for call in (lambda: a.login(None, "", "u", "p"), lambda: a.read_account(None),
-                 lambda: a.read_positions(None), lambda: a.read_orders(None)):
+                 lambda: a.read_positions(None), lambda: a.read_orders(None),
+                 lambda: a.read_instrument_specs(None, ["ETHUSD"])):
         with pytest.raises(NotImplementedError):
             call()
 
