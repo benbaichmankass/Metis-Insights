@@ -1071,3 +1071,35 @@ def test_one_click_dump_reads_structure_never_values(tpage):
     assert any(k["is_label"] for k in kids)
     probe = a.probe_order_ticket(p, "SOLUSD")
     assert probe["surface"] == "not_opened" and probe["one_click_dump"]["found"]
+
+
+def test_controls_dump_masks_digits_and_never_reads_values(tpage):
+    """Probe 2026-09-28 (#13742): no opener matched on the live terminal, which
+    tags controls with data-test-id. The control map must carry no account
+    number, balance or input value (it goes to a PUBLIC run log)."""
+    html = ("<div data-test-id='account_balance'>Balance 5,012.34 acct 823528</div>"
+            "<button data-test-id='trade_panel_toggle' style='position:fixed;top:4px;right:6px;width:20px;height:20px'>"
+            "<svg width='16' height='16'><path d='M0 0L8 8'/></svg></button>"
+            "<button data-test-id='order_entry_open' aria-label='Order 77'>Trade</button>"
+            "<button title='Help'>Contact jane.doe@example.com</button>"
+            "<div class='header-user-menu'>Jane Doe</div>"
+            "<button data-test-id='account_menu' aria-label='Jane Doe'>Jane Doe</button>"
+            "<div role='tab' aria-selected='true' data-test-id='side_buy'>Buy</div>"
+            "<div><span>Quantity</span><input data-test-id='qty' value='hunter2-823528'></div>"
+            "<table><tbody><tr><td data-test-id='row'>SOLUSD 120.5</td></tr></tbody></table>")
+    p = tpage(html=html)
+    dump = DXtradeAdapter(timeout_ms=3_000).controls_dump(p)
+    icon = next(c for c in dump["controls"] if c["tid"] == "trade_panel_toggle")
+    assert icon["svg"] is True and icon["box"][1] == 4 and icon["right_gap"] == 6 and icon["text"] == ""
+    blob = json.dumps([{k: v for k, v in c.items() if k not in ("box", "right_gap")} for c in dump["controls"]])
+    assert dump["found"] and "hunter2" not in blob and not any(c.isdigit() for c in blob)
+    assert "@" not in blob and "jane" not in blob.lower() and "<email>" in blob
+    menu = next(c for c in dump["controls"] if c["tid"] == "account_menu")
+    assert menu == {"tag": "button", "tid": "account_menu", "personal": True}
+    tids = {c["tid"] for c in dump["controls"]}
+    assert {"account_balance", "order_entry_open", "side_buy", "qty"} <= tids and "row" not in tids
+    side = next(c for c in dump["controls"] if c["tid"] == "side_buy")
+    assert side["state"]["aria-selected"] == "true" and side["role"] == "tab"
+    assert next(c for c in dump["controls"] if c["tid"] == "qty")["label"] == "Quantity"
+    probe = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
+    assert probe["surface"] == "not_opened" and probe["controls_dump"]["found"]
