@@ -1,0 +1,1 @@
+RQ-RUN: dispatcher sends the runner only declared inputs — arms auto-merge for claude/rq-run-dispatch-inputs
