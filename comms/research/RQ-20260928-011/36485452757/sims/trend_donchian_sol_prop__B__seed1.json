@@ -1,0 +1,272 @@
+{
+  "tool": "scripts/research/prop_ev_sim.py",
+  "commit_sha": "a5533f9241cd79a708124e0b203a6b115c6653f4",
+  "decision_rule": {
+    "id": "RULE-B6-PROP-EV-PER-ACCOUNT-LIFE",
+    "registered_at": "2026-09-27T06:27:22Z",
+    "rule": "Operator bar (B6, 2026-09-22): E[profit before the account dies] > the account cost. Predicate over this tool's output for ONE account life, net of the account fee: PASS if the 5th percentile of the outer-bootstrap (evidence) distribution of mean net-$ per life is > 0 under the `bridge` intra-trade model AND the point estimate is > 0 under the `stop` bound; FAIL if the 95th percentile of that distribution is < 0 under the `realized` (optimistic) model; otherwise INDETERMINATE. Descriptive of the book; does not itself authorize or perform any roster, execution or sizing change (Tier-3).",
+    "verdict": "indeterminate",
+    "reason": "bridge evidence-p5 -39.71, stop point +34.33, realized evidence-p95 +889.12 \u2014 neither clause decides"
+  },
+  "decision_rule_v2": {
+    "id": "RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2",
+    "registered_at": "2026-09-27T07:05:00Z",
+    "rule": "Same bar as V1 (E[net-$ per account life, after the fee] > 0). PASS if the 5th percentile of the outer-bootstrap (evidence) distribution of mean net-$ per life under the `path` model is > 0; FAIL if its 95th percentile is < 0; otherwise INDETERMINATE. `realized` and `stop` are reported as the optimistic / pessimistic bounds and do not enter the predicate. Descriptive; authorizes nothing (Tier-3).",
+    "verdict": "indeterminate",
+    "reason": "path evidence CI [-38.22, +674.58] straddles 0"
+  },
+  "inputs": {
+    "legs": {
+      "trend_donchian_sol_prop": {
+        "n": 65,
+        "net_r_total_after_cost_model": 5.0492,
+        "expectancy_r": 0.0777,
+        "mean_cost_r": 0.0634,
+        "rows_with_mfe": 65
+      }
+    },
+    "provenance": {},
+    "history_day0": "2025-09-28T00:00:00+00:00",
+    "history_days": 362,
+    "n_trades": 65
+  },
+  "config": {
+    "rules": {
+      "start": 5000.0,
+      "target_pct": 0.1,
+      "daily_loss_pct": 0.03,
+      "max_dd_pct": 0.06,
+      "fee": 45.0,
+      "profit_split": 0.8,
+      "first_payout_after_days": 14.0,
+      "payout_frequency_days": 7.0,
+      "min_withdrawal": 50.0,
+      "withdraw_buffer": 0.0,
+      "funded_start": "fresh",
+      "first_payout_refund": false
+    },
+    "sim": {
+      "risk_pct": 0.015,
+      "sizing": "start",
+      "room_frac": 0.45,
+      "min_risk_usd": 1.0,
+      "start_balance": null,
+      "funded_start": "fresh",
+      "approval_days": 1.0,
+      "horizon_days": 730.0,
+      "block_days": 30,
+      "first_payout_refund": false,
+      "stop_at_pass": false
+    },
+    "costs": {
+      "mode": "breakout",
+      "commission_bps_rt": 8.0,
+      "slippage_bps_rt": 3.0,
+      "swap_daily": 0.00033,
+      "swap_model": "dxtrade"
+    }
+  },
+  "results": {
+    "realized": {
+      "n_lives": 4000,
+      "ev_net_usd_per_life": 134.05,
+      "ev_net_usd_per_life_mc_se": 5.33,
+      "ev_banked_usd_per_life": 179.05,
+      "account_fee_usd": 45.0,
+      "p_pass_eval": 0.52,
+      "p_death_before_first_payout": 0.5975,
+      "p_death_before_first_payout_given_funded": 0.2298,
+      "p_net_positive": 0.3733,
+      "p_alive_at_horizon": 0.015,
+      "lifetime_days": {
+        "mean": 214.1,
+        "p50": 178.6,
+        "p90": 437.6
+      },
+      "days_to_pass": {
+        "p50": 118.7,
+        "p90": 312.2
+      },
+      "net_usd_percentiles": {
+        "p5": -45.0,
+        "p25": -45.0,
+        "p50": -45.0,
+        "p75": 200.65,
+        "p95": 821.66
+      },
+      "mean_payouts_per_life": 1.55,
+      "mean_trades_per_life": 38.2,
+      "mean_trades_skipped_leg_busy_per_life": 0.2,
+      "death_causes": {
+        "eval:daily_loss": 5,
+        "eval:static_drawdown": 1907,
+        "funded:daily_loss": 2,
+        "funded:static_drawdown": 2026
+      },
+      "ev_net_usd_per_365d_with_rebuy": 228.49,
+      "evidence_ci": {
+        "method": "outer block bootstrap of the history (100 re-drawn histories x 200 lives)",
+        "ev_net_usd_p5": -39.65,
+        "ev_net_usd_p50": 89.12,
+        "ev_net_usd_p95": 889.12,
+        "p_ev_positive": 0.78,
+        "p_pass_eval_p5": 0.0887,
+        "p_pass_eval_p95": 0.8952
+      },
+      "counters": {
+        "skipped_in_approval_gap": 881
+      }
+    },
+    "bridge": {
+      "n_lives": 4000,
+      "ev_net_usd_per_life": 47.41,
+      "ev_net_usd_per_life_mc_se": 3.72,
+      "ev_banked_usd_per_life": 92.41,
+      "account_fee_usd": 45.0,
+      "p_pass_eval": 0.3548,
+      "p_death_before_first_payout": 0.7502,
+      "p_death_before_first_payout_given_funded": 0.2967,
+      "p_net_positive": 0.2283,
+      "p_alive_at_horizon": 0.0005,
+      "lifetime_days": {
+        "mean": 118.3,
+        "p50": 89.0,
+        "p90": 255.5
+      },
+      "days_to_pass": {
+        "p50": 85.3,
+        "p90": 202.5
+      },
+      "net_usd_percentiles": {
+        "p5": -45.0,
+        "p25": -45.0,
+        "p50": -45.0,
+        "p75": -45.0,
+        "p95": 533.66
+      },
+      "mean_payouts_per_life": 0.8,
+      "mean_trades_per_life": 21.0,
+      "mean_trades_skipped_leg_busy_per_life": 0.1,
+      "death_causes": {
+        "eval:daily_loss": 1630,
+        "eval:static_drawdown": 950,
+        "funded:daily_loss": 536,
+        "funded:static_drawdown": 882
+      },
+      "ev_net_usd_per_365d_with_rebuy": 146.27,
+      "evidence_ci": {
+        "method": "outer block bootstrap of the history (100 re-drawn histories x 200 lives)",
+        "ev_net_usd_p5": -39.71,
+        "ev_net_usd_p50": 40.49,
+        "ev_net_usd_p95": 502.49,
+        "p_ev_positive": 0.76,
+        "p_pass_eval_p5": 0.0548,
+        "p_pass_eval_p95": 0.7767
+      },
+      "counters": {
+        "skipped_in_approval_gap": 651
+      }
+    },
+    "stop": {
+      "n_lives": 4000,
+      "ev_net_usd_per_life": 34.33,
+      "ev_net_usd_per_life_mc_se": 3.19,
+      "ev_banked_usd_per_life": 79.33,
+      "account_fee_usd": 45.0,
+      "p_pass_eval": 0.3295,
+      "p_death_before_first_payout": 0.771,
+      "p_death_before_first_payout_given_funded": 0.305,
+      "p_net_positive": 0.2095,
+      "p_alive_at_horizon": 0.0,
+      "lifetime_days": {
+        "mean": 104.0,
+        "p50": 79.0,
+        "p90": 223.7
+      },
+      "days_to_pass": {
+        "p50": 82.7,
+        "p90": 187.8
+      },
+      "net_usd_percentiles": {
+        "p5": -45.0,
+        "p25": -45.0,
+        "p50": -45.0,
+        "p75": -45.0,
+        "p95": 485.16
+      },
+      "mean_payouts_per_life": 0.69,
+      "mean_trades_per_life": 18.5,
+      "mean_trades_skipped_leg_busy_per_life": 0.09,
+      "death_causes": {
+        "eval:daily_loss": 1778,
+        "eval:static_drawdown": 904,
+        "funded:daily_loss": 468,
+        "funded:static_drawdown": 850
+      },
+      "ev_net_usd_per_365d_with_rebuy": 120.5,
+      "evidence_ci": {
+        "method": "outer block bootstrap of the history (100 re-drawn histories x 200 lives)",
+        "ev_net_usd_p5": -43.84,
+        "ev_net_usd_p50": 47.02,
+        "ev_net_usd_p95": 253.48,
+        "p_ev_positive": 0.68,
+        "p_pass_eval_p5": 0.0297,
+        "p_pass_eval_p95": 0.6655
+      },
+      "counters": {
+        "skipped_in_approval_gap": 581
+      }
+    },
+    "path": {
+      "n_lives": 4000,
+      "ev_net_usd_per_life": 111.47,
+      "ev_net_usd_per_life_mc_se": 5.06,
+      "ev_banked_usd_per_life": 156.47,
+      "account_fee_usd": 45.0,
+      "p_pass_eval": 0.496,
+      "p_death_before_first_payout": 0.6275,
+      "p_death_before_first_payout_given_funded": 0.252,
+      "p_net_positive": 0.3395,
+      "p_alive_at_horizon": 0.0073,
+      "lifetime_days": {
+        "mean": 188.6,
+        "p50": 153.1,
+        "p90": 392.5
+      },
+      "days_to_pass": {
+        "p50": 115.3,
+        "p90": 293.4
+      },
+      "net_usd_percentiles": {
+        "p5": -45.0,
+        "p25": -45.0,
+        "p50": -45.0,
+        "p75": 120.53,
+        "p95": 773.82
+      },
+      "mean_payouts_per_life": 1.37,
+      "mean_trades_per_life": 33.9,
+      "mean_trades_skipped_leg_busy_per_life": 0.18,
+      "death_causes": {
+        "eval:daily_loss": 7,
+        "eval:static_drawdown": 2003,
+        "funded:daily_loss": 5,
+        "funded:static_drawdown": 1956
+      },
+      "ev_net_usd_per_365d_with_rebuy": 215.72,
+      "evidence_ci": {
+        "method": "outer block bootstrap of the history (100 re-drawn histories x 200 lives)",
+        "ev_net_usd_p5": -38.22,
+        "ev_net_usd_p50": 82.08,
+        "ev_net_usd_p95": 674.58,
+        "p_ev_positive": 0.76,
+        "p_pass_eval_p5": 0.0945,
+        "p_pass_eval_p95": 0.8402
+      },
+      "counters": {
+        "path_mfe_outside_band": 3237,
+        "skipped_in_approval_gap": 865
+      }
+    }
+  }
+}
