@@ -166,14 +166,26 @@ def cmd_prepare(a: argparse.Namespace) -> int:
 def mode_changes(before: str, after: str) -> List[Dict[str, Optional[str]]]:
     """Every account whose parsed `mode` differs between two accounts.yaml texts.
 
-    Parsed with PyYAML rather than regex so a comment-only edit (which changes
-    nothing that trades) is not reported. An account that is new in `after`
-    counts as a change from None."""
-    import yaml
+    Parsed through the canonical loader (`src.config.accounts_loader`), not
+    regex, so a comment-only edit (which changes nothing that trades) is not
+    reported. An account that is new in `after` counts as a change from None.
+    ⚠️ A PARSE FAILURE RAISES. The loader returns {} on a bad file, and folding
+    that into "no changes" would skip the verification of a real flip."""
+    import tempfile
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from src.config.accounts_loader import load_accounts_dict
 
     def modes(t: str) -> Dict[str, Optional[str]]:
-        doc = yaml.safe_load(t) if t.strip() else {}
-        accts = (doc or {}).get("accounts") or {}
+        if not t.strip():
+            return {}
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "accounts.yaml"
+            path.write_text(t, encoding="utf-8")
+            errors: List[Dict[str, object]] = []
+            accts = load_accounts_dict(path, errors=errors)
+        if errors:
+            raise ValueError(f"accounts.yaml did not parse: {errors[0].get('error')}")
         return {k: (str(v.get("mode")) if isinstance(v, dict) and v.get("mode") is not None else None)
                 for k, v in accts.items()}
 
