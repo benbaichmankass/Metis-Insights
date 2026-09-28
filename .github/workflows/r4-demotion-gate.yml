@@ -258,8 +258,12 @@ jobs:
                                 text=True, check=True).stdout.strip()
           removals = a.roster_removals(a._yaml_text(a.blob(root, base, a.ACCOUNTS_REL)),
                                        a._yaml_text(a.blob(root, head, a.ACCOUNTS_REL)))
+          # window + event bind the run's INPUTS (re-review N1 on #13609): A7
+          # refuses any window other than the declared default above.
           print(json.dumps({"run_id": os.environ["GITHUB_RUN_ID"], "branch": branch,
-                            "head_sha": head, "removals": removals}, indent=2))
+                            "head_sha": head, "removals": removals,
+                            "window": os.environ["WINDOW"],
+                            "event": os.environ["GITHUB_EVENT_NAME"]}, indent=2))
           PY
           cat "${RUNNER_TEMP}/provenance/provenance.json"
           {
