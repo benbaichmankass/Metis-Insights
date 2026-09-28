@@ -81,7 +81,8 @@ def read_mode(text: str, account: str) -> Optional[str]:
 def edit_mode(text: str, account: str, mode: str, marker: str) -> Tuple[str, Optional[str]]:
     """Return (new_text, pre_mode). Replaces ONLY `account`'s `mode:` line.
 
-    The line's trailing comment is replaced by `marker`, which records the run
+    `marker` goes first in the line's comment, followed by the original comment.
+    The marker records the run
     that made the change. When the new mode is `dry_run`, the marker also has to
     carry `mode-guard: allow`, the operator marker that
     `scripts/check_dry_run_in_diff.py` requires on a demotion."""
@@ -94,13 +95,38 @@ def edit_mode(text: str, account: str, mode: str, marker: str) -> Tuple[str, Opt
     pre = read_mode(text, account)
     start, end = _block(text, account)
     block = text[start:end]
+    # The line's ORIGINAL trailing comment is kept after the marker. Some
+    # accounts continue it on the following comment-only lines (alpaca_live),
+    # and dropping it would leave those lines continuing nothing.
+    def _sub(mm: "re.Match[str]") -> str:
+        orig = (mm.group(2) or "").strip()[1:].strip()
+        # A previous flip's marker is not history worth nesting: keep only
+        # the original comment it carried, if any.
+        if "set-account-mode run " in orig:
+            orig = orig.split(" | was: ", 1)[1] if " | was: " in orig else ""
+        tail = f" | was: {orig}" if orig else ""
+        return f"{mm.group(1)}{mode}  # {marker}{tail}"
     new_block, n = re.subn(
-        r"^(\s{4}mode:\s*)\S+.*$",
-        lambda mm: f"{mm.group(1)}{mode}  # {marker}",
-        block, count=1, flags=re.MULTILINE)
+        r"^(\s{4}mode:\s*)[^\s#]+[ \t]*(#.*)?$",
+        _sub, block, count=1, flags=re.MULTILINE)
     if n != 1:
         raise LookupError(f"no `mode:` line in the {account!r} block")
     return text[:start] + new_block + text[end:], pre
+
+
+def runtime_status_path() -> Path:
+    """Where the RUNNING trader writes runtime_status.json.
+
+    Resolved by the same helper the trader uses (`src.utils.paths.
+    runtime_logs_dir()`), so it honours RUNTIME_LOGS_DIR / DATA_DIR. The caller
+    must already carry the trader's environment. verify_account_mode.sh gets it
+    from `load_runtime_env`. On the live VM this is
+    /data/bot-data/runtime_logs/runtime_status.json, NOT the legacy
+    <repo>/runtime_logs copy."""
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from src.utils.paths import runtime_logs_dir
+    return runtime_logs_dir() / "runtime_status.json"
 
 
 def marker_for(mode: str, run_id: str, reason: str) -> str:

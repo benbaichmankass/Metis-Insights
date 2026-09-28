@@ -45,8 +45,10 @@ name: system-actions
 #   * DIAG_READ_TOKEN   — bearer for the read-only diag surface
 #                         (used for post-action /api/diag/services
 #                         verification; init-diag-token ROTATES it)
-#   * BRANCH_PROTECTION_TOKEN — repo PAT; read ONLY by init-diag-token, to
-#                         write the rotated value back to DIAG_READ_TOKEN
+#   * BRANCH_PROTECTION_TOKEN — repo PAT; read by TWO actions:
+#                         init-diag-token (writes the rotated value back to
+#                         DIAG_READ_TOKEN) and set-account-mode (pushes the
+#                         mode-change branch and opens its PR, JC-CA-01)
 #
 # Optional repo variables:
 #   * VM_SSH_HOST       — defaults to 141.145.193.91 (Ampere live trader; was the
@@ -257,8 +259,18 @@ permissions:
 
 # Serialise. Two system-actions on the same VM at the same time is
 # never desired and likely buggy.
+#
+# ⚠️ EXCEPT verify-account-mode, which gets its OWN group per account
+# (review finding on #13508, 2026-09-28). It is read-only and polls for up to
+# 600 s. In the shared group it would (a) hold an emergency flatten/stop behind
+# it for up to 10 min, and (b) lose verifies: GitHub keeps only ONE pending run
+# per group, so a newer dispatch silently CANCELS the older pending one. A
+# merge that changes 3+ accounts dispatches 3+ verifies in a loop. Per-account
+# groups mean only a newer verify of the SAME account can replace a pending
+# one, and that newer one is the verify worth having. Issue-triggered runs have
+# empty `inputs` and always land in the shared group.
 concurrency:
-  group: system-actions
+  group: ${{ inputs.action == 'verify-account-mode' && format('system-actions-verify-account-mode-{0}', inputs.account_id) || 'system-actions' }}
   cancel-in-progress: false
 
 jobs:
@@ -1191,6 +1203,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -q -b "${branch}"
+          # An earlier set-account-mode PR for this account that is still OPEN
+          # would conflict with this one, or would silently undo it if it merged
+          # later. It is reported, never auto-closed: closing a Tier-3 PR is a
+          # human's call.
+          older="$(gh pr list --state open --search "\"set-account-mode: ${ACCOUNT_ID} ->\" in:title" \
+                     --json number,title,url --jq '.[] | "#\(.number) \(.title) \(.url)"' 2>/dev/null || echo "(could not list open PRs)")"
+          if [ -n "${older}" ]; then
+            printf '⚠️ OPEN set-account-mode PR(s) for %s already exist. Merge or close them deliberately, because merging an older one after this would undo it:\n%s\n\n' "${ACCOUNT_ID}" "${older}" | tee ../mode-older.txt
+          fi
           set +e
           python3 scripts/ops/account_mode_commit.py --root . prepare \
             --account "${ACCOUNT_ID}" --mode "${MODE}" --run-id "${GITHUB_RUN_ID}" \
@@ -1198,7 +1219,8 @@ jobs:
           rc=$?
           set -e
           if [ "${rc}" = "3" ]; then
-            printf 'main already reads %s.mode=%s — no PR opened.\n' "${ACCOUNT_ID}" "${MODE}" | tee ../mode-pr.txt
+            { cat ../mode-older.txt 2>/dev/null || true
+              printf 'main already reads %s.mode=%s — no PR opened.\n' "${ACCOUNT_ID}" "${MODE}"; } | tee ../mode-pr.txt
             exit 0
           fi
           [ "${rc}" = "0" ] || { echo "::error::account_mode_commit.py prepare exited ${rc}"; exit 1; }
@@ -1214,7 +1236,8 @@ jobs:
             "$([ -n "${ISSUE_NUMBER:-}" ] && printf ' (issue #%s)' "${ISSUE_NUMBER}")" "${REASON}" "$(cat ../mode.diff)")"
           url="$(gh pr create --base main --head "${branch}" \
                    --title "set-account-mode: ${ACCOUNT_ID} -> ${MODE} (Tier 3, hold)" --body "${body}")"
-          printf 'Mode-change PR opened: %s\nThe account keeps its current mode until that PR merges; verify-account-mode runs after the merge.\n' "${url}" | tee ../mode-pr.txt
+          { cat ../mode-older.txt 2>/dev/null || true
+            printf 'Mode-change PR opened: %s\nThe account keeps its current mode until that PR merges; verify-account-mode runs after the merge.\n' "${url}"; } | tee ../mode-pr.txt
           echo "MODE_PR_URL=${url}" >> "$GITHUB_ENV"
 
       - name: Set up SSH key

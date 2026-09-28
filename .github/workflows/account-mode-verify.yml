@@ -23,6 +23,12 @@ name: account-mode-verify
 # schedule-keeper under GITHUB_TOKEN (actor github-actions[bot]) and ran to
 # success.
 #
+# ⚠️ Each dispatched verify runs in its OWN concurrency group per account
+# (system-actions-verify-account-mode-<account>), not in the shared
+# system-actions group. In the shared group GitHub keeps one pending run, so a
+# 3-account merge would silently cancel a verify, and a 600 s verify would hold
+# up an emergency flatten or stop.
+#
 # ⚠️ A comment-only edit to accounts.yaml changes no parsed mode and
 # dispatches nothing. That is correct: a comment cannot change what trades.
 

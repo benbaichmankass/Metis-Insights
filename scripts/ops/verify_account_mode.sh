@@ -12,11 +12,20 @@
 #             (ict-git-sync has converged the worktree on main).
 #   2. DISK   the working-tree file reads the same. `load_accounts()` re-reads it
 #             on every dispatch, so this is what the order path consults.
-#   3. RUNTIME runtime_logs/runtime_status.json `live[ACCOUNT_ID]` equals
+#   3. RUNTIME <runtime_logs_dir()>/runtime_status.json `live[ACCOUNT_ID]` equals
 #             (MODE == live), and the file was written AFTER the HEAD
 #             convergence was first seen. The trader writes it per tick from
 #             accounts.yaml, so this proves a tick ran on the new mode.
 #             Unit state is reported alongside.
+#             ⚠️ THE PATH IS RESOLVED THE WAY THE TRADER RESOLVES IT: the
+#             repo's `load_runtime_env` (drop-in, then .env, then the running
+#             unit's systemctl Environment), then `src.utils.paths.
+#             runtime_logs_dir()`. On the live VM that is
+#             /data/bot-data/runtime_logs (DATA_DIR drop-in,
+#             deploy/dropins/data-dir.conf). ${REPO_DIR}/runtime_logs is the
+#             LEGACY pre-cutover copy (status_check.sh labels it so). Reading it
+#             would never see a fresh tick, and every real verify would page a
+#             false NOT CONVERGED. (Review finding on #13508, 2026-09-28.)
 #
 # Required env:
 #   ACCOUNT_ID, MODE (live | dry_run)
@@ -43,6 +52,10 @@ MODE="${MODE:-}"
 VERIFY_WAIT_SECONDS="${VERIFY_WAIT_SECONDS:-600}"
 VERIFY_PENDING_OK="${VERIFY_PENDING_OK:-0}"
 
+# Give this shell the trader's DATA_DIR / RUNTIME_LOGS_DIR (a system-action
+# wrapper does not inherit the unit's drop-in Environment=).
+load_runtime_env
+
 if [ -z "${ACCOUNT_ID}" ] || [ -z "${MODE}" ]; then
     log "ERROR: verify-account-mode requires ACCOUNT_ID and MODE."
     exit 1
@@ -65,7 +78,8 @@ probe() {
 import json, pathlib, subprocess, sys
 repo, acct = sys.argv[1], sys.argv[2]
 sys.path.insert(0, f"{repo}/scripts/ops")
-from account_mode_commit import read_mode
+sys.path.insert(0, repo)
+from account_mode_commit import read_mode, runtime_status_path
 def mode(text):
     try:
         return read_mode(text, acct) or "missing"
@@ -76,7 +90,7 @@ r = subprocess.run(["git", "-C", repo, "show", "HEAD:config/accounts.yaml"],
 head = mode(r.stdout) if r.returncode == 0 else "unreadable"
 p = pathlib.Path(repo, "config/accounts.yaml")
 disk = mode(p.read_text()) if p.exists() else "unreadable"
-s = pathlib.Path(repo, "runtime_logs/runtime_status.json")
+s = runtime_status_path()
 if not s.exists():
     rt, mt = "absent", 0
 else:
@@ -86,7 +100,7 @@ else:
         rt = "missing" if v is None else str(bool(v)).lower()
     except Exception as e:  # noqa: BLE001 - reported, never folded into a verdict
         rt = f"error:{type(e).__name__}"
-print(f"{head}|{disk}|{rt}|{mt}")
+print(f"{head}|{disk}|{rt}|{mt}|{s}")
 PY
 }
 
@@ -95,7 +109,7 @@ deadline=$(( $(date +%s) + VERIFY_WAIT_SECONDS ))
 converged_at=""
 state="pending"
 while :; do
-    IFS='|' read -r head disk runtime rt_mtime < <(probe || echo "unreadable|unreadable|error:probe|0")
+    IFS='|' read -r head disk runtime rt_mtime status_path < <(probe || echo "unreadable|unreadable|error:probe|0|unresolved")
     rt_mtime="${rt_mtime:-0}"
     if [ "${head}" = "account_missing" ] && [ "${disk}" = "account_missing" ]; then
         log "ERROR: account '${ACCOUNT_ID}' is not in config/accounts.yaml at HEAD or on disk."
@@ -115,8 +129,8 @@ done
 
 unit="$(systemctl is-active "${UNIT}" 2>/dev/null || true)"
 sha="$(git -C "${REPO_DIR}" rev-parse --short HEAD 2>/dev/null || echo unreadable)"
-log "verify-account-mode ${ACCOUNT_ID}: want=${MODE} head=${head} disk=${disk} runtime_live=${runtime} (want ${want_live}) unit=${unit:-unknown} sha=${sha} -> ${state}"
-detail="{\"account\": \"${ACCOUNT_ID}\", \"want\": \"${MODE}\", \"head\": \"${head}\", \"disk\": \"${disk}\", \"runtime_live\": \"${runtime}\", \"unit\": \"${unit:-unknown}\", \"sha\": \"${sha}\"}"
+log "verify-account-mode ${ACCOUNT_ID}: want=${MODE} head=${head} disk=${disk} runtime_live=${runtime} (want ${want_live}) unit=${unit:-unknown} sha=${sha} status_file=${status_path} -> ${state}"
+detail="{\"account\": \"${ACCOUNT_ID}\", \"want\": \"${MODE}\", \"head\": \"${head}\", \"disk\": \"${disk}\", \"runtime_live\": \"${runtime}\", \"unit\": \"${unit:-unknown}\", \"sha\": \"${sha}\", \"status_file\": \"${status_path}\"}"
 
 if [ "${state}" = "converged" ]; then
     record_audit "verify-account-mode" "ok" "${detail}" >/dev/null || true
