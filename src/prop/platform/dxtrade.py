@@ -1008,6 +1008,45 @@ ONE_CLICK_JS = r"""
 """
 
 
+# READ-ONLY structural dump around the "One-click trading" label, for building
+# a reader of its on/off state (MEASURED 2026-09-28, issue #13711: the label
+# is found but no checkbox / switch / aria state sits near it, so ONE_CLICK_JS
+# reads `unknown`). For the label's nearest 3 ancestors it lists up to 30
+# descendants: tag, class, role, attribute NAMES, short safe values of state-
+# like attributes (aria-*, data-*, type, checked), short visible text, and a
+# few computed styles a toggle usually encodes its state in. Never reads an
+# input's value, cookies or storage. Clicks nothing.
+ONE_CLICK_DUMP_JS = r"""
+() => {
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const lab = [...document.querySelectorAll('body *')].find(el =>
+    el.children.length === 0 && /^one[- ]click trading$/i.test(txt(el)));
+  if (!lab) return {found: false};
+  const safe = v => (typeof v === 'string' && v.length <= 24 && /^[A-Za-z0-9 _.:#%()-]*$/.test(v)) ? v : null;
+  const desc = el => {
+    const cs = getComputedStyle(el);
+    const attrs = {};
+    for (const a of el.attributes) {
+      if (/^(aria-|data-)/.test(a.name) || a.name === 'type' || a.name === 'role') attrs[a.name] = safe(a.value);
+    }
+    if (el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio')) attrs['checked'] = String(el.checked);
+    return {tag: el.tagName.toLowerCase(),
+            cls: (typeof el.className === 'string' ? el.className : (el.className && el.className.baseVal) || '').trim(),
+            attrs, text: el.children.length === 0 ? (safe(txt(el)) || '') : '',
+            is_label: el === lab,
+            style: {bg: cs.backgroundColor, color: cs.color, transform: cs.transform, left: cs.left,
+                    justify: cs.justifyContent, opacity: cs.opacity, w: cs.width, h: cs.height,
+                    cursor: cs.cursor, border: cs.borderColor}};
+  };
+  const levels = [];
+  for (let e = lab.parentElement, i = 0; e && e !== document.body && i < 3; e = e.parentElement, i++) {
+    levels.push({level: i + 1, self: desc(e), children: [...e.querySelectorAll('*')].slice(0, 30).map(desc)});
+  }
+  return {found: true, levels};
+}
+"""
+
+
 # Finds ONE row of the orders or positions table by an exact key cell and ONE
 # control in it by an anchored pattern (text, aria-label or title), and tags
 # that control data-metis-row-action. Never clicks.
@@ -1509,6 +1548,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception:
             return False
 
+    def one_click_dump(self, page: Any) -> Dict[str, Any]:
+        """Read-only structure around the one-click label (see ONE_CLICK_DUMP_JS)."""
+        try:
+            return page.evaluate(ONE_CLICK_DUMP_JS) or {"found": False}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
     def probe_order_ticket(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
         """READ-ONLY feasibility measurement of the order ticket: open the
         form, record its shape (labels, buttons, disabled state, canvas
@@ -1535,6 +1581,10 @@ class DXtradeAdapter(PropPlatformAdapter):
             # this result is printed to a PUBLIC run log.
             "form_text_len": len(form.get("form_text") or ""),
         }
+        # When the one-click state could not be read, include the read-only
+        # structure around its label so a reader can be built from it.
+        if (opened.get("one_click") or {}).get("state") not in ("on", "off"):
+            result["one_click_dump"] = self.one_click_dump(page)
         if opened.get("opened"):
             result["closed"] = self.close_order_ticket(page)
         return result
