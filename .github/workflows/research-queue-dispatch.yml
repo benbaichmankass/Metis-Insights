@@ -39,9 +39,16 @@ name: research-queue-dispatch
 
 on:
   schedule:
-    # 06:20 UTC daily — after the IB gateway's 06:05 reset window, so a red run
-    # here is never just the gateway restarting.
-    - cron: "20 6 * * *"
+    # Every 6 h at :20 (00:20 / 06:20 / 12:20 / 18:20 UTC) — RQ-RUN, 2026-09-28,
+    # operator direction "keep the research queue moving through the slowdown":
+    # with the token-free runner (research-script-run.yml) a unit landed at
+    # 09:00 no longer waits a day for the next dispatch. The 06:20 slot stays
+    # after the IB gateway's 06:05 reset window. schedule-keeper reads these
+    # crons from this file, so its dedupe/keep logic follows the change with no
+    # edit of its own; the per-run GPU cap and the monthly ledger cap are
+    # unchanged and bind each run exactly as before (4 runs/day x cap 1 is the
+    # new per-day GPU ceiling — the ledger's $10/month still binds first).
+    - cron: "20 */6 * * *"
   workflow_dispatch:
     inputs:
       fire:
@@ -157,7 +164,16 @@ jobs:
       # THE ONE FIRE DECISION. Both consumers below read THIS, never `inputs`
       # directly — see the header. A scheduled run fires; a hand dispatch fires
       # only when explicitly asked.
-      FIRE: ${{ github.event_name == 'schedule' || inputs.fire == true }}
+      #
+      # RQ-RUN (2026-09-28): a run the schedule-keeper dispatched to cover a
+      # slot GitHub dropped is a scheduled run by intent, so it fires too.
+      # The keeper dispatches with DEFAULT inputs (fire=false), which until
+      # now made every keeper-covered slot a DRY RUN — the keeper kept the
+      # liveness receipt fresh while nothing was dispatched. The keeper's
+      # runs are the only workflow_dispatch runs whose actor is the bot
+      # (scripts/ops/schedule_keeper.py KEEPER_ACTOR); a human's hand
+      # dispatch still defaults to dry.
+      FIRE: ${{ github.event_name == 'schedule' || inputs.fire == true || (github.event_name == 'workflow_dispatch' && github.actor == 'github-actions[bot]') }}
     steps:
       - uses: actions/checkout@v4
         with:

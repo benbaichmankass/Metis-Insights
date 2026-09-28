@@ -1177,6 +1177,24 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # RQ-RUN (2026-09-28): the token-free research runner
+        # (.github/workflows/research-script-run.yml) executes a command it
+        # reads from the queue unit's YAML. This guard fails the PR that lands
+        # a unit naming a script outside scripts/research/ or
+        # scripts/backtest*.py, and the PR that adds any workflow_dispatch
+        # input beyond the unit id and the pass-through label (a command
+        # surface the
+        # allowlist cannot see). The runner refuses the same at run time;
+        # the guard makes it a PR failure instead of a spent dispatch.
+        "name": "research-script-run-guard",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/research/script_run.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_script_run.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_script_run.py"],
+        ],
+    },
+    {
         # MANAGER-CHECKLIST.json row E7. Nine of the thirteen scripts/backtest_*.py
         # harnesses had NO WORKFLOW AT ALL, so nothing could regress their data
         # source -- there was no runner to regress. research-harness-dispatch.yml

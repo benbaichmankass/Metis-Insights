@@ -170,6 +170,24 @@ def _fire(entry: Dict[str, Any], *, route: str, ref: str,
     run = entry.get("run") or {}
     workflow = str(run.get("workflow"))
     inputs = dict(run.get("inputs") or {})
+    # ⚠️ A `run.workflow` that is not a workflow FILE is a note to a human, not
+    # a dispatch target (research/queue/README.md § "DECLARED vs. actually
+    # dispatchable"). Until 2026-09-28 this ran `gh workflow run "none — ..."`
+    # and reported gh's own error; the outcome is the same DISPATCH_FAILED,
+    # but the reason now says what the unit needs (a real runner — see
+    # research-script-run.yml) instead of quoting a gh usage message.
+    if not workflow.endswith((".yml", ".yaml")) or any(ch.isspace() for ch in workflow):
+        return False, (f"run.workflow {workflow[:60]!r} is not a workflow file — a "
+                       "session-bound note; retarget it to research-script-run.yml "
+                       "(scripts/research/script_run.py) or a real *.yml")
+    # RQ-RUN (2026-09-28): the token-free runner reads the unit's command from
+    # its YAML. Refuse here what the runner would refuse there, so a bad unit
+    # is a DISPATCH_FAILED row instead of a spent runner + a stamped unit.
+    if workflow == "research-script-run.yml":
+        from scripts.research import script_run
+        preflight = script_run.plan(str(entry.get("id")), run_id="preflight")
+        if not preflight.ok:
+            return False, "research-script-run preflight refused: " + "; ".join(preflight.errors)[:400]
     # ⚠️ THE UNIT DECLARES ITS IDENTITY; THE DISPATCHER SUPPLIES THE VERDICT.
     # `power_state` is deliberately NOT hand-written in the YAML: it is a SAFETY
     # label ("do not read this run's output as a test result"), and a
