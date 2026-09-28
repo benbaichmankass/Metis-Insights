@@ -911,9 +911,13 @@ def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:
     """A PlaceAttempt for logs/journal WITHOUT the raw form (its text can
     carry the account number); field labels + button names only."""
     form = att.form or {}
+    oc = form.get("one_click") or {}
     return {"stage": att.stage, "submitted": att.submitted, "detail": att.detail,
             "form_fields": sorted((form.get("fields") or {}).keys()),
-            "form_buttons": sorted((form.get("buttons") or {}).keys())}
+            "form_buttons": sorted((form.get("buttons") or {}).keys()),
+            # The one-click toggle's reading: a DIAGNOSTIC the adapter records
+            # and gates nothing on (operator 2026-09-28). state + why only.
+            "one_click": {"state": oc.get("state"), "why": oc.get("why")} if oc else None}
 
 
 def _skip_body(cfg: ExecutorConfig, t: Mapping[str, Any], reason: str) -> Dict[str, Any]:

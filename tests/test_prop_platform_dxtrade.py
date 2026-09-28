@@ -946,3 +946,28 @@ def test_modify_bracket_disarmed_never_clicks_the_edit_control():
     a.read_one_click = lambda page: {"state": "off"}
     r = a.modify_bracket(P(), Position(symbol="SOLUSD"), 1.0, 2.0)
     assert r["clicked"] is False and calls == []
+    assert r["one_click"] == {"state": "off"}
+
+
+def test_modify_bracket_records_an_unknown_one_click_and_does_not_gate_on_it():
+    # One-click trading is a diagnostic, not a gate (operator 2026-09-28): the
+    # live terminal reads "unknown" and the modify path must still proceed.
+    from src.prop.platform.base import Position
+    calls = []
+
+    class P:
+        def evaluate(self, js, *a):
+            return {"rows": 1, "controls": 1}
+
+        def click(self, *a, **k):
+            calls.append(a)
+
+        def wait_for_timeout(self, *a):
+            pass
+
+    a = DXtradeAdapter()
+    a._show_tab = lambda *x: True
+    a.read_one_click = lambda page: {"state": "unknown", "why": "label not found"}
+    r = a.modify_bracket(P(), Position(symbol="SOLUSD"), 1.0, 2.0)
+    assert r["ok"] is True and r["clicked"] is False and calls == []
+    assert r["one_click"]["state"] == "unknown" and "one-click" not in r["why"]

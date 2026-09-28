@@ -118,10 +118,17 @@ order control.
 **Step 3 update (lane PROP-EXEC, 2026-09-28; held PR `claude/prop-exec-step3`):**
 the four methods, plus a read-only `probe_order_ticket`, are now built on the
 `dxtrade` adapter. Each takes `arm=False` by default and stops before the
-final control. Only `src/prop/prop_executor.py` in `live` mode arms them. They
-refuse unless **one-click trading** reads OFF (the terminal renders that
-control, and chart Buy/Sell price buttons that place an order in one click
-when it is on). The order-ticket DOM is **NOT MEASURED**: the
+final control. Only `src/prop/prop_executor.py` in `live` mode arms them.
+Until lane PROP-GATE (2026-09-28) they refused unless **one-click trading**
+read OFF; the live probe read `unknown` (custom-styled toggle, issue #13711)
+and the operator DECIDED, verbatim: *"As long we know we're placing trades
+correctly on the sidebar ticket, we don't need to consider the one click
+toggle at all - that's only relevant for placing trades on the chart itself"*.
+The toggle's reading is now recorded as a diagnostic on every result and
+gates nothing; the order path never touches a chart price button (ticket
+opened by a named control or the watchlist row, submitted by the ticket's own
+unique submit button), and all six fields — symbol, side, order type,
+quantity, SL, TP — are read back before submit. The order-ticket DOM is **NOT MEASURED**: the
 `breakout-login-check` `apply: probe-ticket` run measures it
 (`PI-20260928-K3GZXIAV-0001`). `breakout_terminal` still raises on all of
 them.

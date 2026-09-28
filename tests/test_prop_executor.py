@@ -27,6 +27,8 @@ from src.prop.platform.dxtrade import (
     DXtradeAdapter,
     check_bracket_spec,
     classify_ticket_surface,
+    form_names_symbol,
+    verify_form_selection,
     verify_form_values,
 )
 
@@ -560,6 +562,24 @@ def test_verify_form_values():
     assert verify_form_values({}, {"stop_loss": 1.0}) == ["stop_loss: not readable back"]
 
 
+def test_verify_form_selection_never_assumes_a_side():
+    ok = {"selected": {"side": "buy", "order_type": "limit"}}
+    assert verify_form_selection(ok, "long", "limit") == []
+    assert verify_form_selection(ok, "short", "limit") == ["side: chose sell, form shows buy"]
+    assert verify_form_selection(ok, "long", "market") == ["order_type: chose market, form shows limit"]
+    assert verify_form_selection({"selected": {"side": None, "order_type": None}}, "long", "limit") == [
+        "side: not readable back", "order_type: not readable back"]
+    assert verify_form_selection({}, "long", "limit") == ["side: not readable back", "order_type: not readable back"]
+    assert verify_form_selection({"selected": {"side": "ambiguous", "order_type": "limit"}}, "long", "limit") == [
+        "side: chose buy, form shows ambiguous"]
+
+
+def test_form_names_symbol_is_a_whole_word():
+    assert form_names_symbol({"form_text": "New order SOLUSD 0.5"}, "solusd")
+    assert not form_names_symbol({"form_text": "New order SOLUSDX"}, "SOLUSD")
+    assert not form_names_symbol({}, "SOLUSD")
+
+
 def test_classify_ticket_surface():
     assert classify_ticket_surface({"found": True}) == "dom"
     assert classify_ticket_surface({"found": False, "canvases_in_form": 2}) == "canvas_ticket"
@@ -575,10 +595,13 @@ TICKET_PAGE = """
 <tbody><tr class="instrument" data-row-id="1"><td>SOLUSD</td><td>119.9</td><td>120.0</td></tr></tbody></table>
 <div class="chart"><button>Sell 119.9</button><button>120.0 Buy</button></div>
 <button onclick="document.getElementById('ticket').style.display='block'">New Order</button>
+<script>
+function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=>x.removeAttribute('aria-pressed'));b.setAttribute('aria-pressed','true')}
+</script>
 <div id="ticket" style="display:none">
   <div class="hdr">SOLUSD</div>
-  <button onclick="window.__side='buy'">Buy</button><button onclick="window.__side='sell'">Sell</button>
-  <button onclick="window.__type='market'">Market</button><button onclick="window.__type='limit'">Limit</button>
+  <button data-g="side" onclick="window.__side='buy';sel(this)">Buy</button><button data-g="side" onclick="window.__side='sell';sel(this)">Sell</button>
+  <button data-g="type" onclick="window.__type='market';sel(this)">Market</button><button data-g="type" onclick="window.__type='limit';sel(this)">Limit</button>
   <div><span>Quantity</span><input id="q"></div>
   <div><span>Price</span><input id="px"></div>
   <div><label><input type="checkbox" id="slc" onclick="document.getElementById('sl').disabled=!this.checked">Stop Loss</label>
@@ -632,16 +655,95 @@ def test_probe_reports_a_dom_ticket_and_types_nothing(tpage):
     assert p.evaluate("document.getElementById('q').value") == ""
 
 
-def test_probe_refuses_when_one_click_trading_is_on(tpage):
+# One-click trading is a DIAGNOSTIC, not a gate (operator 2026-09-28: "As long
+# we know we're placing trades correctly on the sidebar ticket, we don't need
+# to consider the one click toggle at all"). Its reading is recorded on every
+# result; nothing refuses on it.
+
+
+def test_probe_records_one_click_on_and_still_opens_the_ticket(tpage):
     p = tpage(one_click_checked=True)
     got = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
-    assert got["surface"] == "not_opened" and "one-click trading is on" in got["refused"]
+    assert got["surface"] == "dom" and got["via"] == "button:New Order" and got["refused"] is None
+    assert got["one_click"]["state"] == "on"
+    assert got["selected"] == {"side": None, "order_type": None}   # untouched form: nothing pressed yet
+    assert p.evaluate("window.__submits") is None and p.evaluate("document.getElementById('q').value") == ""
 
 
-def test_one_click_unreadable_is_treated_as_on(tpage):
+def test_one_click_unreadable_is_recorded_not_gated(tpage):
+    # The live terminal's measured case (#13711): the label is missing / the
+    # toggle is custom-styled, so the state reads "unknown". The ticket path
+    # goes through the sidebar form and never a chart price button, so this
+    # blocks nothing — the attempt carries the reading for the run log.
     p = tpage(html=TICKET_PAGE.replace("One-click trading", "Something else") % "")
-    got = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
-    assert got.stage == "refused" and p.evaluate("window.__submits") is None
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "submitted" and att.submitted is True, att.detail
+    assert p.evaluate("window.__submits") == 1
+    assert att.form["one_click"]["state"] == "unknown"
+    pub = pe._attempt_public(att)
+    assert pub["one_click"] == {"state": "unknown", "why": "label not found"}
+
+
+def test_one_click_on_is_recorded_on_a_disarmed_walk(tpage):
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(tpage(one_click_checked=True), SOL)
+    assert att.stage == "form_verified" and att.form["one_click"]["state"] == "on"
+
+
+# ── six-field read-back before submit (symbol, side, type, qty, SL, TP) ───
+
+
+def test_place_bracket_refuses_when_side_is_not_readable_back(tpage):
+    # side buttons that expose no pressed/selected state at all
+    html = (TICKET_PAGE % "").replace("window.__side='buy';sel(this)", "window.__side='buy'") \
+                             .replace("window.__side='sell';sel(this)", "window.__side='sell'")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "side: not readable back" in att.detail
+    assert p.evaluate("window.__submits") is None
+    assert p.evaluate("document.getElementById('ticket').style.display") == "none"  # closed
+
+
+def test_place_bracket_refuses_when_the_form_shows_the_other_side(tpage):
+    # clicking Buy lights up Sell: the form disagrees with what we chose
+    html = (TICKET_PAGE % "").replace("window.__side='buy';sel(this)", "window.__side='buy';sel(this.nextElementSibling)")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "side: chose buy, form shows sell" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_place_bracket_refuses_when_order_type_is_not_readable_back(tpage):
+    html = (TICKET_PAGE % "").replace("window.__type='market';sel(this)", "window.__type='market'") \
+                             .replace("window.__type='limit';sel(this)", "window.__type='limit'")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "order_type: not readable back" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_side_reads_back_from_a_buy_prefixed_submit_button(tpage):
+    # A terminal whose submit button is "Buy SOLUSD" and whose side buttons carry no state:
+    # the submit text is the side read-back, and the symbol is named by it too.
+    html = (TICKET_PAGE % "").replace("window.__side='buy';sel(this)", "window.__side='buy'") \
+                             .replace("window.__side='sell';sel(this)", "window.__side='sell'") \
+                             .replace(">Place Order<", ">Buy SOLUSD<")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL)
+    assert att.stage == "form_verified", att.detail
+    assert att.form["selected"] == {"side": "buy", "order_type": "limit"}
+    short = BracketSpec("t2", "SOLUSD", "short", 0.5, 126.0, 118.0, "limit", 120.0)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(tpage(html=html), short, arm=True)
+    assert att.stage == "refused" and "side: chose sell, form shows buy" in att.detail
+
+
+def test_place_bracket_refuses_when_the_symbol_changes_after_typing(tpage):
+    # the header flips to another instrument when quantity is typed
+    html = (TICKET_PAGE % "").replace(
+        '<input id="q">', "<input id=\"q\" oninput=\"document.querySelector('.hdr').textContent='ETHUSD'\">")
+    p = tpage(html=html)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "symbol: form no longer names SOLUSD" in att.detail
+    assert p.evaluate("window.__submits") is None
 
 
 def test_canvas_only_ticket_is_the_feasibility_stop(tpage):
