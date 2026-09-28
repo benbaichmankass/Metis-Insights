@@ -133,7 +133,6 @@ def sim(tmp_path: Path):
         os.environ,
         PATH=f"{bin_dir}:{os.environ['PATH']}",
         SIM=str(sim),
-        DIAG_SYSTEM_ENV=str(sim / "web-api.env"),
         DIAG_ENV_FILE=str(sim / "dotenv"),
         DIAG_LEGACY_TOKEN_FILE=str(sim / "legacy_token"),
     )
@@ -142,6 +141,14 @@ def sim(tmp_path: Path):
 
 def _run_remote(sim, new_token: str) -> subprocess.CompletedProcess:
     script = REMOTE_TEMPLATE.replace("__TOKEN__", new_token)
+    # ENVFILE has no env-var override (tests/test_diag_token_workflows.py
+    # already depends on it staying the literal
+    # "ENVFILE=/etc/ict-trader/web-api.env" so it can retarget it the same
+    # way); point it at the sim fixture by literal substitution, matching
+    # that test's own technique so the two guards can't drift apart.
+    original = "ENVFILE=/etc/ict-trader/web-api.env"
+    assert script.count(original) == 1, "ENVFILE declaration moved or was duplicated"
+    script = script.replace(original, f"ENVFILE={sim['dir'] / 'web-api.env'}")
     return subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=sim["env"])
 
 
