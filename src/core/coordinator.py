@@ -1505,6 +1505,43 @@ class Coordinator:
                         account.name, exc,
                     )
 
+            # Per-ACCOUNT BROKER short gate — the venue's own
+            # ``shorting_enabled`` (BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-
+            # CONSUMED; operator "Build the gate now", 2026-09-28). ``side_filter``
+            # above is a CONFIG policy covering only the accounts it is declared
+            # on; this reads what the broker says for every flagged exchange.
+            # Same fold, same demote-to-dry, NO new order path. Fail-permissive
+            # on an unreadable flag (see src/runtime/broker_shorting_gate.py).
+            if not effective_dry:
+                try:
+                    from src.runtime.broker_shorting_gate import (
+                        refusal_reason, refuses_short,
+                    )
+
+                    def _shorting_client():
+                        # The SAME resolved account_cfg the order client is
+                        # built from below, so the flag is read on the same
+                        # credentials + environment the order would use.
+                        return alpaca_client_for(account_cfg)
+
+                    _bs_refused, _bs_state = refuses_short(
+                        account.name, account.exchange,
+                        getattr(pkg, "direction", None), _shorting_client,
+                    )
+                    if _bs_refused:
+                        logger.warning(
+                            "[coordinator] %s (%s) — NOT executing",
+                            refusal_reason(account.name),
+                            getattr(pkg, "symbol", "?"),
+                        )
+                        effective_dry = True
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "[coordinator] broker shorting gate lookup failed for "
+                        "'%s' (%s); leaving short ungated by it",
+                        account.name, exc,
+                    )
+
             client = None
             client_error: Optional[str] = None
             if not effective_dry:
