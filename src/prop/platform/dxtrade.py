@@ -1472,7 +1472,9 @@ def form_names_symbol(form: Mapping[str, Any], venue_symbol: str) -> bool:
     ``symbol_input``, probe #13816: its visible text says only "SOL"), THAT
     value decides: it must equal ``venue_symbol`` (letters/digits compared),
     and a mismatch refuses even if the text happens to name the symbol."""
-    norm = lambda v: re.sub(r"[^A-Z0-9]", "", str(v or "").upper())
+    def norm(v: Any) -> str:
+        return re.sub(r"[^A-Z0-9]", "", str(v or "").upper())
+
     if form.get("symbol_value"):
         return norm(form["symbol_value"]) == norm(venue_symbol)
     return bool(re.search(r"(?<![A-Z0-9])" + re.escape(str(venue_symbol).upper()) + r"(?![A-Z0-9])",
