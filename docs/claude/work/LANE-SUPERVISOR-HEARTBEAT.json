@@ -1,5 +1,5 @@
 {
-  "last_fired_at": "2026-09-28T00:48:14Z",
+  "last_fired_at": "2026-09-28T06:45:19Z",
   "supervisor_session": "session_01R9WFrBK1sbBcpTYgBmvG1q",
   "trigger": "trig_01LFo98oHRUBpoMA6H9ra2QP",
   "served_model": "claude-sonnet-5",
@@ -7,13 +7,13 @@
     "checkout_present": true,
     "list_sessions_callable": true,
     "container_was_cold": false,
-    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent, main advanced 102 commits since prior check to fec60ed3), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 2ccaf412, unchanged since prior firing); get_session() on self returned parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=26, connection_status=connected, cumulative cost_usd=178.54; list_sessions(mine=true, limit=60) returned 60 rows (has_more=true, page not deepened -- consistent with prior firings), list_pull_requests(state=open) returned 69 rows (69/69 carried body per the script's own probe), list_triggers(limit=100) returned 100 rows (has_more=true, next_cursor present, not deepened); continuously-running session, not a fresh wake, so not a cold-start reading."
+    "evidence": "git fetch origin main claude/e44-lane-supervisor-build succeeded; main checked first (mandate absent, main advanced 90 commits since prior check to cde7c383), fell back to claude/e44-lane-supervisor-build (mandate present, HEAD 538961f5, unchanged since my prior push); get_session() on self returned id=session_01R9WFrBK1sbBcpTYgBmvG1q matching top-level supervisor_lane on this tree's MANAGER-CHECKLIST.json, parent_session_id=session_01VsAt1BzrdspLn6hDzFTGh2, worker_epoch=27, connection_status=connected, cumulative cost_usd=182.93; list_sessions(mine=true, limit=60) returned 60 rows (has_more=true, page not deepened), list_pull_requests(state=open) returned 72 rows (72/72 carried body per the script's own probe), list_triggers(limit=100) returned 100 rows (has_more=true, next_cursor present, not deepened); continuously-running session, not a fresh wake, so not a cold-start reading."
   },
-  "acted": {"archived": [], "raised": [], "held": 1},
+  "acted": {"archived": [], "raised": [], "held": 0},
   "unrouted": [
     "STEP 1 structural verification passed again: top-level supervisor_lane on claude/e44-lane-supervisor-build's MANAGER-CHECKLIST.json still names session_01R9WFrBK1sbBcpTYgBmvG1q (this session).",
-    "0 authorised, 1 held, 0 raised -- the quietest firing to date. Sole candidate: session_01KAQRJxRbRwpYTkPgBjNVyQ ($83.23, RUNNING), held on all three of idle<6h, an owned open PR (#13408), and an enabled bound Routine (trig_01XgNu6vE3AJF3AYaoAzcvU8) -- correctly held, no action needed. No completed/failed sessions surfaced as archive candidates this firing, consistent with the previously-documented pattern of other actors clearing dead sessions between firings.",
-    "Triggers and sessions pages were not deepened past has_more=true (60/60 sessions, 100/100 triggers) -- as in every prior firing, this did not change the outcome since the one candidate session's bound trigger was already present on the first page.",
-    "No coordination-board hook fired this turn. archive_session was not attempted this firing (nothing was authorised to archive) -- the previously-confirmed persistent [Interfere With Workloads] refusal remains undisturbed/untested this round."
+    "0 authorised, 0 held, 1 raise candidate NOT FILED: session_016Np9Ac9hgbbV4g4UnXYjia ('W6-PROP-FEED: Breakout step 2 -- scheduled read-only terminal check with emit-status (operator decision)'), bucket REVIEW_READY, $4.40 (running, read 2026-09-28T06:45:14Z), idle 0.1h, finished and holding output nobody has collected. Checked MANAGER-CHECKLIST.json exhaustively (all items, exact-match on lane field) for a row naming this session id -- none exists. Its tags show manager:session_01KAQRJxRbRwpYTkPgBjNVyQ (the same manager lane held last firing on open PR #13408 + a bound Routine), but the mandate requires the row whose `lane` equals the RAISED session's own id, never a substitute/parent row, so per mandate 'How a raise is filed' this is itself the finding, recorded here rather than force-filed onto an unrelated row or a new row.",
+    "Sessions/triggers pages again not deepened past has_more=true (60/60, 100/100) -- did not change the outcome; the one raise candidate and its manager tag were both visible on the first page.",
+    "No coordination-board hook fired this turn. archive_session was not attempted this firing (nothing was authorised to archive)."
   ]
 }
