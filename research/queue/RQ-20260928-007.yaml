@@ -37,14 +37,16 @@ power:
   expected_n: 1104
   min_detectable_effect: 0.3
   effect_units: sd
-  design: paired
+  design: one_sample
   alpha: 0.05
   power: 0.8
   basis: >-
     Same fixed population as the committed baseline (n=1104, 263 rebalance
     dates) — this changes a cost parameter, not the sample. The comparison is
-    PAIRED (same entries, cost stack A vs B), so power is bounded by n=1104
-    regardless. Floor at d=0.3 (the same standard floor RQ-20260927-005's power
+    over the per-entry PAIRED DIFFERENCE (cost stack A vs B on the same
+    entries), which is a one-sample test on that difference series, so power
+    is bounded by n=1104 regardless. Floor at d=0.3 (the same standard floor
+    RQ-20260927-005's power
     block uses): required n for a paired test at alpha=0.05/power=0.8 is
     ~87-90, comfortably cleared by the fixed n=1104. The raw statistics of
     interest (calibration_rank, edge_vs_baseline) are reported in their own
