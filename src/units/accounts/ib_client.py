@@ -2501,11 +2501,18 @@ class IBClient:
              order larger than what IB actually holds (which on a one-way
              futures account would *open* a reverse position rather than
              flatten) -- and, per BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-
-             SCOPED-LIKE-THE-CONFIRMATION-WAS, never smaller than
-             ``live_exchange_qty`` reserved for ``sibling_qty`` either, so a
-             thin ``live_exchange_qty`` (e.g. from journal drift) cannot make
-             this close eat into a SIBLING journal trade's own still-open
-             lots on the same symbol. See ``_locked_close`` Step 0.
+             SCOPED-LIKE-THE-CONFIRMATION-WAS, tries not to eat into a
+             SIBLING journal trade's own still-open lots on the same symbol
+             by reserving ``sibling_qty`` out of ``live_exchange_qty`` first.
+             ⚠️ **That reservation can only ever fall short when the journal
+             (this trade + its recorded siblings) claims more of the symbol
+             than the venue holds — a journal-vs-venue divergence, by
+             construction.** Refusing outright in that case used to wedge
+             the exit forever (order_monitor retries an unrecognised close
+             failure every tick, with no cooldown); this method now falls
+             back to the single-trade clamp (``min(requested_qty,
+             live_exchange_qty)``) and logs a loud divergence alert instead
+             — see ``_locked_close`` Step 0.
 
         ``sibling_qty`` — the sum of OTHER open journal trades' recorded size
         on this symbol, supplied by the caller (``execute.close_open_position``,
@@ -2617,16 +2624,52 @@ class IBClient:
             close_qty = requested_qty
 
         close_qty = float(math.floor(close_qty))
+        # ⚠️ MANAGER REVIEW (2026-09-28, BLOCK on the first version of this
+        # fix): the shortfall this branch catches — sibling_qty reserved out
+        # of live_qty leaves < 1 lot for THIS trade's own requested_qty —
+        # can ONLY happen when requested_qty + sibling_qty > live_qty, i.e.
+        # the journal (this trade plus its recorded siblings) claims more
+        # contracts on this symbol than the venue actually holds. That
+        # condition IS a journal-vs-venue divergence by construction, every
+        # time it fires — it is never a case of "protect a real sibling",
+        # because a real sibling's own accounting would already be inside
+        # live_qty. Hard-refusing here used to leave the exit permanently
+        # wedged: order_monitor retries an unrecognised close failure every
+        # tick with no cooldown (src/runtime/order_monitor.py
+        # _apply_update), so a strategy's time-stop / trailing-stop /
+        # signal-exit could never fire while the divergence persisted — the
+        # measured incident this fix responds to (OI-20260826-MGC-JOURNAL-
+        # QTY-DIVERGENT-UNOWNED: journal 54 lots across two rows, venue 11,
+        # a live protective stop resting against the unbacked 43).
+        #
+        # So: fall back to the PRE-FIX single-trade clamp
+        # (min(requested_qty, live_qty), ignoring the sibling reservation)
+        # rather than refuse — the upper-bound safety property (this close
+        # can never exceed what the venue holds, so it can never flip the
+        # position) is preserved by that clamp alone — and raise a LOUD,
+        # distinctly-greppable alert so the divergence is not silently
+        # absorbed. The systematic, scheduled journal-vs-venue detector this
+        # should ultimately route to is tracked separately and not yet built
+        # (PI-20260928-DEUTUJ78-0001); until it exists, this log line is the
+        # alert.
+        if close_qty < 1 and live_qty is not None and float(sibling_qty or 0.0) > 0:
+            fallback_qty = float(math.floor(min(requested_qty, live_qty)))
+            if fallback_qty >= 1:
+                logger.error(
+                    "IBClient.close: JOURNAL-VS-VENUE DIVERGENCE on %s — "
+                    "requested_qty=%s + sibling_qty=%s (%s) exceeds "
+                    "live_qty=%s (the journal's sibling accounting does not "
+                    "match what the venue holds). Falling back to "
+                    "min(requested_qty, live_qty)=%s rather than refusing "
+                    "and wedging this exit; see PI-20260928-DEUTUJ78-0001 "
+                    "for the durable divergence detector.",
+                    sym, requested_qty, sibling_qty,
+                    requested_qty + float(sibling_qty or 0.0), live_qty,
+                    fallback_qty,
+                )
+                close_qty = fallback_qty
+
         if close_qty < 1:
-            if live_qty is not None and float(sibling_qty or 0.0) > 0:
-                return {
-                    "retCode": 1,
-                    "retMsg": f"close qty {close_qty} below 1 whole contract "
-                              f"after reserving sibling_qty={sibling_qty} of "
-                              f"live_qty={live_qty} for other open trades on "
-                              f"{sym} — refusing rather than closing into a "
-                              "sibling's lots",
-                }
             return {
                 "retCode": 1,
                 "retMsg": f"close qty {close_qty} below 1 whole contract — "

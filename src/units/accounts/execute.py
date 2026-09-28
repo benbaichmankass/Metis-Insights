@@ -3102,14 +3102,27 @@ def modify_open_order(
 def _ib_sibling_open_qty(
     account_id: Optional[str], symbol: Optional[str],
     exclude_trade_id: Optional[Any],
+    direction: Optional[str] = None,
 ) -> float:
-    """Sum of ``position_size`` for OTHER open journal trades on *symbol*.
+    """Sum of ``position_size`` for OTHER open journal trades on *symbol*,
+    same ``direction`` only.
 
     BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-CONFIRMATION-WAS.
     Filters live rows only (``status='open'``, ``is_backtest=0`` — the same
     predicate ``context_snapshot.open_trades_count_for`` uses), same
-    ``account_id`` + ``symbol``, excluding *exclude_trade_id* itself so a
-    trade never counts as its own sibling.
+    ``account_id`` + ``symbol`` + ``direction``, excluding *exclude_trade_id*
+    itself so a trade never counts as its own sibling.
+
+    ⚠️ **MANAGER REVIEW (2026-09-28, BLOCK): ``direction`` is REQUIRED, not
+    optional in practice.** On a netted IB contract, an opposite-direction
+    row does not hold lots of THIS position — it *reduces* it. Summing
+    across both directions (the first version of this fix) meant a
+    long-3/short-2 pair (net venue exposure 1 lot) reserved 2 lots for a
+    "sibling" that was never protecting anything, wedging a 1-lot close that
+    used to succeed. ``direction=None`` (the default) reproduces that
+    pre-review, both-directions behaviour and exists only so a caller that
+    genuinely cannot resolve a direction still gets *a* number rather than
+    an exception; every real caller should pass its own close direction.
 
     Best-effort, like every other journal read on this order path: any DB
     error returns ``0.0`` (never raises) — the caller then gets exactly the
@@ -3122,10 +3135,13 @@ def _ib_sibling_open_qty(
         from src.utils.paths import trade_journal_db_path
 
         db = Database(db_path=trade_journal_db_path())
-        rows = db.get_trades(filters={
+        filters = {
             "account_id": account_id, "symbol": symbol,
             "status": "open", "is_backtest": 0,
-        }) or []
+        }
+        if direction:
+            filters["direction"] = str(direction).lower()
+        rows = db.get_trades(filters=filters) or []
         total = 0.0
         for row in rows:
             row_id = row.get("id")
@@ -3323,9 +3339,15 @@ def close_open_position(
             # a sibling. Without this guard a caller that doesn't identify
             # its own trade would have its OWN journal row (if it has one)
             # counted against itself, reserving qty from itself.
+            #
+            # `direction=direction` (manager review, 2026-09-28, BLOCK):
+            # on a netted IB contract an OPPOSITE-direction row reduces the
+            # position rather than holding lots of it, so it must never
+            # count as a sibling to reserve against -- only same-direction
+            # rows do.
             sibling_qty = (
                 _ib_sibling_open_qty(account_cfg.get("account_id"), symbol,
-                                      trade_id)
+                                      trade_id, direction=direction)
                 if trade_id is not None else 0.0
             )
             resp = exchange_client.close(

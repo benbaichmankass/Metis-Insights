@@ -33,8 +33,40 @@ caller):
 **FAIL on the pre-fix code** — that is the point of them: a live symbol
 position, thinned by drift, that is smaller than this trade's own requested
 qty plus a sibling's recorded qty. Both planted trades share one symbol.
+
+⚠️ **MANAGER REVIEW (2026-09-28): the first version of this fix was
+BLOCKED.** It preserved the upper bound (close_qty <= live, so it never
+flips the position) but traded an under-close for exits that refuse
+forever. Two real bugs, found by an independent review run against this
+file's own FakeIB harness:
+
+  1. The refusal had no cooldown — order_monitor retries an unrecognised
+     close failure every tick (src/runtime/order_monitor.py
+     _apply_update), so the row never leaves the DB open-and-wedged and a
+     strategy's time-stop / trailing-stop / signal exit can never execute
+     while a divergence persists. Every shortfall this branch can trigger
+     IS a journal-vs-venue divergence by construction (requested_qty +
+     sibling_qty > live_qty can only be true if the journal, taken as a
+     whole for this symbol, claims more than the venue holds) — so the
+     fix now falls back to the pre-fix single-trade clamp
+     (min(requested_qty, live_qty)) and logs a loud divergence alert,
+     rather than refusing.
+  2. Siblings were summed across BOTH directions. On a netted IB contract
+     an opposite-direction row REDUCES the position, it does not hold
+     lots of it — ``_ib_sibling_open_qty`` now filters to the closing
+     trade's own direction.
+
+``test_ib_close_clamp_falls_back_and_alerts_rather_than_wedging_the_exit``,
+``test_ib_close_clamp_measured_incident_shape_phantom_sibling_still_closes``,
+``test_ib_sibling_open_qty_filters_to_same_direction_only`` and
+``test_close_open_position_ib_opposite_direction_sibling_does_not_wedge_the_close``
+cover the correction; the two tests named above (from the blocked version)
+still pass unchanged — the reservation itself is unchanged, only what
+happens when it cannot be honoured.
 """
 from __future__ import annotations
+
+import logging
 
 import pytest
 
@@ -96,20 +128,81 @@ def test_ib_close_clamp_sibling_qty_zero_matches_pre_fix_single_trade_clamp():
     assert float(order.totalQuantity) == 2.0
 
 
-def test_ib_close_clamp_refuses_rather_than_close_into_sibling_when_nothing_left():
-    """The live aggregate (4) is entirely accounted for by the sibling's
-    recorded 4 — nothing may be safely closed for THIS trade. The close must
-    refuse, not silently transmit an order against the sibling's lots."""
+def test_ib_close_clamp_falls_back_and_alerts_rather_than_wedging_the_exit(
+    caplog,
+):
+    """MANAGER REVIEW (2026-09-28, BLOCK on the first version of this fix):
+    the live aggregate (4) being entirely reserved by the sibling's recorded
+    4 can ONLY happen when the journal (this trade's requested 5 + the
+    sibling's recorded 4 = 9) claims more of the symbol than the venue
+    actually holds (4) — a journal-vs-venue divergence, by construction,
+    every time this branch fires. The first version of this fix REFUSED
+    here, which wedged the exit forever (order_monitor retries an
+    unrecognised close failure every tick with no cooldown — strategy exits
+    never execute). The corrected behaviour: fall back to the pre-fix
+    single-trade clamp (min(requested_qty, live_qty) = min(5, 4) = 4) and
+    log a loud divergence alert instead of refusing."""
     fake_ib = FakeIB(
         portfolio_items=[_FakePortfolioItem("MGC", 4, account="DUQ1")],
         open_trades=[],
     )
     client = _ib_client_with(fake_ib, symbol="MGC")
 
-    res = client.close("MGC", "long", 5, sibling_qty=4)
+    with caplog.at_level(logging.ERROR):
+        res = client.close("MGC", "long", 5, sibling_qty=4)
+
+    assert res["retCode"] == 0, res
+    _contract, order = fake_ib.placed[0]
+    assert float(order.totalQuantity) == 4.0, (
+        f"expected the fallback clamp min(requested=5, live=4)=4, got "
+        f"{order.totalQuantity}"
+    )
+    assert "DIVERGENCE" in caplog.text, (
+        "expected a loud journal-vs-venue divergence alert to be logged "
+        "when the sibling reservation had to be overridden"
+    )
+
+
+def test_ib_close_clamp_measured_incident_shape_phantom_sibling_still_closes():
+    """The exact measured incident this fix responds to
+    (OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED): journal declares 11
+    lots (this trade, backed by the venue) + 43 lots (a phantom sibling row,
+    unbacked — the venue never held them), venue holds 11. Closing the
+    BACKED 11-lot row must still flatten to 11, not refuse because a
+    phantom sibling's bogus 43 "needs reserving"."""
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 11, account="DUQ1")],
+        open_trades=[],
+    )
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    res = client.close("MGC", "long", 11, sibling_qty=43)
+
+    assert res["retCode"] == 0, res
+    _contract, order = fake_ib.placed[0]
+    assert float(order.totalQuantity) == 11.0, (
+        f"expected the backed row to flatten to the full live 11, got "
+        f"{order.totalQuantity}"
+    )
+
+
+def test_ib_close_clamp_still_refuses_a_genuinely_flat_symbol():
+    """Not every shortfall is a sibling reservation — a symbol the venue
+    already reports flat (live_qty computed as 0 after the position read)
+    is handled by the earlier 'already flat' branch, not this one; this
+    test covers the OTHER genuine refusal path still standing: a
+    sub-1-lot requested_qty with no sibling in play at all (fractional
+    futures close), which must still refuse."""
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 5, account="DUQ1")],
+        open_trades=[],
+    )
+    client = _ib_client_with(fake_ib, symbol="MGC")
+
+    res = client.close("MGC", "long", 0.4)  # no sibling_qty passed
 
     assert res["retCode"] != 0, res
-    assert "sibling" in res["retMsg"].lower(), res
+    assert "fractional" in res["retMsg"].lower(), res
     assert fake_ib.placed == []
 
 
@@ -126,11 +219,11 @@ def tmp_journal(tmp_path, monkeypatch):
 
 
 def _seed_open_trade(db, *, trade_id_hint, symbol, position_size,
-                      account_id="ib_live_1"):
+                      account_id="ib_live_1", direction="long"):
     """Insert an OPEN journal trade and return its assigned row id."""
     db.insert_trade({
         "timestamp": "2026-09-07T20:00:00+00:00",
-        "symbol": symbol, "direction": "long",
+        "symbol": symbol, "direction": direction,
         "entry_price": 100.0, "stop_loss": 98.0, "take_profit_1": 104.0,
         "position_size": position_size, "status": "open", "is_backtest": 0,
         "strategy_name": f"strat-{trade_id_hint}", "account_id": account_id,
@@ -164,6 +257,77 @@ def test_ib_sibling_open_qty_sums_other_open_trades_excluding_self(tmp_journal):
     assert _ib_sibling_open_qty("ib_live_1", "MHG", trade_a) == 0.0
     # No trade_id excluded -> both rows counted.
     assert _ib_sibling_open_qty("ib_live_1", "MGC", None) == 8.0
+
+
+def test_ib_sibling_open_qty_direction_none_is_backward_compatible(tmp_journal):
+    """``direction`` omitted keeps summing across BOTH directions —
+    byte-for-byte the pre-review behaviour — so a caller that genuinely
+    cannot resolve a direction still gets a number, not an exception."""
+    _seed_open_trade(
+        tmp_journal, trade_id_hint="A", symbol="MGC", position_size=3.0,
+        direction="long")
+    _seed_open_trade(
+        tmp_journal, trade_id_hint="B", symbol="MGC", position_size=2.0,
+        direction="short")
+
+    assert _ib_sibling_open_qty("ib_live_1", "MGC", None) == 5.0
+
+
+def test_ib_sibling_open_qty_filters_to_same_direction_only(tmp_journal):
+    """MANAGER REVIEW (2026-09-28, BLOCK): an opposite-direction row on a
+    netted IB contract REDUCES the position, it does not hold lots of it —
+    it must never count as a sibling to reserve against."""
+    trade_long = _seed_open_trade(
+        tmp_journal, trade_id_hint="LONG", symbol="MGC", position_size=3.0,
+        direction="long")
+    _seed_open_trade(
+        tmp_journal, trade_id_hint="SHORT", symbol="MGC", position_size=2.0,
+        direction="short")
+
+    # The long trade's same-direction siblings: none (the only other row on
+    # MGC is the opposite-direction short).
+    assert _ib_sibling_open_qty(
+        "ib_live_1", "MGC", trade_long, direction="long") == 0.0
+    # Same query with no direction filter still sees the opposite-direction
+    # row (regression cover for the backward-compatible default above).
+    assert _ib_sibling_open_qty(
+        "ib_live_1", "MGC", trade_long, direction=None) == 2.0
+
+
+def test_close_open_position_ib_opposite_direction_sibling_does_not_wedge_the_close(
+    tmp_journal,
+):
+    """MANAGER REVIEW (2026-09-28, BLOCK) — the measured shape: a long-3 /
+    short-2 pair on one netted MGC contract, venue net exposure 1 lot.
+    Closing the long trade's 1 remaining lot must succeed (the short-2 row
+    is not a same-direction sibling to reserve against), not refuse."""
+    trade_long = _seed_open_trade(
+        tmp_journal, trade_id_hint="LONG", symbol="MGC", position_size=3.0,
+        direction="long")
+    _seed_open_trade(
+        tmp_journal, trade_id_hint="SHORT", symbol="MGC", position_size=2.0,
+        direction="short")
+
+    fake_ib = FakeIB(
+        portfolio_items=[_FakePortfolioItem("MGC", 1, account="DUQ1")],
+        open_trades=[],
+    )
+    client = _ib_client_with(fake_ib, symbol="MGC")
+    account_cfg = {"exchange": "interactive_brokers", "account_id": "ib_live_1"}
+
+    outcome = close_open_position(
+        client, account_cfg,
+        symbol="MGC", side="long", qty=1.0,
+        trade_id=trade_long,
+    )
+
+    assert outcome["ok"] is True, outcome
+    _contract, order = fake_ib.placed[0]
+    assert float(order.totalQuantity) == 1.0, (
+        f"the opposite-direction short-2 row must not be reserved against; "
+        f"expected the full 1-lot live position to close, got "
+        f"{order.totalQuantity}"
+    )
 
 
 def test_close_open_position_ib_reserves_sibling_qty_from_the_journal(
