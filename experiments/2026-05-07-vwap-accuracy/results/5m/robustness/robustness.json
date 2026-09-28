@@ -89,31 +89,31 @@
   },
   "walk_forward": {
     "in_sample_baseline": {
-      "trades": 148,
-      "expectancy_r": 0.07307265104749207,
-      "win_rate": 0.27702702702702703,
-      "sharpe": 0.47527123241405445,
+      "trades": 155,
+      "expectancy_r": 0.0707771917336459,
+      "win_rate": 0.27741935483870966,
+      "sharpe": 0.4726570868757994,
       "max_dd_r": -24.510061852220517
     },
     "in_sample_h3": {
-      "trades": 60,
-      "expectancy_r": 0.26001580134085944,
-      "win_rate": 0.35,
-      "sharpe": 1.0763583100343737,
+      "trades": 67,
+      "expectancy_r": 0.23517403647966945,
+      "win_rate": 0.34328358208955223,
+      "sharpe": 1.0359935781226637,
       "max_dd_r": -11.379771333763522
     },
     "out_sample_baseline": {
-      "trades": 94,
-      "expectancy_r": 0.1628303394432943,
-      "win_rate": 0.2978723404255319,
-      "sharpe": 0.8188176173177344,
+      "trades": 89,
+      "expectancy_r": 0.17503336900567376,
+      "win_rate": 0.30337078651685395,
+      "sharpe": 0.8558605833029757,
       "max_dd_r": -11.477626714328844
     },
     "out_sample_h3": {
-      "trades": 41,
-      "expectancy_r": 0.3471282177668498,
-      "win_rate": 0.3902439024390244,
-      "sharpe": 1.2050952995173654,
+      "trades": 36,
+      "expectancy_r": 0.40289374617433726,
+      "win_rate": 0.4166666666666667,
+      "sharpe": 1.3206111597880714,
       "max_dd_r": -6.0
     }
   }
