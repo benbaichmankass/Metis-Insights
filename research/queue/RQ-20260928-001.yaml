@@ -1,0 +1,198 @@
+id: RQ-20260928-001
+title: >-
+  Does wiring the HTF trend-bias filter add net-of-cost edge on the 7
+  ict_scalp variant legs that declare htf_trend_filter_enabled: true but
+  never receive htf_close/htf_ema (CA-A05-001 / JC-CA-02)?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  CA-A05-001 (docs/audits/code-audit-2026-09-27.md §6 JC-CA-02, operator
+  decision 2026-09-28 06:25Z: "Remove flag + research") found that
+  `_ict_scalp_variant_builder` (src/runtime/strategy_signal_builders.py:731)
+  never fetches HTF candles or sets `cfg["htf_close"]` / `cfg["htf_ema"]`, so
+  the HTF trend-bias filter in `src/units/strategies/ict_scalp.py::order_package`
+  (params["htf_trend_filter_enabled"], line 438) is a silent no-op for the 7
+  live-configured legs routed through that builder: ict_scalp_sol_5m,
+  ict_scalp_xrp_5m, ict_scalp_avax_5m, ict_scalp_xrp_15m, ict_scalp_eth_15m,
+  ict_scalp_sol_15m, ict_scalp_mgc_15m (config/strategies.yaml, verified
+  2026-09-28 — all 7 carry `htf_trend_filter_enabled: true`, none reach
+  htf_close/htf_ema; the 8th `htf_trend_filter_enabled: true` in the file,
+  on the base `ict_scalp` BTCUSDT 5m leg, routes through the DIFFERENT
+  `ict_scalp_signal_builder`, which DOES fetch HTF candles at
+  strategy_signal_builders.py:617-654, and is out of scope here). The
+  operator's chosen disposition (option B, not option A) removes the
+  misleading flag now as a zero-behaviour-change config-truth fix and queues
+  turning the filter ON (option A) as this pre-registered question, per the
+  promotion ladder's rule that a live/paper book never establishes edge —
+  the offline harness must clear first. Question: for each of the 7 legs,
+  does actually wiring the filter (fetching real HTF candles and setting
+  htf_close/htf_ema, as ict_scalp_signal_builder already does for the base
+  leg) produce a net-of-full-cost-stack improvement over that same leg's
+  current shipped behaviour (filter declared but inert) on the SAME
+  historical window and parameters already used for that leg's committed
+  evidence?
+
+power:
+  expected_n: 840
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: two_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Unit of analysis = one trade in either arm (filter-off arm = the leg's
+    own already-shipped, already-measured behaviour; filter-on arm = the
+    same params/window re-run through scripts/backtest_ict_scalp.py with
+    htf_trend_filter_enabled: true and real htf_close/htf_ema supplied, which
+    the harness already computes unconditionally via _build_htf_series() at
+    backtest_ict_scalp.py:480 — no new script is needed). Floor at d=0.3,
+    two_sample: 2*(1.96+0.8416)^2/0.3^2 ~= 174.4 trades total for ONE leg's
+    two arms combined (same normal-approximation floor and effect size as
+    RQ-20260927-005, which used the identical d/alpha/power for a
+    comparable strategy-backtest comparison). expected_n is the SUM across
+    all 7 legs' filter-off arms alone (the filter-on arm has not run yet, so
+    its n is unknown until the run — see feasibility below), from committed
+    evidence: ict_scalp_sol_15m's own full-period backtest is directly cited
+    at 422 trades (docs/research/M27-P1-15m-findings-2026-07-22.md:55,
+    SOLUSDT 15m). The other 6 legs are not independently re-counted this
+    session, but their own config-comment fold evidence (config/strategies.yaml
+    lines 581-858; docs/research/M27-P0-crypto-findings-2026-07-20.md;
+    M27-P0-MGC-15m-findings-2026-07-28.md) puts every one of them at 3/4 or
+    4/4 passing k-folds on a shipped edge, which requires materially more
+    than the ~88-trade one-arm floor per leg to have been measurable at all;
+    the MGC leg alone reports 402 deep-split trades (M27-P0-MGC-15m-findings
+    :40) and 285 OOS trades (:172). 840 is a conservative middle figure
+    (7 legs x 120, below every cited count) — NOT a measured total. The run
+    reports each leg's ACTUAL n for both arms and the decision rule below
+    grades each leg individually against the 174.4 two-arm floor, so an
+    optimistic pooled expected_n cannot manufacture a pooled verdict the
+    per-leg data does not support.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Not a registered corpus in research_disposition.CORPORA (e35 / m20 /
+      gld_compat do not cover ict_scalp HTF-filter arms). This is a one-shot
+      deterministic historical replay via scripts/backtest_ict_scalp.py
+      (fixed by history — nothing accrues over calendar time): the
+      filter-off arm re-derives each leg's already-committed evidence
+      (sanity check that the harness reproduces the shipped numbers before
+      trusting the filter-on arm), and the filter-on arm is a NEW
+      measurement that has never been run (that is the entire point of
+      CA-A05-001 — the filter has NEVER executed on these 7 legs). Its n is
+      therefore genuinely unknown until dispatched; expected_n above is a
+      floor-clearing estimate from the filter-off side only, and the run's
+      own per-leg counts are what actually gate the decision rule.
+
+design:
+  legs: >-
+    ict_scalp_sol_5m, ict_scalp_xrp_5m, ict_scalp_avax_5m, ict_scalp_xrp_15m,
+    ict_scalp_eth_15m, ict_scalp_sol_15m, ict_scalp_mgc_15m — the exact 7
+    legs named in CA-A05-001, each run with its OWN config/strategies.yaml
+    params (sweep/displacement/FVG/off_cells/vol_spec), symbol and timeframe.
+  arms: >-
+    (a) filter-off: scripts/backtest_ict_scalp.py with the leg's committed
+    params as-is (htf_trend_filter_enabled left at its config value, which
+    is a no-op either way since the CLI's own harness always builds
+    htf_close/htf_ema — so filter-off here means re-running with
+    --strategy-name <leg> and NOT overriding htf_trend_filter_enabled off,
+    i.e. reproducing the "declared but historically inert in production"
+    number for a sanity cross-check against the leg's already-published
+    fold/full-period counts). (b) filter-on: the same invocation, with the
+    harness's htf gate actually consulted (it already is, structurally —
+    the harness differs from production only in that production's
+    _ict_scalp_variant_builder never supplies htf_close/htf_ema while the
+    harness always does; "filter-on" here means the RUNTIME builder gains
+    the same HTF fetch path ict_scalp_signal_builder already has, tested
+    first via the harness before any runtime code changes).
+  window: >-
+    Each leg's own already-evaluated window/fold structure, reusing the
+    fold boundaries and full-period spans already cited in
+    M27-P0-crypto-findings-2026-07-20.md, M27-P1-15m-findings-2026-07-22.md
+    and M27-P0-MGC-15m-findings-2026-07-28.md, so the two arms are
+    apples-to-apples against the SAME evidence this leg was promoted on.
+  costs: >-
+    Full cost stack per leg's own live assumptions (fee-bps-roundtrip,
+    slippage, and — for perp legs — funding), matching
+    scripts/backtest_ict_scalp.py's existing --fee-bps-roundtrip /
+    --slippage-bps-roundtrip / --funding-bps-per-window defaults already
+    used for each leg's shipped evidence. Per CLAUDE.md's promotion-ladder
+    ⚠️ on D1: today's harness corpus defaults slippage/funding to 0.0 unless
+    explicitly passed, so this run must pass explicit non-zero values or the
+    result is fee-only and optimistic — same caveat as the rest of the
+    corpus, stated rather than silently inherited.
+
+decision_rule:
+  id: RULE-RQ0928-001-ICTSCALP-HTF-FILTER-WIRE
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    Per leg L: net-of-full-cost-stack total R and mean R-per-trade for arm
+    (a) filter-off and arm (b) filter-on, over the SAME window/params.
+    n_a, n_b = each arm's own trade count as produced by the run.
+  rule: >-
+    PASS for leg L (proposal-eligible for JC-CA-02 option A, that leg only)
+    IF n_a + n_b >= 175 (the pre-registered two-arm floor) AND arm (b)'s
+    total net-R > arm (a)'s total net-R over the identical window AND arm
+    (b)'s mean R-per-trade is not worse than arm (a)'s by more than the
+    stated min_detectable_effect. UNDERPOWERED for leg L IF n_a + n_b < 175
+    -- never PASS regardless of the R comparison. FAIL for leg L IF arm (b)'s
+    total net-R <= arm (a)'s. A leg-level PASS is a Tier-3 PROPOSAL only
+    (same operator-approval path CLAUDE.md requires for any new,
+    never-before-run strategy behaviour) -- it does not itself flip
+    htf_trend_filter_enabled back on. Legs are graded and proposed
+    independently; a PASS on some legs and a FAIL/UNDERPOWERED on others is
+    a valid, expected outcome, not a reason to withhold the passing legs'
+    proposal.
+  what_it_does_not_do: >-
+    Edits nothing under config/ and flips no runtime gate. Does not
+    re-score whether the 7 legs' EXISTING (filter-off) live/paper track
+    record remains valid -- that is /performance-review's job, not this
+    unit. A PASS does not authorize wiring the filter live; per the
+    promotion ladder, the offline harness result is the evidence a Tier-3
+    proposal is built on, and the operator still approves the config/code
+    change and the subsequent soak.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 90
+  basis: >-
+    7 legs x 2 arms = 14 scripts/backtest_ict_scalp.py invocations over each
+    leg's own already-bounded historical window (the same data already
+    fetched/cached for the M27 findings this question re-derives against);
+    runs in a Claude Code web session, no GPU/trainer needed. ~5-8 min per
+    invocation on a multi-year 5m/15m feed (comparable to the existing
+    M27 sweep run times cited in the findings docs), serialised or
+    lightly parallel.
+
+run:
+  workflow: >-
+    none — session-local run of scripts/backtest_ict_scalp.py per leg
+    (existing CLI, --htf-rule / --htf-ema-period already exposed; no new
+    script required)
+  inputs:
+    script: scripts/backtest_ict_scalp.py
+    research_unit: RQ-20260928-001
+    legs: >-
+      ict_scalp_sol_5m, ict_scalp_xrp_5m, ict_scalp_avax_5m,
+      ict_scalp_xrp_15m, ict_scalp_eth_15m, ict_scalp_sol_15m,
+      ict_scalp_mgc_15m
+
+lands:
+  store: docs/research/ict-scalp-htf-filter-wiring-2026-09-28.json
+  assert_field: verdict
+  min_rows: 7
+
+related:
+  - 'docs/audits/code-audit-2026-09-27.md §6 JC-CA-02 (CA-A05-001, operator decision 2026-09-28)'
+  - 'src/runtime/strategy_signal_builders.py:731 (_ict_scalp_variant_builder)'
+  - 'src/units/strategies/ict_scalp.py:438 (htf_trend_filter_enabled consumer)'
+  - 'config/strategies.yaml (the 7 legs, htf_trend_filter_enabled removed by this same PR)'
+  - 'docs/research/M27-P0-crypto-findings-2026-07-20.md'
+  - 'docs/research/M27-P1-15m-findings-2026-07-22.md'
+  - 'docs/research/M27-P0-MGC-15m-findings-2026-07-28.md'
+
+last_dispatched_at: null
