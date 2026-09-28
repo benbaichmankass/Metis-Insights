@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Pipeline records only: closes OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED after an operator-directed fresh read (journal and venue both flat) and files the IB divergence detector. No code or config change. Held so the manager, who owns the lane, lands it.",
+  "why": "MGC-FIX close-out: the fresh read found trade 5531 closed by the reconciler and ib_paper flat at the venue, so the 43-lot divergence no longer exists."
+}
