@@ -14,6 +14,7 @@ invented one. The ``probe-ticket`` system-action is the measurement.
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -79,17 +80,17 @@ def test_tick_modes():
     ns = lambda **k: SimpleNamespace(**{"probe_ticket": "", "dry_run": False, "watched_click": False, **k})  # noqa: E731
     assert resolve_mode(ns(), {}) == "read_only"
     assert resolve_mode(ns(dry_run=True), {pe.MODE_ENV: "live"}) == "read_only"
-    assert resolve_mode(ns(watched_click=True), {}) == "live"
-    assert resolve_mode(ns(watched_click=True), {pe.MODE_ENV: "off"}) == "off"
+    assert resolve_mode(ns(watched_click=True), {}) == "not_armed"          # must be armed explicitly
+    assert resolve_mode(ns(watched_click=True), {pe.MODE_ENV: "live"}) == "live"
     assert resolve_mode(ns(probe_ticket="SOLUSD"), {}) == "probe"
 
 
 def test_real_config_loads_and_keeps_flat_75_and_unmeasured_lots_refuse():
     c = pe.load_config("breakout_1")
     assert c.risk_cap_usd == 75.0 and c.max_dd_pct == 0.06 and c.daily_loss_pct == 0.03
-    assert c.symbols["SOLUSDT"]["lot_units"] is None      # UNMEASURED → refused
+    assert c.symbols["BTCUSDT"]["lot_units"] is None      # UNMEASURED → refused
     assert c.symbols["ADAUSDT"]["min_lots"] == 10
-    spec, _, why = pe.bracket_from_ticket(ticket(), c)
+    spec, _, why = pe.bracket_from_ticket(ticket(symbol="BTCUSDT"), c)
     assert spec is None and "not declared" in why
     assert c.watched_click_max_lots == {}                 # the watched click refuses until set
 
@@ -887,5 +888,67 @@ def test_tick_round_trip_modes():
     ns = lambda **k: SimpleNamespace(**{"probe_ticket": "", "dry_run": False, "watched_click": False,  # noqa: E731
                                         "round_trip": "", "live": False, **k})
     assert resolve_mode(ns(round_trip="ETHUSD"), {}) == "round_trip_dry"
-    assert resolve_mode(ns(round_trip="ETHUSD", live=True), {}) == "round_trip_live"
-    assert resolve_mode(ns(round_trip="ETHUSD", live=True), {pe.MODE_ENV: "off"}) == "off"
+    assert resolve_mode(ns(round_trip="ETHUSD", live=True), {}) == "not_armed"
+    assert resolve_mode(ns(round_trip="ETHUSD", live=True), {pe.MODE_ENV: "live"}) == "round_trip_live"
+
+
+# ── manager review of #13647 (2026-09-28) ─────────────────────────────────
+
+
+@pytest.mark.parametrize("env", [{}, {pe.MODE_ENV: "read_only"}, {pe.MODE_ENV: "liev"}, {pe.MODE_ENV: "off"}])
+def test_manual_live_runs_need_live_explicitly(env):
+    from scripts.prop.prop_executor_tick import resolve_mode
+    ns = lambda **k: SimpleNamespace(**{"probe_ticket": "", "dry_run": False, "watched_click": False,  # noqa: E731
+                                        "round_trip": "", "live": False, **k})
+    assert resolve_mode(ns(watched_click=True), env) == "not_armed"
+    assert resolve_mode(ns(round_trip="ETHUSD", live=True), env) == "not_armed"
+    assert resolve_mode(ns(watched_click=True), {pe.MODE_ENV: "live"}) == "live"
+    assert resolve_mode(ns(round_trip="ETHUSD", live=True), {pe.MODE_ENV: "live"}) == "round_trip_live"
+
+
+def test_not_armed_exits_before_any_browser(monkeypatch, capsys):
+    from scripts.prop import prop_executor_tick as tick
+    monkeypatch.delenv(pe.MODE_ENV, raising=False)
+    assert tick.main(["--watched-click"]) == tick.EXIT_ERROR
+    assert '"not_armed"' in capsys.readouterr().out
+
+
+def test_cycle_refuses_a_symbol_already_open_on_the_terminal(env):
+    for i, kw in enumerate((dict(positions=[_p()]), dict(orders=[_o(order_id="X")]))):
+        ledger, state = env
+        ad = FakeAdapter(**kw)
+        api = FakeApi([ticket(ticket_id=f"t-busy-{i}")], fills=[{"id": 1, "account_id": "breakout_1", "symbol": "SOLUSDT",
+                                          "direction": "long", "status": "open", "sl": 118, "tp": 126}])
+        res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(breach_guards="report"), mode="live",
+                           ledger=ledger, state=state, now=NOW)
+        g = [a for a in res.actions if a["what"] == "guards"][0]
+        assert not g["fits"] and any("already has" in r for r in g["reasons"])
+        assert not any(c[0] == "place_bracket" for c in ad.calls)
+
+
+def test_capped_size_is_re_stepped():
+    c = cfg(symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0, "min_lots": 0.05,
+                                 "lot_step": 0.01}})
+    spec, facts, why = pe.bracket_from_ticket(ticket(qty=10), c, max_lots=0.057)
+    assert spec.quantity == 0.05
+    spec, _, why = pe.bracket_from_ticket(ticket(qty=10), c, max_lots=0.02)
+    assert spec is None and "below the venue minimum" in why
+
+
+def test_round_trip_refuses_an_off_step_size(tmp_path):
+    ad = RTAdapter()
+    res = rt(ad, FakeApi(), tmp_path, lots=0.055)
+    assert "not a valid venue size" in res.halted and ad.calls == []
+
+
+def test_live_output_never_carries_the_raw_form(env):
+    ad = FakeAdapter(attempt=PlaceAttempt(stage="refused", detail="x", form={"form_text": "Account 823528, USD"}))
+    res = pe.run_cycle(adapter=ad, page=None, api=FakeApi([ticket()]), cfg=cfg(), mode="live",
+                       ledger=env[0], state=env[1], now=NOW)
+    assert "823528" not in json.dumps(res.actions, default=str)
+
+
+def test_real_config_eth_sol_lots_are_the_measured_ones():
+    c = pe.load_config("breakout_1")
+    for s in ("ETHUSDT", "SOLUSDT"):
+        assert (c.symbols[s]["lot_units"], c.symbols[s]["lot_step"], c.symbols[s]["min_lots"]) == (1, 0.01, None)

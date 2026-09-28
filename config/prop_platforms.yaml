@@ -56,9 +56,16 @@ accounts:
       lots:
         ADAUSD: {lot_units: 1, lot_step: 1, min_lots: 10}
         XRPUSD: {lot_units: 1, lot_step: 1, min_lots: 10}
-        # SOLUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED
-        # ETHUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED
-        # BTCUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED
-      # The watched step-3 click places at most this many lots of the named
-      # venue symbol (minimum size). Empty = the watched click refuses.
+        # ETHUSD / SOLUSD: MEASURED 2026-09-28 06:18Z (issue #13500, run
+        # 36385743336, passive network read, W6-PROP-E1): lotSize 1,
+        # multiplier 1, quantityPrecision 2 -> lot_units 1, lot_step 0.01.
+        # The venue MINIMUM was NOT in the served fields: min_lots is null
+        # (no local minimum check); fill it from the probe / Instrument Details.
+        ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: null}
+        SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: null}
+        # BTCUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED (no fields served)
+      # The watched click / round trip places at most this many lots of the
+      # named venue symbol, meant to be the venue MINIMUM. Left EMPTY on
+      # purpose: the minimum is unmeasured (see above), so both refuse until
+      # the probe / Instrument Details give it. Empty = they refuse.
       watched_click_max_lots: {}

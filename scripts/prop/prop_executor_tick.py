@@ -21,10 +21,10 @@ Modes (exactly one; default = one scheduled cycle):
   end-to-end test (operator 2026-09-28): ONE minimum-size market bracket with
   SL+TP → confirm by re-read → report ``open`` → the bot closes it at market →
   confirm flat → report ``closed``. Without ``--live`` it is a dry walk that
-  clicks nothing. ``--live`` is refused when ``PROP_EXECUTOR_MODE=off``.
+  clicks nothing. ``--live`` is refused unless ``PROP_EXECUTOR_MODE=live``.
 - ``--watched-click``: the watched step-3 test. ``live`` for ONE cycle, at
   most one ticket, at the per-symbol minimum size in
-  ``executor.watched_click_max_lots``. Refused when ``PROP_EXECUTOR_MODE=off``.
+  ``executor.watched_click_max_lots``. Refused unless ``PROP_EXECUTOR_MODE=live``.
 
 Session (``--login``):
 - ``reuse`` (the scheduled unit): open the terminal on the saved session at
@@ -77,12 +77,16 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "probe"
     if args.dry_run:
         return "read_only"
+    # A manual LIVE run (watched click, live round trip) needs the kill switch
+    # EXPLICITLY armed: PROP_EXECUTOR_MODE=live. Unset / read_only / a typo
+    # (all of which read as read_only) refuse, never click (manager review of
+    # #13647, 2026-09-28).
     if args.watched_click:
-        return "off" if base == "off" else "live"
+        return "live" if base == "live" else "not_armed"
     if getattr(args, "round_trip", ""):
         if not getattr(args, "live", False):
             return "round_trip_dry"
-        return "off" if base == "off" else "round_trip_live"
+        return "round_trip_live" if base == "live" else "not_armed"
     return base
 
 
@@ -104,7 +108,7 @@ def main(argv: Optional[list] = None) -> int:
                     help="round trip size (default and maximum: executor.watched_click_max_lots)")
     ap.add_argument("--side", choices=("long", "short"), default="long")
     ap.add_argument("--live", action="store_true",
-                    help="round trip: actually click (refused when PROP_EXECUTOR_MODE=off); default is a dry walk")
+                    help="round trip: actually click (refused unless PROP_EXECUTOR_MODE=live); default is a dry walk")
     ap.add_argument("--ticket-id", default="", help="watched click: act on this ticket only")
     args = ap.parse_args(argv)
 
@@ -115,6 +119,10 @@ def main(argv: Optional[list] = None) -> int:
     secrets = (username, password)
     emit({"executor": "start", "account": args.account, "mode": mode, "login": args.login,
           "env_mode": pe.executor_mode()})
+    if mode == "not_armed":
+        emit({"executor": "not_armed", "why": f"a live click needs {pe.MODE_ENV}=live explicitly "
+                                              f"(it reads {pe.executor_mode()!r}); nothing clicked"})
+        return EXIT_ERROR
     if mode == "off":
         emit({"executor": "off", "why": f"{pe.MODE_ENV}=off — nothing read, nothing clicked"})
         return EXIT_OK

@@ -1531,7 +1531,9 @@ class DXtradeAdapter(PropPlatformAdapter):
             "canvases_in_form": form.get("canvases_in_form"),
             "canvases_in_page": form.get("canvases_in_page"),
             "inputs_in_page": form.get("inputs_in_page"),
-            "form_text": form.get("form_text", ""),
+            # Length only: the raw form text can carry the account number and
+            # this result is printed to a PUBLIC run log.
+            "form_text_len": len(form.get("form_text") or ""),
         }
         if opened.get("opened"):
             result["closed"] = self.close_order_ticket(page)
@@ -1683,8 +1685,12 @@ class DXtradeAdapter(PropPlatformAdapter):
         if oc.get("state") != "off":
             return {"ok": False, "clicked": False, "why": f"one-click trading is {oc.get('state')}"}
         self._show_tab(page, "tab_positions")
+        # Disarmed: locate the edit control and stop — no click at all.
         opened = self._row_action(page, "positions", "Symbol", position.symbol,
-                                  r"^(edit|modify|✎|sl/tp|edit position)$", True)
+                                  r"^(edit|modify|✎|sl/tp|edit position)$", arm)
+        if not arm:
+            return {"ok": bool(opened.get("ok")), "clicked": False,
+                    "why": f"disarmed: stopped before the edit control ({opened.get('why')})"}
         if not opened.get("clicked"):
             return {"ok": False, "clicked": False, "why": f"edit control: {opened.get('why')}"}
         page.wait_for_timeout(1_000)

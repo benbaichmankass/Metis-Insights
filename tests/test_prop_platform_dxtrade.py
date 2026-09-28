@@ -925,3 +925,24 @@ def test_resume_session_raises_on_a_challenge_and_never_types(visible, reason):
         DXtradeAdapter(timeout_ms=2_000).resume_session(page, "https://app.example/")
     assert ei.value.reason == reason
     assert page.filled == {} and page.clicked == []
+
+
+def test_modify_bracket_disarmed_never_clicks_the_edit_control():
+    from src.prop.platform.base import Position
+    calls = []
+
+    class P:
+        def evaluate(self, js, *a):
+            return {"state": "off"} if "one" in js[:200].lower() else {"rows": 1, "controls": 1}
+
+        def click(self, *a, **k):
+            calls.append(a)
+
+        def wait_for_timeout(self, *a):
+            pass
+
+    a = DXtradeAdapter()
+    a._show_tab = lambda *x: True
+    a.read_one_click = lambda page: {"state": "off"}
+    r = a.modify_bracket(P(), Position(symbol="SOLUSD"), 1.0, 2.0)
+    assert r["clicked"] is False and calls == []

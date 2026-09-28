@@ -42,8 +42,8 @@
 #     watched-click    — THE WATCHED STEP-3 TEST: one live cycle, at most one
 #                        ticket, at executor.watched_click_max_lots (minimum
 #                        size), confirmed by re-read, reported through
-#                        POST /api/bot/prop/report. Refused when
-#                        PROP_EXECUTOR_MODE=off. Dispatch only with the
+#                        POST /api/bot/prop/report. Refused unless
+#                        PROP_EXECUTOR_MODE=live. Dispatch only with the
 #                        operator watching.
 #     round-trip-dry   — the END-TO-END test walked dry: read the quote, build
 #                        a minimum-size ETHUSD market bracket (add `sol` for
@@ -52,7 +52,7 @@
 #     round-trip-live  — THE END-TO-END TEST (operator 2026-09-28): place that
 #                        bracket, confirm entry + SL + TP by re-read, report
 #                        `open`, CLOSE it at market, confirm flat by re-read,
-#                        report `closed`. Refused when PROP_EXECUTOR_MODE=off.
+#                        report `closed`. Refused unless PROP_EXECUTOR_MODE=live.
 #                        Tell the operator before dispatching.
 #   Executor timer (the go-live switch's second half; not a terminal run):
 #     executor-enable-timer  — install deploy/opt-in/ict-prop-executor.timer
@@ -60,7 +60,9 @@
 #                              THIS plus `set-env PROP_EXECUTOR_MODE=live`
 #                              (service: none; the tick re-reads .env).
 #     executor-disable-timer — `systemctl disable --now` the timer. The instant
-#                              revert is `set-env PROP_EXECUTOR_MODE=off`.
+#                              revert is `set-env PROP_EXECUTOR_MODE=off`
+#                              (which also stops reconciling in-flight
+#                              `submitted` rows: containment is manual after).
 #
 # Takes the same flock as the scheduled feed (${BASE}/login.lock), waiting up
 # to 200 s, so a manual check never logs in while a scheduled tick is.

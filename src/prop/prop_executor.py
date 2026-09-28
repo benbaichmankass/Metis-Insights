@@ -221,8 +221,12 @@ def bracket_from_ticket(ticket: Mapping[str, Any], cfg: ExecutorConfig,
     lots, why = size_lots(ticket.get("qty"), sym)
     if lots is None:
         return None, {}, why
-    if max_lots is not None:
-        lots = min(lots, max_lots)
+    if max_lots is not None and max_lots < lots:
+        # Re-apply the venue step/minimum to the capped size: a cap is never
+        # a way to type a size the venue would reject or round.
+        lots, why = size_lots(max_lots * float(sym["lot_units"]), sym)
+        if lots is None:
+            return None, {}, f"watched-click size: {why}"
     cvpp = _f(sym.get("cvpp"))
     if cvpp is None:
         return None, {}, f"contract value per point for {bot} is not declared"
@@ -710,6 +714,16 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     spec, facts, refusal = bracket_from_ticket(candidate, cfg, max_lots=ml)
     if ml_refusal:
         spec, refusal = None, ml_refusal
+    # HARD: the symbol already carries a position or working order. On a
+    # netting account a new bracket would merge into it, the re-read could not
+    # match the ticket (reported unconfirmed_submit) and exposure would double
+    # while the journal never learns (manager review of #13647).
+    if spec is not None and not refusal:
+        busy = [p for p in positions if p.symbol.upper() == spec.venue_symbol.upper()] + \
+               [o for o in orders if o.symbol.upper() == spec.venue_symbol.upper()]
+        if busy:
+            refusal = (f"{spec.venue_symbol} already has {len(busy)} position(s)/working order(s) "
+                       f"on the terminal; one bracket per symbol")
     v = evaluate_guards(ticket=candidate, spec=spec, facts=facts, refusal=refusal, account=acct,
                         day_start_balance=ds, open_risk_usd=orisk, open_risk_state=ostate,
                         cfg=cfg, now=now, halted=halted)
@@ -727,13 +741,13 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     if not live:
         if walk_form:
             att = adapter.place_bracket(page, spec, arm=False)
-            res.log("would_click", ticket_id=spec.ticket_id, spec=spec.as_dict(), walk=att.as_dict())
+            res.log("would_click", ticket_id=spec.ticket_id, spec=spec.as_dict(), walk=_attempt_public(att))
         else:
             res.log("would_click", ticket_id=spec.ticket_id, spec=spec.as_dict())
         return res
     ledger.record(spec.ticket_id, "intended", spec=spec.as_dict(), facts=dict(facts))
     att: PlaceAttempt = adapter.place_bracket(page, spec, arm=True)
-    res.log("place_bracket", ticket_id=spec.ticket_id, attempt=att.as_dict())
+    res.log("place_bracket", ticket_id=spec.ticket_id, attempt=_attempt_public(att))
     if not att.submitted:
         ledger.record(spec.ticket_id, "refused", reasons=[att.detail])
         _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail}"))
@@ -795,6 +809,9 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     lots = cap if lots is None else lots
     if not (lots > 0) or lots > cap:
         return stop(f"lots {lots} must be > 0 and <= watched_click_max_lots {cap}")
+    stepped, why = size_lots(lots * float(sym["lot_units"]), sym)
+    if stepped is None or abs(stepped - lots) > 1e-9:
+        return stop(f"lots {lots} is not a valid venue size ({why or f'nearest step is {stepped}'})")
     if side not in ("long", "short"):
         return stop(f"side {side!r} is not long/short")
     try:
@@ -823,7 +840,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     if arm:
         ledger.record(tid, "intended", spec=spec.as_dict(), purpose="round_trip_test")
     att = adapter.place_bracket(page, spec, arm=arm)
-    res.log("place_bracket", ticket_id=tid, attempt=att.as_dict())
+    res.log("place_bracket", ticket_id=tid, attempt=_attempt_public(att))
     if not arm:
         res.log("would_close", ticket_id=tid, result=adapter.flatten(page, venue, arm=False))
         return res
@@ -890,6 +907,15 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     return res
 
 
+def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:
+    """A PlaceAttempt for logs/journal WITHOUT the raw form (its text can
+    carry the account number); field labels + button names only."""
+    form = att.form or {}
+    return {"stage": att.stage, "submitted": att.submitted, "detail": att.detail,
+            "form_fields": sorted((form.get("fields") or {}).keys()),
+            "form_buttons": sorted((form.get("buttons") or {}).keys())}
+
+
 def _skip_body(cfg: ExecutorConfig, t: Mapping[str, Any], reason: str) -> Dict[str, Any]:
     return {"kind": "fill", "status": "skipped", "account_id": cfg.account_id,
             "ticket_id": t.get("ticket_id"), "symbol": t.get("symbol"),
@@ -951,9 +977,10 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
     if verdict == "duplicate":
         res.alerts.append(f"{tid}: {len(found['orders'])} orders + {len(found['positions'])} positions "
                           f"match one ticket — duplicate submit")
-        # cancel every duplicate WORKING order beyond the first; if two
-        # positions filled, close the excess by flattening the symbol ONLY when
-        # nothing else is open there (a flatten cannot pick one of two rows).
+        # Cancel every duplicate WORKING order beyond the first (all of them
+        # when a position already filled). Two FILLED positions are never
+        # auto-closed: a flatten cannot pick one of two rows, so the excess is
+        # left to the operator and new entries halt.
         extra_orders = found["orders"][1:] if not found["positions"] else found["orders"]
         for o in extra_orders:
             r = adapter.cancel_order(page, o, arm=live)
