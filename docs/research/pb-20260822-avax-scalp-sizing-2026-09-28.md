@@ -60,13 +60,25 @@ confirming the sweep-extreme distance dominates stop placement, not this
 buffer), **and** the backtest's net return flips from failing to passing —
 which was not predicted going in and is the more consequential result.
 
-⚠️ **This is the RAW FULL-WINDOW number, not the OOS-folded
+⚠️ **The table above is the RAW FULL-WINDOW number, not the OOS-folded
 `RULE-D1-STAGE0-NET-OF-FULL-COST` statistic** the roster-promotion gate
-reads (`comms/strategy_evidence/ict_scalp_avax_5m.json`). Before this leg's
-Stage-0 verdict can be updated anywhere, re-run
+reads. That statistic HAS now been refreshed (2026-09-28, same session,
 `scripts/ops/build_strategy_evidence.py --strategy ict_scalp_avax_5m --days 365 --folds 4`
-against the widened config and commit the refreshed record. That is
-follow-up work, not done in this pass.
+against the widened config, committed to
+`comms/strategy_evidence/ict_scalp_avax_5m.json`):
+
+| | before (`atr_sl_buffer_mult=0.20`) | after (`atr_sl_buffer_mult=0.50`) |
+|---|--:|--:|
+| net_r_oos | -9.1340R | **+6.4895R** |
+| net_r_oos (fee-only) | 4.7813R | 16.1523R |
+| n_trades_oos | 259 | 257 |
+| folds_positive | 1 of 4 | 2 of 4 |
+| config_fingerprint | `sha256:430bb4b2…` | `sha256:d678fde9…` |
+| **`RULE-D1-STAGE0-NET-OF-FULL-COST` verdict** | **fail** | **pass** |
+
+The rule (`net_r_oos > 0`) is now satisfied — 2 of 4 folds are still negative
+individually, so this is a pooled pass, not a fold-uniform one; read
+`folds_positive` alongside the verdict rather than the verdict alone.
 
 ## What this does NOT establish
 
@@ -81,7 +93,9 @@ follow-up work, not done in this pass.
   table above) still hit the ceiling; only a genuine per-leg risk fraction
   (which does not exist today) could close that gap to zero without also
   giving up on the leg's entry logic (the sweep-extreme term).
-- Not yet folded into any Stage-0 evidence record or promotion decision.
+- The refreshed Stage-0 record is evidence, not a promotion decision — this
+  PR changes a sizing parameter on a leg that is already live; it does not
+  itself promote, demote, or otherwise move the leg on the ladder.
 
 ## Disposition
 
