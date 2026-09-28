@@ -1163,3 +1163,24 @@ def test_ticket_panel_dump_anchors_on_the_sidebar_not_the_work_area(tpage):
     assert dump["found"] and not dump["truncated"]
     texts = [r.get("text") for r in dump["rows"]]
     assert "Quantity" in texts and "Place Order" in texts and not any(t and t.startswith("SYM") for t in texts)
+
+
+def test_ticket_panel_dump_ignores_the_charts_symbol_input(tpage):
+    # Probe #13797: the chart widget has its own symbol_input, first in DOM
+    # order; the dump must anchor on the ticket (from its BUY button).
+    html = ("<div class='layout'><div class='chart'><input data-test-id='symbol_input' placeholder='Symbol...'>"
+            + "".join(f"<div>row {i}</div>" for i in range(400)) + "</div>"
+            "<div class='side'><input data-test-id='symbol_input'>"
+            "<button data-test-id='SELL'>Sell</button><button data-test-id='BUY'>Buy</button>"
+            "<div><span>Quantity</span><input></div><button>Place Order</button></div></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] and not dump["truncated"] and dump["n"] < 20
+    texts = [r.get("text") for r in dump["rows"]]
+    assert "Quantity" in texts and "Place Order" in texts and not any(t and t.startswith("row") for t in texts)
+
+
+def test_ticket_panel_dump_refuses_two_buy_buttons(tpage):
+    html = ("<div><input data-test-id='symbol_input'><button data-test-id='BUY'>Buy</button>"
+            "<button data-test-id='BUY'>Buy</button><button data-test-id='SELL'>Sell</button></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] is False and "2 [data-test-id=BUY]" in dump["why"]

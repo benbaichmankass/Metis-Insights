@@ -1,0 +1,68 @@
+{
+  "unit": "RQ-20260928-015",
+  "run_id": "36485462344",
+  "commit_sha": "a5533f9241cd79a708124e0b203a6b115c6653f4",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36485462344",
+  "timeout_minutes": 90,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/prop_ev_grid.py",
+        "--leg",
+        "trend_donchian_eth_prop",
+        "--leg",
+        "trend_donchian_sol_prop",
+        "--arm",
+        "A=--sizing balance --risk-pct 0.015",
+        "--common",
+        "--ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+        "--seeds",
+        "1",
+        "--grade",
+        "reproduce",
+        "--target",
+        "trend_donchian_eth_prop=883:0.8477",
+        "--target",
+        "trend_donchian_sol_prop=483:0.7427",
+        "--tolerance",
+        "0.10",
+        "--overall",
+        "all",
+        "--out",
+        "comms/research/RQ-20260928-015/36485462344",
+        "--jobs",
+        "4"
+      ],
+      "log": "comms/research/RQ-20260928-015/36485462344/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 71.7
+    },
+    {
+      "index": 1,
+      "argv": [
+        "python3",
+        "scripts/research/prop_ev_sim.py",
+        "--book",
+        "breakout_1",
+        "--ruleset",
+        "config/prop_rulesets/breakout.yaml",
+        "--costs",
+        "breakout",
+        "--funded-start",
+        "fresh",
+        "--swap-model",
+        "dxtrade",
+        "--seed",
+        "1",
+        "--out",
+        "comms/research/RQ-20260928-015/36485462344/book-breakout_1.json"
+      ],
+      "log": "comms/research/RQ-20260928-015/36485462344/logs/cmd-1.log",
+      "exit_code": 0,
+      "seconds": 23.8
+    }
+  ],
+  "all_ok": true
+}
