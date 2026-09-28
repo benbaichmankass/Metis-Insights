@@ -1,0 +1,48 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "p90 bars-held for every scalp and pullback leg falls within 3x its backtested horizon, and declared-bracket exits rise above 50% of closes for those families.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260821-SCALPS-HELD-10-TO-100X-THEIR-DESIGN-HORIZON'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "This finding's core claim (p90 bars-held per live scalp/mean-reversion leg vs its backtested horizon) requires live position/trade data (DB or diag relay); this session has no VM/DB access, so I could not re-derive the numbers or confirm/refute them. Config-side, no code change is visible that would have altered scalp exit timing since the finding was filed.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "low (read-only diag query)",
+          "label": "Dispatch a diag/DB pull to re-measure p90 bars-held per leg now",
+          "risk": "none -- pure observation",
+          "what_happens": "A lane runs the live-data check the finding's own clears_when specifies (p90 bars-held vs 3x backtested horizon, declared-bracket exit share) before any decision."
+        },
+        {
+          "cost": "none",
+          "label": "Treat as still open and unchanged; keep monitoring on the existing 14-day cadence",
+          "risk": "a real live-money exit-mechanics gap (if still true) continues unaddressed",
+          "what_happens": "No new work; the item stays queued at its current check interval."
+        },
+        {
+          "cost": "none",
+          "label": "Operator states this is already superseded by other exit work (e.g. M20 lever shipments) and it should be re-scoped or closed",
+          "risk": "closing without a fresh measurement risks re-opening a real gap later",
+          "what_happens": "Item closed/rescoped per operator's own knowledge of subsequent exit-refinement work not visible from static config alone."
+        }
+      ],
+      "priority_tier": 2,
+      "question": "The 2026-08-21 finding claims every scalp/mean-reversion leg is held 10-100x its design bar-horizon (e.g. 15m scalps to 11 days), the same failure class as the June BYBIT_TPSL_MODE=full incident but via a different mechanism. This has not been re-measured with live data this session -- is it still true, and if so what should close it?",
+      "recommendation": "Option 1 -- this is a live-money mechanics claim that a single diag/DB pull can settle cheaply; nothing in the repo lets me confirm or refute it without that data."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] Every mean-reversion and scalp leg is held 10-100x its own bar horizon — 15m scalps to 11 days, 5m scalps to 41h at p90 — the exact class BYBIT_TPSL_MODE=full caused in June, now with a different mechanism\n\n[TRIAGE 2026-09-28] OPERATOR (tier 2) — The 2026-08-21 finding claims every scalp/mean-reversion leg is held 10-100x its design bar-horizon (e.g. 15m scalps to 11 days), the same failure class as the June BYBIT_TPSL_MODE=full incident but via a different mechanism. This has not been re-measured with live data this session -- is it still true, and if so what should close it? Recommendation: Option 1 -- this is a live-money mechanics claim that a single diag/DB pull can settle cheaply; nothing in the repo lets me confirm or refute it without that data."
+}

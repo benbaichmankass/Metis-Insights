@@ -1,0 +1,48 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "REFRAMED with its sibling 2026-08-23: this does NOT resolve by adding a reward-to-risk floor. vwap's target is a LEVEL (the VWAP line) and its stop a MULTIPLE, so unlike the tp_r: 50.0 legs its target IS already a prediction - which is why it is filed low and separately. What it owes is (a) the vwap.py:201 docstring's '1:2 preserved' claim corrected to state the condition under which it holds (it is true at the entry boundary and was generalised to the whole surface), and (b) inclusion in whatever declared-geometry surface the active-management build produces, so a level-based target landing inside its own stop is visible rather than inferred. Whether vwap should REFUSE such a setup is a separate Tier-3 call and may reasonably be 'no'; record the decision either way.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260823-VWAP-TARGET-NEARER-THAN-STOP",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-VWAP-TARGET-NEARER-THAN-STOP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-VWAP-TARGET-NEARER-THAN-STOP'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read src/units/strategies/vwap.py lines ~190-215: the '1:2 preserved' docstring claim is already correctly scoped ('at the entry boundary') in current code, so part (a) of clears_when looks satisfied. Checked scripts/research/m20_fleet_exit_sweep.py's FAMILY_HARNESS and tp_geometry_for/LIVE_TP_CAPPED_FAMILIES: only donchian/pullback/squeeze/fvg/scalp are covered - vwap and turtle_soup are absent from the declared-geometry surface entirely, so part (b) is still open, and the Tier-3 'should vwap refuse this setup' question is undecided.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "low, Tier-1 research tooling",
+          "label": "Add vwap/turtle_soup to the geometry-stamping surface (visibility only)",
+          "risk": "none",
+          "what_happens": "A lane extends FAMILY_HARNESS/tp_geometry_for coverage so this condition is visible per-round instead of inferred."
+        },
+        {
+          "cost": "moderate, needs backtest validation",
+          "label": "Also make vwap refuse a target-inside-stop setup",
+          "risk": "could suppress otherwise-valid signals; may reasonably be 'no'",
+          "what_happens": "Tier-3 strategy-logic change to vwap's signal builder."
+        },
+        {
+          "cost": "none",
+          "label": "Do nothing further - accept the current shape as intended",
+          "risk": "the condition remains invisible in the geometry surface",
+          "what_happens": "Row closes as a recorded decision."
+        }
+      ],
+      "priority_tier": 6,
+      "question": "vwap (and turtle_soup) can place a target nearer than its stop because its target is a level (VWAP line) and its stop a multiple, with no floor relating them - and neither family is included in the m20 exit-head declared-geometry surface at all. Should vwap/turtle_soup be added to that surface (visibility only), or should vwap additionally be made to refuse a setup where the level-target lands inside the stop?",
+      "recommendation": "Do the visibility fix (low cost, no downside) regardless of the refuse-or-not answer, which can be decided separately."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] vwap and turtle_soup can place a target nearer than their stop by a DIFFERENT mechanism than the TP clamp - a level-based target against a multiple-based stop, with no floor relating them\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — vwap (and turtle_soup) can place a target nearer than its stop because its target is a level (VWAP line) and its stop a multiple, with no floor relating them - and neither family is included in the m20 exit-head declared-geometry surface at all. Should vwap/turtle_soup be added to that surface (visibility only), or should vwap additionally be made to refuse a setup where the level-target lands inside the stop? Recommendation: Do the visibility fix (low cost, no downside) regardless of the refuse-or-not answer, which can be decided separately."
+}

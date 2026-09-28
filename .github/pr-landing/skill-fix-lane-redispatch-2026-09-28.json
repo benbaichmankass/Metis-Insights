@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager dispatched this lane (SKILL-FIX) with explicit instruction: 'PR with landing per .github/pr-landing/README.md (hold if the guard says so; the manager merges).'",
+  "why": "docs-only fix to .claude/skills/manager/SKILL.md and docs/CLAUDE-RULES-CANONICAL.md; Tier-1 by path, held for the manager to merge per dispatch instructions"
+}
