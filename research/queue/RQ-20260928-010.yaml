@@ -1,4 +1,4 @@
-id: RQ-20260928-007
+id: RQ-20260928-010
 title: >-
   M28 P4 rescore at a REALISTIC (nonzero) options cost stack — does the
   event-blind value thesis clear calibration/edge once fee_frac and
@@ -14,7 +14,7 @@ question: >-
   cost assumption", per the finding's own wording, more optimistic than the
   fee-only corpus CLAUDE.md already flags as incomplete. Both CLI levers
   (--fee-frac, --carry-frac-per-day) already exist and are already wired into
-  run_thesis_backtest — no new code, unlike RQ-20260928-006. Question: at a
+  run_thesis_backtest — no new code, unlike RQ-20260928-009. Question: at a
   cost stack that actually reflects the intended venue (alpaca_options_paper,
   debit_vertical per config/macro_theses.yaml), does calibration_rank /
   edge_vs_baseline move further negative (the expected direction — costs can
@@ -88,7 +88,7 @@ design:
     run, landed ALONGSIDE the existing zero-cost file, never replacing it.
 
 decision_rule:
-  id: RULE-RQ0928-007-REALISTIC-COST-P4-RESCORE
+  id: RULE-RQ0928-010-REALISTIC-COST-P4-RESCORE
   registered_at: '2026-09-28'
   registered_before_run: true
   statistic: >-
@@ -113,7 +113,7 @@ decision_rule:
     Does not touch config/strategies.yaml, accounts.yaml, or any live/paper
     account. Does not decide M29 (dormant per the operator's 2026-09-28
     ruling until M28 reads out). A KILLED_HONESTLY verdict does not preclude
-    RQ-20260928-006 (the event-wired rescore) from later reopening M28 on a
+    RQ-20260928-009 (the event-wired rescore) from later reopening M28 on a
     different feature — this closes the zero-cost-evidence gap, not the M28
     idea itself.
 
@@ -125,12 +125,12 @@ routing:
   basis: >-
     Dominated by the small workflow-input addition + one CI run of the
     existing (already-fast) P4 replay; no new research code, unlike
-    RQ-20260928-006.
+    RQ-20260928-009.
 
 run:
   workflow: '.github/workflows/macro-valuation-backfill.yml (needs --fee-frac/--carry-frac-per-day inputs added first, writing to a NEW path — see design.workflow_change_needed)'
   inputs:
-    research_unit: RQ-20260928-007
+    research_unit: RQ-20260928-010
     label_trigger: macro-valuation-backfill-now
     note: >-
       Not dispatched this session: this sandbox verified it cannot itself

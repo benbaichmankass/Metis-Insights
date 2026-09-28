@@ -1,4 +1,4 @@
-id: RQ-20260928-006
+id: RQ-20260928-009
 title: >-
   M28 wire-and-rescore — with the event/signal join CAA05-0002 found missing
   actually wired (production thesis_tick.py AND the offline P4/S1 replay),
@@ -94,7 +94,7 @@ design:
     CAA05-0003's finding rather than test past it.
 
 decision_rule:
-  id: RULE-RQ0928-006-EVENT-WIRED-P4-RESCORE
+  id: RULE-RQ0928-009-EVENT-WIRED-P4-RESCORE
   registered_at: '2026-09-28'
   registered_before_run: true
   statistic: >-
