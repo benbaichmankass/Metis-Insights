@@ -130,6 +130,7 @@ routing:
 run:
   workflow: '.github/workflows/macro-valuation-backfill.yml (needs --fee-frac/--carry-frac-per-day inputs added first, writing to a NEW path — see design.workflow_change_needed)'
   inputs:
+    research_unit: RQ-20260928-007
     label_trigger: macro-valuation-backfill-now
     note: >-
       Not dispatched this session: this sandbox verified it cannot itself
