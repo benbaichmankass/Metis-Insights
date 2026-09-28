@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""One prop-executor cycle against a prop account's web terminal (step 3).
+
+Spec: ``docs/research/prop-automation-options-2026-09-27.md`` § 3, § 4 step 3.
+Logic: ``src/prop/prop_executor.py::run_cycle``. Platform: the adapter
+``config/prop_platforms.yaml`` names (dxtrade for breakout_1).
+
+Modes (exactly one; default = one scheduled cycle):
+
+- *(default)* one cycle in ``PROP_EXECUTOR_MODE`` (off | read_only | live,
+  default read_only). Run by ``scripts/ops/prop_executor_tick.sh`` (unit
+  ``ict-prop-executor``, shipped NOT enabled).
+- ``--dry-run``: forces ``read_only`` and, when a real emitted ticket passes
+  every guard, also opens the order form, types it and reads it back
+  (``place_bracket(arm=False)``), then closes it. Nothing is submitted and
+  nothing is written to the API.
+- ``--probe-ticket SYMBOL``: READ-ONLY feasibility measurement of the order
+  ticket (is it DOM or canvas?). Opens the form only if one-click trading
+  reads OFF, records its shape, closes it. Types nothing.
+- ``--watched-click``: the watched step-3 test. ``live`` for ONE cycle, at
+  most one ticket, at the per-symbol minimum size in
+  ``executor.watched_click_max_lots``. Refused when ``PROP_EXECUTOR_MODE=off``.
+
+Session (``--login``):
+- ``reuse`` (the scheduled unit): open the terminal on the saved session at
+  ``--storage-state`` (the FEED's file) and NEVER type credentials. If that
+  session is not accepted the cycle exits 6 without logging in: credential
+  logins stay with the feed, which owns the relogin ceiling. The caller holds
+  the shared ``login.lock`` so the two never drive the terminal at once.
+- ``fresh`` (the one-off system-action): a credential login, like
+  ``breakout-login-check``.
+
+Prints JSON lines, redacted like the login check (no credentials, cookies,
+URL paths or tokens). Exit: 0 ok · 3 read did not parse / halted · 4
+feasibility stop (incl. ``feasibility: canvas_ticket``) · 5 environment ·
+6 no reusable session · 1 other.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from src.prop import prop_executor as pe  # noqa: E402
+from src.prop.platform import FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
+
+EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV, EXIT_NO_SESSION = 0, 1, 3, 4, 5, 6
+
+
+def _redact(text: str, *secrets: str) -> str:
+    from src.prop.platform.dxtrade import redact_text
+    return redact_text(text, *secrets)
+
+
+def emit(obj: Dict[str, Any], *secrets: str) -> None:
+    print(_redact(json.dumps(obj, default=str), *secrets), flush=True)
+
+
+def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None) -> str:
+    """The mode this run executes in. Pure; tested."""
+    base = pe.executor_mode(env)
+    if args.probe_ticket:
+        return "probe"
+    if args.dry_run:
+        return "read_only"
+    if args.watched_click:
+        return "off" if base == "off" else "live"
+    return base
+
+
+def main(argv: Optional[list] = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--account", default="breakout_1")
+    ap.add_argument("--api-base", default="http://127.0.0.1:8001")
+    ap.add_argument("--timeout-s", type=int, default=45)
+    ap.add_argument("--state-dir", default=str(Path.home() / ".cache" / "metis-prop-browser" / "executor"))
+    ap.add_argument("--storage-state", default="")
+    ap.add_argument("--login", choices=("reuse", "fresh"), default="reuse")
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument("--dry-run", action="store_true")
+    g.add_argument("--probe-ticket", default="", metavar="VENUE_SYMBOL")
+    g.add_argument("--watched-click", action="store_true")
+    ap.add_argument("--ticket-id", default="", help="watched click: act on this ticket only")
+    args = ap.parse_args(argv)
+
+    mode = resolve_mode(args)
+    cfg_plat = load_platform_config(args.account)
+    username = os.environ.get(cfg_plat.get("username_env", ""), "")
+    password = os.environ.get(cfg_plat.get("password_env", ""), "")
+    secrets = (username, password)
+    emit({"executor": "start", "account": args.account, "mode": mode, "login": args.login,
+          "env_mode": pe.executor_mode()})
+    if mode == "off":
+        emit({"executor": "off", "why": f"{pe.MODE_ENV}=off — nothing read, nothing clicked"})
+        return EXIT_OK
+    if args.login == "reuse" and not args.storage_state:
+        emit({"session": "none", "why": "--login reuse needs --storage-state (the feed's session file)"})
+        return EXIT_NO_SESSION
+    if args.login == "fresh" and (not username or not password):
+        emit({"feasibility": "no_credentials"})
+        return EXIT_FEASIBILITY
+
+    cfg = pe.load_config(args.account)
+    adapter = adapter_for_platform(cfg_plat["platform"])
+    if hasattr(adapter, "timeout_ms"):
+        adapter.timeout_ms = args.timeout_s * 1000
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        emit({"environment": f"playwright not importable ({exc})"})
+        return EXIT_ENV
+
+    from scripts.prop.breakout_login_check import save_storage_state
+
+    with sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch(headless=True)
+        except Exception as exc:
+            emit({"environment": f"chromium failed to launch ({type(exc).__name__})"}, *secrets)
+            return EXIT_ENV
+        try:
+            if args.login == "reuse":
+                # Read-only on the saved file: the executor never deletes or
+                # replaces the feed's session because IT could not use it.
+                saved = None
+                try:
+                    got_state = json.loads(Path(args.storage_state).read_text())
+                    if isinstance(got_state, dict) and isinstance(got_state.get("cookies"), list):
+                        saved = got_state
+                except Exception:
+                    saved = None
+                if saved is None:
+                    emit({"session": "none", "why": "no saved session; the feed logs in, the executor does not"})
+                    return EXIT_NO_SESSION
+                context = browser.new_context(storage_state=saved)
+                page = context.new_page()
+                try:
+                    st = adapter.resume_session(page, cfg_plat["login_url"])
+                except FeasibilityError as fe:
+                    emit({"feasibility": fe.reason, "detail": fe.detail}, *secrets)
+                    return EXIT_FEASIBILITY
+                if st != "logged_in":
+                    emit({"session": "not_accepted", "state": st,
+                          "why": "left for the feed's next tick to log in again"})
+                    return EXIT_NO_SESSION
+                emit({"session": "reused"})
+            else:
+                context = browser.new_context()
+                page = context.new_page()
+                try:
+                    adapter.login(page, cfg_plat["login_url"], username, password)
+                except FeasibilityError as fe:
+                    emit({"feasibility": fe.reason, "detail": fe.detail}, *secrets)
+                    return EXIT_FEASIBILITY
+                emit({"session": "fresh"})
+            page.wait_for_timeout(5_000)
+            if hasattr(adapter, "wait_ready"):
+                adapter.wait_ready(page, timeout_ms=20_000)
+
+            if mode == "probe":
+                got = adapter.probe_order_ticket(page, args.probe_ticket)
+                emit({"probe": got}, *secrets)
+                surface = got.get("surface")
+                if surface == "canvas_ticket":
+                    emit({"feasibility": "canvas_ticket"})
+                    return EXIT_FEASIBILITY
+                return EXIT_OK if surface == "dom" else EXIT_UNPARSED
+
+            api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
+            state_dir = Path(args.state_dir)
+            res = pe.run_cycle(
+                adapter=adapter, page=page, api=api, cfg=cfg, mode=mode,
+                ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
+                state=pe.ExecutorState(state_dir),
+                walk_form=args.dry_run,
+                max_lots=cfg.watched_click_max_lots if args.watched_click else None,
+                only_ticket_id=args.ticket_id or None,
+                sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
+            emit({"reads": res.reads}, *secrets)
+            for a in res.actions:
+                emit({"action": a}, *secrets)
+            for r in res.reports:
+                emit({"report": r}, *secrets)
+            for al in res.alerts:
+                emit({"alert": al}, *secrets)
+            emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
+            if args.login == "reuse":
+                try:
+                    save_storage_state(context, args.storage_state)
+                except Exception as exc:
+                    emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
+            return EXIT_UNPARSED if res.halted else EXIT_OK
+        except Exception as exc:
+            emit({"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, *secrets)
+            return EXIT_ERROR
+        finally:
+            browser.close()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

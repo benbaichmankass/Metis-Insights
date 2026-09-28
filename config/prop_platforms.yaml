@@ -40,3 +40,25 @@ accounts:
     # via .github/workflows/sync-vm-secrets.yml as optional secrets.
     username_env: BREAKOUT_DX_USERNAME
     password_env: BREAKOUT_DX_PASSWORD
+    # Step-3 executor (src/prop/prop_executor.py; PROP-EXEC 2026-09-28). The
+    # kill switch is NOT here: it is PROP_EXECUTOR_MODE in the VM env
+    # (off | read_only | live, default read_only).
+    executor:
+      safety_margin_usd: 5        # the "+ margin" in the § 3.3 DD / daily guards
+      unconfirmed_reads: 3        # re-reads before a submit is `skipped: unconfirmed_submit`
+      confirm_rel_tol: 0.02       # qty/price tolerance when matching a re-read
+      # Venue lot sizes. A symbol with no entry here is REFUSED by the
+      # structure guard: sizing into an unmeasured lot would type a number
+      # whose risk nobody has computed. ADA/XRP are operator-confirmed
+      # 2026-09-28 (Instrument Details: Lot Size 1, Size Steps 1, min 10 lots;
+      # see breakout_routing.yaml). SOL/ETH/BTC are NOT measured: fill them
+      # from the terminal's Instrument Details before the watched test.
+      lots:
+        ADAUSD: {lot_units: 1, lot_step: 1, min_lots: 10}
+        XRPUSD: {lot_units: 1, lot_step: 1, min_lots: 10}
+        # SOLUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED
+        # ETHUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED
+        # BTCUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED
+      # The watched step-3 click places at most this many lots of the named
+      # venue symbol (minimum size). Empty = the watched click refuses.
+      watched_click_max_lots: {}

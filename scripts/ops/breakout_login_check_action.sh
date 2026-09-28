@@ -28,6 +28,22 @@
 #                    its trip marker and failure count AFTER this check exits
 #                    0, still under the shared lock. A failed check leaves it
 #                    tripped.
+#   Step-3 executor modes (PROP-EXEC 2026-09-28). Each REPLACES the login
+#   check with ONE run of scripts/prop/prop_executor_tick.py --login fresh,
+#   under the same lock; at most one of them per dispatch:
+#     probe-ticket     — READ-ONLY: open the order ticket for SOLUSD (only if
+#                        one-click trading reads OFF), record its shape,
+#                        close it. Prints `feasibility: canvas_ticket` (exit
+#                        4) if it is canvas-only. Types nothing.
+#     executor-dry-run — walk the newest emitted ticket through intake →
+#                        guards → (if it fits) fill + read back the form, then
+#                        close it. No submit, no API write.
+#     watched-click    — THE WATCHED STEP-3 TEST: one live cycle, at most one
+#                        ticket, at executor.watched_click_max_lots (minimum
+#                        size), confirmed by re-read, reported through
+#                        POST /api/bot/prop/report. Refused when
+#                        PROP_EXECUTOR_MODE=off. Dispatch only with the
+#                        operator watching.
 #
 # Takes the same flock as the scheduled feed (${BASE}/login.lock), waiting up
 # to 200 s, so a manual check never logs in while a scheduled tick is.
@@ -49,10 +65,20 @@ APPLY="${ACTION_APPLY:-}"
 case ",${APPLY}," in *",install-deps,"*) WANT_DEPS=1 ;; *) WANT_DEPS=0 ;; esac
 case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
+EXEC_MODE=""
+for m in probe-ticket executor-dry-run watched-click; do
+    case ",${APPLY}," in *",${m},"*)
+        if [ -n "${EXEC_MODE}" ]; then
+            log "apply: at most one of probe-ticket / executor-dry-run / watched-click per dispatch"
+            exit 1
+        fi
+        EXEC_MODE="${m}" ;;
+    esac
+done
 
 # Export exactly the keys the check needs from the VM .env. Values are never
 # echoed (no `set -x`, no print); the python side prints set/MISSING only.
-CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN"
+CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN PROP_EXECUTOR_MODE"
 if [ -f "${REPO_DIR}/.env" ]; then
     for ckey in ${CHECK_KEYS}; do
         cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true
@@ -156,6 +182,24 @@ if [ "${WANT_DEPS}" = "1" ]; then
     log "Installing Chromium system libraries (apt, via playwright install-deps)"
     sudo -n env PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH}" \
         "${VENV}/bin/python" -m playwright install-deps chromium
+fi
+
+if [ -n "${EXEC_MODE}" ]; then
+    EARGS=(--account "${ACCOUNT}" --login fresh --state-dir "${BASE}/executor")
+    case "${EXEC_MODE}" in
+        probe-ticket)     EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
+        executor-dry-run) EARGS+=(--dry-run) ;;
+        watched-click)    EARGS+=(--watched-click) ;;
+    esac
+    log "Running prop executor (${EXEC_MODE}, account=${ACCOUNT}, PROP_EXECUTOR_MODE=${PROP_EXECUTOR_MODE:-unset→read_only})"
+    set +e
+    ( cd "${REPO_DIR}" && "${VENV}/bin/python" scripts/prop/prop_executor_tick.py "${EARGS[@]}" )
+    rc=$?
+    set -e
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"exit\": ${rc}, \"mode\": \"${EXEC_MODE}\"}" >/dev/null || true
+    log "breakout-login-check ${EXEC_MODE}: exit ${rc}"
+    exit "${rc}"
 fi
 
 ARGS=(--account "${ACCOUNT}" --dump-dir "${BASE}/last-run")
