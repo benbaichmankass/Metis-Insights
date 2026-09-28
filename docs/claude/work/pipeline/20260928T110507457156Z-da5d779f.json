@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the first operator-decided set-account-mode after 2026-09-28 completes steps (1)-(3); done cites the PR, the account-mode-verify run and the verify run. Unblocks PI-20260928-TURC5MJC-0001 (JC-CA-06).",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-TURC5MJC-0006",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane JC-GIT session_01GxXaAMqxdL3p1XTuRC5mjc; manager instruction 2026-09-28 11:03Z; PR #13508",
+    "rerun": "curl -s 'https://api.github.com/repos/benbaichmankass/Metis-Insights/pulls?state=all&per_page=100' | jq '.[] | select(.head.ref|startswith(\"automation/set-account-mode-\")) | {number, merged_at}'; curl -s 'https://api.github.com/repos/benbaichmankass/Metis-Insights/actions/workflows/account-mode-verify.yml/runs?per_page=5' | jq '.workflow_runs[]|{id,conclusion,created_at}'"
+  },
+  "state": "queued",
+  "what": "JC-CA-01 (durable set-account-mode, PR #13508, merged 3deb2385 on 2026-09-28) is LANDED_UNPROVEN. It is merged but has never been exercised on a real flip. Per the manager (2026-09-28 11:03Z), no mode may be flipped to test it, because a mode flip is an operator-gated Tier-3 action. The observation that closes it is the NEXT GENUINE, operator-decided set-account-mode. That flip must show three things: (1) the action opened an automation/set-account-mode-<run_id> PR changing exactly one mode: line; (2) after it merged, account-mode-verify.yml dispatched verify-account-mode for that account; (3) that verify exited 0 (converged) with status_file under /data/bot-data/runtime_logs. The read-only dry check at the current mode (issue #13572, bybit_2 live) exercises only the verify half."
+}
