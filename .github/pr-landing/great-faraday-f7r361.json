@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "manager register update only (MANAGER-CHECKLIST.json states, spend, notes); no runtime, order path or config touched"
+  "why": "manager register + pipeline records only: operator decisions of 2026-09-28 recorded, lanes dispatched; no runtime, order path or config touched"
 }

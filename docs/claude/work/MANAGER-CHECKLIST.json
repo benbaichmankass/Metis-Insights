@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-28T00:40:00Z",
+  "updated_at": "2026-09-28T06:30:00Z",
   "updated_by": "manager session_01KAQRJxRbRwpYTkPgBjNVyQ",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -1824,7 +1824,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "OPERATOR DECISION 2026-09-27 ~13:00Z, verbatim (handoff to manager session_01GfmY83D3Ekv7Mq22wPgJqy): 'START THE CODE AUDIT NOW (my decision): a thorough, wide CODE audit of the whole repo, verifying everything we built works as intended. It is not a narrow question list. Plan: ~14 Wave-A lanes on the money path first ... Then ~10 Wave-B lanes ... Plus one Opus LEAD lane that consolidates. Finding schema and principles: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a73 and \u00a75; every finding needs evidence, a population, and a detector or a stated reason there isn't one. Audit lanes only find. You dispatch fix lanes for evidence-settled fixes and notify me; genuine judgment calls come to me in the daily brief. Report to docs/audits/code-audit-2026-09-27.md.' BUDGET: CODE AUDIT $1,100, separate from the wave-6 cap ($350). Lane ceilings sum to $1,095 (Wave A 15 lanes $775, Wave B 9 lanes $250, lead $70). PLAN (manager): Wave A (CA-A01..A15) dispatched first; the operator's execution-core lane was split in two (CA-A02 pipeline/intents/sizing/costs/gates, CA-A03 exits/positions/fills/invariants) because together it is ~35k lines, and scripts/ops/workflows each in two halves as directed. Wave B (CA-B01..B09) dispatches as Wave A lanes land. CA-LEAD (Opus) dispatches once Wave A findings are on main, consolidates to docs/audits/code-audit-2026-09-27.md, re-verifies every critical/high, and splits findings into evidence-settled fixes (manager dispatches fix lanes, notifies operator) and judgment calls (daily brief section 2). Lane outputs: docs/audits/code-audit-2026-09-27/<ID>.findings.jsonl + <ID>.md. Critical findings are filed to docs/claude/work/pipeline/ immediately by the lane. ASSUMPTION (stated, not blocking): fix lanes draw on the audit budget's unspent headroom under ceilings; if the projected total would pass $1,100 the manager says so before dispatching more. Supersedes E71 (the proposal): the operator adopted it with a wider scope (whole repo, not eight axes). | 13:22Z MANAGER TAKEOVER (session_01KAQRJxRbRwpYTkPgBjNVyQ): all 15 Wave-A lanes + CA-LEAD + CA-B01 running. 7 Sonnet lanes (A07,A08,A10,A12-A15) stopped turn 1 on AskUserQuestion suspecting injection (prompt = authority language + self-merge recipe); archived (~$0.2 each) and relaunched with a plain task prompt, no self-merge (manager merges). A08 blocked twice -> Opus. Extra lanes charged to the audit budget: FIX-CA-01 (ceiling $40), and SEC-DT is NOT audit (security build, see R4). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): audit spend so far = $342.18 over the 25 ARCHIVED audit/fix lanes whose final cost was read from get_session (CA-A01, CA-A02, CA-A03, CA-A04, CA-A05, CA-A06, CA-A07, CA-A08, CA-A09, CA-A10, CA-A11, CA-A12, CA-A13, CA-A14, CA-A15, CA-B01, CA-B02, CA-B03, CA-B04, CA-B05, CA-B06, CA-B07, CA-B08, FIX-CA-01, FIX-CA-01b); excludes relaunch stubs (~$0.2 each), and the still-running CA-LEAD (~$24.6 at 15:21Z), landing steward (~$6.0), CA-B09 (~$15.8) and the 7 fix lanes dispatched 15:15-15:19Z (ceilings total $240). Fix lanes dispatched 15:19Z. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Every fix is merged: FIX-CA-01..32 across the fix lanes (FIX-CA-RES #13314 $7.77, FIX-CA-OPS2 #13316 $20.80, both archived). $461.04 spent on finished audit lanes (population: the audit lanes archived as of 2026-09-28 00:40Z), against the $1,100 cap. Still open: JC-CA-01..06 (operator decisions, daily brief), the CA-B05/B06 guard re-proof, and live verification waiting on the diag token."
+      "note": "OPERATOR DECISION 2026-09-27 ~13:00Z, verbatim (handoff to manager session_01GfmY83D3Ekv7Mq22wPgJqy): 'START THE CODE AUDIT NOW (my decision): a thorough, wide CODE audit of the whole repo, verifying everything we built works as intended. It is not a narrow question list. Plan: ~14 Wave-A lanes on the money path first ... Then ~10 Wave-B lanes ... Plus one Opus LEAD lane that consolidates. Finding schema and principles: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a73 and \u00a75; every finding needs evidence, a population, and a detector or a stated reason there isn't one. Audit lanes only find. You dispatch fix lanes for evidence-settled fixes and notify me; genuine judgment calls come to me in the daily brief. Report to docs/audits/code-audit-2026-09-27.md.' BUDGET: CODE AUDIT $1,100, separate from the wave-6 cap ($350). Lane ceilings sum to $1,095 (Wave A 15 lanes $775, Wave B 9 lanes $250, lead $70). PLAN (manager): Wave A (CA-A01..A15) dispatched first; the operator's execution-core lane was split in two (CA-A02 pipeline/intents/sizing/costs/gates, CA-A03 exits/positions/fills/invariants) because together it is ~35k lines, and scripts/ops/workflows each in two halves as directed. Wave B (CA-B01..B09) dispatches as Wave A lanes land. CA-LEAD (Opus) dispatches once Wave A findings are on main, consolidates to docs/audits/code-audit-2026-09-27.md, re-verifies every critical/high, and splits findings into evidence-settled fixes (manager dispatches fix lanes, notifies operator) and judgment calls (daily brief section 2). Lane outputs: docs/audits/code-audit-2026-09-27/<ID>.findings.jsonl + <ID>.md. Critical findings are filed to docs/claude/work/pipeline/ immediately by the lane. ASSUMPTION (stated, not blocking): fix lanes draw on the audit budget's unspent headroom under ceilings; if the projected total would pass $1,100 the manager says so before dispatching more. Supersedes E71 (the proposal): the operator adopted it with a wider scope (whole repo, not eight axes). | 13:22Z MANAGER TAKEOVER (session_01KAQRJxRbRwpYTkPgBjNVyQ): all 15 Wave-A lanes + CA-LEAD + CA-B01 running. 7 Sonnet lanes (A07,A08,A10,A12-A15) stopped turn 1 on AskUserQuestion suspecting injection (prompt = authority language + self-merge recipe); archived (~$0.2 each) and relaunched with a plain task prompt, no self-merge (manager merges). A08 blocked twice -> Opus. Extra lanes charged to the audit budget: FIX-CA-01 (ceiling $40), and SEC-DT is NOT audit (security build, see R4). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): audit spend so far = $342.18 over the 25 ARCHIVED audit/fix lanes whose final cost was read from get_session (CA-A01, CA-A02, CA-A03, CA-A04, CA-A05, CA-A06, CA-A07, CA-A08, CA-A09, CA-A10, CA-A11, CA-A12, CA-A13, CA-A14, CA-A15, CA-B01, CA-B02, CA-B03, CA-B04, CA-B05, CA-B06, CA-B07, CA-B08, FIX-CA-01, FIX-CA-01b); excludes relaunch stubs (~$0.2 each), and the still-running CA-LEAD (~$24.6 at 15:21Z), landing steward (~$6.0), CA-B09 (~$15.8) and the 7 fix lanes dispatched 15:15-15:19Z (ceilings total $240). Fix lanes dispatched 15:19Z. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Every fix is merged: FIX-CA-01..32 across the fix lanes (FIX-CA-RES #13314 $7.77, FIX-CA-OPS2 #13316 $20.80, both archived). $461.04 spent on finished audit lanes (population: the audit lanes archived as of 2026-09-28 00:40Z), against the $1,100 cap. Still open: JC-CA-01..06 (operator decisions, daily brief), the CA-B05/B06 guard re-proof, and live verification waiting on the diag token. | 2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISIONS 2026-09-28 ~06:25Z (chat pop-ups, verbatim choices): JC-CA-01 'Commit to main'; JC-CA-02 'Remove flag + research'; JC-CA-03 'Use GITHUB_TOKEN' (caveat stated: such pushes do not trigger required CI; the lane must measure a way to satisfy branch protection without weakening A7, or report back); JC-CA-04 'Post-merge alarm' (B only); JC-CA-05 'Loud alert, manual'; JC-CA-06 'Retire after JC-CA-01'; FIX-CA-26 weak cells 'Re-test, keep for now'; Breakout step 2 'Feed now on schedule'; kernel 1062 reboot of ict-bot-arm 'Reboot tonight' (scheduled ~01:00Z 09-29, trig_016TcF2Vb31V9TUQZFxQkVYY). Dispatched: JC-OPS session_01Hmx51yERBBSjQpLm2XSoau (Sonnet, $30: JC-CA-02/04/05), JC-GIT session_01GxXaAMqxdL3p1XTuRC5mjc (Opus, $45: JC-CA-01/03, 06 after 01 observed)."
     },
     {
       "id": "CA-A01",
@@ -2454,14 +2454,16 @@
       "state": "in_flight",
       "lane": "session_01AAyjhFdZXGdTUQY1DPAK9k",
       "spend_usd": null,
-      "prs": [],
+      "prs": [
+        13416
+      ],
       "blocked_on": [],
       "id": "W6-PROP-E1",
       "title": "breakout-login-check reads DXtrade instrument specs (symbol + contract size) \u2014 resolves ODDTM5QY-0002/0004 without an operator ask",
       "owner": "build lane",
       "model": "claude-sonnet-5",
       "ceiling_usd": 20,
-      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Read-only extension of src/prop/platform/dxtrade.py + the action; Tier-2 held PR. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Blocker cleared (P4/P4b: login and read parser work on the live terminal). Dispatched on Sonnet (read-only parser extension; the manager reviews the redaction independently before merge). Ceiling $20. This takes the wave-6 slate to about $337 spent (the ~$250 before the slate is an estimate) plus up to $20, which may pass the $350 cap by up to about $7. Passing into the margin is authorised; reported at the sync."
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Read-only extension of src/prop/platform/dxtrade.py + the action; Tier-2 held PR. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Blocker cleared (P4/P4b: login and read parser work on the live terminal). Dispatched on Sonnet (read-only parser extension; the manager reviews the redaction independently before merge). Ceiling $20. This takes the wave-6 slate to about $337 spent (the ~$250 before the slate is an estimate) plus up to $20, which may pass the $350 cap by up to about $7. Passing into the margin is authorised; reported at the sync. | 2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13416 MERGED 3551700 (05:45Z) after 5 independent reviews (final MERGE at 55c9b121c). The lane did not run its post-merge check; the manager dispatched it directly (issue #13500). Spend $30.85 of $35."
     },
     {
       "phase": "W6",
@@ -2689,6 +2691,51 @@
       "blocked_on": [],
       "title": "P4b: DXtrade (Breakout) read parser -- balance/positions/orders",
       "note": "2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13248 held once by review (case-sensitive username redaction into a PUBLIC run log); fixed (case-insensitive, URLs cut to origin, every printed line redacted), merged f5193fd, running on the live VM at 9b2884c. Lane re-running breakout-login-check to report the parsed balance vs the last journalled breakout_1 balance ($4,724, population: the single most recent prop account_status record, #21, 2026-09-27). Read-only; emit-status stays off. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): DONE: parser reads balance/equity, positions AND the orders table on the live terminal. #13297 terminal URL + redact-before-cut, #13349 orders-tab click, #13387 \"current price\" dropped from _POSITION_ONLY (measured headers, #13385). Final read-only check #13405 (run 36362489458): login ok, balance 4724.0, equity 4724.0, positions 0, orders 0 -- orders_from_tables returns None when no table is found and read_orders raises on None, so 0 is a parsed empty table, not a miss. Output leak-free (credentials not printed, URL cut to origin). Lane archived."
+    },
+    {
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "fix lane",
+      "blocked_on": [],
+      "spend_usd": null,
+      "prs": [],
+      "id": "JC-OPS",
+      "title": "Operator decisions JC-CA-02/04/05: HTF flag cleanup + research question, hold-merge post-merge alarm, deploy-fail loud alert",
+      "lane": "session_01Hmx51yERBBSjQpLm2XSoau",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "tier": 2,
+      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Dispatched per the operator decisions recorded on the CA row. Sonnet: small CI/config/script changes; manager reviews the Tier-2 deploy-script PR independently."
+    },
+    {
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "fix lane",
+      "blocked_on": [],
+      "spend_usd": null,
+      "prs": [],
+      "id": "JC-GIT",
+      "title": "Operator decisions JC-CA-01 (set-account-mode commits to main) + JC-CA-03 (auto-land PR via GITHUB_TOKEN) + JC-CA-06 (retire account_state fold after 01 observed)",
+      "lane": "session_01GxXaAMqxdL3p1XTuRC5mjc",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "tier": 2,
+      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Dispatched per the operator decisions recorded on the CA row. Opus: touches the account-mode gate and the armed auto-land mandate route."
+    },
+    {
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "fix lane",
+      "blocked_on": [],
+      "spend_usd": null,
+      "prs": [],
+      "id": "W6-PROP-FEED",
+      "title": "Breakout step 2: 5-min VM timer running the read-only terminal check with emit-status into the prop journal",
+      "lane": "session_016Np9Ac9hgbbV4g4UnXYjia",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "tier": 2,
+      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISION 'Feed now on schedule' (resolves PI-20260927-D9R6QTDB-0002). Opus: logs in to a live prop account on a schedule. Lane must first establish whether a 5-min login kicks the operator's own terminal session, and back off on failed logins; stops and reports if it does."
     }
   ]
 }
