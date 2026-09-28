@@ -1,1 +1,0 @@
-Tier-1 self-land: visibility-only additions (Telegram gross-exposure display + M20 tp_geometry_reachability vwap/turtle_soup grading). See .github/pr-landing/admin-triage-2026-09-28-visibility.json.
