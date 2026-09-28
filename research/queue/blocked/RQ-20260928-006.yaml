@@ -1,0 +1,173 @@
+id: RQ-20260928-006
+title: >-
+  M28 wire-and-rescore — with the event/signal join CAA05-0002 found missing
+  actually wired (production thesis_tick.py AND the offline P4/S1 replay),
+  does conviction-with-events clear calibration/edge where conviction-alone
+  (thesis_p4_scorecard.json, committed 2026-09-27) failed?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  PI-20260927-CAA05-0002 (HIGH, code audit CA-A05-002, 2026-09-27): the M28
+  design doc marks the event resolver + store + calendar feed "DONE", but
+  nothing in production ever calls event_store.write_events/write_event_links
+  or macro_signals.write_signals outside their own module and tests, and
+  thesis_tick.py:130-137 never passes watched_events_by_symbol/
+  signal_ids_by_symbol into form_theses_from_reads — every live thesis has
+  carried watched_events=[] and signals=[] since the sleeve went live. The
+  committed P4 evidence (thesis_p4_scorecard.json, n=1104, 2005-2026,
+  GLD/IEF/SLV/SPY/TLT, 30d horizon, fee_frac=0.0) is therefore EVENT-BLIND:
+  calibration_rank=-0.003723, edge_vs_baseline=-0.004678, both effectively
+  zero-to-negative. Question: once an event/signal series is actually
+  threaded into the S1 conviction score (both the live tick AND the offline
+  replay used to grade it), does conviction-with-events predict forward
+  net-return where conviction-alone does not, net of realistic cost?
+
+why_this_matters: >-
+  MEASURED this session (2026-09-28): the "other horizons" half of the
+  manager's original ask is ALREADY ANSWERED and should not be re-run as new
+  work — comms/macro/horizon_ic_scorecard.json (landed by
+  macro-valuation-backfill.yml, scripts/macro/horizon_ic_scan.py) already
+  scans horizon_days in {7,14,30,60,90,180} on the identical snapshot/candle
+  data and reports `any_monetizable_horizon: false` /
+  `any_honest_monetizable_horizon: false` at every one (IC ranges
+  -0.030..+0.032, all |ic_t| < 1.1, edge_vs_baseline negative at every
+  horizon). Re-scanning horizons on the SAME event-blind conviction score
+  would not be a new test. What has genuinely never been tried is whether
+  the signal that predicts is the EVENT/CALENDAR join itself, which the code
+  audit found built (event_store.py, an event-resolver DSL, unit-tested in
+  isolation) but never connected to a single production or backtest read.
+  Per the operator's standing principle (never kill an idea after one bad
+  pass), the P4 scorecard's failure is a failure of the CONVICTION SCORE AS
+  CURRENTLY WIRED (valuation-only), not necessarily of the M28 thesis itself
+  — this unit is the next pre-registerable arm, not a re-run of the same one.
+
+power:
+  expected_n: 1104
+  min_detectable_effect: 0.06
+  effect_units: correlation (calibration_rank / IC)
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same population as the committed P4 baseline (n=1104 scored thesis
+    entries, 263 rebalance dates, 2005-01-01..2026-07-10, event join changes
+    the FEATURE not the population). Floor for detecting a Spearman
+    correlation of 0.06 at alpha=0.05/power=0.8 with n=1104 comfortably
+    clears standard IC power tables (n>>270 needed for r=0.06); n=1104 is
+    already committed data, not a target to accrue toward.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Historical replay over already-committed data
+      (comms/macro/valuation_snapshots_backfill.jsonl, 10,125 lines) plus
+      whatever event history econ_calendar_data.py can reconstruct
+      point-in-time over the same span — nothing accrues going forward: this
+      is a one-shot re-grade once the join exists, not a soak.
+
+design:
+  event_source: >-
+    econ_calendar_data.py's already-parsed calendar events (the CA-A05-002
+    finding's proposed fix), fed through event_store.write_events for the
+    2005-2026 span, then event_store.resolve_all to produce
+    watched_events_by_symbol per rebalance date.
+  production_wire: >-
+    thesis_tick.py:130-137 threads watched_events_by_symbol and
+    signal_ids_by_symbol into form_theses_from_reads (the fix CAA05-0002
+    names) so the LIVE tick stops carrying watched_events=[]/signals=[].
+  offline_wire: >-
+    thesis_backtest_run.py's build_replay_entries / the S1 former currently
+    have NO event/signal-aware code path at all (verified this session:
+    neither the CLI args nor build_replay_entries consume an events/signals
+    argument) — this is new code, not a flag flip. It must accept the same
+    event-join output the production wire uses, applied POINT-IN-TIME
+    (observed_at <= as_of, matching the existing valuation-snapshot
+    discipline in thesis_backtest_run.py's docstring) so the offline grade
+    has no lookahead the live tick wouldn't have had.
+  cost_stack: >-
+    fee_frac and carry_frac_per_day must be NONZERO and match the actual
+    account (alpaca_options_paper, debit_vertical structure per
+    config/macro_theses.yaml) rather than the committed baseline's fee_frac=0.0
+    — the exact figure is NOT yet decided in this unit and is itself part of
+    the run's setup (see `what_it_does_not_do`); using 0.0 again would repeat
+    CAA05-0003's finding rather than test past it.
+
+decision_rule:
+  id: RULE-RQ0928-006-EVENT-WIRED-P4-RESCORE
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    calibration_rank (Spearman conviction-with-events -> net-return) and
+    edge_vs_baseline (mean_net_return - naive-all-long baseline), both from
+    run_thesis_backtest on the event-wired replay, at the SAME
+    rebalance-every 30 / horizon-days 30 the committed baseline used, plus
+    the realistic (nonzero) cost stack from `design.cost_stack`.
+  rule: >-
+    PASS IF calibration_rank > 0 AND edge_vs_baseline > 0 net of the
+    realistic cost stack -- a genuine flip from the committed event-blind
+    baseline (-0.003723 / -0.004678), not noise around zero (both must clear
+    +0.02 in magnitude to count as a flip rather than a rounding change,
+    matching the |IC|~0.02-0.05 "real-but-modest" floor horizon_ic_scan.py's
+    own docstring uses).
+    NULL IF either statistic stays within +/-0.02 of the baseline's own
+    value -- the event join changed nothing detectable.
+    FAIL IF both statistics move further negative than the baseline.
+    UNDERPOWERED is not a possible verdict here (n is fixed by committed
+    history, already at the power floor).
+  what_it_does_not_do: >-
+    Does not decide the cost-stack figure (a genuine modeling choice for
+    options-vertical round-trip cost that needs its own short design note
+    before the run, not invented here) and does not wire anything -- a PASS
+    is a Tier-3 PROPOSAL to reshape M28 (per the operator's 2026-09-28
+    "re-shape via research" decision), never a live/paper account change on
+    its own.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 240
+  basis: >-
+    Estimate dominated by writing + testing the two new code paths
+    (production wire + offline replay wire), not the replay itself (the
+    existing P4 replay over 1104 entries runs in seconds). This is
+    substantially more than a queue-unit-authoring budget -- it is real
+    engineering work, which is why this unit is `blocked`, not `queued`.
+
+blocked_on:
+  - what: >-
+      Neither thesis_backtest_run.py's CLI nor build_replay_entries accepts
+      an events/signals argument today (verified this session by reading
+      the full script) -- the offline P4/S1 replay has no code path to
+      consume an event join at all, so this unit cannot run as a config
+      change or existing-lever rescore. It needs the CAA05-0002 production
+      fix AND new offline-replay code, both nontrivial and out of a
+      queue-authoring budget.
+    ref: PI-20260927-CAA05-0002
+    clears_when: >-
+      thesis_tick.py passes watched_events_by_symbol/signal_ids_by_symbol
+      into form_theses_from_reads in production, AND
+      thesis_backtest_run.py/build_replay_entries gain an equivalent
+      point-in-time event/signal input, with a test asserting both joins
+      fire end-to-end (mirrors CAA05-0002's own clears_when).
+
+run:
+  workflow: null
+  note: >-
+    Null until the blocker above clears -- once it does, this is a
+    session-local script re-run (observe-only, no order path), the same
+    shape as the committed thesis_backtest_run.py invocation.
+
+lands:
+  store: comms/macro/thesis_p4_scorecard_event_wired.json
+  assert_field: calibration_rank
+  min_rows: 1
+
+related:
+  - 'PI-20260927-CAA05-0002 (the production wiring gap this unit depends on)'
+  - 'PI-20260927-CAA05-0003 (the zero-cost P4 finding this unit tests past)'
+  - 'comms/macro/thesis_p4_scorecard.json (the event-blind baseline)'
+  - 'comms/macro/horizon_ic_scorecard.json (the horizon scan already run — see why_this_matters)'
+  - 'docs/research/M28-macro-value-speculation-DESIGN.md'
+last_dispatched_at: null
