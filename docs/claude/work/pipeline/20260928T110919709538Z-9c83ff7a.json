@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either the routed set shows a positive measured record on the alpaca_portfolio mirror at a coverage floor worth trusting, or the routing is narrowed to the legs that do. 'It is only paper so it does not count' is NOT sufficient — the portfolio mirror exists precisely to be the pre-live evidence.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260823-ALPACA-LIVE-STRATEGY-SET-IS-NET-NEGATIVE-EXCEPT-ONE-LEG",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-LIVE-STRATEGY-SET-IS-NET-NEGATIVE-EXCEPT-ONE-LEG",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-LIVE-STRATEGY-SET-IS-NET-NEGATIVE-EXCEPT-ONE-LEG'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "Read config/accounts.yaml: alpaca_live now routes only 3 legs (ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d) -- none of the 6 net-negative legs named in the finding (slv_trend_1h, tlt_pullback_1h, gld_pullback_1h, spy_pullback_1h, qqq_trend_long_1d, qqq_pullback_1h) nor the sole winner uso_trend_1h are still routed there. The 16-leg roster this finding measured no longer exists; it was superseded by the 2026-09-21 B2 Alpaca-mirror-equality cut (CLAUDE.md: alpaca_portfolio 14->2). The specific claim is moot. NOTE for whoever picks this up: whether the CURRENT 3-leg alpaca_live roster is itself net-positive on the alpaca_portfolio mirror is a fresh, unanswered question -- not covered by this kill.",
+  "triage_2026_09_28": {
+    "checked": "",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "Read config/accounts.yaml: alpaca_live now routes only 3 legs (ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d) -- none of the 6 net-negative legs named in the finding (slv_trend_1h, tlt_pullback_1h, gld_pullback_1h, spy_pullback_1h, qqq_trend_long_1d, qqq_pullback_1h) nor the sole winner uso_trend_1h are still routed there. The 16-leg roster this finding measured no longer exists; it was superseded by the 2026-09-21 B2 Alpaca-mirror-equality cut (CLAUDE.md: alpaca_portfolio 14->2). The specific claim is moot. NOTE for whoever picks this up: whether the CURRENT 3-leg alpaca_live roster is itself net-positive on the alpaca_portfolio mirror is a fresh, unanswered question -- not covered by this kill."
+  },
+  "what": "[health] the 16 strategies routed to alpaca_live are net-negative on paper except uso_trend_1h — and that one leg carries the entire positive result on n=10\n\n[TRIAGE 2026-09-28] KILL — Read config/accounts.yaml: alpaca_live now routes only 3 legs (ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d) -- none of the 6 net-negative legs named in the finding (slv_trend_1h, tlt_pullback_1h, gld_pullback_1h, spy_pullback_1h, qqq_trend_long_1d, qqq_pullback_1h) nor the sole winner uso_trend_1h are still routed there. The 16-leg roster this finding measured no longer exists; it was superseded by the 2026-09-21 B2 Alpaca-mirror-equality cut (CLAUDE.md: alpaca_portfolio 14->2). The specific claim is moot. NOTE for whoever picks this up: whether the CURRENT 3-leg alpaca_live roster is itself net-positive on the alpaca_portfolio mirror is a fresh, unanswered question -- not covered by this kill."
+}
