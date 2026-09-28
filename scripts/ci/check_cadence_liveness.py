@@ -238,6 +238,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     "ict-heartbeat.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-hourly-snapshot.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-ib-executions-pull.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
+    "ict-prop-feed.timer": {"receipt": None, "why": "VM-side; its receipt is prop_account_status rows (source=breakout_login_check) read via GET /api/bot/prop/status"},
     "ict-ib-gateway-reset.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-ib-gateway-watchdog.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-insights-generator-strategies.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},

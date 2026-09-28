@@ -317,6 +317,11 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # the pull is firing on cadence and tail its journal.
     "ict-alpaca-fills-pull.service",
     "ict-alpaca-fills-pull.timer",
+    # 2026-09-28 (W6-PROP-FEED) — the 5-min read-only breakout_1
+    # account_status feed; queryable so its tick journal (redacted output,
+    # trip/backoff lines) can be tailed without SSH.
+    "ict-prop-feed.service",
+    "ict-prop-feed.timer",
     "ict-exchange-funding-pull.service",
     "ict-exchange-funding-pull.timer",
     "ict-mes-ibkr-pull.service",
