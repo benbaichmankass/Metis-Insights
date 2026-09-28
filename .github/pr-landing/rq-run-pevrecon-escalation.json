@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH): one pipeline state-change record (intent=update) on PI-20260928-PEVRECON-0001 carrying the committed RQ-20260928-015 runner result (NOT_REPRODUCED on both Breakout prop legs) as the operator escalation its pre-registered rule requires. Pipeline register only: no src/, no config/, no order path, no deploy, no live-VM runtime file, no research/queue edit, no strategy change (the rule forbids auto-demotion and this record proposes none). Tier-1 by the canonical doc's own list, self-landed via automerge + the per-branch merge-slot claim."
+}
