@@ -918,6 +918,36 @@ class DXtradeAdapter(PropPlatformAdapter):
             raise FeasibilityError("unknown_page", f"no terminal marker after submit (at {self._where(page)})")
         raise FeasibilityError("timeout", "still on the login form after submit")
 
+    def resume_session(self, page: Any, login_url: str, login_form_grace_ms: int = 5_000) -> str:
+        """Open ``login_url`` in a context that already carries a SAVED session
+        (Playwright storage_state) and report whether it is still logged in.
+
+        Never fills, clicks or submits anything: with a live session the
+        terminal renders on its own; without one the login form does. Returns
+        ``"logged_in"`` only on the same POSITIVE terminal marker ``login``
+        requires, otherwise the state it ended on (``login_form``,
+        ``login_error``, ``unknown``). A login form is only believed after it
+        has stayed up for ``login_form_grace_ms`` (a terminal may flash it
+        before restoring the session). A challenge / CAPTCHA / 2FA /
+        password-expired page RAISES :class:`FeasibilityError`: the caller must
+        stop there, never answer it with a credential login.
+        """
+        page.goto(login_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+        step_ms, waited, form_ms, state = 1_000, 0, 0, "unknown"
+        while True:
+            state = self.page_state(page)
+            if state == "logged_in":
+                return state
+            if state in ("challenge", "captcha", "2fa", "password_expired"):
+                raise FeasibilityError(state, "on resuming a saved session")
+            if state == "login_error":
+                return state
+            form_ms = form_ms + step_ms if state == "login_form" else 0
+            if form_ms > login_form_grace_ms or waited >= self.timeout_ms:
+                return state
+            page.wait_for_timeout(step_ms)
+            waited += step_ms
+
     @staticmethod
     def _where(page: Any) -> str:
         """Origin of the current page (no path, query or fragment)."""

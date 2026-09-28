@@ -24,6 +24,15 @@
 #     without logging in, until it is re-armed with
 #       action: breakout-login-check
 #       apply: reset-feed[,emit-status]
+#   - SESSION REUSE (operator decision 2026-09-28 "Reuse saved session"):
+#     passes --storage-state ${STATE_DIR}/session_state.json, so a tick opens
+#     the terminal on the session the last good tick saved and only does a
+#     credential login when that session is no longer accepted (the check
+#     prints `session: reused` / `session: relogin`). Each relogin bumps a
+#     per-UTC-day counter and writes an audit record carrying it, so how often
+#     the feed really logs in is visible. The state file is a CREDENTIAL
+#     EQUIVALENT: 0600 in a 0700 directory, never printed, dumped, pinged or
+#     committed. The one-off system-action does NOT pass it (always fresh).
 #   - VENV IS NOT BUILT HERE: the tick uses the isolated venv the system-action
 #     builds (~/.cache/metis-prop-browser), never the trader's Python, and never
 #     pip-installs on a 5-minute cadence. No venv → environment failure.
@@ -46,6 +55,7 @@ ACCOUNT="${PROP_FEED_ACCOUNT:-breakout_1}"
 BASE="${PROP_BROWSER_BASE:-${HOME}/.cache/metis-prop-browser}"
 VENV="${BASE}/venv"
 STATE_DIR="${BASE}/feed"
+SESSION_STATE="${STATE_DIR}/session_state.json"
 TRIP_FILE="${STATE_DIR}/tripped"
 FAILS_FILE="${STATE_DIR}/consecutive_failures"
 LOCK_FILE="${BASE}/login.lock"
@@ -54,6 +64,7 @@ TIMEOUT_S="${PROP_FEED_TIMEOUT_S:-150}"
 PING_PY="${PROP_FEED_PING_PY:-/usr/bin/python3}"
 
 mkdir -p "${STATE_DIR}"
+chmod 700 "${STATE_DIR}"
 
 if [ -f "${TRIP_FILE}" ]; then
     log "feed TRIPPED ($(head -c 300 "${TRIP_FILE}")); not logging in. Re-arm: breakout-login-check apply: reset-feed"
@@ -114,12 +125,33 @@ if [ -f "${REPO_DIR}/.env" ]; then
 fi
 export PLAYWRIGHT_BROWSERS_PATH="${BASE}/browsers"
 
+# The check's own (already redacted) output goes to the journal AND to a
+# scratch copy, read back only for its `session:` line.
+OUT="$(mktemp "${STATE_DIR}/.tick-out.XXXXXX")"
+trap 'rm -f "${OUT}"' EXIT
 set +e
 ( cd "${REPO_DIR}" && timeout --kill-after=15 "${TIMEOUT_S}" \
     "${VENV}/bin/python" scripts/prop/breakout_login_check.py \
-    --account "${ACCOUNT}" --emit-status --symbols= )
-rc=$?
+    --account "${ACCOUNT}" --emit-status --symbols= \
+    --storage-state "${SESSION_STATE}" ) 2>&1 | tee "${OUT}"
+rc=${PIPESTATUS[0]}
 set -e
+
+if grep -q '^session: relogin' "${OUT}"; then
+    day="$(date -u +%Y%m%d)"
+    rfile="${STATE_DIR}/relogins-${day}"
+    rn=0
+    [ -f "${rfile}" ] && rn="$(cat "${rfile}" 2>/dev/null || echo 0)"
+    case "${rn}" in ''|*[!0-9]*) rn=0 ;; esac
+    rn=$((rn + 1))
+    echo "${rn}" > "${rfile}"
+    find "${STATE_DIR}" -maxdepth 1 -name 'relogins-*' ! -name "relogins-${day}" -delete 2>/dev/null || true
+    log "session: relogin (${rn} today, UTC ${day})"
+    record_audit "prop-feed" "relogin" \
+        "{\"account\": \"${ACCOUNT}\", \"relogins_today\": ${rn}, \"day_utc\": \"${day}\", \"exit\": ${rc}}" >/dev/null || true
+elif grep -q '^session: reused' "${OUT}"; then
+    log "session: reused"
+fi
 
 case "${rc}" in
     0) echo 0 > "${FAILS_FILE}"; log "ok (account_status posted)"; exit 0 ;;

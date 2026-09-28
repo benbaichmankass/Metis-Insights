@@ -37,6 +37,19 @@ What it does, in order:
 7. Only with ``--emit-status``: posts ONE ``account_status`` to the local
    ``POST /api/bot/prop/report`` (the existing ingest chokepoint). Default OFF.
 
+``--storage-state PATH`` (used ONLY by the scheduled feed,
+``scripts/ops/prop_feed_tick.sh``; operator decision 2026-09-28 "Reuse saved
+session"): step 4 first opens the terminal with the Playwright storage_state
+saved at PATH and accepts it only on the same POSITIVE terminal marker a login
+needs (``DXtradeAdapter.resume_session`` -- which fills and clicks nothing).
+Anything else deletes the file and falls through to ONE normal credential
+login; there is no second attempt, so it can never loop. After a good session
+either way, the state is re-saved to PATH (mode 0600, atomic replace).
+Prints ``session: reused`` or ``session: relogin``. Without the flag
+(the ``breakout-login-check`` action) every run is a fresh login and prints
+``session: fresh``. The state file is a credential equivalent: this script
+never prints, dumps or posts its content -- only whether it was used.
+
 What it can NOT do: click any order control. The adapter's order methods
 raise ``NotImplementedError`` and this script never calls them.
 
@@ -104,6 +117,50 @@ def post_status(report: Dict[str, Any], api_base: str) -> Dict[str, Any]:
         return json.loads(resp.read().decode() or "{}")
 
 
+def load_storage_state(path: str) -> Optional[Dict[str, Any]]:
+    """The saved session at ``path``, or None. A file that is not a JSON
+    object with a ``cookies`` list is corrupt: it is DELETED (so the next tick
+    cannot trip on it again) and None is returned. Never prints its content."""
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        state = json.loads(p.read_text())
+        if not isinstance(state, dict) or not isinstance(state.get("cookies"), list):
+            raise ValueError("not a storage_state object")
+        return state
+    except Exception as exc:
+        print(f"session: saved state unusable ({type(exc).__name__}); deleted")
+        discard_storage_state(path)
+        return None
+
+
+def discard_storage_state(path: str) -> None:
+    try:
+        Path(path).unlink()
+    except FileNotFoundError:
+        pass
+
+
+def save_storage_state(context: Any, path: str) -> None:
+    """Write the context's storage_state to ``path``: created 0600 from the
+    first byte (never world-readable, even briefly), then atomically moved into
+    place. Prints only that it saved, never the content."""
+    state = context.storage_state()
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(f".{p.name}.tmp")
+    try:
+        tmp.unlink()
+    except FileNotFoundError:
+        pass
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        json.dump(state, fh)
+    os.replace(tmp, p)
+    print("session: state saved")
+
+
 def _redact(text: str, *secrets: str, limit: int = 0) -> str:
     """Everything this script prints goes to a PUBLIC issue comment: strip the
     secrets case-insensitively, URL paths/queries, e-mails and token runs.
@@ -124,6 +181,9 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--dump-dir", default="",
                     help="write the post-login page text + extracted tables here (on the VM, "
                          "never to stdout) so selectors can be fixed from the first live run")
+    ap.add_argument("--storage-state", default="",
+                    help="reuse/save the Playwright session at this path (the scheduled feed "
+                         "only; a credential equivalent -- never printed)")
     ap.add_argument("--symbols", default=None,
                     help="comma-separated symbols to read instrument specs for, from captured "
                          f"network responses (default: {','.join(DEFAULT_INSTRUMENT_SYMBOLS)}); "
@@ -167,22 +227,64 @@ def main(argv: Optional[list] = None) -> int:
                           f"{(str(exc).splitlines() or [''])[0]})", username, password, limit=400))
             return EXIT_ENV
         try:
-            context = browser.new_context()
-            page = context.new_page()
             if hasattr(adapter, "timeout_ms"):
                 adapter.timeout_ms = args.timeout_s * 1000
-            # Passive: attached BEFORE login so it also sees whatever the
-            # login/account flow itself triggers. Never clicks, fills or
-            # navigates anything.
+
+            def open_page(state: Optional[Dict[str, Any]]):
+                ctx = browser.new_context(storage_state=state) if state else browser.new_context()
+                pg = ctx.new_page()
+                # Passive: attached BEFORE login so it also sees whatever the
+                # login/account flow itself triggers. Never clicks, fills or
+                # navigates anything.
+                cap = []
+                if symbols and hasattr(adapter, "start_response_capture"):
+                    try:
+                        cap = adapter.start_response_capture(pg)
+                    except Exception as exc:
+                        print(_redact(f"instruments: capture ERROR ({type(exc).__name__}: {exc})",
+                                      username, password, limit=300))
+                return ctx, pg, cap
+
+            saved = load_storage_state(args.storage_state) if args.storage_state else None
+            reused = False
+            context = page = None
             captured_responses = []
-            if symbols and hasattr(adapter, "start_response_capture"):
+            if saved is not None and hasattr(adapter, "resume_session"):
                 try:
-                    captured_responses = adapter.start_response_capture(page)
+                    context, page, captured_responses = open_page(saved)
                 except Exception as exc:
-                    print(_redact(f"instruments: capture ERROR ({type(exc).__name__}: {exc})",
-                                  username, password, limit=300))
+                    print(f"session: saved state rejected by the browser ({type(exc).__name__}); deleted")
+                    discard_storage_state(args.storage_state)
+                    context = None
+                if context is not None:
+                    try:
+                        st = adapter.resume_session(page, cfg["login_url"])
+                    except FeasibilityError as fe:
+                        # A challenge on the saved session: stop, never answer
+                        # it with a credential login.
+                        discard_storage_state(args.storage_state)
+                        print(_redact(f"feasibility: {fe.reason}" + (f" ({fe.detail})" if fe.detail else ""),
+                                      username, password))
+                        return EXIT_FEASIBILITY
+                    except Exception as exc:
+                        st = f"error {type(exc).__name__}"
+                    if st == "logged_in":
+                        reused = True
+                        print("session: reused")
+                    else:
+                        print(f"session: saved state not accepted ({st}); deleted, logging in")
+                        discard_storage_state(args.storage_state)
+                        try:
+                            context.close()
+                        except Exception:
+                            pass
+                        context = None
+            if context is None:
+                context, page, captured_responses = open_page(None)
             try:
-                adapter.login(page, cfg["login_url"], username, password)
+                if not reused:
+                    adapter.login(page, cfg["login_url"], username, password)
+                    print("session: relogin" if args.storage_state else "session: fresh")
             except FeasibilityError as fe:
                 print(_redact(f"feasibility: {fe.reason}" + (f" ({fe.detail})" if fe.detail else ""),
                               username, password))
@@ -202,6 +304,12 @@ def main(argv: Optional[list] = None) -> int:
                               username, password, limit=600))
                 return EXIT_ERROR
             print("login: ok")
+            if args.storage_state:
+                try:
+                    save_storage_state(context, args.storage_state)
+                except Exception as exc:
+                    # Not fatal: the next tick simply logs in again.
+                    print(f"session: state NOT saved ({type(exc).__name__})")
             try:
                 print(f"landed: {_redact(page.url, username, password)}")
             except Exception:

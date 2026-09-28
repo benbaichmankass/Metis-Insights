@@ -42,12 +42,13 @@ def _setup(tmp_path, *, venv=True):
              'if [ "$1" = "-c" ]; then exit 0; fi\n'
              f'echo "$@" >> "{calls}"\n'
              'echo "account: {\\"balance\\": 4724}"\n'
+             '[ -n "${STUB_SESSION:-}" ] && echo "session: ${STUB_SESSION}"\n'
              'exit "${STUB_RC:-0}"')
     _exe(tmp_path / "ping_py", f'echo "$@" >> "{pings}"')
     return repo, base, calls, pings
 
 
-def _tick(tmp_path, repo, base, rc=0, max_failures=3):
+def _tick(tmp_path, repo, base, rc=0, max_failures=3, session=""):
     env = {
         "PATH": "/usr/bin:/bin",
         "HOME": str(tmp_path),
@@ -57,6 +58,7 @@ def _tick(tmp_path, repo, base, rc=0, max_failures=3):
         "PROP_FEED_MAX_FAILURES": str(max_failures),
         "PROP_FEED_TIMEOUT_S": "20",
         "STUB_RC": str(rc),
+        "STUB_SESSION": session,
     }
     return subprocess.run(["bash", str(TICK)], capture_output=True, text=True, env=env)
 
@@ -70,7 +72,8 @@ def test_success_invokes_the_read_only_check_exactly(tmp_path):
     r = _tick(tmp_path, repo, base, rc=0)
     assert r.returncode == 0, r.stderr
     assert _lines(calls) == [
-        "scripts/prop/breakout_login_check.py --account breakout_1 --emit-status --symbols="
+        "scripts/prop/breakout_login_check.py --account breakout_1 --emit-status --symbols= "
+        f"--storage-state {base}/feed/session_state.json"
     ]
     assert not (base / "feed" / "tripped").exists()
     assert (base / "feed" / "consecutive_failures").read_text().strip() == "0"
@@ -152,3 +155,57 @@ def test_units_are_wired_every_five_minutes_with_a_hard_timeout():
     assert "OnCalendar=*-*-* *:02/5:00" in timer
     assert "Unit=ict-prop-feed.service" in timer
     assert "Persistent=false" in timer
+
+
+def _audits(repo):
+    d = repo / "runtime_logs" / "operator_actions"
+    return sorted(d.glob("*-prop-feed.json")) if d.exists() else []
+
+
+def test_relogins_are_counted_per_day_and_audited_reuses_are_not(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    assert _tick(tmp_path, repo, base, session="reused").returncode == 0
+    assert not list((base / "feed").glob("relogins-*"))
+    assert _audits(repo) == []
+    assert _tick(tmp_path, repo, base, session="relogin").returncode == 0
+    counters = list((base / "feed").glob("relogins-*"))
+    assert len(counters) == 1 and counters[0].read_text().strip() == "1"
+    import json as _json
+    import time as _time
+    _time.sleep(1.1)  # audit file names are second-resolution
+    assert _tick(tmp_path, repo, base, session="relogin").returncode == 0
+    assert counters[0].read_text().strip() == "2"
+    recs = [_json.loads(p.read_text()) for p in _audits(repo)]
+    assert [r["relogins_today"] for r in recs] == [1, 2]
+    assert all(r["status"] == "relogin" for r in recs)
+
+
+def test_state_dir_is_private(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    _tick(tmp_path, repo, base)
+    assert stat.S_IMODE((base / "feed").stat().st_mode) == 0o700
+    assert not list((base / "feed").glob(".tick-out.*"))  # scratch copy removed
+
+
+def test_a_planted_session_token_reaches_no_output_channel(tmp_path):
+    """The saved session is a credential equivalent: whatever the tick does
+    (reuse, relogin, failure, trip), no stdout/stderr, ping or audit record
+    may carry any of it."""
+    token = "PLANTED-SESSION-TOKEN-7f3a9c"
+    repo, base, calls, pings = _setup(tmp_path)
+    (base / "feed").mkdir(parents=True, exist_ok=True)
+    (base / "feed" / "session_state.json").write_text(
+        '{"cookies": [{"name": "JSESSIONID", "value": "%s"}], '
+        '"origins": [{"origin": "https://wss.example", "localStorage": '
+        '[{"name": "auth", "value": "%s"}]}]}' % (token, token))
+    outs = []
+    for session, rc in (("reused", 0), ("relogin", 0), ("relogin", 1), ("", 4), ("", 0)):
+        r = _tick(tmp_path, repo, base, rc=rc, session=session)
+        outs += [r.stdout, r.stderr]
+    channels = outs + [pings.read_text(), calls.read_text()]
+    channels += [p.read_text() for p in _audits(repo)]
+    channels += [p.read_text() for p in (base / "feed").iterdir()
+                 if p.name != "session_state.json"]
+    assert (base / "feed" / "tripped").exists()  # the rc=4 tick tripped it
+    for text in channels:
+        assert token not in text

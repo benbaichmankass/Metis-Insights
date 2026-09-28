@@ -8,6 +8,14 @@
 # orders off the Breakout DXtrade terminal and posts ONE account_status to the
 # local POST /api/bot/prop/report. No order control exists on that path.
 #
+# Session reuse (operator decision 2026-09-28 "Reuse saved session"): a tick
+# opens the terminal on the Playwright session the last good tick saved
+# (~/.cache/metis-prop-browser/feed/session_state.json, 0600 in a 0700 dir, a
+# credential equivalent that is never printed) and only logs in with
+# credentials when that session is no longer accepted. The journal shows
+# `session: reused` / `session: relogin`; relogins are counted per UTC day in
+# the audit (runtime_logs/operator_actions/*-prop-feed.json).
+#
 # The wrapper owns the lock (shared with the system-action), the hard timeout,
 # and the trip-on-failure backoff (a feasibility stop — challenge, CAPTCHA,
 # 2FA, rejected login — trips it on the FIRST occurrence and pings; it never
