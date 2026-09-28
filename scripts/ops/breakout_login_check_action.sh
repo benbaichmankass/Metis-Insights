@@ -59,6 +59,10 @@
 #                              and `systemctl enable --now` it. Go-live is
 #                              THIS plus `set-env PROP_EXECUTOR_MODE=live`
 #                              (service: none; the tick re-reads .env).
+#     executor-clear-halt    — clear the executor's AUTO-REVERT latch
+#                              (executor/halted). Manager/operator only; the
+#                              issue's `reason:` is required and recorded with
+#                              the prior latch reason; the file is moved aside.
 #     executor-disable-timer — `systemctl disable --now` the timer. The instant
 #                              revert is `set-env PROP_EXECUTOR_MODE=off`
 #                              (which also stops reconciling in-flight
@@ -86,7 +90,7 @@ case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 EXEC_MODE=""
 for m in probe-ticket executor-dry-run watched-click round-trip-dry round-trip-live \
-         executor-enable-timer executor-disable-timer; do
+         executor-enable-timer executor-disable-timer executor-clear-halt; do
     case ",${APPLY}," in *",${m},"*)
         if [ -n "${EXEC_MODE}" ]; then
             log "apply: at most one executor mode per dispatch (got ${EXEC_MODE} and ${m})"
@@ -96,6 +100,39 @@ for m in probe-ticket executor-dry-run watched-click round-trip-dry round-trip-l
     esac
 done
 case ",${APPLY}," in *",sol,"*) RT_SYMBOL="SOLUSD" ;; *) RT_SYMBOL="ETHUSD" ;; esac
+if [ "${EXEC_MODE}" = "executor-clear-halt" ]; then
+    # Clear the executor's AUTO-REVERT latch (manager / operator decision,
+    # 2026-09-28). Never cleared from inside the executor. Refuses without a
+    # reason, without a latch, or on a latch with no recorded reason (that
+    # needs a person to look first). The prior reason is logged and the
+    # latch file is moved aside, never deleted.
+    X_STATE_DIR="${HOME}/.cache/metis-prop-browser/executor"
+    X_HALT="${X_STATE_DIR}/halted"
+    if [ -z "${ACTION_REASON// }" ]; then
+        log "executor-clear-halt: refused — a reason is required (who clears it and why)"
+        exit 1
+    fi
+    if [ ! -f "${X_HALT}" ]; then
+        log "executor-clear-halt: no latch set at ${X_HALT}; nothing to clear"
+        exit 1
+    fi
+    prior="$(head -c 500 "${X_HALT}" | tr -d '\r')"
+    if [ -z "${prior// }" ]; then
+        log "executor-clear-halt: refused — the latch carries no recorded reason; inspect ${X_HALT} first"
+        exit 1
+    fi
+    log "executor-clear-halt: prior latch: ${prior}"
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    mv "${X_HALT}" "${X_HALT}.cleared-${stamp}"
+    PRIOR="${prior}" ACTOR="${ACTION_ACTOR:-unknown}" ISSUE="${ACTION_ISSUE:-}" WHY="${ACTION_REASON}" \
+        python3 -c 'import json,os,datetime;print(json.dumps({"ts":datetime.datetime.now(datetime.timezone.utc).isoformat(),"actor":os.environ["ACTOR"],"issue":os.environ["ISSUE"],"reason":os.environ["WHY"],"prior":os.environ["PRIOR"]}))' \
+        >> "${X_STATE_DIR}/halt_clears.jsonl"
+    log "executor-clear-halt: cleared by ${ACTION_ACTOR:-unknown} (issue #${ACTION_ISSUE:-?}); reason: ${ACTION_REASON}"
+    record_audit "breakout-login-check" "executor-clear-halt" \
+        "{\"account\": \"${ACCOUNT}\", \"moved_to\": \"halted.cleared-${stamp}\"}" >/dev/null || true
+    exit 0
+fi
+
 TIMER_SRC="${REPO_DIR}/deploy/opt-in/ict-prop-executor.timer"
 if [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executor-disable-timer" ]; then
     if ! sudo -n true >/dev/null 2>&1; then
