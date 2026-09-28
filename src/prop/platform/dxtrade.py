@@ -79,7 +79,9 @@ from urllib.parse import urlsplit
 
 from src.prop.platform.base import (
     AccountSnapshot,
+    BracketSpec,
     FeasibilityError,
+    PlaceAttempt,
     Position,
     PropPlatformAdapter,
     WorkingOrder,
@@ -386,17 +388,24 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
         c_type = _find_col(headers, "Order Type", "Type")
         c_qty = _find_col(headers, "Left Qty", *_QTY_NAMES)
         c_px = _find_col(headers, "Price", "Limit Price", "Stop Price", "Trigger Price")
+        c_id = _find_col(headers, "Order ID")
+        c_sl = _find_col(headers, "Stop loss", "SL")
+        c_tp = _find_col(headers, "Take profit", "TP")
         for row in t.get("rows") or []:
             sym = (_cell(row, c_sym) or "").strip()
             if not sym:
                 continue
             qty = parse_number(_cell(row, c_qty))
+            oid = (_cell(row, c_id) or "").strip() or None
             out.append(WorkingOrder(
                 symbol=sym, side=_side(_cell(row, c_side)),
                 order_type=(_cell(row, c_type) or "").strip() or None,
                 quantity=abs(qty) if qty is not None else None,
                 price=parse_number(_cell(row, c_px)),
                 raw={h: (row[i] if i < len(row) else "") for i, h in enumerate(headers)},
+                order_id=oid,
+                stop_loss=parse_number(_cell(row, c_sl)),
+                take_profit=parse_number(_cell(row, c_tp)),
             ))
     return out if found else None
 
@@ -842,6 +851,270 @@ def extract_instrument_specs_from_responses(
     return {"specs": specs, "discovery": discovery}
 
 
+# ── order entry (step 3, PROP-EXEC 2026-09-28) ─────────────────────────────
+#
+# ⚠️ THE ORDER-ENTRY DOM IS NOT MEASURED. Nothing here has run against the
+# terminal's ticket form. What IS measured (run 36358563148, issue #13385):
+# the page renders the text "One-click trading", the chart carries
+# "Sell <bid>" / "<ask> Buy" price buttons, the app is React/styled-components
+# (sc-* classes), the tables are real DOM, and there are 9 canvases (the chart).
+# So the form is PROBABLY DOM, not canvas, but that is an inference.
+# ``probe_order_ticket`` is the measurement; ``classify_ticket_surface`` turns
+# its result into ``dom`` / ``canvas_ticket`` / ``not_found``.
+#
+# Safety rules every control below keeps, whatever the DOM turns out to be:
+# 1. ONE-CLICK TRADING must read OFF before anything in the order area is
+#    touched. With it on, a click on a chart Buy/Sell button IS an order, with
+#    no SL and no TP. "Could not read it" is treated as ON.
+# 2. The chart's Buy/Sell PRICE buttons are never an opener: a ticket is opened
+#    only by an explicitly named control (:data:`TICKET_OPENER_NAMES`) or a
+#    double-click on the watchlist row of the symbol.
+# 3. Fields are found INSIDE one form container by their visible label, and
+#    each must be unique there; an ambiguous or missing field refuses.
+# 4. Every field is READ BACK after typing and compared to what was meant.
+#    A mismatch refuses (and closes the form) before submit is ever reached.
+# 5. ``arm=False`` (the default) stops before the final control. Only
+#    ``src/prop/prop_executor.py`` in ``live`` mode passes ``arm=True``.
+# 6. A click reports that it CLICKED, never that an order exists; existence is
+#    the executor's re-read.
+
+# Accessible names that open an order ticket, exact match only. NOT MEASURED:
+# the probe prints every button name so this list can be fixed from the log.
+TICKET_OPENER_NAMES: Sequence[str] = ("New Order", "New order", "Create Order", "Create order",
+                                      "Place Order", "Place order", "Order Entry", "Trade")
+
+# Form-field label patterns (anchored, case-insensitive), matched against the
+# label text the discovery JS derives for each control.
+FORM_FIELD_PATTERNS: Dict[str, str] = {
+    "quantity": r"^(quantity|qty|size|volume|amount|lots?)\b",
+    "price": r"^(price|limit price|entry price|order price|at price)\b",
+    "stop_loss": r"^(stop loss|stop-loss|sl)\b",
+    "take_profit": r"^(take profit|take-profit|tp)\b",
+}
+# Buttons inside the form container. ``submit`` is the ONLY control that
+# changes the account; ``close`` dismisses the form.
+FORM_BUTTON_PATTERNS: Dict[str, str] = {
+    "side_buy": r"^buy$",
+    "side_sell": r"^sell$",
+    "type_market": r"^market$",
+    "type_limit": r"^limit$",
+    "submit": r"^(place order|place|submit|confirm order|place buy order|place sell order|buy\s.+|sell\s.+)$",
+    "close": r"^(cancel|close|×|✕|x)$",
+}
+
+# Finds the order form, tags its controls with data-metis-field / data-metis-btn
+# (a DOM attribute only this page load sees; it changes nothing on the
+# account), and returns their shape. It NEVER returns an input's value except
+# for the four order fields, which are our own typed numbers, not account data.
+ORDER_FORM_JS = r"""
+(args) => {
+  const [fieldPats, buttonPats] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const re = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, new RegExp(v, 'i')]));
+  const FP = re(fieldPats), BP = re(buttonPats);
+  document.querySelectorAll('[data-metis-field],[data-metis-btn],[data-metis-form]').forEach(e => {
+    e.removeAttribute('data-metis-field'); e.removeAttribute('data-metis-btn'); e.removeAttribute('data-metis-form');
+  });
+  const labelOf = inp => {
+    const a = inp.getAttribute('aria-label'); if (a) return a.trim();
+    if (inp.id) { const l = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`); if (l) return txt(l); }
+    const wrap = inp.closest('label'); if (wrap) { const t = txt(wrap); if (t) return t; }
+    let e = inp;
+    for (let i = 0; i < 3 && e.parentElement; i++) {
+      e = e.parentElement;
+      const t = [...e.childNodes].filter(n => n !== inp && !(n.contains && n.contains(inp)))
+        .map(n => (n.nodeType === 3 ? n.textContent : txt(n))).join(' ').trim();
+      if (t) return t.split(/\n/)[0].trim();
+    }
+    return (inp.getAttribute('placeholder') || '').trim();
+  };
+  const inputs = [...document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), [role=spinbutton]')].filter(vis);
+  const hits = {};
+  for (const inp of inputs) {
+    const lab = labelOf(inp);
+    for (const [k, r] of Object.entries(FP)) if (r.test(lab)) (hits[k] = hits[k] || []).push({el: inp, label: lab});
+  }
+  // The form container: the smallest ancestor of the quantity input that also
+  // holds a stop-loss and a take-profit input.
+  let form = null;
+  const q = (hits.quantity || [])[0];
+  if (q) {
+    for (let e = q.el.parentElement; e && e !== document.body; e = e.parentElement) {
+      const has = k => (hits[k] || []).some(h => e.contains(h.el));
+      if (has('stop_loss') && has('take_profit')) { form = e; break; }
+    }
+  }
+  const out = {found: !!form, fields: {}, buttons: {}, ambiguous: [], checkboxes: [],
+               canvases_in_page: document.querySelectorAll('canvas').length,
+               canvases_in_form: form ? form.querySelectorAll('canvas').length : 0,
+               inputs_in_page: inputs.length};
+  if (!form) return out;
+  form.setAttribute('data-metis-form', '1');
+  for (const [k, list] of Object.entries(hits)) {
+    const inside = list.filter(h => form.contains(h.el));
+    if (inside.length !== 1) { if (inside.length > 1) out.ambiguous.push(k); continue; }
+    const el = inside[0].el;
+    el.setAttribute('data-metis-field', k);
+    out.fields[k] = {label: inside[0].label, disabled: !!(el.disabled || el.getAttribute('aria-disabled') === 'true'),
+                     value: (el.value !== undefined ? String(el.value) : txt(el))};
+  }
+  const btns = [...form.querySelectorAll('button, [role=button], input[type=submit]')].filter(vis);
+  for (const [k, r] of Object.entries(BP)) {
+    const m = btns.filter(b => r.test(txt(b) || b.getAttribute('aria-label') || b.value || ''));
+    if (m.length === 1) { m[0].setAttribute('data-metis-btn', k); out.buttons[k] = txt(m[0]) || m[0].getAttribute('aria-label') || ''; }
+    else if (m.length > 1) out.ambiguous.push('btn:' + k);
+  }
+  for (const cb of form.querySelectorAll('input[type=checkbox], [role=checkbox], [role=switch]')) {
+    const lab = labelOf(cb);
+    for (const k of ['stop_loss', 'take_profit']) {
+      if (FP[k].test(lab)) {
+        cb.setAttribute('data-metis-field', k + '_toggle');
+        out.checkboxes.push({field: k, checked: !!(cb.checked || cb.getAttribute('aria-checked') === 'true')});
+      }
+    }
+  }
+  out.form_text = txt(form).slice(0, 2000);
+  return out;
+}
+"""
+
+# Reads the "One-click trading" control. Returns "on" / "off" / "unknown" plus
+# the redacted shape of what it looked at.
+ONE_CLICK_JS = r"""
+() => {
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim();
+  const lab = [...document.querySelectorAll('body *')].find(el =>
+    el.children.length === 0 && /^one[- ]click trading$/i.test(txt(el)));
+  if (!lab) return {state: 'unknown', why: 'label not found'};
+  const states = [];
+  for (let e = lab, i = 0; e && i < 4; e = e.parentElement, i++) {
+    const cands = [e, ...e.querySelectorAll('input[type=checkbox], [role=switch], [role=checkbox], [aria-pressed], [aria-checked]')];
+    for (const c of cands) {
+      if (c.type === 'checkbox') states.push(c.checked ? 'on' : 'off');
+      const ac = c.getAttribute && (c.getAttribute('aria-checked') || c.getAttribute('aria-pressed'));
+      if (ac === 'true') states.push('on'); else if (ac === 'false') states.push('off');
+    }
+    if (states.length) break;
+  }
+  const uniq = [...new Set(states)];
+  return {state: uniq.length === 1 ? uniq[0] : 'unknown',
+          why: uniq.length === 1 ? 'read' : (uniq.length ? 'conflicting controls' : 'no checkbox/switch/aria state near the label'),
+          chain: (() => { const c = []; for (let e = lab, i = 0; e && e.tagName && i < 4; e = e.parentElement, i++)
+            c.push(e.tagName.toLowerCase() + ((typeof e.className === 'string' && e.className) ? '.' + e.className.trim().split(/\s+/).join('.') : '')
+                   + [...e.attributes].map(a => a.name).filter(n => n.startsWith('aria-') || n.startsWith('data-')).map(n => '[' + n + ']').join(''));
+            return c; })()};
+}
+"""
+
+
+# Finds ONE row of the orders or positions table by an exact key cell and ONE
+# control in it by an anchored pattern (text, aria-label or title), and tags
+# that control data-metis-row-action. Never clicks.
+ROW_ACTION_JS = r"""
+(args) => {
+  const [kind, keyCol, key, actionPat] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim();
+  const norm = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
+  const want = kind === 'orders' ? /^(order id|sts)$/ : /^(position volume|position id|open price|avg fill price|open p&l)$/;
+  const act = new RegExp(actionPat, 'i');
+  let rows = [], ctl = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (!hs.some(h => want.test(h))) continue;
+    const ci = hs.indexOf(norm(keyCol));
+    if (ci < 0) continue;
+    for (const r of t.querySelectorAll('tbody tr')) {
+      const cells = [...r.querySelectorAll('td')];
+      if (cells[ci] && txt(cells[ci]) === key) rows.push(r);
+    }
+  }
+  if (rows.length === 1) {
+    ctl = [...rows[0].querySelectorAll('button, [role=button], [title], [aria-label]')].filter(b =>
+      act.test(txt(b)) || act.test(b.getAttribute('aria-label') || '') || act.test(b.getAttribute('title') || ''));
+    if (ctl.length === 1) ctl[0].setAttribute('data-metis-row-action', '1');
+  }
+  return {rows: rows.length, controls: ctl.length};
+}
+"""
+
+
+def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
+    """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from the watchlist table
+    (headers Symbol/Bid/Ask, MEASURED run 36358563148). ``None`` when no
+    table carries both, the symbol has no row, or the numbers do not parse."""
+    for t in tables:
+        headers = list(t.get("headers") or [])
+        norm = [_norm(h) for h in headers]
+        if "symbol" not in norm or "bid" not in norm or "ask" not in norm:
+            continue
+        c_sym, c_bid, c_ask = norm.index("symbol"), norm.index("bid"), norm.index("ask")
+        for row in t.get("rows") or []:
+            if (_cell(row, c_sym) or "").strip().upper() == venue_symbol.upper():
+                bid, ask = parse_number(_cell(row, c_bid)), parse_number(_cell(row, c_ask))
+                if bid is not None and ask is not None and 0 < bid <= ask:
+                    return {"bid": bid, "ask": ask}
+    return None
+
+
+def classify_ticket_surface(form: Mapping[str, Any]) -> str:
+    """``dom`` / ``canvas_ticket`` / ``not_found`` from :data:`ORDER_FORM_JS`'s
+    result. Pure. ``canvas_ticket`` is the design's feasibility stop (§ 4): an
+    opened ticket area with canvas and no labelled inputs to type into."""
+    if form.get("found"):
+        return "dom"
+    if (form.get("canvases_in_form") or 0) > 0:
+        return "canvas_ticket"
+    return "not_found"
+
+
+def _fmt_num(x: float) -> str:
+    """A number as the form should receive it: no exponent, no trailing zeros."""
+    s = f"{float(x):.10f}".rstrip("0").rstrip(".")
+    return s if s not in ("", "-0") else "0"
+
+
+def verify_form_values(fields: Mapping[str, Mapping[str, Any]], want: Mapping[str, float],
+                       rel_tol: float = 1e-9) -> List[str]:
+    """Pure: compare what the form SHOWS against what we meant to type.
+    Returns the list of mismatches (empty = verified). A field we meant to set
+    that the form does not show, or shows unparseable, is a mismatch."""
+    bad: List[str] = []
+    for k, v in want.items():
+        shown = parse_number((fields.get(k) or {}).get("value"))
+        if shown is None:
+            bad.append(f"{k}: not readable back")
+        elif not math.isclose(shown, float(v), rel_tol=rel_tol, abs_tol=1e-12):
+            bad.append(f"{k}: typed {_fmt_num(v)}, form shows {_fmt_num(shown)}")
+    return bad
+
+
+def check_bracket_spec(spec: BracketSpec) -> List[str]:
+    """Pure structural check of one bracket before any click: both legs, a
+    positive size, and SL/TP on the correct sides of the entry. Anything
+    returned is a refusal."""
+    bad: List[str] = []
+    if spec.side not in ("long", "short"):
+        bad.append(f"side {spec.side!r} is not long/short")
+    for name in ("quantity", "stop_loss", "take_profit"):
+        v = getattr(spec, name)
+        if v is None or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0:
+            bad.append(f"{name} must be a positive number (got {v!r})")
+    if spec.order_type not in ("limit", "market"):
+        bad.append(f"order_type {spec.order_type!r} is not limit/market")
+    if spec.order_type == "limit":
+        if spec.limit_price is None or not (spec.limit_price > 0):
+            bad.append("a limit bracket needs a positive limit_price")
+        elif not bad:
+            e, sl, tp = spec.limit_price, spec.stop_loss, spec.take_profit
+            if spec.side == "long" and not (sl < e < tp):
+                bad.append(f"long needs sl < entry < tp (got {sl} / {e} / {tp})")
+            if spec.side == "short" and not (tp < e < sl):
+                bad.append(f"short needs tp < entry < sl (got {tp} / {e} / {sl})")
+    return bad
+
+
 # ── the adapter ──────────────────────────────────────────────────────────
 
 
@@ -1154,3 +1427,287 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception:
             pass
         return captured
+
+    # ---- step 3: order entry (see the ORDER ENTRY block above) ----------
+    def read_quote(self, page: Any, venue_symbol: str) -> Optional[Dict[str, float]]:
+        """Bid/ask off the watchlist table. Read-only."""
+        return quote_from_tables(self._tables(page), venue_symbol)
+
+    def read_one_click(self, page: Any) -> Dict[str, Any]:
+        """``{"state": "on"|"off"|"unknown", ...}``. Read-only. Anything but a
+        definite ``off`` is treated as ON by every caller."""
+        try:
+            got = page.evaluate(ONE_CLICK_JS) or {}
+        except Exception as exc:
+            return {"state": "unknown", "why": f"probe failed ({type(exc).__name__})"}
+        if got.get("state") not in ("on", "off"):
+            got["state"] = "unknown"
+        return got
+
+    def _find_form(self, page: Any) -> Dict[str, Any]:
+        try:
+            return page.evaluate(ORDER_FORM_JS, [FORM_FIELD_PATTERNS, FORM_BUTTON_PATTERNS]) or {}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
+    def open_order_ticket(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """Open the order-entry form for ``venue_symbol`` WITHOUT pressing any
+        order control. Returns ``{"opened": bool, "via": ..., "form": ...,
+        "one_click": ...}``. Refuses (``opened: False``) unless one-click
+        trading reads OFF. Never uses a chart Buy/Sell price button."""
+        oc = self.read_one_click(page)
+        out: Dict[str, Any] = {"opened": False, "via": None, "one_click": oc, "form": {}}
+        if oc.get("state") != "off":
+            out["refused"] = f"one-click trading is {oc.get('state')} ({oc.get('why')}); nothing touched"
+            return out
+        form = self._find_form(page)
+        if form.get("found"):
+            out.update(opened=True, via="already_open", form=form)
+            return out
+        for name in TICKET_OPENER_NAMES:
+            try:
+                loc = page.get_by_role("button", name=name, exact=True)
+                if loc.count() == 1:
+                    loc.first.click(timeout=5_000)
+                    page.wait_for_timeout(1_000)
+                    form = self._find_form(page)
+                    if form.get("found"):
+                        out.update(opened=True, via=f"button:{name}", form=form)
+                        return out
+            except Exception:
+                continue
+        # Double-click the symbol's WATCHLIST row (the table MEASURED with
+        # headers Symbol/Bid/Ask/...). A row, never a price button.
+        try:
+            rows = page.locator("tr.instrument, tr[data-row-id]").filter(
+                has=page.locator("td", has_text=re.compile(r"^\s*" + re.escape(venue_symbol) + r"\s*$")))
+            if rows.count() == 1:
+                rows.first.dblclick(timeout=5_000)
+                page.wait_for_timeout(1_000)
+                form = self._find_form(page)
+                if form.get("found"):
+                    out.update(opened=True, via="watchlist_dblclick", form=form)
+                    return out
+        except Exception:
+            pass
+        out["form"] = form
+        out["refused"] = "no opener produced an order form (TICKET_OPENER_NAMES / watchlist row)"
+        return out
+
+    def close_order_ticket(self, page: Any) -> bool:
+        """Dismiss the form (its Cancel/Close button, else Escape). Safe."""
+        try:
+            loc = page.locator("[data-metis-btn=close]")
+            if loc.count() == 1:
+                loc.first.click(timeout=5_000)
+                return True
+        except Exception:
+            pass
+        try:
+            page.keyboard.press("Escape")
+            return True
+        except Exception:
+            return False
+
+    def probe_order_ticket(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """READ-ONLY feasibility measurement of the order ticket: open the
+        form, record its shape (labels, buttons, disabled state, canvas
+        counts), classify it, close it. Types nothing and clicks no side,
+        type or submit control."""
+        opened = self.open_order_ticket(page, venue_symbol)
+        form = opened.get("form") or {}
+        surface = classify_ticket_surface(form) if opened.get("opened") else (
+            "canvas_ticket" if (form.get("canvases_in_form") or 0) > 0 else "not_opened")
+        result = {
+            "surface": surface,
+            "one_click": opened.get("one_click"),
+            "via": opened.get("via"),
+            "refused": opened.get("refused"),
+            "fields": {k: {"label": v.get("label"), "disabled": v.get("disabled")}
+                       for k, v in (form.get("fields") or {}).items()},
+            "buttons": form.get("buttons") or {},
+            "checkboxes": form.get("checkboxes") or [],
+            "ambiguous": form.get("ambiguous") or [],
+            "canvases_in_form": form.get("canvases_in_form"),
+            "canvases_in_page": form.get("canvases_in_page"),
+            "inputs_in_page": form.get("inputs_in_page"),
+            # Length only: the raw form text can carry the account number and
+            # this result is printed to a PUBLIC run log.
+            "form_text_len": len(form.get("form_text") or ""),
+        }
+        if opened.get("opened"):
+            result["closed"] = self.close_order_ticket(page)
+        return result
+
+    def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:
+        """One order with SL AND TP attached at entry.
+
+        Opens the form, sets side / type / quantity / price / SL / TP, reads
+        every field back and compares, and — only with ``arm=True`` — clicks
+        the form's single submit control (plus one confirmation dialog if the
+        terminal shows one). With ``arm=False`` it closes the form at
+        ``form_verified``. ``submitted=True`` means only that submit was
+        clicked; the caller confirms by re-read.
+        """
+        bad = check_bracket_spec(spec)
+        if bad:
+            return PlaceAttempt(stage="refused", detail="; ".join(bad))
+        opened = self.open_order_ticket(page, spec.venue_symbol)
+        if not opened.get("opened"):
+            return PlaceAttempt(stage="refused", detail=opened.get("refused") or "form not opened",
+                                form={"one_click": opened.get("one_click")})
+        form = opened["form"]
+
+        def refuse(why: str, f: Optional[Mapping[str, Any]] = None) -> PlaceAttempt:
+            self.close_order_ticket(page)
+            return PlaceAttempt(stage="refused", detail=why, form=dict(f or form))
+
+        if form.get("ambiguous"):
+            return refuse(f"ambiguous form controls: {form['ambiguous']}")
+        # The form must NAME the instrument, as a whole word: an order typed
+        # into a ticket for the wrong symbol is the worst silent failure here.
+        if not re.search(r"(?<![A-Z0-9])" + re.escape(spec.venue_symbol.upper()) + r"(?![A-Z0-9])",
+                         str(form.get("form_text") or "").upper()):
+            return refuse(f"the open form does not name {spec.venue_symbol}")
+        need = ["quantity", "stop_loss", "take_profit"] + (["price"] if spec.order_type == "limit" else [])
+        missing = [k for k in need if k not in (form.get("fields") or {})]
+        if missing:
+            return refuse(f"form fields not found: {missing}")
+        if "submit" not in (form.get("buttons") or {}):
+            return refuse("no unique submit control in the form")
+        try:
+            side_btn = "side_buy" if spec.side == "long" else "side_sell"
+            if side_btn in form.get("buttons", {}):
+                page.click(f"[data-metis-btn={side_btn}]", timeout=5_000)
+            elif form.get("buttons", {}).get("side_buy") is None and form.get("buttons", {}).get("side_sell") is None:
+                return refuse("no side selector in the form")
+            type_btn = "type_limit" if spec.order_type == "limit" else "type_market"
+            if type_btn in form.get("buttons", {}):
+                page.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
+            form = self._find_form(page)
+            for leg in ("stop_loss", "take_profit"):
+                fld = (form.get("fields") or {}).get(leg) or {}
+                if fld.get("disabled"):
+                    tog = [c for c in form.get("checkboxes") or [] if c.get("field") == leg]
+                    if len(tog) != 1 or tog[0].get("checked"):
+                        return refuse(f"{leg} field is disabled and has no single enabling toggle")
+                    page.click(f"[data-metis-field={leg}_toggle]", timeout=5_000)
+            want = {"quantity": spec.quantity, "stop_loss": spec.stop_loss, "take_profit": spec.take_profit}
+            if spec.order_type == "limit":
+                want["price"] = float(spec.limit_price)
+            form = self._find_form(page)
+            for k, v in want.items():
+                page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
+            form = self._find_form(page)
+        except Exception as exc:
+            return refuse(f"typing into the form failed ({type(exc).__name__})")
+        mism = verify_form_values(form.get("fields") or {}, want)
+        if mism:
+            return refuse("form read-back mismatch: " + "; ".join(mism), form)
+        if not arm:
+            self.close_order_ticket(page)
+            return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
+        # ── the one click that changes the account ──
+        oc = self.read_one_click(page)
+        if oc.get("state") != "off":
+            return refuse(f"one-click trading changed to {oc.get('state')} before submit")
+        try:
+            page.click("[data-metis-btn=submit]", timeout=5_000)
+        except Exception as exc:
+            # The click may or may not have landed: report submitted so the
+            # caller treats it as UNCONFIRMED and re-reads; never resubmit.
+            return PlaceAttempt(stage="submitted", submitted=True,
+                                detail=f"submit click raised {type(exc).__name__}; outcome unknown", form=form)
+        self._confirm_dialog(page)
+        return PlaceAttempt(stage="submitted", submitted=True, detail="submit clicked", form=form)
+
+    @staticmethod
+    def _confirm_dialog(page: Any) -> bool:
+        """Press a confirmation dialog's single Confirm/OK button if one shows.
+        Only ever called after an ARMED action."""
+        try:
+            page.wait_for_timeout(1_000)
+            loc = page.locator("[role=dialog], [role=alertdialog]").get_by_role(
+                "button", name=re.compile(r"^(confirm|ok|yes|place order)$", re.IGNORECASE))
+            if loc.count() == 1:
+                loc.first.click(timeout=5_000)
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _row_action(self, page: Any, kind: str, key_col: str, key: str,
+                    action_re: str, arm: bool) -> Dict[str, Any]:
+        """Find exactly one row of the orders/positions table whose ``key_col``
+        cell equals ``key`` and exactly one control in it matching
+        ``action_re``; click it only when ``arm``."""
+        try:
+            got = page.evaluate(ROW_ACTION_JS, [kind, key_col, key, action_re]) or {}
+        except Exception as exc:
+            return {"ok": False, "clicked": False, "why": f"probe failed ({type(exc).__name__})"}
+        if got.get("rows") != 1 or got.get("controls") != 1:
+            return {"ok": False, "clicked": False,
+                    "why": f"need exactly 1 row and 1 control (rows={got.get('rows')}, controls={got.get('controls')})"}
+        if not arm:
+            return {"ok": True, "clicked": False, "why": "disarmed: stopped before the click"}
+        try:
+            page.click("[data-metis-row-action]", timeout=5_000)
+        except Exception as exc:
+            return {"ok": True, "clicked": True, "why": f"click raised {type(exc).__name__}; outcome unknown"}
+        self._confirm_dialog(page)
+        return {"ok": True, "clicked": True, "why": "clicked"}
+
+    def cancel_order(self, page: Any, order: WorkingOrder, *, arm: bool = False) -> Dict[str, Any]:
+        """Cancel ONE working order, identified by its terminal Order ID."""
+        if not order or not order.order_id:
+            return {"ok": False, "clicked": False, "why": "no order_id: refusing to guess which row"}
+        self._show_tab(page, "tab_orders")
+        return self._row_action(page, "orders", "Order ID", str(order.order_id),
+                                r"^(cancel|cancel order|×|✕|x|remove)$", arm)
+
+    def flatten(self, page: Any, symbol: Optional[str] = None, *, arm: bool = False) -> Dict[str, Any]:
+        """Close ONE symbol's position at market (never 'close all': a
+        symbol is required so a flatten can never widen past its target)."""
+        if not symbol:
+            return {"ok": False, "clicked": False, "why": "symbol required (no close-all)"}
+        self._show_tab(page, "tab_positions")
+        return self._row_action(page, "positions", "Symbol", symbol,
+                                r"^(close|close position|×|✕|x)$", arm)
+
+    def modify_bracket(self, page: Any, position: Position,
+                       stop_loss: Optional[float], take_profit: Optional[float],
+                       *, arm: bool = False) -> Dict[str, Any]:
+        """Set a position's SL/TP through its row's edit control and the same
+        read-back-verified form as ``place_bracket``."""
+        if stop_loss is None and take_profit is None:
+            return {"ok": False, "clicked": False, "why": "nothing to modify"}
+        oc = self.read_one_click(page)
+        if oc.get("state") != "off":
+            return {"ok": False, "clicked": False, "why": f"one-click trading is {oc.get('state')}"}
+        self._show_tab(page, "tab_positions")
+        # Disarmed: locate the edit control and stop — no click at all.
+        opened = self._row_action(page, "positions", "Symbol", position.symbol,
+                                  r"^(edit|modify|✎|sl/tp|edit position)$", arm)
+        if not arm:
+            return {"ok": bool(opened.get("ok")), "clicked": False,
+                    "why": f"disarmed: stopped before the edit control ({opened.get('why')})"}
+        if not opened.get("clicked"):
+            return {"ok": False, "clicked": False, "why": f"edit control: {opened.get('why')}"}
+        page.wait_for_timeout(1_000)
+        form = self._find_form(page)
+        want = {k: v for k, v in (("stop_loss", stop_loss), ("take_profit", take_profit)) if v is not None}
+        missing = [k for k in want if k not in (form.get("fields") or {})]
+        if missing or "submit" not in (form.get("buttons") or {}):
+            self.close_order_ticket(page)
+            return {"ok": False, "clicked": False, "why": f"edit form incomplete (missing {missing})"}
+        for k, v in want.items():
+            page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
+        form = self._find_form(page)
+        mism = verify_form_values(form.get("fields") or {}, want)
+        if mism or not arm:
+            self.close_order_ticket(page)
+            return {"ok": not mism, "clicked": False,
+                    "why": ("read-back mismatch: " + "; ".join(mism)) if mism else "disarmed: stopped before submit"}
+        page.click("[data-metis-btn=submit]", timeout=5_000)
+        self._confirm_dialog(page)
+        return {"ok": True, "clicked": True, "why": "submit clicked"}

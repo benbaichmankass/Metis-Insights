@@ -671,16 +671,25 @@ def test_breakout_terminal_is_scoped_only():
             call()
 
 
-# ── slice-1 boundary: no order controls, no anti-detection ─────────────
+# ── order-control boundary, no anti-detection ──────────────────────────
+# Step 3 (PROP-EXEC 2026-09-28) built the order controls on the dxtrade
+# adapter only; their behaviour is tested in tests/test_prop_executor.py.
 
 
-@pytest.mark.parametrize("platform", ["dxtrade", "breakout_terminal"])
-def test_order_controls_are_not_implemented(platform):
-    a = adapter_for_platform(platform)
-    for call in (lambda: a.place_bracket(None, {}), lambda: a.modify_bracket(None, None, 1.0, 2.0),
-                 lambda: a.cancel_order(None, None), lambda: a.flatten(None)):
+def test_breakout_terminal_order_controls_are_not_implemented():
+    a = adapter_for_platform("breakout_terminal")
+    for call in (lambda: a.place_bracket(None, None), lambda: a.modify_bracket(None, None, 1.0, 2.0),
+                 lambda: a.cancel_order(None, None), lambda: a.flatten(None),
+                 lambda: a.probe_order_ticket(None, "SOLUSD")):
         with pytest.raises(NotImplementedError):
             call()
+
+
+def test_dxtrade_order_controls_default_to_disarmed():
+    import inspect
+    a = adapter_for_platform("dxtrade")
+    for name in ("place_bracket", "modify_bracket", "cancel_order", "flatten"):
+        assert inspect.signature(getattr(a, name)).parameters["arm"].default is False, name
 
 
 SLICE1_FILES = [
@@ -688,6 +697,9 @@ SLICE1_FILES = [
     REPO / "src" / "prop" / "platform" / "base.py",
     REPO / "scripts" / "prop" / "breakout_login_check.py",
     REPO / "scripts" / "ops" / "breakout_login_check_action.sh",
+    REPO / "src" / "prop" / "prop_executor.py",
+    REPO / "scripts" / "prop" / "prop_executor_tick.py",
+    REPO / "scripts" / "ops" / "prop_executor_tick.sh",
 ]
 
 
@@ -913,3 +925,24 @@ def test_resume_session_raises_on_a_challenge_and_never_types(visible, reason):
         DXtradeAdapter(timeout_ms=2_000).resume_session(page, "https://app.example/")
     assert ei.value.reason == reason
     assert page.filled == {} and page.clicked == []
+
+
+def test_modify_bracket_disarmed_never_clicks_the_edit_control():
+    from src.prop.platform.base import Position
+    calls = []
+
+    class P:
+        def evaluate(self, js, *a):
+            return {"state": "off"} if "one" in js[:200].lower() else {"rows": 1, "controls": 1}
+
+        def click(self, *a, **k):
+            calls.append(a)
+
+        def wait_for_timeout(self, *a):
+            pass
+
+    a = DXtradeAdapter()
+    a._show_tab = lambda *x: True
+    a.read_one_click = lambda page: {"state": "off"}
+    r = a.modify_bracket(P(), Position(symbol="SOLUSD"), 1.0, 2.0)
+    assert r["clicked"] is False and calls == []

@@ -1848,7 +1848,13 @@ accounts:
                                        # popup): "we can breach the account and
                                        # just buy a new one ... We shouldn't reject
                                        # tickets because the risk will breach."
-                                       # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN and the
-                                       # cushion caveat LOG + ALERT instead of
-                                       # refusing. Every other account defaults to
-                                       # `enforce`. Rollback: delete this line.
+                                       # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN let the
+                                       # trade through with a WARNING log line plus
+                                       # one durable row in runtime_logs/
+                                       # breach_accepted.jsonl (diag log_file
+                                       # name=breach_accepted); NO ping is sent from
+                                       # the risk manager. The ticket caveat becomes
+                                       # an informational line, and the executor
+                                       # raises an alert (pinged by its tick) when it
+                                       # places through a breach. Every other account
+                                       # defaults to `enforce`. Rollback: delete this line.

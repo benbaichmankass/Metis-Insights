@@ -115,6 +115,17 @@ In slice 1 the four slice-2 methods exist on the interface and **raise
 `NotImplementedError`** on both adapters. There is no code path that clicks an
 order control.
 
+**Step 3 update (lane PROP-EXEC, 2026-09-28; held PR `claude/prop-exec-step3`):**
+the four methods, plus a read-only `probe_order_ticket`, are now built on the
+`dxtrade` adapter. Each takes `arm=False` by default and stops before the
+final control. Only `src/prop/prop_executor.py` in `live` mode arms them. They
+refuse unless **one-click trading** reads OFF (the terminal renders that
+control, and chart Buy/Sell price buttons that place an order in one click
+when it is on). The order-ticket DOM is **NOT MEASURED**: the
+`breakout-login-check` `apply: probe-ticket` run measures it
+(`PI-20260928-K3GZXIAV-0001`). `breakout_terminal` still raises on all of
+them.
+
 ### 2.2 Selection by config
 
 `config/prop_platforms.yaml` holds one entry per prop account:
@@ -265,7 +276,7 @@ screenshots or reports. Playwright tracing and screenshots are off.
 |---|---|---|---|
 | **1: read-only login check (this PR)** | system-action `breakout-login-check` runs `scripts/prop/breakout_login_check.py` on the live VM: default headless Chromium opens `app.breakoutprop.com`, logs in, reads balance, equity, positions and working orders, prints them (no secrets). `emit_status: true` additionally posts one `account_status` through `POST /api/bot/prop/report`; default off. | exit 0 with `login: ok` and the values matching the operator's screen | Tier-2 held PR |
 | 2: keep-alive | repeat step 1 every 5 min for 72 h | unattended re-login; selector stability measured | Tier-2 |
-| 3: one minimum-size bracket, operator watching | `place_bracket` on the dxtrade adapter, plus the § 3.3 guards | entry, SL and TP all rest, confirmed by re-read; the report lands | Tier-2, separate held PR |
+| 3: one minimum-size bracket, operator watching | `place_bracket` on the dxtrade adapter, plus the § 3.3 guards. **BUILT, held** (2026-09-28): `src/prop/prop_executor.py`, `scripts/prop/prop_executor_tick.py`, unit `ict-prop-executor` (not enabled; timer in `deploy/opt-in/`), `PROP_EXECUTOR_MODE` default `read_only`. The executor shares the feed's `login.lock` and saved session and never logs in itself. The watched click is `breakout-login-check` `apply: watched-click` | entry, SL and TP all rest, confirmed by re-read; the report lands | Tier-2, separate held PR |
 | 4: soak | executor live on breakout_1's roster, manual bridge still emitting | 14 days, zero unconfirmed submits, orphans or naked positions | Tier-2 |
 
 **Feasibility stops** (each is reported as `feasibility: <reason>`, never

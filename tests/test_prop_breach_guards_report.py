@@ -132,3 +132,32 @@ def test_rendered_ticket_uses_the_accounts_mode(monkeypatch):
     assert "DO NOT PLACE" not in report and "accepted, the account is replaceable" in report
     monkeypatch.setattr(prop_risk_gate, "breach_guards_for", lambda a: "enforce")
     assert "DO NOT PLACE" in bt.render_ticket(t, account_id="some_other_prop")
+
+
+def test_breach_accepted_writes_one_durable_row(tmp_path, monkeypatch):
+    import json
+
+    import src.utils.paths as paths
+    monkeypatch.setattr(paths, "runtime_logs_dir", lambda: tmp_path)
+    rm = _rm("report")
+    rm.daily_pnl = -200.0
+    assert rm.evaluate(_pkg()) == (True, None)
+    rows = [json.loads(ln) for ln in (tmp_path / "breach_accepted.jsonl").read_text().splitlines()]
+    assert len(rows) == 1 and rows[0]["status"] == "breach_accepted"
+    assert rows[0]["reason"] == "DAILY_LOSS_CAP" and rows[0]["symbol"] == "SOLUSDT"
+    rm2 = _rm()
+    rm2.daily_pnl = -200.0
+    rm2.evaluate(_pkg())   # enforce: refused, no row
+    assert len((tmp_path / "breach_accepted.jsonl").read_text().splitlines()) == 1
+
+
+def test_breach_guards_for_reads_the_same_block_as_prop_risk_manager(monkeypatch):
+    import src.config.accounts_loader as al
+    monkeypatch.setattr(al, "load_accounts_dict", lambda *a, **k: {
+        "p_risk": {"risk": {"breach_guards": "report"}},
+        "p_flat": {"breach_guards": "report"},          # no risk block → PropRiskManager reads the account
+        "p_both": {"breach_guards": "report", "risk": {"max_dd_pct": 0.06}},
+    })
+    assert prop_risk_gate.breach_guards_for("p_risk") == "report"
+    assert prop_risk_gate.breach_guards_for("p_flat") == "report"
+    assert prop_risk_gate.breach_guards_for("p_both") == "enforce"   # risk block wins, as in prop_risk.py

@@ -322,6 +322,11 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # trip/backoff lines) can be tailed without SSH.
     "ict-prop-feed.service",
     "ict-prop-feed.timer",
+    # 2026-09-28 (PROP-EXEC) — the breakout_1 step-3 executor. Ships NOT
+    # enabled (its timer is in deploy/opt-in/); queryable so a session can
+    # confirm it is off, and tail its redacted cycle journal once enabled.
+    "ict-prop-executor.service",
+    "ict-prop-executor.timer",
     "ict-exchange-funding-pull.service",
     "ict-exchange-funding-pull.timer",
     "ict-mes-ibkr-pull.service",
@@ -802,6 +807,9 @@ _LOG_FILES: dict[str, Path] = {
     # line-wrapped id as a reference resolving to NOTHING, which is what a
     # 'tracked by BL-X' that tracks nobody looks like to that guard.)
     "prop_ticket_risk_soak": _PROP_TICKET_RISK_SOAK_LOG,
+    # 2026-09-28 (PROP-EXEC): one row per trade RiskManager let through a
+    # breach because its account is breach_guards: report (breakout_1).
+    "breach_accepted": runtime_logs_dir() / "breach_accepted.jsonl",
     "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
     # Daily-cap alert latch.
     # ── The two "liveness watchdog" state files. THEY ARE DIFFERENT THINGS AND

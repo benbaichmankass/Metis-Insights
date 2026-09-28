@@ -1,0 +1,27 @@
+# ============================================
+# ICT PROP EXECUTOR TIMER — OPT-IN, NOT INSTALLED BY ANY DEPLOY.
+# Lives in deploy/opt-in/ on purpose: scripts/install_systemd_units.sh
+# auto-enables every deploy/*.timer, and this one must stay off until the
+# watched step-3 click has passed (PROP-EXEC, operator decision 2026-09-28).
+#
+# Fires at :04/:09/:14/... — two minutes after the feed (:02/:07/...), so the
+# feed's tick (<= ~60 s typical) has usually released login.lock and left a
+# fresh saved session. A busy lock skips the tick; it never queues.
+#
+# To enable (Tier-2, after the watched click):
+#   sudo cp deploy/opt-in/ict-prop-executor.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now ict-prop-executor.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-prop-executor every 5 minutes (breakout_1)
+Requires=ict-prop-executor.service
+
+[Timer]
+OnCalendar=*-*-* *:04/5:00
+AccuracySec=15s
+Persistent=false
+Unit=ict-prop-executor.service
+
+[Install]
+WantedBy=timers.target

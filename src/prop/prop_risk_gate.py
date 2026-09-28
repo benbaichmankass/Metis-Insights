@@ -363,7 +363,11 @@ def breach_guards_for(account_id: Optional[str]) -> str:
         from src.units.accounts.risk import breach_guards_mode
 
         acct = load_accounts_dict().get(account_id) or {}
-        return breach_guards_mode(acct.get("risk") if isinstance(acct, dict) else None)
+        if not isinstance(acct, dict):
+            return "enforce"
+        # SAME source PropRiskManager is built from (prop_risk.py:
+        # ``config.get("risk") or config``), so the two can never disagree.
+        return breach_guards_mode(acct.get("risk") or acct)
     except Exception:  # noqa: BLE001 — unreadable config is the safe default
         return "enforce"
 

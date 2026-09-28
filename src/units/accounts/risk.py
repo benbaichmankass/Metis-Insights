@@ -144,6 +144,31 @@ def breach_guards_mode(risk_config: Optional[dict]) -> str:
     return raw if raw in BREACH_GUARD_MODES else "enforce"
 
 
+BREACH_ACCEPTED_LOG = "breach_accepted.jsonl"
+
+
+def record_breach_accepted(row: dict) -> None:
+    """Append ONE durable row per trade let through a breach in ``report``
+    mode, to ``runtime_logs/breach_accepted.jsonl`` (readable at
+    ``/api/diag/log_file?name=breach_accepted``), so trades placed through a
+    breach can be COUNTED later. The log line alone was not durable and nothing
+    read ``last_breach_report`` (manager review of #13660, 2026-09-28).
+    Best-effort: a failed write never changes the trade decision."""
+    try:
+        import json
+        import os
+        from datetime import datetime, timezone
+
+        from src.utils.paths import runtime_logs_dir
+
+        path = os.path.join(str(runtime_logs_dir()), BREACH_ACCEPTED_LOG)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
+                                 "status": "breach_accepted", **row}, default=str) + "\n")
+    except Exception:  # noqa: BLE001 — observability never strands a trade
+        logger.warning("record_breach_accepted: could not write the durable row", exc_info=True)
+
+
 def _is_test_order(pkg: "OrderPackage") -> bool:
     """Return True when *pkg* is a smoke-test order (meta.is_test=True)."""
     if not getattr(pkg, "meta", None):
@@ -885,12 +910,22 @@ class RiskManager:
         if self.breach_guards != "report":
             return False
         self.last_breach_report = reason
+        dd = self.intraday_drawdown()
         logger.warning(
             "BREACH GUARD REPORT-ONLY: %s would refuse %s %s on %s "
             "(daily_pnl=%.2f, drawdown=%s); breach_guards=report, placing anyway",
             reason, getattr(order, "strategy", "?"), getattr(order, "symbol", "?"),
-            self.account_id or "?", self.daily_pnl, self.intraday_drawdown(),
+            self.account_id or "?", self.daily_pnl, dd,
         )
+        record_breach_accepted({
+            "account_id": self.account_id or None, "reason": reason,
+            "strategy": getattr(order, "strategy", None), "symbol": getattr(order, "symbol", None),
+            "direction": getattr(order, "direction", None),
+            "order_package_id": (getattr(order, "meta", None) or {}).get("order_package_id"),
+            "daily_pnl": round(self.daily_pnl, 2), "intraday_drawdown": dd,
+            "daily_loss_budget_usd": round(self.effective_daily_loss_usd(), 2),
+            "max_dd_pct": self.max_dd_pct,
+        })
         return True
 
     def record_trade_result(self, pnl_usd: float) -> None:

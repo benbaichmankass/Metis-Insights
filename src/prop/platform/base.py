@@ -8,10 +8,10 @@ intake, reconciliation, the local rule guards, the ``ingest_report``
 write-back, the kill switch) lives ABOVE it and never imports an adapter
 module directly — it calls :func:`src.prop.platform.get_adapter`.
 
-Slice 1 (read-only) implements ``login`` and the three reads. The four
-order-control methods are on the interface so the shape is fixed, and they
-raise :class:`NotImplementedError` on every adapter: there is no code path
-in slice 1 that clicks an order control.
+Slice 1 (read-only) implements ``login`` and the three reads. Step 3
+(PROP-EXEC, 2026-09-28) adds the order controls on the dxtrade adapter only;
+every one is DISARMED by default (``arm=False`` stops before the final
+click). The ``breakout_terminal`` adapter still raises on all of them.
 """
 from __future__ import annotations
 
@@ -79,6 +79,48 @@ class WorkingOrder:
     quantity: Optional[float] = None
     price: Optional[float] = None
     raw: Dict[str, str] = field(default_factory=dict)
+    # The terminal's own order id (DXtrade "Order ID" column, MEASURED run
+    # 36358563148). None when the table did not carry one.
+    order_id: Optional[str] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class BracketSpec:
+    """One bracket order, fully resolved, as the adapter will type it.
+
+    Built by the platform-neutral executor from an emitted ticket
+    (``src/prop/prop_executor.py::bracket_from_ticket``); the adapter never
+    sizes, maps symbols or reads a ticket itself.
+    """
+
+    ticket_id: str
+    venue_symbol: str
+    side: str                 # "long" | "short"
+    quantity: float
+    stop_loss: float
+    take_profit: float
+    order_type: str = "limit"  # "limit" | "market"
+    limit_price: Optional[float] = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class PlaceAttempt:
+    """What ``place_bracket`` did. ``submitted`` is True ONLY when the submit
+    control was clicked; it NEVER means the order exists. Existence is
+    established by a later re-read (``prop_executor`` § 3.2 step 3)."""
+
+    stage: str                # form_opened | form_filled | form_verified | submitted | refused
+    submitted: bool = False
+    detail: str = ""
+    form: Dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -102,16 +144,25 @@ class PropPlatformAdapter:
     def read_orders(self, page: Any) -> List[WorkingOrder]:
         raise NotImplementedError
 
-    # ── slice 2: order controls — deliberately NOT implemented ─────────
-    def place_bracket(self, page: Any, ticket: Dict[str, Any]) -> Any:
-        raise NotImplementedError("order placement is slice 2 (a separate held Tier-2 PR)")
+    # ── step 3: order controls ─────────────────────────────────────────
+    # Only the dxtrade adapter implements them. Every one takes ``arm``: with
+    # ``arm=False`` (the default) it walks up to the final control and STOPS,
+    # so a dry run exercises the whole path without pressing anything that
+    # changes the account. Only ``src/prop/prop_executor.py`` in ``live`` mode
+    # passes ``arm=True``.
+    def probe_order_ticket(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        raise NotImplementedError("no order-ticket probe on this platform")
+
+    def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:
+        raise NotImplementedError("order placement is not built for this platform")
 
     def modify_bracket(self, page: Any, position: Position,
-                       stop_loss: Optional[float], take_profit: Optional[float]) -> Any:
-        raise NotImplementedError("order modification is slice 2 (a separate held Tier-2 PR)")
+                       stop_loss: Optional[float], take_profit: Optional[float],
+                       *, arm: bool = False) -> Any:
+        raise NotImplementedError("order modification is not built for this platform")
 
-    def cancel_order(self, page: Any, order: WorkingOrder) -> Any:
-        raise NotImplementedError("order cancellation is slice 2 (a separate held Tier-2 PR)")
+    def cancel_order(self, page: Any, order: WorkingOrder, *, arm: bool = False) -> Any:
+        raise NotImplementedError("order cancellation is not built for this platform")
 
-    def flatten(self, page: Any, symbol: Optional[str] = None) -> Any:
-        raise NotImplementedError("flatten is slice 2 (a separate held Tier-2 PR)")
+    def flatten(self, page: Any, symbol: Optional[str] = None, *, arm: bool = False) -> Any:
+        raise NotImplementedError("flatten is not built for this platform")

@@ -40,3 +40,32 @@ accounts:
     # via .github/workflows/sync-vm-secrets.yml as optional secrets.
     username_env: BREAKOUT_DX_USERNAME
     password_env: BREAKOUT_DX_PASSWORD
+    # Step-3 executor (src/prop/prop_executor.py; PROP-EXEC 2026-09-28). The
+    # kill switch is NOT here: it is PROP_EXECUTOR_MODE in the VM env
+    # (off | read_only | live, default read_only).
+    executor:
+      safety_margin_usd: 5        # the "+ margin" in the § 3.3 DD / daily guards
+      unconfirmed_reads: 3        # re-reads before a submit is `skipped: unconfirmed_submit`
+      confirm_rel_tol: 0.02       # qty/price tolerance when matching a re-read
+      # Venue lot sizes. A symbol with no entry here is REFUSED by the
+      # structure guard: sizing into an unmeasured lot would type a number
+      # whose risk nobody has computed. ADA/XRP are operator-confirmed
+      # 2026-09-28 (Instrument Details: Lot Size 1, Size Steps 1, min 10 lots;
+      # see breakout_routing.yaml). SOL/ETH/BTC are NOT measured: fill them
+      # from the terminal's Instrument Details before the watched test.
+      lots:
+        ADAUSD: {lot_units: 1, lot_step: 1, min_lots: 10}
+        XRPUSD: {lot_units: 1, lot_step: 1, min_lots: 10}
+        # ETHUSD / SOLUSD: MEASURED 2026-09-28 06:18Z (issue #13500, run
+        # 36385743336, passive network read, W6-PROP-E1): lotSize 1,
+        # multiplier 1, quantityPrecision 2 -> lot_units 1, lot_step 0.01.
+        # The venue MINIMUM was NOT in the served fields: min_lots is null
+        # (no local minimum check); fill it from the probe / Instrument Details.
+        ETHUSD: {lot_units: 1, lot_step: 0.01, min_lots: null}
+        SOLUSD: {lot_units: 1, lot_step: 0.01, min_lots: null}
+        # BTCUSD: {lot_units: ?, lot_step: ?, min_lots: ?}   # UNMEASURED (no fields served)
+      # The watched click / round trip places at most this many lots of the
+      # named venue symbol, meant to be the venue MINIMUM. Left EMPTY on
+      # purpose: the minimum is unmeasured (see above), so both refuse until
+      # the probe / Instrument Details give it. Empty = they refuse.
+      watched_click_max_lots: {}

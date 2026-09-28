@@ -1,0 +1,39 @@
+# ============================================
+# ICT PROP EXECUTOR — breakout_1 order placement, step 3 (PROP-EXEC, 2026-09-28)
+# Operator decision 2026-09-28 ~13:35Z "Build now": built held off.
+#
+# ⚠️ SHIPS NOT ENABLED. scripts/install_systemd_units.sh copies this file
+# (deploy/*.service glob) but never enables a .service, and its timer lives in
+# deploy/opt-in/ — outside the deploy/*.timer glob that auto-enables timers —
+# so no deploy can start it. Enabling it is a Tier-2 step AFTER the watched
+# step-3 click passes.
+#
+# Kill switch: PROP_EXECUTOR_MODE in the VM .env — off | read_only | live,
+# default read_only (reads + guards + logs "would click"; no click, no API
+# write). `systemctl stop ict-prop-executor` stops it outright. Either leaves
+# the manual bridge working unchanged: the ticket emitter never stops emitting.
+#
+# Session: shares the feed's login.lock and saved session and NEVER logs in
+# with credentials (see scripts/ops/prop_executor_tick.sh).
+#
+# LIVE-TRADER BOX ONLY. Save to: /etc/systemd/system/ict-prop-executor.service
+# ============================================
+
+[Unit]
+Description=ICT prop executor — one breakout_1 cycle (PROP_EXECUTOR_MODE, default read_only)
+After=network-online.target ict-web-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+Environment=HOME=/home/ubuntu
+Environment=PYTHONUNBUFFERED=1
+TimeoutStartSec=240
+Nice=10
+MemoryMax=1200M
+CPUQuota=100%
+ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/ops/prop_executor_tick.sh
+StandardOutput=journal
+StandardError=journal
