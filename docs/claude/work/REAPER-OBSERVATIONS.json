@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-28T22:19:54Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-28T22:15:37Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-28T16:37:21Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-28T22:15:37Z",
+  "updated_at": "2026-09-28T22:19:54Z",
   "latest": {
-    "generated_at": "2026-09-28T22:15:37Z",
+    "generated_at": "2026-09-28T22:19:54Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1134,
+      "unregistered_claude_branches": 1133,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1754,7 +1754,6 @@
           "claude/mi315-pr-queue-noise-measurement"
         ],
         "session_01MVZR1A4pGGRerkk3Gzxiav": [
-          "claude/prop-auto-revert",
           "claude/prop-sidebar-bracket"
         ],
         "session_01MbqAr49twiFKMwkfjiJJA6": [
