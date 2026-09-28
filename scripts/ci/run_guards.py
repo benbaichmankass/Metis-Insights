@@ -1538,6 +1538,21 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # RQ-OPS-2 (PI-20260928-RQOPS2-0001): research-queue-dispatch.yml
+        # writes a receipt on every successful run (fired or dry) via
+        # commit-to-main; this grades that receipt's freshness the same way
+        # cadence-liveness grades its own registry, so a silently-stopped
+        # research-queue cron surfaces on every push rather than needing
+        # its own working cron to report on itself. `when: None`: its
+        # subject is a committed receipt file, not this PR's diff.
+        "name": "research-queue-dispatch-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_research_queue_dispatch_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_queue_dispatch_liveness.py"],
+        ],
+    },
+    {
         "name": "research-results-guard",
         # Fires on the store, on the schema owner, on the guard itself and on
         # the producing surfaces. The OWNER is in the trigger set deliberately

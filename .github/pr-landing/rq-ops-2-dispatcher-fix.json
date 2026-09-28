@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "GitHub Actions workflow + CI tooling + docs only, per RQ-OPS-2's Tier-1 scope. Touches .github/workflows/research-queue-dispatch.yml (timeout-minutes and a new receipt/alarm step, no order path/config/live-VM file), scripts/ci/ (a new guard + its registration), research/queue/README.md (docs), docs/claude/work/ (the checklist row + pipeline findings), and a seeded data file under docs/claude/work/. All on the Tier-1 surface (CI, docs, .github/, tooling)."
+}

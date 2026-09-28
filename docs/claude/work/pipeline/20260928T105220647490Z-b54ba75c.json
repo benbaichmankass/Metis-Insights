@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "EITHER a scheduled research-queue-dispatch run since the timeout bump landed completes success/failure (never cancelled) on a run whose stamp step actually polled the full budget, OR PR #12989 and #13012 are closed by a session/token that can write PRs.",
+    "kind": "event"
+  },
+  "id": "PI-20260928-RQOPS2-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01G2SwTpGGacwEKLHukpTp3w (RQ-OPS-2)",
+    "rerun": "mcp__github__actions_list list_workflow_runs, owner=benbaichmankass repo=Metis-Insights, resource_id=research-queue-dispatch.yml -- check the last 8 runs conclusion; expect 0 cancelled after the timeout bump lands and the two stale PRs age out. Separately: mcp__github__update_pull_request on any open PR in this repo from this session type -- expect 403 for as long as the MCP token lacks pull-requests:write; re-test after any GitHub App permission change."
+  },
+  "state": "queued",
+  "what": "research-queue-dispatch.yml's job timeout-minutes (35) was tighter than real CI variance: the stamp PR's required pytest-run check measured ~13m GitHub queue time + ~20m run time (~33m total) on the two runs that cancelled (36239222079, 35996108860), already past commit-to-main's own 30m verify-merged poll deadline. The outer job timeout then killed the wait mid-poll, reporting ambiguous 'cancelled' instead of a clear pass/fail. SEPARATELY (same two runs): the stamp PR's own diff (stamping a cadence=once unit) made tests/test_research_queue.py::test_w4_dispatcher_dry_run_selects_the_unit fail against ITS OWN branch content -- that test bug was already fixed on main by 73a25dd0d (2026-09-26T17:24Z, squash-merged) but landed after both stranded branches (#12989 cut 11:34Z, #13012 cut 17:07Z) were already cut, so neither could pick it up before their poll windows expired. Fixed: timeout-minutes 35->50 in this branch's commit. NOT fixed here (needs a human/manager hand): PR #12989 and #13012 are open, stale, and cannot be closed by this session -- mcp__github__update_pull_request and add_issue_comment both 403 'Resource not accessible by integration' for this session's GitHub MCP token, even though get_me and reads work and docs/reference/session-capabilities.md (itself flagged 'never verified, do not act on as current') claims issue/PR write works. Both PRs are superseded -- their stamps already landed on main via later runs (RQ-20260922-003/004 at 2026-09-26T16:10:46Z, RQ-20260922-007 at 2026-09-27T12:13:17Z) -- so closing them is cosmetic, not urgent, but needs a session/token with PR write to do it."
+}

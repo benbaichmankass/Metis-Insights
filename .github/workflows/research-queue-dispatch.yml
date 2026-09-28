@@ -89,7 +89,32 @@ jobs:
     # but 87.5% of the old 18, i.e. this exact shape of run was a coin-flip
     # before the default was raised. Raise this number only if the WAIT's own
     # default rises above ~33.
-    timeout-minutes: 35
+    #
+    # ⚠️ RAISED 35 -> 70 (RQ-OPS-2, 2026-09-28), AND THE OLD FIGURE WAS ALREADY
+    # STALE THE DAY IT SHIPPED. MEASURED on the two runs that actually
+    # cancelled here (36239222079, 35996108860): the stamp PR's required
+    # `pytest-run` check took ~13m of GitHub QUEUE TIME before it even
+    # started, plus ~20m to RUN — ~33m total just to resolve the check,
+    # already past `verify-merged`'s own 30m poll deadline before that
+    # deadline's failure message could ever fire. The outer 35m job ceiling
+    # then killed the wait mid-poll, reporting an ambiguous `cancelled`
+    # instead of `commit-to-main`'s own clear pass/fail. This is a TIMING
+    # fix only — it does not change what `verify-merged` waits FOR, does not
+    # touch the FIRE decision, and does not widen what merges: a genuinely
+    # failing check still fails, just with commit-to-main's own diagnosable
+    # error message instead of an outer-timeout cancellation.
+    #
+    # ⚠️ AND THE JOB NOW HOLDS TWO `commit-to-main` CALLS, NOT ONE — the
+    # liveness receipt (added the same day, see below) also sets
+    # `verify-merged: true`, because tests/test_commit_to_main_callers.py
+    # allows no exemption for a "low-stakes" caller. `test_every_caller_
+    # budget_outlasts_the_merge_wait` only checks a FLOOR (budget >= one
+    # wait + 5m slack) and does not sum multiple calls in one job — sizing
+    # for the real worst case is this job's own responsibility. 70 = 30
+    # (receipt wait) + 30 (stamp wait) + ~10 (observed queue+run overhead on
+    # top of either wait, per the ~33m measured above), covering both waits
+    # maxing out sequentially. Root-caused in PI-20260928-RQOPS2-0001.
+    timeout-minutes: 70
     env:
       # THE ONE FIRE DECISION. Both consumers below read THIS, never `inputs`
       # directly — see the header. A scheduled run fires; a hand dispatch fires
@@ -119,6 +144,59 @@ jobs:
           if [ "${FIRE}" = "true" ]; then ARGS+=(--fire); fi
           if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
           python3 scripts/research/dispatch_queue.py "${ARGS[@]}" | tee /tmp/dispatch.txt
+
+      # RQ-OPS-2 (PI-20260928-RQOPS2-0001): the cron itself can go silent the
+      # same way any scheduled job can, invisibly. This writes a small
+      # receipt on EVERY run that reaches this point (fired or dry — no
+      # `if: env.FIRE` here, unlike the stamp step below), so
+      # check_research_queue_dispatch_liveness.py has something to grade.
+      # Runs only if "Grade and dispatch" actually succeeded — that is the
+      # "successful dispatcher run" this receipt attests to. Placed BEFORE
+      # the (heavier, data-touching) stamp step deliberately: this diff is
+      # one small json file under docs/claude/work, so its own required
+      # checks are cheap and its `verify-merged` wait should resolve fast,
+      # leaving the stamp step the greater share of the job's budget.
+      #
+      # ⚠️ `verify-merged: true`, NOT skipped. tests/test_commit_to_main_
+      # callers.py::test_every_caller_verifies_its_rows_merged requires EVERY
+      # caller to confirm its rows landed, with no exemption for "low
+      # stakes" — an earlier draft of this step set verify-merged: false to
+      # dodge a second wait, and that is exactly the "twelve of thirteen
+      # callers never check" defect that test exists to catch. `timeout-
+      # minutes` below is sized for two sequential worst-case waits instead.
+      - name: Write the liveness receipt
+        run: |
+          set -euo pipefail
+          mkdir -p docs/claude/work
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          import os
+          payload = {
+              "run_id": os.environ.get("GITHUB_RUN_ID", "unknown"),
+              "conclusion": "success",
+              "timestamp": datetime.now(timezone.utc).isoformat(),
+              "event_name": os.environ.get("GITHUB_EVENT_NAME", "unknown"),
+              "fired": os.environ.get("FIRE", "false"),
+          }
+          with open("docs/claude/work/research-queue-dispatch-receipt.json", "w", encoding="utf-8") as fh:
+              json.dump(payload, fh, indent=2)
+              fh.write("\n")
+          PY
+      - name: Land the liveness receipt
+        uses: ./.github/actions/commit-to-main
+        with:
+          verify-merged: "true"
+          token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          paths: docs/claude/work/research-queue-dispatch-receipt.json
+          message: "chore(research-queue): liveness receipt for run ${{ github.run_id }}"
+          pr-title: "chore(research-queue): liveness receipt (auto)"
+          pr-body: >-
+            Automated liveness receipt from the research-queue dispatcher.
+            Data-only; graded by
+            scripts/ci/check_research_queue_dispatch_liveness.py so a
+            silently-stopped cron is detectable instead of invisible.
+          branch-prefix: automation/research-queue-receipt
 
       # The dispatcher stamps `last_dispatched_at` on any job it fired. `main`
       # is branch-protected, so this lands through the shared commit-to-main
@@ -159,6 +237,28 @@ jobs:
             dispatcher. Data-only; it drives the cadence check so a recurring
             job does not re-fire every run.
           branch-prefix: automation/research-queue-stamp
+
+      # `if: always()` — a stale/never_ran verdict must be checked and
+      # PINGED however the steps above went, including when "Grade and
+      # dispatch" itself failed (the exact case a receipt cannot update
+      # for). `continue-on-error: true` so the alarm mechanism can never
+      # itself be the reason this job's own conclusion goes red or cancels.
+      - name: Alarm if the dispatcher has gone stale
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          if ! python3 scripts/ci/check_research_queue_dispatch_liveness.py; then
+            echo "::warning::research-queue-dispatch liveness is stale or never_ran — dispatching send-ping."
+            gh workflow run system-actions.yml \
+              -f action=send-ping \
+              -f message="research-queue-dispatch has not had a successful run in 48h+ (or never committed a receipt). Check the last runs: https://github.com/${{ github.repository }}/actions/workflows/research-queue-dispatch.yml" \
+              -f priority=high \
+              -f target=claude \
+              || echo "::error::could not dispatch the send-ping system-action — see the step log above."
+          fi
 
       - name: Summarize in the job summary
         if: always()
