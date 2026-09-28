@@ -1149,6 +1149,66 @@ CONTROLS_DUMP_JS = r"""
 }
 """
 
+# Read-only structure of the order-ticket SIDEBAR, anchored on the test ids the
+# live terminal was MEASURED to carry (probe #13760, 2026-09-28: the sidebar was
+# already open with ``symbol_input``, ``BUY`` / ``SELL`` buttons, Market / Limit
+# / Stop / OCO buttons, a quantity input and SL / TP inputs behind
+# ``data-value`` toggles). Lists every element in the panel in document order
+# with its depth, OWN text (text nodes directly under it, so labels appear once),
+# class, state attributes and, for controls, the computed colours that mark
+# the selected side / order type. Same redaction as CONTROLS_DUMP_JS: every
+# digit is '#', emails are '<email>', input values are never read, and a
+# user/profile/account control is recorded by its test id alone. Clicks nothing.
+TICKET_PANEL_DUMP_JS = r"""
+() => {
+  const mask = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 40) : null;
+  const personal = /user|profile|account|login|email/i;
+  const sym = document.querySelector('[data-test-id=symbol_input]');
+  if (!sym) return {found: false, why: 'no [data-test-id=symbol_input]'};
+  let panel = null;
+  for (let e = sym.parentElement; e && e !== document.body; e = e.parentElement) {
+    if (e.querySelector('[data-test-id=BUY]') && e.querySelector('[data-test-id=SELL]')
+        && e.querySelectorAll('input').length >= 3) { panel = e; break; }
+  }
+  if (!panel) return {found: false, why: 'no ancestor of symbol_input holds BUY, SELL and 3 inputs'};
+  const depthOf = el => { let d = 0; for (let e = el; e && e !== panel; e = e.parentElement) d++; return d; };
+  const own = el => mask([...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) || '';
+  const ctl = el => /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.hasAttribute('data-value')
+    || /^(button|switch|checkbox|radio|tab|spinbutton)$/.test(el.getAttribute('role') || '');
+  const rows = [];
+  for (const el of panel.querySelectorAll('*')) {
+    if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') continue;
+    const r = el.getBoundingClientRect();
+    const tid = el.getAttribute('data-test-id');
+    const cls = typeof el.className === 'string' ? el.className.trim() : '';
+    const d = {d: depthOf(el), tag: el.tagName.toLowerCase(), tid: mask(tid),
+               box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]};
+    if (personal.test(tid || '') || personal.test(cls)) { d.personal = true; rows.push(d); continue; }
+    const t = own(el); if (t) d.text = t;
+    if (cls) d.cls = mask(cls);
+    for (const a of ['role', 'type', 'placeholder', 'aria-label', 'title', 'name', 'inputmode']) {
+      const v = el.getAttribute(a); if (v !== null) d[a] = mask(v);
+    }
+    for (const a of el.attributes) {
+      if (/^(aria-(selected|checked|pressed|disabled|expanded)|data-(value|selected|active|state|side|type|checked))$/.test(a.name)) {
+        (d.state = d.state || {})[a.name] = mask(a.value);
+      }
+    }
+    if (el.disabled) d.disabled = true;
+    if (el.readOnly) d.readonly = true;
+    if (ctl(el)) {
+      const cs = getComputedStyle(el);
+      d.style = {bg: cs.backgroundColor, color: cs.color, border: cs.borderColor, fw: cs.fontWeight, op: cs.opacity};
+    }
+    rows.push(d);
+    if (rows.length >= 300) break;
+  }
+  return {found: true, n: rows.length, truncated: rows.length >= 300,
+          scroll: [panel.scrollHeight, panel.clientHeight], rows};
+}
+"""
+
 # Finds ONE row of the orders or positions table by an exact key cell and ONE
 # control in it by an anchored pattern (text, aria-label or title), and tags
 # that control data-metis-row-action. Never clicks.
@@ -1681,6 +1741,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"found": False, "error": type(exc).__name__}
 
+    def ticket_panel_dump(self, page: Any) -> Dict[str, Any]:
+        """Read-only, redacted structure of the order-ticket sidebar (TICKET_PANEL_DUMP_JS)."""
+        try:
+            return page.evaluate(TICKET_PANEL_DUMP_JS) or {"found": False}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
     def controls_dump(self, page: Any) -> Dict[str, Any]:
         """Read-only, digit-masked map of the page's controls (CONTROLS_DUMP_JS)."""
         try:
@@ -1724,8 +1791,18 @@ class DXtradeAdapter(PropPlatformAdapter):
         # When the ticket did not open, or it opened but side / order type is
         # not readable (place_bracket would refuse), include the digit-masked
         # control map so the opener and the side/type reader can be built.
-        if not opened.get("opened") or not form.get("selected"):
-            result["controls_dump"] = self.controls_dump(page)
+        sel = form.get("selected") or {}
+        unreadable = not sel or any(v in (None, "ambiguous") for v in sel.values())
+        if not opened.get("opened") or unreadable:
+            # The sidebar's own structure when it is on the page (compact);
+            # the whole-page control map only when it is not (the run log
+            # keeps just its last ~50k characters).
+            panel = self.ticket_panel_dump(page)
+            if panel.get("found"):
+                result["ticket_panel"] = panel
+            else:
+                result["ticket_panel_why"] = panel.get("why") or panel.get("error")
+                result["controls_dump"] = self.controls_dump(page)
         if opened.get("opened"):
             result["closed"] = self.close_order_ticket(page)
         return result
