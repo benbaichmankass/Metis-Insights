@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "PR #13510 has merged to main AND the post-merge set-diag-token verification issue has been opened, closed, and its ROTATION_STATE recorded back to manager session_01KAQRJxRbRwpYTkPgBjNVyQ",
+    "kind": "event"
+  },
+  "id": "PI-20260928-HQDITADZ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "PR #13510 (DT-FIX lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ, issue #13506 / run 36387625918)",
+    "rerun": "Confirm PR #13510 is merged to main (gh pr view 13510 --json state), then open a GitHub issue labelled `set-diag-token` and read the workflow's own reply comment for `ROTATION_STATE=` and the served fingerprint."
+  },
+  "state": "queued",
+  "what": "After PR #13510 (set-diag-token .env-shadowing fix) merges to main, dispatch does the live-VM verification the DT-FIX task asked for: open ONE GitHub issue labelled `set-diag-token` (any title) so set-diag-token.yml's issues:opened trigger fires against the current DIAG_READ_TOKEN secret, then read the issue's own comment for ROTATION_STATE. Expect `rotated`, served fingerprint cc26f510e18a, and /api/diag/status 200 (the state issue #13506 / run 36387625918 failed to reach). If it prints anything else, report exactly what it printed to manager session_01KAQRJxRbRwpYTkPgBjNVyQ."
+}
