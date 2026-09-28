@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI/registry tooling. scripts/ci/check_cadence_liveness.py's CADENCE_REGISTRY is a Python dict consulted by a CI guard (scripts/ci/run_guards.py), not runtime/order-path code. The one workflow edit (strategy-review-packets.yml) adds a single `cp` line writing a fixed-path copy of data it already generates and already commits under its existing `paths: comms/strategy_reviews` -- no new commit step, no new secret use, no order-path or live-VM behavior change. Verified locally: `--self-test` passes and a plain (non-strict) run exits 0, matching what run_guards.py actually calls."
+}
