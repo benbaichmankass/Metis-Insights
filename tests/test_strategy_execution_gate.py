@@ -99,8 +99,12 @@ def test_real_yaml_vwap_is_shadow_others_live():
     # and the live record was netting-misattribution; gated by two trend_vol
     # OFF cells in config/regime_policy.yaml. See
     # docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md).
+    # RE-DEMOTED 2026-09-28 (Tier-3, operator-approved, PI-20260922-UTN353OZ-0001
+    # — fails RULE-D1-STAGE0-NET-OF-FULL-COST); the "an ict_scalp leg is live"
+    # exemplar below points at ict_scalp_xrp_5m instead, which the same
+    # decision left live pending a gated-arm re-grade (RQ-20260928-008).
     assert reg.execution_mode("vwap") == "shadow"
-    assert reg.execution_mode("ict_scalp_5m") == "live"
+    assert reg.execution_mode("ict_scalp_xrp_5m") == "live"
     assert reg.execution_mode("turtle_soup") == "shadow"
     assert reg.execution_mode("trend_donchian") == "live"
 
