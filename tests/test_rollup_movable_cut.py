@@ -172,7 +172,14 @@ def test_measured_state_2026_08_17():
     # `no_sweep_path` is UNCHANGED at 4 — `bracket_geometry` has a driver, so it
     # never belonged in that bucket, and the fact that this number did not move
     # is the check that the new column was classified rather than just absorbed.
-    assert len(cut.get("movable", [])) == 7
+    #
+    # 7 -> 4 on 2026-09-28 (lane EXIT-OPS, PI-20260922-UTN353OZ-0001): three of
+    # the seven pending ict_scalp legs (ict_scalp_5m, ict_scalp_sol_5m,
+    # ict_scalp_avax_5m) were demoted execution: live -> shadow (fail
+    # RULE-D1-STAGE0-NET-OF-FULL-COST), taking their cells out of the live
+    # movable population. The remaining 4 (eth_15m, sol_15m, xrp_15m, xrp_5m)
+    # are unaffected and still pending bracket_geometry.
+    assert len(cut.get("movable", [])) == 4
     assert {i[3] for i in cut["movable"]} == {"bracket_geometry"}
     #
     # E65 (2026-09-24, PR #12868): 4 -> 2. The `exit_ladder` cells on
@@ -200,8 +207,9 @@ def test_internal_keys_are_not_printed_as_buckets():
     # The cut must not be rendered as gate-kind rows...
     assert not re.search(r"^\s+\d+\s+_?movable\b", text, re.M)
     assert not re.search(r"^\s+\d+\s+_?no_sweep_path\b", text, re.M)
-    # ...while the measured count IS rendered (2 since E65; see above).
-    assert "MOVABLE BY A SESSION: 7" in text
+    # ...while the measured count IS rendered (4 since the 2026-09-28 demotion,
+    # 2 since E65; see test_measured_state_2026_08_17 above).
+    assert "MOVABLE BY A SESSION: 4" in text
     assert "NO SWEEP PATH AT ALL: 2" in text
 
 
