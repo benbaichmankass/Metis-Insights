@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records only. It updates PI-20260928-TURC5MJC-0004 now that #13609 has merged (4df71fb5): the replay residual is closed by the artifact binding, and the item becomes landed_unproven until the first real producer PR is graded in CI. It adds one new record file under docs/claude/work/pipeline/ and changes no code, config or runtime."
+}
