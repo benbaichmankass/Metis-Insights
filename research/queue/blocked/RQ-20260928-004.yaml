@@ -1,0 +1,140 @@
+id: RQ-20260928-004
+title: M19 S2-sizing — does budget-neutral fractional sizing by the S1 veto score beat flat sizing and conviction sizing on net R per unit drawdown?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  Given an S1 veto model with a PASS (RQ-20260928-002 or -002), does sizing
+  each kept trade by its score tercile — 0.5x / 1.0x / 1.5x declared risk,
+  re-normalised per fold so total declared risk equals flat sizing (budget
+  neutral) — raise out-of-sample net R per unit of maximum drawdown, within
+  cell, versus (a) flat 1.0x sizing of the same kept trades and (b) the
+  existing conviction sizing rule
+  (docs/research/C1-conviction-sizing-evidence-2026-08-04.md) applied to the
+  same trades? Post-mortem § 4 "S2-sizing".
+
+why_this_matters: >-
+  S2 is the sizing-and-exit stage of the staged AI-trader path. A sizing layer
+  on a score with no veto information is noise on noise, which is why this is
+  blocked on S1's PASS rather than queued beside it. Budget neutrality is the
+  point: the question is whether the SAME risk, redistributed by the model,
+  earns more per unit drawdown — not whether more risk earns more R. The
+  operating plan's cap (25 % of declared risk across auto-promoted legs) is
+  untouched by construction.
+
+power:
+  expected_n: 1379
+  min_detectable_effect: 0.10
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Paired design on the KEPT trades (the 75 % surviving S1's veto: 1,839 OOS
+    rows x 0.75 = 1,379, MEASURED via RQ-20260928-002's census): per trade,
+    sized_r_i - flat_r_i, where sized_r_i = w_i * net_r_i with w_i in
+    {0.5, 1.0, 1.5} re-normalised so sum(w_i) = n per fold, so the pair shares
+    every input but the weight. One-sample floor at d = 0.10 = (1.96 +
+    0.8416)^2 / 0.01 = 784.9; 1,379 clears by 594. d = 0.10 sd is small on
+    purpose: a redistribution of the SAME risk that moves expectancy by 0.1 sd
+    of per-trade R is a meaningful sizing edge and anything smaller is not
+    worth a live layer. The drawdown half of the statistic (maxDD of the
+    cumulative sized vs flat R path per fold) has no closed-form floor and is
+    reported with a 500-permutation null (random weight assignment with the
+    same tercile counts) — the rule reads it as a secondary condition, never
+    alone.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      As RQ-20260928-002: n measured from committed evidence runs and fixed
+      by history; the kept-trade count depends on S1's actual veto and is
+      re-reported by the run. Blocked on both an instrument and a verdict
+      (below) before any run exists.
+
+decision_rule:
+  id: RULE-RQ0928-004-SCORE-SIZING-BUDGET-NEUTRAL
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    Over the kept OOS trades of the S1 model that PASSED (RQ-20260928-003 arm
+    (2) if it passed, else RQ-20260928-002's model), on the same folds:
+    sized_delta_r = sum(w_i * demeaned_net_r_i) - sum(demeaned_net_r_i) with
+    budget-neutral tercile weights per fold; dd_ratio = maxDD(sized cumulative
+    R) / maxDD(flat cumulative R) per fold; the same two quantities for the
+    conviction-sizing rule's weights (w from the strategy's confidence bands
+    as specified in C1-conviction-sizing-evidence-2026-08-04.md), so
+    conviction is a comparator sized on identical trades. perm_p from 500
+    random tercile assignments. folds_positive = folds where sized_delta_r > 0
+    AND dd_ratio <= 1.05.
+  rule: >-
+    IF sized_delta_r > 0 AND perm_p < 0.05 AND folds_positive >= 3 of 5 AND
+    sized_delta_r > the conviction-sizing comparator's delta: PASS — S2 is
+    "veto + score sizing (+ exit per RQ-20260928-005)"; the composed policy is
+    the object S3 is compared against, and a Tier-3 proposal to shadow it on
+    bybit_1 may be written FROM this evidence (not by this unit).
+    IF significant vs flat BUT not better than conviction sizing: REFINE —
+    record `indeterminate`; the existing conviction rule already captures the
+    sizing edge; S2 adopts conviction sizing and the score is a veto only.
+    IF not significant vs flat: FAIL — record `fail`; S2 is "veto + flat
+    sizing". Not a kill of the S1 line (the veto stands on its own verdict);
+    the sizing line is exhausted on this corpus unless S1's score changes
+    materially (a later S1 refinement re-opens it, stated in the note).
+    IF dd_ratio > 1.05 in a majority of folds while sized_delta_r > 0: record
+    `indeterminate` — more R bought with more drawdown is not the question
+    asked; re-run with terciles 0.75/1.0/1.25 once, then apply this rule.
+    IF read_state != measured or kept n < 785: record as reported, verdict
+    not_applicable; never lower the floor.
+  what_it_does_not_do: >-
+    Changes no risk cap, sizing formula, roster or account mode (all Tier-3).
+    A PASS produces evidence for a proposal, not a change. It never sizes
+    above the leg's declared risk in aggregate (budget-neutral by construction)
+    and never touches the 25 % auto-promotion cap.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 10
+  basis: >-
+    Committed per-trade rows plus the S1 score column; stdlib arithmetic. If
+    S1 is the market-state arm (RQ-20260928-003) the scores come from that
+    run's landed measurement file, which the harness must accept as input
+    rather than re-fitting — hence the build item.
+
+blocked_on:
+  - what: >-
+      (a) A PASS on RQ-20260928-002 or RQ-20260928-003 — a sizing layer on a
+      score with no veto information is noise on noise.
+    ref: RQ-20260928-002
+    clears_when: >-
+      research/results/RQ-20260928-002/ or /RQ-20260928-003/ carries a
+      `pass` verdict row.
+  - what: >-
+      (b) scripts/research/meta_veto_walkforward.py has no `--size-by-score`
+      mode (budget-neutral tercile weights, conviction comparator, per-fold
+      maxDD, permutation null on weight assignment) and no `--scores-file`
+      input to size on a landed S1 measurement instead of re-fitting.
+    ref: PI-20260928-VNMMNBJH-0001
+    clears_when: >-
+      PI-20260928-VNMMNBJH-0001 lands with those two flags and a planted
+      positive in --self-test. Then `git mv` this file into research/queue/,
+      set run.workflow to the trainer-vm-diag one-off (or a runner, since all
+      inputs are committed) and lands.store to research/results/.
+
+run:
+  workflow: null
+  note: Null — blocked on a verdict and an instrument; see blocked_on.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S2-sizing)
+  - RQ-20260928-002 / blocked/RQ-20260928-003 (the S1 verdicts this waits on)
+  - RQ-20260928-005 (S2-exit, the other half of S2)
+  - docs/research/C1-conviction-sizing-evidence-2026-08-04.md (the sizing comparator)
+  - PI-20260928-VNMMNBJH-0001 (build item), PI-20260928-VNMMNBJH-0003 (follow-through)
+last_dispatched_at: null

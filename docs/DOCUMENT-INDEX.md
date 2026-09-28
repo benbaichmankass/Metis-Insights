@@ -554,6 +554,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/M1-econ-calendar-spine-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M1-econ-event-study-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M18-allocator-backtest-findings-2026-06-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M19-next-direction-deep-research-brief-2026-07-05.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M19-next-direction-recommendation-2026-07-05.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M20-E1-block-size-derivation-2026-08-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
