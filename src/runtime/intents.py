@@ -413,13 +413,38 @@ DEFAULT_PRIORITIES: Dict[str, int] = {
     "xrp_pullback_2h": 0,
     "ada_pullback_2h": 0,
     "avax_pullback_2h": 0,
+    # Alpaca ETF legs added 2026-09-10 (Option-A roster change) WITHOUT a row
+    # here, so each fell through to the fallback — which then sat at 10, ABOVE
+    # 45 of 50 mapped legs, so omission WON the arbitration (pipeline item
+    # BL-20260909-UNKNOWN-STRATEGY-PRIORITY-NOW-BEATS-45-OF-50-DECLARED-LEGS-AND-
+    # THE-CONTENTION-IS-LIVE; operator "Fix both + wire guard", 2026-09-28).
+    # MEASURED 2026-09-28 over every enabled leg in config/strategies.yaml:
+    # GDX, IAUM, SCHA and SPLG each carry exactly ONE enabled leg, so these four
+    # take the single-symbol ETF value 0 and no election can change.
+    "gdx_pullback_1d": 0,
+    "iaum_pullback_1d": 0,
+    "scha_trend_long_1d": 0,
+    "splg_trend_long_1d": 0,
+    # slv_pullback_1d is the ONE contested leg: SLV also carries slv_trend_1h
+    # (execution: shadow, 0). Until today slv_pullback_1d resolved to the old
+    # fallback 10 and so beat that shadow leg on the declared-priority term; 0
+    # would hand every confidence tie to the shadow leg and starve this leg's
+    # order on alpaca_live (real money). 1 is the lowest value that keeps
+    # today's ordering against every SLV rival. Pinned by
+    # tests/test_priority_fallback_election_unchanged.py.
+    "slv_pullback_1d": 1,
 }
 
 # Priority used when a strategy is not listed in DEFAULT_PRIORITIES and
-# the intent does not carry an explicit priority. Picked deliberately
-# below the in-scope strategies so a misconfigured new strategy never
-# silently overrides Turtle Soup / VWAP.
-_UNKNOWN_STRATEGY_PRIORITY: int = 10
+# the intent does not carry an explicit priority. It MUST sit strictly below
+# min(DEFAULT_PRIORITIES.values()) so an unmapped leg LOSES the declared-
+# priority term to every mapped rival by default. ⚠️ It read 10 until
+# 2026-09-28, which had been below the in-scope strategies when chosen but
+# sat ABOVE 45 of 50 mapped legs once the 0-floor became the norm — omission
+# then won the arbitration. Enforced by
+# scripts/ci/check_priority_fallback_distribution.py --strict (R1), which
+# also fails any enabled execution:live leg missing from the map (R2).
+_UNKNOWN_STRATEGY_PRIORITY: int = -1
 
 
 _VALID_SIDES: frozenset[str] = frozenset({"long", "short", "flat"})
