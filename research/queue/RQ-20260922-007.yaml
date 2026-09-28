@@ -1,6 +1,6 @@
 id: RQ-20260922-007
 title: Is trend_donchian's net-negative verdict the leg, or a harness blind to its exit head?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -237,3 +237,6 @@ result: >-
   instead. This unit's own `run:` (research-exit-head-replay-trainer.yml) was
   therefore NOT separately re-dispatched for this citation, per the
   dispatch's explicit instruction not to re-run it.
+
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  VERDICT: attributable_to: omitted_exit_head (clause 1). SOURCE: two research-exit-head-replay-trainer runs, research/results/RQ-20260922-007/36257896539.jsonl (n=353) and 36318264512.jsonl (n=352), both `pass`/`measured`, live-faithful backtest_trend.py replay of the PUBLISHED exit head on BTCUSDT 1h (1830d), NET OF THE FULL VENUE COST STACK (fee 7.5 + slippage 3.0 bps roundtrip + funding 1.0 bps/8h via src.runtime.execution_costs): head_simulated_net_r_oos +8.3813 and +8.4865 vs the evidence record's +4.6017 (n_trades_oos=73) -- the head-simulated arm is > 0 on both runs, so the RULE-D1 fail is NOT carried to R2/D2 as a demotion input. CAVEAT, stated: the head-BUILD run in the same unit (36239257289, RULE-EXIT-HEAD-CLEARS-BAR, backtest_system WF-CV, n=300) FAILED its own bar (OOS AUC 0.607 but mean net-R improvement -0.1958/trade); the two harnesses disagree on whether the head adds value per trade, and this unit's rule keys on the replay arm only. The leg is NOT promoted by this (a head-simulated pass at n=73 is a Stage-0 pass like any other). DELIVERABLE per the rule: a request to re-run this leg's evidence record with the exit head simulated so comms/strategy_evidence/trend_donchian.json stops misgrading it -- filed as a pipeline item in the same PR.
