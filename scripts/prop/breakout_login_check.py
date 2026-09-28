@@ -9,15 +9,32 @@ What it does, in order:
 1. Resolves the account's platform adapter from ``config/prop_platforms.yaml``.
 2. Launches Playwright Chromium, **headless, default configuration** — no
    stealth plugin, no user-agent or fingerprint change, no fake jitter.
-3. Logs in with the username/password env vars named in that config.
-4. Reads balance/equity, open positions and working orders.
-5. Prints them. Never prints the username, the password, or a cookie.
-   When part of the read does not parse, also prints the adapter's REDACTED
-   structure dump (``DXtradeAdapter.structure``: label elements, header rows,
-   ancestor classes, visible text with e-mails/tokens/credentials stripped) so
-   the selectors can be fixed from the public run log. Balances are printed;
-   the operator allows them (the journal already records them).
-6. Only with ``--emit-status``: posts ONE ``account_status`` to the local
+3. Registers a READ-ONLY ``page.on("response", ...)`` hook (see step 6)
+   BEFORE logging in, so it also sees whatever the login/account flow
+   itself triggers.
+4. Logs in with the username/password env vars named in that config.
+5. Reads balance/equity, open positions and working orders. Prints all of
+   it as it goes. Never prints the username, the password, or a cookie.
+   When part of that read did not parse, also prints the adapter's
+   REDACTED structure dump (``DXtradeAdapter.structure``: label elements,
+   header rows, ancestor classes, visible text with e-mails/tokens/
+   credentials stripped) and, with ``--dump-dir``, writes the page text +
+   tables to disk (VM-only) — so selectors can be fixed from the public
+   run log.
+6. Reads per-symbol instrument specs (contract size, lot/tick step, etc.)
+   for ``--symbols`` (default: ``BTCUSD,ETHUSD,SOLUSD,ADAUSD,XRPUSD`` —
+   BTC/ETH/SOL confirmed dxtrade symbols, ADA/XRP candidates pending
+   ``PI-20260927-ODDTM5QY-0002``) from the responses step 3 captured —
+   never from the UI (three rounds of scraping an info panel never
+   converged; see ``src/prop/platform/dxtrade.py``'s module docstring).
+   Purely passive: nothing is clicked, filled, or navigated for this
+   step, so it can run at any point without affecting what step 5 saw.
+   A symbol this never turns up for reports no fields, never a fabricated
+   number; a response with no matching object contributes only a
+   redacted discovery line (origin+path and key names, never a value).
+   ``--symbols=''`` skips this read entirely. Its result NEVER affects
+   the exit code.
+7. Only with ``--emit-status``: posts ONE ``account_status`` to the local
    ``POST /api/bot/prop/report`` (the existing ingest chokepoint). Default OFF.
 
 What it can NOT do: click any order control. The adapter's order methods
@@ -48,6 +65,13 @@ if str(_REPO_ROOT) not in sys.path:
 from src.prop.platform import FeasibilityError, adapter_for_platform, load_platform_config  # noqa: E402
 
 EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV = 0, 1, 3, 4, 5
+
+# BTCUSD/ETHUSD/SOLUSD are the operator-confirmed DXtrade symbols in
+# config/prop_rulesets/breakout_routing.yaml (2026-06-23). ADAUSD/XRPUSD are
+# CANDIDATE names only — the venue's convention of dropping the perp "T"
+# suffix, unconfirmed (PI-20260927-ODDTM5QY-0002) — this read either
+# confirms or refutes them, it does not assume them.
+DEFAULT_INSTRUMENT_SYMBOLS = ("BTCUSD", "ETHUSD", "SOLUSD", "ADAUSD", "XRPUSD")
 
 
 def build_status_report(account_id: str, snapshot: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -100,6 +124,10 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--dump-dir", default="",
                     help="write the post-login page text + extracted tables here (on the VM, "
                          "never to stdout) so selectors can be fixed from the first live run")
+    ap.add_argument("--symbols", default=None,
+                    help="comma-separated symbols to read instrument specs for, from captured "
+                         f"network responses (default: {','.join(DEFAULT_INSTRUMENT_SYMBOLS)}); "
+                         "--symbols='' (empty) skips the instrument-spec read entirely")
     args = ap.parse_args(argv)
 
     cfg = load_platform_config(args.account)
@@ -116,6 +144,13 @@ def main(argv: Optional[list] = None) -> int:
         return EXIT_FEASIBILITY
 
     adapter = adapter_for_platform(platform)
+
+    if args.symbols is None:
+        symbols = list(DEFAULT_INSTRUMENT_SYMBOLS)
+    elif args.symbols == "":
+        symbols = []
+    else:
+        symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
 
     try:
         from playwright.sync_api import sync_playwright
@@ -136,6 +171,16 @@ def main(argv: Optional[list] = None) -> int:
             page = context.new_page()
             if hasattr(adapter, "timeout_ms"):
                 adapter.timeout_ms = args.timeout_s * 1000
+            # Passive: attached BEFORE login so it also sees whatever the
+            # login/account flow itself triggers. Never clicks, fills or
+            # navigates anything.
+            captured_responses = []
+            if symbols and hasattr(adapter, "start_response_capture"):
+                try:
+                    captured_responses = adapter.start_response_capture(page)
+                except Exception as exc:
+                    print(_redact(f"instruments: capture ERROR ({type(exc).__name__}: {exc})",
+                                  username, password, limit=300))
             try:
                 adapter.login(page, cfg["login_url"], username, password)
             except FeasibilityError as fe:
@@ -202,6 +247,28 @@ def main(argv: Optional[list] = None) -> int:
                 (d / "tables.json").write_text(_redact(
                     json.dumps(page.evaluate(EXTRACT_TABLES_JS), indent=1), username, password))
                 print(f"dump: written to {d} (on the VM only)")
+
+            # Instrument specs, read from the responses captured above.
+            # NEVER affects rc: a wrong number would be worse than none,
+            # and this is a best-effort, unmeasured secondary read.
+            if symbols:
+                if hasattr(adapter, "start_response_capture"):
+                    from src.prop.platform.dxtrade import extract_instrument_specs_from_responses
+                    try:
+                        result = extract_instrument_specs_from_responses(
+                            captured_responses, symbols, secrets=(username, password))
+                    except Exception as exc:
+                        print(_redact(f"instruments: ERROR ({type(exc).__name__}: {exc})",
+                                      username, password, limit=400))
+                        result = {"specs": {}, "discovery": []}
+                    for sym in symbols:
+                        fields = result["specs"].get(sym, {})
+                        print(_redact(f"instrument: {json.dumps({'symbol': sym, **fields})}",
+                                      username, password))
+                    for line in result["discovery"]:
+                        print(_redact(line, username, password))
+                else:
+                    print("instruments: SKIPPED (adapter has no start_response_capture)")
 
             if args.emit_status:
                 report = build_status_report(args.account, snap)

@@ -19,6 +19,7 @@ only real proof.
 """
 from __future__ import annotations
 
+import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -34,8 +35,10 @@ from src.prop.platform import (
 from src.prop.platform.breakout_terminal import BreakoutTerminalAdapter
 from src.prop.platform.dxtrade import (
     SELECTORS,
+    CapturedResponse,
     DXtradeAdapter,
     classify_login_state,
+    extract_instrument_specs_from_responses,
     orders_from_tables,
     parse_account_metrics,
     parse_number,
@@ -283,6 +286,243 @@ def test_parse_account_metrics_on_concatenated_inline_text():
     assert (snap.balance, snap.equity, snap.available) == (4724.0, 4731.2, 4581.2)
 
 
+# ── instrument specs via network response sniffing (W6-PROP-E1, re-scoped
+# 2026-09-28: three rounds of UI-panel scraping never converged, so this
+# reads captured network responses instead — see the dxtrade.py module
+# note). INVENTED response bodies — NOT MEASURED against this terminal. ──
+
+
+def test_extract_instrument_specs_exact_match_yields_allowlisted_fields():
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "ETHUSD", "contractSize": 1.0, "digits": 2,
+                         "minQty": 0.01, "qtyStep": 0.01, "displayName": "Ethereum"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {"contractSize": 1.0, "digits": 2,
+                                         "minQty": 0.01, "qtyStep": 0.01}
+    assert result["discovery"] == []
+
+
+def test_extract_instrument_specs_substring_never_satisfies_exact_match():
+    # BTCUSDT must never satisfy a request for BTCUSD.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "BTCUSDT", "contractSize": 1.0, "digits": 2}))
+    result = extract_instrument_specs_from_responses([resp], ["BTCUSD"])
+    assert result["specs"]["BTCUSD"] == {}
+    assert len(result["discovery"]) == 1
+
+
+def test_extract_instrument_specs_conflicting_duplicates_report_conflict():
+    resps = [
+        CapturedResponse(url="https://wss.breakoutprop.com/a",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": 1.0})),
+        CapturedResponse(url="https://wss.breakoutprop.com/b",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": 2.0})),
+        # A third, later object matching the FIRST value must not clear it.
+        CapturedResponse(url="https://wss.breakoutprop.com/c",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": 1.0})),
+    ]
+    result = extract_instrument_specs_from_responses(resps, ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {"contractSize": "conflict"}
+
+
+def test_extract_instrument_specs_never_returns_a_sensitive_key_even_when_matching():
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "ETHUSD", "contractSize": 1.0, "accountId": 12345,
+                         "sessionToken": 99999, "userId": 7}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {"contractSize": 1.0}
+
+
+def test_extract_instrument_specs_never_leaks_a_non_matching_objects_values():
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/watchlist",
+        body=json.dumps({"symbol": "BTCUSD", "contractSize": 999.0, "secretNote": "leak-me"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {}
+    assert result["specs"].get("BTCUSD") is None  # not even requested
+    blob = json.dumps(result)
+    assert "999.0" not in blob and "leak-me" not in blob
+
+
+def test_extract_instrument_specs_never_attributes_a_position_or_orders_own_size():
+    # Round-4 finding: the old SUBSTRING allowlist ("tick" matching
+    # ticketNumber, "lot" matching lots/closedLots/pilotSlot) let a
+    # position/order object's own size or id fields be printed as if they
+    # were instrument specs. An object carrying a position/order-shaped
+    # key is never read as a spec at all, however spec-shaped its other
+    # fields look.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/positions",
+        body=json.dumps({"instrument": "BTCUSD", "positionId": "p-1",
+                         "lots": 2.5, "ticketNumber": 998877, "openPrice": 65000.0}))
+    result = extract_instrument_specs_from_responses([resp], ["BTCUSD"])
+    assert result["specs"]["BTCUSD"] == {}
+
+
+def test_extract_instrument_specs_anchored_allowlist_yields_a_real_specs_fields():
+    # The positive control for the previous test: a genuine spec object
+    # (no position/order-shaped key) still yields its allowlisted fields.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "BTCUSD", "lotSize": 1.0, "tickSize": 0.5,
+                         "digits": 2, "minQty": 0.001}))
+    result = extract_instrument_specs_from_responses([resp], ["BTCUSD"])
+    assert result["specs"]["BTCUSD"] == {"lotSize": 1.0, "tickSize": 0.5,
+                                         "digits": 2, "minQty": 0.001}
+
+
+def test_extract_instrument_specs_ambiguous_symbol_keys_are_skipped():
+    # The same object's symbol-like keys naming TWO DIFFERENT requested
+    # symbols is ambiguous, not a match either way.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "BTCUSD", "name": "ADAUSD", "contractSize": 1.0}))
+    result = extract_instrument_specs_from_responses([resp], ["BTCUSD", "ADAUSD"])
+    assert result["specs"]["BTCUSD"] == {} and result["specs"]["ADAUSD"] == {}
+    # "Ambiguous" is treated as "not a match either way" -- it still
+    # contributes a (redacted, key-names-only) discovery line, same as any
+    # other non-matching object.
+    assert len(result["discovery"]) == 1
+
+
+def test_extract_instrument_specs_drops_non_finite_values_never_a_false_conflict():
+    resps = [
+        CapturedResponse(url="https://wss.breakoutprop.com/a",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": float("nan")})),
+        CapturedResponse(url="https://wss.breakoutprop.com/b",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": float("nan")})),
+    ]
+    result = extract_instrument_specs_from_responses(resps, ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {}  # never "conflict", never NaN itself
+
+
+def test_extract_instrument_specs_discovery_prints_key_names_only_never_values():
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/ping",
+        body=json.dumps({"serverTime": 1234567890, "secretNote": "leak-me", "status": "ok"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    assert len(result["discovery"]) == 1
+    line = result["discovery"][0]
+    assert "leak-me" not in line and "1234567890" not in line
+    # "secretNote" is itself dropped (sensitive-looking key name), never
+    # just its value -- key names are filtered too, not only values.
+    assert "serverTime" in line and "status" in line and "secretNote" not in line
+    assert "(+1 keys suppressed)" in line
+
+
+def test_extract_instrument_specs_discovery_drops_id_shaped_and_digit_run_keys():
+    # Round-4 finding: a raw account number or similar spelled as a "key"
+    # survived the old rule because it didn't end in "id" and wasn't
+    # otherwise sensitive-shaped.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/ping",
+        body=json.dumps({"12345678": "x", "acct-1210012345": "y", "status": "ok"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    line = result["discovery"][0]
+    assert "12345678" not in line and "1210012345" not in line
+    assert "status" in line
+
+
+def test_extract_instrument_specs_discovery_and_capture_are_capped():
+    resps = [CapturedResponse(url=f"https://wss.breakoutprop.com/r{i}",
+                              body=json.dumps({"n": i})) for i in range(50)]
+    result = extract_instrument_specs_from_responses(resps, ["ETHUSD"], max_discovery=5)
+    assert len(result["discovery"]) == 5
+
+
+def test_extract_instrument_specs_leak_test_credentials_email_and_query_url():
+    # Plant the username, password, an e-mail and a URL with a query
+    # string in BOTH the response body (a non-matching object, so it
+    # only ever reaches the discovery path) and the response URL itself.
+    user, pw = "BO-JDOE77", "Pa55-word!x"
+    leaky_url = f"https://wss.breakoutprop.com/api/session?u={user}&sid=abc123token"
+    resp = CapturedResponse(
+        url=leaky_url,
+        body=json.dumps({"note": f"user={user} pw={pw} mail=victim@example.com",
+                         "authToken": "should-never-print-anyway"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"], secrets=(user, pw))
+    assert result["specs"]["ETHUSD"] == {}
+    assert len(result["discovery"]) == 1
+    line = result["discovery"][0]
+    low = line.lower()
+    assert user.lower() not in low and pw.lower() not in low
+    assert "abc123token" not in line and "victim@example.com" not in line
+    # The body's values never reach discovery at all (key names only).
+    assert "should-never-print-anyway" not in line
+
+
+class _FakeResponse:
+    def __init__(self, url, body, content_type="application/json", fail=False):
+        self.url = url
+        self.headers = {"content-type": content_type}
+        self._body = body
+        self._fail = fail
+
+    def text(self):
+        if self._fail:
+            raise RuntimeError("body unavailable (fake)")
+        return self._body
+
+
+class _FakePage:
+    def __init__(self, url="https://wss.breakoutprop.com/"):
+        self.url = url
+        self._handlers = []
+
+    def on(self, event, handler):
+        self._handlers.append((event, handler))
+
+    def fire(self, response):
+        for event, handler in self._handlers:
+            if event == "response":
+                handler(response)
+
+
+def test_start_response_capture_records_same_origin_json_and_ignores_the_rest():
+    page = _FakePage()
+    captured = DXtradeAdapter().start_response_capture(page)
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", '{"symbol": "ETHUSD"}'))
+    page.fire(_FakeResponse("https://other.example.com/tracker", '{"x": 1}'))  # cross-origin
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/broken", "", fail=True))  # unreadable body
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/img.png", "binary",
+                            content_type="image/png"))  # non-JSON content-type
+    assert [c.url for c in captured] == ["https://wss.breakoutprop.com/api/instruments"]
+    assert captured[0].body == '{"symbol": "ETHUSD"}'
+
+
+def test_start_response_capture_fails_closed_on_an_unconfirmed_page_origin():
+    for bad_url in ("", "about:blank", "ABOUT:BLANK"):
+        page = _FakePage(url=bad_url)
+        captured = DXtradeAdapter().start_response_capture(page)
+        page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", '{"symbol": "ETHUSD"}'))
+        assert captured == [], bad_url
+
+    class _RaisingUrlPage(_FakePage):
+        @property
+        def url(self):
+            raise RuntimeError("url unavailable (fake)")
+
+        @url.setter
+        def url(self, value):
+            pass
+
+    page = _RaisingUrlPage()
+    captured = DXtradeAdapter().start_response_capture(page)
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", '{"symbol": "ETHUSD"}'))
+    assert captured == []
+
+
+def test_start_response_capture_caps_a_bodys_size():
+    page = _FakePage()
+    captured = DXtradeAdapter().start_response_capture(page)
+    huge = json.dumps({"symbol": "ETHUSD", "pad": "x" * 300_000})
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", huge))
+    assert len(captured[0].body) <= 200_000
+
+
 # Column headers as the served dictionary spells them.
 MULTIASSET_POS = {"headers": ["Symbol", "Side", "Position Qty", "Avg Fill Price", "Open P/L, acc", "Type"],
                   "rows": [["MNQ", "Sell", "2", "20,100.25", "-15.00", "Future"]]}
@@ -318,6 +558,18 @@ def test_redact_text_keeps_url_origin_only():
     out = redact_text("at https://app.example.com/s/ab12CD?sid=q1#f and wss://x.example/t9")
     assert "ab12CD" not in out and "sid" not in out and "t9" not in out
     assert "https://app.example.com/<path>" in out and "wss://x.example/<path>" in out
+
+
+def test_redact_text_strips_a_scheme_less_query_string():
+    # _URL_RE only matches scheme://host -- a bare "host.tld/path?sid=..."
+    # (no scheme in front) reached the public log unredacted until this
+    # was added, independent of URL/host detection.
+    out = redact_text("see host.example.com/p?sid=q1abcd&other=2 for details")
+    assert "sid=q1abcd" not in out and "other=2" not in out
+    assert "host.example.com/p?<query>" in out
+    # Normal prose without a "?key=value" shape survives untouched.
+    prose = redact_text("Contract Size 1.00, Digits 2, is that right?")
+    assert prose == "Contract Size 1.00, Digits 2, is that right?"
 
 
 def test_render_structure_is_redacted_and_carries_the_layout():
