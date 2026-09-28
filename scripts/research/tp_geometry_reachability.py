@@ -69,6 +69,31 @@ for _p in (_ROOT, _HERE):
 
 DEFAULT_ARMS = "docs/research/m20-fold-dispersion-arms-consolidated.jsonl"
 
+# BL-20260823-VWAP-TARGET-NEARER-THAN-STOP, visibility fix (Tier-1, no
+# strategy-logic change). `vwap` and `turtle_soup` place a LEVEL/pattern-based
+# target rather than a TP-multiple, so — correctly — neither carries
+# `_TP_SENTINEL_CAP_PCT` and neither is in `CLAMPING_FAMILIES`
+# (src/runtime/tp_venue_cap.py). But `m20_fleet_exit_sweep.classify()` also
+# never recognises them (they have no backtest harness — `FAMILY_HARNESS` has
+# no entry for either, "pending harness levers" per that module's own
+# comment), so before this change NEITHER family ever reached `report()`'s
+# family list and their geometry classification was simply ABSENT from this
+# audit rather than stated. That is the gap this constant closes: they are
+# graded here by NAME, independent of `classify()`/`FAMILY_HARNESS`, so the
+# audit states "level-target, uncapped, dose inert" explicitly instead of
+# leaving it to be inferred from the vwap.py/turtle_soup.py docstrings.
+#
+# Deliberately NOT wired through `classify()` itself: that function is shared
+# by a dozen other M20/M21 research scripts (m20_exit_head_round.py,
+# m20_flip_replay_sweep.py, m21_entry_sweep.py, ...), each gating a REAL
+# harness dispatch on its return value, and this module's own comment already
+# records that `vwap`/`turtle_soup` being unclassified there is INTENTIONAL —
+# "the three that do not [classify] ... are ALL execution: shadow, so the
+# census covers every live-executing leg." Changing that shared function is a
+# different, larger, non-visibility-only change; this module grades by NAME
+# instead, which changes nothing about the sweep/round drivers.
+LEVEL_TARGET_FAMILIES: Tuple[str, ...] = ("turtle_soup", "vwap")
+
 # The two geometry levels the row's contrast is written in terms of. `NO_TAKE_PROFIT`
 # is deliberately NOT one of them: it is a book with no target at all, not the
 # uncapped-parity arm, and treating it as the second level would let a pullback
@@ -440,6 +465,14 @@ def report(*, arms_path: str = DEFAULT_ARMS,
             if f and str(f) not in seen:
                 fams.append(str(f))
                 seen.add(str(f))
+    # BL-20260823 visibility fix: always grade the declared level-target
+    # families too, whether or not the arm corpus ever produced a row for
+    # them (it cannot — they have no harness) and whether or not the caller
+    # remembered `--family`. See LEVEL_TARGET_FAMILIES for why.
+    for f in LEVEL_TARGET_FAMILIES:
+        if f not in seen:
+            fams.append(f)
+            seen.add(f)
     for f in extra_families:
         if f not in seen:
             fams.append(f)
