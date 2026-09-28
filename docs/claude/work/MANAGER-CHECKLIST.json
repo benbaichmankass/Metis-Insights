@@ -2451,9 +2451,9 @@
     },
     {
       "phase": "W6",
-      "state": "in_flight",
+      "state": "landed_unproven",
       "lane": "session_01AAyjhFdZXGdTUQY1DPAK9k",
-      "spend_usd": null,
+      "spend_usd": 30.85,
       "prs": [
         13416
       ],
@@ -2463,7 +2463,7 @@
       "owner": "build lane",
       "model": "claude-sonnet-5",
       "ceiling_usd": 20,
-      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Read-only extension of src/prop/platform/dxtrade.py + the action; Tier-2 held PR. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Blocker cleared (P4/P4b: login and read parser work on the live terminal). Dispatched on Sonnet (read-only parser extension; the manager reviews the redaction independently before merge). Ceiling $20. This takes the wave-6 slate to about $337 spent (the ~$250 before the slate is an estimate) plus up to $20, which may pass the $350 cap by up to about $7. Passing into the margin is authorised; reported at the sync. | 2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13416 MERGED 3551700 (05:45Z) after 5 independent reviews (final MERGE at 55c9b121c). The lane did not run its post-merge check; the manager dispatched it directly (issue #13500). Spend $30.85 of $35."
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Read-only extension of src/prop/platform/dxtrade.py + the action; Tier-2 held PR. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Blocker cleared (P4/P4b: login and read parser work on the live terminal). Dispatched on Sonnet (read-only parser extension; the manager reviews the redaction independently before merge). Ceiling $20. This takes the wave-6 slate to about $337 spent (the ~$250 before the slate is an estimate) plus up to $20, which may pass the $350 cap by up to about $7. Passing into the margin is authorised; reported at the sync. | 2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13416 MERGED 3551700 (05:45Z) after 5 independent reviews (final MERGE at 55c9b121c). The lane did not run its post-merge check; the manager dispatched it directly (issue #13500). Spend $30.85 of $35. | 2026-09-28 06:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): live read #13500 (run 36385743336): new code ran, output leak-free. ETHUSD and SOLUSD matched (lotSize 1, multiplier 1, precision 2: agree with the routing config's 1.0); BTCUSD, ADAUSD and XRPUSD had no allowlisted fields. ADA/XRP contract sizes are still unconfirmed (see PI-20260927-ODDTM5QY-0002). Lane archived. Closes when ADA/XRP specs are measured."
     },
     {
       "phase": "W6",
