@@ -1204,6 +1204,7 @@ accounts:
     strategies:                        # alpaca_live's roster MINUS the affordability
       - ief_pullback_1d                # proxies (SPLG/IAUM) — see ROSTER-SYNC above.
       - slv_pullback_1d
+      - slv_trend_1h                   # 2026-09-28 mirror of the alpaca_live add (MD-PROMOTE-S1-S2).
       # ⚠️ CUT FROM 14 TO 2 ON 2026-09-21, BY EXPLICIT OPERATOR APPROVAL, asked
       # and answered directly. The 12 removed were:
       #   spy_trend_long_1d, qqq_trend_long_1d, gld_pullback_1d,
@@ -1470,6 +1471,12 @@ accounts:
                              # Already in alpaca_portfolio.
       - slv_pullback_1d      # SLV 1d pullback. 217/217 (1 sh, $3.54-3.90).
                              # Already in alpaca_portfolio.
+      - slv_trend_1h         # MD-PROMOTE-S1-S2 FIRE 2026-09-28 (lane PROMOTE, held Tier-3 PR).
+                             # Evidence comms/strategy_evidence/slv_trend_1h.json (R3
+                             # insufficient_n, provisional 5.0 bps basis). ⚠️ INERT WHILE
+                             # strategies.yaml says `execution: shadow` (demoted 2026-08-24).
+                             # Long-only here via this account's side_filter. Mirror below.
+                             # REVERT: delete this entry AND the alpaca_portfolio one.
       - iaum_pullback_1d     # IAUM 1d pullback — the declared GOLD AFFORDABILITY
                              # PROXY. 79/79 (2 sh, $3.30-3.58).
                              # ⚠️ IT IS DELIBERATELY EXEMPT FROM THE

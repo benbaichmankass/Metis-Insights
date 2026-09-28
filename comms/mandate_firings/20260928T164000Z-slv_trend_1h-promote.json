@@ -1,0 +1,40 @@
+{
+ "mandate": "MD-PROMOTE-S1-S2",
+ "action": "add",
+ "leg": "slv_trend_1h",
+ "accounts": [
+  "alpaca_live",
+  "alpaca_portfolio"
+ ],
+ "fired_at": "2026-09-28T16:40:00+00:00",
+ "evidence": "comms/strategy_evidence/slv_trend_1h.json",
+ "cost_fidelity": "insufficient_n (comms/research/r3_cost_fidelity/2026-09-25.json); provisional 5.0 bps basis",
+ "resolved_on": "c0452aa",
+ "proposal": {
+  "file": "config/accounts.yaml",
+  "pr_title": "MD-PROMOTE-S1-S2: slv_trend_1h S1 -> S2 (alpaca_live)",
+  "roster_add": {
+   "alpaca_live": [
+    "slv_trend_1h"
+   ],
+   "alpaca_portfolio": [
+    "slv_trend_1h"
+   ]
+  },
+  "roster_remove": {},
+  "then": "ping in realtime; show the evidence in \u00a71 of the next daily brief",
+  "writes_nothing": true
+ },
+ "cap": {
+  "auto_declared_risk": 0.02,
+  "auto_promoted_after": 1,
+  "auto_promoted_now": [],
+  "basis": "uniform_account_risk_pct_share_of_roster",
+  "budget": 0.08,
+  "ledger": "comms/mandate_firings absent -- no mandate has ever fired, so 0 auto-promoted legs",
+  "limit": 0.02,
+  "risk_pct": 0.02,
+  "roster_after": 4
+ },
+ "note": "Held Tier-3 PR; the manager merges. INERT while strategies.yaml says execution: shadow."
+}

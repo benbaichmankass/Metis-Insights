@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "MD-PROMOTE-S1-S2 FIRE for slv_trend_1h onto alpaca_live + alpaca_portfolio (real-money roster). Resolver FIRE on c0452aa, R3 insufficient_n on the provisional 5.0 bps basis. Leg is execution: shadow strategy-wide, so the add is inert until that flips. Manager merges after independent review and notifies the operator.",
+  "why": "config/accounts.yaml real-money roster add (live promotion, Tier-3)."
+}
