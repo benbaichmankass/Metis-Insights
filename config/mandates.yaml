@@ -315,6 +315,23 @@ mandates:
       "Grant all 10 as written"; recorded on checklist row B5. The underlying
       grant is the operator's 2026-09-21 ladder mandate, quoted in
       docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    # ⚠️ CORRECTED 2026-09-28 (PI-20260922-R5-CLAUDE-MD-FEE-ONLY-CORPUS-CLAIM-
+    # IS-STALE-FOR-FOUR-HARNESS-FAMILIES, ADMIN lane triage, operator-approved
+    # "Apply my recommendations (Recommended)"; comment-only, no field
+    # changed here). The paragraph immediately below was written when this
+    # entry carried a `blocked_until` field and read as a standing, present-
+    # tense description -- "THIS ENTRY IS GRANTED BUT NOT ARMED". That is no
+    # longer the CURRENT state: PR #13582 (2026-09-28, operator decision "Arm,
+    # tolerance 2 bps", checklist row MANDATE-ARM) REMOVED `blocked_until`
+    # from this entry entirely -- see the dated note lower in this block
+    # ("2026-09-28: both clauses cleared... Armed...") and `bar.cost_tolerance_bps`
+    # below, now `2.0`. The mechanism the paragraph describes (a truthy
+    # `blocked_until` makes the resolver REFUSE, and clearing it is the
+    # operator's act) is kept for its history and because it is still an
+    # accurate description of how the field worked while present -- but read
+    # "GRANTED BUT NOT ARMED" below as the STATE AS OF 2026-09-24 through
+    # 2026-09-27, not today's.
+    #
     # ⚠️ CARRIED VERBATIM FROM § 5.3, WHICH IS WHY THIS ENTRY IS GRANTED BUT NOT
     # ARMED. The plan's words: "AND THE PROMOTION MANDATE MUST NOT ARM UNTIL D1
     # LANDS. THIS IS NOT CAUTION, IT IS ARITHMETIC." The same block is stated in
@@ -335,12 +352,15 @@ mandates:
     # OPERATOR (Ben), 2026-09-25, popup answered in the manager session
     # session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: **"Adopt text + fix the 24"**
     # -- adopt that memo's § 4 replacement text, correcting its counts to the
-    # read-time measurement. THE MANDATE STAYS BLOCKED: `blocked_until` remains
-    # truthy, the resolver still REFUSES, and clearing it is still the
-    # operator's act. What changed is that the condition is now CHECKABLE --
-    # two artifacts a session can read (a pipeline item's `state`, and a
-    # checklist row's own done-when observation) instead of a row id that can
-    # be `dropped` out from under it.
+    # read-time measurement. THE MANDATE STAYS BLOCKED (AS OF 2026-09-25; SEE
+    # THE 2026-09-28 CORRECTION AT THE TOP OF THIS BLOCK -- `blocked_until`
+    # was removed 2026-09-28 and this clause is no longer truthy today):
+    # `blocked_until` remains truthy, the resolver still REFUSES, and
+    # clearing it is still the operator's act. What changed is that the
+    # condition is now CHECKABLE -- two artifacts a session can read (a
+    # pipeline item's `state`, and a checklist row's own done-when
+    # observation) instead of a row id that can be `dropped` out from under
+    # it.
     #
     # ⚠️ AND IT DISTINGUISHES STALE FROM DANGEROUS, deliberately. The original
     # text was written when the number in question was 0.0 -- a silently
@@ -380,6 +400,15 @@ mandates:
     # ASSUMPTION for Alpaca equities and IBKR futures, pending measurement;
     # checklist row E62 carries the monitoring task. Clause (a) (Bybit-perp
     # records at 3.0 bps, lane W6-U1) STILL BLOCKS, so blocked_until stays set.
+    # ⚠️ CORRECTED 2026-09-28 (PI-20260922-R5-CLAUDE-MD-FEE-ONLY-CORPUS-CLAIM-
+    # IS-STALE-FOR-FOUR-HARNESS-FAMILIES, ADMIN lane triage; comment-only, no
+    # field changed here): the "STILL BLOCKS" sentence immediately above is
+    # the 2026-09-27 state, WRITTEN BEFORE the 2026-09-28 "both clauses
+    # cleared" note earlier in this block (which is chronologically NEWER
+    # despite appearing above it on the page). Clause (a) is no longer
+    # blocking as of 2026-09-28 -- re-measured at 0 of 27 differing records --
+    # and `blocked_until` was removed from this entry the same day (PR
+    # #13582). Do not read this sentence as the current state.
     # ⚠️ CLAUSE 3 NAMES A PER-LEG VERDICT, NOT A VENUE POINT ESTIMATE
     # (2026-09-25, checklist row R3). It previously read "whose venue's realized
     # round-trip cost is within bar.cost_tolerance_bps of what the record
@@ -389,7 +418,10 @@ mandates:
     # and "we have not measured enough of THIS leg". Of the 55 legs in the first
     # committed R3 record, 51 are in the second of those. The wording changes;
     # the bar does not -- cost_tolerance_bps is untouched, and the arming block
-    # (`blocked_until`) is untouched.
+    # (`blocked_until`) is untouched. [BY THIS R3 EDIT, 2026-09-25 -- not by
+    # the file as a whole: PR #13582 (2026-09-28) later changed BOTH --
+    # `cost_tolerance_bps` is now `2.0` and `blocked_until` was removed. See
+    # the 2026-09-28 correction note near the top of this entry.]
     fires_when: >-
       A leg already on the Stage-1 soak roster for its exchange has a committed
       Stage-0 evidence record that passes B1's four clauses and its identity
