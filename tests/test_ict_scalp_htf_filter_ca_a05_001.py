@@ -20,10 +20,8 @@ tests/test_ict_scalp_variants.py.
 """
 from __future__ import annotations
 
-import pandas as pd
 import pytest
 
-import src.runtime.strategy_signal_builders as ssb
 from src.units.strategies.ict_scalp import order_package
 from tests.test_ict_scalp_5m import _bullish_scalp_frame as _proven_bullish_frame
 from tests.test_ict_scalp_variants import _base_cfg, _bullish_scalp_frame, _wire
