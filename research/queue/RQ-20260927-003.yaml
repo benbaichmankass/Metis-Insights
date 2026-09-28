@@ -253,3 +253,6 @@ result: >-
   short-lived detached poll); either give the detached run several
   contention-free hours and poll less frequently, or profile/vectorize the
   backtest loop first.
+
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  DISPOSITION: stays queued, re-dispatch needs a DETACHED trainer run. Both committed attempts are producer_failed (36302282489: cancelled at trainer-vm-diag's 60-min job ceiling, zero output; session-2 record: the corrected driver was still at ~97% CPU after 68 min detached, and SOL was never attempted). No clause of RULE-RQ0927-003-PROP-EXIT-HEAD-SCOPING can fire on a producer_failed record and none is forced. NOT a candidate for the token-free runner (research-script-run.yml): the driver needs trainer-resident 5m candles resampled to 1h. The path that exists: nohup+sentinel dispatch via the trainer relay, polled by a later relay call.
