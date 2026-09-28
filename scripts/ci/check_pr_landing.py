@@ -596,6 +596,14 @@ LANDING_MACHINERY = [
     # much as a change to the workflow file itself (already listed above), so
     # it must not self-land by the route it decides for.
     "scripts/ci/automerge_landing_gate.py",
+    # ⚠️ ADDED 2026-09-28 (JC-CA-03). The eight clauses of the ARMED
+    # MD-DEMOTE-S2-S1 auto-land route (R16 delegates to it), plus the producer
+    # that writes that route's branches. A change to either is a change to
+    # which Tier-3 roster cut merges with no human in the path. Found missing
+    # when a PR editing A7 declared `changes_landing_machinery` and R8 refused
+    # it: the route that decides a real-money merge could itself self-land.
+    "scripts/ci/check_mandate_autoland.py",
+    ".github/workflows/r4-demotion-gate.yml",
     "scripts/ops/session_registry.py",
     # ⚠️ ADDED 2026-09-09 (MI-208). This action is a THIRD landing route and was
     # missing from this list, so a change to it could self-land by the very

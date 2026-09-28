@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Changes clause A7 of scripts/ci/check_mandate_autoland.py (pr-landing-guard R16, the armed MD-DEMOTE-S2-S1 auto-land route), the guards.yml permissions, and the r4-demotion-gate.yml checkout ref. Per the manager's relay of the operator's JC-CA-03 re-decision (2026-09-28 ~12:10Z, 'Keep PAT, verify run'), the manager merges after an independent review.",
+  "why": "A7 trusted the PR opener login, which was forgeable both ways. The genuine producer PR is PAT-authored, so the route refused it, and pr-opener.yml makes any session branch a github-actions[bot] PR. A7 now verifies the originating run through GET actions/runs/<id>: the workflow path, head_branch main, a schedule/workflow_dispatch event, this repo, and head_sha equal to the branch's base."
+}

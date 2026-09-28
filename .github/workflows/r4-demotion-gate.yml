@@ -103,8 +103,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          # ⚠️ github.sha, NOT `main` (JC-CA-03 re-decision 2026-09-28, "Keep PAT,
+          # verify run"). check_mandate_autoland.py A7 now reads this run through
+          # the API and requires its head_sha to equal the commit this branch
+          # is cut from. Checking out `main` by name could land on a newer commit
+          # if main moved between the trigger and the checkout, and then the
+          # route would refuse its own genuine output. For schedule and
+          # workflow_dispatch on main, github.sha IS main at trigger time.
+          ref: ${{ github.sha }}
           fetch-depth: 1
+          # Stays the PAT: a GITHUB_TOKEN PR gets no required checks
+          # (measured on probe PR #13502, PI-20260928-TURC5MJC-0004).
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
 
       - uses: actions/setup-python@v5
@@ -133,7 +142,8 @@ jobs:
           n=$(python3 -c "import json;print(len(json.load(open('gate.json'))['demoted']))")
           echo "demoted=$n" >> "$GITHUB_OUTPUT"
 
-      - name: Open the demotion PR and the realtime ping
+      - name: Push the demotion branch and record its provenance
+        id: push
         if: steps.gate.outputs.demoted != '0' && env.APPLY == 'true'
         env:
           GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
@@ -229,6 +239,57 @@ jobs:
           fi
 
           git push -u origin "$branch"
+
+          # ── PROVENANCE: the one statement about this PR's CONTENT a pusher
+          # cannot write (review BLOCK B2 on #13609). Uploaded as an artifact of
+          # THIS run below, BEFORE the PR opens, and read back by A7 in
+          # scripts/ci/check_mandate_autoland.py, which requires head_sha and
+          # removals to equal the PR's. Only a job of this run can upload to
+          # this run, and only an apply=true run reaches this step.
+          mkdir -p "${RUNNER_TEMP}/provenance"
+          PYTHONPATH=. python3 - "$base_sha" "$branch" > "${RUNNER_TEMP}/provenance/provenance.json" <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, "scripts/ci")
+          import check_mandate_autoland as a
+          base, branch = sys.argv[1], sys.argv[2]
+          root = Path(".")
+          head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                                text=True, check=True).stdout.strip()
+          removals = a.roster_removals(a._yaml_text(a.blob(root, base, a.ACCOUNTS_REL)),
+                                       a._yaml_text(a.blob(root, head, a.ACCOUNTS_REL)))
+          # window + event bind the run's INPUTS (re-review N1 on #13609): A7
+          # refuses any window other than the declared default above.
+          print(json.dumps({"run_id": os.environ["GITHUB_RUN_ID"], "branch": branch,
+                            "head_sha": head, "removals": removals,
+                            "window": os.environ["WINDOW"],
+                            "event": os.environ["GITHUB_EVENT_NAME"]}, indent=2))
+          PY
+          cat "${RUNNER_TEMP}/provenance/provenance.json"
+          {
+            echo "branch=$branch"
+            echo "autoland=$autoland"
+            echo "legs=$legs"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload the provenance record (read back by A7)
+        if: steps.push.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: r4-demotion-provenance
+          path: ${{ runner.temp }}/provenance/provenance.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Open the demotion PR and the realtime ping
+        if: steps.push.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          branch: ${{ steps.push.outputs.branch }}
+          autoland: ${{ steps.push.outputs.autoland }}
+          legs: ${{ steps.push.outputs.legs }}
+        run: |
+          set -euo pipefail
           body=$(python3 -c "import json;d=json.load(open('gate.json'));a=json.load(open('autoland.json'));print('R4 demotion gate FIRED under MD-DEMOTE-S2-S1 (run ${{ github.run_id }}).\n\n\`\`\`\n'+json.dumps({'demoted':d['demoted'],'refused':d['refused'],'written':d['written']},indent=2)+'\n\`\`\`\n\nEvidence: comms/mandate_evidence/mirror_window/ and comms/mandate_firings/ in this diff.\n\nAuto-land route (pr-landing-guard R16 / scripts/ci/check_mandate_autoland.py): **'+('ADMISSIBLE — this PR lands itself when CI is green' if a.get('ok') else 'REFUSED — a human merges')+'**\n\n\`\`\`\n'+json.dumps(a,indent=2)+'\n\`\`\`')")
           gh pr create --base main --head "$branch" \
             --title "MD-DEMOTE-S2-S1: demote ${legs} (R4, ${WINDOW})" --body "$body"
@@ -244,3 +305,5 @@ jobs:
           gh issue create --label system-action \
             --title "send-ping: R4 demotion gate fired" \
             --body "$(printf 'action: send-ping\npriority: high\nmessage: R4 demotion gate FIRED (MD-DEMOTE-S2-S1): %s off Stage 2, %s window. PR opened by run %s; auto-land %s.\nreason: MD-DEMOTE-S2-S1 evidence_required names a realtime ping' "$legs" "$WINDOW" "${{ github.run_id }}" "$([ "$autoland" = yes ] && echo 'ADMISSIBLE — lands itself on green' || echo 'REFUSED — roster unchanged until a human merges')")"
+
+# no-durable-result: the uploaded artifact is the r4-demotion-provenance record that A7 in scripts/ci/check_mandate_autoland.py reads back to bind the PR to this run; the gate's verdict lands durably as the demotion PR itself (evidence + firing records committed in its diff)
