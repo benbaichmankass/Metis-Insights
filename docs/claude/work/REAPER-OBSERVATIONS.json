@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-28T08:08:23Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-28T08:03:32Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-28T02:09:48Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-28T08:03:32Z",
+  "updated_at": "2026-09-28T08:08:23Z",
   "latest": {
-    "generated_at": "2026-09-28T08:03:32Z",
+    "generated_at": "2026-09-28T08:08:23Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1111,
+      "unregistered_claude_branches": 1112,
       "unregistered_sample": [
         "claude/adoring-pasteur-P60hd",
         "claude/ai-trading-profitability-gaps-ldQCu",
@@ -1009,7 +1009,7 @@
         "claude/board-claim-10083",
         "claude/board-claim-10086"
       ],
-      "unregistered_but_attributable_sessions": 297,
+      "unregistered_but_attributable_sessions": 298,
       "unregistered_owner_map": {
         "session_011Gqsv3NxLmm5yp9gfNh6ar": [
           "claude/board-done-drain-perf-pass2"
@@ -1953,6 +1953,9 @@
         "session_01TCatsCY5RDg1pNXWFdeqsn": [
           "claude/ca-a08-audit",
           "claude/ca-wave-a-landing"
+        ],
+        "session_01TH2dUuCf3p9NXgUjF6eCAD": [
+          "claude/prop-map-ada-xrp-landing"
         ],
         "session_01TM8XjkvVpvMxH4EcLtTsvP": [
           "claude/mgr-lease-hb-20260909T2326",
