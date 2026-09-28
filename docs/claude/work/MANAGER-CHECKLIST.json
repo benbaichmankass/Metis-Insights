@@ -3024,16 +3024,18 @@
     {
       "title": "Breakout proprietary-terminal adapter (breakout_terminal): read path + place_bracket behind the same platform-adapter interface, so a re-bought account can be automated",
       "phase": "W6",
-      "state": "queued",
+      "state": "in_flight",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01SV1yBAgdryVBNEdrbVUUdJ",
       "model": "claude-opus-5-5",
       "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 2,
-      "prs": [],
+      "prs": [
+        13658
+      ],
       "blocked_on": [],
-      "note": "2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR, verbatim: \"we don't need to start building the new terminal just yet if, uh, if we don't have capacity at the moment, but that's definitely a high priority because that is where the next account will be and we want to be ready for that in any case.\" Context: breach-and-re-buy is accepted, and Breakout sells no new DXtrade accounts, so the next account lands on the proprietary terminal (docs/research/prop-automation-options-2026-09-27.md \u00a7 0.3, \u00a7 2.4, scoped only). Dispatch order: first free lane slot, ahead of RECON.",
+      "note": "2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR, verbatim: \"we don't need to start building the new terminal just yet if, uh, if we don't have capacity at the moment, but that's definitely a high priority because that is where the next account will be and we want to be ready for that in any case.\" Context: breach-and-re-buy is accepted, and Breakout sells no new DXtrade accounts, so the next account lands on the proprietary terminal (docs/research/prop-automation-options-2026-09-27.md \u00a7 0.3, \u00a7 2.4, scoped only). Dispatch order: first free lane slot, ahead of RECON. || 2026-09-28 (lane session_01SV1yBAgdryVBNEdrbVUUdJ): PR #13658 open, draft, HELD (tier_2_3_needs_approval), stacked on PROP-EXEC #13647 (merge that first, then rebase). Built: breakout_terminal adapter behind the same interface (login -> dashboard -> Open Terminal; label-based reads; disarmed place_bracket/cancel/flatten; modify_bracket refuses), one-line platform switch (per-platform default login_url), executor venue key <platform>_symbol (fail closed), read-only system-action breakout-terminal-probe. Everything past the landing page is FIXTURE-ONLY (synthetic). Measurement = pipeline PI-20260928-DRBVUUDJ-0001 after merge.",
       "id": "PROP-TERM"
     }
   ]
