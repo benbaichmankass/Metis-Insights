@@ -249,7 +249,9 @@ def existing_units(root: Path) -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
     for path in sorted((root / QUEUE).rglob("*.yaml")):
         try:
             raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        except Exception:  # noqa: BLE001 -- reported, never skipped
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            # The three things reading a unit can fail on; REPORTED in `bad`,
+            # never skipped -- an unreadable unit is a finding, not silence.
             bad.append(path.stem)
             continue
         if isinstance(raw, dict):
@@ -362,7 +364,7 @@ def verify(root: Path, base: str) -> List[str]:
         text = (root / path).read_text(encoding="utf-8")
         try:
             unit = yaml.safe_load(text)
-        except Exception as exc:  # noqa: BLE001
+        except yaml.YAMLError as exc:
             problems.append(f"{path}: unreadable ({exc})")
             continue
         gen = (unit or {}).get("generated") or {}
