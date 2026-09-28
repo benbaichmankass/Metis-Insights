@@ -29,8 +29,9 @@
 #                    0, still under the shared lock. A failed check leaves it
 #                    tripped.
 #   Step-3 executor modes (PROP-EXEC 2026-09-28). Each REPLACES the login
-#   check with ONE run of scripts/prop/prop_executor_tick.py --login fresh,
-#   under the same lock; at most one of them per dispatch:
+#   check with ONE run of scripts/prop/prop_executor_tick.py --login reuse
+#   (the feed's saved session; no credential login), under the same lock;
+#   at most one of them per dispatch:
 #     probe-ticket     — READ-ONLY: open the order ticket for SOLUSD (only if
 #                        one-click trading reads OFF), record its shape,
 #                        close it. Prints `feasibility: canvas_ticket` (exit
@@ -185,7 +186,13 @@ if [ "${WANT_DEPS}" = "1" ]; then
 fi
 
 if [ -n "${EXEC_MODE}" ]; then
-    EARGS=(--account "${ACCOUNT}" --login fresh --state-dir "${BASE}/executor")
+    # Reuse the FEED's saved session, never a second credential login: the
+    # served client carries force_logout "You have logged in somewhere else"
+    # (MEASURED 2026-09-28, PI-20260927-D9R6QTDB-0002), so a fresh login here
+    # could log out the feed or the operator. Exit 6 = no reusable session:
+    # re-dispatch after the feed's next tick (<= 5 min).
+    EARGS=(--account "${ACCOUNT}" --login reuse --storage-state "${BASE}/feed/session_state.json"
+           --state-dir "${BASE}/executor")
     case "${EXEC_MODE}" in
         probe-ticket)     EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
         executor-dry-run) EARGS+=(--dry-run) ;;

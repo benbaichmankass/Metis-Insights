@@ -27,8 +27,10 @@ Session (``--login``):
   session is not accepted the cycle exits 6 without logging in: credential
   logins stay with the feed, which owns the relogin ceiling. The caller holds
   the shared ``login.lock`` so the two never drive the terminal at once.
-- ``fresh`` (the one-off system-action): a credential login, like
-  ``breakout-login-check``.
+- ``fresh``: a credential login, like ``breakout-login-check``. Nothing
+  dispatches it by default: the served client carries a "You have logged in
+  somewhere else" force-logout, so a second login could end the feed's (or
+  the operator's) session. For a manual run only.
 
 Prints JSON lines, redacted like the login check (no credentials, cookies,
 URL paths or tokens). Exit: 0 ok · 3 read did not parse / halted · 4
