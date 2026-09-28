@@ -92,18 +92,30 @@ class InstrumentSpec:
     symbol, e.g. ``ADAUSD``, not the bot's canonical ``ADAUSDT``). A field
     that could not be read is ``None`` — never ``0`` or ``1`` — and its
     label is listed in ``unparsed`` so "we could not look" stays
-    distinguishable from "we looked and it is zero/one". ``raw_snippet`` is
-    a short excerpt of the panel text near the symbol, kept only to help
-    fix selectors when nothing else parsed. It is REDACTED before it is
-    ever sliced out of the page text (redact the whole text first, then
-    take the excerpt — never the other way round, or a slice boundary
-    landing inside a secret/URL/e-mail can leak a fragment the redaction
-    pattern no longer matches); see ``dxtrade.redact_text``.
+    distinguishable from "we looked and it is zero/one". Parsing is
+    scoped to the OPENED PANEL ELEMENT's own text, never the whole page —
+    a leftover order-ticket field or a different symbol's watchlist row
+    elsewhere on the page must never be read as this symbol's spec.
+
+    ``raw_snippet`` is a short diagnostic excerpt kept only to help fix
+    selectors when nothing else parsed: the (redacted) panel text when a
+    panel resolved, or a redacted STRUCTURAL dump of the page when no
+    panel element could be isolated at all (never raw page text — see
+    ``dxtrade.DXtradeAdapter.structure``). It is REDACTED before it is
+    ever sliced or truncated — redact the whole text first, then take the
+    excerpt — never the other way round, or a cut landing inside a
+    secret/URL/e-mail can leak a fragment the redaction pattern no longer
+    matches; see ``dxtrade.redact_text``.
 
     ``search_ok``/``panel_ok`` record whether this symbol's own search and
     info-panel-open attempt reported success, so a caller can tell "we
     looked and found nothing" from "we never actually looked" and print
-    the outcome even when every field below is ``unparsed``.
+    the outcome even when every field below is ``unparsed``. When a panel
+    resolved but was refused as untrustworthy, ``mismatch_reason`` names
+    why: ``panel_symbol_mismatch`` (the requested symbol never appears in
+    the opened panel's own text) or ``panel_identical_to:<SYM>`` (this
+    panel's text is byte-identical to an earlier symbol's — nothing
+    actually changed between the two reads).
     """
 
     symbol: str
@@ -113,6 +125,7 @@ class InstrumentSpec:
     qty_step: Optional[float] = None
     unparsed: List[str] = field(default_factory=list)
     raw_snippet: Optional[str] = None
+    mismatch_reason: Optional[str] = None
     search_ok: Optional[bool] = None
     panel_ok: Optional[bool] = None
 

@@ -11,12 +11,18 @@ symbol search fill plus an instrument-info panel open by accessible name —
 none of them change anything, only what is displayed.
 
 ``read_instrument_specs`` (W6-PROP-E1, 2026-09-28) is a best-effort probe:
-:data:`INSTRUMENT_SPEC_LABELS` and :data:`_INSTRUMENT_INFO_NAMES` are **NOT
-MEASURED** against this terminal — no served i18n dictionary entry for
-instrument specs has been found, unlike the account/position/order labels
-below. A symbol the terminal does not expose specs for (via this search+
-info-panel path) returns every field ``None`` with a short redacted
-``raw_snippet`` for debugging, never a fabricated number.
+:data:`INSTRUMENT_SPEC_LABELS`, :data:`_INSTRUMENT_INFO_NAMES` and
+:data:`_PANEL_CONTAINER_ROLES` are **NOT MEASURED** against this terminal —
+no served i18n dictionary entry for instrument specs has been found, unlike
+the account/position/order labels below, and the panel's real markup is
+unknown until a live run reports what actually resolved. Parsing is scoped
+to the OPENED PANEL ELEMENT's own text, never the whole page, and a symbol
+is trusted only when its own name appears in that panel and the panel is
+not byte-identical to an earlier symbol's in the same call — a symbol the
+terminal does not expose a trustworthy panel for returns every field
+``None`` with a short redacted diagnostic excerpt (the panel's own text, or
+a structural dump when no panel resolved at all — never raw page text),
+never a fabricated number.
 
 Every DXtrade selector lives in :data:`SELECTORS` so the order-placing slice
 reuses them. Provenance of each selector:
@@ -50,6 +56,7 @@ functions over plain data so they are unit-tested without a browser.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -95,7 +102,16 @@ _INSTRUMENT_INFO_NAMES: Sequence[str] = (
     "Instrument Info", "Symbol Info", "Contract Specification",
     "Specification", "Instrument Details", "Info",
 )
-_INSTRUMENT_INFO_ROLES: Sequence[str] = ("tab", "button", "menuitem", "link")
+_INSTRUMENT_INFO_ROLES: Sequence[str] = ("tab", "button", "menuitem")
+# "link" deliberately excluded: a link can navigate away from the terminal
+# entirely, which is outside what a read-only probe may risk clicking.
+
+# Candidate ARIA roles for the container the info click reveals, tried in
+# this order. A dialog/tabpanel/region is far likelier to actually BE the
+# panel than an arbitrary ancestor of the clicked control, so those are
+# preferred; the clicked control's own ancestor is the last-resort fallback
+# in _resolve_panel_element. NOT MEASURED against this terminal.
+_PANEL_CONTAINER_ROLES: Sequence[str] = ("dialog", "tabpanel", "region")
 
 # Text markers of an interstitial bot challenge (Cloudflare and similar).
 _CHALLENGE_MARKERS = (
@@ -613,6 +629,12 @@ def render_page_shape(shape: Mapping[str, Any], page_text: str,
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 _TOKENISH_RE = re.compile(r"[A-Za-z0-9_\-.=+/]{24,}")
 _URL_RE = re.compile(r"((?:https?|wss?)://[^\s/?#'\"]+)([/?#][^\s'\"]*)?", re.IGNORECASE)
+# A query string can carry a session id even with no scheme in front of it
+# (a bare "host.tld/path?sid=..." — _URL_RE only matches scheme://...).
+# Matched and redacted independently of any URL/host detection, since that
+# is the narrowest rule that catches the leak without eating normal prose:
+# ordinary text essentially never contains a literal "?key=value" run.
+_QUERY_STRING_RE = re.compile(r"\?[A-Za-z0-9_]+=[^\s'\"]+")
 
 
 def _cap(text: str, n: int) -> str:
@@ -633,6 +655,9 @@ def redact_text(text: str, *secrets: str) -> str:
     # URLs keep their origin only: a path or query can carry a session id
     # shorter than the token rule below.
     out = _URL_RE.sub(lambda m: m.group(1) + "/<path>" if m.group(2) else m.group(1), out)
+    # A scheme-less "host/path?query" never matched the rule above; strip
+    # any leftover query string on its own.
+    out = _QUERY_STRING_RE.sub("?<query>", out)
     out = _EMAIL_RE.sub("<email>", out)
     return _TOKENISH_RE.sub("<token>", out)
 
@@ -915,75 +940,133 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception:
             return False
 
-    def _open_instrument_info(self, page: Any) -> bool:
+    def _open_instrument_info(self, page: Any) -> Optional[Any]:
         """Click a specification/info panel by accessible name, if one
-        exists among :data:`_INSTRUMENT_INFO_NAMES`. View-only, like
-        :meth:`_show_tab` — never a button whose text is not an exact name
-        from that list."""
+        exists among :data:`_INSTRUMENT_INFO_NAMES`, then resolve and
+        return the PANEL ELEMENT the click revealed — never the page
+        itself. View-only, like :meth:`_show_tab` — never a button whose
+        text is not an exact name from that list, and never a ``link``
+        (one could navigate away from the terminal entirely).
+
+        Returns ``None`` when no control was found, the click failed, or
+        :meth:`_resolve_panel_element` could not isolate a panel
+        afterwards — callers must never fall back to page text in that
+        case.
+        """
         for name in _INSTRUMENT_INFO_NAMES:
             name_re = self._tab_name_re(name)
             for role in _INSTRUMENT_INFO_ROLES:
                 try:
                     loc = page.get_by_role(role, name=name_re)
-                    if loc.count() > 0:
-                        loc.first.click(timeout=3_000)
-                        page.wait_for_timeout(500)
-                        return True
+                    if loc.count() == 0:
+                        continue
+                    control = loc.first
+                    control.click(timeout=3_000)
+                    page.wait_for_timeout(500)
                 except Exception:
                     continue
-        return False
+                return self._resolve_panel_element(page, control)
+        return None
+
+    def _resolve_panel_element(self, page: Any, control: Any) -> Optional[Any]:
+        """Best-effort resolution of the dialog/tabpanel/region the info
+        click revealed. Prefers an explicit ARIA container
+        (:data:`_PANEL_CONTAINER_ROLES`) over the clicked control's own
+        ancestor, since a real dialog/tabpanel/region is far more likely
+        to BE the panel than an arbitrary ancestor depth. NOT MEASURED
+        against a real terminal — see the module note."""
+        for role in _PANEL_CONTAINER_ROLES:
+            try:
+                cand = page.get_by_role(role)
+                if cand.count() > 0:
+                    return cand.first
+            except Exception:
+                continue
+        try:
+            container = control.locator("xpath=ancestor::*[3]")
+            if container.count() > 0:
+                return container.first
+        except Exception:
+            pass
+        return None
 
     def read_instrument_specs(self, page: Any, symbols: Sequence[str],
                               secrets: Sequence[str] = ()) -> List[InstrumentSpec]:
-        """One :class:`InstrumentSpec` per symbol. ``secrets`` (username,
-        password) are redacted into the WHOLE page text before any
-        substring of it is kept or sliced — never after — so a slice
-        boundary landing inside a secret, a URL or an e-mail cannot leak a
-        fragment redaction would otherwise have caught whole (the #13297
-        leak class: redact first, cap/slice after).
+        """One :class:`InstrumentSpec` per symbol.
 
-        Every symbol is graded independently and never trusted on a stale
-        page: if the search box couldn't be filled, no info panel opened,
-        the requested symbol never appears in the resulting text, or that
-        text is byte-identical to the previous symbol's (the search/open
-        reported success but nothing actually changed), every field is
-        ``unparsed`` — a leftover panel from a PRIOR symbol is never read
-        as this one's. ``search_ok``/``panel_ok`` are always set so a
-        caller can print the per-symbol outcome, not just the parse.
+        Parsing is scoped to the OPENED PANEL ELEMENT's own
+        ``inner_text()`` — never the whole page — so a watchlist row, an
+        order ticket, or a different symbol's leftover panel elsewhere on
+        the page can never be read as this symbol's spec. A symbol is
+        trusted only when: the search box was filled, a panel element
+        resolved, the symbol's own name appears in THAT panel's text, and
+        that panel's text is not byte-identical to an earlier symbol's in
+        this same call (``panel_identical_to:<SYM>`` — the search/open
+        reported success but nothing about the panel actually changed).
+        Any failure forces every field ``unparsed``, with
+        ``mismatch_reason`` naming which check failed when a panel did
+        resolve. ``search_ok``/``panel_ok`` are always set so a caller
+        can print the per-symbol outcome, not just the parse.
+
+        ``secrets`` (username, password) are redacted into the WHOLE text
+        before any substring of it is kept — never after — so a cut
+        boundary landing inside a secret, a URL or an e-mail cannot leak
+        a fragment redaction would otherwise have caught whole (the
+        #13297 leak class: redact first, slice/cap after). When no panel
+        element can be isolated at all, the diagnostic excerpt is a
+        redacted STRUCTURAL dump (:meth:`structure`) of the page, never
+        raw page text — computed once per call and reused, since the
+        page state doesn't change just because one symbol's lookup failed.
         """
         out: List[InstrumentSpec] = []
-        prev_text: Optional[str] = None
+        seen_hashes: Dict[str, str] = {}
+        structural_dump: Optional[str] = None
         for sym in symbols:
             search_ok = self._search_symbol(page, sym)
-            panel_ok = self._open_instrument_info(page)
-            text = self._page_text(page)
-            stale = prev_text is not None and text == prev_text
-            prev_text = text
-            sym_seen = sym.lower() in text.lower()
+            panel = self._open_instrument_info(page)
+            panel_ok = panel is not None
+            panel_text = ""
+            if panel_ok:
+                try:
+                    panel_text = panel.inner_text(timeout=self.timeout_ms) or ""
+                except Exception:
+                    panel_text, panel_ok = "", False
 
-            if search_ok and panel_ok and sym_seen and not stale:
-                # Best-effort scoping to "the opened panel's text": a window
-                # around the symbol's own mention rather than the whole
-                # page, so a generic label elsewhere (an order ticket's own
-                # "Qty"/"Step" fields) is less likely to be read as this
-                # symbol's spec. Still NOT MEASURED against a real panel
-                # boundary — see the module note.
-                idx = text.lower().find(sym.lower())
-                window = text[max(0, idx - 400):idx + 1_200]
-                spec = parse_instrument_spec(sym, window)
+            sym_seen = panel_ok and sym.lower() in panel_text.lower()
+            stale_of: Optional[str] = None
+            if panel_ok:
+                panel_hash = hashlib.sha256(panel_text.encode("utf-8", "ignore")).hexdigest()
+                stale_of = seen_hashes.get(panel_hash)
+                if stale_of is None:
+                    seen_hashes[panel_hash] = sym
+
+            if search_ok and panel_ok and sym_seen and stale_of is None:
+                spec = parse_instrument_spec(sym, panel_text)
             else:
                 spec = InstrumentSpec(symbol=sym, unparsed=list(INSTRUMENT_SPEC_LABELS.keys()))
+                if stale_of is not None:
+                    spec.mismatch_reason = f"panel_identical_to:{stale_of}"
+                elif panel_ok and not sym_seen:
+                    spec.mismatch_reason = "panel_symbol_mismatch"
             spec.search_ok, spec.panel_ok = search_ok, panel_ok
 
             if spec.unparsed == list(INSTRUMENT_SPEC_LABELS.keys()):
                 # Nothing at all parsed for this symbol: keep a short
-                # excerpt around the symbol's own mention, if it appears,
-                # to help fix selectors from the (redacted) public log.
-                # Redact the WHOLE text, then slice the redacted result —
-                # never the other way round.
-                redacted = redact_text(text, *secrets)
-                idx = redacted.lower().find(sym.lower())
-                if idx >= 0:
-                    spec.raw_snippet = redacted[max(0, idx - 80):idx + 200].strip()
+                # diagnostic excerpt so selectors can be fixed from the
+                # (redacted) public log. Redact the WHOLE text, then take
+                # the excerpt from the redacted result — never the other
+                # way round.
+                if panel_ok:
+                    spec.raw_snippet = redact_text(panel_text, *secrets)[:2_000].strip() or None
+                else:
+                    # No panel element at all: NEVER fall back to page
+                    # text. A redacted structural dump instead (computed
+                    # once and reused across symbols in this call).
+                    if structural_dump is None:
+                        try:
+                            structural_dump = "\n".join(self.structure(page, secrets))
+                        except Exception as exc:
+                            structural_dump = f"structure: FAILED ({type(exc).__name__}: {exc})"
+                    spec.raw_snippet = structural_dump[:2_000]
             out.append(spec)
         return out

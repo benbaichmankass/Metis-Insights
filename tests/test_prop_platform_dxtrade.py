@@ -315,9 +315,11 @@ def test_parse_instrument_spec_partial_read_names_only_the_missing_fields():
 
 
 class _SpecLocator:
-    def __init__(self, count: int = 0, on_first_action=None, fail: bool = False) -> None:
+    """A clickable/fillable control (the search box, or an info button)."""
+
+    def __init__(self, count: int = 0, on_click=None, fail: bool = False) -> None:
         self._count = count
-        self._on_first_action = on_first_action
+        self._on_click = on_click
         self._fail = fail
         self.filled: list = []
         self.clicked = 0
@@ -333,34 +335,61 @@ class _SpecLocator:
         if self._fail:
             raise RuntimeError("fill failed (fake)")
         self.filled.append(value)
-        if self._on_first_action:
-            self._on_first_action()
 
     def click(self, timeout=None):
         if self._fail:
             raise RuntimeError("click failed (fake)")
         self.clicked += 1
-        if self._on_first_action:
-            self._on_first_action()
+        if self._on_click:
+            self._on_click()
+
+    def locator(self, sel):
+        # The ancestor-xpath fallback in _resolve_panel_element: these
+        # fakes have no such ancestor, so it finds nothing either.
+        return _SpecLocator(0)
+
+
+class _PanelLocator:
+    """A resolved panel/dialog/tabpanel/region element with its OWN text,
+    independent of whatever the whole page's text is."""
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def count(self):
+        return 1
+
+    @property
+    def first(self):
+        return self
+
+    def inner_text(self, timeout=None):
+        return self._text
 
 
 class _SpecFakePage:
-    """Enough of a Page to drive DXtradeAdapter.read_instrument_specs. No
-    ``.frames`` attribute, so ``_frames`` falls back to ``[page]`` (the
-    documented fake-without-frames case)."""
+    """Enough of a Page to drive DXtradeAdapter.read_instrument_specs.
 
-    def __init__(self, before: str, after: str = "", has_search: bool = True,
-                info_role: str = "", info_name: str = "", fail_fill: bool = False) -> None:
-        self.text = before
-        self._after = after
-        self.has_search = has_search
-        self._info_role, self._info_name = info_role, info_name
-        # The search box only fills; opening the specs panel is a separate
-        # click, so only that locator's action reveals ``after``.
+    ``page_text`` is the WHOLE page (a watchlist, an order ticket -- any
+    text outside the panel); parsing must NEVER read it once a panel
+    resolves. ``panels`` is the sequence of texts a successful info-panel
+    open reveals, in call order (a shorter list repeats its last entry --
+    the "the panel never actually changed" case). No ``.frames`` and no
+    ``.evaluate``, so ``_frames`` falls back to ``[page]`` and
+    ``DXtradeAdapter.structure()`` degrades gracefully (already proven
+    elsewhere) instead of raising.
+    """
+
+    def __init__(self, page_text: str = "", panels=(),
+                has_search: bool = True, fail_fill: bool = False,
+                panel_role: str = "tabpanel", no_panel: bool = False) -> None:
+        self.page_text = page_text
+        self._panels = list(panels)
+        self._panel_role = panel_role
+        self._no_panel = no_panel
+        self._info_clicked = 0
+        self._panel_calls = 0
         self.search_locator = _SpecLocator(1 if has_search else 0, fail=fail_fill)
-
-    def _open(self):
-        self.text = self._after
 
     def locator(self, sel):
         if sel == SELECTORS["symbol_search"]:
@@ -368,86 +397,129 @@ class _SpecFakePage:
         return _SpecLocator(0)
 
     def get_by_role(self, role, name=None):
-        if role == self._info_role and self._info_name and name.match(self._info_name):
-            return _SpecLocator(1, on_first_action=self._open)
-        return _SpecLocator(0)
+        if name is not None:
+            # The info-control lookup, matched by accessible name.
+            if role == "tab" and name.match("Instrument Info"):
+                return _SpecLocator(1, on_click=self._on_info_click)
+            return _SpecLocator(0)
+        # The panel-container lookup (no name filter): only after a
+        # successful info click, and never if told to expose no panel.
+        if self._no_panel or role != self._panel_role or self._info_clicked == 0 or not self._panels:
+            return _SpecLocator(0)
+        idx = min(self._panel_calls, len(self._panels) - 1)
+        self._panel_calls += 1
+        return _PanelLocator(self._panels[idx])
+
+    def _on_info_click(self):
+        self._info_clicked += 1
 
     def inner_text(self, *a, **k):
-        return self.text
+        return self.page_text
 
     def wait_for_timeout(self, *a):
         pass
 
 
-def test_read_instrument_specs_parses_after_search_and_info_panel_click():
+def test_read_instrument_specs_parses_the_panel_elements_own_text():
     page = _SpecFakePage(
-        before="Log In\nUsername\nPassword\n",
-        after="ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n",
-        info_role="tab", info_name="Instrument Info",
+        page_text="Watchlist\nBTCUSD 65000\nSOLUSD 150\n",  # never read once a panel resolves
+        panels=["ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"],
     )
     specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ETHUSD"])
     assert len(specs) == 1
     assert page.search_locator.filled == ["ETHUSD"]
     assert (specs[0].contract_size, specs[0].digits) == (1.0, 2)
-    assert specs[0].unparsed == [] and specs[0].raw_snippet is None
+    assert specs[0].unparsed == [] and specs[0].raw_snippet is None and specs[0].mismatch_reason is None
     assert (specs[0].search_ok, specs[0].panel_ok) == (True, True)
 
 
-def test_read_instrument_specs_when_the_terminal_exposes_nothing_names_every_field_and_keeps_a_snippet():
-    # No search box, no info panel — the terminal never surfaces specs this
-    # way. Every field stays None (never fabricated) and a short excerpt
-    # around the symbol's own mention is kept for the next fix.
-    page = _SpecFakePage(before="Watchlist\nADAUSD 0.4210 +1.2%\nXRPUSD 0.5820 -0.3%", has_search=False)
+def test_read_instrument_specs_when_no_panel_element_resolves_dumps_structure_never_page_text():
+    # No dialog/tabpanel/region ever appears: the honest result is every
+    # field unparsed, plus a redacted STRUCTURAL dump (never a raw-text
+    # excerpt of the page, which could contain anything).
+    page = _SpecFakePage(page_text="Watchlist\nADAUSD 0.4210 +1.2%\n", no_panel=True)
     specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"])
     assert len(specs) == 1
     spec = specs[0]
     assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (None, None, None, None)
     assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
-    assert spec.raw_snippet and "ADAUSD" in spec.raw_snippet
+    assert spec.panel_ok is False
+    assert spec.raw_snippet and spec.raw_snippet.startswith("structure: BEGIN")
 
 
-def test_read_instrument_specs_search_failure_never_trusts_a_stale_panel():
-    # Reproduces the reviewed bug: a BTCUSD panel is still showing (and
-    # would otherwise parse cleanly) when the SEARCH for the next symbol
-    # fails. The stale panel must never be read as that next symbol's spec.
-    stale_btc_panel = "BTCUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.001\nVolume Step\n0.001\n"
-    page = _SpecFakePage(before=stale_btc_panel, has_search=True, fail_fill=True)
+def test_read_instrument_specs_symbol_absent_from_the_panel_is_never_trusted():
+    # Case (a) from the review: the panel shows BTCUSD's specs while the
+    # REQUESTED symbol (ADAUSD) only appears in the watchlist, outside the
+    # panel. Must never be read as ADAUSD's spec.
+    page = _SpecFakePage(
+        page_text="Watchlist\nADAUSD 0.4210\nBTCUSD 65000\n",
+        panels=["BTCUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.001\nVolume Step\n0.001\n"],
+    )
     specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"])
     spec = specs[0]
-    assert spec.search_ok is False
-    assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (None, None, None, None)
+    assert spec.panel_ok is True
+    assert spec.mismatch_reason == "panel_symbol_mismatch"
     assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
 
 
-def test_read_instrument_specs_identical_panel_text_across_symbols_is_never_trusted():
-    # Both symbol names happen to appear in the SAME static reference text
-    # (e.g. a symbol list on the panel), so "the symbol appears" check alone
-    # would pass for both reads even though the panel never actually
-    # changed between them -- only the byte-identical-text check catches
-    # the second, stale read.
-    static_text = "SOLUSD ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"
-    page = _SpecFakePage(before="Log In\n", after=static_text, info_role="tab", info_name="Instrument Info")
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["SOLUSD", "ETHUSD"])
+def test_read_instrument_specs_identical_panel_hash_across_symbols_is_never_trusted():
+    # Case (b): the panel text never actually changes between two reads
+    # (a clock/price ticking OUTSIDE the panel wouldn't show up here
+    # anyway, since only the panel's own text is read) -- and it happens
+    # to mention BOTH requested symbols, so "the symbol appears" alone
+    # would pass for both. Only the hash check catches the second, stale
+    # read.
+    static_panel = "BTCUSD ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"
+    page = _SpecFakePage(panels=[static_panel])
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["BTCUSD", "ETHUSD"])
     first, second = specs
-    assert first.unparsed == []  # a real, fresh panel open
-    assert set(second.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}  # stale, never trusted
+    assert first.unparsed == [] and first.mismatch_reason is None       # a real, fresh panel open
+    assert set(second.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
+    assert second.mismatch_reason == "panel_identical_to:BTCUSD"        # stale, never trusted
 
 
-def test_read_instrument_specs_redacts_the_whole_text_before_slicing_the_snippet():
-    # The #13297 leak class: slicing an excerpt out of RAW text and only
-    # redacting the slice afterwards lets a cut that lands inside a
-    # secret, a URL or an e-mail defeat the pattern (the fragment left in
-    # the slice no longer matches). Pack a URL, a secret username and an
-    # e-mail immediately before the symbol's own mention, so the window
-    # (idx-80:idx+200) straddles them -- with no search box, every field
-    # is forced unparsed and this is exactly the snippet path exercised.
+def test_read_instrument_specs_never_reads_an_order_tickets_fields_outside_the_panel():
+    # Case (c): a "Lot Size"/"Step"-shaped order ticket sits OUTSIDE the
+    # panel, elsewhere on the page. Scoping to the panel element's own
+    # text must mean it is never even considered, whether it comes before
+    # or after the panel in page order.
+    order_ticket = "Place Order\nSymbol ETHUSD\nLot Size\n100000\nStep\n5\n"
+    clean_panel = "ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"
+    page = _SpecFakePage(page_text=order_ticket, panels=[clean_panel])
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ETHUSD"])
+    spec = specs[0]
+    assert (spec.contract_size, spec.qty_step) == (1.0, 0.01)  # the panel's own values
+    assert spec.unparsed == []
+
+
+def test_read_instrument_specs_failed_search_with_a_stale_panel_is_never_trusted():
+    # Case (d): the search for the next symbol fails outright, but the
+    # PRIOR symbol's info panel is still open (and would otherwise parse
+    # cleanly). Must never be read as the new symbol's spec.
+    stale_btc_panel = "BTCUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.001\nVolume Step\n0.001\n"
+    page = _SpecFakePage(panels=[stale_btc_panel], fail_fill=True)
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"])
+    spec = specs[0]
+    assert spec.search_ok is False
+    assert spec.mismatch_reason == "panel_symbol_mismatch"  # the stale panel never mentions ADAUSD either
+    assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
+
+
+def test_read_instrument_specs_panel_snippet_redacts_before_capping_not_after():
+    # The #13297 leak class, straddling the snippet's length cap this
+    # time (not an idx-relative window): pack a URL, a secret username
+    # and an e-mail so they start right where the cap would otherwise cut
+    # into them if redaction ran on the slice instead of the whole text.
     url = "https://secret.example.com/verysecretpath?token=abcdefghijklmnopqrstuvwxyz0123456789"
     secret_user = "BO-SUPERSECRETUSER77"
     email = "victim@example.com"
-    text = f"{url} {secret_user} {email} ADAUSD trades here, more filler after the symbol name."
-    page = _SpecFakePage(before=text, has_search=False)
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"], secrets=(secret_user,))
+    pad = "x" * 1_900
+    mismatched_panel = f"{pad} {url} {secret_user} {email} tail filler text, no symbol match here."
+    page = _SpecFakePage(panels=[mismatched_panel])
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(
+        page, ["ADAUSD"], secrets=(secret_user,))
     spec = specs[0]
+    assert spec.mismatch_reason == "panel_symbol_mismatch"
     assert spec.raw_snippet
     assert "verysecretpath" not in spec.raw_snippet
     assert "token=abcdefghijklmnopqrstuvwxyz0123456789" not in spec.raw_snippet
@@ -456,7 +528,7 @@ def test_read_instrument_specs_redacts_the_whole_text_before_slicing_the_snippet
 
 
 def test_read_instrument_specs_preserves_symbol_order():
-    page = _SpecFakePage(before="nothing here", has_search=False)
+    page = _SpecFakePage(no_panel=True)
     specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["BTCUSD", "ETHUSD", "SOLUSD"])
     assert [s.symbol for s in specs] == ["BTCUSD", "ETHUSD", "SOLUSD"]
 
@@ -496,6 +568,18 @@ def test_redact_text_keeps_url_origin_only():
     out = redact_text("at https://app.example.com/s/ab12CD?sid=q1#f and wss://x.example/t9")
     assert "ab12CD" not in out and "sid" not in out and "t9" not in out
     assert "https://app.example.com/<path>" in out and "wss://x.example/<path>" in out
+
+
+def test_redact_text_strips_a_scheme_less_query_string():
+    # _URL_RE only matches scheme://host -- a bare "host.tld/path?sid=..."
+    # (no scheme in front) reached the public log unredacted until this
+    # was added, independent of URL/host detection.
+    out = redact_text("see host.example.com/p?sid=q1abcd&other=2 for details")
+    assert "sid=q1abcd" not in out and "other=2" not in out
+    assert "host.example.com/p?<query>" in out
+    # Normal prose without a "?key=value" shape survives untouched.
+    prose = redact_text("Contract Size 1.00, Digits 2, is that right?")
+    assert prose == "Contract Size 1.00, Digits 2, is that right?"
 
 
 def test_render_structure_is_redacted_and_carries_the_layout():
