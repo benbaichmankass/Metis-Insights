@@ -107,7 +107,8 @@ def _mini_repo(tmp_path: Path) -> Path:
         (r / sub).mkdir(parents=True)
     for f in (REPO / "research/templates").glob("*"):
         shutil.copy(f, r / "research/templates" / f.name)
-    for f in ("scripts/research/queue_replenish.py", "scripts/research/queue_grade.py"):
+    for f in ("scripts/research/queue_replenish.py", "scripts/research/queue_grade.py",
+              "scripts/ci/_dirty_tree.py"):  # the producers print the shared dirty-tree notice
         shutil.copy(REPO / f, r / f)
     (r / "config/strategies.yaml").write_text(yaml.safe_dump({"strategies": {
         "xrp_pullback_2h": {"symbols": ["XRPUSDT"], "timeframe": "2h", "execution": "live", "enabled": True}}}))

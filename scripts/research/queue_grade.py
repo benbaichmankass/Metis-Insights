@@ -389,6 +389,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--health", action="store_true", help="print the queue-health numbers as JSON")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
+    # `--verify --base` grades a COMMIT RANGE, so the verdict is about the
+    # committed tree. Say so when that is not the tree you edited
+    # (tests/test_dirty_tree_notice.py; notice only, no exit-code change).
+    sys.path.insert(0, str(_REPO / "scripts" / "ci"))
+    import _dirty_tree  # noqa: E402,PLC0415 -- path shim above
+    _dirty_tree.warn()
     if args.self_test:
         return _self_test()
     if args.health:
