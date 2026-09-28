@@ -133,6 +133,29 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # BL-20260909-UNKNOWN-STRATEGY-PRIORITY — the arbitration fallback must
+        # sit strictly BELOW every mapped priority (R1) and every enabled
+        # execution:live leg must have a DEFAULT_PRIORITIES row (R2). Until
+        # 2026-09-28 the fallback was 10 against a 0-floor, so an unmapped leg
+        # WON the per-symbol election. Wired with --strict the day the table
+        # went clean (operator "Fix both + wire guard", 2026-09-28); R3 fails
+        # any regression against the committed (empty) baseline too.
+        "name": "priority-fallback-distribution",
+        "when": {"globs": [
+            "src/runtime/intents.py",
+            "config/strategies.yaml",
+            "config/accounts.yaml",
+            "docs/claude/work/PRIORITY-FALLBACK-BASELINE.json",
+            "scripts/ci/check_priority_fallback_distribution.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py",
+             "--strict"],
+        ],
+    },
+    {
         # E42 — ONE definition of "which symbols does this account concern".
         # Five sites derived it privately; four were known and the fifth
         # (`account_ib_venue_session`) was found by this very self-test's

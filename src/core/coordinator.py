@@ -1029,12 +1029,45 @@ class Coordinator:
             except Exception:  # noqa: BLE001 — never break sizing on a probe
                 return str(getattr(acc, "exchange", "")).lower() == "breakout"
 
+        def _prop_sizing_balance_or_refuse(acc) -> float:
+            """A declared prop account's sizing basis — or a refusal.
+
+            PROP ACCOUNTS HAVE NO BROKER SOCKET BY DESIGN. Their sizing basis
+            is the operator's reported account status (the same snapshot the
+            rule-distance guard reads). Only a FRESH snapshot yields a number;
+            stale / absent / error refuse, each with a true cause.
+            Measured 2026-08-13: the old socket-shaped raise was 5 of the 7
+            lifetime rejections on trend_donchian_sol.
+
+            ⚠️ The refusal is OPERATOR-FACING (BL-20260909-PROP-SIZING-
+            REFUSAL-ON-A-STALE-BALANCE-IS-JOURNALED-BUT-NEVER-PINGED): the raise
+            lands in the `sizing_failed` branch, which pages nobody, so
+            `note_refusal` pages once per account per occurrence. It is
+            best-effort, swallows its own exceptions, and de-duplicates, so it
+            can neither strand a trade nor become a per-tick pager. On `ok` it
+            clears the refusal cadence so the next refusal after a recovery
+            pages as a fresh occurrence.
+            """
+            from src.prop.prop_balance import (
+                note_refusal, prop_sizing_balance, refusal_message)
+            state, bal, meta = prop_sizing_balance(acc.name)
+            note_refusal(state, acc.name, meta)
+            if state == "ok" and bal is not None:
+                return float(bal)
+            raise RuntimeError(refusal_message(state, acc.name, meta))
+
         def _default_balance_fetcher(acc) -> float:
-            # 1. Per-tick override stashed on pkg.meta — tests + the
-            #    bot's per-tick balance refresh use this.
+            # 1. Per-tick override stashed on pkg.meta — an explicit caller
+            #    injection (tests; no src/ writer as of 2026-09-28), honoured
+            #    for every account class exactly like the `balance_fetcher`
+            #    argument, which bypasses this function entirely.
             pkg_balances = (pkg.meta or {}).get("account_balances_usd") or {}
             if acc.name in pkg_balances:
                 return float(pkg_balances[acc.name])
+            # ⚠️ A DECLARED PROP ACCOUNT NEVER REACHES THIS FUNCTION (since
+            #    2026-09-28): the sizing site consults
+            #    `_prop_sizing_balance_or_refuse` for it instead, on every
+            #    path. See the comment there.
             # 2. Live lookup, cached at the top of this dispatch round.
             #    live_balances distinguishes three states:
             #      - acc.name NOT in dict: balance fetch was not attempted
@@ -1053,46 +1086,7 @@ class Coordinator:
                 cached = getattr(acc, "cached_balance_usd", None)
                 if cached is not None:
                     return float(cached)
-                # PROP ACCOUNTS HAVE NO BROKER SOCKET BY DESIGN. A None here is
-                # not an API failure — there is no API. Their sizing basis is
-                # the operator's reported account status (the same snapshot the
-                # rule-distance guard reads), so consult that BEFORE raising,
-                # and raise with a cause that is actually true otherwise.
-                # Measured 2026-08-13: this raise was 5 of the 7 lifetime
-                # rejections on trend_donchian_sol and is why the leg had never
-                # emitted a prop ticket.
-                if _is_prop_account_obj(acc):
-                    from src.prop.prop_balance import (
-                        note_refusal, prop_sizing_balance, refusal_message)
-                    state, bal, meta = prop_sizing_balance(acc.name)
-                    if state == "ok" and bal is not None:
-                        # Clears the refusal cadence state, so the NEXT refusal
-                        # after a recovery pages as a fresh occurrence instead
-                        # of being swallowed by the previous one's re-ping timer.
-                        note_refusal(state, acc.name, meta)
-                        return float(bal)
-                    # ⚠️ THE ONLY CHANGE HERE IS THAT THE REFUSAL IS NOW
-                    # OPERATOR-FACING. The gate is untouched: it still refuses,
-                    # still never sizes off a guess, still raises the same
-                    # message. What was missing is that the raise lands in the
-                    # `sizing_failed` branch below, which writes a journal row
-                    # and a logger line and nothing the operator ever sees —
-                    # `_emit_execution_failure_ping` is on the LATER
-                    # `execute_pkg` branch and is not reached from here. So a
-                    # funded prop account could stop trading indefinitely with
-                    # the only evidence being a journalctl line in a unit whose
-                    # journald retention is ~30 minutes
-                    # (BL-20260909-PROP-SIZING-REFUSAL-ON-A-STALE-BALANCE-IS-
-                    # JOURNALED-BUT-NEVER-PINGED).
-                    #
-                    # `note_refusal` is best-effort and swallows every one of
-                    # its own exceptions — a diagnostic must never be able to
-                    # strand a trade — and it de-duplicates to one page per
-                    # account per occurrence, so it cannot become the per-tick
-                    # pager this repo files as its own P1 bug class.
-                    note_refusal(state, acc.name, meta)
-                    raise RuntimeError(refusal_message(state, acc.name, meta))
-                # Non-prop sibling of the prop refusal above: still refuses,
+                # Non-prop sibling of the prop refusal: still refuses,
                 # still never sizes off a guess — only the message changes, and
                 # it now states what this branch actually knows instead of
                 # asserting a cause nothing tested. Full account + the live
@@ -1627,10 +1621,30 @@ class Coordinator:
             # an UnboundLocalError on exactly the failure path the row exists to
             # record. Line-order alone does not establish this; the assignment
             # has to be unconditionally REACHED.
+            # DECLARED PROP ACCOUNT → the stale-balance refusal applies on EVERY
+            # path (PI-20260921-E16-BALANCE-FETCHER-PROP-BRANCH-RARELY-REACHED;
+            # operator "Fix it", 2026-09-28). ⚠️ Until 2026-09-28 the refusal
+            # lived inside `_default_balance_fetcher`, reached only when the live
+            # lookup was attempted AND returned None AND no `cached_balance_usd`
+            # was set — and the bridge line below never called the fetcher at
+            # all, so for `breakout_1` (the one declared prop account, measured
+            # 2026-09-28 via `is_prop_account` over config/accounts.yaml) it was
+            # reached on ZERO paths: tickets emitted off a snapshot nobody had
+            # checked for freshness. Checked here, before any balance source
+            # (cached, live, fallback, a caller `balance_fetcher`, a
+            # `pkg.meta` override), so none of them can pre-empt it. Only the
+            # REFUSAL is new: a fresh snapshot leaves bridge sizing exactly as
+            # it was (0.0 basis → ruleset sentinel below); a non-bridge prop
+            # account sizes off the snapshot.
+            _is_declared_prop = _is_prop_account_obj(account)
             available_basis_kind = None
             margin_basis: dict = {}
             try:
-                balance = 0.0 if _is_prop_bridge else float(fetcher(account))
+                if _is_declared_prop:
+                    _prop_balance = _prop_sizing_balance_or_refuse(account)
+                    balance = 0.0 if _is_prop_bridge else _prop_balance
+                else:
+                    balance = float(fetcher(account))
                 # Direction-aware balance override for cash spot.
                 #
                 # Cash spot (``market_type: spot``): the account holds

@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Operator answered the manager's AskUserQuestion 2026-09-28 ~11:45Z on BL-20260909-UNKNOWN-STRATEGY-PRIORITY: 'Fix both + wire guard (Recommended)' -- 'Add the missing legs to the table, lower the fallback so any future unmapped leg loses by default, and switch on the existing CI detector. ... The priority change is checked first so it doesn't alter today's real trade choices.' Manager (session_01KAQRJxRbRwpYTkPgBjNVyQ) dispatched lane EXEC-FIX with 'landing: hold (Tier 3); the manager merges after an independent review.'",
+  "why": "arbitration priority is order-routing (Tier 3): maps the 5 unmapped execution:live legs in src/runtime/intents.py DEFAULT_PRIORITIES, lowers _UNKNOWN_STRATEGY_PRIORITY 10 -> -1, proves no per-symbol election ordering changes (tests/test_priority_fallback_election_unchanged.py), and wires check_priority_fallback_distribution.py --strict into run_guards.py"
+}

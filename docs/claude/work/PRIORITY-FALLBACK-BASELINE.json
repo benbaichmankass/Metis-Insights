@@ -1,0 +1,6 @@
+{
+  "_doc": "R3's floor for check_priority_fallback_distribution.py. Seeding is NOT a disposition: these legs are still uncovered and an uncovered leg WINS the arbitration. The seed exists so a WORSENING is detectable without redding every PR over a standing Tier-3 condition.",
+  "seeded_at": "2026-09-28",
+  "absent_legs": [],
+  "absent_legs_on_real_money": []
+}

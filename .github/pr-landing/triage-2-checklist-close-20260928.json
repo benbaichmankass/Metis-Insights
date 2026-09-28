@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs-only: closes out the TRIAGE checklist row (state, corrected counts, merged PR number) on docs/claude/work/MANAGER-CHECKLIST.json. No code, config, or live behavior touched."
+}
