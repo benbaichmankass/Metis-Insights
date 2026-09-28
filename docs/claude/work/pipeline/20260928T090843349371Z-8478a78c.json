@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "Either S1-v0 (RQ-20260928-001) or S2-exit (RQ-20260928-004) has landed a PASS -- the operator's staged path grades S3 only after S1/S2 have a component that works -- OR the manager decides to start S3 in parallel (an explicit checklist row). Check on every landing under research/results/RQ-20260928-00{1,4}/.",
+    "kind": "event"
+  },
+  "id": "PI-20260928-VNMMNBJH-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "lane R-M19 session_01SQtJGs52hkSe2xVnMmnbJh (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28); docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md",
+    "rerun": "ls research/results/RQ-20260928-001 research/results/RQ-20260928-004 2>/dev/null; ls src/units/strategies/ | grep -i 'model_as_strategy\\|model_policy'; ls research/queue/ research/queue/blocked/ | grep -c 'RQ-20260928-005'"
+  },
+  "state": "queued",
+  "what": "BUILD (M19 S3 instrument): a model-as-strategy adapter -- a strategy module under src/units/strategies/ that reads a REGISTERED model's per-closed-bar action {flat,long,short} + stop/target in ATR units and emits order packages through the SAME order_package()/monitor() contract every leg uses, so a model that proposes trades is graded by the existing harnesses (scripts/backtest_*.py via scripts/ops/build_strategy_evidence.py), net of the full cost stack, under the four-clause bar, exactly as a leg. Includes: a frozen-per-fold predictor (the model is fixed before each walk-forward fold as a leg's params are), triple-barrier labelling done by the HARNESS not the model, a --self-test with a planted always-flat model (must score net 0 R, the zero-trade baseline) and a planted oracle model (must score > 0). Nothing here reaches config/accounts.yaml or strategies.yaml -- wiring a live leg is new-strategy skill + Tier-3. Design and the registered S3 rule shape: docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md § 4 'S3'. Without this instrument S3 cannot be queued (research/queue/README.md § blocked/: a question whose instrument does not exist is not a job), and grading S3 any other way repeats the post-mortem's Cause 1 (a proxy label graded by f1)."
+}

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "research/results/RQ-20260928-001/*.jsonl exists on main. Then the same day: both blocked units either moved, or their blocked_on updated to name what is still missing, or killed with terminal_reason.",
+    "kind": "event"
+  },
+  "id": "PI-20260928-VNMMNBJH-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane R-M19 session_01SQtJGs52hkSe2xVnMmnbJh (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28); docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md",
+    "rerun": "ls research/results/RQ-20260928-001/ 2>/dev/null; ls research/queue/blocked/ | grep 'RQ-20260928-00[23]'; grep -l 'RQ-20260928-001' research/queue/*.yaml research/queue/blocked/*.yaml"
+  },
+  "state": "queued",
+  "what": "FOLLOW-THROUGH (M19 staged path): when research/results/RQ-20260928-001/ lands a row, apply its registered rule (RULE-RQ0928-001-WITHIN-CELL-VETO-V0) to the two units waiting in research/queue/blocked/: RQ-20260928-002 (S1 market-state; runs on EVERY branch of 001, its arm-(1) reference is 001's veto_delta_r) and RQ-20260928-003 (S2-sizing; unblocks ONLY on a PASS, otherwise stays blocked until 002 lands, and is KILLED with a stated terminal_reason only on 002's two-null exhaustion branch). Promote = git mv into research/queue/ + fill run.workflow/lands.store; kill = status retired with the reason. Also record 001's disposition with scripts/research/research_disposition.py --record (never a hand-rolled ledger write). research/queue/README.md § blocked/ says keeping the waiting room from becoming a graveyard is not yet mechanical; this row is the clock for these two."
+}

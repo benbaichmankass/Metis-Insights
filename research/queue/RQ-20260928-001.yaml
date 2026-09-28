@@ -1,0 +1,171 @@
+id: RQ-20260928-001
+title: M19 S1-v0 — does anything the harness knows at entry carry WITHIN-CELL veto information on the costed trade corpus?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Every one of the 13 retired M19 manifests predicted a price-derived proxy
+  label (volatility regime, direction) and was graded on macro_f1; none was
+  ever graded on the net-of-cost R of a trade decision, and both later
+  trade-selection attempts (T1.3 ranker, M23 meta-label) found only a
+  BETWEEN-cell base-rate signal ("this leg bleeds") that the roster already
+  answers. Post-mortem: docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md
+  § 2. This unit asks the smallest falsifiable version of "a meta-model on top
+  of the strategies": using ONLY fields already on each costed harness trade at
+  entry_time (the strategy's own confidence, stop distance %, direction, hour,
+  day-of-week, and the cell's TRAILING expectancy over trades that had already
+  exited), does a walk-forward model that vetoes the lowest-scored 25 % of a
+  leg's signals raise the WITHIN-CELL-demeaned net_r of what is kept, out of
+  sample, beyond a permutation null and beyond a confidence-only veto?
+
+why_this_matters: >-
+  Operator goal 2026-07-01 / 2026-09-28: an independent AI trader. Stage S1 of
+  the staged path in the post-mortem is a meta-model that selects or vetoes
+  existing strategy signals; S1-v0 is its data-plumbing-free first pass. If
+  nothing on the row carries within-cell information the market-state features
+  of S1 (blocked/RQ-20260928-002) are the only lever left before the veto line
+  is exhausted; if the confidence-only veto alone is significant, the
+  strategies already emit the veto and S1 must beat THAT. Either branch is a
+  decision, registered below. The corpus is the one this repo now has that is
+  net of fee + slippage + funding, config-exact and committed
+  (comms/strategy_evidence/runs/*/<leg>__trades.jsonl, D1 substance verified
+  2026-09-25 in docs/research/d1-cost-stack-verification-2026-09-25.md).
+
+power:
+  expected_n: 460
+  min_detectable_effect: 0.20
+  effect_units: sd
+  design: two_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Two-sample comparison of within-cell-demeaned net_r between the VETOED
+    group and the KEPT group, pooled over the out-of-sample folds. Floor =
+    2 * (1.96 + 0.8416)^2 / 0.20^2 = 392.4 (the two_sample doubling). d = 0.20
+    sd is the smallest veto worth having: on this corpus a per-trade sd of net_r
+    of ~1 R means a vetoed group averaging 0.2 R worse than the kept group,
+    which at a 25 % veto is ~0.05 R/trade of expectancy on the whole book.
+    expected_n = 460 is MEASURED, not assumed: `python3
+    scripts/research/meta_veto_walkforward.py --census` this session (repo HEAD
+    of this branch) reports 49 legs, 3,065 readable rows (27 fade_breakout_4h
+    rows carry no exit_time and are excluded, stated), 1,839 OOS rows after
+    the 40 % warm-up, and expected_vetoed_at_veto_frac 460. 460 >= 392.4 for
+    the smaller group; the kept group (1,379) clears trivially. Clears by 67.6.
+    NOT cleared at d = 0.15 (floor 697.7) — a smaller effect than 0.2 sd is
+    below this unit's power and the rule below says so rather than reading a
+    null there as "no information".
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Declared `source: none` for the same reason RQ-20260927-001 did: the n
+      above is MEASURED from committed files (comms/strategy_evidence/*.json
+      -> each record's own source_run -> the trades file beside it), not from
+      one of research_disposition.CORPORA's three registered corpora (e35,
+      m20, gld_compat), and the evidence records are one JSON per leg, not a
+      JSONL corpus those keys can point at. n is fixed by history (the
+      2026-09-2x evidence runs, 365-day windows), not accruing — this is a
+      one-shot historical walk-forward, not a live soak.
+
+decision_rule:
+  id: RULE-RQ0928-001-WITHIN-CELL-VETO-V0
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    veto_delta_r = mean(within-cell-demeaned net_r of KEPT OOS trades) -
+    mean(within-cell-demeaned net_r of ALL OOS trades), where KEPT = the trades
+    NOT in the lowest 25 % of model scores within each OOS fold, and demeaning
+    subtracts each cell's (evidence-record leg) mean net_r over the OOS
+    population — an evaluation-time normalisation applied identically to every
+    comparator, so between-cell base rate contributes exactly zero. Model:
+    standardized logistic regression on won = 1[net_r > 0] over the nine
+    decision-time features listed in scripts/research/meta_veto_walkforward.py
+    FEATURES, fit per fold on trades whose exit_time <= fold start - 7 days
+    (purge + embargo), 40 % warm-up then 5 contiguous OOS blocks by
+    entry_time. Comparators computed on the SAME folds and demeaned values:
+    (a) confidence-only veto (same 25 %), (b) perm_p = P(random 25 % veto per
+    fold has veto_delta_r >= observed) over 500 seeded permutations.
+    folds_positive = OOS folds where the model veto's delta > 0. All net_r
+    values are net of fee + slippage + funding as recorded by the harness
+    (cost_fee_r / cost_slippage_r / cost_funding_r on each row) — net of the
+    full cost stack by construction, not by a separate cost step.
+  rule: >-
+    IF veto_delta_r > 0 AND perm_p < 0.05 AND folds_positive >= 3 of the
+    scored folds: PASS — decision-time fields already carry within-cell veto
+    information. Consequence: blocked/RQ-20260928-003 (S2-sizing) clears its
+    blocked_on(a) and S1 (blocked/RQ-20260928-002) becomes the next run, with
+    THIS unit's veto_delta_r as the floor S1 must beat.
+    IF the model veto is NOT significant (perm_p >= 0.05) BUT the
+    confidence-only veto is (its perm_p < 0.05 and its veto_delta_r > 0):
+    REFINE — the strategies' own confidence IS the veto; S1 is re-scoped to
+    "does market state add to confidence" and the confidence-only veto becomes
+    S1's baseline instead of take-all. Record verdict `indeterminate` with
+    this branch named in the note.
+    IF neither veto is significant: FAIL-BUT-CONTINUE — record verdict `fail`
+    with note "S1-v0 null; market state (RQ-20260928-002) is the last stated
+    lever before the veto line is exhausted". S1 still runs once. The veto
+    line is killed ONLY if S1 is also null at its declared power (the
+    exhaustion condition in the post-mortem § 4). Never on this unit alone.
+    IF n_oos < 393 at run time (population changed — e.g. evidence records
+    re-generated over a shorter window) or read_state != measured: record
+    read_state as reported (no_data / producer_failed) and verdict
+    not_applicable; never lower the floor to manufacture a verdict.
+  what_it_does_not_do: >-
+    Changes no manifest, config, roster, gate, registry entry or order path.
+    A PASS promotes nothing and sizes nothing — it authorises the NEXT queued
+    question. It does not grade any leg (that is the evidence records' job and
+    R2/D2's decision). It does not un-retire any of the 13 manifests. The
+    fitted model is a scratch object inside one run; nothing is served.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 10
+  basis: >-
+    Every input is committed in the repo (comms/strategy_evidence/**) and the
+    harness is stdlib-only (no numpy/lightgbm), so any GitHub runner or the
+    trainer can run it; --self-test completes in ~7 s locally, the full
+    3,065-row run with 500 permutations is estimated under 10 min on one core.
+
+run:
+  workflow: 'trainer-vm-diag (manual issue dispatch — one-off historical walk-forward over committed data; see note)'
+  inputs:
+    cmd: >-
+      cd /home/ubuntu/ict-trading-bot && git fetch origin main && git checkout
+      origin/main -- scripts/research/meta_veto_walkforward.py
+      comms/strategy_evidence && python3 scripts/research/meta_veto_walkforward.py
+      --folds 5 --train-frac 0.4 --embargo-days 7 --veto-frac 0.25 --perms 500
+      --seed 42 --json /tmp/rq-20260928-001.json && cat /tmp/rq-20260928-001.json
+    research_unit: RQ-20260928-001
+  note: >-
+    Dispatched the way RQ-20260927-001 was (label trainer-vm-diag-request, the
+    `cmd:` line above), because no workflow_dispatch takes an arbitrary
+    committed research script and adding one for a one-shot question is scope
+    creep this unit does not need. The result row is then written with
+    scripts/research/research_result.py --emit --research-unit RQ-20260928-001
+    --decision-rule-id RULE-RQ0928-001-WITHIN-CELL-VETO-V0 --verdict <per rule>
+    --read-state <as reported> --population "OOS costed harness trades, 49
+    legs, 2026-09 evidence runs" --n <n_oos> --tool
+    scripts/research/meta_veto_walkforward.py --measurement-file
+    /tmp/rq-20260928-001.json, and committed under research/results/RQ-20260928-001/.
+    Do NOT run the statistic before this unit is on main: --census is the only
+    mode that may run pre-registration, and it computes no statistic.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+  note: >-
+    research/results/RQ-20260928-001/<run_id_or_manual-tag>.jsonl via
+    scripts/research/research_result.py (E5 contract, checked by
+    scripts/ci/check_research_results.py).
+
+related:
+  - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (the post-mortem this rule is written against; § 4 S1-v0)
+  - blocked/RQ-20260928-002 (S1 — market-state features; this unit's veto_delta_r is its floor)
+  - blocked/RQ-20260928-003 (S2-sizing; blocked on this unit's PASS)
+  - RQ-20260928-004 (S2-exit; independent of this unit)
+  - PI-20260928-VNMMNBJH-0001 (harness extension build item for S1 / S2-sizing)
+  - PI-20260928-VNMMNBJH-0003 (follow-through: promote or kill the two blocked units when this lands)
+last_dispatched_at: null

@@ -1,0 +1,131 @@
+id: RQ-20260928-002
+title: M19 S1 — does decision-time MARKET STATE add within-cell veto information beyond what is already on the trade row?
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  S1-v0 (RQ-20260928-001) tests the fields already on each costed harness
+  trade. S1 adds the as-of market state at entry_time — returns over 1/4/12
+  bars, realized-vol percentile, ADX, distance to the 20/50-bar range, funding
+  rate where the venue has one, and the advisory regime head's
+  predict_proba(row)["volatile"] where a symbol has one — and asks whether a
+  walk-forward veto model on the joint feature set raises the within-cell
+  demeaned net_r of kept trades beyond (a) the permutation null AND (b) the
+  S1-v0 model's own veto_delta_r on the same folds. Post-mortem § 4 "S1".
+
+why_this_matters: >-
+  The 13 retired M19 manifests all tried to read market state and predicted
+  the wrong thing with it (a volatility proxy). This is the same information
+  pointed at a trade decision and graded on net-of-cost R within cell. It is
+  also the LAST stated lever of the veto line: if S1-v0 is null and S1 is null
+  at declared power, the veto line is exhausted (post-mortem § 4, exhaustion
+  condition). Until both have run, a kill is not available.
+
+power:
+  expected_n: 460
+  min_detectable_effect: 0.20
+  effect_units: sd
+  design: two_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Identical design and population to RQ-20260928-001 (same 1,839 OOS rows,
+    same 25 % veto -> vetoed group 460 vs floor 392.4). The comparison against
+    S1-v0's veto_delta_r is a paired difference on the same trades and needs
+    no separate floor; the significance test is the permutation null. A
+    candle join can only REDUCE the population (a trade whose entry bar is not
+    in the candle file is dropped, stated in the census), so the run must
+    re-report n_oos and the rule's n branch applies.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      As RQ-20260928-001: n measured from committed evidence runs, fixed by
+      history, not one of the registered JSONL corpora. Blocked on an
+      instrument (below) before any run exists.
+
+decision_rule:
+  id: RULE-RQ0928-002-WITHIN-CELL-VETO-MARKET-STATE
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    veto_delta_r as defined in RQ-20260928-001 (within-cell-demeaned net_r of
+    kept minus all, 25 % veto per OOS fold, purge + 7-day embargo, 5 OOS
+    blocks after a 40 % warm-up), computed for THREE arms on identical folds
+    and demeaned values: (1) row-only features (S1-v0's set, re-fit here so
+    the comparison is same-run), (2) row + market-state features, (3)
+    confidence-only. perm_p from 500 random vetoes. paired_gain =
+    veto_delta_r(2) - veto_delta_r(1). The advisory-head probability feature
+    is included only for symbols that actually have an advisory regime head
+    (checked via ml_vol_regime_for_symbol at build time; others carry the
+    feature as missing, never as 0.0 — a collapsed state).
+  rule: >-
+    IF veto_delta_r(2) > 0 AND perm_p(2) < 0.05 AND paired_gain > 0 in >= 3
+    of the scored folds: PASS — market state adds within-cell veto
+    information; S1 is the meta-model S2 sizes on, and S2-sizing
+    (RQ-20260928-003) uses arm (2)'s score.
+    IF veto_delta_r(2) is significant BUT paired_gain <= 0 or positive in < 3
+    folds: REFINE — market state does not add to the row; keep S1-v0's model
+    as S1 (simpler, no candle dependency) and record `indeterminate` with
+    that disposition.
+    IF veto_delta_r(2) is NOT significant AND RQ-20260928-001 was also null:
+    FAIL — the veto line is EXHAUSTED on the current corpus (both stated
+    levers null at declared power). Record `fail`; S2-sizing stays blocked
+    and is killed with terminal_reason "S1 line exhausted 2026-xx-xx"; the
+    AI-trader path proceeds on S2-exit and S3 only. This is the ONLY branch
+    in the S1 family that kills, and it needs two nulls.
+    IF veto_delta_r(2) is NOT significant BUT RQ-20260928-001 PASSED: record
+    `indeterminate` — S1-v0 stands as S1; market state neither helped nor
+    hurt at this power.
+    IF n_oos < 393 after the candle join or read_state != measured: record as
+    reported, verdict not_applicable; never lower the floor.
+  what_it_does_not_do: >-
+    As RQ-20260928-001: no config, roster, gate, registry or order-path
+    change; grades no leg; promotes nothing.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 30
+  basis: >-
+    The candle corpus for the as-of join lives on the trainer
+    (datasets-out/market_raw, nightly) and the advisory regime heads'
+    artifacts are trainer-resident; the per-trade rows are committed. Hence
+    trainer.
+
+blocked_on:
+  - what: >-
+      scripts/research/meta_veto_walkforward.py has no candle join: its
+      feature set is exactly the fields on the committed trade row. It needs
+      `--candles-dir` (resolved through scripts/ops/backtest_data_source.py
+      resolve_or_refuse, never an implicit default), an as-of join at
+      entry_time producing the market-state block above, a `--arms` switch so
+      arms (1)-(3) are computed in one run on identical folds, and an optional
+      advisory-head probability column that reads predict_proba(row)["volatile"]
+      (regime-selectivity skill Rule 3 — the probability, not max(proba)) or
+      records `missing`.
+    ref: PI-20260928-VNMMNBJH-0001
+    clears_when: >-
+      PI-20260928-VNMMNBJH-0001 lands (the harness extension merged on main
+      with its --self-test extended by a planted market-state positive), AND
+      RQ-20260928-001 has landed a result (its veto_delta_r is this unit's
+      arm-(1) reference). Then `git mv` this file into research/queue/, set
+      run.workflow to the trainer-vm-diag one-off (same shape as
+      RQ-20260928-001) and lands.store to research/results/.
+
+run:
+  workflow: null
+  note: Null — instrument missing; see blocked_on. Same reasoning as RQ-20260922-001 and RQ-20260927-006.
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S1)
+  - RQ-20260928-001 (S1-v0, the arm-(1) reference and the first half of the exhaustion condition)
+  - blocked/RQ-20260928-003 (S2-sizing, consumes arm (2)'s score)
+  - PI-20260928-VNMMNBJH-0001 (the build item this is blocked on)
+last_dispatched_at: null

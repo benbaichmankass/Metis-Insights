@@ -399,6 +399,8 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/bracket_reachability_audit.py", "--selftest"],
             # C2 — the dukascopy-span-probe.yml -> research-result mapper.
             ["python3", "scripts/research/dukascopy_span_probe_result.py", "--self-test"],
+            # R-M19 (2026-09-28) -- the S1-v0 within-cell veto harness; planted positive + null + base-rate-only control.
+            ["python3", "scripts/research/meta_veto_walkforward.py", "--self-test"],
             ["python3", "-m", "pytest", "tests/test_check_research_index.py", "-q"],
         ],
     },

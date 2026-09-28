@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier-1 by every path, but the diff adds FOUR new research/queue units (RQ-20260928-001, -004 and blocked/-002, -003), and check_pr_landing.py deliberately keeps research/queue/** off TIER1_SURFACE: a pre-registered decision rule that could be written and self-landed in one act would not be pre-registered (STAMP_ONLY_SURFACE comment). R5 therefore refuses self-land and says: set landing hold and let a human read it. Same route the R4 ten-unit PR took (.github/pr-landing/c5-r4-ten-research-questions.json). The manager merges; nothing here waits on the operator.",
+  "why": "R-M19 research lane (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28). Adds ONE doc under docs/research/ (the post-mortem of the 13 retired M19 manifests + the staged S1/S2/S3 path), ONE stdlib-only offline research script (scripts/research/meta_veto_walkforward.py, --self-test wired into research-tooling-selftests, reads committed comms/strategy_evidence per-trade rows, writes nothing), FOUR pre-registered research/queue units (two dispatchable, two in blocked/), THREE pipeline records under docs/claude/work/pipeline/, one DOCUMENT-INDEX row, one RESEARCH-CAPABILITY-INDEX row, and this branch's landing + merge-slot files. No src/, config/, order path, risk, roster, account mode, registry or VM change. No training run was started."
+}
