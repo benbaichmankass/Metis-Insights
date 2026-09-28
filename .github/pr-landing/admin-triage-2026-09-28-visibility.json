@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Visibility-only: Telegram /accounts_status gross-exposure display (reads the existing RiskManager.report()['exposure'] block; no new risk computation, no cap enforced) and M20 tp_geometry_reachability.py vwap/turtle_soup grading (Tier-1 research tooling; no strategy-logic or order-path change). Pipeline records updated to reflect disposition. Tests added and passing."
+}

@@ -341,3 +341,19 @@ def test_accounts_view_data_maps_fields():
     assert out[0]["dry_run"] is True
     assert out[0]["balance"] == 100.0
     assert out[0]["pnl_24h"] == -5.0
+
+
+def test_accounts_view_data_passes_through_exposure_block():
+    """BL-20260808: the exposure block RiskManager.report() already emits
+    must survive the accounts_status() -> view-data mapping unchanged, so
+    menu.render_accounts_view can display it."""
+    exposure = {
+        "measured": True, "policy_declared": False,
+        "open_gross_notional": 2500.0, "exposure_multiple": 0.25,
+    }
+    out = bot._accounts_view_data([
+        {"name": "a1", "exchange": "bybit", "exposure": exposure},
+        {"name": "a2", "exchange": "bybit"},  # no exposure key at all
+    ])
+    assert out[0]["exposure"] == exposure
+    assert out[1]["exposure"] is None
