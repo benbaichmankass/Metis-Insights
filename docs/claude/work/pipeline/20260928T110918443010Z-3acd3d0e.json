@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The documented reinforcement rule matches what the code actually discriminates on, and the conviction-arbitration soak either measures a real qty or stops claiming to.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260810-INTENT-TARGET-QTY-ALWAYS-ZERO-TWO-CONSEQUENCES'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read src/runtime/intents.py: target_qty is still hard-coded 0.0 on the live directional path (lines ~866/894), and the module's own comments (line ~1345) state plainly 'target_qty is 0.0 for EVERY directional intent on the live path.' The doc/code mismatch and the soak's unmeasurable-sizing claim are both still live facts.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane — align the reinforcement-rule documentation with the sentinel reality and stop the conviction-arbitration soak from claiming to measure a sizing quantity it cannot see; this is a doc/instrumentation fix, not a live-behavior change, so no operator judgment is required to do the alignment itself (a separate design question — should target_qty carry real size pre-election — can be raised afterward if the fix surfaces it).",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] StrategyIntent.target_qty is ALWAYS 0.0 in production — which makes the documented 'max target_qty wins' reinforcement rule INERT, and makes the conviction-arbitration soak's sizing half structurally unmeasurable where it sits\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane — align the reinforcement-rule documentation with the sentinel reality and stop the conviction-arbitration soak from claiming to measure a sizing quantity it cannot see; this is a doc/instrumentation fix, not a live-behavior change, so no operator judgment is required to do the alignment itself (a separate design question — should target_qty carry real size pre-election — can be raised afterward if the fix surfaces it)."
+}
