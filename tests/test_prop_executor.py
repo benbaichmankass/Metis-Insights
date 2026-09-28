@@ -596,7 +596,8 @@ TICKET_PAGE = """
 <div class="chart"><button>Sell 119.9</button><button>120.0 Buy</button></div>
 <button onclick="document.getElementById('ticket').style.display='block'">New Order</button>
 <script>
-function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=>x.removeAttribute('aria-pressed'));b.setAttribute('aria-pressed','true')}
+function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=>x.removeAttribute('aria-pressed'));b.setAttribute('aria-pressed','true');
+  if(b.dataset.g==='side'){document.getElementById('sub').textContent='Place '+b.textContent+' Order'}}
 </script>
 <div id="ticket" style="display:none">
   <div class="hdr">SOLUSD</div>
@@ -606,8 +607,9 @@ function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=
   <div><span>Price</span><input id="px"></div>
   <div><label><input type="checkbox" id="slc" onclick="document.getElementById('sl').disabled=!this.checked">Stop Loss</label>
        <input id="sl" aria-label="Stop Loss price" disabled></div>
-  <div><span>Take Profit</span><input id="tp"></div>
-  <button onclick="window.__submits=(window.__submits||0)+1">Place Order</button>
+  <div><label><input type="checkbox" id="tpc" onclick="document.getElementById('tp').disabled=!this.checked">Take Profit</label>
+       <input id="tp" aria-label="Take Profit price" disabled></div>
+  <button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>
   <button onclick="document.getElementById('ticket').style.display='none'">Cancel</button>
 </div>
 </body></html>
@@ -786,9 +788,9 @@ def test_place_bracket_refuses_on_read_back_mismatch(tpage):
 
 
 def test_place_bracket_refuses_ambiguous_fields(tpage):
-    html = (TICKET_PAGE % "").replace('<div><span>Take Profit</span><input id="tp"></div>',
-                                      '<div><span>Take Profit</span><input id="tp"></div>'
-                                      '<div><span>Take Profit</span><input id="tp2"></div>')
+    dup = '<input id="tp" aria-label="Take Profit price" disabled></div>'
+    assert dup in TICKET_PAGE
+    html = (TICKET_PAGE % "").replace(dup, dup + '<div><span>Take Profit</span><input id="tp2"></div>')
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(tpage(html=html), SOL, arm=True)
     assert att.stage == "refused" and "ambiguous" in att.detail
 
@@ -1148,3 +1150,105 @@ def test_ticket_panel_dump_falls_back_to_the_control_map(tpage):
     p = tpage(html="<div><button>Trade</button></div>")
     probe = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
     assert "ticket_panel" not in probe and probe["ticket_panel_why"] and probe["controls_dump"]["found"]
+
+
+# The live sidebar's shape (probe #13760): SL / TP behind div[data-value]
+# toggles that start "false", a "Price" mode button beside each, and a short
+# scrollable panel whose submit sits below the fold once the brackets are on.
+LIVE_SIDEBAR = """
+<html><body style="margin:0">
+<script>
+function sel(b){document.querySelectorAll('[data-g='+b.dataset.g+']').forEach(x=>x.removeAttribute('aria-pressed'));
+  b.setAttribute('aria-pressed','true');
+  if(b.dataset.g==='side'){document.getElementById('sub').textContent=b.textContent+' SOLUSD'}}
+function tog(d){ if(!d.hasAttribute('data-stuck')) d.setAttribute('data-value', d.getAttribute('data-value')==='true'?'false':'true') }
+</script>
+<div id="panel" style="height:260px;overflow-y:auto;width:320px">
+  <div class="hdr">SOLUSD</div>
+  <button data-g="type" onclick="sel(this)">Market</button><button data-g="type" onclick="sel(this)">Limit</button>
+  <button data-test-id="SELL" data-g="side" onclick="sel(this)">Sell</button>
+  <button data-test-id="BUY" data-g="side" onclick="sel(this)">Buy</button>
+  <div><span>Quantity</span><input id="q"></div>
+  <div><span>Price</span><input id="px"></div>
+  <div><span>Stop Loss</span><div id="slt" data-value="false" onclick="tog(this)" style="width:26px;height:16px"></div>
+       <input id="sl"><button>%SLMODE%</button></div>
+  <div><span>Take Profit</span><div id="tpt" data-value="false" onclick="tog(this)" style="width:26px;height:16px"></div>
+       <input id="tp"><button>Price</button></div>
+  <div style="height:400px"></div>
+  %SUBMIT%
+</div>
+</body></html>
+"""
+SUBMIT_BTN = '<button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>'
+
+
+def _live(slmode="Price", submit=SUBMIT_BTN, extra=""):
+    return LIVE_SIDEBAR.replace("%SLMODE%", slmode).replace("%SUBMIT%", submit) + extra
+
+
+def test_live_shape_switches_both_toggles_on_scrolls_to_submit_and_verifies(tpage):
+    p = tpage(html=_live())
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("document.getElementById('slt').dataset.value") == "true"
+    assert p.evaluate("document.getElementById('tpt').dataset.value") == "true"
+    assert att.form["submit"]["scrolled"] is True and att.form["submit"]["text"] == "Buy SOLUSD"
+    assert p.evaluate("window.__submits") is None
+
+
+def test_live_shape_armed_clicks_the_scrolled_submit_once(tpage):
+    p = tpage(html=_live())
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.submitted is True and p.evaluate("window.__submits") == 1, att.detail
+
+
+def test_a_toggle_left_off_refuses_never_submits_naked(tpage):
+    p = tpage(html=_live().replace('id="tpt" data-value="false"', 'id="tpt" data-value="false" data-stuck="1"'))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "take_profit: enabling toggle is OFF" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_bracket_mode_other_than_price_refuses(tpage):
+    p = tpage(html=_live(slmode="Pips"))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "stop_loss: entry mode is 'Pips'" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_virtualised_submit_is_found_by_scrolling_the_panel(tpage):
+    # The submit is rendered only once the panel is scrolled near its end.
+    lazy = ("<script>document.getElementById('panel').addEventListener('scroll', e => {"
+            " const p = e.target; if (p.scrollTop + p.clientHeight > p.scrollHeight - 120 && !document.getElementById('sub')) {"
+            " p.insertAdjacentHTML('beforeend', " + json.dumps(SUBMIT_BTN) + "); } });</script>")
+    p = tpage(html=_live(submit="") + lazy)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL)
+    assert att.stage == "form_verified", att.detail
+
+
+def test_a_field_changed_by_scrolling_refuses(tpage):
+    # A panel that rewrites the quantity when scrolled: the post-scroll read-back must catch it.
+    evil = ("<script>document.getElementById('panel').addEventListener('scroll', () => {"
+            " document.getElementById('q').value = '9'; });</script>")
+    p = tpage(html=_live() + evil)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "read-back after scrolling to submit" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_submit_that_does_not_name_the_side_refuses(tpage):
+    p = tpage(html=_live().replace("b.textContent+' SOLUSD'", "'Place Order'"))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.stage == "refused" and "does not name the intended side" in att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_verify_bracket_legs_pure():
+    import src.prop.platform.dxtrade as pe_dx
+    on = [{"field": "stop_loss", "checked": True}, {"field": "take_profit", "checked": True}]
+    f = {"toggle_candidates": 2, "checkboxes": on, "fields": {"stop_loss": {"mode": "Price"}, "take_profit": {"mode": "Price"}}}
+    assert pe_dx.verify_bracket_legs(f) == []
+    assert pe_dx.verify_bracket_legs({**f, "checkboxes": on[:1]}) == ["take_profit: 0 enabling toggles found (need exactly 1)"]
+    assert pe_dx.verify_bracket_legs({"fields": {}}) == []            # a form with no toggles at all
+    assert pe_dx.verify_bracket_legs({**f, "fields": {"stop_loss": {"mode": "Price"}, "take_profit": {}}}) \
+        == ["take_profit: entry mode is None, need 'Price'"]

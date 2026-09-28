@@ -74,7 +74,7 @@ import json
 import math
 import re
 import time
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
 from src.prop.platform.base import (
@@ -980,13 +980,30 @@ ORDER_FORM_JS = r"""
     if (m.length === 1) { m[0].setAttribute('data-metis-btn', k); out.buttons[k] = txt(m[0]) || m[0].getAttribute('aria-label') || ''; }
     else if (m.length > 1) out.ambiguous.push('btn:' + k);
   }
-  for (const cb of form.querySelectorAll('input[type=checkbox], [role=checkbox], [role=switch]')) {
+  // SL / TP enabling switches: a checkbox / switch role, or (MEASURED on the
+  // live sidebar, probe #13760) a div whose data-value reads "true"/"false".
+  const toggleSel = 'input[type=checkbox], [role=checkbox], [role=switch], [data-value="true"], [data-value="false"]';
+  out.toggle_candidates = form.querySelectorAll(toggleSel).length;
+  for (const cb of form.querySelectorAll(toggleSel)) {
     const lab = labelOf(cb);
     for (const k of ['stop_loss', 'take_profit']) {
       if (FP[k].test(lab)) {
         cb.setAttribute('data-metis-field', k + '_toggle');
-        out.checkboxes.push({field: k, checked: !!(cb.checked || cb.getAttribute('aria-checked') === 'true')});
+        out.checkboxes.push({field: k, checked: !!(cb.checked || cb.getAttribute('aria-checked') === 'true'
+                                                  || cb.getAttribute('data-value') === 'true')});
       }
+    }
+  }
+  // Each bracket leg's entry MODE (the live sidebar shows a "Price" dropdown
+  // beside each SL / TP input): the one mode-like button near the input.
+  for (const k of ['stop_loss', 'take_profit']) {
+    const inp = form.querySelector('[data-metis-field=' + k + ']');
+    if (!inp || !out.fields[k]) continue;
+    for (let e = inp.parentElement, i = 0; e && e !== form && i < 3; e = e.parentElement, i++) {
+      const m = [...e.querySelectorAll('button, [role=button]')].filter(b =>
+        /^(price|pips?|points?|ticks?|%|percent|amount|usd|\$)$/i.test(txt(b)));
+      if (m.length === 1) { out.fields[k].mode = txt(m[0]); break; }
+      if (m.length > 1) { out.fields[k].mode = 'ambiguous'; break; }
     }
   }
   // Which side / order-type control the form shows as SELECTED, read back
@@ -1209,6 +1226,53 @@ TICKET_PANEL_DUMP_JS = r"""
 }
 """
 
+# The ticket's submit control, which on the live sidebar can sit BELOW THE FOLD
+# once the SL / TP rows are switched on (operator 2026-09-28 ~19:55Z). Ops:
+#  "scroll_step": scroll the form's own scroll container (never the page or
+#                 the chart) down by ~80% of its height; returns whether it moved.
+#  "mark":        tag the current [data-metis-btn=submit] with a one-time token
+#                 and bring it to the centre of its scroll container.
+#  "check":       is the element carrying the submit tag the SAME (token) one,
+#                 visible at its centre point, enabled; and its text.
+# Clicks nothing.
+SUBMIT_JS = r"""
+(args) => {
+  const [op, token] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const form = document.querySelector('[data-metis-form]');
+  if (!form) return {ok: false, why: 'no tagged form'};
+  if (op === 'scroll_step') {
+    let sc = null;
+    for (let e = form; e && e !== document.body; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (e.scrollHeight > e.clientHeight + 1 && /(auto|scroll)/.test(cs.overflowY)) { sc = e; break; }
+    }
+    if (!sc) return {ok: true, moved: false, why: 'no scrollable container'};
+    const before = sc.scrollTop;
+    sc.scrollTop = before + Math.max(40, Math.floor(sc.clientHeight * 0.8));
+    return {ok: true, moved: sc.scrollTop !== before, top: sc.scrollTop, max: sc.scrollHeight - sc.clientHeight};
+  }
+  const btn = document.querySelector('[data-metis-btn=submit]');
+  if (!btn) return {ok: false, why: 'no tagged submit'};
+  if (op === 'mark') {
+    document.querySelectorAll('[data-metis-submit-token]').forEach(e => e.removeAttribute('data-metis-submit-token'));
+    btn.setAttribute('data-metis-submit-token', token);
+    const r0 = btn.getBoundingClientRect();
+    btn.scrollIntoView({block: 'center', inline: 'nearest'});
+    const r1 = btn.getBoundingClientRect();
+    return {ok: true, scrolled: Math.round(r0.top) !== Math.round(r1.top), text: txt(btn)};
+  }
+  const r = btn.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const inView = r.width > 0 && r.height > 0 && cx >= 0 && cy >= 0 && cx <= window.innerWidth && cy <= window.innerHeight;
+  const hit = inView ? document.elementFromPoint(cx, cy) : null;
+  return {ok: true, same: btn.getAttribute('data-metis-submit-token') === token,
+          visible: !!(hit && (hit === btn || btn.contains(hit))),
+          enabled: !(btn.disabled || btn.getAttribute('aria-disabled') === 'true'),
+          text: txt(btn)};
+}
+"""
+
 # Finds ONE row of the orders or positions table by an exact key cell and ONE
 # control in it by an anchored pattern (text, aria-label or title), and tags
 # that control data-metis-row-action. Never clicks.
@@ -1313,6 +1377,30 @@ def verify_form_selection(form: Mapping[str, Any], side: str, order_type: str) -
             bad.append(f"{k}: not readable back")
         elif got != v:
             bad.append(f"{k}: chose {v}, form shows {got}")
+    return bad
+
+
+def verify_bracket_legs(form: Mapping[str, Any]) -> List[str]:
+    """Pure: both bracket legs are ARMED in the form. A leg whose enabling
+    toggle is off would submit a NAKED order, the worst outcome here, so:
+    when the form has any toggle-like control, each of SL and TP must have
+    exactly one toggle and it must read on; when a leg shows an entry mode
+    (the live sidebar's "Price" dropdown), both legs must read "Price"."""
+    bad: List[str] = []
+    toggles = form.get("checkboxes") or []
+    fields = form.get("fields") or {}
+    for leg in ("stop_loss", "take_profit"):
+        mine = [t for t in toggles if t.get("field") == leg]
+        if (form.get("toggle_candidates") or 0) > 0 or mine:
+            if len(mine) != 1:
+                bad.append(f"{leg}: {len(mine)} enabling toggles found (need exactly 1)")
+            elif not mine[0].get("checked"):
+                bad.append(f"{leg}: enabling toggle is OFF (would submit without the {leg})")
+    modes = {leg: (fields.get(leg) or {}).get("mode") for leg in ("stop_loss", "take_profit")}
+    if any(m is not None for m in modes.values()):
+        for leg, m in modes.items():
+            if str(m or "").strip().lower() != "price":
+                bad.append(f"{leg}: entry mode is {m!r}, need 'Price'")
     return bad
 
 
@@ -1841,7 +1929,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         if missing:
             return refuse(f"form fields not found: {missing}")
         if "submit" not in (form.get("buttons") or {}):
-            return refuse("no unique submit control in the form")
+            form = self._scroll_until_submit(page)
+            if "submit" not in (form.get("buttons") or {}):
+                return refuse("no unique submit control in the form (panel scrolled to the end)")
         try:
             side_btn = "side_buy" if spec.side == "long" else "side_sell"
             if side_btn in form.get("buttons", {}):
@@ -1852,13 +1942,19 @@ class DXtradeAdapter(PropPlatformAdapter):
             if type_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
             form = self._find_form(page)
+            # Switch each leg's enabling toggle ON (the live sidebar's SL / TP
+            # toggles read "false" by default): the operator's flow sets the
+            # brackets BEFORE execution. Never switched off; read back below.
             for leg in ("stop_loss", "take_profit"):
                 fld = (form.get("fields") or {}).get(leg) or {}
-                if fld.get("disabled"):
-                    tog = [c for c in form.get("checkboxes") or [] if c.get("field") == leg]
-                    if len(tog) != 1 or tog[0].get("checked"):
-                        return refuse(f"{leg} field is disabled and has no single enabling toggle")
+                tog = [c for c in form.get("checkboxes") or [] if c.get("field") == leg]
+                if len(tog) > 1:
+                    return refuse(f"{leg}: {len(tog)} enabling toggles (ambiguous)")
+                if len(tog) == 1 and not tog[0].get("checked"):
                     page.click(f"[data-metis-field={leg}_toggle]", timeout=5_000)
+                    page.wait_for_timeout(300)
+                elif not tog and fld.get("disabled"):
+                    return refuse(f"{leg} field is disabled and has no enabling toggle")
             want = {"quantity": spec.quantity, "stop_loss": spec.stop_loss, "take_profit": spec.take_profit}
             if spec.order_type == "limit":
                 want["price"] = float(spec.limit_price)
@@ -1870,14 +1966,19 @@ class DXtradeAdapter(PropPlatformAdapter):
             return refuse(f"typing into the form failed ({type(exc).__name__})")
         # Read-back of all six fields (ORDER ENTRY rule 4): symbol, side,
         # order type, quantity, stop loss, take profit (+ price for a limit).
-        mism = [] if form_names_symbol(form, spec.venue_symbol) else [f"symbol: form no longer names {spec.venue_symbol}"]
-        mism += verify_form_selection(form, spec.side, spec.order_type)
-        mism += verify_form_values(form.get("fields") or {}, want)
+        mism = self._read_back(form, spec, want)
         if mism:
             return refuse("form read-back mismatch: " + "; ".join(mism), form)
+        # Bring the submit control into view (it can sit below the fold once
+        # the brackets are on), then re-run the FULL read-back: scrolling must
+        # not have changed any field. Done disarmed too, so a dry run measures
+        # exactly what an armed run would click.
+        ready, why, form, submit_info = self._ready_submit(page, spec, want)
+        if not ready:
+            return refuse(why, form)
         # Diagnostic only: the toggle's reading right before submit travels
         # with the attempt so the run log shows it. Nothing is gated on it.
-        form = {**form, "one_click": self.read_one_click(page)}
+        form = {**form, "one_click": self.read_one_click(page), "submit": submit_info}
         if not arm:
             self.close_order_ticket(page)
             return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
@@ -1891,6 +1992,66 @@ class DXtradeAdapter(PropPlatformAdapter):
                                 detail=f"submit click raised {type(exc).__name__}; outcome unknown", form=form)
         self._confirm_dialog(page)
         return PlaceAttempt(stage="submitted", submitted=True, detail="submit clicked", form=form)
+
+    @staticmethod
+    def _read_back(form: Mapping[str, Any], spec: BracketSpec, want: Mapping[str, float]) -> List[str]:
+        """The full pre-submit read-back: symbol, side, order type, every typed
+        value, and both bracket legs armed (toggle ON, mode Price)."""
+        mism = [] if form_names_symbol(form, spec.venue_symbol) else [f"symbol: form no longer names {spec.venue_symbol}"]
+        mism += verify_form_selection(form, spec.side, spec.order_type)
+        mism += verify_form_values(form.get("fields") or {}, want)
+        mism += verify_bracket_legs(form)
+        return mism
+
+    def _scroll_until_submit(self, page: Any, max_steps: int = 8) -> Dict[str, Any]:
+        """Scroll the form's own container step by step until the submit
+        control is in the DOM (a virtualised panel renders it only then)."""
+        form: Dict[str, Any] = {}
+        for _ in range(max_steps):
+            try:
+                step = page.evaluate(SUBMIT_JS, ["scroll_step", ""]) or {}
+            except Exception:
+                break
+            page.wait_for_timeout(200)
+            form = self._find_form(page)
+            if "submit" in (form.get("buttons") or {}) or not step.get("moved"):
+                break
+        return form
+
+    def _ready_submit(self, page: Any, spec: BracketSpec, want: Mapping[str, float]
+                      ) -> Tuple[bool, str, Dict[str, Any], Dict[str, Any]]:
+        """Centre the submit control, then prove, right before the click
+        point: it is the SAME element (a one-time token), visible at its
+        centre, enabled, its text names the intended side, and the full
+        read-back still holds after the scroll."""
+        token = f"t{time.time_ns()}"
+        try:
+            marked = page.evaluate(SUBMIT_JS, ["mark", token]) or {}
+        except Exception as exc:
+            return False, f"submit: could not mark ({type(exc).__name__})", {}, {}
+        if not marked.get("ok"):
+            return False, f"submit: {marked.get('why')}", {}, {}
+        page.wait_for_timeout(300)
+        form = self._find_form(page)          # re-tags; the token stays on the element
+        try:
+            chk = page.evaluate(SUBMIT_JS, ["check", token]) or {}
+        except Exception as exc:
+            return False, f"submit: could not check ({type(exc).__name__})", form, {}
+        info = {"scrolled": bool(marked.get("scrolled")), "text": chk.get("text")}
+        if not chk.get("same"):
+            return False, "submit: the control changed after scrolling", form, info
+        if not chk.get("visible"):
+            return False, "submit: not visible at its centre after scrolling", form, info
+        if not chk.get("enabled"):
+            return False, "submit: disabled", form, info
+        text = str(chk.get("text") or "").lower()
+        mine, other = ("buy", "sell") if spec.side == "long" else ("sell", "buy")
+        if not re.search(rf"\b{mine}\b", text) or re.search(rf"\b{other}\b", text):
+            return False, f"submit: its text {chk.get('text')!r} does not name the intended side ({mine})", form, info
+        mism = self._read_back(form, spec, want)
+        if mism:
+            return False, "read-back after scrolling to submit: " + "; ".join(mism), form, info
+        return True, "", form, info
 
     @staticmethod
     def _confirm_dialog(page: Any) -> bool:
