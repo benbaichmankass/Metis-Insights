@@ -1,0 +1,51 @@
+{
+  "a10_note": "Live money at risk per the dispatch: a 43-lot journal/venue gap with a live protective stop resting against the unbacked row. Disposing of trade 5531 is an operator decision by its own clears_when. EVIDENCE: Cannot re-read the IB position from a sandbox (needs /api/diag with the token). Left LOUD and routed; not killed on inference.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "UNCHANGED IN KIND, SHARPENED BY THE ESCALATION. Either (a) the journal rows are reconciled to the venue quantity — for the current instance that means trade 5531 disposed of by an OPERATOR decision, not by a session — or (b) an IB-side journal-vs-venue divergence detector EXISTS and reports on this position, i.e. the netting-attribution reconciler covers interactive_brokers. ⚠️ A later read that happens to agree does NOT clear it, and neither does the position closing — that makes the divergence unobservable rather than resolved. ⚠️ AND THE OVER-COVER PAGE GOING QUIET CLEARS NOTHING: it keys on DISJOINT OCA GROUPS, so it falls silent the moment one group is cancelled while the journal is still wrong.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json#OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/OPEN-ITEMS.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED'), indent=2))\""
+  },
+  "routed_to": "ask_operator: dispose of ib_paper/MGC trade 5531 (journal 54 lots vs venue 11 as of 2026-09-08) — a vm-diag read of journal+ib_open_orders first, then the operator decides",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "This is a Tier-1 read-only sandbox with no live VM/diag/DB access, so I could not re-read the IB position or re-verify the 54-vs-11-lot gap myself. Grepped git history and docs/claude/work/pipeline/ for any newer resolution of trade 5531 or OI-20260826 -- found none since the 2026-09-24 A10 lane note (which itself said the same: could not re-read IB from its sandbox). The row's own clears_when explicitly requires the disposition to be an OPERATOR decision, not a session's; nothing has changed that would let a session close it. Kept exactly as routed.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "$0, one read",
+          "label": "Get a fresh /api/diag read of the IB position + open orders first, then decide",
+          "risk": "the unbacked stop keeps resting in the meantime, but no data is destroyed",
+          "what_happens": "Dispatch a diag-data lane to re-pull journal + ib_open_orders before any correction"
+        },
+        {
+          "cost": "small",
+          "label": "Correct the journal now to match the last-known venue quantity (11 lots)",
+          "risk": "if the venue position has since changed, this could mis-correct a real position -- should follow, not precede, a fresh read",
+          "what_happens": "Tier-2 DB writeback disposing of the excess 43-lot journal record"
+        },
+        {
+          "cost": "engineering time",
+          "label": "Build the IB-side journal-vs-venue divergence detector (extend the netting-attribution reconciler to interactive_brokers) so this class is caught automatically",
+          "risk": "none; does not resolve the current instance by itself",
+          "what_happens": "Tier-2 build, independent of what happens to THIS trade"
+        }
+      ],
+      "priority_tier": 0,
+      "question": "ib_paper/MGC trade 5531 shows a 43-lot journal-vs-venue gap (journal declares 54 lots across two open rows; venue held 11 as of 2026-09-08) with a live protective STOP resting against the unbacked row. What should happen to the journal record?",
+      "recommendation": "Option 1 immediately (this session cannot reach /api/diag), then option 2 once confirmed; option 3 as a standing follow-up either way."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[LOUD] ⚠️ RE-MEASURED 2026-09-08 AND THIS HAS ESCALATED 43x — do not re-quote the 1-lot framing. ib_paper/MGC: the journal now declares 54 lots across TWO open rows while the venue holds 11 — a 43-lot gap, not one lot — and a live 43-lot protective STOP rests against the unbacked row. The original 2026-08-26 reading (journal 51 vs venue 50) is preserved in `detail` as the record of what was true then.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 0) — ib_paper/MGC trade 5531 shows a 43-lot journal-vs-venue gap (journal declares 54 lots across two open rows; venue held 11 as of 2026-09-08) with a live protective STOP resting against the unbacked row. What should happen to the journal record? Recommendation: Option 1 immediately (this session cannot reach /api/diag), then option 2 once confirmed; option 3 as a standing follow-up either way."
+}

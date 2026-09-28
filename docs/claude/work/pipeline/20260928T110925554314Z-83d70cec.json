@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "If paper win-rate recovers >45% over >=15 fresh trades -> candidate for re-promotion (with account_compat_matrix). If it stays <25% -> propose KILL (remove from bybit_1 too).",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PRB-20260716-HTF-CROSSBOOK-NEG",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PRB-20260716-HTF-CROSSBOOK-NEG",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PRB-20260716-HTF-CROSSBOOK-NEG'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "This is an explicit accrual/monitoring item (paper win-rate over >=15 fresh trades, checked every 45 days) that requires live paper-book journal data this sandbox cannot reach (no DB/diag access). Cannot verify current win-rate or trade count from static repo files.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "check_observation: needs a lane with diag-data access to pull htf_pullback_trend_2h's current paper win-rate and trade count on the demotion soak book; only once that crosses either threshold (>45% over >=15 trades, or stays <25%) does this become a proposal (re-promote candidate or KILL-from-bybit_1) for the operator.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] htf_pullback_trend_2h demoted from real money — watch paper soak for recovery vs continued decay\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — check_observation: needs a lane with diag-data access to pull htf_pullback_trend_2h's current paper win-rate and trade count on the demotion soak book; only once that crosses either threshold (>45% over >=15 trades, or stays <25%) does this become a proposal (re-promote candidate or KILL-from-bybit_1) for the operator."
+}

@@ -1,0 +1,42 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator decides whether to accept the same-account election loss as permanent (per PI-20260926-BN2S6RQZ) or reprioritize the bybit_1 BTCUSDT roster; OR a live per-tick election trace shows trend_donchian actually winning its account's BTCUSDT slot at least once",
+    "kind": "event"
+  },
+  "id": "PI-20260926-X3QEGPJL-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "R5 soak-book-grade 2026-09-26",
+    "rerun": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out comms/research/soak_book_grade/<date>.json"
+  },
+  "routed_to": "PR #13044 (claude/w5d-starved-legs)",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Confirmed the live pipeline record for this exact id (docs/claude/work/pipeline/20260927T054734346444Z-1c435880.json) already reflects the post-fix state: PR #13044 (Tier-1, self-landed) shipped, teaching soak_book_grade.py to grade this as insufficient-data rather than propose a kill. Verified config/regime_policy.yaml still carries trend_donchian:{long: off} in 3 of 6 trend_vol cells, a compounding factor noted but not independently re-confirmed live. The residual open question (accept permanent same-account starvation vs. reprioritize bybit_1's BTCUSDT roster) is unresolved and genuinely needs an operator call.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "none",
+          "label": "Accept as working-as-designed (no change)",
+          "risk": "the leg remains permanently inert on this account while still counting as 'on the roster'",
+          "what_happens": "trend_donchian stays on the bybit_1 roster but continues to lose every contested tick; documented as accepted, consistent with the BN2S6RQZ precedent."
+        },
+        {
+          "cost": "Tier-3 review + re-validation of the resulting election outcomes",
+          "label": "Reprioritize bybit_1's BTCUSDT roster (Tier-3 config change)",
+          "risk": "changes which of 7 BTCUSDT strategies actually trades on real ticks; needs its own evidence pass",
+          "what_happens": "A lane proposes a priority/roster change so trend_donchian can contend for and sometimes win the slot."
+        }
+      ],
+      "priority_tier": 6,
+      "question": "bybit_1/trend_donchian is mechanically starved (0 orders/24 intents over 168h) because 5 other live/shadow BTCUSDT siblings can always win the per-tick election slot on the same account. The kill-proposal was already withdrawn as a mechanics artifact (PR #13044). Accept this as permanent, working-as-designed starvation (same precedent as PI-20260926-BN2S6RQZ), or reprioritize bybit_1's BTCUSDT roster so trend_donchian can win contested ticks?",
+      "recommendation": "Accept as working-as-designed for now, consistent with the existing BN2S6RQZ precedent, unless the operator specifically wants trend_donchian's BTCUSDT edge measured live."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "R5 soak-book grade PROPOSES kill: bybit_1/trend_donchian — starved (24 actionable intent(s), 3 episode(s), 0 order(s)/ticket(s) received, held_back=0, no open position held) over the 168h window ending 2026-09-26T22:39:52.948694+00:00. Cost fidelity insufficient_n (0 fills) — consistent with zero orders reaching the exchange. This is Stage-1 soak mechanics, NOT an expectancy call; the leg is a PROPOSAL to remove from the bybit_1 roster as mechanically dead, Tier-3, operator-approved only. -- UPDATE 2026-09-27 (w5d-starved-legs lane, manager session_01Ljhs6sFAdWHdMDhJpL5aBP): this is a mechanics finding, NOT a strategy verdict -- re-routed off the kill proposal. ROOT CAUSE (code-confirmed): src/runtime/intents.py's per-account election (aggregate_intents / arbitration_fanout.plan_per_account_election, live since E35 2026-09-25) lets exactly ONE strategy win the (bybit_1, BTCUSDT) slot per tick. bybit_1 declares 7 BTCUSDT strategies (trend_donchian, ict_scalp_5m, fade_breakout_4h, squeeze_breakout_4h, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h) and intents.py's own docstring states plainly that execution:shadow does NOT exclude a strategy from this contest (documented example: eth_pullback_prop_2h, shadow, beats trend_donchian_eth, live, head-to-head) -- so any of the 5 non-trend_donchian siblings, live or shadow, can silently win the slot every time trend_donchian is actionable. This is the SAME mechanism already graded 'working as designed' for trend_donchian_sol_4h/ict_scalp_xrp_15m/ict_scalp_sol_15m in PI-20260926-BN2S6RQZ. config/regime_policy.yaml's 2-D trend_vol block additionally carries trend_donchian: {long: off} in trending+volatile / transitional+calm / chop+calm (3 of 6 cells) -- a compounding, not yet independently re-confirmed live this session, factor if that 2-D gate is actually enforced (REGIME_ML_VERDICT_MODE) rather than shadow-logging only. FIX: PR #13044 (claude/w5d-starved-legs) (Tier-1, self-landed) teaches scripts/ops/soak_book_grade.py to grade a starved leg with a live same-account/same-symbol contender as insufficient-data, not kill, so future runs stop re-proposing this. OPEN QUESTION for the operator: accept the permanent same-account starvation as with the BN2S6RQZ precedent, or reprioritize bybit_1's BTCUSDT roster so trend_donchian can win contested ticks (a Tier-3 config change, not shipped here).\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — bybit_1/trend_donchian is mechanically starved (0 orders/24 intents over 168h) because 5 other live/shadow BTCUSDT siblings can always win the per-tick election slot on the same account. The kill-proposal was already withdrawn as a mechanics artifact (PR #13044). Accept this as permanent, working-as-designed starvation (same precedent as PI-20260926-BN2S6RQZ), or reprioritize bybit_1's BTCUSDT roster so trend_donchian can win contested ticks? Recommendation: Accept as working-as-designed for now, consistent with the existing BN2S6RQZ precedent, unless the operator specifically wants trend_donchian's BTCUSDT edge measured live."
+}

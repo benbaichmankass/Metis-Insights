@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Either shorting is enabled on the Alpaca live account (a broker-side setting the operator owns), or alpaca_live's routed strategy list is narrowed to the long-only legs and the removed legs are recorded as deliberately unrouted rather than silently non-functional. Verified by re-reading status_flags.shorting_enabled and re-counting the short share of routed packages.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260823-ALPACA-LIVE-CANNOT-SHORT-BUT-60PCT-OF-ITS-FLOW-IS-SHORT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-LIVE-CANNOT-SHORT-BUT-60PCT-OF-ITS-FLOW-IS-SHORT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-LIVE-CANNOT-SHORT-BUT-60PCT-OF-ITS-FLOW-IS-SHORT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "Both remedies clears_when asked for are now in place: the routed roster was narrowed away from the 100%-short legs, AND a structural per-account directional gate (account_side_filter, enforced in Coordinator.multi_account_execute) now demotes any remaining short package on alpaca_live to dry rather than letting the broker refuse it -- so a would-be short is journalled, not silently dead. Could not re-run a live short-share count (no VM/DB access this session) so the exact new percentage is unverified, but the two structural causes of the finding (short-heavy roster + no account-level gate) are both gone from the current config/code.",
+  "triage_2026_09_28": {
+    "checked": "config/accounts.yaml now shows alpaca_live with `side_filter: long` (a field that did not exist in the original finding) and a roster narrowed to 3 legs (ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d) from the original larger set that included 100%-short legs. Traced src/runtime/account_side_filter.py and its call site in src/core/coordinator.py:1483 (Coordinator.multi_account_execute): when an account's side_filter suppresses a package's direction, it demotes to effective_dry (journalled, not sent) rather than the venue silently refusing it -- and the coordinator comment explicitly cites the sibling finding BL-20260823-ALPACA-LONG-ONLY-CANNOT-BE-SCOPED-TO-ONE-ACCOUNT as the reason this was built.",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "Both remedies clears_when asked for are now in place: the routed roster was narrowed away from the 100%-short legs, AND a structural per-account directional gate (account_side_filter, enforced in Coordinator.multi_account_execute) now demotes any remaining short package on alpaca_live to dry rather than letting the broker refuse it -- so a would-be short is journalled, not silently dead. Could not re-run a live short-share count (no VM/DB access this session) so the exact new percentage is unverified, but the two structural causes of the finding (short-heavy roster + no account-level gate) are both gone from the current config/code."
+  },
+  "what": "[health] alpaca_live has shorting_enabled=False while 157 of 262 routed order packages (60%) are SHORT — 4 of 16 legs are 100% short and would be entirely dead\n\n[TRIAGE 2026-09-28] KILL — Both remedies clears_when asked for are now in place: the routed roster was narrowed away from the 100%-short legs, AND a structural per-account directional gate (account_side_filter, enforced in Coordinator.multi_account_execute) now demotes any remaining short package on alpaca_live to dry rather than letting the broker refuse it -- so a would-be short is journalled, not silently dead. Could not re-run a live short-share count (no VM/DB access this session) so the exact new percentage is unverified, but the two structural causes of the finding (short-heavy roster + no account-level gate) are both gone from the current config/code."
+}
