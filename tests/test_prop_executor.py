@@ -1079,6 +1079,9 @@ def test_controls_dump_masks_digits_and_never_reads_values(tpage):
     number, balance or input value (it goes to a PUBLIC run log)."""
     html = ("<div data-test-id='account_balance'>Balance 5,012.34 acct 823528</div>"
             "<button data-test-id='order_entry_open' aria-label='Order 77'>Trade</button>"
+            "<button title='Help'>Contact jane.doe@example.com</button>"
+            "<div class='header-user-menu'>Jane Doe</div>"
+            "<button data-test-id='account_menu' aria-label='Jane Doe'>Jane Doe</button>"
             "<div role='tab' aria-selected='true' data-test-id='side_buy'>Buy</div>"
             "<div><span>Quantity</span><input data-test-id='qty' value='hunter2-823528'></div>"
             "<table><tbody><tr><td data-test-id='row'>SOLUSD 120.5</td></tr></tbody></table>")
@@ -1086,6 +1089,9 @@ def test_controls_dump_masks_digits_and_never_reads_values(tpage):
     dump = DXtradeAdapter(timeout_ms=3_000).controls_dump(p)
     blob = json.dumps(dump["controls"])
     assert dump["found"] and "hunter2" not in blob and not any(c.isdigit() for c in blob)
+    assert "@" not in blob and "jane" not in blob.lower() and "<email>" in blob
+    menu = next(c for c in dump["controls"] if c["tid"] == "account_menu")
+    assert menu == {"tag": "button", "tid": "account_menu", "personal": True}
     tids = {c["tid"] for c in dump["controls"]}
     assert {"account_balance", "order_entry_open", "side_buy", "qty"} <= tids and "row" not in tids
     side = next(c for c in dump["controls"] if c["tid"] == "side_buy")

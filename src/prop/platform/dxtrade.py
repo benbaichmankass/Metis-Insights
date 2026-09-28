@@ -1102,16 +1102,27 @@ ONE_CLICK_DUMP_JS = r"""
 # matched, and the terminal tags controls with ``data-test-id``). Lists inputs,
 # buttons, tabs and every ``data-test-id`` element outside table bodies. Never
 # reads an input's value, and masks EVERY digit as ``#`` so no account number,
-# balance or price can reach the public run log. Clicks nothing.
+# balance or price can reach the public run log; emails become ``<email>``, and
+# a user/profile/account/login control is recorded by its test id alone (a
+# name can carry no digit). Clicks nothing.
 CONTROLS_DUMP_JS = r"""
 () => {
-  const mask = v => (typeof v === 'string') ? v.trim().replace(/\s+/g, ' ').replace(/\d/g, '#').slice(0, 40) : null;
+  const mask = v => (typeof v === 'string')
+    ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 40) : null;
+  // A user / profile / account menu can carry the holder's name: its test id only.
+  const personal = /user|profile|account|login|email/i;
   const txt = el => (el ? (el.innerText || el.textContent || '') : '');
   const sel = 'input, select, textarea, button, [role=button], [role=tab], [role=radio], [role=switch], [data-test-id]';
   const out = [];
   for (const el of document.querySelectorAll(sel)) {
     if (el.closest('tbody')) continue;
     const r = el.getBoundingClientRect();
+    const cls = typeof el.className === 'string' ? el.className : '';
+    if (personal.test(el.getAttribute('data-test-id') || '') || personal.test(cls)) {
+      out.push({tag: el.tagName.toLowerCase(), tid: mask(el.getAttribute('data-test-id')), personal: true});
+      if (out.length >= 150) break;
+      continue;
+    }
     const d = {tag: el.tagName.toLowerCase(), tid: mask(el.getAttribute('data-test-id')),
                role: mask(el.getAttribute('role')), type: mask(el.getAttribute('type')),
                aria: mask(el.getAttribute('aria-label')), ph: mask(el.getAttribute('placeholder')),
