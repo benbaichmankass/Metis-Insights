@@ -1297,6 +1297,13 @@ jobs:
       - name: Execute action wrapper on VM
         id: exec
         env:
+          # executor-clear-halt's record (who asked, which issue). Passed as
+          # env, NEVER as `${{ }}` inside this step's run: script: that script
+          # is ~32k chars and any expression in it turns the whole script into
+          # one expression template, over GitHub's 21,000-char limit, which
+          # invalidates the entire workflow (2026-09-28, #13805 → fixed here).
+          CLEAR_HALT_ACTOR: ${{ github.event.issue.user.login || github.actor }}
+          CLEAR_HALT_ISSUE: ${{ github.event.issue.number }}
           # BYBIT key/secret pairs — only consumed by rotate-account-keys.
           # Ride through SSH env (via REMOTE_CMD prefix), never in run logs.
           BYBIT_API_KEY_1: ${{ secrets.BYBIT_API_KEY_1 }}
@@ -1783,7 +1790,7 @@ jobs:
                 echo "::error::executor-clear-halt requires a 'reason:' line (who clears the latch and why)."
                 exit 1
               fi
-              REMOTE_CMD="ACTION_REASON=$(printf '%q' "${REASON}") ACTION_ACTOR=$(printf '%q' "${{ github.event.issue.user.login || github.actor }}") ACTION_ISSUE=$(printf '%q' "${{ github.event.issue.number || '' }}") ${REMOTE_CMD}"
+              REMOTE_CMD="ACTION_REASON=$(printf '%q' "${REASON}") ACTION_ACTOR=$(printf '%q' "${CLEAR_HALT_ACTOR:-}") ACTION_ISSUE=$(printf '%q' "${CLEAR_HALT_ISSUE:-}") ${REMOTE_CMD}"
               ;;
             esac
           fi
