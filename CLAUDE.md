@@ -226,11 +226,18 @@ performance."* **Do not report session length as a metric.**
 
 **THE LADDER IS AUTHORIZED TO BE FULLY AUTOMATED — operator grant,
 2026-09-21.** ⚠️ **Read `config/mandates.yaml` for what is granted; this
-paragraph is not the source.** As of 2026-09-27 it holds **13 granted
+paragraph is not the source.** As of 2026-09-28 it holds **13 granted
 mandates** (10 on 2026-09-24, "Grant all 10 as written"; 3 process mandates on
-2026-09-27), `MD-PROMOTE-S1-S2` is still `blocked_until` its clause (a) (clause
-(b) cleared by operator reaffirmation 2026-09-27), and **exactly one entry is
-armed for auto-land: `MD-DEMOTE-S2-S1`, operator, 2026-09-27**. Until
+2026-09-27). `MD-PROMOTE-S1-S2`'s `blocked_until` was **REMOVED 2026-09-28**
+(PR #13582) after both clauses cleared (clause (a) re-measured on that branch:
+0 of 27 re-priceable Bybit-perp evidence records differ from
+`execution_costs.slippage_bps_roundtrip_for(symbol)`; clause (b) cleared by
+operator reaffirmation 2026-09-27) — it is now armed, with `bar.cost_tolerance_bps`
+set to **2.0** (operator decision, verbatim "Arm, tolerance 2 bps", checklist
+row MANDATE-ARM), superseding the prior 0.0 INFERRED placeholder. Armed is
+distinct from auto-land: `MD-PROMOTE-S1-S2` carries no `autoland` field, so a
+fire still opens a human-merge PR, and **exactly one entry is armed for
+auto-land: `MD-DEMOTE-S2-S1`, operator, 2026-09-27**. Until
 2026-09-27 this paragraph said "AS OF 2026-09-24 NOT ONE MANDATE IS GRANTED",
 three days after the grant, and a manager session repeated it to the operator
 as fact before reading the file. *Field beats comment.* A **mandate** is an
@@ -262,11 +269,22 @@ is in the path: a committed evidence record, named harness, stated n, **net of
 the full cost stack**, clearing a rule registered before the run. A claim in a
 PR body is not a record. **B1** makes it checkable; **B5** builds the mechanism.
 
-⚠️ **The real-money promotion mandate does not arm until D1 lands** — the
-harnesses default slippage and funding to `0.0`, so today's corpus is fee-only
-and optimistic by an unknown amount (+0.57R on the one leg measured). Arming
-against it would route real money on numbers already known to be wrong in the
-favourable direction. The `derisk_only` mandates carry no such block.
+⚠️ **The real-money promotion mandate's D1 block is CLEARED (2026-09-28, PR
+#13582)** — the CLI paths backing the current promotion corpus (the
+trend/pullback/squeeze/ict_scalp/fvg_range/chop_scalp/pairs/fade/funding_carry/
+run_backtest_vwap harnesses) resolve slippage and funding through
+`execution_costs.resolve_cost_policy()`'s venue-aware non-zero defaults, not a
+silent `0.0` — verified in
+[`docs/research/d1-cost-stack-verification-2026-09-25.md`](docs/research/d1-cost-stack-verification-2026-09-25.md).
+`MD-PROMOTE-S1-S2` is armed at `cost_tolerance_bps: 2.0`. **Four harness
+families still lack a full cost stack and stay out of scope for any promotion
+corpus until fixed:** `scripts/backtest_orb.py` (fee only, in points; no
+slippage or funding term), `src/backtest/backtester.py` (its own hardcoded
+cost dict, disconnected from the canonical venue decisions; no funding term),
+`scripts/backtest_xsec_momentum.py` (slippage wired, but no funding term for a
+held perp leg), and `scripts/backtest_vol_target.py` (turnover-bps drag only,
+no fee/slippage/funding split — currently backs no scored leg). The
+`derisk_only` mandates carry no such block.
 
 ⚠️ **A mandate is not a third execution gate** — see § "The two execution
 gates", which is unchanged. It does not decide what RUNS; it decides what may
