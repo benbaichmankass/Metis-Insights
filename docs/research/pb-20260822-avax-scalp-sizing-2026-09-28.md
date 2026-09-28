@@ -1,6 +1,6 @@
 # PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK — sizing fix, 2026-09-28
 
-> Doc status: `live` · category `research` · operator directive: "Fix risk sizing now"
+> **Doc status:** `live` · category `evidence` · last verified `2026-09-28`
 
 ## The finding this closes/advances
 
@@ -33,6 +33,7 @@ The margin-ceiling **bind condition** (derived from
 ```
 stop_distance / entry  <=  risk_pct / (leverage * buffer)  =  0.015 / 2.7  =  0.5556%
 ```
+<!-- population-ok: an algebraic derivation from three declared constants (risk_pct, leverage, buffer), not a measured rate -- no population to state. -->
 
 ## Evidence: 365d AVAXUSDT 5m backtest, this lever only
 
@@ -75,10 +76,11 @@ follow-up work, not done in this pass.
   bound-vs-unbound trade comparison did not cleanly separate. What changed
   here is different — the WHOLE population's stop geometry, not a subset
   comparison — and it is this test, not that one, that shows the effect.
-- Not a complete fix to the margin-ceiling finding. 13.2% of trades still
-  hit the ceiling; only a genuine per-leg risk fraction (which does not
-  exist today) could close that gap to zero without also giving up on the
-  leg's entry logic (the sweep-extreme term).
+- Not a complete fix to the margin-ceiling finding. At `atr_sl_buffer_mult=0.50`,
+  33 of 250 backtested trades (13.2%, same 365d AVAXUSDT population as the
+  table above) still hit the ceiling; only a genuine per-leg risk fraction
+  (which does not exist today) could close that gap to zero without also
+  giving up on the leg's entry logic (the sweep-extreme term).
 - Not yet folded into any Stage-0 evidence record or promotion decision.
 
 ## Disposition
