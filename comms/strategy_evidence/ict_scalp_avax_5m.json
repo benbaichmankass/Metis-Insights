@@ -3,7 +3,7 @@
   "strategy": "ict_scalp_avax_5m",
   "symbol": "AVAXUSDT",
   "timeframe": "5m",
-  "config_fingerprint": "sha256:7151bf0d4896c3e408a75a231b87a6f2",
+  "config_fingerprint": "sha256:430bb4b21c0a4783a52375c05fc4d8ea",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
