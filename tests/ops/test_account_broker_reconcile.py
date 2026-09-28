@@ -1,0 +1,243 @@
+"""``scripts/ops/account_broker_reconcile.py`` — the automated journal-vs-
+broker reconciler for alpaca_live / breakout_1 / bybit_2
+(OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT, operator "Build automated
+reconcile", 2026-09-28).
+
+Pins the three-state contract (agree / divergent / could_not_look, plus
+alpaca's stated `not_exposed` for realized P&L) on each account, and the
+fingerprint's independence from `captured_at` / exact P&L magnitude — the
+same design `broker_bracket_reconcile.py` already relies on so its scheduled
+caller only comments when the GRADED STATE moves.
+"""
+from __future__ import annotations
+
+import importlib.util
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _load():
+    spec = importlib.util.spec_from_file_location(
+        "account_broker_reconcile",
+        _ROOT / "scripts" / "ops" / "account_broker_reconcile.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+m = _load()
+
+
+# --------------------------------------------------------------- alpaca_live
+
+def test_alpaca_agree():
+    j = [{"account": "alpaca_live", "symbol": "AAPL", "side": "long", "qty": 10}]
+    payload = {"accounts": [{"account_id": "alpaca_live", "read_state": "orders_read",
+               "result": {"positions": [{"symbol": "AAPL", "side": "long", "qty": 10}],
+                          "orders": [{"symbol": "AAPL", "order_type": "stop"},
+                                     {"symbol": "AAPL", "order_type": "limit",
+                                      "order_class": "bracket"}]}}]}
+    r = m.reconcile_alpaca(j, payload)
+    assert r["positions_state"] == "agree"
+    assert r["protection_state"] == "agree"
+    assert r["pnl_state"] == "not_exposed"  # alpaca exposes no broker-side realized pnl
+
+
+def test_alpaca_divergent_qty_and_naked():
+    j = [{"account": "alpaca_live", "symbol": "AAPL", "side": "long", "qty": 10}]
+    qty_mismatch = {"accounts": [{"account_id": "alpaca_live", "read_state": "orders_read",
+                    "result": {"positions": [{"symbol": "AAPL", "side": "long", "qty": 7}],
+                               "orders": []}}]}
+    r = m.reconcile_alpaca(j, qty_mismatch)
+    assert r["positions_state"] == "divergent"
+    assert r["positions"][0]["state"] == "qty_mismatch"
+
+    naked = {"accounts": [{"account_id": "alpaca_live", "read_state": "orders_read",
+             "result": {"positions": [{"symbol": "AAPL", "side": "long", "qty": 10}],
+                        "orders": []}}]}
+    r = m.reconcile_alpaca(j, naked)
+    assert r["positions_state"] == "agree"
+    assert r["protection_state"] == "divergent"
+    assert r["protection"]["naked"] == ["AAPL"]
+
+
+def test_alpaca_could_not_look():
+    j = [{"account": "alpaca_live", "symbol": "AAPL", "side": "long", "qty": 10}]
+    assert m.reconcile_alpaca(j, {"accounts": []})["positions_state"] == "could_not_look"
+    assert m.reconcile_alpaca(j, None)["positions_state"] == "could_not_look"
+    unread = {"accounts": [{"account_id": "alpaca_live", "read_state": "could_not_look",
+              "result": None}]}
+    r = m.reconcile_alpaca(j, unread)
+    assert r["positions_state"] == "could_not_look"
+    assert r["protection_state"] == "could_not_look"
+
+
+# ------------------------------------------------------------------ bybit_2
+
+def _bybit_fixture(*, position_side="long", stop=50000, target=70000, realized_usd=10.0):
+    j_pos = [{"account": "bybit_2", "symbol": "BTCUSDT", "side": "long", "qty": 1}]
+    j_closed = [{"account": "bybit_2", "symbol": "BTCUSDT", "pnl": 10.0,
+                "closedAt": "2026-09-28T00:00:00Z"}]
+    broker = {"accounts": [{"account_id": "bybit_2",
+              "result": {"positions": [{"symbol": "BTCUSDT", "side": position_side, "qty": 1,
+                                        "stop_loss": stop, "take_profit": target}],
+                         "orders": []}}]}
+    wt = {"accounts": [{"account_id": "bybit_2", "read_state": "measured_api",
+          "realized_usd": realized_usd, "window": "90d"}]}
+    return j_pos, j_closed, broker, wt
+
+
+def test_bybit_agree():
+    j_pos, j_closed, broker, wt = _bybit_fixture()
+    r = m.reconcile_bybit(j_pos, j_closed, broker, wt)
+    assert r["positions_state"] == "agree"
+    assert r["protection_state"] == "agree"
+    assert r["pnl_state"] == "agree"
+    # the known-partial-coverage caveat always rides along, per
+    # PI-20260924-ZROYCDY4-0001 — never silently dropped even on a clean read.
+    assert "ZROYCDY4" in r["known_caveat"]
+
+
+def test_bybit_divergent_side_naked_and_pnl():
+    j_pos, j_closed, broker, wt = _bybit_fixture(
+        position_side="short", stop=None, target=None, realized_usd=-500.0)
+    r = m.reconcile_bybit(j_pos, j_closed, broker, wt)
+    assert r["positions_state"] == "divergent"
+    assert r["positions"][0]["state"] == "side_mismatch"
+    assert r["pnl_state"] == "divergent"
+
+
+def test_bybit_naked_when_positions_agree():
+    j_pos, j_closed, broker, wt = _bybit_fixture(stop=None, target=None)
+    r = m.reconcile_bybit(j_pos, j_closed, broker, wt)
+    assert r["positions_state"] == "agree"
+    assert r["protection_state"] == "divergent"
+    assert r["protection"]["naked"] == ["BTCUSDT"]
+
+
+def test_bybit_could_not_look():
+    j_pos, j_closed, _, _ = _bybit_fixture()
+    r = m.reconcile_bybit(j_pos, j_closed, {"accounts": []}, None)
+    assert r["positions_state"] == "could_not_look"
+    assert r["pnl_state"] == "could_not_look"
+
+
+def test_bybit_pnl_could_not_look_when_wallet_truth_unreadable():
+    j_pos, j_closed, broker, _ = _bybit_fixture()
+    # a wallet-truth read that could not look (unreadable) must not silently
+    # grade the pnl check as `agree` just because journal_pnl_sum exists.
+    wt_unreadable = {"accounts": [{"account_id": "bybit_2", "read_state": "unreadable",
+                     "realized_usd": None}]}
+    r = m.reconcile_bybit(j_pos, j_closed, broker, wt_unreadable)
+    assert r["pnl_state"] == "could_not_look"
+
+
+def test_bybit_no_closed_trades_is_agree_not_a_false_divergence():
+    j_pos, _, broker, wt = _bybit_fixture()
+    r = m.reconcile_bybit(j_pos, [], broker, wt)
+    assert r["pnl_state"] == "agree"
+
+
+# ---------------------------------------------------------------- breakout_1
+
+def _breakout_status(*, broker_side="long", broker_qty=0.1, stop=60000, target=80000,
+                     realized_today=5.0, missing_open_positions=False):
+    raw = {} if missing_open_positions else {"open_positions": [
+        {"symbol": "BTCUSD", "side": broker_side, "quantity": broker_qty,
+         "stop_loss": stop, "take_profit": target}]}
+    return {"present": True,
+            "status": {"realized_today": realized_today, "raw": json.dumps(raw)},
+            "rule_distance": {"open_risk": {"positions": [
+                {"symbol": "BTCUSD", "direction": "long", "qty": 0.1}]}}}
+
+
+def test_breakout_agree():
+    status = _breakout_status()
+    fills = [{"status": "closed", "closed_at": "2026-09-28T01:00:00Z", "pnl": 5.0}]
+    r = m.reconcile_breakout(status, fills, now=datetime(2026, 9, 28, tzinfo=timezone.utc))
+    assert r["positions_state"] == "agree"
+    assert r["protection_state"] == "agree"
+    assert r["pnl_state"] == "agree"
+    assert r["pnl"]["scope"] == "daily, not last-N"
+
+
+def test_breakout_divergent_broker_only_position_and_pnl():
+    status = _breakout_status(broker_side="short", broker_qty=1, stop=None, target=None,
+                              realized_today=500.0)
+    # broker shows a position at a different symbol than the journal declares
+    # -> the journal's BTCUSD becomes journal_only, ETHUSD (broker) is broker_only.
+    status["status"]["raw"] = json.dumps({"open_positions": [
+        {"symbol": "ETHUSD", "side": "short", "quantity": 1,
+         "stop_loss": None, "take_profit": None}]})
+    fills = [{"status": "closed", "closed_at": "2026-09-28T01:00:00Z", "pnl": 5.0}]
+    r = m.reconcile_breakout(status, fills, now=datetime(2026, 9, 28, tzinfo=timezone.utc))
+    assert r["positions_state"] == "divergent"
+    symbols_by_state = {p["symbol"]: p["state"] for p in r["positions"]}
+    assert symbols_by_state == {"BTCUSD": "journal_only", "ETHUSD": "broker_only"}
+    assert r["pnl_state"] == "divergent"
+
+
+def test_breakout_could_not_look_when_feed_has_not_posted_positions_yet():
+    status = _breakout_status(missing_open_positions=True)
+    r = m.reconcile_breakout(status, [])
+    assert r["positions_state"] == "could_not_look"
+    assert r["protection_state"] == "could_not_look"
+
+
+def test_breakout_could_not_look_when_status_absent():
+    r = m.reconcile_breakout({"present": False, "status": None}, [])
+    assert r["positions_state"] == "could_not_look"
+
+
+# ------------------------------------------------------------- run/grade/fp
+
+def test_grade_and_fingerprint_are_stable_across_captured_at_and_pnl_noise():
+    j_pos = [{"account": "alpaca_live", "symbol": "AAPL", "side": "long", "qty": 10},
+             {"account": "bybit_2", "symbol": "BTCUSDT", "side": "long", "qty": 1}]
+    j_closed = [{"account": "bybit_2", "symbol": "BTCUSDT", "pnl": 10.0,
+                "closedAt": "2026-09-28T00:00:00Z"}]
+    alpaca_payload = {"accounts": [{"account_id": "alpaca_live", "read_state": "orders_read",
+                      "result": {"positions": [{"symbol": "AAPL", "side": "long", "qty": 10}],
+                                 "orders": [{"symbol": "AAPL", "order_type": "stop"},
+                                            {"symbol": "AAPL", "order_type": "limit",
+                                             "order_class": "bracket"}]}}]}
+    bybit_payload = {"accounts": [{"account_id": "bybit_2",
+                     "result": {"positions": [{"symbol": "BTCUSDT", "side": "long", "qty": 1,
+                                               "stop_loss": 50000, "take_profit": 70000}],
+                                "orders": []}}]}
+    prop_status = _breakout_status()
+    fills = [{"status": "closed", "closed_at": "2026-09-28T01:00:00Z", "pnl": 5.0}]
+    fixed_now = datetime(2026, 9, 28, tzinfo=timezone.utc)
+
+    def _run(realized_usd):
+        wt = {"accounts": [{"account_id": "bybit_2", "read_state": "measured_api",
+              "realized_usd": realized_usd, "window": "90d"}]}
+        return m.run(j_pos, j_closed, alpaca_payload, bybit_payload, wt, prop_status,
+                     fills, now=fixed_now)
+
+    res_a, res_b = _run(10.0), _run(10.4)  # both within the $1 tolerance -> both `agree`
+    assert m.grade(res_a) == 0
+    assert m.fingerprint(res_a).splitlines()[0] == m.fingerprint(res_b).splitlines()[0]
+
+    res_div = _run(-500.0)
+    assert m.grade(res_div) == 1
+    assert m.fingerprint(res_div).splitlines()[0] != m.fingerprint(res_a).splitlines()[0]
+
+
+def test_grade_prefers_divergent_over_could_not_look():
+    # one account divergent, another could_not_look -> exit 1, not 3: a real
+    # finding must never be masked by an unrelated read failure elsewhere.
+    j_pos = [{"account": "alpaca_live", "symbol": "AAPL", "side": "long", "qty": 10}]
+    alpaca_div = {"accounts": [{"account_id": "alpaca_live", "read_state": "orders_read",
+                  "result": {"positions": [{"symbol": "AAPL", "side": "long", "qty": 1}],
+                             "orders": []}}]}
+    res = m.run(j_pos, [], alpaca_div, {"accounts": []}, None,
+               {"present": False, "status": None}, [])
+    assert m.grade(res) == 1
+
+
+def test_self_test_exits_clean():
+    assert m._self_test() == 0
