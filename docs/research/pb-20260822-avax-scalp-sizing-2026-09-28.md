@@ -30,10 +30,10 @@ The margin-ceiling **bind condition** (derived from
 `position_size()`, `bybit_1`'s `risk_pct=0.015`, `leverage=3`,
 `_MARGIN_SAFETY_BUFFER=0.9`):
 
+<!-- population-ok: an algebraic derivation from three declared constants (risk_pct, leverage, buffer), not a measured rate -- no population to state. -->
 ```
 stop_distance / entry  <=  risk_pct / (leverage * buffer)  =  0.015 / 2.7  =  0.5556%
 ```
-<!-- population-ok: an algebraic derivation from three declared constants (risk_pct, leverage, buffer), not a measured rate -- no population to state. -->
 
 ## Evidence: 365d AVAXUSDT 5m backtest, this lever only
 
