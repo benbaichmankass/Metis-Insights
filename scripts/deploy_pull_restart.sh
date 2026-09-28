@@ -475,6 +475,63 @@ TRADER_STOP_MARKER_GRACE_S="${TRADER_STOP_MARKER_GRACE_S:-300}"
 WATCHDOG_ONESHOT="ict-liveness-watchdog.service"
 WATCHDOG_TIMER="ict-liveness-watchdog.timer"
 
+# ---------------------------------------------------------------------------
+# JC-CA-05 (docs/audits/code-audit-2026-09-27.md §6, `CA-A10-300`, operator
+# decision 2026-09-28: "Loud alert, manual" — option B only).
+#
+# CA-A10-300: this script has no rollback-on-failure. If a deploy leaves a
+# money-path unit crash-looping on the new code, nothing here reverts the
+# working tree — the restart loop below only WARNS and continues, and the
+# version assertion further down only `exit 4`s, by which point `git reset
+# --hard`, `pip install`, and every unit restart have already run against the
+# new, broken code. Recovery was entirely silent and out-of-band.
+#
+# Option A (auto-revert: `git reset --hard <DEPLOYED_SHA_FILE>` + re-restart)
+# was REJECTED — it risks compounding one bad deploy with a second risky
+# git/restart cycle while the trader may be mid-restart or holding open
+# positions. Option B (this): no auto-revert, keep every existing exit code
+# and continue-on-warning behaviour byte-for-byte, but the INSTANT a
+# money-path unit's restart fails or the version assertion mismatches, send a
+# ping distinct from a clean deploy's Telegram pings (S-020 above, and the
+# per-unit summary at "Service status") naming the failing unit, the new SHA,
+# the last KNOWN-GOOD sha (DEPLOYED_SHA_FILE's content before this run,
+# captured in ${LAST_DEPLOYED_SHA} above — untouched at either failure point,
+# since the marker is only overwritten on full success far below), and how a
+# human rolls back.
+#
+# ⚠️ WHY THE ROLLBACK INSTRUCTION NAMES `pull-and-deploy`, NOT A RAW VM-LOCAL
+# RESET: this VM is a read-only mirror of `origin/main` (see the file header)
+# and `ict-git-sync.timer` re-runs this exact script every ~5 min. A bare
+# `git reset --hard <good-sha>` run BY HAND on the VM would be silently undone
+# by the next tick, which would re-deploy the same broken commit and
+# re-produce this exact alert — so the only durable rollback is to revert the
+# bad commit(s) on `main` (the source of truth) and then dispatch the
+# existing `pull-and-deploy` system-action (docs/claude/system-actions.md),
+# which is the wrapper around this very script.
+#
+# Money-path = the two units CA-A10-300's `fix` field names explicitly:
+# ict-trader-live (the order-package/execution pipeline) and ict-web-api (the
+# surface /api/bot/* and /api/diag/* read from — a stale/crash-looping
+# web-api blinds the operator's own read path onto the failure).
+MONEY_PATH_UNITS="ict-trader-live.service ict-web-api.service"
+
+# Best-effort: a broken ping channel must never mask (or worse, ABORT via
+# `set -e`) the deploy-failure condition it exists to report, so every
+# internal step is `|| true`'d and the function itself is always called
+# `|| true` at each call site.
+send_deploy_failure_ping() {
+    local what="$1"
+    local rollback_sha="${LAST_DEPLOYED_SHA:-unknown}"
+    local msg="DEPLOY FAILURE (JC-CA-05): ${what}. unit-of-concern SHA new=${POST_SYNC_HEAD:0:7} last-known-good=${rollback_sha:0:7}. Roll back: revert main to ${rollback_sha} and dispatch the pull-and-deploy system-action (a VM-local git reset alone would be undone by the next ict-git-sync tick)."
+    echo ">>> ALERT: ${msg}"
+    heal_devnull || true
+    if /usr/bin/python3 "${REPO_DIR}/scripts/send_ping.py" --priority urgent --target trader "${msg}" >/dev/null 2>&1; then
+        echo ">>> Deploy-failure ping sent."
+    else
+        echo ">>> WARNING: could not send deploy-failure ping (send_ping.py failed) -- see the ALERT line above, which is why it is printed regardless."
+    fi
+}
+
 echo ">>> Restarting services (enumeration: ${#ICT_UNITS[@]} ict-* unit(s))..."
 RESTARTED_UNITS=()
 for unit in "${ICT_UNITS[@]}"; do
@@ -521,6 +578,12 @@ for unit in "${ICT_UNITS[@]}"; do
         RESTARTED_UNITS+=("${unit}")
     else
         echo ">>>   WARNING: restart ${unit} failed (continuing)"
+        for money_unit in ${MONEY_PATH_UNITS}; do
+            if [ "${unit}" = "${money_unit}" ]; then
+                send_deploy_failure_ping "restart of money-path unit ${unit} failed" || true
+                break
+            fi
+        done
     fi
 done
 
@@ -592,10 +655,14 @@ DIAG_TOKEN="${DIAG_READ_TOKEN:-}"
 if [ -z "${DIAG_TOKEN}" ] && [ -r "${DIAG_TOKEN_FILE}" ]; then
     DIAG_TOKEN="$(cat "${DIAG_TOKEN_FILE}")"
 fi
+# Overridable (same pattern as DIAG_TOKEN_FILE above), added alongside JC-CA-05
+# so this gate -- and the failure ping behind it -- can be black-box tested
+# without writing into the real /etc/systemd/system.
+WEB_API_UNIT_FILE="${WEB_API_UNIT_FILE:-/etc/systemd/system/ict-web-api.service}"
 
 if ! command -v curl >/dev/null 2>&1; then
     echo ">>> Skipping post-deploy version assertion (curl not installed)."
-elif [ ! -f /etc/systemd/system/ict-web-api.service ]; then
+elif [ ! -f "${WEB_API_UNIT_FILE}" ]; then
     echo ">>> Skipping post-deploy version assertion (ict-web-api.service not installed)."
 elif [ -z "${DIAG_TOKEN}" ]; then
     echo ">>> Skipping post-deploy version assertion (DIAG_READ_TOKEN unset and ${DIAG_TOKEN_FILE} not readable)."
@@ -629,6 +696,7 @@ else
         echo ">>> ERROR: post-deploy version round-trip failed."
         echo ">>>   expected SHA: ${EXPECTED_SHA}"
         echo ">>>   This usually means ict-web-api.service didn't actually restart."
+        send_deploy_failure_ping "post-deploy version assertion failed (web-api expected git_sha=${EXPECTED_SHA}, last reported ${REPORTED_SHA:-unreachable})" || true
         exit 4
     fi
 fi

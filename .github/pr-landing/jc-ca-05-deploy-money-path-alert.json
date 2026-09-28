@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "JC-CA-05 (docs/audits/code-audit-2026-09-27.md §6, CA-A10-300, operator decision 2026-09-28: 'Loud alert, manual' -- option B only) touches scripts/deploy_pull_restart.sh, the live-VM deploy script run every ~5 min by ict-git-sync.timer and by the pull-and-deploy system-action. Manager dispatch to lane JC-OPS: 'Tier-2 (deploy script): landing hold, and the manager reviews.' No auto-revert added; existing exit codes and continue-on-warning behaviour are unchanged byte-for-byte -- the only new effect is an urgent send-ping alert on a money-path (ict-trader-live / ict-web-api) restart failure or a version-assertion mismatch.",
+  "why": "adds a distinct urgent operator ping (unit, new SHA, last-known-good SHA, rollback instruction) on money-path restart failure or version-assertion mismatch; no auto-revert, no exit-code change, no order-path/config touched"
+}
