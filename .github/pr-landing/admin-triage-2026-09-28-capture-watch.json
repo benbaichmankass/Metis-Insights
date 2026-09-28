@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI/workflow tooling only, per the workflow's own header ('BLAST RADIUS. Tier-1.'). Adds a workflow_dispatch boolean input (simulate_capture_bad, default false) that overwrites only the in-memory `capture` reading after the real SSH probe/plant/cleanup of the two /tmp controls has already run unchanged -- the live trainer capture file is never touched -- and skips the receipt-commit step on a simulated run so a fabricated reading never lands on main. No runtime, order path, strategy config, risk caps, or live-VM mutation beyond the SSH stat/touch/rm the workflow already performed on every run."
+}

@@ -148,10 +148,14 @@ def test_sweep_unlinked_packages_reconciles_executed_trade(
     #   op-exec-closed → a CLOSED intent_reduce leg references it
     #   op-exec-open   → an OPEN fill references it
     #   op-true-orphan → nothing references it (genuine BUG-049 orphan)
+    # strategy_name is ict_scalp_xrp_5m (not ict_scalp_avax_5m, demoted to
+    # shadow 2026-09-28 — PI-20260922-UTN353OZ-0001): this test's genuine
+    # orphan must resolve on a LIVE leg, or the sweep's shadow-package
+    # relabel (below) turns it into 'shadow_expired' instead.
     for pid in ("op-exec-closed", "op-exec-open", "op-true-orphan"):
         db.insert_order_package({
             "order_package_id": pid,
-            "strategy_name": "ict_scalp_avax_5m",
+            "strategy_name": "ict_scalp_xrp_5m",
             "symbol": "AVAXUSDT",
             "direction": "short",
             "entry": 6.76,
@@ -180,7 +184,7 @@ def test_sweep_unlinked_packages_reconciles_executed_trade(
     })
     open_tid = db.insert_trade({
         "symbol": "AVAXUSDT", "direction": "short", "entry_price": 6.76,
-        "position_size": 719.8, "setup_type": "ict_scalp_avax_5m",
+        "position_size": 719.8, "setup_type": "ict_scalp_xrp_5m",
         "status": "open", "account_id": "bybit_1",
         "order_package_id": "op-exec-open", "is_backtest": 0,
         "timestamp": _old_iso(9), "created_at": _old_iso(9),

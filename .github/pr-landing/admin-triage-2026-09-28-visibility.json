@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Substance is Tier-1 in effect (visibility-only: Telegram /accounts_status gross-exposure display reading the existing RiskManager.report()['exposure'] block, no new risk computation, no cap enforced; M20 tp_geometry_reachability.py vwap/turtle_soup grading is Tier-1 research tooling already in TIER1_SURFACE), but src/bot/menu.py and src/bot/telegram_query_bot.py are outside pr-landing-guard's static TIER1_SURFACE allowlist (it covers docs/**, tests/**, comms/**, .github/**, scripts/{ci,ops,research,reports}/**, research/**, *.md, etc. -- not src/bot/**), so R5 correctly refuses to certify self-land on those two paths even though they contain no order-path or strategy-logic change. A human should read and merge.",
+  "why": "Visibility-only: Telegram /accounts_status gross-exposure display (reads the existing RiskManager.report()['exposure'] block; no new risk computation, no cap enforced) and M20 tp_geometry_reachability.py vwap/turtle_soup grading (Tier-1 research tooling; no strategy-logic or order-path change). Pipeline records updated to reflect disposition. Tests added and passing. Held only because pr-landing-guard's static path allowlist does not cover src/bot/** -- see hold_text."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "GitHub Actions workflow + CI tooling only, per RQ-OPS-2's Tier-1 scope. Touches .github/workflows/research-queue-dispatch.yml (schedule-keeper wiring + continue-on-error handling, no order path/config/live-VM file) and scripts/ops/schedule_keeper.py (adds this workflow to an existing TARGETS dict, same shape as its four existing entries)."
+}

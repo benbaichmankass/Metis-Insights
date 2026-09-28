@@ -499,7 +499,18 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live          # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -9.4826, n=193, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_5m.json.
+                             # Keeps logging; stops taking
+                             # paper trades on bybit_1. Was:
+                             # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
                              # operator-approved Phase-4 packet:
                              # docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md).
                              # The 2026-07-14 demotion's evidence did not survive
@@ -585,7 +596,17 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -8.8634, n=259, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_sol_5m.json.
+                             # Keeps logging; stops taking paper trades on
+                             # bybit_1.
     timeframe: "5m"
     symbols:
       - SOLUSDT
@@ -658,10 +679,36 @@ strategies:
     # needs a fitted per-fold threshold this static config can't reproduce
     # faithfully. Shipped on the UNGATED evidence, which independently
     # clears the gate. No local regime gate.
+    #
+    # atr_sl_buffer_mult 0.20 -> 0.50, PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK
+    # (operator decision 2026-09-28, "Fix risk sizing now" -- see
+    # docs/research/pb-20260822-avax-scalp-sizing-2026-09-28.md for the full
+    # evidence: bybit_1's risk_pct/leverage are ACCOUNT-level only, so this
+    # is the one per-leg lever that participates in position_size()'s
+    # risk_per_unit. 365d AVAXUSDT 5m backtest, this lever ONLY (config
+    # otherwise unchanged), net of full cost stack (fee 7.5/slip 3.0/fund
+    # 1.0bps): margin-ceiling bind rate 17.9% -> 13.2% of trades (n=251/250);
+    # net_total_r -8.2064R -> +7.0285R; win_rate 52.19% -> 53.2%; max_dd_r
+    # 27.51 -> 16.55. NOT a complete fix -- the sweep-extreme distance still
+    # dominates stop placement, not this buffer -- but a real, tested, and
+    # unexpectedly LARGE improvement on both the sizing question and net
+    # return. This is a raw full-window number, not the OOS-folded
+    # RULE-D1-STAGE0 statistic; re-run scripts/ops/build_strategy_evidence.py
+    # --strategy ict_scalp_avax_5m before treating this as a Stage-0 verdict.
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -9.1340, n=259, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_avax_5m.json.
+                             # Keeps logging; stops taking paper trades on
+                             # bybit_1.
     timeframe: "5m"
     symbols:
       - AVAXUSDT
@@ -675,7 +722,7 @@ strategies:
     mitigation_mode: "wick_rejection"
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
-    atr_sl_buffer_mult: 0.20
+    atr_sl_buffer_mult: 0.50
     tp_at_r: 1.5
     be_offset_bps: 15
     session_filter_enabled: false
@@ -1362,7 +1409,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_sol_4h, donchian_sol_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -2.796, n=35, WR 22.9%, folds+ 1/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_sol_4h.json). bybit_1 only (paper);
+                             # confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - SOLUSDT
@@ -1447,7 +1501,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_ada_4h, donchian_ada_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -8.6081, n=46, WR 28.3%, folds+ 1/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_ada_4h.json). bybit_1 only (paper);
+                             # confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - ADAUSDT
@@ -1472,7 +1533,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_avax_4h, donchian_avax_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -9.1414, n=50, WR 26.0%, folds+ 0/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_avax_4h.json). bybit_1 only
+                             # (paper); confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - AVAXUSDT
@@ -1948,6 +2016,12 @@ strategies:
     # mgc_pullback_1d params). Phase-0: pullback1d GLD train +4.9R /
     # OOS +19.7R. alpaca_paper (PAPER money), bracket orders, US-session
     # gate.
+    # ⚠️ LONG-ONLY, ACCEPTED PERMANENTLY (operator triage 2026-09-28,
+    # BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED): no inverse-ETF proxy
+    # is declared, so this leg's short-side signals go fully inert under
+    # alpaca_live's long-only real-money mode. Expected contribution is
+    # restated on that basis — long-side flow only, not the bidirectional
+    # figure the Phase-0 backtest above measured.
     model: null
     signal_prefixes: [gld_pullback]
     enabled: true
@@ -2377,6 +2451,11 @@ strategies:
     # Runs on alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27).
     # Whole-share bracket orders; risk_pct inherited from strategy config.
     # PROVENANCE: mirrors gld_pullback_1d parameters (SRQ-20260627-SLV).
+    # ⚠️ LONG-ONLY, ACCEPTED PERMANENTLY (operator triage 2026-09-28,
+    # BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED): no inverse-ETF proxy
+    # is declared, so this leg's short-side signals go fully inert under
+    # alpaca_live's long-only real-money mode. Expected contribution is
+    # restated on that basis — long-side flow only.
     model: null
     signal_prefixes: [slv_pullback]
     enabled: true
@@ -2412,6 +2491,11 @@ strategies:
     # Runs on alpaca_paper + alpaca_live (Tier-3 approved 2026-06-27).
     # Whole-share bracket orders.
     # PROVENANCE: mirrors gld_pullback_1d parameters (SRQ-20260627-GDX).
+    # ⚠️ LONG-ONLY, ACCEPTED PERMANENTLY (operator triage 2026-09-28,
+    # BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED): no inverse-ETF proxy
+    # is declared, so this leg's short-side signals go fully inert under
+    # alpaca_live's long-only real-money mode. Expected contribution is
+    # restated on that basis — long-side flow only.
     model: null
     signal_prefixes: [gdx_pullback]
     enabled: true
@@ -2496,6 +2580,14 @@ strategies:
     # gld_pullback_1d. alpaca_paper (PAPER money), bracket orders, US-session
     # gate. NOTE: IAUM's own price history only starts 2021 (fund inception);
     # GLD's full-history +52R edge is the deeper evidence base.
+    # ⚠️ LONG-ONLY, ACCEPTED PERMANENTLY (operator triage 2026-09-28,
+    # BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED): no inverse-ETF proxy
+    # is declared, so this leg's short-side signals go fully inert under
+    # alpaca_live's long-only real-money mode. Expected contribution is
+    # restated on that basis — long-side flow only. (Note: iaum_pullback_1d
+    # is also one of the two declared affordability proxies dropped from the
+    # alpaca_portfolio mirror per CLAUDE.md's Stage-2 invariant — a separate,
+    # unrelated carve-out from this one.)
     model: null
     signal_prefixes: [iaum_pullback]
     enabled: true
