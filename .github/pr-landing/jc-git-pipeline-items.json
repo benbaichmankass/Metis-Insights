@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Files four follow-through pipeline items from lane JC-GIT: JC-CA-06 sequenced after JC-CA-01, the other VM-local config writers, the mandate-autoland self-test flake, and the JC-CA-03 measured blocker. They are new record files under docs/claude/work/pipeline/ only. No code, config or runtime change."
+}
