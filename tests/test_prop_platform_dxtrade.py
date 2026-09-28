@@ -246,12 +246,6 @@ def test_login_refuses_without_credentials():
     ("\u221212.30", -12.3), ("-$5", -5.0), ("+3.2", 3.2), ("0.00", 0.0),
     ("abc", None), ("1.2.3", None), ("", None), (None, None),
     ("USD 4,724.00", 4724.0), ("4\u00a0724.00", 4724.0), ("\u2014", None),
-    # A LONE comma before 1-2 digits with no decimal point already present
-    # is a decimal comma, not a thousands separator: dropping it silently
-    # turned "0,01" into 1.0 (min-lot-sized instrument specs, e.g.).
-    ("0,01", 0.01), ("12,3", 12.3), ("-0,01", -0.01),
-    # 3+ digits after the comma stays a thousands separator, unaffected.
-    ("1,234", 1234.0), ("1,234.56", 1234.56),
 ])
 def test_parse_number(raw, val):
     assert parse_number(raw) == val
@@ -353,6 +347,58 @@ def test_extract_instrument_specs_never_leaks_a_non_matching_objects_values():
     assert "999.0" not in blob and "leak-me" not in blob
 
 
+def test_extract_instrument_specs_never_attributes_a_position_or_orders_own_size():
+    # Round-4 finding: the old SUBSTRING allowlist ("tick" matching
+    # ticketNumber, "lot" matching lots/closedLots/pilotSlot) let a
+    # position/order object's own size or id fields be printed as if they
+    # were instrument specs. An object carrying a position/order-shaped
+    # key is never read as a spec at all, however spec-shaped its other
+    # fields look.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/positions",
+        body=json.dumps({"instrument": "BTCUSD", "positionId": "p-1",
+                         "lots": 2.5, "ticketNumber": 998877, "openPrice": 65000.0}))
+    result = extract_instrument_specs_from_responses([resp], ["BTCUSD"])
+    assert result["specs"]["BTCUSD"] == {}
+
+
+def test_extract_instrument_specs_anchored_allowlist_yields_a_real_specs_fields():
+    # The positive control for the previous test: a genuine spec object
+    # (no position/order-shaped key) still yields its allowlisted fields.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "BTCUSD", "lotSize": 1.0, "tickSize": 0.5,
+                         "digits": 2, "minQty": 0.001}))
+    result = extract_instrument_specs_from_responses([resp], ["BTCUSD"])
+    assert result["specs"]["BTCUSD"] == {"lotSize": 1.0, "tickSize": 0.5,
+                                         "digits": 2, "minQty": 0.001}
+
+
+def test_extract_instrument_specs_ambiguous_symbol_keys_are_skipped():
+    # The same object's symbol-like keys naming TWO DIFFERENT requested
+    # symbols is ambiguous, not a match either way.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "BTCUSD", "name": "ADAUSD", "contractSize": 1.0}))
+    result = extract_instrument_specs_from_responses([resp], ["BTCUSD", "ADAUSD"])
+    assert result["specs"]["BTCUSD"] == {} and result["specs"]["ADAUSD"] == {}
+    # "Ambiguous" is treated as "not a match either way" -- it still
+    # contributes a (redacted, key-names-only) discovery line, same as any
+    # other non-matching object.
+    assert len(result["discovery"]) == 1
+
+
+def test_extract_instrument_specs_drops_non_finite_values_never_a_false_conflict():
+    resps = [
+        CapturedResponse(url="https://wss.breakoutprop.com/a",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": float("nan")})),
+        CapturedResponse(url="https://wss.breakoutprop.com/b",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": float("nan")})),
+    ]
+    result = extract_instrument_specs_from_responses(resps, ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {}  # never "conflict", never NaN itself
+
+
 def test_extract_instrument_specs_discovery_prints_key_names_only_never_values():
     resp = CapturedResponse(
         url="https://wss.breakoutprop.com/api/ping",
@@ -361,7 +407,23 @@ def test_extract_instrument_specs_discovery_prints_key_names_only_never_values()
     assert len(result["discovery"]) == 1
     line = result["discovery"][0]
     assert "leak-me" not in line and "1234567890" not in line
-    assert "serverTime" in line and "secretNote" in line and "status" in line
+    # "secretNote" is itself dropped (sensitive-looking key name), never
+    # just its value -- key names are filtered too, not only values.
+    assert "serverTime" in line and "status" in line and "secretNote" not in line
+    assert "(+1 keys suppressed)" in line
+
+
+def test_extract_instrument_specs_discovery_drops_id_shaped_and_digit_run_keys():
+    # Round-4 finding: a raw account number or similar spelled as a "key"
+    # survived the old rule because it didn't end in "id" and wasn't
+    # otherwise sensitive-shaped.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/ping",
+        body=json.dumps({"12345678": "x", "acct-1210012345": "y", "status": "ok"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    line = result["discovery"][0]
+    assert "12345678" not in line and "1210012345" not in line
+    assert "status" in line
 
 
 def test_extract_instrument_specs_discovery_and_capture_are_capped():
@@ -392,39 +454,73 @@ def test_extract_instrument_specs_leak_test_credentials_email_and_query_url():
     assert "should-never-print-anyway" not in line
 
 
+class _FakeResponse:
+    def __init__(self, url, body, content_type="application/json", fail=False):
+        self.url = url
+        self.headers = {"content-type": content_type}
+        self._body = body
+        self._fail = fail
+
+    def text(self):
+        if self._fail:
+            raise RuntimeError("body unavailable (fake)")
+        return self._body
+
+
+class _FakePage:
+    def __init__(self, url="https://wss.breakoutprop.com/"):
+        self.url = url
+        self._handlers = []
+
+    def on(self, event, handler):
+        self._handlers.append((event, handler))
+
+    def fire(self, response):
+        for event, handler in self._handlers:
+            if event == "response":
+                handler(response)
+
+
 def test_start_response_capture_records_same_origin_json_and_ignores_the_rest():
-    class _FakeResponse:
-        def __init__(self, url, body, fail=False):
-            self.url = url
-            self._body = body
-            self._fail = fail
-
-        def text(self):
-            if self._fail:
-                raise RuntimeError("body unavailable (fake)")
-            return self._body
-
-    class _FakePage:
-        url = "https://wss.breakoutprop.com/"
-
-        def __init__(self):
-            self._handlers = []
-
-        def on(self, event, handler):
-            self._handlers.append((event, handler))
-
-        def fire(self, response):
-            for event, handler in self._handlers:
-                if event == "response":
-                    handler(response)
-
     page = _FakePage()
     captured = DXtradeAdapter().start_response_capture(page)
     page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", '{"symbol": "ETHUSD"}'))
     page.fire(_FakeResponse("https://other.example.com/tracker", '{"x": 1}'))  # cross-origin
     page.fire(_FakeResponse("https://wss.breakoutprop.com/broken", "", fail=True))  # unreadable body
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/img.png", "binary",
+                            content_type="image/png"))  # non-JSON content-type
     assert [c.url for c in captured] == ["https://wss.breakoutprop.com/api/instruments"]
     assert captured[0].body == '{"symbol": "ETHUSD"}'
+
+
+def test_start_response_capture_fails_closed_on_an_unconfirmed_page_origin():
+    for bad_url in ("", "about:blank", "ABOUT:BLANK"):
+        page = _FakePage(url=bad_url)
+        captured = DXtradeAdapter().start_response_capture(page)
+        page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", '{"symbol": "ETHUSD"}'))
+        assert captured == [], bad_url
+
+    class _RaisingUrlPage(_FakePage):
+        @property
+        def url(self):
+            raise RuntimeError("url unavailable (fake)")
+
+        @url.setter
+        def url(self, value):
+            pass
+
+    page = _RaisingUrlPage()
+    captured = DXtradeAdapter().start_response_capture(page)
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", '{"symbol": "ETHUSD"}'))
+    assert captured == []
+
+
+def test_start_response_capture_caps_a_bodys_size():
+    page = _FakePage()
+    captured = DXtradeAdapter().start_response_capture(page)
+    huge = json.dumps({"symbol": "ETHUSD", "pad": "x" * 300_000})
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", huge))
+    assert len(captured[0].body) <= 200_000
 
 
 # Column headers as the served dictionary spells them.

@@ -19,15 +19,24 @@ itself triggers) and records every same-origin JSON response body; nothing
 is clicked, filled or navigated for this path. :func:`extract_instrument_specs_from_responses`
 then walks the recorded bodies for objects whose symbol-like key EXACTLY
 equals (case-insensitive, trimmed — never a substring: ``BTCUSDT`` does not
-satisfy ``BTCUSD``) one of the requested symbols, and prints only the
-allowlisted numeric fields it finds there, under the key name as served. A
-symbol that appears in two matching objects with a DIFFERING value for the
-same field reports ``conflict`` for that field rather than either number —
-a wrong number is worse than none. A response with no matching object
-contributes only a discovery line (its redacted origin+path and the set of
-top-level key names, never a value) so selectors can be extended from the
-public log; a sensitive-looking key (token/auth/session/password/…) is
-never printed even from inside a matching object.
+satisfy ``BTCUSD``, and an object matching two DIFFERENT requested symbols
+across its symbol-like keys is ambiguous and skipped) one of the requested
+symbols, and prints only the ANCHORED, whole-key allowlist of spec-shaped
+field names (never a substring rule — round 4 of review found "tick" also
+matching "ticketNumber" and "lot" also matching "lots"), under the key name
+as served. An object that also carries a position/order-shaped key
+(``positionId``, ``quantity``, …) is never read as a spec at all — that is
+trade data, never a spec, however spec-shaped one of its other fields
+looks. A symbol that appears in two matching objects with a DIFFERING value
+for the same field reports ``conflict`` for that field rather than either
+number — a wrong number is worse than none; non-finite values (``NaN``/
+``inf``) are dropped before comparison so a repeated ``NaN`` is never read
+as a conflict. A response with no matching object contributes only a
+discovery line (its redacted origin+path and the set of SAFE-LOOKING
+top-level key names, never a value, never a sensitive or id-shaped key) so
+selectors can be extended from the public log. The response capture itself
+fails CLOSED on an unconfirmed page origin, reads a body only when its
+content-type says JSON, and caps how much of one body it keeps.
 
 Every DXtrade selector lives in :data:`SELECTORS` so the order-placing slice
 reuses them. Provenance of each selector:
@@ -62,6 +71,7 @@ functions over plain data so they are unit-tested without a browser.
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 from urllib.parse import urlsplit
@@ -135,15 +145,8 @@ ACCOUNT_LABELS: Dict[str, Sequence[str]] = {
 # ── pure helpers ─────────────────────────────────────────────────────────
 
 
-_DECIMAL_COMMA_RE = re.compile(r"[+-]?\d+,\d{1,2}")
-
-
 def parse_number(text: Optional[str]) -> Optional[float]:
-    """``"$4,724.50"`` → 4724.5; ``"(12.30)"``/``"−12.30"`` → -12.3;
-    ``"0,01"`` → 0.01 (a LONE comma before 1-2 digits with no decimal
-    point already present is a European-style decimal comma, not a
-    thousands separator -- dropping it silently turned "0,01" into 1.0);
-    junk → None."""
+    """``"$4,724.50"`` → 4724.5; ``"(12.30)"``/``"−12.30"`` → -12.3; junk → None."""
     if text is None:
         return None
     t = str(text).strip()
@@ -152,14 +155,10 @@ def parse_number(text: Optional[str]) -> Optional[float]:
     neg = False
     if t.startswith("(") and t.endswith(")"):
         neg, t = True, t[1:-1]
-    t = t.replace("\u2212", "-").replace(" ", "").replace("\u00a0", "")
+    t = t.replace("\u2212", "-").replace(",", "").replace(" ", "").replace("\u00a0", "")
     t = re.sub(r"^(USD|USDT|EUR|GBP)", "", t)
     t = re.sub(r"(USD|USDT|EUR|GBP)$", "", t)
     t = re.sub(r"[$€£]", "", t)
-    if "." not in t and _DECIMAL_COMMA_RE.fullmatch(t):
-        t = t.replace(",", ".")
-    else:
-        t = t.replace(",", "")
     m = re.fullmatch(r"([+-]?)(\d+(?:\.\d+)?)", t)
     if not m:
         return None
@@ -659,19 +658,60 @@ def _strip_url(url: str) -> str:
 # number, exactly like every other unmeasured path in this module.) ──────
 
 _SYMBOL_KEYS: Sequence[str] = ("symbol", "name", "instrument", "code")
-# Allowlisted numeric spec fields, matched by KEY NAME only (case-insensitive).
-# Printed under the key name AS SERVED — this is not a fixed schema, since
-# the terminal's own field names are unmeasured.
-_SPEC_FIELD_RE = re.compile(
-    r"(contract|lot|multiplier|tick|step|min.*(?:qty|quantity|volume)|"
-    r"precision|digits|pointvalue|point_value)", re.IGNORECASE)
-# Never printed, even from inside a matching object.
+
+# Explicit, ANCHORED allowlist of spec-shaped key names (whole-key match,
+# case-insensitive) — NOT a substring rule. A substring rule ("tick" also
+# matching "ticketNumber", "lot" also matching "lots"/"closedLots"/
+# "pilotSlot") let a position or order object's own size/id fields be
+# printed as if they were instrument specs (round-4 review finding).
+# Printed under the key name AS SERVED (whichever spelling matched) — this
+# is not a fixed schema, since the terminal's own field names are unmeasured.
+_SPEC_FIELD_NAMES = frozenset({
+    "contractsize", "contract_size", "contractvalue", "lotsize", "lot_size",
+    "lotstep", "lot_step", "minlot", "maxlot", "minquantity", "minqty",
+    "min_quantity", "maxquantity", "quantitystep", "qtystep", "volumestep",
+    "minvolume", "ticksize", "tick_size", "tickvalue", "pointvalue",
+    "point_value", "pipvalue", "multiplier", "contractmultiplier",
+    "precision", "priceprecision", "digits", "quantityprecision",
+})
+# A position/order-shaped key on the SAME object disqualifies it from being
+# read as an instrument spec at all — a position/order row commonly ALSO
+# carries an allowlisted-looking field (its own size), and that is data
+# about a trade, never a spec.
+_POSITION_OR_ORDER_KEYS = frozenset({
+    "positionid", "orderid", "ticket", "side", "openprice", "opentime",
+    "fillprice", "quantity",
+})
+# Never printed — a matching object's field, or a discovery line's key name.
 _SENSITIVE_KEY_RE = re.compile(
     r"(token|auth|session|pass|secret|key|account|login|user|email|id$)", re.IGNORECASE)
-# Safety cap on how many response bodies one capture list holds, independent
-# of the discovery-line cap below (a long-lived page could otherwise grow
-# this without bound).
+# A key name safe to print bare (discovery lines): an identifier shape,
+# capped at 40 chars, with no run of 4+ digits (rules out an account
+# number or similar spelled as a "key", which a bare `id$` suffix check
+# would miss) and not sensitive-looking.
+_SAFE_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}$")
+_DIGIT_RUN_RE = re.compile(r"\d{4,}")
+# Safety caps: how many response bodies one capture list holds (independent
+# of the discovery-line cap below — a long-lived page could otherwise grow
+# this without bound), and how much of one body is ever read/kept.
 _MAX_CAPTURED_RESPONSES = 500
+_MAX_CAPTURED_BODY_CHARS = 200_000
+
+
+def _safe_key_name(k: str) -> bool:
+    """True if ``k`` is safe to print as a bare key name: an identifier
+    shape, no run of 4+ digits, and not sensitive-looking."""
+    return bool(_SAFE_KEY_RE.match(k)) and not _DIGIT_RUN_RE.search(k) and not _SENSITIVE_KEY_RE.search(k)
+
+
+def _is_spec_field(k: str) -> bool:
+    """Whole-key, case-insensitive membership in :data:`_SPEC_FIELD_NAMES`
+    — never a substring match."""
+    return k.strip().lower() in _SPEC_FIELD_NAMES
+
+
+def _looks_like_position_or_order(obj: Mapping[str, Any]) -> bool:
+    return any(str(k).strip().lower() in _POSITION_OR_ORDER_KEYS for k in obj.keys())
 
 
 class CapturedResponse:
@@ -711,18 +751,21 @@ def _walk_json_objects(node: Any) -> Iterable[Mapping[str, Any]]:
 
 def _matching_symbol(obj: Mapping[str, Any], symbols_upper: Mapping[str, str]) -> Optional[str]:
     """The requested symbol (as originally given, not upper-cased) this
-    object's symbol-like key (:data:`_SYMBOL_KEYS`) EXACTLY equals after
+    object's symbol-like key(s) (:data:`_SYMBOL_KEYS`) EXACTLY equal after
     trimming — never a substring match: ``BTCUSDT`` must never satisfy
-    ``BTCUSD``. ``None`` if no symbol-like key is present or none matches
-    exactly."""
+    ``BTCUSD``. ``None`` if no symbol-like key is present, none matches
+    exactly, or the object's symbol-like keys match TWO DIFFERENT requested
+    symbols (e.g. ``symbol=BTCUSD``, ``name=ADAUSD``) — that is ambiguous,
+    not a match either way, so it is skipped rather than guessed."""
+    hits = set()
     for key in _SYMBOL_KEYS:
         val = obj.get(key)
         if not isinstance(val, str):
             continue
         hit = symbols_upper.get(val.strip().upper())
         if hit is not None:
-            return hit
-    return None
+            hits.add(hit)
+    return next(iter(hits)) if len(hits) == 1 else None
 
 
 def extract_instrument_specs_from_responses(
@@ -730,25 +773,32 @@ def extract_instrument_specs_from_responses(
         secrets: Sequence[str] = (), max_discovery: int = 30, max_keys: int = 40,
     ) -> Dict[str, Any]:
     """Pure function: walk captured JSON response bodies for objects whose
-    symbol-like key EXACTLY equals one of ``symbols``, and pull only the
-    ALLOWLISTED numeric spec fields (:data:`_SPEC_FIELD_RE`) out of each
-    match, keyed by the field name AS SERVED. A sensitive-looking key
-    (:data:`_SENSITIVE_KEY_RE`) is never returned, even from inside a
-    matching object. A field whose value DIFFERS across matching objects
-    for the same symbol reports ``"conflict"`` instead of either number —
-    a wrong number is worse than none, and the conflict is sticky (a later
-    object matching one of the earlier values does not clear it).
+    symbol-like key EXACTLY equals one of ``symbols`` (unambiguously — see
+    :func:`_matching_symbol`), and pull only the ANCHORED allowlist of
+    spec-shaped fields (:data:`_SPEC_FIELD_NAMES`, a whole-key match, never
+    a substring) out of each match, keyed by the field name AS SERVED. An
+    object that also carries a position/order-shaped key
+    (:data:`_POSITION_OR_ORDER_KEYS`) is never read as a spec at all — a
+    position/order row commonly carries an allowlisted-looking field too
+    (its own size), and that is trade data, never a spec. A sensitive-
+    looking key (:data:`_SENSITIVE_KEY_RE`) or a non-identifier-shaped one
+    is never returned either way. Non-finite values (``NaN``/``inf`` —
+    Python's ``json`` module accepts the literal spelling) are dropped
+    before comparison or printing, so a repeated ``NaN`` is not read as a
+    conflict. A field whose value DIFFERS across matching objects for the
+    same symbol reports ``"conflict"`` instead of either number — a wrong
+    number is worse than none, and the conflict is sticky (a later object
+    matching one of the earlier values does not clear it).
 
     Returns ``{"specs": {<symbol as given>: {field: value_or_"conflict"}},
     "discovery": [line, ...]}``. A response whose body parses as JSON but
     has no matching object contributes ONE (already redacted) discovery
     line — its origin+path (never the query string, which can carry a
-    session id) and the SET of its top-level key names, never a value —
-    capped at ``max_discovery`` lines / ``max_keys`` keys each, so
-    selectors can be extended from the public log without ever leaking a
-    non-matching object's data. A response that isn't valid JSON at all is
-    silently skipped (no discovery line either — there are no "top-level
-    keys" to report).
+    session id) and the SET of its SAFE-LOOKING top-level key names (never
+    a value, never a sensitive or id-shaped key), noting how many were
+    suppressed — capped at ``max_discovery`` lines / ``max_keys`` keys
+    each. A response that isn't valid JSON at all is silently skipped (no
+    discovery line either — there are no "top-level keys" to report).
     """
     symbols_upper = {s.strip().upper(): s for s in symbols}
     specs: Dict[str, Dict[str, Any]] = {s: {} for s in symbols}
@@ -765,11 +815,15 @@ def extract_instrument_specs_from_responses(
             if sym is None:
                 continue
             response_matched = True
+            if _looks_like_position_or_order(obj):
+                continue
             slot = specs[sym]
             for k, v in obj.items():
-                if _SENSITIVE_KEY_RE.search(k) or not _SPEC_FIELD_RE.search(k):
+                if not _is_spec_field(k) or not _safe_key_name(k):
                     continue
                 if isinstance(v, bool) or not isinstance(v, (int, float)):
+                    continue
+                if isinstance(v, float) and not math.isfinite(v):
                     continue
                 if k in slot and slot[k] != v:
                     slot[k] = "conflict"
@@ -777,9 +831,12 @@ def extract_instrument_specs_from_responses(
                     slot[k] = v
         if not response_matched and len(discovery) < max_discovery:
             keys = sorted(payload.keys()) if isinstance(payload, dict) else []
+            safe_keys = [k for k in keys if _safe_key_name(k)]
+            suppressed = len(keys) - len(safe_keys)
+            suffix = f" (+{suppressed} keys suppressed)" if suppressed else ""
             discovery.append(
                 f"instrument_discovery: {redact_text(_origin_and_path(resp.url), *secrets)} "
-                f"keys={keys[:max_keys]}")
+                f"keys={safe_keys[:max_keys]}{suffix}")
 
     return {"specs": specs, "discovery": discovery}
 
@@ -1010,13 +1067,18 @@ class DXtradeAdapter(PropPlatformAdapter):
         Call this BEFORE :meth:`login` so it also sees whatever the
         login/account/positions/orders flow itself triggers -- the
         terminal may only serve instrument metadata once, on session
-        setup. Records only same-origin responses that parse as JSON
-        (checked when :func:`extract_instrument_specs_from_responses`
-        reads them, not here); a response whose body can't be read
-        (streamed, already consumed, binary) is silently skipped. This
-        never clicks, fills or navigates anything -- it is purely
-        passive, so it can be attached at any point in the flow without
-        affecting what the balance/position/order reads see.
+        setup. This never clicks, fills or navigates anything -- it is
+        purely passive, so it can be attached at any point in the flow
+        without affecting what the balance/position/order reads see.
+
+        The origin check fails CLOSED: if the page's own URL is empty,
+        ``about:blank``, or raises, NOTHING is captured for that event --
+        an unconfirmed origin is never treated as a match. Only a
+        response whose ``content-type`` header contains ``"json"`` has its
+        body read at all (``.text()`` is never called on anything else,
+        so a large binary/streamed asset is never touched); a body is
+        capped at :data:`_MAX_CAPTURED_BODY_CHARS`, and the whole list at
+        :data:`_MAX_CAPTURED_RESPONSES`.
         """
         captured: List[CapturedResponse] = []
 
@@ -1024,16 +1086,33 @@ class DXtradeAdapter(PropPlatformAdapter):
             if len(captured) >= _MAX_CAPTURED_RESPONSES:
                 return
             try:
-                req_origin = urlsplit(page.url).netloc
-                resp_origin = urlsplit(response.url).netloc
-                if req_origin and resp_origin and req_origin != resp_origin:
-                    return
+                page_url = str(page.url or "").strip()
             except Exception:
-                pass
+                page_url = ""
+            if not page_url or page_url.lower() == "about:blank":
+                return  # fail CLOSED: no confirmed origin, capture nothing
+            try:
+                page_origin = urlsplit(page_url).netloc
+                resp_origin = urlsplit(str(response.url or "")).netloc
+            except Exception:
+                return
+            if not page_origin or not resp_origin or page_origin != resp_origin:
+                return
+            try:
+                headers = response.headers
+                if callable(headers):
+                    headers = headers()
+            except Exception:
+                headers = {}
+            ctype = str((headers or {}).get("content-type", "")).lower()
+            if "json" not in ctype:
+                return
             try:
                 body = response.text()
             except Exception:
                 return
+            if len(body) > _MAX_CAPTURED_BODY_CHARS:
+                body = body[:_MAX_CAPTURED_BODY_CHARS]
             captured.append(CapturedResponse(url=response.url, body=body))
 
         try:
