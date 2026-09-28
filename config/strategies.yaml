@@ -658,6 +658,15 @@ strategies:
     # needs a fitted per-fold threshold this static config can't reproduce
     # faithfully. Shipped on the UNGATED evidence, which independently
     # clears the gate. No local regime gate.
+    #
+    # atr_sl_buffer_mult 0.20 -> 0.50, PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK
+    # (operator decision 2026-09-28, "Fix risk sizing now" -- see
+    # docs/research/pb-20260822-avax-scalp-sizing-2026-09-28.md for the full
+    # evidence: bybit_1's risk_pct/leverage are ACCOUNT-level only, so this
+    # is the one per-leg lever that participates in position_size()'s
+    # risk_per_unit; it REDUCES the margin-ceiling bind rate 17.9% -> 13.1%
+    # of trades (n=251, 365d backtest) but does not eliminate it -- the
+    # sweep-extreme distance dominates stop placement, not this buffer.
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
@@ -675,7 +684,7 @@ strategies:
     mitigation_mode: "wick_rejection"
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
-    atr_sl_buffer_mult: 0.20
+    atr_sl_buffer_mult: 0.50
     tp_at_r: 1.5
     be_offset_bps: 15
     session_filter_enabled: false
