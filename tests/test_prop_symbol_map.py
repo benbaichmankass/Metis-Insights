@@ -38,8 +38,19 @@ def test_canonical_symbol_passthrough() -> None:
     # An already-canonical bot symbol must NOT be re-mapped on the inbound side.
     assert to_bot_symbol("ETHUSDT") == "ETHUSDT"
     # An unmapped instrument passes through unchanged both ways (fail-open).
-    assert to_venue_symbol("XRPUSDT") == "XRPUSDT"
-    assert to_bot_symbol("XRPUSDT") == "XRPUSDT"
+    # (XRPUSDT was the example here until it was mapped on 2026-09-28.)
+    assert to_venue_symbol("DOGEUSDT") == "DOGEUSDT"
+    assert to_bot_symbol("DOGEUSDT") == "DOGEUSDT"
+
+
+def test_ada_xrp_mapped_operator_confirmed_2026_09_28() -> None:
+    from src.prop.symbol_map import to_bot_symbol, to_venue_symbol
+
+    # Operator-confirmed from breakout_1's Instrument Details panel.
+    assert to_venue_symbol("ADAUSDT") == "ADAUSD"
+    assert to_venue_symbol("XRPUSDT") == "XRPUSD"
+    assert to_bot_symbol("ADAUSD") == "ADAUSDT"
+    assert to_bot_symbol("XRPUSD") == "XRPUSDT"
 
 
 def test_empty_and_none_inputs() -> None:
