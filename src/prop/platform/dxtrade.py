@@ -1120,14 +1120,19 @@ CONTROLS_DUMP_JS = r"""
     const cls = typeof el.className === 'string' ? el.className : '';
     if (personal.test(el.getAttribute('data-test-id') || '') || personal.test(cls)) {
       out.push({tag: el.tagName.toLowerCase(), tid: mask(el.getAttribute('data-test-id')), personal: true});
-      if (out.length >= 150) break;
+      if (out.length >= 250) break;
       continue;
     }
     const d = {tag: el.tagName.toLowerCase(), tid: mask(el.getAttribute('data-test-id')),
                role: mask(el.getAttribute('role')), type: mask(el.getAttribute('type')),
                aria: mask(el.getAttribute('aria-label')), ph: mask(el.getAttribute('placeholder')),
                title: mask(el.getAttribute('title')),
-               vis: r.width > 0 && r.height > 0};
+               vis: r.width > 0 && r.height > 0,
+               // Layout only (the ticket opener is an icon-only button, top
+               // right): rounded CSS pixels, never page content.
+               box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+               right_gap: Math.round(window.innerWidth - r.right),
+               svg: !!el.querySelector('svg') || el.tagName === 'svg'};
     for (const a of el.attributes) {
       if (/^(aria-(selected|checked|pressed|disabled)|data-(value|selected|active|state|side|type))$/.test(a.name)) {
         (d.state = d.state || {})[a.name] = mask(a.value);
@@ -1138,7 +1143,7 @@ CONTROLS_DUMP_JS = r"""
     const lab = el.closest('label') || el.parentElement;
     if (el.tagName === 'INPUT' && lab) d.label = mask(txt(lab));
     out.push(d);
-    if (out.length >= 150) break;
+    if (out.length >= 250) break;
   }
   return {found: out.length > 0, n: out.length, controls: out};
 }
