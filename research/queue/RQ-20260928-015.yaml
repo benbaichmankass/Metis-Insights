@@ -1,0 +1,141 @@
+id: RQ-20260928-015
+title: >-
+  Reconcile prop_ev_sim.py's P(net>0) discrepancy (PI-20260928-PEVRECON-0001)
+  — does the 2026-08-13 graduation grade for trend_donchian_eth_prop/sol_prop
+  reproduce, and if not, why?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Manager direction 2026-09-28 14:15Z: "Make the P(net>0) reconciliation gap
+  you flagged a queue unit with a decision rule, not just a pipeline item."
+  PI-20260928-PEVRECON-0001 (filed same session): a single exploratory
+  prop_ev_sim.py run against the CURRENT committed trend_donchian_eth_prop
+  trade evidence (comms/strategy_evidence/runs/2026-09-26/
+  trend_donchian_eth_prop__trades.jsonl, n=169) gave P(net>0) 0.04-0.34
+  across the four --modes marking modes and ev_net_usd_per_life 128-162 (the
+  "path" mode, the one this repo's own docs call the decision-grade mode) --
+  well below the leg's own committed 2026-08-13 graduation figure
+  (ev_net_usd +$883, P(net>0)=0.8477, n=1110, trainer relay #8975). Does the
+  graduation figure REPRODUCE when the graduation run's exact args/
+  population are matched, and if not, which of the candidate causes (stated,
+  not yet distinguished) explains the gap: (a) population -- n=1110 at
+  graduation vs n=169 in the file checked this session (likely a recent
+  SLICE, not the full graduation-era history); (b) args -- account_size_usd,
+  --modes selection, or other CLI flags not recorded verbatim in the live
+  config's own comment; (c) genuine performance drift in the live geometry
+  since 2026-08-13?
+
+why_this_matters: >-
+  RQ-20260928-011 (this lane's own sizing-scheme comparison unit, landed
+  same session, PR #13640) explicitly depends on reproducing this baseline
+  before its flat-vs-cushion-fit sizing comparison can trust its own control
+  arm -- a sizing comparison run against the WRONG baseline would produce a
+  confidently wrong verdict. This unit is the prerequisite RQ-20260928-011
+  itself names in its `why_this_matters`. More broadly: if `--book breakout_1`
+  (which scores the live book from ITS OWN accumulated evidence, not a
+  frozen single file) reproduces the graduation figure while the single-file
+  `--trades LEG=PATH` invocation does not, that pins the cause to (a)
+  population, closing the question cheaply; if `--book breakout_1` ALSO
+  fails to reproduce, that is a more serious finding (the graduation
+  evidence itself may not be reproducible from currently-committed data) and
+  routes to the operator, not just this lane.
+
+power:
+  expected_n: 1110
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same floor as RQ-20260928-011 (~87-90 obs at d=0.3); the graduation
+    population itself (n=1110) is already known and far above it. This unit
+    grades REPRODUCIBILITY, not a fresh statistical test -- the "power"
+    question is whether the SAME n=1110-trade population used at graduation
+    can be located and re-run, not whether n=169 is enough (it explicitly is
+    not the graduation population).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Not an accrual question -- either the n=1110 graduation-era trade file
+      exists somewhere in git history / trainer relay #8975's own artifacts,
+      or it does not and (c) genuine drift becomes the only testable
+      explanation. One-shot investigation, not a soak.
+
+design:
+  step_1_book_mode: >-
+    python3 scripts/research/prop_ev_sim.py --book breakout_1 --ruleset
+    config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh
+    --swap-model dxtrade, default MC, seed matching this session's earlier
+    probe (seed 1) for direct comparability. Read the `path`-mode
+    ev_net_usd_per_life and p_net_positive for BOTH trend_donchian_eth_prop
+    and trend_donchian_sol_prop. If these reproduce +$883/0.8477 (ETH) and
+    +$483/0.7427 (SOL) within a stated tolerance, cause (a) [population] is
+    confirmed and no further investigation is needed on this unit.
+  step_2_trainer_relay_artifact: >-
+    IF step 1 does not reproduce: locate run #8975's actual invocation
+    (trainer-vm-diag relay history, or the PR/commit that recorded the
+    2026-08-13 graduation, per the config comment's own citation) and
+    determine its exact --trades population and CLI args. Re-run with those
+    exact args against whatever historical trade file corresponds to that
+    date, if still committed/reconstructable.
+  step_3_if_neither_reproduces: >-
+    Report as an open finding for the operator: the graduation figure that
+    two live, real-decisions-riding legs were promoted on cannot currently
+    be reproduced from committed artifacts. Does NOT itself demote the legs
+    (that is a separate Tier-3 question) -- states the reproducibility gap
+    plainly.
+
+decision_rule:
+  id: RULE-RQ0928-015-PROP-EV-RECONCILIATION
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    ev_net_usd_per_life and p_net_positive ('path' mode) from --book
+    breakout_1, compared against the committed graduation figures
+    (+$883/0.8477 ETH, +$483/0.7427 SOL) within +/-10% relative tolerance
+    (a stated, not arbitrary, band -- MC seed variation alone is expected to
+    move these by a few percent per this session's own single-seed probe).
+  rule: >-
+    REPRODUCED IF --book breakout_1's figures fall within the tolerance band
+    for BOTH legs -- closes PI-20260928-PEVRECON-0001 as `killed` with
+    reason "population mismatch in the single-file probe, --book mode is
+    authoritative and confirms graduation." RQ-20260928-011 unblocks to use
+    --book breakout_1 (or the matching full population) as its control arm.
+    NOT_REPRODUCED IF either leg falls outside tolerance under --book
+    breakout_1 too -- escalates to the operator per step_3 above; does NOT
+    auto-demote the legs (a separate Tier-3 call) and does NOT let
+    RQ-20260928-011 proceed on an unverified baseline.
+  what_it_does_not_do: >-
+    Does not change config/strategies.yaml, config/prop_rulesets/breakout*.yaml,
+    or either leg's execution field. Does not re-tune sizing or geometry --
+    that is RQ-20260928-011's job, gated on this unit's REPRODUCED verdict.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 20
+  basis: >-
+    --book breakout_1 reads accumulated evidence already on disk; same
+    per-run cost order as RQ-20260928-011/-012/-013 (well under a minute per
+    invocation in this session's own use).
+
+run:
+  workflow: 'none — session-local, scripts/research/prop_ev_sim.py --book breakout_1'
+  inputs:
+    research_unit: RQ-20260928-015
+    script: scripts/research/prop_ev_sim.py
+
+lands:
+  store: docs/research/b6-prop-ev/pevrecon-2026-09-28.json
+  assert_field: verdict
+  min_rows: 2
+
+related:
+  - 'PI-20260928-PEVRECON-0001 (the pipeline finding this unit formalizes)'
+  - 'RQ-20260928-011 (blocked on this unit''s REPRODUCED verdict for its control arm)'
+  - 'trainer relay #8975, 2026-08-13 graduation run'
+last_dispatched_at: null
