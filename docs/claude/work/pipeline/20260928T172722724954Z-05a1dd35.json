@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a diag pull confirms the deployed config reads atr_sl_buffer_mult=0.50 for ict_scalp_avax_5m, AND a sample of live AVAX signals post-deploy shows the margin-ceiling bind rate below the pre-change baseline.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK'), indent=2))\""
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "[performance] ict_scalp_avax_5m's order size IS the margin ceiling, not a risk number — position_size equals max_qty_by_margin exactly, on the worst paper strategy of the last 30d\n\n[TRIAGE 2026-09-28] OPERATOR (tier 4) — ict_scalp_avax_5m (worst paper leg, -$7,620 over 20 trades) is still routinely sized at the margin ceiling rather than a risk-derived number, and the venue-max clamp that would cap it is still inert. Should we (a) fix the clamp so it stops emitting sizes above the venue max, (b) re-parameterise/derisk the strategy so its risk-derived size stops exceeding available margin at 3x leverage, or (c) leave it as-is with that stated as the accepted reason? Recommendation: Option (b) — the clamp fix alone was already flagged twice as making outcomes worse; the actual defect is that the strategy's risk-derived size routinely wants more than 3x-leverage margin allows. OPERATOR DECISION 2026-09-28 (relayed via manager to lane EXIT-OPS): \"Fix risk sizing now\". ARCHITECTURE FINDING: risk_pct/leverage are ACCOUNT-level (src/units/accounts/risk.py::RiskManager.__init__), shared by ~26 strategies on bybit_1 -- no per-leg override exists (removed by a 2026-06-29 directive). The one leg-level lever that participates in sizing is atr_sl_buffer_mult (widens risk_per_unit via the stop-loss formula). SHIPPED: atr_sl_buffer_mult 0.20 -> 0.50 in config/strategies.yaml, PR #13617, MERGED 2026-09-28T13:58:51Z (merge sha 32699bf54710ab92ea2449f5e76638d215f21d8e). 365d AVAXUSDT backtest (this lever only): margin-ceiling bind rate 17.9%->13.2% (n=251->250) -- PARTIAL, not a fix to zero (diminishing returns, confirmed the sweep-extreme distance dominates stop placement) -- and net_total_r flips -8.2064R->+7.0285R net of full cost (not predicted going in). RULE-D1-STAGE0-NET-OF-FULL-COST refreshed against the widened config: fail->pass (net_r_oos -9.1340R->+6.4895R, n=259->257, folds_positive 1/4->2/4 -- a pooled pass, 2 folds still individually negative). Full evidence: docs/research/pb-20260822-avax-scalp-sizing-2026-09-28.md. MERGED, not yet independently OBSERVED on the live VM (no diag pull taken post-merge to confirm the deployed config or watch live sizing on subsequent AVAX signals)."
+}

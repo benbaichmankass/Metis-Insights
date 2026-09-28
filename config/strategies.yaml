@@ -1382,7 +1382,13 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_eth_4h, donchian_eth_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: live          # LIVE on REAL-MONEY bybit_2 AND paper bybit_1/
+                             # bybit_portfolio (config/accounts.yaml). Corrected
+                             # 2026-09-28 (lane EXIT-OPS, PI-20260926-X3QEGPJL-0002):
+                             # the prior "demo-only soak (paper money)" comment was
+                             # stale -- same defect as trend_donchian_xrp_4h's,
+                             # corrected there 2026-07-30. Filed rather than found
+                             # again: BL-20260928-STALE-DEMO-ONLY-COMMENT-ON-REAL-MONEY-LEG.
     timeframe: "4h"
     symbols:
       - ETHUSDT
