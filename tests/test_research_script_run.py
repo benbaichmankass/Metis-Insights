@@ -142,3 +142,35 @@ def test_a_green_run_without_a_verdict_is_not_measured(tmp_path):
     assert rec["n"] == "null"
     manifest = json.loads((tmp_path / p.out_dir / "run-manifest.json").read_text())
     assert manifest["all_ok"] is True
+
+
+# --------------------------------------------------------------------------
+# the dispatcher sends the runner only the inputs it declares (RQ-RUN, run 36476810004)
+# --------------------------------------------------------------------------
+
+def test_the_dispatcher_drops_undeclared_runner_inputs_and_names_them():
+    from scripts.research import dispatch_queue as dq
+    declared = dq.declared_inputs("research-script-run.yml")
+    assert declared == ["power_state", "research_unit"], declared
+    entry = {"id": "RQ-20260928-011",
+             "run": {"workflow": "research-script-run.yml",
+                     "inputs": {"research_unit": "RQ-20260928-011",
+                                "script": "scripts/research/prop_ev_grid.py"}}}
+    inputs, dropped = dq.dispatch_inputs(entry, power_state="runnable")
+    assert inputs == {"research_unit": "RQ-20260928-011", "power_state": "runnable"}
+    assert dropped == ["script"]
+    # every committed runner unit dispatches with declared inputs only
+    for unit in script_run.units_targeting_runner():
+        d = yaml.safe_load((REPO / "research" / "queue" / f"{unit}.yaml").read_text())
+        sent, _ = dq.dispatch_inputs(d, power_state="runnable")
+        assert set(sent) <= set(declared), (unit, sent)
+
+
+def test_the_dispatcher_keeps_other_workflows_inputs_verbatim_and_reads_absence_honestly(tmp_path):
+    from scripts.research import dispatch_queue as dq
+    entry = {"id": "X", "run": {"workflow": "e35-bracket-sweep.yml",
+                                "inputs": {"only": "eth_pullback_2h", "research_unit": "X"}}}
+    inputs, dropped = dq.dispatch_inputs(entry, power_state="runnable")
+    assert dropped == [] and inputs["only"] == "eth_pullback_2h" and inputs["power_state"] == "runnable"
+    assert dq.declared_inputs("no-such-workflow.yml", repo=tmp_path) is None, \
+        "an unreadable workflow is 'could not look', never 'declares nothing'"
