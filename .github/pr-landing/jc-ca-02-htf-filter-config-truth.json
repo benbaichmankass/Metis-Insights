@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Operator decided JC-CA-02 option B ('Remove flag + research') 2026-09-28 ~06:25Z in chat with the manager, over docs/audits/code-audit-2026-09-27.md §6 JC-CA-02 (CA-A05-001). Manager (session_01KAQRJxRbRwpYTkPgBjNVyQ) dispatched lane JC-OPS with: 'Tier: config-truth with the operator's decision recorded in the PR body. Hold it for manager merge (landing: hold, reason operator-decided config edit).' Declared tier 3 here because config/strategies.yaml is a strategy-params file even though the change is proven zero-behaviour-change (see tests/test_ict_scalp_htf_filter_ca_a05_001.py); the manager reviews and merges.",
+  "why": "removes a declared-but-inert htf_trend_filter_enabled: true from 7 live ict_scalp legs (config/strategies.yaml) that never receive htf_close/htf_ema via _ict_scalp_variant_builder; zero behaviour change, proven by tests/test_ict_scalp_htf_filter_ca_a05_001.py; also files research/queue/RQ-20260928-001.yaml to pre-register the follow-up question (option A) rather than wiring the filter unproven"
+}

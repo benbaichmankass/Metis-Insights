@@ -3,7 +3,7 @@
   "strategy": "ict_scalp_xrp_5m",
   "symbol": "XRPUSDT",
   "timeframe": "5m",
-  "config_fingerprint": "sha256:fbb8602239362fd7894c435f241443e3",
+  "config_fingerprint": "sha256:985086596835a3098fed451d140606b3",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "approximate",
