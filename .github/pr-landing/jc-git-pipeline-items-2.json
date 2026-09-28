@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Files one follow-through pipeline item from the manager's review of #13508: there is no alarm for a set-account-mode PR left open and unmerged. It adds a new record file under docs/claude/work/pipeline/ only, with no code, config or runtime change."
+}
