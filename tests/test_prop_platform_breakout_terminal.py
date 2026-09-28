@@ -161,6 +161,10 @@ def test_quote_from_tables():
     assert bt.quote_from_tables([POS], "BTCUSD") is None     # no bid/ask table: could not look
 
 
+def test_read_quote_refuses_while_unmeasured():
+    assert bt.BreakoutTerminalAdapter().read_quote(None, "BTCUSD") is None
+
+
 def test_price_column_never_reads_entry_price():
     # Exact-header match only: "Price" must not match "Entry Price".
     assert bt._find_col(["Entry Price", "Price"], ("Price",)) == 1

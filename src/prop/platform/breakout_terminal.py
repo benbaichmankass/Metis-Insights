@@ -699,9 +699,12 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
         return got
 
     def read_quote(self, page: Any, venue_symbol: str) -> Optional[Dict[str, float]]:
-        """Bid/ask for ``venue_symbol`` off a watchlist-like table. Read-only;
-        ``None`` = could not look (the round-trip test then stops)."""
-        return quote_from_tables(self._tables(self._t(page)), venue_symbol)
+        """REFUSES: returns ``None`` (could not look). This terminal's
+        watchlist / quote DOM is UNMEASURED, so no bid/ask is read from it;
+        the executor's round-trip test then stops with "no bid/ask" by
+        design, not via an exception. ``quote_from_tables`` is the parser
+        to wire in once the probe has measured a quote table."""
+        return None
 
     # ---- order controls (rules in the module docstring) ---------------------
     def read_one_click(self, page: Any) -> Dict[str, Any]:

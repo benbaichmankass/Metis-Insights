@@ -54,7 +54,7 @@ DECIDED. Every external fact carries a source row (§ Sources).
    lands on the proprietary terminal (S3), and non-crypto instruments exist
    only there (S7). So the build sits behind a **platform adapter** (§ 2):
    one interface, a `dxtrade` adapter built now, and a `breakout_terminal`
-   adapter that is scoped only.
+   adapter built 2026-09-28 against an UNMEASURED layout (§ 2.4).
 4. **Slice 1 (this PR) is read-only:** a login check that logs in, reads
    balance, positions and working orders, prints them, and touches no order
    control. Order placement is the next slice, after the login check is
@@ -92,7 +92,7 @@ config value; nothing above changes.
                                                   │  PropPlatformAdapter (one interface)
                         ┌─────────────────────────┴──────────────────────────┐
                         │                                                    │
-          dxtrade  (BUILT: read path in slice 1)          breakout_terminal  (SCOPED ONLY)
+          dxtrade  (BUILT: read path in slice 1)          breakout_terminal  (BUILT, UNMEASURED)
           app.breakoutprop.com                            dashboard → "Open Terminal"
 ```
 
@@ -123,8 +123,8 @@ refuse unless **one-click trading** reads OFF (the terminal renders that
 control, and chart Buy/Sell price buttons that place an order in one click
 when it is on). The order-ticket DOM is **NOT MEASURED**: the
 `breakout-login-check` `apply: probe-ticket` run measures it
-(`PI-20260928-K3GZXIAV-0001`). `breakout_terminal` still raises on all of
-them.
+(`PI-20260928-K3GZXIAV-0001`). `breakout_terminal` implements the same
+controls against an UNMEASURED layout, with two extra refusals (§ 2.4).
 
 ### 2.2 Selection by config
 
@@ -134,11 +134,14 @@ them.
 accounts:
   breakout_1:
     platform: dxtrade          # dxtrade | breakout_terminal
-    login_url: https://app.breakoutprop.com/
+    # login_url omitted: the per-platform default applies
+    # (dxtrade → https://wss.breakoutprop.com/,
+    #  breakout_terminal → https://app.breakoutprop.com/)
 ```
 
 `src.prop.platform.get_adapter(account_id)` reads it and returns the adapter.
-An unknown platform value raises; it never falls back silently.
+An unknown platform value raises; it never falls back silently. So does a
+`login_url` that is the OTHER platform's default (a half-done switch).
 
 ### 2.3 `dxtrade` adapter (built, read path)
 
