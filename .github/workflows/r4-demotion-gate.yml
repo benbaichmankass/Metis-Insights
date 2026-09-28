@@ -301,3 +301,5 @@ jobs:
           gh issue create --label system-action \
             --title "send-ping: R4 demotion gate fired" \
             --body "$(printf 'action: send-ping\npriority: high\nmessage: R4 demotion gate FIRED (MD-DEMOTE-S2-S1): %s off Stage 2, %s window. PR opened by run %s; auto-land %s.\nreason: MD-DEMOTE-S2-S1 evidence_required names a realtime ping' "$legs" "$WINDOW" "${{ github.run_id }}" "$([ "$autoland" = yes ] && echo 'ADMISSIBLE — lands itself on green' || echo 'REFUSED — roster unchanged until a human merges')")"
+
+# no-durable-result: the uploaded artifact is the r4-demotion-provenance record that A7 in scripts/ci/check_mandate_autoland.py reads back to bind the PR to this run; the gate's verdict lands durably as the demotion PR itself (evidence + firing records committed in its diff)
