@@ -9,25 +9,31 @@ What it does, in order:
 1. Resolves the account's platform adapter from ``config/prop_platforms.yaml``.
 2. Launches Playwright Chromium, **headless, default configuration** — no
    stealth plugin, no user-agent or fingerprint change, no fake jitter.
-3. Logs in with the username/password env vars named in that config.
-4. Reads balance/equity, open positions and working orders. Prints all of
+3. Registers a READ-ONLY ``page.on("response", ...)`` hook (see step 6)
+   BEFORE logging in, so it also sees whatever the login/account flow
+   itself triggers.
+4. Logs in with the username/password env vars named in that config.
+5. Reads balance/equity, open positions and working orders. Prints all of
    it as it goes. Never prints the username, the password, or a cookie.
-5. If that read did not fully parse, prints the adapter's REDACTED structure
-   dump (``DXtradeAdapter.structure``: label elements, header rows, ancestor
-   classes, visible text with e-mails/tokens/credentials stripped) and, with
-   ``--dump-dir``, writes the page text + tables to disk (VM-only) — BOTH
-   capture the page as the balance/position/order reads actually saw it,
-   deliberately BEFORE step 6 below touches the page again.
-6. Reads per-symbol instrument specs (digits, contract size, min qty, qty
-   step) for ``--symbols`` (default: ``BTCUSD,ETHUSD,SOLUSD,ADAUSD,XRPUSD`` —
+   When part of that read did not parse, also prints the adapter's
+   REDACTED structure dump (``DXtradeAdapter.structure``: label elements,
+   header rows, ancestor classes, visible text with e-mails/tokens/
+   credentials stripped) and, with ``--dump-dir``, writes the page text +
+   tables to disk (VM-only) — so selectors can be fixed from the public
+   run log.
+6. Reads per-symbol instrument specs (contract size, lot/tick step, etc.)
+   for ``--symbols`` (default: ``BTCUSD,ETHUSD,SOLUSD,ADAUSD,XRPUSD`` —
    BTC/ETH/SOL confirmed dxtrade symbols, ADA/XRP candidates pending
-   ``PI-20260927-ODDTM5QY-0002``). **NOT MEASURED** against this terminal —
-   a best-effort search + info-panel probe, scoped to the opened panel
-   element's own text (``DXtradeAdapter.read_instrument_specs``); a symbol
-   it cannot read a trustworthy panel for reports every field ``None`` plus
-   a short redacted diagnostic excerpt, never a fabricated number.
-   ``--symbols=''`` skips this read entirely. Runs LAST because its own
-   search fills and panel clicks navigate the page.
+   ``PI-20260927-ODDTM5QY-0002``) from the responses step 3 captured —
+   never from the UI (three rounds of scraping an info panel never
+   converged; see ``src/prop/platform/dxtrade.py``'s module docstring).
+   Purely passive: nothing is clicked, filled, or navigated for this
+   step, so it can run at any point without affecting what step 5 saw.
+   A symbol this never turns up for reports no fields, never a fabricated
+   number; a response with no matching object contributes only a
+   redacted discovery line (origin+path and key names, never a value).
+   ``--symbols=''`` skips this read entirely. Its result NEVER affects
+   the exit code.
 7. Only with ``--emit-status``: posts ONE ``account_status`` to the local
    ``POST /api/bot/prop/report`` (the existing ingest chokepoint). Default OFF.
 
@@ -119,8 +125,8 @@ def main(argv: Optional[list] = None) -> int:
                     help="write the post-login page text + extracted tables here (on the VM, "
                          "never to stdout) so selectors can be fixed from the first live run")
     ap.add_argument("--symbols", default=None,
-                    help="comma-separated symbols to read instrument specs for "
-                         f"(default: {','.join(DEFAULT_INSTRUMENT_SYMBOLS)}); "
+                    help="comma-separated symbols to read instrument specs for, from captured "
+                         f"network responses (default: {','.join(DEFAULT_INSTRUMENT_SYMBOLS)}); "
                          "--symbols='' (empty) skips the instrument-spec read entirely")
     args = ap.parse_args(argv)
 
@@ -138,6 +144,13 @@ def main(argv: Optional[list] = None) -> int:
         return EXIT_FEASIBILITY
 
     adapter = adapter_for_platform(platform)
+
+    if args.symbols is None:
+        symbols = list(DEFAULT_INSTRUMENT_SYMBOLS)
+    elif args.symbols == "":
+        symbols = []
+    else:
+        symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
 
     try:
         from playwright.sync_api import sync_playwright
@@ -158,6 +171,16 @@ def main(argv: Optional[list] = None) -> int:
             page = context.new_page()
             if hasattr(adapter, "timeout_ms"):
                 adapter.timeout_ms = args.timeout_s * 1000
+            # Passive: attached BEFORE login so it also sees whatever the
+            # login/account flow itself triggers. Never clicks, fills or
+            # navigates anything.
+            captured_responses = []
+            if symbols and hasattr(adapter, "start_response_capture"):
+                try:
+                    captured_responses = adapter.start_response_capture(page)
+                except Exception as exc:
+                    print(_redact(f"instruments: capture ERROR ({type(exc).__name__}: {exc})",
+                                  username, password, limit=300))
             try:
                 adapter.login(page, cfg["login_url"], username, password)
             except FeasibilityError as fe:
@@ -207,12 +230,6 @@ def main(argv: Optional[list] = None) -> int:
                     print(_redact(f"{label}: UNPARSED ({le})", username, password))
                     rc = EXIT_UNPARSED
 
-            # Structure dump + --dump-dir capture the page state right after
-            # login (before anything below touches it): the instrument-spec
-            # probe's own search fills and panel clicks navigate the page, so
-            # capturing these AFTER it would dump/save the probe's own
-            # in-progress state rather than what the balance/position/order
-            # reads actually saw.
             if rc == EXIT_UNPARSED and hasattr(adapter, "structure"):
                 try:
                     for line in adapter.structure(page, (username, password)):
@@ -231,36 +248,27 @@ def main(argv: Optional[list] = None) -> int:
                     json.dumps(page.evaluate(EXTRACT_TABLES_JS), indent=1), username, password))
                 print(f"dump: written to {d} (on the VM only)")
 
-            if args.symbols is None:
-                symbols = list(DEFAULT_INSTRUMENT_SYMBOLS)
-            elif args.symbols == "":
-                symbols = []
-            else:
-                symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
-            if symbols and hasattr(adapter, "read_instrument_specs"):
-                try:
-                    specs = adapter.read_instrument_specs(page, symbols, secrets=(username, password))
-                except Exception as exc:
-                    print(_redact(f"instruments: ERROR ({type(exc).__name__}: {exc})",
-                                  username, password, limit=400))
-                    specs = []
-                for spec in specs:
-                    d2 = spec.as_dict()
-                    snippet = d2.pop("raw_snippet", None)
-                    print(_redact(f"instrument: {json.dumps(d2)}", username, password))
-                    if spec.unparsed:
-                        # Deliberately NOT folded into rc: this probe runs after
-                        # the balance/position/order reads and its own search +
-                        # panel-open clicks change the page, so escalating rc
-                        # here would make a clean default run exit 3 over a
-                        # probe that ran strictly after everything else.
-                        print(_redact(f"instrument_unparsed: {spec.symbol}: {', '.join(spec.unparsed)}",
+            # Instrument specs, read from the responses captured above.
+            # NEVER affects rc: a wrong number would be worse than none,
+            # and this is a best-effort, unmeasured secondary read.
+            if symbols:
+                if hasattr(adapter, "start_response_capture"):
+                    from src.prop.platform.dxtrade import extract_instrument_specs_from_responses
+                    try:
+                        result = extract_instrument_specs_from_responses(
+                            captured_responses, symbols, secrets=(username, password))
+                    except Exception as exc:
+                        print(_redact(f"instruments: ERROR ({type(exc).__name__}: {exc})",
+                                      username, password, limit=400))
+                        result = {"specs": {}, "discovery": []}
+                    for sym in symbols:
+                        fields = result["specs"].get(sym, {})
+                        print(_redact(f"instrument: {json.dumps({'symbol': sym, **fields})}",
                                       username, password))
-                    if snippet:
-                        print(_redact(f"instrument_raw_snippet[{spec.symbol}]: {snippet}",
-                                      username, password, limit=280))
-            elif symbols:
-                print("instruments: SKIPPED (adapter has no read_instrument_specs)")
+                    for line in result["discovery"]:
+                        print(_redact(line, username, password))
+                else:
+                    print("instruments: SKIPPED (adapter has no start_response_capture)")
 
             if args.emit_status:
                 report = build_status_report(args.account, snap)

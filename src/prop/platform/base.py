@@ -84,55 +84,6 @@ class WorkingOrder:
         return asdict(self)
 
 
-@dataclass
-class InstrumentSpec:
-    """Per-symbol instrument specification as read off the terminal.
-
-    ``symbol`` is the name this read searched for (the terminal's own
-    symbol, e.g. ``ADAUSD``, not the bot's canonical ``ADAUSDT``). A field
-    that could not be read is ``None`` — never ``0`` or ``1`` — and its
-    label is listed in ``unparsed`` so "we could not look" stays
-    distinguishable from "we looked and it is zero/one". Parsing is
-    scoped to the OPENED PANEL ELEMENT's own text, never the whole page —
-    a leftover order-ticket field or a different symbol's watchlist row
-    elsewhere on the page must never be read as this symbol's spec.
-
-    ``raw_snippet`` is a short diagnostic excerpt kept only to help fix
-    selectors when nothing else parsed: the (redacted) panel text when a
-    panel resolved, or a redacted STRUCTURAL dump of the page when no
-    panel element could be isolated at all (never raw page text — see
-    ``dxtrade.DXtradeAdapter.structure``). It is REDACTED before it is
-    ever sliced or truncated — redact the whole text first, then take the
-    excerpt — never the other way round, or a cut landing inside a
-    secret/URL/e-mail can leak a fragment the redaction pattern no longer
-    matches; see ``dxtrade.redact_text``.
-
-    ``search_ok``/``panel_ok`` record whether this symbol's own search and
-    info-panel-open attempt reported success, so a caller can tell "we
-    looked and found nothing" from "we never actually looked" and print
-    the outcome even when every field below is ``unparsed``. When a panel
-    resolved but was refused as untrustworthy, ``mismatch_reason`` names
-    why: ``panel_symbol_mismatch`` (the requested symbol never appears in
-    the opened panel's own text) or ``panel_identical_to:<SYM>`` (this
-    panel's text is byte-identical to an earlier symbol's — nothing
-    actually changed between the two reads).
-    """
-
-    symbol: str
-    digits: Optional[int] = None
-    contract_size: Optional[float] = None
-    min_qty: Optional[float] = None
-    qty_step: Optional[float] = None
-    unparsed: List[str] = field(default_factory=list)
-    raw_snippet: Optional[str] = None
-    mismatch_reason: Optional[str] = None
-    search_ok: Optional[bool] = None
-    panel_ok: Optional[bool] = None
-
-    def as_dict(self) -> Dict[str, Any]:
-        return asdict(self)
-
-
 class PropPlatformAdapter:
     """One terminal. ``page`` is a Playwright ``Page`` (sync API)."""
 
@@ -149,22 +100,6 @@ class PropPlatformAdapter:
         raise NotImplementedError
 
     def read_orders(self, page: Any) -> List[WorkingOrder]:
-        raise NotImplementedError
-
-    def read_instrument_specs(self, page: Any, symbols: List[str],
-                              secrets: List[str] = ()) -> List["InstrumentSpec"]:
-        """One :class:`InstrumentSpec` per requested symbol, same order.
-
-        Read-only: looks up each symbol (e.g. via a search box) and reads
-        whatever specification panel that surfaces, if any. Never clicks an
-        order control. A symbol the terminal does not expose specs for
-        returns an ``InstrumentSpec`` with every field ``None`` and all of
-        them listed in ``unparsed`` — not a raised error — so a caller can
-        report per-symbol coverage rather than failing the whole read.
-        ``secrets`` (e.g. username, password) are passed through so an
-        implementation redacts the whole page text before slicing any
-        excerpt out of it, never after.
-        """
         raise NotImplementedError
 
     # ── slice 2: order controls — deliberately NOT implemented ─────────

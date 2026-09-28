@@ -19,6 +19,7 @@ only real proof.
 """
 from __future__ import annotations
 
+import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -34,11 +35,12 @@ from src.prop.platform import (
 from src.prop.platform.breakout_terminal import BreakoutTerminalAdapter
 from src.prop.platform.dxtrade import (
     SELECTORS,
+    CapturedResponse,
     DXtradeAdapter,
     classify_login_state,
+    extract_instrument_specs_from_responses,
     orders_from_tables,
     parse_account_metrics,
-    parse_instrument_spec,
     parse_number,
     positions_from_tables,
     redact_text,
@@ -290,247 +292,139 @@ def test_parse_account_metrics_on_concatenated_inline_text():
     assert (snap.balance, snap.equity, snap.available) == (4724.0, 4731.2, 4581.2)
 
 
-# ── instrument specs (INVENTED post-panel fixtures — NOT MEASURED against
-# this terminal; see the read_instrument_specs module note) ────────────────
+# ── instrument specs via network response sniffing (W6-PROP-E1, re-scoped
+# 2026-09-28: three rounds of UI-panel scraping never converged, so this
+# reads captured network responses instead — see the dxtrade.py module
+# note). INVENTED response bodies — NOT MEASURED against this terminal. ──
 
 
-def test_parse_instrument_spec_on_invented_labels():
-    text = "Contract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"
-    spec = parse_instrument_spec("ETHUSD", text)
-    assert spec.symbol == "ETHUSD"
-    assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (1.0, 2, 0.01, 0.01)
-    assert spec.unparsed == []
+def test_extract_instrument_specs_exact_match_yields_allowlisted_fields():
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "ETHUSD", "contractSize": 1.0, "digits": 2,
+                         "minQty": 0.01, "qtyStep": 0.01, "displayName": "Ethereum"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {"contractSize": 1.0, "digits": 2,
+                                         "minQty": 0.01, "qtyStep": 0.01}
+    assert result["discovery"] == []
 
 
-def test_parse_instrument_spec_nothing_readable_is_all_unparsed_never_fabricated():
-    spec = parse_instrument_spec("ADAUSD", "Log In\nUsername\nPassword\n")
-    assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (None, None, None, None)
-    assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
+def test_extract_instrument_specs_substring_never_satisfies_exact_match():
+    # BTCUSDT must never satisfy a request for BTCUSD.
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "BTCUSDT", "contractSize": 1.0, "digits": 2}))
+    result = extract_instrument_specs_from_responses([resp], ["BTCUSD"])
+    assert result["specs"]["BTCUSD"] == {}
+    assert len(result["discovery"]) == 1
 
 
-def test_parse_instrument_spec_partial_read_names_only_the_missing_fields():
-    spec = parse_instrument_spec("XRPUSD", "Contract Size\n1.00\n")
-    assert spec.contract_size == 1.0
-    assert set(spec.unparsed) == {"digits", "min_qty", "qty_step"}
+def test_extract_instrument_specs_conflicting_duplicates_report_conflict():
+    resps = [
+        CapturedResponse(url="https://wss.breakoutprop.com/a",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": 1.0})),
+        CapturedResponse(url="https://wss.breakoutprop.com/b",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": 2.0})),
+        # A third, later object matching the FIRST value must not clear it.
+        CapturedResponse(url="https://wss.breakoutprop.com/c",
+                         body=json.dumps({"symbol": "ETHUSD", "contractSize": 1.0})),
+    ]
+    result = extract_instrument_specs_from_responses(resps, ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {"contractSize": "conflict"}
 
 
-class _SpecLocator:
-    """A clickable/fillable control (the search box, or an info button)."""
-
-    def __init__(self, count: int = 0, on_click=None, fail: bool = False) -> None:
-        self._count = count
-        self._on_click = on_click
-        self._fail = fail
-        self.filled: list = []
-        self.clicked = 0
-
-    def count(self):
-        return self._count
-
-    @property
-    def first(self):
-        return self
-
-    def fill(self, value, timeout=None):
-        if self._fail:
-            raise RuntimeError("fill failed (fake)")
-        self.filled.append(value)
-
-    def click(self, timeout=None):
-        if self._fail:
-            raise RuntimeError("click failed (fake)")
-        self.clicked += 1
-        if self._on_click:
-            self._on_click()
-
-    def locator(self, sel):
-        # The ancestor-xpath fallback in _resolve_panel_element: these
-        # fakes have no such ancestor, so it finds nothing either.
-        return _SpecLocator(0)
+def test_extract_instrument_specs_never_returns_a_sensitive_key_even_when_matching():
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/instruments",
+        body=json.dumps({"symbol": "ETHUSD", "contractSize": 1.0, "accountId": 12345,
+                         "sessionToken": 99999, "userId": 7}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {"contractSize": 1.0}
 
 
-class _PanelLocator:
-    """A resolved panel/dialog/tabpanel/region element with its OWN text,
-    independent of whatever the whole page's text is."""
-
-    def __init__(self, text: str) -> None:
-        self._text = text
-
-    def count(self):
-        return 1
-
-    @property
-    def first(self):
-        return self
-
-    def inner_text(self, timeout=None):
-        return self._text
+def test_extract_instrument_specs_never_leaks_a_non_matching_objects_values():
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/watchlist",
+        body=json.dumps({"symbol": "BTCUSD", "contractSize": 999.0, "secretNote": "leak-me"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    assert result["specs"]["ETHUSD"] == {}
+    assert result["specs"].get("BTCUSD") is None  # not even requested
+    blob = json.dumps(result)
+    assert "999.0" not in blob and "leak-me" not in blob
 
 
-class _SpecFakePage:
-    """Enough of a Page to drive DXtradeAdapter.read_instrument_specs.
-
-    ``page_text`` is the WHOLE page (a watchlist, an order ticket -- any
-    text outside the panel); parsing must NEVER read it once a panel
-    resolves. ``panels`` is the sequence of texts a successful info-panel
-    open reveals, in call order (a shorter list repeats its last entry --
-    the "the panel never actually changed" case). No ``.frames`` and no
-    ``.evaluate``, so ``_frames`` falls back to ``[page]`` and
-    ``DXtradeAdapter.structure()`` degrades gracefully (already proven
-    elsewhere) instead of raising.
-    """
-
-    def __init__(self, page_text: str = "", panels=(),
-                has_search: bool = True, fail_fill: bool = False,
-                panel_role: str = "tabpanel", no_panel: bool = False) -> None:
-        self.page_text = page_text
-        self._panels = list(panels)
-        self._panel_role = panel_role
-        self._no_panel = no_panel
-        self._info_clicked = 0
-        self._panel_calls = 0
-        self.search_locator = _SpecLocator(1 if has_search else 0, fail=fail_fill)
-
-    def locator(self, sel):
-        if sel == SELECTORS["symbol_search"]:
-            return self.search_locator
-        return _SpecLocator(0)
-
-    def get_by_role(self, role, name=None):
-        if name is not None:
-            # The info-control lookup, matched by accessible name.
-            if role == "tab" and name.match("Instrument Info"):
-                return _SpecLocator(1, on_click=self._on_info_click)
-            return _SpecLocator(0)
-        # The panel-container lookup (no name filter): only after a
-        # successful info click, and never if told to expose no panel.
-        if self._no_panel or role != self._panel_role or self._info_clicked == 0 or not self._panels:
-            return _SpecLocator(0)
-        idx = min(self._panel_calls, len(self._panels) - 1)
-        self._panel_calls += 1
-        return _PanelLocator(self._panels[idx])
-
-    def _on_info_click(self):
-        self._info_clicked += 1
-
-    def inner_text(self, *a, **k):
-        return self.page_text
-
-    def wait_for_timeout(self, *a):
-        pass
+def test_extract_instrument_specs_discovery_prints_key_names_only_never_values():
+    resp = CapturedResponse(
+        url="https://wss.breakoutprop.com/api/ping",
+        body=json.dumps({"serverTime": 1234567890, "secretNote": "leak-me", "status": "ok"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"])
+    assert len(result["discovery"]) == 1
+    line = result["discovery"][0]
+    assert "leak-me" not in line and "1234567890" not in line
+    assert "serverTime" in line and "secretNote" in line and "status" in line
 
 
-def test_read_instrument_specs_parses_the_panel_elements_own_text():
-    page = _SpecFakePage(
-        page_text="Watchlist\nBTCUSD 65000\nSOLUSD 150\n",  # never read once a panel resolves
-        panels=["ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"],
-    )
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ETHUSD"])
-    assert len(specs) == 1
-    assert page.search_locator.filled == ["ETHUSD"]
-    assert (specs[0].contract_size, specs[0].digits) == (1.0, 2)
-    assert specs[0].unparsed == [] and specs[0].raw_snippet is None and specs[0].mismatch_reason is None
-    assert (specs[0].search_ok, specs[0].panel_ok) == (True, True)
+def test_extract_instrument_specs_discovery_and_capture_are_capped():
+    resps = [CapturedResponse(url=f"https://wss.breakoutprop.com/r{i}",
+                              body=json.dumps({"n": i})) for i in range(50)]
+    result = extract_instrument_specs_from_responses(resps, ["ETHUSD"], max_discovery=5)
+    assert len(result["discovery"]) == 5
 
 
-def test_read_instrument_specs_when_no_panel_element_resolves_dumps_structure_never_page_text():
-    # No dialog/tabpanel/region ever appears: the honest result is every
-    # field unparsed, plus a redacted STRUCTURAL dump (never a raw-text
-    # excerpt of the page, which could contain anything).
-    page = _SpecFakePage(page_text="Watchlist\nADAUSD 0.4210 +1.2%\n", no_panel=True)
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"])
-    assert len(specs) == 1
-    spec = specs[0]
-    assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (None, None, None, None)
-    assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
-    assert spec.panel_ok is False
-    assert spec.raw_snippet and spec.raw_snippet.startswith("structure: BEGIN")
+def test_extract_instrument_specs_leak_test_credentials_email_and_query_url():
+    # Plant the username, password, an e-mail and a URL with a query
+    # string in BOTH the response body (a non-matching object, so it
+    # only ever reaches the discovery path) and the response URL itself.
+    user, pw = "BO-JDOE77", "Pa55-word!x"
+    leaky_url = f"https://wss.breakoutprop.com/api/session?u={user}&sid=abc123token"
+    resp = CapturedResponse(
+        url=leaky_url,
+        body=json.dumps({"note": f"user={user} pw={pw} mail=victim@example.com",
+                         "authToken": "should-never-print-anyway"}))
+    result = extract_instrument_specs_from_responses([resp], ["ETHUSD"], secrets=(user, pw))
+    assert result["specs"]["ETHUSD"] == {}
+    assert len(result["discovery"]) == 1
+    line = result["discovery"][0]
+    low = line.lower()
+    assert user.lower() not in low and pw.lower() not in low
+    assert "abc123token" not in line and "victim@example.com" not in line
+    # The body's values never reach discovery at all (key names only).
+    assert "should-never-print-anyway" not in line
 
 
-def test_read_instrument_specs_symbol_absent_from_the_panel_is_never_trusted():
-    # Case (a) from the review: the panel shows BTCUSD's specs while the
-    # REQUESTED symbol (ADAUSD) only appears in the watchlist, outside the
-    # panel. Must never be read as ADAUSD's spec.
-    page = _SpecFakePage(
-        page_text="Watchlist\nADAUSD 0.4210\nBTCUSD 65000\n",
-        panels=["BTCUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.001\nVolume Step\n0.001\n"],
-    )
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"])
-    spec = specs[0]
-    assert spec.panel_ok is True
-    assert spec.mismatch_reason == "panel_symbol_mismatch"
-    assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
+def test_start_response_capture_records_same_origin_json_and_ignores_the_rest():
+    class _FakeResponse:
+        def __init__(self, url, body, fail=False):
+            self.url = url
+            self._body = body
+            self._fail = fail
 
+        def text(self):
+            if self._fail:
+                raise RuntimeError("body unavailable (fake)")
+            return self._body
 
-def test_read_instrument_specs_identical_panel_hash_across_symbols_is_never_trusted():
-    # Case (b): the panel text never actually changes between two reads
-    # (a clock/price ticking OUTSIDE the panel wouldn't show up here
-    # anyway, since only the panel's own text is read) -- and it happens
-    # to mention BOTH requested symbols, so "the symbol appears" alone
-    # would pass for both. Only the hash check catches the second, stale
-    # read.
-    static_panel = "BTCUSD ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"
-    page = _SpecFakePage(panels=[static_panel])
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["BTCUSD", "ETHUSD"])
-    first, second = specs
-    assert first.unparsed == [] and first.mismatch_reason is None       # a real, fresh panel open
-    assert set(second.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
-    assert second.mismatch_reason == "panel_identical_to:BTCUSD"        # stale, never trusted
+    class _FakePage:
+        url = "https://wss.breakoutprop.com/"
 
+        def __init__(self):
+            self._handlers = []
 
-def test_read_instrument_specs_never_reads_an_order_tickets_fields_outside_the_panel():
-    # Case (c): a "Lot Size"/"Step"-shaped order ticket sits OUTSIDE the
-    # panel, elsewhere on the page. Scoping to the panel element's own
-    # text must mean it is never even considered, whether it comes before
-    # or after the panel in page order.
-    order_ticket = "Place Order\nSymbol ETHUSD\nLot Size\n100000\nStep\n5\n"
-    clean_panel = "ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"
-    page = _SpecFakePage(page_text=order_ticket, panels=[clean_panel])
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ETHUSD"])
-    spec = specs[0]
-    assert (spec.contract_size, spec.qty_step) == (1.0, 0.01)  # the panel's own values
-    assert spec.unparsed == []
+        def on(self, event, handler):
+            self._handlers.append((event, handler))
 
+        def fire(self, response):
+            for event, handler in self._handlers:
+                if event == "response":
+                    handler(response)
 
-def test_read_instrument_specs_failed_search_with_a_stale_panel_is_never_trusted():
-    # Case (d): the search for the next symbol fails outright, but the
-    # PRIOR symbol's info panel is still open (and would otherwise parse
-    # cleanly). Must never be read as the new symbol's spec.
-    stale_btc_panel = "BTCUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.001\nVolume Step\n0.001\n"
-    page = _SpecFakePage(panels=[stale_btc_panel], fail_fill=True)
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"])
-    spec = specs[0]
-    assert spec.search_ok is False
-    assert spec.mismatch_reason == "panel_symbol_mismatch"  # the stale panel never mentions ADAUSD either
-    assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
-
-
-def test_read_instrument_specs_panel_snippet_redacts_before_capping_not_after():
-    # The #13297 leak class, straddling the snippet's length cap this
-    # time (not an idx-relative window): pack a URL, a secret username
-    # and an e-mail so they start right where the cap would otherwise cut
-    # into them if redaction ran on the slice instead of the whole text.
-    url = "https://secret.example.com/verysecretpath?token=abcdefghijklmnopqrstuvwxyz0123456789"
-    secret_user = "BO-SUPERSECRETUSER77"
-    email = "victim@example.com"
-    pad = "x" * 1_900
-    mismatched_panel = f"{pad} {url} {secret_user} {email} tail filler text, no symbol match here."
-    page = _SpecFakePage(panels=[mismatched_panel])
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(
-        page, ["ADAUSD"], secrets=(secret_user,))
-    spec = specs[0]
-    assert spec.mismatch_reason == "panel_symbol_mismatch"
-    assert spec.raw_snippet
-    assert "verysecretpath" not in spec.raw_snippet
-    assert "token=abcdefghijklmnopqrstuvwxyz0123456789" not in spec.raw_snippet
-    assert secret_user.lower() not in spec.raw_snippet.lower()
-    assert "victim@example.com" not in spec.raw_snippet
-
-
-def test_read_instrument_specs_preserves_symbol_order():
-    page = _SpecFakePage(no_panel=True)
-    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["BTCUSD", "ETHUSD", "SOLUSD"])
-    assert [s.symbol for s in specs] == ["BTCUSD", "ETHUSD", "SOLUSD"]
+    page = _FakePage()
+    captured = DXtradeAdapter().start_response_capture(page)
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/api/instruments", '{"symbol": "ETHUSD"}'))
+    page.fire(_FakeResponse("https://other.example.com/tracker", '{"x": 1}'))  # cross-origin
+    page.fire(_FakeResponse("https://wss.breakoutprop.com/broken", "", fail=True))  # unreadable body
+    assert [c.url for c in captured] == ["https://wss.breakoutprop.com/api/instruments"]
+    assert captured[0].body == '{"symbol": "ETHUSD"}'
 
 
 # Column headers as the served dictionary spells them.
@@ -676,8 +570,7 @@ def test_breakout_terminal_is_scoped_only():
     a = adapter_for_platform("breakout_terminal")
     assert isinstance(a, BreakoutTerminalAdapter)
     for call in (lambda: a.login(None, "", "u", "p"), lambda: a.read_account(None),
-                 lambda: a.read_positions(None), lambda: a.read_orders(None),
-                 lambda: a.read_instrument_specs(None, ["ETHUSD"])):
+                 lambda: a.read_positions(None), lambda: a.read_orders(None)):
         with pytest.raises(NotImplementedError):
             call()
 

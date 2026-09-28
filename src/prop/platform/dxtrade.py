@@ -3,26 +3,31 @@
 Spec: ``docs/research/prop-automation-options-2026-09-27.md`` § 2.3.
 
 Slice 1 is the READ path only: ``login``, ``read_account``, ``read_positions``,
-``read_orders``, ``read_instrument_specs``. The order-control methods
-inherit the base class's ``NotImplementedError``. Nothing in this module
-clicks an order control; the only clicks are the login button, the
-Positions / Orders *view tabs*, and (for ``read_instrument_specs``) a
-symbol search fill plus an instrument-info panel open by accessible name —
-none of them change anything, only what is displayed.
+``read_orders``. The order-control methods inherit the base class's
+``NotImplementedError``. Nothing in this module clicks an order control; the
+only clicks are the login button and the Positions / Orders *view tabs*,
+which change what is displayed and nothing else.
 
-``read_instrument_specs`` (W6-PROP-E1, 2026-09-28) is a best-effort probe:
-:data:`INSTRUMENT_SPEC_LABELS`, :data:`_INSTRUMENT_INFO_NAMES` and
-:data:`_PANEL_CONTAINER_ROLES` are **NOT MEASURED** against this terminal —
-no served i18n dictionary entry for instrument specs has been found, unlike
-the account/position/order labels below, and the panel's real markup is
-unknown until a live run reports what actually resolved. Parsing is scoped
-to the OPENED PANEL ELEMENT's own text, never the whole page, and a symbol
-is trusted only when its own name appears in that panel and the panel is
-not byte-identical to an earlier symbol's in the same call — a symbol the
-terminal does not expose a trustworthy panel for returns every field
-``None`` with a short redacted diagnostic excerpt (the panel's own text, or
-a structural dump when no panel resolved at all — never raw page text),
-never a fabricated number.
+**Instrument specs (W6-PROP-E1, re-scoped 2026-09-28) are read PASSIVELY off
+the network, never off the UI.** Three rounds of scraping an accessible-name
+info panel and scoping the parse to it (search box, panel click, label/value
+scan) never converged — each fix produced a new way for the wrong symbol's
+numbers to be read as the requested one's. ``start_response_capture`` instead
+registers a read-only ``page.on("response", ...)`` hook (attached before
+login, so it also sees whatever the login/account/positions/orders flow
+itself triggers) and records every same-origin JSON response body; nothing
+is clicked, filled or navigated for this path. :func:`extract_instrument_specs_from_responses`
+then walks the recorded bodies for objects whose symbol-like key EXACTLY
+equals (case-insensitive, trimmed — never a substring: ``BTCUSDT`` does not
+satisfy ``BTCUSD``) one of the requested symbols, and prints only the
+allowlisted numeric fields it finds there, under the key name as served. A
+symbol that appears in two matching objects with a DIFFERING value for the
+same field reports ``conflict`` for that field rather than either number —
+a wrong number is worse than none. A response with no matching object
+contributes only a discovery line (its redacted origin+path and the set of
+top-level key names, never a value) so selectors can be extended from the
+public log; a sensitive-looking key (token/auth/session/password/…) is
+never printed even from inside a matching object.
 
 Every DXtrade selector lives in :data:`SELECTORS` so the order-placing slice
 reuses them. Provenance of each selector:
@@ -56,14 +61,14 @@ functions over plain data so they are unit-tested without a browser.
 """
 from __future__ import annotations
 
-import hashlib
+import json
 import re
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from urllib.parse import urlsplit
 
 from src.prop.platform.base import (
     AccountSnapshot,
     FeasibilityError,
-    InstrumentSpec,
     Position,
     PropPlatformAdapter,
     WorkingOrder,
@@ -87,31 +92,7 @@ SELECTORS: Dict[str, str] = {
     # ── post-login view tabs (NOT MEASURED: matched by accessible name) ──
     "tab_positions": "Positions",
     "tab_orders": "Orders",
-    # ── instrument search / info (NOT MEASURED: best-effort guesses at
-    # common DXtrade white-label conventions, unverified against THIS
-    # terminal — see read_instrument_specs and its module-level note) ──
-    "symbol_search": ('input[type=search], input[placeholder*="Search" i], '
-                      'input[placeholder*="Symbol" i], [role=searchbox]'),
 }
-
-# Accessible names tried, in order, to open a per-symbol specification
-# panel. NOT MEASURED against this terminal — common DXtrade/MT-style
-# labels, tried across several ARIA roles since the panel's real markup is
-# unknown until a live run reports which (if any) matched.
-_INSTRUMENT_INFO_NAMES: Sequence[str] = (
-    "Instrument Info", "Symbol Info", "Contract Specification",
-    "Specification", "Instrument Details", "Info",
-)
-_INSTRUMENT_INFO_ROLES: Sequence[str] = ("tab", "button", "menuitem")
-# "link" deliberately excluded: a link can navigate away from the terminal
-# entirely, which is outside what a read-only probe may risk clicking.
-
-# Candidate ARIA roles for the container the info click reveals, tried in
-# this order. A dialog/tabpanel/region is far likelier to actually BE the
-# panel than an arbitrary ancestor of the clicked control, so those are
-# preferred; the clicked control's own ancestor is the last-resort fallback
-# in _resolve_panel_element. NOT MEASURED against this terminal.
-_PANEL_CONTAINER_ROLES: Sequence[str] = ("dialog", "tabpanel", "region")
 
 # Text markers of an interstitial bot challenge (Cloudflare and similar).
 _CHALLENGE_MARKERS = (
@@ -149,20 +130,6 @@ ACCOUNT_LABELS: Dict[str, Sequence[str]] = {
     # metric.name.short.availableFunds (= "Free Margin") / multiasset.availableFunds
     "available": ("Free Margin", "Available Funds", "Available"),
 }
-
-# Per-instrument specification labels. **NOT MEASURED** — unlike
-# ACCOUNT_LABELS these are not sourced from a served i18n dictionary (no
-# such dictionary entry for instrument specs has been found yet); they are
-# best-effort guesses at common DXtrade/MT-style terminology, most specific
-# first. A field this misses stays ``None`` and lands in
-# ``InstrumentSpec.unparsed`` rather than being fabricated.
-INSTRUMENT_SPEC_LABELS: Dict[str, Sequence[str]] = {
-    "digits": ("Digits", "Price Precision", "Decimal Places"),
-    "contract_size": ("Contract Size", "Lot Size", "Unit Size", "Contract Unit"),
-    "min_qty": ("Min Volume", "Minimum Volume", "Min Lot", "Min Quantity", "Min Qty"),
-    "qty_step": ("Volume Step", "Lot Step", "Qty Step", "Volume Increment", "Step"),
-}
-
 
 
 # ── pure helpers ─────────────────────────────────────────────────────────
@@ -289,32 +256,6 @@ def parse_account_metrics(page_text: str) -> AccountSnapshot:
             if m and not snap.currency:
                 snap.currency = m.group(1)
     return snap
-
-
-def parse_instrument_spec(symbol: str, page_text: str, raw_snippet: Optional[str] = None) -> InstrumentSpec:
-    """Read labelled instrument-spec fields out of the visible page text.
-
-    Same label/value scanning as :func:`parse_account_metrics`, over
-    :data:`INSTRUMENT_SPEC_LABELS` instead of ``ACCOUNT_LABELS``. ``digits``
-    is coerced to ``int`` when parseable; every other field stays a float.
-    Never fabricates a number for a label it did not find.
-    """
-    text = page_text or ""
-    all_labels = sorted({lb for lbs in INSTRUMENT_SPEC_LABELS.values() for lb in lbs},
-                        key=len, reverse=True)
-    text = re.sub(r"(?<=[\d)])(?=(?:" + "|".join(re.escape(lb) for lb in all_labels) + r"))", "\n", text)
-    lines = [ln for ln in text.splitlines() if ln.strip()]
-    spec = InstrumentSpec(symbol=symbol, raw_snippet=raw_snippet)
-    for fld, labels in INSTRUMENT_SPEC_LABELS.items():
-        raw = _label_value_pairs(lines, labels)
-        val = parse_number(raw)
-        if val is None:
-            spec.unparsed.append(fld)
-        elif fld == "digits":
-            spec.digits = int(val)
-        else:
-            setattr(spec, fld, val)
-    return spec
 
 
 def _norm(h: str) -> str:
@@ -708,6 +649,141 @@ def _strip_url(url: str) -> str:
     return m.group(1) if m else re.split(r"[/?#]", str(url or ""), maxsplit=1)[0]
 
 
+# ── instrument specs via network response sniffing (W6-PROP-E1, re-scoped
+# 2026-09-28 after three rounds of UI-panel scraping never converged: each
+# fix produced a new way the WRONG symbol's numbers could be read as the
+# requested one's — see PR #13416. NOT MEASURED against this terminal: no
+# live run has confirmed the terminal's own JSON shape, key names, or
+# whether Playwright's response bodies are even readable for it. A symbol
+# that never turns up this way returns no fields, never a fabricated
+# number, exactly like every other unmeasured path in this module.) ──────
+
+_SYMBOL_KEYS: Sequence[str] = ("symbol", "name", "instrument", "code")
+# Allowlisted numeric spec fields, matched by KEY NAME only (case-insensitive).
+# Printed under the key name AS SERVED — this is not a fixed schema, since
+# the terminal's own field names are unmeasured.
+_SPEC_FIELD_RE = re.compile(
+    r"(contract|lot|multiplier|tick|step|min.*(?:qty|quantity|volume)|"
+    r"precision|digits|pointvalue|point_value)", re.IGNORECASE)
+# Never printed, even from inside a matching object.
+_SENSITIVE_KEY_RE = re.compile(
+    r"(token|auth|session|pass|secret|key|account|login|user|email|id$)", re.IGNORECASE)
+# Safety cap on how many response bodies one capture list holds, independent
+# of the discovery-line cap below (a long-lived page could otherwise grow
+# this without bound).
+_MAX_CAPTURED_RESPONSES = 500
+
+
+class CapturedResponse:
+    """One same-origin response :meth:`DXtradeAdapter.start_response_capture`
+    recorded. ``body`` is the raw response text; it may not be valid JSON —
+    :func:`extract_instrument_specs_from_responses` skips what doesn't parse."""
+
+    __slots__ = ("url", "body")
+
+    def __init__(self, url: str, body: str) -> None:
+        self.url = url
+        self.body = body
+
+
+def _origin_and_path(url: str) -> str:
+    """``scheme://host/path`` — never the query string, which can carry a
+    session id or other sensitive value."""
+    try:
+        parts = urlsplit(str(url or ""))
+        if parts.scheme and parts.netloc:
+            return f"{parts.scheme}://{parts.netloc}{parts.path}"
+    except Exception:
+        pass
+    return str(url or "")
+
+
+def _walk_json_objects(node: Any) -> Iterable[Mapping[str, Any]]:
+    """Every ``dict`` anywhere inside a parsed JSON structure, depth-first."""
+    if isinstance(node, dict):
+        yield node
+        for v in node.values():
+            yield from _walk_json_objects(v)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_json_objects(item)
+
+
+def _matching_symbol(obj: Mapping[str, Any], symbols_upper: Mapping[str, str]) -> Optional[str]:
+    """The requested symbol (as originally given, not upper-cased) this
+    object's symbol-like key (:data:`_SYMBOL_KEYS`) EXACTLY equals after
+    trimming — never a substring match: ``BTCUSDT`` must never satisfy
+    ``BTCUSD``. ``None`` if no symbol-like key is present or none matches
+    exactly."""
+    for key in _SYMBOL_KEYS:
+        val = obj.get(key)
+        if not isinstance(val, str):
+            continue
+        hit = symbols_upper.get(val.strip().upper())
+        if hit is not None:
+            return hit
+    return None
+
+
+def extract_instrument_specs_from_responses(
+        responses: Sequence[CapturedResponse], symbols: Sequence[str],
+        secrets: Sequence[str] = (), max_discovery: int = 30, max_keys: int = 40,
+    ) -> Dict[str, Any]:
+    """Pure function: walk captured JSON response bodies for objects whose
+    symbol-like key EXACTLY equals one of ``symbols``, and pull only the
+    ALLOWLISTED numeric spec fields (:data:`_SPEC_FIELD_RE`) out of each
+    match, keyed by the field name AS SERVED. A sensitive-looking key
+    (:data:`_SENSITIVE_KEY_RE`) is never returned, even from inside a
+    matching object. A field whose value DIFFERS across matching objects
+    for the same symbol reports ``"conflict"`` instead of either number —
+    a wrong number is worse than none, and the conflict is sticky (a later
+    object matching one of the earlier values does not clear it).
+
+    Returns ``{"specs": {<symbol as given>: {field: value_or_"conflict"}},
+    "discovery": [line, ...]}``. A response whose body parses as JSON but
+    has no matching object contributes ONE (already redacted) discovery
+    line — its origin+path (never the query string, which can carry a
+    session id) and the SET of its top-level key names, never a value —
+    capped at ``max_discovery`` lines / ``max_keys`` keys each, so
+    selectors can be extended from the public log without ever leaking a
+    non-matching object's data. A response that isn't valid JSON at all is
+    silently skipped (no discovery line either — there are no "top-level
+    keys" to report).
+    """
+    symbols_upper = {s.strip().upper(): s for s in symbols}
+    specs: Dict[str, Dict[str, Any]] = {s: {} for s in symbols}
+    discovery: List[str] = []
+
+    for resp in responses:
+        try:
+            payload = json.loads(resp.body)
+        except Exception:
+            continue
+        response_matched = False
+        for obj in _walk_json_objects(payload):
+            sym = _matching_symbol(obj, symbols_upper)
+            if sym is None:
+                continue
+            response_matched = True
+            slot = specs[sym]
+            for k, v in obj.items():
+                if _SENSITIVE_KEY_RE.search(k) or not _SPEC_FIELD_RE.search(k):
+                    continue
+                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                    continue
+                if k in slot and slot[k] != v:
+                    slot[k] = "conflict"
+                elif k not in slot:
+                    slot[k] = v
+        if not response_matched and len(discovery) < max_discovery:
+            keys = sorted(payload.keys()) if isinstance(payload, dict) else []
+            discovery.append(
+                f"instrument_discovery: {redact_text(_origin_and_path(resp.url), *secrets)} "
+                f"keys={keys[:max_keys]}")
+
+    return {"specs": specs, "discovery": discovery}
+
+
 # ── the adapter ──────────────────────────────────────────────────────────
 
 
@@ -925,148 +1001,43 @@ class DXtradeAdapter(PropPlatformAdapter):
             raise LookupError("no orders table found on the page (selector drift or unmeasured layout)")
         return got
 
-    # ---- instrument specs (NOT MEASURED — best-effort; see the module note
-    # on INSTRUMENT_SPEC_LABELS) -----------------------------------------
-    def _search_symbol(self, page: Any, symbol: str) -> bool:
-        """Type ``symbol`` into a search box, if one exists. Read-only: it
-        fills an input and never submits an order form."""
-        try:
-            loc = page.locator(SELECTORS["symbol_search"])
-            if loc.count() == 0:
-                return False
-            loc.first.fill(symbol, timeout=3_000)
-            page.wait_for_timeout(800)
-            return True
-        except Exception:
-            return False
+    # ---- instrument specs via network response sniffing (see the
+    # module-level note above start_response_capture's docstring) ------
+    def start_response_capture(self, page: Any) -> List[CapturedResponse]:
+        """Register a READ-ONLY ``page.on("response", ...)`` hook and
+        return the (initially empty, then live-appended) list it fills.
 
-    def _open_instrument_info(self, page: Any) -> Optional[Any]:
-        """Click a specification/info panel by accessible name, if one
-        exists among :data:`_INSTRUMENT_INFO_NAMES`, then resolve and
-        return the PANEL ELEMENT the click revealed — never the page
-        itself. View-only, like :meth:`_show_tab` — never a button whose
-        text is not an exact name from that list, and never a ``link``
-        (one could navigate away from the terminal entirely).
-
-        Returns ``None`` when no control was found, the click failed, or
-        :meth:`_resolve_panel_element` could not isolate a panel
-        afterwards — callers must never fall back to page text in that
-        case.
+        Call this BEFORE :meth:`login` so it also sees whatever the
+        login/account/positions/orders flow itself triggers -- the
+        terminal may only serve instrument metadata once, on session
+        setup. Records only same-origin responses that parse as JSON
+        (checked when :func:`extract_instrument_specs_from_responses`
+        reads them, not here); a response whose body can't be read
+        (streamed, already consumed, binary) is silently skipped. This
+        never clicks, fills or navigates anything -- it is purely
+        passive, so it can be attached at any point in the flow without
+        affecting what the balance/position/order reads see.
         """
-        for name in _INSTRUMENT_INFO_NAMES:
-            name_re = self._tab_name_re(name)
-            for role in _INSTRUMENT_INFO_ROLES:
-                try:
-                    loc = page.get_by_role(role, name=name_re)
-                    if loc.count() == 0:
-                        continue
-                    control = loc.first
-                    control.click(timeout=3_000)
-                    page.wait_for_timeout(500)
-                except Exception:
-                    continue
-                return self._resolve_panel_element(page, control)
-        return None
+        captured: List[CapturedResponse] = []
 
-    def _resolve_panel_element(self, page: Any, control: Any) -> Optional[Any]:
-        """Best-effort resolution of the dialog/tabpanel/region the info
-        click revealed. Prefers an explicit ARIA container
-        (:data:`_PANEL_CONTAINER_ROLES`) over the clicked control's own
-        ancestor, since a real dialog/tabpanel/region is far more likely
-        to BE the panel than an arbitrary ancestor depth. NOT MEASURED
-        against a real terminal — see the module note."""
-        for role in _PANEL_CONTAINER_ROLES:
+        def _on_response(response: Any) -> None:
+            if len(captured) >= _MAX_CAPTURED_RESPONSES:
+                return
             try:
-                cand = page.get_by_role(role)
-                if cand.count() > 0:
-                    return cand.first
+                req_origin = urlsplit(page.url).netloc
+                resp_origin = urlsplit(response.url).netloc
+                if req_origin and resp_origin and req_origin != resp_origin:
+                    return
             except Exception:
-                continue
+                pass
+            try:
+                body = response.text()
+            except Exception:
+                return
+            captured.append(CapturedResponse(url=response.url, body=body))
+
         try:
-            container = control.locator("xpath=ancestor::*[3]")
-            if container.count() > 0:
-                return container.first
+            page.on("response", _on_response)
         except Exception:
             pass
-        return None
-
-    def read_instrument_specs(self, page: Any, symbols: Sequence[str],
-                              secrets: Sequence[str] = ()) -> List[InstrumentSpec]:
-        """One :class:`InstrumentSpec` per symbol.
-
-        Parsing is scoped to the OPENED PANEL ELEMENT's own
-        ``inner_text()`` — never the whole page — so a watchlist row, an
-        order ticket, or a different symbol's leftover panel elsewhere on
-        the page can never be read as this symbol's spec. A symbol is
-        trusted only when: the search box was filled, a panel element
-        resolved, the symbol's own name appears in THAT panel's text, and
-        that panel's text is not byte-identical to an earlier symbol's in
-        this same call (``panel_identical_to:<SYM>`` — the search/open
-        reported success but nothing about the panel actually changed).
-        Any failure forces every field ``unparsed``, with
-        ``mismatch_reason`` naming which check failed when a panel did
-        resolve. ``search_ok``/``panel_ok`` are always set so a caller
-        can print the per-symbol outcome, not just the parse.
-
-        ``secrets`` (username, password) are redacted into the WHOLE text
-        before any substring of it is kept — never after — so a cut
-        boundary landing inside a secret, a URL or an e-mail cannot leak
-        a fragment redaction would otherwise have caught whole (the
-        #13297 leak class: redact first, slice/cap after). When no panel
-        element can be isolated at all, the diagnostic excerpt is a
-        redacted STRUCTURAL dump (:meth:`structure`) of the page, never
-        raw page text — computed once per call and reused, since the
-        page state doesn't change just because one symbol's lookup failed.
-        """
-        out: List[InstrumentSpec] = []
-        seen_hashes: Dict[str, str] = {}
-        structural_dump: Optional[str] = None
-        for sym in symbols:
-            search_ok = self._search_symbol(page, sym)
-            panel = self._open_instrument_info(page)
-            panel_ok = panel is not None
-            panel_text = ""
-            if panel_ok:
-                try:
-                    panel_text = panel.inner_text(timeout=self.timeout_ms) or ""
-                except Exception:
-                    panel_text, panel_ok = "", False
-
-            sym_seen = panel_ok and sym.lower() in panel_text.lower()
-            stale_of: Optional[str] = None
-            if panel_ok:
-                panel_hash = hashlib.sha256(panel_text.encode("utf-8", "ignore")).hexdigest()
-                stale_of = seen_hashes.get(panel_hash)
-                if stale_of is None:
-                    seen_hashes[panel_hash] = sym
-
-            if search_ok and panel_ok and sym_seen and stale_of is None:
-                spec = parse_instrument_spec(sym, panel_text)
-            else:
-                spec = InstrumentSpec(symbol=sym, unparsed=list(INSTRUMENT_SPEC_LABELS.keys()))
-                if stale_of is not None:
-                    spec.mismatch_reason = f"panel_identical_to:{stale_of}"
-                elif panel_ok and not sym_seen:
-                    spec.mismatch_reason = "panel_symbol_mismatch"
-            spec.search_ok, spec.panel_ok = search_ok, panel_ok
-
-            if spec.unparsed == list(INSTRUMENT_SPEC_LABELS.keys()):
-                # Nothing at all parsed for this symbol: keep a short
-                # diagnostic excerpt so selectors can be fixed from the
-                # (redacted) public log. Redact the WHOLE text, then take
-                # the excerpt from the redacted result — never the other
-                # way round.
-                if panel_ok:
-                    spec.raw_snippet = redact_text(panel_text, *secrets)[:2_000].strip() or None
-                else:
-                    # No panel element at all: NEVER fall back to page
-                    # text. A redacted structural dump instead (computed
-                    # once and reused across symbols in this call).
-                    if structural_dump is None:
-                        try:
-                            structural_dump = "\n".join(self.structure(page, secrets))
-                        except Exception as exc:
-                            structural_dump = f"structure: FAILED ({type(exc).__name__}: {exc})"
-                    spec.raw_snippet = structural_dump[:2_000]
-            out.append(spec)
-        return out
+        return captured

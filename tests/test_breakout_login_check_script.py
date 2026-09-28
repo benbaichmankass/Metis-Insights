@@ -6,12 +6,14 @@ exceptions and URLs) and prove none of it reaches stdout.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
 
 
-from src.prop.platform.base import AccountSnapshot, FeasibilityError, InstrumentSpec, Position
+from src.prop.platform.base import AccountSnapshot, FeasibilityError, Position
+from src.prop.platform.dxtrade import CapturedResponse
 
 REPO = Path(__file__).resolve().parents[1]
 USER, PASSWORD = "bo-jdoe77", "Pa55-word!x"
@@ -101,19 +103,17 @@ def test_main_never_prints_credentials_even_from_exceptions(monkeypatch, capsys)
 
 
 class _LeakyInstrumentAdapter(_LeakyAdapter):
-    """A symbol whose spec panel never parsed leaks the raw snippet dump —
-    prove the same redaction path covers it (PI-20260927-ODDTM5QY-0002)."""
+    """A non-matching response's URL and body leak credentials — prove the
+    same redaction path covers the network-sniffed instrument read too
+    (PI-20260927-ODDTM5QY-0002). Purely passive: no page interaction."""
 
-    def read_instrument_specs(self, page, symbols, secrets=()):
-        return [InstrumentSpec(
-            symbol=symbols[0] if symbols else "ETHUSD",
-            unparsed=["digits", "contract_size", "min_qty", "qty_step"],
-            raw_snippet=(f"session for {USER.upper()} pw={PASSWORD} "
-                        f"tok=eyJhbGciOiJIUzI1NiJ9{USER}abcdefghijklmnop"),
-        )]
+    def start_response_capture(self, page):
+        leaky_url = f"https://x.example/api/session/{USER.upper()}?sid=abc123token"
+        body = json.dumps({"note": f"pw={PASSWORD}", "authToken": "leak-me-not"})
+        return [CapturedResponse(url=leaky_url, body=body)]
 
 
-def test_instrument_output_is_redacted_even_when_the_snippet_leaks_credentials(monkeypatch, capsys):
+def test_instrument_output_is_redacted_even_when_a_response_leaks_credentials(monkeypatch, capsys):
     mod = _load_script()
     pkg, sync_api = _fake_playwright()
     monkeypatch.setitem(sys.modules, "playwright", pkg)
@@ -125,11 +125,11 @@ def test_instrument_output_is_redacted_even_when_the_snippet_leaks_credentials(m
     rc = mod.main(["--account", "breakout_1", "--symbols", "ETHUSD"])
     out = capsys.readouterr().out
 
-    assert rc == mod.EXIT_UNPARSED
-    assert "instrument_raw_snippet[ETHUSD]" in out
-    assert "instrument_unparsed: ETHUSD" in out
+    assert rc == mod.EXIT_UNPARSED  # from _LeakyAdapter's account read; instruments never affect rc
+    assert '"symbol": "ETHUSD"' in out  # printed even though no fields were found
+    assert "instrument_discovery:" in out
     low = out.lower()
-    for leaked in (USER.lower(), PASSWORD.lower(), "eyjhbgcioijiuzi1niJ9".lower()):
+    for leaked in (USER.lower(), PASSWORD.lower(), "abc123token", "leak-me-not"):
         assert leaked not in low, leaked
 
 
@@ -145,7 +145,7 @@ def test_instrument_specs_skipped_with_empty_symbols_flag(monkeypatch, capsys):
     rc = mod.main(["--account", "breakout_1", "--symbols", ""])
     out = capsys.readouterr().out
 
-    assert "instrument:" not in out and "instrument_unparsed" not in out
+    assert "instrument" not in out
     assert rc == mod.EXIT_UNPARSED  # balance/equity still unread, from _LeakyAdapter
 
 

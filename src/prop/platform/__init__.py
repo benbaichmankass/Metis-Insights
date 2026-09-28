@@ -12,7 +12,6 @@ import yaml
 from src.prop.platform.base import (  # noqa: F401  (re-exported)
     AccountSnapshot,
     FeasibilityError,
-    InstrumentSpec,
     Position,
     PropPlatformAdapter,
     WorkingOrder,
