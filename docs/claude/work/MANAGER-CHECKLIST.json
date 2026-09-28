@@ -19,7 +19,7 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-28T13:20:00Z",
+  "updated_at": "2026-09-28T13:35:00Z",
   "updated_by": "manager session_01KAQRJxRbRwpYTkPgBjNVyQ",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
@@ -2412,7 +2412,7 @@
       "tier": 3,
       "prs": [],
       "blocked_on": [],
-      "note": "FIRST TRACKING ROW for lane P1b (the continuation of the wave-6 \"P1 prop EV evaluator\" lane, session_01LDBj5SQ3KpCZDsCstGv2yt) -- no distinct checklist row existed for it before this PR. This row's `lane` field is null rather than session_01LDBj5SQ3KpCZDsCstGv2yt -- that lane was dispatched separately, before and outside this PR, and this row only records where it is, not a fresh assignment made here. ATTRIBUTION recorded per the joint operator/manager review (docs/plans/review-pack-2026-09-27.md D12): the sizing decisions from the 2026-09-27 ~11:12Z joint-review discussion sit WITH this lane/session, not as a fresh decision made or taken in this PR. D12 SYNTHESIS, carried here as context rather than re-decided: three independently-filed findings point at the same breakout_1 gap -- flat $75 tickets vs a $94.76 DD-floor cushion (PI-20260924-MQ3CDMU6-0001), the operator-approved PROP_TICKET_RISK_GATE_MODE=enforce (08-31) having no code path that actually caps size (PI-20260924-MQ3CDMU6-0002), and PR #13084's fresh B6 EV-simulator reading the CURRENT 1.5%-risk flat-$75 sizing as INDETERMINATE (central estimate -$10.08/account-life) vs +$173 at a cushion-fit 1.0% sizing. SEE ALSO E59, where the operator's earlier 2026-09-24 decision (\"Leave flat $75\", made without the B6 simulator's numbers) is recorded and PI-20260924-MQ3CDMU6-0001 was KILLED on that basis -- D12 revisits the question with new evidence rather than being independent of E59. Tier 3 because any resulting sizing/gate-enforcement change is a risk-caps/sizing change on a live prop account. THIS PR DOES NOT IMPLEMENT OR AUTHORIZE the sizing fix itself -- it only records where the decision now lives. See lane P1b / session_01LDBj5SQ3KpCZDsCstGv2yt for the actual disposition."
+      "note": "FIRST TRACKING ROW for lane P1b (the continuation of the wave-6 \"P1 prop EV evaluator\" lane, session_01LDBj5SQ3KpCZDsCstGv2yt) -- no distinct checklist row existed for it before this PR. This row's `lane` field is null rather than session_01LDBj5SQ3KpCZDsCstGv2yt -- that lane was dispatched separately, before and outside this PR, and this row only records where it is, not a fresh assignment made here. ATTRIBUTION recorded per the joint operator/manager review (docs/plans/review-pack-2026-09-27.md D12): the sizing decisions from the 2026-09-27 ~11:12Z joint-review discussion sit WITH this lane/session, not as a fresh decision made or taken in this PR. D12 SYNTHESIS, carried here as context rather than re-decided: three independently-filed findings point at the same breakout_1 gap -- flat $75 tickets vs a $94.76 DD-floor cushion (PI-20260924-MQ3CDMU6-0001), the operator-approved PROP_TICKET_RISK_GATE_MODE=enforce (08-31) having no code path that actually caps size (PI-20260924-MQ3CDMU6-0002), and PR #13084's fresh B6 EV-simulator reading the CURRENT 1.5%-risk flat-$75 sizing as INDETERMINATE (central estimate -$10.08/account-life) vs +$173 at a cushion-fit 1.0% sizing. SEE ALSO E59, where the operator's earlier 2026-09-24 decision (\"Leave flat $75\", made without the B6 simulator's numbers) is recorded and PI-20260924-MQ3CDMU6-0001 was KILLED on that basis -- D12 revisits the question with new evidence rather than being independent of E59. Tier 3 because any resulting sizing/gate-enforcement change is a risk-caps/sizing change on a live prop account. THIS PR DOES NOT IMPLEMENT OR AUTHORIZE the sizing fix itself -- it only records where the decision now lives. See lane P1b / session_01LDBj5SQ3KpCZDsCstGv2yt for the actual disposition. || 2026-09-28 ~13:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISION, popup verbatim \"Keep flat $75\" (options offered: size to fit the cushion [recommended] / keep flat $75 / let it run to breach then re-buy), asked with breakout_1 at balance $4,724 vs the $4,700 static-DD floor (prop status 12:57Z). Sizing stays flat $75; the executor guards (enforce) will refuse tickets that do not fit."
     },
     {
       "phase": "W6",
@@ -3005,6 +3005,21 @@
       "blocked_on": [],
       "note": "2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13600 merged 1f444970 (GLD result record); #13540 merged 20d0dbb8; #13568 renumbered by the manager to RQ-20260928-009/-010 (EXIT-OPS #13607 had claimed -006..-008), decision rules read and approved, auto-merge armed. Queue at 34 units per the lane.",
       "id": "RESEARCH"
+    },
+    {
+      "title": "Breakout step 3: dxtrade place_bracket + ticket intake/reconcile + fail-closed rule guards + kill switch (default read_only, unit not enabled); first click watched after the 72h keep-alive",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01MVZR1A4pGGRerkk3Gzxiav",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~13:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup, verbatim \"Build now (Recommended)\": build step 3 of docs/research/prop-automation-options-2026-09-27.md in parallel with the step-2 keep-alive (running since 2026-09-28 09:00Z, passes ~2026-10-01 09:00Z). No live submit in the lane; the first real click is the watched step-3 test (manager + operator) after the keep-alive passes. Then step 4 = 14-day soak.",
+      "id": "PROP-EXEC"
     }
   ]
 }
