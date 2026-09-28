@@ -54,8 +54,11 @@ power:
     the gate has enough n to detect a real move, not the effect's practical
     size, which the decision_rule's explicit +/-0.02 band already covers.
   feasibility:
-    source: corpus
+    source: none
     accrual_basis: >-
+      Not a per-leg strategy_evidence corpus (`source: corpus` is for that
+      shape, per-leg min/median/max) — this is one fixed historical replay
+      dataset, already fully committed, re-run at a different cost parameter.
       Re-run of the identical committed replay
       (comms/macro/valuation_snapshots_backfill.jsonl, already 10,125 lines)
       with different --fee-frac/--carry-frac-per-day values — nothing new to
