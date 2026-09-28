@@ -1148,3 +1148,18 @@ def test_ticket_panel_dump_falls_back_to_the_control_map(tpage):
     p = tpage(html="<div><button>Trade</button></div>")
     probe = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
     assert "ticket_panel" not in probe and probe["ticket_panel_why"] and probe["controls_dump"]["found"]
+
+
+def test_ticket_panel_dump_anchors_on_the_sidebar_not_the_work_area(tpage):
+    # Probe #13775: the work area holds a watchlist table AND the sidebar; the
+    # sidebar (here with only 2 inputs) must be the anchor and tables skipped.
+    rows = "".join(f"<tr><td>SYM{i}</td><td><button>Sell</button></td><td><button>Buy</button></td></tr>"
+                   for i in range(200))
+    html = ("<div class='workarea'><table><tbody>" + rows + "</tbody></table>"
+            "<div class='side'><input data-test-id='symbol_input'>"
+            "<button data-test-id='SELL'>Sell</button><button data-test-id='BUY'>Buy</button>"
+            "<div><span>Quantity</span><input></div><button>Place Order</button></div></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] and not dump["truncated"]
+    texts = [r.get("text") for r in dump["rows"]]
+    assert "Quantity" in texts and "Place Order" in texts and not any(t and t.startswith("SYM") for t in texts)
