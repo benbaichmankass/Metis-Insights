@@ -559,6 +559,43 @@ class ExecutorState:
             self.halt_file.write_text(f"{datetime.now(timezone.utc).isoformat()} {reason}\n")
 
 
+# ── auto-revert: permanent trip conditions (operator go-live criteria,
+# 2026-09-28, checklist row PROP-EXEC) ─────────────────────────────────────
+# Each one writes the ``halted`` latch, which refuses every new entry (HARD
+# in every mode) until a person clears it, while reconcile and containment
+# keep running, and raises an alert the tick pings. The latch is the
+# in-process revert; the env / timer revert is the system-action run on the
+# alert.
+TRIP_CONSECUTIVE_ERRORS = 2
+TRIP_READBACK_REFUSALS = 2
+
+
+def _trip(res: "CycleResult", state: "ExecutorState", live: bool, why: str) -> str:
+    """Latch ``why`` (live only: a read_only cycle never writes state that a
+    live one would obey) and alert. Returns ``why`` for the caller's halt."""
+    reason = f"AUTO-REVERT: {why}"
+    if live:
+        state.halt(reason)
+    res.alerts.append(reason + " — new entries halted until cleared")
+    return reason
+
+
+def record_tick_error(state_dir: Path, live: bool, why: str) -> Optional[str]:
+    """A tick that raised before its cycle finished counts as an executor
+    error; ``TRIP_CONSECUTIVE_ERRORS`` in a row trips the latch. Returns the
+    trip reason, or None."""
+    state = ExecutorState(Path(state_dir))
+    st = state.load()
+    n = int(st.get("consecutive_errors") or 0) + 1
+    st["consecutive_errors"] = n
+    state.save(st)
+    if n >= TRIP_CONSECUTIVE_ERRORS and live:
+        reason = f"AUTO-REVERT: executor errors on {n} consecutive ticks (last: {why})"
+        state.halt(reason)
+        return reason
+    return None
+
+
 def day_start_balance(st: Dict[str, Any], account: AccountSnapshot, now: datetime,
                       reset_utc: str) -> Optional[float]:
     """The prop day's opening balance, the conservative (HIGHER) of: the
@@ -636,8 +673,14 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         why = f"terminal read failed ({type(exc).__name__}: {exc}) — selector drift or expired session"
         res.alerts.append(why)
         res.halted = why
-        res.log("halt_no_entries", why=why)
+        n = int(st.get("consecutive_errors") or 0) + 1
+        st["consecutive_errors"] = n
+        state.save(st)
+        if n >= TRIP_CONSECUTIVE_ERRORS:
+            res.halted = _trip(res, state, live, f"executor errors on {n} consecutive ticks ({why})")
+        res.log("halt_no_entries", why=res.halted)
         return res
+    st["consecutive_errors"] = 0
     res.reads = {"account": acct.as_dict(), "positions": len(positions), "orders": len(orders)}
     if acct.balance is None or acct.equity is None:
         res.alerts.append("balance/equity did not parse this cycle")
@@ -656,9 +699,9 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
         found = match_terminal(spec, positions, orders, cfg.confirm_rel_tol)
         verdict = classify_confirmation(spec, found, cfg.confirm_rel_tol)
         claimed_keys.add((str(spec.get("venue_symbol") or "").upper(), spec.get("side")))
-        _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict)
-        if verdict in ("duplicate", "partial_no_sl_tp"):
-            halted = halted or f"containment ran for {tid} ({verdict})"
+        trip = _contain(res, adapter, page, live, post, ledger, cfg, tid, row, spec, found, verdict)
+        if trip:
+            halted = halted or _trip(res, state, live, trip)
 
     # 4. reconcile the journal against the terminal
     if journal_open is not None:
@@ -752,10 +795,19 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     ledger.record(spec.ticket_id, "intended", spec=spec.as_dict(), facts=dict(facts))
     att: PlaceAttempt = adapter.place_bracket(page, spec, arm=True)
     res.log("place_bracket", ticket_id=spec.ticket_id, attempt=_attempt_public(att))
+    st = state.load()
     if not att.submitted:
         ledger.record(spec.ticket_id, "refused", reasons=[att.detail])
         _report(res, post, _skip_body(cfg, candidate, f"not submitted: {att.detail}"))
+        if "read-back" in str(att.detail or ""):
+            n = int(st.get("readback_refusals") or 0) + 1
+            st["readback_refusals"] = n
+            state.save(st)
+            if n >= TRIP_READBACK_REFUSALS:
+                res.halted = _trip(res, state, live, f"{n} consecutive read-back refusals (last: {att.detail})")
         return res
+    st["readback_refusals"] = 0
+    state.save(st)
     ledger.record(spec.ticket_id, "submitted", detail=att.detail)
     # immediate re-read; a miss here stays `submitted` and later cycles decide
     sleep(3.0)
@@ -768,7 +820,9 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     row = ledger.latest()[spec.ticket_id]
     found = match_terminal(spec.as_dict(), positions, orders, cfg.confirm_rel_tol)
     verdict = classify_confirmation(spec.as_dict(), found, cfg.confirm_rel_tol)
-    _contain(res, adapter, page, live, post, ledger, cfg, spec.ticket_id, row, spec.as_dict(), found, verdict)
+    trip = _contain(res, adapter, page, live, post, ledger, cfg, spec.ticket_id, row, spec.as_dict(), found, verdict)
+    if trip:
+        res.halted = _trip(res, state, live, trip)
     return res
 
 
@@ -943,12 +997,18 @@ def _fill_body(cfg: ExecutorConfig, row: Mapping[str, Any], spec: Mapping[str, A
 
 def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, ledger: IntentLedger,
              cfg: ExecutorConfig, tid: str, row: Mapping[str, Any], spec: Mapping[str, Any],
-             found: Mapping[str, Any], verdict: str) -> None:
-    """§ 3.5 for one submitted ticket. Never resubmits."""
+             found: Mapping[str, Any], verdict: str) -> Optional[str]:
+    """§ 3.5 for one submitted ticket. Never resubmits. Returns an
+    auto-revert trip reason (a bracket leg missing, a duplicate, or an
+    unconfirmed placement), or None."""
     prev = row.get("state")
     res.log("confirm", ticket_id=tid, verdict=verdict, prev=prev)
+    if verdict in ("partial_no_sl_tp", "duplicate"):
+        trip: Optional[str] = f"{tid}: {verdict}"
+    else:
+        trip = None
     if verdict == prev:
-        return  # unchanged since last cycle: nothing to report twice
+        return trip  # unchanged since last cycle: nothing to report twice
     if prev == "placed" and verdict == "not_found":
         # A resting order that vanished without a position: cancelled or
         # expired on the terminal. Two reads, then report it skipped.
@@ -960,18 +1020,18 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
                                     "reason": "working order gone from the terminal without a fill"})
             else:
                 ledger.record(tid, "placed", misses=n)
-        return
+        return trip
     if verdict == "placed":
         if live:
             ledger.record(tid, "placed")
             _report(res, post, _fill_body(cfg, row, spec, "placed"))
-        return
+        return trip
     if verdict == "open":
         if live:
             p = found["positions"][0]
             ledger.record(tid, "open")
             _report(res, post, _fill_body(cfg, row, spec, "open", entry=p.entry_price))
-        return
+        return trip
     if verdict == "not_found":
         n = int(row.get("misses") or 0) + 1
         if n >= cfg.unconfirmed_reads:
@@ -979,9 +1039,10 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
             if live:
                 ledger.record(tid, "skipped", reason="unconfirmed_submit", misses=n)
                 _report(res, post, {**_fill_body(cfg, row, spec, "skipped"), "reason": "unconfirmed_submit"})
+            return f"{tid}: unconfirmed placement (not found after {n} re-reads)"
         elif live:
             ledger.record(tid, "unconfirmed", misses=n)
-        return
+        return None
     if verdict == "duplicate":
         res.alerts.append(f"{tid}: {len(found['orders'])} orders + {len(found['positions'])} positions "
                           f"match one ticket — duplicate submit")
@@ -998,7 +1059,7 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
                               f"operator must close the excess; executor halted")
         if live:
             ledger.record(tid, "contained", verdict=verdict)
-        return
+        return trip
     if verdict == "partial_no_sl_tp":
         leg = (found["positions"] or found["orders"])[0]
         if not row.get("leg_fix_tried"):
@@ -1012,7 +1073,7 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
             if live:
                 ledger.record(tid, "unconfirmed", leg_fix_tried=True)
             res.alerts.append(f"{tid}: bracket leg missing — one repair attempted")
-            return
+            return trip
         # still missing after the one repair: close at market and alert
         if isinstance(leg, Position):
             r = adapter.flatten(page, leg.symbol, arm=live)
@@ -1022,6 +1083,7 @@ def _contain(res: CycleResult, adapter: Any, page: Any, live: bool, post: Any, l
         res.alerts.append(f"{tid}: bracket leg still missing after one repair — closed/cancelled and alerted")
         if live:
             ledger.record(tid, "contained", verdict=verdict)
+    return trip
 
 
 def _reconcile_journal(res: CycleResult, cfg: ExecutorConfig, st: Dict[str, Any],

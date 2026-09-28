@@ -244,6 +244,12 @@ def main(argv: Optional[list] = None) -> int:
             return EXIT_UNPARSED if res.halted else EXIT_OK
         except Exception as exc:
             emit({"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, *secrets)
+            if mode in ("live", "read_only"):
+                # A raised tick is an executor error; two in a row trip the
+                # auto-revert latch (live only), and the alert is pinged.
+                trip = pe.record_tick_error(Path(args.state_dir), mode == "live", type(exc).__name__)
+                if trip:
+                    emit({"alert": trip + " — new entries halted until cleared"}, *secrets)
             return EXIT_ERROR
         finally:
             browser.close()

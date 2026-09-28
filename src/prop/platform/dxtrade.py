@@ -1164,16 +1164,18 @@ TICKET_PANEL_DUMP_JS = r"""
   const mask = v => (typeof v === 'string')
     ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 40) : null;
   const personal = /user|profile|account|login|email/i;
-  const sym = document.querySelector('[data-test-id=symbol_input]');
-  if (!sym) return {found: false, why: 'no [data-test-id=symbol_input]'};
+  // Anchor on the ticket's own BUY button: the chart widget carries a
+  // symbol_input too (probe #13797: at x 328, first in DOM order), so
+  // climbing from symbol_input reached the whole layout. The SMALLEST
+  // ancestor of the one BUY that also holds SELL and a symbol_input is the
+  // sidebar (probe #13775: no input-count condition).
+  const buys = document.querySelectorAll('[data-test-id=BUY]');
+  if (buys.length !== 1) return {found: false, why: buys.length + ' [data-test-id=BUY] elements (need exactly 1)'};
   let panel = null;
-  for (let e = sym.parentElement; e && e !== document.body; e = e.parentElement) {
-    // The SMALLEST ancestor holding the side buttons too (probe #13775: an
-    // input-count condition climbed to the whole work area and spent the
-    // row budget on the watchlist before reaching the sidebar).
-    if (e.querySelector('[data-test-id=BUY]') && e.querySelector('[data-test-id=SELL]')) { panel = e; break; }
+  for (let e = buys[0].parentElement; e && e !== document.body; e = e.parentElement) {
+    if (e.querySelector('[data-test-id=SELL]') && e.querySelector('[data-test-id=symbol_input]')) { panel = e; break; }
   }
-  if (!panel) return {found: false, why: 'no ancestor of symbol_input holds BUY and SELL'};
+  if (!panel) return {found: false, why: 'no ancestor of BUY holds SELL and symbol_input'};
   const depthOf = el => { let d = 0; for (let e = el; e && e !== panel; e = e.parentElement) d++; return d; };
   const own = el => mask([...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) || '';
   const ctl = el => /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.hasAttribute('data-value')

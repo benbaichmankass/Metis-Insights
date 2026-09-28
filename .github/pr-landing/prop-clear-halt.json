@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; system-action apply that clears the executor's AUTO-REVERT latch (manager decision 2026-09-28)",
+  "why": "Manager decision (2026-09-28 ~21:12Z): add executor-clear-halt as a breakout-login-check apply, Tier-2, run by the manager or operator only. It requires a reason (the record), refuses when there is no latch or when the latch has no recorded reason, logs the prior reason, appends {ts, actor, issue, reason, prior} to executor/halt_clears.jsonl, and moves the latch to halted.cleared-<stamp> (never deletes). The executor never clears its own latch."
+}

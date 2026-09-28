@@ -1163,3 +1163,118 @@ def test_ticket_panel_dump_anchors_on_the_sidebar_not_the_work_area(tpage):
     assert dump["found"] and not dump["truncated"]
     texts = [r.get("text") for r in dump["rows"]]
     assert "Quantity" in texts and "Place Order" in texts and not any(t and t.startswith("SYM") for t in texts)
+
+
+# ── auto-revert triggers (operator go-live criteria, 2026-09-28) ──────────
+
+
+def test_one_read_error_does_not_trip_two_consecutive_do(env):
+    _, state = env
+    ad = FakeAdapter(read_error="no positions table")
+    run(ad, FakeApi([ticket()]), env)
+    assert state.halted() is None
+    res = run(ad, FakeApi([ticket()]), env)
+    assert state.halted() and "2 consecutive ticks" in state.halted()
+    assert any(a.startswith("AUTO-REVERT") for a in res.alerts)
+    assert ad.calls == []
+
+
+def test_a_clean_read_resets_the_error_count(env):
+    _, state = env
+    run(FakeAdapter(read_error="x"), FakeApi(), env)
+    run(FakeAdapter(), FakeApi(), env)                    # clean cycle in between
+    run(FakeAdapter(read_error="x"), FakeApi(), env)
+    assert state.halted() is None
+
+
+def test_read_only_never_writes_the_latch(env):
+    _, state = env
+    for _ in range(3):
+        res = run(FakeAdapter(read_error="x"), FakeApi(), env, mode="read_only")
+    assert state.halted() is None and any(a.startswith("AUTO-REVERT") for a in res.alerts)
+
+
+def test_partial_no_sl_tp_after_submit_trips_at_once(env):
+    _, state = env
+    ad = FakeAdapter(after_submit=([_p(stop_loss=None, quantity=0.5)], []))
+    res = run(ad, FakeApi([ticket()]), env)
+    assert state.halted() and "partial_no_sl_tp" in state.halted()
+    assert any(a.startswith("AUTO-REVERT") for a in res.alerts)
+
+
+def test_partial_found_by_a_later_reconcile_trips(env):
+    ledger, state = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    run(FakeAdapter(positions=[_p(stop_loss=None)]), FakeApi(), env)
+    assert state.halted() and "t1: partial_no_sl_tp" in state.halted()
+
+
+def test_duplicate_trips(env):
+    ledger, state = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    run(FakeAdapter(orders=[_o(order_id="O1"), _o(order_id="O2")]), FakeApi(), env)
+    assert state.halted() and "duplicate" in state.halted()
+
+
+def test_unconfirmed_placement_trips_after_the_configured_reads(env):
+    ledger, state = env
+    ledger.record("t1", "submitted", spec=SPEC)
+    for _ in range(cfg().unconfirmed_reads):
+        run(FakeAdapter(), FakeApi(), env)
+    assert ledger.state("t1") == "skipped"
+    assert state.halted() and "unconfirmed placement" in state.halted()
+
+
+def test_two_consecutive_readback_refusals_trip(env):
+    _, state = env
+    bad = PlaceAttempt(stage="refused", detail="form read-back mismatch: quantity: typed 0.5, form shows 5")
+    run(FakeAdapter(attempt=bad), FakeApi([ticket()]), env)
+    assert state.halted() is None
+    run(FakeAdapter(attempt=bad), FakeApi([ticket(ticket_id="prop-manual-bbb")]), env)
+    assert state.halted() and "2 consecutive read-back refusals" in state.halted()
+
+
+def test_a_non_readback_refusal_does_not_count(env):
+    _, state = env
+    other = PlaceAttempt(stage="refused", detail="no unique submit control in the form")
+    run(FakeAdapter(attempt=other), FakeApi([ticket()]), env)
+    run(FakeAdapter(attempt=other), FakeApi([ticket(ticket_id="prop-manual-bbb")]), env)
+    assert state.halted() is None
+
+
+def test_a_tripped_latch_refuses_the_next_ticket(env):
+    _, state = env
+    state.halt("AUTO-REVERT: test")
+    ad = FakeAdapter()
+    run(ad, FakeApi([ticket()]), env)
+    assert not any(c[0] == "place_bracket" for c in ad.calls)
+
+
+def test_record_tick_error_trips_on_the_second(tmp_path):
+    assert pe.record_tick_error(tmp_path, True, "TimeoutError") is None
+    trip = pe.record_tick_error(tmp_path, True, "TimeoutError")
+    assert trip and "2 consecutive ticks" in trip and pe.ExecutorState(tmp_path).halted()
+    assert pe.record_tick_error(tmp_path / "ro", False, "x") is None
+    assert pe.record_tick_error(tmp_path / "ro", False, "x") is None
+    assert pe.ExecutorState(tmp_path / "ro").halted() is None
+
+
+def test_ticket_panel_dump_ignores_the_charts_symbol_input(tpage):
+    # Probe #13797: the chart widget has its own symbol_input, first in DOM
+    # order; the dump must anchor on the ticket (from its BUY button).
+    html = ("<div class='layout'><div class='chart'><input data-test-id='symbol_input' placeholder='Symbol...'>"
+            + "".join(f"<div>row {i}</div>" for i in range(400)) + "</div>"
+            "<div class='side'><input data-test-id='symbol_input'>"
+            "<button data-test-id='SELL'>Sell</button><button data-test-id='BUY'>Buy</button>"
+            "<div><span>Quantity</span><input></div><button>Place Order</button></div></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] and not dump["truncated"] and dump["n"] < 20
+    texts = [r.get("text") for r in dump["rows"]]
+    assert "Quantity" in texts and "Place Order" in texts and not any(t and t.startswith("row") for t in texts)
+
+
+def test_ticket_panel_dump_refuses_two_buy_buttons(tpage):
+    html = ("<div><input data-test-id='symbol_input'><button data-test-id='BUY'>Buy</button>"
+            "<button data-test-id='BUY'>Buy</button><button data-test-id='SELL'>Sell</button></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] is False and "2 [data-test-id=BUY]" in dump["why"]
