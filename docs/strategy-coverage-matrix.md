@@ -4,7 +4,7 @@
 
 One row per `execution: live` strategy. `regime`: **cell** = has a `config/regime_policy.yaml` entry; **exempt** = permanently regime-gating-N/A (reasoned); **debt** = grandfathered, owed a cell (paid down by Phase-2 / the system-review). `desc` = has a `config/strategy_descriptions.json` entry.
 
-**Coverage:** 4 celled · 9 exempt · **31 in debt** (ceiling 34). The debt count must trend to 0.
+**Coverage:** 3 celled · 7 exempt · **28 in debt** (ceiling 34). The debt count must trend to 0.
 
 | strategy | regime | desc |
 |---|---|---|
@@ -14,12 +14,9 @@ One row per `execution: live` strategy. `regime`: **cell** = has a `config/regim
 | `gld_pullback_1d` | 🟠 debt | ✅ |
 | `gld_pullback_1h` | ✅ cell | ✅ |
 | `iaum_pullback_1d` | 🟠 debt | ✅ |
-| `ict_scalp_5m` | ✅ cell | ✅ |
-| `ict_scalp_avax_5m` | ➖ exempt | ✅ |
 | `ict_scalp_eth_15m` | ➖ exempt | ✅ |
 | `ict_scalp_mgc_15m` | ➖ exempt | ✅ |
 | `ict_scalp_sol_15m` | ➖ exempt | ✅ |
-| `ict_scalp_sol_5m` | ➖ exempt | ✅ |
 | `ict_scalp_xrp_15m` | ➖ exempt | ✅ |
 | `ict_scalp_xrp_5m` | ➖ exempt | ✅ |
 | `ief_pullback_1d` | 🟠 debt | ✅ |
@@ -41,13 +38,10 @@ One row per `execution: live` strategy. `regime`: **cell** = has a `config/regim
 | `tlt_pullback_1h` | 🟠 debt | ✅ |
 | `tqqq_trend_long_1d` | 🟠 debt | ✅ |
 | `trend_donchian` | ✅ cell | ✅ |
-| `trend_donchian_ada_4h` | 🟠 debt | ✅ |
-| `trend_donchian_avax_4h` | 🟠 debt | ✅ |
 | `trend_donchian_eth` | 🟠 debt | ✅ |
 | `trend_donchian_eth_4h` | 🟠 debt | ✅ |
 | `trend_donchian_eth_prop` | ➖ exempt | ✅ |
 | `trend_donchian_sol` | 🟠 debt | ✅ |
-| `trend_donchian_sol_4h` | 🟠 debt | ✅ |
 | `trend_donchian_sol_prop` | ➖ exempt | ✅ |
 | `trend_donchian_xrp_4h` | 🟠 debt | ✅ |
 | `uso_trend_1h` | 🟠 debt | ✅ |

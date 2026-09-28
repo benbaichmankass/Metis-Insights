@@ -1,0 +1,126 @@
+id: RQ-20260928-008
+title: Re-grade ict_scalp_xrp_5m on its gated/off_cells variant (PI-20260922-UTN353OZ-0001)
+status: blocked
+cadence: once
+kind: deterministic
+
+question: >-
+  ict_scalp_xrp_5m's Stage-0 measurement fails RULE-D1-STAGE0-NET-OF-FULL-COST
+  (CURRENT: net_r -0.9172, n=243, folds+ 1/4, faithful record regenerated
+  2026-09-25 with venue-aware slippage; was net_r -8.2061, n=245, folds+ 2/4
+  in E28's original 2026-09-22 measurement — verdict unchanged, fail both
+  times), but that number is the UNGATED arm: comms/strategy_evidence/ict_scalp_xrp_5m.json
+  records fidelity=approximate because `off_cells` is `not_expressible` by
+  regime_debt_matrix.py's harness route (MI-321). config/strategies.yaml's own
+  comment on this leg says the GATED arm (off_cells_5m + the frozen vol_spec,
+  both already committed at lines 659-664) is 4/4 folds, +34.3R. Which number
+  is correct for a leg the operator has explicitly left live pending this
+  re-grade — the harness's ungated fail, or the config comment's gated pass?
+
+why_not_inferential: >-
+  Not a sampling question — it is "does the already-committed M27 gated
+  backtest artifact exist and reproduce," or failing that, "can the harness
+  be made to express the off_cells suppression the live variant builder
+  already applies." Both are deterministic, checkable facts.
+
+origin:
+  pipeline_item: PI-20260922-UTN353OZ-0001
+  operator_decision: >-
+    2026-09-28 (relayed via manager to lane EXIT-OPS): "Demote 3, re-test
+    XRP" — leave ict_scalp_xrp_5m unchanged (execution: live) and register
+    this unit rather than fold it into the 3-leg demotion.
+
+status_reason: >-
+  BLOCKED, not queued: no existing workflow or script computes the
+  off_cells-gated Stage-0 verdict for this leg. Checked before filing
+  (impossibility-claim-guard discipline):
+  (1) scripts/research/mi321_ict_scalp_seam.py — MEASURES the gap
+  (off_cells: not_expressible, vol_spec: asymmetric_gate) and does not
+  compute a gated backtest itself.
+  (2) scripts/backtest_ict_scalp.py --stamp-regime labels each trade's
+  decision-time (regime, vol_regime) but applies no off_cells SUPPRESSION —
+  stamping and gating are different operations, and only the live variant
+  builder (`_ict_scalp_variant_builder`, per the leg's own config comment)
+  does the latter.
+  (3) .github/workflows/ict-scalp-backtest.yml and ict-scalp-exit-sweep.yml
+  take no off_cells/vol_spec/gated input.
+  So this is a genuine harness capability gap, not a phantom gate — the
+  decision-time state (which fold-quarters fall in [trending,volatile] or
+  [chop,volatile]) is fully reconstructable from history (point-in-time,
+  the regime detector is a pure function of past bars only), so building
+  the capability is the right next step per "Research: backtest history
+  first" rather than waiting on anything to accrue.
+
+blocked_by: >-
+  Either (a) locate/reproduce the original M27 k-fold gated backtest run
+  the config comment cites (off_cells_5m 4/4 +34.3R) as a committed,
+  re-runnable artifact — cheapest path, check first — or (b) extend
+  scripts/backtest_ict_scalp.py (or a thin wrapper) to post-filter
+  --stamp-regime --emit-trades output by the leg's own committed
+  `off_cells` list before computing net_r_oos/folds_positive, then route
+  that through build_strategy_evidence.py so the corpus's `fidelity` field
+  for this leg can honestly flip from `approximate` to `faithful`.
+
+decision_rule:
+  id: RULE-D1-STAGE0-NET-OF-FULL-COST
+  registered_at: '2026-09-22T05:34:08Z'
+  registered_before_run: true
+  statistic: >-
+    net_r_oos -- pooled net_total_r from scripts/backtest_ict_scalp.py's
+    out-of-sample time-folds for ict_scalp_xrp_5m, net of the full cost
+    stack (fee 7.5bps + venue-aware slippage/funding for XRPUSDT, currently
+    3.0/1.0bps roundtrip per src/runtime/execution_costs.py -- corrected
+    2026-09-28 from this rule's original uniform 5.0bps slippage, same
+    correction already applied to comms/strategy_evidence/ict_scalp_xrp_5m.json
+    on 2026-09-25), computed over the GATED (off_cells-suppressed) trade
+    population once a harness can produce it.
+  rule: >-
+    net_r_oos > 0 AND folds_positive a majority of folds, evaluated on the
+    GATED arm once a harness can produce it. Applies to whichever arm
+    (gated or ungated) this unit ends up grading; the RULE does not change,
+    only which trade population it is applied to. The CURRENT committed
+    record (comms/strategy_evidence/ict_scalp_xrp_5m.json, regenerated
+    2026-09-25) grades the ungated arm: net_r_oos -0.9172, n=243, folds+ 1/4,
+    fidelity=approximate -- superseding this unit's own earlier citation of
+    the stale 2026-09-22 E28 number (-8.2061, n=245).
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: null
+  basis: >-
+    Not yet routable — no runnable workflow exists (see status_reason).
+    Once (a) or (b) above lands, this is the same free-runner class as
+    every other ict_scalp backtest (data.binance.vision fetch + one
+    symbol's backtest).
+
+run:
+  workflow: ict-scalp-backtest.yml
+  inputs:
+    timeframe: '5m'
+    data: 'data/xrpusdt_5m_m27.csv'
+  note: >-
+    NOT YET RUNNABLE FOR THIS QUESTION — named as the nearest existing
+    workflow (self-contained ict_scalp backtest, free runner) rather than
+    left null, but its current inputs (timeframe/data/fetch_fresh/days/
+    warmup_bars/timeout_bars/cooldown_bars) have no off_cells/vol_spec/
+    gated-arm knob, so dispatching it today would silently re-measure the
+    same UNGATED arm E28 already recorded. `status: blocked` is what stops
+    the dispatcher from firing this until either blocked_by path (a) or (b)
+    lands and this note is updated with the real inputs.
+
+lands:
+  store: comms/strategy_evidence/ict_scalp_xrp_5m.json
+  assert_field: fidelity
+  min_rows: 1
+  note: >-
+    The existing record's `fidelity: approximate` / `omitted_levers` fields
+    are exactly what this unit's landing should flip, once the gated arm is
+    measured and off_cells stops being not_expressible.
+
+related:
+  - PI-20260922-UTN353OZ-0001
+  - MI-321 (scripts/research/mi321_ict_scalp_seam.py)
+  - comms/strategy_evidence/ict_scalp_xrp_5m.json
+last_dispatched_at: null
