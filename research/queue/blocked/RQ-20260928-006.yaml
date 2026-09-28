@@ -1,6 +1,6 @@
 id: RQ-20260928-006
 title: Offline parity re-check of the three volatile-keyed trend_vol regime cells against historical volatile windows
-status: queued
+status: blocked
 cadence: once
 kind: experiment
 
@@ -101,6 +101,40 @@ decision_rule:
     verdict does not flip a cell; it opens a Tier-3 proposal for the operator,
     per BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT's own due_when clause (a)/(b),
     both of which are explicitly Tier-3, propose-only.
+
+blocked_on:
+  - what: >-
+      Filed as `queued`, but `.github/workflows/regime-cell-walkforward.yml`
+      as it stands today cannot actually run this unit's three dispatches.
+      Three separate gaps, found by reading the workflow file directly
+      rather than assuming the CLI flags below carry over to it: (1) its
+      `workflow_dispatch.inputs` only declares `strategy`/`regime`/`folds`/
+      `days` — there is no `vol` or `vol-labels` input, so the
+      `--vol volatile --vol-labels <replay output>` invocation this unit's
+      `run.inputs.note` describes cannot be fired through the workflow as-is
+      (a direct CLI run of `regime_cell_walkforward.py` on a runner with the
+      replay file already present would still work, just not via
+      `workflow_dispatch`/the issue-label trigger). (2) it declares no
+      `research_unit`/`power_state` inputs, so `power.feasibility.source:
+      none`'s accruing-unit requirement (`run.inputs.research_unit:
+      RQ-20260928-006`) cannot be threaded through to a landed row —
+      declaring it anyway would make `gh workflow run -f research_unit=...`
+      error at dispatch time (the same class PR #12739 fixed for
+      m20-exit-lever-sweep.yml / research-exit-head-replay-trainer.yml,
+      per this queue's own W4 precedent). (3) the workflow's only durable
+      outputs are an uploaded artifact and an issue comment — it has no step
+      that commits to `docs/research/regime-cell-walkforward-corpus.jsonl`,
+      so this unit's own `lands.store` claim does not match what the
+      workflow actually produces today.
+    ref: .github/workflows/regime-cell-walkforward.yml
+    clears_when: >-
+      The workflow gains a `vol`/`vol-labels` dispatch input (or the
+      dispatcher gains a documented direct-CLI path for this one unit),
+      declares `research_unit`/`power_state` inputs threaded through to a
+      landing step, and that landing step actually commits a row to
+      `docs/research/regime-cell-walkforward-corpus.jsonl` (or `lands.store`
+      is corrected to name wherever it really lands). Move this file back to
+      `research/queue/` and flip `status: queued` once all three hold.
 
 routing:
   needs_trainer_resident_data: false
