@@ -1,0 +1,17 @@
+prop_ev_grid: 3 leg(s) x 1 arm(s) x 5 seed(s) = 15 cells, 4 parallel
+  ict_scalp_eth_15m            A        seed=1 exit=0 ev=+203.96 p=0.4630 (495.0s)
+  ict_scalp_eth_15m            A        seed=2 exit=0 ev=+210.63 p=0.4587 (480.9s)
+  ict_scalp_eth_15m            A        seed=3 exit=0 ev=+214.70 p=0.4620 (491.5s)
+  ict_scalp_eth_15m            A        seed=4 exit=0 ev=+211.81 p=0.4522 (478.1s)
+  ict_scalp_eth_15m            A        seed=5 exit=0 ev=+196.71 p=0.4350 (466.6s)
+  ict_scalp_sol_15m            A        seed=1 exit=0 ev=+129.20 p=0.3658 (471.9s)
+  ict_scalp_sol_15m            A        seed=2 exit=0 ev=+138.02 p=0.3673 (465.2s)
+  ict_scalp_sol_15m            A        seed=3 exit=0 ev=+132.61 p=0.3575 (443.4s)
+  ict_scalp_sol_15m            A        seed=4 exit=0 ev=+137.57 p=0.3668 (477.3s)
+  ict_scalp_sol_15m            A        seed=5 exit=0 ev=+135.40 p=0.3623 (478.1s)
+  ict_scalp_sol_5m             A        seed=1 exit=0 ev=-26.39 p=0.0663 (353.5s)
+  ict_scalp_sol_5m             A        seed=2 exit=0 ev=-28.39 p=0.0622 (341.2s)
+  ict_scalp_sol_5m             A        seed=3 exit=0 ev=-28.56 p=0.0630 (214.3s)
+  ict_scalp_sol_5m             A        seed=4 exit=0 ev=-26.29 p=0.0670 (266.4s)
+  ict_scalp_sol_5m             A        seed=5 exit=0 ev=-24.63 p=0.0683 (198.6s)
+prop_ev_grid: overall=indeterminate {"ict_scalp_eth_15m": "indeterminate", "ict_scalp_sol_15m": "indeterminate", "ict_scalp_sol_5m": "fail"}
