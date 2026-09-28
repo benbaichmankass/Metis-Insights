@@ -179,9 +179,23 @@ reading `src/units/accounts/clients.py::account_open_positions`.
 
 | account | money | why not read | resolves on its own? |
 |---|---|---|---|
-| `ib_live` | **REAL MONEY** | `mode: dry_run` — IB branch never dials a dry account | yes, on promotion to live |
+| `ib_live` | **REAL MONEY** | `mode: dry_run` — IB branch never dials a dry account | ~~yes, on promotion to live~~ **CORRECTED 2026-09-28** (see below) |
 | `oanda_practice` | paper | `mode: dry_run` — same gate in the oanda branch | yes, on promotion to live |
 | `breakout_1` | **PROP, `mode: live`** | `exchange: breakout` is not one of the four exchanges the function supports | **no — no read path exists** |
+
+> ⚠️ **CORRECTION, 2026-09-28** (`BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-AND-PROMOTION-WOULD-NOT-CONNECT`,
+> operator triage): `ib_live`'s "resolves on promotion" claim above does NOT
+> hold. `config/accounts.yaml` declares `ib_live` at `ib_host: 127.0.0.1` /
+> `ib_port: 7496` — the live-trader VM itself, not the isolated IB Gateway box
+> (`10.0.0.251`). No gateway listens on `127.0.0.1:7496` in this deployment,
+> so promoting `ib_live` today would NOT connect and this row would stay
+> unread even after promotion. `ib_live` is parked with a comment note at its
+> `config/accounts.yaml` entry rather than fixed, since the account is
+> `mode: dry_run` / `strategies: []` today and carries no active risk. Left
+> the table row above struck through rather than silently edited, per this
+> repo's *field beats comment* rule — the error was in the prose, not a
+> re-write of what was actually measured on 2026-09-08 (`positions: null`,
+> not read, still true and unchanged).
 
 `breakout_1` is live and not dormant (41 `prop_fills`, 91 `prop_tickets`) and
 its venue state is unreadable by construction. Filed as

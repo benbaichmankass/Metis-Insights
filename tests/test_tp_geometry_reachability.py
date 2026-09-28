@@ -254,3 +254,66 @@ def test_render_shouts_when_the_sign_test_did_not_hold(prod):
 
 def test_self_test_passes():
     assert U48._self_test() == 0
+
+
+# ------------------------------------- BL-20260823: vwap/turtle_soup visibility
+#
+# Planted-control style: before this wiring neither family ever reached
+# `report()`'s family list (classify() returns None for both — no harness),
+# so their geometry was silently ABSENT from this audit rather than stated.
+# These pin that they are now graded BY DEFAULT, with no `--family` flag and
+# no arm corpus needed, and that the label they get is the honest one: a
+# level-based target is never TP-capped, so it can only ever attain
+# `live_parity_uncapped`.
+
+def test_level_target_families_declared():
+    assert set(U48.LEVEL_TARGET_FAMILIES) == {"vwap", "turtle_soup"}
+
+
+def test_vwap_and_turtle_soup_are_not_clamping_families(prod):
+    """They place a level/pattern target, not a TP-multiple — correctly absent
+    from CLAMPING_FAMILIES (src/runtime/tp_venue_cap.py)."""
+    for fam in U48.LEVEL_TARGET_FAMILIES:
+        assert fam not in prod["clamping_families"]
+
+
+def test_vwap_and_turtle_soup_stamp_live_parity_uncapped(prod):
+    geom = prod["tp_geometry_for"]
+    for fam in U48.LEVEL_TARGET_FAMILIES:
+        assert geom([fam], 0.0) == "live_parity_uncapped"
+        assert geom([fam], 0.099) == "live_parity_uncapped"
+
+
+def test_vwap_and_turtle_soup_reachability_is_uncapped_only_and_dose_inert(prod):
+    for fam in U48.LEVEL_TARGET_FAMILIES:
+        f = U48.family_reachability(prod, fam)
+        assert f["pair_state"] == U48.PAIR_UNCAPPED_ONLY
+        assert f["label_varies"] is False
+        assert f["dose_state"] == U48.DOSE_INERT
+        assert f["in_clamping_families"] is False
+
+
+def test_report_grades_vwap_and_turtle_soup_by_default_with_no_arms_and_no_flag(prod):
+    """The exact gap BL-20260823 named: no corpus row, no --family, and the
+    family was previously invisible to this audit entirely."""
+    rep = U48.report(arms_path="/nonexistent/arms.jsonl")
+    graded = {f["family"] for f in rep["per_family"]}
+    assert {"vwap", "turtle_soup"} <= graded
+    by_fam = {f["family"]: f for f in rep["per_family"]}
+    assert by_fam["vwap"]["labels_attainable"] == ["live_parity_uncapped"]
+    assert by_fam["turtle_soup"]["labels_attainable"] == ["live_parity_uncapped"]
+    assert set(U48.LEVEL_TARGET_FAMILIES) <= set(rep["dose_inert_families"])
+
+
+def test_report_family_list_still_dedupes_an_explicit_extra_family(prod):
+    """Passing --family vwap explicitly must not double the row."""
+    rep = U48.report(arms_path="/nonexistent/arms.jsonl", extra_families=["vwap"])
+    fams = [f["family"] for f in rep["per_family"]]
+    assert fams.count("vwap") == 1
+
+
+def test_render_lists_vwap_and_turtle_soup_rows(prod):
+    rep = U48.report(arms_path="/nonexistent/arms.jsonl")
+    out = U48.render(rep)
+    assert "vwap" in out
+    assert "turtle_soup" in out

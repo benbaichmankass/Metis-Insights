@@ -1,0 +1,6 @@
+{
+  "held_by": "session_015JePcaHfBSBVrcGyu2QtAo",
+  "branch": "lane/research-queue-005-collision-cron-drift",
+  "claimed_at": "2026-09-28T08:53:28Z",
+  "purpose": "research-queue id collision fix + cron-drift pipeline finding"
+}

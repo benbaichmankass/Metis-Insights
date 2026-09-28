@@ -274,6 +274,11 @@ def _accounts_view_data(statuses: list[dict]) -> list[dict]:
                 "balance": s.get("live_balance_usdt"),
                 "pnl_24h": s.get("daily_pnl"),
                 "open_positions": s.get("open_positions"),
+                # BL-20260808: pass through the exposure block RiskManager.report()
+                # already emits (**risk_report in TradingAccount.status()) so the
+                # Telegram renderer can finally display it. Display only — no cap
+                # is read or enforced here.
+                "exposure": s.get("exposure"),
             }
         )
     return out

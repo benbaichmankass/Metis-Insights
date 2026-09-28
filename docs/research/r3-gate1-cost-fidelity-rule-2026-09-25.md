@@ -67,12 +67,14 @@ pooled figures, reported alongside, keep D3's 20.
 ## The threshold
 
 **`T` = `config/mandates.yaml` → `MD-PROMOTE-S1-S2.bar.cost_tolerance_bps`,
-read at run time.** It reads **0.0** today. That field is the stated tolerance
-of plan § 5.3 clause 3 (*"Stage-1 realized cost within a stated tolerance of
-the modelled cost"*). The mandate's own comment marks 0.0 as INFERRED, not
-DECIDED. This rule does not pick a second number, because two tolerances for
-one clause would let promotion and demotion disagree. If the operator sets
-the field, this rule follows it with no edit.
+read at run time.** It reads **2.0** today (bps) — **UPDATED 2026-09-28**:
+operator DECIDED, verbatim "Arm, tolerance 2 bps" (checklist row
+MANDATE-ARM, PR #13582), superseding the prior 0.0 INFERRED placeholder this
+section originally described. That field is the stated tolerance of plan
+§ 5.3 clause 3 (*"Stage-1 realized cost within a stated tolerance of the
+modelled cost"*). This rule does not pick a second number, because two
+tolerances for one clause would let promotion and demotion disagree. If the
+operator changes the field again, this rule follows it with no edit.
 
 ## The verdicts
 
