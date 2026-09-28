@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Both files are brand-new research/queue/*.yaml registrations carrying a pre-registered decision_rule. pr-landing-guard's own R14/stamp-only-surface logic (confirmed against the prior PR on this same lane, #13540) treats a new queue-unit registration as outside what it vouches for self-land -- 'a new queue unit is a registration, not a stamp'. Same reasoning as that PR: asking for one human read on the decision rules themselves (RULE-RQ0928-006-EVENT-WIRED-P4-RESCORE, RULE-RQ0928-007-REALISTIC-COST-P4-RESCORE) rather than arguing the guard down. Both pass the R4 power gate and the decision-rule guard mechanically (python3 scripts/research/dispatch_queue.py --ref main; python3 scripts/ci/check_research_queue_decision_rule.py) -- what's unvouchable is the SUBSTANCE of the pre-registration, which only a human should wave through.",
+  "why": "research/queue/** only, Tier-1 surface, no src/config/scripts/workflow change. Two queue units per operator direction 2026-09-28 (manager priorities popup, 'Re-shape via research' for M28): RQ-20260928-006 (blocked, event-wired P4 rescore -- genuinely needs new code, documented as such) and RQ-20260928-007 (queued, realistic-cost P4 rescore -- executable with existing CLI levers once a small, separately-scoped workflow change lands). Neither touches any live/paper account, config/strategies.yaml, or config/accounts.yaml."
+}
