@@ -1,6 +1,6 @@
 id: RQ-20260922-005
 title: Is the 4h Donchian variants' 10-30x expectancy premium real, or a small-sample artifact?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -151,3 +151,6 @@ related:
   - 'checklist C5 / R4 (this unit is one of the ten)'
   - 'RQ-20260830-002 (the monthly job that already sweeps both these legs; this one-shot asks a different question of the same run and its leg list needs re-deriving — see the PR body)'
 last_dispatched_at: '2026-09-24T11:58:37+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  VERDICT: indeterminate -- NO clause fires, and the cited premium did NOT reproduce at its cited magnitude. SOURCE: e35-bracket-sweep run 35996181088 (2026-09-24, docs/research/e35-bracket-corpus.jsonl rows tagged research_unit=RQ-20260922-005, 199 cells per leg, split_mode oos-trades). trend_donchian_eth_4h: base_oos_trades=49 (>= the 39 floor), base net_R +42.504 over 190 trades whole-window = 0.2237R/trade (harness-default fee, no slippage/funding term); the 2026-09-28 m20 re-sweep of the same leg (research/results/_unattributed/36434140504.jsonl via PR #13653) gives base_net_r_OOS +10.1061 over the same 49 OOS trades = 0.2063R/trade OOS. Cited: 0.52R. trend_donchian_xrp_4h: base_oos_trades=49, base net_R +13.8957 over 134 trades whole-window = 0.1037R/trade; the corpus stores only IS/OOS DELTAS per cell, so an OOS-only base expectancy is not separable for this leg. Cited: 1.29R. Premium over the 1h mean (0.0485): ETH +0.16R, XRP +0.06R. Neither leg falls below 0.10R (clause 1: not_reproduced), neither stays above 0.30R (clause 2: reproduced), and n is not below 39 (clause 3): the rule has no branch for 0.10-0.30R, so this is recorded as indeterminate rather than forced. What IS established: the 10-30x premium was a small-sample artefact at the cited magnitude -- both legs re-sweep to 0.10-0.22R/trade, i.e. 2-4x the 1h level, not 10-30x. Recorded as a Gate-2 INPUT for R2/D2 (not a demotion, not a clean bill). 0 of 199 bracket cells cleared the IS/OOS gate on either leg (shipped geometry stands).

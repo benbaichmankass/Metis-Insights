@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Edits status:/result:/last_dispatched_at on eight research/queue units (RQ-20260922-004/-005/-007/-008, RQ-20260927-003, RQ-20260928-005/-006/-007) to record their gradings against their PRE-REGISTERED rules from committed results; decision_rule blocks untouched. pr-landing-guard R5/E57 cannot vouch a non-stamp queue edit, so the manager reads it. Also refreshes docs/research/exit-refinement-coverage.json cells the two 2026-09-28 sweeps settled and files four pipeline items (one operator decision, two lane dispatches, one Tier-3 proposal set).",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH), step 4 of its brief: grade the ran-but-ungraded units and land the dispositions. Tier-1 by path: research/queue/*.yaml, docs/research/*.json, docs/claude/work/pipeline/*.json. No src/, config/, order path, deploy or live-VM file."
+}
