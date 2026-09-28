@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-28T20:26:04Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-28T20:20:44Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-28T14:52:44Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-28T20:20:44Z",
+  "updated_at": "2026-09-28T20:26:04Z",
   "latest": {
-    "generated_at": "2026-09-28T20:20:44Z",
+    "generated_at": "2026-09-28T20:26:04Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1131,
+      "unregistered_claude_branches": 1132,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1009,7 +1009,7 @@
         "claude/automation-landing-orphans",
         "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 304,
+      "unregistered_but_attributable_sessions": 305,
       "unregistered_owner_map": {
         "session_0116oibqE8zMM9FZC4kXtcUs": [
           "claude/admin-triage-2026-09-28-capture-watch",
@@ -1752,6 +1752,9 @@
         "session_01MQggD8Bidctr1fRf8JH4aB": [
           "claude/mi315-close-bybit2-eth-phantom-close",
           "claude/mi315-pr-queue-noise-measurement"
+        ],
+        "session_01MVZR1A4pGGRerkk3Gzxiav": [
+          "claude/prop-panel-anchor"
         ],
         "session_01MbqAr49twiFKMwkfjiJJA6": [
           "claude/mgr-lease-hb-20260909T2128"
