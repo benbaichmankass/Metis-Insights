@@ -1,0 +1,15 @@
+{
+  "id": "PI-20260928-0928CRON-0001",
+  "what": "research-queue-dispatch.yml's schedule trigger is declared `20 6 * * *` (06:20 UTC) but every observed schedule-triggered run over the last 9 days fired 5-6 hours late and drifting LATER each day: 2026-09-19 11:11Z, 09-20 11:36Z, 09-22 11:50Z, 09-23 11:50Z, 09-24 11:57Z, 09-25 11:59Z, 09-26 11:33Z, 09-27 12:12Z (run 36318230439, conclusion success) -- and the 2026-09-28 06:20Z run never appeared at all (checked via mcp__github__actions_list against benbaichmankass/Metis-Insights as of 2026-09-28T08:5{1}Z; total 38 runs, most recent still the 09-27T12:12Z one). Several of the intervening schedule-triggered runs (35996108860, 35856839139, 35723722908 excluded -- that one succeeded; 36239222079, 36132366511) show conclusion `cancelled` rather than `success`, so even on days a run fired it did not always complete. This is NOT the workflow's own anticipated failure mode -- its header only budgets for '~15 min of GitHub scheduling lag' and treats a late run as fine; a monotonically-growing multi-hour drift culminating in a fully dropped run is a different, unexplained pattern. Root cause not established: candidates are GitHub-side scheduler congestion/queuing on this account, or workflow/concurrency-group interaction (`group: research-queue-dispatch`, cancel-in-progress: false) causing pile-up. Not root-caused this session due to time budget -- flagging with the exact commands to re-check rather than guessing further. Effect while broken: the daily research-queue cadence check the operator relies on for 'is anything running' silently does not happen, and jobs whose cadence depends on `last_dispatched_at` staleness do not get re-graded on schedule.",
+  "origin": {
+    "kind": "review",
+    "ref": "lane RESEARCH session (research-queue health check), dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28. Verified via mcp__github__actions_list method=list_workflow_runs on research-queue-dispatch.yml.",
+    "rerun": "Use mcp__github__actions_list {method: list_workflow_runs, owner: benbaichmankass, repo: Metis-Insights, resource_id: research-queue-dispatch.yml, perPage: 15} and compare each schedule-event run's created_at time-of-day against the declared 06:20 UTC cron; also check workflow_runs_filter status=in_progress/queued around 06:20-12:00 UTC on a day this recurs, to see whether a run is stuck queued rather than never triggered."
+  },
+  "due_when": {
+    "kind": "event",
+    "clears_when": "Either (a) tomorrow's 2026-09-29 06:20Z scheduled run appears in the workflow_runs list at or near 06:20Z and completes non-cancelled, in which case this was transient and can close `killed` with that observation, or (b) the drift/miss recurs, in which case it needs an owner to actually root-cause (check GitHub Actions status page history for this org, check for other cron workflows on the same account showing the same drift signature, and check whether the concurrency group ever shows a queued-but-not-started run at 06:20Z)."
+  },
+  "next_action": "check_observation",
+  "state": "queued"
+}
