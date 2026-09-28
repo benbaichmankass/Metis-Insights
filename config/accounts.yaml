@@ -1842,3 +1842,13 @@ accounts:
                                        # ticket sizes from breakout_routing.yaml
                                        # risk_pct, in PERCENT; this fraction is
                                        # the PropRiskManager mirror).
+      breach_guards: report            # OPERATOR 2026-09-28 ~13:40Z/13:45Z (relayed
+                                       # by manager session_01KAQRJxRbRwpYTkPgBjNVyQ,
+                                       # confirmed by the operator in this lane's
+                                       # popup): "we can breach the account and
+                                       # just buy a new one ... We shouldn't reject
+                                       # tickets because the risk will breach."
+                                       # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN and the
+                                       # cushion caveat LOG + ALERT instead of
+                                       # refusing. Every other account defaults to
+                                       # `enforce`. Rollback: delete this line.

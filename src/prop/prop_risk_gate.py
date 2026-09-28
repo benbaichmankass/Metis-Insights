@@ -350,13 +350,47 @@ def grade_account_ticket_risk(
     )
 
 
-def caveat_lines(verdict: Dict[str, Any]) -> list[str]:
+def breach_guards_for(account_id: Optional[str]) -> str:
+    """``enforce`` | ``report`` for ``account_id``, read from
+    ``config/accounts.yaml::<account>.risk.breach_guards`` — the same key the
+    RiskManager reads (``src.units.accounts.risk.breach_guards_mode``), so
+    the ticket text and the risk gate can never disagree. Any read failure,
+    a missing account or an unparseable value is ``enforce``."""
+    if not account_id:
+        return "enforce"
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        from src.units.accounts.risk import breach_guards_mode
+
+        acct = load_accounts_dict().get(account_id) or {}
+        return breach_guards_mode(acct.get("risk") if isinstance(acct, dict) else None)
+    except Exception:  # noqa: BLE001 — unreadable config is the safe default
+        return "enforce"
+
+
+def caveat_lines(verdict: Dict[str, Any], breach_guards: str = "enforce") -> list[str]:
     """Operator-facing caveat block for a ticket, or ``[]`` when nothing to say.
 
     ``within_cushion`` and ``no_risk_declared`` render nothing — a warning on
     every ticket is the desensitised-alarm P1 this repo treats as its own bug.
+
+    ``breach_guards="report"`` (a replaceable account, operator 2026-09-28):
+    ``exceeds_cushion`` renders ONE informational line instead of the "DO NOT
+    PLACE" block, so neither a human nor the executor reads it as a no-go.
+    ``cushion_unknown`` is NOT softened: that is "we could not look", which
+    stays a caveat in every mode.
     """
     state = verdict.get("state")
+    if state == EXCEEDS and breach_guards == "report":
+        risk = verdict.get("risk_usd") or 0.0
+        cushion = verdict.get("cushion_usd") or 0.0
+        limit = str(verdict.get("binding_limit") or "").replace("_", " ")
+        return [
+            "",
+            f"  ⚠️ Would breach the {limit} limit if stopped out (risk ${risk:,.2f} vs "
+            f"${cushion:,.2f} left): accepted, the account is replaceable "
+            "(breach_guards: report). PLACE AS SHOWN.",
+        ]
     if state == EXCEEDS:
         risk = verdict.get("risk_usd") or 0.0
         cushion = verdict.get("cushion_usd") or 0.0
@@ -497,7 +531,7 @@ def record_ticket_risk_soak(
 
 
 __all__ = [
-    "grade_ticket_risk", "grade_account_ticket_risk", "caveat_lines", "mode",
+    "grade_ticket_risk", "grade_account_ticket_risk", "caveat_lines", "mode", "breach_guards_for",
     "record_ticket_risk_soak",
     "WITHIN", "EXCEEDS", "UNKNOWN", "NO_RISK",
 ]
