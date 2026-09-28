@@ -1040,6 +1040,24 @@ ROW_ACTION_JS = r"""
 """
 
 
+def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
+    """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from the watchlist table
+    (headers Symbol/Bid/Ask, MEASURED run 36358563148). ``None`` when no
+    table carries both, the symbol has no row, or the numbers do not parse."""
+    for t in tables:
+        headers = list(t.get("headers") or [])
+        norm = [_norm(h) for h in headers]
+        if "symbol" not in norm or "bid" not in norm or "ask" not in norm:
+            continue
+        c_sym, c_bid, c_ask = norm.index("symbol"), norm.index("bid"), norm.index("ask")
+        for row in t.get("rows") or []:
+            if (_cell(row, c_sym) or "").strip().upper() == venue_symbol.upper():
+                bid, ask = parse_number(_cell(row, c_bid)), parse_number(_cell(row, c_ask))
+                if bid is not None and ask is not None and 0 < bid <= ask:
+                    return {"bid": bid, "ask": ask}
+    return None
+
+
 def classify_ticket_surface(form: Mapping[str, Any]) -> str:
     """``dom`` / ``canvas_ticket`` / ``not_found`` from :data:`ORDER_FORM_JS`'s
     result. Pure. ``canvas_ticket`` is the design's feasibility stop (§ 4): an
@@ -1411,6 +1429,10 @@ class DXtradeAdapter(PropPlatformAdapter):
         return captured
 
     # ---- step 3: order entry (see the ORDER ENTRY block above) ----------
+    def read_quote(self, page: Any, venue_symbol: str) -> Optional[Dict[str, float]]:
+        """Bid/ask off the watchlist table. Read-only."""
+        return quote_from_tables(self._tables(page), venue_symbol)
+
     def read_one_click(self, page: Any) -> Dict[str, Any]:
         """``{"state": "on"|"off"|"unknown", ...}``. Read-only. Anything but a
         definite ``off`` is treated as ON by every caller."""

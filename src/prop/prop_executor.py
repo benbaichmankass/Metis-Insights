@@ -87,6 +87,10 @@ class ExecutorConfig:
     # bot symbol → {venue, cvpp, lot_units, min_lots, lot_step}
     symbols: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     watched_click_max_lots: Dict[str, float] = field(default_factory=dict)
+    # accounts.yaml risk.breach_guards (enforce | report), the SAME key the
+    # RiskManager and the ticket caveat read. ``report`` = the static-DD /
+    # daily-loss / cushion-exceeded verdicts are alerts, not refusals.
+    breach_guards: str = "enforce"
 
 
 def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
@@ -130,7 +134,13 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
         symbols=syms,
         watched_click_max_lots={str(k): float(v) for k, v in (ex.get("watched_click_max_lots") or {}).items()
                                 if v is not None},
+        breach_guards=_breach_guards_for(account_id),
     )
+
+
+def _breach_guards_for(account_id: str) -> str:
+    from src.prop.prop_risk_gate import breach_guards_for
+    return breach_guards_for(account_id)
 
 
 # ── pure helpers ──────────────────────────────────────────────────────────
@@ -266,9 +276,13 @@ class GuardVerdict:
     fits: bool
     reasons: List[str]
     checks: Dict[str, Any]
+    # Breach verdicts that did NOT refuse because the account is
+    # ``breach_guards: report``: raised as alerts, never silently dropped.
+    breach_reports: List[str] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, Any]:
-        return {"fits": self.fits, "reasons": self.reasons, "checks": self.checks}
+        return {"fits": self.fits, "reasons": self.reasons, "checks": self.checks,
+                "breach_reports": self.breach_reports}
 
 
 def evaluate_guards(*, ticket: Mapping[str, Any], spec: Optional[BracketSpec], facts: Mapping[str, Any],
@@ -276,12 +290,22 @@ def evaluate_guards(*, ticket: Mapping[str, Any], spec: Optional[BracketSpec], f
                     open_risk_usd: Optional[float], open_risk_state: str, cfg: ExecutorConfig,
                     now: datetime, halted: Optional[str] = None) -> GuardVerdict:
     """§ 3.3, pure. Every check runs (so the report names every reason), and
-    the verdict fits only when NONE refused. "Could not look" refuses."""
+    the verdict fits only when NONE refused. "Could not look" refuses.
+
+    Two kinds of "no". HARD, in every mode: halt, structure, expiry, balance/
+    equity not read, open risk not readable, and the risk gate's
+    ``cushion_unknown`` (could not look), and a risk above the flat $-cap
+    (the sizing decision). BREACH, whose outcome depends on
+    ``cfg.breach_guards``: static DD, daily loss and the gate's
+    ``exceeds_cushion``. ``enforce`` refuses on them;
+    ``report`` (breakout_1, operator 2026-09-28) moves them to
+    ``breach_reports`` and places anyway."""
     from src.prop import prop_risk_gate
     from src.prop.platform.dxtrade import check_bracket_spec
 
     reasons: List[str] = []
-    checks: Dict[str, Any] = {}
+    breach: List[str] = []
+    checks: Dict[str, Any] = {"breach_guards": cfg.breach_guards}
     if halted:
         reasons.append(f"executor halted: {halted}")
     # structure
@@ -309,16 +333,17 @@ def evaluate_guards(*, ticket: Mapping[str, Any], spec: Optional[BracketSpec], f
                   ticket_risk_usd=risk, dd_floor=floor, daily_floor=daily_floor,
                   day_start_balance=day_start_balance, margin=cfg.safety_margin_usd)
     if daily_floor is None:
-        reasons.append("daily loss: day-start balance unknown for this prop day (could not look)")
+        # Feeds ONLY the daily-loss breach guard, so it is a breach item.
+        breach.append("daily loss: day-start balance unknown for this prop day (could not look)")
     if None not in (eq, open_risk_usd, risk):
         after = eq - open_risk_usd - risk
         checks["equity_after_all_stops"] = round(after, 2)
         if after <= floor + cfg.safety_margin_usd:
-            reasons.append(f"static DD: equity after all stops ${after:,.2f} <= floor ${floor:,.2f} "
-                           f"+ margin ${cfg.safety_margin_usd:,.2f}")
+            breach.append(f"static DD: equity after all stops ${after:,.2f} <= floor ${floor:,.2f} "
+                          f"+ margin ${cfg.safety_margin_usd:,.2f}")
         if daily_floor is not None and after <= daily_floor + cfg.safety_margin_usd:
-            reasons.append(f"daily loss: equity after all stops ${after:,.2f} <= day floor "
-                           f"${daily_floor:,.2f} + margin ${cfg.safety_margin_usd:,.2f}")
+            breach.append(f"daily loss: equity after all stops ${after:,.2f} <= day floor "
+                          f"${daily_floor:,.2f} + margin ${cfg.safety_margin_usd:,.2f}")
     # prop_risk_gate in ENFORCE for the executor, whatever the global default
     if eq is not None and open_risk_usd is not None:
         grade = prop_risk_gate.grade_ticket_risk(
@@ -331,14 +356,22 @@ def evaluate_guards(*, ticket: Mapping[str, Any], spec: Optional[BracketSpec], f
     else:
         grade = prop_risk_gate.grade_ticket_risk(risk_usd=risk, status_freshness="unreadable")
     checks["risk_gate"] = {"state": grade.get("state"), "reason": grade.get("reason")}
-    if grade.get("state") != prop_risk_gate.WITHIN:
+    if grade.get("state") == prop_risk_gate.EXCEEDS:
+        breach.append(f"risk gate: {grade.get('state')} ({grade.get('reason')})")
+    elif grade.get("state") != prop_risk_gate.WITHIN:
+        # cushion_unknown / no_risk_declared: could not look → HARD in every mode
         reasons.append(f"risk gate: {grade.get('state')} ({grade.get('reason')})")
     if risk is not None:
         cap = prop_risk_gate.enforce_ticket_cap(risk_usd=risk, cap_usd=cfg.risk_cap_usd,
                                                 gate_mode="enforce", sizing_mode="flat")
         checks["risk_cap"] = {"action": cap.get("action"), "cap_usd": cfg.risk_cap_usd}
+        # The $-cap is the SIZING decision (flat $75, operator), not a breach
+        # guard: above it is HARD in every mode.
         if cap.get("action") != "unchanged":
             reasons.append(f"risk cap: {cap.get('action')} ({cap.get('cause')})")
+    if cfg.breach_guards == "report":
+        return GuardVerdict(fits=not reasons, reasons=reasons, checks=checks, breach_reports=breach)
+    reasons.extend(breach)
     return GuardVerdict(fits=not reasons, reasons=reasons, checks=checks)
 
 
@@ -681,6 +714,8 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                         day_start_balance=ds, open_risk_usd=orisk, open_risk_state=ostate,
                         cfg=cfg, now=now, halted=halted)
     res.log("guards", ticket_id=candidate["ticket_id"], **v.as_dict(), facts=dict(facts))
+    for b in v.breach_reports:
+        res.alerts.append(f"{candidate['ticket_id']}: breach_guards=report, placing anyway — {b}")
     if not v.fits:
         if live:
             ledger.record(candidate["ticket_id"], "refused", reasons=v.reasons)
@@ -716,6 +751,142 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
     found = match_terminal(spec.as_dict(), positions, orders, cfg.confirm_rel_tol)
     verdict = classify_confirmation(spec.as_dict(), found, cfg.confirm_rel_tol)
     _contain(res, adapter, page, live, post, ledger, cfg, spec.ticket_id, row, spec.as_dict(), found, verdict)
+    return res
+
+
+def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, ledger: IntentLedger,
+                   venue_symbol: str, side: str = "long", lots: Optional[float] = None,
+                   bracket_pct: float = 0.01, arm: bool = False, reads: int = 5,
+                   sleep: Callable[[float], None] = lambda s: None,
+                   now: Optional[datetime] = None) -> CycleResult:
+    """The end-to-end test (operator 2026-09-28 ~13:40Z, relayed by the
+    manager, approved by the operator in this lane's popup): place ONE
+    minimum-size MARKET bracket with SL and TP attached → confirm the position
+    AND both legs by re-read → report ``open`` → CLOSE it at market → confirm
+    flat by re-read → report ``closed``. Both reports go through
+    ``POST /api/bot/prop/report``.
+
+    ``lots`` defaults to ``watched_click_max_lots[venue]`` and may never exceed
+    it; the symbol's lot size must be declared. It refuses when the symbol
+    already has a position or working order, so it can never net against or
+    close something it did not open. With ``arm=False`` it walks the form to
+    ``form_verified`` and the close to the row control, clicking neither.
+    A breach verdict does not stop it (``breach_guards: report`` is the only
+    account this runs against); "could not look" does.
+    """
+    now = now or datetime.now(timezone.utc)
+    res = CycleResult(mode="round_trip_live" if arm else "round_trip_dry")
+    post = api.post_report if arm else None
+    venue = venue_symbol.upper()
+    sym = next((v for v in cfg.symbols.values() if str(v["venue"]).upper() == venue), None)
+    cap = cfg.watched_click_max_lots.get(venue_symbol, cfg.watched_click_max_lots.get(venue))
+
+    def stop(why: str) -> CycleResult:
+        res.halted = why
+        res.log("refused", why=why)
+        return res
+
+    if sym is None:
+        return stop(f"{venue} is not in breakout_routing.yaml")
+    if not _f(sym.get("lot_units")) or not _f(sym.get("lot_step")):
+        return stop(f"lot size for {venue} is not declared (executor.lots; unmeasured)")
+    if cap is None:
+        return stop(f"no executor.watched_click_max_lots entry for {venue}")
+    lots = cap if lots is None else lots
+    if not (lots > 0) or lots > cap:
+        return stop(f"lots {lots} must be > 0 and <= watched_click_max_lots {cap}")
+    if side not in ("long", "short"):
+        return stop(f"side {side!r} is not long/short")
+    try:
+        acct = adapter.read_account(page)
+        positions = adapter.read_positions(page)
+        orders = adapter.read_orders(page)
+        quote = adapter.read_quote(page, venue)
+    except Exception as exc:
+        return stop(f"terminal read failed ({type(exc).__name__}: {exc})")
+    res.reads = {"account": acct.as_dict(), "positions": len(positions), "orders": len(orders), "quote": quote}
+    if acct.balance is None or acct.equity is None:
+        return stop("balance/equity did not parse (could not look)")
+    if any(p.symbol.upper() == venue for p in positions) or any(o.symbol.upper() == venue for o in orders):
+        return stop(f"{venue} already has a position or working order; the test only closes what it opened")
+    if not quote:
+        return stop(f"no bid/ask for {venue} in the watchlist (could not look)")
+    ref = quote["ask"] if side == "long" else quote["bid"]
+    sl = ref * (1 - bracket_pct) if side == "long" else ref * (1 + bracket_pct)
+    tp = ref * (1 + bracket_pct) if side == "long" else ref * (1 - bracket_pct)
+    tid = f"roundtrip-{venue.lower()}-{now.strftime('%Y%m%dT%H%M%SZ')}"
+    spec = BracketSpec(ticket_id=tid, venue_symbol=venue, side=side, quantity=float(lots),
+                       stop_loss=round(sl, 6), take_profit=round(tp, 6), order_type="market")
+    risk = float(lots) * float(sym["lot_units"]) * float(_f(sym.get("cvpp")) or 1.0) * abs(ref - sl)
+    res.log("round_trip_spec", spec=spec.as_dict(), ref_price=ref, risk_at_stop_usd=round(risk, 2))
+
+    if arm:
+        ledger.record(tid, "intended", spec=spec.as_dict(), purpose="round_trip_test")
+    att = adapter.place_bracket(page, spec, arm=arm)
+    res.log("place_bracket", ticket_id=tid, attempt=att.as_dict())
+    if not arm:
+        res.log("would_close", ticket_id=tid, result=adapter.flatten(page, venue, arm=False))
+        return res
+    if not att.submitted:
+        ledger.record(tid, "refused", reasons=[att.detail])
+        return stop(f"not submitted: {att.detail}")
+    ledger.record(tid, "submitted", detail=att.detail)
+
+    # 1. confirm entry + both legs by re-read (a market fill's price is not ours: match symbol/side/qty)
+    confirm_spec = {**spec.as_dict(), "limit_price": None}
+    verdict, found = "not_found", {"orders": [], "positions": []}
+    for _ in range(max(1, reads)):
+        sleep(3.0)
+        try:
+            positions, orders = adapter.read_positions(page), adapter.read_orders(page)
+        except Exception as exc:
+            res.alerts.append(f"{tid}: re-read failed ({type(exc).__name__})")
+            continue
+        found = match_terminal(confirm_spec, positions, orders, cfg.confirm_rel_tol)
+        verdict = classify_confirmation(confirm_spec, found, cfg.confirm_rel_tol)
+        if verdict != "not_found":
+            break
+    res.log("confirm_entry", ticket_id=tid, verdict=verdict)
+    if verdict != "open":
+        _contain(res, adapter, page, True, post, ledger, cfg, tid, ledger.latest()[tid], confirm_spec, found, verdict)
+        res.alerts.append(f"{tid}: entry not confirmed as an open bracketed position ({verdict}); "
+                          f"not closing blind — the broker bracket protects any fill")
+        res.halted = f"round trip stopped at entry ({verdict})"
+        return res
+    pos = found["positions"][0]
+    ledger.record(tid, "open")
+    _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec.as_dict(), "open", entry=pos.entry_price),
+                        "reason": "round_trip_test"})
+
+    # 2. close at market, then confirm flat
+    last_unreal = pos.unrealized_pnl
+    res.log("close", ticket_id=tid, result=adapter.flatten(page, venue, arm=True))
+    flat = False
+    for _ in range(max(1, reads)):
+        sleep(3.0)
+        try:
+            positions = adapter.read_positions(page)
+        except Exception as exc:
+            res.alerts.append(f"{tid}: re-read after close failed ({type(exc).__name__})")
+            continue
+        still = [p for p in positions if p.symbol.upper() == venue and p.side == side]
+        if still:
+            last_unreal = still[0].unrealized_pnl
+        else:
+            flat = True
+            break
+    if not flat:
+        res.alerts.append(f"{tid}: close NOT confirmed flat after {reads} re-reads — the position stays "
+                          f"protected by its bracket; close it by hand")
+        res.halted = "round trip: close not confirmed"
+        ledger.record(tid, "unconfirmed", purpose="round_trip_close")
+        return res
+    ledger.record(tid, "closed")
+    _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec.as_dict(), "closed", entry=pos.entry_price),
+                        "pnl": last_unreal, "closed_at": datetime.now(timezone.utc).isoformat(),
+                        "reason": "round_trip_test: closed at market by the executor; pnl is the last "
+                                  "unrealized P&L read before the close (ESTIMATED, not the broker fill)"})
+    res.log("round_trip_done", ticket_id=tid)
     return res
 
 
@@ -869,5 +1040,5 @@ __all__ = [
     "MODE_ENV", "MODES", "DEFAULT_MODE", "executor_mode", "ExecutorConfig", "load_config",
     "size_lots", "bracket_from_ticket", "open_risk", "evaluate_guards", "GuardVerdict",
     "match_terminal", "classify_confirmation", "IntentLedger", "ExecutorState",
-    "day_start_balance", "trading_day", "run_cycle", "CycleResult",
+    "day_start_balance", "trading_day", "run_cycle", "run_round_trip", "CycleResult",
 ]

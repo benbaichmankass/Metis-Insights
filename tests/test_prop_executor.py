@@ -719,3 +719,173 @@ def test_executor_files_never_print_credentials():
     src = (Path(__file__).resolve().parents[1] / "scripts" / "prop" / "prop_executor_tick.py").read_text()
     assert "print(username" not in src and "print(password" not in src
     assert "tracing" not in src.lower()
+
+
+# ── breach_guards: report (operator 2026-09-28, breakout_1) ───────────────
+
+
+def test_real_config_breakout_1_is_report():
+    assert pe.load_config("breakout_1").breach_guards == "report"
+
+
+def test_report_mode_places_through_a_breach_and_reports_it():
+    c = cfg(breach_guards="report")
+    v = guards(t=ticket(qty=37.5), account=acct(4724.0, 4724.0), ds=4724.0, c=c)
+    assert v.fits, v.reasons
+    assert any(b.startswith("static DD") for b in v.breach_reports)
+    assert any(b.startswith("risk gate: exceeds_cushion") for b in v.breach_reports)
+
+
+def test_report_mode_unknown_day_start_is_a_report_not_a_refusal():
+    v = guards(ds=None, c=cfg(breach_guards="report"))
+    assert v.fits and any("day-start balance unknown" in b for b in v.breach_reports)
+
+
+@pytest.mark.parametrize("kw,needle", [
+    (dict(orisk=None, ostate="stop_unknown"), "could not look"),
+    (dict(account=AccountSnapshot(balance=None, equity=None)), "could not look"),
+    (dict(t=ticket(sl=None)), "lacks SL or TP"),
+    (dict(t=ticket(qty=40.0), account=acct(9000.0, 9000.0), ds=9000.0), "risk cap"),
+    (dict(halted="orphan"), "halted"),
+])
+def test_report_mode_keeps_the_hard_refusals(kw, needle):
+    v = guards(c=cfg(breach_guards="report"), **kw)
+    assert not v.fits and any(needle in r for r in v.reasons), v.reasons
+
+
+def test_report_mode_cycle_places_and_alerts(tmp_path):
+    ledger, state = pe.IntentLedger(tmp_path / "l.jsonl"), pe.ExecutorState(tmp_path)
+    state.save({"day": pe.trading_day(NOW), "day_start_captured": 4724.0})
+    ad = FakeAdapter(account=acct(4724.0, 4724.0), after_submit=([], [_o(quantity=37.5)]))
+    api = FakeApi([ticket(qty=37.5)])
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(breach_guards="report"), mode="live",
+                       ledger=ledger, state=state, now=NOW)
+    assert ("place_bracket", "prop-manual-aaa", True) in ad.calls
+    assert any("breach_guards=report, placing anyway" in a for a in res.alerts)
+
+
+# ── the round trip ────────────────────────────────────────────────────────
+
+
+def test_quote_from_tables():
+    from src.prop.platform.dxtrade import quote_from_tables
+    tables = [{"headers": ["Symbol", "Bid", "Ask", "Change"], "rows": [["ETHUSD", "2,682.48", "2,682.49", "-1"]]}]
+    assert quote_from_tables(tables, "ETHUSD") == {"bid": 2682.48, "ask": 2682.49}
+    assert quote_from_tables(tables, "SOLUSD") is None
+    assert quote_from_tables([{"headers": ["Symbol", "Price"], "rows": [["ETHUSD", "1"]]}], "ETHUSD") is None
+
+
+class RTAdapter(FakeAdapter):
+    """A terminal where a submit opens a bracketed position and a flatten
+    closes it (unless told otherwise)."""
+
+    def __init__(self, *, fill=True, legs=True, close_works=True, quote=None, **kw):
+        super().__init__(**kw)
+        self.fill, self.legs, self.close_works = fill, legs, close_works
+        self.quote = {"bid": 100.0, "ask": 100.1} if quote is None else quote
+
+    def read_quote(self, page, venue):
+        return self.quote
+
+    def place_bracket(self, page, spec, *, arm=False):
+        self.calls.append(("place_bracket", spec.ticket_id, arm))
+        if arm and self.fill:
+            self.positions = [Position(symbol=spec.venue_symbol, side=spec.side, quantity=spec.quantity,
+                                       entry_price=100.1, unrealized_pnl=-0.02,
+                                       stop_loss=spec.stop_loss if self.legs else None,
+                                       take_profit=spec.take_profit if self.legs else None)]
+        return PlaceAttempt(stage="submitted" if arm else "form_verified", submitted=arm)
+
+    def flatten(self, page, symbol=None, *, arm=False):
+        self.calls.append(("flatten", symbol, arm))
+        if arm and self.close_works:
+            self.positions = []
+        return {"ok": True, "clicked": arm}
+
+
+def rt_cfg(**kw):
+    return cfg(symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": 1.0, "min_lots": 0.01,
+                                    "lot_step": 0.01}},
+               watched_click_max_lots={"SOLUSD": 0.1}, **kw)
+
+
+def rt(ad, api, tmp_path, arm=True, c=None, **kw):
+    return pe.run_round_trip(adapter=ad, page=None, api=api, cfg=c or rt_cfg(),
+                             ledger=pe.IntentLedger(tmp_path / "l.jsonl"), venue_symbol="SOLUSD",
+                             arm=arm, now=NOW, **kw)
+
+
+def test_round_trip_places_confirms_closes_confirms_and_reports_both(tmp_path):
+    ad, api = RTAdapter(), FakeApi()
+    res = rt(ad, api, tmp_path)
+    assert res.halted is None, res.actions
+    assert [c[0] for c in ad.calls] == ["place_bracket", "flatten"]
+    fills = [(p["status"], p["direction"], p["qty"]) for p in api.posts]
+    assert fills == [("open", "long", 0.1), ("closed", "long", 0.1)]
+    spec = [a for a in res.actions if a["what"] == "round_trip_spec"][0]
+    assert spec["spec"]["stop_loss"] < 100.1 < spec["spec"]["take_profit"]
+    assert pe.IntentLedger(tmp_path / "l.jsonl").state(spec["spec"]["ticket_id"]) == "closed"
+
+
+def test_round_trip_dry_clicks_nothing(tmp_path):
+    ad, api = RTAdapter(), FakeApi()
+    rt(ad, api, tmp_path, arm=False)
+    assert ad.calls == [("place_bracket", ad.calls[0][1], False), ("flatten", "SOLUSD", False)]
+    assert api.posts == []
+
+
+@pytest.mark.parametrize("setup,needle", [
+    (dict(c=cfg(watched_click_max_lots={"SOLUSD": 0.1},
+                symbols={"SOLUSDT": {"venue": "SOLUSD", "cvpp": 1.0, "lot_units": None,
+                                     "lot_step": None, "min_lots": None}})), "not declared"),
+    (dict(c=cfg(symbols=rt_cfg().symbols)), "no executor.watched_click_max_lots"),
+    (dict(lots=0.5), "must be > 0 and <="),
+])
+def test_round_trip_refuses_before_any_click(tmp_path, setup, needle):
+    ad = RTAdapter()
+    res = rt(ad, FakeApi(), tmp_path, **setup)
+    assert needle in (res.halted or "") and ad.calls == []
+
+
+def test_round_trip_refuses_when_the_symbol_is_already_in_use(tmp_path):
+    ad = RTAdapter(positions=[_p()])
+    res = rt(ad, FakeApi(), tmp_path)
+    assert "already has a position" in res.halted and ad.calls == []
+
+
+def test_round_trip_refuses_without_a_quote(tmp_path):
+    ad = RTAdapter(quote={})
+    assert "no bid/ask" in rt(ad, FakeApi(), tmp_path).halted and ad.calls == []
+
+
+def test_round_trip_never_closes_blind_when_the_entry_is_not_seen(tmp_path):
+    ad, api = RTAdapter(fill=False), FakeApi()
+    res = rt(ad, api, tmp_path, reads=2)
+    assert "stopped at entry" in res.halted
+    assert not any(c[0] == "flatten" for c in ad.calls)
+    assert not any(p.get("status") == "open" for p in api.posts)
+
+
+def test_round_trip_missing_leg_is_contained_not_closed_as_a_success(tmp_path):
+    ad, api = RTAdapter(legs=False), FakeApi()
+    res = rt(ad, api, tmp_path)
+    assert "partial_no_sl_tp" in res.halted
+    assert ("modify_bracket", "SOLUSD", True) in ad.calls
+    assert not any(p.get("status") == "closed" for p in api.posts)
+
+
+def test_round_trip_close_not_confirmed_alerts_and_does_not_report_closed(tmp_path):
+    ad, api = RTAdapter(close_works=False), FakeApi()
+    res = rt(ad, api, tmp_path, reads=2)
+    assert res.halted == "round trip: close not confirmed"
+    assert [p["status"] for p in api.posts] == ["open"]
+    assert any("close it by hand" in a for a in res.alerts)
+
+
+def test_tick_round_trip_modes():
+    from scripts.prop.prop_executor_tick import resolve_mode
+    ns = lambda **k: SimpleNamespace(**{"probe_ticket": "", "dry_run": False, "watched_click": False,  # noqa: E731
+                                        "round_trip": "", "live": False, **k})
+    assert resolve_mode(ns(round_trip="ETHUSD"), {}) == "round_trip_dry"
+    assert resolve_mode(ns(round_trip="ETHUSD", live=True), {}) == "round_trip_live"
+    assert resolve_mode(ns(round_trip="ETHUSD", live=True), {pe.MODE_ENV: "off"}) == "off"

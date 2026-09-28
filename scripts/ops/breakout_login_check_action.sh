@@ -45,6 +45,22 @@
 #                        POST /api/bot/prop/report. Refused when
 #                        PROP_EXECUTOR_MODE=off. Dispatch only with the
 #                        operator watching.
+#     round-trip-dry   — the END-TO-END test walked dry: read the quote, build
+#                        a minimum-size ETHUSD market bracket (add `sol` for
+#                        SOLUSD), fill + read back the form, locate the close
+#                        control. Clicks nothing.
+#     round-trip-live  — THE END-TO-END TEST (operator 2026-09-28): place that
+#                        bracket, confirm entry + SL + TP by re-read, report
+#                        `open`, CLOSE it at market, confirm flat by re-read,
+#                        report `closed`. Refused when PROP_EXECUTOR_MODE=off.
+#                        Tell the operator before dispatching.
+#   Executor timer (the go-live switch's second half; not a terminal run):
+#     executor-enable-timer  — install deploy/opt-in/ict-prop-executor.timer
+#                              and `systemctl enable --now` it. Go-live is
+#                              THIS plus `set-env PROP_EXECUTOR_MODE=live`
+#                              (service: none; the tick re-reads .env).
+#     executor-disable-timer — `systemctl disable --now` the timer. The instant
+#                              revert is `set-env PROP_EXECUTOR_MODE=off`.
 #
 # Takes the same flock as the scheduled feed (${BASE}/login.lock), waiting up
 # to 200 s, so a manual check never logs in while a scheduled tick is.
@@ -67,15 +83,38 @@ case ",${APPLY}," in *",install-deps,"*) WANT_DEPS=1 ;; *) WANT_DEPS=0 ;; esac
 case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 EXEC_MODE=""
-for m in probe-ticket executor-dry-run watched-click; do
+for m in probe-ticket executor-dry-run watched-click round-trip-dry round-trip-live \
+         executor-enable-timer executor-disable-timer; do
     case ",${APPLY}," in *",${m},"*)
         if [ -n "${EXEC_MODE}" ]; then
-            log "apply: at most one of probe-ticket / executor-dry-run / watched-click per dispatch"
+            log "apply: at most one executor mode per dispatch (got ${EXEC_MODE} and ${m})"
             exit 1
         fi
         EXEC_MODE="${m}" ;;
     esac
 done
+case ",${APPLY}," in *",sol,"*) RT_SYMBOL="SOLUSD" ;; *) RT_SYMBOL="ETHUSD" ;; esac
+TIMER_SRC="${REPO_DIR}/deploy/opt-in/ict-prop-executor.timer"
+if [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executor-disable-timer" ]; then
+    if ! sudo -n true >/dev/null 2>&1; then
+        log "environment: ${EXEC_MODE} needs passwordless sudo"
+        exit 5
+    fi
+    if [ "${EXEC_MODE}" = "executor-enable-timer" ]; then
+        [ -f "${TIMER_SRC}" ] || { log "missing ${TIMER_SRC}"; exit 1; }
+        sudo -n install -m 0644 "${REPO_DIR}/deploy/ict-prop-executor.service" /etc/systemd/system/ict-prop-executor.service
+        sudo -n install -m 0644 "${TIMER_SRC}" /etc/systemd/system/ict-prop-executor.timer
+        sudo -n systemctl daemon-reload
+        sudo -n systemctl enable --now ict-prop-executor.timer
+    else
+        sudo -n systemctl disable --now ict-prop-executor.timer 2>/dev/null || true
+    fi
+    state="$(systemctl is-active ict-prop-executor.timer 2>/dev/null || true)"
+    log "${EXEC_MODE}: ict-prop-executor.timer is now '${state}' (the mode itself is PROP_EXECUTOR_MODE in .env; read it with get-env)"
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"timer\": \"${state}\"}" >/dev/null || true
+    exit 0
+fi
 
 # Export exactly the keys the check needs from the VM .env. Values are never
 # echoed (no `set -x`, no print); the python side prints set/MISSING only.
@@ -197,6 +236,8 @@ if [ -n "${EXEC_MODE}" ]; then
         probe-ticket)     EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
         executor-dry-run) EARGS+=(--dry-run) ;;
         watched-click)    EARGS+=(--watched-click) ;;
+        round-trip-dry)   EARGS+=(--round-trip "${RT_SYMBOL}") ;;
+        round-trip-live)  EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
     esac
     log "Running prop executor (${EXEC_MODE}, account=${ACCOUNT}, PROP_EXECUTOR_MODE=${PROP_EXECUTOR_MODE:-unset→read_only})"
     set +e

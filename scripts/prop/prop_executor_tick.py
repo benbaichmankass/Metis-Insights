@@ -17,6 +17,11 @@ Modes (exactly one; default = one scheduled cycle):
 - ``--probe-ticket SYMBOL``: READ-ONLY feasibility measurement of the order
   ticket (is it DOM or canvas?). Opens the form only if one-click trading
   reads OFF, records its shape, closes it. Types nothing.
+- ``--round-trip VENUE [--lots N] [--side long|short] [--live]``: the
+  end-to-end test (operator 2026-09-28): ONE minimum-size market bracket with
+  SL+TP → confirm by re-read → report ``open`` → the bot closes it at market →
+  confirm flat → report ``closed``. Without ``--live`` it is a dry walk that
+  clicks nothing. ``--live`` is refused when ``PROP_EXECUTOR_MODE=off``.
 - ``--watched-click``: the watched step-3 test. ``live`` for ONE cycle, at
   most one ticket, at the per-symbol minimum size in
   ``executor.watched_click_max_lots``. Refused when ``PROP_EXECUTOR_MODE=off``.
@@ -74,6 +79,10 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         return "read_only"
     if args.watched_click:
         return "off" if base == "off" else "live"
+    if getattr(args, "round_trip", ""):
+        if not getattr(args, "live", False):
+            return "round_trip_dry"
+        return "off" if base == "off" else "round_trip_live"
     return base
 
 
@@ -89,6 +98,13 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--dry-run", action="store_true")
     g.add_argument("--probe-ticket", default="", metavar="VENUE_SYMBOL")
     g.add_argument("--watched-click", action="store_true")
+    g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
+                   help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
+    ap.add_argument("--lots", type=float, default=None,
+                    help="round trip size (default and maximum: executor.watched_click_max_lots)")
+    ap.add_argument("--side", choices=("long", "short"), default="long")
+    ap.add_argument("--live", action="store_true",
+                    help="round trip: actually click (refused when PROP_EXECUTOR_MODE=off); default is a dry walk")
     ap.add_argument("--ticket-id", default="", help="watched click: act on this ticket only")
     args = ap.parse_args(argv)
 
@@ -177,6 +193,24 @@ def main(argv: Optional[list] = None) -> int:
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
             state_dir = Path(args.state_dir)
+            if mode.startswith("round_trip"):
+                res = pe.run_round_trip(
+                    adapter=adapter, page=page, api=api, cfg=cfg,
+                    ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
+                    venue_symbol=args.round_trip, side=args.side, lots=args.lots,
+                    arm=(mode == "round_trip_live"),
+                    sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
+                emit({"reads": res.reads}, *secrets)
+                for key, items in (("action", res.actions), ("report", res.reports), ("alert", res.alerts)):
+                    for it in items:
+                        emit({key: it}, *secrets)
+                emit({"executor": "done", "mode": res.mode, "halted": res.halted}, *secrets)
+                if args.login == "reuse":
+                    try:
+                        save_storage_state(context, args.storage_state)
+                    except Exception as exc:
+                        emit({"session": f"state NOT re-saved ({type(exc).__name__})"})
+                return EXIT_UNPARSED if res.halted else EXIT_OK
             res = pe.run_cycle(
                 adapter=adapter, page=page, api=api, cfg=cfg, mode=mode,
                 ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
