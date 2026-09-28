@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): every PR is held; the manager merges. Do not arm auto-merge.",
+  "why": "URGENT outage fix. #13805 put two ${{ }} expressions into the 'Execute action wrapper on VM' step's run: script (~32.6k chars). GitHub evaluates a run: containing any expression as one template capped at 21,000 chars, so .github/workflows/system-actions.yml has been INVALID since #13805 merged and every system-action (set-env, flatten, probes) fails at parse time. Fix moves both values into the step's env: and reads them as shell vars; the script now contains 0 expressions. Adds tests/test_workflow_run_expression_limit.py so any workflow run: over 21,000 chars containing ${{ fails CI. Tier 2 by path (production-mutation workflow); no behavioural change beyond restoring the workflow."
+}
