@@ -499,7 +499,15 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live          # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -16.8140, n=193, folds+ 1/4, 2026-09-22
+                             # E28 measurement, comms/strategy_evidence/
+                             # ict_scalp_5m.json). Keeps logging; stops taking
+                             # paper trades on bybit_1. Was:
+                             # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
                              # operator-approved Phase-4 packet:
                              # docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md).
                              # The 2026-07-14 demotion's evidence did not survive
@@ -585,7 +593,14 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -14.7099, n=258, folds+ 1/4, 2026-09-22
+                             # E28 measurement, comms/strategy_evidence/
+                             # ict_scalp_sol_5m.json). Keeps logging; stops
+                             # taking paper trades on bybit_1.
     timeframe: "5m"
     symbols:
       - SOLUSDT
@@ -661,7 +676,14 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -13.5621, n=261, folds+ 1/4, 2026-09-22
+                             # E28 measurement, comms/strategy_evidence/
+                             # ict_scalp_avax_5m.json). Keeps logging; stops
+                             # taking paper trades on bybit_1.
     timeframe: "5m"
     symbols:
       - AVAXUSDT

@@ -1,0 +1,19 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "research/queue/RQ-20260928-006.yaml lands its sweep result AND either (a) the price_only count is driven down by operator-approved declares from a passing cell, or (b) the operator records a decision that price-only is the intended posture for a named subset.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT'), indent=2))\""
+  },
+  "routed_to": "research/queue/RQ-20260928-006.yaml",
+  "state": "routed",
+  "terminal_reason": null,
+  "what": "[health] 22 of 34 open trades can close ONLY by price reaching a level fixed at entry - no path closes them on anything learned since. RE-MEASURED 2026-09-28 (exit-refinement lane) by re-running scripts/ops/exit_path_coverage.py --self-test (19/19 passed) then over the live journal: /api/diag/journal?table=trades&limit=1000 (Transport A, served by https://ict-bot.duckdns.org, read 2026-09-28T11:59Z UTC) joined to /api/diag/position_telemetry?limit=200, /api/diag/ib_open_orders, /api/diag/bybit_open_orders, /api/diag/alpaca_open_orders (all three broker payloads supplied). POPULATION: 20 open non-backtest trades (down from 34 on 2026-08-18 -- a different population, not an improvement to bank). VERDICTS: decision_exit_live 0 (0.0%%), price_only 11 (55.0%%), unknown 9 (45.0%%), no_exit_path 0. ZERO open trades now have a CONFIRMED live decision-driven exit path -- worse than the 2026-08-18 reading of 2/34 (5.9%%). Of the 9 unknown, 4 are the M22 pairs sleeve (pairs_bnb_btc_a/b, pairs_sol_eth_a/b on bybit_1) whose isolated order path this audit resolver cannot see (unit_unresolved) -- not evidence either way, out of scope for this row; the other 5 declare trail_decay but have no per-trade reachability measurement yet (declared_reachability_unmeasured_for_this_trade). BY LEG, the 11 price_only trades: trend_donchian_eth_4h=3 (all_undeclared), tlt_pullback_1d=2 (mixed), gdx_pullback_1d=2 (mixed), qld_trend_long_1d=1 (all_undeclared), qqq_pullback_1h=1 (all_undeclared), spy_pullback_1h=1 (mixed), trend_donchian_ada_4h=1 (mixed). QUEUED the seven worst-covered legs into the exit-refinement M20 pipeline as research/queue/RQ-20260928-006.yaml (P2 hard-lever sweep, m20-exit-lever-sweep.yml over m20_fleet_exit_sweep.py, --only the seven legs above), graded against the ALREADY-REGISTERED exit-refinement Path A/Path B gate (.claude/skills/exit-refinement/SKILL.md), MIN_OOS_TRADES=25 floor and drawdown grant cap -- no new rule invented, no config changed in this lane. Verified the unit schema-validates and would dispatch: python3 scripts/research/dispatch_queue.py --only RQ-20260928-006 --json -> outcome would_dispatch, route=runner."
+}
