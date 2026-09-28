@@ -1,0 +1,160 @@
+id: RQ-20260928-006
+title: Offline parity re-check of the three volatile-keyed trend_vol regime cells against historical volatile windows
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  config/regime_policy.yaml gates three cells on the vol_regime_ml `volatile`
+  label — trending.volatile.trend_donchian (long: off), trending.volatile.ict_scalp_5m
+  (long: off, short: off) and chop.volatile.ict_scalp_5m (long: off, short: off).
+  None has fired live in weeks because the market has stayed calm, per
+  BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT's own audit-sample read (1 row in a
+  5000-row window carried vol_regime_ml, calm, p_volatile=0.012). Has the Design-A
+  evidence that authored these three OFF-cells (the packet cited inline at
+  config/regime_policy.yaml:127-132/142-145) held up against the vol label's
+  HISTORICAL volatile windows, or has the calm stretch quietly outrun what that
+  evidence actually covers?
+
+why_this_matters: >-
+  A cell that has not fired live in weeks is untested by construction, not
+  validated by construction — dormancy and correctness are different claims
+  and this repo has paid for collapsing them before (regime-selectivity skill,
+  rule "no-cosmetic-cell"). The ML vol label averages 8.92% volatile over 5y
+  and has ranged 0.44%-30.42% monthly (BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT's
+  own measurement), so historical volatile windows exist to check against even
+  though the live stretch since authoring has not produced one. This is
+  observe-only: no config, roster or gate changes to any account. Operator
+  triage 2026-09-28 (popup on BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT)
+  selected this option verbatim: "queue an offline parity re-check unit
+  (research/queue) of the three volatile-keyed cells against historical
+  volatile windows; no live change."
+
+power:
+  expected_n: 10
+  min_detectable_effect: 1.0
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    DECLARED ACCRUAL, not a powered test — mirrors RQ-20260831-002's pattern
+    for a thin, regime-gated population. `scripts/research/regime_cell_walkforward.py`
+    N_FLOOR is 10 trades per side (mirrored from
+    `scripts/ml/walkforward_cell_selection.py::MIN_TRADES`); expected_n=10 is
+    declared as that floor, not measured, because the volatile-window trade
+    count for any of the three (strategy, symbol) legs behind these cells is
+    not known until the walk-forward actually filters candles by
+    `--vol volatile`. d=1.0 sd is the SAME lenient basis RQ-20260831-002's
+    option (1) names for a thin-leg family: at d=0.4 (this tool's other
+    reference floor) the sample requirement is 49.06, which a regime that
+    covers under 9% of history on average is unlikely to clear inside one
+    run. The floor at d=1.0 is (1.96+0.8416)^2/1.0^2 = 7.85, so n=10 clears
+    it by 2.15 IF the volatile windows in the trailing history hold at least
+    10 trades per leg per side — that is exactly what this run measures, not
+    what it assumes.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Cannot be graded `cleared` before the run: nobody has measured how many
+      trades fall inside `--vol volatile` windows for trend_donchian
+      (whichever symbol backs the live trending.volatile cell — resolve from
+      `config/strategies.yaml`'s trend_donchian roster) or ict_scalp_5m over
+      the trailing 1830-day window this queue's sibling units use. If the run
+      reports read_state != measured or either side's n < N_FLOOR (10), the
+      cell is recorded `insufficient_n` per the walk-forward tool's own
+      contract — that is a legitimate outcome of this unit, not a failure of
+      it, and is exactly the case BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT
+      is asking to have checked rather than assumed.
+
+decision_rule:
+  id: RULE-RQ0928-006-VOL-CELL-PARITY
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    Per cell, `regime_cell_walkforward.py --regime {trending|chop} --vol
+    volatile --vol-labels <ml_vol_label_replay.py output>`'s reported
+    `*_stable_drag` / `*_fold_sensitive` verdict and pooled net-R over the
+    FOLD_PANEL, for the graded direction(s) the cell disables (long for
+    trend_donchian; long and short for both ict_scalp_5m cells).
+  rule: >-
+    IF a cell's graded direction(s) read `insufficient_n` (either side below
+    N_FLOOR=10): record `unresolvable_at_current_n` for that cell — the
+    Design-A evidence cannot be re-checked against live-comparable history
+    yet, which is itself the answer to "has the calm stretch outrun the
+    evidence" (yes, in the sense that neither the live stretch nor a
+    trailing-history replay can currently test it). NOT a pass and NOT a
+    fail.
+    IF a cell's `*_stable_drag` reads true (pooled negative AND strict
+    per-fold-count majority-negative under every FOLD_PANEL member) for the
+    direction(s) the policy already disables: record `parity_confirmed` —
+    the historical volatile-window evidence still supports the existing
+    OFF-cell.
+    IF `*_stable_drag` reads false for a disabled direction (the historical
+    volatile-window sample does NOT support keeping it off): record
+    `parity_not_confirmed` and hand the cell to R2/D2 for a Tier-3 read,
+    because the cell's live setting would then rest on evidence its own
+    historical population does not reproduce. This is a PROPOSAL only — no
+    edit to config/regime_policy.yaml ships from this unit.
+  what_it_does_not_do: >-
+    Touches no config/*.yaml, no roster, no gate. A `parity_not_confirmed`
+    verdict does not flip a cell; it opens a Tier-3 proposal for the operator,
+    per BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT's own due_when clause (a)/(b),
+    both of which are explicitly Tier-3, propose-only.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 90
+  basis: >-
+    `regime-cell-walkforward.yml` (workflow_dispatch or the
+    `regime-cell-walkforward-request` issue-label trigger) runs one
+    (strategy, regime, vol) cell per dispatch and needs `--vol-labels` from a
+    trainer-side `ml_vol_label_replay.py` run for the volatile axis (crypto
+    legs are sandbox-exercisable; equity/ETF legs need the free GitHub runner
+    for Yahoo access, per the script's own docstring). Three cells x one
+    dispatch each; est_minutes is 3x this queue's own e35-family single-leg
+    estimate (~25-30 min), not a measurement of this specific tool's runtime.
+
+run:
+  workflow: regime-cell-walkforward.yml
+  inputs:
+    note: >-
+      Three separate dispatches, one per cell — this workflow takes one
+      strategy/regime/vol combination per run, not a batch:
+      (1) --strategy trend_donchian --regime trending --vol volatile
+          --vol-labels <replay output>
+      (2) --strategy ict_scalp_5m --regime trending --vol volatile
+          --vol-labels <replay output>
+      (3) --strategy ict_scalp_5m --regime chop --vol volatile
+          --vol-labels <replay output>
+      `days` left at the workflow's own default (730) unless a dispatcher
+      widens it to reach N_FLOOR; widening is a per-run decision, not
+      pre-registered here, because the question is whether the TRAILING
+      history clears the floor, not whether a longer window can be made to.
+  note: >-
+    Dispatched via workflow_dispatch or the `regime-cell-walkforward-request`
+    issue-label trigger per `.github/workflows/regime-cell-walkforward.yml`.
+    The `--vol-labels` file is produced trainer-side by `ml_vol_label_replay.py`
+    and must be supplied explicitly — requesting `--vol` without it is a hard
+    error by the script's own design, never a silent 1-D fallback.
+
+lands:
+  store: docs/research/regime-cell-walkforward-corpus.jsonl
+  assert_field: strategy
+  min_rows: 1
+  note: >-
+    min_rows 1, not 3: each cell is an independent dispatch and one can fail
+    (e.g. a Yahoo fetch outage) without the other two being a landing
+    failure — the same reasoning RQ-20260831-002 and RQ-20260922-005 use for
+    their own per-leg sharded runs. If no existing committed store path for
+    this tool exists yet, the dispatcher creates
+    docs/research/regime-cell-walkforward-corpus.jsonl on first landing.
+
+related:
+  - BL-20260730-VOL-AXIS-THREE-CELLS-DORMANT (the pipeline item this unit answers; operator-selected recommendation, triage 2026-09-28)
+  - config/regime_policy.yaml (trending.volatile.trend_donchian:127, trending.volatile.ict_scalp_5m:132, chop.volatile.ict_scalp_5m:145)
+  - scripts/research/regime_cell_walkforward.py (the engine)
+  - .claude/skills/regime-selectivity/SKILL.md (rule "walk-forward-before-Tier-3")
+last_dispatched_at: null

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "n/a -- already applied",
+    "kind": "event"
+  },
+  "id": "PI-20260928-NEDOCFIX-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "operator",
+    "ref": "operator popup 2026-09-28 ~12:10Z, item 15 of triage-2026-09-28.md batch",
+    "rerun": "grep 'fee-only\\|MD-PROMOTE-S1-S2\\|blocked_until' CLAUDE.md docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md"
+  },
+  "state": "done",
+  "terminal_reason": "doc-freshness fix applied this PR",
+  "what": "[docs] Doc-freshness fix: CLAUDE.md's 'fee-only corpus' and MD-PROMOTE-S1-S2 blocked_until prose was stale after PR #13582 (2026-09-28, MD-PROMOTE-S1-S2 armed at cost_tolerance_bps 2.0, blocked_until removed). Rescoped CLAUDE.md's real-money-promotion-mandate paragraph to name the four harness families that are STILL fee-only / lack a full cost stack (scripts/backtest_orb.py, src/backtest/backtester.py, scripts/backtest_xsec_momentum.py, scripts/backtest_vol_target.py) rather than claiming the whole promotion corpus is fee-only, per docs/research/d1-cost-stack-verification-2026-09-25.md's own findings. Corrected CLAUDE.md's 'MD-PROMOTE-S1-S2 is still blocked_until its clause (a)' sentence to record the 2026-09-28 removal and the 2.0 bps arming. Corrected docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md's 'It reads 0.0 today' sentence to 2.0 (config/mandates.yaml read directly this session). scripts/ci/check_canonical_doc_coherence.py ran green after the edits. config/mandates.yaml itself was NOT touched (out of scope for this lane)."
+}

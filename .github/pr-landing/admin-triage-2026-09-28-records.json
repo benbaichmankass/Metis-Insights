@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs, config comments, research-queue unit, and pipeline records only -- no order path, no strategy execution field, no risk cap, no live-VM runtime file. config/accounts.yaml and config/strategies.yaml edits are COMMENT-ONLY (parsed YAML identical before/after, verified this session); ROADMAP.md/CLAUDE.md/docs/research/*.md/docs/archive/**/*.md are prose-only status-token and staleness corrections; docs/claude/work/pipeline/*.json and research/queue/*.yaml are the append-only records + research unit this batch files. Applies 8 operator-approved pipeline-item recommendations plus a doc-freshness fix, all pre-scoped by the dispatching ADMIN lane as Tier 1."
+}
