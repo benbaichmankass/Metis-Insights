@@ -5,9 +5,11 @@ cadence: once
 kind: deterministic
 
 question: >-
-  E28's 2026-09-22 Stage-0 measurement fails ict_scalp_xrp_5m on
-  RULE-D1-STAGE0-NET-OF-FULL-COST (net_r -8.2061, n=245, folds+ 2/4), but
-  that number is the UNGATED arm: comms/strategy_evidence/ict_scalp_xrp_5m.json
+  ict_scalp_xrp_5m's Stage-0 measurement fails RULE-D1-STAGE0-NET-OF-FULL-COST
+  (CURRENT: net_r -0.9172, n=243, folds+ 1/4, faithful record regenerated
+  2026-09-25 with venue-aware slippage; was net_r -8.2061, n=245, folds+ 2/4
+  in E28's original 2026-09-22 measurement — verdict unchanged, fail both
+  times), but that number is the UNGATED arm: comms/strategy_evidence/ict_scalp_xrp_5m.json
   records fidelity=approximate because `off_cells` is `not_expressible` by
   regime_debt_matrix.py's harness route (MI-321). config/strategies.yaml's own
   comment on this leg says the GATED arm (off_cells_5m + the frozen vol_spec,
@@ -63,11 +65,24 @@ decision_rule:
   id: RULE-D1-STAGE0-NET-OF-FULL-COST
   registered_at: '2026-09-22T05:34:08Z'
   registered_before_run: true
+  statistic: >-
+    net_r_oos -- pooled net_total_r from scripts/backtest_ict_scalp.py's
+    out-of-sample time-folds for ict_scalp_xrp_5m, net of the full cost
+    stack (fee 7.5bps + venue-aware slippage/funding for XRPUSDT, currently
+    3.0/1.0bps roundtrip per src/runtime/execution_costs.py -- corrected
+    2026-09-28 from this rule's original uniform 5.0bps slippage, same
+    correction already applied to comms/strategy_evidence/ict_scalp_xrp_5m.json
+    on 2026-09-25), computed over the GATED (off_cells-suppressed) trade
+    population once a harness can produce it.
   rule: >-
-    Unchanged from E28's registration — net of fee 7.5 / slippage 5.0 /
-    funding 1.0 bps roundtrip, folds_positive majority required. Applies to
-    whichever arm (gated or ungated) this unit ends up grading; the RULE
-    does not change, only which trade population it is applied to.
+    net_r_oos > 0 AND folds_positive a majority of folds, evaluated on the
+    GATED arm once a harness can produce it. Applies to whichever arm
+    (gated or ungated) this unit ends up grading; the RULE does not change,
+    only which trade population it is applied to. The CURRENT committed
+    record (comms/strategy_evidence/ict_scalp_xrp_5m.json, regenerated
+    2026-09-25) grades the ungated arm: net_r_oos -0.9172, n=243, folds+ 1/4,
+    fidelity=approximate -- superseding this unit's own earlier citation of
+    the stale 2026-09-22 E28 number (-8.2061, n=245).
 
 routing:
   needs_trainer_resident_data: false
