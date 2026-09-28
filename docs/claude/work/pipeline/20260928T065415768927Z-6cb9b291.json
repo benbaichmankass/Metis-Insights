@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "PR #13508 (JC-CA-01) is MERGED and one verify-account-mode run has been OBSERVED to exit 0 (converged) on the live VM; then build the retirement PR. Killed only if the operator reverses JC-CA-06.",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-TURC5MJC-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "operator",
+    "ref": "lane JC-GIT session_01GxXaAMqxdL3p1XTuRC5mjc (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-28; docs/audits/code-audit-2026-09-27.md §6 JC-CA-06",
+    "rerun": "gh-free: GET /repos/benbaichmankass/Metis-Insights/pulls/13508 (merged_at); then list system-actions runs with display_title containing verify-account-mode and read the wrapper exit code in the issue/run output; grep -n account_state_dry_run src/core/coordinator.py src/runtime/orders.py"
+  },
+  "state": "queued",
+  "what": "JC-CA-06 (operator decision 2026-09-28 'Retire after JC-CA-01'): remove the config/account_state.yaml dry-only fold from Coordinator.multi_account_execute (src/core/coordinator.py, the account_state_dry_run(account.name) block that sets effective_dry) and account_state_dry_run() in src/runtime/orders.py. Also update CLAUDE.md § 'The two execution gates' (drop the third-input paragraph) and remove the surfaced account_state_dry_run field on /api/bot/config. Tier 2, order path, a SEPARATE PR with landing hold. DELIBERATELY NOT BUILT YET: the operator sequenced it after JC-CA-01, because set-account-mode must first be a durable replacement for a second dry switch. JC-CA-01 is PR #13508 (open, landing hold, not merged as of filing)."
+}
