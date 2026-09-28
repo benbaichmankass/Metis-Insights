@@ -872,3 +872,44 @@ def test_measured_breakout_tables_are_told_apart():
     assert orders_from_tables([MEASURED_POS, MEASURED_ORD]) == []
     assert orders_from_tables([MEASURED_POS]) is None       # not shown: could not look
     assert positions_from_tables([MEASURED_ORD]) is None
+
+
+# ── resume_session (W6-PROP-FEED session reuse, 2026-09-28) ──────────────
+
+
+def test_resume_session_accepts_only_a_positive_terminal_marker_and_never_types():
+    page = _FakeLoginPage({}, text="Account metrics\nBalance 4,724.00")
+    page.visible = {}
+    assert DXtradeAdapter(timeout_ms=3_000).resume_session(page, "https://app.example/") == "logged_in"
+    assert page.filled == {} and page.clicked == []
+
+
+def test_resume_session_believes_a_login_form_only_after_the_grace():
+    page = _FakeLoginPage({}, text="")
+    waits = []
+    page.wait_for_timeout = lambda ms: waits.append(ms)
+    got = DXtradeAdapter(timeout_ms=60_000).resume_session(page, "https://app.example/",
+                                                           login_form_grace_ms=3_000)
+    assert got == "login_form"
+    assert sum(waits) >= 3_000
+    assert page.filled == {} and page.clicked == []
+
+
+def test_resume_session_unknown_page_times_out_as_unknown():
+    page = _FakeLoginPage({}, text="Some other page")
+    page.visible = {}
+    assert DXtradeAdapter(timeout_ms=2_000).resume_session(page, "https://app.example/") == "unknown"
+
+
+@pytest.mark.parametrize("visible,reason", [
+    ({"captcha_frame": True}, "captcha"),
+    ({"twofa_form": True}, "2fa"),
+    ({"password_expired_form": True}, "password_expired"),
+])
+def test_resume_session_raises_on_a_challenge_and_never_types(visible, reason):
+    page = _FakeLoginPage({}, text="")
+    page.visible = visible
+    with pytest.raises(FeasibilityError) as ei:
+        DXtradeAdapter(timeout_ms=2_000).resume_session(page, "https://app.example/")
+    assert ei.value.reason == reason
+    assert page.filled == {} and page.clicked == []

@@ -1,4 +1,4 @@
-id: RQ-20260928-004
+id: RQ-20260928-005
 title: M19 S2-exit — does the walk-forward exit head recover net R on the ict_scalp 15m family, or only on trend_donchian?
 status: queued
 cadence: once
@@ -63,7 +63,7 @@ power:
       applies rather than a silently smaller population.
 
 decision_rule:
-  id: RULE-RQ0928-004-EXIT-HEAD-FAMILY-TRANSFER
+  id: RULE-RQ0928-005-EXIT-HEAD-FAMILY-TRANSFER
   registered_at: '2026-09-28'
   registered_before_run: true
   statistic: >-
@@ -131,12 +131,12 @@ run:
     time_stop_bars: '12'
     tp_r: '2.0'
     exit_threshold: '0.5'
-    research_unit: RQ-20260928-004
+    research_unit: RQ-20260928-005
   note: >-
     The dispatcher fires ONE inputs block; this one is the SOL leg (largest
     n). The XRP and ETH legs are dispatched by hand with identical inputs
     except `symbol` (XRPUSDT, ETHUSDT), the same research_unit, so all three
-    land under research/results/RQ-20260928-004/. The rule counts legs, so a
+    land under research/results/RQ-20260928-005/. The rule counts legs, so a
     partial landing (1 or 2 of 3 rows) is graded as `indeterminate` until all
     three rows exist — a missing row is never read as a failing leg.
 
@@ -145,12 +145,12 @@ lands:
   assert_field: read_state
   min_rows: 1
   note: >-
-    research/results/RQ-20260928-004/<run_id>.jsonl per dispatch (E5
+    research/results/RQ-20260928-005/<run_id>.jsonl per dispatch (E5
     contract). min_rows 1 per run; the rule needs three rows in total.
 
 related:
   - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S2-exit)
   - RQ-20260927-001 (the one prior out-of-sample exit-head pass, trend_donchian BTC 1h)
   - docs/research/M20-exit-refinement-2026-07-12.md § 8-9 (the walk-forward recipe and the below_half_r policy)
-  - blocked/RQ-20260928-003 (S2-sizing, the other half of S2)
+  - blocked/RQ-20260928-004 (S2-sizing, the other half of S2)
 last_dispatched_at: null

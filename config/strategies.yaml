@@ -597,7 +597,6 @@ strategies:
     min_displacement_body_to_range: 0.55
     min_fvg_size_bps: 2.0
     mitigation_mode: "wick_rejection"
-    htf_trend_filter_enabled: true
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
     atr_sl_buffer_mult: 0.20
@@ -633,7 +632,6 @@ strategies:
     min_displacement_body_to_range: 0.55
     min_fvg_size_bps: 2.0
     mitigation_mode: "wick_rejection"
-    htf_trend_filter_enabled: true
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
     atr_sl_buffer_mult: 0.20
@@ -675,7 +673,6 @@ strategies:
     min_displacement_body_to_range: 0.55
     min_fvg_size_bps: 2.0
     mitigation_mode: "wick_rejection"
-    htf_trend_filter_enabled: true
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
     atr_sl_buffer_mult: 0.20
@@ -709,7 +706,6 @@ strategies:
     min_displacement_body_to_range: 0.55
     min_fvg_size_bps: 2.0
     mitigation_mode: "wick_rejection"
-    htf_trend_filter_enabled: true
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
     atr_sl_buffer_mult: 0.20
@@ -740,7 +736,6 @@ strategies:
     min_displacement_body_to_range: 0.55
     min_fvg_size_bps: 2.0
     mitigation_mode: "wick_rejection"
-    htf_trend_filter_enabled: true
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
     atr_sl_buffer_mult: 0.20
@@ -784,7 +779,6 @@ strategies:
     min_displacement_body_to_range: 0.55
     min_fvg_size_bps: 2.0
     mitigation_mode: "wick_rejection"
-    htf_trend_filter_enabled: true
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
     atr_sl_buffer_mult: 0.20
@@ -846,7 +840,6 @@ strategies:
     min_displacement_body_to_range: 0.55
     min_fvg_size_bps: 2.0
     mitigation_mode: "wick_rejection"
-    htf_trend_filter_enabled: true
     htf_filter_timeframe: "1h"
     htf_filter_ema_period: 20
     atr_sl_buffer_mult: 0.20

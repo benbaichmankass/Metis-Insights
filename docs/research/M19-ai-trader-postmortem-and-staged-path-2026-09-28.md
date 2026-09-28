@@ -224,7 +224,7 @@ MEASURED this session, each one a fact the 2026-07 programme did not have:
   legs — they never invent a trade. Only S3 proposes trades, and it enters the
   ladder as a leg.
 
-### S1-v0 — is there any within-cell veto information in what the harness already knows at entry? (`RQ-20260928-001`, dispatchable)
+### S1-v0 — is there any within-cell veto information in what the harness already knows at entry? (`RQ-20260928-002`, dispatchable)
 
 | | |
 |---|---|
@@ -245,7 +245,7 @@ meta-model on top of the strategies", it uses zero new data plumbing, and its
 null is informative: if nothing on the row carries within-cell information, S1's
 market-state features are the only lever left before the line is exhausted.
 
-### S1 — a veto model with decision-time market state (`blocked/RQ-20260928-002`)
+### S1 — a veto model with decision-time market state (`blocked/RQ-20260928-003`)
 
 Same target, statistic, guards and floor as S1-v0, plus as-of features joined
 from the candle corpus at `entry_time`: returns over 1/4/12 bars, realized vol
@@ -261,7 +261,7 @@ trainer-resident under `datasets-out/market_raw`).
 
 Two halves with different readiness.
 
-**S2-exit (`RQ-20260928-004`, dispatchable).** The exit-head pipeline is the one
+**S2-exit (`RQ-20260928-005`, dispatchable).** The exit-head pipeline is the one
 model family in this repo that already produces a walk-forward net-R attribution
 on harness trades. It has one pass (`RQ-20260927-001`, trend_donchian BTC 1h).
 S2-exit asks whether the same recipe holds on the leg family with the most
@@ -275,7 +275,7 @@ of 3 legs → the exit head is a per-family policy, not a donchian artefact, and
 S2 composes veto + exit; FAIL on all three → exit-head stays donchian-only and
 S2 is veto + fixed exits.
 
-**S2-sizing (`blocked/RQ-20260928-003`).** Fractional risk by S1 score tercile
+**S2-sizing (`blocked/RQ-20260928-004`).** Fractional risk by S1 score tercile
 (0.5× / 1.0× / 1.5×, budget-neutral so total declared risk is unchanged),
 graded on net-R per unit of max drawdown against flat 1.0× sizing **and** against
 the existing conviction sizing (`C1-conviction-sizing-evidence-2026-08-04.md`).
@@ -323,12 +323,12 @@ default is the next stated refinement, per the operator's rule.
 |---|---|---|
 | `PI-20260928-VNMMNBJH-0001` | `meta_veto_walkforward.py`: as-of candle join for market-state features (`--candles-dir`, resolve via `scripts/ops/backtest_data_source.py`), `--size-by-score` for S2-sizing, and a `research_result.py` emit | S1 and S2-sizing cannot run without it; the S1-v0 harness is deliberately data-plumbing-free so it could ship this PR |
 | `PI-20260928-VNMMNBJH-0002` | model-as-strategy adapter: a strategy module that reads a registered model's per-bar action and emits order packages through the existing harness path, so S3 is graded as a leg | S3 has no instrument; grading it any other way repeats Cause 1 |
-| `PI-20260928-VNMMNBJH-0003` | follow-through: when `RQ-20260928-001` lands, promote or kill `blocked/RQ-20260928-002` and `-003` per their `clears_when` | the blocked directory is a waiting room, and its README says keeping it from becoming a graveyard is not yet mechanical |
+| `PI-20260928-VNMMNBJH-0003` | follow-through: when `RQ-20260928-002` lands, promote or kill `blocked/RQ-20260928-003` and `-003` per their `clears_when` | the blocked directory is a waiting room, and its README says keeping it from becoming a graveyard is not yet mechanical |
 
 ## 6. Where this document is pointed at from
 
-- `research/queue/RQ-20260928-001.yaml` (S1-v0) and `research/queue/RQ-20260928-004.yaml` (S2-exit) — dispatchable.
-- `research/queue/blocked/RQ-20260928-002.yaml` (S1) and `blocked/RQ-20260928-003.yaml` (S2-sizing).
+- `research/queue/RQ-20260928-002.yaml` (S1-v0) and `research/queue/RQ-20260928-005.yaml` (S2-exit) — dispatchable.
+- `research/queue/blocked/RQ-20260928-003.yaml` (S1) and `blocked/RQ-20260928-004.yaml` (S2-sizing).
 - `docs/claude/work/pipeline/` records `PI-20260928-VNMMNBJH-0001/-0002/-0003`.
 - `scripts/research/meta_veto_walkforward.py` docstring.
 
