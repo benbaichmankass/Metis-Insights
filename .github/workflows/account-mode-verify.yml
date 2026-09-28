@@ -1,0 +1,86 @@
+name: account-mode-verify
+
+# POST-STATE VERIFICATION FOR A DURABLE ACCOUNT-MODE FLIP (JC-CA-01, operator
+# decision 2026-09-28 "Commit to main").
+#
+# `set-account-mode` now changes `config/accounts.yaml` by opening a PR against
+# main (scripts/ops/account_mode_commit.py). A PR that merged tells you what
+# main says. It does not tell you what the live trader does. The three facts
+# are separate: merged, deployed (ict-git-sync converged the VM, <= ~5 min) and
+# observed (the running trader's per-tick runtime_status.json reports the mode).
+#
+# So on every push to main that changes an account's parsed `mode:`, this
+# workflow dispatches the Tier-1, read-only `verify-account-mode` system-action
+# once per changed account. That action polls the VM over SSH for up to 600s
+# and exits 4, with an URGENT ping, if the VM does not converge. Unlike the old
+# VM-local edit, this covers EVERY route a mode change can take to main — the
+# set-account-mode PR, a hand-written PR, an R16 mandate PR — because it keys on
+# the diff, not on who wrote it.
+#
+# ⚠️ IT DISPATCHES WITH GITHUB_TOKEN, AND THAT WORKS HERE ON PURPOSE.
+# GITHUB_TOKEN events trigger no other workflows EXCEPT workflow_dispatch.
+# MEASURED 2026-09-28: r4-demotion-gate run 36311893484 was dispatched by
+# schedule-keeper under GITHUB_TOKEN (actor github-actions[bot]) and ran to
+# success.
+#
+# ⚠️ A comment-only edit to accounts.yaml changes no parsed mode and
+# dispatches nothing. That is correct: a comment cannot change what trades.
+
+on:
+  push:
+    branches: [main]
+    paths: ['config/accounts.yaml']
+
+permissions:
+  contents: read
+  actions: write   # gh workflow run system-actions.yml
+
+concurrency:
+  group: account-mode-verify
+  cancel-in-progress: false
+
+jobs:
+  dispatch-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install -q pyyaml
+
+      - name: Find mode changes and dispatch verify-account-mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # A new branch / force push reports an all-zero `before`. Compare
+          # against the parent then, rather than against nothing.
+          if [ -z "${BEFORE}" ] || [ "${BEFORE}" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            BEFORE="$(git rev-parse "${AFTER}^")"
+          fi
+          python3 scripts/ops/account_mode_commit.py --root . changes \
+            --before "${BEFORE}" --after "${AFTER}" > changes.jsonl
+          n=$(wc -l < changes.jsonl)
+          {
+            echo "### account-mode-verify: ${n} mode change(s) in ${BEFORE:0:8}..${AFTER:0:8}"
+            echo '```'; cat changes.jsonl; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          while IFS= read -r row; do
+            [ -n "${row}" ] || continue
+            acct=$(printf '%s' "${row}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["account"])')
+            mode=$(printf '%s' "${row}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["after"])')
+            echo ">>> dispatching verify-account-mode ${acct} -> ${mode}"
+            gh workflow run system-actions.yml --ref main \
+              -f action=verify-account-mode -f account_id="${acct}" -f mode="${mode}" \
+              -f reason="post-merge verify: ${AFTER:0:8} set ${acct}.mode=${mode} on main (account-mode-verify run ${GITHUB_RUN_ID})"
+          done < changes.jsonl

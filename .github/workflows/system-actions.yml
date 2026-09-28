@@ -116,6 +116,7 @@ on:
           - pull-mes-ibkr-history-daily
           - pull-ibkr-history
           - set-account-mode
+          - verify-account-mode
           - fix-data-dir
           - rotate-account-keys
           - init-diag-token
@@ -658,7 +659,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${ACTION}" in
-            status-check|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
+            status-check|verify-account-mode|list-listening-ports|gateway-logs|pull-latest-logs|inspect-closed-pnl|bybit-account-audit|bybit-bracket-audit|strategy-performance-audit|monitor-miss-analysis|vwap-backtest-sweep|send-ping|send-prop-test-ping|generate-strategy-review-packets|grade-closed-trades|net-r-regrade|get-env)
               echo "tier=1" >>"$GITHUB_ENV"
               ;;
             pull-and-deploy|restart-bot-service|stop-bot-service|start-bot-service|reboot-vm|enable-closed-flat-invariant|disable-closed-flat-invariant|set-mobile-push-secrets|enable-insights-generator|disable-insights-generator|inspect-insights|kick-insights|enable-signal-dual-write|disable-signal-dual-write|backfill-pnl-nulls|backfill-orphan-pnl|backfill-closed-null-pnl|backfill-monitor-closed-pnl|revert-backfill-monitor-closed-pnl|mark-reconciler-incomplete|mark-operator-flattened|rebuild-pnl-from-bybit|backfill-shadow-predictions|backfill-account-class|backfill-exit-labels|backfill-closed-at|backfill-trade-costs|backfill-broker-order-id|backfill-broker-truth-costs|backfill-fabricated-exits|migrate-closed-at-iso|pull-exchange-fills|pull-bybit-transaction-log|pull-exchange-funding|pull-mes-ibkr-history|pull-mes-ibkr-history-daily|pull-ibkr-history|set-account-mode|fix-data-dir|rotate-account-keys|init-diag-token|set-env|unset-env|scrub-env-noncompliant|pause-autoheal|resume-autoheal|sync-clock|purge-cloudflared|purge-vm-runner|flatten-ib-position|flatten-bybit-position|switch-bybit-position-mode|flatten-alpaca-position|rearm-alpaca-protective|cancel-ib-order|attach-ib-target|close-stranded-journal-row|reconcile-orphan-history|supersede-options-adoption-artifacts|supersede-reset-orphan-artifacts|supersede-intent-reduce-phantom-pnl|fix-prop-mislinked-close|repair-prop-fill-direction|breakout-login-check|reset-daily-risk-state|repair-malformed-notes|repair-netted-rows|reconcile-netting-phantom-rows|reconcile-netting-rows|mark-netted-duplicate-pnl|validate-partial-tpsl|validate-bybit-naked-rearm|cancel-stale-tpsl-legs|backfill-tpsl-leg-ids|reattach-stranded-package-legs)
@@ -674,7 +675,7 @@ jobs:
               ;;
           esac
           # set-account-mode requires account_id + mode; validate both.
-          if [ "${ACTION}" = "set-account-mode" ]; then
+          if [ "${ACTION}" = "set-account-mode" ] || [ "${ACTION}" = "verify-account-mode" ]; then
             if [ -z "${ACCOUNT_ID// }" ]; then
               echo "::error::set-account-mode requires 'account_id' (workflow_dispatch input) or 'account: <name>' (issue body)."
               exit 1
@@ -1158,6 +1159,64 @@ jobs:
           fi
           echo ">>> Resolved tier: $(grep tier= "$GITHUB_ENV" | tail -1)"
 
+      - name: Commit the mode change to main (set-account-mode, Tier-3 hold PR)
+        # JC-CA-01, operator decision 2026-09-28 ("Commit to main"). A flip used to
+        # edit only the VM working tree, and ict-git-sync's `git reset --hard
+        # origin/main` reverted it within ~5 min (load_accounts() re-reads the file
+        # on every dispatch, so the running trader reverted with it). Now the
+        # one-line `mode:` change is a PR against main, carrying the
+        # check_dry_run_in_diff operator marker on a demotion. It is opened with
+        # BRANCH_PROTECTION_TOKEN, the same PAT .github/actions/commit-to-main
+        # uses, because a PR opened with GITHUB_TOKEN gets no required checks.
+        # ⚠️ IT DOES NOT LAND ITSELF: accounts.yaml is TIER3_PATHS and Tier-3
+        # never self-lands (check_pr_landing.py), so the declaration is
+        # `landing: hold` and the manager merges on the operator's recorded
+        # approval. After the merge, account-mode-verify.yml dispatches
+        # verify-account-mode, which checks the running trader over SSH.
+        if: env.ACTION == 'set-account-mode'
+        env:
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::BRANCH_PROTECTION_TOKEN is unset, so the mode change cannot be committed to main. Nothing was changed."
+            exit 1
+          fi
+          branch="automation/set-account-mode-${GITHUB_RUN_ID}"
+          rm -rf mode-pr
+          git clone -q --depth 1 --branch main \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" mode-pr
+          cd mode-pr
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b "${branch}"
+          set +e
+          python3 scripts/ops/account_mode_commit.py --root . prepare \
+            --account "${ACCOUNT_ID}" --mode "${MODE}" --run-id "${GITHUB_RUN_ID}" \
+            --branch "${branch}" --reason "${REASON}" --issue "${ISSUE_NUMBER:-}" > ../mode-prepare.json
+          rc=$?
+          set -e
+          if [ "${rc}" = "3" ]; then
+            printf 'main already reads %s.mode=%s — no PR opened.\n' "${ACCOUNT_ID}" "${MODE}" | tee ../mode-pr.txt
+            exit 0
+          fi
+          [ "${rc}" = "0" ] || { echo "::error::account_mode_commit.py prepare exited ${rc}"; exit 1; }
+          git add config/accounts.yaml .github/pr-landing
+          git diff --cached --stat
+          git diff --cached -- config/accounts.yaml > ../mode.diff
+          python3 scripts/check_dry_run_in_diff.py ../mode.diff
+          git commit -q -m "set-account-mode: ${ACCOUNT_ID} -> ${MODE} (system-actions run ${GITHUB_RUN_ID})" \
+            -m "Reason: ${REASON}"
+          git push -q origin "HEAD:refs/heads/${branch}"
+          body="$(printf '**set-account-mode** \`%s\` -> \`%s\`, requested via system-actions run %s/%s/actions/runs/%s%s.\n\nReason: %s\n\n**Tier 3 · landing: hold.** \`config/accounts.yaml\` is in TIER3_PATHS, so this waits for a merge on the operator'"'"'s recorded approval. **The account does NOT change mode until this merges.** Once it merges, ict-git-sync converges the VM (<= ~5 min) and \`account-mode-verify.yml\` dispatches \`verify-account-mode\` to confirm the running trader reads the new mode.\n\n\`\`\`diff\n%s\n\`\`\`\n' \
+            "${ACCOUNT_ID}" "${MODE}" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}" \
+            "$([ -n "${ISSUE_NUMBER:-}" ] && printf ' (issue #%s)' "${ISSUE_NUMBER}")" "${REASON}" "$(cat ../mode.diff)")"
+          url="$(gh pr create --base main --head "${branch}" \
+                   --title "set-account-mode: ${ACCOUNT_ID} -> ${MODE} (Tier 3, hold)" --body "${body}")"
+          printf 'Mode-change PR opened: %s\nThe account keeps its current mode until that PR merges; verify-account-mode runs after the merge.\n' "${url}" | tee ../mode-pr.txt
+          echo "MODE_PR_URL=${url}" >> "$GITHUB_ENV"
+
       - name: Set up SSH key
         env:
           VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
@@ -1344,7 +1403,11 @@ jobs:
             pull-mes-ibkr-history)              SCRIPT="pull_mes_ibkr_history.sh" ;;
             pull-mes-ibkr-history-daily)        SCRIPT="pull_mes_ibkr_history.sh" ;;
             pull-ibkr-history)                  SCRIPT="pull_mes_ibkr_history.sh" ;;
-            set-account-mode)                   SCRIPT="set_account_mode.sh" ;;
+            # JC-CA-01 (2026-09-28): set-account-mode no longer edits the VM tree.
+            # The flip is the PR opened by "Commit the mode change to main"
+            # below; on the VM it only RECORDS the pre-merge state (pending).
+            set-account-mode)                   SCRIPT="verify_account_mode.sh" ;;
+            verify-account-mode)                SCRIPT="verify_account_mode.sh" ;;
             fix-data-dir)                       SCRIPT="fix_data_dir.sh" ;;
             rotate-account-keys)                SCRIPT="rotate_account_keys.sh" ;;
             init-diag-token)                    SCRIPT="init_diag_token.sh" ;;
@@ -1400,7 +1463,11 @@ jobs:
           # We pipe through `printf %q` to keep substitutions shell-safe.
           REMOTE_CMD="bash /home/ubuntu/ict-trading-bot/scripts/ops/${SCRIPT}"
           if [ "${ACTION}" = "set-account-mode" ]; then
-            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") ${REMOTE_CMD}"
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") VERIFY_WAIT_SECONDS=0 VERIFY_PENDING_OK=1 ${REMOTE_CMD}"
+          fi
+          if [ "${ACTION}" = "verify-account-mode" ]; then
+            # 600s poll for git-sync (~5 min tick) plus one trader tick.
+            REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID}") MODE=$(printf '%q' "${MODE}") VERIFY_WAIT_SECONDS=600 ${REMOTE_CMD}"
           fi
           if [ "${ACTION}" = "rotate-account-keys" ]; then
             case "${ACCOUNT_ID}" in
@@ -2010,6 +2077,11 @@ jobs:
                 ? '(no action-output.txt — unexpected; check the run page)'
                 : '(no action-output.txt — failure happened before SSH ran)';
             }
+            // set-account-mode: the durable change is a PR, so say where it is.
+            try {
+              const modePr = fs.readFileSync('mode-pr.txt', 'utf8');
+              output = `${modePr}\n${output}`;
+            } catch (_) { /* not a set-account-mode run, or it failed before the PR */ }
             const MAX_BODY = 50_000;
             const tail = output.length > MAX_BODY ? output.slice(-MAX_BODY) : output;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;

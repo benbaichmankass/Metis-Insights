@@ -145,7 +145,10 @@ EXPECTED_ACTIONS = {
     # 2026-07-07 — generalized symbol-parameterized sibling so MGC/MHG (metals
     # sleeve) can be backfilled from native IBKR history, not just MES (#5851).
     "pull-ibkr-history": "pull_mes_ibkr_history.sh",
-    "set-account-mode": "set_account_mode.sh",
+    # JC-CA-01 (2026-09-28): the flip is a PR to main; on the VM both actions
+    # only READ the converged state (set-account-mode records it as pending).
+    "set-account-mode": "verify_account_mode.sh",
+    "verify-account-mode": "verify_account_mode.sh",
     # enable-mes / disable-mes removed 2026-05-22 — they flipped a
     # forbidden second gate (MULTI_SYMBOL_ENABLED). The traded-symbol set
     # is now derived from accounts.yaml; MES gating is the account `mode:`.

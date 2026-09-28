@@ -179,11 +179,21 @@ case "${action}" in
         esac
         ;;
     set-account-mode)
+        # JC-CA-01 (2026-09-28): exit 0 means the mode-change PR was OPENED (or
+        # main already read that mode). The account has NOT changed mode until
+        # that PR merges; verify-account-mode reports the post-state.
         tier=2
         case "${exit_code}" in
-            0) result="ok"; priority="normal" ;;
-            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            0) result="PR opened — mode changes when it merges"; priority="normal" ;;
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    verify-account-mode)
+        tier=1
+        case "${exit_code}" in
+            0) result="converged — the running trader reads the new mode"; priority="normal" ;;
+            4) result="NOT CONVERGED — the VM does not run the mode main declares"; priority="urgent" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
         esac
         ;;
     set-env)
