@@ -1384,7 +1384,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_sol_4h, donchian_sol_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -2.796, n=35, WR 22.9%, folds+ 1/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_sol_4h.json). bybit_1 only (paper);
+                             # confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - SOLUSDT
@@ -1469,7 +1476,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_ada_4h, donchian_ada_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -8.6081, n=46, WR 28.3%, folds+ 1/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_ada_4h.json). bybit_1 only (paper);
+                             # confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - ADAUSDT
@@ -1494,7 +1508,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_avax_4h, donchian_avax_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -9.1414, n=50, WR 26.0%, folds+ 0/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_avax_4h.json). bybit_1 only
+                             # (paper); confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - AVAXUSDT
