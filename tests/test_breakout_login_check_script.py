@@ -6,12 +6,14 @@ exceptions and URLs) and prove none of it reaches stdout.
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
 
 
 from src.prop.platform.base import AccountSnapshot, FeasibilityError, Position
+from src.prop.platform.dxtrade import CapturedResponse
 
 REPO = Path(__file__).resolve().parents[1]
 USER, PASSWORD = "bo-jdoe77", "Pa55-word!x"
@@ -98,6 +100,53 @@ def test_main_never_prints_credentials_even_from_exceptions(monkeypatch, capsys)
     low = out.lower()
     for leaked in (USER.lower(), PASSWORD.lower(), "sid=abc123", "tok9"):
         assert leaked not in low, leaked
+
+
+class _LeakyInstrumentAdapter(_LeakyAdapter):
+    """A non-matching response's URL and body leak credentials — prove the
+    same redaction path covers the network-sniffed instrument read too
+    (PI-20260927-ODDTM5QY-0002). Purely passive: no page interaction."""
+
+    def start_response_capture(self, page):
+        leaky_url = f"https://x.example/api/session/{USER.upper()}?sid=abc123token"
+        body = json.dumps({"note": f"pw={PASSWORD}", "authToken": "leak-me-not"})
+        return [CapturedResponse(url=leaky_url, body=body)]
+
+
+def test_instrument_output_is_redacted_even_when_a_response_leaks_credentials(monkeypatch, capsys):
+    mod = _load_script()
+    pkg, sync_api = _fake_playwright()
+    monkeypatch.setitem(sys.modules, "playwright", pkg)
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", sync_api)
+    monkeypatch.setenv("BREAKOUT_DX_USERNAME", USER)
+    monkeypatch.setenv("BREAKOUT_DX_PASSWORD", PASSWORD)
+    monkeypatch.setattr(mod, "adapter_for_platform", lambda _p: _LeakyInstrumentAdapter())
+
+    rc = mod.main(["--account", "breakout_1", "--symbols", "ETHUSD"])
+    out = capsys.readouterr().out
+
+    assert rc == mod.EXIT_UNPARSED  # from _LeakyAdapter's account read; instruments never affect rc
+    assert '"symbol": "ETHUSD"' in out  # printed even though no fields were found
+    assert "instrument_discovery:" in out
+    low = out.lower()
+    for leaked in (USER.lower(), PASSWORD.lower(), "abc123token", "leak-me-not"):
+        assert leaked not in low, leaked
+
+
+def test_instrument_specs_skipped_with_empty_symbols_flag(monkeypatch, capsys):
+    mod = _load_script()
+    pkg, sync_api = _fake_playwright()
+    monkeypatch.setitem(sys.modules, "playwright", pkg)
+    monkeypatch.setitem(sys.modules, "playwright.sync_api", sync_api)
+    monkeypatch.setenv("BREAKOUT_DX_USERNAME", USER)
+    monkeypatch.setenv("BREAKOUT_DX_PASSWORD", PASSWORD)
+    monkeypatch.setattr(mod, "adapter_for_platform", lambda _p: _LeakyInstrumentAdapter())
+
+    rc = mod.main(["--account", "breakout_1", "--symbols", ""])
+    out = capsys.readouterr().out
+
+    assert "instrument" not in out
+    assert rc == mod.EXIT_UNPARSED  # balance/equity still unread, from _LeakyAdapter
 
 
 class _UnknownPageAdapter(_LeakyAdapter):

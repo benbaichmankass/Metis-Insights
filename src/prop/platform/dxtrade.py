@@ -5,8 +5,38 @@ Spec: ``docs/research/prop-automation-options-2026-09-27.md`` § 2.3.
 Slice 1 is the READ path only: ``login``, ``read_account``, ``read_positions``,
 ``read_orders``. The order-control methods inherit the base class's
 ``NotImplementedError``. Nothing in this module clicks an order control; the
-only clicks are the login button and (optionally) the Positions / Orders
-*view tabs*, which change what is displayed and nothing else.
+only clicks are the login button and the Positions / Orders *view tabs*,
+which change what is displayed and nothing else.
+
+**Instrument specs (W6-PROP-E1, re-scoped 2026-09-28) are read PASSIVELY off
+the network, never off the UI.** Three rounds of scraping an accessible-name
+info panel and scoping the parse to it (search box, panel click, label/value
+scan) never converged — each fix produced a new way for the wrong symbol's
+numbers to be read as the requested one's. ``start_response_capture`` instead
+registers a read-only ``page.on("response", ...)`` hook (attached before
+login, so it also sees whatever the login/account/positions/orders flow
+itself triggers) and records every same-origin JSON response body; nothing
+is clicked, filled or navigated for this path. :func:`extract_instrument_specs_from_responses`
+then walks the recorded bodies for objects whose symbol-like key EXACTLY
+equals (case-insensitive, trimmed — never a substring: ``BTCUSDT`` does not
+satisfy ``BTCUSD``, and an object matching two DIFFERENT requested symbols
+across its symbol-like keys is ambiguous and skipped) one of the requested
+symbols, and prints only the ANCHORED, whole-key allowlist of spec-shaped
+field names (never a substring rule — round 4 of review found "tick" also
+matching "ticketNumber" and "lot" also matching "lots"), under the key name
+as served. An object that also carries a position/order-shaped key
+(``positionId``, ``quantity``, …) is never read as a spec at all — that is
+trade data, never a spec, however spec-shaped one of its other fields
+looks. A symbol that appears in two matching objects with a DIFFERING value
+for the same field reports ``conflict`` for that field rather than either
+number — a wrong number is worse than none; non-finite values (``NaN``/
+``inf``) are dropped before comparison so a repeated ``NaN`` is never read
+as a conflict. A response with no matching object contributes only a
+discovery line (its redacted origin+path and the set of SAFE-LOOKING
+top-level key names, never a value, never a sensitive or id-shaped key) so
+selectors can be extended from the public log. The response capture itself
+fails CLOSED on an unconfirmed page origin, reads a body only when its
+content-type says JSON, and caps how much of one body it keeps.
 
 Every DXtrade selector lives in :data:`SELECTORS` so the order-placing slice
 reuses them. Provenance of each selector:
@@ -40,8 +70,11 @@ functions over plain data so they are unit-tested without a browser.
 """
 from __future__ import annotations
 
+import json
+import math
 import re
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from urllib.parse import urlsplit
 
 from src.prop.platform.base import (
     AccountSnapshot,
@@ -107,7 +140,6 @@ ACCOUNT_LABELS: Dict[str, Sequence[str]] = {
     # metric.name.short.availableFunds (= "Free Margin") / multiasset.availableFunds
     "available": ("Free Margin", "Available Funds", "Available"),
 }
-
 
 
 # ── pure helpers ─────────────────────────────────────────────────────────
@@ -537,6 +569,12 @@ def render_page_shape(shape: Mapping[str, Any], page_text: str,
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 _TOKENISH_RE = re.compile(r"[A-Za-z0-9_\-.=+/]{24,}")
 _URL_RE = re.compile(r"((?:https?|wss?)://[^\s/?#'\"]+)([/?#][^\s'\"]*)?", re.IGNORECASE)
+# A query string can carry a session id even with no scheme in front of it
+# (a bare "host.tld/path?sid=..." — _URL_RE only matches scheme://...).
+# Matched and redacted independently of any URL/host detection, since that
+# is the narrowest rule that catches the leak without eating normal prose:
+# ordinary text essentially never contains a literal "?key=value" run.
+_QUERY_STRING_RE = re.compile(r"\?[A-Za-z0-9_]+=[^\s'\"]+")
 
 
 def _cap(text: str, n: int) -> str:
@@ -557,6 +595,9 @@ def redact_text(text: str, *secrets: str) -> str:
     # URLs keep their origin only: a path or query can carry a session id
     # shorter than the token rule below.
     out = _URL_RE.sub(lambda m: m.group(1) + "/<path>" if m.group(2) else m.group(1), out)
+    # A scheme-less "host/path?query" never matched the rule above; strip
+    # any leftover query string on its own.
+    out = _QUERY_STRING_RE.sub("?<query>", out)
     out = _EMAIL_RE.sub("<email>", out)
     return _TOKENISH_RE.sub("<token>", out)
 
@@ -605,6 +646,199 @@ def _strip_url(url: str) -> str:
     public log, since either can carry a session id."""
     m = _URL_RE.match(str(url or ""))
     return m.group(1) if m else re.split(r"[/?#]", str(url or ""), maxsplit=1)[0]
+
+
+# ── instrument specs via network response sniffing (W6-PROP-E1, re-scoped
+# 2026-09-28 after three rounds of UI-panel scraping never converged: each
+# fix produced a new way the WRONG symbol's numbers could be read as the
+# requested one's — see PR #13416. NOT MEASURED against this terminal: no
+# live run has confirmed the terminal's own JSON shape, key names, or
+# whether Playwright's response bodies are even readable for it. A symbol
+# that never turns up this way returns no fields, never a fabricated
+# number, exactly like every other unmeasured path in this module.) ──────
+
+_SYMBOL_KEYS: Sequence[str] = ("symbol", "name", "instrument", "code")
+
+# Explicit, ANCHORED allowlist of spec-shaped key names (whole-key match,
+# case-insensitive) — NOT a substring rule. A substring rule ("tick" also
+# matching "ticketNumber", "lot" also matching "lots"/"closedLots"/
+# "pilotSlot") let a position or order object's own size/id fields be
+# printed as if they were instrument specs (round-4 review finding).
+# Printed under the key name AS SERVED (whichever spelling matched) — this
+# is not a fixed schema, since the terminal's own field names are unmeasured.
+_SPEC_FIELD_NAMES = frozenset({
+    "contractsize", "contract_size", "contractvalue", "lotsize", "lot_size",
+    "lotstep", "lot_step", "minlot", "maxlot", "minquantity", "minqty",
+    "min_quantity", "maxquantity", "quantitystep", "qtystep", "volumestep",
+    "minvolume", "ticksize", "tick_size", "tickvalue", "pointvalue",
+    "point_value", "pipvalue", "multiplier", "contractmultiplier",
+    "precision", "priceprecision", "digits", "quantityprecision",
+})
+# A position/order-shaped key on the SAME object disqualifies it from being
+# read as an instrument spec at all — a position/order row commonly ALSO
+# carries an allowlisted-looking field (its own size), and that is data
+# about a trade, never a spec.
+_POSITION_OR_ORDER_KEYS = frozenset({
+    "positionid", "orderid", "ticket", "side", "openprice", "opentime",
+    "fillprice", "quantity",
+})
+# Never printed — a matching object's field, or a discovery line's key name.
+_SENSITIVE_KEY_RE = re.compile(
+    r"(token|auth|session|pass|secret|key|account|login|user|email|id$)", re.IGNORECASE)
+# A key name safe to print bare (discovery lines): an identifier shape,
+# capped at 40 chars, with no run of 4+ digits (rules out an account
+# number or similar spelled as a "key", which a bare `id$` suffix check
+# would miss) and not sensitive-looking.
+_SAFE_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}$")
+_DIGIT_RUN_RE = re.compile(r"\d{4,}")
+# Safety caps: how many response bodies one capture list holds (independent
+# of the discovery-line cap below — a long-lived page could otherwise grow
+# this without bound), and how much of one body is ever read/kept.
+_MAX_CAPTURED_RESPONSES = 500
+_MAX_CAPTURED_BODY_CHARS = 200_000
+
+
+def _safe_key_name(k: str) -> bool:
+    """True if ``k`` is safe to print as a bare key name: an identifier
+    shape, no run of 4+ digits, and not sensitive-looking."""
+    return bool(_SAFE_KEY_RE.match(k)) and not _DIGIT_RUN_RE.search(k) and not _SENSITIVE_KEY_RE.search(k)
+
+
+def _is_spec_field(k: str) -> bool:
+    """Whole-key, case-insensitive membership in :data:`_SPEC_FIELD_NAMES`
+    — never a substring match."""
+    return k.strip().lower() in _SPEC_FIELD_NAMES
+
+
+def _looks_like_position_or_order(obj: Mapping[str, Any]) -> bool:
+    return any(str(k).strip().lower() in _POSITION_OR_ORDER_KEYS for k in obj.keys())
+
+
+class CapturedResponse:
+    """One same-origin response :meth:`DXtradeAdapter.start_response_capture`
+    recorded. ``body`` is the raw response text; it may not be valid JSON —
+    :func:`extract_instrument_specs_from_responses` skips what doesn't parse."""
+
+    __slots__ = ("url", "body")
+
+    def __init__(self, url: str, body: str) -> None:
+        self.url = url
+        self.body = body
+
+
+def _origin_and_path(url: str) -> str:
+    """``scheme://host/path`` — never the query string, which can carry a
+    session id or other sensitive value."""
+    try:
+        parts = urlsplit(str(url or ""))
+        if parts.scheme and parts.netloc:
+            return f"{parts.scheme}://{parts.netloc}{parts.path}"
+    except Exception:
+        pass
+    return str(url or "")
+
+
+def _walk_json_objects(node: Any) -> Iterable[Mapping[str, Any]]:
+    """Every ``dict`` anywhere inside a parsed JSON structure, depth-first."""
+    if isinstance(node, dict):
+        yield node
+        for v in node.values():
+            yield from _walk_json_objects(v)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_json_objects(item)
+
+
+def _matching_symbol(obj: Mapping[str, Any], symbols_upper: Mapping[str, str]) -> Optional[str]:
+    """The requested symbol (as originally given, not upper-cased) this
+    object's symbol-like key(s) (:data:`_SYMBOL_KEYS`) EXACTLY equal after
+    trimming — never a substring match: ``BTCUSDT`` must never satisfy
+    ``BTCUSD``. ``None`` if no symbol-like key is present, none matches
+    exactly, or the object's symbol-like keys match TWO DIFFERENT requested
+    symbols (e.g. ``symbol=BTCUSD``, ``name=ADAUSD``) — that is ambiguous,
+    not a match either way, so it is skipped rather than guessed."""
+    hits = set()
+    for key in _SYMBOL_KEYS:
+        val = obj.get(key)
+        if not isinstance(val, str):
+            continue
+        hit = symbols_upper.get(val.strip().upper())
+        if hit is not None:
+            hits.add(hit)
+    return next(iter(hits)) if len(hits) == 1 else None
+
+
+def extract_instrument_specs_from_responses(
+        responses: Sequence[CapturedResponse], symbols: Sequence[str],
+        secrets: Sequence[str] = (), max_discovery: int = 30, max_keys: int = 40,
+    ) -> Dict[str, Any]:
+    """Pure function: walk captured JSON response bodies for objects whose
+    symbol-like key EXACTLY equals one of ``symbols`` (unambiguously — see
+    :func:`_matching_symbol`), and pull only the ANCHORED allowlist of
+    spec-shaped fields (:data:`_SPEC_FIELD_NAMES`, a whole-key match, never
+    a substring) out of each match, keyed by the field name AS SERVED. An
+    object that also carries a position/order-shaped key
+    (:data:`_POSITION_OR_ORDER_KEYS`) is never read as a spec at all — a
+    position/order row commonly carries an allowlisted-looking field too
+    (its own size), and that is trade data, never a spec. A sensitive-
+    looking key (:data:`_SENSITIVE_KEY_RE`) or a non-identifier-shaped one
+    is never returned either way. Non-finite values (``NaN``/``inf`` —
+    Python's ``json`` module accepts the literal spelling) are dropped
+    before comparison or printing, so a repeated ``NaN`` is not read as a
+    conflict. A field whose value DIFFERS across matching objects for the
+    same symbol reports ``"conflict"`` instead of either number — a wrong
+    number is worse than none, and the conflict is sticky (a later object
+    matching one of the earlier values does not clear it).
+
+    Returns ``{"specs": {<symbol as given>: {field: value_or_"conflict"}},
+    "discovery": [line, ...]}``. A response whose body parses as JSON but
+    has no matching object contributes ONE (already redacted) discovery
+    line — its origin+path (never the query string, which can carry a
+    session id) and the SET of its SAFE-LOOKING top-level key names (never
+    a value, never a sensitive or id-shaped key), noting how many were
+    suppressed — capped at ``max_discovery`` lines / ``max_keys`` keys
+    each. A response that isn't valid JSON at all is silently skipped (no
+    discovery line either — there are no "top-level keys" to report).
+    """
+    symbols_upper = {s.strip().upper(): s for s in symbols}
+    specs: Dict[str, Dict[str, Any]] = {s: {} for s in symbols}
+    discovery: List[str] = []
+
+    for resp in responses:
+        try:
+            payload = json.loads(resp.body)
+        except Exception:
+            continue
+        response_matched = False
+        for obj in _walk_json_objects(payload):
+            sym = _matching_symbol(obj, symbols_upper)
+            if sym is None:
+                continue
+            response_matched = True
+            if _looks_like_position_or_order(obj):
+                continue
+            slot = specs[sym]
+            for k, v in obj.items():
+                if not _is_spec_field(k) or not _safe_key_name(k):
+                    continue
+                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                    continue
+                if isinstance(v, float) and not math.isfinite(v):
+                    continue
+                if k in slot and slot[k] != v:
+                    slot[k] = "conflict"
+                elif k not in slot:
+                    slot[k] = v
+        if not response_matched and len(discovery) < max_discovery:
+            keys = sorted(payload.keys()) if isinstance(payload, dict) else []
+            safe_keys = [k for k in keys if _safe_key_name(k)]
+            suppressed = len(keys) - len(safe_keys)
+            suffix = f" (+{suppressed} keys suppressed)" if suppressed else ""
+            discovery.append(
+                f"instrument_discovery: {redact_text(_origin_and_path(resp.url), *secrets)} "
+                f"keys={safe_keys[:max_keys]}{suffix}")
+
+    return {"specs": specs, "discovery": discovery}
 
 
 # ── the adapter ──────────────────────────────────────────────────────────
@@ -823,3 +1057,66 @@ class DXtradeAdapter(PropPlatformAdapter):
         if got is None:
             raise LookupError("no orders table found on the page (selector drift or unmeasured layout)")
         return got
+
+    # ---- instrument specs via network response sniffing (see the
+    # module-level note above start_response_capture's docstring) ------
+    def start_response_capture(self, page: Any) -> List[CapturedResponse]:
+        """Register a READ-ONLY ``page.on("response", ...)`` hook and
+        return the (initially empty, then live-appended) list it fills.
+
+        Call this BEFORE :meth:`login` so it also sees whatever the
+        login/account/positions/orders flow itself triggers -- the
+        terminal may only serve instrument metadata once, on session
+        setup. This never clicks, fills or navigates anything -- it is
+        purely passive, so it can be attached at any point in the flow
+        without affecting what the balance/position/order reads see.
+
+        The origin check fails CLOSED: if the page's own URL is empty,
+        ``about:blank``, or raises, NOTHING is captured for that event --
+        an unconfirmed origin is never treated as a match. Only a
+        response whose ``content-type`` header contains ``"json"`` has its
+        body read at all (``.text()`` is never called on anything else,
+        so a large binary/streamed asset is never touched); a body is
+        capped at :data:`_MAX_CAPTURED_BODY_CHARS`, and the whole list at
+        :data:`_MAX_CAPTURED_RESPONSES`.
+        """
+        captured: List[CapturedResponse] = []
+
+        def _on_response(response: Any) -> None:
+            if len(captured) >= _MAX_CAPTURED_RESPONSES:
+                return
+            try:
+                page_url = str(page.url or "").strip()
+            except Exception:
+                page_url = ""
+            if not page_url or page_url.lower() == "about:blank":
+                return  # fail CLOSED: no confirmed origin, capture nothing
+            try:
+                page_origin = urlsplit(page_url).netloc
+                resp_origin = urlsplit(str(response.url or "")).netloc
+            except Exception:
+                return
+            if not page_origin or not resp_origin or page_origin != resp_origin:
+                return
+            try:
+                headers = response.headers
+                if callable(headers):
+                    headers = headers()
+            except Exception:
+                headers = {}
+            ctype = str((headers or {}).get("content-type", "")).lower()
+            if "json" not in ctype:
+                return
+            try:
+                body = response.text()
+            except Exception:
+                return
+            if len(body) > _MAX_CAPTURED_BODY_CHARS:
+                body = body[:_MAX_CAPTURED_BODY_CHARS]
+            captured.append(CapturedResponse(url=response.url, body=body))
+
+        try:
+            page.on("response", _on_response)
+        except Exception:
+            pass
+        return captured
