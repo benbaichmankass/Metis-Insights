@@ -119,30 +119,45 @@ def run(tmp_path, monkeypatch):
     units.write_text("units: {}\n")
     coord = Coordinator(units_path=str(units))
 
-    def _go(direction, flag):
+    def _go(direction, flag, *, net=0.0, side_filter="both"):
         client = _Client(flag)
         import src.units.accounts.clients as clients
         monkeypatch.setattr(clients, "alpaca_client_for", lambda cfg: client)
-        seen = []
+        import src.runtime.positions as positions
+        monkeypatch.setattr(positions, "current_net_position_qty",
+                            lambda *a, **k: net)
+        import src.runtime.account_side_filter as asf
+        monkeypatch.setattr(asf, "account_side_filter", lambda _id: side_filter)
+        out = {"executed": [], "rejections": []}
         import src.units.accounts.execute as ex
 
         def fake_execute(pkg, acc, exchange_client=None, dry_run=None, **kw):
-            seen.append(bool(dry_run))
+            out["executed"].append(bool(dry_run))
             return "dry-1" if dry_run else "live-1"
 
+        def fake_reject(pkg, cfg, *, reason, status, **kw):
+            out["rejections"].append((cfg.get("account_id"), reason, status))
+            return True
+
         monkeypatch.setattr(ex, "execute_pkg", fake_execute)
-        coord.multi_account_execute(_pkg(direction), accounts_path=str(p),
-                                    dry_run=False,
-                                    balance_fetcher=lambda _a: 10_000.0)
-        return seen, client
+        monkeypatch.setattr(ex, "log_rejection_to_journal", fake_reject)
+        out["results"] = coord.multi_account_execute(
+            _pkg(direction), accounts_path=str(p), dry_run=False,
+            balance_fetcher=lambda _a: 10_000.0)
+        out["client"] = client
+        return out
 
     return _go
 
 
-def test_short_on_a_shorting_disabled_account_is_demoted_to_dry(run):
-    seen, client = run("short", False)
-    assert client.calls >= 1
-    assert seen == [True]
+def test_short_on_a_shorting_disabled_account_is_refused_with_a_journal_row(run):
+    """The blocker from review: the cause must survive in the DB, not only in
+    a ~30-minute journald line."""
+    out = run("short", False)
+    assert out["client"].calls >= 1
+    assert out["executed"] == []  # nothing sent, not even a dry would-be row
+    assert out["rejections"] == [("alpaca_x", G.REFUSAL_TOKEN, "rejected")]
+    assert out["results"][0]["error"] == G.REFUSAL_TOKEN
 
 
 def test_long_only_control_is_unchanged_and_never_reads_the_flag(run, monkeypatch):
@@ -150,22 +165,62 @@ def test_long_only_control_is_unchanged_and_never_reads_the_flag(run, monkeypatc
     real = G.shorting_state
     monkeypatch.setattr(G, "shorting_state",
                         lambda *a, **k: reads.append(a[0]) or real(*a, **k))
-    seen, _ = run("long", False)
-    assert seen == [False]
+    out = run("long", False)
+    assert out["executed"] == [False]
+    assert out["rejections"] == []
     assert reads == []
 
 
 def test_short_on_a_shorting_enabled_account_still_executes(run):
-    seen, _ = run("short", True)
-    assert seen == [False]
+    out = run("short", True)
+    assert out["executed"] == [False]
+    assert out["rejections"] == []
 
 
-def test_gate_only_ever_demotes_to_dry():
+@pytest.mark.parametrize("net", [3.0, None])
+def test_a_short_that_may_close_a_held_long_is_never_blocked(run, net):
+    """FLIP_POLICY=flat turns a short on a long-holding account into a close,
+    and that close only runs on a non-dry account. A short gate must never
+    block a close — nor treat an unreadable position as flat."""
+    out = run("short", False, net=net)
+    assert out["rejections"] == []
+    assert out["executed"] == [False]
+
+
+def test_a_short_adding_to_an_existing_short_is_still_refused(run):
+    out = run("short", False, net=-2.0)
+    assert out["rejections"] == [("alpaca_x", G.REFUSAL_TOKEN, "rejected")]
+
+
+def test_both_gates_side_filter_long_and_shorting_disabled(run):
+    """Precedence, pinned: side_filter demotes to dry FIRST, so the broker
+    gate (inside `if not effective_dry:`) is not reached and the flag is not
+    read. The short is still never sent. The side_filter dry row carrying no
+    cause is the same gap, filed separately."""
+    out = run("short", False, side_filter="long")
+    assert out["executed"] == [True]
+    assert out["rejections"] == []
+    assert out["client"].calls == 0
+
+
+def test_the_refusal_is_a_declared_policy_skip_not_a_dispatch_failure():
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "src" / "core" / "coordinator.py").read_text()
+    start = src.index("def _is_benign_noop")
+    assert '"broker_shorting_disabled"' in src[start:start + 2500]
+
+
+def test_gate_never_turns_an_account_live():
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[1]
            / "src" / "core" / "coordinator.py").read_text()
     start = src.index("Per-ACCOUNT BROKER short gate")
     block = src[start:src.index("broker shorting gate lookup failed")]
     assert "if not effective_dry:" in block
-    assert "effective_dry = True" in block
     assert "effective_dry = False" not in block
+    assert "log_rejection_to_journal(" in block
+
+
+def test_the_cache_ttl_is_documented_and_600s():
+    assert G.CACHE_TTL_S == 600.0

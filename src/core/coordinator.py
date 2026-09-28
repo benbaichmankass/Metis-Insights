@@ -1501,15 +1501,35 @@ class Coordinator:
 
             # Per-ACCOUNT BROKER short gate — the venue's own
             # ``shorting_enabled`` (BL-20260823-ALPACA-SHORTING-FLAG-READ-NEVER-
-            # CONSUMED; operator "Build the gate now", 2026-09-28). ``side_filter``
-            # above is a CONFIG policy covering only the accounts it is declared
-            # on; this reads what the broker says for every flagged exchange.
-            # Same fold, same demote-to-dry, NO new order path. Fail-permissive
-            # on an unreadable flag (see src/runtime/broker_shorting_gate.py).
+            # CONSUMED; operator "Build the gate now", 2026-09-28: "Refuse short
+            # signals, with a logged reason, on any account whose broker reports
+            # shorting disabled"). ``side_filter`` above is a CONFIG policy
+            # covering only the accounts it is declared on; this reads what the
+            # broker says for every flagged exchange (src/runtime/
+            # broker_shorting_gate.py — cached CACHE_TTL_S=600s per account,
+            # fail-permissive on an unreadable flag).
+            #
+            # ⚠️ IT REFUSES WITH A JOURNAL ROW, IT DOES NOT DEMOTE TO DRY. A
+            # dry demotion writes an ordinary dry would-be row whose cause lives
+            # only in a logger line (journald keeps ~30 min), so on a live-mode
+            # account it is indistinguishable from a shadow / side_filter /
+            # account_state demotion. The refusal row carries
+            # reason=broker_shorting_disabled, so "why didn't it send?" is
+            # answerable from the DB. No order path is added — this only ever
+            # removes one.
+            #
+            # ⚠️ A CLOSE IS NEVER BLOCKED BY THIS GATE. Under FLIP_POLICY=flat a
+            # short package on an account HOLDING A LONG resolves to a
+            # ``flip_flat_policy`` close, flattened via close_open_position —
+            # and that only runs when the account is not dry. So the gate is
+            # skipped whenever the journal shows a long (or is unreadable —
+            # the intent path refuses an unreadable read on its own with
+            # net_position_unreadable). It only refuses a short that would
+            # OPEN or ADD to short exposure.
             if not effective_dry:
                 try:
                     from src.runtime.broker_shorting_gate import (
-                        refusal_reason, refuses_short,
+                        REFUSAL_TOKEN, refusal_reason, refuses_short,
                     )
 
                     def _shorting_client():
@@ -1523,12 +1543,42 @@ class Coordinator:
                         getattr(pkg, "direction", None), _shorting_client,
                     )
                     if _bs_refused:
+                        from src.runtime.positions import current_net_position_qty
+                        _bs_net = current_net_position_qty(account.name, pkg.symbol)
+                        if _bs_net is None or _bs_net > 0:
+                            logger.info(
+                                "[coordinator] broker shorting gate: %s holds "
+                                "net=%s on %s — short may close it; not refused",
+                                account.name, _bs_net, pkg.symbol,
+                            )
+                            _bs_refused = False
+                    if _bs_refused:
                         logger.warning(
-                            "[coordinator] %s (%s) — NOT executing",
+                            "[coordinator] %s (%s) — refused",
                             refusal_reason(account.name),
                             getattr(pkg, "symbol", "?"),
                         )
-                        effective_dry = True
+                        from src.units.accounts.execute import (
+                            log_rejection_to_journal,
+                        )
+                        log_rejection_to_journal(
+                            pkg, account_cfg,
+                            reason=REFUSAL_TOKEN,
+                            status="rejected",
+                            sized_qty=0.0,
+                        )
+                        results.append({
+                            "name": account.name,
+                            "exchange": account.exchange,
+                            "account_type": account.account_type,
+                            "trade_id": None,
+                            "sized_qty": 0.0,
+                            "error": REFUSAL_TOKEN,
+                        })
+                        # Recorded so an all-refused round's empty sizing map
+                        # names this rule instead of "cause unattributed".
+                        excluded_by_account[account.name] = REFUSAL_TOKEN
+                        continue
                 except Exception as exc:  # noqa: BLE001
                     logger.warning(
                         "[coordinator] broker shorting gate lookup failed for "
@@ -2796,6 +2846,10 @@ class Coordinator:
                 # every leg is one of these must NOT fire the "all accounts
                 # failed" roll-up (operator directive 2026-07-15).
                 or is_expected_dispatch_skip(err)
+                # The venue reported shorting_enabled=false and the short was
+                # refused on purpose, with its own journal row — a declared
+                # policy refusal, not a dispatch failure (2026-09-28).
+                or err == "broker_shorting_disabled"
             )
 
         any_trade_placed = any(r.get("trade_id") is not None for r in results)

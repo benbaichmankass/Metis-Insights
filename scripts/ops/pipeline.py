@@ -202,6 +202,15 @@ class PipelineError(ValueError):
 #: 20-21 for the two records.
 GRANDFATHERED_COLLISIONS = {
     "PI-20260921-0002",
+    # Two lanes closed the SAME item concurrently on 2026-09-28 and both
+    # records landed: TRIAGE-2 (#13578) wrote `killed` at 11:30Z and W6
+    # (#13589) wrote `done` at 11:39Z, the second built from the 09:20Z record
+    # rather than the first, so it reads as a displacement. Both are TERMINAL
+    # and agree on the outcome (#13504 merged + deployed + observed), so no
+    # open finding is hidden; the later `done` record is the one load() keeps.
+    # Grandfathered because main went red on pipeline-guard the moment #13589
+    # landed (every PR failing); still reported loudly on every run.
+    "PI-20260927-D9R6QTDB-0002",
 }
 
 

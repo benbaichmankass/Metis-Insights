@@ -17,10 +17,13 @@ human in the path, so the venue's own answer has to be consulted too.
 
 How it is enforced
 ------------------
-Folded into ``effective_dry`` in ``Coordinator.multi_account_execute``,
-immediately after the ``side_filter`` fold — the same mechanism, NO new order
-path. A refused short is logged with its cause and journalled as a dry
-would-be trade, never sent.
+In ``Coordinator.multi_account_execute``, immediately after the ``side_filter``
+fold and only on a not-already-dry account: a refused short writes a journal
+rejection row with ``reason=`` :data:`REFUSAL_TOKEN` (so the cause survives in
+the DB, not only in a ~30-minute journald line) and the account is skipped for
+that package. NO order path is added. A short on an account whose journal shows
+a LONG (or is unreadable) is NOT refused: under FLIP_POLICY=flat that short is a
+close, and a close must never be blocked by a short gate.
 
 Four states, never collapsed
 ----------------------------
@@ -48,7 +51,12 @@ SHORTING_STATES = ("enabled", "disabled", "unknown", "not_applicable")
 #: Exchanges whose account status carries ``shorting_enabled``.
 _FLAGGED_EXCHANGES = ("alpaca",)
 
+#: How long a real reading is trusted. A broker flipping ``shorting_enabled``
+#: takes effect here within this window; ``unknown`` is never cached.
 CACHE_TTL_S = 600.0
+
+#: The journal ``reason`` / result ``error`` for a refusal.
+REFUSAL_TOKEN = "broker_shorting_disabled"
 
 _cache: Dict[str, Tuple[float, str]] = {}
 
@@ -112,5 +120,5 @@ def refuses_short(
 
 
 def refusal_reason(account_id: str) -> str:
-    return (f"short_refused_broker_shorting_disabled: {account_id}'s broker "
-            f"reports shorting_enabled=false — short package logged, not sent")
+    return (f"{REFUSAL_TOKEN}: {account_id}'s broker reports "
+            f"shorting_enabled=false — short refused, journalled, not sent")
