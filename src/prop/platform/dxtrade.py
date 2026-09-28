@@ -863,16 +863,31 @@ def extract_instrument_specs_from_responses(
 # its result into ``dom`` / ``canvas_ticket`` / ``not_found``.
 #
 # Safety rules every control below keeps, whatever the DOM turns out to be:
-# 1. ONE-CLICK TRADING must read OFF before anything in the order area is
-#    touched. With it on, a click on a chart Buy/Sell button IS an order, with
-#    no SL and no TP. "Could not read it" is treated as ON.
-# 2. The chart's Buy/Sell PRICE buttons are never an opener: a ticket is opened
-#    only by an explicitly named control (:data:`TICKET_OPENER_NAMES`) or a
-#    double-click on the watchlist row of the symbol.
+# 1. ONE-CLICK TRADING is a DIAGNOSTIC, not a gate (DECIDED, operator
+#    2026-09-28 ~17:50Z, verbatim: "As long we know we're placing trades
+#    correctly on the sidebar ticket, we don't need to consider the one click
+#    toggle at all - that's only relevant for placing trades on the chart
+#    itself"). The toggle only changes what a click on a chart Buy/Sell PRICE
+#    button does, and rule 2 means no control here ever presses one. Its
+#    state is read and RECORDED (``one_click`` in every result) so a run log
+#    shows it, but nothing refuses on it. Until this change anything but a
+#    definite ``off`` refused every order control, and the live probe (issue
+#    #13711) read ``unknown`` — the toggle is custom-styled — which blocked
+#    probe-ticket, watched-click and round-trip-dry outright.
+# 2. The chart's Buy/Sell PRICE buttons are never an opener and never a
+#    submit: a ticket is opened only by an explicitly named control
+#    (:data:`TICKET_OPENER_NAMES`) or a double-click on the watchlist row of
+#    the symbol, and the only control that changes the account is the form's
+#    own unique ``submit`` button (:data:`FORM_BUTTON_PATTERNS`), found INSIDE
+#    the ticket container. That is the sidebar ticket the operator uses.
 # 3. Fields are found INSIDE one form container by their visible label, and
 #    each must be unique there; an ambiguous or missing field refuses.
-# 4. Every field is READ BACK after typing and compared to what was meant.
-#    A mismatch refuses (and closes the form) before submit is ever reached.
+# 4. Every field is READ BACK after typing and compared to what was meant —
+#    all six: symbol (the form names it, :func:`form_names_symbol`), side and
+#    order type (the form's selected control, :func:`verify_form_selection`),
+#    quantity, stop loss and take profit (:func:`verify_form_values`; plus
+#    price for a limit). A mismatch, or a field that cannot be read back,
+#    refuses (and closes the form) before submit is ever reached.
 # 5. ``arm=False`` (the default) stops before the final control. Only
 #    ``src/prop/prop_executor.py`` in ``live`` mode passes ``arm=True``.
 # 6. A click reports that it CLICKED, never that an order exists; existence is
@@ -974,6 +989,41 @@ ORDER_FORM_JS = r"""
       }
     }
   }
+  // Which side / order-type control the form shows as SELECTED, read back
+  // after our click: an explicit pressed/checked/selected state on the
+  // button (aria-*, data-*, class, a radio inside), a <select> whose chosen
+  // option names it, or — for the side only — a submit button that starts
+  // with "Buy"/"Sell". null = not readable back (refuses, never assumed).
+  const isOn = el => {
+    if (!el) return false;
+    for (const a of ['aria-pressed', 'aria-checked', 'aria-selected', 'aria-current']) {
+      const v = el.getAttribute(a); if (v === 'true' || v === 'page') return true;
+    }
+    for (const a of ['data-active', 'data-state', 'data-selected', 'data-checked', 'data-pressed']) {
+      const v = el.getAttribute(a); if (v !== null && /^(true|active|on|checked|selected|pressed|1)$/i.test(v)) return true;
+    }
+    if (typeof el.className === 'string' && /(^|[\s_-])(active|selected|checked|pressed|is-active|is-selected)([\s_-]|$)/i.test(el.className)) return true;
+    if (el.tagName === 'INPUT' && el.type === 'radio') return !!el.checked;
+    return [...el.querySelectorAll('input[type=radio], input[type=checkbox]')].some(i => i.checked);
+  };
+  const pick = (keys) => {
+    const on = keys.filter(k => out.buttons[k] !== undefined && isOn(form.querySelector('[data-metis-btn=' + k + ']')));
+    if (on.length === 1) return on[0];
+    if (on.length > 1) return 'ambiguous';
+    for (const sel of form.querySelectorAll('select')) {
+      const o = sel.options[sel.selectedIndex]; const t = o ? txt(o) : '';
+      const hit = keys.filter(k => BP[k].test(t));
+      if (hit.length === 1) return hit[0];
+    }
+    return null;
+  };
+  const side = pick(['side_buy', 'side_sell']);
+  const submitText = out.buttons.submit || '';
+  out.selected = {
+    side: side === 'side_buy' ? 'buy' : side === 'side_sell' ? 'sell' : side === 'ambiguous' ? 'ambiguous'
+          : (/^buy\b/i.test(submitText) ? 'buy' : /^sell\b/i.test(submitText) ? 'sell' : null),
+    order_type: (t => t === 'type_market' ? 'market' : t === 'type_limit' ? 'limit' : t)(pick(['type_market', 'type_limit'])),
+  };
   out.form_text = txt(form).slice(0, 2000);
   return out;
 }
@@ -1126,6 +1176,31 @@ def verify_form_values(fields: Mapping[str, Mapping[str, Any]], want: Mapping[st
             bad.append(f"{k}: not readable back")
         elif not math.isclose(shown, float(v), rel_tol=rel_tol, abs_tol=1e-12):
             bad.append(f"{k}: typed {_fmt_num(v)}, form shows {_fmt_num(shown)}")
+    return bad
+
+
+def form_names_symbol(form: Mapping[str, Any], venue_symbol: str) -> bool:
+    """Pure: the form's visible text names ``venue_symbol`` as a whole word.
+    An order typed into a ticket for the wrong symbol is the worst silent
+    failure here, so this is checked at open AND again at read-back."""
+    return bool(re.search(r"(?<![A-Z0-9])" + re.escape(str(venue_symbol).upper()) + r"(?![A-Z0-9])",
+                          str(form.get("form_text") or "").upper()))
+
+
+def verify_form_selection(form: Mapping[str, Any], side: str, order_type: str) -> List[str]:
+    """Pure: compare the side and order type the form SHOWS as selected
+    (``form["selected"]`` from :data:`ORDER_FORM_JS`) against what we meant.
+    ``None`` (not readable back) and ``"ambiguous"`` are mismatches: a side
+    the form cannot show is never assumed."""
+    want = {"side": "buy" if side == "long" else "sell", "order_type": order_type}
+    shown = form.get("selected") or {}
+    bad: List[str] = []
+    for k, v in want.items():
+        got = shown.get(k)
+        if got is None:
+            bad.append(f"{k}: not readable back")
+        elif got != v:
+            bad.append(f"{k}: chose {v}, form shows {got}")
     return bad
 
 
@@ -1473,8 +1548,10 @@ class DXtradeAdapter(PropPlatformAdapter):
         return quote_from_tables(self._tables(page), venue_symbol)
 
     def read_one_click(self, page: Any) -> Dict[str, Any]:
-        """``{"state": "on"|"off"|"unknown", ...}``. Read-only. Anything but a
-        definite ``off`` is treated as ON by every caller."""
+        """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC:
+        recorded in every order-control result, gated on by none (ORDER ENTRY
+        rule 1; operator 2026-09-28). ``unknown`` is the live terminal's
+        measured reading (#13711) and blocks nothing."""
         try:
             got = page.evaluate(ONE_CLICK_JS) or {}
         except Exception as exc:
@@ -1492,13 +1569,10 @@ class DXtradeAdapter(PropPlatformAdapter):
     def open_order_ticket(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
         """Open the order-entry form for ``venue_symbol`` WITHOUT pressing any
         order control. Returns ``{"opened": bool, "via": ..., "form": ...,
-        "one_click": ...}``. Refuses (``opened: False``) unless one-click
-        trading reads OFF. Never uses a chart Buy/Sell price button."""
-        oc = self.read_one_click(page)
-        out: Dict[str, Any] = {"opened": False, "via": None, "one_click": oc, "form": {}}
-        if oc.get("state") != "off":
-            out["refused"] = f"one-click trading is {oc.get('state')} ({oc.get('why')}); nothing touched"
-            return out
+        "one_click": ...}``. ``one_click`` is the toggle's reading, recorded
+        as a diagnostic only (ORDER ENTRY rule 1); nothing refuses on it.
+        Never uses a chart Buy/Sell price button."""
+        out: Dict[str, Any] = {"opened": False, "via": None, "one_click": self.read_one_click(page), "form": {}}
         form = self._find_form(page)
         if form.get("found"):
             out.update(opened=True, via="already_open", form=form)
@@ -1573,6 +1647,9 @@ class DXtradeAdapter(PropPlatformAdapter):
                        for k, v in (form.get("fields") or {}).items()},
             "buttons": form.get("buttons") or {},
             "checkboxes": form.get("checkboxes") or [],
+            # Which side / order type the untouched form shows as selected
+            # (null = not readable: place_bracket would refuse on this DOM).
+            "selected": form.get("selected"),
             "ambiguous": form.get("ambiguous") or [],
             "canvases_in_form": form.get("canvases_in_form"),
             "canvases_in_page": form.get("canvases_in_page"),
@@ -1616,8 +1693,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             return refuse(f"ambiguous form controls: {form['ambiguous']}")
         # The form must NAME the instrument, as a whole word: an order typed
         # into a ticket for the wrong symbol is the worst silent failure here.
-        if not re.search(r"(?<![A-Z0-9])" + re.escape(spec.venue_symbol.upper()) + r"(?![A-Z0-9])",
-                         str(form.get("form_text") or "").upper()):
+        if not form_names_symbol(form, spec.venue_symbol):
             return refuse(f"the open form does not name {spec.venue_symbol}")
         need = ["quantity", "stop_loss", "take_profit"] + (["price"] if spec.order_type == "limit" else [])
         missing = [k for k in need if k not in (form.get("fields") or {})]
@@ -1651,16 +1727,20 @@ class DXtradeAdapter(PropPlatformAdapter):
             form = self._find_form(page)
         except Exception as exc:
             return refuse(f"typing into the form failed ({type(exc).__name__})")
-        mism = verify_form_values(form.get("fields") or {}, want)
+        # Read-back of all six fields (ORDER ENTRY rule 4): symbol, side,
+        # order type, quantity, stop loss, take profit (+ price for a limit).
+        mism = [] if form_names_symbol(form, spec.venue_symbol) else [f"symbol: form no longer names {spec.venue_symbol}"]
+        mism += verify_form_selection(form, spec.side, spec.order_type)
+        mism += verify_form_values(form.get("fields") or {}, want)
         if mism:
             return refuse("form read-back mismatch: " + "; ".join(mism), form)
+        # Diagnostic only: the toggle's reading right before submit travels
+        # with the attempt so the run log shows it. Nothing is gated on it.
+        form = {**form, "one_click": self.read_one_click(page)}
         if not arm:
             self.close_order_ticket(page)
             return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
-        # ── the one click that changes the account ──
-        oc = self.read_one_click(page)
-        if oc.get("state") != "off":
-            return refuse(f"one-click trading changed to {oc.get('state')} before submit")
+        # ── the one click that changes the account: the ticket's own submit ──
         try:
             page.click("[data-metis-btn=submit]", timeout=5_000)
         except Exception as exc:
@@ -1731,33 +1811,33 @@ class DXtradeAdapter(PropPlatformAdapter):
         read-back-verified form as ``place_bracket``."""
         if stop_loss is None and take_profit is None:
             return {"ok": False, "clicked": False, "why": "nothing to modify"}
+        # Diagnostic only (ORDER ENTRY rule 1): recorded on every result below,
+        # gated on by nothing.
         oc = self.read_one_click(page)
-        if oc.get("state") != "off":
-            return {"ok": False, "clicked": False, "why": f"one-click trading is {oc.get('state')}"}
         self._show_tab(page, "tab_positions")
         # Disarmed: locate the edit control and stop — no click at all.
         opened = self._row_action(page, "positions", "Symbol", position.symbol,
                                   r"^(edit|modify|✎|sl/tp|edit position)$", arm)
         if not arm:
-            return {"ok": bool(opened.get("ok")), "clicked": False,
+            return {"ok": bool(opened.get("ok")), "clicked": False, "one_click": oc,
                     "why": f"disarmed: stopped before the edit control ({opened.get('why')})"}
         if not opened.get("clicked"):
-            return {"ok": False, "clicked": False, "why": f"edit control: {opened.get('why')}"}
+            return {"ok": False, "clicked": False, "one_click": oc, "why": f"edit control: {opened.get('why')}"}
         page.wait_for_timeout(1_000)
         form = self._find_form(page)
         want = {k: v for k, v in (("stop_loss", stop_loss), ("take_profit", take_profit)) if v is not None}
         missing = [k for k in want if k not in (form.get("fields") or {})]
         if missing or "submit" not in (form.get("buttons") or {}):
             self.close_order_ticket(page)
-            return {"ok": False, "clicked": False, "why": f"edit form incomplete (missing {missing})"}
+            return {"ok": False, "clicked": False, "one_click": oc, "why": f"edit form incomplete (missing {missing})"}
         for k, v in want.items():
             page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
         form = self._find_form(page)
         mism = verify_form_values(form.get("fields") or {}, want)
         if mism or not arm:
             self.close_order_ticket(page)
-            return {"ok": not mism, "clicked": False,
+            return {"ok": not mism, "clicked": False, "one_click": oc,
                     "why": ("read-back mismatch: " + "; ".join(mism)) if mism else "disarmed: stopped before submit"}
         page.click("[data-metis-btn=submit]", timeout=5_000)
         self._confirm_dialog(page)
-        return {"ok": True, "clicked": True, "why": "submit clicked"}
+        return {"ok": True, "clicked": True, "one_click": oc, "why": "submit clicked"}

@@ -15,8 +15,9 @@ Modes (exactly one; default = one scheduled cycle):
   (``place_bracket(arm=False)``), then closes it. Nothing is submitted and
   nothing is written to the API.
 - ``--probe-ticket SYMBOL``: READ-ONLY feasibility measurement of the order
-  ticket (is it DOM or canvas?). Opens the form only if one-click trading
-  reads OFF, records its shape, closes it. Types nothing.
+  ticket (is it DOM or canvas?). Opens the form, records its shape and the
+  one-click toggle's reading (a diagnostic: nothing gates on it, operator
+  2026-09-28), closes it. Types nothing.
 - ``--round-trip VENUE [--lots N] [--side long|short] [--live]``: the
   end-to-end test (operator 2026-09-28): ONE minimum-size market bracket with
   SL+TP → confirm by re-read → report ``open`` → the bot closes it at market →
