@@ -1090,8 +1090,8 @@ jobs:
               echo "::error::breakout-login-check account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
-            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer)(,(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer)){0,10}$'; then
-              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,executor-enable-timer,executor-disable-timer (got '${ACTION_APPLY}')."
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt)(,(install-deps|emit-status|reset-feed|probe-ticket|executor-dry-run|watched-click|round-trip-dry|round-trip-live|sol|executor-enable-timer|executor-disable-timer|executor-clear-halt)){0,10}$'; then
+              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed,probe-ticket,executor-dry-run,watched-click,round-trip-dry,round-trip-live,sol,executor-enable-timer,executor-disable-timer,executor-clear-halt (got '${ACTION_APPLY}')."
               exit 1
             fi
           fi
@@ -1775,6 +1775,17 @@ jobs:
           fi
           if [ "${ACTION}" = "breakout-login-check" ]; then
             REMOTE_CMD="ACCOUNT_ID=$(printf '%q' "${ACCOUNT_ID:-}") ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ${REMOTE_CMD}"
+            case ",${ACTION_APPLY:-}," in *",executor-clear-halt,"*)
+              # Clearing the executor's AUTO-REVERT latch is a person's
+              # decision (manager / operator): the reason text IS the record,
+              # so it is required and forwarded with who asked and where.
+              if [ -z "${REASON// }" ]; then
+                echo "::error::executor-clear-halt requires a 'reason:' line (who clears the latch and why)."
+                exit 1
+              fi
+              REMOTE_CMD="ACTION_REASON=$(printf '%q' "${REASON}") ACTION_ACTOR=$(printf '%q' "${{ github.event.issue.user.login || github.actor }}") ACTION_ISSUE=$(printf '%q' "${{ github.event.issue.number || '' }}") ${REMOTE_CMD}"
+              ;;
+            esac
           fi
           if [ "${ACTION}" = "breakout-terminal-probe" ]; then
             REMOTE_CMD="ACTION_APPLY=$(printf '%q' "${ACTION_APPLY:-}") ACTION_SYMBOL=$(printf '%q' "${ACTION_SYMBOL:-}") ${REMOTE_CMD}"
