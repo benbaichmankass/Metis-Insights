@@ -94,7 +94,7 @@ def test_real_config_loads_and_keeps_flat_75_and_unmeasured_lots_refuse():
     assert c.symbols["ADAUSDT"]["min_lots"] == 10
     spec, _, why = pe.bracket_from_ticket(ticket(symbol="BTCUSDT"), c)
     assert spec is None and "not declared" in why
-    assert c.watched_click_max_lots == {}                 # the watched click refuses until set
+    assert c.watched_click_max_lots == {"SOLUSD": 0.01}   # the lot step; only SOLUSD (#13855)
 
 
 # ── § 3.3 guards, one at a time ───────────────────────────────────────────
@@ -1495,6 +1495,44 @@ def test_measured_sidebar_stuck_toggle_refuses(tpage):
     spec = BracketSpec("t4", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
     assert att.stage == "refused" and p.evaluate("window.__submits") is None
+
+
+def _measured_live_label(clamp_min=None):
+    """The replica with the MEASURED label shape (probe #13855): the terminal
+    writes "<Side> <qty> SOLUSD at <price>" from the quantity it accepted;
+    ``clamp_min`` models a venue that silently raises a smaller size."""
+    js = ("<script>function relabel(){const b=document.querySelector('.sd[style*=background]');"
+          "let q=parseFloat(document.getElementById('q').value)||0;"
+          + (f"if(q>0&&q<{clamp_min})q={clamp_min};" if clamp_min else "") +
+          "document.getElementById('sub').textContent=(b?b.textContent.trim():'Buy')+' '+q+' SOLUSD at 120.05'}"
+          "document.addEventListener('input',relabel);document.addEventListener('click',()=>setTimeout(relabel,0));</script>")
+    return _measured().replace("</body>", js + "</body>")
+
+
+def test_submit_label_mismatch_reads_the_measured_label_shape():
+    from src.prop.platform.dxtrade import submit_label_mismatch
+    spec = BracketSpec("t", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    assert submit_label_mismatch("Buy 0.01 SOLUSD at 120.05", spec) == ""
+    assert submit_label_mismatch("Buy SOLUSD", spec) == ""                 # no qty stated: read-back alone
+    assert "states quantity 0.1" in submit_label_mismatch("Buy 0.1 SOLUSD at 120.05", spec)
+    assert "names 'ETHUSD'" in submit_label_mismatch("Buy 0.01 ETHUSD at 3000.1", spec)
+
+
+def test_measured_sidebar_label_stating_the_typed_qty_passes(tpage):
+    p = tpage(html=_measured_live_label())
+    spec = BracketSpec("t5", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+
+
+def test_measured_sidebar_label_with_a_clamped_qty_refuses(tpage):
+    # A venue that clamps a below-minimum size up shows it here; the dry run at
+    # the lot step is a venue-minimum measurement only because this refuses.
+    p = tpage(html=_measured_live_label(clamp_min=0.1))
+    spec = BracketSpec("t6", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and "states quantity 0.1" in att.detail, att.detail
+    assert p.evaluate("window.__submits") is None
 
 
 def test_colour_selection_needs_a_unique_unselected_colour(tpage):
