@@ -31,7 +31,7 @@ def test_same_public_surface_as_dxtrade():
     """Everything the tick scripts call on an adapter exists here too, so
     switching platform needs no caller change."""
     used_by_callers = {"login", "resume_session", "wait_ready", "read_account", "read_positions",
-                       "read_orders", "page_shape", "structure", "start_response_capture",
+                       "read_orders", "read_quote", "page_shape", "structure", "start_response_capture",
                        "probe_order_ticket", "place_bracket", "modify_bracket", "cancel_order",
                        "flatten", "timeout_ms"}
     a = adapter_for_platform("breakout_terminal")
@@ -150,6 +150,15 @@ def test_orders_parse_ignores_positions_table():
     assert (o.symbol, o.side, o.order_type, o.quantity, o.price, o.stop_loss, o.take_profit, o.order_id) == \
         ("ETHUSD", "short", "Limit", 0.5, 3100.0, 3180.0, 2950.0, "A77")
     assert bt.orders_from_tables([POS]) is None
+
+
+def test_quote_from_tables():
+    wl = {"headers": ["Market", "Bid Price", "Ask Price", "Change"],
+          "rows": [["BTCUSD", "65,000.5", "65,001.0", "+1%"], ["ETHUSD", "3,001", "3,000", "0"]]}
+    assert bt.quote_from_tables([POS, wl], "btcusd") == {"bid": 65000.5, "ask": 65001.0}
+    assert bt.quote_from_tables([wl], "ETHUSD") is None      # crossed: never a guessed price
+    assert bt.quote_from_tables([wl], "SOLUSD") is None      # no row
+    assert bt.quote_from_tables([POS], "BTCUSD") is None     # no bid/ask table: could not look
 
 
 def test_price_column_never_reads_entry_price():

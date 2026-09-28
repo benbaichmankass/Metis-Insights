@@ -391,6 +391,28 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
     return out if found else None
 
 
+BID_COLS = ("Bid", "Bid Price", "Best Bid")
+ASK_COLS = ("Ask", "Ask Price", "Best Ask")
+
+
+def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
+    """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from any table carrying a
+    symbol-like column plus Bid and Ask (NOT MEASURED on this terminal).
+    ``None`` when no such table, no exact row, or the numbers do not parse or
+    are crossed — never a guessed price."""
+    for t in tables:
+        headers = list(t.get("headers") or [])
+        c_sym, c_bid, c_ask = _find_col(headers, SYMBOL_COLS), _find_col(headers, BID_COLS), _find_col(headers, ASK_COLS)
+        if c_sym is None or c_bid is None or c_ask is None:
+            continue
+        for row in t.get("rows") or []:
+            if (_cell(row, c_sym) or "").strip().upper() == venue_symbol.upper():
+                bid, ask = parse_number(_cell(row, c_bid)), parse_number(_cell(row, c_ask))
+                if bid is not None and ask is not None and 0 < bid <= ask:
+                    return {"bid": bid, "ask": ask}
+    return None
+
+
 def check_form_shape(form: Mapping[str, Any], spec: BracketSpec) -> Optional[str]:
     """Pure pre-typing check of a discovered order form (rules 3 and 7).
     Returns the refusal reason, or None when the form may be typed into."""
@@ -675,6 +697,11 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
         if got is None:
             raise LookupError("no orders table found (breakout_terminal layout unmeasured)")
         return got
+
+    def read_quote(self, page: Any, venue_symbol: str) -> Optional[Dict[str, float]]:
+        """Bid/ask for ``venue_symbol`` off a watchlist-like table. Read-only;
+        ``None`` = could not look (the round-trip test then stops)."""
+        return quote_from_tables(self._tables(self._t(page)), venue_symbol)
 
     # ---- order controls (rules in the module docstring) ---------------------
     def read_one_click(self, page: Any) -> Dict[str, Any]:
