@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -146,8 +147,11 @@ case "$*" in
   -c*)
     # The only other python3 -c invocation in this script is the
     # version-assertion JSON parse (git_sha extraction) -- delegate to the
-    # real interpreter rather than reimplementing json.load badly.
-    exec /usr/local/bin/python3 "$@"
+    # SAME interpreter this test is running under (sys.executable, baked in
+    # below), rather than reimplementing json.load badly. A hardcoded path
+    # like /usr/local/bin/python3 is not portable -- GitHub Actions runners
+    # keep python under /opt/hostedtoolcache/, not /usr/local/bin.
+    exec {sys.executable} "$@"
     ;;
   *) exit 0 ;;
 esac
