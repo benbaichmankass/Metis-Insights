@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "already cleared -- kept for schema completeness on a terminal row.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260928-STALE-DEMO-ONLY-COMMENT-ON-REAL-MONEY-LEG",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane/exit-ops-20260928-fix-stale-comment, found while routing PI-20260926-X3QEGPJL-0002",
+    "rerun": "grep -c \"execution: live.*# demo-only soak\" config/strategies.yaml   # should print 0 once fixed; a bare grep for the phrase also matches the two legs correctly explaining they were fixed"
+  },
+  "state": "done",
+  "terminal_reason": "Comment corrected in config/strategies.yaml, same PR/commit as this pipeline record. grep -c \"execution: live.*# demo-only soak\" config/strategies.yaml returns 0 (verified against the field, not the bare phrase).",
+  "what": "[health] trend_donchian_eth_4h carried a comment on its execution: line reading \"demo-only soak (paper money) per paper-execute policy\" -- FALSE: config/accounts.yaml routes this leg to bybit_2 (account_class=real_money, mode=live) in addition to bybit_1/bybit_portfolio (paper). Same defect class as trend_donchian_xrp_4h, corrected there 2026-07-30 (the comment on that leg still says \"Corrected 2026-07-30: the prior demo-only soak comment was stale\"), but eth_4h was missed. Found 2026-09-28 (lane EXIT-OPS) while routing PI-20260926-X3QEGPJL-0002 (a proposal to demote this leg was correctly STOPPED specifically because it read the account routing from config/accounts.yaml, not from this stale comment). FIXED in the same session: comment corrected to state the real-money routing plainly, mirroring the xrp_4h pattern. CORRECTION 2026-09-28, same session: the first rerun command was wrong --  still matches 2 lines (both legs now EXPLAIN they were corrected, quoting the old phrase to say why it was wrong), which is not the same as the defect being present. Verified against the field: 0 -> 0, the actual check for the stale CLAIM (not any mention of the phrase). rerun/terminal_reason corrected below."
+}
