@@ -339,6 +339,36 @@ TIER1_SURFACE = [
     # `research/queue/**` is deliberately NOT here -- see STAMP_ONLY_SURFACE.
     "research/results/**",
     "runtime_logs/replay_pregate/**",
+    # PI-20260922-E5-RESEARCH-QUEUE-IS-OUTSIDE-TIER1-SURFACE-SO-NO-LANE-CAN-SELF-LAND-A-QUEUE-FLIP,
+    # operator-approved 2026-09-28 (ADMIN lane triage popup, verbatim answer
+    # "Apply my recommendations (Recommended)"), same precedent shape as
+    # MI-242 above. E5 hit R5 refusing a Tier-1 `blocked`->`queued` status
+    # flip on a research unit because TIER1_SURFACE covered
+    # scripts/research/** and research/results/** but not the queue units
+    # themselves.
+    #
+    # ⚠️ fnmatch's `*` matches `/` too (verified), so `research/**` here DOES
+    # also match `research/queue/**` -- a plain allowlist glob cannot express
+    # "research/** except queue/". That is exactly the case the docstring two
+    # blocks below (STAMP_ONLY_SURFACE) warns against: a queue unit holds a
+    # PRE-REGISTERED decision rule, and a PR that rewrites the rule and
+    # self-lands it in the same act defeats the promotion ladder's whole
+    # safety property. Rather than silently reopen that hole, `unvouched_paths`
+    # was changed the same day so STAMP_ONLY_SURFACE governs any path it names
+    # (today only `research/queue/*.yaml`, field `last_dispatched_at`)
+    # REGARDLESS of a TIER1_SURFACE match — see its docstring. So this entry
+    # widens `research/**` in full, and a queue file still only self-lands a
+    # pure stamp; every other line in it still holds for a human exactly as
+    # before this entry.
+    "research/**",
+    # PI-20260927-QBHR1EYJ-0001, operator-approved 2026-09-28 (ADMIN lane
+    # triage popup, verbatim answer "Apply my recommendations (Recommended)").
+    # Applies the finding's own Option 3 (narrow widening): scripts/ml/**
+    # also holds training/promotion-adjacent code that is NOT Tier-1, so only
+    # the self-documented review/report tooling is admitted here, by name,
+    # rather than the whole tree.
+    "scripts/ml/*review*.py",
+    "scripts/ml/*report*.py",
     "*.md",
     ".ruff.toml",
     "ruff.toml",
@@ -411,9 +441,27 @@ def stamp_only_violation(root: Path, base: str, path: str) -> Optional[str]:
 
 
 def unvouched_paths(root: Path, base: str, paths: list[str]) -> list[str]:
-    """Paths neither inside TIER1_SURFACE nor a verified stamp-only edit."""
-    return [p for p in paths
-            if not _match(p, TIER1_SURFACE) and stamp_only_violation(root, base, p) is not None]
+    """Paths neither inside TIER1_SURFACE nor a verified stamp-only edit.
+
+    ⚠️ STAMP_ONLY_SURFACE TAKES PRECEDENCE over a TIER1_SURFACE match, not the
+    other way round. Added 2026-09-28 alongside the `research/**` TIER1_SURFACE
+    entry (PI-20260922-E5-...): before this, a path matching BOTH lists (e.g.
+    `research/queue/RQ-1.yaml` once `research/**` was admitted) was vouched by
+    the plain `_match(p, TIER1_SURFACE)` check alone and `stamp_only_violation`
+    was never consulted -- silently letting a PR self-land a rewrite of a
+    pre-registered decision rule, exactly what STAMP_ONLY_SURFACE's own
+    docstring says must never self-land. A path this function was not built to
+    grade at all (neither list) is still refused, same as before.
+    """
+    out = []
+    for p in paths:
+        if any(fnmatch.fnmatch(p, g) for g in STAMP_ONLY_SURFACE):
+            if stamp_only_violation(root, base, p) is not None:
+                out.append(p)
+            continue
+        if not _match(p, TIER1_SURFACE):
+            out.append(p)
+    return out
 
 
 # Named so a failure can say WHY a path is barred, and so that widening
@@ -1297,8 +1345,11 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
     unvouched = [p for p in unvouched_paths(root, base, changed)
                  if p not in barred3 and p not in barred2]
     for p in changed:
-        if not _match(p, TIER1_SURFACE) and any(
-                fnmatch.fnmatch(p, g) for g in STAMP_ONLY_SURFACE):
+        # Reported for every STAMP_ONLY_SURFACE match regardless of a
+        # TIER1_SURFACE hit too -- `unvouched_paths` now grades these paths by
+        # `stamp_only_violation` alone (see its docstring), so the note must
+        # stay visible even when `research/**` also matches the same path.
+        if any(fnmatch.fnmatch(p, g) for g in STAMP_ONLY_SURFACE):
             why_not = stamp_only_violation(root, base, p)
             notes.append(f"stamp-only surface {p}: "
                          + ("VOUCHED (stamp fields only)" if why_not is None
