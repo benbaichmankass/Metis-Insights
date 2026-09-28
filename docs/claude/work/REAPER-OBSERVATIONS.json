@@ -14,6 +14,22 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-28T16:41:43Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-28T16:37:21Z",
       "rows_graded": 0,
       "by_state": {
@@ -956,27 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-28T10:44:48Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-28T16:37:21Z",
+  "updated_at": "2026-09-28T16:41:43Z",
   "latest": {
-    "generated_at": "2026-09-28T16:37:21Z",
+    "generated_at": "2026-09-28T16:41:43Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -994,7 +994,6 @@
       "unregistered_claude_branches": 1128,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
-        "claude/admin-triage-2026-09-28-ib-close-clamp",
         "claude/admin-triage-2026-09-28-pipeline-close",
         "claude/admin-triage-2026-09-28-records",
         "claude/admin-triage-2026-09-28-review-packets",
@@ -1007,14 +1006,15 @@
         "claude/audit-B-salvage-stale-backlog",
         "claude/audit-B-vestigial-route-order",
         "claude/audit-B-zombie-bot",
-        "claude/automation-landing-orphans"
+        "claude/automation-landing-orphans",
+        "claude/backlog-drain-20260909"
       ],
       "unregistered_but_attributable_sessions": 304,
       "unregistered_owner_map": {
         "session_0116oibqE8zMM9FZC4kXtcUs": [
           "claude/admin-triage-2026-09-28-capture-watch",
-          "claude/admin-triage-2026-09-28-ib-close-clamp",
-          "claude/admin-triage-2026-09-28-pipeline-close"
+          "claude/admin-triage-2026-09-28-pipeline-close",
+          "claude/admin-triage-2026-09-28-records"
         ],
         "session_011Gqsv3NxLmm5yp9gfNh6ar": [
           "claude/board-done-drain-perf-pass2"
@@ -1033,7 +1033,8 @@
           "claude/mi199-reset-decision"
         ],
         "session_011h6MApXzTAY91VE8y3bgbs": [
-          "claude/manager-register-2026-09-28c"
+          "claude/manager-register-2026-09-28c",
+          "claude/promote-slv-trend-1h-alpaca-live"
         ],
         "session_011xpvJ2MQgd4jmKkdfg6gzV": [
           "claude/e20-lane-cost-supervision",
@@ -1556,9 +1557,9 @@
           "claude/w5n-exit-head-reconcile"
         ],
         "session_01GxXaAMqxdL3p1XTuRC5mjc": [
-          "claude/jc-ca-03-a7-run-provenance",
           "claude/jc-git-pipeline-items",
-          "claude/jc-git-pipeline-items-2"
+          "claude/jc-git-pipeline-items-2",
+          "claude/jc-git-pipeline-items-3"
         ],
         "session_01GyB7Zej9GgVoodnfKz4Re5": [
           "claude/e20-lane-cost-supervision"
