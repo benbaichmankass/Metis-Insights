@@ -71,6 +71,14 @@ RUNNER_GLOBS = (
     # live tools as dead — and once the guard blocks, that rejects correct work.
     "bin/**/*.py", "bin/**/*.sh", "bin/*.py", "bin/*.sh",
     "Makefile", "*.md", "docs/**/*.md", ".claude/skills/**/*.md",
+    # RQ-RUN (2026-09-28): a research-queue unit is a RUNNER — its
+    # `run.command` is executed on a GitHub runner by
+    # research-script-run.yml (scripts/research/script_run.py reads it from
+    # the unit file), so a tool named only by a queue unit is wired, not
+    # rust. Without this line the first grid tool built for the runner
+    # (scripts/research/prop_ev_grid.py) graded `unwired` on the PR that
+    # wired it (#13730).
+    "research/queue/*.yaml", "research/queue/**/*.yaml",
 )
 
 
@@ -331,6 +339,14 @@ def _self_test(root: Path) -> int:
         # planted ORPHAN — must be flagged
         orphan = fake / "scripts" / "ops" / "orphan_tool.py"
         orphan.write_text("print('nobody calls me')\n")
+        # planted QUEUE-WIRED — a research-queue unit names it in run.command,
+        # which research-script-run.yml executes; must NOT be flagged
+        (fake / "scripts" / "research").mkdir(parents=True)
+        (fake / "research" / "queue").mkdir(parents=True)
+        (fake / "scripts" / "research" / "queue_wired_tool.py").write_text("print('a queue unit runs me')\n")
+        (fake / "research" / "queue" / "RQ-20260101-001.yaml").write_text(
+            "id: RQ-20260101-001\nrun:\n  workflow: research-script-run.yml\n"
+            "  command: [python3, scripts/research/queue_wired_tool.py, --out, '{out_dir}']\n")
         # planted WIRED — must NOT be flagged
         wired = fake / "scripts" / "ops" / "wired_tool.py"
         wired.write_text("print('a workflow runs me')\n")
@@ -384,6 +400,8 @@ def _self_test(root: Path) -> int:
                        "src/prop/prose_only_tool.py" in got))
         checks.append(("workflow-referenced tool is NOT flagged",
                        "scripts/ops/wired_tool.py" not in got))
+        checks.append(("queue-unit-referenced tool is NOT flagged (research-script-run runs it)",
+                       "scripts/research/queue_wired_tool.py" not in got))
         checks.append(("manual-only WITH a reason is NOT flagged",
                        "scripts/ops/manual_tool.py" not in got))
         checks.append(("manual-only with NO reason IS still flagged",
