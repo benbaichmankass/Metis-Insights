@@ -1019,9 +1019,13 @@ ORDER_FORM_JS = r"""
       let anc = form.parentElement;
       for (let i = 0; i < 4 && anc && anc !== document.body && m.length === 0; i++, anc = anc.parentElement) {
         m = [...anc.querySelectorAll('button, [role=button], input[type=submit]')].filter(b => {
-          if (form.contains(b) || !r.test(bname(b))) return false;
+          if (form.contains(b) || !r.test(bname(b)) || b.closest('table, tr')) return false;
           const br = b.getBoundingClientRect();
-          return br.width > 0 && br.left >= fr.left - 10 && br.right <= fr.right + 10;
+          // In the form's column AND below it (measured: the submit sits
+          // under the fields' panel) — never a price/quick-trade control
+          // stacked above or beside it.
+          return br.width > 0 && br.left >= fr.left - 10 && br.right <= fr.right + 10
+            && br.top >= fr.bottom - 10;
         });
       }
       if (m.length) out.submit_outside_form = true;
@@ -1037,6 +1041,7 @@ ORDER_FORM_JS = r"""
   // live sidebar, probe #13760) a div whose data-value reads "true"/"false".
   const toggleSel = 'input[type=checkbox], [role=checkbox], [role=switch], [data-value="true"], [data-value="false"]';
   out.toggle_candidates = form.querySelectorAll(toggleSel).length;
+  out.data_value_toggles = form.querySelectorAll('[data-value="true"], [data-value="false"]').length;
   for (const cb of form.querySelectorAll(toggleSel)) {
     const lab = labelOf(cb);
     for (const k of ['stop_loss', 'take_profit']) {
@@ -1515,7 +1520,10 @@ def verify_bracket_legs(form: Mapping[str, Any]) -> List[str]:
             elif not mine[0].get("checked"):
                 bad.append(f"{leg}: enabling toggle is OFF (would submit without the {leg})")
     modes = {leg: (fields.get(leg) or {}).get("mode") for leg in ("stop_loss", "take_profit")}
-    if any(m is not None for m in modes.values()):
+    # The live sidebar's shape (data-value toggles) always shows a mode
+    # select: there it must be READABLE, so a changed label can never make
+    # the Price check silently disappear (review of #13822).
+    if (form.get("data_value_toggles") or 0) > 0 or any(m is not None for m in modes.values()):
         for leg, m in modes.items():
             if str(m or "").strip().lower() != "price":
                 bad.append(f"{leg}: entry mode is {m!r}, need 'Price'")
@@ -2100,8 +2108,12 @@ class DXtradeAdapter(PropPlatformAdapter):
             self.close_order_ticket(page)
             return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
         # ── the one click that changes the account: the ticket's own submit ──
+        # Click the element PROVEN a moment ago (its one-time token): a node
+        # re-rendered since then lacks it, the click times out, and the
+        # attempt is reported unconfirmed (review of #13822).
+        submit_sel = f"[data-metis-btn=submit][data-metis-submit-token={submit_info['token']}]"
         try:
-            page.click("[data-metis-btn=submit]", timeout=5_000)
+            page.click(submit_sel, timeout=5_000)
         except Exception as exc:
             # The click may or may not have landed: report submitted so the
             # caller treats it as UNCONFIRMED and re-reads; never resubmit.
@@ -2154,7 +2166,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             chk = page.evaluate(SUBMIT_JS, ["check", token]) or {}
         except Exception as exc:
             return False, f"submit: could not check ({type(exc).__name__})", form, {}
-        info = {"scrolled": bool(marked.get("scrolled")), "text": chk.get("text")}
+        info = {"scrolled": bool(marked.get("scrolled")), "text": chk.get("text"), "token": token}
         if not chk.get("same"):
             return False, "submit: the control changed after scrolling", form, info
         if not chk.get("visible"):
@@ -2249,10 +2261,18 @@ class DXtradeAdapter(PropPlatformAdapter):
         if missing or "submit" not in (form.get("buttons") or {}):
             self.close_order_ticket(page)
             return {"ok": False, "clicked": False, "one_click": oc, "why": f"edit form incomplete (missing {missing})"}
+        if form.get("submit_outside_form"):
+            # An edit dialog's submit must be its OWN: one found outside it
+            # could be the sidebar's order button (review of #13822).
+            self.close_order_ticket(page)
+            return {"ok": False, "clicked": False, "one_click": oc,
+                    "why": "edit form's submit is outside the form: refusing (could place a new order)"}
         for k, v in want.items():
             page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
         form = self._find_form(page)
         mism = verify_form_values(form.get("fields") or {}, want)
+        if form.get("submit_outside_form"):
+            mism = mism + ["submit is outside the form"]
         if mism or not arm:
             self.close_order_ticket(page)
             return {"ok": not mism, "clicked": False, "one_click": oc,

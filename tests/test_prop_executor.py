@@ -1482,3 +1482,37 @@ def test_round_trip_refuses_a_non_enabled_venue(env):
     res = pe.run_round_trip(adapter=FakeAdapter(), page=None, api=FakeApi(), cfg=c, ledger=ledger,
                             venue_symbol="ETHUSD", arm=False)
     assert res.halted and "enabled_venue_symbols" in res.halted
+
+
+# ── Fable review of #13822 ─────────────────────────────────────────────────
+
+
+def test_outside_submit_must_sit_below_the_form_not_above(tpage):
+    # A same-column "Buy …" control ABOVE the fields (a quick-trade widget),
+    # no submit below: never tagged as the submit.
+    html = _measured().replace('<div id="footer" style="padding-top:200px"><button id="sub" '
+                               'onclick="window.__submits=(window.__submits||0)+1">Buy SOLUSD</button></div>', '') \
+                      .replace('<div id="panel">',
+                               '<button id="quick" onclick="window.__quick=1">Buy 120.05</button><div id="panel">')
+    p = tpage(html=html)
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)
+    assert "submit" not in form["buttons"]
+    spec = BracketSpec("t9", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and p.evaluate("window.__quick") is None
+
+
+def test_the_click_targets_the_token_proven_element(tpage):
+    p = tpage(html=_measured())
+    spec = BracketSpec("t10", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.submitted and att.form["submit"]["token"].startswith("t")
+    assert p.evaluate("document.getElementById('sub').dataset.metisSubmitToken") == att.form["submit"]["token"]
+
+
+def test_live_shape_requires_a_readable_mode():
+    import src.prop.platform.dxtrade as dx
+    on = [{"field": "stop_loss", "checked": True}, {"field": "take_profit", "checked": True}]
+    f = {"toggle_candidates": 2, "data_value_toggles": 2, "checkboxes": on, "fields": {"stop_loss": {}, "take_profit": {}}}
+    bad = dx.verify_bracket_legs(f)
+    assert "stop_loss: entry mode is None, need 'Price'" in bad and len(bad) == 2
