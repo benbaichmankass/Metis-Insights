@@ -13,7 +13,6 @@ no login and no real ping happen. What is pinned:
 - a missing venv is an environment failure, never a pip install.
 """
 import fcntl
-import os
 import pathlib
 import stat
 import subprocess
