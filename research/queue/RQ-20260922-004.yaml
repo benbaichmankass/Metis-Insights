@@ -1,6 +1,6 @@
 id: RQ-20260922-004
 title: Does xrp_pullback_2h's Stage-0 pass hold once the two levers its harness omits are simulated?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -128,3 +128,6 @@ related:
   - 'checklist C5 / R4 (this unit is one of the ten)'
   - 'The other two `approximate` passing legs (slv_pullback_1d, iaum_pullback_1d) carry the SAME two omitted levers and are covered by RQ-20260922-001, not here.'
 last_dispatched_at: '2026-09-26T16:10:46+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  VERDICT: bar_finding (Stage-0 pass NOT withdrawn; fidelity is MATERIALLY load-bearing). Population: xrp_pullback_2h, n_OOS=49 trades, base_net_r_OOS=+16.7031 (m20 fleet harness, split_mode oos-trades), the five trail_decay cells the unit asked for. SOURCE: the unit's own run 36254496707 (2026-09-26) landed research/results/RQ-20260922-004/36254496707.jsonl (0 of 5 cells passed, base +16.7031) but its per-cell rows are NOT retrievable on branch claude/m20-sweep-corpus (only 2026-08 and 2026-09-28 rows exist there for this leg), so the per-cell deltas are read from the 2026-09-28 re-sweep of the SAME leg (RQ-20260928-007, run 36434144288, research/results/_unattributed/36434144288.jsonl -> corpus branch rows), which carries the identical base (+16.7031, n=49). d_net_r_OOS per trail_decay cell: decay_arm2R_t3 -7.3342, decay_stall6_t3 -7.3182, decay_stall10_t3 -2.3520, decay_arm1.5R_stall6_t3 -10.9750, decay_p80arm1.85R_t3 -5.5835. Lever-simulated net_r_oos = base + d = +9.37 / +9.38 / +14.35 / +5.73 / +11.12 -- ALL > 0, so clause 1 (withdraw the pass) does NOT fire. |delta_R| exceeds the 4.10R materiality bar (0.25 x 16.4080) on 4 of 5 cells (only decay_stall10_t3 at 2.35R is inside it), so clause 2 fires: `fidelity: approximate` is materially load-bearing for this leg, in the FLATTERING direction (the record omits a lever that costs 5.6-11.0R of OOS net R). DELIVERABLE per the rule: a proposal to the operator to add a fifth clause to scripts/ci/check_roster_promotion_evidence.py refusing `fidelity: approximate` as Stage-0 evidence for a real-money slot -- filed as a pipeline item (next_action ask_operator) in the same PR; the guard change is NOT made by this unit. Not net of slippage/funding beyond the m20 harness's own default fee -- stated, since the rule keys on the sign and the delta, not the level.

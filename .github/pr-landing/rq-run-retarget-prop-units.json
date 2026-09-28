@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Edits the run:/lands: blocks of research/queue/RQ-20260928-011/-012/-013/-015 (retarget from a session-local note to research-script-run.yml); pr-landing-guard R5/E57 cannot vouch a non-stamp queue edit, so a human (the manager) reads it. The decision_rule blocks are byte-identical to main. DEPENDS ON #13728 (the runner) being on main first: merged before it, the four units would name a workflow that does not exist and the dispatcher would report them DISPATCH_FAILED.",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH): adds scripts/research/prop_ev_grid.py (a grid+grader over prop_ev_sim, Tier-1 research tooling) and retargets the four B6 prop units to the token-free runner. Tier-1 by path — no src/, config/, order path, deploy or live-VM file — held only because the queue edits are outside what the guard can certify."
+}

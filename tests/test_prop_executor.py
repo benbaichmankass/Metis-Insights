@@ -1103,3 +1103,63 @@ def test_controls_dump_masks_digits_and_never_reads_values(tpage):
     assert next(c for c in dump["controls"] if c["tid"] == "qty")["label"] == "Quantity"
     probe = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
     assert probe["surface"] == "not_opened" and probe["controls_dump"]["found"]
+
+
+# Shaped like the sidebar MEASURED in probe #13760 (test ids symbol_input, BUY,
+# SELL; Market/Limit/Stop/OCO buttons; SL/TP inputs behind data-value toggles).
+SIDEBAR = """
+<div class='hdr'><button data-test-id='account_menu'>Jane Doe</button></div>
+<div class='panel'>
+  <div><span>Symbol</span><input data-test-id='symbol_input' value='SOLUSD'></div>
+  <div><button class='tp-a sel' style='background:rgb(1,2,3)'>Market</button><button class='tp-a'>Limit</button>
+       <button class='tp-a'>Stop</button><button class='tp-a'>OCO</button></div>
+  <div><button data-test-id='SELL' class='sd'>Sell</button>
+       <button data-test-id='BUY' class='sd on' style='background:rgb(0,128,0)'>Buy</button></div>
+  <div><span>Quantity</span><input value='823528'></div>
+  <div>Stop Loss <div data-value='false'></div><input value='117.5'><button>Price</button></div>
+  <div>Take Profit <div data-value='false'></div><input value='126.25'><button>Price</button></div>
+  <div>Projected P&amp;L 12.34 contact jane.doe@example.com</div>
+  <button class='submit'>Place Order</button>
+</div>
+"""
+
+
+def test_ticket_panel_dump_reads_the_measured_sidebar_shape_and_redacts(tpage):
+    p = tpage(html=SIDEBAR)
+    a = DXtradeAdapter(timeout_ms=3_000)
+    dump = a.ticket_panel_dump(p)
+    assert dump["found"] and not dump["truncated"]
+    blob = json.dumps(dump["rows"])
+    assert "823528" not in blob and "117" not in blob and "@" not in blob and "jane" not in blob.lower()
+    texts = [r.get("text") for r in dump["rows"]]
+    assert {"Stop Loss", "Take Profit", "Quantity", "Market", "Buy", "Place Order"} <= set(texts)
+    buy = next(r for r in dump["rows"] if r.get("tid") == "BUY")
+    sell = next(r for r in dump["rows"] if r.get("tid") == "SELL")
+    assert buy["style"]["bg"] != sell["style"]["bg"] and buy["cls"] == "sd on"
+    toggles = [r for r in dump["rows"] if (r.get("state") or {}).get("data-value") == "false"]
+    assert len(toggles) == 2
+    assert not any(r.get("tid") == "account_menu" for r in dump["rows"])   # outside the panel
+    probe = a.probe_order_ticket(p, "SOLUSD")
+    assert probe["ticket_panel"]["found"] and "controls_dump" not in probe
+    assert p.evaluate("document.querySelectorAll('input')[1].value") == "823528"   # nothing typed
+
+
+def test_ticket_panel_dump_falls_back_to_the_control_map(tpage):
+    p = tpage(html="<div><button>Trade</button></div>")
+    probe = DXtradeAdapter(timeout_ms=3_000).probe_order_ticket(p, "SOLUSD")
+    assert "ticket_panel" not in probe and probe["ticket_panel_why"] and probe["controls_dump"]["found"]
+
+
+def test_ticket_panel_dump_anchors_on_the_sidebar_not_the_work_area(tpage):
+    # Probe #13775: the work area holds a watchlist table AND the sidebar; the
+    # sidebar (here with only 2 inputs) must be the anchor and tables skipped.
+    rows = "".join(f"<tr><td>SYM{i}</td><td><button>Sell</button></td><td><button>Buy</button></td></tr>"
+                   for i in range(200))
+    html = ("<div class='workarea'><table><tbody>" + rows + "</tbody></table>"
+            "<div class='side'><input data-test-id='symbol_input'>"
+            "<button data-test-id='SELL'>Sell</button><button data-test-id='BUY'>Buy</button>"
+            "<div><span>Quantity</span><input></div><button>Place Order</button></div></div>")
+    dump = DXtradeAdapter(timeout_ms=3_000).ticket_panel_dump(tpage(html=html))
+    assert dump["found"] and not dump["truncated"]
+    texts = [r.get("text") for r in dump["rows"]]
+    assert "Quantity" in texts and "Place Order" in texts and not any(t and t.startswith("SYM") for t in texts)

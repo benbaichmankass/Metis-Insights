@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "each of the four legs has either a merged Tier-3 declare PR or an operator decline recorded on docs/research/exit-refinement-coverage.json (cell status leaves passed_unshipped)",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-HK3BKCKE-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "lane RQ-RUN session_0179hCBVrY5PJMaHhK3BKcKe (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-28, grading of the ran-but-ungraded queue units; research/results/_unattributed/36434140504.jsonl (PR #13653) + 36434144288.jsonl",
+    "rerun": "python3 -c \"import json; [print(json.loads(l)['measurement'].get('leg'), json.loads(l)['measurement'].get('passing_cells')) for f in ('research/results/_unattributed/36434140504.jsonl','research/results/_unattributed/36434144288.jsonl') for l in open(f)]\""
+  },
+  "state": "queued",
+  "what": "Tier-3 DECLARE PROPOSALS from the 2026-09-28 m20 exit-lever sweeps (RQ-20260928-006/-007): gdx_pullback_1d vt_hot90_t2 (n_OOS=42); spy_pullback_1h rrfloor1 + vt_hot80_t2.5 (n_OOS=54); ada_pullback_2h vt_hot90_t2.5 (n_OOS=49); tlt_pullback_1h trail2 / trail4 (n_OOS=46, on a NEGATIVE base book -9.38R: the cells beat the base, the leg still loses). Each cleared the IS/OOS P2 gate (Path A/B, >=25 OOS trades). Per the exit-refinement pipeline P6 each is a per-leg Tier-3 declare proposal -- config/strategies.yaml untouched until the operator decides. Sweeps are net of the harness fee default only (no slippage/funding term), stated."
+}

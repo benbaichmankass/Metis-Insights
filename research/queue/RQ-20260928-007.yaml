@@ -1,6 +1,6 @@
 id: RQ-20260928-007
 title: M20 hard-lever sweep for the ict_scalp + 2h/1h pullback legs (BL-20260821 re-measure)
-status: queued
+status: done
 cadence: once
 kind: deterministic
 
@@ -117,3 +117,6 @@ related:
   - RQ-20260928-006
   - .claude/skills/exit-refinement/SKILL.md
 last_dispatched_at: '2026-09-28T14:11:42+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  VERDICT per leg (RULE-EXIT-REFINEMENT-P2-GATE, m20-exit-lever-sweep run 36434144288, 2026-09-28, research/results/_unattributed/36434144288.jsonl on main -- unattributed because run.inputs never carried research_unit): PASS ada_pullback_2h (n_OOS=49, base +19.6559, 1 of 17: vt_hot90_t2.5); PASS tlt_pullback_1h (46, -9.377, 2 of 17: trail2, trail4 -- a pass on a NEGATIVE base book: the cells beat the base, the leg itself still loses OOS); no_action_warranted eth_pullback_2h (48, +8.0729, 0/17), xrp_pullback_2h (49, +16.7031, 0/17), ict_scalp_5m (52, -2.2644, 0/4), ict_scalp_avax_5m (49, +5.7936, 0/4), ict_scalp_eth_15m (49, -4.559, 0/4), ict_scalp_sol_15m (50, +2.9858, 0/4), ict_scalp_sol_5m (50, +8.991, 0/4), ict_scalp_xrp_15m (50, -0.2867, 0/4), ict_scalp_xrp_5m (261, -17.6192, 0/4); INDETERMINATE ict_scalp_mgc_15m -- its sweep job failed in 1 s (no gradeable cell; the MGC frames on /home/ubuntu/m27_data did not yield a base book), re-run needed (pipeline item). No cell is shipped here. DELIVERABLE: ada_pullback_2h and tlt_pullback_1h passing cells are evidence for a Tier-3 declare proposal each (pipeline item, ask_operator). Coverage matrix updated in this PR. Net of the harness fee default only, stated.
