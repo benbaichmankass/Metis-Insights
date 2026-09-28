@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Evidence-only: a research write-up (docs/research/gld-1h-stop-confirm/), a pipeline-item update recording the operator's own pre-registered decision rule's result (docs/claude/work/pipeline/), and a .gitignore addition for the sweep script's own scratch output dir. No src/, config/strategies.yaml, config/accounts.yaml, or workflow change -- no order path, no risk cap, no account mode. The operator's decision rule was applied mechanically and reported; this PR does NOT ship the stop change (the literal proposal failed the decision rule) and does not touch any live config. Verified: python3 scripts/ops/pipeline.py --check reads the updated pipeline item clean (routed, routed_to set)."
+}
