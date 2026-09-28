@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "A cell row states, in a field rather than in prose, whether its baseline already contained its own lever, and a consumer branches on it -- verified by a planted control showing the field can read all three values. Renaming the verdict alone does not close this: without the field, a future consumer still cannot tell the 192 genuine no-ops from the 10 structural zeros.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-A-SHIPPED-LEVER-RE-SWEPT-AGAINST-ITSELF-READS-AS-A-MEASURED-NO-OP'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "clears_when is satisfied by code already on main: a cell row states, in a field (`lever_in_baseline`), whether its baseline already contained its own lever; `caveats_for()` in m20_ack_corpus_disagreements.py is a real consumer that branches on it; and tests/test_corpus_lever_in_baseline.py's `test_every_state_is_reachable_from_the_real_corpus` is exactly the planted control specified, and it passes (verified by running pytest on this file: 8 passed).",
+  "triage_2026_09_28": {
+    "checked": "Found the fix already built: scripts/research/m20_ack_corpus_disagreements.py carries a `lever_in_baseline` field (states: lever_in_baseline / lever_absent_from_baseline / unknown) and its `caveats_for()` function branches on all three. tests/test_corpus_lever_in_baseline.py has 8 tests including `test_every_state_is_reachable_from_the_real_corpus` (the planted control the clears_when asks for) and `test_dropped_is_checked_before_present`. Ran the test file directly: all 8 pass.",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "clears_when is satisfied by code already on main: a cell row states, in a field (`lever_in_baseline`), whether its baseline already contained its own lever; `caveats_for()` in m20_ack_corpus_disagreements.py is a real consumer that branches on it; and tests/test_corpus_lever_in_baseline.py's `test_every_state_is_reachable_from_the_real_corpus` is exactly the planted control specified, and it passes (verified by running pytest on this file: 8 passed)."
+  },
+  "what": "[health] once a lever is DECLARED on a leg the sweep's baseline already contains it, so a re-sweep returns exactly-zero deltas under `tie_no_improvement` -- byte-identical to a lever that was measured and does nothing\n\n[TRIAGE 2026-09-28] KILL — clears_when is satisfied by code already on main: a cell row states, in a field (`lever_in_baseline`), whether its baseline already contained its own lever; `caveats_for()` in m20_ack_corpus_disagreements.py is a real consumer that branches on it; and tests/test_corpus_lever_in_baseline.py's `test_every_state_is_reachable_from_the_real_corpus` is exactly the planted control specified, and it passes (verified by running pytest on this file: 8 passed)."
+}

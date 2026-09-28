@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) the operator approves a Tier-3 trail_mult 3 -> 4 change for tlt_pullback_1h, it merges, and the matrix trail_geometry cell records the live-parity evidence and the new shipped value; or (b) a walk-forward on a window that does NOT share the 2025-07-01 split (or a fresh out-of-window fold) fails to reproduce the edge and the row is closed `resolved_refuted` with those numbers stated; or (c) the operator decides the Path B route is too weak a basis for a real-money parameter change and says so, which closes it as a recorded decision rather than an open question.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260814-TLT-PULLBACK-1H-SHIPS-TRAIL3-WHILE-TRAIL4-PASSES-AT-LIVE-PARITY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "This is exactly clears_when option (c): the operator already decided (2026-08-14, re-confirmed 2026-08-16) that the Path B evidence is too weak a basis for the real-money trail3->trail4 change, and said so on the record in config/strategies.yaml itself. The row asks for a recorded decision, not a specific outcome, and one already exists — including its own re-open condition (base_net_r_OOS turning positive).",
+  "triage_2026_09_28": {
+    "checked": "Read config/strategies.yaml tlt_pullback_1h block (L2259-2296) in full. Its comment explicitly records: 'trail4 is passed_unshipped and deliberately HELD (2026-08-14 operator decision (f), re-confirmed 2026-08-16): it is PATH B (gate_passed_OOS false, maxdd_worse) over an OOS base book that is unprofitable on all three splits tested, so it improves a LOSING book. Revisit only if base_net_r_OOS turns positive — NOT by re-running a sweep.' Field (trail_mult: 3.0) matches this recorded decision.",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "This is exactly clears_when option (c): the operator already decided (2026-08-14, re-confirmed 2026-08-16) that the Path B evidence is too weak a basis for the real-money trail3->trail4 change, and said so on the record in config/strategies.yaml itself. The row asks for a recorded decision, not a specific outcome, and one already exists — including its own re-open condition (base_net_r_OOS turning positive)."
+  },
+  "what": "[performance] [strategy] tlt_pullback_1h ships trail3 while trail4 passes the walk-forward at LIVE-PARITY geometry, reproduced across three independent runs\n\n[TRIAGE 2026-09-28] KILL — This is exactly clears_when option (c): the operator already decided (2026-08-14, re-confirmed 2026-08-16) that the Path B evidence is too weak a basis for the real-money trail3->trail4 change, and said so on the record in config/strategies.yaml itself. The row asks for a recorded decision, not a specific outcome, and one already exists — including its own re-open condition (base_net_r_OOS turning positive)."
+}

@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The measurement half is already DONE and recorded in this row's resolution field (HOLD-AT-2.5; re-sweep on the converged engine plus per-trade attribution; config deliberately unchanged). What keeps it open is the row's other half, VERIFIED still outstanding 2026-08-25: src/runtime/trail_decay.py and src/runtime/trail_vol.py both still carry 'Harness reference: ... scripts/backtest_trend.py / scripts/backtest_pullback.py' - the engine the fidelity pipeline never runs. Closes when both docstrings cite the live-faithful harness instead, confirmed by reading the two files, at which point the recorded resolution stands as written.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260808-TRAIL-LEVER-TUNED-ON-NON-LIVE-FAITHFUL-TRAIL'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "The row's own resolution_criteria says it closes when both docstrings cite the live-faithful harness, 'confirmed by reading the two files.' Read both files: they cite scripts/backtest_trend.py / scripts/backtest_pullback.py, and that root engine is now documented and implemented as the live-faithful one (frozen entry ATR, levers ported in 2026-08-08). The measurement half was already resolved HOLD-AT-2.5; the doc-citation half is now also satisfied.",
+  "triage_2026_09_28": {
+    "checked": "Read src/runtime/trail_decay.py and trail_vol.py docstrings (both cite `scripts/backtest_trend.py` / `scripts/backtest_pullback.py`, no research/ prefix). Read scripts/backtest_trend.py's own docstring: it now explicitly freezes the ENTRY bar's ATR for the whole trade ('matching what trend_donchian.monitor() does live') and states the M20/M21 levers were RE-IMPLEMENTED into this engine's own (live-faithful) semantics on 2026-08-08, as part of BL-20260808-TREND-HARNESS-FORK-SPLITS-FIDELITY-FROM-EVIDENCE convergence step (a). Confirmed scripts/backtest_pullback.py also implements trail_decay_arm_r/trail_vol_* natively. tests/trend_harness_engine.py corroborates: the research copy (rolling ATR) was retired in favor of this root engine being THE live-faithful one.",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "The row's own resolution_criteria says it closes when both docstrings cite the live-faithful harness, 'confirmed by reading the two files.' Read both files: they cite scripts/backtest_trend.py / scripts/backtest_pullback.py, and that root engine is now documented and implemented as the live-faithful one (frozen entry ATR, levers ported in 2026-08-08). The measurement half was already resolved HOLD-AT-2.5; the doc-citation half is now also satisfied."
+  },
+  "what": "[health] A LIVE armed Tier-3 trail lever (trend_donchian trail_decay_arm_r 6.49) was tuned on the harness whose trail uses a ROLLING ATR, while the live monitor trails off the FROZEN entry ATR\n\n[TRIAGE 2026-09-28] KILL — The row's own resolution_criteria says it closes when both docstrings cite the live-faithful harness, 'confirmed by reading the two files.' Read both files: they cite scripts/backtest_trend.py / scripts/backtest_pullback.py, and that root engine is now documented and implemented as the live-faithful one (frozen entry ATR, levers ported in 2026-08-08). The measurement half was already resolved HOLD-AT-2.5; the doc-citation half is now also satisfied."
+}

@@ -1,0 +1,48 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "For gld_pullback_1h: an operator decision on the Tier-3 stop-multiplier change, taken on a walk-forward that CLEARS the current live geometry rather than on this sweep alone -- a passing CELL is not a passing LEVER DISPOSITION, and the sweep is a surface scan, not a walk-forward of the proposed config. For trend_donchian_1h: no action while the leg is shadow/disabled; this row is consulted if it is ever enabled. Closing either by editing config/strategies.yaml off this sweep is exactly what the regime-selectivity no-cosmetic-cell rule forbids by analogy.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260831-E35-RESWEEP-AT-POWER-SURFACES-TWO-BRACKET-GEOMETRY-LEADS-GLD-1H-AND-TREND-DONCHIAN-1H",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json#BL-20260831-E35-RESWEEP-AT-POWER-SURFACES-TWO-BRACKET-GEOMETRY-LEADS-GLD-1H-AND-TREND-DONCHIAN-1H",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/research-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260831-E35-RESWEEP-AT-POWER-SURFACES-TWO-BRACKET-GEOMETRY-LEADS-GLD-1H-AND-TREND-DONCHIAN-1H'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "config/strategies.yaml: gld_pullback_1h's atr_stop_mult is still 2.5 (the stop-multiplier change from this row, sm1.5/tp6_sm1.5_to24, has NOT been made) -- though a related-but-different Tier-3 change (tp_r=4.0, cell 'tp4') from the SAME e35 sweep WAS already shipped on this leg. trend_donchian_1h remains enabled:false / execution:shadow, unchanged. docs/research/research-disposition-ledger.jsonl has no newer disposition superseding this row's numbers.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "$0, minutes",
+          "label": "Ship sm1.5 or tp6_sm1.5_to24 on gld_pullback_1h now, off this sweep alone",
+          "risk": "The row explicitly warns a passing CELL is not a passing LEVER DISPOSITION -- no walk-forward against the exact proposed live config has been run, so this could ship on a surface-scan artifact",
+          "what_happens": "Edit atr_stop_mult in config/strategies.yaml, Tier-3, small PR"
+        },
+        {
+          "cost": "one research cycle, no live risk",
+          "label": "Commission the confirming walk-forward of the proposed config first, per the row's own bar",
+          "risk": "delays a possibly-real +17-19R OOS gain by one cycle",
+          "what_happens": "Dispatch a Tier-1 research lane to run the walk-forward that CLEARS the current live geometry, then bring the result back for the Tier-3 decision"
+        },
+        {
+          "cost": "$0",
+          "label": "Leave gld_pullback_1h's stops as-is; only note trend_donchian_1h's cells for whenever it's re-enabled",
+          "risk": "forgoes the measured gain if it holds up",
+          "what_happens": "No config change"
+        }
+      ],
+      "priority_tier": 2,
+      "question": "gld_pullback_1h (LIVE, execution:live) is up-to-date on the e35 tp4 take-profit change, but its stop-multiplier is still the pre-sweep 2.5 even though the same 2026-08-31 re-sweep (run 33411906178, n_oos=59) found sm1.5 (+19.12R OOS, 5/6 effective folds) and tp6_sm1.5_to24 (+17.80R, 6/6) beating it. Should the operator authorize a stop-multiplier change, and what should happen to trend_donchian_1h's cells (to96/sm2_to96/sm2, also positive) once/if that leg is ever re-enabled from shadow?",
+      "recommendation": "Option 2 -- get the confirming walk-forward before touching config, exactly as the row's own resolution_criteria requires; a passing surface cell should not by itself trigger a Tier-3 edit."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[research] The 2026-08-31 e35 re-sweep at split_target_oos=60 (run 33411906178) is the FIRST adequately-powered read of these legs, and two carry a bracket-geometry cell worth a Tier-3 look. gld_pullback_1h (LIVE, enabled:true / execution:live, n_oos=59): `sm1.5` +19.1188 OOS net_R at 5/6 effective folds, `tp6_sm1.5_to24` +17.7970 at 6/6, `tp4` +4.3415 on the STRONGER Path A gate at 4/6, zero inert folds anywhere. trend_donchian_1h (n_oos=57): `to96` +12.5856 on Path A at 4/6, `sm2_to96` +10.9243 at 5/6, `sm2` +7.5264 at 5/6 -- but the leg is enabled:false / execution:shadow, so there is NO live geometry to change and this row is what carries the finding to a future enablement.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 2) — gld_pullback_1h (LIVE, execution:live) is up-to-date on the e35 tp4 take-profit change, but its stop-multiplier is still the pre-sweep 2.5 even though the same 2026-08-31 re-sweep (run 33411906178, n_oos=59) found sm1.5 (+19.12R OOS, 5/6 effective folds) and tp6_sm1.5_to24 (+17.80R, 6/6) beating it. Should the operator authorize a stop-multiplier change, and what should happen to trend_donchian_1h's cells (to96/sm2_to96/sm2, also positive) once/if that leg is ever re-enabled from shadow? Recommendation: Option 2 -- get the confirming walk-forward before touching config, exactly as the row's own resolution_criteria requires; a passing surface cell should not by itself trigger a Tier-3 edit."
+}

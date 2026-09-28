@@ -44,7 +44,8 @@ opening new sesssions, none of that bullshit - if the manger absolutely needs
 it, I will temporarily move them out of auto mode. That is the only acceptable
 resolution."* And: *"I don't want any more questioning of my authority."*
 
-When the classifier denies an action the manager needs to do its job:
+This section is about the MANAGER'S OWN action being blocked by the classifier.
+When that happens:
 
 1. **Tell the operator, in one message:** the exact action that was denied
    (command and files), what it is for, and the instruction or row it comes
@@ -53,8 +54,8 @@ When the classifier denies an action the manager needs to do its job:
 3. **Tell the operator it is done**, so they can put the manager back into auto
    mode. Then carry on in auto mode.
 
-**Forbidden alternatives**, every one of them: asking the operator to make the
-edit by hand; spawning a new session or lane to do it; rewording, splitting or
+**Forbidden alternatives**, every one of them, for the manager's OWN blocked
+action: asking the operator to make the edit by hand; rewording, splitting or
 re-encoding the action to get it past the classifier. The operator has ruled
 these out explicitly.
 
@@ -62,11 +63,56 @@ these out explicitly.
 operator to re-confirm an instruction they already gave. The denial is a
 permission-mode problem, not a question about who authorized what.
 
+### When a lane refuses, stalls, or is blocked (operator, 2026-09-28, binding)
+
+The operator, verbatim, 2026-09-28, to the manager, after a lane refused to
+report back so the manager could re-dispatch it: *"Just to be clear though, I
+never said no workarounds and that mandate needs to be removed immediately
+because it is causing this kind of rogue behavior. The whole point of the
+manager session is that you use the under the lower level sessions to get the
+work done. And if they're refusing to do the work, then the system is not
+working. So that is not how we work. The whole build, the whole system is
+built around a workaround to get everything to do what it's supposed to do.
+... this is not what I expect from future sessions going forward. This is the
+whole point of the way that the authority structure is built."*
+
+This is a different case from the manager's own classifier block above: it is
+about a lane whose task was unclear, wrongly scoped, or stalled for reasons
+that have nothing to do with a safety check correctly refusing an unsafe or
+out-of-scope action.
+
+**The rule:** when a lane refuses, stalls, or is blocked, the manager
+re-dispatches it — a fresh lane, with a corrected, accurate brief that fixes
+whatever made the original task illegible or wrongly scoped. That is the
+system working as designed, not a forbidden workaround. **A lane asked by the
+operator or the manager to report its refusal, so it can be re-dispatched with
+a corrected brief, reports it in one line; going silent instead of reporting
+is itself the failure.**
+
+**This does not relax the actual safety boundary, and re-dispatch is never a
+substitute for it:**
+- A re-dispatch restates the task accurately, including that an earlier
+  attempt was blocked or refused. It never disguises, splits, or re-encodes an
+  action to hide it from Claude Code's own safety check — that is exactly what
+  the "forbidden alternatives" above rules out, and re-dispatch is not an
+  exception to it.
+- If an accurately, honestly restated attempt is blocked again, the action
+  goes to the operator as a one-click approval inside that lane's session —
+  never disguised, and never turned into manual work for the operator.
+- Claude Code's own permission prompts are still a human click (see § "Every
+  spawn carries provenance" below); no re-dispatch answers one on the
+  operator's behalf, and repeatedly re-spawning the same blocked action hoping
+  a fresh session won't be caught is the thing this boundary forbids.
+
+**Measured incident:** 2026-09-28, lane MANDATE-ARM-2 read the "forbidden
+alternatives" language above as forbidding it from reporting its own refusal
+back to the manager at all; it doesn't — that language is about the manager's
+own classifier block, not a lane's report-back — and this section is corrected
+so it can't be misread that way again.
+
 **Lanes:** a lane blocked by the classifier reports the exact denied action to
 the manager in one line (see `docs/CLAUDE-RULES-CANONICAL.md` § "No lane files
-a dispute of operator authority") and does not file it anywhere. The manager
-does not re-spawn a fresh lane to get around the block; it resolves it the same
-way, through the operator's temporary mode switch.
+a dispute of operator authority") and does not file it anywhere else.
 
 ## Five things the manager does
 

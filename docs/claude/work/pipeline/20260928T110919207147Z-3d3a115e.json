@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either the squeeze harness carries the vol_trail flags and the cell has a measured sweep verdict, or the cell's ref records a decision NOT to build it that does not rest on the withdrawn 25-35 projection.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260817-SQUEEZE-VOLTRAIL-HARNESS-GAP-DISPOSITION-RESTS-ON-A-FLOOR-VS-TARGET-CONFLATION",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260817-SQUEEZE-VOLTRAIL-HARNESS-GAP-DISPOSITION-RESTS-ON-A-FLOOR-VS-TARGET-CONFLATION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260817-SQUEEZE-VOLTRAIL-HARNESS-GAP-DISPOSITION-RESTS-ON-A-FLOOR-VS-TARGET-CONFLATION'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "clears_when option (a) is satisfied: scripts/backtest_squeeze.py now declares --trail-vol-above-pctl/--trail-vol-below-pctl/--trail-vol-tight-mult/--vol-pctl-window (pinned by tests/test_squeeze_vol_trail_lever.py, which cites this exact BL id), and the cell has a measured sweep verdict — docs/research/exit-refinement-coverage.json row for squeeze_breakout_4h/vol_trail records vt_cold10_t1.8 verdict=path_b_wf_pass (wf 4/6, d_net_r_OOS +3.2198) from the 2026-08-17T11:30:58Z corpus run. The withdrawn 25-35 OOS-band projection is explicitly corrected in the same row (measured n=101/49, not 25-35).",
+  "triage_2026_09_28": {
+    "checked": "Read tests/test_squeeze_vol_trail_lever.py (harness reachability pinned), grepped docs/research/exit-refinement-coverage.json for the squeeze_breakout_4h/vol_trail row's full ref text, which documents both the harness build and the measured cell verdict. Note for whoever applies this: whether to ship the vt_cold10_t1.8 lever is a separate, NOT-YET-FILED Tier-3 decision the coverage doc explicitly defers to the operator — that should become its own pipeline row, distinct from this closed harness-gap finding. Also noticed this same BL id exists twice in docs/claude/work/pipeline/ (this file and 20260924T160412099520Z... wait, that one is TP-CLAMP not this one — disregard).",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "clears_when option (a) is satisfied: scripts/backtest_squeeze.py now declares --trail-vol-above-pctl/--trail-vol-below-pctl/--trail-vol-tight-mult/--vol-pctl-window (pinned by tests/test_squeeze_vol_trail_lever.py, which cites this exact BL id), and the cell has a measured sweep verdict — docs/research/exit-refinement-coverage.json row for squeeze_breakout_4h/vol_trail records vt_cold10_t1.8 verdict=path_b_wf_pass (wf 4/6, d_net_r_OOS +3.2198) from the 2026-08-17T11:30:58Z corpus run. The withdrawn 25-35 OOS-band projection is explicitly corrected in the same row (measured n=101/49, not 25-35)."
+  },
+  "what": "[health] squeeze_breakout_4h/vol_trail was assessed 'not worth building the harness lever' partly because a derived OOS split was projected into the 25-35 band; measured n=101 puts it at the full 50-trade target, so that ground does not hold\n\n[TRIAGE 2026-09-28] KILL — clears_when option (a) is satisfied: scripts/backtest_squeeze.py now declares --trail-vol-above-pctl/--trail-vol-below-pctl/--trail-vol-tight-mult/--vol-pctl-window (pinned by tests/test_squeeze_vol_trail_lever.py, which cites this exact BL id), and the cell has a measured sweep verdict — docs/research/exit-refinement-coverage.json row for squeeze_breakout_4h/vol_trail records vt_cold10_t1.8 verdict=path_b_wf_pass (wf 4/6, d_net_r_OOS +3.2198) from the 2026-08-17T11:30:58Z corpus run. The withdrawn 25-35 OOS-band projection is explicitly corrected in the same row (measured n=101/49, not 25-35)."
+}

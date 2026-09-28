@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "MEASURED 2026-09-07 by MI-168 while re-scoping the IB close-confirmation (PR on branch mi-168-trade-scoped-close-confirmation; reasoning in docs/design/close-confirmation-scope-DESIGN.md section 6). execute.close_open_position receives a PER-TRADE qty and, on the alpaca branch, DISCARDS it: AlpacaClient.close(symbol) accepts no quantity at all (pinned by test_alpaca_close_signature_cannot_express_a_trade_scoped_close) and issues DELETE /v2/positions/{sym}, Alpaca's whole-symbol liquidation; _close_extended_hours likewise reads qty from the LIVE POSITION (pos.get('qty')), not from the caller's trade. So with two open journal rows on one symbol, closing trade A removes trade B's shares too and B's row stays open with no venue position behind it. This is the MIRROR of the IB defect MI-167 measured: IB falsely REFUSES a close that succeeded; Alpaca silently OVER-CLOSES. Pinned as current behaviour by test_alpaca_close_of_one_trade_liquidates_its_sibling_too in tests/test_close_confirm_trade_scope.py. !! DO NOT 'FIX' THIS BY RE-SCOPING THE CONFIRMATION, which is what MI-167's proposed fix asked for at alpaca_client.py:842 and :1049. The confirmation is symbol-scoped and so is the OPERATION, so the two MATCH and Alpaca is NOT exposed to the false refusal (positive control: test_alpaca_close_is_not_exposed_to_the_false_refusal passes both before and after MI-168). Confirming a trade-sized reduction while the venue liquidated everything would journal one trade closed and leave its si …[truncated]",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260907-ALPACA-CLOSE-OF-ONE-TRADE-LIQUIDATES-ITS-SIBLINGS'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "Fixed by PR #11337 (MI-168): src/units/accounts/alpaca_client.py::AlpacaClient.close now takes a qty parameter and issues DELETE /v2/positions/{sym}?qty=N (Alpaca's documented partial liquidation) when qty is smaller than the live position, instead of always flattening the whole symbol. tests/test_close_confirm_trade_scope.py's old pin test was explicitly renamed/inverted (test_alpaca_close_signature_can_now_express_a_trade_scoped_close, docstring: '#11337 satisfies this row's RESOLVES-WHEN'), and its own comment states execute.close_open_position now forwards the per-trade qty (see tests/test_alpaca_trade_scoped_close.py).",
+  "triage_2026_09_28": {
+    "checked": "Read src/units/accounts/alpaca_client.py:1316-1360 (close() signature and docstring citing MI-173/WO-20260908), and tests/test_close_confirm_trade_scope.py lines 396-504 (both the still-relevant legacy-unscoped-path test and the inverted signature test whose docstring explicitly names this BL id as resolved).",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "Fixed by PR #11337 (MI-168): src/units/accounts/alpaca_client.py::AlpacaClient.close now takes a qty parameter and issues DELETE /v2/positions/{sym}?qty=N (Alpaca's documented partial liquidation) when qty is smaller than the live position, instead of always flattening the whole symbol. tests/test_close_confirm_trade_scope.py's old pin test was explicitly renamed/inverted (test_alpaca_close_signature_can_now_express_a_trade_scoped_close, docstring: '#11337 satisfies this row's RESOLVES-WHEN'), and its own comment states execute.close_open_position now forwards the per-trade qty (see tests/test_alpaca_trade_scoped_close.py)."
+  },
+  "what": "[health] AlpacaClient.close takes no qty and flattens the WHOLE symbol, so closing one journal trade silently liquidates every sibling trade's shares while their rows stay open with nothing behind them\n\n[TRIAGE 2026-09-28] KILL — Fixed by PR #11337 (MI-168): src/units/accounts/alpaca_client.py::AlpacaClient.close now takes a qty parameter and issues DELETE /v2/positions/{sym}?qty=N (Alpaca's documented partial liquidation) when qty is smaller than the live position, instead of always flattening the whole symbol. tests/test_close_confirm_trade_scope.py's old pin test was explicitly renamed/inverted (test_alpaca_close_signature_can_now_express_a_trade_scoped_close, docstring: '#11337 satisfies this row's RESOLVES-WHEN'), and its own comment states execute.close_open_position now forwards the per-trade qty (see tests/test_alpaca_trade_scoped_close.py)."
+}

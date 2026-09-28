@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "alpaca_live declares an exposure/notional bound (e.g. max_gross_exposure_pct and/or a per-position notional cap) such that no routed leg can size past it, verified by recomputing the notional table above against the declared cap; OR the per-leg stop geometry is widened so 2% risk implies sane notional. Either is Tier-3.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-ALPACA-RISK-SIZING-EXCEEDS-ACCOUNT-NOTIONAL-AT-EVERY-FUNDING-LEVEL'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "config/accounts.yaml alpaca_live.strategies is now only 3 legs (ief_pullback_1d, slv_pullback_1d, iaum_pullback_1d) -- confirmed by parsing the YAML -- down from the 15-leg population the '7 of 15' finding was measured against (roster churn matches CLAUDE.md's note on the 2026-09-21 Alpaca roster cut). grep confirms no max_gross_exposure_pct is declared anywhere in accounts.yaml (src/units/accounts/risk.py defaults it to 0.0 = unenforced), so the underlying gap (no exposure cap) is unchanged, but the specific '7 of 15 legs oversized' claim is stale and must not be re-quoted against the current 3-leg roster without recomputing.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane: recompute the notional-vs-account-size table for the CURRENT 3-leg alpaca_live roster (population changed 15->3) before this goes back to the operator as a fresh Tier-3 sizing/cap decision. Do not carry forward the old 7/15 figure.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] 7 of 15 alpaca_live legs size to MORE notional than the whole account on a single trade — scale-invariant, so funding does not fix it, and no exposure cap is declared\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane: recompute the notional-vs-account-size table for the CURRENT 3-leg alpaca_live roster (population changed 15->3) before this goes back to the operator as a fresh Tier-3 sizing/cap decision. Do not carry forward the old 7/15 figure."
+}
