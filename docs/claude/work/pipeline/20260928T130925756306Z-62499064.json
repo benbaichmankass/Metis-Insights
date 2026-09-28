@@ -1,0 +1,45 @@
+{
+  "a10_note": "Still applies and it is an operator decision record either way. EVIDENCE: MEASURED 2026-09-24: _match('research/queue/RQ-20260922-003.yaml', TIER1_SURFACE) -> False; PR #12741 (the split) is still open as a draft.",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER research/queue/** (and research/** generally, which now also holds research/results/) is added to scripts/ci/check_pr_landing.py::TIER1_SURFACE under an operator decision record, as scripts/backtest_*.py was under MI-242 -- OR the operator states that a queue-status flip is deliberately human-gated, and that reason is written into the guard so the next lane meets it instead of re-deriving it.",
+    "kind": "event",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PI-20260922-E5-RESEARCH-QUEUE-IS-OUTSIDE-TIER1-SURFACE-SO-NO-LANE-CAN-SELF-LAND-A-QUEUE-FLIP",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_012atopaewbCQy8Fn3ex9obD, checklist row E5, PR #12739",
+    "rerun": "python3 -c \"import sys; sys.path.insert(0,'scripts/ci'); from check_pr_landing import TIER1_SURFACE, _match; print([p for p in ['research/queue/RQ-20260922-003.yaml','research/results/README.md','scripts/research/research_result.py'] if not _match(p, TIER1_SURFACE)])\"   # empty list = research/queue is inside the surface and this row is closed"
+  },
+  "routed_to": "https://github.com/benbaichmankass/Metis-Insights/pull/13624",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Re-ran the item's own rerun command: python3 -c \"...from check_pr_landing import TIER1_SURFACE, _match...\" against research/queue/RQ-20260922-003.yaml — still returns non-empty (still outside TIER1_SURFACE). Checked PR #12741 via GitHub API: state=open, draft=true, merged=false — still unmerged. The A10 lane's 2026-09-24 routing is unchanged and still applies.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "one guard-config PR",
+          "label": "Add research/** to TIER1_SURFACE",
+          "risk": "widens the self-land allowlist; low risk since it's plain YAML bookkeeping, but sets precedent",
+          "what_happens": "future queue-status flips self-land like other Tier-1 bookkeeping"
+        },
+        {
+          "cost": "one doc/comment PR",
+          "label": "Declare queue flips deliberately human-gated, write the reason into the guard",
+          "risk": "keeps a recurring human bottleneck on routine bookkeeping",
+          "what_happens": "no widening; every future queue flip goes through a human, but the reason stops needing to be re-derived"
+        }
+      ],
+      "priority_tier": 6,
+      "question": "A Tier-1 research-queue status flip (blocked->queued) can't self-land because check_pr_landing.py's TIER1_SURFACE allowlist doesn't cover research/queue/**, forcing every such PR to be split or held for a human. Should research/** be added to TIER1_SURFACE (like scripts/backtest_*.py was under MI-242), or is a queue-status flip meant to stay human-gated on purpose?",
+      "recommendation": "No new evidence changes this since the 2026-09-24 routing; still the operator's call."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "MEASURED 2026-09-22 by running scripts/ci/check_pr_landing.py against PR #12739's diff: R5 fails a Tier-1 `landing: self` declaration naming research/queue/RQ-20260922-003.yaml, -004 and -007, because TIER1_SURFACE lists scripts/research/** but NOT research/**. Consequence: a lane that unblocks a research unit -- flipping `status: blocked` to `queued`, which is Tier-1 research bookkeeping by the canonical doc's own examples -- CANNOT self-land that flip, and must either split the PR or hold it for a human. The E5 lane split it (claude/e5-unblock-research-units, landing: hold, hold_reason unvouchable_paths). [!] NOT A BUG IN THE GUARD, AND THE GUARD WAS DELIBERATELY NOT WIDENED. R5's polarity is an ALLOWLIST on purpose -- its own docstring says a path it cannot certify is refused rather than granted by default -- and the single precedent for widening TIER1_SURFACE (MI-242, scripts/backtest_*.py, operator-approved 2026-09-10 via DR-20260908) went through an operator decision precisely so the list does not grow by whoever is inconvenienced. [!] IT IS ALSO NOT COSMETIC: every future lane that unblocks a queue unit hits this, and the cheap way past it is to stop flipping the unit -- which leaves units reading `blocked` after their blocker has cleared, the exact stale-register state the operating reset was about. research/results/** is affected too and is only inside the surface today by the incidental `*.md` glob matching its README.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — A Tier-1 research-queue status flip (blocked->queued) can't self-land because check_pr_landing.py's TIER1_SURFACE allowlist doesn't cover research/queue/**, forcing every such PR to be split or held for a human. Should research/** be added to TIER1_SURFACE (like scripts/backtest_*.py was under MI-242), or is a queue-status flip meant to stay human-gated on purpose? Recommendation: No new evidence changes this since the 2026-09-24 routing; still the operator's call.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: add research/** to TIER1_SURFACE in scripts/ci/check_pr_landing.py (landing machinery -> hold). Built in scripts/ci/check_pr_landing.py (TIER1_SURFACE + unvouched_paths(), the latter changed so STAMP_ONLY_SURFACE still governs research/queue/*.yaml regardless of the new research/** TIER1_SURFACE match, preserving the pre-registered-decision-rule protection); PR #13624 is held pending manager/operator merge."
+}
