@@ -503,9 +503,12 @@ strategies:
                              # (relayed via manager to lane EXIT-OPS on
                              # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
                              # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
-                             # (net_r -16.8140, n=193, folds+ 1/4, 2026-09-22
-                             # E28 measurement, comms/strategy_evidence/
-                             # ict_scalp_5m.json). Keeps logging; stops taking
+                             # (net_r -9.4826, n=193, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_5m.json.
+                             # Keeps logging; stops taking
                              # paper trades on bybit_1. Was:
                              # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
                              # operator-approved Phase-4 packet:
@@ -597,10 +600,13 @@ strategies:
                              # (relayed via manager to lane EXIT-OPS on
                              # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
                              # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
-                             # (net_r -14.7099, n=258, folds+ 1/4, 2026-09-22
-                             # E28 measurement, comms/strategy_evidence/
-                             # ict_scalp_sol_5m.json). Keeps logging; stops
-                             # taking paper trades on bybit_1.
+                             # (net_r -8.8634, n=259, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_sol_5m.json.
+                             # Keeps logging; stops taking paper trades on
+                             # bybit_1.
     timeframe: "5m"
     symbols:
       - SOLUSDT
@@ -680,10 +686,13 @@ strategies:
                              # (relayed via manager to lane EXIT-OPS on
                              # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
                              # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
-                             # (net_r -13.5621, n=261, folds+ 1/4, 2026-09-22
-                             # E28 measurement, comms/strategy_evidence/
-                             # ict_scalp_avax_5m.json). Keeps logging; stops
-                             # taking paper trades on bybit_1.
+                             # (net_r -9.1340, n=259, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_avax_5m.json.
+                             # Keeps logging; stops taking paper trades on
+                             # bybit_1.
     timeframe: "5m"
     symbols:
       - AVAXUSDT
