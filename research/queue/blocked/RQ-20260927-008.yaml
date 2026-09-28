@@ -95,7 +95,7 @@ blocked_on:
       function composing with `soft_regime_weight`) and both harnesses expose
       a `--adx-soft-weight-lag-bars` (or equivalent) flag — the natural
       third follow-on after RQ-20260927-004 (does the level weight work at
-      all) and RQ-20260927-005/-006 (which regime feature is the best level
+      all) and RQ-20260927-009/-006 (which regime feature is the best level
       input), since a lag composes with whichever level input wins.
 
 run:
