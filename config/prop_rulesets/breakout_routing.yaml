@@ -43,12 +43,26 @@ symbols:
   BTCUSDT:
     dxtrade_symbol: BTCUSD           # same venue convention; not yet a routed prop strategy
     contract_value_usd_per_point: 1.0
+  # ADA/XRP: operator-confirmed 2026-09-28 from the terminal's Instrument Details
+  # panel (Lot Size 1, Size Steps 1, Margin Rate 20%, overnight -0.03333% both
+  # sides). Mapping only — neither is a routed prop strategy (see `strategies:`).
+  # ⚠️ The venue MINIMUM order is 10 lots (ADA 10–400,000; XRP 10–110,000), which
+  # nothing in the ticket sizer enforces yet — tracked in the pipeline; enforce it
+  # before routing either leg.
+  ADAUSDT:
+    dxtrade_symbol: ADAUSD           # precision 0.0001
+    contract_value_usd_per_point: 1.0
+  XRPUSDT:
+    dxtrade_symbol: XRPUSD           # precision 0.001
+    contract_value_usd_per_point: 1.0
 
 # Legacy single-symbol map (kept for back-compat with breakout_ticket.py).
 symbol_map:
   BTCUSDT: BTCUSD
   SOLUSDT: SOLUSD
   ETHUSDT: ETHUSD
+  ADAUSDT: ADAUSD
+  XRPUSDT: XRPUSD
 
 # Default sizing fallback when a symbol has no per-symbol override above.
 contract_value_usd_per_point: 1.0
