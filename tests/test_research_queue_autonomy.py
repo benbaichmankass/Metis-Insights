@@ -115,7 +115,8 @@ def _mini_repo(tmp_path: Path) -> Path:
     (r / "research/queue/README.md").write_text("x")
     git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=str(r), check=True, capture_output=True)  # noqa: E731
     subprocess.run(["git", "init", "-q", "-b", "main", str(r)], check=True)
-    git("add", "-A"); git("commit", "-q", "-m", "base")
+    git("add", "-A")
+    git("commit", "-q", "-m", "base")
     return r
 
 
@@ -127,7 +128,9 @@ def test_e58_vouches_only_a_reproducible_producer_branch(tmp_path):
     pl = queue_replenish.plan(r, day="2031-02-02", target=2)
     for u in pl["new_units"]:
         (r / "research/queue" / f"{u['id']}.yaml").write_text(u["text"])
-    git("checkout", "-q", "-b", "automation/research-queue-replenish-1-1"); git("add", "-A"); git("commit", "-q", "-m", "gen")
+    git("checkout", "-q", "-b", "automation/research-queue-replenish-1-1")
+    git("add", "-A")
+    git("commit", "-q", "-m", "gen")
     changed = [f"research/queue/{u['id']}.yaml" for u in pl["new_units"]]
     vouched, notes = g.e58_generated_queue_vouch(r, "main", "automation/research-queue-replenish-1-1", changed)
     assert sorted(vouched) == sorted(changed), notes

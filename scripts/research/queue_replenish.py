@@ -424,7 +424,8 @@ def _self_test() -> int:
         if d["run"]["workflow"] == "research-script-run.yml":
             from scripts.research import script_run
             with tempfile.TemporaryDirectory() as td:
-                q = Path(td); (q / f"{u['id']}.yaml").write_text(u["text"])
+                q = Path(td)
+                (q / f"{u['id']}.yaml").write_text(u["text"])
                 pl = script_run.plan(u["id"], run_id="st", queue_dir=q, repo=root)
                 assert pl.ok, (u["id"], pl.errors)
     # verify(): a reproduced unit passes, a hand-edited one fails, an edit to an existing unit fails
@@ -438,12 +439,15 @@ def _self_test() -> int:
         _fixture_config(r)
         (r / "research" / "queue" / "README.md").write_text("x")
         git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=str(r), check=True, capture_output=True)  # noqa: E731
-        git("add", "-A"); git("commit", "-q", "-m", "base")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
         pl = plan(r, day="2030-01-02", target=3)
         assert len(pl["new_units"]) == 3 and pl["runnable_before"] == 0, pl["allocation"]
         for u in pl["new_units"]:
             (r / QUEUE / f"{u['id']}.yaml").write_text(u["text"], encoding="utf-8")
-        git("checkout", "-q", "-b", "gen"); git("add", "-A"); git("commit", "-q", "-m", "gen")
+        git("checkout", "-q", "-b", "gen")
+        git("add", "-A")
+        git("commit", "-q", "-m", "gen")
         assert verify(r, "main") == [], verify(r, "main")
         # dedupe: a second plan generates none of the same keys
         pl2 = plan(r, day="2030-01-03", target=6)
@@ -455,10 +459,13 @@ def _self_test() -> int:
         git("commit", "-q", "-am", "edit")
         assert any("does not reproduce" in p for p in verify(r, "main")), verify(r, "main")
         # modified pre-existing unit -> refused
-        git("checkout", "-q", "main"); git("checkout", "-q", "-b", "edit2")
+        git("checkout", "-q", "main")
+        git("checkout", "-q", "-b", "edit2")
         (r / QUEUE / "RQ-20250101-001.yaml").write_text("id: RQ-20250101-001\nstatus: queued\n")
-        git("add", "-A"); git("commit", "-q", "-m", "pre")
-        git("checkout", "-q", "main"); git("merge", "-q", "edit2")
+        git("add", "-A")
+        git("commit", "-q", "-m", "pre")
+        git("checkout", "-q", "main")
+        git("merge", "-q", "edit2")
         git("checkout", "-q", "-b", "edit3")
         (r / QUEUE / "RQ-20250101-001.yaml").write_text("id: RQ-20250101-001\nstatus: done\n")
         git("commit", "-q", "-am", "flip")

@@ -309,7 +309,7 @@ def health(root: Path, *, now: Optional[datetime] = None) -> Dict[str, Any]:
 # ── self-test ───────────────────────────────────────────────────────────────
 def _self_test() -> int:
     import tempfile
-    row = lambda v, rs="measured": (f"research/results/U/1.jsonl", {"verdict": v, "read_state": rs})  # noqa: E731
+    row = lambda v, rs="measured": ("research/results/U/1.jsonl", {"verdict": v, "read_state": rs})  # noqa: E731
     assert grade_e5([row("pass"), row("pass")], 2)["verdict"] == "pass"
     assert grade_e5([row("pass")], 2)["verdict"] is None
     assert grade_e5([row("pass"), row("fail")], 1)["verdict"] is None
@@ -331,7 +331,8 @@ def _self_test() -> int:
 
     with tempfile.TemporaryDirectory() as td:
         r = Path(td)
-        (r / QUEUE).mkdir(parents=True); (r / RESULTS / "RQ-20300101-001").mkdir(parents=True)
+        (r / QUEUE).mkdir(parents=True)
+        (r / RESULTS / "RQ-20300101-001").mkdir(parents=True)
         unit_text = ("id: RQ-20300101-001\ntitle: t   # keep me\nstatus: queued\ncadence: once\ngrading:\n  auto: true\n"
                      "decision_rule:\n  id: RULE-X\nlands:\n  store: research/results/\n  min_rows: 2\n"
                      "last_dispatched_at: '2030-01-01T00:00:00+00:00'\n")
@@ -363,7 +364,9 @@ def _self_test() -> int:
         git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=str(r), check=True, capture_output=True)  # noqa: E731
         (r / RESULTS / "RQ-20300101-001" / "1.jsonl").write_text(json.dumps({"verdict": "pass", "read_state": "measured"}) + "\n" +
                                                                 json.dumps({"verdict": "pass", "read_state": "measured"}) + "\n")
-        git("add", "-A"); git("commit", "-q", "-m", "base"); git("checkout", "-q", "-b", "g")
+        git("add", "-A")
+        git("commit", "-q", "-m", "base")
+        git("checkout", "-q", "-b", "g")
         res = run(r, graded_at="2030-01-02", write=True)
         assert res["changed"] and res["changed"][0]["status"] == "done"
         git("commit", "-q", "-am", "grade")
