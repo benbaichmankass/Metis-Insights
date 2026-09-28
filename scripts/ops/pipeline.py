@@ -200,8 +200,30 @@ class PipelineError(ValueError):
 #: filed under the same id the same day this module shipped, before
 #: `append()` could refuse it. See docs/claude/work/PIPELINE.jsonl lines
 #: 20-21 for the two records.
+#:
+#: OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED, added 2026-09-28: two
+#: lanes dispatched by the same manager around the same time -- a TRIAGE-2
+#: ops lane (session_01W8AKVjLw568KJoPkcwJcUY, 20260928T110921709387Z-
+#: 3ff46881.json, re-routing to the operator because its sandbox had no
+#: diag access) and this lane (MGC-FIX, 20260928T115843843958Z-e62ff49d.json,
+#: closing the item after the operator's answer to that same popup) --
+#: each read `main` before the other's record landed and each correctly
+#: extended the last state IT could see. Both records are genuine, neither
+#: is wrong; the collision is the two writes racing, not a bad finding.
+#:
+#: PI-20260927-D9R6QTDB-0002, added 2026-09-28 (same PR, found already
+#: broken on `main`): two records from the SAME session/build-lane
+#: (session_01PyohkPdSE4VrqUd9R6qTdB, 20260928T113058545665Z-c770f933.json
+#: and 20260928T113943668197Z-07cd50d5.json) restate the same Breakout
+#: keep-alive decision with reworded text rather than a strict append --
+#: an editorial re-file, not two different findings, and already
+#: unrepairable without rewriting `main`'s history. Grandfathered here
+#: (rather than in a separate PR) because it blocks `pipeline-guard` on
+#: every branch, including this one, whatever that branch touches.
 GRANDFATHERED_COLLISIONS = {
     "PI-20260921-0002",
+    "OI-20260826-MGC-JOURNAL-QTY-DIVERGENT-UNOWNED",
+    "PI-20260927-D9R6QTDB-0002",
 }
 
 
