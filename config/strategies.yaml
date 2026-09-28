@@ -2094,9 +2094,25 @@ strategies:
     pullback_lookback: 12
     pullback_frac: 0.5
     atr_period: 14
-    atr_stop_mult: 2.5
+    # GEOMETRY CELL `tp6_sm1.5_to24` (operator popup 2026-09-28 ~13:20Z, "Ship the
+    # 3-part change"; checklist row PROMOTE). Evidence: docs/research/gld-1h-stop-confirm/
+    # 2026-09-28-confirming-walkforward.md -- 6/6 effective folds, OOS d_net_R +20.08,
+    # n=54 (scripts/research/e35_bracket_geometry_sweep.py). The moved keys are
+    # atr_stop_mult, tp_r (+ tp_intent.basis) and the stale_exit_* pair below.
+    # REVERT (all together): atr_stop_mult 2.5, tp_r 4.0, tp_intent.basis
+    # e35_cell_tp4, and DELETE stale_exit_bars / stale_exit_below_r (no time exit).
+    atr_stop_mult: 1.5
     trail_mult: 4.0
-    # M20 e3.5 bracket geometry: cell `tp4` (wf_pass, wf_wins_effective 4/6, 0 inert,
+    # THE `to24` TIME EXIT. This unit has NO `timeout_bars` reader (module docstring,
+    # htf_pullback_trend_2h.py) -- declaring `timeout_bars: 24` would be an inert key.
+    # The sweep's `--timeout-bars 24` closes at the CLOSE of the 24th bar after entry;
+    # the shared stale_stop lever (src/runtime/exit_levers.py, read by this unit's
+    # monitor and by scripts/backtest_pullback.py) with a threshold no open-R can
+    # reach closes on that same bar, so it is the same exit. 24 bars of THIS leg's 1h
+    # clock -- on an RTH-only feed that is ~3.5 sessions, NOT one calendar day.
+    stale_exit_bars: 24
+    stale_exit_below_r: 1000000000.0
+    # (pre-2026-09-28 history) M20 e3.5 bracket geometry: cell `tp4` (wf_pass, wf_wins_effective 4/6, 0 inert,
     # d_net_r +8.9997; sweep 2026-08-31, corpus docs/research/e35-bracket-corpus.jsonl).
     # REACHABILITY (this is what the number rests on): measured cap_r on this leg is
     # min 7.944 / median 8.243 over n=4 live rows (position_telemetry, 2026-09-07), so
@@ -2106,10 +2122,13 @@ strategies:
     # net R, not exit LOCATION, and 2 of 6 folds lost. It is a reachable target, not a
     # calibrated one. Selected for reachability over the matrix's d_net_r winner `sm1.5`,
     # which carries no take-profit at all.
-    tp_r: 4.0
+    # 2026-09-28: 4.0 -> 6.0 (cell tp6_sm1.5_to24, above). The cap_r figures above were
+    # measured at the 2.5x stop; a 1.5x stop shrinks risk, so cap_r in R GROWS
+    # (~8.2 x 2.5/1.5 ~ 13.7) and 6.0 stays below the venue clamp. Not re-measured live.
+    tp_r: 6.0
     tp_intent:
       mode: r_multiple
-      basis: e35_cell_tp4
+      basis: e35_cell_tp6_sm1.5_to24
       calibrated: false          # reachable, NOT calibrated — see MI-156 § 6
     min_confidence: 0.0
     shadow_model_ids: []
