@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The resolver refuses (or annotates) a leg whose 1-share notional exceeds the target account's equity, OR alpaca_live equity exceeds the leg's share price with margin to spare.",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-E8Y3BGBS-0003",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROMOTE (session_011h6MApXzTAY91VE8y3bgbs), 2026-09-28",
+    "rerun": "python3 scripts/ops/mandate_resolver.py --leg gld_pullback_1h --from S1 --to S2 --account alpaca_live ; then scripts/ops/diag_fetch.sh broker_account_status for alpaca_live equity/buying_power vs a recent GLD close. Holds while the resolver FIREs and 1 share > equity."
+  },
+  "state": "queued",
+  "what": "MD-PROMOTE-S1-S2's resolver has no affordability clause: on 2026-09-28 it FIREd gld_pullback_1h onto alpaca_live, whose measured equity is $193.59 (buying power $55.73, diag broker_account_status 13:29Z) while one GLD share is ~$393, so every signal sizes to 0 under whole-share bracket sizing (src/units/accounts/risk.py). slv_trend_1h (SLV ~$58) also refuses at today's $55.73 buying power and sizes 3 shares max on a flat book. An armed add_risk mandate that can promote unsizeable legs will land roster edits that never trade."
+}
