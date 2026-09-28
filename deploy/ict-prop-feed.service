@@ -1,0 +1,54 @@
+# ============================================
+# ICT PROP FEED — breakout_1 account_status every 5 min (W6-PROP-FEED, 2026-09-28)
+# Operator decision 2026-09-28 "Feed now on schedule" (PI-20260927-D9R6QTDB-0002).
+#
+# Runs scripts/ops/prop_feed_tick.sh: the SAME read-only login check as the
+# `breakout-login-check` system-action (scripts/prop/breakout_login_check.py
+# --emit-status --symbols=''), which reads balance / equity / positions /
+# orders off the Breakout DXtrade terminal and posts ONE account_status to the
+# local POST /api/bot/prop/report. No order control exists on that path.
+#
+# Session reuse (operator decision 2026-09-28 "Reuse saved session"): a tick
+# opens the terminal on the Playwright session the last good tick saved
+# (~/.cache/metis-prop-browser/feed/session_state.json, 0600 in a 0700 dir, a
+# credential equivalent that is never printed) and only logs in with
+# credentials when that session is no longer accepted. The journal shows
+# `session: reused` / `session: relogin`; relogins are counted per UTC day in
+# the audit (runtime_logs/operator_actions/*-prop-feed.json).
+#
+# The wrapper owns the lock (shared with the system-action), the hard timeout,
+# and the trip-on-failure backoff (a feasibility stop — challenge, CAPTCHA,
+# 2FA, rejected login — trips it on the FIRST occurrence and pings; it never
+# retries a login the terminal refused). Re-arm: system-action
+# `breakout-login-check` with `apply: reset-feed`.
+#
+# Browser: the isolated venv under ~/.cache/metis-prop-browser that the
+# system-action builds — never the trader's Python. The resource caps below
+# keep a headless Chromium from competing with ict-trader-live.
+#
+# LIVE-TRADER BOX ONLY (needs the VM .env BREAKOUT_DX_* creds and :8001).
+# Save to: /etc/systemd/system/ict-prop-feed.service
+# (installed by scripts/install_systemd_units.sh's deploy/*.service glob)
+# ============================================
+
+[Unit]
+Description=ICT prop feed — read-only breakout_1 account_status snapshot (W6-PROP-FEED)
+After=network-online.target ict-web-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+Environment=HOME=/home/ubuntu
+# Outer backstop over the wrapper's own `timeout` (150 s + 15 s kill grace).
+TimeoutStartSec=240
+Nice=10
+MemoryMax=1200M
+CPUQuota=100%
+ExecStart=/bin/bash /home/ubuntu/ict-trading-bot/scripts/ops/prop_feed_tick.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

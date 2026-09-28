@@ -122,6 +122,10 @@ EXPECTED_SERVICES = {
     # Bybit sibling. Live-trader-box only via install_systemd_units.sh
     # auto-enable; skipped by deploy_pull_restart.sh DEFAULT_SKIP.
     "ict-alpaca-fills-pull.service",
+    # 2026-09-28 (W6-PROP-FEED): 5-min read-only breakout_1 account_status
+    # feed (ict-prop-feed.timer). Logs in to a live prop account, so it is
+    # skipped by deploy_pull_restart.sh DEFAULT_SKIP (no unscheduled login).
+    "ict-prop-feed.service",
     # 2026-07-19: daily Bybit funding pull (BL-20260719-FUNDING-NO-TIMER, PR #6901).
     # Timer-fired oneshot (ict-exchange-funding-pull.timer) that runs the funding
     # puller so the M24 go-forward fee+funding capture accrues without manual runs.

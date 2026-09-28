@@ -1065,14 +1065,14 @@ jobs:
           # breakout-login-check: READ-ONLY prop-terminal login check (Tier-2:
           # it logs in to a live prop account with the operator's credentials).
           # `account` optional (default breakout_1); `apply` is an optional
-          # comma-separated subset of install-deps,emit-status.
+          # comma-separated subset of install-deps,emit-status,reset-feed.
           if [ "${ACTION}" = "breakout-login-check" ]; then
             if [ -n "${ACCOUNT_ID// }" ] && ! printf '%s' "${ACCOUNT_ID}" | grep -Eq '^[A-Za-z0-9_-]+$'; then
               echo "::error::breakout-login-check account_id '${ACCOUNT_ID}' invalid (allowed: A-Z a-z 0-9 _ -)."
               exit 1
             fi
-            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status)(,(install-deps|emit-status))?$'; then
-              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status (got '${ACTION_APPLY}')."
+            if [ -n "${ACTION_APPLY// }" ] && ! printf '%s' "${ACTION_APPLY}" | grep -Eq '^(install-deps|emit-status|reset-feed)(,(install-deps|emit-status|reset-feed)){0,2}$'; then
+              echo "::error::breakout-login-check apply must be a comma-separated subset of install-deps,emit-status,reset-feed (got '${ACTION_APPLY}')."
               exit 1
             fi
           fi

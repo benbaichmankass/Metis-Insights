@@ -23,6 +23,12 @@
 #                    run ends with "environment: chromium failed to launch".
 #     emit-status  — post ONE account_status through POST /api/bot/prop/report.
 #                    Default OFF.
+#     reset-feed   — re-arm the scheduled feed (deploy/ict-prop-feed.timer,
+#                    scripts/ops/prop_feed_tick.sh) after it TRIPPED: clears
+#                    its trip marker and failure count before this check runs.
+#
+# Takes the same flock as the scheduled feed (${BASE}/login.lock), waiting up
+# to 200 s, so a manual check never logs in while a scheduled tick is.
 #
 # Exit codes pass through from the python script: 0 ok, 3 login ok but part of
 # the read did not parse, 4 feasibility stop, 5 environment, 1 other.
@@ -40,6 +46,7 @@ ACCOUNT="${ACCOUNT_ID:-breakout_1}"
 APPLY="${ACTION_APPLY:-}"
 case ",${APPLY}," in *",install-deps,"*) WANT_DEPS=1 ;; *) WANT_DEPS=0 ;; esac
 case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
+case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 
 # Export exactly the keys the check needs from the VM .env. Values are never
 # echoed (no `set -x`, no print); the python side prints set/MISSING only.
@@ -67,6 +74,22 @@ VENV="${BASE}/venv"
 PY3="${PY3:-/usr/bin/python3}"
 export PLAYWRIGHT_BROWSERS_PATH="${BASE}/browsers"
 mkdir -p "${BASE}"
+
+if [ "${WANT_RESET}" = "1" ]; then
+    log "reset-feed: clearing the scheduled feed's trip marker and failure count"
+    [ -f "${BASE}/feed/tripped" ] && log "reset-feed: was tripped: $(head -c 300 "${BASE}/feed/tripped")"
+    rm -f "${BASE}/feed/tripped" "${BASE}/feed/consecutive_failures"
+fi
+
+# One login at a time: the scheduled feed takes the same lock. Taken BEFORE
+# the venv/Chromium bootstrap so an install never swaps the browser build
+# under a running tick.
+exec 9>"${BASE}/login.lock"
+if ! flock -w 200 9; then
+    log "environment: a scheduled feed tick still holds ${BASE}/login.lock after 200s"
+    exit 5
+fi
+
 
 # A venv whose `bin/python` exists but whose pip is missing or broken is not
 # usable — that is exactly the partial state a prior `ensurepip`-missing
@@ -156,6 +179,6 @@ case "${rc}" in
     *) outcome="error" ;;
 esac
 record_audit "breakout-login-check" "${outcome}" \
-    "{\"account\": \"${ACCOUNT}\", \"exit\": ${rc}, \"emit_status\": ${WANT_EMIT}}" >/dev/null || true
+    "{\"account\": \"${ACCOUNT}\", \"exit\": ${rc}, \"emit_status\": ${WANT_EMIT}, \"reset_feed\": ${WANT_RESET}}" >/dev/null || true
 log "breakout-login-check: ${outcome} (exit ${rc})"
 exit "${rc}"
