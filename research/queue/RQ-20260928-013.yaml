@@ -1,0 +1,133 @@
+id: RQ-20260928-013
+title: >-
+  Scoping pass — do this repo's existing ETF/futures proxies for Breakout's
+  4 Terminal-only instruments (S&P500, XYZ100, SILVER, CL) clear RULE-B6 V2
+  under a hypothetical Breakout Terminal account, if a re-bought account
+  lands there instead of DXTrade?
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Operator direction 2026-09-28: prop is top priority, breach-and-rebuy is
+  accepted, and item (c) asks to "scope what we'd trade" on "the non-crypto
+  symbols that exist only on Breakout's own terminal, where any re-bought
+  account will land." docs/integrations/breakout-instruments-2026-09-27.md
+  confirms (first-party, `[CONFIRMED -- FAQ]`) FOUR such instruments -- CL
+  (crude oil), S&P500 (index CFD), SILVER, XYZ100 (Nasdaq-100 CFD) -- are
+  UNREACHABLE on breakout_1 as it exists today (a DXTrade account); reaching
+  them needs a NEW `breakout_terminal`-adapter account
+  (docs/research/prop-automation-options-2026-09-27.md § 2.4, "scoped only;
+  no login" -- not yet built). This repo already maps each Terminal
+  instrument to an existing ETF/futures leg with committed trade evidence
+  (S&P500->spy_trend_long_1d/spy_pullback_1h/mes_trend_long_1d, XYZ100->
+  qqq_trend_long_1d/tqqq_trend_long_1d, SILVER->slv_pullback_1d, CL->
+  uso_trend_1h -- flagged as a poor CL/WTI proxy). Question: re-pricing
+  those EXISTING trade sequences under Breakout's cost stack and Terminal
+  swap model (prorated, not dxtrade -- per the instruments doc), do any
+  clear E[profit before the account dies] > 0, i.e. is a `breakout_terminal`
+  adapter build (real engineering, not scoped here) worth prioritizing?
+
+why_this_matters: >-
+  This is explicitly a SCOPING pass, not a wiring decision -- the
+  `breakout_terminal` adapter does not exist (§ 2.4 is "scoped only"), so
+  nothing here can route real orders regardless of the result. The value is
+  answering, cheaply (re-pricing already-committed evidence, no new
+  backtest), whether building that adapter is worth the real engineering
+  cost BEFORE committing to it. A NULL/FAIL here does not kill the idea
+  (per the operator's standing rule) -- it says "don't build the adapter
+  FOR THIS REASON yet," leaving room for a later pass once the roster
+  changes or a real breach-and-rebuy actually happens.
+
+power:
+  expected_n: 250
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same d=0.3 / ~87-90 floor as RQ-20260928-011/-012. Per-leg n is each
+    evidence file's own trade count; report per leg, UNDERPOWERED below 88.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Re-grading of already-committed trade evidence (2026-09-24-e55 run,
+      confirmed present this session for all 5 candidate legs) under a
+      different cost stack -- no new candles, no new backtest, one-shot.
+
+design:
+  legs_and_data: >-
+    spy_trend_long_1d, spy_pullback_1h, mes_trend_long_1d (S&P500 proxies);
+    qqq_trend_long_1d, tqqq_trend_long_1d (XYZ100 proxies); slv_pullback_1d
+    (SILVER); uso_trend_1h (CL, flagged poor-basis proxy -- report but do
+    not weight equally with the others in the writeup). All from
+    comms/strategy_evidence/runs/2026-09-24-e55/ (verify latest committed run
+    per leg at dispatch time).
+  method: >-
+    scripts/research/prop_ev_sim.py --trades LEG=PATH --ruleset breakout
+    --costs breakout --sizing balance --risk-pct 0.015 --funded-start fresh
+    --swap-model prorated (Terminal, per docs/integrations/
+    breakout-instruments-2026-09-27.md -- NOT dxtrade, unlike RQ-20260928-011/
+    -012's crypto legs), default MC size, 5 seeds.
+  account_size_caveat: >-
+    These legs were built for alpaca_paper/ib_paper position sizing, not a
+    $5,000-class Breakout eval account -- position sizes and instrument
+    contract specs (MES micro futures vs S&P500 CFD, SLV ETF shares vs
+    SILVER CFD) do not map one-to-one. This unit re-prices the R-multiple
+    TRADE SEQUENCE (entries/exits/holding periods), which prop_ev_sim already
+    treats as venue-agnostic via its own risk-pct sizing -- but the
+    CONTRACT/LEVERAGE mismatch is a real caveat to carry into the writeup,
+    not resolved here.
+
+decision_rule:
+  id: RULE-RQ0928-013-BREAKOUT-TERMINAL-SCOPING
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per seed: ev_net_usd_per_life and P(net>0) from prop_ev_sim.
+  rule: >-
+    WORTH_BUILDING IF at least ONE leg clears ev_net_usd_per_life > 0 on ALL
+    5 seeds AND P(net>0) >= 0.70 on all 5 seeds (same 0.70 floor
+    RQ-20260928-012 uses, from the two live legs' own committed P(net>0))
+    -- a proposal to prioritize the `breakout_terminal` adapter build,
+    Tier-3/engineering, not decided here.
+    NOT_YET IF no leg clears both bars -- does not kill the Terminal-account
+    idea (operator's standing rule); records the read and the reason
+    (contract-mismatch caveat above may be why) so a later pass with
+    Terminal-native backtests, not ETF proxies, can re-open it.
+    The CL/uso_trend_1h result is reported separately from the S&P500/XYZ100/
+    SILVER results in the writeup regardless of verdict, given its
+    already-flagged poor-basis status.
+  what_it_does_not_do: >-
+    Does not build, scope the interface for, or estimate the engineering
+    cost of the `breakout_terminal` adapter -- that is
+    docs/research/prop-automation-options-2026-09-27.md's own job (already
+    partially done, § 2.4). This unit only answers whether the EV case exists
+    at all, using proxies this repo already has evidence for.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 25
+  basis: >-
+    6 legs x 1 arm x 5 seeds, prop_ev_sim's default MC size, same per-run cost
+    as RQ-20260928-011/-012.
+
+run:
+  workflow: 'none — session-local, scripts/research/prop_ev_sim.py against already-committed trade evidence'
+  inputs:
+    research_unit: RQ-20260928-013
+    script: scripts/research/prop_ev_sim.py
+
+lands:
+  store: docs/research/b6-prop-ev/w6r4-terminal-nonc-crypto-scoping-2026-09-28.json
+  assert_field: verdict
+  min_rows: 6
+
+related:
+  - 'docs/integrations/breakout-instruments-2026-09-27.md (the 4-instrument Terminal-only table)'
+  - 'docs/research/prop-automation-options-2026-09-27.md § 2.4 (the breakout_terminal adapter, scoped only)'
+  - 'RQ-20260928-011 / RQ-20260928-012 (the sizing and short-TF-crypto sibling units)'
+last_dispatched_at: null

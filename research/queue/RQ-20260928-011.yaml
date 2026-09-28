@@ -1,0 +1,148 @@
+id: RQ-20260928-011
+title: >-
+  Breakout prop sizing scheme — flat (balance/start) vs cushion-fit (room) —
+  on the two LIVE prop legs (trend_donchian_eth_prop, trend_donchian_sol_prop),
+  same trades, same geometry, objective = E[profit before the account dies]
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Operator direction 2026-09-28 ~13:40Z (verbatim, on breach-and-rebuy):
+  "we can breach the account and just buy a new one. That's not an issue" /
+  "we definitely need to keep on ... working that and refining strategies to
+  fit them to the breakout account." The two live legs were graduated
+  2026-08-13 on RULE-B6 V2 (account_compat_matrix -> run_ev_montecarlo,
+  trainer relay #8975): ETH ev_net_usd +$883 / P(net>0)=0.8477 (n=1110),
+  SOL ev_net_usd +$483 / P(net>0)=0.7427 (n=602), BOTH already computed
+  "BECAUSE the prop ruleset is cost-aware with BANK-ASAP re-buy" (the live
+  config's own comment). So the re-buy objective is not new to these two
+  legs' grading -- what has never been swept is the SIZING SCHEME itself.
+  prop_ev_sim.py exposes `--sizing {balance,start,room}`: `room` sizes each
+  trade to min(risk_pct*balance, room_frac*binding_cushion) -- CUSHION-FIT,
+  shrinking size as the account nears its drawdown floor -- while
+  `balance`/`start` size flat off the (growing/starting) balance regardless
+  of remaining cushion. Does cushion-fit sizing raise ev_net_usd_per_life
+  and/or survival over the committed flat-sizing baseline, on the IDENTICAL
+  already-graded trade sequences (no new backtest, no geometry change)?
+
+why_this_matters: >-
+  This is the cheapest possible test of the operator's new framing: it reuses
+  ALREADY-COMMITTED trade evidence (comms/strategy_evidence/runs/2026-09-26/
+  trend_donchian_eth_prop__trades.jsonl and .../2026-09-25/
+  trend_donchian_sol_prop__trades.jsonl -- most recent committed run per leg,
+  verified present this session), so it isolates the SIZING axis from the
+  GEOMETRY axis (tp_r/atr_stop_mult/trail_mult) cleanly. If cushion-fit sizing
+  materially beats flat, that argues for wiring `--sizing room` into
+  `src/prop/breakout_executor.py`'s live sizing path (a separate, Tier-2/3
+  follow-on, not decided here). If it does not, the current flat sizing is
+  already fine on this axis and the operator's re-fit effort is better spent
+  on geometry or new legs (RQ-20260928-012/-013).
+
+power:
+  expected_n: 1110
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same standard floor RQ-20260927-005's power block used: d=0.3 needs ~87-90
+    paired observations at alpha=0.05/power=0.8. ETH's committed trade count is
+    1110 (matches the graduation gate's own n), SOL's is 602 -- both far above
+    floor. Unit of analysis: the Monte-Carlo LIFE (prop_ev_sim's own resampling
+    unit over the trade sequence, `--lives`), not the raw trade count, but the
+    trade count bounds how much genuine variation the resampler has to draw on,
+    which is what this floor actually checks.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Re-run of already-committed trade evidence at different `--sizing` args --
+      nothing new to fetch or accrue. One-shot, bounded by the existing files.
+
+design:
+  legs_and_data: >-
+    trend_donchian_eth_prop: comms/strategy_evidence/runs/2026-09-26/
+    trend_donchian_eth_prop__trades.jsonl (n=verify at run time, most recent
+    committed). trend_donchian_sol_prop: comms/strategy_evidence/runs/
+    2026-09-25/trend_donchian_sol_prop__trades.jsonl. If a more recent run
+    exists at dispatch time, use the LATEST committed file per leg and record
+    which was used.
+  arms: >-
+    (A) flat/balance: --sizing balance --risk-pct 0.015 (matches
+    breakout_routing.yaml's live 1.5%). (B) flat/start: --sizing start
+    --risk-pct 0.015 (same flat idea, pinned to the ORIGINAL funded balance
+    rather than the growing one -- a second flat variant since "flat" is not
+    one thing). (C) cushion-fit/room: --sizing room --risk-pct 0.015 --room-frac
+    swept over {0.25, 0.33, 0.5} (0.33 matches the room-sizing precedent already
+    used in RQ-20260927-005's w6_prop_shaped_search.py invocation). All arms:
+    --book breakout_1 is NOT used (that scores the live book as-is); instead
+    --trades LEG=PATH feeds the fixed evidence file, --ruleset breakout,
+    --costs breakout, --funded-start fresh (matches the committed baseline's
+    own stated assumption), --swap-model dxtrade (matches the live routing),
+    default --lives/--outer/--lives-per-outer (the harness's own full-size MC),
+    fixed --seed for A/B/C comparability plus 4 more seeds for the decision
+    rule's multi-seed requirement (5 seeds total, matching this repo's
+    established convention for prop EV grading).
+
+decision_rule:
+  id: RULE-RQ0928-011-PROP-SIZING-FLAT-VS-CUSHION
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per arm, per seed: ev_net_usd_per_life and survival (P(account
+    reaches horizon_days without a terminal breach), both from prop_ev_sim's
+    own reported fields), compared against arm (A) (flat/balance, risk_pct
+    0.015 -- the closest match to the committed baseline's own sizing, since
+    the 2026-08-13 graduation run's exact --sizing flag is not recorded in the
+    live config comment and defaults to `balance` per the script's own default).
+  rule: >-
+    CUSHION_FIT_WINS (per leg) IF arm (C), at its best room_frac, clears BOTH
+    higher ev_net_usd_per_life AND equal-or-better survival than arm (A) on
+    ALL 5 seeds -- mirrors this repo's own prop-dynamic-exits-faster-banking-DESIGN.md
+    § 6 rule ("strict improvement WITHOUT WORSE p_breach"), applied to the
+    sizing axis instead of the exit-geometry axis it was written for.
+    FLAT_HOLDS (per leg) IF arm (A) or (B) is undominated by (C) on any seed
+    (a real cushion-fit gain must be robust across resample seeds, not a
+    single lucky draw).
+    NULL IF results are mixed across seeds in a way neither bucket captures
+    cleanly (report raw numbers, no verdict forced).
+    A CUSHION_FIT_WINS verdict on BOTH legs is a Tier-2/3 PROPOSAL to add a
+    `--sizing`-equivalent room-fit lever to breakout_executor.py's live sizing
+    path -- not applied here. A leg-specific result stays leg-specific (ETH
+    and SOL have different geometry today; no assumption either transfers).
+  what_it_does_not_do: >-
+    Does not touch config/strategies.yaml, config/prop_rulesets/breakout*.yaml,
+    or breakout_executor.py. Does not sweep geometry (tp_r/atr_stop_mult/
+    trail_mult) -- that is the "geometry" half of item (a) in the 2026-09-28
+    operator direction and is out of scope for THIS unit (see `related`).
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 30
+  basis: >-
+    prop_ev_sim.py's default MC size on ~1100 trades runs in well under a
+    minute per arm/seed in prior sessions' use (same order as the
+    w6_prop_shaped_search.py posthoc grading step); 2 legs x 3 arms x
+    (1 + 3 room_frac values) x 5 seeds is a small grid.
+
+run:
+  workflow: 'none — session-local, scripts/research/prop_ev_sim.py against already-committed trade evidence, no candle fetch needed'
+  inputs:
+    research_unit: RQ-20260928-011
+    script: scripts/research/prop_ev_sim.py
+
+lands:
+  store: docs/research/b6-prop-ev/w6r4-sizing-flat-vs-cushion-2026-09-28.json
+  assert_field: verdict
+  min_rows: 2
+
+related:
+  - 'trend_donchian_eth_prop / trend_donchian_sol_prop (config/strategies.yaml:1212,1257) -- the two legs graded here'
+  - 'RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 / scripts/research/prop_ev_sim.py'
+  - 'docs/research/prop-dynamic-exits-faster-banking-DESIGN.md § 6 (the strict-improvement rule this borrows)'
+  - 'RQ-20260928-012 (shorter-timeframe crypto candidates, same B6 V2 objective)'
+  - 'RQ-20260928-013 (Breakout Terminal non-crypto instrument scoping)'
+last_dispatched_at: null
