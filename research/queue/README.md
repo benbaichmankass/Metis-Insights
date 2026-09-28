@@ -246,6 +246,20 @@ scoped to writing questions, not to building their follow-through.
 
 ## `run.workflow` DECLARED vs. actually `gh workflow run`-DISPATCHABLE
 
+> **RQ-RUN (2026-09-28): a session-local unit now has a token-free route.**
+> Declare `run.workflow: research-script-run.yml` and `run.command: [python3,
+> scripts/research/<script>.py, ...]` (or `run.commands: [[...], ...]`; the
+> placeholders `{out_dir}`, `{unit}`, `{run_id}` are substituted) and the
+> dispatcher fires a GitHub runner that reads the command from the unit file on
+> `main`, runs it, and lands the outputs under `comms/research/<unit>/<run_id>/`
+> plus an E5 record. The script must write `<out_dir>/verdict.json`
+> (`{verdict, read_state, population, n, measurement?, note?, records?}`) to
+> land as `measured`; `scripts/research/prop_ev_grid.py` is the first grader
+> built for it. Contract and refusals: `scripts/research/script_run.py`;
+> `_fire()` now names a non-`*.yml` workflow as session-bound instead of
+> quoting gh's error.
+
+
 RQ-OPS-2 (2026-09-28), while root-causing the dispatcher's cancelled runs:
 `validate()` requires the `run.workflow` field to be **present**, not that its
 value resolve to a real workflow. `_fire()` (`scripts/research/dispatch_queue.py`)
