@@ -1,0 +1,49 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either each short-carrying symbol has a declared, backtested proxy leg that clears its account_compat_matrix on alpaca_live — with the instrument's liquidity and tracking verified against a source, and the 1x-vs-leveraged distinction resolved explicitly per symbol — or the symbols with no acceptable proxy are recorded as long-only-with-reduced-flow and their legs' expected contribution restated on that basis. A leg left nominally enabled while structurally inert is the state to avoid: it reads as coverage and produces nothing.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260823-NO-INVERSE-ETF-INSTRUMENTS-DECLARED'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "accepted long-only permanently for the 4 legs; expected-contribution comment added to each leg in config/strategies.yaml this PR.",
+  "triage_2026_09_28": {
+    "checked": "grep for inverse/leveraged-inverse ETF tickers (SQQQ, SPXS, DUST, JDST, etc.) across config/*.yaml and docs/reference — none declared. Confirmed via config/accounts.yaml:1277-1279 that gld_pullback_1d/gdx_pullback_1d/iaum_pullback_1d/slv_pullback_1d are still 100%-short-flow legs going fully inert under alpaca's long-only real-money mode, with the comment itself pointing at this exact backlog id as the open dependency.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "research time; a leveraged-only proxy changes the risk profile of that leg and needs its own sizing review",
+          "label": "Declare and backtest inverse-ETF proxies per symbol (e.g. metals: DUST/JDST-class, or accept a leveraged-only option)",
+          "risk": "leveraged instruments compound faster than the strategy was tuned for; a bad proxy could underperform the true short",
+          "what_happens": "Research session builds account_compat_matrix-gated proxy legs per short-carrying symbol, verifying liquidity/tracking and the 1x-vs-leveraged distinction explicitly before any live routing."
+        },
+        {
+          "cost": "none beyond doc updates",
+          "label": "Accept long-only-with-reduced-flow permanently for these 4 legs and restate their expected contribution on that basis",
+          "risk": "the legs continue to look like coverage while producing little — the exact 'reads as coverage, produces nothing' state the item warns about",
+          "what_happens": "No new instruments declared; the 4 legs stay nominally enabled but structurally reduced. Their sizing/expectation docs get corrected to say so explicitly."
+        },
+        {
+          "cost": "loses the small long-side flow they do have",
+          "label": "Drop the 4 fully-short-dependent legs from the real-money roster entirely",
+          "risk": "none to real money; a clean simplification",
+          "what_happens": "Removes gld/gdx/iaum/slv_pullback_1d from alpaca_live's roster (Tier-3); they keep running on alpaca_paper for record."
+        }
+      ],
+      "priority_tier": 6,
+      "question": "The alpaca real-money account is long-only, so 4 legs (gld/gdx/iaum/slv_pullback_1d) go fully inert on the short side with no inverse-ETF proxy declared — especially acute in the metals complex where no clean 1x inverse exists. What should happen to the 'short side via inverse ETF' half of the alpaca disposition?",
+      "recommendation": "Option 2 (accept + restate) as the cheap interim fix, with option 1 as a real research lane only if the operator wants short-side coverage badly enough to fund the metals-proxy research."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] The 'short proxies' half of the alpaca disposition has no substrate — zero inverse ETFs are declared, and the four legs that most need one are in the metals complex where no clean 1x inverse exists\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — The alpaca real-money account is long-only, so 4 legs (gld/gdx/iaum/slv_pullback_1d) go fully inert on the short side with no inverse-ETF proxy declared — especially acute in the metals complex where no clean 1x inverse exists. What should happen to the 'short side via inverse ETF' half of the alpaca disposition? Recommendation: Option 2 (accept + restate) as the cheap interim fix, with option 1 as a real research lane only if the operator wants short-side coverage badly enough to fund the metals-proxy research.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: accept long-only for the 4 legs and restate their expected contribution in their docs/comments. Added a comment-only note to each of the 4 legs in config/strategies.yaml (gld_pullback_1d, slv_pullback_1d, gdx_pullback_1d, iaum_pullback_1d) restating expected contribution as long-only, no inverse hedge, accepted permanently. No field/value changed; no inverse-ETF instrument declared."
+}

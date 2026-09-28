@@ -65,6 +65,13 @@ TARGETS: dict[str, dict] = {
     "replay-pregate-nightly.yml": {"stale_hours": 26},
     "strategy-review-packets.yml": {"stale_hours": 26},
     "soak-book-grade-weekly.yml": {"stale_hours": 170},
+    # RQ-OPS-2 (2026-09-28): added after the SAME lag/drop this module exists
+    # for stranded a full day of research-queue-dispatch's own cron — its
+    # 06:20 UTC slot had not fired by 13:14Z (measured: every other schedule-
+    # triggered workflow in the repo fired normally that morning, so this was
+    # not a repo-wide GitHub incident). It predates this fix by definition:
+    # the keeper was built 2026-09-27 and this workflow was never added.
+    "research-queue-dispatch.yml": {"stale_hours": 26},
 }
 
 #: A slot younger than this is left to GitHub's own scheduler.

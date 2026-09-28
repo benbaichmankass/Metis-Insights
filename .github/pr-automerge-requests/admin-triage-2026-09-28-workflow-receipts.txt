@@ -1,0 +1,1 @@
+PI-20260922-ONLY-1-OF-38: declare receipt paths for workflows that already commit to main

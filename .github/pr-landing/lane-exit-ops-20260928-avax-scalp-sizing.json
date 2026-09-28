@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK operator decision, relayed via manager 2026-09-28: 'Fix risk sizing now' -- separate PR, Tier 3, landing: hold.",
+  "why": "config/strategies.yaml atr_sl_buffer_mult change on a live strategy leg (Tier-3, strategy parameter); no self-land route applies to a Tier-3 change."
+}

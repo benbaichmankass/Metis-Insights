@@ -71,6 +71,19 @@ on:
     # :00 rush. See the KNOWN BOUND note above for why 6h and not hourly.
     - cron: '23 */6 * * *'
   workflow_dispatch:
+    inputs:
+      simulate_capture_bad:
+        description: >-
+          TEST ONLY (OI-20260903-CAPTURE-WATCH…): fabricate a stale reading
+          for the CAPTURE target so the "capture not healthy" Telegram alert
+          step is observed reaching a non-skipped conclusion. Does NOT touch
+          the real capture file on the trainer (the SSH probe/plant/cleanup
+          of the two /tmp controls still runs unchanged) and does NOT commit
+          a receipt to main — see the "Simulate…" and "Commit the receipt"
+          steps below for the exact guard.
+        required: false
+        type: boolean
+        default: false
   issues:
     types: [opened]
 
@@ -220,6 +233,39 @@ jobs:
           echo "--- observation.json ---"
           cat observation.json || true
 
+      - name: Simulate capture_bad for a controlled exercise (TEST ONLY)
+        # OI-20260903-CAPTURE-WATCH-PROVED-ITSELF-ON-DEMAND-AND-ITS-SCHEDULE-HAS-NEVER-SUCCEEDED
+        # clause (2): the capture-stale PAGE must be OBSERVED EXECUTING, not
+        # merely deployed. Forcing that by making the REAL capture stale would
+        # mean interfering with the very stream this watches (the workflow's
+        # own header, above, forbids exactly that for the controls). This step
+        # instead overwrites only the IN-MEMORY `capture` target's read_state
+        # to "absent" in observation.json, AFTER the real SSH probe/plant/
+        # cleanup above already ran unchanged — the live file on the trainer
+        # is never touched, only what the grader is told about it for this
+        # run. Runs only on an explicit workflow_dispatch input, default off.
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.simulate_capture_bad == 'true'
+        run: |
+          set -euo pipefail
+          echo "::warning::SIMULATED EXERCISE — overriding the capture target to read_state=absent for this run only. The real trainer capture file was NOT touched."
+          python3 - <<'PY'
+          import json
+          with open("observation.json") as fh:
+              payload = json.load(fh)
+          for target in payload.get("targets", []):
+              if target.get("name") == "capture":
+                  target["read_state"] = "absent"
+                  target.pop("mtime_epoch", None)
+                  target.pop("size_bytes", None)
+                  target["simulated"] = True
+          with open("observation.json", "w") as fh:
+              json.dump(payload, fh)
+          PY
+          echo "--- observation.json (post-simulation) ---"
+          cat observation.json
+
       - name: Grade freshness
         id: grade
         continue-on-error: true
@@ -228,7 +274,7 @@ jobs:
           # `set -uo pipefail` does NOT clear the runner's default `-e`
           # (`bash -eo pipefail`), so a grader exit of 1 (stale) or 2 (controls
           # broken) used to abort HERE, before rc / capture_bad /
-          # controls_broken reached $GITHUB_OUTPUT — the page never fired in
+          # controls_broken reached $GITHUB_OUTPUT -- the page never fired in
           # exactly the case it exists for (PI-20260926-P64CTNIO-0001). Same
           # scoped pattern as oci-inventory.yml and research-loss-detector.yml.
           set +e
@@ -304,7 +350,13 @@ jobs:
         # `verify-merged: true` because exiting 0 the moment a PR is OPENED would
         # make a green run mean "a PR exists", never "the receipt is on main" --
         # and this repo carried five stranded automation branches from exactly
-        # that.
+        # that. SKIPPED for a simulated run: the receipt above was written from
+        # a FABRICATED capture reading, and this repo has paid for a doc/record
+        # describing something false as true — a simulated "capture stale"
+        # receipt must never land on main and be read as real.
+        if: >-
+          github.event_name != 'workflow_dispatch' ||
+          github.event.inputs.simulate_capture_bad != 'true'
         uses: ./.github/actions/commit-to-main
         with:
           token: ${{ secrets.BRANCH_PROTECTION_TOKEN }}
@@ -317,6 +369,13 @@ jobs:
             The dated liveness receipt `scripts/ci/check_trainer_capture_watch.py`
             grades on every PR. Read `generated_at`, never the cron expression.
           verify-merged: 'true'
+
+      - name: Note the simulated run wrote no receipt
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.simulate_capture_bad == 'true'
+        run: |
+          echo "::notice::SIMULATED EXERCISE run — no receipt was committed to main. This run's purpose was only to observe the Telegram alert step reach a non-skipped conclusion against a fabricated capture_bad=true."
 
       - name: Report the verdict
         # ⚠️ FAILING THE JOB IS THE SECOND ESCALATION CHANNEL. A cron'd run that
