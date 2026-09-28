@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01G2SwTpGGacwEKLHukpTp3w",
+  "branch": "claude/rq-ops-2-schedule-keeper-and-partial-failure",
+  "claimed_at": "2026-09-28T13:21:21Z",
+  "purpose": "RQ-OPS-2 follow-up: add research-queue-dispatch to schedule-keeper targets; stop a partial grading failure from starving the receipt/stamp steps"
+}
