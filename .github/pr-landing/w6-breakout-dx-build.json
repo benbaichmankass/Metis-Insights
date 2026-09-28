@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2: adds a system-action (breakout-login-check) that logs in to the live breakout_1 prop account on the live VM with the operator's credentials and installs Playwright Chromium into an isolated venv there. Read-only: no order control exists in its code path. Operator authorization, manager session session_01Ljhs6sFAdWHdMDhJpL5aBP, 2026-09-27: option D (~08:52Z, 'just regular trading where the clicks are being placed by a bot under my mandate'), 'Pre-authorise a read-only probe' (popup ~09:42Z), credentials are username+password set as Actions secrets BREAKOUT_DX_USERNAME/BREAKOUT_DX_PASSWORD (~10:37Z/~11:05Z), no support question or is-it-allowed gating (~10:52Z), and 'Everything needs to come through you' (~11:10Z). Recorded on PI-20260927-R6FQK6DS-0002. The manager merges.",
+  "why": "Slice 1 of the Breakout DXtrade terminal automation: spec re-scope + platform-adapter boundary, dxtrade read-path adapter, read-only login-check script + system-action, unit tests on the measured login markup and a fake post-login DOM."
+}

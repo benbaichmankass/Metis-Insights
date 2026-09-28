@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs-only: marks checklist row PROP-TERM in flight (lane, PR #13658) and files one pipeline item for the post-merge terminal probe. No code, config, or live behavior touched."
+}

@@ -37,6 +37,25 @@ REPO_DIR="${REPO_DIR:-/home/ubuntu/ict-trading-bot}"
 export PYTHONPATH="${REPO_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 AUDIT_DIR="${REPO_DIR}/runtime_logs/operator_actions"
 
+# Operator-stop marker for ict-trader-live (PI-20260927-YDVVYLKH-0002).
+# stop_bot.sh writes it; start_bot.sh, restart_bot.sh and pull_and_deploy.sh
+# clear it. scripts/deploy_pull_restart.sh (run by ict-git-sync every ~5 min)
+# will not START an inactive trader while it exists -- before this, git-sync
+# restarted a deliberately stopped trader within ~90 s of the stop (measured
+# 2026-09-27: stop 14:15:23Z, git-sync restarts 14:16:59Z and 14:22:27Z).
+# runtime_logs/ is untracked, so the marker survives git-sync's reset --hard.
+# deploy_pull_restart.sh must not source this file, so it hardcodes the same
+# path; tests/test_deploy_pull_restart_operator_stop.py pins that they agree.
+TRADER_STOP_MARKER="${REPO_DIR}/runtime_logs/trader_operator_stop.json"
+
+clear_trader_stop_marker() {
+    # Arg: the action clearing it (for the log line). Idempotent.
+    if [ -f "${TRADER_STOP_MARKER}" ]; then
+        rm -f "${TRADER_STOP_MARKER}"
+        log "Cleared operator-stop marker (${1:-unknown}); git-sync may restart ict-trader-live again."
+    fi
+}
+
 log() {
     printf '[%s] [%s] %s\n' \
         "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

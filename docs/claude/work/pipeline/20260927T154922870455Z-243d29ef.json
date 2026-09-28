@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for CA-A01-007 is merged with a test that fails on the old code (detector: test: update_trade raises once -> second _apply_update must not call _send_close_to_exchange and error_count must be 1.), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-KFWRL9R1-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-007 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-007 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:1223-1291,1313-1336 on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-03 fixed in PR #13251 (lane fix/ca-order-monitor-02-06) with test_a_failed_trade_write_after_a_venue_close_never_resends in tests/test_order_monitor_package_legs.py, shown failing on the pre-fix main. Closes on merge per clears_when; deploy needs an ict-trader-live restart (merged != deployed != observed).",
+  "what": "HIGH (code audit CA-A01-007, MEASURED): When the exchange close succeeds but the trade-row write raises, the failure is swallowed, closed_count is incremented, and the next tick sends a SECOND reduce-only market close for the same qty on the same account/symbol. LOCATION: src/runtime/order_monitor.py:1223-1291,1313-1336. PROPOSED FIX: Track exchange-confirmed closes in-process keyed by trade id (like _PENDING_CLOSE_RETRY_COOLDOWN) and skip the exchange call while the DB write is pending; count the write failure in summary.error_count."
+}

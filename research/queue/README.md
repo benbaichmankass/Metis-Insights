@@ -243,3 +243,36 @@ they rest on someone choosing to look in here. That is stated rather than
 papered over; giving every entry a dated `PI-` row is the obvious next step and
 is deliberately not done by the PR that created this directory, which was
 scoped to writing questions, not to building their follow-through.
+
+## `run.workflow` DECLARED vs. actually `gh workflow run`-DISPATCHABLE
+
+RQ-OPS-2 (2026-09-28), while root-causing the dispatcher's cancelled runs:
+`validate()` requires the `run.workflow` field to be **present**, not that its
+value resolve to a real workflow. `_fire()` (`scripts/research/dispatch_queue.py`)
+does exactly `gh workflow run "<run.workflow>" --ref <ref>` with no other check
+— so a unit whose `run.workflow` is a human-readable note rather than a literal
+`*.yml` name grades identically to a real one (same power/route/cadence gates,
+same `would_dispatch` on a dry run) and only fails, loudly, at the actual `gh`
+call on a real `--fire`.
+
+MEASURED against the 19 committed units in this directory (`blocked/` excluded
+by construction, see above):
+
+| class | count | queued | done |
+|---|---|---|---|
+| **workflow-routed** — `run.workflow` names a real `*.yml` (`gh workflow run` succeeds) | 13 | 8 | 5 |
+| **issue-label / manual relay** — e.g. `trainer-vm-diag (issue label trainer-vm-diag-request)`; not a literal workflow name | 4 | 2 | 2 |
+| **`none` — session-local** — e.g. `none — session-local run of scripts/...`; declares no dispatch mechanism at all | 2 | 1 | 1 |
+
+The 6 non-workflow-routed units' `run.workflow` text reads as an instruction to
+whoever picks the unit up by hand (run this script; open an issue with this
+label) rather than a `gh workflow run` target — which is a reasonable pattern,
+but today the dispatcher cannot tell "declares a real workflow" from "declares
+a note to a human" and would attempt-and-fail the latter on a real fire if one
+ever came due on a scheduled run. **Not yet verified against a primary source
+in this repo:** that these 6 are instead picked up by a standing
+session/manager cadence (a claim made when RQ-OPS-2 was dispatched, not
+confirmed here) — `research/queue/README.md` and `dispatch_queue.py` are silent
+on it. If that pickup mechanism is real, it is undocumented; if it is not, all
+6 units are effectively unrouted. Either way the dispatcher's own grading does
+not distinguish them from a real workflow-routed unit today.

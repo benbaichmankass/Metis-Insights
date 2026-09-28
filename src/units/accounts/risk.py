@@ -42,7 +42,7 @@ State persistence (A-1 + self-healing rebuild):
     max-drawdown caps reset to 0 on every restart), the manager rebuilds
     today's state from authoritative sources on init and on every gate
     check: realized PnL is summed from ``trades`` (this account, closed,
-    today UTC by open date) and current equity is read from
+    realized today UTC, by ``closed_at``) and current equity is read from
     ``runtime_logs/balance_snapshots.json``. The reconciled state is
     persisted so a row always exists for today.
   - Persistence is keyed by ``account_id`` (the YAML account name, e.g.
@@ -126,6 +126,47 @@ CREATE TABLE IF NOT EXISTS daily_risk_state (
     PRIMARY KEY (account_id, date)
 )
 """
+
+
+BREACH_GUARD_MODES = ("enforce", "report")
+
+
+def breach_guards_mode(risk_config: Optional[dict]) -> str:
+    """``enforce`` | ``report`` from an account's ``risk:`` block.
+
+    ``enforce`` is the default AND the fallback for any unparseable value: a
+    typo must never silently turn an account's breach refusals into reports.
+    ``report`` is declared per account in config/accounts.yaml; as of
+    2026-09-28 only breakout_1 carries it (operator, ~13:40Z: "we can breach
+    the account and just buy a new one ... that shouldn't stop us").
+    """
+    raw = str((risk_config or {}).get("breach_guards") or "").strip().lower()
+    return raw if raw in BREACH_GUARD_MODES else "enforce"
+
+
+BREACH_ACCEPTED_LOG = "breach_accepted.jsonl"
+
+
+def record_breach_accepted(row: dict) -> None:
+    """Append ONE durable row per trade let through a breach in ``report``
+    mode, to ``runtime_logs/breach_accepted.jsonl`` (readable at
+    ``/api/diag/log_file?name=breach_accepted``), so trades placed through a
+    breach can be COUNTED later. The log line alone was not durable and nothing
+    read ``last_breach_report`` (manager review of #13660, 2026-09-28).
+    Best-effort: a failed write never changes the trade decision."""
+    try:
+        import json
+        import os
+        from datetime import datetime, timezone
+
+        from src.utils.paths import runtime_logs_dir
+
+        path = os.path.join(str(runtime_logs_dir()), BREACH_ACCEPTED_LOG)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(),
+                                 "status": "breach_accepted", **row}, default=str) + "\n")
+    except Exception:  # noqa: BLE001 — observability never strands a trade
+        logger.warning("record_breach_accepted: could not write the durable row", exc_info=True)
 
 
 def _is_test_order(pkg: "OrderPackage") -> bool:
@@ -327,6 +368,12 @@ class RiskManager:
         # daily realized-loss budget and the intraday equity-drawdown cap use
         # the same 5%-of-equity figure.
         self.daily_loss_pct: float = float(config.get("daily_loss_pct", 0.0) or 0.0)
+        # Breach guards (2026-09-28, operator-directed): ``report`` turns
+        # DAILY_LOSS_CAP / INTRADAY_DRAWDOWN into a logged warning and lets the
+        # trade through; ``enforce`` (default) keeps them as refusals. Dry-run
+        # and GROSS_EXPOSURE_CAP are not breach guards and never change.
+        self.breach_guards: str = breach_guards_mode(config)
+        self.last_breach_report: Optional[str] = None
         self.risk_pct: float = float(config.get("risk_pct", 0.01))
         # ── Per-account EXPOSURE ceiling (2026-08-07, operator-directed) ────
         # Gross open notional, as a MULTIPLE OF EQUITY, that this account may
@@ -446,11 +493,15 @@ class RiskManager:
     def _recompute_daily_pnl_from_db(self) -> Optional[float]:
         """Sum realized PnL for this account's trades attributed to today.
 
-        Day attribution uses the trade's ``created_at`` (UTC open date) —
-        deterministic, join-free, and a close-enough proxy for this
-        intraday bot (positions open and close within the same UTC day in
-        the overwhelming majority of cases). Read-only; returns None when
-        the journal is unavailable so the caller keeps its in-memory value.
+        Realized PnL is attributed to the UTC day it was REALIZED: the
+        trade's ``closed_at``, normalised by the canonical
+        ``src.utils.closed_at.closed_at_norm_sql`` (ISO with any offset →
+        UTC; raw epoch-ms → UTC), falling back to ``created_at`` only when
+        ``closed_at`` is absent. Until FIX-CA-09 (2026-09-27) this keyed on
+        ``created_at`` (the open date), so a loss realized today on a
+        position opened on an earlier UTC day was invisible to today's
+        DAILY_LOSS_CAP and sizing budget. Read-only; returns None when the
+        journal is unavailable so the caller keeps its in-memory value.
         """
         if not self.account_id:
             return None
@@ -458,11 +509,16 @@ class RiskManager:
             import sqlite3
             today = str(self._today_utc())
             uri = "file:%s?mode=ro" % self._risk_db_path()
+            from src.utils.closed_at import closed_at_norm_sql
+            realized_day = (
+                f"date(COALESCE({closed_at_norm_sql('closed_at')}, "
+                f"datetime(created_at)))"
+            )
             with sqlite3.connect(uri, uri=True, timeout=5) as conn:
                 row = conn.execute(
                     "SELECT COALESCE(SUM(pnl), 0.0) FROM trades "
                     "WHERE account_id=? AND status='closed' "
-                    "AND pnl IS NOT NULL AND substr(created_at,1,10)=?",
+                    f"AND pnl IS NOT NULL AND {realized_day}=?",
                     (self.account_id, today),
                 ).fetchone()
             return float(row[0]) if row and row[0] is not None else 0.0
@@ -811,10 +867,12 @@ class RiskManager:
 
         self._maybe_roll_daily()
 
+        self.last_breach_report = None
         # Percentage-based when daily_loss_pct is set (uses current equity);
         # absolute daily_usd otherwise / on equity-unavailable fallback.
         if self.daily_pnl < -self.effective_daily_loss_usd():
-            return False, "DAILY_LOSS_CAP"
+            if not self._breach_reported("DAILY_LOSS_CAP", order):
+                return False, "DAILY_LOSS_CAP"
 
         # NOTE: there is intentionally NO position-notional ceiling here.
         # Position size is a pure function of (available balance + margin) and
@@ -828,7 +886,8 @@ class RiskManager:
 
         dd = self.intraday_drawdown()
         if dd is not None and dd >= self.max_dd_pct:
-            return False, "INTRADAY_DRAWDOWN"
+            if not self._breach_reported("INTRADAY_DRAWDOWN", order):
+                return False, "INTRADAY_DRAWDOWN"
 
         # Gross-exposure ceiling (2026-08-07). Only refuses when the account is
         # ALREADY at/over its declared multiple — the partial case is handled
@@ -843,6 +902,31 @@ class RiskManager:
             return False, "GROSS_EXPOSURE_CAP"
 
         return True, None
+
+    def _breach_reported(self, reason: str, order: OrderPackage) -> bool:
+        """``True`` in ``report`` mode: log the breach loudly, keep it on
+        ``last_breach_report``, and let the trade through. ``False`` =
+        enforce: the caller refuses."""
+        if self.breach_guards != "report":
+            return False
+        self.last_breach_report = reason
+        dd = self.intraday_drawdown()
+        logger.warning(
+            "BREACH GUARD REPORT-ONLY: %s would refuse %s %s on %s "
+            "(daily_pnl=%.2f, drawdown=%s); breach_guards=report, placing anyway",
+            reason, getattr(order, "strategy", "?"), getattr(order, "symbol", "?"),
+            self.account_id or "?", self.daily_pnl, dd,
+        )
+        record_breach_accepted({
+            "account_id": self.account_id or None, "reason": reason,
+            "strategy": getattr(order, "strategy", None), "symbol": getattr(order, "symbol", None),
+            "direction": getattr(order, "direction", None),
+            "order_package_id": (getattr(order, "meta", None) or {}).get("order_package_id"),
+            "daily_pnl": round(self.daily_pnl, 2), "intraday_drawdown": dd,
+            "daily_loss_budget_usd": round(self.effective_daily_loss_usd(), 2),
+            "max_dd_pct": self.max_dd_pct,
+        })
+        return True
 
     def record_trade_result(self, pnl_usd: float) -> None:
         self._maybe_roll_daily()

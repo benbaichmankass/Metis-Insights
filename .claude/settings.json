@@ -5,7 +5,7 @@
     "DIAG_BASE_URL": "http://141.145.193.91:8001"
   },
   "permissions": {
-    "_comment": "Repo-shared allowlist for the VM-side claude-vm-runner. Scoped to read-only diagnostic commands + the two narrow self-heal restart paths (ict-web-api.service via vm-web-api-recover.yml, ict-trader-live.service via system-actions.yml::restart-bot-service). Per docs/claude/system-actions.md and docs/claude/diag-relay.md, restarting ict-web-api has no trading blast radius (read-only API). Adding entries: mirror the audit pattern in scripts/ops/*.sh — narrow as possible.",
+    "_comment": "Repo-shared allowlist for the VM-side claude-vm-runner. Scoped to read-only diagnostic commands + the two narrow self-heal restart paths (ict-web-api.service via vm-web-api-recover.yml, ict-trader-live.service via system-actions.yml::restart-bot-service). Per docs/claude/system-actions.md and docs/claude/diag-relay.md, restarting ict-web-api has no trading blast radius (read-only API). Adding entries: mirror the audit pattern in scripts/ops/*.sh — narrow as possible. The broad tool-level entries (Read … mcp__Claude_Code_Remote) are the operator directive of 2026-09-27: every session gets full permission from the start, and approval exists only for merging or deploying changes that affect live operations — docs/CLAUDE-RULES-CANONICAL.md § \"Reading is never gated\".",
     "allow": [
       "Bash(sudo systemctl restart ict-web-api.service)",
       "Bash(sudo systemctl restart ict-trader-live.service)",
@@ -17,7 +17,19 @@
       "Bash(sudo journalctl -u ict-web-api.service:*)",
       "Bash(sudo journalctl -u ict-trader-live.service:*)",
       "Bash(sudo journalctl -u ict-git-sync.service:*)",
-      "Bash(sqlite3 /home/ubuntu/ict-trading-bot/trade_journal.db:*)"
+      "Bash(sqlite3 /home/ubuntu/ict-trading-bot/trade_journal.db:*)",
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "Bash",
+      "WebFetch",
+      "WebSearch",
+      "mcp__github",
+      "mcp__Github",
+      "mcp__Claude_Code_Remote"
     ]
   },
   "hooks": {

@@ -56,6 +56,12 @@ _PROTECTED_PREFIXES: Tuple[str, ...] = (
     "src/runtime/",
     "src/units/",
     "src/web/",
+    # CA-B08 (2026-09-27): src/core/ is the fold point for mode/execution
+    # gate resolution (Coordinator.multi_account_execute) and src/main.py is
+    # the tick entrypoint — both were missing, so a MES-pattern gate landing
+    # in either was invisible to this guard.
+    "src/core/",
+    "src/main.py",
 )
 
 # Names that look like live/dry switches. An env var matching any of

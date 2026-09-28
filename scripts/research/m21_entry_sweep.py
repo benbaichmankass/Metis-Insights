@@ -13,7 +13,10 @@ cells the E-1 baseline selected for the family —
 Gate (identical to M20): cell beats the config-exact base on net_R AND
 maxDD in BOTH IS and OOS windows (--split, default 2025-07-01), then
 yearly walk-forward PASS >= 2/3 usable folds (>= 4 usable). One lever per
-leg ships unless a combo A/B passes.
+leg ships unless a combo A/B passes. The walk-forward is reported RAW
+(`walkforward`/`verdict`, the historical figure) AND EFFECTIVE
+(`walkforward_effective`/`verdict_effective`, inert folds — lever changed
+nothing — counted as neither wins nor usable); see `grade_walkforward`.
 
 Tier-1 research tooling. Run on the trainer, detached:
   nohup .venv/bin/python3 scripts/research/m21_entry_sweep.py \
@@ -36,6 +39,58 @@ sys.path.insert(0, str(REPO / "scripts" / "research"))
 from m20_fleet_exit_sweep import (  # noqa: E402
     FAMILY_HARNESS, FOLDS, base_args, beats, classify, resolve_data, run_cell,
     tp_geometry_for)
+from m20_wf_effective import is_inert  # noqa: E402
+
+
+def grade_walkforward(folds: list) -> dict:
+    """Grade yearly walk-forward folds, reporting RAW and EFFECTIVE counts.
+
+    ``folds`` is ``[(fold_name, base_result, lever_result), ...]``. A fold wins
+    when the lever's net_R is no worse AND its maxDD is no worse than base.
+
+    A fold in which the entry filter changed NOTHING (both deltas 0.0) passes
+    that test by construction. It is not a win and not a loss — the filter was
+    never exercised — so the EFFECTIVE grade counts it as neither a win nor a
+    usable fold (FIX-CA-26, `CA-B04-m21-entry-sweep-inert-fold-inflation`; same
+    class as BL-20260817-FLEET-SWEEP-WF-COUNTS-INERT-FOLDS-AS-WINS). The raw
+    ``walkforward``/``verdict`` are kept unchanged beside it, because they are
+    the figures already cited in config/strategies.yaml and replacing them
+    would destroy the evidence that the two differ.
+    """
+    wins = usable = inert = 0
+    rows = []
+    for fname, fb, fc in folds:
+        if "error" in fb or "error" in fc:
+            rows.append({"fold": fname, "usable": False,
+                         "why": fb.get("error") or fc.get("error")})
+            continue
+        usable += 1
+        try:
+            d_net = float(fc["net_total_r"]) - float(fb["net_total_r"])
+            d_dd = float(fc["max_drawdown_r"]) - float(fb["max_drawdown_r"])
+        except (KeyError, TypeError, ValueError):
+            rows.append({"fold": fname, "usable": True, "ok": False,
+                         "why": "unreadable"})
+            continue
+        ok = d_net >= 0 and d_dd <= 0
+        wins += 1 if ok else 0
+        row = {"fold": fname, "usable": True, "ok": ok,
+               "d_net_r": round(d_net, 4), "d_max_dd": round(d_dd, 4)}
+        if is_inert(row):
+            row["inert"] = True
+            inert += 1
+        rows.append(row)
+    eff_wins, eff_usable = wins - inert, usable - inert
+
+    def _verdict(w: int, u: int) -> str:
+        return "PASS" if u >= 4 and w * 3 >= u * 2 else "wf_fail"
+
+    return {"walkforward": f"{wins}/{usable}",
+            "verdict": _verdict(wins, usable),
+            "inert": inert,
+            "walkforward_effective": f"{eff_wins}/{eff_usable}",
+            "verdict_effective": _verdict(eff_wins, eff_usable),
+            "folds": rows}
 
 
 def entry_cells(cfg: dict, fam: str) -> list[tuple[str, str, list[str]]]:
@@ -192,30 +247,22 @@ def main(argv: list[str]) -> int:
                              "base_dd": base_oos.get("max_drawdown_r"),
                              "cell_dd": c_oos.get("max_drawdown_r")}}
             if candidate:
-                wins = usable = 0
+                fold_runs = []
                 for fname, fs, fe in FOLDS:
                     fb = run_cell(p["harness"], p["base"], start=fs, end=fe)
                     fc = run_cell(p["harness"], args, start=fs, end=fe)
                     log_result({"leg": leg, "cell": f"{tag}@wf{fname}",
                                 "window": "fold", "base": fb, "lever": fc})
-                    if "error" in fb or "error" in fc:
-                        continue
-                    usable += 1
-                    try:
-                        ok = (float(fc["net_total_r"]) >= float(fb["net_total_r"])
-                              and float(fc["max_drawdown_r"]) <= float(fb["max_drawdown_r"]))
-                    except (KeyError, TypeError, ValueError):
-                        ok = False
-                    wins += 1 if ok else 0
-                entry["walkforward"] = f"{wins}/{usable}"
-                entry["verdict"] = ("PASS" if usable >= 4 and wins * 3 >= usable * 2
-                                    else "wf_fail")
+                    fold_runs.append((fname, fb, fc))
+                entry.update(grade_walkforward(fold_runs))
             else:
                 entry["verdict"] = "is_oos_fail"
             leg_v["levers"].setdefault(lever, []).append(entry)
-            print(f"   {tag:14s} -> {entry['verdict']}"
-                  f"{' wf=' + entry.get('walkforward', '') if 'walkforward' in entry else ''}",
-                  flush=True)
+            wf_note = (f" wf={entry['walkforward']} effective="
+                       f"{entry['walkforward_effective']} "
+                       f"({entry['verdict_effective']}, inert={entry['inert']})"
+                       if "walkforward" in entry else "")
+            print(f"   {tag:14s} -> {entry['verdict']}{wf_note}", flush=True)
         verdicts[leg] = leg_v
 
     (run_dir / "verdicts.json").write_text(json.dumps(
@@ -228,8 +275,12 @@ def main(argv: list[str]) -> int:
             continue
         passes = [e["cell"] for es in v["levers"].values() for e in es
                   if e.get("verdict") == "PASS"]
+        eff_fail = [e["cell"] for es in v["levers"].values() for e in es
+                    if e.get("verdict") == "PASS"
+                    and e.get("verdict_effective") != "PASS"]
         lines.append(f"- **{leg}**{' [PROXY]' if v['proxy'] else ''}: "
-                     f"{'PASS ' + ', '.join(passes) if passes else 'no pass'}")
+                     f"{'PASS ' + ', '.join(passes) if passes else 'no pass'}"
+                     f"{' — EFFECTIVE wf_fail (inert folds): ' + ', '.join(eff_fail) if eff_fail else ''}")
     (run_dir / "SUMMARY.md").write_text("\n".join(lines) + "\n")
     print(f"done -> {run_dir}", flush=True)
     return 0

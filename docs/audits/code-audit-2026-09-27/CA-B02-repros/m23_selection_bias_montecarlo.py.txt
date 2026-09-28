@@ -1,0 +1,37 @@
+import random
+
+def trial(seed, n=400, cost_r=0.05, base_rate=0.244):
+    random.seed(seed)
+    rows = []
+    for _ in range(n):
+        prob = random.random()
+        won = random.random() < base_rate
+        r = random.gauss(1.5, 1.0) if won else random.gauss(-1.0, 0.3)
+        rows.append((prob, r))
+    base_total_r = sum(r for _, r in rows)
+    base_net_r = base_total_r - cost_r * n
+    grid = sorted(set([0.0] + [round(p,4) for p,_ in rows] + [round(x/100,2) for x in range(0,101,2)]))
+    best = None
+    for t in grid:
+        sel = [r for p, r in rows if p >= t]
+        if not sel:
+            continue
+        net_r = sum(sel) - cost_r * len(sel)
+        if best is None or net_r > best[0]:
+            best = (net_r, t, len(sel))
+    net_r, t, n_sel = best
+    beats = net_r > base_net_r
+    usable = beats and n_sel >= max(20, int(0.1*n))
+    return usable, beats, n_sel, net_r, base_net_r
+
+usable_count = 0
+beats_count = 0
+trials = 300
+for s in range(trials):
+    usable, beats, n_sel, net_r, base_net_r = trial(s)
+    usable_count += usable
+    beats_count += beats
+print(f"of {trials} pure-noise trials (n=400 rows each, real base rate 0.244, cost 0.05R): "
+      f"{beats_count}/{trials} 'beats take-all' by the in-sample-max threshold, "
+      f"{usable_count}/{trials} cross BOTH beats-takeall AND the usable-volume floor "
+      f"despite the scorer carrying zero real predictive skill by construction.")

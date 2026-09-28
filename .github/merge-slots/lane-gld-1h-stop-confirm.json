@@ -1,0 +1,6 @@
+{
+  "held_by": "session_015JePcaHfBSBVrcGyu2QtAo",
+  "branch": "lane/gld-1h-stop-confirm",
+  "claimed_at": "2026-09-28T12:06:17Z",
+  "purpose": "gld_pullback_1h confirming walk-forward result + gitignore fix"
+}

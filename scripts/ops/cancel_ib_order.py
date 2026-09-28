@@ -93,6 +93,32 @@ _TRADER_CLIENT_ID_CEILING = 9000
 # to restore -- so it is a separate, louder override than the ordinary one.
 _PROTECTIVE_ORDER_TYPES = {"STP", "STP LMT", "TRAIL", "TRAIL LIMIT", "STP PRT"}
 
+# IBKR 10148 is "OrderId <n> that needs to be cancelled cannot be cancelled,
+# state: <S>". With S == PendingCancel it is NOT a refusal: a cancel for this
+# order is ALREADY in flight at the venue (PI-20260927-YDVVYLKH-0003). Measured
+# 2026-09-27 on ib_paper MES order 907 (#13216): the OCA sibling 906 had just
+# been cancelled, so IBKR was already cancelling 907 as the group's other leg;
+# with CME closed it stays PendingCancel until the venue reopens. Grading it
+# `refused_by_venue` told the operator the order "is still resting" and that
+# nothing would change it -- the opposite of the truth. It is its own state,
+# `cancel_in_flight`: do not re-issue, re-run the dry-run later. Any OTHER 10148
+# state stays a refusal (allowlist, same fail-loud direction as
+# ib_client._IB_CANCEL_CONFIRMED_CODES).
+_IB_CANCEL_IN_FLIGHT_CODE = 10148
+_IB_CANCEL_IN_FLIGHT_STATE = "pendingcancel"
+
+
+def _is_cancel_in_flight(refusal: Optional[Dict[str, Any]]) -> bool:
+    if not isinstance(refusal, dict):
+        return False
+    try:
+        code = int(refusal.get("code"))
+    except (TypeError, ValueError):
+        return False
+    message = str(refusal.get("message") or "").lower().replace(" ", "")
+    return (code == _IB_CANCEL_IN_FLIGHT_CODE
+            and f"state:{_IB_CANCEL_IN_FLIGHT_STATE}" in message)
+
 
 def _is_protective(row: Dict[str, Any]) -> bool:
     """True when *row* is a protective leg rather than a working order.
@@ -280,6 +306,20 @@ def main(argv: Optional[list] = None) -> int:
     # where the slow-accept reading was the correct one). IBKR answers a
     # refusal on the error event only; IBClient.cancel now captures it.
     refusal = resp.get("refusal") if isinstance(resp, dict) else None
+    if _is_cancel_in_flight(refusal):
+        out.update(action="cancel_in_flight", verify_state="pending_cancel",
+                   venue_event=refusal,
+                   note="IBKR answered 10148 with state PendingCancel: a cancel "
+                        "for this order is ALREADY in flight at the venue (e.g. "
+                        "the OCA group's other leg was just cancelled, or the "
+                        "exchange is closed and will finalise it at reopen). "
+                        "This is not a refusal and not a confirmation. Do NOT "
+                        "re-issue the cancel; re-run the DRY-RUN from a fresh "
+                        "process later -- `not_found` settles it, and an order "
+                        "still PendingCancel after the venue reopens is the "
+                        "case to escalate.")
+        print(json.dumps(out, indent=2))
+        return 3
     if refusal:
         # Name the code that actually came back. This note used to assert the
         # 10147 story under EVERY refusal, which reads as a diagnosis of the

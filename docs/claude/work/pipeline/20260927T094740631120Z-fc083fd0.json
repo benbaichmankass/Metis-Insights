@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-09-29",
+    "kind": "date"
+  },
+  "id": "PI-20260927-3QJJAY5Y-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "deploy",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/13047",
+    "rerun": "diag-relay alpaca_open_orders?account_id=alpaca_paper -> legs of any order created after the #13047 deploy should read time_in_force 'gtc'; and diag-relay journalctl?unit=ict-trader-live&lines=2000 | grep -c 're-sending as DAY'  (nonzero = venue refused GTC)"
+  },
+  "state": "queued",
+  "what": "LANDED, UNPROVEN: #13047 (merged 2026-09-27 ~09:37Z) sends Alpaca bracket/OTO entries as time_in_force gtc instead of day, so protective legs survive the RTH close. The claim that Alpaca accepts a GTC market-entry bracket rests on docs.alpaca.markets/docs/orders-at-alpaca (read 2026-09-27), NOT on a live order. If the venue refuses the TIF, place() re-sends once as day and logs 're-sending as DAY' (pre-change behaviour, legs lapse at the close). Closes when the first post-deploy Alpaca bracket entry is observed with GTC legs; kill with the refusal text if the fallback fires instead. -- UPDATE 2026-09-27: merged on operator popup approval; deploy filed as #13118. Earliest possible Alpaca entry is the Monday 2026-09-28 RTH session (markets closed Sat/Sun), and the legs must also survive that day's close, so the due date is Tuesday 2026-09-29. If no Alpaca bracket entry has happened by then, re-date rather than close."
+}

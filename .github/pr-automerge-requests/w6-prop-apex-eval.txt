@@ -1,1 +1,1 @@
-W6-P3 Apex evaluation + prop automation options spec (Tier-1 docs)
+W6-P3 pipeline record: probe build paused on a permission

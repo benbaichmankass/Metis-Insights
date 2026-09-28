@@ -1,0 +1,47 @@
+import json, gzip, os, sys, tempfile, random
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+sys.path.insert(0, "/home/user/Metis-Insights")
+from ml.shadow.inspector import iter_records, rotated_log_paths
+from ml.shadow import drift_retrain
+from ml.registry.model_registry import ModelRegistry
+from ml.promotion.stage_guard import _drift_for_model
+
+d = Path(tempfile.mkdtemp(dir="/tmp/claude-0/audit-scratch"))
+now = datetime.now(timezone.utc)
+active = d/"shadow_predictions.jsonl"
+def rec(ts, score, mid="m1"):
+    return json.dumps({"predicted_at_utc": ts.isoformat(), "model_id": mid, "stage":"shadow","score":score,"row_keys":["a"]})+"\n"
+random.seed(1)
+# archive: days 37..4 ago, hourly, score ~0.2 until day 20 ago then ~0.8
+arch_lines=[]; act_lines=[]
+t = now - timedelta(days=37)
+rot_boundary = now - timedelta(days=10)
+while t < now:
+    s = (0.2 if t < now - timedelta(days=20) else 0.8) + random.uniform(-0.05,0.05)
+    (arch_lines if t < rot_boundary else act_lines).append(rec(t,s))
+    t += timedelta(hours=1)
+with gzip.open(d/"shadow_predictions.2026-09-24.jsonl.gz","wt") as f: f.writelines(arch_lines)
+active.write_text("".join(act_lines))
+(d/"shadow_predictions_backfill.jsonl").write_text(rec(now,0.5))
+print("archives found:", [p.name for p in rotated_log_paths(active)])
+print("active-only n:", sum(1 for _ in iter_records(active)), " archive n:", len(arch_lines))
+reg = d/"reg"; reg.mkdir()
+(reg/"m1.json").write_text(json.dumps({"model_id":"m1","status":"candidate","manifest":{},"model_state_path":"x","metrics":{},"code_revision":"r","created_at":now.isoformat(),"target_deployment_stage":"shadow"}))
+cfg = d/"cfg"; cfg.mkdir(); (cfg/"m1.yaml").write_text("model_id: m1\n")
+for label, log in (("active-only", active),):
+    for dcs in drift_retrain.evaluate_models(registry_root=reg, shadow_log=log, configs_root=cfg):
+        print("drift_retrain", label, dcs.action, "n=", dcs.n_observations)
+# what the full stream would say
+from ml.shadow.adwin import scan_stream
+full = sorted(list(iter_records(active)) + [r for p in rotated_log_paths(active) for r in iter_records(p)], key=lambda r:r.predicted_at_utc)
+ev = scan_stream((r.score for r in full), model_id="m1")
+print("drift_retrain FULL stream: drift=", ev.drift_detected, "n=", ev.n_observations)
+# stage_guard / gate-check drift over active only vs full
+rep_a = _drift_for_model(list(iter_records(active)), "m1", reference_days=30, current_days=7)
+rep_f = _drift_for_model(full, "m1", reference_days=30, current_days=7)
+print("gate-check drift active-only:", rep_a if rep_a is None else (rep_a.reference.count, rep_a.overall_verdict))
+print("gate-check drift full:", (rep_f.reference.count, rep_f.current.count, rep_f.overall_verdict))
+from ml.promotion.gates import _gate_drift_clean, GateThresholds
+print("drift_clean active-only:", _gate_drift_clean(rep_a, GateThresholds()))
+print("drift_clean full:", _gate_drift_clean(rep_f, GateThresholds()))

@@ -1,0 +1,31 @@
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "/home/user/Metis-Insights")
+from ml.registry.model_registry import ModelRegistry
+from ml.shadow.factory import discover_shadow_stage_model_ids, resolve_predictors
+d = Path(tempfile.mkdtemp(dir="/tmp/claude-0/audit-scratch"))
+r = ModelRegistry(d)
+# 1. manifest-declared advisory registers straight to advisory with no stage event / gate
+e = r.register(model_id="adv", manifest={"target_deployment_stage":"advisory"}, model_state_path="x", metrics={}, code_revision="c")
+print("registered stage:", e.target_deployment_stage, "stage_history:", e.stage_history)
+# 2. promote_stage shadow->advisory needs only by/reason
+e2 = r.register(model_id="sh", manifest={}, model_state_path="x", metrics={}, code_revision="c")
+print("promote:", r.promote_stage("sh","advisory",by="x",reason="y").target_deployment_stage)
+# 3. one truncated registry file (half-written by non-atomic _write) blinds list()
+good = (d/"sh.json").read_text()
+(d/"zz_partial.json").write_text(good[:len(good)//2])
+try:
+    print(discover_shadow_stage_model_ids(r))
+except Exception as ex:
+    print("discover RAISED", type(ex).__name__)
+(d/"zz_partial.json").unlink()
+# 4. resolve_predictors non-strict: a bad state file for ONE model aborts all
+st_ok = d/"ok_state.json"; st_ok.write_text(json.dumps({"trainer":"ml.trainers.constant_baseline.ConstantPredictionTrainer","constant":0.5}))
+st_bad = d/"bad_state.json"; st_bad.write_text(json.dumps({"trainer":"ml.trainers.constant_baseline.ConstantPredictionTrainer"}))
+r.register(model_id="a_bad", manifest={}, model_state_path=str(st_bad), metrics={}, code_revision="c")
+r.register(model_id="b_ok", manifest={}, model_state_path=str(st_ok), metrics={}, code_revision="c")
+try:
+    ps = resolve_predictors(["a_bad","b_ok"], r, log_path=None)
+    print("resolved", [p.model_id for p in ps])
+except Exception as ex:
+    print("resolve_predictors RAISED", type(ex).__name__, ex)

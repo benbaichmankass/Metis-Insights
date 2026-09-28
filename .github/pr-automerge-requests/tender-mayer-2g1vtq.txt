@@ -1,1 +1,1 @@
-register push 2026-09-27T06:45Z
+register notes 2026-09-27T12:45Z

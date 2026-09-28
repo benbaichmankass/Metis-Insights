@@ -60,7 +60,17 @@ concurrency:
 
 jobs:
   burst:
-    if: contains(github.event.issue.labels.*.name, 'gpu-burst-train')
+    # Actor-guard (FIX-CA-16 / CA-A13-gpu-burst-actor-guard): owner (or repo
+    # automation) only. The label gate alone restricts nothing — opening an
+    # issue with any label is something every visitor to this public repo can
+    # do — and this job's env holds RUNPOD_API_KEY, VAST_API_KEY,
+    # RUNPOD_SSH_KEY, VM_SSH_KEY and BRANCH_PROTECTION_TOKEN. Mirrors the
+    # convention every other issues-triggered secret-holding workflow in this
+    # repo already uses (system-actions.yml, vm-ib-gateway-live-login-test.yml).
+    if: |
+      contains(github.event.issue.labels.*.name, 'gpu-burst-train') &&
+      (github.event.issue.user.login == github.repository_owner ||
+       github.event.issue.user.login == 'github-actions[bot]')
     runs-on: ubuntu-latest
     env:
       ISSUE_BODY: ${{ github.event.issue.body }}
@@ -287,3 +297,5 @@ jobs:
             }
             await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
             await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: "closed" });
+
+# no-durable-result: ML training run tracked by the model registry/gpu spend ledger, not the research/results queue

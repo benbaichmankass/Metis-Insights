@@ -133,6 +133,29 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # BL-20260909-UNKNOWN-STRATEGY-PRIORITY — the arbitration fallback must
+        # sit strictly BELOW every mapped priority (R1) and every enabled
+        # execution:live leg must have a DEFAULT_PRIORITIES row (R2). Until
+        # 2026-09-28 the fallback was 10 against a 0-floor, so an unmapped leg
+        # WON the per-symbol election. Wired with --strict the day the table
+        # went clean (operator "Fix both + wire guard", 2026-09-28); R3 fails
+        # any regression against the committed (empty) baseline too.
+        "name": "priority-fallback-distribution",
+        "when": {"globs": [
+            "src/runtime/intents.py",
+            "config/strategies.yaml",
+            "config/accounts.yaml",
+            "docs/claude/work/PRIORITY-FALLBACK-BASELINE.json",
+            "scripts/ci/check_priority_fallback_distribution.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py",
+             "--strict"],
+        ],
+    },
+    {
         # E42 — ONE definition of "which symbols does this account concern".
         # Five sites derived it privately; four were known and the fifth
         # (`account_ib_venue_session`) was found by this very self-test's
@@ -181,6 +204,26 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [["python3", "scripts/ci/check_action_input_wiring.py",
                    "--self-test"],
                   ["python3", "scripts/ci/check_action_input_wiring.py"]],
+    },
+    {
+        # FIX-CA-16 / CA-A13-gpu-burst-actor-guard, 2026-09-27: the label gate
+        # alone on an `issues:`-triggered workflow restricts nothing — opening
+        # an issue with any label is something every visitor to this public
+        # repo can do. `gpu-burst-train.yml` held five provider/VM secrets
+        # behind exactly that gate with no actor-identity check, unlike the
+        # ~27 sibling issues-triggered secret-holding workflows that AND the
+        # label check with `issue.user.login == repository_owner` (or the
+        # bot). This guard is the permanent detector so the next privileged
+        # issues-triggered workflow is caught at PR time rather than by a
+        # manual audit; its own self-test runs first, same reasoning as every
+        # sibling guard here — a green that has never been shown capable of
+        # turning red is not evidence.
+        "name": "workflow-actor-guard",
+        "when": {"globs": [".github/workflows/*.yml", ".github/workflows/*.yaml",
+                            "scripts/ci/check_workflow_actor_guard.py"]},
+        "steps": [["python3", "scripts/ci/check_workflow_actor_guard.py",
+                   "--self-test"],
+                  ["python3", "scripts/ci/check_workflow_actor_guard.py"]],
     },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
@@ -377,6 +420,10 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/bracket_expectation_census.py", "--selftest"],
             ["python3", "scripts/research/adx_entry_distribution.py", "--selftest"],
             ["python3", "scripts/research/bracket_reachability_audit.py", "--selftest"],
+            # C2 — the dukascopy-span-probe.yml -> research-result mapper.
+            ["python3", "scripts/research/dukascopy_span_probe_result.py", "--self-test"],
+            # R-M19 (2026-09-28) -- the S1-v0 within-cell veto harness; planted positive + null + base-rate-only control.
+            ["python3", "scripts/research/meta_veto_walkforward.py", "--self-test"],
             ["python3", "-m", "pytest", "tests/test_check_research_index.py", "-q"],
         ],
     },
@@ -1514,6 +1561,21 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # RQ-OPS-2 (PI-20260928-RQOPS2-0001): research-queue-dispatch.yml
+        # writes a receipt on every successful run (fired or dry) via
+        # commit-to-main; this grades that receipt's freshness the same way
+        # cadence-liveness grades its own registry, so a silently-stopped
+        # research-queue cron surfaces on every push rather than needing
+        # its own working cron to report on itself. `when: None`: its
+        # subject is a committed receipt file, not this PR's diff.
+        "name": "research-queue-dispatch-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_research_queue_dispatch_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_queue_dispatch_liveness.py"],
+        ],
+    },
+    {
         "name": "research-results-guard",
         # Fires on the store, on the schema owner, on the guard itself and on
         # the producing surfaces. The OWNER is in the trigger set deliberately
@@ -1542,6 +1604,22 @@ GUARDS: List[Dict[str, Any]] = [
             ["python3", "scripts/research/m20_sweep_result.py", "--self-test"],
             ["python3", "scripts/ci/check_research_results.py", "--self-test"],
             ["python3", "scripts/ci/check_research_results.py"],
+        ],
+    },
+    {
+        "name": "research-workflow-landing-guard",
+        # C2 (docs/claude/work/MANAGER-CHECKLIST.json) — closes
+        # PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT.
+        # Whole-tree, UNGATED (same reasoning as soak-registered-guard /
+        # unwired-artifact-guard's --dir mode): a diff-scoped version of "does
+        # every artifact-producing workflow land durably" passes vacuously on
+        # nearly every PR, which is a green that checks nothing. The debt this
+        # PR did not convert is carried in the script's own dated `BASELINE`,
+        # visible and shrink-only.
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_research_workflow_landing.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_workflow_landing.py"],
         ],
     },
     {

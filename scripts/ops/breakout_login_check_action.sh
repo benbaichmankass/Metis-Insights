@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+# Tier-2 system-action: READ-ONLY login check for a prop account's web
+# terminal (probe step 1 — docs/research/prop-automation-options-2026-09-27.md § 4).
+#
+# Logs in to breakout_1's DXtrade terminal (app.breakoutprop.com) with
+# BREAKOUT_DX_USERNAME / BREAKOUT_DX_PASSWORD from the VM .env, reads balance,
+# equity, open positions and working orders, and prints them. It has NO code
+# path that clicks an order control (scripts/prop/breakout_login_check.py).
+# A challenge / CAPTCHA / 2FA / rejected login ends it with
+# "feasibility: <reason>" and exit 4 — reported, never worked around.
+#
+# Browser: Playwright Chromium, headless, default configuration, installed
+# into an ISOLATED venv under ~/.cache/metis-prop-browser (never the trader's
+# Python). No stealth plugin, fingerprint change or fake jitter.
+#
+# Dispatched by the system-actions workflow (issue body):
+#   action: breakout-login-check
+#   reason: <audit note>                     (required, Tier-2)
+#   account: breakout_1                      (optional, default breakout_1)
+#   apply: install-deps,emit-status          (optional, comma-separated)
+#     install-deps — also run `playwright install-deps chromium` (sudo apt:
+#                    the shared libraries Chromium needs). Only needed if a
+#                    run ends with "environment: chromium failed to launch".
+#     emit-status  — post ONE account_status through POST /api/bot/prop/report.
+#                    Default OFF.
+#     reset-feed   — re-arm the scheduled feed (deploy/ict-prop-feed.timer,
+#                    scripts/ops/prop_feed_tick.sh) after it TRIPPED: clears
+#                    its trip marker and failure count AFTER this check exits
+#                    0, still under the shared lock. A failed check leaves it
+#                    tripped.
+#   Step-3 executor modes (PROP-EXEC 2026-09-28). Each REPLACES the login
+#   check with ONE run of scripts/prop/prop_executor_tick.py --login reuse
+#   (the feed's saved session; no credential login), under the same lock;
+#   at most one of them per dispatch:
+#     probe-ticket     — READ-ONLY: open the order ticket for SOLUSD (only if
+#                        one-click trading reads OFF), record its shape,
+#                        close it. Prints `feasibility: canvas_ticket` (exit
+#                        4) if it is canvas-only. Types nothing.
+#     executor-dry-run — walk the newest emitted ticket through intake →
+#                        guards → (if it fits) fill + read back the form, then
+#                        close it. No submit, no API write.
+#     watched-click    — THE WATCHED STEP-3 TEST: one live cycle, at most one
+#                        ticket, at executor.watched_click_max_lots (minimum
+#                        size), confirmed by re-read, reported through
+#                        POST /api/bot/prop/report. Refused unless
+#                        PROP_EXECUTOR_MODE=live. Dispatch only with the
+#                        operator watching.
+#     round-trip-dry   — the END-TO-END test walked dry: read the quote, build
+#                        a minimum-size ETHUSD market bracket (add `sol` for
+#                        SOLUSD), fill + read back the form, locate the close
+#                        control. Clicks nothing.
+#     round-trip-live  — THE END-TO-END TEST (operator 2026-09-28): place that
+#                        bracket, confirm entry + SL + TP by re-read, report
+#                        `open`, CLOSE it at market, confirm flat by re-read,
+#                        report `closed`. Refused unless PROP_EXECUTOR_MODE=live.
+#                        Tell the operator before dispatching.
+#   Executor timer (the go-live switch's second half; not a terminal run):
+#     executor-enable-timer  — install deploy/opt-in/ict-prop-executor.timer
+#                              and `systemctl enable --now` it. Go-live is
+#                              THIS plus `set-env PROP_EXECUTOR_MODE=live`
+#                              (service: none; the tick re-reads .env).
+#     executor-disable-timer — `systemctl disable --now` the timer. The instant
+#                              revert is `set-env PROP_EXECUTOR_MODE=off`
+#                              (which also stops reconciling in-flight
+#                              `submitted` rows: containment is manual after).
+#
+# Takes the same flock as the scheduled feed (${BASE}/login.lock), waiting up
+# to 200 s, so a manual check never logs in while a scheduled tick is.
+#
+# Exit codes pass through from the python script: 0 ok, 3 login ok but part of
+# the read did not parse, 4 feasibility stop, 5 environment, 1 other.
+
+set -euo pipefail
+
+SCRIPT_NAME="breakout_login_check_action"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/ops/_lib.sh
+source "${SCRIPT_DIR}/_lib.sh"
+
+load_runtime_env
+
+ACCOUNT="${ACCOUNT_ID:-breakout_1}"
+APPLY="${ACTION_APPLY:-}"
+case ",${APPLY}," in *",install-deps,"*) WANT_DEPS=1 ;; *) WANT_DEPS=0 ;; esac
+case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
+case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
+EXEC_MODE=""
+for m in probe-ticket executor-dry-run watched-click round-trip-dry round-trip-live \
+         executor-enable-timer executor-disable-timer; do
+    case ",${APPLY}," in *",${m},"*)
+        if [ -n "${EXEC_MODE}" ]; then
+            log "apply: at most one executor mode per dispatch (got ${EXEC_MODE} and ${m})"
+            exit 1
+        fi
+        EXEC_MODE="${m}" ;;
+    esac
+done
+case ",${APPLY}," in *",sol,"*) RT_SYMBOL="SOLUSD" ;; *) RT_SYMBOL="ETHUSD" ;; esac
+TIMER_SRC="${REPO_DIR}/deploy/opt-in/ict-prop-executor.timer"
+if [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executor-disable-timer" ]; then
+    if ! sudo -n true >/dev/null 2>&1; then
+        log "environment: ${EXEC_MODE} needs passwordless sudo"
+        exit 5
+    fi
+    if [ "${EXEC_MODE}" = "executor-enable-timer" ]; then
+        [ -f "${TIMER_SRC}" ] || { log "missing ${TIMER_SRC}"; exit 1; }
+        sudo -n install -m 0644 "${REPO_DIR}/deploy/ict-prop-executor.service" /etc/systemd/system/ict-prop-executor.service
+        sudo -n install -m 0644 "${TIMER_SRC}" /etc/systemd/system/ict-prop-executor.timer
+        sudo -n systemctl daemon-reload
+        sudo -n systemctl enable --now ict-prop-executor.timer
+    else
+        sudo -n systemctl disable --now ict-prop-executor.timer 2>/dev/null || true
+    fi
+    state="$(systemctl is-active ict-prop-executor.timer 2>/dev/null || true)"
+    log "${EXEC_MODE}: ict-prop-executor.timer is now '${state}' (the mode itself is PROP_EXECUTOR_MODE in .env; read it with get-env)"
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"timer\": \"${state}\"}" >/dev/null || true
+    exit 0
+fi
+
+# Export exactly the keys the check needs from the VM .env. Values are never
+# echoed (no `set -x`, no print); the python side prints set/MISSING only.
+CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN PROP_EXECUTOR_MODE"
+if [ -f "${REPO_DIR}/.env" ]; then
+    for ckey in ${CHECK_KEYS}; do
+        cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true
+        if [ -n "${cval}" ]; then
+            cval="${cval%\"}"; cval="${cval#\"}"
+            cval="${cval%\'}"; cval="${cval#\'}"
+            export "${ckey}=${cval}"
+        fi
+    done
+    unset cval
+fi
+
+# Isolated browser venv. --system-site-packages so the repo's own deps (yaml)
+# resolve from the same system Python the trader uses, without installing
+# anything into it.
+PW_VERSION="1.48.0"
+BASE="${HOME}/.cache/metis-prop-browser"
+VENV="${BASE}/venv"
+# Overridable so tests can point the bootstrap at a stub interpreter instead
+# of the real system Python.
+PY3="${PY3:-/usr/bin/python3}"
+export PLAYWRIGHT_BROWSERS_PATH="${BASE}/browsers"
+mkdir -p "${BASE}"
+
+# One login at a time: the scheduled feed takes the same lock. Taken BEFORE
+# the venv/Chromium bootstrap so an install never swaps the browser build
+# under a running tick.
+exec 9>"${BASE}/login.lock"
+if ! flock -w 200 9; then
+    log "environment: a scheduled feed tick still holds ${BASE}/login.lock after 200s"
+    exit 5
+fi
+
+
+# A venv whose `bin/python` exists but whose pip is missing or broken is not
+# usable — that is exactly the partial state a prior `ensurepip`-missing
+# failure leaves behind (issue #13210: `venv` created bin/python, then died
+# before pip finished setting up).
+venv_pip_ok() {
+    local venv="$1"
+    [ -x "${venv}/bin/python" ] || return 1
+    [ -x "${venv}/bin/pip" ] || return 1
+    "${venv}/bin/python" -m pip --version >/dev/null 2>&1
+}
+
+# Bootstraps `${1}` into a usable venv, installing the matching
+# python3.X-venv apt package first if `ensurepip` is not importable (the
+# Debian/Ubuntu split-package case `python3 -m venv` fails on otherwise).
+ensure_venv() {
+    local venv="$1"
+    if venv_pip_ok "${venv}"; then
+        return 0
+    fi
+    if [ -e "${venv}" ]; then
+        log "Removing broken venv at ${venv} (bin/python present, pip not working)"
+        rm -rf "${venv}"
+    fi
+    if ! "${PY3}" -c 'import ensurepip' >/dev/null 2>&1; then
+        if ! sudo -n true >/dev/null 2>&1; then
+            log "environment: python3-venv missing and cannot install (no passwordless sudo)"
+            record_audit "breakout-login-check" "environment" \
+                "{\"account\": \"${ACCOUNT}\", \"exit\": 5, \"stage\": \"venv_bootstrap\"}" >/dev/null || true
+            exit 5
+        fi
+        local pyver installed_pkg=""
+        pyver="$("${PY3}" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+        local pkg
+        for pkg in "python${pyver}-venv" "python3-venv"; do
+            log "Installing ${pkg} via apt (ensurepip unavailable for venv creation)"
+            if sudo -n apt-get install -y "${pkg}" >&2; then
+                installed_pkg="${pkg}"
+                break
+            fi
+        done
+        if [ -z "${installed_pkg}" ]; then
+            log "environment: python3-venv missing and cannot install"
+            record_audit "breakout-login-check" "environment" \
+                "{\"account\": \"${ACCOUNT}\", \"exit\": 5, \"stage\": \"venv_bootstrap\"}" >/dev/null || true
+            exit 5
+        fi
+        log "Installed ${installed_pkg}"
+    fi
+    log "Creating isolated browser venv at ${venv}"
+    "${PY3}" -m venv --system-site-packages "${venv}"
+    if ! venv_pip_ok "${venv}"; then
+        log "environment: python3-venv missing and cannot install"
+        record_audit "breakout-login-check" "environment" \
+            "{\"account\": \"${ACCOUNT}\", \"exit\": 5, \"stage\": \"venv_bootstrap\"}" >/dev/null || true
+        exit 5
+    fi
+}
+
+ensure_venv "${VENV}"
+if ! "${VENV}/bin/python" -c "import playwright, sys; from importlib.metadata import version; sys.exit(0 if version('playwright') == '${PW_VERSION}' else 1)" 2>/dev/null; then
+    log "Installing playwright==${PW_VERSION} into the isolated venv"
+    "${VENV}/bin/pip" install --quiet --disable-pip-version-check "playwright==${PW_VERSION}"
+fi
+log "Ensuring Playwright Chromium is present (${PLAYWRIGHT_BROWSERS_PATH})"
+"${VENV}/bin/python" -m playwright install chromium >/dev/null
+if [ "${WANT_DEPS}" = "1" ]; then
+    log "Installing Chromium system libraries (apt, via playwright install-deps)"
+    sudo -n env PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH}" \
+        "${VENV}/bin/python" -m playwright install-deps chromium
+fi
+
+if [ -n "${EXEC_MODE}" ]; then
+    # Reuse the FEED's saved session, never a second credential login: the
+    # served client carries force_logout "You have logged in somewhere else"
+    # (MEASURED 2026-09-28, PI-20260927-D9R6QTDB-0002), so a fresh login here
+    # could log out the feed or the operator. Exit 6 = no reusable session:
+    # re-dispatch after the feed's next tick (<= 5 min).
+    EARGS=(--account "${ACCOUNT}" --login reuse --storage-state "${BASE}/feed/session_state.json"
+           --state-dir "${BASE}/executor")
+    case "${EXEC_MODE}" in
+        probe-ticket)     EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
+        executor-dry-run) EARGS+=(--dry-run) ;;
+        watched-click)    EARGS+=(--watched-click) ;;
+        round-trip-dry)   EARGS+=(--round-trip "${RT_SYMBOL}") ;;
+        round-trip-live)  EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
+    esac
+    log "Running prop executor (${EXEC_MODE}, account=${ACCOUNT}, PROP_EXECUTOR_MODE=${PROP_EXECUTOR_MODE:-unset→read_only})"
+    set +e
+    ( cd "${REPO_DIR}" && "${VENV}/bin/python" scripts/prop/prop_executor_tick.py "${EARGS[@]}" )
+    rc=$?
+    set -e
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"exit\": ${rc}, \"mode\": \"${EXEC_MODE}\"}" >/dev/null || true
+    log "breakout-login-check ${EXEC_MODE}: exit ${rc}"
+    exit "${rc}"
+fi
+
+ARGS=(--account "${ACCOUNT}" --dump-dir "${BASE}/last-run")
+[ "${WANT_EMIT}" = "1" ] && ARGS+=(--emit-status)
+
+log "Running read-only login check (account=${ACCOUNT} emit_status=${WANT_EMIT})"
+set +e
+( cd "${REPO_DIR}" && "${VENV}/bin/python" scripts/prop/breakout_login_check.py "${ARGS[@]}" )
+rc=$?
+set -e
+
+# reset-feed re-arms the scheduled feed ONLY on a clean check (exit 0), and
+# still under the lock taken above (fd 9 stays open until this script exits),
+# so a tick can never start between the proof and the re-arm. A failed check
+# leaves the feed tripped.
+if [ "${WANT_RESET}" = "1" ]; then
+    if [ "${rc}" = "0" ]; then
+        [ -f "${BASE}/feed/tripped" ] && log "reset-feed: was tripped: $(head -c 300 "${BASE}/feed/tripped")"
+        rm -f "${BASE}/feed/tripped" "${BASE}/feed/consecutive_failures"
+        log "reset-feed: feed re-armed (the check above passed)"
+    else
+        log "reset-feed: NOT re-armed — the check exited ${rc}; the feed stays tripped"
+    fi
+fi
+
+case "${rc}" in
+    0) outcome="ok" ;;
+    3) outcome="login_ok_read_unparsed" ;;
+    4) outcome="feasibility_stop" ;;
+    5) outcome="environment" ;;
+    *) outcome="error" ;;
+esac
+record_audit "breakout-login-check" "${outcome}" \
+    "{\"account\": \"${ACCOUNT}\", \"exit\": ${rc}, \"emit_status\": ${WANT_EMIT}, \"reset_feed\": ${WANT_RESET}}" >/dev/null || true
+log "breakout-login-check: ${outcome} (exit ${rc})"
+exit "${rc}"

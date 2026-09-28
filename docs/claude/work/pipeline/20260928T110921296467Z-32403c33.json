@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Either (a) the reachable-set claim is re-derived on demand rather than recorded as a constant -- a script or workflow that runs RiskManager.position_size over the current roster at the current balance and current prices, whose output is the thing sessions read -- or (b) the two prose copies carry an explicit as-of date and a statement that reachability decays with price, so a reader knows to re-measure. !! (b) ALONE IS WEAKER AND MUST BE RECORDED AS THE CHEAPER CHOICE IF TAKEN: a dated claim still goes stale, it merely says so. !! DO NOT close this by editing the GDX line to say 'refused' -- that is the same defect with a different value, and it would be stale again on the next meaningful move in GDX. The claim under repair is that the set is CONSTANT, not the value of any one entry.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260910-THE-ALPACA-LIVE-REACHABLE-SYMBOL-SET-IS-RECORDED-AS-A-CONSTANT-AND-GDX-HAS-SINCE-FALLEN-OUT-OF-IT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260910-THE-ALPACA-LIVE-REACHABLE-SYMBOL-SET-IS-RECORDED-AS-A-CONSTANT-AND-GDX-HAS-SINCE-FALLEN-OUT-OF-IT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260910-THE-ALPACA-LIVE-REACHABLE-SYMBOL-SET-IS-RECORDED-AS-A-CONSTANT-AND-GDX-HAS-SINCE-FALLEN-OUT-OF-IT'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read the alpaca_live risk-comment block in config/accounts.yaml (~line 1517-1600): the 'reachable: TLT IEF SLV USO IAUM GDX' line is still written as a flat list with no re-derivation script and no explicit as-of/decay caveat attached to that specific line — nearby text is dated (2026-08-25/08-29) but the reachable-set line itself is not. Neither option (a) (a runnable reachability script) nor option (b) (dated+decay-caveated prose) has been built; the row's own instructions forbid closing this by hand-editing the GDX value.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane — build the option-(a) mechanism the row itself prefers: a script/workflow that runs RiskManager.position_size over the current alpaca_live roster at current balance and current prices, so 'reachable' is read on demand rather than quoted from a stale constant.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] config/accounts.yaml and the 2026-08-25 affordability sweep both record alpaca_live's reachable set as 'TLT IEF SLV USO IAUM GDX' as though it were a constant -- GDX no longer sizes, and the drift is in the permissive direction\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane — build the option-(a) mechanism the row itself prefers: a script/workflow that runs RiskManager.position_size over the current alpaca_live roster at current balance and current prices, so 'reachable' is read on demand rather than quoted from a stale constant."
+}

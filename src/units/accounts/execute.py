@@ -3099,6 +3099,63 @@ def modify_open_order(
                       "(wired: bybit, interactive_brokers, alpaca)")}
 
 
+def _ib_sibling_open_qty(
+    account_id: Optional[str], symbol: Optional[str],
+    exclude_trade_id: Optional[Any],
+    direction: Optional[str] = None,
+) -> float:
+    """Sum of ``position_size`` for OTHER open journal trades on *symbol*,
+    same ``direction`` only.
+
+    BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-CONFIRMATION-WAS.
+    Filters live rows only (``status='open'``, ``is_backtest=0`` — the same
+    predicate ``context_snapshot.open_trades_count_for`` uses), same
+    ``account_id`` + ``symbol`` + ``direction``, excluding *exclude_trade_id*
+    itself so a trade never counts as its own sibling.
+
+    ⚠️ **MANAGER REVIEW (2026-09-28, BLOCK): ``direction`` is REQUIRED, not
+    optional in practice.** On a netted IB contract, an opposite-direction
+    row does not hold lots of THIS position — it *reduces* it. Summing
+    across both directions (the first version of this fix) meant a
+    long-3/short-2 pair (net venue exposure 1 lot) reserved 2 lots for a
+    "sibling" that was never protecting anything, wedging a 1-lot close that
+    used to succeed. ``direction=None`` (the default) reproduces that
+    pre-review, both-directions behaviour and exists only so a caller that
+    genuinely cannot resolve a direction still gets *a* number rather than
+    an exception; every real caller should pass its own close direction.
+
+    Best-effort, like every other journal read on this order path: any DB
+    error returns ``0.0`` (never raises) — the caller then gets exactly the
+    pre-fix single-trade clamp rather than a blocked close.
+    """
+    if not account_id or not symbol:
+        return 0.0
+    try:
+        from src.units.db.database import Database
+        from src.utils.paths import trade_journal_db_path
+
+        db = Database(db_path=trade_journal_db_path())
+        filters = {
+            "account_id": account_id, "symbol": symbol,
+            "status": "open", "is_backtest": 0,
+        }
+        if direction:
+            filters["direction"] = str(direction).lower()
+        rows = db.get_trades(filters=filters) or []
+        total = 0.0
+        for row in rows:
+            row_id = row.get("id")
+            if exclude_trade_id is not None and row_id == exclude_trade_id:
+                continue
+            try:
+                total += float(row.get("position_size") or 0.0)
+            except (TypeError, ValueError):
+                continue
+        return total
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
 def close_open_position(
     exchange_client: Any,
     account_cfg: dict,
@@ -3108,12 +3165,21 @@ def close_open_position(
     qty: float,
     sl_order_id: Optional[str] = None,
     tp_order_id: Optional[str] = None,
+    trade_id: Optional[Any] = None,
 ) -> dict:
     """Place a reduce-only market order to flatten an open position.
 
     *side* is the side of the original entry (``"long"`` or ``"short"``};
     the close order is the opposite side. *qty* is the position size
     to close (typically the size of the original entry).
+
+    ``trade_id`` (BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-
+    CONFIRMATION-WAS) is this journal row's own id, if the caller has one.
+    IB-only today: used to look up any OTHER open journal trade on the same
+    ``(account_id, symbol)`` and reserve its recorded size so IBClient's
+    live-position clamp can never eat into a sibling's lots. ``None`` (the
+    default) reproduces the pre-fix single-trade clamp exactly. Every other
+    exchange branch ignores it.
 
     ``sl_order_id`` / ``tp_order_id`` (BL-20260721-BYBIT2-XRP-TPSL-LEGCAP,
     from ``trades``) are the closing trade's own tracked Bybit Partial-tpsl
@@ -3263,7 +3329,29 @@ def close_open_position(
                         "exchange_order_id": None,
                         "error": (f"IB close: expected IBClient, got "
                                   f"{type(exchange_client).__name__}")}
-            resp = exchange_client.close(symbol, direction, qty) or {}
+            # BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-
+            # CONFIRMATION-WAS: this is the only layer that can see the
+            # journal, so it -- not IBClient -- resolves how much of the
+            # symbol's live position a sibling trade needs reserved before
+            # IBClient's clamp runs. `trade_id=None` (no caller passes one)
+            # SKIPS the lookup entirely -- 0.0, the pre-fix single-trade
+            # clamp -- rather than treating every open row on the symbol as
+            # a sibling. Without this guard a caller that doesn't identify
+            # its own trade would have its OWN journal row (if it has one)
+            # counted against itself, reserving qty from itself.
+            #
+            # `direction=direction` (manager review, 2026-09-28, BLOCK):
+            # on a netted IB contract an OPPOSITE-direction row reduces the
+            # position rather than holding lots of it, so it must never
+            # count as a sibling to reserve against -- only same-direction
+            # rows do.
+            sibling_qty = (
+                _ib_sibling_open_qty(account_cfg.get("account_id"), symbol,
+                                      trade_id, direction=direction)
+                if trade_id is not None else 0.0
+            )
+            resp = exchange_client.close(
+                symbol, direction, qty, sibling_qty=sibling_qty) or {}
             ret_code = resp.get("retCode")
             if ret_code in (0, "0", None):
                 order_id = (resp.get("result") or {}).get("orderId")

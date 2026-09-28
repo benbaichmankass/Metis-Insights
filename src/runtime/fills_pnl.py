@@ -42,8 +42,10 @@ NOT A BROKER CALL
 This is a **local SQLite read**. The caller runs on the live trader's monitor
 tick, where a per-row network fetch is the 2026-06-09 cold-start wedge shape. The
 network half is the pullers on their own timers
-(``ict-exchange-fills-pull.timer`` daily for Bybit+Alpaca,
-``ict-ib-executions-pull.timer`` hourly for IB).
+(``ict-exchange-fills-pull.timer`` hourly for Bybit,
+``ict-alpaca-fills-pull.timer`` hourly for Alpaca — split off the Bybit
+timer 2026-09-27, FIX-CA-OPS2 — and ``ict-ib-executions-pull.timer`` hourly
+for IB).
 
 IT REFUSES RATHER THAN APPROXIMATING
 ------------------------------------

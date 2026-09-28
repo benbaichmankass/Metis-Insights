@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a test injecting a get_recent_order_packages_for_symbol exception is added and asserts _send_close_to_exchange is never called, or the item is killed with a stated reason.",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-JT7JW9CR-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B07 (session_0176ddjoUxwveWpnJT7Jw9cr), finding AUD-20260927-CA-B07-orphan-readfail-untested in docs/audits/code-audit-2026-09-27/CA-B07.findings.jsonl",
+    "rerun": "Read tests/test_reverse_reconciler.py:646-716 on main; re-run `grep -n 'OperationalError\\|get_recent_order_packages_for_symbol' tests/test_reverse_reconciler.py` (expect no raising fixture). The finding holds while no test injects a package-read exception."
+  },
+  "state": "queued",
+  "what": "HIGH (code audit CA-B07, MEASURED): the order-package-read-FAILURE branch of _recover_orphan_attribution (CA-A01-019, PI-20260927-KFWRL9R1-0006: an exception is treated identically to 'no candidate exists' and a live orphan gets flattened with a real reduce-only close) has no test. tests/test_reverse_reconciler.py's two closest tests -- test_unattributable_alive_orphan_is_flattened (L646-681) and test_alive_orphan_with_recoverable_package_reattached_not_flattened (L685-716) -- both drive a real tmp_db whose package read SUCCEEDS (returning either no candidate or a match); neither injects an exception from get_recent_order_packages_for_symbol. `grep -n 'OperationalError|get_recent_order_packages_for_symbol.*raise' tests/test_reverse_reconciler.py` returns 0 hits. LOCATION: tests/test_reverse_reconciler.py:646-716. PROPOSED FIX: add a Database stub whose get_recent_order_packages_for_symbol always raises, asserting _send_close_to_exchange is never called across N passes (CA-A01-019's own detector text)."
+}

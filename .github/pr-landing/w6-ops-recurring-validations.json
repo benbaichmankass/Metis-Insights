@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only (docs/claude/work/pipeline/*.json, append-only, validated by scripts/ops/pipeline.py --check): W6-OPS-R's 2026-09-28 observations of the #13116 fixes -- W6OPSR-0002 closed done on an observed 22/22 pregate run, 0001/0003/0005 and P64CTNIO-0001 updated with measurements, one new item (the /api/diag relay returning 401). No code, config, workflow or deploy change."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 21,
+    "clears_when": "m20_exit_sweep.py::run_cell uses a unique per-call temp path (tempfile.mkstemp, unlinked in a finally block), matching the fixed sibling m20_fleet_exit_sweep.py::run_cell, so concurrent sweeps cannot silently swap results.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-4RNJRRFS-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B03 / docs/audits/code-audit-2026-09-27/CA-B03.findings.jsonl#AUD-20260927-CA-B03-exit-sweep-shared-tmp-race",
+    "rerun": "cd /home/user/Metis-Insights && grep -n 'tmp = \\|mkstemp' scripts/research/m20_exit_sweep.py (expect: tempfile.mkstemp once fixed; today: tmp = \"/tmp/m20_cell.json\" literal, line 31)"
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-29 fixed in PR #13314: m20_exit_sweep and m20_trail_resweep run_cell use tempfile.mkstemp per call; tests/test_m20_sweep_run_cell_unique_tmp.py (race reproduced on main, plus fixed-/tmp-literal detector).",
+  "what": "[trading-correctness] m20_exit_sweep.py::run_cell (line 31) -- the P2 'hard-lever sweep' harness .claude/skills/exit-refinement/SKILL.md names as the currently-active pipeline step -- writes every cell's --json output to a single hardcoded shared path (/tmp/m20_cell.json) and reads it back, the same BL-20260820-RUN-CELL-SHARES-A-FIXED-TEMP-PATH defect class already found and fixed in m20_fleet_exit_sweep.py::run_cell. Reproduced the mechanism with a planted-input thread race (same shape as the m20_trail_resweep.py sibling finding). No test references this file's run_cell behavior. Filed by code-audit lane CA-B03 (docs/audits/code-audit-2026-09-27/CA-B03.findings.jsonl, finding AUD-20260927-CA-B03-exit-sweep-shared-tmp-race)."
+}

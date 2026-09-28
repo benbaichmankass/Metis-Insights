@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges under the data-backed Tier-2/3 authority (audit brief evidence)",
+  "why": "FIX-CA-09 (AUD-20260927-CA-A04-daily-loss-cap-by-open-date, CONFIRMED high by the audit lead). RiskManager._recompute_daily_pnl_from_db attributed realized PnL to the UTC day a trade OPENED (substr(created_at,1,10)), so a loss realized today on a position opened earlier never reached any day's DAILY_LOSS_CAP. It now keys on the day the PnL was REALIZED: closed_at through the canonical epoch-ms-aware normaliser src.utils.closed_at.closed_at_norm_sql, falling back to created_at only when closed_at is absent. Tier 3 because it tightens a risk cap. Proving test test_cross_day_loss_counts_today fails on main (0.0 vs -6000) and passes here. MEASURED over the trainer's journal mirror (issue #13242, 641 closed non-backtest trades realized since 2026-08-28): under main the cap engaged on 0 account-days; after, 2 — bybit_2 and bybit_portfolio on 2026-09-03."
+}

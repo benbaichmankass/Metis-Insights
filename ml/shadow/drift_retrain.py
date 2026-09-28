@@ -40,7 +40,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -49,7 +49,12 @@ import yaml
 from ..manifest import canonical_stage
 from ..registry.model_registry import ModelRegistry
 from .adwin import DEFAULT_DELTA, DEFAULT_MAX_WINDOW, MIN_WINDOW, scan_stream
-from .inspector import ShadowRecord, filter_records, iter_records
+from .inspector import (
+    DEFAULT_ARCHIVE_LOOKBACK_DAYS as ARCHIVE_LOOKBACK_DAYS,
+    ShadowRecord,
+    filter_records,
+    iter_records_with_archives,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -146,8 +151,12 @@ def evaluate_models(
         # Materialize once: filter_records iterates many times (one per
         # model). Backfill records carry synthetic timestamps so they
         # pollute the chronological online detector — exclude them.
+        # Every active-log row (as before) + rotated archives written in the
+        # look-back (FIX-CA-20) — bounded so the never-pruned archive set is
+        # not materialized whole (BL-20260715).
+        since = datetime.now(timezone.utc) - timedelta(days=ARCHIVE_LOOKBACK_DAYS)
         records = [
-            r for r in iter_records(log_path)
+            r for r in iter_records_with_archives(log_path, archives_since=since)
             if r.backfill_kind is None
         ]
     # Normalize the watched set so a caller passing legacy alias names still

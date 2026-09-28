@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Tier-2 operator action: one-shot DB rebuild from Bybit ground truth.
 #
-# Wraps scripts/ops/rebuild_pnl_from_bybit.py --apply. Iterates Bybit's
+# Wraps scripts/ops/rebuild_pnl_from_bybit.py. Dry-run by default; the
+# issue body must set `apply: true` to write (FIX-CA-14 / CA-A10-200 —
+# this wrapper used to pass --apply unconditionally). Iterates Bybit's
 # closed-pnl records and rewrites every matched DB row's pnl /
 # exit_price / pnl_percent / notes to agree with Bybit. Stamps notes
 # with `rebuilt_at` + `rebuilt_by` + `pre_rebuild_pnl` (audit trail).
@@ -56,11 +58,18 @@ if [ ! -f "${DB_PATH}" ]; then
     exit 1
 fi
 
+# ACTION_APPLY gates dry-run (default) vs the real write — same gate as
+# every sibling money-DB wrapper (e.g. reconcile_netting_rows_action.sh).
+ARGS=(--account "${ACCOUNT}" --days "${DAYS}")
+case "${ACTION_APPLY:-}" in
+    true|True) ARGS+=(--apply) ;;
+    *) ;;
+esac
+
 echo
-echo "===== rebuild_pnl_from_bybit.py --account ${ACCOUNT} --days ${DAYS} --apply ====="
+echo "===== rebuild_pnl_from_bybit.py ${ARGS[*]} ====="
 set +e
-TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" \
-    --account "${ACCOUNT}" --days "${DAYS}" --apply
+TRADE_JOURNAL_DB="${DB_PATH}" python3 "${PY_SCRIPT}" "${ARGS[@]}"
 exit_code=$?
 set -e
 
@@ -73,5 +82,5 @@ if [ "${exit_code}" -ne 0 ]; then
 fi
 
 record_audit "rebuild-pnl-from-bybit" "ok" \
-    "{\"account\": \"${ACCOUNT}\", \"days\": ${DAYS}}" >/dev/null || true
+    "{\"account\": \"${ACCOUNT}\", \"days\": ${DAYS}, \"apply\": \"${ACTION_APPLY:-}\"}" >/dev/null || true
 exit 0

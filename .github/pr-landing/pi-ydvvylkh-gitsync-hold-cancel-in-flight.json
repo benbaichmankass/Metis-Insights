@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier-2 deploy-path change (scripts/deploy_pull_restart.sh run by ict-git-sync, plus the stop/start/restart/pull-and-deploy ops scripts). Fix lane dispatched by the manager (session_01KAQRJxRbRwpYTkPgBjNVyQ) for PI-20260927-YDVVYLKH-0002/-0003: the manager merges and deploys under the data-backed Tier-2 authority (CLAUDE-RULES-CANONICAL.md § 'Data-backed Tier-2/3 decisions'), evidence = the measured 2026-09-27 stop 14:15:23Z undone by git-sync at 14:16:59Z and 14:22:27Z (#13194, #13203/#13204). The lane does not merge.",
+  "why": "git-sync no longer STARTS an operator-stopped ict-trader-live (stop marker written by stop_bot.sh, cleared by start/restart-bot-service and pull-and-deploy; a running trader is still redeployed) and no longer re-runs the liveness-watchdog oneshot while its timer is paused; cancel_ib_order.py grades IBKR 10148+PendingCancel as cancel_in_flight instead of refused_by_venue. Tests added for both."
+}

@@ -75,6 +75,15 @@ re-arm decision was already incoherent. The difference is that a refusal is
 LOUD. The caller logs each refusal with its state; a silent skip here would
 convert a false-close defect into an invisible protection gap, which is the
 worse of the two.
+
+⚠️ **UPDATED 2026-09-27 (FIX-CA-06 / CA-A01-073).** The naked sweep no longer
+stops at ``ambiguous_multi_book``: it re-reads the symbol once per book with
+``want_side`` (the row's direction), grades each book on the side-aware graded
+coverage, and re-arms the naked book at the venue's own ``positionIdx``. The
+netting reconciler passes no ``want_side`` and still refuses. Every refusal
+that remains is counted in the sweep summary (``protection_refused`` by kind)
+and pages after a run of consecutive refused sweeps — it was logged but
+otherwise silent until then.
 """
 from __future__ import annotations
 
@@ -144,11 +153,40 @@ def _parse_size(raw: Any) -> Optional[float]:
         return None
 
 
-def select_position_row(rows: Optional[Sequence[Any]]) -> BookSelection:
+#: Bybit hedge-mode ``positionIdx`` per position direction (0 is one-way).
+_HEDGE_IDX_SIDE = {1: "long", 2: "short"}
+
+
+def _row_book_side(row: Dict[str, Any]) -> Optional[str]:
+    """``"long"``/``"short"`` for a position row, from its hedge ``positionIdx``
+    first (the venue's book identity), else its ``side``. ``None`` = unreadable;
+    never guessed."""
+    try:
+        by_idx = _HEDGE_IDX_SIDE.get(int(row.get("positionIdx")))
+    except (TypeError, ValueError):
+        by_idx = None
+    if by_idx:
+        return by_idx
+    return {"buy": "long", "long": "long", "sell": "short",
+            "short": "short"}.get(str(row.get("side") or "").strip().lower())
+
+
+def select_position_row(rows: Optional[Sequence[Any]],
+                        want_side: Optional[str] = None) -> BookSelection:
     """Pick the one live book from a symbol-scoped ``get_positions`` list.
 
     Pure. See the module docstring for why each state exists and what a refusal
     costs the caller.
+
+    *want_side* (``"long"``/``"short"``, FIX-CA-06 / CA-A01-073) is the
+    direction the CALLER is asking about. It only ever disambiguates
+    ``ambiguous_multi_book``: when two books carry size and EXACTLY one of them
+    is on *want_side* (by hedge ``positionIdx`` 1/2, else by ``side``), that
+    book is ``selected``. The module docstring's objection — "a symbol-scoped
+    read carries no direction to choose by" — is exactly what *want_side*
+    supplies. Zero or several matches stay ``ambiguous_multi_book``; an
+    unreadable book side is never guessed. Without *want_side* the behaviour
+    is unchanged.
     """
     if not rows:
         return BookSelection(
@@ -192,6 +230,27 @@ def select_position_row(rows: Optional[Sequence[Any]]) -> BookSelection:
             row_count=row_count,
             detail=f"all {row_count} enumerated book(s) parse to size 0",
         )
+
+    if len(live) > 1 and want_side:
+        want = str(want_side).strip().lower()
+        want = {"buy": "long", "sell": "short"}.get(want, want)
+        matching = [(r, sz) for r, sz in zip(live, live_sizes)
+                    if _row_book_side(r) == want]
+        if len(matching) == 1:
+            chosen, chosen_size = matching[0]
+            return BookSelection(
+                state="selected",
+                row=chosen,
+                size=chosen_size,
+                position_idx=chosen.get("positionIdx"),
+                live_count=len(live),
+                row_count=row_count,
+                detail=(
+                    f"{len(live)} live books; the {want} book was asked for: "
+                    f"positionIdx={chosen.get('positionIdx')!r} "
+                    f"side={chosen.get('side')!r} size={chosen_size}"
+                ),
+            )
 
     if len(live) > 1:
         books = ", ".join(

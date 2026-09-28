@@ -454,6 +454,86 @@ def test_an_appended_update_supersedes_the_earlier_record(tmp_path):
     assert res.items["DUP"]["what"] == "answered"
 
 
+def test_record_ages_reads_the_records_own_filename_timestamp_not_the_landing_commit(
+        tmp_path):
+    """PINS D11 / `PI-20260927-EPMBGUYB-0003` -- root cause CONFIRMED 2026-09-27.
+
+    THE FAILURE: `operator-owed-guard`'s `guards` CI runs at 07:39-07:43Z on
+    2026-09-27 read several rows as >= 2.0 days old (the hard-fail threshold);
+    a LATER local run of the identical check, on the same/a newer commit, read
+    the SAME rows as 1.3 days.
+
+    THE CONFIRMED ROOT CAUSE: `record_ages()` read the git COMMITTER date of
+    the commit that merged a record's file into `main` (`git log -1
+    --format=%cI`) and used it as "when this row's content last changed". That
+    date is when this repo's serialized self-land merge queue
+    (`scripts/ops/claim_merge_slot.py`, one claimant at a time) happened to
+    free that PR's slot -- NOT when the record was actually written. MEASURED
+    over the 110 most recent non-migration records in
+    `docs/claude/work/pipeline/`: every one lands at or after its own filename
+    timestamp (never before, as expected), median gap 35.6 minutes, mean 107.6
+    minutes, max ~27.9 hours, and 98/110 (89%) exceed 10 minutes. A CI run
+    whose checkout predates a queued PR's merge necessarily reads that row's
+    PRIOR, older generation -- correctly stale as of THAT snapshot -- while a
+    run taken after the merge lands reads the fresh one: same row, same
+    eventual git history, two different points along an asynchronous queue.
+    Ruled out, checked against the code rather than assumed: (a) naive/aware
+    timezone confusion -- every timestamp on this path is aware and correctly
+    offset, and aware-datetime subtraction is correct across differing
+    offsets; (b) a shallow clone -- `.github/workflows/guards.yml` (the only
+    workflow that runs this guard) checks out with `fetch-depth: 0`.
+
+    THE FIX: prefer the record's own authoring timestamp, embedded in its
+    filename by `pipeline._record_filename()` at write time
+    (`{YYYYMMDDTHHMMSSffffff}Z-{rand}.json`), and never ask git for a date
+    once that timestamp parses -- so a slow merge-queue slot cannot move it.
+
+    This fixture reproduces the shape directly: one record file, named with
+    the real production format, whose EMBEDDED timestamp says "written 10
+    minutes ago" -- but whose landing commit (standing in for "whenever the
+    merge queue let this in") is backdated 30 days. Pre-fix this read ~30
+    days (stale, escalating); post-fix it reads ~10 minutes (fresh).
+    """
+    repo = _repo(tmp_path)
+    store = repo / REL
+    store.mkdir(parents=True, exist_ok=True)
+
+    written_at = NOW_FIXED - _dt.timedelta(minutes=10)
+    name = f"{written_at.strftime('%Y%m%dT%H%M%S%f')}Z-deadbeef.json"
+    row = _owed("FRESH-BUT-QUEUED")
+    (store / name).write_text(json.dumps(row), encoding="utf-8")
+
+    # The commit that lands this file is backdated 30 days -- standing in for
+    # a merge-queue slot that took a long time to free.
+    when = (NOW_FIXED - _dt.timedelta(days=30)).isoformat()
+    env = dict(os.environ, GIT_AUTHOR_DATE=when, GIT_COMMITTER_DATE=when)
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, env=env)
+    subprocess.run(["git", "commit", "-q", "-m", "landed 30 days late"],
+                   cwd=repo, check=True, env=env)
+
+    # Fixture sanity: confirm the landing commit really is the stale,
+    # backdated one, so this test cannot pass for the wrong reason.
+    committer_date = subprocess.run(
+        ["git", "log", "-1", "--format=%cI", "--", str(store / name)],
+        cwd=repo, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    thirty_days_ago = (NOW_FIXED - _dt.timedelta(days=30)).date().isoformat()
+    assert committer_date.startswith(thirty_days_ago), (
+        "fixture sanity: the landing commit must be the stale, backdated one "
+        f"-- got {committer_date!r}")
+
+    res = pipeline.read_log(store)
+    ages, _transitions = record_ages(repo, REL, res.sources, res.raw,
+                                      ["FRESH-BUT-QUEUED"], now=NOW_FIXED)
+
+    assert ages["FRESH-BUT-QUEUED"] is not None
+    assert ages["FRESH-BUT-QUEUED"] < 1.0, (
+        f"got {ages['FRESH-BUT-QUEUED']!r} days -- the row's OWN filename "
+        f"timestamp says it was written 10 minutes ago; a git-committer-date "
+        f"reading (~30 days, this fixture's landing commit) is the exact "
+        f"failure D11 pins")
+
+
 def test_the_check_fails_on_a_carried_row_and_says_how_to_clear_it(tmp_path, capsys):
     repo = _repo(tmp_path)
     stale = _owed("STALE")

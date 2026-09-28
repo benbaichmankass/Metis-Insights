@@ -127,6 +127,53 @@ def mode() -> str:
     return raw if raw in _MODES else _DEFAULT_MODE
 
 
+#: What ``enforce_ticket_cap`` did to one ticket.
+CAP_NOT_ENFORCED = "not_enforced"   # mode is off / annotate: size untouched
+CAP_UNCHANGED = "unchanged"         # enforce; the risk is within the cap
+CAP_RESIZED = "resized"             # enforce; the risk exceeded the cap -> cut to it
+CAP_REFUSED = "refused"             # enforce; no cap is known -> the ticket is refused
+
+
+def enforce_ticket_cap(
+    *, risk_usd: float, cap_usd: Optional[float], gate_mode: Optional[str] = None,
+    sizing_mode: str = "",
+) -> Dict[str, Any]:
+    """``enforce`` mode's SIZE action — the part this gate never had until 2026-09-27.
+
+    ``PROP_TICKET_RISK_GATE_MODE=enforce`` was operator-approved on 2026-08-31
+    and read live, but no code path changed a size (PI-20260924-MQ3CDMU6-0002).
+    Operator decision 2026-09-27 ~08:40Z: "Implement it with the sizing
+    decision". The cap is the CURRENT sizing mode's configured cap
+    (``prop_sizing.SizingDecision.cap_usd``): the flat $75 for the current
+    breakout_1 account, the room formula for a fresh one. It is deliberately
+    NOT the live cushion: capping the current account at its cushion would
+    overturn the operator's "keep flat until it passes or dies" in the same
+    popup. The cushion caveat (``caveat_lines``) is unchanged.
+
+    Pure. ``off`` / ``annotate`` never touch the size. Under ``enforce`` a risk
+    above the cap is cut to the cap; an unknown cap refuses — we do not emit a
+    size nobody bounded. Every non-trivial outcome carries a ``cause``.
+    """
+    gm = gate_mode if gate_mode is not None else mode()
+    risk = float(risk_usd)
+    base = {"gate_mode": gm, "sizing_mode": sizing_mode, "cap_usd": cap_usd,
+            "requested_risk_usd": risk}
+    if gm != "enforce":
+        return {**base, "action": CAP_NOT_ENFORCED, "risk_usd": risk, "cause": None}
+    if cap_usd is None:
+        return {**base, "action": CAP_REFUSED, "risk_usd": None,
+                "cause": (f"risk gate ENFORCE: no configured cap for {sizing_mode or 'this'} "
+                          f"sizing — refusing a ${risk:,.2f} ticket rather than emitting "
+                          f"an unbounded size")}
+    cap = float(cap_usd)
+    # half-a-cent tolerance: both sides are rounded to cents upstream.
+    if risk <= cap + 0.005:
+        return {**base, "action": CAP_UNCHANGED, "risk_usd": risk, "cause": None}
+    return {**base, "action": CAP_RESIZED, "risk_usd": round(cap, 2),
+            "cause": (f"risk gate ENFORCE: ticket risk ${risk:,.2f} exceeds the "
+                      f"{sizing_mode or 'configured'}-mode cap ${cap:,.2f} — resized to the cap")}
+
+
 def grade_ticket_risk(
     *,
     risk_usd: Optional[float],
@@ -303,13 +350,51 @@ def grade_account_ticket_risk(
     )
 
 
-def caveat_lines(verdict: Dict[str, Any]) -> list[str]:
+def breach_guards_for(account_id: Optional[str]) -> str:
+    """``enforce`` | ``report`` for ``account_id``, read from
+    ``config/accounts.yaml::<account>.risk.breach_guards`` — the same key the
+    RiskManager reads (``src.units.accounts.risk.breach_guards_mode``), so
+    the ticket text and the risk gate can never disagree. Any read failure,
+    a missing account or an unparseable value is ``enforce``."""
+    if not account_id:
+        return "enforce"
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        from src.units.accounts.risk import breach_guards_mode
+
+        acct = load_accounts_dict().get(account_id) or {}
+        if not isinstance(acct, dict):
+            return "enforce"
+        # SAME source PropRiskManager is built from (prop_risk.py:
+        # ``config.get("risk") or config``), so the two can never disagree.
+        return breach_guards_mode(acct.get("risk") or acct)
+    except Exception:  # noqa: BLE001 — unreadable config is the safe default
+        return "enforce"
+
+
+def caveat_lines(verdict: Dict[str, Any], breach_guards: str = "enforce") -> list[str]:
     """Operator-facing caveat block for a ticket, or ``[]`` when nothing to say.
 
     ``within_cushion`` and ``no_risk_declared`` render nothing — a warning on
     every ticket is the desensitised-alarm P1 this repo treats as its own bug.
+
+    ``breach_guards="report"`` (a replaceable account, operator 2026-09-28):
+    ``exceeds_cushion`` renders ONE informational line instead of the "DO NOT
+    PLACE" block, so neither a human nor the executor reads it as a no-go.
+    ``cushion_unknown`` is NOT softened: that is "we could not look", which
+    stays a caveat in every mode.
     """
     state = verdict.get("state")
+    if state == EXCEEDS and breach_guards == "report":
+        risk = verdict.get("risk_usd") or 0.0
+        cushion = verdict.get("cushion_usd") or 0.0
+        limit = str(verdict.get("binding_limit") or "").replace("_", " ")
+        return [
+            "",
+            f"  ⚠️ Would breach the {limit} limit if stopped out (risk ${risk:,.2f} vs "
+            f"${cushion:,.2f} left): accepted, the account is replaceable "
+            "(breach_guards: report). PLACE AS SHOWN.",
+        ]
     if state == EXCEEDS:
         risk = verdict.get("risk_usd") or 0.0
         cushion = verdict.get("cushion_usd") or 0.0
@@ -450,7 +535,7 @@ def record_ticket_risk_soak(
 
 
 __all__ = [
-    "grade_ticket_risk", "grade_account_ticket_risk", "caveat_lines", "mode",
+    "grade_ticket_risk", "grade_account_ticket_risk", "caveat_lines", "mode", "breach_guards_for",
     "record_ticket_risk_soak",
     "WITHIN", "EXCEEDS", "UNKNOWN", "NO_RISK",
 ]

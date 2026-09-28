@@ -160,3 +160,38 @@ class TestImportDiscipline:
         import importlib.util
 
         assert importlib.util.find_spec("scripts.ml.publish_live_forecasts") is not None
+
+
+# --- FIX-CA-25: the producer forecasts the last CLOSED bar ------------------
+# CA-B01-fc-producer-forecasts-forming-bar (PI-20260927-3WM5HADW-0008).
+
+
+def _open_last_bar_candles(n: int = 80):
+    """n candles on a 15m grid whose LAST bar opened 5 min ago (still forming)."""
+    from datetime import timezone
+
+    now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    last_open = now - timedelta(minutes=5)
+    rows = _candles(n)
+    for i, r in enumerate(rows):
+        ts = last_open - timedelta(minutes=15 * (n - 1 - i))
+        r["timestamp"] = ts.isoformat().replace("+00:00", "Z")
+    return rows
+
+
+def test_artifact_as_of_is_prior_closed_bar_when_last_bar_forming(tmp_path):
+    candles = _open_last_bar_candles()
+    art = producer.build_forecast_artifact(
+        "BTCUSDT", "15m", candles, forecast_fn=_stub_forecast(),
+    )
+    assert art is not None
+    assert art["as_of_ts"] == candles[-2]["timestamp"]
+
+
+def test_written_artifact_as_of_is_prior_closed_bar(tmp_path):
+    """The path main() takes (fetch -> write_forecast_artifact)."""
+    candles = _open_last_bar_candles()
+    path = producer.write_forecast_artifact(
+        tmp_path, "BTCUSDT", "15m", candles, forecast_fn=_stub_forecast(),
+    )
+    assert json.loads(path.read_text())["as_of_ts"] == candles[-2]["timestamp"]

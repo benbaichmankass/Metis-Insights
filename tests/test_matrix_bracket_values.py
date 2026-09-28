@@ -22,9 +22,15 @@ THREE THINGS THIS FILE PINS, each of which a looser guard would get wrong:
      carries no parseable cell id cannot be checked — and "we could not look"
      must never be recorded as "we looked and it agreed". Softening this is the
      cheapest way to make the guard vacuous while leaving it green.
-  3. **A `to*` component can never be `shipped`.** No live trend/pullback/squeeze
-     unit reads `timeout_bars`, so a shipped claim on that axis is undeliverable
-     by construction (`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`).
+  3. **A `to*` component is delivered ONLY by the unconditional stale_stop pair.**
+     No live trend/pullback/squeeze unit reads `timeout_bars`
+     (`BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES`),
+     so a `timeout_bars` declare never counts. `stale_exit_bars == N` with an
+     unreachable `stale_exit_below_r` does, and is checked value by value
+     (gld_pullback_1h `tp6_sm1.5_to24`, 2026-09-28).
+  4. **A ref naming several distinct cells is `unreadable`** unless a structured
+     `shipped_cell` says which one shipped. Taking the first match silently checked
+     a superseded cell on gld_pullback_1h.
 """
 
 from __future__ import annotations
@@ -51,7 +57,7 @@ def test_guard_self_test_passes_and_has_not_shrunk() -> None:
     assert p.returncode == 0, p.stdout + p.stderr
     # A self-test that quietly lost cases would still exit 0, so the COUNT is
     # part of the contract it prints.
-    assert "8 cases" in p.stdout, p.stdout
+    assert "14 cases" in p.stdout, p.stdout
 
 
 def test_guard_runs_against_the_real_tree_without_crashing() -> None:
@@ -81,10 +87,45 @@ def test_an_unreadable_ref_is_a_finding_not_a_pass() -> None:
     assert len(d) == 1 and d[0]["kind"] == "unreadable", d
 
 
-def test_a_timeout_axis_can_never_be_shipped() -> None:
+def test_a_timeout_axis_without_a_stale_declare_is_undeliverable() -> None:
     d = guard.disagreements(_matrix("leg", "cell `tp3_sm2_to24`"),
                             {"leg": {"tp_r": 3.0, "atr_stop_mult": 2.0}})
     assert len(d) == 1 and d[0]["kind"] == "undeliverable_axis", d
+    # A timeout_bars declare does not deliver it -- nothing live reads that key.
+    d = guard.disagreements(_matrix("leg", "cell `tp3_sm2_to24`"),
+                            {"leg": {"tp_r": 3.0, "atr_stop_mult": 2.0,
+                                     "timeout_bars": 24}})
+    assert len(d) == 1 and d[0]["kind"] == "undeliverable_axis", d
+
+
+_TO_OK = {"tp_r": 6.0, "atr_stop_mult": 1.5,
+          "stale_exit_bars": 24, "stale_exit_below_r": 1e9}
+
+
+def test_a_timeout_axis_delivered_by_the_unconditional_stale_pair_is_clean() -> None:
+    assert guard.disagreements(_matrix("leg", "cell `tp6_sm1.5_to24`"),
+                               {"leg": dict(_TO_OK)}) == []
+
+
+def test_every_axis_of_a_timeout_cell_is_still_policed() -> None:
+    """The delivered timeout must not excuse tp_r / sm / N / the threshold."""
+    cases = {"tp_r": 4.0, "atr_stop_mult": 2.5, "stale_exit_bars": 12,
+             "stale_exit_below_r": 0.0}
+    for key, bad in cases.items():
+        d = guard.disagreements(_matrix("leg", "cell `tp6_sm1.5_to24`"),
+                                {"leg": dict(_TO_OK, **{key: bad})})
+        assert [(x["kind"], x["key"]) for x in d] == [("value_mismatch", key)], (key, d)
+
+
+def test_an_ambiguous_ref_is_unreadable_and_shipped_cell_resolves_it() -> None:
+    two = "winner was cell `sm1.5` || SHIPPED as cell `tp6_sm1.5_to24`"
+    d = guard.disagreements(_matrix("leg", two), {"leg": dict(_TO_OK)})
+    assert len(d) == 1 and d[0]["kind"] == "unreadable", d
+    m = _matrix("leg", two)
+    m["rows"][0]["bracket_geometry"]["shipped_cell"] = "tp6_sm1.5_to24"
+    assert guard.disagreements(m, {"leg": dict(_TO_OK)}) == []
+    d = guard.disagreements(m, {"leg": dict(_TO_OK, tp_r=4.0)})
+    assert [(x["kind"], x["key"]) for x in d] == [("value_mismatch", "tp_r")], d
 
 
 def test_guard_is_registered_in_run_guards() -> None:

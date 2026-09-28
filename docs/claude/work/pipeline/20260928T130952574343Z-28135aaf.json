@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "The operator answers WORKPLAN-2026-08-26 Lane D1's question for M16 -- re-scope it to a use confidence CAN serve (OOS AUC 0.522 rules out cross-candidate SELECTION, not within-strategy use), or park it explicitly -- and ROADMAP.md's M16 cell is edited to record whichever is chosen.",
+    "kind": "event"
+  },
+  "id": "PI-20260928-NLANEM16-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "admin-triage-2026-09-28 lane, per PI-20260924-E53-0001 popup option 1 (\"Apply the 6 evidenced re-tokens ... and separately dispatch a lane to actually carry out M16's Lane D1 decision\")",
+    "rerun": "grep -n \"^| \\*\\*M16\\*\\*\" ROADMAP.md   # re-read the M16 cell for its current token"
+  },
+  "state": "queued",
+  "what": "[roadmap] M16 (Unified Confidence Risk Architecture) needs an ACTUAL operator decision, not another status sweep. Per PI-20260924-E53-0001 (2026-09-24 E53 status sweep), M16 has been STALE-DORMANT since 2026-08-26: 0 commits on main since then touch src/runtime/conviction*.py or config/regime_policy.yaml, and 0 of 1,863 first-parent commits since 2026-08-31 mention confidence/conviction/lens/regime-router. The premise this milestone is built on was MEASURED 2026-08-26 to fail the job M18 assigned it: the `confidence` scalar reads OOS AUC 0.522 against a pre-registered 0.55 gate (M18 expanding walk-forward, n_eval=1,236); every sibling input sits 0.47-0.53. docs/claude/WORKPLAN-2026-08-26.md Lane D1 called for this milestone to be RE-SCOPED to a use confidence CAN serve, or PARKED explicitly -- a silent continuation was named as the disposition being ruled out. That Lane D1 decision has NO RECORD anywhere on main and no checklist row names it, per E53's own read and re-confirmed by this session (2026-09-28) finding nothing new. Filed 2026-09-28 by the admin-triage lane per PI-20260924-E53-0001's recommendation option 1: \"Apply the 6 evidenced re-tokens ... and separately dispatch a lane to actually carry out M16's Lane D1 decision.\" This item is that dispatch record -- it does not itself re-scope or park M16."
+}

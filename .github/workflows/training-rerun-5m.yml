@@ -90,3 +90,5 @@ jobs:
           msg="TRAINING-RESULTS: 2026-05-07-vwap-accuracy 5m re-run [skip ci] — $RUN_URL"
           git commit -m "$msg"
           git push origin HEAD:${{ github.ref_name }}
+
+# no-durable-result: ML training experiment rerun tracked by the model registry, not the research/results queue

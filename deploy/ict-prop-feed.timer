@@ -1,0 +1,26 @@
+# ============================================
+# ICT PROP FEED TIMER (W6-PROP-FEED, 2026-09-28)
+# Fires deploy/ict-prop-feed.service every 5 minutes, at :02/:07/:12/...,
+# offset from the :00/:05 boundary other jobs cluster on. A oneshot that is
+# still running is never started twice by its timer, and the wrapper's flock
+# also covers a concurrent manual `breakout-login-check`.
+#
+# Persistent=false on purpose: a missed 5-minute snapshot is worth nothing
+# after the fact, and a catch-up fire right after boot is one more login.
+#
+# Auto-enabled on the trader box by scripts/install_systemd_units.sh.
+# Save to: /etc/systemd/system/ict-prop-feed.timer
+# ============================================
+
+[Unit]
+Description=Trigger ict-prop-feed every 5 minutes (breakout_1 account_status)
+Requires=ict-prop-feed.service
+
+[Timer]
+OnCalendar=*-*-* *:02/5:00
+AccuracySec=15s
+Persistent=false
+Unit=ict-prop-feed.service
+
+[Install]
+WantedBy=timers.target

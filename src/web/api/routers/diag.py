@@ -310,6 +310,23 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # rationale as the watchdog / insights / snapshot pairs above.
     "ict-exchange-fills-pull.service",
     "ict-exchange-fills-pull.timer",
+    # 2026-09-27 (FIX-CA-OPS2) — Alpaca fills, split off
+    # ict-exchange-fills-pull.service so an Alpaca-side failure can never
+    # skip the Bybit wallet ledger sharing that unit's ExecStart chain. Same
+    # rationale as its Bybit sibling above: queryable so a session can verify
+    # the pull is firing on cadence and tail its journal.
+    "ict-alpaca-fills-pull.service",
+    "ict-alpaca-fills-pull.timer",
+    # 2026-09-28 (W6-PROP-FEED) — the 5-min read-only breakout_1
+    # account_status feed; queryable so its tick journal (redacted output,
+    # trip/backoff lines) can be tailed without SSH.
+    "ict-prop-feed.service",
+    "ict-prop-feed.timer",
+    # 2026-09-28 (PROP-EXEC) — the breakout_1 step-3 executor. Ships NOT
+    # enabled (its timer is in deploy/opt-in/); queryable so a session can
+    # confirm it is off, and tail its redacted cycle journal once enabled.
+    "ict-prop-executor.service",
+    "ict-prop-executor.timer",
     "ict-exchange-funding-pull.service",
     "ict-exchange-funding-pull.timer",
     "ict-mes-ibkr-pull.service",
@@ -790,6 +807,9 @@ _LOG_FILES: dict[str, Path] = {
     # line-wrapped id as a reference resolving to NOTHING, which is what a
     # 'tracked by BL-X' that tracks nobody looks like to that guard.)
     "prop_ticket_risk_soak": _PROP_TICKET_RISK_SOAK_LOG,
+    # 2026-09-28 (PROP-EXEC): one row per trade RiskManager let through a
+    # breach because its account is breach_guards: report (breakout_1).
+    "breach_accepted": runtime_logs_dir() / "breach_accepted.jsonl",
     "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
     # Daily-cap alert latch.
     # ── The two "liveness watchdog" state files. THEY ARE DIFFERENT THINGS AND
@@ -1087,6 +1107,56 @@ def _require_diag_token(request: Request) -> None:
             detail={"error": "invalid_token"},
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def _diag_accounts(
+    route: str,
+    list_accounts: Any,
+    account_id: str | None = None,
+    *,
+    require_known: bool = True,
+) -> list[dict[str, Any]]:
+    """The configured accounts for a venue-truth diag route, or an HTTP error.
+
+    FIX-CA-12 (CA-A08): these routes used to swallow a failed account read to
+    ``accounts = []`` and answer 200, and to answer 200 ``accounts: []`` for an
+    ``account_id`` that matches nothing — so *could not look* and *wrong id*
+    read exactly like *looked, the venue holds nothing*. Now:
+
+    * ``list_accounts()`` raised, or returned ``[]`` because ``accounts.yaml``
+      failed to read -> 503 ``accounts_unreadable``;
+    * ``require_known`` and ``account_id`` matches no configured account ->
+      404 ``unknown_account_id``.
+    """
+    try:
+        accounts = list_accounts() or []
+        unreadable: str | None = None
+        if not accounts:
+            from src.units.ui.data_loaders import accounts_yaml_read_errors
+            errs = accounts_yaml_read_errors()
+            if errs:
+                unreadable = "; ".join(
+                    str(e.get("error") or e) for e in errs)
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        unreadable = f"{type(exc).__name__}: {exc}"
+    if unreadable is not None:
+        logger.warning("%s: list_accounts failed: %s", route, unreadable)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "accounts_unreadable", "detail": unreadable},
+        )
+    if require_known and account_id and not any(
+            (a or {}).get("account_id") == account_id for a in accounts):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "unknown_account_id",
+                "account_id": account_id,
+                "configured": sorted(
+                    str((a or {}).get("account_id")) for a in accounts),
+            },
+        )
+    return accounts
 
 
 def _clamp(value: int | None, default: int, max_: int) -> int:
@@ -2232,6 +2302,7 @@ def get_shadow_stats(
 async def get_exchange_positions(
     request: Request,
     account_id: str | None = None,
+    symbol: str | None = None,
 ) -> dict[str, Any]:
     """Read-only **exchange-side** open positions per account — the BROKER's
     truth, not the journal.
@@ -2256,10 +2327,32 @@ async def get_exchange_positions(
       * ``[]``    — genuinely flat on the exchange.
       * ``[{symbol, side, size, entry_price, unrealised_pnl}, ...]`` — live.
 
+    ``symbol`` (OI-20260913-A-BYBIT2-HEDGE-BOOK-IS-NEVER-FETCHED, 2026-09-27)
+    narrows to one instrument AND changes how it is read. Before it existed an
+    appended ``&symbol=`` was accepted and IGNORED — the payload was
+    byte-identical — so a session that did not diff the two responses would
+    have "checked" a symbol on nothing. Now, per account:
+
+      * **Bybit** — ``symbol_books`` carries a symbol-scoped venue read
+        (``account_bybit_symbol_books``): every book on the symbol, zero-size
+        rows included, with ``books_read`` naming which ``positionIdx`` the
+        venue answered with (both 1 and 2 on a hedge symbol) and
+        ``hedge_books_missing`` naming any it did not. This does NOT go
+        through the settleCoin page, which is the read that omits a hedge
+        symbol's second book. ``positions`` is the normal account read,
+        filtered to the symbol, so the two can be compared in one response.
+      * **Other venues** — ``positions`` filtered to the symbol;
+        ``symbol_books`` is ``null`` with ``symbol_read`` saying why.
+
+    ``requested_symbol`` is echoed so a reader can prove the parameter was
+    honoured. Still places, modifies and cancels nothing.
+
     Tier 1 — read-only, token-gated, best-effort per account.
     """
     _require_diag_token(request)
+    want_symbol = (symbol or "").strip().upper() or None
     try:
+        from src.units.accounts.clients import account_bybit_symbol_books
         from src.units.ui.data_loaders import account_open_positions, list_accounts
     except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
         logger.warning("get_exchange_positions: import failed: %s", exc)
@@ -2268,11 +2361,7 @@ async def get_exchange_positions(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_exchange_positions: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_exchange_positions", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -2290,17 +2379,44 @@ async def get_exchange_positions(
         except Exception as exc:  # noqa: BLE001  # allow-silent: per-account error surfaced in the row (error + positions=null), logged; one account must not fail the call
             err = f"{type(exc).__name__}: {exc}"
             logger.warning("get_exchange_positions: %s raised %s", aid, exc)
-        out.append({
+        row: dict[str, Any] = {
             "account_id": aid,
             "exchange": (acc or {}).get("exchange"),
-            # null = could-not-read; [] = flat; list = live positions.
-            "positions": positions,
-            "count": (len(positions) if isinstance(positions, list) else None),
-            "error": err,
-        })
+        }
+        if want_symbol is not None:
+            if isinstance(positions, list):
+                positions = [
+                    p for p in positions
+                    if str((p or {}).get("symbol") or "").upper() == want_symbol
+                ]
+            is_bybit = ((acc or {}).get("exchange") or "").lower() == "bybit"
+            books: Any = None
+            books_err: str | None = None
+            if is_bybit:
+                try:
+                    books = await run_account_read(
+                        account_bybit_symbol_books, acc, want_symbol)
+                except Exception as exc:  # noqa: BLE001  # allow-silent: surfaced in the row (symbol_read=could_not_look + error), logged
+                    books_err = f"{type(exc).__name__}: {exc}"
+                    logger.warning(
+                        "get_exchange_positions: %s symbol read %s raised %s",
+                        aid, want_symbol, exc)
+            row["symbol_read"] = (
+                "not_bybit" if not is_bybit
+                else (books or {}).get("query_state") if isinstance(books, dict)
+                else "could_not_look"
+            )
+            row["symbol_books"] = books
+            row["symbol_books_error"] = books_err
+        # null = could-not-read; [] = flat; list = live positions.
+        row["positions"] = positions
+        row["count"] = len(positions) if isinstance(positions, list) else None
+        row["error"] = err
+        out.append(row)
     return {
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "requested_account_id": account_id,
+        "requested_symbol": want_symbol,
         "accounts": out,
     }
 
@@ -2359,11 +2475,7 @@ async def get_venue_session(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_venue_session: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_venue_session", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -2485,11 +2597,7 @@ async def get_ib_open_orders(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_ib_open_orders: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_ib_open_orders", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -2672,11 +2780,7 @@ def get_broker_account_status(
             detail={"error": "loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, empty accounts so the call still answers
-        logger.warning("get_broker_account_status: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_broker_account_status", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -3190,11 +3294,7 @@ async def get_bybit_open_orders(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_bybit_open_orders: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_bybit_open_orders", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -3284,11 +3384,10 @@ async def get_bybit_raw_order_history(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, still answers
-        logger.warning("get_bybit_raw_order_history: list_accounts failed: %s", exc)
-        accounts = []
+    # Unknown account_id keeps its explicit read_state below; only an
+    # unreadable account list is an error here (FIX-CA-12).
+    accounts = _diag_accounts("get_bybit_raw_order_history", list_accounts, account_id,
+                              require_known=False)
 
     acc = next((a for a in accounts if (a or {}).get("account_id") == account_id), None)
     if acc is None:
@@ -3382,11 +3481,10 @@ async def get_bybit_raw_closed_pnl(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, still answers
-        logger.warning("get_bybit_raw_closed_pnl: list_accounts failed: %s", exc)
-        accounts = []
+    # Unknown account_id keeps its explicit read_state below; only an
+    # unreadable account list is an error here (FIX-CA-12).
+    accounts = _diag_accounts("get_bybit_raw_closed_pnl", list_accounts, account_id,
+                              require_known=False)
 
     acc = next((a for a in accounts if (a or {}).get("account_id") == account_id), None)
     if acc is None:
@@ -3504,11 +3602,7 @@ async def get_bybit_raw_positions(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_bybit_raw_positions: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_bybit_raw_positions", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:
@@ -3607,11 +3701,7 @@ async def get_alpaca_open_orders(
             detail={"error": "data_loaders_unavailable", "detail": str(exc)},
         ) from exc
 
-    try:
-        accounts = list_accounts() or []
-    except Exception as exc:  # noqa: BLE001  # allow-silent: read-only diag; logged, returns empty accounts so the call still answers
-        logger.warning("get_alpaca_open_orders: list_accounts failed: %s", exc)
-        accounts = []
+    accounts = _diag_accounts("get_alpaca_open_orders", list_accounts, account_id)
 
     out: list[dict[str, Any]] = []
     for acc in accounts:

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "three pipeline records (docs/claude/work/pipeline/*.json) only; no runtime, order path, or config touched"
+}

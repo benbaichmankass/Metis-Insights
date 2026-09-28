@@ -1,7 +1,5 @@
 {
-  "tier": 2,
-  "landing": "hold",
-  "why": "Records operator grants made by popup in manager session_01Ljhs6sFAdWHdMDhJpL5aBP on 2026-09-27: autoland: true on MD-DEMOTE-S2-S1 only, and three new process mandates (MD-LAND-RESEARCH-RESULT, MD-PROP-JOURNAL-FROM-OPERATOR, MD-PAPER-PROTECTIVE-REPAIR). config/mandates.yaml is Tier-2 by name, so this is held; the manager merges after CI on the operator's in-chat approval. Also deletes test_the_route_ships_unarmed as its docstring requires, replaced by a one-armed-entry pin.",
-  "hold_reason": "tier_2_3_needs_approval",
-  "hold_text": "config/mandates.yaml is Tier-2 by name; the operator approved these grants by popup on 2026-09-27 and the manager merges after CI."
+  "tier": 1,
+  "landing": "self",
+  "why": "Register-only push: manager notes on the checklist R4 row."
 }

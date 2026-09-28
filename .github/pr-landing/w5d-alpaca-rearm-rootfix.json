@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "live order path (AlpacaClient.place entry-bracket time_in_force) affecting alpaca_live real money; needs explicit operator approval in chat before merge",
+  "why": "changes the entry-bracket time_in_force on the live Alpaca order path"
+}

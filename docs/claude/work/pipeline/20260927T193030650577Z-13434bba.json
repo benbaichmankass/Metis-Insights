@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "n/a -- terminal",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-EJ89Y6IE-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "CA-B08",
+    "rerun": "python3 scripts/check_env_gate_in_diff.py --base origin/main"
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-30 landed in https://github.com/benbaichmankass/Metis-Insights/pull/13316: src/core/ and src/main.py added to _PROTECTED_PREFIXES; tests/test_check_env_gate_in_diff.py proves a planted *_ENABLED line in either file now trips the guard.",
+  "what": "check_env_gate_in_diff.py's _PROTECTED_PREFIXES omits src/core/ and src/main.py, so a new default-off *_ENABLED flag landing in Coordinator.multi_account_execute's fold point or the pairs-tick entrypoint passes the guard silently -- the exact MES-stranding pattern CLAUDE.md names as the reason there is no third gate."
+}

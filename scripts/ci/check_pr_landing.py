@@ -339,6 +339,53 @@ TIER1_SURFACE = [
     # `research/queue/**` is deliberately NOT here -- see STAMP_ONLY_SURFACE.
     "research/results/**",
     "runtime_logs/replay_pregate/**",
+    # PI-20260922-E5-RESEARCH-QUEUE-IS-OUTSIDE-TIER1-SURFACE-SO-NO-LANE-CAN-SELF-LAND-A-QUEUE-FLIP,
+    # operator-approved 2026-09-28 (ADMIN lane triage popup, verbatim answer
+    # "Apply my recommendations (Recommended)"), same precedent shape as
+    # MI-242 above. E5 hit R5 refusing a Tier-1 `blocked`->`queued` status
+    # flip on a research unit because TIER1_SURFACE covered
+    # scripts/research/** and research/results/** but not the queue units
+    # themselves.
+    #
+    # ⚠️ MANAGER REVIEW (2026-09-28, APPROVE-WITH-NITS) — DROPPED, not
+    # widened. The first version of this entry added `research/**` here,
+    # reasoning that STAMP_ONLY_SURFACE's precedence made the widening safe.
+    # That reasoning was backwards: fnmatch's `*` matches `/` too, so
+    # `research/queue/*.yaml` (STAMP_ONLY_SURFACE's only key) already matches
+    # EVERY file directly under `research/queue/`, including
+    # `research/queue/blocked/*.yaml`, and STAMP_ONLY_SURFACE governs those
+    # paths UNCONDITIONALLY regardless of what TIER1_SURFACE says (see its
+    # docstring below). So adding `research/**` changed nothing about what a
+    # queue unit can self-land: a `status:` / `blocked_on` / decision-rule
+    # rewrite was refused before that entry and is still refused after
+    # removing it (test_stamp_only_precedence_survives_tier1_widening below
+    # plants exactly that defect and asserts the refusal). What the entry DID
+    # widen -- silently, as a side effect nobody asked for -- is every OTHER
+    # path under `research/` that is not a queue unit and was not already
+    # covered by `research/results/**` above (e.g. `research/notes/**`,
+    # `research/design/**`, whatever tree exists or gets created there next).
+    # E5's actual ask -- self-landing a queue status flip -- is UNREACHABLE
+    # via TIER1_SURFACE at all; the fix belongs in STAMP_ONLY_SURFACE (a
+    # narrower, explicitly-scoped widening of its allowed fields) or a
+    # dedicated queue-flip guard, not here. See the corrected
+    # PI-20260922-E5-... pipeline record for what still needs a human.
+    # PI-20260927-QBHR1EYJ-0001, operator-approved 2026-09-28 (ADMIN lane
+    # triage popup, verbatim answer "Apply my recommendations (Recommended)").
+    # Applies the finding's own Option 3 (narrow widening): scripts/ml/**
+    # also holds training/promotion-adjacent code that is NOT Tier-1, so only
+    # the self-documented review/report tooling is admitted here, by name,
+    # rather than the whole tree.
+    #
+    # ⚠️ MANAGER REVIEW (2026-09-28, APPROVE-WITH-NITS) — named by exact
+    # filename, not glob: `scripts/ml/*review*.py` would also silently admit
+    # a future `promotion_review.py` without anyone re-approving the
+    # widening. `strategy_review_packet.py::decide()` (mechanical gate per
+    # docs/strategy-review-gate.md § Threshold table) is the advisory M7
+    # KILL/DEMOTE/PROMOTE grader -- exactly the promotion-adjacent code
+    # Option 3 said to keep out of a wide `scripts/ml/**` grant, which is why
+    # it is named individually rather than re-opening the glob.
+    "scripts/ml/strategy_review_packet.py",
+    "scripts/ml/evidence_floor_report.py",
     "*.md",
     ".ruff.toml",
     "ruff.toml",
@@ -411,9 +458,27 @@ def stamp_only_violation(root: Path, base: str, path: str) -> Optional[str]:
 
 
 def unvouched_paths(root: Path, base: str, paths: list[str]) -> list[str]:
-    """Paths neither inside TIER1_SURFACE nor a verified stamp-only edit."""
-    return [p for p in paths
-            if not _match(p, TIER1_SURFACE) and stamp_only_violation(root, base, p) is not None]
+    """Paths neither inside TIER1_SURFACE nor a verified stamp-only edit.
+
+    ⚠️ STAMP_ONLY_SURFACE TAKES PRECEDENCE over a TIER1_SURFACE match, not the
+    other way round. Added 2026-09-28 alongside the `research/**` TIER1_SURFACE
+    entry (PI-20260922-E5-...): before this, a path matching BOTH lists (e.g.
+    `research/queue/RQ-1.yaml` once `research/**` was admitted) was vouched by
+    the plain `_match(p, TIER1_SURFACE)` check alone and `stamp_only_violation`
+    was never consulted -- silently letting a PR self-land a rewrite of a
+    pre-registered decision rule, exactly what STAMP_ONLY_SURFACE's own
+    docstring says must never self-land. A path this function was not built to
+    grade at all (neither list) is still refused, same as before.
+    """
+    out = []
+    for p in paths:
+        if any(fnmatch.fnmatch(p, g) for g in STAMP_ONLY_SURFACE):
+            if stamp_only_violation(root, base, p) is not None:
+                out.append(p)
+            continue
+        if not _match(p, TIER1_SURFACE):
+            out.append(p)
+    return out
 
 
 # Named so a failure can say WHY a path is barred, and so that widening
@@ -531,6 +596,14 @@ LANDING_MACHINERY = [
     # much as a change to the workflow file itself (already listed above), so
     # it must not self-land by the route it decides for.
     "scripts/ci/automerge_landing_gate.py",
+    # ⚠️ ADDED 2026-09-28 (JC-CA-03). The eight clauses of the ARMED
+    # MD-DEMOTE-S2-S1 auto-land route (R16 delegates to it), plus the producer
+    # that writes that route's branches. A change to either is a change to
+    # which Tier-3 roster cut merges with no human in the path. Found missing
+    # when a PR editing A7 declared `changes_landing_machinery` and R8 refused
+    # it: the route that decides a real-money merge could itself self-land.
+    "scripts/ci/check_mandate_autoland.py",
+    ".github/workflows/r4-demotion-gate.yml",
     "scripts/ops/session_registry.py",
     # ⚠️ ADDED 2026-09-09 (MI-208). This action is a THIRD landing route and was
     # missing from this list, so a change to it could self-land by the very
@@ -1297,8 +1370,11 @@ def check(root: Path, base: str, branch: Optional[str]) -> tuple[str, list[str],
     unvouched = [p for p in unvouched_paths(root, base, changed)
                  if p not in barred3 and p not in barred2]
     for p in changed:
-        if not _match(p, TIER1_SURFACE) and any(
-                fnmatch.fnmatch(p, g) for g in STAMP_ONLY_SURFACE):
+        # Reported for every STAMP_ONLY_SURFACE match regardless of a
+        # TIER1_SURFACE hit too -- `unvouched_paths` now grades these paths by
+        # `stamp_only_violation` alone (see its docstring), so the note must
+        # stay visible even when `research/**` also matches the same path.
+        if any(fnmatch.fnmatch(p, g) for g in STAMP_ONLY_SURFACE):
             why_not = stamp_only_violation(root, base, p)
             notes.append(f"stamp-only surface {p}: "
                          + ("VOUCHED (stamp fields only)" if why_not is None
@@ -1889,6 +1965,48 @@ def self_test() -> int:
             else:
                 print(f"self-test: E57 '{name}' -> "
                       + ("self-lands" if passed else "refused by R5"))
+
+    # ---- planted-defect control: a queue RULE rewrite stays refused even
+    # after research/** was dropped from TIER1_SURFACE (2026-09-28 fix-up).
+    # STAMP_ONLY_SURFACE's `research/queue/*.yaml` key is consulted BEFORE
+    # any TIER1_SURFACE match (see unvouched_paths docstring), so this must
+    # hold with or without a `research/**`-shaped entry in TIER1_SURFACE --
+    # this test exists precisely so a future re-widening of TIER1_SURFACE
+    # cannot silently reopen the hole without tripping a self-test failure.
+    # Planted under `research/queue/blocked/` specifically (not the top-level
+    # dir already covered above) because fnmatch's `*` matches `/`, so
+    # `research/queue/*.yaml` also matches every file under
+    # `research/queue/blocked/` -- the exact subdirectory this repo uses for
+    # units that cannot currently run.
+    with tempfile.TemporaryDirectory() as td:
+        root = _sandbox(Path(td))
+        g = lambda *a: subprocess.run(["git", "-C", str(root), *a],  # noqa: E731
+                                      check=True, capture_output=True)
+        g("checkout", "-q", "main")
+        (root / "research/queue/blocked").mkdir(parents=True, exist_ok=True)
+        (root / "research/queue/blocked/RQ-SELFTEST-003.yaml").write_text(
+            _unit, encoding="utf-8")
+        g("add", "-A")
+        g("commit", "-qm", "seed a blocked queue unit")
+        g("checkout", "-q", "claude/demo")
+        g("merge", "-q", "--no-edit", "main")
+        (root / "research/queue/blocked/RQ-SELFTEST-003.yaml").write_text(
+            _unit.replace("net_r_oos > 0.25", "net_r_oos > 0.0"), encoding="utf-8")
+        _declare(root, tier=1, landing="self", why=_GOOD_WHY)
+        _arm(root)
+        _branch_claim(root)
+        _commit(root)
+        state, fails, _ = check(root, "main", "claude/demo")
+        r5 = any(f.startswith("R5 ") for f in fails)
+        if not r5:
+            print(f"::error::self-test FAILED — a queue DECISION-RULE edit under "
+                  f"research/queue/blocked/ was NOT refused by R5 (state={state}, "
+                  f"fails={fails}). This is exactly the hole a research/**-shaped "
+                  f"TIER1_SURFACE widening must never reopen.")
+            bad += 1
+        else:
+            print("self-test: 'a blocked queue DECISION-RULE edit is refused' -> "
+                  "refused by R5")
 
     # ---- the escape hatch, and the hole it must NOT open -------------------
     with tempfile.TemporaryDirectory() as td:

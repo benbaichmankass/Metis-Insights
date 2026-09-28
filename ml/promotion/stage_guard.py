@@ -26,7 +26,7 @@ from typing import Any
 from ..manifest import canonical_stage
 from ..registry.model_registry import ModelRegistry
 from ..shadow.drift import compute_drift
-from ..shadow.inspector import filter_records, iter_records
+from ..shadow.inspector import filter_records, iter_records_with_archives
 from .attribution import compute_attribution
 from .gates import (
     GateReport,
@@ -43,6 +43,17 @@ from .gates import (
 _DEMOTE_TARGET: dict[str, str] = {
     "advisory": "shadow",
 }
+
+# How much of a live-stage head's demote evidence was actually MEASURED
+# (FIX-CA-22 / CA-B01-advisory-hold-when-nothing-measured). A hold on
+# "no demote trigger tripped" used to read identically whether drift and
+# attribution were measured-healthy or never computed (drift=None,
+# attribution=None) — and after every shadow-log rotation it was the latter
+# for every advisory head. "We did not look" must not render as "looked, fine".
+DEMOTE_EVIDENCE_EVALUATED = "evaluated"          # drift AND attribution measured
+DEMOTE_EVIDENCE_PARTIAL = "partial"              # exactly one measured
+DEMOTE_EVIDENCE_NOT_EVALUABLE = "not_evaluable"  # neither measured
+
 _LIVE_STAGES = frozenset(_DEMOTE_TARGET)
 
 
@@ -200,12 +211,29 @@ def propose_for_model(
                     "offline_discrimination": offline,
                 },
             )
+        missing = [
+            name for name, v in (("drift", drift), ("attribution", attribution))
+            if v is None
+        ]
+        if not missing:
+            evidence_state = DEMOTE_EVIDENCE_EVALUATED
+            reason = "no demote trigger tripped"
+        elif len(missing) == 2:
+            evidence_state = DEMOTE_EVIDENCE_NOT_EVALUABLE
+            reason = "demote triggers not evaluable: drift=None attribution=None"
+        else:
+            evidence_state = DEMOTE_EVIDENCE_PARTIAL
+            reason = (
+                f"no demote trigger tripped on the measured axis; "
+                f"not evaluable: {missing[0]}=None"
+            )
         return Proposal(
             entry.model_id, stage, "hold", None,
-            reasons=("no demote trigger tripped",),
+            reasons=(reason,),
             evidence={
                 "attribution": attribution.to_dict() if attribution else None,
                 "drift_verdict": getattr(drift, "overall_verdict", None),
+                "demote_evidence_state": evidence_state,
                 "offline_discrimination": offline,
             },
         )
@@ -358,7 +386,13 @@ def run_stage_guard(
             backfill_log=backfill_log, include_demo=include_demo,
         )
     }
-    records = list(iter_records(shadow_log))
+    # Active log + rotated archives, bounded to the drift window: an
+    # active-only read left the reference window empty for ~1-2 weeks after
+    # every rotation (FIX-CA-20 / PI-20260927-3WM5HADW-0001).
+    records = list(iter_records_with_archives(
+        shadow_log,
+        since=datetime.now(timezone.utc) - timedelta(days=reference_days + current_days),
+    ))
     proposals: list[Proposal] = []
     for entry in registry.list():
         drift = _drift_for_model(

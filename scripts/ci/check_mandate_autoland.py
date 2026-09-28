@@ -69,8 +69,13 @@ hold; there is no override and no marker that buys a pass.
                 the legs removed from the mirror.
   A7 AUTHOR     the branch is `automation/r4-demotion-<run_id>`, the declaration
                 names that run and workflow, every commit in the range is authored
-                AND committed by `github-actions[bot]`, and — when the GitHub event
-                payload is readable — the PR's own author is that bot too.
+                AND committed by `github-actions[bot]`, and — the part a pushed
+                branch cannot forge — GitHub's API says run <run_id> is a run of
+                `.github/workflows/r4-demotion-gate.yml` on `main` in THIS repo,
+                started by `schedule` or `workflow_dispatch`, whose `head_sha` is
+                exactly the commit this branch was cut from (the merge-base).
+                The PR opener's login is NOT trusted (operator re-decision
+                JC-CA-03, 2026-09-28: "Keep PAT, verify run").
   A8 ARMED      the granted mandate carries `autoland: true`. The operator's
                 switch; absent means refuse. ⚠️ CHECKED LAST, so an unarmed
                 mandate still gets every other clause graded and reported —
@@ -80,14 +85,40 @@ hold; there is no override and no marker that buys a pass.
 
 WHAT THIS DOES NOT ESTABLISH, SAID PLAINLY
 ------------------------------------------
-A7 proves the branch and its commits carry the workflow's identity and that the
-PR was opened by `github-actions[bot]`. It does NOT prove that no human or
-session could ever forge that: `git config user.email` is settable by anybody
-who can push. What stands behind it is that the PR author comes from the token
-that opened the PR (`r4-demotion-gate.yml` uses `BRANCH_PROTECTION_TOKEN`, a repo
-secret no session holds), and that A1-A6 make a forged branch worthless — it
-still has to carry a resolver FIRE over operator-granted evidence and may still
-only ever remove. This is the same shape as `_APPROVAL_RESIDUAL` in
+A7 USED TO trust the PR opener's login, and that was forgeable both ways. It was
+measured by lane JC-GIT on 2026-09-28 (PI-20260928-TURC5MJC-0004):
+`r4-demotion-gate.yml` opens its PR with `BRANCH_PROTECTION_TOKEN`, so the
+genuine author is the PAT OWNER, not the bot, and the route refused its own
+producer. Meanwhile `pr-opener.yml` opens ANY session-pushed branch as
+`github-actions[bot]`, so the bot login proved nothing. What A7 now checks is
+the RUN: a session cannot mint a run of `r4-demotion-gate.yml` on `main`, and
+the run's `head_sha` must be the exact commit the branch was cut from.
+
+THE CONTENT IS BOUND TO THE RUN (review of #13609, 2026-09-28). After pushing,
+and before opening the PR, the producer uploads the `r4-demotion-provenance`
+artifact to ITS OWN run. The artifact records {run_id, branch, head_sha,
+removals, window, event}. A7 lists that run's artifacts through the API and
+requires:
+  * head_sha and removals equal to the PR's;
+  * event equal to the run's event;
+  * window equal to the producer's DECLARED window, which is the `window`
+    input default in `.github/workflows/r4-demotion-gate.yml` read at the base
+    ref and never re-typed here. `config/mandates.yaml` MD-DEMOTE-S2-S1
+    declares no window of its own ("over the window the record declares").
+Only a job of that run can upload to it, and no REST upload path exists. So:
+  * a replayed run id carries some other head;
+  * a dry (apply!=true) dispatch uploads nothing;
+  * a dispatch with a non-declared window (e.g. 1d) is refused.
+
+⚠️ "UPDATE BRANCH" ON A PRODUCER PR PERMANENTLY REFUSES IT, AND THAT IS THE
+POINT. Updating the branch adds a merge commit that the run did not push, so
+the PR head no longer equals the provenance head_sha and the new commit is not
+bot-authored. The route fails closed, and a human merges or the next run
+supersedes it.
+
+The residual that remains: a genuine scheduled run whose evidence is itself
+wrong is bounded only by A1-A6 (removals only, a granted derisk_only mandate,
+a resolver FIRE). This is the same shape as `_APPROVAL_RESIDUAL` in
 `check_pr_landing.py`, and it travels with the grant for the same reason.
 
 ⚠️ A2 compares PARSED documents, so a pure COMMENT change in
@@ -113,7 +144,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 REPO = Path(__file__).resolve().parents[2]
 for _p in (str(REPO), str(REPO / "scripts" / "ops")):
@@ -141,6 +172,18 @@ WORKFLOW_REL = ".github/workflows/r4-demotion-gate.yml"
 BRANCH_RE = re.compile(r"^automation/r4-demotion-(\d+)$")
 BOT_LOGIN = "github-actions[bot]"
 BOT_EMAIL = "41898282+github-actions[bot]@users.noreply.github.com"
+#: The events that legitimately start the producer: its own cron, or
+#: schedule-keeper / an operator dispatching it.
+RUN_EVENTS = ("schedule", "workflow_dispatch")
+#: The artifact the producer run uploads AFTER pushing its branch and BEFORE
+#: opening the PR (review BLOCK B2 on #13609). Only a job of run <run_id> can
+#: upload an artifact to run <run_id>, and the run is verified to be the
+#: reviewed producer on main. So the artifact is the one statement about the
+#: PR's CONTENT that a pusher cannot write: the exact head SHA it pushed and the
+#: exact legs it cut. A run dispatched with apply!=true never pushes and never
+#: uploads, so its id buys nothing.
+PROVENANCE_ARTIFACT = "r4-demotion-provenance"
+PROVENANCE_FILE = "provenance.json"
 
 #: The arming switch, read from the GRANTED mandate entry at the merge-base.
 #: Absent or not exactly `True` refuses. See the module docstring.
@@ -163,9 +206,41 @@ def _git(root: Path, *args: str) -> Tuple[int, str]:
     return p.returncode, p.stdout
 
 
+#: The commit every clause grades. NOT always "HEAD" (review BLOCK B1 on #13609):
+#: under `pull_request`, actions/checkout puts GitHub's SYNTHETIC MERGE COMMIT at
+#: HEAD. Its first parent is main's tip at sync time, not the commit the branch
+#: was cut from, and it is authored by the PR opener, so grading HEAD made A7
+#: refuse every genuine PR. `verdict()` resolves the PR head (`resolve_head`)
+#: and sets this for the duration of one grade. Single-threaded CLI; the
+#: previous value is always restored.
+_GRADED = "HEAD"
+
+
 def merge_base(root: Path, base: str) -> Optional[str]:
-    rc, out = _git(root, "merge-base", base, "HEAD")
+    rc, out = _git(root, "merge-base", base, _GRADED)
     return out.strip() or None if rc == 0 else None
+
+
+def resolve_head(root: Path, event_path: Optional[str] = None) -> Tuple[str, str]:
+    """(rev, how): the PR HEAD commit to grade, never GitHub's merge ref.
+
+    1. `pull_request.head.sha` from the event payload, if that commit is present;
+    2. else, on a pull_request event whose HEAD is a two-parent merge, `HEAD^2`;
+    3. else `HEAD` (a local run, or a push/dispatch with no PR)."""
+    path = event_path if event_path is not None else (os.environ.get("GITHUB_EVENT_PATH") or "")
+    if path and Path(path).is_file():
+        try:
+            sha = ((json.loads(Path(path).read_text(encoding="utf-8")) or {})
+                   .get("pull_request") or {}).get("head", {}).get("sha")
+        except (OSError, ValueError, AttributeError):
+            sha = None
+        if isinstance(sha, str) and sha and _git(root, "cat-file", "-e", f"{sha}^{{commit}}")[0] == 0:
+            return sha, "pull_request.head.sha from the event payload"
+    if (os.environ.get("GITHUB_EVENT_NAME") or "").startswith("pull_request"):
+        rc, out = _git(root, "rev-list", "--parents", "-n", "1", "HEAD")
+        if rc == 0 and len(out.split()) == 3:
+            return "HEAD^2", "second parent of GitHub's synthetic merge commit"
+    return "HEAD", "HEAD (no pull_request head to resolve)"
 
 
 def blob(root: Path, rev: str, rel: str) -> Optional[str]:
@@ -260,7 +335,7 @@ def roster_removals(base_doc: Optional[Dict[str, Any]],
 def check_cut_only(root: Path, mb: str) -> Tuple[List[str], List[str], Dict[str, List[str]]]:
     fails, notes = [], []
     base_doc = _yaml_text(blob(root, mb, ACCOUNTS_REL))
-    head_doc = _yaml_text(blob(root, "HEAD", ACCOUNTS_REL))
+    head_doc = _yaml_text(blob(root, _GRADED, ACCOUNTS_REL))
     if base_doc is None or head_doc is None:
         return ([f"A2 {ACCOUNTS_REL} could not be parsed at "
                  f"{'the merge-base' if base_doc is None else 'HEAD'} — that is *we could "
@@ -366,7 +441,7 @@ def _scratch_tree(root: Path, mb: str, leg: str, record: Dict[str, Any]) -> Opti
     src = record.get("source_run")
     if isinstance(src, str) and src.strip() and ".." not in Path(src).parts \
             and not src.startswith("/"):
-        text = blob(root, "HEAD", src)
+        text = blob(root, _GRADED, src)
         if text is not None:
             (tmp / src).parent.mkdir(parents=True, exist_ok=True)
             (tmp / src).write_text(text, encoding="utf-8")
@@ -399,7 +474,7 @@ def check_evidence(root: Path, mb: str, changed: List[str],
         leg_fails: List[str] = []
 
         rec_rel = f"{MIRROR_DIR}/{leg}.json"
-        record = _json_text(blob(root, "HEAD", rec_rel))
+        record = _json_text(blob(root, _GRADED, rec_rel))
         if record is None:
             leg_fails.append(f"A3 {leg}: no readable committed mirror-window record at {rec_rel} "
                              f"at HEAD. 'We could not look' is not a demotion signal.")
@@ -414,7 +489,7 @@ def check_evidence(root: Path, mb: str, changed: List[str],
                              f"and section 1 of the daily brief reads those records.")
             fails += leg_fails
             continue
-        firing = _json_text(blob(root, "HEAD", rels[0]))
+        firing = _json_text(blob(root, _GRADED, rels[0]))
         if firing is None:
             leg_fails.append(f"A3 {leg}: {rels[0]} is not readable JSON at HEAD.")
             fails += leg_fails
@@ -430,7 +505,7 @@ def check_evidence(root: Path, mb: str, changed: List[str],
             leg_fails.append(f"A3 {leg}: {rels[0]} cites evidence {firing.get('evidence')!r}, not "
                              f"{rec_rel!r}.")
         src = record.get("source_run")
-        if not isinstance(src, str) or blob(root, "HEAD", src) is None:
+        if not isinstance(src, str) or blob(root, _GRADED, src) is None:
             leg_fails.append(f"A3 {leg}: the record's source_run {src!r} is not a file in this tree "
                              f"at HEAD. A measurement nobody can reach is not a measurement.")
 
@@ -545,9 +620,163 @@ def pr_author_login(event_path: Optional[str] = None) -> Tuple[Optional[str], st
     return login, "from the GitHub event payload"
 
 
+RunFetch = Callable[[str], Tuple[Optional[Dict[str, Any]], str]]
+
+
+def fetch_run(run_id: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """(run, how). `None` means WE COULD NOT LOOK, never 'the run is fine'.
+
+    GET /repos/{GITHUB_REPOSITORY}/actions/runs/{run_id}, authenticated with the
+    job's GITHUB_TOKEN when present (`guards.yml` grants `actions: read`)."""
+    import urllib.error
+    import urllib.request
+    repo = (os.environ.get("GITHUB_REPOSITORY") or "").strip()
+    if not repo:
+        return None, "GITHUB_REPOSITORY is unset, so there is no repository to ask"
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/actions/runs/{run_id}",
+        headers={"Accept": "application/vnd.github+json",
+                 "X-GitHub-Api-Version": "2022-11-28"})
+    tok = os.environ.get("GITHUB_TOKEN") or ""
+    if tok:
+        req.add_header("Authorization", f"Bearer {tok}")
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return json.loads(resp.read().decode("utf-8")), f"GET {repo} actions/runs/{run_id}"
+    except urllib.error.HTTPError as exc:
+        return None, f"GET actions/runs/{run_id} returned HTTP {exc.code}"
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        return None, f"GET actions/runs/{run_id} failed ({type(exc).__name__}: {exc})"
+
+
+ProvFetch = Callable[[str], Tuple[Optional[Dict[str, Any]], str]]
+
+
+def _api_get(url: str, *, auth: bool = True, raw: bool = False):
+    import urllib.request
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
+                                               "X-GitHub-Api-Version": "2022-11-28"})
+    tok = os.environ.get("GITHUB_TOKEN") or ""
+    if auth and tok:
+        # Unredirected: the artifact download 302s to blob storage, which must
+        # never receive the repository token.
+        req.add_unredirected_header("Authorization", f"Bearer {tok}")
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        body = resp.read()
+    return body if raw else json.loads(body.decode("utf-8"))
+
+
+def fetch_provenance(run_id: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    """(record, how). `None` means we could not look OR the run uploaded nothing;
+    both refuse in CI. Lists run <run_id>'s artifacts by name and reads
+    provenance.json out of the newest non-expired one."""
+    import io
+    import urllib.error
+    import zipfile
+    repo = (os.environ.get("GITHUB_REPOSITORY") or "").strip()
+    if not repo:
+        return None, "GITHUB_REPOSITORY is unset, so there is no repository to ask"
+    base = f"https://api.github.com/repos/{repo}/actions"
+    try:
+        listing = _api_get(f"{base}/runs/{run_id}/artifacts?name={PROVENANCE_ARTIFACT}&per_page=10")
+        arts = [a for a in (listing or {}).get("artifacts") or []
+                if a.get("name") == PROVENANCE_ARTIFACT and not a.get("expired")]
+        if not arts:
+            return None, (f"run {run_id} uploaded no {PROVENANCE_ARTIFACT!r} artifact. A dry "
+                          f"run (apply!=true), or a run that never pushed a branch, has none")
+        art = max(arts, key=lambda a: a.get("created_at") or "")
+        blob_ = _api_get(f"{base}/artifacts/{art['id']}/zip", raw=True)
+        with zipfile.ZipFile(io.BytesIO(blob_)) as zf:
+            rec = json.loads(zf.read(PROVENANCE_FILE).decode("utf-8"))
+        return (rec if isinstance(rec, dict) else None), f"artifact {art['id']} of run {run_id}"
+    except urllib.error.HTTPError as exc:
+        return None, f"reading run {run_id}'s artifacts returned HTTP {exc.code}"
+    except (urllib.error.URLError, OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:
+        return None, f"reading run {run_id}'s artifacts failed ({type(exc).__name__}: {exc})"
+
+
+def declared_window(root: Path, rev: str) -> Optional[str]:
+    """The producer's DECLARED demotion window: the `window` input default of
+    `.github/workflows/r4-demotion-gate.yml` at `rev`. `None` means we could not
+    read it, and the caller refuses. (PyYAML parses the bare `on:` key as True.)"""
+    doc = _yaml_text(blob(root, rev, WORKFLOW_REL))
+    if not doc:
+        return None
+    on = doc.get("on", doc.get(True)) or {}
+    try:
+        val = on["workflow_dispatch"]["inputs"]["window"]["default"]
+    except (KeyError, TypeError):
+        return None
+    return str(val) if val else None
+
+
+def check_provenance(prov: Dict[str, Any], run_id: str, branch: str, head_sha: str,
+                     removals: Dict[str, List[str]], *, run_event: Optional[str] = None,
+                     window: Optional[str] = None) -> List[str]:
+    """Every way the run-produced record fails to describe THIS PR."""
+    fails: List[str] = []
+    # N1 (re-review of #13609): the run's INPUTS decide the evidence, so they
+    # are bound too. A dispatch with window=1d would otherwise mint a genuine
+    # run and genuine provenance over a noisy window.
+    if window is None:
+        fails.append("A7 the producer's declared window could not be read from "
+                     f"{WORKFLOW_REL} at the base ref. We could not look, so refusing.")
+    elif str(prov.get("window") or "") != window:
+        fails.append(f"A7 run {run_id} measured window {prov.get('window')!r}, not the declared "
+                     f"demotion window {window!r}. A dispatch may not choose its own evidence "
+                     f"window.")
+    if run_event is not None and prov.get("event") != run_event:
+        fails.append(f"A7 the provenance records event {prov.get('event')!r}, but run {run_id} "
+                     f"was started by {run_event!r}.")
+    if str(prov.get("run_id") or "") != run_id:
+        fails.append(f"A7 the provenance artifact names run {prov.get('run_id')!r}, not {run_id}.")
+    if prov.get("branch") != branch:
+        fails.append(f"A7 run {run_id} pushed branch {prov.get('branch')!r}, not {branch!r}.")
+    if str(prov.get("head_sha") or "") != head_sha:
+        fails.append(f"A7 run {run_id} pushed head {str(prov.get('head_sha'))[:8]}, but this PR's "
+                     f"head is {head_sha[:8]}. Content the run did not push does not land "
+                     f"under its id.")
+    want = {k: sorted(v) for k, v in (prov.get("removals") or {}).items()}
+    got = {k: sorted(v) for k, v in removals.items()}
+    if want != got:
+        fails.append(f"A7 run {run_id} recorded removals {want}, but this diff removes {got}.")
+    return fails
+
+
+def check_run(run: Dict[str, Any], run_id: str, mb: str) -> List[str]:
+    """Every way run `run_id` fails to be THE producer run for a branch cut at `mb`."""
+    fails: List[str] = []
+    # `path` may carry an `@<ref>` suffix; the ref itself is graded by head_branch.
+    path = str(run.get("path") or "").split("@", 1)[0]
+    if path != WORKFLOW_REL:
+        fails.append(f"A7 run {run_id} is a run of {path or '(no path)'!r}, not {WORKFLOW_REL!r}. "
+                     f"Only the demotion gate's own run may land this route.")
+    if run.get("head_branch") != "main":
+        fails.append(f"A7 run {run_id} ran on branch {run.get('head_branch')!r}, not `main`. "
+                     f"A workflow edited on a branch is not the reviewed producer.")
+    if run.get("event") not in RUN_EVENTS:
+        fails.append(f"A7 run {run_id} was started by event {run.get('event')!r}; the "
+                     f"producer runs only on {', '.join(RUN_EVENTS)}.")
+    want_repo = (os.environ.get("GITHUB_REPOSITORY") or "").lower()
+    got_repo = str(((run.get("repository") or {}).get("full_name")) or "").lower()
+    if want_repo and got_repo != want_repo:
+        fails.append(f"A7 run {run_id} belongs to {got_repo or '(unknown)'!r}, not {want_repo!r}.")
+    if str(run.get("head_sha") or "") != mb:
+        fails.append(f"A7 run {run_id} ran at main {str(run.get('head_sha'))[:8]}, but this "
+                     f"branch was cut from {mb[:8]}. The producer commits on top of the "
+                     f"exact commit its run checked out, so a mismatch is a branch that run "
+                     f"did not write.")
+    return fails
+
+
 def check_author(root: Path, mb: str, branch: str, decl: Dict[str, Any],
                  *, pre_flight: bool = False, event_path: Optional[str] = None,
-                 in_actions: Optional[bool] = None) -> Tuple[List[str], List[str]]:
+                 in_actions: Optional[bool] = None,
+                 run_fetch: Optional[RunFetch] = None,
+                 prov_fetch: Optional[ProvFetch] = None,
+                 removals: Optional[Dict[str, List[str]]] = None,
+                 base: Optional[str] = None,
+                 ) -> Tuple[List[str], List[str]]:
     """`pre_flight` is the PRODUCER's own run, inside
     `.github/workflows/r4-demotion-gate.yml`, BEFORE the PR exists — so there is
     no `pull_request.user.login` to read and demanding one would make the
@@ -573,7 +802,7 @@ def check_author(root: Path, mb: str, branch: str, decl: Dict[str, Any],
         fails.append(f"A7 the declaration's workflow={decl.get('workflow')!r}; expected "
                      f"{WORKFLOW_REL!r}.")
 
-    rc, out = _git(root, "log", "--format=%H%x1f%ae%x1f%ce%x1f%an", f"{mb}..HEAD")
+    rc, out = _git(root, "log", "--format=%H%x1f%ae%x1f%ce%x1f%an", f"{mb}..{_GRADED}")
     if rc != 0:
         return (fails + [f"A7 the commit range {mb[:8]}..HEAD could not be read, so authorship "
                          f"was not established. Refusing rather than assuming."], notes)
@@ -588,34 +817,86 @@ def check_author(root: Path, mb: str, branch: str, decl: Dict[str, Any],
             f"session wrote part of a real-money roster cut, and the whole point of this route "
             f"is that no session is in the path.")
 
-    login, how = pr_author_login(event_path)
     in_ci = ((os.environ.get("GITHUB_ACTIONS") or "").lower() == "true"
              if in_actions is None else in_actions)
-    if pre_flight and login is None:
-        notes.append(f"A7 PR author NOT CHECKED — pre-flight run, no PR exists yet ({how}). "
-                     f"The authoritative read is pr-landing-guard R16 on the PR itself, which "
-                     f"fails closed on it. Commit authorship above still applied.")
-    elif login is None:
+    # The opener is REPORTED, never trusted (JC-CA-03 re-decision 2026-09-28).
+    login, how = pr_author_login(event_path)
+    if login is not None:
+        notes.append(f"A7 PR opened by {login} ({how}). Reported only: the opener login is "
+                     f"forgeable both ways and is not what this clause trusts.")
+    if pre_flight:
+        notes.append(f"A7 originating run NOT CHECKED: this is the producer's own pre-flight, "
+                     f"i.e. run {run_id} itself. The authoritative read is pr-landing-guard R16 "
+                     f"on the PR, which fails closed on it. Commit authorship above still applied.")
+        return fails, notes
+    run, rhow = (run_fetch or fetch_run)(run_id)
+    if run is None:
         if in_ci:
-            fails.append(f"A7 running in GitHub Actions but the PR author could not be read "
-                         f"({how}). That is *we could not look*, and this route fails closed on "
-                         f"it — the identity of whoever opened the PR is the one check a pushed "
-                         f"branch cannot forge.")
+            fails.append(f"A7 running in GitHub Actions but run {run_id} could not be read "
+                         f"({rhow}). That is *we could not look*, and this route fails closed "
+                         f"on it: the originating run is the one fact a pushed branch cannot "
+                         f"forge.")
         else:
-            notes.append(f"A7 PR author NOT CHECKED here ({how}) — this run is outside CI. The "
-                         f"commit-authorship check above still applied.")
-    elif login != BOT_LOGIN:
-        fails.append(f"A7 the PR was opened by {login!r}, not `{BOT_LOGIN}` ({how}). A PR a "
-                     f"session or a person opened does not auto-land, whatever its branch is "
-                     f"called.")
-    else:
-        notes.append(f"A7 PR author {login} ({how}); {len(rows)} commit(s) all by the bot")
+            notes.append(f"A7 originating run NOT CHECKED here ({rhow}). This run is outside "
+                         f"CI. The commit-authorship check above still applied.")
+        return fails, notes
+    rfails = check_run(run, run_id, mb)
+    fails += rfails
+    if rfails:
+        return fails, notes
+    notes.append(f"A7 run {run_id} verified ({rhow}): {WORKFLOW_REL} on main via "
+                 f"{run.get('event')}, head_sha {mb[:8]} == this branch's base")
+    # The run is genuine. Did IT push THIS content? (review BLOCK B2)
+    prov, phow = (prov_fetch or fetch_provenance)(run_id)
+    if prov is None:
+        if in_ci:
+            fails.append(f"A7 run {run_id} is genuine, but its provenance could not be read "
+                         f"({phow}). A genuine run id says nothing about who wrote this "
+                         f"branch; only the run's own artifact does. Refusing.")
+        else:
+            notes.append(f"A7 run provenance NOT CHECKED here ({phow}); outside CI.")
+        return fails, notes
+    rc, head_sha = _git(root, "rev-parse", _GRADED)
+    pfails = check_provenance(prov, run_id, branch, head_sha.strip(), removals or {},
+                              run_event=run.get("event"),
+                              window=declared_window(root, base or mb))
+    fails += pfails
+    if not pfails:
+        notes.append(f"A7 provenance {phow}: run {run_id} pushed exactly this head "
+                     f"{head_sha.strip()[:8]} and exactly these removals; "
+                     f"{len(rows)} commit(s) all by the bot")
     return fails, notes
 
 
 # --------------------------------------------------------------------------
 # the merge-slot claim (arming IS the merge — R13's property, on this route)
 # --------------------------------------------------------------------------
+def check_grant_at_base(root: Path, base: str, mb: str,
+                       changed: List[str]) -> Tuple[List[str], List[str]]:
+    """A4/A8 AGAIN at the base ref (main NOW), not only at the branch's cut point.
+
+    Without this, disarming `autoland` or revoking the grant AFTER a run fired
+    would not stop the PR that run already opened (re-review of #13609)."""
+    rc, base_sha = _git(root, "rev-parse", base)
+    if rc != 0 or base_sha.strip() == mb:
+        return [], []
+    mdoc = _yaml_text(blob(root, base, MANDATES_REL))
+    if mdoc is None:
+        return ([f"A8 {MANDATES_REL} could not be read at {base}; refusing."], [])
+    granted = {m.get("id"): m for m in (mdoc.get("mandates") or []) if isinstance(m, dict)}
+    fails: List[str] = []
+    for leg, rels in _firings_added(root, mb, changed).items():
+        for rel in rels:
+            mid = (_json_text(blob(root, _GRADED, rel)) or {}).get("mandate")
+            m = granted.get(mid)
+            if not m or not m.get("granted_by") or m.get("blocked_until") \
+                    or m.get("direction") != "derisk_only" or m.get(ARM_FIELD) is not True:
+                fails.append(f"A8 {leg}: {mid} is no longer granted, derisk_only and armed with "
+                             f"`{ARM_FIELD}: true` in {MANDATES_REL} at {base} (main now). A "
+                             f"disarm or revocation after the run fired stops its PR too.")
+    return fails, ([] if fails else [f"A4/A8 re-checked at {base}: still granted and armed"])
+
+
 def check_slot(root: Path, mb: str, changed: List[str], slug: str,
                branch: str) -> Tuple[List[str], List[str]]:
     rel = f"{SLOT_DIR}/{slug}.json"
@@ -625,7 +906,7 @@ def check_slot(root: Path, mb: str, changed: List[str], slug: str,
                  f"merge with no attributable, timestamped claim is the state that took the "
                  f"repo down on 2026-09-09. Write it with `scripts/ops/claim_merge_slot.py "
                  f"--branch-claim`."], [])
-    claim = _json_text(blob(root, "HEAD", rel))
+    claim = _json_text(blob(root, _GRADED, rel))
     if claim is None:
         return ([f"A7 {rel} is not readable JSON at HEAD."], [])
     held = str(claim.get("held_by") or "")
@@ -644,8 +925,35 @@ def check_slot(root: Path, mb: str, changed: List[str], slug: str,
 def verdict(root: Path, base: str, branch: Optional[str], decl: Dict[str, Any],
             changed: List[str], slug: str, *, pre_flight: bool = False,
             event_path: Optional[str] = None,
-            in_actions: Optional[bool] = None) -> Tuple[bool, List[str], List[str]]:
-    """(ok, failures, notes). Every clause runs, so one PR reports every defect."""
+            in_actions: Optional[bool] = None,
+            run_fetch: Optional[RunFetch] = None,
+            prov_fetch: Optional[ProvFetch] = None,
+            head: Optional[str] = None) -> Tuple[bool, List[str], List[str]]:
+    """(ok, failures, notes). Every clause runs, so one PR reports every defect.
+
+    `head` is the commit to grade. `None` resolves the PR head (`resolve_head`)."""
+    global _GRADED
+    prev = _GRADED
+    rev, how = (head, "given") if head else resolve_head(root, event_path)
+    _GRADED = rev
+    try:
+        ok, fails, notes = _verdict(root, base, branch, decl, changed, slug,
+                                    pre_flight=pre_flight, event_path=event_path,
+                                    in_actions=in_actions, run_fetch=run_fetch,
+                                    prov_fetch=prov_fetch)
+    finally:
+        _GRADED = prev
+    if rev != "HEAD":
+        notes.insert(0, f"graded commit {rev[:12]} ({how}), not HEAD")
+    return ok, fails, notes
+
+
+def _verdict(root: Path, base: str, branch: Optional[str], decl: Dict[str, Any],
+             changed: List[str], slug: str, *, pre_flight: bool = False,
+             event_path: Optional[str] = None,
+             in_actions: Optional[bool] = None,
+             run_fetch: Optional[RunFetch] = None,
+             prov_fetch: Optional[ProvFetch] = None) -> Tuple[bool, List[str], List[str]]:
     fails: List[str] = []
     notes: List[str] = []
     if not branch:
@@ -670,7 +978,11 @@ def verdict(root: Path, base: str, branch: Optional[str], decl: Dict[str, Any],
         fails += f
         notes += n
     f, n = check_author(root, mb, branch, decl, pre_flight=pre_flight,
-                        event_path=event_path, in_actions=in_actions)
+                        event_path=event_path, in_actions=in_actions, run_fetch=run_fetch,
+                        prov_fetch=prov_fetch, removals=removals, base=base)
+    fails += f
+    notes += n
+    f, n = check_grant_at_base(root, base, mb, changed)
     fails += f
     notes += n
     f, n = check_slot(root, mb, changed, slug, branch)
@@ -679,11 +991,18 @@ def verdict(root: Path, base: str, branch: Optional[str], decl: Dict[str, Any],
     return (not fails, fails, notes)
 
 
-def _changed(root: Path, base: str) -> Optional[List[str]]:
+def _changed(root: Path, base: str, head: Optional[str] = None) -> Optional[List[str]]:
+    global _GRADED
+    if head:
+        prev, _GRADED = _GRADED, head
+        try:
+            return _changed(root, base)
+        finally:
+            _GRADED = prev
     mb = merge_base(root, base)
     if not mb:
         return None
-    rc, out = _git(root, "diff", "--name-only", f"{mb}...HEAD")
+    rc, out = _git(root, "diff", "--name-only", f"{mb}...{_GRADED}")
     return [ln for ln in out.splitlines() if ln.strip()] if rc == 0 else None
 
 
@@ -801,6 +1120,9 @@ def _base_repo(tmp: Path, *, arm: bool = True) -> Path:
     _write(root, MANDATES_REL, _MANDATES.format(arm="    autoland: true" if arm else ""))
     _write(root, ACCOUNTS_REL, _ACCOUNTS.format(leg=LEG))
     _write(root, mr.STRATEGIES_REL, _STRATEGIES)
+    # The producer's DECLARED window lives in its workflow's `window` default.
+    _write(root, WORKFLOW_REL, 'on:\n  workflow_dispatch:\n    inputs:\n      window:\n'
+                               '        default: "30d"\n')
     # The planted event payload lives in the work tree; it must never reach the
     # diff, or A1 would refuse every fixture for a file the fixture invented.
     _write(root, ".gitignore", ".fixture-event.json\n")
@@ -846,7 +1168,7 @@ def _paperwork(root: Path, *, run_id: str = RUN_ID, slot: bool = True,
     return decl
 
 
-def _event(root: Path, login: Optional[str]) -> Optional[str]:
+def _event(root: Path, login: Optional[str], head_sha: Optional[str] = None) -> Optional[str]:
     """A PLANTED GitHub event payload, so no fixture ever reads the ambient one.
 
     ⚠️ THIS IS THE FIX FOR THE ONE FAILURE THIS SUITE SHIPPED WITH. Passing
@@ -855,20 +1177,83 @@ def _event(root: Path, login: Optional[str]) -> Optional[str]:
     if login is None:
         return ""
     path = root / ".fixture-event.json"
-    path.write_text(json.dumps({"pull_request": {"user": {"login": login}}}), encoding="utf-8")
+    pr: Dict[str, Any] = {"user": {"login": login}}
+    if head_sha:
+        pr["head"] = {"sha": head_sha}
+    path.write_text(json.dumps({"pull_request": pr}), encoding="utf-8")
     return str(path)
+
+
+_FIXTURE_REPO = "fixture-owner/fixture-repo"  # the planted run's repository
+
+
+def _genuine_run(mb: str, **over: Any) -> Dict[str, Any]:
+    """What GET actions/runs/<RUN_ID> returns for the real producer run."""
+    run = {"id": int(RUN_ID), "path": WORKFLOW_REL, "head_branch": "main",
+           "event": "schedule", "head_sha": mb,
+           "repository": {"full_name": _FIXTURE_REPO}}
+    run.update(over)
+    return run
 
 
 def _finish(root: Path, decl: dict, *, branch: str = BRANCH, env: Optional[dict] = None,
             author: Optional[str] = BOT_LOGIN, in_actions: bool = True,
+            run: Any = "genuine", prov: Any = "genuine", merge_ref: bool = False,
+            payload_head: bool = True,
+            repo_env: str = "fixture-owner/fixture-repo",
             ) -> Tuple[bool, List[str], List[str]]:
-    event_path = _event(root, author)
+    """Commit the branch and grade it, with the run API and the provenance
+    artifact PLANTED. No fixture ever reads the network or the ambient env.
+
+    `run` / `prov`: "genuine" (what the real producer run returns for THIS
+    branch), a dict of overrides applied to it, or None (could not read /
+    nothing uploaded). `merge_ref=True` reproduces the CI checkout: main moves
+    on, HEAD becomes a two-parent merge commit authored by a PERSON, and the
+    event payload names the PR head (review BLOCK B1 on #13609)."""
     _run(root, "checkout", "-q", "-b", branch)
     _run(root, "add", "-A")
     _run(root, "commit", "-qm", "cut", env=env or _BOT_ENV)
-    changed = _changed(root, "mainbase") or []
-    return verdict(root, "mainbase", branch, decl, changed, _slug(branch),
-                   event_path=event_path, in_actions=in_actions)
+    rc, tip = _git(root, "rev-parse", "HEAD")
+    tip = tip.strip()
+    mb = merge_base(root, "mainbase") or ""
+    removals = roster_removals(_yaml_text(blob(root, mb, ACCOUNTS_REL)),
+                               _yaml_text(blob(root, tip, ACCOUNTS_REL)))
+    event_path = _event(root, author, tip if (merge_ref and payload_head) else None)
+    if merge_ref:
+        _run(root, "checkout", "-q", "mainbase")
+        _write(root, "docs/unrelated.md", "main moved on\n")
+        _run(root, "add", "-A")
+        _run(root, "commit", "-qm", "main moves", env=_HUMAN_ENV)
+        _run(root, "checkout", "-q", "--detach", "mainbase")
+        _run(root, "merge", "-q", "--no-ff", "-m", "Merge PR into main", tip, env=_HUMAN_ENV)
+    changed = _changed(root, "mainbase", tip) or []
+
+    def fetch_r(run_id: str):
+        if run is None:
+            return None, "planted: the run API could not be read"
+        return _genuine_run(mb, **(run if isinstance(run, dict) else {})), "planted run API"
+
+    def fetch_p(run_id: str):
+        if prov is None:
+            return None, "planted: the run uploaded no provenance artifact"
+        rec = {"run_id": RUN_ID, "branch": branch, "head_sha": tip, "removals": removals,
+               "window": "30d", "event": "schedule"}
+        rec.update(prov if isinstance(prov, dict) else {})
+        return rec, "planted artifact"
+    saved = {k: os.environ.get(k) for k in ("GITHUB_REPOSITORY", "GITHUB_EVENT_NAME")}
+    os.environ["GITHUB_REPOSITORY"] = repo_env
+    os.environ["GITHUB_EVENT_NAME"] = "pull_request" if merge_ref else "fixture"
+    try:
+        return verdict(root, "mainbase", branch, decl, changed, _slug(branch),
+                       event_path=event_path, in_actions=in_actions,
+                       run_fetch=fetch_r, prov_fetch=fetch_p,
+                       head=None if merge_ref else tip)
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
 
 def _case(label: str, build, *, expect_ok: bool, expect_clause: Optional[str] = None,
@@ -1085,33 +1470,184 @@ def self_test(quiet: bool = False) -> int:
           preflight_still_checks_commits, expect_ok=False, expect_clause="A7",
           results=results, quiet=quiet)
 
-    # ── the PR-AUTHOR clause, which the suite used to inherit from its own
-    # environment. Each case plants its OWN payload; none reads the ambient one.
-    def opened_by_a_person(tmp: Path):
+    # ── the ORIGINATING-RUN clause (JC-CA-03 re-decision 2026-09-28, "Keep PAT,
+    # verify run"). Each case plants its OWN event payload AND its own run API
+    # answer; none reads the ambient environment or the network.
+    def pat_opened_genuine(tmp: Path):
         root = _base_repo(tmp)
         _cut(root, ["bybit_2", "bybit_portfolio"])
         _evidence(root)
         return _finish(root, _paperwork(root), author="benbaichmankass")
-    _case("a PR opened by a PERSON refuses, however bot-authored its commits are (A7)",
-          opened_by_a_person, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+    _case("POSITIVE: the GENUINE producer PR, opened with the PAT (so its author is the PAT "
+          "owner), lands on a verified originating run (A7)",
+          pat_opened_genuine, expect_ok=True, results=results, quiet=quiet)
 
-    def no_payload_in_ci(tmp: Path):
+    def forged_opener(tmp: Path):
+        """The measured forgery: pr-opener.yml opens a session-pushed branch as
+        github-actions[bot]. Everything a push can write is right, but the run
+        id names a run of a DIFFERENT workflow."""
         root = _base_repo(tmp)
         _cut(root, ["bybit_2", "bybit_portfolio"])
         _evidence(root)
-        return _finish(root, _paperwork(root), author=None, in_actions=True)
-    _case("an UNREADABLE event payload inside CI fails closed — 'we could not look' "
-          "is not 'it is the bot' (A7)",
-          no_payload_in_ci, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+        return _finish(root, _paperwork(root), author=BOT_LOGIN,
+                       run={"path": ".github/workflows/pr-opener.yml", "event": "push"})
+    _case("FORGED: a bot-opened PR whose run id is not a demotion-gate run refuses, "
+          "however bot-shaped the rest is (A7)",
+          forged_opener, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
 
-    def no_payload_locally(tmp: Path):
+    def run_on_branch(tmp: Path):
         root = _base_repo(tmp)
         _cut(root, ["bybit_2", "bybit_portfolio"])
         _evidence(root)
-        return _finish(root, _paperwork(root), author=None, in_actions=False)
-    _case("POSITIVE: outside CI the same cut passes with the PR-author read NOTED as "
-          "unchecked, never silently assumed",
-          no_payload_locally, expect_ok=True, results=results, quiet=quiet)
+        return _finish(root, _paperwork(root), run={"head_branch": "claude/edited-producer"})
+    _case("a demotion-gate run on a BRANCH (an edited producer) refuses (A7)",
+          run_on_branch, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def replayed_run(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), run={"head_sha": "0" * 40})
+    _case("a REAL run id whose head_sha is not this branch's base refuses: a replayed "
+          "run did not write this branch (A7)",
+          replayed_run, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def run_unreadable_in_ci(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), run=None, in_actions=True)
+    _case("an UNREADABLE run API inside CI fails closed. 'We could not look' is "
+          "not 'it is the producer' (A7)",
+          run_unreadable_in_ci, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def via_merge_ref(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), author="benbaichmankass", merge_ref=True)
+    _case("POSITIVE: graded through GitHub's SYNTHETIC MERGE REF, the way CI checks it out. "
+          "The PR head is graded, not the merge commit or its person-authored parent (B1)",
+          via_merge_ref, expect_ok=True, results=results, quiet=quiet)
+
+    def wrong_event(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), run={"event": "push"})
+    _case("a demotion-gate run started by `push` refuses (A7)",
+          wrong_event, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def wrong_repo(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), run={"repository": {"full_name": "fork/fork"}})
+    _case("a run belonging to ANOTHER repository refuses (A7)",
+          wrong_repo, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def dry_run_id(tmp: Path):
+        """B2: any session can dispatch r4-demotion-gate on main with
+        apply=false and get a GENUINE run id. That run pushes nothing and
+        uploads nothing."""
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), prov=None)
+    _case("FORGED: a genuine run id from a dry (apply=false) dispatch, which uploaded no "
+          "provenance, refuses (A7/B2)",
+          dry_run_id, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def other_head(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), prov={"head_sha": "f" * 40})
+    _case("FORGED: content the run did not push (provenance names another head) refuses (A7/B2)",
+          other_head, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def other_removals(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root),
+                       prov={"removals": {"bybit_2": ["some_other_leg"]}})
+    _case("FORGED: removals the run did not record refuse (A7/B2)",
+          other_removals, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def via_head2_fallback(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), author="benbaichmankass", merge_ref=True,
+                       payload_head=False)
+    _case("POSITIVE: with NO head sha in the payload, a pull_request merge ref is graded "
+          "at HEAD^2, the PR head (B1 fallback)",
+          via_head2_fallback, expect_ok=True, results=results, quiet=quiet)
+
+    def short_window(tmp: Path):
+        """N1: a dispatch on main with apply=true, window=1d mints a GENUINE run
+        and GENUINE provenance over a noisy window."""
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), run={"event": "workflow_dispatch"},
+                       prov={"window": "1d", "event": "workflow_dispatch"})
+    _case("FORGED: a genuine dispatch with window=1d (not the declared 30d) refuses (A7/N1)",
+          short_window, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def event_mismatch(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), prov={"event": "workflow_dispatch"})
+    _case("a provenance event that disagrees with the run's own event refuses (A7)",
+          event_mismatch, expect_ok=False, expect_clause="A7", results=results, quiet=quiet)
+
+    def disarmed_after_run(tmp: Path):
+        """(1) The run fired while armed; main has since been DISARMED."""
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        decl = _paperwork(root)
+        _run(root, "stash", "-u", "-q")
+        _run(root, "checkout", "-q", "-b", "cutpoint")
+        _run(root, "checkout", "-q", "mainbase")
+        _write(root, MANDATES_REL, _MANDATES.format(arm=""))
+        _run(root, "add", "-A")
+        _run(root, "commit", "-qm", "disarm", env=_HUMAN_ENV)
+        _run(root, "checkout", "-q", "cutpoint")
+        _run(root, "stash", "pop", "-q")
+        _run(root, "checkout", "-q", "-b", BRANCH)
+        _run(root, "add", "-A")
+        _run(root, "commit", "-qm", "cut", env=_BOT_ENV)
+        _, tip = _git(root, "rev-parse", "HEAD")
+        mb = merge_base(root, "mainbase") or ""
+        removals = roster_removals(_yaml_text(blob(root, mb, ACCOUNTS_REL)),
+                                   _yaml_text(blob(root, tip.strip(), ACCOUNTS_REL)))
+        changed = _changed(root, "mainbase") or []
+        os.environ["GITHUB_REPOSITORY"] = _FIXTURE_REPO
+        try:
+            return verdict(root, "mainbase", BRANCH, decl, changed, SLUG, event_path="",
+                           in_actions=True, head=tip.strip(),
+                           run_fetch=lambda r: (_genuine_run(mb), "planted"),
+                           prov_fetch=lambda r: ({"run_id": RUN_ID, "branch": BRANCH,
+                                                  "head_sha": tip.strip(), "removals": removals,
+                                                  "window": "30d", "event": "schedule"},
+                                                 "planted"))
+        finally:
+            os.environ.pop("GITHUB_REPOSITORY", None)
+    _case("a mandate DISARMED on main after the run fired stops its open PR (A8 at base)",
+          disarmed_after_run, expect_ok=False, expect_clause="A8", results=results, quiet=quiet)
+
+    def run_unreadable_locally(tmp: Path):
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root)
+        return _finish(root, _paperwork(root), author=None, run=None, in_actions=False)
+    _case("POSITIVE: outside CI the same cut passes with the run read NOTED as unchecked, "
+          "never silently assumed",
+          run_unreadable_locally, expect_ok=True, results=results, quiet=quiet)
 
     # ⚠️ THE REGRESSION CONTROL FOR THE ONE REAL DEFECT THIS ROUTE SHIPPED WITH.
     # An earlier draft grouped A8 among the evidence clauses, so an UNARMED
@@ -1155,8 +1691,8 @@ def main(argv=None) -> int:
                          "printed, never silent: a green from this flag on an ordinary PR "
                          "means NOTHING WAS GRADED, not that the diff is admissible.")
     ap.add_argument("--pre-flight", action="store_true",
-                    help="the PRODUCER's own run, before a PR exists: report the PR-author "
-                         "clause as NOT CHECKED instead of failing closed on it. ⚠️ Only "
+                    help="the PRODUCER's own run, before a PR exists: report the originating-"
+                         "run and provenance reads as NOT CHECKED instead of failing closed. ⚠️ Only "
                          "r4-demotion-gate.yml passes this, and it decides only whether that "
                          "workflow ARMS — pr-landing-guard R16 on the PR never passes it and "
                          "is what gates the merge.")
@@ -1185,7 +1721,8 @@ def main(argv=None) -> int:
         print("error: no branch to grade", file=sys.stderr)
         return 2
     slug = _slug(branch)
-    decl = _json_text(blob(root, "HEAD", f"{LANDING_DIR}/{slug}.json")) or {}
+    head, _how = resolve_head(root)
+    decl = _json_text(blob(root, head, f"{LANDING_DIR}/{slug}.json")) or {}
     if a.if_declared and decl.get("landing") != LANDING_VALUE:
         msg = (f"mandate-autoland: NOT APPLICABLE — {LANDING_DIR}/{slug}.json declares "
                f"landing={decl.get('landing')!r}, not {LANDING_VALUE!r}. NOTHING WAS GRADED "
@@ -1194,12 +1731,12 @@ def main(argv=None) -> int:
         print(json.dumps({"ok": None, "state": "not_applicable", "why": msg}, indent=2)
               if a.json else msg)
         return 0
-    changed = _changed(root, a.base)
+    changed = _changed(root, a.base, head)
     if changed is None:
         print(f"error: could not diff against {a.base}", file=sys.stderr)
         return 2
     ok, fails, notes = verdict(root, a.base, branch, decl, changed, slug,
-                               pre_flight=a.pre_flight)
+                               pre_flight=a.pre_flight, head=head)
     if a.json:
         print(json.dumps({"ok": ok, "failures": fails, "notes": notes}, indent=2))
     else:

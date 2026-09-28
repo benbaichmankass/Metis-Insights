@@ -23,6 +23,7 @@ operational data, not a source-of-truth artifact.
 """
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import math
@@ -167,12 +168,18 @@ def iter_records(
     logged at WARNING and skipped. Returning an empty iterator when
     the file does not exist is intentional — calling code shouldn't
     branch on `Path.exists()`.
+
+    Transparently reads a ``.gz`` file (text mode via :mod:`gzip`) —
+    ``scripts/ops/rotate_shadow_log.py`` runs with ``--gzip`` in production
+    (``deploy/ict-shadow-log-rotate.service``), so every rotated archive this
+    module is asked to read (see :func:`rotated_log_paths`) is gzipped.
     """
     log = logger if logger is not None else _LOGGER
     path = Path(log_path)
     if not path.is_file():
         return
-    with path.open("r", encoding="utf-8") as fh:
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="utf-8") as fh:
         for lineno, raw in enumerate(fh, start=1):
             line = raw.strip()
             if not line:
@@ -219,6 +226,121 @@ def filter_records(
         if since is not None and r.predicted_at_utc < since:
             continue
         yield r
+
+
+# --- Rotated-archive discovery ---------------------------------------------
+#
+# `scripts/ops/rotate_shadow_log.py` (`ict-shadow-log-rotate.timer`, daily)
+# renames the ACTIVE log to `<stem>.<YYYY-MM-DD>[.N].<ext>` (gzipped to
+# `...<ext>.gz` in production — `deploy/ict-shadow-log-rotate.service` runs
+# with `--gzip`) in the SAME directory, then touches a fresh empty file back
+# at the original path. Observed cadence in production is ~25-29 days
+# (rotation at 2026-09-26T06:39:57Z is the one on record).
+#
+# A window-based read (`/api/bot/shadow/drift`'s `reference_days`, default
+# 30) that only opens the active log therefore silently truncates its own
+# reference window at the last rotation boundary whenever that cadence is
+# shorter than the window — which it is here (~25-29d < 30d). Every model
+# reads `insufficient_data` for roughly 1-2 weeks after each rotation, and no
+# drift-based demote/hold decision this repo has made was ever computed on a
+# genuinely full window (PI-20260927-YZRZQ725-0001 / review-pack D1).
+#
+# `rotated_log_paths` closes that gap by finding the archives so a caller can
+# read active + rotated as one stream; it does not itself apply any window
+# filter — that stays the caller's job (records outside the requested window
+# are just as irrelevant whether they came from the active log or an
+# archive).
+
+
+def rotated_log_paths(active_log: Path | str) -> list[Path]:
+    """Rotated archives of *active_log* sitting alongside it, oldest-name-first.
+
+    Matches `<stem>.<anything>.<ext>` and `<stem>.<anything>.<ext>.gz` in the
+    active log's own directory (e.g. `shadow_predictions.2026-09-26.jsonl` or
+    `shadow_predictions.2026-09-26.1.jsonl.gz` next to
+    `shadow_predictions.jsonl`) — the exact naming
+    `scripts/ops/rotate_shadow_log.py::_next_rotated_path` produces. The
+    active log itself is never included. Returns `[]` when the directory
+    does not exist (nothing has ever been written) — never raises, matching
+    `iter_records`' "missing means empty" contract.
+    """
+    path = Path(active_log)
+    parent = path.parent
+    if not parent.is_dir():
+        return []
+    prefix = f"{path.stem}."          # e.g. "shadow_predictions."
+    bare_ext = (path.suffix or ".jsonl").lstrip(".")  # e.g. "jsonl"
+    out: list[Path] = []
+    for candidate in parent.iterdir():
+        if candidate == path or not candidate.is_file():
+            continue
+        name = candidate.name
+        if not name.startswith(prefix):
+            continue
+        rest = name[len(prefix):]
+        if rest.endswith(f"{bare_ext}.gz") or rest.endswith(bare_ext):
+            out.append(candidate)
+    return sorted(out)
+
+
+# Default look-back for an un-windowed consumer that MATERIALIZES the union
+# (drift_retrain, live_parity). Two rotation cycles (~25-29d each): enough
+# that a read just after a rotation still spans a full cycle, bounded because
+# the archive set is never pruned.
+DEFAULT_ARCHIVE_LOOKBACK_DAYS = 60.0
+
+
+def iter_records_with_archives(
+    active_log: Path | str,
+    *,
+    since: datetime | None = None,
+    archives_since: datetime | None = None,
+    logger: logging.Logger | None = None,
+) -> Iterator[ShadowRecord]:
+    """Stream records from every rotated archive of *active_log*, then the
+    active log itself, keeping only rows at/after *since* (inclusive).
+
+    *archives_since* prunes whole archive FILES only (same mtime test as
+    below) and filters no rows — for a consumer that has always read every
+    row of the active log and should keep doing so, but must not open the
+    never-pruned archive set back to the beginning. *since* implies it.
+
+    Every ml/ consumer that applies a time window or a minimum n must read
+    through this rather than :func:`iter_records` on the active path alone:
+    ``ict-shadow-log-rotate.timer`` moves the active log to an archive every
+    ~25-29 days, so an active-only read silently truncates the window at the
+    last rotation boundary (CA-B01-shadow-gates-read-active-log-only /
+    PI-20260927-3WM5HADW-0001; the API half was #13146).
+
+    Archives are never pruned (``rotate_shadow_log.py`` has no retention),
+    so a caller that materializes the stream should pass *since*. An archive
+    whose mtime is older than *since* is skipped unopened: its mtime is its
+    last append (rename keeps it; ``--gzip`` writes it at rotation time), so
+    it cannot hold a real-time row inside the window.
+    """
+    if since is not None and since.tzinfo is None:
+        since = since.replace(tzinfo=timezone.utc)
+    if archives_since is not None and archives_since.tzinfo is None:
+        archives_since = archives_since.replace(tzinfo=timezone.utc)
+    cutoff = max(
+        (t for t in (since, archives_since) if t is not None), default=None,
+    )
+    paths: list[Path] = []
+    for archive in rotated_log_paths(active_log):
+        if cutoff is not None:
+            try:
+                mtime = datetime.fromtimestamp(archive.stat().st_mtime, tz=timezone.utc)
+            except OSError:
+                continue
+            if mtime < cutoff:
+                continue
+        paths.append(archive)
+    paths.append(Path(active_log))
+    for path in paths:
+        for r in iter_records(path, logger=logger):
+            if since is not None and r.predicted_at_utc < since:
+                continue
+            yield r
 
 
 @dataclass

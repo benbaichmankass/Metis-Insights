@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-W6OPSR-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "docs/research/recurring-validations-audit-2026-09-27.md § F3",
+    "rerun": "grep -l -E '^\\s+issues:' .github/workflows/*.yml | wc -l"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "[ci] 106 of 149 workflows trigger on `issues: [opened]`; every opened issue (diag relay, system-action, prop report) creates up to 106 runs, ~98% skipped (100 most recent event=issues runs: 98 skipped, 2 success; >=2,500 in ~33h). Cost is run-list noise that buries scheduled runs, not runner minutes; a link to the 08-27 scheduler lag is NOT established. Proposal: one `issue-router.yml` on issues:opened that maps label -> workflow and calls workflow_dispatch (GITHUB_TOKEN may dispatch), then drop the issues trigger from each routed workflow, migrating relay workflows in batches so the Claude-on-the-web issue path keeps working."
+}

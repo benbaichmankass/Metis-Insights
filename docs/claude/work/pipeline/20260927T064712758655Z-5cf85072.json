@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "ict-git-sync.service reads active/inactive (not failed) on a fresh services pull, or a health-review has root-caused and dispositioned the failure.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-YZRZQ725-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "lane claude/w6-ml-review (W6 M1 ml-review), comms/reviews/ml-review-20260927-063330.json anomalies[]",
+    "rerun": "vm-diag-request: services -- check ict-git-sync.service state. If still failed, trainer-vm-diag or vm-diag-request: journalctl -u ict-git-sync.service -n 100 --no-pager to read the failure reason, and diff the live VM HEAD against origin/main to confirm whether deploys are actually stale."
+  },
+  "state": "queued",
+  "what": "ict-git-sync.service reads state=\"failed\" on the live VM while its timer (ict-git-sync.timer) is active. MEASURED incidentally this session (out of ml-review scope, not investigated further): vm-diag-snapshot #13063 (services path), read 2026-09-27T06:34:49Z. ict-git-sync is the mechanism the root CLAUDE.md names as pulling main every ~5 min so the Workflow page (and every deployed change) stays fresh -- a failed unit here plausibly means recent merges to main are not reaching the live VM, which would be a Tier-1/2 health-review-scoped finding, not an ML one. Not root-caused, not confirmed as an ongoing failure vs. a single stale failed-state (systemd does not auto-clear a failed oneshot until the next successful run or an explicit reset) -- filed for health-review to pick up rather than left as a review-artifact anomaly only."
+}

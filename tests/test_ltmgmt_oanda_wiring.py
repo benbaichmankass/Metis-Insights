@@ -153,7 +153,8 @@ def test_send_close_to_exchange_oanda_ok(monkeypatch):
     monkeypatch.setattr(om, "_build_account_client", lambda a: (oanda_client, cfg))
     monkeypatch.setattr(
         "src.units.accounts.execute.close_open_position",
-        lambda client, c, *, symbol, side, qty, sl_order_id=None, tp_order_id=None: {
+        lambda client, c, *, symbol, side, qty, sl_order_id=None,
+        tp_order_id=None, trade_id=None: {
             "ok": True, "exchange_order_id": "O-9", "error": None,
         },
     )

@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-04",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ADM2F2AD-0001",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/FIX-CA-26-m21-regrade.json",
+    "rerun": "re-dispatch the trainer-vm-diag command in issue #13310 and feed the fold rows to scripts/research/m21_entry_sweep.py::grade_walkforward"
+  },
+  "state": "queued",
+  "what": "FIX-CA-26 re-grade: 3 non-real-money M21 entry declares cited as wf PASS fail the effective (inert-excluded) walk-forward — avax_pullback_2h vol_lo10 (shadow) 4/6 -> 3/5, mgc_trend_1h confirm_1 (shadow) 5/6 -> 2/3, xauusd_trend_1h confirm_1 (no roster) 5/6 -> 2/3. Keep/remove of each lever is Tier-3 (manager decides or takes under data-backed authorization). Real-money cells hold."
+}

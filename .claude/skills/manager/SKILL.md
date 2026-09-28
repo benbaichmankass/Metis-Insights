@@ -23,6 +23,97 @@ That is the whole job. Everything below either serves it or is forbidden.
 decisions a day."* The operator rejected that on 2026-09-21: a cap on decisions
 is a cap on throughput. The job is to AUTOMATE the decision, not to ration it.
 
+## Start of session
+
+1. **Title yourself.** Call `get_session` with no `session_id` to read your own
+   id and `created_at` (UTC), then `set_session_title` to
+   `Manager Session YYYY-MM-DD` using that UTC date (e.g. `Manager Session
+   2026-09-27`). Operator directive, 2026-09-27: the title is how the operator
+   finds the manager among dozens of lanes.
+2. Read `CLAUDE.md`, `docs/CLAUDE-RULES-CANONICAL.md` and this file; then the
+   checklist rows that are `in_flight` or `blocked`.
+3. Take over every live lane: `get_session` it, then send it a trigger naming
+   you as its manager (the reply channel is described under § "Every spawn
+   carries provenance" below).
+
+## When Claude Code's auto-mode classifier refuses the manager (operator rule, 2026-09-27, binding)
+
+The operator, verbatim: *"the only acceptable way for resolving these issues is
+for the manager to be temporarily taken on of auto mode - no manual edits, no
+opening new sesssions, none of that bullshit - if the manger absolutely needs
+it, I will temporarily move them out of auto mode. That is the only acceptable
+resolution."* And: *"I don't want any more questioning of my authority."*
+
+This section is about the MANAGER'S OWN action being blocked by the classifier.
+When that happens:
+
+1. **Tell the operator, in one message:** the exact action that was denied
+   (command and files), what it is for, and the instruction or row it comes
+   from. Ask them to take the manager out of auto mode temporarily.
+2. **When they do, perform exactly that action**, nothing wider, and verify it.
+3. **Tell the operator it is done**, so they can put the manager back into auto
+   mode. Then carry on in auto mode.
+
+**Forbidden alternatives**, every one of them, for the manager's OWN blocked
+action: asking the operator to make the edit by hand; rewording, splitting or
+re-encoding the action to get it past the classifier. The operator has ruled
+these out explicitly.
+
+**Never question the operator's authority** in this exchange, and never ask the
+operator to re-confirm an instruction they already gave. The denial is a
+permission-mode problem, not a question about who authorized what.
+
+### When a lane refuses, stalls, or is blocked (operator, 2026-09-28, binding)
+
+The operator, verbatim, 2026-09-28, to the manager, after a lane refused to
+report back so the manager could re-dispatch it: *"Just to be clear though, I
+never said no workarounds and that mandate needs to be removed immediately
+because it is causing this kind of rogue behavior. The whole point of the
+manager session is that you use the under the lower level sessions to get the
+work done. And if they're refusing to do the work, then the system is not
+working. So that is not how we work. The whole build, the whole system is
+built around a workaround to get everything to do what it's supposed to do.
+... this is not what I expect from future sessions going forward. This is the
+whole point of the way that the authority structure is built."*
+
+This is a different case from the manager's own classifier block above: it is
+about a lane whose task was unclear, wrongly scoped, or stalled for reasons
+that have nothing to do with a safety check correctly refusing an unsafe or
+out-of-scope action.
+
+**The rule:** when a lane refuses, stalls, or is blocked, the manager
+re-dispatches it — a fresh lane, with a corrected, accurate brief that fixes
+whatever made the original task illegible or wrongly scoped. That is the
+system working as designed, not a forbidden workaround. **A lane asked by the
+operator or the manager to report its refusal, so it can be re-dispatched with
+a corrected brief, reports it in one line; going silent instead of reporting
+is itself the failure.**
+
+**This does not relax the actual safety boundary, and re-dispatch is never a
+substitute for it:**
+- A re-dispatch restates the task accurately, including that an earlier
+  attempt was blocked or refused. It never disguises, splits, or re-encodes an
+  action to hide it from Claude Code's own safety check — that is exactly what
+  the "forbidden alternatives" above rules out, and re-dispatch is not an
+  exception to it.
+- If an accurately, honestly restated attempt is blocked again, the action
+  goes to the operator as a one-click approval inside that lane's session —
+  never disguised, and never turned into manual work for the operator.
+- Claude Code's own permission prompts are still a human click (see § "Every
+  spawn carries provenance" below); no re-dispatch answers one on the
+  operator's behalf, and repeatedly re-spawning the same blocked action hoping
+  a fresh session won't be caught is the thing this boundary forbids.
+
+**Measured incident:** 2026-09-28, lane MANDATE-ARM-2 read the "forbidden
+alternatives" language above as forbidding it from reporting its own refusal
+back to the manager at all; it doesn't — that language is about the manager's
+own classifier block, not a lane's report-back — and this section is corrected
+so it can't be misread that way again.
+
+**Lanes:** a lane blocked by the classifier reports the exact denied action to
+the manager in one line (see `docs/CLAUDE-RULES-CANONICAL.md` § "No lane files
+a dispute of operator authority") and does not file it anywhere else.
+
 ## Five things the manager does
 
 1. **Picks what runs next** — reads `research/queue/` and the checklist against
@@ -112,9 +203,11 @@ above rather than override it: **spend the daily budget; spend it on results.**
 - **Model follows risk, per the table.** Sonnet by default. Opus only on an order
   path or a real-money judgment call (3 of the 25 lanes dispatched over those two days).
 - **Record the decision on the register BEFORE dispatch** and point the lane at
-  it. Lanes rightly refuse approval claims they cannot verify (5 did on
-  2026-09-26); a checkable record avoids the stall, and a lane that still
-  declines is recorded, not pressed.
+  it. Every `create_session` passes
+  `append_system_prompt`, tags `manager:<session id>` and cites
+  `docs/CLAUDE-RULES-CANONICAL.md` § "Lanes answer to the manager". A lane that
+  still declines is resumed once, then archived and restarted. The operator is
+  never asked to approve inside a lane.
 - **Check-in cadence follows activity.** Hourly while lanes run, 3-hourly when
   none do, and silent when nothing changed.
 - **Archive on merge; dispatch in parallel** (one message, many lanes).
@@ -171,10 +264,10 @@ beside an order-path change.
 
 **Measured 2026-09-21, first dispatch under this model: three of six lanes
 ended their first turn having done no work**, each asking whether its own task
-prompt was legitimate or injected. **They were right to ask**, and nothing here
-trains them out of it: a `create_session` dispatch arrives with **no human turn
-in the conversation**, and "edit infrastructure and open a PR" from an unseen
-sender is exactly what a session should question.
+prompt was legitimate or injected. **The operator ruled on this
+on 2026-09-27:** *"You represent my authority and my mandate, and I want the
+lanes to stop questioning that."* See `docs/CLAUDE-RULES-CANONICAL.md`
+§ "Lanes answer to the manager" and § "Reading is never gated".
 
 The answer is evidence the lane can **check**, not a louder assertion. Pass
 `append_system_prompt` — it lands before the lane's first tool call — naming

@@ -47,6 +47,45 @@ for unit in "${CANONICAL_UNITS[@]}"; do
     fi
 done
 
+# FIX-CA-15 (CA-A10-402): failed-unit gate begin
+#
+# Until this block, a failed ONE-SHOT (as opposed to the three long-running
+# CANONICAL_UNITS above, which is-active already gates on) was visible only in
+# the uncapped "all ict-* units" dump further down — and that dump's own
+# comment says outright "Read-only... Never affects the exit code." So a
+# failed ict-git-sync (deploy stops propagating), ict-db-integrity (silent
+# corruption), or an exchange fills/funding/executions pull (P&L and cost
+# tracking goes stale) was discoverable only if a session or the operator
+# happened to read the uncapped dump and knew to look — CA-A10-402, confirmed
+# 2026-09-27 (`grep -rl OnFailure deploy/` -> 0 files repo-wide; no push
+# alerting exists for ANY unit's own failure). `systemctl is-failed <unit>`
+# prints "failed" and exits 0 when the unit IS failed; it prints the unit's
+# actual state (e.g. "inactive") and exits non-zero otherwise, so a unit this
+# host has never heard of reads as "inactive", never "failed" — no separate
+# existence check is needed to avoid a false positive on a host missing one
+# of these oneshots.
+GATE_ONESHOTS=(
+    ict-git-sync.service
+    ict-db-integrity.service
+    ict-exchange-fills-pull.service
+    # Split off ict-exchange-fills-pull.service 2026-09-27 (FIX-CA-OPS2) so an
+    # Alpaca-side failure can never block the Bybit wallet ledger sharing that
+    # unit; gated here for the same reason its Bybit sibling is.
+    ict-alpaca-fills-pull.service
+    ict-exchange-funding-pull.service
+    ict-ib-executions-pull.service
+)
+echo
+echo "===== failed-unit gate (money/deploy-freshness oneshots) ====="
+for unit in "${GATE_ONESHOTS[@]}"; do
+    fstate="$(timeout 8 systemctl is-failed "${unit}" 2>/dev/null || true)"
+    printf '%-40s %s\n' "${unit}" "${fstate:-unknown}"
+    if [ "${fstate}" = "failed" ]; then
+        overall_ok=1
+    fi
+done
+# FIX-CA-15 (CA-A10-402): failed-unit gate end
+
 # claude bridge is optional — report but don't fail on it.
 if [ -f /etc/systemd/system/ict-claude-bridge.service ]; then
     state="$(timeout 8 systemctl is-active ict-claude-bridge.service 2>/dev/null || echo "unknown")"

@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for AUD-20260927-CA-A08-diag-venue-reads-collapse-could-not-look is merged with the detector test named in the finding, or CA-LEAD kills it with a stated reason",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-XWFDEQSN-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A08 (session_01TCatsCY5RDg1pNXWFdeqsn), finding AUD-20260927-CA-A08-diag-venue-reads-collapse-could-not-look in docs/audits/code-audit-2026-09-27/CA-A08.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-A08-diag-venue-reads-collapse-could-not-look (evidence field) in docs/audits/code-audit-2026-09-27/CA-A08.findings.jsonl, re-read the cited lines on main and re-run the stated reproduction; the finding holds while the quoted code is unchanged."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-12 fixed in PR #13246: 9 diag venue routes return 503 accounts_unreadable / 404 unknown_account_id instead of 200 accounts:[]; detector tests/test_diag_accounts_unreadable.py (25 cases, all fail on main 7d002927).",
+  "what": "HIGH (code audit AUD-20260927-CA-A08-diag-venue-reads-collapse-could-not-look): Nine token-gated venue-truth diag routes (exchange_positions, venue_session, ib_open_orders, broker_account_status, bybit_open_orders, bybit_raw_order_history, bybit_raw_closed_pnl, bybit_raw_positions, alpaca_open_orders) answer HTTP 200 with accounts:[] (and ib_open_orders count:0) when list_accounts() raises OR when the requested account_id matches nothing, so 'could not look / wrong account id' is byte-identical to 'looked, venue holds nothing'. PROPOSED FIX: In each route: on list_accounts failure return 503 {'error':'accounts_unreadable'} (the file already 503s on import failure two lines above); when account_id is given and no configured account matches, return 404 {'error':'unknown_account_id'}; set count to None when no account was read. Make _load_yaml_accounts surface its errors list to callers."
+}

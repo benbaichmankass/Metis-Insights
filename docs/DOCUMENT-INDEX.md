@@ -311,6 +311,32 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/backtest-harness-validation-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/bybit2-broker-reconciliation-2026-07-13.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/closed-pr-salvage-2026-06-28.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A01.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A02.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B01.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B02.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B05.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B06.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B07.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A03.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A04.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A05.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A06.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A07.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A08.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A09.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A10.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A11.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A12.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A13.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A14.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-A15.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B01.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B03.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B04.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B08.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/code-audit-2026-09-27/CA-B09.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/conviction-weight-sweep-2026-06-16.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/dashboard-truth-and-persistence-2026-06-16.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/dual-vm-pipeline-audit-2026-05-14.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
@@ -433,6 +459,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/claude/work/LANE-WATCHDOG-PROMPT.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/README.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/work/findings/E18-starved-triage-post-E35-20260926.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
+| `docs/claude/work/triage-2026-09-28.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/claude/workplan.md` | plan | historical | — | 2026-09-07 | `name:workplan-is-a-forward-commitment / mi159:plan-status-header:historical` | — |
 | `docs/cross-asset-regime-conviction-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/data/dataset-schema.md` | architecture | unknown | — | never | `dir:schema-and-taxonomy-are-contracts / not-assessed` | — |
@@ -466,6 +493,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/github-actions-workflows.md` | unknown | live | — | 2026-09-07 | `not-assessed / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
 | `docs/hf_claude_patch.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/integrations/breakout-compliance-2026-06-16.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
+| `docs/integrations/breakout-instruments-2026-09-27.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
 | `docs/integrations/breakout-poc-manual-bridge-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/integrations/bybit-ai-skill.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
 | `docs/integrations/dxtrade-contract-template.md` | architecture | unknown | — | never | `dir:integration-specs-declare-contracts / not-assessed` | — |
@@ -490,6 +518,8 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/plans/ENGINEERING-PLAN-2026-09-21.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/plans/OPERATING-PLAN-2026-09-21.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/plans/RESEARCH-PLAN-2026-09-21.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
+| `docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md` | evidence | unknown | — | never | `name:audit-measures / not-assessed` | — |
+| `docs/plans/review-pack-2026-09-27.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/proposals/tier2-sweep-candle-anchoring-2026-07-30.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/reference/backtest-data-loading.md` | lookup | unknown | — | never | `dir:reference-is-lookup / not-assessed` | — |
 | `docs/reference/bot-api-reference.md` | lookup | live | — | 2026-09-07 | `dir:reference-is-lookup / ci:canonical-doc-coherence-ACTIVE_DOCS` | — |
@@ -525,6 +555,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/M1-econ-calendar-spine-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M1-econ-event-study-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M18-allocator-backtest-findings-2026-06-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M19-next-direction-deep-research-brief-2026-07-05.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M19-next-direction-recommendation-2026-07-05.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/M20-E1-block-size-derivation-2026-08-13.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -656,6 +687,10 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/alpaca-roster-phase2-capital-efficiency-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/alpaca-roster-phase3-compat-gate-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/artifacts/m27/coverage.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/b6-prop-ev/cost-headroom-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/b6-prop-ev/w6-candidates-v2-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/b6-prop-ev/w6-prop-shaped-search-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/backtest-live-exit-fidelity-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/banking-half-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/be-floor-sweep-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -712,6 +747,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/exit-location-fidelity-2026-09-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-management-ml-experiment-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/exit-reason-frozen-at-close-2026-08-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/exit-refinement/RQ-20260927-003-prop-exit-head-feasibility.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-sweep-positive-control-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-trailing-and-banking-measurement-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-trailing-banking-broker-truth-2026-09-09.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -719,6 +755,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/fleet-model-scorecard-2026-06-26.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/flip-override-walkforward-2026-08-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/fvg-parity-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/gld-1h-stop-confirm/2026-09-28-confirming-walkforward.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/harness-provenance-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/hf-prop-strategy-research-plan-2026-06-16.md` | plan | unknown | — | never | `name:plan-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/ib-intraday-shortlist-backtest-2026-07-07.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -812,6 +849,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/pairs-sleeve-PROPOSAL-2026-07-15.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/pairs-sleeve-real-money-readiness-2026-07-16.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/partial-close-producer-never-fired-2026-09-09.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/pb-20260822-avax-scalp-sizing-2026-09-28.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/per-leg-target-geometry-packet-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/pnl-optimal-conflict-resolution-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/position-sizing-confidence-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
@@ -839,6 +877,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/real-money-0for13-attribution-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/real-money-close-attribution-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/recombination-sweep-2026-06-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/recurring-validations-audit-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/regime-cell-walkforward-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/regime-conditional-strategy-weighting-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/regime-coverage-debt-analysis-2026-07-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
@@ -856,6 +895,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/roadmap-redundancy-audit-2026-09-07.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roadmap-toolbox-assessment-2026-07-29.md` | plan | unknown | — | never | `name:roadmap-is-a-forward-commitment / not-assessed` | — |
 | `docs/research/roll-adjusted-continuous-futures-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
+| `docs/research/rq-20260927-004-soft-weight-band-15-25-result.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/scalp-control-design-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/scalp-family-target-arms-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/session-handoff-2026-06-01-afternoon.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

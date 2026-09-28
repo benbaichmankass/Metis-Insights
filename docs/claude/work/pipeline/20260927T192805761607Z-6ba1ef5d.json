@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "a fix adding a strategy_name (and/or account_id) filter to _join_real_r is merged with a test that fails on the old code, or the item is killed with a stated reason by re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-CAB02-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-B02, finding AUD-20260927-CA-B02-fc-geometry-join-ignores-strategy in docs/audits/code-audit-2026-09-27/CA-B02.findings.jsonl",
+    "rerun": "Read finding AUD-20260927-CA-B02-fc-geometry-join-ignores-strategy (evidence field) in docs/audits/code-audit-2026-09-27/CA-B02.findings.jsonl, re-read scripts/ml/fc_geometry_resolve.py:119-147 on main, and re-run the planted repro described in the evidence field (two-strategy same-symbol sqlite fixture); the finding holds while _join_real_r's SQL carries no strategy_name filter."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-27 fixed in PR #13314: fc_geometry_resolve._join_real_r scopes the join by strategy_name/account_id from the soak row; tests/test_fc_geometry_resolve_join_scope.py.",
+  "what": "HIGH (code audit AUD-20260927-CA-B02-fc-geometry-join-ignores-strategy): scripts/ml/fc_geometry_resolve.py:_join_real_r() matches the 'real arm' of the fc-geometry shadow-soak counterfactual comparison by (symbol, closest closed-trade timestamp within 900s) ONLY -- it never filters on trades.strategy_name or account, although the soak row it is resolving for carries both (r.get('strategy'), r.get('account_id')) and config/strategies.yaml currently runs 9 distinct strategies on BTCUSDT alone (turtle_soup, trend_donchian, fade_breakout_4h, squeeze_breakout_4h, vwap, ict_scalp_5m, fvg_range_15m, htf_pullback_trend_2h, trend_donchian_1h) that can each close a BTCUSDT trade within the same 900s window. Reproduced: a synthetic trades table with two strategies closing BTCUSDT trades 3 and 5 minutes apart returns the WRONG strategy's realized R (-3.0 instead of the correct +2.0) for a soak row belonging to the other strategy. This corrupts the real-vs-fc-scaled-counterfactual comparison (MB-20260705-FC-SLTP-GEOMETRY) that scripts/ml/fc_geometry_resolve.py exists to produce -- the evidence for a live SL/TP-geometry design decision. No test file exists for this script. LOCATION: scripts/ml/fc_geometry_resolve.py:119-147 (_join_real_r), called at :214. PROPOSED FIX: pass strategy_name (and ideally account_id) from the soak row into _join_real_r and add a 'WHERE strategy_name=?' clause; add a regression test with two concurrent same-symbol, different-strategy closes."
+}

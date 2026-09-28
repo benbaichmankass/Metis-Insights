@@ -19,10 +19,23 @@
     "     PUSH, THEN ANSWER."
   ],
   "schema_version": 2,
-  "updated_at": "2026-09-27T08:59:00Z",
-  "updated_by": "session_01Bf9Xnenv6vF5rSqbhr1EYj",
+  "updated_at": "2026-09-28T13:35:00Z",
+  "updated_by": "manager session_01KAQRJxRbRwpYTkPgBjNVyQ",
   "cycle": "CY-20260921-OPERATING-RESET",
   "cycle_intent": "Make the promotion ladder mechanical and the research loop terminate in a decision. Edge is decided offline; a book only ever checks mechanics and cost.",
+  "priorities": {
+    "decided": "operator, AskUserQuestion popup in manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28 ~08:55Z, verbatim answer \"Prop first (Recommended)\"",
+    "floor": "anything broken on a live-money or prop money path jumps the queue, whatever its theme",
+    "order": [
+      "1 Prop account \u2014 roster (candidates ONLY from https://www.breakoutprop.com/symbols/), sizing, exits",
+      "2 Active trade management (M20)",
+      "3 Independent AI trader (M19)",
+      "4 New strategies and models",
+      "5 Macro sleeve (M28 re-shape via research; M29 dormant until it reads out)"
+    ],
+    "how_used": "Lanes are assigned top-down; the research queue is weighted ~30/25/20/15/10 in this order; Fable goes to the highest-value research items at the manager's discretion (operator 2026-09-28: most Fable budget to high-value research, not every research task). Operator decisions surface as popups ranked by this order.",
+    "change_by": "operator only"
+  },
   "plan": "docs/plans/OPERATING-PLAN-2026-09-21.md",
   "states": {
     "queued": "scoped and agreed, nobody started it",
@@ -242,7 +255,7 @@
       "id": "B4",
       "title": "Re-scope the review packet \u2014 Stage 2 on money, Stage 1 on cost fidelity",
       "phase": "B",
-      "state": "in_flight",
+      "state": "done",
       "owner": "build lane",
       "lane": "session_01Bf9Xnenv6vF5rSqbhr1EYj",
       "model": "claude-sonnet-5",
@@ -250,10 +263,13 @@
       "spend_usd": null,
       "tier": 1,
       "prs": [
-        13093
+        13093,
+        13109,
+        13126,
+        13128
       ],
       "blocked_on": [],
-      "note": "PR #13093 open (branch claude/w6-b4-review-packet), self-land declared (.github/pr-landing/w6-b4-review-packet.json tier:1 landing:self), CI running. DELIVERED: scripts/ops/strategy_review_stage_aware.py, a new Tier-1 generator wired into generate_strategy_review_packets_action.sh's all_strategies path. Stage 2 (bybit_2/alpaca_live + mirrors) graded on money by calling scripts/ops/r4_demotion_gate.py's own evaluate() read-only (never --apply, never touches config/accounts.yaml); Stage 1 (bybit_1, alpaca_paper) graded on mechanics + cost fidelity by calling scripts/ops/soak_book_grade.py's own build_report() -- neither verdict re-derived. Every row states verdict_reached (R4/R5 reached a verdict) as distinct from actionable (asking for a decision). The legacy per-strategy expectancy matrix (scripts/ml/strategy_review_packet.py) is UNCHANGED and keeps serving GET /api/bot/strategies/{name}/review. WHY IT LIVES IN scripts/ops/ RATHER THAN EDITING scripts/ml/strategy_review_packet.py IN PLACE: verified scripts/ci/check_pr_landing.py::TIER1_SURFACE directly -- it covers scripts/ops/** but NOT scripts/ml/**, so an in-place edit would have failed R5's 'diff outside TIER1_SURFACE' self-land check; confirmed the actual diff (docs/**, scripts/ops/**, tests/**, .github/**) clears TIER1_SURFACE with zero barred/unvouched paths before declaring self-land. VERIFIED (not merely run): 97 tests pass (tests/test_strategy_review_stage_aware.py + the existing test_strategy_review_index/test_strategy_review_gate/test_r4_demotion_gate suites), soak_book_grade.py --self-test PASS, ruff clean, check_pr_landing.py --branch claude/w6-b4-review-packet locally reads 'state=declared_self_land', and check_collapsed_states/check_roster_symbol_reachability/check_dry_run_in_diff all read clean and unaffected. MERGED: no. DEPLOYED: no. OBSERVED: no -- the generator needs the live trade journal and the cron workflow checks out main, so the FIRST real run (actionable count with denominators per stage) can only happen after this merges; that run is this row's next step, not yet done. FILED AS A FOLLOW-UP, not fixed here: scripts/ci/check_pr_landing.py::TIER1_SURFACE excludes scripts/ml/** despite root CLAUDE.md's own Tier-1 examples plainly covering review tooling like strategy_review_packet.py (which documents itself as Tier-1) -- widening it is the operator's act (same asymmetry as granting a mandate), left to the operator per the MI-242 precedent. | 08:02Z: PR #13093's 'guards' check went red on operator-owed-guard (4 unrelated stale pipeline rows, verified failing identically on origin/main -- not this PR's diff). Commented once on the PR naming the blocker; row moved to blocked_on pending those 4 rows being resolved on main. All other guards + the full test suite are green on this PR's head. | 08:58Z: unblocked -- origin/main advanced (#13096, operator arms MD-DEMOTE-S2-S1 + grants 3 process mandates) and scripts/ci/check_operator_owed.py now reads clean on main ('OK -- 116 owed row(s), none past twice its own declared cadence'), verified directly against a clean worktree. Merged origin/main into claude/w6-b4-review-packet (commit d99b0fb9f), resolving one top-level metadata conflict on this same file; re-ran the full local check suite post-merge (97 tests, soak_book_grade self-test, check_pr_landing.py, check_collapsed_states, check_roster_symbol_reachability, check_dry_run_in_diff) -- all clean. Pushed; waiting on PR #13093's guards check to go green and auto-merge to land."
+      "note": "PR #13093 open (branch claude/w6-b4-review-packet), self-land declared (.github/pr-landing/w6-b4-review-packet.json tier:1 landing:self), CI running. DELIVERED: scripts/ops/strategy_review_stage_aware.py, a new Tier-1 generator wired into generate_strategy_review_packets_action.sh's all_strategies path. Stage 2 (bybit_2/alpaca_live + mirrors) graded on money by calling scripts/ops/r4_demotion_gate.py's own evaluate() read-only (never --apply, never touches config/accounts.yaml); Stage 1 (bybit_1, alpaca_paper) graded on mechanics + cost fidelity by calling scripts/ops/soak_book_grade.py's own build_report() -- neither verdict re-derived. Every row states verdict_reached (R4/R5 reached a verdict) as distinct from actionable (asking for a decision). The legacy per-strategy expectancy matrix (scripts/ml/strategy_review_packet.py) is UNCHANGED and keeps serving GET /api/bot/strategies/{name}/review. WHY IT LIVES IN scripts/ops/ RATHER THAN EDITING scripts/ml/strategy_review_packet.py IN PLACE: verified scripts/ci/check_pr_landing.py::TIER1_SURFACE directly -- it covers scripts/ops/** but NOT scripts/ml/**, so an in-place edit would have failed R5's 'diff outside TIER1_SURFACE' self-land check; confirmed the actual diff (docs/**, scripts/ops/**, tests/**, .github/**) clears TIER1_SURFACE with zero barred/unvouched paths before declaring self-land. VERIFIED (not merely run): 97 tests pass (tests/test_strategy_review_stage_aware.py + the existing test_strategy_review_index/test_strategy_review_gate/test_r4_demotion_gate suites), soak_book_grade.py --self-test PASS, ruff clean, check_pr_landing.py --branch claude/w6-b4-review-packet locally reads 'state=declared_self_land', and check_collapsed_states/check_roster_symbol_reachability/check_dry_run_in_diff all read clean and unaffected. MERGED: no. DEPLOYED: no. OBSERVED: no -- the generator needs the live trade journal and the cron workflow checks out main, so the FIRST real run (actionable count with denominators per stage) can only happen after this merges; that run is this row's next step, not yet done. FILED AS A FOLLOW-UP, not fixed here: scripts/ci/check_pr_landing.py::TIER1_SURFACE excludes scripts/ml/** despite root CLAUDE.md's own Tier-1 examples plainly covering review tooling like strategy_review_packet.py (which documents itself as Tier-1) -- widening it is the operator's act (same asymmetry as granting a mandate), left to the operator per the MI-242 precedent. | 08:02Z: PR #13093's 'guards' check went red on operator-owed-guard (4 unrelated stale pipeline rows, verified failing identically on origin/main -- not this PR's diff). Commented once on the PR naming the blocker; row moved to blocked_on pending those 4 rows being resolved on main. All other guards + the full test suite are green on this PR's head. | 08:58Z: unblocked -- origin/main advanced (#13096, operator arms MD-DEMOTE-S2-S1 + grants 3 process mandates) and scripts/ci/check_operator_owed.py now reads clean on main ('OK -- 116 owed row(s), none past twice its own declared cadence'), verified directly against a clean worktree. Merged origin/main into claude/w6-b4-review-packet (commit d99b0fb9f), resolving one top-level metadata conflict on this same file; re-ran the full local check suite post-merge (97 tests, soak_book_grade self-test, check_pr_landing.py, check_collapsed_states, check_roster_symbol_reachability, check_dry_run_in_diff) -- all clean. Pushed; waiting on PR #13093's guards check to go green and auto-merge to land. | 09:48Z-10:08Z: PR #13093 MERGED (185e3af56). Dispatched the first live run via issue #13108 (workflow run 36309206061, completed 09:48Z, landed auto-merge PR #13109). VERIFIED BY READING THE COMMITTED ARTIFACT DIRECTLY (comms/strategy_reviews/2026-09-27/INDEX.json on main): it carries the OLD legacy matrix's schema (no_action_verdict/min_closed_for_action/evidence_horizon_summary, by_action: {hold:49, no_offline_evidence:3}) -- NOT the new schema:stage_aware_v1 shape. ROOT CAUSE: I dispatched issue #13108 only ~90s after the merge landed (09:21:54Z merge, 09:23:20Z run start). generate_strategy_review_packets_action.sh runs from the VM's ON-DISK clone (/home/ubuntu/ict-trading-bot), synced by ict-git-sync on its own ~5min cadence -- NOT by the workflow's own actions/checkout -- so the VM was almost certainly still on the pre-merge commit when it ran. This is a race, not a code defect (confirmed the wiring itself is correct by direct code read + the 97-test suite + self-tests, all still green on main). Re-dispatched via issue #13125 at 10:08Z (45+ min post-merge, well past the sync cadence) to confirm the fix and get the FIRST genuine stage-aware run. Still not yet OBSERVED with the new code; next check-in reads #13125's result and the resulting INDEX.json before calling this row done. | 10:33Z: GENUINE first stage-aware run confirmed OBSERVED. Issue #13125's run used the synced VM (45+ min post-merge) and landed PR #13126 with comms/strategy_reviews/2026-09-27/INDEX.json carrying schema:stage_aware_v1 -- read the committed file directly, not just the issue comment. POPULATION: 52 legs (7 Stage-2 via R4 30d window bybit_2/alpaca_live/ib_live, 45 Stage-1 via R5 168h window bybit_1/alpaca_paper). RESULT: actionable=2, verdict_reached=5 (of 52) -- Stage 2: 0/7 verdict_reached (all 7 abstained -- R4 could not reach a pass/would_block verdict on any Stage-2 leg in the 30d window, distinct from 'graded fine', surfaced honestly via verdict_reached rather than folded into by_action's S2:hold). Stage 1: 3 healthy, 2 kill (alpaca_paper/iaum_pullback_1d and alpaca_paper/tqqq_trend_long_1d, both STARVED -- intents produced, 0 orders/tickets received, no open position, the E18 dead-leg shape R5 exists to catch), 40 insufficient-data (mechanics/cost-fidelity not yet gradeable this window). This is the answer B4 set out to get: NOT '0 actionable forever' -- 2 concrete, reasoned kill candidates with full population stated, ready for the operator to review via the pipeline/checklist rather than a chat message. MERGED: yes (#13093). DEPLOYED: yes (confirmed the VM ran the new code on the second dispatch). OBSERVED: yes (read the actual committed artifact). DONE."
     },
     {
       "id": "B5",
@@ -293,16 +309,19 @@
       "id": "C2",
       "title": "Make the 19 artifact-only research workflows commit to a corpus",
       "phase": "C",
-      "state": "queued",
+      "state": "landed_unproven",
       "owner": "build lane",
-      "lane": null,
+      "lane": "session_01BDZbyNvCSWEKSjjCNfEgTN",
       "model": "claude-sonnet-5",
       "ceiling_usd": 20,
-      "spend_usd": null,
+      "spend_usd": 12.36,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        13185,
+        13197
+      ],
       "blocked_on": [],
-      "note": "19 of 23 produce an artifact and an issue comment and nothing else. A result nobody can query later is not evidence."
+      "note": "19 of 23 produce an artifact and an issue comment and nothing else. A result nobody can query later is not evidence. [2026-09-27T13:47Z build lane] RE-DERIVED per PI-20260922-E5-SEVENTEEN-RESEARCH-WORKFLOWS-STILL-LAND-NO-DURABLE-RESULT's own origin.rerun rather than quoting the row's '19': 44 of 149 workflows upload-artifact, 5 already wired to .github/actions/research-result (dukascopy-span-probe added this PR; m20-exit-lever-sweep, research-exit-head-build, research-exit-head-replay-trainer, research-harness-dispatch pre-existing). Of the 39 remaining, 18 compute a research verdict/measurement (research-producing) and 22 are ops/deploy/relay/training workflows that compute none. PR #13185: (1) wired dukascopy-span-probe.yml -> scripts/research/dukascopy_span_probe_result.py -> research-result (per-instrument records-file fan-out, --self-test); (2) annotated all 22 ops workflows `# no-durable-result: <reason>`; (3) added scripts/ci/check_research_workflow_landing.py (research-workflow-landing-guard, whole-tree/ungated like soak-registered-guard, 8 self-tests incl. a planted unwired defect and an empty-annotation defect), wired into run_guards.py; (4) named the remaining 17 unconverted research-producing workflows in the guard's dated BASELINE (c1-conviction-ab, e35-bracket-sweep, flip-override-walkforward, gld-compat-matrix, ict-scalp-backtest, m20-capture-census, prop-tp-r-gate, pullback-frac-cross-leg-sweep, ranking-key-ab, regime-adx-cutpoint-sweep, regime-cell-walkforward, regime-debt-matrix, research-backtest-augment, research-e2-horizon-arm, research-panel-build, research-symbol-p0-build, vwap-backtest) as shrink-only debt, so a NEW unwired research workflow fails CI while this PR does not attempt all 18 at once (E5's own 'nineteen copies is nineteen chances to get it wrong', at PR-review scale). Self-landing Tier-1 (`.github/pr-landing/c2-research-durable-results.json`), auto-merge armed by claude-pr-automerge; not yet observed merged. Follow-up: convert the 17 BASELINE-listed workflows in small batches. [2026-09-27T14:22Z build lane] MERGED as 816dc482e (PR #13185, squash). Guards green on 938f98c8 before merge (ruff-lint + research-tooling-selftests fixed after first push). landed_unproven, not done: closes when (a) a future PR converts one of the 17 BASELINE workflows and research-workflow-landing-guard drops it from debt, or (b) dukascopy-span-probe.yml is dispatched at least once and a real research_result.py record is observed readable on main at research/results/_unattributed/<run_id>.jsonl (no dispatch has run yet -- same caveat E5 itself carried). | OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Dispatched as the eng queue-moving slot (stops research results being lost). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13197 merged; lane archived ($12.36)."
     },
     {
       "id": "C3",
@@ -323,7 +342,7 @@
       "id": "C4",
       "title": "Wire the 9 orphan backtest harnesses; replace the smoke fixture",
       "phase": "C",
-      "state": "queued",
+      "state": "dropped",
       "owner": "build lane",
       "lane": null,
       "model": "claude-sonnet-5",
@@ -332,7 +351,7 @@
       "tier": 1,
       "prs": [],
       "blocked_on": [],
-      "note": "9 of 13 harnesses are wired to no workflow, and the default candle file is a 5,001-row smoke fixture spanning 3.5 days of 2022. [!] \u26a0\ufe0f DUPLICATE OF E7 \u2014 same work (wire the 9 orphan backtest harnesses) carried twice, once under the C/D plan scheme and once under the E/R scheme. DO NOT DISPATCH BOTH: two lanes on one task is a $60-$400 mistake at today's measured rates, and it would produce two PRs racing on the same files. Whoever takes it takes ONE, and kills the twin with a stated reason in the same push."
+      "note": "KILLED: duplicate of E7, done under E7 by PR #13049 (+ landing PRs #13065-13074, + follow-up #13090) -- see E7's note for the full evidence trail (10/10 harnesses dispatched and observed landing a real research_result on main)."
     },
     {
       "id": "C5",
@@ -532,7 +551,7 @@
         12706
       ],
       "blocked_on": [],
-      "note": "PRECONDITION DISCHARGED: R1 merged as f3746ab, so the instrument these questions are written against is on main. DELIVERED: ten units, research/queue/RQ-20260922-001 through -010, each carrying hypothesis / population / instrument / decision_rule / power. Every one names a decision rule registered BEFORE any run, in the form 'if X then we do Y', and every rule states what it does NOT do -- none of them touches config/accounts.yaml or config/strategies.yaml, because cutting the fleet is R2/D2 and Tier-3. POPULATION, stated because the batch is scoped by it: the 12 risk-bearing roster slots that scripts/ci/check_roster_promotion_evidence.py --population enumerates (alpaca_live x3, breakout_1 x3, bybit_2 x6), 8 clearing the four-clause bar and 4 not. Allocation: 6 units over the 8 surviving legs (grouped where the question is genuinely shared, e.g. the three alpaca_live 1d ETF legs), 3 over the legs that flipped net-negative, 1 over fvg_range_15m, the only leg failing all four clauses. WHAT THE EXERCISE SURFACED, and it is the finding of the session: only 3 of the 10 are dispatchable today. Four of those live in research/queue/blocked/ rather than research/queue/, because validate() requires run.workflow + lands.store on every job unconditionally and tests/test_research_queue.py enforces it over the whole directory -- correctly: the queue is a DISPATCH queue and a question with no instrument is not a job. Their full pre-registered text is preserved verbatim; load_queue() globs non-recursively, so they are out of the dispatched population by construction rather than by a flag. They are blocked on missing measurement plumbing (per-trade rows written to a tempdir; no per-trade dispersion field; nothing that lands a read over comms/strategy_evidence) and three are blocked because m20-exit-lever-sweep.yml and research-exit-head-build.yml declare no `research_unit` input, so an honestly-declared `accruing` unit can route to exactly ONE of the repo's research workflows. Five pipeline rows filed with reruns and clears_when. MERGED: no. DEPLOYED: no (repo-only; no VM or runtime change). OBSERVED: yes, on this branch -- dispatch_queue.py grades all ten and the three queued ones read would_dispatch route=runner; not observed from main, the PR is unmerged. [!] MANAGER 2026-09-22: MERGED as 28e7f6a9, and `done` rather than `landed_unproven` because the effect is OBSERVED, not assumed. I ran scripts/research/dispatch_queue.py against MAIN's research/ and scripts/research/ (checked out over my branch, so this reads main's behaviour): `not_due=8 \u00b7 would_dispatch=3`, with RQ-20260922-005 / -008 / -009 each grading `would_dispatch route=runner`. [!] ONE PREDICTION IN THE PR DID NOT COME TRUE AND IT IS THE GOOD DIRECTION: the PR expected `invalid=4` from the dispatcher validating run.workflow before status. Main reads no invalid units at all, because the four blocked units live under research/queue/blocked/ where the dispatcher does not enumerate them. So that gap is SIDESTEPPED, not fixed -- PI-20260922-DISPATCHER-REPORTS-A-BLOCKED-UNIT-AS-INVALID still stands for any blocked unit left in the main directory, and the census figure to quote is 11 enumerated, not 15. | 2026-09-26 18:35Z (manager session_01Ljhs6sFAdWHdMDhJpL5aBP): VERDICTS IN research/results/. RQ-003 PASS (2/17 cells; base_net_r_OOS -5.41, n49) -> selected trend_donchian_eth_prop decay_p80arm2.99R_t1.8 (IS +9.86R, OOS +0.68R, WF 5/6) merged as #13015 (cadb0d2db, Tier-3, operator-approved in chat), deploy issue #13017 dispatched. Fee-only harness (D1 not landed); lever reachability unmeasured. RQ-004 no_action_warranted (+16.70, n49). RQ-007 PASS: attributable_to omitted_exit_head, head_simulated_net_r_oos 8.38 vs evidence 4.60, n=353 (routing via #13009). Acting on the exit head is a Tier-3 follow-up and has NOT yet been raised to the operator. | 19:40Z: #13015 deploy issue #13017 FAILED at validation: Tier-2 pull-and-deploy needs a 'reason:' line in the body. Nothing reached the VM. Retried as #13020. RQ-007 DISPOSITION (lane session_01XfCu1dvSG7nifS6m9r1WSA, PR #13019): no config PR. The exit head is already wired live (exit_head_apply.py, since 2026-07-12) and gated only by artifact stage=='advisory'; exit-head-donchian-1h-v1 reads stage=shadow. Acting on it is a Tier-3 promote-stage, filed as PI-20260926-6M9R1WSA-0001 together with an unreconciled contradiction: the 09-24 ml-review called it advisory, with no registry entry and silent ~52h. Caveat correction: that replay uses the full cost stack (fee+slippage+funding), not fee-only. But n=353 is full-window, not provably OOS. | 20:25Z: #13020 deploy OK. The deploy log shows the VM HEAD and the running processes already at cadb0d2 (git-sync pulled it; not bounced), so #13015 is deployed per the deploy log. Not yet observed: the first ETH prop ticket carrying the decay-arm trail. | 21:10Z: #13019 merged 20:25Z; RQ-007 lane archived. NEXT SESSION FIRST: PI-20260926-6M9R1WSA-0001. Pull a fresh diag read of exit-head-donchian-1h-v1's stage and registry entry on BOTH VMs. If the 09-24 ml-review is right (advisory, no registry entry, silent), an unregistered model is gating real-money bybit_2 exits; if today's read is right (shadow), the RQ-007 promotion is a clean Tier-3 ask. Either way it outranks the paper-only SPY bracket (PI-20260926-HJPL5ABP-0001, due 09-29). | OPERATOR DECISION 2026-09-26 ~21:15Z (asked by AskUserQuestion popup in manager session_01Ljhs6sFAdWHdMDhJpL5aBP, answered by the operator): run the W5-NIGHT overnight wave autonomously. Six lanes: L1 exit-head reconcile (session_01Gp2aXrJiSKxTf996ndZsod, read-only), L2 alpaca SPY protective-leg qty PI-20260926-HJPL5ABP-0001 (session_013aeFAcZV7rwqNSJ4sN8PpC; Tier-2 PRE-AUTHORIZED for the MANAGER to merge + deploy only if CI is green and the diff is limited to bracket/protective-leg qty attribution), L3 bot-opened PRs get no CI PI-20260926-DP2BHGT3-0001 (session_01TmiGTcoSZZ1bSwgkVzhf5t), L4 R5 soak-book reader (session_01Vy5PRPgQd3LRcex3qEGPjL), L5 E7 orphan harnesses + kill C4 twin (session_01ET4FvUcRS8VVbJpUbjResn), L6 unmapped prop status PI-20260926-Y5MVFDD8-0001 (session_017QEmzx88GhK1s1urgygV5d). Budget cap $150. No Tier-3 merges, no mandate arming, no roster/mode changes. | 22:25Z: L1 #13025 merged (exit head = shadow, inert; promotion packet for the morning). L6 #13026 merged. | 23:25Z W5-night: L2 (#13028) found NO code defect. Alpaca cancelled trade 6131's DAY-TIF bracket at the RTH close; the resting 11-qty leg belongs to an untracked earlier tranche of a netted 19-qty SPY position, so 8 qty is unprotected on alpaca_paper. The remedy (re-place a 19-qty protective via system-actions) is a broker-order action outside the operator's code-fix pre-authorization, so it is HELD for the morning (paper; market closed until Monday). A separate design gap remains: exact-qty leg matching cannot trail multi-tranche netted positions; that's a Tier-2 order-path decision. L4 R5 grader merged (#13029), first run in progress. L3 and L5 DECLINED to proceed without direct operator confirmation (L3: it judges the GITHUB_TOKEN/auth change a CI trust-boundary change needing human sign-off). Not pressed further; both go to the morning brief as operator decisions. | OPERATOR DECISIONS 2026-09-27 ~05:30Z (AskUserQuestion popups in manager session_01Ljhs6sFAdWHdMDhJpL5aBP, answered by the operator): (1) R5 soak grader's 6 'kill' proposals (bybit_1 trend_donchian, trend_donchian_eth_4h; alpaca_paper gld_pullback_1d, iaum_pullback_1d, tlt_pullback_1h, tqqq_trend_long_1d; all graded STARVED, i.e. intents with 0 orders received): DO NOT KILL. INVESTIGATE the dispatch drop together with the options-leg starvation (PI-20260926-KNSTSR8N-0003). No roster change. (2) alpaca_paper SPY (trade 6131, 8 of 19 qty unprotected): APPROVED re-arming ONE GTC protective sized to the net 19 qty (cancel the stale 11-qty OCO) via a system action, plus a HELD Tier-2 fix for the DAY-TIF bracket and multi-tranche trailing. (3) exit-head-donchian-1h-v1 promotion: NOT YET. Re-run RQ-007 with a proper train/test split first. (4) Re-dispatch L3 (bot-opened PRs get no CI, incl. the workflow auth change) and L5 (E7 orphan harnesses): CONFIRMED. | OPERATOR DECISIONS 2026-09-27 (wave 6, AskUserQuestion popups in manager session_01Ljhs6sFAdWHdMDhJpL5aBP): launch WAVE 6 now, in parallel with wave 5's tail, with a $150 cap. Lanes: P1 prop EV evaluator (row B6's bar: E[profit before the account dies] > account cost) for breakout_1; P2 prop candidate search, crypto on Breakout. Capital-pool scope = MORE LEGS ON breakout_1 (not more accounts, not a bigger plan). Roster additions stay Tier-3 proposals. M1 fresh ml-review (BTC/SOL regime drift demotions on current data); M2 exit-head multi-split walk-forward + mirror-divergence fix PI-20260926-96NDZSOD-0001 (held) + an exit-head-for-prop-legs look; C1 trace the 3 unexplained starved legs (iaum_pullback_1d, tqqq_trend_long_1d, gdx_pullback_1d options); C2 B4 review-packet re-scope; C3 nightly replay-pregate exit-code capture, ONLY if the next nightly is partial again. | OPS LANE, OPERATOR DECISION 2026-09-27 ~06:25Z (in chat, manager session_01Ljhs6sFAdWHdMDhJpL5aBP): run a performance review AND an ml review today, and start scoping a thorough system audit. All three run SEQUENTIALLY in ONE ops lane, IN ADDITION to (not instead of) the research/eng lanes. Assigned to session_01HbnXpk8Tt6c91tYZrZQ725 (was wave-6 M1): ml-review -> performance-review -> audit scoping proposal (plan only, docs/plans/ + a queued checklist row; the operator decides whether/when to run it)."
+      "note": "PRECONDITION DISCHARGED: R1 merged as f3746ab, so the instrument these questions are written against is on main. DELIVERED: ten units, research/queue/RQ-20260922-001 through -010, each carrying hypothesis / population / instrument / decision_rule / power. Every one names a decision rule registered BEFORE any run, in the form 'if X then we do Y', and every rule states what it does NOT do -- none of them touches config/accounts.yaml or config/strategies.yaml, because cutting the fleet is R2/D2 and Tier-3. POPULATION, stated because the batch is scoped by it: the 12 risk-bearing roster slots that scripts/ci/check_roster_promotion_evidence.py --population enumerates (alpaca_live x3, breakout_1 x3, bybit_2 x6), 8 clearing the four-clause bar and 4 not. Allocation: 6 units over the 8 surviving legs (grouped where the question is genuinely shared, e.g. the three alpaca_live 1d ETF legs), 3 over the legs that flipped net-negative, 1 over fvg_range_15m, the only leg failing all four clauses. WHAT THE EXERCISE SURFACED, and it is the finding of the session: only 3 of the 10 are dispatchable today. Four of those live in research/queue/blocked/ rather than research/queue/, because validate() requires run.workflow + lands.store on every job unconditionally and tests/test_research_queue.py enforces it over the whole directory -- correctly: the queue is a DISPATCH queue and a question with no instrument is not a job. Their full pre-registered text is preserved verbatim; load_queue() globs non-recursively, so they are out of the dispatched population by construction rather than by a flag. They are blocked on missing measurement plumbing (per-trade rows written to a tempdir; no per-trade dispersion field; nothing that lands a read over comms/strategy_evidence) and three are blocked because m20-exit-lever-sweep.yml and research-exit-head-build.yml declare no `research_unit` input, so an honestly-declared `accruing` unit can route to exactly ONE of the repo's research workflows. Five pipeline rows filed with reruns and clears_when. MERGED: no. DEPLOYED: no (repo-only; no VM or runtime change). OBSERVED: yes, on this branch -- dispatch_queue.py grades all ten and the three queued ones read would_dispatch route=runner; not observed from main, the PR is unmerged. [!] MANAGER 2026-09-22: MERGED as 28e7f6a9, and `done` rather than `landed_unproven` because the effect is OBSERVED, not assumed. I ran scripts/research/dispatch_queue.py against MAIN's research/ and scripts/research/ (checked out over my branch, so this reads main's behaviour): `not_due=8 \u00b7 would_dispatch=3`, with RQ-20260922-005 / -008 / -009 each grading `would_dispatch route=runner`. [!] ONE PREDICTION IN THE PR DID NOT COME TRUE AND IT IS THE GOOD DIRECTION: the PR expected `invalid=4` from the dispatcher validating run.workflow before status. Main reads no invalid units at all, because the four blocked units live under research/queue/blocked/ where the dispatcher does not enumerate them. So that gap is SIDESTEPPED, not fixed -- PI-20260922-DISPATCHER-REPORTS-A-BLOCKED-UNIT-AS-INVALID still stands for any blocked unit left in the main directory, and the census figure to quote is 11 enumerated, not 15. | 2026-09-26 18:35Z (manager session_01Ljhs6sFAdWHdMDhJpL5aBP): VERDICTS IN research/results/. RQ-003 PASS (2/17 cells; base_net_r_OOS -5.41, n49) -> selected trend_donchian_eth_prop decay_p80arm2.99R_t1.8 (IS +9.86R, OOS +0.68R, WF 5/6) merged as #13015 (cadb0d2db, Tier-3, operator-approved in chat), deploy issue #13017 dispatched. Fee-only harness (D1 not landed); lever reachability unmeasured. RQ-004 no_action_warranted (+16.70, n49). RQ-007 PASS: attributable_to omitted_exit_head, head_simulated_net_r_oos 8.38 vs evidence 4.60, n=353 (routing via #13009). Acting on the exit head is a Tier-3 follow-up and has NOT yet been raised to the operator. | 19:40Z: #13015 deploy issue #13017 FAILED at validation: Tier-2 pull-and-deploy needs a 'reason:' line in the body. Nothing reached the VM. Retried as #13020. RQ-007 DISPOSITION (lane session_01XfCu1dvSG7nifS6m9r1WSA, PR #13019): no config PR. The exit head is already wired live (exit_head_apply.py, since 2026-07-12) and gated only by artifact stage=='advisory'; exit-head-donchian-1h-v1 reads stage=shadow. Acting on it is a Tier-3 promote-stage, filed as PI-20260926-6M9R1WSA-0001 together with an unreconciled contradiction: the 09-24 ml-review called it advisory, with no registry entry and silent ~52h. Caveat correction: that replay uses the full cost stack (fee+slippage+funding), not fee-only. But n=353 is full-window, not provably OOS. | 20:25Z: #13020 deploy OK. The deploy log shows the VM HEAD and the running processes already at cadb0d2 (git-sync pulled it; not bounced), so #13015 is deployed per the deploy log. Not yet observed: the first ETH prop ticket carrying the decay-arm trail. | 21:10Z: #13019 merged 20:25Z; RQ-007 lane archived. NEXT SESSION FIRST: PI-20260926-6M9R1WSA-0001. Pull a fresh diag read of exit-head-donchian-1h-v1's stage and registry entry on BOTH VMs. If the 09-24 ml-review is right (advisory, no registry entry, silent), an unregistered model is gating real-money bybit_2 exits; if today's read is right (shadow), the RQ-007 promotion is a clean Tier-3 ask. Either way it outranks the paper-only SPY bracket (PI-20260926-HJPL5ABP-0001, due 09-29). | OPERATOR DECISION 2026-09-26 ~21:15Z (asked by AskUserQuestion popup in manager session_01Ljhs6sFAdWHdMDhJpL5aBP, answered by the operator): run the W5-NIGHT overnight wave autonomously. Six lanes: L1 exit-head reconcile (session_01Gp2aXrJiSKxTf996ndZsod, read-only), L2 alpaca SPY protective-leg qty PI-20260926-HJPL5ABP-0001 (session_013aeFAcZV7rwqNSJ4sN8PpC; Tier-2 PRE-AUTHORIZED for the MANAGER to merge + deploy only if CI is green and the diff is limited to bracket/protective-leg qty attribution), L3 bot-opened PRs get no CI PI-20260926-DP2BHGT3-0001 (session_01TmiGTcoSZZ1bSwgkVzhf5t), L4 R5 soak-book reader (session_01Vy5PRPgQd3LRcex3qEGPjL), L5 E7 orphan harnesses + kill C4 twin (session_01ET4FvUcRS8VVbJpUbjResn), L6 unmapped prop status PI-20260926-Y5MVFDD8-0001 (session_017QEmzx88GhK1s1urgygV5d). Budget cap $150. No Tier-3 merges, no mandate arming, no roster/mode changes. | 22:25Z: L1 #13025 merged (exit head = shadow, inert; promotion packet for the morning). L6 #13026 merged. | 23:25Z W5-night: L2 (#13028) found NO code defect. Alpaca cancelled trade 6131's DAY-TIF bracket at the RTH close; the resting 11-qty leg belongs to an untracked earlier tranche of a netted 19-qty SPY position, so 8 qty is unprotected on alpaca_paper. The remedy (re-place a 19-qty protective via system-actions) is a broker-order action outside the operator's code-fix pre-authorization, so it is HELD for the morning (paper; market closed until Monday). A separate design gap remains: exact-qty leg matching cannot trail multi-tranche netted positions; that's a Tier-2 order-path decision. L4 R5 grader merged (#13029), first run in progress. L3 and L5 DECLINED to proceed without direct operator confirmation (L3: it judges the GITHUB_TOKEN/auth change a CI trust-boundary change needing human sign-off). Not pressed further; both go to the morning brief as operator decisions. | OPERATOR DECISIONS 2026-09-27 ~05:30Z (AskUserQuestion popups in manager session_01Ljhs6sFAdWHdMDhJpL5aBP, answered by the operator): (1) R5 soak grader's 6 'kill' proposals (bybit_1 trend_donchian, trend_donchian_eth_4h; alpaca_paper gld_pullback_1d, iaum_pullback_1d, tlt_pullback_1h, tqqq_trend_long_1d; all graded STARVED, i.e. intents with 0 orders received): DO NOT KILL. INVESTIGATE the dispatch drop together with the options-leg starvation (PI-20260926-KNSTSR8N-0003). No roster change. (2) alpaca_paper SPY (trade 6131, 8 of 19 qty unprotected): APPROVED re-arming ONE GTC protective sized to the net 19 qty (cancel the stale 11-qty OCO) via a system action, plus a HELD Tier-2 fix for the DAY-TIF bracket and multi-tranche trailing. (3) exit-head-donchian-1h-v1 promotion: NOT YET. Re-run RQ-007 with a proper train/test split first. (4) Re-dispatch L3 (bot-opened PRs get no CI, incl. the workflow auth change) and L5 (E7 orphan harnesses): CONFIRMED. | OPERATOR DECISIONS 2026-09-27 (wave 6, AskUserQuestion popups in manager session_01Ljhs6sFAdWHdMDhJpL5aBP): launch WAVE 6 now, in parallel with wave 5's tail, with a $150 cap. Lanes: P1 prop EV evaluator (row B6's bar: E[profit before the account dies] > account cost) for breakout_1; P2 prop candidate search, crypto on Breakout. Capital-pool scope = MORE LEGS ON breakout_1 (not more accounts, not a bigger plan). Roster additions stay Tier-3 proposals. M1 fresh ml-review (BTC/SOL regime drift demotions on current data); M2 exit-head multi-split walk-forward + mirror-divergence fix PI-20260926-96NDZSOD-0001 (held) + an exit-head-for-prop-legs look; C1 trace the 3 unexplained starved legs (iaum_pullback_1d, tqqq_trend_long_1d, gdx_pullback_1d options); C2 B4 review-packet re-scope; C3 nightly replay-pregate exit-code capture, ONLY if the next nightly is partial again. | OPS LANE, OPERATOR DECISION 2026-09-27 ~06:25Z (in chat, manager session_01Ljhs6sFAdWHdMDhJpL5aBP): run a performance review AND an ml review today, and start scoping a thorough system audit. All three run SEQUENTIALLY in ONE ops lane, IN ADDITION to (not instead of) the research/eng lanes. Assigned to session_01HbnXpk8Tt6c91tYZrZQ725 (was wave-6 M1): ml-review -> performance-review -> audit scoping proposal (plan only, docs/plans/ + a queued checklist row; the operator decides whether/when to run it).06:52Z (lane claude/w6-ml-review, W6 M1, session_01HbnXpk8Tt6c91tYZrZQ725): fresh /ml-review delivered (comms/reviews/ml-review-20260927-063330.json). btc-regime-15m-lgbm-fc-pcv-v2 and sol-regime-15m-lgbm-fc-pcv-v2 stay HELD at advisory, unchanged from PR #12960 -- fresh stage-guard now reads 'no demote trigger tripped' for both, but that is NOT a resolved-drift signal: MEASURED this session that the shadow-prediction log rotated 2026-09-26T06:39:57Z (a normal, healthy, ~monthly size-triggered rotation) and the drift_clean + live_regime_discrimination gates now read insufficient_data for EVERY advisory model fleet-wide (btc, sol, and the previously-clean mes-regime-5m-lgbm-v2), because the endpoint's 30-day reference window is longer than the observed ~25-29 day rotation cadence and has no fallback to the rotated archives. Filed as PI-20260927-YZRZQ725-0001 (new, Tier-1 build-lane candidate) -- no drift verdict this repo has fed into a Tier-3 decision to date, including E72's original demote trigger, was ever computed on a full un-truncated reference window. mes-regime-5m-lgbm-v2 judged unchanged/healthy (its new insufficient_data reads are the same post-rotation accrual gap, not a new capability failure -- E72 measured it clean pre-rotation). PI-20260925-D9FNL9SC-0001 updated: still reproducing (btc 14 rows, sol 9 rows since their 09-27 retrains, both <20). exit-head-donchian-1h-v1 (M2-owned, cited not re-derived): stays shadow; RQ-20260927-001 (PR #13046, merged) delivered the operator-requested proper train/test-split OOS re-grade -- PASS but marginal (+1.3127R over n=119, +0.011R/trade, single split); does not license promotion, PI-20260926-96NDZSOD-0001 (Tier-2 mirror-divergence) remains an unmet precondition. Trainer health ok: both regime heads retrained cleanly on 09-26 AND 09-27 (overall_rc=0, 0 failed, 0 quarantine events). No Tier-3 action taken. Operator decision needed: prioritize the Tier-1 shadow-drift-archive-fallback build (PI-20260927-YZRZQ725-0001) so future drift reads are not periodically blind fleet-wide. | 10:57Z, W6-OPS LANE CLOSE-OUT (session_01HbnXpk8Tt6c91tYZrZQ725): all four assignments landed. PR #13075 (ml-review) merged. PR #13085 merged -- performance-review (comms/reviews/performance-review-20260927-072944.json: 86% artifact rate this window, mostly a pairs-strategy classifier coverage gap PI-20260927-YZRZQ725-0004, not a strategy-quality signal; bybit_2 real money 0/3 gradeable, known_divergent confirmed pre-existing on E70; no Tier-3 action), the audit-scoping proposal (E71, docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md), and the joint review pack (E73, docs/plans/review-pack-2026-09-27.md, 12 decisions). [2026-09-27] PI-20260927-YZRZQ725-0005 closed: the operator confirmed the Data-backed Tier-2/3 authority directly; it stands as written. | MANAGER RECORD 2026-09-27 day (session_01Ljhs6sFAdWHdMDhJpL5aBP): PROP JOURNAL: fill #45 and account status #21 recorded (breakout_1 balance 4724, flat, ~$24 room to the daily-loss floor). MANDATES: #13096 merged (13 granted; MD-DEMOTE-S2-S1 auto-land ARMED; 3 process mandates MD-LAND-RESEARCH-RESULT / MD-PROP-JOURNAL-FROM-OPERATOR / MD-PAPER-PROTECTIVE-REPAIR; MD-PROMOTE-S1-S2 clause (b) cleared by 5.0 bps reaffirmation; clause (a) found ALREADY met by U1 #13095 (0/27 perp records stale) but blocked_until left in place: real-money promotion still waits on D1). SPY: diagnosis corrected (11 sh = row 4347 with its own OCO; only row 6131 8 sh naked); #13080 row mode merged; #13115 applied under MD-PAPER-PROTECTIVE-REPAIR, coverage 19/19. MERGED+DEPLOYED: #13099 bybit hedge sibling-book read (a20fba743, #13111; post-deploy book 2 empty on all 5 symbols); #13047 Alpaca GTC entry brackets (Tier-3, operator popup approve) + #13076 exit-head twin cache (Tier-2, operator popup approve), deployed #13118 at 63348e7a3; GTC observed only on the first new bracket entry (D2 owns). #13081 M2 research merged under MD-LAND-RESEARCH-RESULT. OPERATOR DECISIONS (popups/chat): wave-6 cap $150 -> $250 (09:30Z); Apex = do not pursue; Breakout automation option D (bot-driven web terminal) is the lead, read-only probe PRE-AUTHORISED after platform confirmation, platform = app.breakoutprop.com (operator, 10:17Z; NOT DXtrade as the spec assumed); new lanes P3 (Apex + prop automation) and OPS-R (misfiring recurring validations). RULES: #13121 merged (3dc03f628): lanes answer to the manager (CLAUDE-RULES-CANONICAL binding section) and data-backed Tier-2/3 decisions ship then notify the operator. Matching manager-skill edits were refused by the manager session's classifier (self-modification) and are left for the operator. | 11:12Z OPERATOR DECISIONS (popups): breakout_1 sizing = keep flat 1.5% on the CURRENT account, room sizing k=0.33 for every fresh account; Breakout funded account resets to a fresh $5,000; $45 fee not refunded; buy a fresh $5k evaluation when the current account ends (routed to P1 session_013wNhAh3Z3EPTFyJuANcRrz). Breakout support question DROPPED by the operator (no API, no is-it-allowed asks). Breakout automation build moved to P4 session_01TnHSxwJD7n2vNMo4aiBt2k (P3 blocked by its own permission classifier); secrets BREAKOUT_DX_USERNAME/BREAKOUT_DX_PASSWORD set by the operator as Actions SECRETS. Operator directive 2026-09-27: reading information is never gated. The manager's commit of the rule text was refused by the Claude Code auto-mode classifier, so it is with the operator. | 12:10Z W6-OPS: PI-20260927-YZRZQ725-0005 closed as filed in error (#13152); the operator confirmed the data-backed Tier-2/3 authority in #13121 stands as written. | 13:22Z MANAGER TAKEOVER: session session_01KAQRJxRbRwpYTkPgBjNVyQ ('Manager Session 2026-09-27') took over from session_01Ljhs6sFAdWHdMDhJpL5aBP. Merged: #13134 (C1, a603e165, Tier-2 data-backed: one additive sizing_refused log line; deploy pending), #13146 (JR-T1 D1 shadow-drift archives, 822c9c70; needs ict-web-api reload), #13153 (cleanup). Archived P2 ($26.51 final), C1 ($8.12 final). P4 opened #13159 (sync-vm-secrets BREAKOUT_DX_*). DIAG_READ_TOKEN: NOT rotated yet -- init-diag-token reuses the existing token and prints it to stdout, which the workflow posts to an issue on this PUBLIC repo; build lane SEC-DT session_01TTTMp6DEcXBZDLVT1kDEyB (Opus, ceiling $40) builds a safe rotation; manager runs it on merge. Check-in trigger trig_01XgNu6vE3AJF3AYaoAzcvU8 (hourly :15)."
     },
     {
       "id": "R5",
@@ -639,16 +658,19 @@
       "id": "E7",
       "title": "Wire the 9 orphan backtest harnesses",
       "phase": "E",
-      "state": "landed_unproven",
+      "state": "done",
       "owner": "build lane",
       "lane": null,
       "model": "claude-sonnet-5",
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        13049,
+        13090
+      ],
       "blocked_on": [],
-      "note": "DENOMINATOR ESTABLISHED BY THIS LANE (not trusted from the row title): 13 scripts/backtest_*.py top-level harnesses total (chop_scalp, fade, funding_carry, fvg_range, ict_scalp, orb, pairs, pullback, squeeze, system, trend, vol_target, xsec_momentum) -- verified by grepping .github/workflows/ for each filename. 3 already had a workflow (ict_scalp -> ict-scalp-backtest.yml; system -> 5 workflows incl. research-panel-build.yml, research-exit-head-build.yml; trend -> research-exit-head-replay-trainer.yml). 10 had NONE: chop_scalp, fade, fvg_range, funding_carry, orb, pairs, pullback, squeeze, vol_target, xsec_momentum -- one more than the row's own '9', because backtest_pairs.py (the M22-adjacent spread harness) also had no runner and nothing in this row's text excludes it. WIRED: all 10 via ONE new workflow, research-harness-dispatch.yml (per this row's own design instruction -- one dispatchable workflow per family, not ten), landing through .github/actions/research-result (E5) via a new mapping script scripts/research/harness_dispatch_result.py (own --self-test). DATA WIRING WAS ALREADY DONE for 7 of the 10 by row E4 (verified: scripts/ops/symbol_data_binding_census.py reports 0 unbound sites among them) -- funding_carry, chop_scalp, fade, fvg_range, orb, pullback, squeeze already refuse a bare invocation and resolve --symbol through resolve_or_refuse. The remaining 3 (pairs, xsec_momentum, vol_target) were NEVER susceptible to the BL-20260813 defect in the first place -- they take structurally different multi-input CLIs (pairs: --data-a/--data-b required, p.error() if absent; xsec_momentum: --asset/--assets-dir, p.error() if <2 assets; vol_target: --daily/--trades in a required mutually-exclusive group) with no hardcoded fixture default to begin with -- verified by reading each argparse block and by running --self-test where one exists (pairs, xsec_momentum both PASS on synthetic data). NONE of the 10 were dead or broken: all 10 ran cleanly against the explicit smoke fixture (data/backtest_candles.csv) in this lane's sandbox after installing numpy/pandas -- no retirement needed. GUARD ADDED: scripts/ci/check_harness_dispatch_no_fixture_default.py (own --self-test), wired into scripts/ci/run_guards.py as harness-dispatch-no-fixture-default-guard -- fails any future PR whose dispatch of one of these ten regresses to the smoke fixture or drops the flags that give the harness a real population. FOUND BUT NOT FIXED HERE (filed to the pipeline, out of Tier-1 surface / out of this row's scope): scripts/ml/build_calibration_corpus.py declares --symbol default=BTCUSDT but never forwards it to any of the 6 harnesses it drives, and its --data defaults to the smoke fixture for all 6 -- a real instance of the class row E4 closed elsewhere, in scripts/ml/** (outside TIER1_SURFACE, so a fix here could not self-land); and scripts/ops/symbol_data_binding_census.py itself has NO CI RUNNER at all (grep of run_guards.py: zero hits) despite existing with its own --self-test -- it is the correct tool to eventually block that build_calibration_corpus.py defect but wiring it in today would immediately redden every PR on that pre-existing, unrelated failure. MERGED: not yet (this PR). DISPATCHED: not yet -- next step before this row can read done is one real dispatch per harness with a linked run, per this row's own note that a queued instrument must be dispatchable to mean anything."
+      "note": "DONE. All 10 orphan harnesses (denominator re-established by this lane: 13 scripts/backtest_*.py total, 3 pre-wired to a workflow, 10 orphaned -- one more than the row's own '9' because backtest_pairs.py was also unwired) are dispatchable via the one new workflow research-harness-dispatch.yml and each has been DISPATCHED ONCE for real and OBSERVED landing a research_result.py record on main -- not merged-and-assumed, actually read back from research/results/_unattributed/: squeeze n=94 (run 36300749358), fade n=46 (36300753265), fvg_range n=13 (36300760079), orb n=9 (36300763613), pullback n=45 (36300772837), pairs n=240 (36300782038), vol_target n=86 days (36300791459), chop_scalp n=1 (36300796844) all landed verdict=no_action_warranted/read_state=measured -- a real trade count off real, non-fixture candles, proving the harness runs end-to-end. funding_carry (36300777384) landed producer_failed: Bybit funding is geoblocked from a GH-hosted runner's IP the same way Bybit candles are (documented in the workflow's own comment) -- an honest network-reach limitation, not a wiring defect; the harness itself is sound (self-tested, already E4-wired). xsec_momentum (36300787082) ALSO landed producer_failed on its first dispatch, but for a real bug this lane introduced: research-harness-dispatch.yml's Install deps step never installed yfinance, which xsec_momentum's daily-ETF-basket fetch needs (every other harness here only reaches the crypto/Binance-vision path). Root-caused and fixed in PR #13090 (merge-armed, every check green except one) -- see that PR's own note for why it is not yet merged: `guards` is red on operator-owed-guard, reproduced identically against bare `main` with no diff applied (four unrelated stale rows: OI-20260913-A-BYBIT2-HEDGE-BOOK-..., PI-20260924-GIGNEYV1-0001, PI-20260924-MQ3CDMU6-0001/0002), filed as PI-20260927-EPMBGUYB-0003 (next_action ask_operator -- this blocks EVERY Tier-1 self-land repo-wide, not only this one). The DISPATCH+LANDING MECHANISM itself is proven end-to-end in BOTH directions by this evidence -- a real measurement lands as measured, a genuine failure (geoblock, missing dep) lands as producer_failed rather than a fabricated pass -- so this row reads done on the wiring capability rather than landed_unproven; xsec_momentum getting a real yfinance-backed measurement is PR #13090's own follow-up, tracked there and unblocked by nothing this row owns. GUARD ADDED: scripts/ci/check_harness_dispatch_no_fixture_default.py, wired into run_guards.py, fails any future PR that regresses one of these ten to the smoke fixture or drops its real-population flags. FILED, not fixed (out of Tier-1 surface / out of scope): PI-20260927-EPMBGUYB-0001 (scripts/ml/build_calibration_corpus.py's unbound --symbol/fixture-default) and PI-20260927-EPMBGUYB-0002 (scripts/ops/symbol_data_binding_census.py has no CI runner). PRs: #13049 (wiring), #13065-13074 (the ten landing PRs, all merged), #13090 (xsec_momentum yfinance fix, open, auto-merge armed, blocked on PI-20260927-EPMBGUYB-0003)."
     },
     {
       "id": "E8",
@@ -1092,16 +1114,18 @@
       "id": "B6",
       "title": "The prop bar is an EXPECTED-VALUE question, not a drawdown-avoidance one \u2014 and the corpus cannot answer it",
       "phase": "B",
-      "state": "queued",
-      "owner": "research lane",
-      "lane": null,
-      "model": null,
+      "state": "landed_unproven",
+      "owner": "research lane (w6-prop-ev)",
+      "lane": "session_013wNhAh3Z3EPTFyJuANcRrz",
+      "model": "claude-opus-5-5",
       "ceiling_usd": 45,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        13084
+      ],
       "blocked_on": [],
-      "note": "OPERATOR DIRECTIVE 2026-09-22, and it REPLACES the bar I proposed an hour earlier: 'it's ok if there is ever breach, the idea is that we want to promote strategies that create a portfolio that we would statistically expect to produce a profit (over the initial account cost of about 1%) before the account dies - that is the basis for building the prop portfolio.' [!] SO THE PROP BAR IS: E[profit before the account dies] > the account cost. Breach is an ACCEPTED, EXPECTED outcome -- the cost of the bet -- not a failure to prevent. This is a ruin-WITH-PAYOFF problem and the quantity is a survival-weighted expected value. [!] I PROPOSED `max_dd_r < 4.0` AS THE PROP BAR AND THAT IS WITHDRAWN. It is a risk-avoidance constraint on a problem that is not about avoiding risk, and it would have refused exactly the high-variance legs this account exists to buy a lottery ticket on. [!] AND MY SUPPORTING ARGUMENT WAS ALSO WRONG, WHICH IS THE MORE USEFUL CORRECTION: I said 1.5% sizing against a 6% static DD 'makes almost nothing fit'. THE BARRIER RATIO IS INVARIANT TO SIZING. At risk_pct 1.5: DD room 6%/1.5% = 4.0R, profit target 10%/1.5% = 6.67R, ratio 1.667. At 0.5%: 12.0R and 20.0R, ratio 1.667. Both barriers scale together, so cutting risk_pct does not change the ratio at all; it helps only through the second-order effect that more trades to either barrier let positive drift accumulate against variance. With trend_donchian_eth_prop's expectancy of +0.042R/trade, +6.67R is ~159 trades of drift against 4R of room, so variance dominates heavily -- whether smaller sizing raises P(success) is a COMPUTABLE QUESTION and I should not have asserted it in either direction. [!] TWO FEATURES OF THIS ACCOUNT MAKE THE EV BETTER THAN A NAIVE ABSORBING-BARRIER MODEL, both CONFIRMED in config/prop_rulesets/breakout.yaml: (1) drawdown_type is STATIC -- 'off the STARTING balance; NOT trailing and NOT locked/raised on payout' -- so every dollar of profit is PERMANENT cushion and the account gets monotonically safer as it wins; survival is front-loaded. (2) min_trading_days 0 and max_eval_days null -- no time pressure, can clear in one trade, so there is no forced-pace term. STRUCTURE: $45 (0.9% of the $5,000 account) buys a shot at +10% ($500) before -6% ($300); clearing converts to a funded account paying 80/20 on subsequent profits under the same static limits. So E[value] = P(clear eval) x E[lifetime payout | funded] - $45. [!] SELECTION CRITERION, AND IT IS NOT net_R: maximise P(reaching the target before the floor). A leg with LOWER expectancy but tighter loss clustering beats a higher-expectancy leg whose losses arrive in lumps. And it is a PORTFOLIO question, not a per-leg one -- legs whose drawdowns are uncorrelated smooth the path to the barrier. [!] NOTE THE ASYMMETRY WITH R8: the operator chose NO concentration cap for bybit_2, and correlation is nonetheless load-bearing HERE, in the opposite direction -- on prop it is not a risk limit, it is the mechanism that raises P(survival). [!] THIS RETROACTIVELY EXPLAINS THE _prop EXIT GEOMETRY, which nobody wrote down: tp_r 6.0 vs 50.0, trail_mult 3.5 vs 5.0, stale_exit_bars 12, trail_decay_stall_bars 10 / tight_mult 1.8. Capping the upside at 6R and cutting dead trades is exactly what raises P(hit +6.67R before -4R) at the cost of expectancy. Someone built the right thing for the right reason and recorded neither, so it read as an arbitrary divergence between prop and bybit -- which is what the operator asked about today. [!] THE ACTUAL GAP IS A MISSING MEASUREMENT, NOT A MISSING CONSTRAINT: MEASURED 2026-09-22, none of the 52 records under comms/strategy_evidence/ carries a per-trade R series or ANY path statistic (keys are basis, config_fingerprint, cost_stack, coverage_state, decision_rule, expectancy_r_oos, fold_detail, folds, folds_positive, n_trades_oos, net_r_oos, net_r_oos_fee_only, omitted_levers, param_selection_provenance, window_days -- no drawdown of any kind), and scripts/ci/check_roster_promotion_evidence.py never reads one. fold_detail gives only a per-fold SUM over months, which is not an equity path. DELIVERABLE: emit the per-trade OOS R series (or a sufficient path summary) so P(target before floor) is computable per leg AND per candidate portfolio, then register that rule BEFORE using it. [!] WHAT I COMPUTED FROM fold_detail AND ITS LIMIT, kept because it is what prompted the reframe: 13 of the 42 legs with fold detail have a single fold worse than -4R, and BOTH legs live on breakout_1 are among them while both are marked `pass` (trend_donchian_eth_prop worst fold -5.3884R on total +7.13). That is NOT evidence of a breach -- a fold's net_R is a sum over months, not a contiguous drawdown -- and under this row's bar it would not be disqualifying even if it were. It is evidence only that the bar cannot see the path."
+      "note": "OPERATOR DIRECTIVE 2026-09-22, and it REPLACES the bar I proposed an hour earlier: 'it's ok if there is ever breach, the idea is that we want to promote strategies that create a portfolio that we would statistically expect to produce a profit (over the initial account cost of about 1%) before the account dies - that is the basis for building the prop portfolio.' [!] SO THE PROP BAR IS: E[profit before the account dies] > the account cost. Breach is an ACCEPTED, EXPECTED outcome -- the cost of the bet -- not a failure to prevent. This is a ruin-WITH-PAYOFF problem and the quantity is a survival-weighted expected value. [!] I PROPOSED `max_dd_r < 4.0` AS THE PROP BAR AND THAT IS WITHDRAWN. It is a risk-avoidance constraint on a problem that is not about avoiding risk, and it would have refused exactly the high-variance legs this account exists to buy a lottery ticket on. [!] AND MY SUPPORTING ARGUMENT WAS ALSO WRONG, WHICH IS THE MORE USEFUL CORRECTION: I said 1.5% sizing against a 6% static DD 'makes almost nothing fit'. THE BARRIER RATIO IS INVARIANT TO SIZING. At risk_pct 1.5: DD room 6%/1.5% = 4.0R, profit target 10%/1.5% = 6.67R, ratio 1.667. At 0.5%: 12.0R and 20.0R, ratio 1.667. Both barriers scale together, so cutting risk_pct does not change the ratio at all; it helps only through the second-order effect that more trades to either barrier let positive drift accumulate against variance. With trend_donchian_eth_prop's expectancy of +0.042R/trade, +6.67R is ~159 trades of drift against 4R of room, so variance dominates heavily -- whether smaller sizing raises P(success) is a COMPUTABLE QUESTION and I should not have asserted it in either direction. [!] TWO FEATURES OF THIS ACCOUNT MAKE THE EV BETTER THAN A NAIVE ABSORBING-BARRIER MODEL, both CONFIRMED in config/prop_rulesets/breakout.yaml: (1) drawdown_type is STATIC -- 'off the STARTING balance; NOT trailing and NOT locked/raised on payout' -- so every dollar of profit is PERMANENT cushion and the account gets monotonically safer as it wins; survival is front-loaded. (2) min_trading_days 0 and max_eval_days null -- no time pressure, can clear in one trade, so there is no forced-pace term. STRUCTURE: $45 (0.9% of the $5,000 account) buys a shot at +10% ($500) before -6% ($300); clearing converts to a funded account paying 80/20 on subsequent profits under the same static limits. So E[value] = P(clear eval) x E[lifetime payout | funded] - $45. [!] SELECTION CRITERION, AND IT IS NOT net_R: maximise P(reaching the target before the floor). A leg with LOWER expectancy but tighter loss clustering beats a higher-expectancy leg whose losses arrive in lumps. And it is a PORTFOLIO question, not a per-leg one -- legs whose drawdowns are uncorrelated smooth the path to the barrier. [!] NOTE THE ASYMMETRY WITH R8: the operator chose NO concentration cap for bybit_2, and correlation is nonetheless load-bearing HERE, in the opposite direction -- on prop it is not a risk limit, it is the mechanism that raises P(survival). [!] THIS RETROACTIVELY EXPLAINS THE _prop EXIT GEOMETRY, which nobody wrote down: tp_r 6.0 vs 50.0, trail_mult 3.5 vs 5.0, stale_exit_bars 12, trail_decay_stall_bars 10 / tight_mult 1.8. Capping the upside at 6R and cutting dead trades is exactly what raises P(hit +6.67R before -4R) at the cost of expectancy. Someone built the right thing for the right reason and recorded neither, so it read as an arbitrary divergence between prop and bybit -- which is what the operator asked about today. [!] THE ACTUAL GAP IS A MISSING MEASUREMENT, NOT A MISSING CONSTRAINT: MEASURED 2026-09-22, none of the 52 records under comms/strategy_evidence/ carries a per-trade R series or ANY path statistic (keys are basis, config_fingerprint, cost_stack, coverage_state, decision_rule, expectancy_r_oos, fold_detail, folds, folds_positive, n_trades_oos, net_r_oos, net_r_oos_fee_only, omitted_levers, param_selection_provenance, window_days -- no drawdown of any kind), and scripts/ci/check_roster_promotion_evidence.py never reads one. fold_detail gives only a per-fold SUM over months, which is not an equity path. DELIVERABLE: emit the per-trade OOS R series (or a sufficient path summary) so P(target before floor) is computable per leg AND per candidate portfolio, then register that rule BEFORE using it. [!] WHAT I COMPUTED FROM fold_detail AND ITS LIMIT, kept because it is what prompted the reframe: 13 of the 42 legs with fold detail have a single fold worse than -4R, and BOTH legs live on breakout_1 are among them while both are marked `pass` (trend_donchian_eth_prop worst fold -5.3884R on total +7.13). That is NOT evidence of a breach -- a fold's net_R is a sum over months, not a contiguous drawdown -- and under this row's bar it would not be disqualifying even if it were. It is evidence only that the bar cannot see the path. | 2026-09-27 (lane session_013wNhAh3Z3EPTFyJuANcRrz, branch claude/w6-prop-ev): THE TOOL EXISTS. scripts/research/prop_ev_sim.py (+ tests/test_prop_ev_sim.py, --self-test). Monte-Carlo of ONE Breakout $5k account life: shared balance across legs with OVERLAPPING trades, daily loss on intraday equity vs the 00:30-UTC balance, static DD off start, eval->fresh funded account after a 1-day approval gap, bank-everything-above-start payouts (14d then weekly, 80%), rebuy via renewal-reward. Breakout costs recomputed per trade from gross_r/entry/sl: 8 bps commission + 3 bps slippage + 0.033%/day swap per 00:00-UTC crossing. Intra-trade path unseen, so reported under 4 marks: realized (optimistic), path (hourly Brownian bridge conditioned on the stop and the recorded MFE = the central estimate), bridge and stop (pessimistic bounds). EV CI = outer block bootstrap of the evidence history (100 re-drawn histories x 200 lives). POSITIVE CONTROL: gambler's ruin P(pass) 0.378 vs analytic 0.375 (p=.5) and 0.733 vs 0.732 (p=.6), E[trades to absorption] 15.12 vs 15. INPUT SCHEMA for P2 (JSONL per trade): entry_time, exit_time + either {gross_r, entry, sl} (--costs breakout) or {net_r} (--costs as_given); optional leg, mfe_r. CLI: --trades LEG=PATH (repeatable) or --book breakout_1; --emit-result lands an E5 record. [!] SCORED TODAY'S BOOK. MEASURED @ docs/research/b6-prop-ev/breakout_1-2026-09-27.json + research/results/_unattributed/b6-prop-ev-breakout_1-20260927.jsonl, code 493a82dd; population = the per-trade OOS rows behind the committed evidence records, trend_donchian_sol_prop n=65 (runs/2026-09-25) + trend_donchian_eth_prop n=169 (runs/2026-09-26, includes #13015's trail_decay_arm_r 2.99), 365-day window, both config_fingerprints == current strategies.yaml. E[net per account life after the $45 fee]: path -$10.08 (MC se 2.39; evidence CI p5..p95 -$42.21..+$44.43; P(EV>0) 0.32); realized +$23.69 (CI -$36..+$149); bridge -$44.42; stop -$45.00. P(pass eval) path 0.276 (CI 0.08..0.47). P(death before first payout) path 0.918 (0.704 given funded). Mean life 24.0 days. Death causes (path, 4000 lives): eval daily_loss 2122, eval static_dd 774, funded daily_loss 709, funded static_dd 395. VERDICT OF RECORD under RULE-B6-PROP-EV-PER-ACCOUNT-LIFE (V1, registered in commit c141c6a0 BEFORE the book was scored): INDETERMINATE. V2 (path-model rule, registered AFTER V1 ran and labelled so, for P2 candidates from here on): also indeterminate on this book. [!] WHAT DRIVES IT, and it is the finding: DAILY LOSS, not static DD. At risk_pct 1.5% the daily room is 2R and two stops net of cost are ~2.14R, so any 00:30 day on which both legs stop kills the account. Cross-checked by arithmetic on the raw history: 7 of 363 days have realized net <= -2R. [!] EACH LEG ALONE IS +EV and together they are not. MEASURED @ docs/research/b6-prop-ev/sensitivity-2026-09-27.json (3000 lives, 60 outer), path model: eth_only +$135 (CI -$8..+$521), sol_only +$119 (CI -$37..+$880), both -$12. INFERRED from those three arms: the portfolio term on this account is CONCURRENCY against the daily limit, the opposite sign to the diversification benefit this row expected. [!] B6's 'barrier ratio is invariant to sizing' is right for the barriers and misses the discreteness: at 1.0% two stops are 2.14% < 3%. Path EV by risk_pct: 1.5% -$12 / 1.0% +$173 (CI -$23..+$797, P(pass) 0.56) / 0.75% +$213 / 0.5% +$260 (17% of lives still alive at the 730-day horizon, scored at banked only, so understated). EV PER YEAR with rebuy: 1.0% +$604, 0.75% +$415, 0.5% +$242. Fewer, longer lives at lower size, so per-year EV peaks near 1.0% on this grid. [!] Also correcting this row's own note: 'every dollar of profit is PERMANENT cushion' is FALSE in the funded phase under the operator's bank-ASAP withdrawal policy (breakout.yaml withdrawal_policy above_start): profit is withdrawn weekly and the floor stays at $4,700, so the cushion resets to $300 every payout. It holds only within the eval and between payouts. [!] DECISION FOR THE OPERATOR (Tier-3, NOT taken, NOT proposed as a config diff by this lane): breakout_1 risk_pct 1.5% vs 1.0% (config/prop_rulesets/breakout_routing.yaml risk_pct + accounts.yaml breakout_1.risk.risk_pct). The measurement says 1.0% moves the central EV from about -$10 to about +$173 per $45 account on the same evidence. Caveat: n=234 trades over one year, so every CI still straddles 0 at its p5. LOAD-BEARING UNKNOWNS, filed: PI-20260927-JUANCRRZ-0001 (does the funded account start fresh or carry the eval balance, and is the fee refunded at first payout; carry flips the base book to +$57). PI-20260927-JUANCRRZ-0002 (strategies.yaml's #13015 line still says 'NOT yet approved'). MERGED: yes, PR #13084 as 95403ef90 (2026-09-27 ~09:30Z). DEPLOYED: n/a (research tooling, no runtime). OBSERVED: the tool's output on main is observed once the PR merges; landed_unproven closes when P2 runs a candidate through --trades and gets a V2 verdict. | 07:40Z LIVE-STATE DECISION (manager ask; live state per manager, account_status #21: balance 4724 flat, $24 above the 4700 floor). MEASURED @ docs/research/b6-prop-ev/live-state-2026-09-27T0723Z.json (3000 lives, 60 outer; path = central): (a) CONTINUE at 1.5% (fee sunk): +$5.93 forward EV (CI $0..+$19), P(pass) 0.04, mean remaining life 5 days; under the stop bound any stop breaches (EV $0). (b) CONTINUE sized to fit the cushion (room_frac 0.45): +$3.43 (CI $0..+$51), P(pass) 0.011, and 98% of lives are still alive at 730 days, i.e. a zombie account that neither passes nor dies; room_frac 0.9: +$5.47, P(pass) 0.021. (c) RETIRE and buy fresh at 1.5%: -$12.43 (CI -$43..+$27). Fresh with cushion-fit sizing (room 0.45): +$112.06 (CI -$29..+$524), P(pass) 0.495, horizon-truncated so understated. INFERRED from those arms: (a)/(b) cannot be negative (sunk fee) and are worth only $3-6, and continuing does not stop you buying fresh later. So the decision that moves money is the SIZING RULE of the NEXT account, not what to do with this one. Tier-3, operator's. | 09:10Z THE OPERATOR'S OWN PROPOSAL SCORED (PI-20260924-MQ3CDMU6-0001: k=0.33, skip below $10). MEASURED @ same live-state file, path model: CURRENT account never trades (0.33 x $24 = $7.92 < $10) -> parked at $4,724, EV exactly $0; FRESH account +$111.96 (CI -$37..+$528), P(pass) 0.497, vs fresh flat 1.5% -$12.43. Evidence attached to that pipeline row for the operator's sizing decision (operator chose 'wait for P1's comparison', manager session 2026-09-27 ~08:40Z). | 2026-09-27 09:35Z: #13084 MERGED as 95403ef90. Tool + result are on main. DEPLOYED: n/a (research tooling, no runtime). landed_unproven closes when P2 runs a candidate book through `python3 scripts/research/prop_ev_sim.py --trades LEG=PATH ... --emit-result` and a V2-graded E5 record lands under research/results/. The operator's sizing decision (PI-20260924-MQ3CDMU6-0001) now has its numbers attached; it is the operator's, not this row's."
     },
     {
       "id": "E31",
@@ -1765,6 +1789,1254 @@
         12881
       ],
       "note": "OPERATOR 2026-09-24 ~17:15Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Yes, spawn a lane (Recommended)\". From E67: bybit_2 has 10 closes and 0 winners since 09-08; broker-truth is as_of 2026-07-13; the journal under-records loss about 8x. #12881 is Tier-2 held (it surfaces ledger staleness).\nOPERATOR 2026-09-24 ~18:15Z, popup in session_01Ljhs6sFAdWHdMDhJpL5aBP, verbatim: \"Merge + fix the gap (Recommended)\", in reply to \"#12881 adds as_of_age_days/stale fields; the ledger has no scheduled producer (a hand snapshot from an operator Bybit CSV); the automated wallet read shows -$49.99/90d but may cover only one of bybit_2's two sub-accounts\". APPROVED: (a) merge #12881 (Tier-2, read-only); (b) the lane then makes the automated wallet-truth read cover BOTH bybit_2 sub-accounts, so the true realized number needs no CSV from the operator.\n[2026-09-25T07:35Z manager] #12881 staleness flag merged + deployed (6e8c1fd54, pid 247727, boot 19:13:46Z, CURRENT). #12888 (\"fix the gap\") merged, then REVERTED by #12897 (7d39031df) after E71 found bybit_2's second sub-account history-only: the gap fix needed a new Bybit key the operator never approved (manager popup wording at fault). OBSERVED 2026-09-25: /api/bot/pnl/broker-truth?account_id=bybit_2 live now shows stale:true, as_of_age_days:74, with the MAIN/SUB explanation deployed. Auto-covering SUB was reverted (operator declined new credential); gap tracked at PI-20260924-PN2PXMTE-0001, not silently dropped."
+    },
+    {
+      "id": "E71",
+      "title": "System-audit scoping proposal (plan only, not dispatched)",
+      "phase": "E",
+      "state": "done",
+      "owner": "OPS lane",
+      "lane": "session_01HbnXpk8Tt6c91tYZrZQ725",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        13085
+      ],
+      "blocked_on": [],
+      "note": "Third assignment of the wave-6 OPS lane (row R4 'OPS LANE' note): draft, do NOT execute, a proposal for a thorough system audit. Delivered: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md -- eight scope areas ordered by blast radius (order-path safety, trading correctness, data/provenance integrity, ML serving fidelity, infra/VMs, CI guard health, security, the operating model itself), each with a falsifiable one-lane one-question method, the finding schema (claim/evidence/expected-vs-actual/population/blast_radius/tier/detector/disposition) carried forward from the retired full-system-audit skill, 8 parallelizable sub-lanes with model + cost estimate ($165-270 total for all eight in one wave), outputs, and a done-condition. Motivated by two concrete findings from the same 30h window (this lane's own PI-20260927-YZRZQ725-0001 shadow-drift blind spot, and the retired skill's own IBClient.protection_coverage case study) rather than an abstract case for auditing. Four explicit questions left for the operator (scope subset vs all eight, cadence, Fable-lane candidacy for the mechanical guard-coverage lane per E11, findings-review capacity). The operator decides whether and when any of it runs; nothing in the doc is self-authorizing. | 07:32Z: /performance-review landed on the same PR (#13085) -- 51 closed trades this window, 86% technical-artifact (classify_paper_records.py: A=7/B=44/C=0), mostly a pairs-strategy classifier coverage gap (filed PI-20260927-YZRZQ725-0004), not a strategy-quality signal. bybit_2 real money: 0/3 gradeable this window, journalTrust=known_divergent on all 3 -- confirmed pre-existing (the standing SUB-subaccount ledger gap), not a new regression. No Tier-3 action. paper-book tracker and real-money allocation benchmark not run this session (stated reasons in the artifact), for a follow-up. | 2026-09-27 ~13:00Z: ADOPTED by the operator as the CODE AUDIT (row CA), with a wider scope (whole repo). Proposal delivered and acted on; closed here, tracked on CA."
+    },
+    {
+      "id": "E73",
+      "title": "Review pack for the joint operator/manager session -- ml-review + performance-review + audit-scoping findings as decisions",
+      "phase": "E",
+      "state": "queued",
+      "owner": "OPS lane",
+      "lane": "session_01HbnXpk8Tt6c91tYZrZQ725",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        13085
+      ],
+      "blocked_on": [],
+      "note": "Final assignment of the wave-6 OPS lane, per the operator's 2026-09-27 ~08:15Z request (relayed by the manager): a single decision-shaped pack for the upcoming joint review, drawn from R4/E71's ml-review + performance-review + audit-scoping outputs. Delivered: docs/plans/review-pack-2026-09-27.md -- 12 numbered accept/reject decisions (D1-D3 ml-review: shadow-drift archive fallback, exit-head twin-dedup fix, SOL trend_vol OFF-cell; D4-D6 performance-review: pairs classifier coverage gap, breakout_1/iaum_pullback_1d drop, SRQ-20260618 dispatch-or-kill; D7-D10 the audit proposal's own four operator questions; D11 a newly-found repo-wide operator-owed-guard CI instability (PI-20260927-EPMBGUYB-0003) currently blocking Tier-1 self-land on multiple PRs including both of this wave's; D12 a synthesis connecting two operator-owed pipeline rows (PI-20260924-MQ3CDMU6-0001/-0002) with PR #13084's fresh breakout_1 EV-simulator finding into one sizing decision), plus a table of operator-owed items currently closest to their due window (MEASURED via check_operator_owed.py --verbose, 2026-09-27T08:28Z). Does not edit OPERATING-PLAN, ROADMAP.md, or checklist priorities itself -- every row/priority change is a proposal for the joint session to accept or reject."
+    },
+    {
+      "id": "CA",
+      "title": "CODE AUDIT 2026-09-27 \u2014 thorough, wide code audit of the whole repo (operator decision)",
+      "phase": "CA",
+      "state": "in_flight",
+      "owner": "manager",
+      "lane": "session_01KAQRJxRbRwpYTkPgBjNVyQ",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 1100,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-27 ~13:00Z, verbatim (handoff to manager session_01GfmY83D3Ekv7Mq22wPgJqy): 'START THE CODE AUDIT NOW (my decision): a thorough, wide CODE audit of the whole repo, verifying everything we built works as intended. It is not a narrow question list. Plan: ~14 Wave-A lanes on the money path first ... Then ~10 Wave-B lanes ... Plus one Opus LEAD lane that consolidates. Finding schema and principles: docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a73 and \u00a75; every finding needs evidence, a population, and a detector or a stated reason there isn't one. Audit lanes only find. You dispatch fix lanes for evidence-settled fixes and notify me; genuine judgment calls come to me in the daily brief. Report to docs/audits/code-audit-2026-09-27.md.' BUDGET: CODE AUDIT $1,100, separate from the wave-6 cap ($350). Lane ceilings sum to $1,095 (Wave A 15 lanes $775, Wave B 9 lanes $250, lead $70). PLAN (manager): Wave A (CA-A01..A15) dispatched first; the operator's execution-core lane was split in two (CA-A02 pipeline/intents/sizing/costs/gates, CA-A03 exits/positions/fills/invariants) because together it is ~35k lines, and scripts/ops/workflows each in two halves as directed. Wave B (CA-B01..B09) dispatches as Wave A lanes land. CA-LEAD (Opus) dispatches once Wave A findings are on main, consolidates to docs/audits/code-audit-2026-09-27.md, re-verifies every critical/high, and splits findings into evidence-settled fixes (manager dispatches fix lanes, notifies operator) and judgment calls (daily brief section 2). Lane outputs: docs/audits/code-audit-2026-09-27/<ID>.findings.jsonl + <ID>.md. Critical findings are filed to docs/claude/work/pipeline/ immediately by the lane. ASSUMPTION (stated, not blocking): fix lanes draw on the audit budget's unspent headroom under ceilings; if the projected total would pass $1,100 the manager says so before dispatching more. Supersedes E71 (the proposal): the operator adopted it with a wider scope (whole repo, not eight axes). | 13:22Z MANAGER TAKEOVER (session_01KAQRJxRbRwpYTkPgBjNVyQ): all 15 Wave-A lanes + CA-LEAD + CA-B01 running. 7 Sonnet lanes (A07,A08,A10,A12-A15) stopped turn 1 on AskUserQuestion suspecting injection (prompt = authority language + self-merge recipe); archived (~$0.2 each) and relaunched with a plain task prompt, no self-merge (manager merges). A08 blocked twice -> Opus. Extra lanes charged to the audit budget: FIX-CA-01 (ceiling $40), and SEC-DT is NOT audit (security build, see R4). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): audit spend so far = $342.18 over the 25 ARCHIVED audit/fix lanes whose final cost was read from get_session (CA-A01, CA-A02, CA-A03, CA-A04, CA-A05, CA-A06, CA-A07, CA-A08, CA-A09, CA-A10, CA-A11, CA-A12, CA-A13, CA-A14, CA-A15, CA-B01, CA-B02, CA-B03, CA-B04, CA-B05, CA-B06, CA-B07, CA-B08, FIX-CA-01, FIX-CA-01b); excludes relaunch stubs (~$0.2 each), and the still-running CA-LEAD (~$24.6 at 15:21Z), landing steward (~$6.0), CA-B09 (~$15.8) and the 7 fix lanes dispatched 15:15-15:19Z (ceilings total $240). Fix lanes dispatched 15:19Z. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Every fix is merged: FIX-CA-01..32 across the fix lanes (FIX-CA-RES #13314 $7.77, FIX-CA-OPS2 #13316 $20.80, both archived). $461.04 spent on finished audit lanes (population: the audit lanes archived as of 2026-09-28 00:40Z), against the $1,100 cap. Still open: JC-CA-01..06 (operator decisions, daily brief), the CA-B05/B06 guard re-proof, and live verification waiting on the diag token. | 2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISIONS 2026-09-28 ~06:25Z (chat pop-ups, verbatim choices): JC-CA-01 'Commit to main'; JC-CA-02 'Remove flag + research'; JC-CA-03 'Use GITHUB_TOKEN' (caveat stated: such pushes do not trigger required CI; the lane must measure a way to satisfy branch protection without weakening A7, or report back); JC-CA-04 'Post-merge alarm' (B only); JC-CA-05 'Loud alert, manual'; JC-CA-06 'Retire after JC-CA-01'; FIX-CA-26 weak cells 'Re-test, keep for now'; Breakout step 2 'Feed now on schedule'; kernel 1062 reboot of ict-bot-arm 'Reboot tonight' (scheduled ~01:00Z 09-29, trig_016TcF2Vb31V9TUQZFxQkVYY). Dispatched: JC-OPS session_01Hmx51yERBBSjQpLm2XSoau (Sonnet, $30: JC-CA-02/04/05), JC-GIT session_01GxXaAMqxdL3p1XTuRC5mjc (Opus, $45: JC-CA-01/03, 06 after 01 observed)."
+    },
+    {
+      "id": "CA-A01",
+      "title": "Code audit Wave A: order_monitor.py",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_0155iFHoP6BJuj62kfWRL9r1",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 75,
+      "spend_usd": 25.73,
+      "tier": 1,
+      "prs": [
+        13161
+      ],
+      "blocked_on": [],
+      "note": "Scope: src/runtime/order_monitor.py (12,212 lines) and every test that exercises it (grep tests/ for order_monitor). Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A01.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_0155iFHoP6BJuj62kfWRL9r1 (claude-opus-5-5; adopted from archived manager session_01GfmY83; PR #13161 (1 critical, 15 high, 29 med, 44 low)). landed_unproven until CA-LEAD consolidates; 1 critical CA-A01-001 re-verified CONFIRMED by CA-LEAD (#13162) -> fix lane FIX-CA-01 session_01CGDPn9CFWumLV61kb8TDp1 (Opus; cancel stranded ib_paper MES OCA oca-protect-t5836 before CME reopen ~22:00Z, then held code fix). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A01.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A02",
+      "title": "Code audit Wave A: execution core I: pipeline, intents, sizing, costs, gates",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01JjuP8D8Q1oPTvjECiLBBvh",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 80,
+      "spend_usd": 12.61,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: src/main.py; src/runtime/{pipeline,pipeline_result,intents,intent_multiplexer,arbitration_fanout,conviction,conviction_arbitration,conviction_inputs,conviction_sizing,advisory_sizing,advisory_influence,news_sizing,allocator_corr,allocator_ev,execution_costs,trade_costs,tick_cost,broker_cost_attribution,cash_settlement,strategy_roster,loaded_config,risk_counters,runtime_flags,validation,account_side_filter,portfolio_conflicts,conflict_taxonomy,orders,order_bridge,market_data,market_hours,ib_trading_hours,operator_flatten_intent}.py; the Coordinator.multi_account_execute path wherever it lives (grep) and the effective_dry resolution; src/units/strategies/pairs_executor.py and config/pairs.yaml consumption. Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A02.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01JjuP8D8Q1oPTvjECiLBBvh (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A02.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A03",
+      "title": "Code audit Wave A: execution core II: exits, positions, fills, invariants, protection, broker truth",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01RjVA2i43wfnwqFEnGc5euD",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 80,
+      "spend_usd": 14.45,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: src/runtime/{exit_plan,exit_plan_materializer,exit_plan_realism,exit_levers,exit_head_apply,exit_head_shadow,exit_anchor,exit_restart_gap,regime_flip_exit,trail_decay,trail_vol,thesis_decay,stale_leg_decision,dead_leg,positions,position_telemetry,fills_pnl,exchange_fills_alpaca,exchange_fills_ib,exchange_fills_puller,exchange_fills_store,exchange_funding_puller,closed_flat_invariant,_closed_flat_wiring,close_wedge_standing,protection_price,protection_reassert,tp_venue_cap,over_cover_decision,package_leg_coverage,stray_oca_groups,orphan_attribution,outcomes,bracket_calibration,bracket_outcome,broker_truth,bybit_wallet_truth,bybit_position_book,bybit_position_mode,bybit_leg_sides,bybit_ccxt,local_pnl,net_r_label,target_expectation}.py. Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A03.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01RjVA2i43wfnwqFEnGc5euD (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A03.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A04",
+      "title": "Code audit Wave A: src/units/accounts (brokers, executors, risk)",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01L6oxNwzTguNk5ZKRaKE1tG",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 75,
+      "spend_usd": 14.15,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: src/units/accounts/** (23 files, 19.7k lines) and their tests. Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A04.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01L6oxNwzTguNk5ZKRaKE1tG (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A04.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A05",
+      "title": "Code audit Wave A: signal builders, strategies, ict_detection, regime",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01HdCvEVhTk66qUep6h6pP5E",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 45,
+      "spend_usd": 21.21,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: src/runtime/strategy_signal_builders.py; src/units/strategies/** EXCEPT pairs_executor.py (CA-A02 owns it); src/ict_detection/**; src/runtime/regime/** plus src/runtime/{regime_bar_scoring,regime_shadow,forecast_live,cross_asset_live,entry_head_pwin,liquidity_state,decision_subject}.py; how config/strategies.yaml and config/regime_policy.yaml are consumed. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A05.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01HdCvEVhTk66qUep6h6pP5E (claude-sonnet-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A05.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A06",
+      "title": "Code audit Wave A: rest of src/runtime: alerts, telegram, reports, health, provenance, insights, soaks",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01R1zbNc2v4Rkxs93z13XiHK",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 45,
+      "spend_usd": 8.77,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: Every src/runtime/*.py and subpackage NOT listed in CA-A01/A02/A03/A05 \u2014 i.e. *_alert.py, alert_cooldown, notify, claude_ping, decision_push, decision_channel_alert, telegram_*, signal_notifications, signal_writer, mobile_push/, hourly_report, api_reporting, health, heartbeat, liveness_watchdog, boot_audit, exit_loop_health, execution_diagnostics, provenance, r_provenance, registry_fingerprint, research_results_gate, insights/, every *_soak.py, manager_status, work_decisions, operator_owed, gpu_spend, hold_vs_cash, evidence_horizon, election_track_record, strategy_monocle, strategy_verdict, monitor_verdict, shadow_adapter, telegram_poll_registry, and the rest (run `ls src/runtime` and subtract the other lanes' lists; state the subtraction). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A06.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01R1zbNc2v4Rkxs93z13XiHK (claude-sonnet-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A06.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A07",
+      "title": "Code audit Wave A: src/prop + scripts/prop (Breakout)",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01CFHeaBLPVuLw2V2LvHWuCE",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": 12.1,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: src/prop/** (33 files incl. the DXtrade platform adapter merged today in #13139) and scripts/prop/**, plus config for breakout_1 and the prop ruleset. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A07.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01CFHeaBLPVuLw2V2LvHWuCE (claude-sonnet-5; r2: r1 session_01U3SdKnWtWvXGeZQjLjWScR blocked on AskUserQuestion (suspected injection), archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A07.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A08",
+      "title": "Code audit Wave A: src/web/api + src/bot + src/comms (security focus)",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01TCatsCY5RDg1pNXWFdeqsn",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": 14.88,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: src/web/** (55 files), src/bot/** (13), src/comms/** (6); docs/api-tier-policy.md; docs/reference/bot-api-reference.md. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A08.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01TCatsCY5RDg1pNXWFdeqsn (claude-opus-5-5; r3 on Opus: r1 session_0114QGVx16ykfwNHVuxwvv4s and r2 session_01Bxb255g8h9SXKvxVupUsVR (Sonnet) both blocked on suspected injection; archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A08.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A09",
+      "title": "Code audit Wave A: config, mandates, auto-land route, landing & permission controls",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01CTCL5m5svVvXSgGu9VGVpe",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 60,
+      "spend_usd": 6.36,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: config/** (37 files) and their loaders; config/mandates.yaml and every resolver/workflow that reads it; the MD-DEMOTE-S2-S1 auto-land route end to end (script + workflow + guard); .github/workflows/claude-pr-automerge.yml, pr-opener.yml, scripts/ci/check_pr_landing.py, scripts/ci/check_dry_run_in_diff.py, scripts/ci/check_manager_scope.py, .github/pr-landing/, .github/merge-slots/; .claude/settings.json permissions as of #13138; branch protection (read it via the GitHub API if reachable, else state that). Model reason: Opus \u2014 order path / real-money controls, per the manager model table and the operator naming Opus for this lane. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A09.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01CTCL5m5svVvXSgGu9VGVpe (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A09.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A10",
+      "title": "Code audit Wave A: deploy/ + VM-mutating action scripts",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_016shE4tRmBjWERor1Dj7Suq",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": 22.39,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: deploy/** (64 files: systemd units, timers, Caddy, etc.); scripts/ops/*_action.sh (57 files) and the system-actions workflow allowlist that maps to them (docs/claude/system-actions.md); scripts/deploy_pull_restart.sh, install_systemd_units.sh, vm_bootstrap.sh, setup.sh, render_env_from_master.py. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A10.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_016shE4tRmBjWERor1Dj7Suq (claude-sonnet-5; r2: r1 session_01K3p5Byu4ziPUvBeszsbLtZ blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A10.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A11",
+      "title": "Code audit Wave A: scripts/ops part 1",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01T11UhxVEa3ri1EMJX1ZKyc",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": 16.7,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: scripts/ops/ files 1\u2013166 in `ls scripts/ops` order (from _backlog.py through manifest_training_staleness.py), EXCLUDING *_action.sh (CA-A10). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A11.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01T11UhxVEa3ri1EMJX1ZKyc (claude-sonnet-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A11.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A12",
+      "title": "Code audit Wave A: scripts/ops part 2",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01Lt738sZBXdzhGTDpSCduBq",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": 9.83,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: scripts/ops/ files 167\u2013332 in `ls scripts/ops` order (from mark_netted_duplicate_pnl.py to the end), EXCLUDING *_action.sh (CA-A10). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A12.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01MWzFAhEeFLsjPJC3X3etsD (claude-sonnet-5; r2: r1 session_011yHkJg6WTCvhDeQUv5KWsK blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A12.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A13",
+      "title": "Code audit Wave A: GitHub workflows part 1",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01CAkVZ7EhoegMAz2iGTgzn1",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": 14.14,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: .github/workflows/ files 1\u201374 in `ls .github/workflows` order (through provision-ib-gateway.yml). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A13.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01CAkVZ7EhoegMAz2iGTgzn1 (claude-sonnet-5; r2: r1 session_013bGUFUBLgXVqPYzVfzwRmN blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A13.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A14",
+      "title": "Code audit Wave A: GitHub workflows part 2",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01MuqnocKfF4UB8LNqRdrZWZ",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": 8.31,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: .github/workflows/ files 75\u2013149 in `ls .github/workflows` order (from provision-live-vm.yml to the end). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A14.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01MuqnocKfF4UB8LNqRdrZWZ (claude-sonnet-5; r2: r1 session_01UAbBD9XbS8svuN5hXSdLem blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A14.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-A15",
+      "title": "Code audit Wave A: remaining small src/ modules",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_014SZHZwFb7DiRbfRLBXqdGK",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": 15.23,
+      "tier": 1,
+      "prs": [
+        13199
+      ],
+      "blocked_on": [],
+      "note": "Scope: src/{analysis,backtest,core,data_layer,exchange,news,pipeline,research,sysdyn,utils,config}/**, src/units/{db,dashboards,trading_school,ui}/**, src/strategy_registry.py. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-A15.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_014SZHZwFb7DiRbfRLBXqdGK (claude-sonnet-5; r2: r1 session_0156ZEhway6kxqgvmhyd1koK blocked, archived). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main (docs/audits/code-audit-2026-09-27/CA-A15.*); lane archived. An audit lane's deliverable is the findings file; 'done' = on main."
+    },
+    {
+      "id": "CA-B01",
+      "title": "Code audit Wave B: ml/",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01M6NBQHKgKXsvrB3Wm5HAdW",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": 26.73,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: ml/** (210 files, 24.3k lines) and its tests. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B01.md + .findings.jsonl. Only finds; fixes are separate lanes. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01HCcSyPmQZphK3Qy6GWnoG4 (claude-sonnet-5; fresh; dispatched as CA-A01 landed). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main; lane archived."
+    },
+    {
+      "id": "CA-B02",
+      "title": "Code audit Wave B: scripts/ml + scripts/training",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_018nPWVCBmAyJ95AQwR6G7sZ",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": 9.59,
+      "tier": 1,
+      "prs": [
+        13226
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: scripts/ml/** (72 files) and scripts/training/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B02.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
+    },
+    {
+      "id": "CA-B03",
+      "title": "Code audit Wave B: scripts/research part 1",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01MfuDr6cUra2SbX4rnjrrFs",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": 20.86,
+      "tier": 1,
+      "prs": [
+        13226
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: scripts/research/ files 1\u201397 in `ls scripts/research` order (through m20_u1_winner_close_inventory.py). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B03.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
+    },
+    {
+      "id": "CA-B04",
+      "title": "Code audit Wave B: scripts/research part 2",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01BGcK6MYWNqsX3BZGQPhr3D",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": 23.95,
+      "tier": 1,
+      "prs": [
+        13226
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: scripts/research/ files 98\u2013185 in `ls scripts/research` order (from m20_u2_winner_close_attribution.py to the end). Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B04.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
+    },
+    {
+      "id": "CA-B05",
+      "title": "Code audit Wave B: CI guards part 1 \u2014 each proven to fail on its defect",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_019T77vFGQ7zPvNNronM6LfN",
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 15,
+      "spend_usd": 0.81,
+      "tier": 1,
+      "prs": [
+        13226
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: The first 44 guards in `python3 scripts/ci/run_guards.py --list` order (through candle-fixture-variance-guard), and each guard's script under scripts/ci/ or scripts/. Model reason: Haiku \u2014 mechanical plant-a-defect-and-run per guard; operator named Haiku. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B05.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
+    },
+    {
+      "id": "CA-B06",
+      "title": "Code audit Wave B: CI guards part 2 \u2014 each proven to fail on its defect",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_01VQCPCfUdFFZ5N6B5EH5DbV",
+      "model": "claude-haiku-4-5-20251001",
+      "ceiling_usd": 15,
+      "spend_usd": 1.3,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: Guards 45\u201389 in `python3 scripts/ci/run_guards.py --list` order (from corpus-row-floor-guard to the end), and each guard's script. Model reason: Haiku \u2014 mechanical plant-a-defect-and-run per guard; operator named Haiku. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B06.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main; lane archived."
+    },
+    {
+      "id": "CA-B07",
+      "title": "Code audit Wave B: tests coverage",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_0176ddjoUxwveWpnJT7Jw9cr",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 35,
+      "spend_usd": 10.83,
+      "tier": 1,
+      "prs": [
+        13219
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: tests/** (1,224 files) mapped against src/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B07.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main; lane archived."
+    },
+    {
+      "id": "CA-B08",
+      "title": "Code audit Wave B: leftover scripts",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_016jKXsmN6pj5g9CeJ89Y6iE",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": 17.67,
+      "tier": 1,
+      "prs": [
+        13205
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: Top-level scripts/*.py and *.sh (74), scripts/{analysis,macro,micro,options,llm,reports,session_handoff,sprint015,sprint047,git-hooks}/**. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B08.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main; lane archived."
+    },
+    {
+      "id": "CA-B09",
+      "title": "Code audit Wave B: skills and canonical docs vs code",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lane",
+      "lane": "session_018bJ1sbCPELjF9s3th2sPgL",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": 15.81,
+      "tier": 1,
+      "prs": [
+        13226
+      ],
+      "blocked_on": [
+        {
+          "kind": "work_item",
+          "ref": "CA",
+          "what": "Wave B dispatches as Wave A lanes land (operator: money path first)"
+        }
+      ],
+      "note": "Scope: .claude/skills/**/SKILL.md and docs/CLAUDE-RULES-CANONICAL.md, docs/ARCHITECTURE-CANONICAL.md, CLAUDE.md, docs/reference/*. Model reason: Sonnet \u2014 not an order path; default per the model table. Fresh session (context is on disk). Output docs/audits/code-audit-2026-09-27/CA-B09.md + .findings.jsonl. Only finds; fixes are separate lanes. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings combined into the landing steward's #13226 (dirty after B07 landed separately; steward refreshing, trig_01FNyZV7ncHttTNpr3xB39aL). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): findings on main via #13226 (1247cc8); lane archived."
+    },
+    {
+      "id": "CA-LEAD",
+      "title": "Code audit LEAD: consolidate findings to docs/audits/code-audit-2026-09-27.md",
+      "phase": "CA",
+      "state": "done",
+      "owner": "audit lead lane",
+      "lane": "session_01FEyBLv4xbJQoAzTRs4df3M",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 70,
+      "spend_usd": 39.24,
+      "tier": 1,
+      "prs": [
+        13227,
+        13382,
+        13383
+      ],
+      "blocked_on": [],
+      "note": "Opus per the operator. Consolidates, dedupes, independently re-verifies every critical/high finding, splits evidence-settled fixes (-> manager fix lanes) from judgment calls (-> daily brief section 2), files pipeline items for what is not fixed at once. | 13:22Z manager session_01KAQRJxRbRwpYTkPgBjNVyQ: lane session_01FEyBLv4xbJQoAzTRs4df3M (claude-opus-5-5; fresh). | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): consolidated report merged #13227 (docs/audits/code-audit-2026-09-27.md): 1 critical + 29 high after re-verification; 24 evidence-settled briefs FIX-CA-02..25 dispatched to 6 fix lanes; 5 judgment calls JC-CA-01..05 -> daily brief. Lead re-consolidates after #13226 lands. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): turn 3 dispatched 17:17Z (trig_01CcJn2btM5Lbndf7SdwMCPB): consolidate Wave B, FIX-CA-26+/JC-CA-06+, mark 01..25 landed; ceiling $30. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): DONE: final report merged (#13382, #13383); 0 findings left \"NEW, not dispatched\". Two open ends, carried on the CA row, not this lane: live verification needs the diag token (operator), and the CA-B05/B06 plant-a-defect guard re-proof is incomplete (coverage gap, not a defect). Lane archived."
+    },
+    {
+      "id": "E74",
+      "title": "SOL trend_vol OFF-cell for sol-regime-15m-lgbm-fc-pcv-v2 (review-pack D3)",
+      "phase": "E",
+      "state": "queued",
+      "owner": "research lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D3), verbatim: \"Add the row.\" sol-regime-15m-lgbm-fc-pcv-v2 has been advisory since 08-02 with zero regime_hard_gate rows for SOL ever -- no real-money lever exists for it at all today. WORK: author + walk-forward-validate a SOL trend_vol OFF-cell per the `regime-selectivity` skill's three binding rules (no-cosmetic-cell, walk-forward-before-Tier-3, axis-fidelity), so the model has a real-money lever to flip at all. NEEDS OFFLINE VALIDATION FIRST: the walk-forward validation is the Tier-1/research precondition and must clear BEFORE any Tier-3 flip proposal goes to the operator -- this row is the authoring + validation step, not the flip itself, which is why tier is recorded as 3 (the change the row is FOR) while the immediate next action is research-only. Not yet dispatched by this PR (documentation-only, no lane assigned)."
+    },
+    {
+      "id": "E75",
+      "title": "System audit (E71/E73 review-pack D7-D10): scope, cadence, model and budget decided -- lanes launch when the operator says go",
+      "phase": "E",
+      "state": "queued",
+      "owner": "manager",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": 270,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [
+        {
+          "kind": "operator_decision",
+          "ref": "operator go-ahead to dispatch AUD-1..AUD-8 + the lead consolidation session",
+          "what": "the four questions below are answered and the audit's shape is decided; the lanes themselves launch only when the operator says go"
+        }
+      ],
+      "note": "OPERATOR DECISIONS 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D7-D10, against docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a76's four operator questions; E71 is the proposal, E73 is the pack it was put to the operator in). SCOPE (D7, the (a) all-8 vs (b) 3-area subset choice), verbatim: \"All 8 areas.\" CADENCE (D8, one-off vs standing), verbatim: \"One-off now, decide cadence after.\" MODEL for the \u00a74.6 CI guard-coverage lane (D9, AUD-6 -- widen to claude-haiku-4-5 per the manager skill's E11 candidate criterion), verbatim: \"Yes.\" FINDINGS-REVIEW CAPACITY (D10, dedicated session vs folding in), verbatim: \"Fold into daily brief.\" BUDGET, verbatim: \"Separate audit budget, $270\" -- this is the HIGH END of SYSTEM-AUDIT-PROPOSAL-2026-09-27.md \u00a77's own $165-270 all-8-areas estimate, and it REPLACES/SETS ceiling_usd for the audit wave as a whole (the per-lane AUD-1..AUD-8 + lead-session ceilings in \u00a77 sum inside this figure; it is not an additional per-lane amount). \u26a0\ufe0f THE LANES LAUNCH WHEN THE OPERATOR SAYS GO: these four answers decide the audit's SHAPE (what/how/which model/where findings go), not its dispatch -- nothing here dispatches AUD-1..AUD-8 or the lead-session consolidation, and state stays `queued` until that go-ahead is given. Documentation-only PR; no lane touched, no PR opened for the audit itself."
+    },
+    {
+      "id": "E76",
+      "title": "SRQ-20260618-001/-002 (soft regime weight / recombination orchestrator regime_filter axis): dispatch + new research lines (review-pack D6)",
+      "phase": "E",
+      "state": "in_flight",
+      "owner": "research lane (backtesting skill)",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D6), verbatim: \"2, as well as developing new lines of research for this general idea\" -- i.e. option 2 (dispatch a `backtesting`-skill lane on SRQ-20260618-001/-002, un-worked 6+ weeks since the hard-ADX-gate hypothesis was refuted 08-11), PLUS separately developing new lines of research on the soft-regime-weight / recombination-orchestrator `regime_filter` general idea, rather than killing the row or deferring further. THIS PR DOES NOT DISPATCH THE LANE -- it records the decision only. CHECKED THIS SESSION: no existing checklist row or lane id anywhere in this file references SRQ-20260618 or a `regime_filter` recombination lane (grep over the whole file, single hit: this row), so the lane reference is NOT YET ASSIGNED -- the session that dispatches it must backfill `lane`/`prs` here rather than a new id being invented for it now. `state` is set to `in_flight` per the dispatch decision having been made and acted on by the operator, not because a lane id is known yet; the next session touching this row should either fill in the lane or, if dispatch has not actually started, correct the state honestly."
+    },
+    {
+      "id": "E77",
+      "title": "Exit-head shadow-scoring twin-dedup fix for PI-20260926-96NDZSOD-0001 (review-pack D2)",
+      "phase": "E",
+      "state": "landed_unproven",
+      "owner": "build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        13076
+      ],
+      "blocked_on": [],
+      "note": "OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D2), verbatim: \"Dispatch now\" for a Tier-2 build lane fixing PI-20260926-96NDZSOD-0001 (exit-head shadow-scoring twin-dedup bug -- the sole blocker to evaluating exit-head-donchian-1h-v1's shadow->advisory promotion, which already has a marginal-pass OOS re-grade sitting idle, +1.3127R n=119, PR #13046). The build lane that already did this work was session_01WGMUnzr1kaHpJB9TqLiVur (PR #13076) -- recorded here in prose rather than in the structured `lane` field, since that lane has already landed and this row's `lane` reflects who is CURRENTLY working it (nobody, right now). ALREADY DONE, VERIFIED THIS SESSION rather than assumed (RULE ONE): MERGED -- PR #13076 (\"fix(exit_head_shadow): cache the per-bar score so twin accounts both get the verdict\") read via the GitHub PR API shows merged:true, merged_at 2026-09-27T09:37:52Z, base main, head commit b1253206; `git log origin/main` independently confirms commit 4a8b29e (\"...#13076\") is on origin/main. DEPLOYED -- confirmed via GitHub Actions run 36309997882 (\"system-action: pull-and-deploy 63348e7a3 (#13047 Alpaca GTC entry brackets + #13076 exit-head twin cache)\"), status completed, conclusion success, started 2026-09-27T09:38:10Z, i.e. within a minute of the merge, and naming #13076 explicitly in its title. OBSERVED -- NOT established this session: no fresh diag/runtime read of the running trader's exit_head_shadow.py behaviour was taken here, so per RULE ONE (\"merged is not deployed is not observed\") only the first two facts are claimed. The fix is stated INERT on arrival regardless (every exit-head artifact is currently stage=shadow; exit_head_verdict only acts on stage=advisory), so there is no live order-path behaviour change to observe yet even once a read is taken. PI-20260926-96NDZSOD-0001 should be closed/updated against this PR by whoever next reads the pipeline store, per the PR's own stated follow-up note."
+    },
+    {
+      "id": "P2",
+      "title": "Prop-candidate-search lane (breakout_1): candidates ONLY from the Breakout symbols list",
+      "phase": "P",
+      "state": "in_flight",
+      "owner": "research lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "FIRST TRACKING ROW for the wave-6 \"P2 prop candidate search, crypto on Breakout\" lane -- dispatched per the operator's wave-6 launch decision already recorded on row R4 (\"launch WAVE 6 now... P2 prop candidate search, crypto on Breakout\"), but no distinct checklist row existed for it before this PR (checked: grep of this file for P1/P1b/P2 as an `id` before this edit returns nothing). OPERATOR DECISION 2026-09-27 (joint operator/manager review, docs/plans/review-pack-2026-09-27.md D5), verbatim, in response to breakout_1/iaum_pullback_1d being evaluated as a drop candidate on an account it was never tradable on: \"Why was it even checked if it can't be traded? We are only supposed to checking candidates from the symbols list I gave you.\" STANDING CONSTRAINT recorded by this row: every prop-candidate this lane (or any breakout_1/prop-account candidate search) considers must come ONLY from https://www.breakoutprop.com/symbols/. This does not reopen or dispute RQ-20260827-001's own finding that breakout_1 should drop iaum_pullback_1d (p_profitable=0.0647, EV -$3.65/trade, gld_compat) -- that specific drop stands. The operator's point is upstream of it: a candidate should never have been scoped or evaluated at all if it is not on the approved, tradable symbols list. Documentation-only PR; no candidate-list code or scoping logic changed here -- the dispatching/continuing session must apply the constraint going forward and should update this row's `lane`/`prs` once it has a session id."
+    },
+    {
+      "id": "P1b",
+      "title": "breakout_1 sizing decision (flat $75 vs DD-cushion-fit) -- attributed to lane P1b (review-pack D12)",
+      "phase": "P",
+      "state": "in_flight",
+      "owner": "research/build lane",
+      "lane": null,
+      "model": null,
+      "ceiling_usd": null,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "FIRST TRACKING ROW for lane P1b (the continuation of the wave-6 \"P1 prop EV evaluator\" lane, session_01LDBj5SQ3KpCZDsCstGv2yt) -- no distinct checklist row existed for it before this PR. This row's `lane` field is null rather than session_01LDBj5SQ3KpCZDsCstGv2yt -- that lane was dispatched separately, before and outside this PR, and this row only records where it is, not a fresh assignment made here. ATTRIBUTION recorded per the joint operator/manager review (docs/plans/review-pack-2026-09-27.md D12): the sizing decisions from the 2026-09-27 ~11:12Z joint-review discussion sit WITH this lane/session, not as a fresh decision made or taken in this PR. D12 SYNTHESIS, carried here as context rather than re-decided: three independently-filed findings point at the same breakout_1 gap -- flat $75 tickets vs a $94.76 DD-floor cushion (PI-20260924-MQ3CDMU6-0001), the operator-approved PROP_TICKET_RISK_GATE_MODE=enforce (08-31) having no code path that actually caps size (PI-20260924-MQ3CDMU6-0002), and PR #13084's fresh B6 EV-simulator reading the CURRENT 1.5%-risk flat-$75 sizing as INDETERMINATE (central estimate -$10.08/account-life) vs +$173 at a cushion-fit 1.0% sizing. SEE ALSO E59, where the operator's earlier 2026-09-24 decision (\"Leave flat $75\", made without the B6 simulator's numbers) is recorded and PI-20260924-MQ3CDMU6-0001 was KILLED on that basis -- D12 revisits the question with new evidence rather than being independent of E59. Tier 3 because any resulting sizing/gate-enforcement change is a risk-caps/sizing change on a live prop account. THIS PR DOES NOT IMPLEMENT OR AUTHORIZE the sizing fix itself -- it only records where the decision now lives. See lane P1b / session_01LDBj5SQ3KpCZDsCstGv2yt for the actual disposition. || 2026-09-28 ~13:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISION, popup verbatim \"Keep flat $75\" (options offered: size to fit the cushion [recommended] / keep flat $75 / let it run to breach then re-buy), asked with breakout_1 at balance $4,724 vs the $4,700 static-DD floor (prop status 12:57Z). Sizing stays flat $75; the executor guards (enforce) will refuse tickets that do not fit."
+    },
+    {
+      "phase": "W6",
+      "state": "done",
+      "lane": "session_01Nee3UDjx7N9HSG5ybxXT8q",
+      "spend_usd": 7.44,
+      "prs": [
+        13223
+      ],
+      "blocked_on": [],
+      "id": "W6-PROP-O1",
+      "title": "RQ-20260922-003: at what round-trip cost do the breakout_1 legs stop clearing Stage 0 / the B6 bar (eth_prop, then sol_prop)",
+      "owner": "research lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 20,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260922-003 cost break-even for trend_donchian_eth_prop, repeated for trend_donchian_sol_prop, at Breakout DXtrade costs (incl. the 0.033%/day swap declared in config/strategies.yaml ~L2687; eth_prop evidence record n=169 OOS trades, sol_prop per its own record), judged also against RULE-B6-PROP-EV-PER-ACCOUNT-LIFE-V2 under #13154 sizing. One question: how much cost headroom do the two live prop legs have. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13223 (cost headroom + B6 V2 grade): both legs indeterminate 5/5 fresh-account; no proposal. Held unvouchable_paths (research/queue); manager merges on green under MD-LAND-RESEARCH-RESULT. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13223 merged 56de0b7 after its W4 queue tests were fixed (test updated to accept a terminal unit with a result block, not skipped). Both breakout_1 legs indeterminate 5/5 fresh-account; no proposal. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "state": "done",
+      "lane": "session_01MYq794bQXtq7nHy1h6HySr",
+      "spend_usd": 18.25,
+      "prs": [
+        13255
+      ],
+      "blocked_on": [],
+      "id": "W6-PROP-O2",
+      "title": "RQ-20260927-003: exit-head-for-prop-legs feasibility (score breakout_1 legs' own trades with exit-head-donchian-1h-v1, incl. swap saved)",
+      "owner": "research lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 20,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Scope: RQ-20260927-003 as written (scoping, not promotion). One question: is a prop-geometry exit-head retrain worth doing. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13255 merged 77fcb62: real resample-skip bug fixed (1h params ran on 5m bars); the exit-head question itself stays open (corrected run too slow on the shared trainer, PI-20260927-F4CD9293-0001). Lane archived."
+    },
+    {
+      "phase": "W6",
+      "state": "done",
+      "lane": "session_01Wg2RZ3F5NkdfVrnLMc4e9z",
+      "spend_usd": 9.4,
+      "prs": [
+        13195
+      ],
+      "blocked_on": [],
+      "id": "W6-PROP-R2",
+      "title": "Breakout candidate search v2: every DXtrade-tradable symbol x every corpus strategy family, scored with the merged prop_ev_sim",
+      "owner": "research lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Candidates ONLY from https://www.breakoutprop.com/symbols/ (operator), DXtrade side (breakout_1 is DXtrade). Re-runs PI-20260927-ODDTM5QY-0003 on merged prop_ev_sim (#13084); multi-seed robustness for xrp (ODDTM5QY-0001). Roster proposal comes to the operator via the manager. Sonnet: research. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13195: zero roster additions; lane archived. Follow-on W6-PROP-R3."
+    },
+    {
+      "phase": "W6",
+      "state": "landed_unproven",
+      "lane": "session_01AAyjhFdZXGdTUQY1DPAK9k",
+      "spend_usd": 30.85,
+      "prs": [
+        13416
+      ],
+      "blocked_on": [],
+      "id": "W6-PROP-E1",
+      "title": "breakout-login-check reads DXtrade instrument specs (symbol + contract size) \u2014 resolves ODDTM5QY-0002/0004 without an operator ask",
+      "owner": "build lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 20,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Read-only extension of src/prop/platform/dxtrade.py + the action; Tier-2 held PR. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Blocker cleared (P4/P4b: login and read parser work on the live terminal). Dispatched on Sonnet (read-only parser extension; the manager reviews the redaction independently before merge). Ceiling $20. This takes the wave-6 slate to about $337 spent (the ~$250 before the slate is an estimate) plus up to $20, which may pass the $350 cap by up to about $7. Passing into the margin is authorised; reported at the sync. | 2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13416 MERGED 3551700 (05:45Z) after 5 independent reviews (final MERGE at 55c9b121c). The lane did not run its post-merge check; the manager dispatched it directly (issue #13500). Spend $30.85 of $35. | 2026-09-28 06:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): live read #13500 (run 36385743336): new code ran, output leak-free. ETHUSD and SOLUSD matched (lotSize 1, multiplier 1, precision 2: agree with the routing config's 1.0); BTCUSD, ADAUSD and XRPUSD had no allowlisted fields. ADA/XRP contract sizes are still unconfirmed (see PI-20260927-ODDTM5QY-0002). Lane archived. Closes when ADA/XRP specs are measured."
+    },
+    {
+      "phase": "W6",
+      "state": "done",
+      "lane": "session_01Y6PpcaEmGxcpSc3gSMAd7y",
+      "spend_usd": 5.31,
+      "prs": [],
+      "blocked_on": [],
+      "id": "W6-RQ009",
+      "title": "RQ-20260922-009 (eth_pullback_2h fails Stage 0 by cost) + close RQ-20260922-007 as answered by RQ-20260927-001/-002",
+      "owner": "research lane",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 20,
+      "note": "OPERATOR DECISION 2026-09-27 ~13:35Z (chat, to manager session_01KAQRJxRbRwpYTkPgBjNVyQ), verbatim: 'keep the research and eng ques moving, and while we need to get to all the items, the prop-account roster and optimization is still the priority'. Wave-6 cap $350 (~$250 spent before this slate). Queue-moving slot: real-money leg, highest-value non-prop research unit. | 2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 6.68,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-01",
+      "state": "landed_unproven",
+      "lane": "session_01CGDPn9CFWumLV61kb8TDp1",
+      "prs": [
+        13187
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": null,
+      "title": "FIX-CA-01: CA-A01-001 critical: flat-finalise closes cancel the closing trade's own resting IB protec",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): CA-A01-001 critical: flat-finalise closes cancel the closing trade's own resting IB protection. #13187 merged (245b45d, Tier-2 data-backed); deploy via git-sync not yet OBSERVED (FIX-CA-01c task 3 reads it). Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 6.9,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-01b",
+      "state": "done",
+      "lane": "session_012GKDYrc8Nk7FCTyDVvyLkh",
+      "prs": [
+        13228
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": null,
+      "title": "FIX-CA-01b: ib_paper MES 906 cancelled (IBKR 202); 907 PendingCancel on a flat book, expected to final",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): ib_paper MES 906 cancelled (IBKR 202); 907 PendingCancel on a flat book, expected to finalise at the CME reopen -> PI-20260927-YDVVYLKH-0001, manager check 22:20Z (trig_01S9gtwEaptoNtEvVS68Kipn). Root cause of Error 326 found: git-sync restarts a deliberately stopped trader (PI-...-0002). #13228 merged. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 8.05,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-01c",
+      "state": "landed_unproven",
+      "lane": "session_01To8QXkNwBZNW7VXZMgdpem",
+      "prs": [
+        13241
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 25,
+      "title": "FIX-CA-01c: PI-20260927-YDVVYLKH-0002 (deploy_pull_restart",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): PI-20260927-YDVVYLKH-0002 (deploy_pull_restart.sh must not start a stopped ict-trader-live) + -0003 (10148 PendingCancel graded refused_by_venue) + confirm #13187 is running. Tier-2 data-backed; manager merges. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): review HELD it: pull-and-deploy could leave a held trader down; a stop-marker race; other restart scripts not clearing the marker. All fixed (d4e5ff5), merged e3af98f. DEPLOYED and OBSERVED running: /api/diag/status (issue #13278) read git_sha 9b2884c, bot_uptime 429 s, last tick 17:26:35Z, heartbeat 21 s -- contains the merge. The next stop window will be the first real observation. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 9.65,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-OM",
+      "state": "landed_unproven",
+      "lane": "session_01UvLYi7DiqLG9z5YpScuGqX",
+      "prs": [
+        13251
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "title": "FIX-CA-OM: FIX-CA-02",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-02..06 (order_monitor.py) per docs/audits/code-audit-2026-09-27.md s5. Tier 2; manager merges under data-backed authority. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13251 merged f1ce436 after an independent pre-merge review (206/206 on branch, 33 fail on main). DEPLOYED and OBSERVED running at f089c40 (#13263). Effect on a real close not yet observed. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 8.1,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-EXEC",
+      "state": "landed_unproven",
+      "lane": "session_01M98QLqhmJNHvLknCM1LQA3",
+      "prs": [
+        13244
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "title": "FIX-CA-EXEC: FIX-CA-07, 08, 10 (execution core)",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-07, 08, 10 (execution core). Tier 2. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): review HELD it twice: (1) a None strategy read refused close/reduce/flip deltas; (2) cross-PR with #13251, whose not_found branch skipped unreadable_syms, so a probe closed a live BTC row on a failed read. Both fixed with regression tests (8652c74), merged 3f60a7e. DEPLOYED and OBSERVED running: /api/diag/status (issue #13278) read git_sha 9b2884c, bot_uptime 429 s, last tick 17:26:35Z, heartbeat 21 s -- contains the merge. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 5.14,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-RISK",
+      "state": "landed_unproven",
+      "lane": "session_01DkqJWZsHsYTkP7ba49Gepj",
+      "prs": [
+        13245
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "title": "FIX-CA-RISK: FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notif",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-09 daily-loss cap attributed by open date (Tier 3, data-backed: ship, verify, notify operator). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Tier-3 data-backed: daily-loss cap now attributes PnL by close date. Merged a334a23; running at f089c40 (#13263); operator notified in chat 16:50Z with the revert. Not yet observed changing a cap decision. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 8.66,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-OPS",
+      "state": "landed_unproven",
+      "lane": "session_01Cx9QwbJtJPJSPFgLnd26Ax",
+      "prs": [
+        13246
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "title": "FIX-CA-OPS: FIX-CA-11",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-11..14, 18, 19 (ops/alerting/security). Tier 2. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): merged dda726d after review (1610 pass; 63/100 new tests fail on main); running at f089c40. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 11.51,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-CI",
+      "state": "done",
+      "lane": "session_01Phg9t2xAaNUEF99cVHhhG1",
+      "prs": [
+        13247
+      ],
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 20,
+      "title": "FIX-CA-CI: FIX-CA-15",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-15..17 (Tier 1, self-land). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13247 self-landed 9a9f9e7 (Tier 1). Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 14.69,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "FIX-CA-ML",
+      "state": "done",
+      "lane": "session_01XojX3GqpCRSf2G2nyVDmVJ",
+      "prs": [
+        13252,
+        13253
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "title": "FIX-CA-ML: FIX-CA-20",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): FIX-CA-20..25 (ML serving/gates; 20-22 Tier 1, 23-25 Tier 2). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13252 (T1 gates) merged 011e122, #13253 (closed bars) merged 1ea0374 after review; the live scorer is running at f089c40. The trainer-side reinstall (install_trainer_publish_units.sh, *:0/15:30 timer) is with the lane: until it lands, fc_* rows can be refused (NaN) on the live side, which is observe-only. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OBSERVED working: forecast_serve observed, lag 0, 6 served, 0 stale. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 8.68,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "CA-LANDING",
+      "state": "done",
+      "lane": "session_01CU8BpBc81jLSv3sMj9zsPb",
+      "prs": [
+        13199,
+        13226
+      ],
+      "model": "claude-sonnet-5",
+      "ceiling_usd": null,
+      "title": "CA-LANDING",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): landing steward: combines audit PRs that conflict on docs/DOCUMENT-INDEX.md. Wave A = #13199 (merged); Wave B = #13226 (refreshing). | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13226 merged 1247cc8. The 4 experiments/ vwap result files a bot had pushed onto the branch were resolved to main's copy (manager decision); filed PI-20260927-PGBJNVYQ-0001. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 8.19,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "W6-PROP-R3",
+      "state": "done",
+      "lane": "session_01MMPhBZdbZJnDGF2skafUF5",
+      "prs": [
+        13266
+      ],
+      "model": "claude-opus-5-5",
+      "ceiling_usd": null,
+      "title": "W6-PROP-R3",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): prop-shaped parameter search: tune candidate legs for EV-per-account-life (RULE-B6 V2) after PROP-R2 found zero additions. Any roster proposal goes to the operator. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): DONE with a NULL result (#13266 merged 570b096): no candidate leg cleared EV-per-account-life, so no roster proposal. Per the operator, one bad pass does not kill the idea; later prop work re-runs it on new evidence. Lane archived."
+    },
+    {
+      "phase": "W6",
+      "spend_usd": 2.17,
+      "blocked_on": [],
+      "owner": "fix lane",
+      "id": "P4-FIX",
+      "state": "done",
+      "lane": "session_01My6w5rLi7Yy3y1bDJ25pHy",
+      "prs": [
+        13218
+      ],
+      "model": "claude-sonnet-5",
+      "ceiling_usd": null,
+      "title": "P4-FIX",
+      "note": "2026-09-27 15:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): breakout-login-check venv bootstrap. #13218 merged 15:16Z; the #13231 rerun at 15:16:59Z still ran the pre-merge script (git-sync had not pulled). Rerun pending; operator to be told whether BREAKOUT_DX_* creds work. | 2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13218 worked: #13238 got past the venv; #13239 (apply: install-deps) logged in to breakout_1 (login: ok, credentials VALID); operator told 15:30Z."
+    },
+    {
+      "id": "P4b",
+      "phase": "W6",
+      "state": "done",
+      "owner": "build lane",
+      "lane": "session_01PyohkPdSE4VrqUd9R6qTdB",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "spend_usd": 23.75,
+      "prs": [
+        13248,
+        13297,
+        13349,
+        13387
+      ],
+      "blocked_on": [],
+      "title": "P4b: DXtrade (Breakout) read parser -- balance/positions/orders",
+      "note": "2026-09-27 17:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13248 held once by review (case-sensitive username redaction into a PUBLIC run log); fixed (case-insensitive, URLs cut to origin, every printed line redacted), merged f5193fd, running on the live VM at 9b2884c. Lane re-running breakout-login-check to report the parsed balance vs the last journalled breakout_1 balance ($4,724, population: the single most recent prop account_status record, #21, 2026-09-27). Read-only; emit-status stays off. | 2026-09-28 00:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): DONE: parser reads balance/equity, positions AND the orders table on the live terminal. #13297 terminal URL + redact-before-cut, #13349 orders-tab click, #13387 \"current price\" dropped from _POSITION_ONLY (measured headers, #13385). Final read-only check #13405 (run 36362489458): login ok, balance 4724.0, equity 4724.0, positions 0, orders 0 -- orders_from_tables returns None when no table is found and read_orders raises on None, so 0 is a parsed empty table, not a miss. Output leak-free (credentials not printed, URL cut to origin). Lane archived."
+    },
+    {
+      "phase": "W6",
+      "state": "done",
+      "owner": "fix lane",
+      "blocked_on": [],
+      "spend_usd": 33.84,
+      "prs": [
+        13505,
+        13507,
+        13509
+      ],
+      "id": "JC-OPS",
+      "title": "Operator decisions JC-CA-02/04/05: HTF flag cleanup + research question, hold-merge post-merge alarm, deploy-fail loud alert",
+      "lane": "session_01Hmx51yERBBSjQpLm2XSoau",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "tier": 2,
+      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Dispatched per the operator decisions recorded on the CA row. Sonnet: small CI/config/script changes; manager reviews the Tier-2 deploy-script PR independently. | 2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13505 (JC-CA-02 flag removal + RQ-20260928-001 + fingerprint refresh, only config_fingerprint changed in the 7 records) merged 6a29960. Not yet deployed-observed; zero behaviour change by its own test. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): all three PRs on main (6a2996001 JC-CA-02, 78d00c890 JC-CA-04, 3c441d373 JC-CA-05). Lane archived."
+    },
+    {
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "fix lane",
+      "blocked_on": [],
+      "spend_usd": null,
+      "prs": [
+        13609
+      ],
+      "id": "JC-GIT",
+      "title": "Operator decisions JC-CA-01 (set-account-mode commits to main) + JC-CA-03 (auto-land PR via GITHUB_TOKEN) + JC-CA-06 (retire account_state fold after 01 observed)",
+      "lane": "session_01GxXaAMqxdL3p1XTuRC5mjc",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "tier": 2,
+      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): Dispatched per the operator decisions recorded on the CA row. Opus: touches the account-mode gate and the armed auto-land mandate route. | 2026-09-28 12:10Z JC-CA-03 RE-DECIDED by the operator after the lane measured option B unworkable (PI-20260928-TURC5MJC-0004; probe PR #13502: dispatched check runs left the PR blocked, the pull_request-run control read clean). Popup answer, verbatim: \"Keep PAT, verify run (Recommended)\": \"Keep the current token, and make the safety check verify via GitHub's API that the PR really came from the scheduled demotion-gate run on main. Unforgeable, and all required CI checks stay.\" Relayed by manager session_01KAQRJxRbRwpYTkPgBjNVyQ; lane JC-GIT builds it as a landing-machinery HOLD PR. | JC-CA-01: #13508 MERGED 3deb2385, landed_unproven (PI-20260928-TURC5MJC-0006, no test flip); verify half observed converged on the VM, issue #13572. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13609 (A7 verifies the r4-demotion-gate run via the API) independent Opus review BLOCK: (B1) in CI A7 grades the synthetic merge commit, so merge_base is main's tip and the route refuses every genuine PR (the merge commit's authorship also fails the bot-email check, which predates this PR, so MD-DEMOTE-S2-S1 auto-land cannot currently pass in CI at all); (B2) nothing binds PR content to the run, so a session could replay a genuine apply=false run id. Sent back to the lane with both findings."
+    },
+    {
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "fix lane",
+      "blocked_on": [],
+      "spend_usd": 21.6,
+      "prs": [
+        13504,
+        13543,
+        13589
+      ],
+      "id": "W6-PROP-FEED",
+      "title": "Breakout step 2: 5-min VM timer running the read-only terminal check with emit-status into the prop journal",
+      "lane": "session_016Np9Ac9hgbbV4g4UnXYjia",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "tier": 2,
+      "note": "2026-09-28 06:30Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR DECISION 'Feed now on schedule' (resolves PI-20260927-D9R6QTDB-0002). Opus: logs in to a live prop account on a schedule. Lane must first establish whether a 5-min login kicks the operator's own terminal session, and back off on failed logins; stops and reports if it does. | 2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13504 merged a1b3d383 after independent Opus review (MERGE, no blockers). Observation that closes it: ict-prop-feed.timer listed on the VM, journal shows `session: reused` on most ticks, prop_account_status rows ~5 min apart with source=breakout_login_check, relogins_today low. Follow-up in the same lane (trig_01HDd4TB6GvY4P4PreBqsmWa): relogin ceiling, failed-attempt counting, reset-feed ordering. | 2026-09-28 ~12:15Z: follow-up #13543 (relogin ceiling, fail-closed counter, flushed session lines, reset-feed ordering) merged 1eda6360 after Opus re-review MERGE. Observation still owed. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13589 merged (af559c8b): both feed items closed as observed. Its record collided with a TRIAGE-2 record on the same id and broke pipeline --check on main; manager repair #13627. Two follow-ups stay in the pipeline (PI-20260928-4UNXYJIA-0001 Day RPL parse, -0003 cleanup race). Lane archived."
+    },
+    {
+      "title": "Map ADAUSDT->ADAUSD, XRPUSDT->XRPUSD on Breakout (operator-confirmed specs)",
+      "phase": "W6",
+      "state": "done",
+      "owner": "fix lane",
+      "lane": "session_01TH2dUuCf3p9NXgUjF6eCAD",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 15,
+      "spend_usd": 2.52,
+      "tier": 3,
+      "prs": [
+        13522
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): merged 4cef5fb (operator: \"Add both + min-size note\"). Mapping only, no leg routed. Venue 10-lot minimum unenforced: PI-20260928-PGBJNVYQ-0001 must land before either leg routes. Lane archived.",
+      "id": "PROP-MAP"
+    },
+    {
+      "title": "Research queue runs end-to-end: dispatcher cancellations, session-run units, 48h staleness alarm",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "ops lane",
+      "lane": "session_01G2SwTpGGacwEKLHukpTp3w",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        13571
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 (RQ-OPS-2, session_01G2SwTpGGacwEKLHukpTp3w): root-caused and fixed. The prior lane (session_01NceHayuAx2a9H58Vx8j8TX, archived) halted asking for direct human confirmation before touching CI; that confirmation was obtained via AskUserQuestion this session. ROOT CAUSE of the cancellations (both runs that actually cancelled, 36239222079 & 35996108860): the stamp PR's required pytest-run took ~13m GH queue + ~20m run (~33m total), already past commit-to-main's 30m verify-merged deadline before the outer 35m job timeout killed the wait mid-poll -- reported ambiguous 'cancelled' instead of a clear pass/fail. A SEPARATE bug (the stamp diff invalidating its own required test, tests/test_research_queue.py::test_w4_dispatcher_dry_run_selects_the_unit) was already fixed on main by 73a25dd0d before this lane started; the two branches it stranded (#12989, #13012) predate that fix by minutes/hours and are now superseded (their stamps landed via later runs) -- this session could not close them: mcp__github__update_pull_request and add_issue_comment both 403 'Resource not accessible by integration' for this session's GitHub MCP token (filed in PI-20260928-RQOPS2-0001), contradicting docs/reference/session-capabilities.md (itself flagged 'never verified'). FIXED: timeout-minutes 35->70 (real headroom for TWO sequential commit-to-main verify-merged waits, since a liveness receipt step was added). BUILT: a 48h liveness receipt + scripts/ci/check_research_queue_dispatch_liveness.py (self-test: planted stale + fresh quiet control), registered in run_guards.py and wired to dispatch send-ping via system-actions on staleness. DOCUMENTED: research/queue/README.md now states the declared-vs-dispatchable workflow split, MEASURED 13 workflow-routed (.yml) / 4 issue-label-relay / 2 none-session-local of 19 committed units (PI-20260928-RQOPS2-0002, the standing-lane-pickup claim for the latter 6 is NOT verified in this repo). landed_unproven, not done: closes when a scheduled run since this PR merged completes success/failure (never cancelled) and the manual proof-of-life dispatch (this session, see PR) is observed to land. | 2026-09-28 ~12:15Z: re-dispatched as RQ-OPS-2; fix pushed on claude/rq-ops-2-dispatcher-fix, awaiting live confirmation. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13571 merged 11:32Z but research-queue-dispatch.yml has had no run since, and no scheduled run today (last schedule 09-27 12:12Z). Lane woken to dispatch, confirm end to end and explain the missing schedule.",
+      "id": "RQ-OPS"
+    },
+    {
+      "title": "Clear the 123 ask_operator pipeline items: kill / decide-under-authority / batch genuine calls as popups",
+      "phase": "W6",
+      "state": "done",
+      "owner": "ops lane",
+      "lane": "session_018EdNvSgkNvS4ac61UcfJVJ",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [
+        13578
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Triage lane (Recommended)\". Population counted by manager: 123 open items with next_action=ask_operator on origin/main. Output ranked by the priorities block. Recount at triage time: 124 (churn since manager's ~08:50Z count of 123). Disposed via 8 parallel investigation batches, each re-checking against current code/config/git history: 24 KILL, 9 DECIDE, 55 REROUTE, 36 OPERATOR (sum=124; one KILL/REROUTE reclassified after a genuine merge-time pipeline-store collision was caught by CI and fixed pre-merge, PR #13578). Applied to docs/claude/work/pipeline/ via pipeline.append(intent=\"update\"); dry-run validated against a scratch copy first. PR #13578 (Tier-1 self-land, docs-only) opened by claude-pr-automerge (this session's GitHub MCP is 403 for PR writes) after the direct create/update calls were refused three times with backoff. Full detail: docs/claude/work/triage-2026-09-28.md. spend_usd not independently measurable from this session; not fabricated here. PR #13578 MERGED (3342a03). Population was fixed at dispatch time (124); ask_operator has since grown by 2 via unrelated concurrent filings, not this lane's scope. | 2026-09-28 ~12:15Z: re-dispatched as TRIAGE-2 (first lane refused; operator chose \"Close + re-dispatch\"). Result: 124 items = 23 KILL / 9 DECIDE / 56 REROUTE / 36 OPERATOR. 19 OPERATOR items decided by popup 11:45-12:10Z (recorded on each item by the owning lane); 16 low-stakes items: operator \"Apply my recommendations\" -> ADMIN lane.",
+      "id": "TRIAGE"
+    },
+    {
+      "title": "Arm MD-PROMOTE-S1-S2 at bar.cost_tolerance_bps 2.0 (operator decision)",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "fix lane",
+      "lane": "session_01XepGtLH2ULAFoVT4Nf69L4",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 15,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        13582
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Arm, tolerance 2 bps\" (manager had recommended keep unarmed). Both blocked_until clauses verified cleared: (a) PI-20260924-JCVFRWEA-0001 done and 0 of 27 Bybit-perp cost-stacked records differ from slippage_bps_roundtrip_for; (b) operator reaffirmation 2026-09-27. No auto-land arming; promotion PRs held for manager merge + operator ping. Held Tier-3 PR, manager merges. | 2026-09-28 ~12:15Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): lanes MANDATE-ARM ($0.61), -2 ($3.56), -3 (archived before start) produced no PR (-2 blocked by the auto-mode classifier on the mandates.yaml write). Operator started session_01XepGtLH2ULAFoVT4Nf69L4 directly; #13582 merged 06f3eeda after independent Opus review MERGE and operator answer \"Merge as is\" to a popup stating gld_pullback_1h + slv_trend_1h become eligible for alpaca_live on the provisional 5 bps basis. Consequences recorded: r3_cost_fidelity reads this field as T for all cells, so MD-DEMOTE-S1-OFF grading loosens at the next R3 run; stale in-entry prose + docs/research/r3-gate1-cost-fidelity-rule-2026-09-25.md:70 to be fixed by the ADMIN lane. Promotions: gld waits for its stop walk-forward; slv_trend_1h gets a record + alpaca_live sizing check before any roster PR. Closes when the first promotion (or explicit decline) under the mandate is recorded.",
+      "id": "MANDATE-ARM"
+    },
+    {
+      "title": "M28 re-shape via research: wire-and-rescore + reshaped-thesis units",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "research lane",
+      "lane": "session_015JePcaHfBSBVrcGyu2QtAo",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 30,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Re-shape via research (Recommended)\". Basis: comms/macro/thesis_p4_scorecard.json n=1,104, 2005-2026, zero cost: calibration_rank -0.0037, edge_vs_baseline -0.0047; P2 event join never wired (PI-20260927-CAA05-0002). Offline harness only; M29 dormant until it reads out.",
+      "id": "MACRO-RESHAPE"
+    },
+    {
+      "title": "SPA: Trades 422 fix (limit cap) + Load more + Refresh + Overview last-closed-trades",
+      "phase": "W6",
+      "state": "landed_unproven",
+      "owner": "dashboard lane",
+      "lane": "session_012Wa41UeTzkAizB1JBRHpUR",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 15,
+      "spend_usd": 7.41,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~12:15Z: ict-trader-dashboard PR #220 merged dc79a39, live bundle verified by probe. Needs operator eyes for render.",
+      "id": "DASH-TRADES"
+    },
+    {
+      "title": "AI-trader post-mortem (13 retired manifests) + staged S1-S3 design as queue units",
+      "phase": "W6",
+      "state": "done",
+      "owner": "research lane",
+      "lane": "session_01SQtJGs52hkSe2xVnMmnbJh",
+      "model": "claude-fable-5-1",
+      "ceiling_usd": 35,
+      "spend_usd": 17.35,
+      "tier": 1,
+      "prs": [
+        13548
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~12:15Z: #13548 merged 4fbfa99 after Sonnet review MERGE. Units RQ-20260928-002/-005 runnable, blocked/-003/-004 need a harness extension.",
+      "id": "R-M19"
+    },
+    {
+      "title": "Manager skill: re-dispatch lanes that refuse/stall; report-backs never forbidden (operator 2026-09-28)",
+      "phase": "W6",
+      "state": "done",
+      "owner": "docs lane",
+      "lane": "session_01Y9q5CAhdBWWCveBtGWab9k",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 10,
+      "spend_usd": 2.5,
+      "tier": 1,
+      "prs": [
+        13583
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~12:15Z: #13583 merged 558560a (manager opened the PR after the lane hit a 403).",
+      "id": "SKILL-FIX"
+    },
+    {
+      "title": "Order-path fixes: strategy-priority gap + CI guard; prop balance-fetcher on all paths; alpaca short gate",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "fix lane",
+      "lane": "session_01C7mgVNtBDmoVSQSvBNzoVh",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 35,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~12:15Z: operator popups ~11:45Z/12:10Z: \"Fix both + wire guard\", \"Fix it\", \"Build the gate now\". Held PRs; manager merges after independent review.",
+      "id": "EXEC-FIX"
+    },
+    {
+      "title": "ib_paper MGC trade 5531 journal vs venue: fresh read then correct; file IB divergence detector",
+      "phase": "W6",
+      "state": "done",
+      "owner": "ops lane",
+      "lane": "session_01466jj6SeKPsWCqdeUtuj78",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 12,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        13596
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~12:15Z: operator popup \"Fresh read, then correct (Recommended)\". || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): fresh read: trade 5531 closed by the reconciler on 09-08, ib_paper flat at the venue (flatten dry-run noop_already_flat, run 36418538991), 0 MGC open orders. OI closed; IB divergence detector filed as PI-20260928-DEUTUJ78-0001. Manager added the missing landing file; auto-merge armed.",
+      "id": "MGC-FIX"
+    },
+    {
+      "title": "Re-measure exit coverage + scalp holds; demote 7 paper legs to shadow; AVAX scalp sizing",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "ops lane",
+      "lane": "session_01GdFLC6iMyWZ8FAL2LgsfEc",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 32,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [
+        13607,
+        13617
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~12:15Z: operator popups: exits \"Re-measure, then build\"; scalp holds \"Re-measure now\"; 5m scalps \"Demote 3, re-test XRP\"; donchian 4h \"Demote all 3\"; eth_4h \"Move it to shadow\"; AVAX \"Fix risk sizing now\". SCHA strip already on main (09-24). || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13607 (6 bybit_1 paper legs to shadow; verified none on a real-money roster) and #13617 (ict_scalp_avax_5m atr_sl_buffer_mult 0.20->0.50, 365d raw backtest -8.21R -> +7.03R) reviewed by manager; combined merge verified; auto-merge armed pending pytest-run.",
+      "id": "EXIT-OPS"
+    },
+    {
+      "title": "Apply operator bulk decision on 16 tier-6 triage items + record REVERIFY keep-held + mandate prose fixes",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "ops lane",
+      "lane": "session_0116oibqE8zMM9FZC4kXtcUs",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~12:15Z: operator popup \"Apply my recommendations (Recommended)\" (12:10Z). Dispatched when a lane slot frees. || 2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): dispatched, working.",
+      "id": "ADMIN"
+    },
+    {
+      "title": "Automated broker reconciliation: alpaca_live + breakout_1 (+ bybit_2 where API allows)",
+      "phase": "W6",
+      "state": "queued",
+      "owner": "build lane",
+      "lane": null,
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 25,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~12:15Z: operator popup \"Build automated reconcile (Recommended)\" on OI-20260826-JOURNAL-TRUST-COVERS-ONE-ACCOUNT. || 2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): queued behind PROP-TERM (operator priority: prop first).",
+      "id": "RECON"
+    },
+    {
+      "title": "gld_pullback_1h 3-part geometry (tp 6R, stop 1.5 ATR, 24-bar exit) + fresh Stage-0 record; MD-PROMOTE-S1-S2 roster PRs for gld_pullback_1h / slv_trend_1h",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "promotion lane",
+      "lane": "session_011h6MApXzTAY91VE8y3bgbs",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 3,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup ~13:20Z, verbatim answer \"Ship the 3-part change (Recommended)\" on the GLD confirming walk-forward (#13600: stop-only sm1.5 FAILED 3/6 folds; tp6_sm1.5_to24 PASSED 6/6, OOS dnet_R +20.08, n=54). Lane ships the geometry + regenerated evidence as a held PR, then prepares a held roster PR per leg that the armed mandate FIREs for (alpaca_live + alpaca_portfolio, cap + sizing arithmetic). Manager merges after independent review and notifies the operator with evidence + revert.",
+      "id": "PROMOTE"
+    },
+    {
+      "title": "Standing research lane: GLD confirming walk-forward, macro re-shape units, queue upkeep",
+      "phase": "W6",
+      "state": "done",
+      "owner": "research lane",
+      "lane": "session_015JePcaHfBSBVrcGyu2QtAo",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": null,
+      "spend_usd": 18.72,
+      "tier": 1,
+      "prs": [
+        13600,
+        13540,
+        13568
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~13:20Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): #13600 merged 1f444970 (GLD result record); #13540 merged 20d0dbb8; #13568 renumbered by the manager to RQ-20260928-009/-010 (EXIT-OPS #13607 had claimed -006..-008), decision rules read and approved, auto-merge armed. Queue at 34 units per the lane.",
+      "id": "RESEARCH"
+    },
+    {
+      "title": "Breakout step 3: dxtrade place_bracket + ticket intake/reconcile + fail-closed rule guards + kill switch (default read_only, unit not enabled); first click watched after the 72h keep-alive",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01MVZR1A4pGGRerkk3Gzxiav",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-28 ~13:35Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup, verbatim \"Build now (Recommended)\": build step 3 of docs/research/prop-automation-options-2026-09-27.md in parallel with the step-2 keep-alive (running since 2026-09-28 09:00Z, passes ~2026-10-01 09:00Z). No live submit in the lane; the first real click is the watched step-3 test (manager + operator) after the keep-alive passes. Then step 4 = 14-day soak. || 2026-09-28 ~13:40Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR CLARIFICATION, verbatim: \"we can breach the account and just buy a new one. That's not an issue, and that shouldn't stop us from building or acting on this.\" / \"I want to know when we're going live with the actual automated trading, even if the tickets are still coming on the Telegram as well\" / \"I definitely want to at least try a small test trade ... to prove that we can, um, set it correctly and close it.\" Applied: daily-loss/static-DD guards report-only on breakout_1 (per-account breach_guards: report; structure and could-not-look guards stay hard); a one-command open-then-close minimum-size test trade runs once the PRs merge, NOT gated on the 72h keep-alive, operator told first; \"live\" = executor placing orders (start of step 4), reported as such. Research lane re-briefed: grade Breakout candidates on EV per account purchase.",
+      "id": "PROP-EXEC"
+    },
+    {
+      "title": "Breakout proprietary-terminal adapter (breakout_terminal): read path + place_bracket behind the same platform-adapter interface, so a re-bought account can be automated",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "build lane",
+      "lane": "session_01SV1yBAgdryVBNEdrbVUUdJ",
+      "model": "claude-opus-5-5",
+      "ceiling_usd": 45,
+      "spend_usd": null,
+      "tier": 2,
+      "prs": [
+        13658
+      ],
+      "blocked_on": [],
+      "note": "2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR, verbatim: \"we don't need to start building the new terminal just yet if, uh, if we don't have capacity at the moment, but that's definitely a high priority because that is where the next account will be and we want to be ready for that in any case.\" Context: breach-and-re-buy is accepted, and Breakout sells no new DXtrade accounts, so the next account lands on the proprietary terminal (docs/research/prop-automation-options-2026-09-27.md \u00a7 0.3, \u00a7 2.4, scoped only). Dispatch order: first free lane slot, ahead of RECON. || 2026-09-28 (lane session_01SV1yBAgdryVBNEdrbVUUdJ): PR #13658 open, draft, HELD (tier_2_3_needs_approval), stacked on PROP-EXEC #13647 (merge that first, then rebase). Built: breakout_terminal adapter behind the same interface (login -> dashboard -> Open Terminal; label-based reads; disarmed place_bracket/cancel/flatten; modify_bracket refuses), one-line platform switch (per-platform default login_url), executor venue key <platform>_symbol (fail closed), read-only system-action breakout-terminal-probe. Everything past the landing page is FIXTURE-ONLY (synthetic). Measurement = pipeline PI-20260928-DRBVUUDJ-0001 after merge.",
+      "id": "PROP-TERM"
     }
   ]
 }

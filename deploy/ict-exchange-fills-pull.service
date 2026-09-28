@@ -4,7 +4,9 @@
 # Bybit fills for EVERY live Bybit account (bybit_1 / bybit_2 / bybit_portfolio,
 # each category=linear — USDT-margined perps) so the exchange-truth P&L surface
 # /api/bot/pnl/exchange + the broker-truth cost sweep have data for the whole
-# roster instead of just bybit_2.
+# roster instead of just bybit_2. ALSO refreshes the Bybit wallet ledger (see
+# the second ExecStart below) — Bybit-only; Alpaca has its OWN unit,
+# ict-alpaca-fills-pull.service, split out by FIX-CA-OPS2 (see below).
 #
 # Why this exists: the S-067 puller (scripts/pull_exchange_fills.py) shipped
 # with NO timer and NO system-action, AND pulled the spot category only — so
@@ -18,6 +20,24 @@
 # config/accounts.yaml (config-driven — a roster change needs no unit edit),
 # each pulled with its own api_key_env credentials; fail-soft on a missing-cred
 # account.
+#
+# ⚠️ FIX-CA-OPS2 (2026-09-27, manager pre-merge review of PR #13316/FIX-CA-31):
+# Alpaca fills used to be the SECOND of three ExecStart lines on this unit.
+# FIX-CA-31 made scripts/pull_alpaca_fills.py exit non-zero on a genuine API
+# failure (previously it silently returned an empty page — the exact bug class
+# this unit's wallet-ledger ExecStart was added to fix, one layer up). Under
+# systemd's Type=oneshot multi-ExecStart contract, ANY ExecStart line exiting
+# non-zero (not prefixed `-`) stops the REMAINING lines from running — so a
+# single revoked Alpaca key, rate limit, or 5xx would have started SKIPPING
+# the Bybit wallet ledger below, re-freezing the exact real-money bybit_2
+# reconciliation problem BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-
+# CLOSES-UNRECONCILED existed to fix, silently, at the systemd layer. Fixed by
+# (a) moving Alpaca to its OWN unit (ict-alpaca-fills-pull.service /
+# .timer) so an Alpaca failure can never block anything here, and (b)
+# reordering the two remaining ExecStart lines so the wallet ledger runs
+# FIRST — a Bybit-fills-pull failure (pre-existing behaviour, unaffected by
+# this fix) can no longer block the wallet ledger either. Pinned by
+# tests/test_fills_pull_unit_execstart_order.py.
 #
 # LIVE-TRADER BOX ONLY. Reads Bybit over the public API using each account's
 # BYBIT_API_KEY_* / BYBIT_API_SECRET_* from the trader .env; read-only on the
@@ -38,7 +58,7 @@
 # ============================================
 
 [Unit]
-Description=ICT exchange-fills pull (Bybit + Alpaca) — keep /api/bot/pnl/exchange + broker-truth cost fresh (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
+Description=ICT exchange-fills pull (Bybit wallet ledger + fills) — keep /api/bot/pnl/exchange + broker-truth cost fresh (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
 After=network-online.target ict-trader-live.service
 Wants=network-online.target
 
@@ -56,38 +76,33 @@ Environment=DATA_DIR=/data/bot-data
 # Quick Bybit API call (~5s for a day's fills); cap generously for a slow
 # session. A read/auth failure exits non-zero and the unit is marked failed —
 # the next timer fire retries; no state is left half-written (exec_id PK).
-# Raised 300 -> 600 on 2026-08-31 when the THIRD puller (bybit transaction log)
-# was added. This budget covers ALL ExecStart lines combined, and the new one
-# can page up to MAX_PAGES=50 per account across 3 Bybit accounts on a 7-day
-# lookback. At 300s a slow venue could have systemd kill the unit mid-run:
-# harmless to the DATA (inserts are idempotent on the venue's row id, so the
-# next fire re-covers the window) but it would mark the unit failed and, worse,
-# leave the wallet-truth window silently short while the unit looks merely
-# flaky. 600s keeps the whole chain inside one budget.
+# This budget covers BOTH ExecStart lines combined (the wallet ledger can page
+# up to MAX_PAGES=50 per account across 3 Bybit accounts on a 7-day lookback).
+# At 300s a slow venue could have systemd kill the unit mid-run: harmless to
+# the DATA (inserts are idempotent on the venue's row id, so the next fire
+# re-covers the window) but it would mark the unit failed and, worse, leave
+# the wallet-truth window silently short while the unit looks merely flaky.
+# 600s keeps the whole chain inside one budget.
 TimeoutStartSec=600
 # Run under the trader venv so ccxt imports (same interpreter the trader uses
 # for Bybit) — not system /usr/bin/python3.
-ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_fills.py --all-bybit-accounts --days 7
-# Alpaca fills (rec #7): the same hourly timer also pulls every live Alpaca
-# account's FILL activities (distinct sub-accounts, distinct creds from .env) so
-# the equity accounts accrue exchange-truth fills too. Runs after the Bybit pull;
-# both pullers are fail-soft internally (skip a missing-cred account, exit 2 only
-# when ALL creds are missing — a deploy problem worth failing the unit loudly).
-ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_alpaca_fills.py --all-alpaca-accounts --days 7
-# Bybit WALLET LEDGER (/v5/account/transaction-log), added 2026-08-31 by operator
-# directive. Until now the authoritative account-level realized figure came from an
-# operator pasting a UM CSV export, so it FROZE on 2026-07-13 while bybit_2 kept
-# trading -- 59 closed real-money trades with no wallet-truth counterpart
-# (BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED). We hold
-# live credentials and the venue serves the same quantity, so a human is not in this
-# loop any more.
 #
-# Deliberately a THIRD ExecStart on this existing hourly unit rather than a new
-# timer: same creds, same venue, same cadence, same fail-soft contract -- a smaller
-# deploy surface on a path already proven to work. The 7-day lookback overlaps every
-# run by design; the store is keyed on the venue's own row id so a re-pull inserts
-# nothing (a double-count here would MOVE an account-level P&L figure).
+# Bybit WALLET LEDGER (/v5/account/transaction-log) FIRST — added 2026-08-31 by
+# operator directive, moved to ExecStart #1 by FIX-CA-OPS2 (2026-09-27) so
+# NOTHING else in this unit can ever skip it. Until 2026-08-31 the
+# authoritative account-level realized figure came from an operator pasting a
+# UM CSV export, so it FROZE on 2026-07-13 while bybit_2 kept trading -- 59
+# closed real-money trades with no wallet-truth counterpart
+# (BL-20260830-BROKER-TRUTH-LEDGER-STALE-59-REAL-MONEY-CLOSES-UNRECONCILED). We
+# hold live credentials and the venue serves the same quantity, so a human is
+# not in this loop any more. The 7-day lookback overlaps every run by design;
+# the store is keyed on the venue's own row id so a re-pull inserts nothing (a
+# double-count here would MOVE an account-level P&L figure).
 ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/ops/pull_bybit_transaction_log.py --all-bybit-accounts --days 7
+# Bybit per-fill pull, second — a failure here still marks the unit failed
+# (visible via scripts/ops/status_check.sh's failed-unit gate) but the wallet
+# ledger above has already run by the time this could fail.
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/pull_exchange_fills.py --all-bybit-accounts --days 7
 StandardOutput=journal
 StandardError=journal
 

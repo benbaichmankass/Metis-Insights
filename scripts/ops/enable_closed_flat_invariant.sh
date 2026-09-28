@@ -110,6 +110,7 @@ pre_state="$("${SYSTEMCTL[@]}" is-active "${UNIT}" 2>/dev/null || echo "unknown"
 log "Pre-restart state of ${UNIT}: ${pre_state}"
 
 log "Restarting ${UNIT}…"
+clear_trader_stop_marker "enable-closed-flat-invariant"  # an explicit restart releases the stop_bot.sh git-sync hold
 "${SYSTEMCTL[@]}" restart "${UNIT}"
 
 deadline=$(( $(date +%s) + 30 ))

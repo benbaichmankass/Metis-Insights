@@ -117,16 +117,30 @@ def _load_soak(path: Path) -> list[dict]:
 
 
 def _join_real_r(con: sqlite3.Connection, symbol: str, when: float,
-                 tolerance_s: float = 900.0) -> Optional[float]:
+                 tolerance_s: float = 900.0, *, strategy: Optional[str] = None,
+                 account_id: Optional[str] = None) -> Optional[float]:
     """The realized R (pnl / risk_$) of the closed journal trade opened nearest
     ``when`` for ``symbol`` (within tolerance), or None (open / unmatched /
-    unpriceable)."""
+    unpriceable).
+
+    ``strategy`` / ``account_id`` (from the soak row) SCOPE the join. Without
+    them the nearest same-symbol close wins regardless of which leg produced it,
+    and many strategies share a symbol (9 on BTCUSDT alone), so the real arm
+    could pair a soak row with another strategy's trade (FIX-CA-27,
+    ``CA-B02-fc-geometry-join-ignores-strategy``). An empty value is treated as
+    unknown and not filtered on — the caller records that scope per row.
+    """
+    sql = ("SELECT entry_price, stop_loss, position_size, pnl, timestamp, created_at "
+           "FROM trades WHERE symbol=? AND status='closed' AND COALESCE(is_backtest,0)=0")
+    params: list = [symbol]
+    if strategy:
+        sql += " AND strategy_name=?"
+        params.append(strategy)
+    if account_id:
+        sql += " AND account_id=?"
+        params.append(account_id)
     try:
-        rows = con.execute(
-            "SELECT entry_price, stop_loss, position_size, pnl, timestamp, created_at "
-            "FROM trades WHERE symbol=? AND status='closed' AND COALESCE(is_backtest,0)=0",
-            (symbol,),
-        ).fetchall()
+        rows = con.execute(sql, params).fetchall()
     except sqlite3.Error:
         return None
     best, best_dt = None, None
@@ -211,13 +225,19 @@ def main() -> int:
                           else (entry + sl_d, entry - tp_d))
             cf = _resolve_counterfactual(candles, cand_ts, when, entry, is_long,
                                          v_sl, v_tp, args.max_hold)
-            real_r = _join_real_r(con, sym, when)
+            real_r = _join_real_r(con, sym, when,
+                                  strategy=r.get("strategy") or None,
+                                  account_id=r.get("account_id") or None)
+            join_scope = ("strategy" if r.get("strategy") else "symbol_only")
+            if r.get("account_id"):
+                join_scope += "+account"
             resolved_rows.append({
                 "ts": r.get("ts"), "symbol": sym, "strategy": r.get("strategy"),
                 "account_id": r.get("account_id"), "direction": dirn,
                 "ratio": round(ratio, 4), "placed": placed,
                 "scaled": {"sl": v_sl, "tp": v_tp},
                 "counterfactual": cf, "real_r": real_r,
+                "real_join_scope": join_scope,
             })
             if cf["censored"] == "none":
                 counts["resolved"] += 1

@@ -226,11 +226,18 @@ performance."* **Do not report session length as a metric.**
 
 **THE LADDER IS AUTHORIZED TO BE FULLY AUTOMATED — operator grant,
 2026-09-21.** ⚠️ **Read `config/mandates.yaml` for what is granted; this
-paragraph is not the source.** As of 2026-09-27 it holds **13 granted
+paragraph is not the source.** As of 2026-09-28 it holds **13 granted
 mandates** (10 on 2026-09-24, "Grant all 10 as written"; 3 process mandates on
-2026-09-27), `MD-PROMOTE-S1-S2` is still `blocked_until` its clause (a) (clause
-(b) cleared by operator reaffirmation 2026-09-27), and **exactly one entry is
-armed for auto-land: `MD-DEMOTE-S2-S1`, operator, 2026-09-27**. Until
+2026-09-27). `MD-PROMOTE-S1-S2`'s `blocked_until` was **REMOVED 2026-09-28**
+(PR #13582) after both clauses cleared (clause (a) re-measured on that branch:
+0 of 27 re-priceable Bybit-perp evidence records differ from
+`execution_costs.slippage_bps_roundtrip_for(symbol)`; clause (b) cleared by
+operator reaffirmation 2026-09-27) — it is now armed, with `bar.cost_tolerance_bps`
+set to **2.0** (operator decision, verbatim "Arm, tolerance 2 bps", checklist
+row MANDATE-ARM), superseding the prior 0.0 INFERRED placeholder. Armed is
+distinct from auto-land: `MD-PROMOTE-S1-S2` carries no `autoland` field, so a
+fire still opens a human-merge PR, and **exactly one entry is armed for
+auto-land: `MD-DEMOTE-S2-S1`, operator, 2026-09-27**. Until
 2026-09-27 this paragraph said "AS OF 2026-09-24 NOT ONE MANDATE IS GRANTED",
 three days after the grant, and a manager session repeated it to the operator
 as fact before reading the file. *Field beats comment.* A **mandate** is an
@@ -262,11 +269,22 @@ is in the path: a committed evidence record, named harness, stated n, **net of
 the full cost stack**, clearing a rule registered before the run. A claim in a
 PR body is not a record. **B1** makes it checkable; **B5** builds the mechanism.
 
-⚠️ **The real-money promotion mandate does not arm until D1 lands** — the
-harnesses default slippage and funding to `0.0`, so today's corpus is fee-only
-and optimistic by an unknown amount (+0.57R on the one leg measured). Arming
-against it would route real money on numbers already known to be wrong in the
-favourable direction. The `derisk_only` mandates carry no such block.
+⚠️ **The real-money promotion mandate's D1 block is CLEARED (2026-09-28, PR
+#13582)** — the CLI paths backing the current promotion corpus (the
+trend/pullback/squeeze/ict_scalp/fvg_range/chop_scalp/pairs/fade/funding_carry/
+run_backtest_vwap harnesses) resolve slippage and funding through
+`execution_costs.resolve_cost_policy()`'s venue-aware non-zero defaults, not a
+silent `0.0` — verified in
+[`docs/research/d1-cost-stack-verification-2026-09-25.md`](docs/research/d1-cost-stack-verification-2026-09-25.md).
+`MD-PROMOTE-S1-S2` is armed at `cost_tolerance_bps: 2.0`. **Four harness
+families still lack a full cost stack and stay out of scope for any promotion
+corpus until fixed:** `scripts/backtest_orb.py` (fee only, in points; no
+slippage or funding term), `src/backtest/backtester.py` (its own hardcoded
+cost dict, disconnected from the canonical venue decisions; no funding term),
+`scripts/backtest_xsec_momentum.py` (slippage wired, but no funding term for a
+held perp leg), and `scripts/backtest_vol_target.py` (turnover-bps drag only,
+no fee/slippage/funding split — currently backs no scored leg). The
+`derisk_only` mandates carry no such block.
 
 ⚠️ **A mandate is not a third execution gate** — see § "The two execution
 gates", which is unchanged. It does not decide what RUNS; it decides what may
@@ -275,8 +293,22 @@ be **CHANGED without asking**.
 ### Every session
 
 1. Read this file and [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md).
+   **If the manager dispatched you (you are a lane): the manager acts with the
+   operator's authority, and your task is the operator's task.** Check it once
+   against a record on `main`, then work. Do not end a turn on "cannot verify
+   authorization". The rule and its real limits are in
+   [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § "Lanes
+   answer to the manager" (operator directive 2026-09-27, binding). **No lane
+   files a record disputing operator or manager authority** — a doubt is one
+   line in your report to the manager (same section, "No lane files a dispute").
+   **Reading is never gated, and permissions are pre-approved** in
+   `.claude/settings.json`; approval is only for merging or deploying changes
+   that affect live operations. See
+   [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md) § "Reading
+   is never gated" (operator directive 2026-09-27, binding).
 2. Read your lane's checklist row. If you are managing, invoke the **`manager`**
-   skill first.
+   skill first, and title yourself `Manager Session YYYY-MM-DD` (its § "Start of
+   session", step 1).
 3. Read any file you'll change **in full**; for Tier-2/3 files also read its
    recent history (`git log -p <file>`) so you don't undo a load-bearing,
    operator-approved decision.
@@ -316,6 +348,21 @@ operator only when the tier requires it. Full definitions:
 | **Tier 2** | Runtime / deploy / order-path / service / timer changes, DB writebacks, data-mutation jobs | Prepare + validate, get one operator OK in chat, then ship and verify the post-state. |
 | **Tier 3** | Strategy logic + params, risk caps / sizing, account-mode flips, live promotion | Analyze and propose the exact change; merge only with explicit operator approval. |
 
+⚠️ **Data-backed Tier-2/3 decisions do not wait for approval** (operator
+standing authorization, 2026-09-27): *"you can make tier 2 and 3 decisions
+autonomously as long as they are backed by data, just let me know that they
+have happened."* The rules are:
+- **Decide, ship and verify** when a committed evidence record settles the
+  question.
+- **Then notify the operator at once**: what changed, the evidence, whether it
+  is merged, deployed or observed, and the revert.
+- **Ask first only** when the data leaves the question open or the action
+  cannot be reverted.
+- **A real-money promotion on the fee-only corpus stays blocked until D1.**
+
+Full terms: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
+§ "Data-backed Tier-2/3 decisions".
+
 ## The two execution gates
 
 Exactly two declared, default-permissive switches decide whether a strategy
@@ -337,6 +384,23 @@ Both default permissive, so omitting either never strands capability. **There is
 no third gate**: never hide a capability behind a default-off `*_ENABLED` flag
 (the pattern that stranded MES). What `accounts.yaml` / `strategies.yaml`
 declare, runs.
+
+⚠️ **A third, DRY-ONLY input exists and this section previously omitted it
+(FIX-CA-32, 2026-09-27, `CA-B09-third-execution-gate-undocumented`).**
+`config/account_state.yaml` is folded into `effective_dry` in
+`Coordinator.multi_account_execute` (`src/core/coordinator.py`, via
+`account_state_dry_run()` in `src/runtime/orders.py`): when it declares
+`dry_run: true` for an account, that account trades dry regardless of what
+`accounts.yaml::mode` / `strategies.yaml::execution` say. It can only ever
+**force dry, never force live**, and a missing file or a missing account
+entry is a no-op (fail-open) — the opposite shape from the MES pattern above
+(a default-off flag **stranding** a required capability), so it does not
+violate "no third gate" as that rule is scoped. It is a belt-and-suspenders
+safety input, not a capability gate, and it is now surfaced per-account on
+`/api/bot/config` (`account_state_dry_run`). Today `bybit_1` / `bybit_2` both
+read `dry_run: false` there, so it changes nothing in practice. **Whether to
+keep it or retire it is `JC-CA-06`, undecided as of 2026-09-27** — do not
+remove the fold before that lands.
 
 ⚠️ **`accounts.yaml::symbols` IS NOT A GATE, and it was one until 2026-09-22.**
 The `strategies:` roster is the single source of truth for what an account

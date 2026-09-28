@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "due_date": "2026-09-30",
+    "kind": "date"
+  },
+  "id": "PI-20260927-ECILBBVH-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/code-audit-2026-09-27/CA-A02.findings.jsonl#AUD-20260927-CA-A02-net-position-read-failure-reads-flat",
+    "rerun": "sed -n '/def current_net_position_qty/,/^def /p' src/runtime/positions.py | grep -n 'treating as flat'  # present => still open"
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-07 fixed in PR #13244 (branch fix/ca-07-08-10-exec-core); regression test tests/test_net_position_unreadable.py fails on main, passes on the branch. MERGED != DEPLOYED: takes effect only after an ict-trader-live restart post-merge.",
+  "what": "[AUD-20260927-CA-A02-net-position-read-failure-reads-flat] When the journal read fails (e.g. sqlite 'database is locked'), current_net_position_qty returns 0.0 ('treating as flat') and both open-position guards (has_open_trade_for_strategy, coordinator._has_open_position) return False, so an intent-mode package on an account that already holds the symbol is dispatched as a fresh full-size 'open' instead of noop/hold/increase. Proposed fix: Return Optional[float] (None = could not look) and have the coordinator refuse the account with reason net_position_unreadable; same for the two has-open helpers. (Tier 2; audit lanes do not enact fixes.)"
+}

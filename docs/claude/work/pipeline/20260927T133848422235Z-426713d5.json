@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "ict-git-sync.service reads active/inactive (not failed) on a fresh services pull, or a health-review has root-caused and dispositioned the failure.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-YZRZQ725-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "lane claude/w6-ml-review (W6 M1 ml-review), comms/reviews/ml-review-20260927-063330.json anomalies[]",
+    "rerun": "vm-diag-request: services -- check ict-git-sync.service state. If still failed, trainer-vm-diag or vm-diag-request: journalctl -u ict-git-sync.service -n 100 --no-pager to read the failure reason, and diff the live VM HEAD against origin/main to confirm whether deploys are actually stale."
+  },
+  "state": "done",
+  "terminal_reason": "Root-caused and confirmed healthy by code audit CA-A10 (session session_016shE4tRmBjWERor1Dj7Suq), 2026-09-27, satisfying clears_when's second clause ('a health-review has root-caused and dispositioned the failure') and its first clause too (a fresh live pull now reads ict-git-sync.service=inactive, ict-git-sync.timer=active). ROOT CAUSE (MEASURED via live diag_fetch.sh journalctl read of the 2026-09-27T06:31:51Z-06:38:06Z window): a `git fetch` ref-lock race ('cannot lock ref refs/remotes/origin/main'), which self-healed on the very next timer fire (~6 min later) -- a single transient failure, not an ongoing staleness (the live VM's HEAD was already caught up on re-check, including this very audit's CA-A01 output). The GENERIC problem this incident exposed -- a failed timer-triggered oneshot's Result does not change its .timer's ActiveState, so `timer active` reads as healthy regardless -- is NOT closed by this record and is filed separately as CA-A10-402's own pipeline record (this same session), since it is systemic across ~41 ict-* oneshot+timer pairs, not specific to ict-git-sync.",
+  "what": "ict-git-sync.service reads state=\"failed\" on the live VM while its timer (ict-git-sync.timer) is active. MEASURED incidentally this session (out of ml-review scope, not investigated further): vm-diag-snapshot #13063 (services path), read 2026-09-27T06:34:49Z. ict-git-sync is the mechanism the root CLAUDE.md names as pulling main every ~5 min so the Workflow page (and every deployed change) stays fresh -- a failed unit here plausibly means recent merges to main are not reaching the live VM, which would be a Tier-1/2 health-review-scoped finding, not an ML one. Not root-caused, not confirmed as an ongoing failure vs. a single stale failed-state (systemd does not auto-clear a failed oneshot until the next successful run or an explicit reset) -- filed for health-review to pick up rather than left as a review-artifact anomaly only. [CLOSED 2026-09-27 by CA-A10 -- see terminal_reason.]"
+}

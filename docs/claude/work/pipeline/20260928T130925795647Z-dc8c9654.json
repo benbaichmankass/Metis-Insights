@@ -1,0 +1,47 @@
+{
+  "due_when": {
+    "clears_when": "the operator decides whether to widen TIER1_SURFACE to include scripts/ml/** (or declines to), OR another PR touching scripts/ml/** trips the same self-land refusal again -- either way this stops being open.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-QBHR1EYJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01Bf9Xnenv6vF5rSqbhr1EYj / PR #13093 (checklist row B4)",
+    "rerun": "python3 -c \"import sys; sys.path.insert(0,'scripts/ci'); import check_pr_landing as c; print('scripts/ml/**' in c.TIER1_SURFACE)\"  # False today"
+  },
+  "routed_to": "https://github.com/benbaichmankass/Metis-Insights/pull/13624",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Ran the item's own rerun check: `'scripts/ml/**' in check_pr_landing.TIER1_SURFACE` still evaluates False. Confirmed TIER1_SURFACE currently lists scripts/ci/**, scripts/ops/**, scripts/research/**, scripts/reports/**, scripts/backtest_*.py — scripts/ml/** is still absent.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "one config/policy line",
+          "label": "Widen TIER1_SURFACE to include scripts/ml/**",
+          "risk": "scripts/ml/** likely also holds non-Tier-1 files (training/promotion machinery); widening the whole glob could let a Tier-2/3-natured change self-land by accident unless the directory is first audited for which files actually belong there",
+          "what_happens": "In-place edits to Tier-1-natured files under scripts/ml/ (review/reporting tooling, not training-path code) can self-land like scripts/research/**, scripts/ops/** already do."
+        },
+        {
+          "cost": "ongoing minor friction/indirection for legitimately Tier-1 changes",
+          "label": "Decline; keep routing scripts/ml/** fixes through new scripts/ops/ modules (the MI-242 precedent pattern)",
+          "risk": "none — status quo",
+          "what_happens": "No change. Future Tier-1-natured edits inside scripts/ml/** keep getting built as new files elsewhere instead of in-place edits."
+        },
+        {
+          "cost": "a slightly more complex glob to maintain",
+          "label": "Widen it narrowly (e.g. scripts/ml/*review*.py / scripts/ml/*report*.py only, not the whole tree)",
+          "risk": "lowest of the three widening options",
+          "what_happens": "Captures the specific self-documented-Tier-1 files without touching training/promotion code under the same directory."
+        }
+      ],
+      "priority_tier": 6,
+      "question": "scripts/ml/** is excluded from TIER1_SURFACE even though some files in it (e.g. strategy_review_packet.py) self-document as Tier-1 review tooling, forcing workarounds like building new scripts/ops/ modules instead of editing in place. Should TIER1_SURFACE be widened to include scripts/ml/**?",
+      "recommendation": "Option 3 (narrow widening) — gets the concrete benefit (B4-style fixes land in place) without exposing training/promotion-adjacent files in the same directory to accidental self-land."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "scripts/ci/check_pr_landing.py::TIER1_SURFACE excludes scripts/ml/**, even though root CLAUDE.md's own Tier-1 examples plainly cover review tooling like scripts/ml/strategy_review_packet.py (which documents itself as Tier-1 in its own module docstring). Surfaced 2026-09-27 while landing checklist row B4: an in-place edit to that file would have been refused self-land on R5's 'diff outside TIER1_SURFACE' clause, so B4's fix was built as a new scripts/ops/ module instead. Mirrors the MI-242 precedent (scripts/backtest_*.py was in the same gap until an operator-approved widening). Not fixed here: widening TIER1_SURFACE is the operator's act, not a session's -- the same asymmetry CLAUDE.md names for granting a mandate.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — scripts/ml/** is excluded from TIER1_SURFACE even though some files in it (e.g. strategy_review_packet.py) self-document as Tier-1 review tooling, forcing workarounds like building new scripts/ops/ modules instead of editing in place. Should TIER1_SURFACE be widened to include scripts/ml/**? Recommendation: Option 3 (narrow widening) — gets the concrete benefit (B4-style fixes land in place) without exposing training/promotion-adjacent files in the same directory to accidental self-land.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: narrow TIER1_SURFACE widening to scripts/ml/*review*.py and scripts/ml/*report*.py only (landing machinery -> hold). Built in scripts/ci/check_pr_landing.py (TIER1_SURFACE); PR #13624 is held pending manager/operator merge."
+}

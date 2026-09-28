@@ -1,0 +1,18 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a fix for CA-A01-018 is merged with a test that fails on the old code (detector: unit test: not_found + position present -> row stays open; not_found + position absent twice -> orphaned), or the item is killed with a stated reason by CA-LEAD re-verification",
+    "kind": "observation",
+    "last_checked": "2026-09-27"
+  },
+  "id": "PI-20260927-KFWRL9R1-0005",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "code audit 2026-09-27 lane CA-A01 (session_0155iFHoP6BJuj62kfWRL9r1), finding CA-A01-018 in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl",
+    "rerun": "Read finding CA-A01-018 (evidence field) in docs/audits/code-audit-2026-09-27/CA-A01.findings.jsonl, re-read src/runtime/order_monitor.py:L4545-L4581 (reason text at L6765-L6769 in _mark_orphaned) on main, and re-run the stated reproduction/diag read; the finding holds while the quoted code is unchanged."
+  },
+  "state": "done",
+  "terminal_reason": "FIX-CA-04 fixed in PR #13251 (lane fix/ca-order-monitor-02-06) with TestNotFoundConsultsPositions in tests/test_monitor_reconciler.py, shown failing on the pre-fix main. Closes on merge per clears_when; deploy needs an ict-trader-live restart (merged != deployed != observed).",
+  "what": "HIGH (code audit CA-A01-018, MEASURED): _reconcile_open_trades marks a DB-open trade 'orphaned' on a single account_order_status 'not_found' read without consulting the venue position view, so a trade whose position is still open on Bybit is removed from the open journal and stamped with a reason ('not present in exchange open-positions') that was never checked. LOCATION: src/runtime/order_monitor.py:L4545-L4581 (reason text at L6765-L6769 in _mark_orphaned). PROPOSED FIX: In the not_found branch, when the venue position set (already fetched lazily for the flat branch) still contains (symbol, canonical side), do not orphan; otherwise require the same 2-observation _PENDING_CLOSE_CONFIRM arming used by the flat branch. Make _mark_orphaned's reason reflect the predicate (order not_found vs zero-fill terminal)."
+}

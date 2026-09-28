@@ -166,12 +166,34 @@ case "${action}" in
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac
         ;;
-    set-account-mode)
+    breakout-login-check)
+        # READ-ONLY prop-terminal login check. Exit 4 is a FEASIBILITY finding
+        # (challenge / CAPTCHA / 2FA / login rejected), not a crash.
         tier=2
         case "${exit_code}" in
-            0) result="ok"; priority="normal" ;;
-            3) result="deferred — vm-runner active, retry later"; priority="normal" ;;
+            0) result="ok — logged in and read the account"; priority="normal" ;;
+            3) result="login ok, read path partly unparsed (selector work)"; priority="normal" ;;
+            4) result="feasibility stop (see run log)"; priority="high" ;;
+            5) result="environment — Playwright/Chromium unusable on the VM"; priority="high" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
+        esac
+        ;;
+    set-account-mode)
+        # JC-CA-01 (2026-09-28): exit 0 means the mode-change PR was OPENED (or
+        # main already read that mode). The account has NOT changed mode until
+        # that PR merges; verify-account-mode reports the post-state.
+        tier=2
+        case "${exit_code}" in
+            0) result="PR opened — mode changes when it merges"; priority="normal" ;;
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
+        esac
+        ;;
+    verify-account-mode)
+        tier=1
+        case "${exit_code}" in
+            0) result="converged — the running trader reads the new mode"; priority="normal" ;;
+            4) result="NOT CONVERGED — the VM does not run the mode main declares"; priority="urgent" ;;
+            *) result="FAILED (exit ${exit_code})"; priority="high" ;;
         esac
         ;;
     set-env)
@@ -296,7 +318,7 @@ case "${action}" in
             0) result="ok (dry-run preview, cancelled+verified gone, or no such order)"; priority="normal" ;;
             1) result="cancel FAILED or did not take effect — order may still be resting"; priority="urgent" ;;
             2) result="refused: bad/ambiguous id (orderId is unique only per clientId — retry with perm:)"; priority="high" ;;
-            3) result="COULD NOT LOOK or unconfirmed — NOT evidence the order is gone; re-run the dry-run"; priority="high" ;;
+            3) result="COULD NOT LOOK, unconfirmed, or cancel already in flight (PendingCancel) — NOT evidence the order is gone; re-run the dry-run"; priority="high" ;;
             4) result="refused by a safety guard (protective leg, or a trader-band clientId)"; priority="high" ;;
             *) result="FAILED (exit ${exit_code})"; priority="urgent" ;;
         esac

@@ -8,9 +8,16 @@ leg + sizing, renders the trade-setup ticket, and emits it as a ``prop_signal``
 (``src.prop.breakout_executor.emit_prop_ticket``).
 
 It is a TEST: the order is synthetic and clearly labelled, and it calls the
-emitter DIRECTLY (not the full ``execute`` path), so NOTHING is journaled and no
-exchange socket is ever opened — it only sends the ping. Safe to run any number
-of times.
+emitter DIRECTLY (not the full ``execute`` path), so no ``trades`` row or order
+package is written and no exchange socket is ever opened. It DOES journal one
+``prop_tickets`` row — as ``status='test_ping'`` (``emit_prop_ticket(...,
+test_ping=True)``), a status the one-ticket-per-trade suppression scan and the
+expiry/invalidation/reconcile scans all ignore. (Until FIX-CA-11 that row was
+``status='emitted'``, and it suppressed the next REAL signal for the same
+account/symbol/direction until the synthetic ticket expired, while this
+docstring claimed nothing was journaled.) If a real position or live ticket is
+already outstanding for the key, the ping is itself suppressed (journaled as
+``suppressed``, not sent). Safe to run any number of times.
 
 Must run where the prop bot token + FCM creds live (the live VM, with the
 runtime ``.env`` loaded) — that is why it is dispatched through the
@@ -121,9 +128,11 @@ def main() -> int:
                     ticket, push=not args.no_push, telegram=not args.no_telegram)
 
             trade_id = emit_prop_ticket(
-                order, account_cfg, timeframe=args.timeframe, _emitter=_emitter)
+                order, account_cfg, timeframe=args.timeframe, _emitter=_emitter,
+                test_ping=True)
         else:
-            trade_id = emit_prop_ticket(order, account_cfg, timeframe=args.timeframe)
+            trade_id = emit_prop_ticket(
+                order, account_cfg, timeframe=args.timeframe, test_ping=True)
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: emit_prop_ticket raised: {exc}", file=sys.stderr)
         return 1
@@ -140,7 +149,9 @@ def main() -> int:
         "creds_present": creds,
         "telegram_deliverable": telegram_deliverable,
         "note": (
-            "TEST ping only — nothing journaled, no exchange socket opened. "
+            "TEST ping only — one prop_tickets row journaled as "
+            "status='test_ping' (never suppresses a real signal); no trades "
+            "row, no exchange socket opened. "
             "If telegram_deliverable is false, the ticket built fine but no "
             "message was sent (missing token/chat-id in the action env)."
         ),

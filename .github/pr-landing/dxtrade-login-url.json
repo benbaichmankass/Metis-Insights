@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only prop probe, operator pre-authorised 2026-09-27",
+  "why": "Points breakout_1's DXtrade login at the terminal's own HTTP host. Run 36337076971 (#13279) ended unknown_page at app.breakoutprop.com: that is the Cloudflare-fronted dashboard, not the DXtrade login, so the earlier 'login: ok' never typed the credentials. The operator confirmed at 18:20Z that BREAKOUT_DX_* are the DXtrade terminal login. MEASURED read-only: wss.breakoutprop.com is a DNS-only CNAME to aws-breakout-prod-lb (not Cloudflare). GET / returns 200 'Breakout Terminal' from envoy, sets the DXtrade DXTFID cookie and serves form.loginForm-main (action api/auth/login). Every login selector was measured on that page. Also: login_url must be https; an unknown_page/timeout login prints a redacted page-shape dump (no input values). Read-only; emit-status stays off."
+}

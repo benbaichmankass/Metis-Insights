@@ -3,63 +3,63 @@
   "strategy": "ict_scalp_avax_5m",
   "symbol": "AVAXUSDT",
   "timeframe": "5m",
-  "config_fingerprint": "sha256:7151bf0d4896c3e408a75a231b87a6f2",
+  "config_fingerprint": "sha256:d678fde990c82f54175247ce3619fe26",
   "basis": "harness_timefolds",
   "coverage_state": "measured",
   "fidelity": "faithful",
   "omitted_levers": [],
-  "net_r_oos": -9.134,
-  "expectancy_r_oos": -0.0353,
-  "n_trades_oos": 259,
+  "net_r_oos": 6.4895,
+  "expectancy_r_oos": 0.0253,
+  "n_trades_oos": 257,
   "folds": 4,
   "fold_detail": [
     {
       "fold": 1,
       "trades": 64,
-      "net_r": 11.7935,
-      "expectancy_r": 0.1843,
-      "start": "2025-09-27 10:55:00+00:00",
-      "end": "2025-12-17 14:55:00+00:00"
+      "net_r": 13.7589,
+      "expectancy_r": 0.215,
+      "start": "2025-09-28 13:00:00+00:00",
+      "end": "2025-12-30 05:20:00+00:00"
     },
     {
       "fold": 2,
       "trades": 64,
-      "net_r": -0.3881,
-      "expectancy_r": -0.0061,
-      "start": "2025-12-23 08:50:00+00:00",
-      "end": "2026-03-06 08:10:00+00:00"
+      "net_r": 0.015,
+      "expectancy_r": 0.0002,
+      "start": "2025-12-31 01:20:00+00:00",
+      "end": "2026-03-11 05:20:00+00:00"
     },
     {
       "fold": 3,
       "trades": 64,
-      "net_r": -15.8908,
-      "expectancy_r": -0.2483,
-      "start": "2026-03-08 12:25:00+00:00",
-      "end": "2026-06-07 14:45:00+00:00"
+      "net_r": -6.0635,
+      "expectancy_r": -0.0947,
+      "start": "2026-03-12 09:40:00+00:00",
+      "end": "2026-06-11 14:10:00+00:00"
     },
     {
       "fold": 4,
-      "trades": 67,
-      "net_r": -4.6486,
-      "expectancy_r": -0.0694,
-      "start": "2026-06-08 21:05:00+00:00",
-      "end": "2026-09-24 14:45:00+00:00"
+      "trades": 65,
+      "net_r": -1.2209,
+      "expectancy_r": -0.0188,
+      "start": "2026-06-11 17:30:00+00:00",
+      "end": "2026-09-26 13:50:00+00:00"
     }
   ],
-  "folds_positive": 1,
+  "folds_positive": 2,
   "window_days": 365,
   "fee_bps_roundtrip": 7.5,
   "path_stats": {
     "series_location": "source_run (the per-trade rows, in order, with net_r)",
-    "n": 259,
-    "max_drawdown_r": 25.9159,
-    "max_drawdown_at_trade": 251,
-    "final_equity_r": -9.134,
-    "max_equity_r": 16.3075,
-    "worst_trade_r": -8.0145,
-    "best_trade_r": 1.458,
-    "worst_day_r": -8.5934,
-    "worst_day_date": "2026-06-07",
+    "n": 257,
+    "max_drawdown_r": 14.8807,
+    "max_drawdown_at_trade": 162,
+    "final_equity_r": 6.4895,
+    "max_equity_r": 16.3834,
+    "worst_trade_r": -1.7019,
+    "best_trade_r": 1.454,
+    "worst_day_r": -2.6598,
+    "worst_day_date": "2026-04-15",
     "trades_without_exit_time": 0,
     "ordering": "by entry_time ascending; pooled ACROSS folds, so this is the full-window path, not a per-fold one",
     "not_a_verdict": "Descriptive only. No bar is applied here -- the prop bar is B6's to register, and it must be registered before these numbers are read."
@@ -69,19 +69,19 @@
     "slippage": 3.0,
     "funding": 1.0,
     "unit": "bps_roundtrip (funding: bps per funding window)",
-    "source": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_avax_5m__bt.json"
+    "source": "comms/strategy_evidence/runs/2026-09-28/ict_scalp_avax_5m__bt.json"
   },
-  "net_r_oos_fee_only": 4.1284,
+  "net_r_oos_fee_only": 16.1523,
   "decision_rule": {
     "id": "RULE-D1-STAGE0-NET-OF-FULL-COST",
     "rule": "Stage 0 requires net_r_oos -- pooled net_total_r from the harness's out-of-sample time-folds, net of the FULL cost stack (fee + slippage + funding) -- to be > 0. Restates the existing promotion-ladder Stage-0 bar as a checkable predicate over this record's own fields; does not itself authorize or perform any roster change.",
     "registered_at": "2026-09-22T05:34:08Z",
-    "verdict": "fail"
+    "verdict": "pass"
   },
   "param_selection_provenance": "not_established",
-  "generated_at": "2026-09-25T10:04:30.008369+00:00",
+  "generated_at": "2026-09-28T13:29:31.226832+00:00",
   "generated_by": "scripts/ops/build_strategy_evidence.py",
-  "source_run": "comms/strategy_evidence/runs/2026-09-25/ict_scalp_avax_5m__trades.jsonl",
+  "source_run": "comms/strategy_evidence/runs/2026-09-28/ict_scalp_avax_5m__trades.jsonl",
   "error": null,
   "harness": "ict_scalp"
 }

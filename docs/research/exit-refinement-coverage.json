@@ -1,6 +1,6 @@
 {
  "_doc": "M20 exit-refinement coverage matrix — one row per strategy leg. THE milestone's done-condition: every live leg carries a verdict per lever column (shipped / honest_negative / pending / blocked:<reason>). Update in the SAME PR as any verdict-producing work (binding per .claude/skills/exit-refinement). Statuses only from verified evidence (memo/sprint-log/PR refs) — never inferred. ROWS ARE ONE LEG EACH as of 2026-08-09 (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS): bundled rows carried ONE status for a whole family, so the status described only the leg that passed and the roll-up over-counted `shipped`. Exploded rows carry `exploded_from`. The `shadow fleet` row is deliberately NOT exploded — its label does not enumerate its legs and it is execution:shadow, outside the live-leg done-condition. DO NOT ADD A NEW BUNDLED ROW. ⚠️ EVERY `exit_head_ml` VERDICT IN THIS MATRIX WAS MEASURED UNDER AN ORDER-DEPENDENT TIE-BREAK (BL-20260815-EXIT-HEAD-VERDICT-DEPENDS-ON-LEG-ARGUMENT-ORDER, 2026-08-15). The E1 fold sort is stable and keyed on entry time alone, so trades sharing a bar inherit the order their legs were passed on the command line; on a pooled family every leg entering on the same bar ties. Measured: the same 7 legs in two orders gave identical trade counts, rows and fold shape, yet 8 of 43 folds differed, mean_auc moved up to 0.0331, and two legs lost a usable fold. 27 of the 33 committed rounds are multi-leg `family_pooled` and so exposed; `per_leg` rounds are immune. NO STATUS HERE HAS BEEN RE-GRADED ON THIS — both orders are equally valid and the AUC term is one of four in the gate, so this is a caveat on provenance, NOT a claim that any cell is wrong. `train_exit_head.py --total-sort` fixes it and is DEFAULT-OFF pending an operator-approved re-measure; rounds now stamp `total_sort` so re-measured and legacy rows stay distinguishable.",
- "updated_at": "2026-09-25",
+ "updated_at": "2026-09-28",
  "lever_columns": [
   "trail_geometry",
   "stale_stop",
@@ -717,7 +717,7 @@
    "strategy": "trend_donchian_sol_4h",
    "symbol": "SOLUSDT",
    "tf": "4h",
-   "execution": "live",
+   "execution": "shadow",
    "exploded_from": "trend_donchian_{eth,sol,xrp,ada,avax}_4h",
    "trail_geometry": {
     "status": "honest_negative",
@@ -837,7 +837,7 @@
    "strategy": "trend_donchian_ada_4h",
    "symbol": "ADAUSDT",
    "tf": "4h",
-   "execution": "live",
+   "execution": "shadow",
    "exploded_from": "trend_donchian_{eth,sol,xrp,ada,avax}_4h",
    "trail_geometry": {
     "status": "honest_negative",
@@ -897,7 +897,7 @@
    "strategy": "trend_donchian_avax_4h",
    "symbol": "AVAXUSDT",
    "tf": "4h",
-   "execution": "live",
+   "execution": "shadow",
    "exploded_from": "trend_donchian_{eth,sol,xrp,ada,avax}_4h",
    "trail_geometry": {
     "status": "honest_negative",
@@ -1988,8 +1988,8 @@
     "denominator_unstated": true
    },
    "stale_stop": {
-    "status": "honest_negative",
-    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) || EXPLODED 2026-08-09 from bundled row 'equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:24:39Z, tp_cap_pct=0.099 APPLIED — `pullback` is in `m20_fleet_exit_sweep.LIVE_TP_CAPPED_FAMILIES`, and this row carries a MEASURED live-TP-reach distribution (median 12.304R over n=317 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not from the request). Cells: stale12_lt0R=is_oos_fail, stale8_lt0R=is_oos_fail. base n IS=317 OOS=31. Split **2025-07-03**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS trades) — NOT the 2025-07-01 boundary the pre-cutover evidence used, so this is a different partition of the same book and legs in this run do not share a cut. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding.",
+    "status": "shipped",
+    "ref": "fleet sweep 2026-07-12 (runtime_logs/m20_fleet) || EXPLODED 2026-08-09 from bundled row 'equities 1h fleet (gld/spy/qqq/tlt pullback; slv/uso trend' (BL-20260809-COVERAGE-MATRIX-MULTILEG-ROW-ONE-STATUS). Per-leg status from this ref's explicit wording only; silent or un-run -> `pending`, never an inherited verdict. || RE-SWEPT AT LIVE PARITY 2026-08-15 (run 2026-08-15T22:24:39Z, tp_cap_pct=0.099 APPLIED — `pullback` is in `m20_fleet_exit_sweep.LIVE_TP_CAPPED_FAMILIES`, and this row carries a MEASURED live-TP-reach distribution (median 12.304R over n=317 IS trades), which the sweep emits ONLY when the cap actually applies — so the geometry is declared from a measurement, not from the request). Cells: stale12_lt0R=is_oos_fail, stale8_lt0R=is_oos_fail. base n IS=317 OOS=31. Split **2025-07-03**, DERIVED per leg (split_mode=oos-trades, targeting 35 OOS trades) — NOT the 2025-07-01 boundary the pre-cutover evidence used, so this is a different partition of the same book and legs in this run do not share a cut. The re-sweep REPRODUCES the negative under the geometry production actually places — status unchanged, and that is the finding. || SHIPPED 2026-09-28 as the `to24` component of bracket cell `tp6_sm1.5_to24` (operator popup ~13:20Z \"Ship the 3-part change (Recommended)\", checklist row PROMOTE; evidence docs/research/gld-1h-stop-confirm/2026-09-28-confirming-walkforward.md, 6/6 effective folds, OOS d_net_R +20.08, n=54). Declared stale_exit_bars 24 / stale_exit_below_r 1e9: a threshold no open-R reaches, so the lever is an UNCONDITIONAL 24-bar time exit, which this unit can run (it has no timeout_bars reader). MEASURED equivalence, same GLD 1h CSV, scripts/backtest_pullback.py: --stale-exit-bars 24 --stale-exit-below-r 1e9 and --timeout-bars 24 both give n=90, net +32.8402R. This is NOT the M20 conditional stale cell (stale12_lt0R / stale8_lt0R); that verdict stays honest_negative as measured above.",
     "tp_geometry": "live_parity",
     "base_is": 317,
     "base_oos": 31
@@ -2031,10 +2031,11 @@
     "denominator_unstated": true
    },
    "bracket_geometry": {
-    "status": "passed_unshipped",
-    "ref": "RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. Status UNCHANGED at `passed_unshipped`, but THE WINNER NAMED HAS CHANGED. The prior ref's winner **tp6_sm1.5_to24** carries a TIMEOUT component and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES); quoting it as the passing cell made an unreachable geometry read as a pending ship. The SHIPPABLE winner on the 08-29 run is cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5, d_net_r +46.4640. ⚠️ `passed_unshipped` RECORDS A MEASUREMENT AND IS NOT A RECOMMENDATION TO SHIP — declaring this geometry in config/strategies.yaml is Tier-3 and operator-gated.",
+    "status": "shipped",
+    "shipped_cell": "tp6_sm1.5_to24",
+    "ref": "SHIPPED 2026-09-28 as cell `tp6_sm1.5_to24` (tp_r 6.0, atr_stop_mult 1.5, to24 delivered as stale_exit_bars 24 / stale_exit_below_r 1e9) -- history follows. || RE-CHECKED run 2026-08-29 (sweep run 33277532648, corpus 8,289 keys); write-up `docs/research/e35-matrix-recheck-2026-08-29.md`. Status UNCHANGED at `passed_unshipped`, but THE WINNER NAMED HAS CHANGED. The prior ref's winner **tp6_sm1.5_to24** carries a TIMEOUT component and is unshippable by construction (BL-20260829-HARNESS-FORCE-CLOSES-TREND-PULLBACK-TRADES-ON-BAR-COUNT-AND-LIVE-NEVER-DOES); quoting it as the passing cell made an unreachable geometry read as a pending ship. The SHIPPABLE winner on the 08-29 run is cell `sm1.5` — path_b_wf_pass, wf_wins_effective 5, d_net_r +46.4640. ⚠️ `passed_unshipped` RECORDS A MEASUREMENT AND IS NOT A RECOMMENDATION TO SHIP — declaring this geometry in config/strategies.yaml is Tier-3 and operator-gated. || SHIPPED 2026-09-28: cell `tp6_sm1.5_to24` (tp_r 6.0, atr_stop_mult 1.5, 24-bar time exit). The 'unshippable by construction' objection above is discharged: the timeout ships as a declared stale_stop with an unreachable threshold, proven identical to --timeout-bars 24 in the harness (see stale_stop ref). `sm1.5` alone FAILED the 2026-09-28 confirming walk-forward (3/6 folds) and is not shipped. Operator popup ~13:20Z \"Ship the 3-part change (Recommended)\"; evidence docs/research/gld-1h-stop-confirm/2026-09-28-confirming-walkforward.md; fresh Stage-0 record comms/strategy_evidence/gld_pullback_1h.json (net_r_oos +32.84, n=90, 4 folds). Revert: atr_stop_mult 2.5, tp_r 4.0, delete stale_exit_*.",
     "denominator_unstated": true,
-    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp6_sm1.5_to24 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm1.5 (wf 5/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number."
+    "timeout_binding": "MEASURED 2026-08-29 (`scripts/research/timeout_binding_audit.py` over `docs/research/e35-bracket-corpus.jsonl`; write-up `docs/research/timeout-bars-harness-vs-live-2026-08-29.md`): ⚠️ this leg's BEST validated cell is `tp6_sm1.5_to24 (wf 6/6)`, which prescribes a bar-count timeout live cannot express — it is NOT what a shipment here would declare. The shippable winner is `sm1.5 (wf 5/6)`. Status stays `passed_unshipped` because a deliverable cell does stand; do not ship the headline number. || 2026-09-28: live CAN now express it -- the timeout is declared as stale_stop (stale_exit_bars 24, stale_exit_below_r 1e9); see bracket_geometry ref."
    }
   },
   {
@@ -2507,7 +2508,7 @@
    "strategy": "ict_scalp_sol_5m",
    "symbol": "SOLUSDT",
    "tf": "5m",
-   "execution": "live",
+   "execution": "shadow",
    "trail_geometry": {
     "status": "n/a",
     "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R — no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
@@ -2603,7 +2604,7 @@
    "strategy": "ict_scalp_avax_5m",
    "symbol": "AVAXUSDT",
    "tf": "5m",
-   "execution": "live",
+   "execution": "shadow",
    "trail_geometry": {
     "status": "n/a",
     "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R — no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
@@ -2696,7 +2697,7 @@
    "strategy": "ict_scalp_5m",
    "symbol": "BTCUSDT",
    "tf": "5m",
-   "execution": "live",
+   "execution": "shadow",
    "trail_geometry": {
     "status": "n/a",
     "ref": "Fixed SL/TP/timeout bracket; ict_scalp.monitor() only trails to break-even after 1R — no primary trailing stop to reshape. Same basis as ict_scalp_mgc_15m."
@@ -2996,8 +2997,8 @@
   "ABSENT_means_unrecorded": "⚠️ A MISSING tp_geometry MEANS 'WE DID NOT LOOK', NOT 'presumably fine'. Absence collapses three different conditions — (a) measured at live parity and nobody stamped it, (b) measured on the pre-cutover no-TP default, which is the DEFAULT EXPECTATION for anything dated before the cutover, and (c) nobody looked. The reassuring reading is the one that is wrong for most of the population. The roll-up counts these as `unrecorded` and reports the fraction rather than listing marked cells, so completeness is never inferred from the cells that happen to carry a value.",
   "_coverage_2026_08_16": "170 of 416 cells (40.9%) carry a value: live_parity 167, no_take_profit 3, absent 246. Measured directly off this file. The roll-up's own figure is over the LIVE-leg population (a different, smaller denominator) — both are correct and neither is the other.",
   "_remaining_work": "Stamping the 246 absent cells is NOT done here and must not be guessed from dates: BL-20260814-TP-GEOMETRY-RECORDED-ON-2-PERCENT-OF-CELLS-SO-ABSENCE-CANNOT-MEAN-ANYTHING criterion (2) requires each cell's own `ref` to establish live_parity or no_take_profit, with `unrecorded` stamped only where the ref establishes neither. A date is a proxy, and that row exists because a proxy was trusted.",
-  "_unstamped_ceiling": 229,
-  "_unstamped_ceiling_note": "STAYS 229. It was raised to 235 on 2026-09-22 for a promotion of avax_pullback_2h that was then DECLINED the same day (the pooled +12.67R is one fold a year old; the most recent fold is -4.36R), so the leg is still `shadow`, its 6 lever cells are still out of the live_only denominator, and the ceiling is back where it was. Recorded rather than silently reverted, because a ceiling that moves up and back is exactly the motion this guard exists to make visible, and the arithmetic is the check: with that row `shadow` the unstamped-live count is 229, with it `live` it is 235, and the 6-cell difference is entirely avax_pullback_2h (exit_ladder, giveback_stop, stale_stop, trail_decay, trail_geometry, vol_trail). PRIOR NOTE, PRESERVED: 234 -> 229 on 2026-08-24, and the REASON matters more than the number. The ceiling is an ABSOLUTE count of unstamped LIVE cells, and the live population shrank: slv_trend_1h was demoted live -> shadow (Tier-3, operator-approved), taking its 9 lever cells — 5 of them unstamped — out of the `live_only` denominator. The ratchet had been EXACTLY tight at 234; leaving it there would have left 5 cells of slack in which a live cell could silently lose its tp_geometry stamp with the guard still green. This file's own docstring names raising the ceiling as the cheap lie the guard exists to resist — a demote produces the identical loosening while looking innocent, which is why it is corrected here in a diff rather than absorbed. Verified by the planted-omission self-tests in tests/test_m20_tp_geometry_guard.py, which FAILED at 234 (deleting a stamp gave 230, under the stale ceiling) and pass at 229."
+  "_unstamped_ceiling": 193,
+  "_unstamped_ceiling_note": "229 -> 193 on 2026-09-28 (lane EXIT-OPS), and the REASON matters more than the number, same discipline as every prior move on this field. Six legs were demoted live -> shadow in this diff (PI-20260924-TJTOJHYE-0001: trend_donchian_ada_4h/avax_4h/sol_4h; PI-20260922-UTN353OZ-0001: ict_scalp_5m/sol_5m/avax_5m), taking their cells out of the live_only denominator. Leaving the ceiling at 229 would have left slack in which a live cell could silently lose its tp_geometry stamp with the guard still green -- exactly the loosening this field exists to make visible rather than absorb silently. Measured via `python3 scripts/research/m20_coverage_rollup.py --check` on this diff: unstamped-live count is 193 with the six rows `shadow`. PRIOR NOTES, PRESERVED: STAYED 229 on 2026-09-22 (avax_pullback_2h promotion declined same day); 234 -> 229 on 2026-08-24 (slv_trend_1h demoted, 5 unstamped cells left the denominator)."
  },
  "legend_bracket_geometry": "bracket_geometry is the ENTRY BRACKET TRIPLE (tp_at_r x atr_stop_mult x timeout_bars) — a new DIMENSION, not a ninth lever. The eight lever columns beside it are all POST-ENTRY OVERRIDES on a bracket fixed at entry; this column grades that bracket itself. Added 2026-08-20 closing BL-20260820-TP-LEVEL-IS-THE-ONE-EXIT-PARAMETER-NEVER-SWEPT. Graded NET OF FEES, unlike the fee-free R basis the lever columns use, because a lower target raises turnover and a fee-free comparison would flatter it exactly where it is most likely to pass.",
  "known_caveats": {

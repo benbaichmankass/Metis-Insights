@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Both RQ-20260928-003 and RQ-20260928-004 have left research/queue/blocked/ (git mv into research/queue/ with run.workflow + lands.store filled), or the S1 line is killed by RQ-20260928-003's own exhaustion branch. Check whenever RQ-20260928-002 lands a result: at that moment this item is the only thing between the S1 verdict and the next stage.",
+    "kind": "event"
+  },
+  "id": "PI-20260928-VNMMNBJH-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane R-M19 session_01SQtJGs52hkSe2xVnMmnbJh (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, 2026-09-28); docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md",
+    "rerun": "ls research/queue/blocked/ | grep -c 'RQ-20260928-00[23]' ; grep -c -- '--candles-dir\\|--size-by-score\\|--scores-file' scripts/research/meta_veto_walkforward.py"
+  },
+  "state": "queued",
+  "what": "BUILD (M19 S1/S2 instrument): extend scripts/research/meta_veto_walkforward.py with (1) an as-of candle join at entry_time (--candles-dir resolved via scripts/ops/backtest_data_source.py resolve_or_refuse, never an implicit default) producing the market-state block named in research/queue/blocked/RQ-20260928-003.yaml (ret 1/4/12 bars, realized-vol percentile, ADX, distance to 20/50-bar range, funding where the venue has one, advisory regime head predict_proba(row)['volatile'] where a symbol has one -- the probability, never max(proba), else recorded `missing` not 0.0); (2) --arms so row-only / row+market / confidence-only are computed on identical folds in one run; (3) --size-by-score (budget-neutral tercile weights, conviction-sizing comparator, per-fold maxDD, permutation null on weight assignment) and --scores-file for blocked/RQ-20260928-004.yaml; (4) a research_result.py --emit hand-off. Extend --self-test with a planted market-state positive and a planted sizing positive. Tier-1 (scripts/research/**, offline, reads committed data, writes nothing). Design: docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md § 4-5. Estimated ~300 lines stdlib; the S1-v0 harness in the same file already carries the fold/purge/veto/permutation machinery to reuse."
+}

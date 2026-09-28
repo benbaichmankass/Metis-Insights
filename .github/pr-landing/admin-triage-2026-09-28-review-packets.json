@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records-only: 4 markdown review-packet files under comms/strategy_reviews/2026-09-28/ plus this landing declaration. No code, config, workflow, or order-path change. The packets were generated live on the trainer/live VM's read-only trade_journal.db via the pre-existing generate-strategy-review-packets system-action (issue #13623, run 36426546689) and are copied here verbatim as the durable record."
+}

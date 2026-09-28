@@ -62,6 +62,12 @@ def test_flags_suspect_env_name_in_protected_path(env_name: str) -> None:
         "src/runtime/order_monitor.py",
         "src/units/accounts/__init__.py",
         "src/web/api/routers/dashboard.py",
+        # FIX-CA-30 (CA-B08-ci-guard-env-gate-blind-to-core-and-main):
+        # src/core/ is the mode/execution gate fold point
+        # (Coordinator.multi_account_execute) and must be protected.
+        "src/core/coordinator.py",
+        # src/main.py is the tick entrypoint and must be protected too.
+        "src/main.py",
     ],
 )
 def test_flags_in_each_protected_prefix(path: str) -> None:

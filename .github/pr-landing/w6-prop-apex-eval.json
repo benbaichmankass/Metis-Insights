@@ -1,5 +1,5 @@
 {
   "tier": 1,
   "landing": "self",
-  "why": "research docs + pipeline records + document-index rows only; no runtime, config, order path or src touched"
+  "why": "platform correction to a research doc + append-only pipeline records; no runtime, config, order path or src touched"
 }

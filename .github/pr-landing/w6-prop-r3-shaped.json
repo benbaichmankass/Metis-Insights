@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Lane brief for W6-PROP-R3: 'Commit on branch claude/w6-prop-r3-shaped, open a normal PR (not a draft); the manager merges it.' Tier-1 research only (docs, research unit, manual-only research script, pipeline records); no config/, runtime or order-path change.",
+  "why": "Offline prop-shaped walk-forward research (RQ-20260927-005) with a NULL verdict; nothing proposed, nothing wired."
+}

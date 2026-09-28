@@ -1,0 +1,8 @@
+import sys, random
+sys.path.insert(0, "/home/user/Metis-Insights")
+from ml.shadow.adwin import scan_stream
+random.seed(1)
+# 100 obs at 0.2, then 2000 obs stable at 0.8 (shift long ago, then stationary)
+xs = [0.2+random.uniform(-.05,.05) for _ in range(100)] + [0.8+random.uniform(-.05,.05) for _ in range(2000)]
+ev = scan_stream(xs, model_id="m")
+print(ev.to_dict())

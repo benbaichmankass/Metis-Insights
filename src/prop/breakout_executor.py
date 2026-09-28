@@ -136,6 +136,7 @@ def emit_prop_ticket(
     *,
     timeframe: Optional[str] = None,
     _emitter: Any = None,
+    test_ping: bool = False,
 ) -> str:
     """Build this account's leg from its ruleset and emit it as a ``prop_signal``.
 
@@ -154,6 +155,13 @@ def emit_prop_ticket(
 
     ``_emitter`` is an injection seam for tests (defaults to
     ``src.prop.breakout_notify.emit_prop_signal``).
+
+    ``test_ping=True`` (the ``send-prop-test-ping`` action only) journals the
+    ticket as ``status='test_ping'`` instead of ``'emitted'`` and skips the
+    exit-ladder soak record. FIX-CA-11: an ``emitted`` row is what
+    ``_reticket_suppress_reason`` (and the expiry/invalidation/reconcile
+    scans) key on, so a synthetic test ticket used to suppress the next real
+    signal for the same (account, symbol, direction) until it expired.
     """
     from src.prop.breakout_ticket import BreakoutSignal
     from src.prop.multi_account_ticket import build_account_leg
@@ -219,6 +227,45 @@ def emit_prop_ticket(
         signal_time=datetime.now(timezone.utc),
     )
     unit = unit_for_account(account_id, account_cfg)
+
+    # SIZING MODE (operator 2026-09-27 ~11:12Z, declared in the ruleset's
+    # `sizing:` block): `flat` returns no override and reads nothing, so the
+    # ticket below is the pre-existing ticket byte for byte; `room` sizes
+    # min(risk_pct x live balance, k x binding cushion) and skips below the
+    # minimum or when the cushion cannot be read. See src/prop/prop_sizing.py.
+    from src.prop import prop_sizing
+    sizing = prop_sizing.resolve(
+        account_id, ruleset_path=unit.source, risk_pct=unit.risk_pct)
+    if sizing.skip_reason:
+        trade_id = f"{MANUAL_FILL_PREFIX}{uuid.uuid4().hex[:12]}"
+        logger.info(
+            "breakout_executor: %s leg SKIPPED by %s sizing for %s %s (%s) → %s",
+            account_id, sizing.mode, symbol, direction, sizing.skip_reason, trade_id,
+        )
+        try:
+            from src.prop import prop_journal
+
+            prop_journal.record_ticket({
+                "ticket_id": trade_id,
+                "account_id": account_id,
+                "strategy": strategy,
+                "symbol": symbol,
+                "direction": direction,
+                "entry": entry, "sl": sl, "tp": tp,
+                "signal_time": sig.signal_time.isoformat(),
+                "status": "skipped",
+                "message": sizing.skip_reason,
+                "order_package_id": order.get("order_package_id") or (
+                    order["meta"].get("order_package_id")
+                    if isinstance(order.get("meta"), dict) else None
+                ),
+                "meta": {"sizing_mode": sizing.mode, "sizing": sizing.detail},
+            })
+        except Exception as exc:  # noqa: BLE001 — audit row is best-effort
+            logger.warning(
+                "breakout_executor: sizing-skip journal write failed: %s", exc)
+        return trade_id
+
     leg = build_account_leg(
         sig, unit,
         dxtrade_symbol=_per_symbol(routing, symbol, "dxtrade_symbol", None),
@@ -226,9 +273,53 @@ def emit_prop_ticket(
             _per_symbol(routing, symbol, "contract_value_usd_per_point", 1.0)),
         entry_band_frac=float(routing.get("entry_band_frac") or 0.25),
         ttl_bars=float(routing.get("ttl_bars") or 1.0),
+        risk_usd_override=sizing.risk_usd,
     )
 
     trade_id = f"{MANUAL_FILL_PREFIX}{uuid.uuid4().hex[:12]}"
+
+    # RISK GATE, ENFORCE (operator 2026-09-27 ~08:40Z, PI-20260924-MQ3CDMU6-0002):
+    # hold the ticket to the CURRENT sizing mode's configured cap. `off` /
+    # `annotate` never touch the size; under `enforce` a flat $75 ticket is AT
+    # its $75 cap, so it is unchanged and not rebuilt (byte-identical).
+    gate_cap = None  # set only when the gate RESIZED the ticket
+    if leg.decision == "place" and leg.ticket is not None:
+        from src.prop import prop_risk_gate
+        cap = prop_risk_gate.enforce_ticket_cap(
+            risk_usd=leg.ticket.risk_usd, cap_usd=sizing.cap_usd, sizing_mode=sizing.mode)
+        if cap["action"] == prop_risk_gate.CAP_RESIZED:
+            logger.warning("breakout_executor: %s %s %s — %s",
+                           account_id, symbol, direction, cap["cause"])
+            gate_cap = cap
+            leg = build_account_leg(
+                sig, unit,
+                dxtrade_symbol=_per_symbol(routing, symbol, "dxtrade_symbol", None),
+                contract_value_usd_per_point=float(
+                    _per_symbol(routing, symbol, "contract_value_usd_per_point", 1.0)),
+                entry_band_frac=float(routing.get("entry_band_frac") or 0.25),
+                ttl_bars=float(routing.get("ttl_bars") or 1.0),
+                risk_usd_override=cap["risk_usd"],
+            )
+        elif cap["action"] == prop_risk_gate.CAP_REFUSED:
+            logger.warning("breakout_executor: %s %s %s REFUSED — %s → %s",
+                           account_id, symbol, direction, cap["cause"], trade_id)
+            try:
+                from src.prop import prop_journal
+
+                prop_journal.record_ticket({
+                    "ticket_id": trade_id, "account_id": account_id,
+                    "strategy": strategy, "symbol": symbol, "direction": direction,
+                    "entry": entry, "sl": sl, "tp": tp,
+                    "signal_time": sig.signal_time.isoformat(),
+                    "status": "skipped", "message": cap["cause"],
+                    "order_package_id": (order.get("order_package_id")
+                                         or (order.get("meta") or {}).get("order_package_id")),
+                    "meta": {"risk_gate": cap},
+                })
+            except Exception as exc:  # noqa: BLE001 — audit row is best-effort
+                logger.warning("breakout_executor: gate-refusal journal write failed: %s", exc)
+            return trade_id
+
     if leg.decision != "place" or leg.ticket is None:
         logger.info(
             "breakout_executor: %s leg SKIP for %s (%s) — journaled, no push → %s",
@@ -239,21 +330,23 @@ def emit_prop_ticket(
     # P3 observe-only soak: log the laddered ticket that WOULD be emitted (the
     # materialized ExitPlan sized against this leg) next to the single-target
     # ticket actually sent. Best-effort — never changes or blocks the emission.
-    try:
-        from src.runtime.exit_ladder_soak import record_exit_ladder_soak
-        record_exit_ladder_soak(
-            venue="prop",
-            strategy=sig.strategy, symbol=symbol, direction=sig.direction,
-            entry=sig.entry, sl=sig.sl, tp=sig.tp, qty=leg.ticket.qty_units,
-            account_id=account_id,
-            account_class=str(getattr(leg, "account_class", "") or ""),
-            timeframe=sig.timeframe,
-            order_meta=(order.get("meta") if isinstance(order.get("meta"), dict) else None),
-            extra={"side": leg.ticket.side, "rr": leg.ticket.rr,
-                   "qty_units": leg.ticket.qty_units},
-        )
-    except Exception as exc:  # noqa: BLE001 — observe-only metadata
-        logger.debug("exit_ladder_soak(prop) skipped for %s: %s", symbol, exc)
+    # A synthetic test ping is not a signal, so it records no soak row.
+    if not test_ping:
+        try:
+            from src.runtime.exit_ladder_soak import record_exit_ladder_soak
+            record_exit_ladder_soak(
+                venue="prop",
+                strategy=sig.strategy, symbol=symbol, direction=sig.direction,
+                entry=sig.entry, sl=sig.sl, tp=sig.tp, qty=leg.ticket.qty_units,
+                account_id=account_id,
+                account_class=str(getattr(leg, "account_class", "") or ""),
+                timeframe=sig.timeframe,
+                order_meta=(order.get("meta") if isinstance(order.get("meta"), dict) else None),
+                extra={"side": leg.ticket.side, "rr": leg.ticket.rr,
+                       "qty_units": leg.ticket.qty_units},
+            )
+        except Exception as exc:  # noqa: BLE001 — observe-only metadata
+            logger.debug("exit_ladder_soak(prop) skipped for %s: %s", symbol, exc)
 
     # Record the OUTBOUND ticket to the prop journal so the inbound report-back
     # (P2) can reconcile a fill against it and un-acted tickets are detectable
@@ -287,7 +380,7 @@ def emit_prop_ticket(
             "risk_usd": leg.ticket.risk_usd,
             "signal_time": sig.signal_time.isoformat(),
             "valid_until": leg.ticket.valid_until.isoformat(),
-            "status": "emitted",
+            "status": "test_ping" if test_ping else "emitted",
             # The execute_pkg breakout branch passes the package id in
             # order["meta"]["order_package_id"] (the order dict has no top-level
             # key), so the previous order.get("order_package_id") was ALWAYS
@@ -300,6 +393,13 @@ def emit_prop_ticket(
                 or (order.get("meta") or {}).get("order_package_id")
             ),
             "message": ticket_message,
+            # ROOM mode only: how the size was reached. Flat rows stay exactly
+            # as they were (no meta key), so the flat journal row is unchanged.
+            # A flat ticket the gate left alone adds no meta key, so its row is
+            # unchanged; room sizing and any gate resize are recorded.
+            **({"meta": {"sizing_mode": sizing.mode, "sizing": sizing.detail,
+                         "risk_gate": gate_cap}}
+               if (sizing.mode != prop_sizing.FLAT or gate_cap is not None) else {}),
         })
     except Exception as exc:  # noqa: BLE001 — journaling never blocks emission
         logger.warning("breakout_executor: ticket journal failed for %s: %s",

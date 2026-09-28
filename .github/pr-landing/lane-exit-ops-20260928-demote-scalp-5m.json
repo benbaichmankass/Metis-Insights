@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PI-20260922-UTN353OZ-0001 operator decision, relayed via manager 2026-09-28: 'Tier 3, landing: hold -- the manager merges.' Same instruction repeated for PI-20260924-TJTOJHYE-0001 / PI-20260926-X3QEGPJL-0002 in the follow-up dispatch.",
+  "why": "config/strategies.yaml execution: live -> shadow flips for 6 legs (Tier-3, strategy-level execution gate); no self-land route applies to a Tier-3 change."
+}

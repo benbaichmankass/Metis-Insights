@@ -111,6 +111,25 @@ EXPECTED_SERVICES = {
     # the Ampere box). Live-trader-box only via install_systemd_units.sh auto-enable;
     # secondary-priority, skipped by deploy_pull_restart.sh DEFAULT_SKIP.
     "ict-exchange-fills-pull.service",
+    # 2026-09-27 (FIX-CA-OPS2): Alpaca fills pull, split off
+    # ict-exchange-fills-pull.service so an Alpaca-side failure (a revoked
+    # key, a rate limit, a 5xx -- FIX-CA-31 made scripts/pull_alpaca_fills.py
+    # exit non-zero on exactly these) can never skip the Bybit wallet ledger
+    # sharing that unit (the ExecStart-ordering contract systemd's
+    # Type=oneshot multi-ExecStart gives no other way to enforce). Timer-fired
+    # oneshot (ict-alpaca-fills-pull.timer, hourly at :23), same store
+    # (runtime_state/exchange_fills.sqlite), same fail-visible contract as its
+    # Bybit sibling. Live-trader-box only via install_systemd_units.sh
+    # auto-enable; skipped by deploy_pull_restart.sh DEFAULT_SKIP.
+    "ict-alpaca-fills-pull.service",
+    # 2026-09-28 (W6-PROP-FEED): 5-min read-only breakout_1 account_status
+    # feed (ict-prop-feed.timer). Logs in to a live prop account, so it is
+    # skipped by deploy_pull_restart.sh DEFAULT_SKIP (no unscheduled login).
+    "ict-prop-feed.service",
+    # 2026-09-28 (PROP-EXEC): the breakout_1 step-3 executor. Its timer is in
+    # deploy/opt-in/ (never auto-enabled); the unit is in DEFAULT_SKIP because
+    # a live-mode cycle can place orders.
+    "ict-prop-executor.service",
     # 2026-07-19: daily Bybit funding pull (BL-20260719-FUNDING-NO-TIMER, PR #6901).
     # Timer-fired oneshot (ict-exchange-funding-pull.timer) that runs the funding
     # puller so the M24 go-forward fee+funding capture accrues without manual runs.

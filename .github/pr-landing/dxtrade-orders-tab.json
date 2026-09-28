@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only prop probe, operator pre-authorised 2026-09-27",
+  "why": "Run 36351578802 (#13345) logged in to the DXtrade terminal and parsed balance/equity 4,724 (= journal account_status #21), P&L 0, used margin 0, free margin 4,724, positions 0 — but orders UNPARSED: the Orders VIEW tab was never clicked. Breakout's DXtrade renders the bottom-panel tabs as a span inside a [data-active] element, not role=tab (measured in that run's structure dump). _show_tab now also clicks a non-button [data-active] element whose WHOLE text is exactly the tab name ('Orders' or 'Orders (N)'), and the role=tab path is tightened from substring to exact, so 'Order History', 'Place Order', Buy/Sell can never be clicked. Read-only; emit-status stays off."
+}

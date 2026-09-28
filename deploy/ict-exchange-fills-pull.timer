@@ -1,9 +1,11 @@
 # ============================================
 # ICT EXCHANGE-FILLS PULL TIMER (BL-20260713-EXCHANGE-FILLS-STORE-EMPTY)
-# Fires the Bybit + Alpaca fills pull HOURLY so /api/bot/pnl/exchange never goes
-# stale AND so a same-day close can still resolve against broker truth
-# (the surface had 0 fills/7d before PR #6290 because the S-067 puller had no
-# timer at all).
+# Fires the Bybit wallet-ledger + fills pull HOURLY so /api/bot/pnl/exchange
+# never goes stale AND so a same-day close can still resolve against broker
+# truth (the surface had 0 fills/7d before PR #6290 because the S-067 puller
+# had no timer at all). Alpaca fills moved to their OWN unit + timer
+# (ict-alpaca-fills-pull.service/.timer) on 2026-09-27 (FIX-CA-OPS2) so an
+# Alpaca-side failure can never block this unit's Bybit wallet ledger.
 #
 # ⚠️ CADENCE IS HOURLY, NOT DAILY, AND THE REASON IS THE CLOSE PATH — NOT
 # DASHBOARD FRESHNESS (Tier-2, operator-approved 2026-08-21,

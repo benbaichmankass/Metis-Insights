@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a scheduled or keeper-dispatched replay-pregate-nightly run logs `completed=1`, grades 22/22 heads, concludes success, and runtime_logs/replay_pregate/latest.json advances on main. If two consecutive runs still end completed=0 inside 100 min, reopen as the trainer-memory root cause.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-W6OPSR-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": ".github/workflows/replay-pregate-nightly.yml (Poll step DEADLINE, job timeout-minutes)",
+    "rerun": "curl -s -H \"Authorization: Bearer $GH_TOKEN\" 'https://api.github.com/repos/benbaichmankass/Metis-Insights/actions/workflows/replay-pregate-nightly.yml/runs?per_page=5' | jq '.workflow_runs[]|{id,event,created_at,conclusion}'  # then the job log: completed=1 and 22/22"
+  },
+  "state": "done",
+  "terminal_reason": "OBSERVED 2026-09-28: keeper-dispatched run 36378256307 (created 04:33:56Z, 34 min after the 04:00 slot) graded 22/22, state=ok, concluded success; report landed on main via #13496 (runtime_logs/replay_pregate/latest.json, commit a8f2f9ed). First green scheduled-slot run since at least 09-13. CAVEAT, measured: launch 04:34 -> poll end ~05:59 = ~85 of the 100-min poll budget, a ~15-min margin; the trainer-memory cause is untouched. If a run again ends completed=0, reopen as the memory root cause (per-head model unload or off-box), not another budget raise.",
+  "what": "[ci] LANDED-UNPROVEN: replay-pregate-nightly poll deadline 38->100 min, job 80->145 min. 10/10 scheduled runs 09-17..09-26 ended with the driver still running at 38 min (10-15 of 22 heads). The underlying slowness (trainer memory: 5568/5909 MB used, 4 GB swap on 09-26) is NOT fixed by this; if 100 min is also not enough the next step is the memory cause (per-head model unload in scripts/ml/replay_pregate_fleet.py, or run off-box). -- OBSERVED 2026-09-28 (W6-OPS-R)."
+}

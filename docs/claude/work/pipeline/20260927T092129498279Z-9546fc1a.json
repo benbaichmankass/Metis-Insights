@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "on 2026-09-28: a r4-demotion-gate workflow_dispatch run by github-actions[bot] created within 60 min of 07:41Z, the late event=schedule run of that slot concluding with its gate job SKIPPED by dedupe (exactly one gate execution for the slot); and strategy-review-packets likewise created within 60 min of 04:40Z. Kill if the keeper double-runs any slot or dispatches with the wrong inputs.",
+    "kind": "observation"
+  },
+  "id": "PI-20260927-W6OPSR-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": ".github/workflows/schedule-keeper.yml + scripts/ops/schedule_keeper.py",
+    "rerun": "GH_TOKEN=... python3 scripts/ops/schedule_keeper.py keep --dry-run  # prints slot age, runs since slot, last completed age per target"
+  },
+  "state": "queued",
+  "terminal_reason": null,
+  "what": "[ci] LANDED-UNPROVEN: schedule-keeper (W6-OPS-R) dispatches r4-demotion-gate, replay-pregate-nightly, strategy-review-packets and soak-book-grade-weekly near their slot despite GitHub's ~4-6h cron lag (step change 2026-08-27, see docs/research/recurring-validations-audit-2026-09-27.md F1), and pages after 26h/170h of silence. Not done until observed."
+}

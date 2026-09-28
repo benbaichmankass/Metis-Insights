@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "clears_when": "scripts/research/prop_ev_sim.py exists on origin/main (git cat-file -e origin/main:scripts/research/prop_ev_sim.py) and this lane's candidate table has been re-run against it.",
+    "kind": "event"
+  },
+  "id": "PI-20260927-ODDTM5QY-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md",
+    "rerun": "git log origin/main -- scripts/research/prop_ev_sim.py  # once present, re-run this lane's candidate table against it"
+  },
+  "state": "done",
+  "terminal_reason": "Re-run on the now-merged scripts/research/prop_ev_sim.py (PR #13084, on main since PR #13092). xrp_pullback_2h alone (seed 20260927, sizing=balance, lives=1500/outer=40/lives_per_outer=100, matching the original run's config): evidence-p5 +41.36 (was +15.17) / p50 +229.55 (was +279.44) / p95 +1201.97 (was +996.47) -- same sign, same qualitative read (a borderline positive that does not hold across seeds, per PI-20260927-ODDTM5QY-0001). baseline+xrp_pullback_2h: -38.89/-15.56/97.97 (was -45.0/-11.2/53.5) -- still indeterminate, still negative-leaning. The magnitude shift is within the outer-bootstrap sampling noise this tool's own docstring documents (the original doc's seed 999 vs 20260927 comparison on the SAME leg already spans +15.17 to -3.34); confirmed no ruleset field affecting these runs (account_size_usd, target_pct, daily_loss_pct, max_drawdown_pct, fee, profit_split) changed between the branch run and main (only #13154's additive funded_start/first_payout_fee_refund/sizing fields were added, none of which this reconciliation run's flags touch). Full table: docs/research/b6-prop-ev/w6-candidates-v2-2026-09-27.md S1.",
+  "what": "[W6/B6] This lane scored breakout_1 crypto candidates using scripts/research/prop_ev_sim.py fetched from unmerged branch origin/claude/w6-prop-ev (commit 2d7e65fff1) because that branch had not landed on main. Re-run the same scoring (docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md) once claude/w6-prop-ev merges, and reconcile any diff (the tool may change before it lands)."
+}
