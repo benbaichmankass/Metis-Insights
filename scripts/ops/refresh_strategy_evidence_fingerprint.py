@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# wiring: manual-only — run by hand, once, when a session has already PROVEN
+# (with a checked test, not an assumption) that a config edit changed a
+# leg's raw YAML bytes but not its resolved parameters; never on a cron or
+# from CI, since deciding "provably inert" is a judgment call this script
+# does not and must not make for you.
 """Refresh a committed strategy-evidence record's `config_fingerprint` when a
 config edit provably changed no resolved parameter.
 
