@@ -952,3 +952,20 @@ def test_real_config_eth_sol_lots_are_the_measured_ones():
     c = pe.load_config("breakout_1")
     for s in ("ETHUSDT", "SOLUSDT"):
         assert (c.symbols[s]["lot_units"], c.symbols[s]["lot_step"], c.symbols[s]["min_lots"]) == (1, 0.01, None)
+
+
+def test_one_click_dump_reads_structure_never_values(tpage):
+    html = ("<div class='bar'><div class='tg'><span>One-click trading</span>"
+            "<div class='sw' data-state='off' style='background:rgb(1,2,3)'><div class='knob'></div></div></div>"
+            "<input id='secret' value='hunter2-account-823528'></div>")
+    p = tpage(html=html)
+    a = DXtradeAdapter(timeout_ms=3_000)
+    assert a.read_one_click(p)["state"] == "unknown"      # no checkbox/aria: the measured case
+    dump = a.one_click_dump(p)
+    blob = json.dumps(dump)
+    assert dump["found"] and "hunter2" not in blob and "823528" not in blob
+    kids = dump["levels"][0]["children"]
+    assert any(k["attrs"].get("data-state") == "off" for k in kids)
+    assert any(k["is_label"] for k in kids)
+    probe = a.probe_order_ticket(p, "SOLUSD")
+    assert probe["surface"] == "not_opened" and probe["one_click_dump"]["found"]
