@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH): scripts/research/dispatch_queue.py sends the token-free runner (research-script-run.yml) only the inputs that workflow declares and refuses undeclared inputs for any other workflow before calling gh, after research-queue-dispatch run 36476810004 lost all four prop units to 'HTTP 422: Unexpected inputs provided: [\"script\"]'. Research tooling + tests only: no src/, no config/, no order path, no deploy, no live-VM runtime file, no research/queue edit. Tier-1 by the canonical doc's own list, self-landed via automerge + the per-branch merge-slot claim."
+}
