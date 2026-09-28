@@ -151,7 +151,7 @@ lands:
 related:
   - 'checklist C5 / R4 (this unit is one of the ten)'
   - 'RQ-20260922-009 (the other half of eth_pullback_2h — whether it can be graded at all)'
-last_dispatched_at: null
+last_dispatched_at: '2026-09-28T20:06:48+00:00'
 result: >-
   GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
   DISPOSITION: RE-QUEUED (last_dispatched_at reset to null), not graded -- the 2026-09-24 dispatch produced NO committed rows. MEASURED: docs/research/e35-bracket-corpus.jsonl holds 0 rows tagged research_unit=RQ-20260922-008 (398 rows carry RQ-20260922-005 from the same minute). e35-bracket-sweep runs at 11:58Z: 35996181088 success (that was -005), 35996183907 CANCELLED after 4 s, 35996186685 FAILED: its plan step ran `--only "eth_pullback_2h"` (one shard; eth_pullback_prop_2h was never planned) and then `Land the corpus on main` failed at the commit-to-main wait, so even the one shard's rows never reached main. A single bad pass never kills an idea: the dispatcher will re-fire this unit on its next real run (route=runner). Before it does, the next session should check why the planner received one leg when run.inputs.only names two.
