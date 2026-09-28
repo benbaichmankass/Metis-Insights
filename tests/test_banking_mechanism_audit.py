@@ -4,7 +4,11 @@ The instrument's load-bearing claims are arithmetic, so they are asserted here
 rather than argued in prose:
 
 * ``R_TO_BREAKEVEN = trail_mult / atr_stop_mult`` exactly (the ATR cancels).
-* the population is the 44 enabled+live legs, reproducing MI-146/148/155.
+* the population is the 38 enabled+live legs (was 44, reproducing MI-146/148/155,
+  until 2026-09-28: 6 legs demoted execution: live -> shadow, lane EXIT-OPS,
+  PI-20260922-UTN353OZ-0001 / PI-20260924-TJTOJHYE-0001 — ict_scalp_5m,
+  ict_scalp_sol_5m, ict_scalp_avax_5m, trend_donchian_ada_4h,
+  trend_donchian_avax_4h, trend_donchian_sol_4h).
 * ``exit_plan.py`` has no live reader — asserted over the tree, so the finding
   becomes a standing detector instead of a one-time observation.
 * the telemetry hook set is re-derived from source, never trusted.
@@ -35,7 +39,10 @@ def mod():
 
 def test_population_is_enabled_and_live(mod):
     legs = mod.load_population()
-    assert len(legs) == 44, f"population drifted from MI-155's denominator: {len(legs)}"
+    # 44 -> 38 on 2026-09-28 (lane EXIT-OPS): 6 legs demoted execution:
+    # live -> shadow (PI-20260922-UTN353OZ-0001 / PI-20260924-TJTOJHYE-0001),
+    # taking them out of the enabled+live population this test defines.
+    assert len(legs) == 38, f"population drifted from the 2026-09-28 denominator: {len(legs)}"
     for name, cfg in legs.items():
         assert cfg.get("enabled") is True, name
         assert str(cfg.get("execution", "live")).lower() == "live", name

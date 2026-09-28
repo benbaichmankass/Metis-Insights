@@ -499,7 +499,18 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live          # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -9.4826, n=193, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_5m.json.
+                             # Keeps logging; stops taking
+                             # paper trades on bybit_1. Was:
+                             # RE-PROMOTED shadow -> live 2026-07-20 (Tier-3,
                              # operator-approved Phase-4 packet:
                              # docs/research/ict_scalp_5m-phase4-regime-gate-PROPOSAL-2026-07-20.md).
                              # The 2026-07-14 demotion's evidence did not survive
@@ -585,7 +596,17 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -8.8634, n=259, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_sol_5m.json.
+                             # Keeps logging; stops taking paper trades on
+                             # bybit_1.
     timeframe: "5m"
     symbols:
       - SOLUSDT
@@ -661,7 +682,17 @@ strategies:
     model: null
     signal_prefixes: [ict_scalp]
     enabled: true
-    execution: live
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260922-UTN353OZ-0001): "Demote 3, re-test
+                             # XRP" — fails RULE-D1-STAGE0-NET-OF-FULL-COST
+                             # (net_r -9.1340, n=259, folds+ 1/4, faithful
+                             # record regenerated 2026-09-25 -- corrects the
+                             # 2026-09-22 E28 number's non-venue-aware
+                             # slippage; verdict unchanged: fail both times.
+                             # comms/strategy_evidence/ict_scalp_avax_5m.json.
+                             # Keeps logging; stops taking paper trades on
+                             # bybit_1.
     timeframe: "5m"
     symbols:
       - AVAXUSDT
@@ -1362,7 +1393,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_sol_4h, donchian_sol_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -2.796, n=35, WR 22.9%, folds+ 1/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_sol_4h.json). bybit_1 only (paper);
+                             # confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - SOLUSDT
@@ -1447,7 +1485,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_ada_4h, donchian_ada_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -8.6081, n=46, WR 28.3%, folds+ 1/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_ada_4h.json). bybit_1 only (paper);
+                             # confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - ADAUSDT
@@ -1472,7 +1517,14 @@ strategies:
     model: null
     signal_prefixes: [trend_donchian_avax_4h, donchian_avax_4h]
     enabled: true
-    execution: live          # demo-only soak (paper money) per paper-execute policy.
+    execution: shadow        # shadow-guard: allow — operator decision 2026-09-28
+                             # (relayed via manager to lane EXIT-OPS on
+                             # PI-20260924-TJTOJHYE-0001): "Demote all 3 to
+                             # shadow" — fails RULE-E69-DONCHIAN-4H-RESWEEP-DEMOTE
+                             # (net_r_oos -9.1414, n=50, WR 26.0%, folds+ 0/4,
+                             # E69 resweep 2026-09-24, comms/strategy_evidence/
+                             # trend_donchian_avax_4h.json). bybit_1 only
+                             # (paper); confirmed not on any real-money roster.
     timeframe: "4h"
     symbols:
       - AVAXUSDT
