@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only probe extension (PROP-EXEC sidebar reader)",
+  "why": "probe-ticket #13760 (on 87cc5c377) showed the order-ticket sidebar is already open on the live terminal (symbol_input, BUY/SELL test ids, Market/Limit/Stop/OCO, a quantity input, SL/TP inputs behind data-value toggles) but _find_form did not recognise it and the relay kept only the last ~50k chars of the whole-page control map. This adds TICKET_PANEL_DUMP_JS: a compact read-only dump of that sidebar (own text per element, class, state attributes, computed colours of controls, scroll size), same redaction as the control map (digits '#', emails '<email>', no input values, user/account controls by test id only). Also fixes the probe condition: 'selected' is a dict, so an opened form with unreadable side/type never got a dump. Clicks nothing, types nothing. Tier-2 by path."
+}
