@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline-record repair: #13589's close-out record for PI-20260927-D9R6QTDB-0002 was built before the TRIAGE-2 record on the same id landed, so pipeline --check failed on main. Re-appended the same close-out chained onto the current text; no content lost."
+}

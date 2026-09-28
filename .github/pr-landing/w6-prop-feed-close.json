@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Pipeline records only: closes PI-20260927-D9R6QTDB-0002 and PI-20260928-4UNXYJIA-0002 as observed. No code or config change. Held so the manager, who owns the lane, lands it.",
+  "why": "W6-PROP-FEED close-out: the feed is merged, deployed and observed; the first-deploy restart question is observed clean."
+}
