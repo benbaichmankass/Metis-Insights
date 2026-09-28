@@ -11,7 +11,8 @@ module directly — it calls :func:`src.prop.platform.get_adapter`.
 Slice 1 (read-only) implements ``login`` and the three reads. Step 3
 (PROP-EXEC, 2026-09-28) adds the order controls on the dxtrade adapter only;
 every one is DISARMED by default (``arm=False`` stops before the final
-click). The ``breakout_terminal`` adapter still raises on all of them.
+click). PROP-TERM (2026-09-28) built the same controls on the
+``breakout_terminal`` adapter against an UNMEASURED layout.
 """
 from __future__ import annotations
 
@@ -145,7 +146,7 @@ class PropPlatformAdapter:
         raise NotImplementedError
 
     # ── step 3: order controls ─────────────────────────────────────────
-    # Only the dxtrade adapter implements them. Every one takes ``arm``: with
+    # Both adapters implement them. Every one takes ``arm``: with
     # ``arm=False`` (the default) it walks up to the final control and STOPS,
     # so a dry run exercises the whole path without pressing anything that
     # changes the account. Only ``src/prop/prop_executor.py`` in ``live`` mode

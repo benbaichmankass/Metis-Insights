@@ -109,10 +109,14 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
         cap = (sizing.get("flat") or {}).get("max_risk_usd")
     lots = ex.get("lots") or {}
     syms: Dict[str, Dict[str, Any]] = {}
+    # The venue symbol is per terminal: ``<platform>_symbol`` in the routing
+    # map (dxtrade_symbol today). A platform with no such keys maps nothing,
+    # so every ticket fails the structure guard — closed, never guessed.
+    sym_key = f"{plat.get('platform') or 'dxtrade'}_symbol"
     for bot_sym, blk in (routing.get("symbols") or {}).items():
-        if not isinstance(blk, dict) or not blk.get("dxtrade_symbol"):
+        if not isinstance(blk, dict) or not blk.get(sym_key):
             continue
-        venue = str(blk["dxtrade_symbol"])
+        venue = str(blk[sym_key])
         lot = lots.get(venue) or {}
         syms[str(bot_sym).upper()] = {
             "venue": venue,

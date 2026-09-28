@@ -1,0 +1,7 @@
+<html><head><title>Breakout | Sign in</title></head><body>
+<form id="signin" action="/dashboard" method="get">
+  <label for="email">Email</label><input id="email" name="email" type="email">
+  <label for="pw">Password</label><input id="pw" name="password" type="password">
+  <a href="#">Forgot password? We'll send a verification code</a>
+  <button type="submit">Log in</button>
+</form></body></html>

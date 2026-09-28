@@ -279,6 +279,10 @@ EXPECTED_ACTIONS = {
     # Breakout DXtrade automation, docs/research/prop-automation-options-2026-09-27.md).
     # Logs in to breakout_1 and reads balance/positions/orders; no order control.
     "breakout-login-check": "breakout_login_check_action.sh",
+    # 2026-09-28 — READ-ONLY measurement of Breakout's proprietary terminal
+    # (lane PROP-TERM): landing shape, optional ONE login + Open Terminal,
+    # optional read-only ticket probe. No order control in its code path.
+    "breakout-terminal-probe": "breakout_terminal_probe_action.sh",
     # 2026-06-30 — clear the daily_risk_state row for one account so
     # INTRADAY_DRAWDOWN counters reset without a full service restart.
     "reset-daily-risk-state": "reset_daily_risk_state.sh",
@@ -407,6 +411,7 @@ TIER_2_ACTIONS = {
     "fix-prop-mislinked-close",
     "repair-prop-fill-direction",
     "breakout-login-check",
+    "breakout-terminal-probe",
     "reset-daily-risk-state",
     "repair-malformed-notes",
     "repair-netted-rows",

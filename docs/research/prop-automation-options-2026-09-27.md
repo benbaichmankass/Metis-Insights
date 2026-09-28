@@ -162,10 +162,38 @@ Code: `src/prop/platform/dxtrade.py`. All DXtrade selectors live in its
   the live VM passes is exactly what the login check measures. If it gets a
   challenge, that is a feasibility finding (§ 4), not a design task.
 
-### 2.4 `breakout_terminal` adapter (scoped only; no login)
+### 2.4 `breakout_terminal` adapter (built to UNMEASURED DOM, 2026-09-28)
 
-Code: `src/prop/platform/breakout_terminal.py`: every method raises
-`NotImplementedError`. What first-party material says, and nothing more:
+> **Update, lane PROP-TERM (2026-09-28).** Operator, verbatim: *"that's
+> definitely a high priority because that is where the next account will be
+> and we want to be ready for that in any case."* The adapter is now **built**
+> behind the same interface as `dxtrade`, including the step-3 order controls
+> (`arm=False` by default). **Nothing about this terminal is measured yet.**
+>
+> - **Login → dashboard → "Open Terminal"** (a new tab is adopted), classified
+>   by generic markers; feasibility stops `challenge`, `captcha`,
+>   `email_code`, `2fa`, `login_rejected`, `no_account`, `unknown_page`.
+> - **Read path** by visible labels and column-header text (Balance / Equity /
+>   Unrealized PnL…; Market / Size / Entry Price / TP/SL…). Unread = `None`,
+>   no table = `LookupError`, never `0`.
+> - **Orders:** `place_bracket` with the dxtrade adapter's six safety rules plus two:
+>   a side button that is also the submit is refused, and a missing
+>   one-click-trading control reads `unknown` and refuses. `cancel_order`
+>   and `flatten` use exactly-one-row / exactly-one-control matching.
+>   `modify_bracket` is an explicit refusal (edit flow unmeasured).
+> - **Selection:** `platform: breakout_terminal` is the whole switch; the
+>   login URL defaults per platform (§ 2.2). The executor maps symbols via
+>   `<platform>_symbol` in `breakout_routing.yaml`, and no
+>   `breakout_terminal_symbol` rows exist, so every ticket is refused until
+>   the venue names are measured.
+> - **Measurement:** system-action `breakout-terminal-probe` (read-only;
+>   landing shape, then optionally ONE login + Open Terminal + read-only
+>   ticket probe). The unmeasured parts are the login flow, the DOM and
+>   ticket kind (DOM or canvas); until an account exists on this terminal,
+>   everything past the landing page stays fixture-only (synthetic fixtures,
+>   `tests/fixtures/prop_breakout_terminal/`).
+
+What first-party material says, and nothing more:
 
 - Reached from the Breakout dashboard by clicking **"Open Terminal"** (S23);
   the dashboard is `portal.breakoutprop.com`, behind a Cloudflare challenge to
@@ -180,7 +208,8 @@ Code: `src/prop/platform/breakout_terminal.py`: every method raises
   sign-in; if that happens on every login the adapter is infeasible), the DOM,
   and whether the order ticket is DOM or canvas.
 
-**Scoping verdict:** buildable in principle behind the same interface, but
+**Scoping verdict (2026-09-27; superseded by the PROP-TERM update above):**
+buildable in principle behind the same interface, but
 **unbuildable today**: breakout_1 is DXtrade, so there is no proprietary-terminal
 login to measure, and the one login-flow signal we have (emailed code) would
 kill it if it holds.
