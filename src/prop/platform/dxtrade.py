@@ -1168,10 +1168,12 @@ TICKET_PANEL_DUMP_JS = r"""
   if (!sym) return {found: false, why: 'no [data-test-id=symbol_input]'};
   let panel = null;
   for (let e = sym.parentElement; e && e !== document.body; e = e.parentElement) {
-    if (e.querySelector('[data-test-id=BUY]') && e.querySelector('[data-test-id=SELL]')
-        && e.querySelectorAll('input').length >= 3) { panel = e; break; }
+    // The SMALLEST ancestor holding the side buttons too (probe #13775: an
+    // input-count condition climbed to the whole work area and spent the
+    // row budget on the watchlist before reaching the sidebar).
+    if (e.querySelector('[data-test-id=BUY]') && e.querySelector('[data-test-id=SELL]')) { panel = e; break; }
   }
-  if (!panel) return {found: false, why: 'no ancestor of symbol_input holds BUY, SELL and 3 inputs'};
+  if (!panel) return {found: false, why: 'no ancestor of symbol_input holds BUY and SELL'};
   const depthOf = el => { let d = 0; for (let e = el; e && e !== panel; e = e.parentElement) d++; return d; };
   const own = el => mask([...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) || '';
   const ctl = el => /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.hasAttribute('data-value')
@@ -1179,7 +1181,9 @@ TICKET_PANEL_DUMP_JS = r"""
   const rows = [];
   for (const el of panel.querySelectorAll('*')) {
     if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') continue;
+    if (el.closest('table')) continue;                       // tables are not the ticket
     const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0 && !ctl(el) && !el.hasAttribute('data-test-id')) continue;
     const tid = el.getAttribute('data-test-id');
     const cls = typeof el.className === 'string' ? el.className.trim() : '';
     const d = {d: depthOf(el), tag: el.tagName.toLowerCase(), tid: mask(tid),
