@@ -91,6 +91,23 @@ class ExecutorConfig:
     # RiskManager and the ticket caveat read. ``report`` = the static-DD /
     # daily-loss / cushion-exceeded verdicts are alerts, not refusals.
     breach_guards: str = "enforce"
+    # Venue symbols the executor may act on (manager 2026-09-28: SOL-only
+    # go-live until symbol switching lands). A ticket for any other venue is
+    # SKIPPED (`symbol_not_enabled`) before the form is touched: never a
+    # refusal, never a latch count. None = no filter (programmatic use);
+    # load_config reads the YAML and a missing key enables NOTHING.
+    enabled_venue_symbols: Optional[List[str]] = None
+
+
+SYMBOLS_ENV = "PROP_EXECUTOR_SYMBOLS"
+
+
+def enabled_venues(ex: Mapping[str, Any], env: Optional[Mapping[str, str]] = None) -> List[str]:
+    """``PROP_EXECUTOR_SYMBOLS`` (comma-separated) when set, else
+    ``executor.enabled_venue_symbols``; missing = [] (fail closed)."""
+    raw = (env if env is not None else os.environ).get(SYMBOLS_ENV)
+    vals = raw.split(",") if raw is not None and raw.strip() else (ex.get("enabled_venue_symbols") or [])
+    return sorted({str(v).strip().upper() for v in vals if str(v).strip()})
 
 
 def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
@@ -139,6 +156,7 @@ def load_config(account_id: str = "breakout_1") -> ExecutorConfig:
         watched_click_max_lots={str(k): float(v) for k, v in (ex.get("watched_click_max_lots") or {}).items()
                                 if v is not None},
         breach_guards=_breach_guards_for(account_id),
+        enabled_venue_symbols=enabled_venues(ex),
     )
 
 
@@ -738,6 +756,15 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
                 ledger.record(t["ticket_id"], "expired")
                 _report(res, post, _skip_body(cfg, t, "expired"))
             continue
+        venue = (cfg.symbols.get(str(t.get("symbol") or "").upper()) or {}).get("venue")
+        if cfg.enabled_venue_symbols is not None and str(venue or "").upper() not in cfg.enabled_venue_symbols:
+            # Skipped BEFORE the form: not a refusal, no latch count (an ETH
+            # ticket stays manual via Telegram until symbol switching lands).
+            res.log("skipped", ticket_id=t["ticket_id"], reason="symbol_not_enabled", venue=venue)
+            if live:
+                ledger.record(t["ticket_id"], "skipped", reason="symbol_not_enabled")
+                _report(res, post, _skip_body(cfg, t, "symbol_not_enabled"))
+            continue
         if candidate is None:
             candidate = t
     if candidate is None:
@@ -860,6 +887,8 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
 
     if sym is None:
         return stop(f"{venue} is not in breakout_routing.yaml")
+    if cfg.enabled_venue_symbols is not None and venue not in cfg.enabled_venue_symbols:
+        return stop(f"{venue} is not in executor.enabled_venue_symbols {cfg.enabled_venue_symbols}")
     if not _f(sym.get("lot_units")) or not _f(sym.get("lot_step")):
         return stop(f"lot size for {venue} is not declared (executor.lots; unmeasured)")
     if cap is None:
