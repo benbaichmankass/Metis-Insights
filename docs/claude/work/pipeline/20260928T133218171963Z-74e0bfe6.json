@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "At least one gld_pullback_1h close with reason stale_stop on alpaca_paper whose holding period is 24 RTH 1h bars (+/-1), OR a measured Alpaca IEX 1h feed sample showing RTH-only bars (so live bar count == harness bar count).",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-E8Y3BGBS-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROMOTE (session_011h6MApXzTAY91VE8y3bgbs), 2026-09-28",
+    "rerun": "Pull /api/diag/journal?table=trades for gld_pullback_1h on alpaca_paper after the geometry PR is deployed; for each close_reason=stale_stop compute entry->exit in RTH hours (and count Alpaca 1h bars between them via scripts/ops/diag_fetch.sh or the alpaca connector). Finding holds while no stale_stop close exists, or while bars counted != 24 RTH bars."
+  },
+  "state": "queued",
+  "what": "gld_pullback_1h's new 24-bar time exit (stale_exit_bars 24 / stale_exit_below_r 1e9, PR claude/gld-1h-geometry-tp6-sm15-to24) is proven equal to --timeout-bars 24 ONLY in the harness, on Yahoo RTH 1h bars (~7/day). Live counts bars in the Alpaca IEX 1h feed the monitor fetches; if that feed carries extended-hours bars, 24 live bars is ~1.5 sessions, not the ~3.5 the evidence measured. Also: the manager's popup gloss '24-bar (1 day)' was wrong on the evidence's own clock. No live stale_stop close has yet been observed on any Alpaca leg."
+}

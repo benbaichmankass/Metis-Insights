@@ -1,0 +1,49 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Each of the four legs carries a current M7 packet and an operator decision (kill / demote to shadow / hold with a stated reason).",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260821-SLV-TREND-1H-ZERO-WINS-IN-13'), indent=2))\""
+  },
+  "state": "done",
+  "terminal_reason": "All 4 named legs (htf_pullback_trend_2h, eth_pullback_2h, tlt_pullback_1h, slv_trend_1h) have current 2026-09-28 M7 packets (verdict hold on all 4) from a live trade_journal.db pull (issue #13623, run 36426546689), committed at comms/strategy_reviews/2026-09-28/*.md in PR #13629. slv_trend_1h (the headline leg) was already demoted live->shadow 2026-08-24; the other 3 legs real-money exposure was already removed before this triage. No further action warranted; row closed per operator-endorsed Option 1/2.",
+  "triage_2026_09_28": {
+    "checked": "config/strategies.yaml: slv_trend_1h is now execution:shadow with an in-line comment citing this exact finding's numbers ('MEASURED: 0 wins in 13 closed trades, -$5,375 at pnlCoverage 0.77') and 'DEMOTED live -> shadow 2026-08-24 (Tier-3, operator-approved in the /system-review session)' -- so the row's headline leg is fully actioned. Of the other three legs the row's own 2026-09-13 update names (htf_pullback_trend_2h, eth_pullback_2h, tlt_pullback_1h), the real-money exposure it flagged is also gone: eth_pullback_2h is no longer on bybit_2 (checked config/accounts.yaml -- not in bybit_2.strategies) and tlt_pullback_1h is no longer on alpaca_live (only alpaca_paper). All three still carry current M7-style packets with verdicts (hold/hold/no_offline_evidence per the row's own 2026-09-13 note) but no explicit per-leg operator sign-off is recorded, which is what clears_when still asks for.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "$0",
+          "label": "Confirm 'hold' for the remaining three legs off the existing packets and close the row",
+          "risk": "none, they're no longer on real money",
+          "what_happens": "Record the sign-off; no config change (they're already paper/shadow-only)"
+        },
+        {
+          "cost": "small",
+          "label": "Order a fresh review of the three now that real-money exposure is gone (packets are ~2 weeks stale)",
+          "risk": "none",
+          "what_happens": "Dispatch a Tier-1 lane to re-pull /api/bot/performance and refresh the packets"
+        },
+        {
+          "cost": "none",
+          "label": "Leave it open/queued indefinitely",
+          "risk": "repeats the exact 'packet existed, nobody read it' failure this row already documented once",
+          "what_happens": "No action"
+        }
+      ],
+      "priority_tier": 6,
+      "question": "slv_trend_1h (the leg this row was filed over) was demoted live->shadow on 2026-08-24 and both real-money exposures among the other three legs have since been removed from real-money routing. htf_pullback_trend_2h, eth_pullback_2h and tlt_pullback_1h each already have a review packet with a verdict (hold/hold/no_offline_evidence) but no explicit operator sign-off per leg. Does the operator want to formally close this out?",
+      "recommendation": "Option 1 or 2 -- the urgent (real-money) half of this finding is already resolved; what remains is a low-stakes administrative close-out."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[performance] slv_trend_1h: 0 wins in 13 closed trades over 30d, -5,374.59 paper, and it is the only large loser whose loss is well MEASURED (coverage 0.77) — a KILL/DEMOTE candidate with credible evidence\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — slv_trend_1h (the leg this row was filed over) was demoted live->shadow on 2026-08-24 and both real-money exposures among the other three legs have since been removed from real-money routing. htf_pullback_trend_2h, eth_pullback_2h and tlt_pullback_1h each already have a review packet with a verdict (hold/hold/no_offline_evidence) but no explicit operator sign-off per leg. Does the operator want to formally close this out? Recommendation: Option 1 or 2 -- the urgent (real-money) half of this finding is already resolved; what remains is a low-stakes administrative close-out.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: \"Option 1 or 2 -- the urgent (real-money) half of this finding is already resolved; what remains is a low-stakes administrative close-out.\" Took option 2 then 1: refreshed all 4 named legs' M7 packets via the generate-strategy-review-packets system-action against the live trade_journal.db (issue #13623, run 36426546689, window 2026-08-29T13:09:16Z to 2026-09-28T13:09:16Z / 30d). MEASURED verdicts, all hold: htf_pullback_trend_2h (execution=shadow, n_closed=0, no closed trades in window), eth_pullback_2h (execution=live, n_closed=12, win_rate=16.7%, pnl_total=911.67), tlt_pullback_1h (execution=live, n_closed=7, win_rate=57.1%, pnl_total=18.57), slv_trend_1h (execution=shadow, n_closed=0, no closed trades in window). Packets committed as the durable record under comms/strategy_reviews/2026-09-28/ in PR #13629 (branch claude/admin-triage-2026-09-28-review-packets). No leg's verdict warrants a config change; all 4 are already off real-money exposure per the prior triage note (slv_trend_1h shadow since 2026-08-24; eth_pullback_2h/tlt_pullback_1h no longer on bybit_2/alpaca_live). Closing per Option 1 (confirm hold for the remaining three off the refreshed packets)."
+}

@@ -66,7 +66,45 @@ permissions:
   actions: write   # `gh workflow run` on the routed workflow
 
 jobs:
+  # schedule-keeper (scripts/ops/schedule_keeper.py, RQ-OPS-2 2026-09-28):
+  # GitHub creates this repo's scheduled runs ~4-6h late (sometimes dropping a
+  # slot outright — MEASURED: this workflow's 06:20 UTC slot did not fire at
+  # all on 2026-09-28, discovered ~13:14Z while every other schedule-triggered
+  # workflow in the repo had fired normally that morning), so
+  # .github/workflows/schedule-keeper.yml now dispatches this workflow near
+  # its slot. This job skips the LATE scheduled run of a slot the keeper
+  # already ran, so each slot runs once. It only ever decides WHETHER this
+  # run proceeds, never what it computes. Fails open: an error here means
+  # "run" — see `dedupe` in replay-pregate-nightly.yml for the same pattern.
+  dedupe:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      skip: ${{ steps.d.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ops/schedule_keeper.py
+          sparse-checkout-cone-mode: false
+      - id: d
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/ops/schedule_keeper.py dedupe
+          --run-id "${{ github.run_id }}" --schedule "${{ github.event.schedule }}"
+
   dispatch:
+    needs: dedupe
+    if: |
+      !cancelled() && needs.dedupe.outputs.skip != 'true' && (
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     # 35, not 15: `verify-merged` below blocks until the stamp PR merges, and a
     # budget under that wait kills the job mid-wait and reports a timeout for a
@@ -135,7 +173,24 @@ jobs:
       - name: Install pyyaml
         run: pip install --quiet pyyaml
 
+      # RQ-OPS-2 (2026-09-28, follow-up to PI-20260928-RQOPS2-0002): a real
+      # dispatch on 2026-09-28 (run 36427562901) hit exactly the gap that PI
+      # documents — the only units due that day were two of the six whose
+      # `run.workflow` is a human note, not a `gh workflow run` target — and
+      # `dispatch_queue.py` exits 1 for a DISPATCH_FAILED row (correctly: the
+      # queue holds work it did not do). Under the OLD `set -euo pipefail`
+      # (no `continue-on-error`), that non-zero exit killed the JOB right
+      # here, skipping the receipt write and the stamp step entirely — so a
+      # real, correctly-detected partial failure also silently starved the
+      # liveness receipt, on top of not stamping the units that DID succeed.
+      # `continue-on-error: true` lets the job keep going (any unit that WAS
+      # stamped by dispatch_queue.py's `_stamp()` is still a file on disk for
+      # the stamp step below to land); the job is failed for real at the very
+      # end instead, once the receipt and any real stamps have had their
+      # chance.
       - name: Grade and dispatch
+        id: grade
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -147,15 +202,15 @@ jobs:
 
       # RQ-OPS-2 (PI-20260928-RQOPS2-0001): the cron itself can go silent the
       # same way any scheduled job can, invisibly. This writes a small
-      # receipt on EVERY run that reaches this point (fired or dry — no
-      # `if: env.FIRE` here, unlike the stamp step below), so
-      # check_research_queue_dispatch_liveness.py has something to grade.
-      # Runs only if "Grade and dispatch" actually succeeded — that is the
-      # "successful dispatcher run" this receipt attests to. Placed BEFORE
-      # the (heavier, data-touching) stamp step deliberately: this diff is
-      # one small json file under docs/claude/work, so its own required
-      # checks are cheap and its `verify-merged` wait should resolve fast,
-      # leaving the stamp step the greater share of the job's budget.
+      # receipt on EVERY run that reaches this point — including a grading
+      # failure, per the note above: the receipt attests the MECHANISM ran,
+      # not that grading succeeded, and `check_research_queue_dispatch_
+      # liveness.py` only ever grades presence + age, never `conclusion`.
+      # Placed BEFORE the (heavier, data-touching) stamp step deliberately:
+      # this diff is one small json file under docs/claude/work, so its own
+      # required checks are cheap and its `verify-merged` wait should
+      # resolve fast, leaving the stamp step the greater share of the job's
+      # budget.
       #
       # ⚠️ `verify-merged: true`, NOT skipped. tests/test_commit_to_main_
       # callers.py::test_every_caller_verifies_its_rows_merged requires EVERY
@@ -165,6 +220,12 @@ jobs:
       # callers never check" defect that test exists to catch. `timeout-
       # minutes` below is sized for two sequential worst-case waits instead.
       - name: Write the liveness receipt
+        env:
+          # `steps.grade.outcome` (GH Actions expression, resolved BEFORE the
+          # shell runs) is "success" or "failure" and reflects grading, never
+          # the job's own final conclusion — reported here as-is, per the
+          # note above.
+          GRADE_OUTCOME: ${{ steps.grade.outcome }}
         run: |
           set -euo pipefail
           mkdir -p docs/claude/work
@@ -174,7 +235,7 @@ jobs:
           import os
           payload = {
               "run_id": os.environ.get("GITHUB_RUN_ID", "unknown"),
-              "conclusion": "success",
+              "conclusion": os.environ.get("GRADE_OUTCOME") or "unknown",
               "timestamp": datetime.now(timezone.utc).isoformat(),
               "event_name": os.environ.get("GITHUB_EVENT_NAME", "unknown"),
               "fired": os.environ.get("FIRE", "false"),
@@ -270,3 +331,13 @@ jobs:
             cat /tmp/dispatch.txt 2>/dev/null || echo "(the dispatcher produced no output — see the step log)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Re-asserts the failure "Grade and dispatch" swallowed via `continue-
+      # on-error`, now that the receipt and any real stamps have had their
+      # chance to land. The job must still read red on a real problem — this
+      # only changes WHEN that becomes true, not WHETHER.
+      - name: Fail the job if grading reported a problem
+        if: always() && steps.grade.outcome == 'failure'
+        run: |
+          echo "::error::dispatch_queue.py reported invalid or dispatch-failed unit(s) — see 'Grade and dispatch' above (or the job summary). The liveness receipt and any successfully-fired units' stamps still landed."
+          exit 1

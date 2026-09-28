@@ -241,13 +241,46 @@ def render_system_view(
     return render_html(header="🩺 System update", sections=sections)
 
 
+def _exposure_str(exposure: object) -> str:
+    """Render the ``RiskManager.report()["exposure"]`` block as one line.
+
+    BL-20260808: phase-1 (the measurement) already exists; this is the missing
+    read surface. Display only — never reads or implies a cap decision.
+
+    ``exposure`` may be ``None`` (older status dicts / no risk manager) or a
+    dict with ``measured``, ``open_gross_notional``, ``exposure_multiple``,
+    ``policy_declared`` and ``max_gross_exposure_pct``. Per this repo's
+    collapsed-states rule, "we could not look" (``measured: False``) and "we
+    have no reading at all" both render "—", never ``0``/``0.0x``, so an
+    unmeasured account is never mistaken for a flat one.
+    """
+    if not isinstance(exposure, dict) or not exposure.get("measured"):
+        return "—"
+    notional = exposure.get("open_gross_notional")
+    multiple = exposure.get("exposure_multiple")
+    if notional is None or multiple is None:
+        return "—"
+    try:
+        line = f"{_amount(notional)} ({float(multiple):.2f}x)"
+    except (TypeError, ValueError):
+        return "—"
+    if exposure.get("policy_declared"):
+        cap = exposure.get("max_gross_exposure_pct")
+        line += f" / cap {cap}%" if cap is not None else " / cap declared"
+    else:
+        line += " (no cap set)"
+    return line
+
+
 def render_accounts_view(accounts: Sequence[dict]) -> str:
     """One collapsible section per account: mode, config, balance, 24h PnL, trades.
 
     Each ``acc`` may carry: ``account_id``/``name``, ``exchange``,
     ``mode``/``dry_run``, ``account_type``, ``max_daily_loss_usd``,
     ``max_dd_pct``, ``balance``, ``pnl_24h``,
-    ``open_positions``, ``trades`` (list of one-line strings).
+    ``open_positions``, ``trades`` (list of one-line strings),
+    ``exposure`` (the ``RiskManager.report()["exposure"]`` block — see
+    ``_exposure_str``; display only, BL-20260808).
     """
     if not accounts:
         return render_html(
@@ -270,6 +303,7 @@ def render_accounts_view(accounts: Sequence[dict]) -> str:
             ("Type", acc.get("account_type")),
             ("Balance", bal_str),
             ("24h PnL", _signed(acc.get("pnl_24h")) if acc.get("pnl_24h") is not None else "—"),
+            ("Gross exposure", _exposure_str(acc.get("exposure"))),
             ("Open positions", acc.get("open_positions")),
             ("Max daily loss", acc.get("max_daily_loss_usd")),
             ("Max drawdown", acc.get("max_dd_pct")),
