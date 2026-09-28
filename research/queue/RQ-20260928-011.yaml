@@ -129,54 +129,15 @@ routing:
     (1 + 3 room_frac values) x 5 seeds is a small grid.
 
 run:
-  workflow: research-script-run.yml
-  commands:
-  - - python3
-    - scripts/research/prop_ev_grid.py
-    - --leg
-    - trend_donchian_eth_prop
-    - --leg
-    - trend_donchian_sol_prop
-    - --arm
-    - A=--sizing balance --risk-pct 0.015
-    - --arm
-    - B=--sizing start --risk-pct 0.015
-    - --arm
-    - C-0.25=--sizing room --risk-pct 0.015 --room-frac 0.25
-    - --arm
-    - C-0.33=--sizing room --risk-pct 0.015 --room-frac 0.33
-    - --arm
-    - C-0.5=--sizing room --risk-pct 0.015 --room-frac 0.5
-    - --common
-    - --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model
-      dxtrade
-    - --seeds
-    - 1,2,3,4,5
-    - --grade
-    - cushion_vs_flat
-    - --overall
-    - all
-    - --out
-    - '{out_dir}'
-    - --jobs
-    - '4'
-  timeout_minutes: 300
+  workflow: 'none — session-local, scripts/research/prop_ev_sim.py against already-committed trade evidence, no candle fetch needed'
   inputs:
     research_unit: RQ-20260928-011
-    script: scripts/research/prop_ev_grid.py
-  note: 'Retargeted 2026-09-28 (lane RQ-RUN) from a session-local note to the token-free runner: scripts/research/prop_ev_grid.py
-    runs the design''s exact grid (2 legs x arms A/B/C-{0.25,0.33,0.5} x 5 seeds) as prop_ev_sim subprocesses
-    and grades cushion_vs_flat per leg exactly as decision_rule.rule states (pass=CUSHION_FIT_WINS, fail=FLAT_HOLDS,
-    indeterminate=NULL); overall=all mirrors ''on BOTH legs''. Legs resolve to each evidence record''s
-    own committed trades file (the --book population), recorded in grid.json. The rule text is untouched.'
+    script: scripts/research/prop_ev_sim.py
 
 lands:
-  store: research/results/
-  assert_field: read_state
+  store: docs/research/b6-prop-ev/w6r4-sizing-flat-vs-cushion-2026-09-28.json
+  assert_field: verdict
   min_rows: 2
-  note: research/results/RQ-20260928-011/<run_id>.jsonl (E5 contract via .github/actions/research-result,
-    one row per leg); the raw grid + per-cell sim JSON land under comms/research/RQ-20260928-011/<run_id>/
-    in the same run.
 
 related:
   - 'trend_donchian_eth_prop / trend_donchian_sol_prop (config/strategies.yaml:1212,1257) -- the two legs graded here'

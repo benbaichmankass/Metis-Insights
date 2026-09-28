@@ -124,69 +124,15 @@ routing:
     invocation in this session's own use).
 
 run:
-  workflow: research-script-run.yml
-  commands:
-  - - python3
-    - scripts/research/prop_ev_grid.py
-    - --leg
-    - trend_donchian_eth_prop
-    - --leg
-    - trend_donchian_sol_prop
-    - --arm
-    - A=--sizing balance --risk-pct 0.015
-    - --common
-    - --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model
-      dxtrade
-    - --seeds
-    - '1'
-    - --grade
-    - reproduce
-    - --target
-    - trend_donchian_eth_prop=883:0.8477
-    - --target
-    - trend_donchian_sol_prop=483:0.7427
-    - --tolerance
-    - '0.10'
-    - --overall
-    - all
-    - --out
-    - '{out_dir}'
-    - --jobs
-    - '4'
-  - - python3
-    - scripts/research/prop_ev_sim.py
-    - --book
-    - breakout_1
-    - --ruleset
-    - config/prop_rulesets/breakout.yaml
-    - --costs
-    - breakout
-    - --funded-start
-    - fresh
-    - --swap-model
-    - dxtrade
-    - --seed
-    - '1'
-    - --out
-    - '{out_dir}/book-breakout_1.json'
-  timeout_minutes: 90
+  workflow: 'none — session-local, scripts/research/prop_ev_sim.py --book breakout_1'
   inputs:
     research_unit: RQ-20260928-015
-    script: scripts/research/prop_ev_grid.py
-  note: 'Retargeted 2026-09-28 (lane RQ-RUN) to the token-free runner. Step 1 of the design, mechanised:
-    command 1 scores each leg ALONE on the population --book breakout_1 resolves (each evidence record''s
-    cost_stack.source trades file, recorded in grid.json), seed 1, and grades reproduce against +$883/0.8477
-    (ETH) and +$483/0.7427 (SOL) within +/-10%; command 2 writes the portfolio-level --book breakout_1
-    figure to book-breakout_1.json for the write-up. Steps 2-3 (locate run #8975''s invocation; escalate)
-    remain session work if command 1 lands NOT_REPRODUCED. The rule text is untouched.'
+    script: scripts/research/prop_ev_sim.py
 
 lands:
-  store: research/results/
-  assert_field: read_state
+  store: docs/research/b6-prop-ev/pevrecon-2026-09-28.json
+  assert_field: verdict
   min_rows: 2
-  note: research/results/RQ-20260928-015/<run_id>.jsonl (E5 contract via .github/actions/research-result,
-    one row per leg); the raw grid + per-cell sim JSON land under comms/research/RQ-20260928-015/<run_id>/
-    in the same run.
 
 related:
   - 'PI-20260928-PEVRECON-0001 (the pipeline finding this unit formalizes)'
