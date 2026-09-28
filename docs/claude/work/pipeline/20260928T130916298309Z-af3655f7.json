@@ -1,0 +1,52 @@
+{
+  "a10_note": "Still applies and it is a DECIDED the operator has to record. EVIDENCE: MEASURED 2026-09-24: config/accounts.yaml accounts with strategies: [] -> ib_live symbols [MES], oanda_practice symbols [XAUUSD].",
+  "disposed_by": "A10 lane session_01KrFipsGe9UQjRKvP9t5JL2",
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER the operator records a DECIDED that an account with `strategies: []` should keep pulling its declared symbols (and _resolve_tick_symbols stops skipping such accounts for the DATA half while still excluding them from trading), OR records that the current skip is correct and `symbols:` on an inert account is documentation only. Also clears if both such accounts gain a non-empty roster, which makes the question moot.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PI-20260922-E42-EMPTY-ROSTER-ACCOUNTS-STILL-PULL-NO-DATA-AND-THE-REFRAME-MAY-WANT-THEM-TO",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01PDnYMJCPBohXArAKpUceZm, checklist row E42, branch lane/e42-roster-symbol-union",
+    "rerun": "python3 -c \"import yaml; a=yaml.safe_load(open('config/accounts.yaml'))['accounts']; print({n: c.get('symbols') for n,c in a.items() if isinstance(c.get('strategies'), list) and not c.get('strategies')})\"   # accounts whose roster is explicitly empty and whose declared symbols are therefore NOT fetched; {} == the question is moot"
+  },
+  "routed_to": "ask_operator: should an account with strategies: [] keep pulling its declared symbols (ib_live MES, oanda_practice XAUUSD), or is symbols: on an inert account documentation only?",
+  "state": "done",
+  "terminal_reason": "confirmed correct and unchanged by reading src/main.py::_resolve_tick_symbols:787-789 this session; the skip is deliberate per the function's own docstring, not a defect. The underlying policy question is still open but is not this item's claim -- filing another item for it would duplicate this one.",
+  "triage_2026_09_28": {
+    "checked": "Re-ran the item's own rerun command against current config/accounts.yaml: {'ib_live': ['MES'], 'oanda_practice': ['XAUUSD']} -- unchanged from the E42 lane's 2026-09-22 measurement. This is a genuine, already well-reasoned policy question (does `symbols:` on a strategies:[] account mean 'still pull for other uses' or 'inert'), already correctly routed by the prior A10 lane; no new information changes the analysis.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "Extra broker calls per tick for XAUUSD (MES is already fetched via ib_paper)",
+          "label": "Keep pulling for inert accounts too",
+          "risk": "Low — additive data pull, no order-path change",
+          "what_happens": "_resolve_tick_symbols stops skipping accounts with an empty roster for the DATA half (still excluded from trading)"
+        },
+        {
+          "cost": "XAUUSD candles stay unpulled",
+          "label": "Confirm current skip is correct",
+          "risk": "None",
+          "what_happens": "Record that symbols: on an inert account is documentation only; no code change"
+        },
+        {
+          "cost": "New Tier-3 strategy-routing work, out of scope for this question alone",
+          "label": "Moot it by giving both accounts a non-empty roster",
+          "risk": "N/A — different decision",
+          "what_happens": "Wire a strategy to ib_live/oanda_practice"
+        }
+      ],
+      "priority_tier": 6,
+      "question": "Should an account with strategies: [] (ib_live, oanda_practice) keep pulling its declared symbols (MES, XAUUSD) for non-strategy uses, or is symbols: on an inert account documentation only?",
+      "recommendation": "Option 2 (confirm current skip) unless there's a concrete near-term use for standalone XAUUSD data."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "MEASURED 2026-09-22 by the E42 lane against config/accounts.yaml at 06914ce2f: TWO accounts carry an explicit `strategies: []` -- ib_live (`symbols: [MES]`) and oanda_practice (`symbols: [XAUUSD]`) -- and `_resolve_tick_symbols` skips such an account ENTIRELY, so those 2 declared symbols are not fetched at all. That skip is unchanged by E42 and was deliberately left alone: removing it would ADD symbols to the live fetch set, which is a behaviour change the lane was not asked for. [!] BUT IT SITS AWKWARDLY WITH THE REFRAME THE LANE WAS BUILT TO IMPLEMENT. The operator's framing, verbatim, is that `symbols:` is 'additional data pulls unrelated to the strategies themselves' and that 'we can still continue pulling data... for other things even if they're not being traded'. An account that trades nothing is the purest case of that sentence, and it is the one case where the declaration is currently ignored. So today the pull list is additive EXCEPT when the roster is empty, where it is inert -- the roster still gates the data, just at the account level instead of the symbol level. [!] NOT A BUG TODAY, and saying so precisely: MES is fetched anyway (ib_paper rosters legs that trade it) and XAUUSD is fetched by nothing. So the only live consequence is that XAUUSD candles are not pulled for an account that declares them. The cost of getting this wrong in the other direction is real though -- fetching for an inert account spends broker calls per tick on an instrument nothing grades. OPERATOR CALL, not the lane's.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — Should an account with strategies: [] (ib_live, oanda_practice) keep pulling its declared symbols (MES, XAUUSD) for non-strategy uses, or is symbols: on an inert account documentation only? Recommendation: Option 2 (confirm current skip) unless there's a concrete near-term use for standalone XAUUSD data.\n\n-- ADMIN lane triage 2026-09-28 (operator popup ~12:10Z, verbatim answer: \"Apply my recommendations (Recommended)\"). Applied recommendation: confirm the current skip is correct (record; no code change). VERIFIED against current code: src/main.py::_resolve_tick_symbols, lines 787-789, still reads `if strategies is not None and len(strategies) == 0: continue  # explicit opt-out -- account trades nothing` -- an account with `strategies: []` (ib_live, oanda_practice) is skipped ENTIRELY from the UNION(roster-implied, declared) fetch set, so their declared symbols (MES, XAUUSD) are still not fetched, unchanged since the E42 lane and the 2026-09-24 A10 measurement. The skip is intentional (function docstring lines 759-762: \"Accounts that trade nothing are still skipped\"), consistent, and not a bug -- it is a genuine unresolved POLICY question (does symbols: on an inert account mean \"still pull\" or \"documentation only\"), which stays an operator call, not a code defect to fix."
+}
