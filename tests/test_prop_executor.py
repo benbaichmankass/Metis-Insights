@@ -1422,3 +1422,63 @@ def test_probe_on_the_measured_sidebar_reports_submit_candidates(tpage):
     assert {"step": "0.01", "min": "0.01"}.items() <= next(c for c in tp_["qty_constraints"]).items()
     assert any(pp["overflow_y"] == "auto" for pp in tp_["panel_parents"])
     assert p.evaluate("window.__submits") is None
+
+
+# ── SOL-only go-live: a non-enabled symbol is SKIPPED, never refused ──────
+
+
+def _sol_only():
+    c = cfg()
+    c.enabled_venue_symbols = ["SOLUSD"]
+    return c
+
+
+def test_a_non_enabled_symbol_is_skipped_before_the_form_and_counts_nothing(env):
+    ledger, state = env
+    eth = ticket(ticket_id="prop-eth", symbol="ETHUSDT")
+    ad, api = FakeAdapter(), FakeApi([eth])
+    st0 = dict(state.load())
+    c = _sol_only()
+    c.symbols = {**c.symbols, "ETHUSDT": {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                          "min_lots": 0.01, "lot_step": 0.01}}
+    res = pe.run_cycle(adapter=ad, page=None, api=api, cfg=c, mode="live", ledger=ledger,
+                       state=state, now=NOW)
+    assert not any(c[0] == "place_bracket" for c in ad.calls)
+    assert ledger.state("prop-eth") == "skipped" and ledger.latest()["prop-eth"]["reason"] == "symbol_not_enabled"
+    assert [p["reason"] for p in api.posts if p.get("status") == "skipped"] == ["symbol_not_enabled"]
+    st1 = state.load()
+    assert st1.get("readback_refusals", 0) == st0.get("readback_refusals", 0) and state.halted() is None
+    assert res.halted is None
+
+
+def test_a_skipped_symbol_does_not_block_the_next_enabled_ticket(env):
+    ledger, _ = env
+    eth = ticket(ticket_id="prop-eth", symbol="ETHUSDT")
+    sol = ticket(ticket_id="prop-sol", created_at=(NOW + timedelta(seconds=1)).isoformat())
+    ad = FakeAdapter(after_submit=([], [_o(quantity=0.5)]))
+    pe.run_cycle(adapter=ad, page=None, api=FakeApi([eth, sol]), cfg=_sol_only(), mode="live",
+                 ledger=ledger, state=env[1], now=NOW)
+    assert [c[1] for c in ad.calls if c[0] == "place_bracket"] == ["prop-sol"]
+
+
+def test_enabled_venues_env_overrides_config_and_missing_enables_nothing():
+    assert pe.enabled_venues({"enabled_venue_symbols": ["SOLUSD"]}, env={}) == ["SOLUSD"]
+    assert pe.enabled_venues({"enabled_venue_symbols": ["SOLUSD"]}, env={"PROP_EXECUTOR_SYMBOLS": "solusd, ethusd"}) \
+        == ["ETHUSD", "SOLUSD"]
+    assert pe.enabled_venues({}, env={}) == []
+
+
+def test_the_real_config_enables_sol_only():
+    c = pe.load_config("breakout_1")
+    assert c.enabled_venue_symbols == ["SOLUSD"]
+
+
+def test_round_trip_refuses_a_non_enabled_venue(env):
+    ledger, _ = env
+    c = _sol_only()
+    c.symbols = {**c.symbols, "ETHUSDT": {"venue": "ETHUSD", "cvpp": 1.0, "lot_units": 1.0,
+                                          "min_lots": 0.01, "lot_step": 0.01}}
+    c.watched_click_max_lots = {"ETHUSD": 0.01, "SOLUSD": 0.01}
+    res = pe.run_round_trip(adapter=FakeAdapter(), page=None, api=FakeApi(), cfg=c, ledger=ledger,
+                            venue_symbol="ETHUSD", arm=False)
+    assert res.halted and "enabled_venue_symbols" in res.halted
