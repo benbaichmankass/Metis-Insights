@@ -848,7 +848,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/pairs-sleeve-PROPOSAL-2026-07-15.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/pairs-sleeve-real-money-readiness-2026-07-16.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/partial-close-producer-never-fired-2026-09-09.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
-| `docs/research/pb-20260822-avax-scalp-sizing-2026-09-28.md` | evidence | live | — | 2026-09-28 | `dir:research-is-measurement / self-measured-2026-09-28` | — |
+| `docs/research/pb-20260822-avax-scalp-sizing-2026-09-28.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/per-leg-target-geometry-packet-2026-09-18.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/pnl-optimal-conflict-resolution-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/position-sizing-confidence-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |

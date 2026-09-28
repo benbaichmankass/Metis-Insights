@@ -1,6 +1,6 @@
 # PB-20260822-AVAX-SCALP-SIZED-OFF-MARGIN-NOT-RISK — sizing fix, 2026-09-28
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-28`
+> **Doc status:** `unknown` · category `evidence` · last verified `never`
 
 ## The finding this closes/advances
 
