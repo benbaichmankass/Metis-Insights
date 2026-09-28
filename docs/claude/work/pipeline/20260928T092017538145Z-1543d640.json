@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "feed rows carry a non-null realized_today and day_pnl_state == 'measured'",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-4UNXYJIA-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane W6-PROP-FEED session_016Np9Ac9hgbbV4g4UnXYjia 2026-09-28 (manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "rerun": "curl /api/bot/prop/status?account_id=breakout_1 and read rule_distance.day_pnl_state; or the vm-diag relay journalctl?unit=ict-prop-feed&lines=50 and grep 'account_unparsed'"
+  },
+  "state": "queued",
+  "what": "breakout_1 feed snapshots post realized_today=null. Every scheduled tick of ict-prop-feed prints 'account_unparsed: realized_today': the terminal's 'Day RPL' (ACCOUNT_LABELS['realized_today'], src/prop/platform/dxtrade.py) does not parse from the page. MEASURED 2026-09-28 09:01-09:17Z (diag issue #13545; prop_account_status ids 22-26). Each feed row becomes the latest status, so compute_rule_distance reports day_pnl_state='realized_unreported' and distance_to_daily_loss=None. The daily-loss cushion on the operator's panel therefore goes from 'measured' (the manual report, id 21) to unknown ('—'). That is honest, not fabricated, but it loses information on an account-killer limit. Fix: get the real label/structure of the Day RPL metric (a breakout-login-check run's --dump-dir page_text on the VM, or the structure dump) and fix the selector; never default it to 0."
+}

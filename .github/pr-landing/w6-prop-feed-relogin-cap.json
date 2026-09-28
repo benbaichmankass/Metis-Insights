@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "W6-PROP-FEED follow-up (manager review of #13504): changes the behaviour of the live ict-prop-feed timer that logs in to the breakout_1 prop account. Adds a per-UTC-day relogin ceiling (default 12) that trips the feed, counts failed credential attempts, re-arms reset-feed only after a clean check under the lock, and puts the resume loop on a wall-clock budget. Tier-2; the manager merges. Deliberately NOT armed.",
+  "why": "Closes the gap where 288 successful logins/day (session reuse silently not working) would never trip the feed; plus the reset-feed ordering fix and the resume-loop timing fix."
+}
