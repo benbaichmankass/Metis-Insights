@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Live IB order-path change (IBClient._locked_close Step 0 clamp + execute.close_open_position's sibling-qty lookup) -- Tier-2 by path (src/units/accounts/ib_client.py, src/units/accounts/execute.py, src/runtime/order_monitor.py). Needs one operator OK in chat before merge, per the ADMIN lane brief's standing instruction that this PR is held for manager/operator review.",
+  "why": "BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-CONFIRMATION-WAS, operator-approved 2026-09-28 (ADMIN lane triage popup, verbatim answer \"Apply my recommendations (Recommended)\"); tier 2, order path, must hold for manager/operator merge"
+}

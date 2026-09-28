@@ -2475,6 +2475,8 @@ class IBClient:
         symbol: Optional[str],
         side: str,
         qty: float,
+        *,
+        sibling_qty: float = 0.0,
     ) -> Dict[str, Any]:
         """Flatten an open IB position with an opposing reduce market order.
 
@@ -2494,11 +2496,21 @@ class IBClient:
              ``side`` is the side of the original entry (``"long"`` /
              ``"short"``); the close takes the reverse. ``qty`` is the
              position size to flatten (whole contracts). We size the close
-             to ``min(requested_qty, live_exchange_qty)`` read from
-             :meth:`positions` so a stale DB qty can never transmit an
+             to ``min(requested_qty, live_exchange_qty - sibling_qty)`` read
+             from :meth:`positions` so a stale DB qty can never transmit an
              order larger than what IB actually holds (which on a one-way
              futures account would *open* a reverse position rather than
-             flatten).
+             flatten) -- and, per BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-
+             SCOPED-LIKE-THE-CONFIRMATION-WAS, never smaller than
+             ``live_exchange_qty`` reserved for ``sibling_qty`` either, so a
+             thin ``live_exchange_qty`` (e.g. from journal drift) cannot make
+             this close eat into a SIBLING journal trade's own still-open
+             lots on the same symbol. See ``_locked_close`` Step 0.
+
+        ``sibling_qty`` — the sum of OTHER open journal trades' recorded size
+        on this symbol, supplied by the caller (``execute.close_open_position``,
+        the only place that can see the journal). Defaults to ``0.0``, which
+        is byte-for-byte the single-trade clamp this method always had.
 
         Bounded + best-effort, mirroring the rest of this client: never
         raises, reuses the existing connect / circuit-breaker / fetch
@@ -2509,13 +2521,16 @@ class IBClient:
         refusal / failure (the monitor leaves the DB row open + retries).
         """
         with self._usage_lock:
-            return self._locked_close(symbol=symbol, side=side, qty=qty)
+            return self._locked_close(
+                symbol=symbol, side=side, qty=qty, sibling_qty=sibling_qty)
 
     def _locked_close(
         self,
         symbol: Optional[str],
         side: str,
         qty: float,
+        *,
+        sibling_qty: float = 0.0,
     ) -> Dict[str, Any]:
         if self.readonly:
             return {
@@ -2549,6 +2564,38 @@ class IBClient:
         # stale/oversized DB qty can never flip the position (one-way
         # futures). When the read fails we keep the requested qty (the
         # caller's best knowledge) rather than refusing to flatten.
+        #
+        # BL-20260907-IB-CLOSE-QTY-CLAMP-IS-SYMBOL-SCOPED-LIKE-THE-
+        # CONFIRMATION-WAS. ``live_qty`` is the whole SYMBOL's aggregate
+        # position — the same scope MI-168 (two blocks below, the confirm
+        # gate) already had to move off of, for the same reason: whenever a
+        # sibling journal trade legitimately holds other lots of this symbol,
+        # a value that answers "what does the SYMBOL hold" is not the answer
+        # to "what may THIS close touch". Before this fix, ``close_qty =
+        # min(requested_qty, live_qty)`` alone meant that if journal drift
+        # ever left ``live_qty`` short of ``requested_qty + sibling_qty`` —
+        # e.g. this trade's own venue position already partially reduced
+        # elsewhere without the journal catching up — the close would size
+        # itself to whatever remained of the SYMBOL's aggregate, which could
+        # include lots that belong (in journal terms) to the sibling, not to
+        # this trade. NEVER OBSERVED IN PRODUCTION (filed from a code read,
+        # not an incident) and it fails in the SAFE direction (never flips
+        # the position), but it is not the trade-scoped clamp its own
+        # docstring claimed.
+        #
+        # ``sibling_qty`` — supplied by the caller
+        # (``execute.close_open_position``, the only place that can see the
+        # journal) — is the sum of OTHER open journal trades' recorded size
+        # on this symbol. Reserving it means ``live_qty`` is used ONLY as an
+        # upper bound on top of THIS trade's own requested qty, never as a
+        # substitute for it: this close still derives its size from
+        # ``requested_qty`` (this trade's own lots) first, and is capped
+        # by the SYMBOL total minus what a sibling needs, not by the SYMBOL
+        # total alone. Defaults to ``0.0`` — byte-for-byte the pre-fix
+        # single-trade clamp when no sibling exists (the overwhelmingly
+        # common case; MEASURED 2026-09-07: 13 (account, symbol) pairs held
+        # two-or-more simultaneously-open rows in a 28-day window, cited in
+        # the MI-168 comment below).
         try:
             live_qty = self._live_position_qty(sym)
         except Exception:  # noqa: BLE001
@@ -2564,12 +2611,22 @@ class IBClient:
                     "result": {"orderId": None, "note": "already flat"},
                     "retMsg": "OK",
                 }
-            close_qty = min(requested_qty, live_qty)
+            safe_ceiling = max(0.0, live_qty - max(0.0, float(sibling_qty or 0.0)))
+            close_qty = min(requested_qty, safe_ceiling)
         else:
             close_qty = requested_qty
 
         close_qty = float(math.floor(close_qty))
         if close_qty < 1:
+            if live_qty is not None and float(sibling_qty or 0.0) > 0:
+                return {
+                    "retCode": 1,
+                    "retMsg": f"close qty {close_qty} below 1 whole contract "
+                              f"after reserving sibling_qty={sibling_qty} of "
+                              f"live_qty={live_qty} for other open trades on "
+                              f"{sym} — refusing rather than closing into a "
+                              "sibling's lots",
+                }
             return {
                 "retCode": 1,
                 "retMsg": f"close qty {close_qty} below 1 whole contract — "
