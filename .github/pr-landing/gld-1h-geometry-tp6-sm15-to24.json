@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "gld_pullback_1h bracket geometry -> cell tp6_sm1.5_to24 (tp_r 4->6, atr_stop_mult 2.5->1.5, 24-bar time exit via stale_stop). Operator popup 2026-09-28 ~13:20Z 'Ship the 3-part change (Recommended)', checklist row PROMOTE. Manager merges after independent review and notifies the operator.",
+  "why": "config/strategies.yaml strategy-parameter change (Tier-3) plus its regenerated Stage-0 evidence record; no self-land route applies to a Tier-3 change."
+}
