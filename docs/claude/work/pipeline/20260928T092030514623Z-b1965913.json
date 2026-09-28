@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "one post-merge code deploy observed with no out-of-cadence ict-prop-feed start",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-4UNXYJIA-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane W6-PROP-FEED session_016Np9Ac9hgbbV4g4UnXYjia 2026-09-28",
+    "rerun": "after the next code deploy that git-sync applies, vm-diag relay journalctl?unit=ict-prop-feed&lines=100: look for 'code=killed, status=15/TERM' or a Starting line off the :02/5 cadence at the deploy time"
+  },
+  "state": "queued",
+  "what": "The first ict-prop-feed run (09:00:24Z 2026-09-28, the timer's first start at deploy of a1b3d383) was SIGTERM'd 29 s in and restarted by the same deploy (journal, diag issue #13545). INFERRED, not verified: the deploy_pull_restart.sh already running predated the DEFAULT_SKIP entry for ict-prop-feed.service, so it restarted the unit once. If that is wrong, every code deploy adds one unscheduled prop login and can kill a tick mid-login. Side effect: a killed run's credential login is not counted toward the relogin ceiling (the wrapper counts after python exits)."
+}

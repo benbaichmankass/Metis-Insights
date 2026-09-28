@@ -41,6 +41,9 @@ Type=oneshot
 User=ubuntu
 WorkingDirectory=/home/ubuntu/ict-trading-bot
 Environment=HOME=/home/ubuntu
+# Unbuffered python: the check's `session:` lines must reach the wrapper even
+# when the hard timeout kills it mid-login (they feed the relogin ceiling).
+Environment=PYTHONUNBUFFERED=1
 # Outer backstop over the wrapper's own `timeout` (150 s + 15 s kill grace).
 TimeoutStartSec=240
 Nice=10

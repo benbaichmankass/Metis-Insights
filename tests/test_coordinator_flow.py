@@ -24,6 +24,19 @@ import pytest
 from src.core.coordinator import Coordinator, OrderPackage, _PAUSED_ACCOUNTS
 
 
+@pytest.fixture(autouse=True)
+def _fresh_prop_snapshot(monkeypatch):
+    """Every declared prop account now consults the operator-reported status
+    snapshot before sizing, on every path (PI-20260921-E16, 2026-09-28). These
+    tests are about dispatch, not freshness, so give them a FRESH snapshot;
+    the refusal side is pinned in tests/test_prop_balance_all_paths.py."""
+    import src.prop.prop_balance as _pb
+    monkeypatch.setattr(_pb, "prop_sizing_balance",
+                        lambda account_id: ("ok", 5000.0, {"account_id": account_id,
+                                                           "source": "equity"}))
+    monkeypatch.setattr(_pb, "note_refusal", lambda *a, **k: False)
+
+
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------

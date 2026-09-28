@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Pairs beta/spread estimation is stabilized (robust/longer-lookback beta or a sanity guard that skips a tick with an implausible beta/risk_spread) and validated on the pairs backtest harness; risk_spread stays in a plausible band across the soak; the #6549 clamp becomes a never-triggered backstop rather than a load-bearing fix.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260716-PAIRS-BETA-INSTABILITY",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260716-PAIRS-BETA-INSTABILITY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260716-PAIRS-BETA-INSTABILITY'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Read src/units/strategies/pairs_engine.py (lookback still 15, rolling OLS beta unchanged) and config/pairs.yaml (backstop_mult comment confirms the #6549 clamp is still the ONLY mitigation: '+/-100%/-50% so a degenerate risk_spread can't explode the level'). No robust/longer-lookback estimator or pre-clamp sanity guard exists; the clamp is still load-bearing, not a never-triggered backstop.",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane (Tier-1/2 research build): design a robust/longer-lookback beta estimator or a pre-clamp sanity skip for pairs_engine.py, validate on the pairs backtest harness (scripts/research or pairs_dollar_lots.py), then compare risk_spread distribution against the clamp band over a soak before any Tier-3 live change to the sleeve.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] Pairs sleeve: unstable rolling OLS beta on a 15-bar lookback blows up risk_spread -> exploded SL/TP (clamp #6549 band-aids the symptom, not the beta)\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane (Tier-1/2 research build): design a robust/longer-lookback beta estimator or a pre-clamp sanity skip for pairs_engine.py, validate on the pairs backtest harness (scripts/research or pairs_dollar_lots.py), then compare risk_spread distribution against the clamp band over a soak before any Tier-3 live change to the sleeve."
+}

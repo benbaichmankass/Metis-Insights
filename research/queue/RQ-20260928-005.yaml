@@ -153,4 +153,4 @@ related:
   - RQ-20260927-001 (the one prior out-of-sample exit-head pass, trend_donchian BTC 1h)
   - docs/research/M20-exit-refinement-2026-07-12.md § 8-9 (the walk-forward recipe and the below_half_r policy)
   - blocked/RQ-20260928-004 (S2-sizing, the other half of S2)
-last_dispatched_at: null
+last_dispatched_at: '2026-09-28T11:06:10+00:00'

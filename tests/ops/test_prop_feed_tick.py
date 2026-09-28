@@ -42,13 +42,18 @@ def _setup(tmp_path, *, venv=True):
              'if [ "$1" = "-c" ]; then exit 0; fi\n'
              f'echo "$@" >> "{calls}"\n'
              'echo "account: {\\"balance\\": 4724}"\n'
-             '[ -n "${STUB_SESSION:-}" ] && echo "session: ${STUB_SESSION}"\n'
+             'case "${STUB_SESSION:-}" in\n'
+             '  relogin) echo "session: login_attempt"; echo "session: relogin" ;;\n'
+             '  attempt) echo "session: login_attempt" ;;\n'
+             '  "") ;;\n'
+             '  *) echo "session: ${STUB_SESSION}" ;;\n'
+             'esac\n'
              'exit "${STUB_RC:-0}"')
     _exe(tmp_path / "ping_py", f'echo "$@" >> "{pings}"')
     return repo, base, calls, pings
 
 
-def _tick(tmp_path, repo, base, rc=0, max_failures=3, session=""):
+def _tick(tmp_path, repo, base, rc=0, max_failures=3, session="", max_relogins=12):
     env = {
         "PATH": "/usr/bin:/bin",
         "HOME": str(tmp_path),
@@ -59,6 +64,7 @@ def _tick(tmp_path, repo, base, rc=0, max_failures=3, session=""):
         "PROP_FEED_TIMEOUT_S": "20",
         "STUB_RC": str(rc),
         "STUB_SESSION": session,
+        "PROP_FEED_MAX_RELOGINS_PER_DAY": str(max_relogins),
     }
     return subprocess.run(["bash", str(TICK)], capture_output=True, text=True, env=env)
 
@@ -72,7 +78,7 @@ def test_success_invokes_the_read_only_check_exactly(tmp_path):
     r = _tick(tmp_path, repo, base, rc=0)
     assert r.returncode == 0, r.stderr
     assert _lines(calls) == [
-        "scripts/prop/breakout_login_check.py --account breakout_1 --emit-status --symbols= "
+        "-u scripts/prop/breakout_login_check.py --account breakout_1 --emit-status --symbols= "
         f"--storage-state {base}/feed/session_state.json"
     ]
     assert not (base / "feed" / "tripped").exists()
@@ -209,3 +215,182 @@ def test_a_planted_session_token_reaches_no_output_channel(tmp_path):
     assert (base / "feed" / "tripped").exists()  # the rc=4 tick tripped it
     for text in channels:
         assert token not in text
+
+
+def _today():
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%d")
+
+
+def _plant_counter(base, name, value):
+    (base / "feed").mkdir(parents=True, exist_ok=True)
+    (base / "feed" / name).write_text(f"{value}\n")
+
+
+def test_relogin_ceiling_trips_like_a_feasibility_stop(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    _plant_counter(base, f"relogins-{_today()}", 11)
+    r = _tick(tmp_path, repo, base, rc=0, session="relogin")
+    assert r.returncode == 0  # the read itself was fine
+    assert (base / "feed" / "tripped").exists()
+    assert "relogin ceiling" in (base / "feed" / "tripped").read_text()
+    assert len(_lines(pings)) == 1 and "TRIPPED" in _lines(pings)[0]
+    _tick(tmp_path, repo, base, rc=0, session="relogin")  # tripped: no login
+    assert len(_lines(calls)) == 1 and len(_lines(pings)) == 1
+
+
+def test_relogin_ceiling_quiet_control_below_the_ceiling(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    _plant_counter(base, f"relogins-{_today()}", 10)
+    assert _tick(tmp_path, repo, base, rc=0, session="relogin").returncode == 0
+    assert (base / "feed" / f"relogins-{_today()}").read_text().strip() == "11"
+    assert not (base / "feed" / "tripped").exists()
+    assert _lines(pings) == []
+    # Reused ticks never move the relogin counter, however many there are.
+    for _ in range(3):
+        _tick(tmp_path, repo, base, rc=0, session="reused")
+    assert (base / "feed" / f"relogins-{_today()}").read_text().strip() == "11"
+    assert not (base / "feed" / "tripped").exists()
+
+
+def test_failed_credential_attempts_count_toward_the_ceiling(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    # rc=1 with no `session: relogin` line: a login that did not succeed.
+    _tick(tmp_path, repo, base, rc=1, session="attempt", max_failures=99)
+    _tick(tmp_path, repo, base, rc=1, session="attempt", max_failures=99)
+    assert (base / "feed" / f"relogins-{_today()}").read_text().strip() == "2"
+    import json as _json
+    recs = [_json.loads(p.read_text()) for p in _audits(repo)]
+    assert recs and all(r["succeeded"] is False for r in recs)
+    r = _tick(tmp_path, repo, base, rc=1, session="attempt", max_failures=99, max_relogins=3)
+    assert "relogin ceiling" in (base / "feed" / "tripped").read_text()
+    assert r.returncode == 1
+
+
+def test_a_day_with_no_reused_session_pings_once_ever(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    _plant_counter(base, "ticks-20000101", 288)
+    _plant_counter(base, "relogins-20000101", 5)
+    _tick(tmp_path, repo, base, rc=0, session="reused")
+    assert len(_lines(pings)) == 1 and "no reused session" in _lines(pings)[0]
+    assert (base / "feed" / "noreuse-pinged").exists()
+    assert not (base / "feed" / "ticks-20000101").exists()      # rolled over
+    assert not (base / "feed" / "relogins-20000101").exists()
+    assert not (base / "feed" / "tripped").exists()
+    _plant_counter(base, "ticks-20000102", 288)                   # a second such day
+    _tick(tmp_path, repo, base, rc=0, session="reused")
+    assert len(_lines(pings)) == 1                                # one-time only
+
+
+def test_a_day_with_a_reused_session_is_quiet(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    _plant_counter(base, "ticks-20000101", 288)
+    _plant_counter(base, "reused-20000101", 250)
+    _tick(tmp_path, repo, base, rc=0, session="reused")
+    assert _lines(pings) == []
+    assert not (base / "feed" / "noreuse-pinged").exists()
+    assert (base / "feed" / f"ticks-{_today()}").read_text().strip() == "1"
+    assert (base / "feed" / f"reused-{_today()}").read_text().strip() == "1"
+
+
+def test_reset_feed_rearms_only_after_a_clean_check_under_the_lock():
+    action = (REPO / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
+    code = "\n".join(ln for ln in action.splitlines() if not ln.lstrip().startswith("#"))
+    lock = code.index('exec 9>"${BASE}/login.lock"')
+    run = code.index("scripts/prop/breakout_login_check.py")
+    clear = code.index('rm -f "${BASE}/feed/tripped"')
+    assert lock < run < clear  # after the check, while fd 9 (the lock) is still held
+    guard = code.rindex('if [ "${rc}" = "0" ]', 0, clear)
+    assert run < guard < clear
+    assert code.count('rm -f "${BASE}/feed/tripped"') == 1
+
+
+_HANGING_CHECK = (
+    "import time\n"
+    "print('session: login_attempt')   # deliberately NO flush=True\n"
+    "time.sleep(60)\n"
+)
+
+
+def _python_venv(tmp_path, repo, base):
+    """A venv whose python is REAL python (block-buffers a pipe), running a
+    fake check that announces a login attempt and then hangs."""
+    real = subprocess.run(["bash", "-c", "command -v python3"], capture_output=True,
+                          text=True, check=True).stdout.strip()
+    _exe(base / "venv" / "bin" / "python",
+         'if [ "$1" = "-c" ]; then exit 0; fi\n'
+         f'exec "{real}" "$@"')
+    (repo / "scripts" / "prop").mkdir(parents=True, exist_ok=True)
+    (repo / "scripts" / "prop" / "breakout_login_check.py").write_text(_HANGING_CHECK)
+
+
+def test_control_block_buffered_output_is_lost_when_timeout_kills_python(tmp_path):
+    """The control for the test below: without -u / PYTHONUNBUFFERED the
+    line never reaches the pipe, which is the defect review found."""
+    script = tmp_path / "hang.py"
+    script.write_text(_HANGING_CHECK)
+    env = {"PATH": "/usr/bin:/bin"}
+    r = subprocess.run(["bash", "-c", f"timeout 1 python3 {script} | cat"],
+                       capture_output=True, text=True, env=env)
+    assert "login_attempt" not in r.stdout
+
+
+def test_attempt_that_hangs_past_the_hard_timeout_is_still_counted(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path, venv=False)
+    _python_venv(tmp_path, repo, base)
+    env = {
+        "PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "REPO_DIR": str(repo),
+        "PROP_BROWSER_BASE": str(base), "PROP_FEED_PING_PY": str(tmp_path / "ping_py"),
+        "PROP_FEED_TIMEOUT_S": "1", "PROP_FEED_MAX_FAILURES": "99",
+    }
+    r = subprocess.run(["bash", str(TICK)], capture_output=True, text=True, env=env, timeout=60)
+    assert r.returncode == 124, r.stderr
+    assert (base / "feed" / f"relogins-{_today()}").read_text().strip() == "1"
+
+
+def test_corrupt_relogin_counter_fails_closed(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    _plant_counter(base, f"relogins-{_today()}", "3x")
+    _tick(tmp_path, repo, base, rc=0, session="relogin")
+    trip = (base / "feed" / "tripped").read_text()
+    assert "relogin counter corrupt" in trip and "failing closed" in trip
+    assert len(_lines(pings)) == 1
+
+
+def test_non_file_relogin_counter_fails_closed(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    (base / "feed" / f"relogins-{_today()}").mkdir(parents=True)
+    _tick(tmp_path, repo, base, rc=0, session="relogin")
+    assert "not a regular file" in (base / "feed" / "tripped").read_text()
+    assert len(_lines(pings)) == 1
+
+
+def test_unwritable_relogin_counter_fails_closed(tmp_path):
+    """Simulate a failed write (as on a full disk) with a failing `mv` shim
+    on PATH; the counter must trip the feed, never read as 0 or stick at 1."""
+    repo, base, calls, pings = _setup(tmp_path)
+    shim = tmp_path / "shim"
+    _exe(shim / "mv", 'exit 1')
+    env_path = f"{shim}:/usr/bin:/bin"
+    env = {
+        "PATH": env_path, "HOME": str(tmp_path), "REPO_DIR": str(repo),
+        "PROP_BROWSER_BASE": str(base), "PROP_FEED_PING_PY": str(tmp_path / "ping_py"),
+        "PROP_FEED_TIMEOUT_S": "20", "STUB_RC": "0", "STUB_SESSION": "relogin",
+    }
+    subprocess.run(["bash", str(TICK)], capture_output=True, text=True, env=env)
+    assert "write failed" in (base / "feed" / "tripped").read_text()
+    assert len(_lines(pings)) == 1
+
+
+def test_best_effort_counters_never_trip(tmp_path):
+    repo, base, calls, pings = _setup(tmp_path)
+    _plant_counter(base, f"ticks-{_today()}", "garbage")
+    assert _tick(tmp_path, repo, base, rc=0, session="reused").returncode == 0
+    assert not (base / "feed" / "tripped").exists()
+    assert _lines(pings) == []
+
+
+def test_unit_runs_python_unbuffered():
+    assert "Environment=PYTHONUNBUFFERED=1" in UNIT.read_text()
+    code = "\n".join(ln for ln in TICK.read_text().splitlines() if not ln.lstrip().startswith("#"))
+    assert 'PYTHONUNBUFFERED=1 "${VENV}/bin/python" -u scripts/prop/breakout_login_check.py' in code

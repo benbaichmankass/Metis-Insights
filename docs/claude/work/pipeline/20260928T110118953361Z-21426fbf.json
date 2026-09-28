@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER dispatch_queue.py grades a non-.yml run.workflow as its own outcome (e.g. manual_route) distinct from would_dispatch, so a real fire never attempt-and-fails on it, OR an operator/manager confirms the standing-lane pickup claim in writing and it gets documented in research/queue/README.md.",
+    "kind": "event"
+  },
+  "id": "PI-20260928-RQOPS2-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "session_01G2SwTpGGacwEKLHukpTp3w (RQ-OPS-2)",
+    "rerun": "python3 -c \"import sys; sys.path.insert(0,'.'); from scripts.research import dispatch_queue as dq; jobs,_=dq.load_queue(dq.Path('research/queue')); import re; print([j.raw['id'] for j in jobs if not (j.raw.get('run') or {}).get('workflow','').endswith('.yml')])\" -- expect the same 6 ids until the dispatcher (or the units themselves) change."
+  },
+  "state": "queued",
+  "what": "research/queue/*.yaml's run.workflow field is required to be PRESENT (validate()) but not to resolve to a real GH Actions workflow. scripts/research/dispatch_queue.py::_fire() shells out literally to 'gh workflow run \"<run.workflow>\" --ref <ref>' with no other check, so 6 of 19 committed units grade identically to a real workflow-routed unit (same power/route/cadence gates, same would_dispatch on a dry run) while their run.workflow is a human-readable note, not a literal target: 2 are 'none -- session-local run of <script>' (RQ-20260927-005, RQ-20260928-001) and 4 are 'trainer-vm-diag (issue label ... / manual issue dispatch ...)' (RQ-20260927-001/002/003, RQ-20260928-002). On a real --fire, any of these 6 coming due would attempt-and-fail at the gh call rather than being recognised as needing a different dispatch path. Documented with exact counts in research/queue/README.md. NOT verified: RQ-OPS-2's own dispatch claimed these 6 are instead picked up by a standing session/manager cadence -- no primary source in this repo confirms or denies that."
+}

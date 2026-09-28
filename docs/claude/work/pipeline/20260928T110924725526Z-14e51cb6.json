@@ -1,0 +1,42 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the operator decides whether to accept the same-account ETHUSDT election loss as permanent or reprioritize bybit_1's ETHUSDT roster; OR a live per-tick election trace shows trend_donchian_eth_4h winning its account's ETHUSDT slot at least once",
+    "kind": "event"
+  },
+  "id": "PI-20260926-X3QEGPJL-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "research",
+    "ref": "R5 soak-book-grade 2026-09-26",
+    "rerun": "python3 scripts/ops/soak_book_grade.py --window-hours 168 --out comms/research/soak_book_grade/<date>.json"
+  },
+  "routed_to": "PR #13044 (claude/w5d-starved-legs)",
+  "state": "routed",
+  "triage_2026_09_28": {
+    "checked": "Confirmed trend_donchian_eth_4h is still in bybit_1's strategies roster in config/accounts.yaml. The root cause (within-account ETHUSDT election collision among 5 live legs, per src/runtime/intents.py's own comment) is code-confirmed and the kill-proposal was already correctly re-routed to a mechanics finding (PR #13044, self-landed Tier-1) per the item's own text; only the roster-reprioritization question remains open.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "none",
+          "label": "Accept as designed -- leave the roster and priorities as-is",
+          "risk": "a nominally-live leg contributes zero trades indefinitely, which will keep tripping mechanics checks unless they're taught to expect this",
+          "what_happens": "trend_donchian_eth_4h stays live but structurally unable to trade on bybit_1."
+        },
+        {
+          "cost": "requires deciding which of the 5 competing legs to deprioritize -- a real tradeoff",
+          "label": "Reprioritize: give trend_donchian_eth_4h a non-default priority or drop a competing ETHUSDT leg",
+          "risk": "could reduce a currently-winning leg's trade count",
+          "what_happens": "Changes which strategy wins the ETHUSDT slot on ticks where they'd collide."
+        }
+      ],
+      "priority_tier": 4,
+      "question": "trend_donchian_eth_4h on bybit_1 is mechanically starved -- it loses the per-tick ETHUSDT election to 4 other same-account legs every time, not because its signal is bad. Accept this as working-as-designed (the leg simply never gets the slot), or reprioritize bybit_1's ETHUSDT roster so it can compete?",
+      "recommendation": "No data-backed recommendation possible from static config alone -- this is a genuine roster-priority tradeoff among 5 live legs sharing one symbol slot, which only the operator can weigh."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "R5 soak-book grade PROPOSES kill: bybit_1/trend_donchian_eth_4h — starved (25 actionable intent(s), 5 episode(s), 0 order(s)/ticket(s) received, held_back=0, no open position held) over the 168h window ending 2026-09-26T22:39:52.948694+00:00. Cost fidelity insufficient_n (0 fills) — consistent with zero orders reaching the exchange. This is Stage-1 soak mechanics, NOT an expectancy call; the leg is a PROPOSAL to remove from the bybit_1 roster as mechanically dead, Tier-3, operator-approved only. -- UPDATE 2026-09-27 (w5d-starved-legs lane, manager session_01Ljhs6sFAdWHdMDhJpL5aBP): mechanics finding, NOT a strategy verdict -- re-routed off the kill proposal. ROOT CAUSE (code-confirmed, the most directly documented of the 6): src/runtime/intents.py's own comment states outright 'trend_donchian_eth_4h shares ETHUSDT with five other enabled legs. They arbitrate on every tick where two of them fire the same side.' On bybit_1 the ETHUSDT field is trend_donchian_eth_4h plus trend_donchian_eth, eth_pullback_2h, eth_pullback_prop_2h (shadow), and ict_scalp_eth_15m -- all execution:live except the prop shadow twin, all at DEFAULT_PRIORITIES 0, decided by confidence then a deterministic tiebreak. The E33/E35 per-account arbitration fix (2026-09-21/25) only closed the CROSS-account theft (bybit_1 vs bybit_2/bybit_portfolio/breakout_1); it does nothing for this WITHIN-account, same-symbol collision -- plan_per_account_election still elects exactly one strategy per (account, symbol) per tick. FIX: PR #13044 (claude/w5d-starved-legs) (Tier-1, self-landed) teaches scripts/ops/soak_book_grade.py to grade this insufficient-data, not kill. OPEN QUESTION for the operator: same as PI-20260926-X3QEGPJL-0001 -- accept as working-as-designed or reprioritize the ETHUSDT roster on bybit_1.\n\n[TRIAGE 2026-09-28] OPERATOR (tier 4) — trend_donchian_eth_4h on bybit_1 is mechanically starved -- it loses the per-tick ETHUSDT election to 4 other same-account legs every time, not because its signal is bad. Accept this as working-as-designed (the leg simply never gets the slot), or reprioritize bybit_1's ETHUSDT roster so it can compete? Recommendation: No data-backed recommendation possible from static config alone -- this is a genuine roster-priority tradeoff among 5 live legs sharing one symbol slot, which only the operator can weigh."
+}

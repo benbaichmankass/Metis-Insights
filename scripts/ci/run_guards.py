@@ -133,6 +133,29 @@ GUARDS: List[Dict[str, Any]] = [
         ],
     },
     {
+        # BL-20260909-UNKNOWN-STRATEGY-PRIORITY — the arbitration fallback must
+        # sit strictly BELOW every mapped priority (R1) and every enabled
+        # execution:live leg must have a DEFAULT_PRIORITIES row (R2). Until
+        # 2026-09-28 the fallback was 10 against a 0-floor, so an unmapped leg
+        # WON the per-symbol election. Wired with --strict the day the table
+        # went clean (operator "Fix both + wire guard", 2026-09-28); R3 fails
+        # any regression against the committed (empty) baseline too.
+        "name": "priority-fallback-distribution",
+        "when": {"globs": [
+            "src/runtime/intents.py",
+            "config/strategies.yaml",
+            "config/accounts.yaml",
+            "docs/claude/work/PRIORITY-FALLBACK-BASELINE.json",
+            "scripts/ci/check_priority_fallback_distribution.py",
+        ]},
+        "steps": [
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py",
+             "--self-test"],
+            ["python3", "scripts/ci/check_priority_fallback_distribution.py",
+             "--strict"],
+        ],
+    },
+    {
         # E42 — ONE definition of "which symbols does this account concern".
         # Five sites derived it privately; four were known and the fifth
         # (`account_ib_venue_session`) was found by this very self-test's
@@ -1535,6 +1558,21 @@ GUARDS: List[Dict[str, Any]] = [
         "steps": [
             ["python3", "scripts/ci/check_guard_liveness.py", "--self-test"],
             ["python3", "scripts/ci/check_guard_liveness.py"],
+        ],
+    },
+    {
+        # RQ-OPS-2 (PI-20260928-RQOPS2-0001): research-queue-dispatch.yml
+        # writes a receipt on every successful run (fired or dry) via
+        # commit-to-main; this grades that receipt's freshness the same way
+        # cadence-liveness grades its own registry, so a silently-stopped
+        # research-queue cron surfaces on every push rather than needing
+        # its own working cron to report on itself. `when: None`: its
+        # subject is a committed receipt file, not this PR's diff.
+        "name": "research-queue-dispatch-liveness",
+        "when": None,
+        "steps": [
+            ["python3", "scripts/ci/check_research_queue_dispatch_liveness.py", "--self-test"],
+            ["python3", "scripts/ci/check_research_queue_dispatch_liveness.py"],
         ],
     },
     {

@@ -1,0 +1,8 @@
+{
+  "run_id": "seeded-by-RQ-OPS-2",
+  "conclusion": "success",
+  "timestamp": "2026-09-28T10:55:17.198619+00:00",
+  "event_name": "manual-seed",
+  "fired": false,
+  "note": "Seeded by RQ-OPS-2 (session_01G2SwTpGGacwEKLHukpTp3w) so the new liveness guard has a valid receipt on landing; the workflow overwrites this on its next run."
+}

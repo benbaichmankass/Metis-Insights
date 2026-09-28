@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Both citations point at existing files (or are removed).",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260611-004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260611-004",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260611-004'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Grepped config/strategies.yaml (only 1 of the 2 cited docs remains there, at line 117: docs/sprint-plans/TREND-GOLIVE-PLAN-2026-05-23.md) and confirmed docs/sprint-plans/ and docs/audits/ both lack that file and lack complementary-trend-strategy-2026-05-23.md. The second citation (docs/audits/complementary-trend-strategy-2026-05-23.md) is no longer in strategies.yaml at all but is now cited, still dangling, in src/runtime/strategy_signal_builders.py:1113, src/units/strategies/trend_donchian.py:9/66, and config/accounts.yaml:366.",
+    "date": "2026-09-28",
+    "decision_text": "Both cited docs are confirmed nonexistent in the current tree (git history not searchable in this shallow clone, but no matching filename anywhere on disk). This is a Tier-1, reversible doc-comment fix: either restore stub docs at the cited paths or strike/replace the dead citations across all 4 files that now carry them (strategies.yaml, accounts.yaml, strategy_signal_builders.py, trend_donchian.py). Scope grew from the original 1-file finding to 4 files -- worth folding into one cleanup pass rather than re-filing per file.",
+    "disposition": "DECIDE",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] config/strategies.yaml comments cite two nonexistent docs (TREND-GOLIVE-PLAN-2026-05-23.md at ~line 100; complementary-trend-strategy-2026-05-23.md at ~line 183)\n\n[TRIAGE 2026-09-28] DECIDE — Both cited docs are confirmed nonexistent in the current tree (git history not searchable in this shallow clone, but no matching filename anywhere on disk). This is a Tier-1, reversible doc-comment fix: either restore stub docs at the cited paths or strike/replace the dead citations across all 4 files that now carry them (strategies.yaml, accounts.yaml, strategy_signal_builders.py, trend_donchian.py). Scope grew from the original 1-file finding to 4 files -- worth folding into one cleanup pass rather than re-filing per file."
+}

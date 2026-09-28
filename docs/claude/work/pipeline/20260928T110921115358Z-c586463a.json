@@ -1,0 +1,48 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "EITHER (a) ib_live's ib_host/ib_port are corrected to an endpoint that a reader can demonstrate answers — evidenced by /api/diag/ib_state showing a client connected on the NEW host:port, or an explicit connect test, never by the config diff alone; OR (b) an operator decision is RECORDED that ib_live will not be promoted and is trusted flat because it is dry and has never traded, with that decision written into config/accounts.yaml's ib_live comment block AND MI-177's audit note corrected so 'resolves on promotion' no longer stands. A merge alone closes neither. Explicitly NOT sufficient: ib_live continuing to read positions:null (that is the dry gate, which is what hides this).",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-AND-PROMOTION-WOULD-NOT-CONNECT",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-AND-PROMOTION-WOULD-NOT-CONNECT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260908-IB-LIVE-ENDPOINT-IS-STALE-AND-PROMOTION-WOULD-NOT-CONNECT'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "config/accounts.yaml confirms ib_live still declares ib_host: 127.0.0.1 / ib_port: 7496 (the live-trader VM itself), while the only other IB account (ib_paper) points at the isolated gateway VM 10.0.0.251:4002. ib_live is currently mode: dry_run with strategies: [] -- no live-money exposure today. Neither of the two closing paths in the item (fix+verify-connect, or a recorded operator no-promote decision) is present in the repo; I have no way to determine the correct live gateway port from static config alone, and no live-gateway access to test connectivity.",
+    "date": "2026-09-28",
+    "disposition": "OPERATOR",
+    "popup": {
+      "options": [
+        {
+          "cost": "engineering time to determine the correct live port on the gateway VM",
+          "label": "Fix ib_host/ib_port to the correct gateway VM endpoint and verify a live connect test before ever promoting",
+          "risk": "low -- account stays dry_run throughout the fix",
+          "what_happens": "A lane corrects the config and confirms /api/diag/ib_state shows a connected client on the new endpoint."
+        },
+        {
+          "cost": "none",
+          "label": "Record a decision that ib_live will not be promoted for now, and note it in the account's comment block",
+          "risk": "the stale config remains a landmine if someone promotes it later without re-checking",
+          "what_happens": "Closes the open question without an infra fix; MI-177's audit note gets corrected to stop claiming this 'resolves on promotion'."
+        },
+        {
+          "cost": "none",
+          "label": "Leave as-is",
+          "risk": "a future promotion attempt fails silently or, worse, connects to the wrong endpoint",
+          "what_happens": "Nothing changes."
+        }
+      ],
+      "priority_tier": 6,
+      "question": "ib_live's declared endpoint (127.0.0.1:7496) does not match the architecture (IB Gateway is isolated on 10.0.0.251); promoting ib_live today would not connect. The account is currently dry_run/empty-roster so there is no active risk, but should this be fixed before any future promotion, or should ib_live be formally parked?",
+      "recommendation": "Option 1 if IB/MES is still on the roadmap, otherwise option 2 -- the account is safe today (dry_run, empty roster) so there's no urgency, but the config is provably wrong and should not be trusted at face value later."
+    },
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] ib_live (REAL MONEY) declares ib_host 127.0.0.1 / ib_port 7496 — no gateway listens there and 7496 is not this deployment's live port, so promoting it would NOT connect\n\n[TRIAGE 2026-09-28] OPERATOR (tier 6) — ib_live's declared endpoint (127.0.0.1:7496) does not match the architecture (IB Gateway is isolated on 10.0.0.251); promoting ib_live today would not connect. The account is currently dry_run/empty-roster so there is no active risk, but should this be fixed before any future promotion, or should ib_live be formally parked? Recommendation: Option 1 if IB/MES is still on the roadmap, otherwise option 2 -- the account is safe today (dry_run, empty roster) so there's no urgency, but the config is provably wrong and should not be trusted at face value later."
+}

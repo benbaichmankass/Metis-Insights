@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Detection is shipped. Remaining: (a) re-check the shipped gld_pullback_1h cell against a second feed, (b) thread boundary/feed-sensitivity through regime_cell_walkforward so the gate itself reports it. Any cell change is Tier-3 — propose only.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260731-REGIME-ATTRIBUTION-FEED-SENSITIVE'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "Confirmed config/regime_policy.yaml still has gld_pullback_1h short:off unchanged since the 2026-07-29 walk-forward. scripts/research/regime_tag_emitted.py has boundary_exposure()/feed_sensitivity_checked() (a mechanism now exists, per RESEARCH-CAPABILITY-INDEX.md) but scripts/research/regime_cell_walkforward.py's tag_cmd subprocess call never parses/merges those fields into its own output (verified by reading run_cell()), and no --sensitivity-data run against gld_pullback_1h since 2026-09-21 (git log on regime_tag_emitted.py shows no substantive change).",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "dispatch_lane: (a) run scripts/research/regime_tag_emitted.py --sensitivity-data <second feed> for gld_pullback_1h, (b) thread boundary_exposure/feed_sensitivity_checked output fields into regime_cell_walkforward.py's run_cell(). Mechanical follow-through, no operator judgment needed unless the result implies a cell change (Tier-3 propose only, per the row's own text).",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] [regime] per-regime net-R is feed-unstable — DETECTION SHIPPED (boundary exposure + feed sensitivity on regime_tag_emitted); the gld_pullback_1h re-check is the remaining open half\n\n[TRIAGE 2026-09-28] REROUTE (dispatch_lane) — dispatch_lane: (a) run scripts/research/regime_tag_emitted.py --sensitivity-data <second feed> for gld_pullback_1h, (b) thread boundary_exposure/feed_sensitivity_checked output fields into regime_cell_walkforward.py's run_cell(). Mechanical follow-through, no operator judgment needed unless the result implies a cell change (Tier-3 propose only, per the row's own text)."
+}
