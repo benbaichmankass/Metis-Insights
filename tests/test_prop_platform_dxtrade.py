@@ -564,8 +564,8 @@ def test_renderers_cap_after_redaction(pad):
 # ── bottom-panel VIEW tabs as Breakout's DXtrade renders them ─────────────
 # MEASURED (run 36351578802, issue #13345): tabs are a span inside a
 # [data-active] element, not role=tab; the positions table headers are the
-# ones below. The orders table's headers are NOT measured yet (the tab was
-# never clicked), so the orders side of this fixture is invented.
+# ones below. The orders table's headers are MEASURED too (run 36358563148,
+# issue #13385); only the one order row in it is invented.
 BOTTOM_PANEL = """<html><body>
 <script>window.__clicks = [];</script>
 <button onclick="window.__clicks.push('Place Order')">Place Order</button>
@@ -582,9 +582,12 @@ function show(which) {
   document.getElementById('pos').style.display = which === 'pos' ? '' : 'none';
   if (which === 'ord' && !document.getElementById('ord')) {
     document.body.insertAdjacentHTML('beforeend',
-      '<table id="ord"><thead><tr><th>Symbol</th><th>Side</th><th>Type</th><th>Size</th><th>Price</th>' +
-      '<th>Order ID</th></tr></thead><tbody><tr><td>ETHUSD</td><td>Sell</td><td>Stop</td><td>0.5</td>' +
-      '<td>2,600.00</td><td>77</td></tr></tbody></table>');
+      '<table id="ord"><thead><tr><th>Sts</th><th>Status</th><th>Symbol</th><th>Side</th><th>Size</th>' +
+      '<th>Price</th><th>Type</th><th>Stop loss</th><th>Take profit</th><th>Current Price</th>' +
+      '<th>Date and Time Modified</th><th>Expiration</th><th>Order ID</th><th>Fill Price</th></tr></thead>' +
+      '<tbody><tr><td></td><td>Working</td><td>ETHUSD</td><td>Sell</td><td>0.5</td><td>2,600.00</td>' +
+      '<td>Stop</td><td></td><td></td><td>2,682.48</td><td></td><td>GTC</td><td>77</td><td></td></tr>' +
+      '</tbody></table>');
   }
 }
 </script></body></html>"""
@@ -600,3 +603,20 @@ def test_view_tabs_click_only_the_exact_data_active_tab(chromium_page):
     # Only VIEW tabs were clicked -- never the button, never "Order History".
     assert chromium_page.evaluate("window.__clicks") == ["Positions", "Orders"]
     chromium_page.set_content(DIVGRID.read_text())
+
+
+# Both tables with the MEASURED headers (runs 36351578802 and 36358563148).
+MEASURED_POS = {"headers": ["Symbol", "Side", "Size", "Open P&L", "Take profit", "Stop loss", "Position ID",
+                            "Fill Price", "Current Price", "Date and Time", "", ""], "rows": []}
+MEASURED_ORD = {"headers": ["Sts", "Status", "Symbol", "Side", "Size", "Price", "Type", "Stop loss",
+                            "Take profit", "Current Price", "Date and Time Modified", "Expiration",
+                            "Order ID", "Fill Price", "", ""], "rows": []}
+
+
+def test_measured_breakout_tables_are_told_apart():
+    # Run 36358563148 showed the orders table and still read "UNPARSED": its
+    # "Current Price" column was on the positions-only list.
+    assert positions_from_tables([MEASURED_ORD, MEASURED_POS]) == []
+    assert orders_from_tables([MEASURED_POS, MEASURED_ORD]) == []
+    assert orders_from_tables([MEASURED_POS]) is None       # not shown: could not look
+    assert positions_from_tables([MEASURED_ORD]) is None

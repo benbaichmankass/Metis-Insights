@@ -261,8 +261,13 @@ def _cell(row: Sequence[str], idx: Optional[int]) -> Optional[str]:
 
 # Column headers only one of the two tables carries (exact, case-insensitive),
 # from the served dictionary's position.column.* / table.header.*order* keys.
+# MEASURED (run 36358563148, issue #13385): Breakout's working-orders table
+# carries "Current Price" and "Fill Price" too, so neither may mark a table as
+# positions-only. Its headers: Sts, Status, Symbol, Side, Size, Price, Type,
+# Stop loss, Take profit, Current Price, Date and Time Modified, Expiration,
+# Order ID, Fill Price.
 _POSITION_ONLY = {"position id", "position volume", "position qty", "open p&l", "open p/l",
-                  "open p/l, acc", "avg fill price", "open price", "entry price", "current price",
+                  "open p/l, acc", "avg fill price", "open price", "entry price",
                   "average price", "open cost"}
 _ORDER_ONLY = {"order id", "order type", "limit price", "stop price", "order volume",
                "order size", "left qty", "filled qty", "trigger price", "status", "sts",
