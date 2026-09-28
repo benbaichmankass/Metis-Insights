@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only probe extension (PROP-EXEC step 2 follow-up)",
+  "why": "probe-ticket after #13727 (issue #13742) ran on 060aa007a: the order-ticket sidebar did not open because no TICKET_OPENER_NAMES button or watchlist row matched (6 inputs, 9 canvases on the page), and the terminal tags its controls with data-test-id. This adds a READ-ONLY control map (CONTROLS_DUMP_JS: inputs, buttons, tabs and data-test-id elements outside table bodies; tag, test id, role, type, aria/placeholder/title, selection-state attributes, short text) to the probe result when the ticket does not open or side/type is unreadable. Every digit is masked as '#' and no input value is ever read, so no account number, balance or price reaches the public run log. Clicks nothing. Tier-2 by path (runs on the live VM via breakout-login-check)."
+}

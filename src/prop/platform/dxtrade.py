@@ -1097,6 +1097,42 @@ ONE_CLICK_DUMP_JS = r"""
 """
 
 
+# Read-only map of the page's CONTROLS, to find how the order-ticket sidebar
+# opens and how it shows side / order type (probe 2026-09-28: no opener name
+# matched, and the terminal tags controls with ``data-test-id``). Lists inputs,
+# buttons, tabs and every ``data-test-id`` element outside table bodies. Never
+# reads an input's value, and masks EVERY digit as ``#`` so no account number,
+# balance or price can reach the public run log. Clicks nothing.
+CONTROLS_DUMP_JS = r"""
+() => {
+  const mask = v => (typeof v === 'string') ? v.trim().replace(/\s+/g, ' ').replace(/\d/g, '#').slice(0, 40) : null;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '');
+  const sel = 'input, select, textarea, button, [role=button], [role=tab], [role=radio], [role=switch], [data-test-id]';
+  const out = [];
+  for (const el of document.querySelectorAll(sel)) {
+    if (el.closest('tbody')) continue;
+    const r = el.getBoundingClientRect();
+    const d = {tag: el.tagName.toLowerCase(), tid: mask(el.getAttribute('data-test-id')),
+               role: mask(el.getAttribute('role')), type: mask(el.getAttribute('type')),
+               aria: mask(el.getAttribute('aria-label')), ph: mask(el.getAttribute('placeholder')),
+               title: mask(el.getAttribute('title')),
+               vis: r.width > 0 && r.height > 0};
+    for (const a of el.attributes) {
+      if (/^(aria-(selected|checked|pressed|disabled)|data-(value|selected|active|state|side|type))$/.test(a.name)) {
+        (d.state = d.state || {})[a.name] = mask(a.value);
+      }
+    }
+    if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA' && el.children.length <= 3) d.text = mask(txt(el));
+    if (el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio')) d.checked = el.checked;
+    const lab = el.closest('label') || el.parentElement;
+    if (el.tagName === 'INPUT' && lab) d.label = mask(txt(lab));
+    out.push(d);
+    if (out.length >= 150) break;
+  }
+  return {found: out.length > 0, n: out.length, controls: out};
+}
+"""
+
 # Finds ONE row of the orders or positions table by an exact key cell and ONE
 # control in it by an anchored pattern (text, aria-label or title), and tags
 # that control data-metis-row-action. Never clicks.
@@ -1629,6 +1665,13 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"found": False, "error": type(exc).__name__}
 
+    def controls_dump(self, page: Any) -> Dict[str, Any]:
+        """Read-only, digit-masked map of the page's controls (CONTROLS_DUMP_JS)."""
+        try:
+            return page.evaluate(CONTROLS_DUMP_JS) or {"found": False}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
     def probe_order_ticket(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
         """READ-ONLY feasibility measurement of the order ticket: open the
         form, record its shape (labels, buttons, disabled state, canvas
@@ -1662,6 +1705,11 @@ class DXtradeAdapter(PropPlatformAdapter):
         # structure around its label so a reader can be built from it.
         if (opened.get("one_click") or {}).get("state") not in ("on", "off"):
             result["one_click_dump"] = self.one_click_dump(page)
+        # When the ticket did not open, or it opened but side / order type is
+        # not readable (place_bracket would refuse), include the digit-masked
+        # control map so the opener and the side/type reader can be built.
+        if not opened.get("opened") or not form.get("selected"):
+            result["controls_dump"] = self.controls_dump(page)
         if opened.get("opened"):
             result["closed"] = self.close_order_ticket(page)
         return result
