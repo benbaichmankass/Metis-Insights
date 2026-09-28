@@ -152,8 +152,15 @@ INSTRUMENT_SPEC_LABELS: Dict[str, Sequence[str]] = {
 # ── pure helpers ─────────────────────────────────────────────────────────
 
 
+_DECIMAL_COMMA_RE = re.compile(r"[+-]?\d+,\d{1,2}")
+
+
 def parse_number(text: Optional[str]) -> Optional[float]:
-    """``"$4,724.50"`` → 4724.5; ``"(12.30)"``/``"−12.30"`` → -12.3; junk → None."""
+    """``"$4,724.50"`` → 4724.5; ``"(12.30)"``/``"−12.30"`` → -12.3;
+    ``"0,01"`` → 0.01 (a LONE comma before 1-2 digits with no decimal
+    point already present is a European-style decimal comma, not a
+    thousands separator -- dropping it silently turned "0,01" into 1.0);
+    junk → None."""
     if text is None:
         return None
     t = str(text).strip()
@@ -162,10 +169,14 @@ def parse_number(text: Optional[str]) -> Optional[float]:
     neg = False
     if t.startswith("(") and t.endswith(")"):
         neg, t = True, t[1:-1]
-    t = t.replace("\u2212", "-").replace(",", "").replace(" ", "").replace("\u00a0", "")
+    t = t.replace("\u2212", "-").replace(" ", "").replace("\u00a0", "")
     t = re.sub(r"^(USD|USDT|EUR|GBP)", "", t)
     t = re.sub(r"(USD|USDT|EUR|GBP)$", "", t)
     t = re.sub(r"[$€£]", "", t)
+    if "." not in t and _DECIMAL_COMMA_RE.fullmatch(t):
+        t = t.replace(",", ".")
+    else:
+        t = t.replace(",", "")
     m = re.fullmatch(r"([+-]?)(\d+(?:\.\d+)?)", t)
     if not m:
         return None
@@ -922,21 +933,57 @@ class DXtradeAdapter(PropPlatformAdapter):
                     continue
         return False
 
-    def read_instrument_specs(self, page: Any, symbols: Sequence[str]) -> List[InstrumentSpec]:
+    def read_instrument_specs(self, page: Any, symbols: Sequence[str],
+                              secrets: Sequence[str] = ()) -> List[InstrumentSpec]:
+        """One :class:`InstrumentSpec` per symbol. ``secrets`` (username,
+        password) are redacted into the WHOLE page text before any
+        substring of it is kept or sliced — never after — so a slice
+        boundary landing inside a secret, a URL or an e-mail cannot leak a
+        fragment redaction would otherwise have caught whole (the #13297
+        leak class: redact first, cap/slice after).
+
+        Every symbol is graded independently and never trusted on a stale
+        page: if the search box couldn't be filled, no info panel opened,
+        the requested symbol never appears in the resulting text, or that
+        text is byte-identical to the previous symbol's (the search/open
+        reported success but nothing actually changed), every field is
+        ``unparsed`` — a leftover panel from a PRIOR symbol is never read
+        as this one's. ``search_ok``/``panel_ok`` are always set so a
+        caller can print the per-symbol outcome, not just the parse.
+        """
         out: List[InstrumentSpec] = []
+        prev_text: Optional[str] = None
         for sym in symbols:
-            self._search_symbol(page, sym)
-            self._open_instrument_info(page)
+            search_ok = self._search_symbol(page, sym)
+            panel_ok = self._open_instrument_info(page)
             text = self._page_text(page)
-            snippet = None
-            spec = parse_instrument_spec(sym, text)
+            stale = prev_text is not None and text == prev_text
+            prev_text = text
+            sym_seen = sym.lower() in text.lower()
+
+            if search_ok and panel_ok and sym_seen and not stale:
+                # Best-effort scoping to "the opened panel's text": a window
+                # around the symbol's own mention rather than the whole
+                # page, so a generic label elsewhere (an order ticket's own
+                # "Qty"/"Step" fields) is less likely to be read as this
+                # symbol's spec. Still NOT MEASURED against a real panel
+                # boundary — see the module note.
+                idx = text.lower().find(sym.lower())
+                window = text[max(0, idx - 400):idx + 1_200]
+                spec = parse_instrument_spec(sym, window)
+            else:
+                spec = InstrumentSpec(symbol=sym, unparsed=list(INSTRUMENT_SPEC_LABELS.keys()))
+            spec.search_ok, spec.panel_ok = search_ok, panel_ok
+
             if spec.unparsed == list(INSTRUMENT_SPEC_LABELS.keys()):
                 # Nothing at all parsed for this symbol: keep a short
                 # excerpt around the symbol's own mention, if it appears,
                 # to help fix selectors from the (redacted) public log.
-                idx = text.lower().find(sym.lower())
+                # Redact the WHOLE text, then slice the redacted result —
+                # never the other way round.
+                redacted = redact_text(text, *secrets)
+                idx = redacted.lower().find(sym.lower())
                 if idx >= 0:
-                    snippet = text[max(0, idx - 80):idx + 200].strip()
-                spec.raw_snippet = snippet
+                    spec.raw_snippet = redacted[max(0, idx - 80):idx + 200].strip()
             out.append(spec)
         return out

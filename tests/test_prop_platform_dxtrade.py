@@ -244,6 +244,12 @@ def test_login_refuses_without_credentials():
     ("\u221212.30", -12.3), ("-$5", -5.0), ("+3.2", 3.2), ("0.00", 0.0),
     ("abc", None), ("1.2.3", None), ("", None), (None, None),
     ("USD 4,724.00", 4724.0), ("4\u00a0724.00", 4724.0), ("\u2014", None),
+    # A LONE comma before 1-2 digits with no decimal point already present
+    # is a decimal comma, not a thousands separator: dropping it silently
+    # turned "0,01" into 1.0 (min-lot-sized instrument specs, e.g.).
+    ("0,01", 0.01), ("12,3", 12.3), ("-0,01", -0.01),
+    # 3+ digits after the comma stays a thousands separator, unaffected.
+    ("1,234", 1234.0), ("1,234.56", 1234.56),
 ])
 def test_parse_number(raw, val):
     assert parse_number(raw) == val
@@ -309,9 +315,10 @@ def test_parse_instrument_spec_partial_read_names_only_the_missing_fields():
 
 
 class _SpecLocator:
-    def __init__(self, count: int = 0, on_first_action=None) -> None:
+    def __init__(self, count: int = 0, on_first_action=None, fail: bool = False) -> None:
         self._count = count
         self._on_first_action = on_first_action
+        self._fail = fail
         self.filled: list = []
         self.clicked = 0
 
@@ -323,11 +330,15 @@ class _SpecLocator:
         return self
 
     def fill(self, value, timeout=None):
+        if self._fail:
+            raise RuntimeError("fill failed (fake)")
         self.filled.append(value)
         if self._on_first_action:
             self._on_first_action()
 
     def click(self, timeout=None):
+        if self._fail:
+            raise RuntimeError("click failed (fake)")
         self.clicked += 1
         if self._on_first_action:
             self._on_first_action()
@@ -339,14 +350,14 @@ class _SpecFakePage:
     documented fake-without-frames case)."""
 
     def __init__(self, before: str, after: str = "", has_search: bool = True,
-                info_role: str = "", info_name: str = "") -> None:
+                info_role: str = "", info_name: str = "", fail_fill: bool = False) -> None:
         self.text = before
         self._after = after
         self.has_search = has_search
         self._info_role, self._info_name = info_role, info_name
         # The search box only fills; opening the specs panel is a separate
         # click, so only that locator's action reveals ``after``.
-        self.search_locator = _SpecLocator(1 if has_search else 0)
+        self.search_locator = _SpecLocator(1 if has_search else 0, fail=fail_fill)
 
     def _open(self):
         self.text = self._after
@@ -371,7 +382,7 @@ class _SpecFakePage:
 def test_read_instrument_specs_parses_after_search_and_info_panel_click():
     page = _SpecFakePage(
         before="Log In\nUsername\nPassword\n",
-        after="Contract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n",
+        after="ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n",
         info_role="tab", info_name="Instrument Info",
     )
     specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ETHUSD"])
@@ -379,6 +390,7 @@ def test_read_instrument_specs_parses_after_search_and_info_panel_click():
     assert page.search_locator.filled == ["ETHUSD"]
     assert (specs[0].contract_size, specs[0].digits) == (1.0, 2)
     assert specs[0].unparsed == [] and specs[0].raw_snippet is None
+    assert (specs[0].search_ok, specs[0].panel_ok) == (True, True)
 
 
 def test_read_instrument_specs_when_the_terminal_exposes_nothing_names_every_field_and_keeps_a_snippet():
@@ -392,6 +404,55 @@ def test_read_instrument_specs_when_the_terminal_exposes_nothing_names_every_fie
     assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (None, None, None, None)
     assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
     assert spec.raw_snippet and "ADAUSD" in spec.raw_snippet
+
+
+def test_read_instrument_specs_search_failure_never_trusts_a_stale_panel():
+    # Reproduces the reviewed bug: a BTCUSD panel is still showing (and
+    # would otherwise parse cleanly) when the SEARCH for the next symbol
+    # fails. The stale panel must never be read as that next symbol's spec.
+    stale_btc_panel = "BTCUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.001\nVolume Step\n0.001\n"
+    page = _SpecFakePage(before=stale_btc_panel, has_search=True, fail_fill=True)
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"])
+    spec = specs[0]
+    assert spec.search_ok is False
+    assert (spec.contract_size, spec.digits, spec.min_qty, spec.qty_step) == (None, None, None, None)
+    assert set(spec.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}
+
+
+def test_read_instrument_specs_identical_panel_text_across_symbols_is_never_trusted():
+    # Both symbol names happen to appear in the SAME static reference text
+    # (e.g. a symbol list on the panel), so "the symbol appears" check alone
+    # would pass for both reads even though the panel never actually
+    # changed between them -- only the byte-identical-text check catches
+    # the second, stale read.
+    static_text = "SOLUSD ETHUSD\nContract Size\n1.00\nDigits\n2\nMin Volume\n0.01\nVolume Step\n0.01\n"
+    page = _SpecFakePage(before="Log In\n", after=static_text, info_role="tab", info_name="Instrument Info")
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["SOLUSD", "ETHUSD"])
+    first, second = specs
+    assert first.unparsed == []  # a real, fresh panel open
+    assert set(second.unparsed) == {"contract_size", "digits", "min_qty", "qty_step"}  # stale, never trusted
+
+
+def test_read_instrument_specs_redacts_the_whole_text_before_slicing_the_snippet():
+    # The #13297 leak class: slicing an excerpt out of RAW text and only
+    # redacting the slice afterwards lets a cut that lands inside a
+    # secret, a URL or an e-mail defeat the pattern (the fragment left in
+    # the slice no longer matches). Pack a URL, a secret username and an
+    # e-mail immediately before the symbol's own mention, so the window
+    # (idx-80:idx+200) straddles them -- with no search box, every field
+    # is forced unparsed and this is exactly the snippet path exercised.
+    url = "https://secret.example.com/verysecretpath?token=abcdefghijklmnopqrstuvwxyz0123456789"
+    secret_user = "BO-SUPERSECRETUSER77"
+    email = "victim@example.com"
+    text = f"{url} {secret_user} {email} ADAUSD trades here, more filler after the symbol name."
+    page = _SpecFakePage(before=text, has_search=False)
+    specs = DXtradeAdapter(timeout_ms=500).read_instrument_specs(page, ["ADAUSD"], secrets=(secret_user,))
+    spec = specs[0]
+    assert spec.raw_snippet
+    assert "verysecretpath" not in spec.raw_snippet
+    assert "token=abcdefghijklmnopqrstuvwxyz0123456789" not in spec.raw_snippet
+    assert secret_user.lower() not in spec.raw_snippet.lower()
+    assert "victim@example.com" not in spec.raw_snippet
 
 
 def test_read_instrument_specs_preserves_symbol_order():

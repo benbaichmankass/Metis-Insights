@@ -93,9 +93,17 @@ class InstrumentSpec:
     that could not be read is ``None`` — never ``0`` or ``1`` — and its
     label is listed in ``unparsed`` so "we could not look" stays
     distinguishable from "we looked and it is zero/one". ``raw_snippet`` is
-    a short, redacted-before-print excerpt of the panel text near the
-    symbol, kept only to help fix selectors when nothing else parsed —
-    never printed unredacted (see ``dxtrade.redact_text``).
+    a short excerpt of the panel text near the symbol, kept only to help
+    fix selectors when nothing else parsed. It is REDACTED before it is
+    ever sliced out of the page text (redact the whole text first, then
+    take the excerpt — never the other way round, or a slice boundary
+    landing inside a secret/URL/e-mail can leak a fragment the redaction
+    pattern no longer matches); see ``dxtrade.redact_text``.
+
+    ``search_ok``/``panel_ok`` record whether this symbol's own search and
+    info-panel-open attempt reported success, so a caller can tell "we
+    looked and found nothing" from "we never actually looked" and print
+    the outcome even when every field below is ``unparsed``.
     """
 
     symbol: str
@@ -105,6 +113,8 @@ class InstrumentSpec:
     qty_step: Optional[float] = None
     unparsed: List[str] = field(default_factory=list)
     raw_snippet: Optional[str] = None
+    search_ok: Optional[bool] = None
+    panel_ok: Optional[bool] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -128,7 +138,8 @@ class PropPlatformAdapter:
     def read_orders(self, page: Any) -> List[WorkingOrder]:
         raise NotImplementedError
 
-    def read_instrument_specs(self, page: Any, symbols: List[str]) -> List["InstrumentSpec"]:
+    def read_instrument_specs(self, page: Any, symbols: List[str],
+                              secrets: List[str] = ()) -> List["InstrumentSpec"]:
         """One :class:`InstrumentSpec` per requested symbol, same order.
 
         Read-only: looks up each symbol (e.g. via a search box) and reads
@@ -137,6 +148,9 @@ class PropPlatformAdapter:
         returns an ``InstrumentSpec`` with every field ``None`` and all of
         them listed in ``unparsed`` — not a raised error — so a caller can
         report per-symbol coverage rather than failing the whole read.
+        ``secrets`` (e.g. username, password) are passed through so an
+        implementation redacts the whole page text before slicing any
+        excerpt out of it, never after.
         """
         raise NotImplementedError
 

@@ -104,7 +104,7 @@ class _LeakyInstrumentAdapter(_LeakyAdapter):
     """A symbol whose spec panel never parsed leaks the raw snippet dump —
     prove the same redaction path covers it (PI-20260927-ODDTM5QY-0002)."""
 
-    def read_instrument_specs(self, page, symbols):
+    def read_instrument_specs(self, page, symbols, secrets=()):
         return [InstrumentSpec(
             symbol=symbols[0] if symbols else "ETHUSD",
             unparsed=["digits", "contract_size", "min_qty", "qty_step"],

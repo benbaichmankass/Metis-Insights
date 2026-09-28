@@ -212,7 +212,7 @@ def main(argv: Optional[list] = None) -> int:
                 symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
             if symbols and hasattr(adapter, "read_instrument_specs"):
                 try:
-                    specs = adapter.read_instrument_specs(page, symbols)
+                    specs = adapter.read_instrument_specs(page, symbols, secrets=(username, password))
                 except Exception as exc:
                     print(_redact(f"instruments: ERROR ({type(exc).__name__}: {exc})",
                                   username, password, limit=400))
@@ -222,9 +222,15 @@ def main(argv: Optional[list] = None) -> int:
                     snippet = d.pop("raw_snippet", None)
                     print(_redact(f"instrument: {json.dumps(d)}", username, password))
                     if spec.unparsed:
+                        # Deliberately NOT folded into rc: this probe runs after
+                        # the balance/position/order reads and its own search +
+                        # panel-open clicks change the page, so escalating rc
+                        # here would (a) make a clean default run exit 3 and
+                        # (b) trigger the structure dump below against a page
+                        # this probe itself just navigated, not the one the
+                        # balance/position/order reads saw.
                         print(_redact(f"instrument_unparsed: {spec.symbol}: {', '.join(spec.unparsed)}",
                                       username, password))
-                        rc = rc or EXIT_UNPARSED
                     if snippet:
                         print(_redact(f"instrument_raw_snippet[{spec.symbol}]: {snippet}",
                                       username, password, limit=280))
