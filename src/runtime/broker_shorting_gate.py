@@ -23,7 +23,10 @@ rejection row with ``reason=`` :data:`REFUSAL_TOKEN` (so the cause survives in
 the DB, not only in a ~30-minute journald line) and the account is skipped for
 that package. NO order path is added. A short on an account whose journal shows
 a LONG (or is unreadable) is NOT refused: under FLIP_POLICY=flat that short is a
-close, and a close must never be blocked by a short gate.
+close, and a close must never be blocked by a short gate. An account with an
+options ``express_as`` (``alpaca_options_paper``) is skipped: it expresses a
+bearish signal as a bear put DEBIT spread, which buys premium and is not a
+short sale.
 
 Four states, never collapsed
 ----------------------------

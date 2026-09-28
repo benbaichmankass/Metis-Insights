@@ -224,3 +224,27 @@ def test_gate_never_turns_an_account_live():
 
 def test_the_cache_ttl_is_documented_and_600s():
     assert G.CACHE_TTL_S == 600.0
+
+
+def test_options_expressing_account_is_not_refused_and_never_reads_the_flag(run, monkeypatch):
+    """alpaca_options_paper expresses a bearish signal as a bear put DEBIT
+    spread (buys premium) — not a short sale, so shorting_enabled is moot."""
+    import src.units.accounts.options_overlay as oo
+    monkeypatch.setattr(oo, "account_expresses_options",
+                        lambda cfg: {"express_as": "debit_vertical"})
+    reads = []
+    real = G.shorting_state
+    monkeypatch.setattr(G, "shorting_state",
+                        lambda *a, **k: reads.append(a[0]) or real(*a, **k))
+    out = run("short", False)
+    assert out["rejections"] == []
+    assert out["executed"] == [False]
+    assert reads == []
+
+
+def test_the_real_options_account_is_recognised_by_the_canonical_predicate():
+    """Pins the live config: the coordinator's stripped account_cfg carries no
+    `options` key, so the predicate must resolve it from accounts.yaml."""
+    from src.units.accounts.options_overlay import account_expresses_options
+    assert account_expresses_options({"account_id": "alpaca_options_paper"}) is not None
+    assert account_expresses_options({"account_id": "alpaca_paper"}) is None

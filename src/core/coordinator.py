@@ -1525,7 +1525,8 @@ class Coordinator:
             # skipped whenever the journal shows a long (or is unreadable —
             # the intent path refuses an unreadable read on its own with
             # net_position_unreadable). It only refuses a short that would
-            # OPEN or ADD to short exposure.
+            # OPEN or ADD to short exposure. An options-expressing account is
+            # skipped entirely (a bearish signal there is a debit spread).
             if not effective_dry:
                 try:
                     from src.runtime.broker_shorting_gate import (
@@ -1538,10 +1539,21 @@ class Coordinator:
                         # credentials + environment the order would use.
                         return alpaca_client_for(account_cfg)
 
-                    _bs_refused, _bs_state = refuses_short(
-                        account.name, account.exchange,
-                        getattr(pkg, "direction", None), _shorting_client,
+                    # An OPTIONS-expressing account (options.express_as:
+                    # debit_vertical, e.g. alpaca_options_paper) turns a bearish
+                    # signal into a bear put DEBIT spread — it BUYS premium and
+                    # is not a short sale, so shorting_enabled does not apply.
+                    # Same canonical predicate the execution path uses.
+                    from src.units.accounts.options_overlay import (
+                        account_expresses_options,
                     )
+                    if account_expresses_options(account_cfg) is not None:
+                        _bs_refused, _bs_state = False, "not_applicable"
+                    else:
+                        _bs_refused, _bs_state = refuses_short(
+                            account.name, account.exchange,
+                            getattr(pkg, "direction", None), _shorting_client,
+                        )
                     if _bs_refused:
                         from src.runtime.positions import current_net_position_qty
                         _bs_net = current_net_position_qty(account.name, pkg.symbol)
