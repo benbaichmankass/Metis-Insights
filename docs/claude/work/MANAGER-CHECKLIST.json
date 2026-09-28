@@ -2794,9 +2794,11 @@
       "ceiling_usd": 30,
       "spend_usd": null,
       "tier": 1,
-      "prs": [],
+      "prs": [
+        13578
+      ],
       "blocked_on": [],
-      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Triage lane (Recommended)\". Population counted by manager: 123 open items with next_action=ask_operator on origin/main. Output ranked by the priorities block.",
+      "note": "2026-09-28 ~09:00Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): operator popup answer \"Triage lane (Recommended)\". Population counted by manager: 123 open items with next_action=ask_operator on origin/main. Output ranked by the priorities block. Recount at triage time: 124 (churn since manager's ~08:50Z count of 123). Disposed via 8 parallel investigation batches, each re-checking against current code/config/git history: 23 KILL, 9 DECIDE, 56 REROUTE, 36 OPERATOR (sum=124). Applied to docs/claude/work/pipeline/ via pipeline.append(intent=\"update\"); dry-run validated against a scratch copy first. PR #13578 (Tier-1 self-land, docs-only) opened by claude-pr-automerge (this session's GitHub MCP is 403 for PR writes) after the direct create/update calls were refused three times with backoff. Full detail: docs/claude/work/triage-2026-09-28.md. spend_usd not independently measurable from this session; not fabricated here.",
       "id": "TRIAGE"
     },
     {
