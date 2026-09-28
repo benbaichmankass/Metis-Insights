@@ -283,6 +283,11 @@ def main(argv: Optional[list] = None) -> int:
                 context, page, captured_responses = open_page(None)
             try:
                 if not reused:
+                    if args.storage_state:
+                        # Printed BEFORE the attempt so the feed counts every
+                        # credential submission, including rejected or
+                        # timed-out ones (its per-day relogin ceiling).
+                        print("session: login_attempt")
                     adapter.login(page, cfg["login_url"], username, password)
                     print("session: relogin" if args.storage_state else "session: fresh")
             except FeasibilityError as fe:

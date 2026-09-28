@@ -73,6 +73,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import time
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 from urllib.parse import urlsplit
 
@@ -933,7 +934,11 @@ class DXtradeAdapter(PropPlatformAdapter):
         stop there, never answer it with a credential login.
         """
         page.goto(login_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
-        step_ms, waited, form_ms, state = 1_000, 0, 0, "unknown"
+        # Wall-clock budget: page_state() itself can take seconds (it reads
+        # every frame), so counting only the sleeps could overrun the tick's
+        # hard timeout.
+        deadline = time.monotonic() + self.timeout_ms / 1000.0
+        step_ms, form_ms, state = 1_000, 0, "unknown"
         while True:
             state = self.page_state(page)
             if state == "logged_in":
@@ -943,10 +948,9 @@ class DXtradeAdapter(PropPlatformAdapter):
             if state == "login_error":
                 return state
             form_ms = form_ms + step_ms if state == "login_form" else 0
-            if form_ms > login_form_grace_ms or waited >= self.timeout_ms:
+            if form_ms > login_form_grace_ms or time.monotonic() >= deadline:
                 return state
             page.wait_for_timeout(step_ms)
-            waited += step_ms
 
     @staticmethod
     def _where(page: Any) -> str:

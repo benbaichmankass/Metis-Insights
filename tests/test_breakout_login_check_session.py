@@ -243,3 +243,20 @@ def test_action_wrapper_never_passes_storage_state():
     action = (REPO / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
     assert "--storage-state" not in action
     assert "session_state" not in action
+
+
+def test_login_attempt_is_announced_before_the_submit_even_when_it_fails(harness, tmp_path, capsys):
+    sf = tmp_path / "s.json"
+    harness["adapter"].login_exc = FeasibilityError("login_rejected", "x")
+    rc, out = _run(["--storage-state", str(sf)], capsys)
+    assert rc == blc.EXIT_FEASIBILITY
+    assert "session: login_attempt" in out and "session: relogin" not in out
+
+
+def test_login_attempt_not_announced_on_reuse_or_for_the_action(harness, tmp_path, capsys):
+    sf = tmp_path / "s.json"
+    _plant(sf)
+    rc, out = _run(["--storage-state", str(sf)], capsys)
+    assert rc == 0 and "session: reused" in out and "login_attempt" not in out
+    rc, out = _run([], capsys)
+    assert rc == 0 and "session: fresh" in out and "login_attempt" not in out
