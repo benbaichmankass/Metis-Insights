@@ -1,0 +1,141 @@
+# JC-CA-04 (docs/audits/code-audit-2026-09-27.md §6, `A09-hold-merge-unenforced`,
+# operator decision 2026-09-28: "Post-merge alarm", option B only).
+#
+# THE FINDING: nothing mechanical stops a session merging a Tier-2/3 PR
+# declared `landing: "hold"` in its .github/pr-landing/<slug>.json — it can be
+# green on every required check, and merge tools are pre-allowed. `hold` means
+# "a human decides"; nothing today enforces that anyone did.
+#
+# THIS IS A DETECTOR, NOT A GATE (deliberately). The operator chose option B
+# only: catch it AFTER THE FACT and page loudly, rather than option A (a
+# branch-protection / CODEOWNERS block on TIER3_PATHS) which would also slow
+# every legitimate operator-approved Tier-2/3 merge with an extra click. If
+# the residual gap option B leaves open ever matters, that is the operator's
+# call to make separately (see JC-CA-04 §6.3 in the audit), not this
+# workflow's to assume.
+#
+# WHAT IT DOES: on every push to main, find the PR(s) associated with the
+# pushed commit(s) (a direct push with no PR is a no-op — nothing here to
+# check), read each merged PR's .github/pr-landing/<slug>.json (already in the
+# tree at this push, the same file check_pr_landing.py required pre-merge)
+# and its GitHub reviews, and hand both to the pure decision logic in
+# scripts/ops/pr_landing_hold_alarm.py. On ALARM (tier 2/3, landing: "hold",
+# no human APPROVED review recorded), open a `system-action` / `send-ping`
+# issue — the same relay r4-demotion-gate.yml already uses for its own
+# realtime ping — so the operator is paged with the PR number and title.
+#
+# ⚠️ UNREADABLE IS NOT CLEAN. If the declaration or the reviews list could not
+# be fetched, the job FAILS (visible red in Actions) rather than silently
+# passing — docs/CLAUDE-RULES-CANONICAL.md § "Green is not evidence": an alarm
+# that stays quiet because its OWN reads failed is worse than no alarm, because
+# it looks like a clean pass. It does not additionally page the operator for a
+# transient API hiccup, to avoid training the ping channel to be ignored (the
+# alarm-fatigue P1 the same doc names) — a red run in Actions history is the
+# honest signal for "we could not look", not a duplicate of the real alarm.
+name: pr-landing hold-merge alarm
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: pr-landing-hold-merge-alarm-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  alarm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Grade every PR associated with this push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          COMMITS_JSON: ${{ toJSON(github.event.commits) }}
+        run: |
+          set -euo pipefail
+
+          shas=$(python3 -c "import json, os; print('\n'.join(c['id'] for c in json.loads(os.environ['COMMITS_JSON'])))")
+          if [ -z "$shas" ]; then
+            shas="${{ github.sha }}"
+          fi
+
+          # PRs associated with any commit in this push, deduped, merged only.
+          prs=""
+          for sha in $shas; do
+            page=$(gh api "repos/${REPO}/commits/${sha}/pulls" \
+              --jq '.[] | select(.merged_at != null) | "\(.number)\t\(.title)\t\(.head.ref)"' \
+              2>/dev/null || echo "")
+            if [ -n "$page" ]; then
+              prs="${prs}"$'\n'"${page}"
+            fi
+          done
+          prs=$(echo "$prs" | sed '/^$/d' | sort -u -t$'\t' -k1,1)
+
+          if [ -z "$prs" ]; then
+            echo "no merged PR associated with this push — nothing to grade (direct push, or the API had nothing to say)"
+            exit 0
+          fi
+
+          overall_rc=0
+          # A here-string, not a pipe: `echo ... | while ...` would run the
+          # loop in a subshell in bash, and overall_rc set inside it would be
+          # lost the moment the loop ends -- silently turning every UNREADABLE
+          # into a green job. <<< keeps the loop in THIS shell.
+          while IFS=$'\t' read -r pr_number pr_title head_ref; do
+            [ -z "$pr_number" ] && continue
+            echo "::group::PR #${pr_number} (${head_ref})"
+
+            # Slug derivation matches .github/pr-landing/README.md and
+            # claude-pr-automerge.yml: strip a leading claude/, then / -> -.
+            slug=$(python3 -c "import sys; ref = sys.argv[1]; ref = ref[len('claude/'):] if ref.startswith('claude/') else ref; print(ref.replace('/', '-'))" "$head_ref")
+            decl_path=".github/pr-landing/${slug}.json"
+
+            if [ -f "$decl_path" ]; then
+              decl_arg="$decl_path"
+              if ! python3 -c "import json; json.load(open('$decl_path'))" 2>/dev/null; then
+                decl_arg="UNREADABLE"
+              fi
+            else
+              decl_arg="MISSING"
+            fi
+
+            reviews_path="/tmp/reviews-${pr_number}.json"
+            if gh api "repos/${REPO}/pulls/${pr_number}/reviews" --paginate > "$reviews_path" 2>/dev/null \
+               && python3 -c "import json; d=json.load(open('$reviews_path')); assert isinstance(d, list)" 2>/dev/null; then
+              reviews_arg="$reviews_path"
+            else
+              reviews_arg="UNREADABLE"
+            fi
+
+            set +e
+            out=$(python3 scripts/ops/pr_landing_hold_alarm.py \
+              --decl-json "$decl_arg" --reviews-json "$reviews_arg" \
+              --pr-number "$pr_number" --pr-title "$pr_title")
+            rc=$?
+            set -e
+            echo "$out"
+            echo "::endgroup::"
+
+            if [ "$rc" -eq 2 ]; then
+              ping_msg=$(echo "$out" | tail -n1)
+              gh issue create --label system-action \
+                --title "send-ping: PR #${pr_number} hold-merge alarm (JC-CA-04)" \
+                --body "$(printf 'action: send-ping\npriority: high\nmessage: %s (pr-landing-hold-merge-alarm, run %s)\nreason: JC-CA-04 A09-hold-merge-unenforced -- tier 2/3 landing:hold PR merged with no recorded human approval' "$ping_msg" "${{ github.run_id }}")"
+            elif [ "$rc" -eq 3 ]; then
+              echo "::warning::pr-landing-hold-merge-alarm could not evaluate PR #${pr_number} (unreadable declaration or reviews) -- see the log above"
+              overall_rc=1
+            fi
+          done <<< "$prs"
+          exit "${overall_rc:-0}"
