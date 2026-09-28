@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "The orders-layer halt check either demonstrably runs in production or is deliberately and documentedly not a gate.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260813-ORDERS-HALT-CHECK-INERT-WITHOUT-SETTINGS-KEY'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "Fixed and verified in code: src/runtime/validation.py::build_settings_from_env() now explicitly sets settings['HALT_FLAG_PATH'] = halt_flag_path() (comment cites this exact BL id, 'wired 2026-08-16, Tier-3 operator-approved'), and src/main.py:935 calls build_settings_from_env() as the settings dict used by the live pipeline, which flows into src/runtime/orders.py::safe_place_order's halt check. The clears_when condition ('the orders-layer halt check demonstrably runs in production') is satisfied by this wiring.",
+  "triage_2026_09_28": {
+    "checked": "Read src/runtime/orders.py:129-132 (the halt check), src/runtime/validation.py:195-239 (build_settings_from_env, which now populates HALT_FLAG_PATH with a comment explicitly referencing BL-20260813), and grepped src/main.py:935 to confirm build_settings_from_env() is the settings dict actually used at runtime.",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "Fixed and verified in code: src/runtime/validation.py::build_settings_from_env() now explicitly sets settings['HALT_FLAG_PATH'] = halt_flag_path() (comment cites this exact BL id, 'wired 2026-08-16, Tier-3 operator-approved'), and src/main.py:935 calls build_settings_from_env() as the settings dict used by the live pipeline, which flows into src/runtime/orders.py::safe_place_order's halt check. The clears_when condition ('the orders-layer halt check demonstrably runs in production') is satisfied by this wiring."
+  },
+  "what": "[health] src/runtime/orders.py's halt check is SKIPPED entirely when HALT_FLAG_PATH is absent from its settings dict -- a third, quieter halt semantics\n\n[TRIAGE 2026-09-28] KILL — Fixed and verified in code: src/runtime/validation.py::build_settings_from_env() now explicitly sets settings['HALT_FLAG_PATH'] = halt_flag_path() (comment cites this exact BL id, 'wired 2026-08-16, Tier-3 operator-approved'), and src/main.py:935 calls build_settings_from_env() as the settings dict used by the live pipeline, which flows into src/runtime/orders.py::safe_place_order's halt check. The clears_when condition ('the orders-layer halt check demonstrably runs in production') is satisfied by this wiring."
+}

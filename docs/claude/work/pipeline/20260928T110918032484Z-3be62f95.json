@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "Either (a) the operator decides to wire a dedicated Alpaca paper login for alpaca_options_paper and that lands (own key pair, accounts.yaml api_key_env, secret propagation, verified isolation), OR (b) the operator explicitly decides the shared-login + dual-filter design is acceptable to keep and that decision is recorded here — at which point close.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260627-OPTIONS-SEPARATE-ACCT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260627-OPTIONS-SEPARATE-ACCT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260627-OPTIONS-SEPARATE-ACCT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "This is a stale duplicate of an already-decided question: the source backlog row itself is resolved (2026-07-26, operator decision recorded) and superseded by BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR. Independently, the CURRENT config/accounts.yaml + sync-vm-secrets.yml show alpaca_options_paper now runs on its own key-pair env vars, propagated to the VM -- so the shared-login risk the item was raised about is not the live configuration regardless of which historical resolution path is treated as authoritative.",
+  "triage_2026_09_28": {
+    "checked": "Read the archived record itself (docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260627-OPTIONS-SEPARATE-ACCT): it already carries resolved_at=2026-07-26T12:10:00Z and a resolution_note (operator dropped the 4th-Alpaca-account approach, chose Alpaca-options-only-via-IBKR instead; disposition=snoozed). Cross-checked config/accounts.yaml (alpaca_options_paper: api_key_env: ALPACA_API_KEY_ID_OPTIONS, distinct from alpaca_paper's default) and .github/workflows/sync-vm-secrets.yml (propagates ALPACA_API_KEY_ID_OPTIONS/_SECRET_KEY_OPTIONS to the VM, comment dated 2026-07-07).",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "This is a stale duplicate of an already-decided question: the source backlog row itself is resolved (2026-07-26, operator decision recorded) and superseded by BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR. Independently, the CURRENT config/accounts.yaml + sync-vm-secrets.yml show alpaca_options_paper now runs on its own key-pair env vars, propagated to the VM -- so the shared-login risk the item was raised about is not the live configuration regardless of which historical resolution path is treated as authoritative."
+  },
+  "what": "[health] OPERATOR DECISION TO REVISIT: give alpaca_options_paper its OWN Alpaca paper login (separate keys) instead of sharing alpaca_paper's\n\n[TRIAGE 2026-09-28] KILL — This is a stale duplicate of an already-decided question: the source backlog row itself is resolved (2026-07-26, operator decision recorded) and superseded by BL-20260726-ALPACA-OPTIONS-ONLY-VIA-IBKR. Independently, the CURRENT config/accounts.yaml + sync-vm-secrets.yml show alpaca_options_paper now runs on its own key-pair env vars, propagated to the VM -- so the shared-login risk the item was raised about is not the live configuration regardless of which historical resolution path is treated as authoritative."
+}

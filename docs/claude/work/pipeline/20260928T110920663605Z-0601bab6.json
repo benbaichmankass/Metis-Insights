@@ -1,0 +1,24 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "Two things, and the FIRST is Tier-1 and must come first. (1) MEASURE the collision on BTCUSDT: over the shared-position history, how much of each leg's attributed PnL is exclusive vs shared, and how often did one leg's exit move the other's position? Until that number exists, every per-strategy BTCUSDT figure is quoted with the caveat. (2) DECIDE the separation (Tier-3, operator-gated): route the two legs to accounts that do not net against each other, arm hedge mode for the pair (BYBIT_HEDGE_MODE_SYMBOLS exists and is deliberately EMPTY - the plumbing is not the switch, and switching a venue's position mode is itself Tier-3), or accept one live BTCUSDT leg per netting account as policy. Closing this by demoting either leg does NOT satisfy it: that removes the collision from one account and leaves it standing on the other two, and leaves the attribution question unanswered for whichever leg remains.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-BTCUSDT-POSITION",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json#BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-BTCUSDT-POSITION",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/health-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='BL-20260826-BTC-SCALP-AND-DONCHIAN-SHARE-ONE-NETTED-BTCUSDT-POSITION'), indent=2))\""
+  },
+  "state": "queued",
+  "triage_2026_09_28": {
+    "checked": "config/accounts.yaml MEASURED today: bybit_2 (real money) roster is now [xrp_pullback_2h, trend_donchian_eth_4h, trend_donchian_xrp_4h, ada_pullback_2h] -- neither ict_scalp_5m nor the base trend_donchian (BTC) is routed there anymore (roster rewritten 2026-09-22, per accounts.yaml's own R8-wiring comment); bybit_portfolio mirrors it exactly (also no BTC legs). Only bybit_1 (paper/Stage-1 soak) still carries both ict_scalp_5m and trend_donchian on BTCUSDT. The archived record's own MEASURE step (resolution criterion 1, done 2026-08-26) already found the collision real but small (17/55 = 30.9% shared trades) and NOT the driver of the scalp's results (clean exclusive subset flat at +$1.43).",
+    "date": "2026-09-28",
+    "disposition": "REROUTE",
+    "reroute_target": "The real-money version of this question is now moot (bybit_2/bybit_portfolio route neither leg on BTC). What remains is the same collision on bybit_1, a paper Stage-1 soak account -- lower stakes since Stage 1 tolerates being wide per CLAUDE.md. Recommend check_observation: re-run the same MEASURE methodology against bybit_1's history before any Tier-3 separation decision, and re-escalate to the operator only if either leg is proposed for re-promotion onto a real-money account where this collision would matter again.",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)"
+  },
+  "what": "[health] ict_scalp_5m and trend_donchian both trade BTCUSDT live on one-way-netting Bybit accounts, so two strategies share ONE exchange position and neither one's per-strategy PnL is an exclusive measurement\n\n[TRIAGE 2026-09-28] REROUTE (check_observation) — The real-money version of this question is now moot (bybit_2/bybit_portfolio route neither leg on BTC). What remains is the same collision on bybit_1, a paper Stage-1 soak account -- lower stakes since Stage 1 tolerates being wide per CLAUDE.md. Recommend check_observation: re-run the same MEASURE methodology against bybit_1's history before any Tier-3 separation decision, and re-escalate to the operator only if either leg is proposed for re-promotion onto a real-money account where this collision would matter again."
+}

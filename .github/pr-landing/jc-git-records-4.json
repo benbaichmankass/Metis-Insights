@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Records only. It updates PI-20260928-TURC5MJC-0004 (routed to PR #13609) with the operator's verbatim JC-CA-03 re-decision, and appends that re-decision plus the JC-CA-01 state to the JC-GIT row note on docs/claude/work/MANAGER-CHECKLIST.json, as the manager asked. No code, config or runtime change."
+}

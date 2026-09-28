@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 45,
+    "clears_when": "IBClient supports STK/ETF contracts (tested), the chosen ETF strategies run on ib_paper end-to-end (real paper fills journaled), and account_compat_matrix has scored ib_paper for them — OR a documented decision not to pursue it.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260707-IBKR-STK-ETF-SUPPORT",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260707-IBKR-STK-ETF-SUPPORT",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260707-IBKR-STK-ETF-SUPPORT'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "All three clears_when conditions verified in-repo: (1) IBClient supports STK contracts, tested -- src/units/accounts/ib_client.py's ib_instrument_spec resolver + tests/test_ib_instruments.py (test_etfs_resolve_stk covers SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX/TQQQ/QLD). (2) chosen ETF strategies run on ib_paper end-to-end -- config/accounts.yaml's ib_paper strategies list carries spy_trend_long_1d/qqq_trend_long_1d/iwm_trend_long_1d/tlt_pullback_1d alongside the futures legs, added with an in-line commit comment that names this exact backlog id: '2026-07-07 (IBKR equity/ETF STK support, step 6 -- docs/integrations/ibkr-equity-etf-support-DESIGN.md, backlog PB-20260707-IBKR-STK-ETF-SUPPORT)'. (3) account_compat_matrix has scored ib_paper for them -- the same comment cites 'the mandatory scripts/ops/etf_account_compat.sh ACCOUNTS=ib_paper run, issue #5908... P(breach) 0.005-0.042, survival 1.0 for all four', and docs/research/research-disposition-ledger.jsonl separately shows account_compat_matrix ROUTE verdicts for ib_paper on gld_pullback_1h and iaum_pullback_1d.",
+  "triage_2026_09_28": {
+    "checked": "",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "All three clears_when conditions verified in-repo: (1) IBClient supports STK contracts, tested -- src/units/accounts/ib_client.py's ib_instrument_spec resolver + tests/test_ib_instruments.py (test_etfs_resolve_stk covers SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX/TQQQ/QLD). (2) chosen ETF strategies run on ib_paper end-to-end -- config/accounts.yaml's ib_paper strategies list carries spy_trend_long_1d/qqq_trend_long_1d/iwm_trend_long_1d/tlt_pullback_1d alongside the futures legs, added with an in-line commit comment that names this exact backlog id: '2026-07-07 (IBKR equity/ETF STK support, step 6 -- docs/integrations/ibkr-equity-etf-support-DESIGN.md, backlog PB-20260707-IBKR-STK-ETF-SUPPORT)'. (3) account_compat_matrix has scored ib_paper for them -- the same comment cites 'the mandatory scripts/ops/etf_account_compat.sh ACCOUNTS=ib_paper run, issue #5908... P(breach) 0.005-0.042, survival 1.0 for all four', and docs/research/research-disposition-ledger.jsonl separately shows account_compat_matrix ROUTE verdicts for ib_paper on gld_pullback_1h and iaum_pullback_1d."
+  },
+  "what": "[performance] Scope + build IBKR equity/ETF (STK) contract support so the alpaca ETF strategies can also run on ib_paper (2nd paper venue / future IBKR ETF real-money route)\n\n[TRIAGE 2026-09-28] KILL — All three clears_when conditions verified in-repo: (1) IBClient supports STK contracts, tested -- src/units/accounts/ib_client.py's ib_instrument_spec resolver + tests/test_ib_instruments.py (test_etfs_resolve_stk covers SPY/QQQ/GLD/IWM/TLT/IEF/SLV/USO/GDX/TQQQ/QLD). (2) chosen ETF strategies run on ib_paper end-to-end -- config/accounts.yaml's ib_paper strategies list carries spy_trend_long_1d/qqq_trend_long_1d/iwm_trend_long_1d/tlt_pullback_1d alongside the futures legs, added with an in-line commit comment that names this exact backlog id: '2026-07-07 (IBKR equity/ETF STK support, step 6 -- docs/integrations/ibkr-equity-etf-support-DESIGN.md, backlog PB-20260707-IBKR-STK-ETF-SUPPORT)'. (3) account_compat_matrix has scored ib_paper for them -- the same comment cites 'the mandatory scripts/ops/etf_account_compat.sh ACCOUNTS=ib_paper run, issue #5908... P(breach) 0.005-0.042, survival 1.0 for all four', and docs/research/research-disposition-ledger.jsonl separately shows account_compat_matrix ROUTE verdicts for ib_paper on gld_pullback_1h and iaum_pullback_1d."
+}

@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "Real Breakout swap confirmed (≈0.033%/day or corrected) AND >=10-20 closed prop ETH trades compared to the EV projection, with a documented keep/tune/drop decision per leg.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260625-001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260625-001",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260625-001'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "The specific legs this item asked to monitor ('the two newly-live ETH pullback legs on breakout_1') are no longer live on breakout_1 in the roster today, and one of them (eth_pullback_prop_2h) was already demoted for cause with a documented negative OOS result. The monitoring target no longer exists in the state the finding describes; breakout_1's roster has since moved to the trend_donchian_{sol,eth}_prop variants, which is a separate, already-tracked item.",
+  "triage_2026_09_28": {
+    "checked": "config/accounts.yaml's breakout_1.strategies is currently ['trend_donchian_sol_prop','trend_donchian_eth_prop'] -- no eth_pullback_2h / eth_pullback_prop_2h entries at all (both route to bybit_1 instead). Separately, config/strategies.yaml shows eth_pullback_prop_2h was explicitly DEMOTED live->shadow on 2026-08-23 with a stated terminal reason ('OOS net_R -11.78 over a 13,206-bar corpus... breach is terminal').",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "The specific legs this item asked to monitor ('the two newly-live ETH pullback legs on breakout_1') are no longer live on breakout_1 in the roster today, and one of them (eth_pullback_prop_2h) was already demoted for cause with a documented negative OOS result. The monitoring target no longer exists in the state the finding describes; breakout_1's roster has since moved to the trend_donchian_{sol,eth}_prop variants, which is a separate, already-tracked item."
+  },
+  "what": "[performance] Monitor the two newly-live ETH pullback legs on breakout_1 (confirm the real swap rate + the edge holds live)\n\n[TRIAGE 2026-09-28] KILL — The specific legs this item asked to monitor ('the two newly-live ETH pullback legs on breakout_1') are no longer live on breakout_1 in the roster today, and one of them (eth_pullback_prop_2h) was already demoted for cause with a documented negative OOS result. The monitoring target no longer exists in the state the finding describes; breakout_1's roster has since moved to the trend_donchian_{sol,eth}_prop variants, which is a separate, already-tracked item."
+}

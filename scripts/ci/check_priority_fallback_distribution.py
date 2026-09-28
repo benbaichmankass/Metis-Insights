@@ -66,6 +66,7 @@ from __future__ import annotations
 import argparse
 import ast
 import collections
+import datetime
 import json
 import pathlib
 import sys
@@ -424,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
                      "disposition: these legs are still uncovered and an uncovered leg WINS the "
                      "arbitration. The seed exists so a WORSENING is detectable without redding "
                      "every PR over a standing Tier-3 condition."),
-            "seeded_at": "2026-09-13",
+            "seeded_at": datetime.date.today().isoformat(),
             "absent_legs": res["absent_legs"],
             "absent_legs_on_real_money": res["absent_on_real_money"],
         }, indent=2) + "\n", encoding="utf-8")

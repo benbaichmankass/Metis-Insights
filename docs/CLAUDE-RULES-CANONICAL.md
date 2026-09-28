@@ -1188,6 +1188,21 @@ drafting, tests, Tier-1 changes. A lane that ends its turn having done nothing
 because it "cannot verify authorization" has failed its task. It has not been
 careful.
 
+**A lane that refuses, stalls, or is blocked is re-dispatched, not stranded**
+(operator, 2026-09-28, verbatim, after a lane refused to report back so the
+manager could re-dispatch it with a corrected brief): *"Just to be clear
+though, I never said no workarounds and that mandate needs to be removed
+immediately because it is causing this kind of rogue behavior. ... if they're
+refusing to do the work, then the system is not working. ... The whole build,
+the whole system is built around a workaround to get everything to do what
+it's supposed to do."* A lane asked by the operator or the manager to report
+its own refusal, so a fresh lane can be re-dispatched with a corrected,
+accurate brief, reports it in one line — full rule in
+`.claude/skills/manager/SKILL.md` § "When a lane refuses, stalls, or is
+blocked". This does not authorize disguising, splitting or re-encoding an
+action to get it past Claude Code's own safety check — that boundary is
+unchanged.
+
 **What this does NOT change.** These are the actual limits, and they stay in
 force:
 - **The tiers.** A Tier-2/3 change still needs the operator's approval. The

@@ -1,0 +1,25 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "EITHER (a) an operator decision on record for mgc_trend_1h — demoted to shadow so its status matches its behaviour, given its own routing, or accepted as-is with the reason stated — OR (b) a recorded arbitration policy for legs sharing a netted (account, symbol), so which leg owns a contended symbol is a decision rather than an arrival-order accident. VERIFICATION, and a code change alone does NOT close it: re-read order_packages for mgc_trend_1h and show EITHER a non-zero fill rate over at least 20 decisions, OR the leg no longer emitting live decisions. Re-running the same contention join and getting a lower concurrency share is the check. ⚠️ Do NOT close this on the observation that MGC occupancy fell — occupancy is a market-dependent quantity and a quiet month would produce the same reading with nothing fixed; the closure must show the ROUTING or the DISPOSITION changed.",
+    "kind": "observation",
+    "last_checked": "2026-09-28"
+  },
+  "id": "PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json#PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE",
+    "rerun": "python3 -c \"import json; d=json.load(open('docs/archive/2026-09-21-operating-reset/registers/performance-review-backlog.json')); items=d['items'] if isinstance(d, dict) else d; print(json.dumps(next(i for i in items if i.get('id')=='PB-20260902-MGC-TREND-1H-IS-LIVE-AND-STRUCTURALLY-CANNOT-TRADE'), indent=2))\""
+  },
+  "state": "killed",
+  "terminal_reason": "The finding's premise (mgc_trend_1h carries execution:live while structurally unable to fill) does not hold against the current field: execution is shadow. This satisfies resolution_criteria option (a) verbatim ('demoted to shadow so its status matches its behaviour') regardless of exactly when the flip happened — the state the row asks to verify is the state on disk today.",
+  "triage_2026_09_28": {
+    "checked": "Read config/strategies.yaml mgc_trend_1h block (L1728-1770) in full. The `execution:` field reads `shadow`, with an explicit demotion comment ('DEMOTED live -> shadow ... Tier-3: net-negative on both the XAUUSD spot proxy and real GC=F 1h'). This directly contradicts the finding's central premise as filed ('config/strategies.yaml declares it execution: live ... this is NOT a shadow leg') — today it IS a shadow leg. A stale prose 'STATUS: execution: live on ib_paper' line sits above the field and may be what misled the filing session; the field itself is authoritative (field beats comment).",
+    "date": "2026-09-28",
+    "disposition": "KILL",
+    "session": "session_01W8AKVjLw568KJoPkcwJcUY (TRIAGE-2 ops lane, dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ)",
+    "terminal_reason": "The finding's premise (mgc_trend_1h carries execution:live while structurally unable to fill) does not hold against the current field: execution is shadow. This satisfies resolution_criteria option (a) verbatim ('demoted to shadow so its status matches its behaviour') regardless of exactly when the flip happened — the state the row asks to verify is the state on disk today."
+  },
+  "what": "[performance] mgc_trend_1h is execution:live and produced 95 decisions and ZERO fills in 5 weeks — a sibling leg owns MGC on ib_paper 73.3% of the time, so its evidence clock cannot run\n\n[TRIAGE 2026-09-28] KILL — The finding's premise (mgc_trend_1h carries execution:live while structurally unable to fill) does not hold against the current field: execution is shadow. This satisfies resolution_criteria option (a) verbatim ('demoted to shadow so its status matches its behaviour') regardless of exactly when the flip happened — the state the row asks to verify is the state on disk today."
+}
