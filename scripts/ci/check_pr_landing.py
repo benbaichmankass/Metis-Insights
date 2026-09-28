@@ -347,28 +347,45 @@ TIER1_SURFACE = [
     # scripts/research/** and research/results/** but not the queue units
     # themselves.
     #
-    # ⚠️ fnmatch's `*` matches `/` too (verified), so `research/**` here DOES
-    # also match `research/queue/**` -- a plain allowlist glob cannot express
-    # "research/** except queue/". That is exactly the case the docstring two
-    # blocks below (STAMP_ONLY_SURFACE) warns against: a queue unit holds a
-    # PRE-REGISTERED decision rule, and a PR that rewrites the rule and
-    # self-lands it in the same act defeats the promotion ladder's whole
-    # safety property. Rather than silently reopen that hole, `unvouched_paths`
-    # was changed the same day so STAMP_ONLY_SURFACE governs any path it names
-    # (today only `research/queue/*.yaml`, field `last_dispatched_at`)
-    # REGARDLESS of a TIER1_SURFACE match — see its docstring. So this entry
-    # widens `research/**` in full, and a queue file still only self-lands a
-    # pure stamp; every other line in it still holds for a human exactly as
-    # before this entry.
-    "research/**",
+    # ⚠️ MANAGER REVIEW (2026-09-28, APPROVE-WITH-NITS) — DROPPED, not
+    # widened. The first version of this entry added `research/**` here,
+    # reasoning that STAMP_ONLY_SURFACE's precedence made the widening safe.
+    # That reasoning was backwards: fnmatch's `*` matches `/` too, so
+    # `research/queue/*.yaml` (STAMP_ONLY_SURFACE's only key) already matches
+    # EVERY file directly under `research/queue/`, including
+    # `research/queue/blocked/*.yaml`, and STAMP_ONLY_SURFACE governs those
+    # paths UNCONDITIONALLY regardless of what TIER1_SURFACE says (see its
+    # docstring below). So adding `research/**` changed nothing about what a
+    # queue unit can self-land: a `status:` / `blocked_on` / decision-rule
+    # rewrite was refused before that entry and is still refused after
+    # removing it (test_stamp_only_precedence_survives_tier1_widening below
+    # plants exactly that defect and asserts the refusal). What the entry DID
+    # widen -- silently, as a side effect nobody asked for -- is every OTHER
+    # path under `research/` that is not a queue unit and was not already
+    # covered by `research/results/**` above (e.g. `research/notes/**`,
+    # `research/design/**`, whatever tree exists or gets created there next).
+    # E5's actual ask -- self-landing a queue status flip -- is UNREACHABLE
+    # via TIER1_SURFACE at all; the fix belongs in STAMP_ONLY_SURFACE (a
+    # narrower, explicitly-scoped widening of its allowed fields) or a
+    # dedicated queue-flip guard, not here. See the corrected
+    # PI-20260922-E5-... pipeline record for what still needs a human.
     # PI-20260927-QBHR1EYJ-0001, operator-approved 2026-09-28 (ADMIN lane
     # triage popup, verbatim answer "Apply my recommendations (Recommended)").
     # Applies the finding's own Option 3 (narrow widening): scripts/ml/**
     # also holds training/promotion-adjacent code that is NOT Tier-1, so only
     # the self-documented review/report tooling is admitted here, by name,
     # rather than the whole tree.
-    "scripts/ml/*review*.py",
-    "scripts/ml/*report*.py",
+    #
+    # ⚠️ MANAGER REVIEW (2026-09-28, APPROVE-WITH-NITS) — named by exact
+    # filename, not glob: `scripts/ml/*review*.py` would also silently admit
+    # a future `promotion_review.py` without anyone re-approving the
+    # widening. `strategy_review_packet.py::decide()` (mechanical gate per
+    # docs/strategy-review-gate.md § Threshold table) is the advisory M7
+    # KILL/DEMOTE/PROMOTE grader -- exactly the promotion-adjacent code
+    # Option 3 said to keep out of a wide `scripts/ml/**` grant, which is why
+    # it is named individually rather than re-opening the glob.
+    "scripts/ml/strategy_review_packet.py",
+    "scripts/ml/evidence_floor_report.py",
     "*.md",
     ".ruff.toml",
     "ruff.toml",
@@ -1940,6 +1957,48 @@ def self_test() -> int:
             else:
                 print(f"self-test: E57 '{name}' -> "
                       + ("self-lands" if passed else "refused by R5"))
+
+    # ---- planted-defect control: a queue RULE rewrite stays refused even
+    # after research/** was dropped from TIER1_SURFACE (2026-09-28 fix-up).
+    # STAMP_ONLY_SURFACE's `research/queue/*.yaml` key is consulted BEFORE
+    # any TIER1_SURFACE match (see unvouched_paths docstring), so this must
+    # hold with or without a `research/**`-shaped entry in TIER1_SURFACE --
+    # this test exists precisely so a future re-widening of TIER1_SURFACE
+    # cannot silently reopen the hole without tripping a self-test failure.
+    # Planted under `research/queue/blocked/` specifically (not the top-level
+    # dir already covered above) because fnmatch's `*` matches `/`, so
+    # `research/queue/*.yaml` also matches every file under
+    # `research/queue/blocked/` -- the exact subdirectory this repo uses for
+    # units that cannot currently run.
+    with tempfile.TemporaryDirectory() as td:
+        root = _sandbox(Path(td))
+        g = lambda *a: subprocess.run(["git", "-C", str(root), *a],  # noqa: E731
+                                      check=True, capture_output=True)
+        g("checkout", "-q", "main")
+        (root / "research/queue/blocked").mkdir(parents=True, exist_ok=True)
+        (root / "research/queue/blocked/RQ-SELFTEST-003.yaml").write_text(
+            _unit, encoding="utf-8")
+        g("add", "-A")
+        g("commit", "-qm", "seed a blocked queue unit")
+        g("checkout", "-q", "claude/demo")
+        g("merge", "-q", "--no-edit", "main")
+        (root / "research/queue/blocked/RQ-SELFTEST-003.yaml").write_text(
+            _unit.replace("net_r_oos > 0.25", "net_r_oos > 0.0"), encoding="utf-8")
+        _declare(root, tier=1, landing="self", why=_GOOD_WHY)
+        _arm(root)
+        _branch_claim(root)
+        _commit(root)
+        state, fails, _ = check(root, "main", "claude/demo")
+        r5 = any(f.startswith("R5 ") for f in fails)
+        if not r5:
+            print(f"::error::self-test FAILED — a queue DECISION-RULE edit under "
+                  f"research/queue/blocked/ was NOT refused by R5 (state={state}, "
+                  f"fails={fails}). This is exactly the hole a research/**-shaped "
+                  f"TIER1_SURFACE widening must never reopen.")
+            bad += 1
+        else:
+            print("self-test: 'a blocked queue DECISION-RULE edit is refused' -> "
+                  "refused by R5")
 
     # ---- the escape hatch, and the hole it must NOT open -------------------
     with tempfile.TemporaryDirectory() as td:
