@@ -807,6 +807,9 @@ _LOG_FILES: dict[str, Path] = {
     # line-wrapped id as a reference resolving to NOTHING, which is what a
     # 'tracked by BL-X' that tracks nobody looks like to that guard.)
     "prop_ticket_risk_soak": _PROP_TICKET_RISK_SOAK_LOG,
+    # 2026-09-28 (PROP-EXEC): one row per trade RiskManager let through a
+    # breach because its account is breach_guards: report (breakout_1).
+    "breach_accepted": runtime_logs_dir() / "breach_accepted.jsonl",
     "exit_loop_health_alert_state": _EXIT_LOOP_HEALTH_ALERT_STATE,
     # Daily-cap alert latch.
     # ── The two "liveness watchdog" state files. THEY ARE DIFFERENT THINGS AND

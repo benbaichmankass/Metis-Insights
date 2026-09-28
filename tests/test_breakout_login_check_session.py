@@ -240,9 +240,17 @@ def test_posted_report_never_carries_session_state(harness, tmp_path, capsys):
 
 
 def test_action_wrapper_never_passes_storage_state():
+    """The LOGIN CHECK the action runs is always a clean fresh login. Since
+    PROP-EXEC (2026-09-28) the same wrapper also runs the executor modes, which
+    deliberately REUSE the feed's session (a second credential login can
+    force-log-out the feed); that is the only place the saved session may
+    appear, and it must never reach breakout_login_check.py's arguments."""
     action = (REPO / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
-    assert "--storage-state" not in action
-    assert "session_state" not in action
+    login_part = action.split('ARGS=(--account "${ACCOUNT}" --dump-dir', 1)[1]
+    assert "--storage-state" not in login_part and "session_state" not in login_part
+    for line in action.splitlines():
+        if "--storage-state" in line or "session_state" in line:
+            assert "EARGS=(" in line or line.strip().startswith("#"), line
 
 
 def test_login_attempt_is_announced_before_the_submit_even_when_it_fails(harness, tmp_path, capsys):
