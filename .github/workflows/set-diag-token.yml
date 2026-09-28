@@ -137,7 +137,7 @@ jobs:
           template="$(cat <<'REMOTE'
           set -euo pipefail
           NEW_TOKEN='__TOKEN__'
-          ENVFILE=/etc/ict-trader/web-api.env
+          ENVFILE="${DIAG_SYSTEM_ENV:-/etc/ict-trader/web-api.env}"
           DOTENV="${DIAG_ENV_FILE:-/home/ubuntu/ict-trading-bot/.env}"
           LEGACY_TOKEN_FILE="${DIAG_LEGACY_TOKEN_FILE:-/etc/ict-trading-bot/diag_token}"
           UNIT=ict-web-api.service

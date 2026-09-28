@@ -296,9 +296,21 @@ def _run_remote(
     else:
         envfile.write_text("OTHER_KEY=keepme\n")
 
-    original = "ENVFILE=/etc/ict-trader/web-api.env"
-    assert script.count(original) == 1, "ENVFILE declaration moved or was duplicated"
-    script = script.replace(original, f"ENVFILE={envfile}")
+    # ENVFILE/DOTENV/LEGACY_TOKEN_FILE are each declared exactly once, as
+    # env-var-overridable defaults (DT-FIX, 2026-09-28,
+    # BL-set-diag-token-env-shadow / issue #13506) -- assert that shape
+    # rather than a bare literal, so a future rename or duplication is still
+    # caught. DOTENV/LEGACY_TOKEN_FILE are pointed at tmp paths that are
+    # never created below, so the script's own `sudo test -f` guard finds
+    # them absent and takes the "left untouched" branch -- these tests are
+    # about the ENVFILE/rotation-verdict logic and must never let a
+    # DOTENV/LEGACY write reach a real path.
+    for decl in (
+        'ENVFILE="${DIAG_SYSTEM_ENV:-/etc/ict-trader/web-api.env}"',
+        'DOTENV="${DIAG_ENV_FILE:-/home/ubuntu/ict-trading-bot/.env}"',
+        'LEGACY_TOKEN_FILE="${DIAG_LEGACY_TOKEN_FILE:-/etc/ict-trading-bot/diag_token}"',
+    ):
+        assert script.count(decl) == 1, f"declaration moved, duplicated, or reworded: {decl!r}"
 
     bindir = _shims(tmp_path, http_code=http_code)
     env = {
@@ -306,6 +318,9 @@ def _run_remote(
         "PATH": f"{bindir}:{os.environ['PATH']}",
         "FAKE_UNIT_STATE": unit_state,
         "FAKE_WEBAPI_PID": "",
+        "DIAG_SYSTEM_ENV": str(envfile),
+        "DIAG_ENV_FILE": str(tmp_path / "dotenv-unused"),
+        "DIAG_LEGACY_TOKEN_FILE": str(tmp_path / "legacy-token-unused"),
     }
 
     holder = None
