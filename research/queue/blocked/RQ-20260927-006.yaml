@@ -109,7 +109,7 @@ blocked_on:
 
 run:
   workflow: null
-  note: Null — see RQ-20260922-001's and RQ-20260927-005's identical reasoning.
+  note: Null — see RQ-20260922-001's and RQ-20260927-009's identical reasoning.
 
 lands:
   store: results/m15_ws_c_ml_proba_soft_weight_kfold/
@@ -117,7 +117,7 @@ lands:
   min_rows: 1
 
 related:
-  - 'RQ-20260927-004 / RQ-20260927-005 (the raw-indicator soft-weight siblings)'
+  - 'RQ-20260927-004 / RQ-20260927-009 (the raw-indicator soft-weight siblings)'
   - 'comms/reviews/performance-review-20260927-072944.json D3 (SOL advisory head, zero real-money order effect)'
   - '.claude/skills/regime-selectivity/SKILL.md Rule 3 (axis fidelity)'
 last_dispatched_at: null
