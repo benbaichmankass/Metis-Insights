@@ -438,6 +438,23 @@ def _scratch_tree(root: Path, mb: str, leg: str, record: Dict[str, Any]) -> Opti
     rec_rel = f"{MIRROR_DIR}/{leg}.json"
     (tmp / rec_rel).parent.mkdir(parents=True, exist_ok=True)
     (tmp / rec_rel).write_text(json.dumps(record), encoding="utf-8")
+    # MD-DEMOTE-S2-S1's threshold (2026-09-29) is RE-DERIVED by the resolver
+    # from the leg's Stage-0 record and its source_run -- read at the
+    # MERGE-BASE, like the configs, so a PR cannot plant the evidence its own
+    # threshold is measured against. Absent there, the resolver cannot price
+    # the threshold and does not FIRE.
+    ev_rel = f"{mr.EVIDENCE_DIR_REL}/{leg}.json"
+    ev_text = blob(root, mb, ev_rel)
+    if ev_text is not None:
+        (tmp / ev_rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp / ev_rel).write_text(ev_text, encoding="utf-8")
+        ev_src = (_json_text(ev_text) or {}).get("source_run")
+        if isinstance(ev_src, str) and ev_src.strip() and ".." not in Path(ev_src).parts \
+                and not ev_src.startswith("/"):
+            src_text = blob(root, mb, ev_src)
+            if src_text is not None:
+                (tmp / ev_src).parent.mkdir(parents=True, exist_ok=True)
+                (tmp / ev_src).write_text(src_text, encoding="utf-8")
     src = record.get("source_run")
     if isinstance(src, str) and src.strip() and ".." not in Path(src).parts \
             and not src.startswith("/"):
@@ -1126,6 +1143,13 @@ def _base_repo(tmp: Path, *, arm: bool = True) -> Path:
     _write(root, MANDATES_REL, _MANDATES.format(arm="    autoland: true" if arm else ""))
     _write(root, ACCOUNTS_REL, _ACCOUNTS.format(leg=LEG))
     _write(root, mr.STRATEGIES_REL, _STRATEGIES)
+    # Stage-0 evidence at the BASE: the demotion threshold's source, which the
+    # A5 replay reads at the merge-base only.
+    for leg in (LEG, "proxy_leg_1d"):
+        src = f"{mr.EVIDENCE_DIR_REL}/runs/fixture/{leg}__trades.jsonl"
+        _write(root, src, "".join(json.dumps({"net_r": x}) + "\n" for x in _STAGE0_NET_R))
+        _write(root, f"{mr.EVIDENCE_DIR_REL}/{leg}.json",
+               json.dumps({"strategy": leg, "source_run": src}))
     # The producer's DECLARED window lives in its workflow's `window` default.
     _write(root, WORKFLOW_REL, 'on:\n  workflow_dispatch:\n    inputs:\n      window:\n'
                                '        default: "30d"\n')
@@ -1146,20 +1170,30 @@ def _cut(root: Path, accounts: List[str], leg: str = LEG) -> None:
     _write(root, ACCOUNTS_REL, yaml.safe_dump(doc, sort_keys=False))
 
 
-def _evidence(root: Path, *, leg: str = LEG, net: float = -1.25,
-              mandate: str = "MD-DEMOTE-S2-S1", accounts: Optional[List[str]] = None) -> None:
+#: The fixture's Stage-0 per-trade stream: 24 rows (>= the 20-row floor),
+#: mean +0.2R, so its 20-trade p10 sits between -6R and 0 and two -6R windows
+#: clear the rule.
+_STAGE0_NET_R = (1.0, -0.8, 0.6, -1.0, 1.2) * 4 + (0.4, -0.4, 0.5, -0.5)
+
+
+def _evidence(root: Path, *, leg: str = LEG, net: float = -6.0,
+              mandate: str = "MD-DEMOTE-S2-S1", accounts: Optional[List[str]] = None,
+              windows: Optional[List[float]] = None) -> None:
     run_rel = f"{RUNS_DIR}/20260925T000000Z-30d.json"
     _write(root, run_rel, json.dumps({"kind": "r4_demotion_gate_source_run", "window": "30d"}))
+    # MD-DEMOTE-S2-S1's firing clause since 2026-09-29: both of the last two
+    # 20-trade windows below the leg's own p10 AND below 0. The threshold is
+    # the one the resolver re-derives from the base's Stage-0 record.
+    thr = mr.leg_threshold(leg, root)
+    windows = windows if windows is not None else [net, net]
     _write(root, f"{MIRROR_DIR}/{leg}.json", json.dumps({
         "leg": leg, "account": "bybit_2", "mandate": mandate, "window": "last20x2",
-        "source_run": run_rel, "n_closed": 20, "net_r_net_of_full_cost": net,
-        # MD-DEMOTE-S2-S1's firing clause since 2026-09-29: both of the last two
-        # 20-trade windows below the leg's own p10 AND below 0. The p10 sits
-        # above `net`, so a negative `net` satisfies the rule and a positive
-        # one is refused on the net<0 half.
+        "source_run": run_rel, "n_closed": 20, "net_r_net_of_full_cost": windows[0],
         "trigger_rule": mr.DEMOTE_TRIGGER_RULE, "block_size": 20,
-        "p10_threshold": net / 2 if net < 0 else -1.0,
-        "windows": [{"window": 0, "net_r": net}, {"window": 1, "net_r": net}]}))
+        "p10_threshold": thr["p10"], "threshold_seed": thr["seed"],
+        "threshold_draws": thr["draws"], "threshold_source_record": thr["source_record"],
+        "windows": [{"window": i, "net_r": w, "n_closed": 20, "r4_status": "would_block"}
+                    for i, w in enumerate(windows)]}))
     _write(root, f"{FIRINGS_DIR}/20260925T000000Z-{leg}-demote.json", json.dumps({
         "mandate": mandate, "action": "remove", "leg": leg,
         "accounts": accounts if accounts is not None else ["bybit_2", "bybit_portfolio"],
@@ -1404,6 +1438,30 @@ def self_test(quiet: bool = False) -> int:
         return _finish(root, _paperwork(root))
     _case("a mirror window that is NOT negative refuses — the resolver is replayed (A5)",
           positive_window, expect_ok=False, expect_clause="A5", results=results, quiet=quiet)
+
+    def one_bad_window(tmp: Path):
+        """MD-DEMOTE-S2-S1 (2026-09-29): the newer window is bad but the older
+        one is healthy -- the two-window rule is not met."""
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root, windows=[-6.0, +2.0])
+        return _finish(root, _paperwork(root))
+    _case("only ONE of the two 20-trade windows below p10 refuses (A5)",
+          one_bad_window, expect_ok=False, expect_clause="A5", results=results, quiet=quiet)
+
+    def planted_threshold(tmp: Path):
+        """The record claims a threshold the leg's Stage-0 record does not
+        give -- the resolver re-derives it at the merge-base and refuses."""
+        root = _base_repo(tmp)
+        _cut(root, ["bybit_2", "bybit_portfolio"])
+        _evidence(root, windows=[-1.0, -1.0])
+        rel = f"{MIRROR_DIR}/{LEG}.json"
+        rec = json.loads((root / rel).read_text(encoding="utf-8"))
+        rec["p10_threshold"] = 5.0
+        _write(root, rel, json.dumps(rec))
+        return _finish(root, _paperwork(root))
+    _case("a record stating its OWN threshold (not the leg's re-derived p10) refuses (A5)",
+          planted_threshold, expect_ok=False, expect_clause="A5", results=results, quiet=quiet)
 
     def no_firing(tmp: Path):
         root = _base_repo(tmp)

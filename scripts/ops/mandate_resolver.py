@@ -221,6 +221,18 @@ R3_DIR_REL = "comms/research/r3_cost_fidelity"
 MIRROR_DIR_REL = "comms/mandate_evidence/mirror_window"
 #: MD-DEMOTE-S2-S1's firing rule; must equal r4_demotion_gate.TRIGGER_RULE.
 DEMOTE_TRIGGER_RULE = "last20_own_p10_x2_and_net_neg"
+#: The rule's parameters. The threshold is a pure function of the leg's
+#: committed Stage-0 record and these constants, so the gate that WRITES a
+#: mirror-window record and every replay of this resolver (including
+#: check_mandate_autoland A5) compute the same number -- and a record stating
+#: any other threshold is refused. r4_demotion_gate imports them.
+DEMOTE_BLOCK = 20
+DEMOTE_WINDOWS = 2
+DEMOTE_P10_SEED = 20260929
+DEMOTE_P10_DRAWS = 20000
+#: A record with fewer per-trade rows than one window cannot define a 20-trade
+#: distribution honestly (ief_pullback_1d's record has 3). Such a leg abstains.
+DEMOTE_MIN_RECORD_TRADES = DEMOTE_BLOCK
 FIRINGS_DIR_REL = "comms/mandate_firings"
 
 FIRE, REFUSE, NEEDS_DATA = "FIRE", "REFUSE", "NEEDS-DATA"
@@ -894,13 +906,81 @@ def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
     wins = rec.get("windows") or []
     if not isinstance(p10, (int, float)) or isinstance(p10, bool):
         raise _Refuse("R-TRIGGER-RULE", f"p10_threshold={p10!r} is not stated")
-    if len(wins) < 2:
-        raise _Refuse("R-TRIGGER-RULE", f"{len(wins)} window(s) stated; the rule needs 2")
-    for w in wins[:2]:
-        wr = (w or {}).get("net_r")
+    # The threshold is RE-DERIVED here from the leg's committed Stage-0 record,
+    # never taken on the record's word: a record whose stated p10 / seed /
+    # draws / source differ from the recomputation is refused.
+    thr = leg_threshold(leg, root)
+    ctx["evidence"]["p10_recomputed"] = thr.get("p10")
+    if thr.get("p10") is None:
+        raise _NeedsData("R-TRIGGER-RULE", f"no usable Stage-0 threshold for {leg}: {thr.get('why')}",
+                         {"what": f"{leg} has no usable Stage-0 record to price its demotion "
+                                  f"threshold: {thr.get('why')}",
+                          "clears_when": (f"{thr['source_record']} and its source_run are committed "
+                                          f"with >= {DEMOTE_MIN_RECORD_TRADES} per-trade net_r rows"),
+                          "check_every_days": 7, "next_action": "check_observation"})
+    stated = (p10, rec.get("threshold_seed"), rec.get("threshold_draws"),
+              rec.get("threshold_source_record"))
+    want = (thr["p10"], thr["seed"], thr["draws"], thr["source_record"])
+    if abs(float(p10) - thr["p10"]) > 1e-6 or stated[1:] != want[1:]:
+        raise _Refuse("R-TRIGGER-RULE", f"record states (p10, seed, draws, source) {stated}; "
+                                        f"recomputed {want} -- the threshold is not the leg's own")
+    if len(wins) != DEMOTE_WINDOWS:
+        raise _Refuse("R-TRIGGER-RULE", f"{len(wins)} window(s) stated; the rule needs "
+                                        f"exactly {DEMOTE_WINDOWS}")
+    for w in wins:
+        w = w or {}
+        wr = w.get("net_r")
+        if w.get("n_closed") != DEMOTE_BLOCK or w.get("r4_status") != "would_block":
+            raise _Refuse("R-TRIGGER-RULE", f"window {w.get('window')} states n_closed="
+                                            f"{w.get('n_closed')!r}, r4_status={w.get('r4_status')!r}; "
+                                            f"the rule needs a full {DEMOTE_BLOCK}-trade window "
+                                            f"R4 reads as would_block")
         if not isinstance(wr, (int, float)) or isinstance(wr, bool) or not (wr < 0 and wr < p10):
-            raise _Refuse("R-TRIGGER-RULE", f"window {(w or {}).get('window')} net {wr!r} R is not below "
+            raise _Refuse("R-TRIGGER-RULE", f"window {w.get('window')} net {wr!r} R is not below "
                                             f"both 0 and the leg's p10 {p10} R")
+
+
+def leg_threshold(leg: str, root: Path = REPO) -> Dict[str, Any]:
+    """MD-DEMOTE-S2-S1's per-leg threshold: the leg's own p10 of
+    ``DEMOTE_BLOCK``-trade net-R sums, bootstrapped with a FIXED seed from the
+    per-trade rows its committed Stage-0 record cites. Returns ``p10: None``
+    with a ``why`` when the record is missing or unusable -- the caller
+    abstains; nothing ever substitutes a default. ONE implementation: the gate
+    imports it, and ``_demote_s2`` re-runs it on every evaluation."""
+    import random
+    rec_rel = f"{EVIDENCE_DIR_REL}/{leg}.json"
+    base: Dict[str, Any] = {"source_record": rec_rel, "seed": DEMOTE_P10_SEED,
+                            "draws": DEMOTE_P10_DRAWS, "block": DEMOTE_BLOCK, "p10": None}
+    rec = _json(root / rec_rel)
+    if rec is None:
+        return {**base, "why": f"no readable Stage-0 record at {rec_rel}"}
+    src = rec.get("source_run")
+    base["source_run"] = src
+    if not isinstance(src, str) or not src.strip():
+        return {**base, "why": f"{rec_rel} names no source_run"}
+    try:
+        lines = (root / src).read_text(encoding="utf-8").splitlines()
+    except OSError as e:
+        return {**base, "why": f"source_run {src} unreadable ({type(e).__name__})"}
+    xs: List[float] = []
+    try:
+        for ln in lines:
+            if not ln.strip():
+                continue
+            v = json.loads(ln).get("net_r")
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                xs.append(float(v))
+    except (ValueError, AttributeError) as e:
+        return {**base, "why": f"source_run {src} is not per-trade JSONL ({type(e).__name__})"}
+    base["n_record_trades"] = len(xs)
+    if len(xs) < DEMOTE_MIN_RECORD_TRADES:
+        return {**base, "why": (f"{len(xs)} per-trade net_r rows in {src} < "
+                                f"{DEMOTE_MIN_RECORD_TRADES} -- too few to define a "
+                                f"{DEMOTE_BLOCK}-trade distribution")}
+    rng = random.Random(DEMOTE_P10_SEED)
+    sums = sorted(sum(rng.choice(xs) for _ in range(DEMOTE_BLOCK))
+                  for _ in range(DEMOTE_P10_DRAWS))
+    return {**base, "p10": round(sums[int(0.10 * DEMOTE_P10_DRAWS)], 4), "why": None}
 
 
 def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path,

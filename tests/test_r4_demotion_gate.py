@@ -195,7 +195,6 @@ def test_dry_run_reports_the_demotion_and_writes_nothing(root):
 # ── HOLD / ABSTAIN: the evidence does not support a cut ────────────────────
 @pytest.mark.parametrize("blocks,why", [
     ([_stats(usd=40.0, r=5.0), _stats(usd=30.0, r=3.0)], "HOLD"),             # healthy
-    ([_stats(cov=0.59), _stats(cov=0.59)], "abstain_unverified"),
     ([_stats(usd=0.0, r=-6.0), _stats(r=-6.0)], "pass"),                     # USD not negative
     ([_stats(r=-2.0), _stats(r=-6.0)], "not below own p10"),                 # above p10
     ([_stats(r=None), _stats(r=-6.0)], "not stated"),
@@ -343,3 +342,43 @@ def test_mirror_window_record_carries_both_pnl_bases_without_moving_the_verdict(
     assert rec["net_usd_measured"] == 900.0
     assert rec["net_usd_measured_only"] == -50.0
     assert rec["n_estimated"] == 18
+
+
+@pytest.mark.parametrize("blocks", [
+    [_stats(cov=0.59), _stats(cov=0.59)],        # coverage below the floor in both windows
+    [_stats(r=-6.0), _stats(cov=0.59, r=-6.0)],  # ...in one window only
+])
+def test_a_window_r4_cannot_judge_is_a_counted_abstain_not_a_hold(root, blocks):
+    """'We could not look' in a window is never reported as a HOLD that looked
+    and found nothing: it is abstain_r4, counted beside no_record and thin."""
+    r = root()
+    out = g.run(_perf(real={LEG: blocks}), root=r, window="last20x2", apply=True)
+    dec = next(d for d in out["legs"] if d["leg"] == LEG)
+    assert dec["abstain"] == g.ABSTAIN_R4 and "abstain_unverified" in dec["why"]
+    assert LEG in out["abstained"][g.ABSTAIN_R4] and out["demoted"] == []
+    assert "r4=1" in g.render(out)
+
+
+def test_the_resolver_agrees_with_the_gate_and_rederives_its_threshold(root):
+    """What the gate writes, the resolver FIRES on; the same record with the
+    threshold edited is refused -- the bar is the leg's, not the record's."""
+    r = root()
+    d = next(x for x in g.evaluate(_perf(real={LEG: BROKEN}), r) if x["leg"] == LEG)
+    assert d["action"] == g.DEMOTE
+    run_rel = "comms/mandate_evidence/mirror_window/runs/x.json"
+    (r / run_rel).parent.mkdir(parents=True, exist_ok=True)
+    (r / run_rel).write_text("{}\n")
+    rel = r / f"comms/mandate_evidence/mirror_window/{LEG}.json"
+    rec = g.mirror_window_record(d, run_rel, "last20x2", None, "2026-09-29T00:00:00Z")
+    rel.write_text(json.dumps(rec))
+    assert g.mr.resolve(LEG, "S2", "S1", "bybit_2", root=r)["verdict"] == g.mr.FIRE
+    rel.write_text(json.dumps({**rec, "p10_threshold": rec["p10_threshold"] + 3.0}))
+    res = g.mr.resolve(LEG, "S2", "S1", "bybit_2", root=r)
+    assert res["verdict"] == g.mr.REFUSE and res["clause"] == "R-TRIGGER-RULE"
+
+
+def test_dry_run_resolver_sees_the_stage0_record(root):
+    """The dry-run scratch copy must carry the Stage-0 record, or the resolver
+    would answer NEEDS-DATA and a dry run would under-report a real FIRE."""
+    out = g.run(_perf(real={LEG: BROKEN}), root=root(), window="last20x2", apply=False)
+    assert [d["leg"] for d in out["demoted"]] == [LEG] and out["refused"] == []

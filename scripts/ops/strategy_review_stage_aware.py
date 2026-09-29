@@ -156,7 +156,10 @@ def build_stage2_rows(db_path: str, window: str = STAGE2_WINDOW_DEFAULT) -> Dict
     for d in decisions:
         v = d["r4"]
         chosen = v["real"] if v["chosenSource"] == "real_money" else v["mirror"]
-        verdict_reached = v["status"] not in ABSTAIN_STATES
+        # A leg the demotion rule ABSTAINED on (no usable Stage-0 record, fewer
+        # than 40 closed trades, or a window R4 could not judge) reached no
+        # verdict, whatever window 0's own R4 status reads.
+        verdict_reached = v["status"] not in ABSTAIN_STATES and not d.get("abstain")
         rows.append({
             "stage": "S2",
             "account": d["account"],

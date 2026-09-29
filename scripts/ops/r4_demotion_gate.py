@@ -122,6 +122,7 @@ import yaml  # noqa: E402
 
 import mandate_resolver as mr  # noqa: E402
 from src.runtime.research_results_gate import (  # noqa: E402
+    ABSTAIN_STATES,
     COVERAGE_FLOOR,
     WOULD_BLOCK,
     combined_leg_verdict,
@@ -131,18 +132,22 @@ MANDATE_ID = "MD-DEMOTE-S2-S1"
 #: The firing rule this gate implements; the resolver refuses a mirror-window
 #: record produced under any other rule.
 TRIGGER_RULE = "last20_own_p10_x2_and_net_neg"
-BLOCK = 20                  # trades per window
+BLOCK = mr.DEMOTE_BLOCK      # trades per window
 #: R4's per-window minimum closed trades (a full window). Kept under the old
 #: name for its consumers; research_results_gate.MIN_TRADES is unchanged.
 MIN_TRADES = BLOCK
-WINDOWS = 2                 # consecutive NON-overlapping windows that must agree
-P10_SEED = 20260929         # fixed: the threshold is reproducible from the record
-P10_DRAWS = 20000
-#: A record with fewer per-trade rows than one window cannot define a 20-trade
-#: distribution honestly (ief_pullback_1d's record has 3). Such a leg abstains.
-MIN_RECORD_TRADES = BLOCK
+WINDOWS = mr.DEMOTE_WINDOWS  # consecutive NON-overlapping windows that must agree
+#: The threshold's parameters live in the resolver, which re-derives it on
+#: every evaluation; these are aliases, never a second copy.
+P10_SEED = mr.DEMOTE_P10_SEED
+P10_DRAWS = mr.DEMOTE_P10_DRAWS
+MIN_RECORD_TRADES = mr.DEMOTE_MIN_RECORD_TRADES
 EVIDENCE_DIR_REL = "comms/strategy_evidence"
 ABSTAIN_NO_RECORD, ABSTAIN_THIN = "abstain_no_record", "abstain_thin"
+#: A window R4 could not judge (coverage below the floor, or its chosen book
+#: short of a full window). "We could not look" -- counted, never a HOLD.
+ABSTAIN_R4 = "abstain_r4"
+ABSTAINS = (ABSTAIN_NO_RECORD, ABSTAIN_THIN, ABSTAIN_R4)
 RUNS_DIR_REL = f"{mr.MIRROR_DIR_REL}/runs"
 DEMOTE, HOLD = "demote", "hold"
 
@@ -172,40 +177,9 @@ def _by_name(block: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
 # the per-leg threshold (from the leg's committed Stage-0 evidence record)
 # --------------------------------------------------------------------------
 def leg_threshold(leg: str, root: Path) -> Dict[str, Any]:
-    """The leg's own p10 of 20-trade net-R sums, bootstrapped with a FIXED seed
-    from the per-trade rows its committed Stage-0 record cites. Returns
-    ``{"p10": None, "why": ...}`` when the record is missing or unusable -- the
-    caller abstains; it never substitutes a default."""
-    import random
-    rec_rel = f"{EVIDENCE_DIR_REL}/{leg}.json"
-    base = {"source_record": rec_rel, "seed": P10_SEED, "draws": P10_DRAWS,
-            "block": BLOCK, "p10": None}
-    try:
-        rec = json.loads((root / rec_rel).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
-        return {**base, "why": f"no readable Stage-0 record at {rec_rel} ({type(e).__name__})"}
-    src = rec.get("source_run")
-    base["source_run"] = src
-    if not src:
-        return {**base, "why": f"{rec_rel} names no source_run"}
-    try:
-        lines = (root / src).read_text(encoding="utf-8").splitlines()
-    except OSError as e:
-        return {**base, "why": f"source_run {src} unreadable ({type(e).__name__})"}
-    xs: List[float] = []
-    for ln in lines:
-        if not ln.strip():
-            continue
-        v = json.loads(ln).get("net_r")
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            xs.append(float(v))
-    base["n_record_trades"] = len(xs)
-    if len(xs) < MIN_RECORD_TRADES:
-        return {**base, "why": (f"{len(xs)} per-trade net_r rows in {src} < {MIN_RECORD_TRADES} "
-                                "-- too few to define a 20-trade distribution")}
-    rng = random.Random(P10_SEED)
-    sums = sorted(sum(rng.choice(xs) for _ in range(BLOCK)) for _ in range(P10_DRAWS))
-    return {**base, "p10": round(sums[int(0.10 * P10_DRAWS)], 4), "why": None}
+    """The leg's own p10 of 20-trade net-R sums -- ``mandate_resolver.leg_threshold``,
+    the one implementation the resolver also re-runs on every evaluation."""
+    return mr.leg_threshold(leg, root)
 
 
 # --------------------------------------------------------------------------
@@ -243,6 +217,12 @@ def leg_decision(leg: str, account: str, recent: Dict[str, Any], thr: Dict[str, 
         return {**base, "action": HOLD, "abstain": ABSTAIN_THIN,
                 "why": (f"ABSTAIN (thin): {real_avail} real / {mir_avail} mirror closed trades "
                         f"< {BLOCK * WINDOWS} needed for {WINDOWS} windows of {BLOCK}")}
+    unjudged = [w for w in windows if w["r4"]["status"] in ABSTAIN_STATES]
+    if unjudged:
+        return {**base, "action": HOLD, "abstain": ABSTAIN_R4,
+                "why": "ABSTAIN (R4 could not judge a window): " + "; ".join(
+                    f"w{w['window']}: R4 {w['r4']['status']} ({w['r4']['detail']})"
+                    for w in unjudged)}
     fails = []
     for w in windows:
         v, tr = w["r4"], w["totalR"]
@@ -418,11 +398,21 @@ def _git_add(root: Path, rels: List[str]) -> None:
         subprocess.run(["git", "-C", str(root), "add", "--", *rels], check=True)
 
 
-def _scratch_root(root: Path) -> Path:
-    """A plain (non-git) copy of the three files the resolver reads for S2->S1,
-    so a dry run exercises the real resolver without writing the repo."""
+def _scratch_root(root: Path, legs: List[str]) -> Path:
+    """A plain (non-git) copy of what the resolver reads for S2->S1 -- the three
+    configs plus each leg's Stage-0 record and its source_run, from which the
+    resolver re-derives the threshold -- so a dry run exercises the real
+    resolver without writing the repo."""
     tmp = Path(tempfile.mkdtemp(prefix="r4-demotion-dry-"))
-    for rel in (mr.MANDATES_REL, mr.ACCOUNTS_REL, mr.STRATEGIES_REL):
+    rels = [mr.MANDATES_REL, mr.ACCOUNTS_REL, mr.STRATEGIES_REL]
+    for leg in legs:
+        ev = f"{mr.EVIDENCE_DIR_REL}/{leg}.json"
+        rels.append(ev)
+        src_run = (mr._json(root / ev) or {}).get("source_run")
+        if isinstance(src_run, str) and src_run.strip() and ".." not in Path(src_run).parts \
+                and not src_run.startswith("/"):
+            rels.append(src_run)
+    for rel in rels:
         src = root / rel
         if src.is_file():
             (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -437,7 +427,7 @@ def run(perf: Dict[str, Any], *, root: Path = REPO, window: str, apply: bool,
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
     decisions = evaluate(perf, root, coverage_floor=coverage_floor, min_trades=min_trades)
     candidates = [d for d in decisions if d["action"] == DEMOTE]
-    work = root if apply else _scratch_root(root)
+    work = root if apply else _scratch_root(root, [d["leg"] for d in candidates])
     out: Dict[str, Any] = {
         "mode": "apply" if apply else "dry_run", "window": window, "since": perf.get("since"),
         "generated_at": now.isoformat(), "coverage_floor": coverage_floor,
@@ -447,7 +437,7 @@ def run(perf: Dict[str, Any], *, root: Path = REPO, window: str, apply: bool,
         # Counted, never silent: a leg the gate could not judge is not a HOLD
         # that looked and found nothing.
         "abstained": {k: [d["leg"] for d in decisions if d.get("abstain") == k]
-                      for k in (ABSTAIN_NO_RECORD, ABSTAIN_THIN)},
+                      for k in ABSTAINS},
     }
     if not candidates:
         return out
@@ -497,9 +487,8 @@ def render(out: Dict[str, Any]) -> str:
                      f"usd_meas={c.get('totalPnlMeasured')} cov={c.get('pnlCoverage')} "
                      f"R={d['totalR']} p10={(d.get('threshold') or {}).get('p10')} | {d['why']}")
     ab = out.get("abstained") or {}
-    lines.append(f"  abstained: no_record={len(ab.get(ABSTAIN_NO_RECORD, []))} "
-                 f"{ab.get(ABSTAIN_NO_RECORD, [])} thin={len(ab.get(ABSTAIN_THIN, []))} "
-                 f"{ab.get(ABSTAIN_THIN, [])}")
+    lines.append("  abstained: " + " ".join(f"{k.replace('abstain_', '')}={len(ab.get(k, []))} "
+                                            f"{ab.get(k, [])}" for k in ABSTAINS))
     lines.append(f"  demoted: {out['demoted'] or 'none'}")
     lines.append(f"  refused by resolver: {out['refused'] or 'none'}")
     return "\n".join(lines)

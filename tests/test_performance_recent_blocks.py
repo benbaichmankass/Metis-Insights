@@ -108,3 +108,41 @@ def test_recent_blocks_are_the_last_non_overlapping_windows_newest_first(db):
 def test_a_thin_book_reports_its_count_and_fewer_blocks(db):
     mirror = P.get_performance(window="all", last_n=20, blocks=2)["recentBlocks"]["mirror"]["legA"]
     assert mirror["available"] == 12 and mirror["blocks"] == []
+
+
+def test_mirror_blocks_never_fall_back_to_the_soak_book(db, monkeypatch):
+    """/performance's paperPortfolio falls back to all-paper when no portfolio
+    account is declared; recentBlocks.mirror must NOT -- R4 demotes on it."""
+    monkeypatch.setattr(P, "_portfolio_paper_account_ids", lambda: [])
+    rb = P.get_performance(window="all", last_n=20, blocks=2)["recentBlocks"]
+    assert rb["mirror"] == {} and rb["mirrorReadState"] == "none_declared"
+    assert rb["real"]["legA"]["available"] == 45
+
+
+# ── byte-identity against a golden captured from main BEFORE this change ───
+import json as _json  # noqa: E402
+import sys as _sys  # noqa: E402
+
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _perf_window_golden_seed as _S  # noqa: E402
+
+_GOLDEN = Path(__file__).resolve().parent / "fixtures/performance_window_golden/golden.json"
+
+
+@pytest.mark.parametrize("window", ["24h", "7d", "30d", "all"])
+def test_time_window_output_is_byte_identical_to_pre_change_main(tmp_path, monkeypatch, window):
+    path = tmp_path / "g.db"
+    _S.seed(path)
+    monkeypatch.setattr(P, "_DB_PATH", path)
+    monkeypatch.setattr(P, "datetime", _S.FrozenDatetime)
+    monkeypatch.setattr(P, "journal_trust_map", lambda: _S.TRUST_MAP)
+    monkeypatch.setattr(P, "_portfolio_paper_account_ids", lambda: ["bybit_portfolio"])
+    got = P.get_performance(window=window)
+    want = _json.loads(_GOLDEN.read_text())[window]
+    assert _json.dumps(got, sort_keys=True) == _json.dumps(want, sort_keys=True)
+
+
+def test_golden_is_not_vacuous():
+    g = _json.loads(_GOLDEN.read_text())
+    counts = [g[w]["totalTrades"] for w in ("24h", "7d", "30d", "all")]
+    assert counts == sorted(counts) and len(set(counts)) == 4, counts

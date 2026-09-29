@@ -1315,13 +1315,19 @@ def get_performance(
             pp_rows = _query(_DB_PATH, since, demo=True, account_ids=portfolio_ids)
             live["paperPortfolio"] = _strip_envelope(_aggregate(pp_rows, window, since))
         else:
-            pp_rows = paper_rows
+            # recentBlocks.mirror does NOT inherit this fallback: the Stage-1
+            # soak book is not the Stage-2 mirror, and R4 demotes on it.
+            pp_rows = []
             live["paperPortfolio"] = paper
         if last_n is not None:
             live["recentBlocks"] = {
                 "blockSize": last_n, "blocks": blocks,
                 "real": _recent_blocks(live_rows, last_n, blocks),
                 "mirror": _recent_blocks(pp_rows, last_n, blocks),
+                # "none_declared" = no paper_role:portfolio account, so the
+                # mirror is EMPTY by design -- never the all-paper soak book.
+                "mirrorAccounts": portfolio_ids,
+                "mirrorReadState": "ok" if portfolio_ids else "none_declared",
             }
         return live
     except sqlite3.Error:  # allow-silent: logged (logger.exception) + best-effort zeroed envelope so the Performance tab stays usable on a DB read failure

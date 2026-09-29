@@ -187,24 +187,57 @@ def test_fire_s0_to_s1(repo):
     assert res["proposal"]["roster_add"] == {"bybit_1": [LEG]}
 
 
-def _t3_mirror(w0, w1, p10=-4.4, rule=mr.DEMOTE_TRIGGER_RULE, net=None):
-    """A mirror-window record under MD-DEMOTE-S2-S1's 2026-09-29 firing clause:
-    the last two non-overlapping 20-trade windows vs the leg's own p10."""
-    return {"leg": LEG, "n_closed": 20, "net_r_net_of_full_cost": w0 if net is None else net,
-            "source_run": "comms/mandate_evidence/runs/m.jsonl", "trigger_rule": rule,
-            "p10_threshold": p10, "block_size": 20,
-            "windows": [{"window": 0, "net_r": w0}, {"window": 1, "net_r": w1}]}
+#: Stage-0 per-trade streams (>= the 20-row floor). HEALTHY: mean +0.2R, p10
+#: of 20-trade sums between -6R and 0. STRONG: p10 POSITIVE (the
+#: trend_donchian_xrp_4h shape).
+HEALTHY_STAGE0 = (1.0, -0.8, 0.6, -1.0, 1.2) * 4 + (0.4, -0.4, 0.5, -0.5)
+STRONG_STAGE0 = (1.5, 0.9, 1.1, -0.2, 1.3) * 5
 
 
-def test_fire_demote_s2_to_s1_on_a_negative_mirror_window(repo):
+def _stage0(root, xs=HEALTHY_STAGE0):
+    """Give LEG's committed Stage-0 record a per-trade stream; return its
+    re-derived threshold."""
+    src = mr._json(root / f"{mr.EVIDENCE_DIR_REL}/{LEG}.json")["source_run"]
+    (root / src).write_text("".join(json.dumps({"net_r": x}) + "\n" for x in xs))
+    return mr.leg_threshold(LEG, root)
+
+
+def _t3_mirror(root, w0, w1, rule=mr.DEMOTE_TRIGGER_RULE, net=None, **over):
+    """Write LEG's mirror-window record under MD-DEMOTE-S2-S1's 2026-09-29
+    firing clause, with the threshold the resolver will itself re-derive."""
+    thr = mr.leg_threshold(LEG, root)
+    rec = {"leg": LEG, "n_closed": 20, "net_r_net_of_full_cost": w0 if net is None else net,
+           "source_run": "comms/mandate_evidence/runs/m.jsonl", "trigger_rule": rule,
+           "p10_threshold": thr["p10"], "threshold_seed": thr["seed"],
+           "threshold_draws": thr["draws"], "threshold_source_record": thr["source_record"],
+           "block_size": 20,
+           "windows": [{"window": 0, "net_r": w0, "n_closed": 20, "r4_status": "would_block"},
+                       {"window": 1, "net_r": w1, "n_closed": 20, "r4_status": "would_block"}],
+           **over}
+    _w(root, f"{mr.MIRROR_DIR_REL}/{LEG}.json", rec)
+    (root / rec["source_run"]).parent.mkdir(parents=True, exist_ok=True)
+    (root / rec["source_run"]).write_text("{}\n")
+    return rec
+
+
+def _demote_root(repo, stage0=HEALTHY_STAGE0):
     accts = copy.deepcopy(ACCOUNTS)
     accts["accounts"]["bybit_2"]["strategies"].append(LEG)
     accts["accounts"]["bybit_portfolio"]["strategies"].append(LEG)
-    root = repo(accounts=accts, mirror=_t3_mirror(-8.2, -6.1))
+    root = repo(accounts=accts)
+    thr = _stage0(root, stage0)
+    return root, thr
+
+
+def test_fire_demote_s2_to_s1_on_a_negative_mirror_window(repo):
+    root, thr = _demote_root(repo)
+    assert -6.0 < thr["p10"] < 0, thr
+    _t3_mirror(root, -8.2, -6.1)
     res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)
     assert res["verdict"] == "FIRE", res
     assert res["proposal"]["roster_remove"] == {"bybit_2": [LEG], "bybit_portfolio": [LEG]}
     assert res["proposal"]["roster_add"] == {}
+    assert res["evidence"]["p10_recomputed"] == thr["p10"]
 
 
 def test_proposal_never_writes(repo):
@@ -517,44 +550,82 @@ def test_refuse_no_op(repo):
 
 
 def test_refuse_demotion_on_a_positive_mirror_window(repo):
-    accts = copy.deepcopy(ACCOUNTS)
-    accts["accounts"]["bybit_2"]["strategies"].append(LEG)
-    root = repo(accounts=accts, mirror=_t3_mirror(1.0, 1.0))
+    root, _ = _demote_root(repo)
+    _t3_mirror(root, 1.0, 1.0)
     _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-EXPECTANCY")
 
 
-@pytest.mark.parametrize("mirror", [
-    # the plain 30-day net<0 record the 2026-09-29 clause replaced
-    {"leg": LEG, "n_closed": 40, "net_r_net_of_full_cost": -3.2,
-     "source_run": "comms/mandate_evidence/runs/m.jsonl"},
-    _t3_mirror(-8.2, -6.1, rule="net_r_lt_0_30d"),          # another rule
-    _t3_mirror(-3.0, -6.1),                                  # w0 above p10 -4.4
-    _t3_mirror(-8.2, -1.0),                                  # w1 above p10
-    _t3_mirror(-2.0, -3.0, p10=+2.35, net=-2.0),             # positive p10, both windows LOSING: fires (asserted below)
-    {**_t3_mirror(-8.2, -6.1), "windows": [{"window": 0, "net_r": -8.2}]},   # one window only
-    {**_t3_mirror(-8.2, -6.1), "p10_threshold": None},        # no threshold
+@pytest.mark.parametrize("case", [
+    "old_30d_record", "other_rule", "w0_above_p10", "w1_above_p10", "one_window",
+    "no_threshold", "planted_threshold", "wrong_seed", "short_window", "window_not_would_block",
 ])
-def test_refuse_demotion_not_meeting_the_two_window_rule(repo, mirror):
-    accts = copy.deepcopy(ACCOUNTS)
-    accts["accounts"]["bybit_2"]["strategies"].append(LEG)
-    res = mr.resolve(LEG, "S2", "S1", "bybit_2", root=repo(accounts=accts, mirror=mirror))
-    if mirror.get("p10_threshold") == 2.35:
-        # Both windows negative AND below a positive p10: the rule FIRES --
-        # net<0 is what protects a profitable positive-threshold leg, and
-        # these windows are losing.
-        assert res["verdict"] == "FIRE", res
-        return
-    _refused(res, "R-TRIGGER-RULE")
+def test_refuse_demotion_not_meeting_the_two_window_rule(repo, case):
+    root, thr = _demote_root(repo)
+    p10 = thr["p10"]
+    if case == "old_30d_record":        # the plain 30-day net<0 record the clause replaced
+        _w(root, f"{mr.MIRROR_DIR_REL}/{LEG}.json",
+           {"leg": LEG, "n_closed": 40, "net_r_net_of_full_cost": -3.2,
+            "source_run": "comms/mandate_evidence/runs/m.jsonl"})
+        (root / "comms/mandate_evidence/runs").mkdir(parents=True, exist_ok=True)
+        (root / "comms/mandate_evidence/runs/m.jsonl").write_text("{}\n")
+    elif case == "other_rule":
+        _t3_mirror(root, -8.2, -6.1, rule="net_r_lt_0_30d")
+    elif case == "w0_above_p10":
+        _t3_mirror(root, p10 + 0.5 if p10 + 0.5 < 0 else -0.01, -8.0)
+    elif case == "w1_above_p10":
+        _t3_mirror(root, -8.2, p10 + 0.5 if p10 + 0.5 < 0 else -0.01)
+    elif case == "one_window":
+        rec = _t3_mirror(root, -8.2, -6.1)
+        _t3_mirror(root, -8.2, -6.1, windows=rec["windows"][:1])
+    elif case == "no_threshold":
+        _t3_mirror(root, -8.2, -6.1, p10_threshold=None)
+    elif case == "planted_threshold":   # a record may not state its own bar
+        _t3_mirror(root, -1.0, -1.0, p10_threshold=5.0)
+    elif case == "wrong_seed":
+        _t3_mirror(root, -8.2, -6.1, threshold_seed=1)
+    elif case == "short_window":
+        rec = _t3_mirror(root, -8.2, -6.1)
+        rec["windows"][1]["n_closed"] = 19
+        _t3_mirror(root, -8.2, -6.1, windows=rec["windows"])
+    elif case == "window_not_would_block":
+        rec = _t3_mirror(root, -8.2, -6.1)
+        rec["windows"][0]["r4_status"] = "pass"
+        _t3_mirror(root, -8.2, -6.1, windows=rec["windows"])
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-TRIGGER-RULE")
+
+
+def test_positive_p10_leg_fires_only_on_losing_windows(repo):
+    """net<0 is what protects a profitable positive-threshold leg: windows below
+    its positive p10 but positive never fire; losing windows do."""
+    root, thr = _demote_root(repo, STRONG_STAGE0)
+    assert thr["p10"] > 1.0, thr
+    _t3_mirror(root, 0.5, 0.5)
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-EXPECTANCY")
+    _t3_mirror(root, -2.0, -3.0)
+    assert mr.resolve(LEG, "S2", "S1", "bybit_2", root=root)["verdict"] == "FIRE"
+
+
+def test_needs_data_when_the_stage0_record_is_too_thin(repo):
+    root, _ = _demote_root(repo)
+    _t3_mirror(root, -8.2, -6.1)
+    _stage0(root, HEALTHY_STAGE0[:19])
+    _needs_data(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-TRIGGER-RULE")
+
+
+def test_leg_threshold_is_deterministic_and_matches_the_gate():
+    import r4_demotion_gate as g
+    a = mr.leg_threshold("ada_pullback_2h", REPO)
+    assert a == mr.leg_threshold("ada_pullback_2h", REPO) == g.leg_threshold("ada_pullback_2h", REPO)
+    assert a["p10"] is not None and a["seed"] == 20260929 and a["draws"] == 20000
 
 
 def test_positive_threshold_leg_making_money_is_never_demoted(repo):
     # trend_donchian_xrp_4h-shaped: p10 +2.35R. Windows +1.0R / +0.5R are below
     # p10 but profitable -> refused on net (the mandate's never-clause).
-    accts = copy.deepcopy(ACCOUNTS)
-    accts["accounts"]["bybit_2"]["strategies"].append(LEG)
-    res = mr.resolve(LEG, "S2", "S1", "bybit_2",
-                     root=repo(accounts=accts, mirror=_t3_mirror(1.0, 0.5, p10=2.35)))
-    _refused(res, "R-EXPECTANCY")
+    root, thr = _demote_root(repo, STRONG_STAGE0)
+    assert thr["p10"] > 1.0, thr
+    _t3_mirror(root, 1.0, 0.5)
+    _refused(mr.resolve(LEG, "S2", "S1", "bybit_2", root=root), "R-EXPECTANCY")
 
 
 def test_needs_data_demotion_without_a_mirror_record(repo):
