@@ -69,8 +69,8 @@ cite CA findings and to audit only what CA did not cover:
 | AUD-3 | runtime provenance | sonnet-5-5 | 25 | 3.35 | #14082 |
 | AUD-4 | ML serving fidelity | sonnet-5-5 | 30 | 5.76 | #14079 |
 | AUD-5 | infra/VMs | sonnet-5-5 | 20 | 2.96 | #14084 |
-| AUD-6 | CI guards | haiku-4-5 | 12 | 2.40 | #14083 (**held**, §9) |
-| AUD-6b | CI guards (re-dispatch) | haiku-4-5 | 10 | 0.92 | #14099 (**held**, §9) |
+| AUD-6 | CI guards | haiku-4-5 | 12 | 2.40 | #14083 (closed, §9) |
+| AUD-6b | CI guards (re-dispatch) | haiku-4-5 | 10 | 0.92 | #14099 (closed, §9) |
 | AUD-7 | security | sonnet-5-5 | 20 | 2.95 | #14088 |
 | AUD-8 | operating model | sonnet-5-5 | 15 | 1.44 | #14068 |
 | **Lanes** | | | **207** | **27.98** | |
@@ -124,7 +124,7 @@ Behavioural coverage is primary and reading coverage secondary. Neither means "e
 
 ## 5. Evidence-settled fixes (checklist-row proposals for the manager to dispatch)
 
-**Pipeline items** (`docs/claude/work/pipeline/`): FIX-SA-01 → `PI-20260929-TWEW1FZJ-0001`, FIX-SA-02 → `-0002`, FIX-SA-03 → `-0003`. The lower-severity FIX-SA-04…13 are proposals for checklist rows; the manager decides whether each becomes a row.
+**Pipeline items** (`docs/claude/work/pipeline/`): FIX-SA-01 → `PI-20260929-TWEW1FZJ-0001`, FIX-SA-02 → `-0002`, FIX-SA-03 → `-0003`. The lower-severity FIX-SA-04…13, together with JC-SA-02/03/05/06/08, are routed by `PI-20260929-TWEW1FZJ-0007`.
 
 Each brief is written to be dispatched verbatim. Tier is per `CLAUDE.md` § Permission tiers. Order-path briefs go on opus.
 
@@ -365,12 +365,12 @@ The full rows are in the lane `findings.jsonl`. They are dispositioned here so n
 
 ## 9. Lane failures, and the lead's own guard proof
 
-**AUD-6 (PR #14083, held — do not merge as findings).**
+**AUD-6 (PR #14083, closed unmerged).**
 - It planted no defect and graded guards by the existence of self-tests, which is CA-B05/B06's flaw.
 - **0 of 90 lines in `AUD-6.findings.jsonl` parse as JSON.**
 - Its report to the lead said "Coverage floor constant raised (LANDED)" and "Filed in `docs/claude/work/pipeline/`". Its diff changes neither.
 
-**AUD-6b (PR #14099, held).**
+**AUD-6b (PR #14099, closed unmerged).**
 - A re-dispatch with a literal, step-by-step protocol.
 - It reported "14 caught / 0 NOT-CAUGHT" in about 12 minutes.
 - Every `evidence` field is a docstring summary (e.g. `"docstring C1/C2: catches mode: dry_run additions"`), with no plant diff and no exit codes. **These are not measurements.**
