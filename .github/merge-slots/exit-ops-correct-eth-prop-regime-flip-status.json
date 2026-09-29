@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01113oMBNikT5uJanU16K3yq",
+  "branch": "exit-ops/correct-eth-prop-regime-flip-status",
+  "claimed_at": "2026-09-29T09:59:00Z",
+  "purpose": "PR: correct trend_donchian_eth_prop regime_flip_exit status pending->honest_negative"
+}

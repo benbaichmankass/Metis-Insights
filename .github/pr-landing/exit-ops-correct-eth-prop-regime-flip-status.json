@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/research/exit-refinement-coverage.json status correction only; no config, runtime, or order path touched"
+}
