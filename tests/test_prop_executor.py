@@ -301,8 +301,9 @@ class FakeAdapter:
         self.calls.append(("cancel_order", order.order_id, arm))
         return {"ok": True, "clicked": arm}
 
-    def flatten(self, page, symbol=None, *, arm=False):
+    def flatten(self, page, symbol=None, *, arm=False, **facts):
         self.calls.append(("flatten", symbol, arm))
+        self.flatten_facts = facts
         return {"ok": True, "clicked": arm}
 
     def modify_bracket(self, page, position, sl, tp, *, arm=False):
@@ -976,10 +977,14 @@ class RTAdapter(FakeAdapter):
                                        take_profit=spec.take_profit if self.legs else None)]
         return PlaceAttempt(stage="submitted" if arm else "form_verified", submitted=arm)
 
-    def flatten(self, page, symbol=None, *, arm=False):
+    def flatten(self, page, symbol=None, *, arm=False, **facts):
         self.calls.append(("flatten", symbol, arm))
+        self.flatten_facts = facts
         if arm and self.close_works:
             self.positions = []
+            if getattr(self, "orphan_after_close", False):
+                self.orders = [WorkingOrder(symbol=symbol, side="short", quantity=0.01, price=120.18,
+                                            order_id="777", order_type="limit")]
         return {"ok": True, "clicked": arm}
 
 
@@ -2306,3 +2311,81 @@ def test_close_modal_and_row_fact_helpers_are_pure():
     assert _row_facts_mismatch(facts, None, None, None) == []
     assert _row_facts_mismatch({"side": None, "size": None, "fill": None}, "long", 0.01, 118.94) == [
         "side: row shows None, want long", "size: row shows None, want 0.01", "fill: row shows None, want 118.94"]
+
+
+# ── the wiring: the round trip's close passes the row facts and refuses an
+# orphan order; close-position closes and journals an existing position ──
+
+
+def test_round_trip_close_passes_the_row_facts_and_refuses_an_orphan_order(tmp_path):
+    ad, api = RTAdapter(), FakeApi()
+    res = rt(ad, api, tmp_path)
+    assert res.halted is None, res.actions
+    assert ad.flatten_facts == {"side": "long", "quantity": 0.1, "entry_price": 100.1}
+    assert any(a["what"] == "after_close" for a in res.actions)
+    ad = RTAdapter()
+    ad.orphan_after_close = True
+    res = rt(ad, FakeApi(), tmp_path)
+    assert res.halted == "round trip: close not confirmed"
+    assert any("orphan SL/TP" in a for a in res.alerts) and any(a["what"] == "orphan_orders" for a in res.actions)
+
+
+def _open_pos():
+    return Position(symbol="SOLUSD", side="long", quantity=0.01, entry_price=118.94, unrealized_pnl=None,
+                    stop_loss=117.8, take_profit=120.18)
+
+
+def test_close_position_dry_locates_and_live_closes_and_journals(tmp_path):
+    c = rt_cfg()
+    ledger = pe.IntentLedger(tmp_path / "l.jsonl")
+    ledger.record("roundtrip-solusd-20260929T062633Z", "submitted")     # the live test's unresolved ticket
+    ad = RTAdapter()
+    ad.positions = [_open_pos()]
+    res = pe.run_close_position(adapter=ad, page=None, api=FakeApi(), cfg=c, ledger=ledger, venue_symbol="SOLUSD",
+                                arm=False, now=NOW)
+    assert res.halted is None and [x[0] for x in ad.calls] == ["flatten"]
+    assert ad.flatten_facts == {"side": "long", "quantity": 0.01, "entry_price": 118.94}
+    assert next(a for a in res.actions if a["what"] == "close_position_spec")["ticket_id"] == "roundtrip-solusd-20260929T062633Z"
+    assert ad.positions and ledger.state("roundtrip-solusd-20260929T062633Z") == "submitted"   # nothing changed
+    api = FakeApi()
+    ad = RTAdapter()
+    ad.positions = [_open_pos()]
+    res = pe.run_close_position(adapter=ad, page=None, api=api, cfg=c, ledger=ledger, venue_symbol="SOLUSD",
+                                arm=True, now=NOW)
+    assert res.halted is None, res.actions
+    assert [(p["status"], p["direction"], p["qty"], p["entry_price"], p["sl"], p["tp"]) for p in api.posts] == [
+        ("open", "long", 0.01, 118.94, 117.8, 120.18), ("closed", "long", 0.01, 118.94, 117.8, 120.18)]
+    assert api.posts[0]["ticket_id"] == "roundtrip-solusd-20260929T062633Z"
+    assert ledger.state("roundtrip-solusd-20260929T062633Z") == "closed"
+    assert ad.positions == [] and any(a["what"] == "close_position_done" for a in res.actions)
+
+
+def test_close_position_refuses_without_exactly_one_position_and_when_the_close_fails(tmp_path):
+    c = rt_cfg()
+    ledger = pe.IntentLedger(tmp_path / "l.jsonl")
+    res = pe.run_close_position(adapter=RTAdapter(), page=None, api=FakeApi(), cfg=c, ledger=ledger,
+                                venue_symbol="SOLUSD", arm=True, now=NOW)
+    assert "need exactly 1 SOLUSD position" in res.halted and ledger.latest() == {}
+    ad = RTAdapter(close_works=False)
+    ad.positions = [_open_pos()]
+    api = FakeApi()
+    res = pe.run_close_position(adapter=ad, page=None, api=api, cfg=c, ledger=ledger, venue_symbol="SOLUSD",
+                                arm=True, now=NOW)
+    assert "close NOT confirmed flat" in res.halted
+    assert [p["status"] for p in api.posts] == ["open"]                     # the fill is journaled, the close is not
+    tid = next(a for a in res.actions if a["what"] == "close_position_spec")["ticket_id"]
+    assert tid.startswith("closeout-solusd-") and ledger.state(tid) == "unconfirmed"
+
+
+def test_tick_close_position_modes_and_apply_tokens():
+    from scripts.prop.prop_executor_tick import resolve_mode
+    ns = lambda **k: SimpleNamespace(**{"probe_ticket": "", "dry_run": False, "watched_click": False,  # noqa: E731
+                                        "round_trip": "", "close_position": "", "live": False, **k})
+    assert resolve_mode(ns(close_position="SOLUSD"), {}) == "close_position_dry"
+    assert resolve_mode(ns(close_position="SOLUSD", live=True), {}) == "not_armed"
+    assert resolve_mode(ns(close_position="SOLUSD", live=True), {pe.MODE_ENV: "live"}) == "close_position_live"
+    sh = (Path(__file__).resolve().parents[1] / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
+    assert 'close-position)      EARGS+=(--close-position "${RT_SYMBOL}") ;;' in sh
+    assert 'close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;' in sh
+    wf = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "system-actions.yml").read_text()
+    assert "|close-position|close-position-live)" in wf
