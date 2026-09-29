@@ -62,3 +62,15 @@ generated:
     symbol: ETHUSDT
     timeframe: 2h
 last_dispatched_at: '2026-09-29T00:53:03+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-EXIT-REFINEMENT-P2-GATE
+  evidence:
+  - research/results/RQ-20260928-020/36505254060.jsonl
+  graded_at: '2026-09-29'
+  grader: scripts/research/queue_grade.py
+  latest: true
+  needs_review: false
+  reason: 1 row(s), all measured, all no_action_warranted
+  rows: 1
+  verdict: no_action_warranted
