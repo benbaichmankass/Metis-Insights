@@ -438,9 +438,14 @@ workflow, which PUT the updated contexts.
 **Purpose:** PUTs the branch-protection spec for `main` idempotently.
 Hardcoded `REQUIRED_CONTEXTS` is authoritative.
 
-**Secrets:** `BRANCH_PROTECTION_TOKEN` (PAT, fine-grained,
-`administration:write`). Unset → the workflow no-ops (skips the PUT and
-leaves protection unchanged).
+**Secrets:** `BRANCH_PROTECTION_TOKEN` (classic PAT, `repo` scope —
+**operator-stated 2026-09-29, not measured**; earlier text here and in the
+secrets table said fine-grained `administration:write`, which the operator
+corrected). ⚠️ A classic `repo` token grants admin on every repo the owner
+administers, so it is broader than a fine-grained `administration:write` token;
+the operator chose to keep ONE token across all its workflows (JC-SA-05 option
+b, 2026-09-29: "Leave it as one token, I'm not splitting it"). Unset → the
+workflow no-ops (skips the PUT and leaves protection unchanged).
 
 **MCP trigger:** none needed — it self-fires on merge to `main`.
 `workflow_dispatch` is available to the operator in the Actions UI as a
@@ -1196,7 +1201,7 @@ download + paste the artifact content.
 | `VM_SSH_KEY` | repo | All VM SSH workflows (live VM and trainer VM) |
 | `VM_SSH_PRIVATE_KEY` | env `production-oci` | `oci-storage` mutating job only (env scope carries the approval gate) |
 | `DIAG_READ_TOKEN` | repo | `vm-diag-snapshot`, post-action verification in `system-actions` |
-| `BRANCH_PROTECTION_TOKEN` | repo | `branch-protection-sync` (PAT, fine-grained, `administration:write`) |
+| `BRANCH_PROTECTION_TOKEN` | repo | `branch-protection-sync` and ~40 other workflows (classic PAT, `repo` scope — operator-stated 2026-09-29, not measured; one token by operator decision, JC-SA-05) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | repo | `dry-run-guard`, `env-gate-guard`, `silent-empty-guard`, `training-run` |
 | `OCI_CLI_USER`, `OCI_CLI_FINGERPRINT`, `OCI_CLI_TENANCY`, `OCI_CLI_REGION`, `OCI_CLI_KEY_CONTENT` | repo | `vm-cloud-fix`, `oci-storage`, `provision-training-vm`, `provision-training-vm-auto-retry` |
 | `HF_TOKEN` | repo | `hf-cron`, `training-run` |

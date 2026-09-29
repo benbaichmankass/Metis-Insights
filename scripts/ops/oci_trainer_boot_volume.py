@@ -110,6 +110,42 @@ def _size(obj) -> int:
     return int(obj.size_in_gbs)
 
 
+def _block_detail(compute, bs, comp: str, vol_id: str) -> dict:
+    """READ-ONLY: who a block volume is attached to, and its backup policy.
+
+    Answers "is this volume used?" before anyone proposes deleting it
+    (PI-20260929-CMXYTHSP-0002). Every lookup failure is reported as a string,
+    never silently dropped, so "no attachments" stays distinguishable from
+    "could not read attachments".
+    """
+    import oci  # noqa: PLC0415
+
+    out: dict = {}
+    try:
+        atts = oci.pagination.list_call_get_all_results(
+            compute.list_volume_attachments, compartment_id=comp, volume_id=vol_id).data
+        rows = []
+        for a in atts:
+            try:
+                inst = compute.get_instance(a.instance_id).data.display_name
+            except Exception as exc:  # noqa: BLE001
+                inst = f"<get_instance failed: {exc}>"
+            rows.append({"instance": inst, "instance_id": a.instance_id,
+                         "state": a.lifecycle_state, "type": a.attachment_type,
+                         "device": getattr(a, "device", None),
+                         "read_only": getattr(a, "is_read_only", None),
+                         "time_created": str(a.time_created)})
+        out["attachments"] = rows
+    except Exception as exc:  # noqa: BLE001
+        out["attachments_error"] = str(exc)
+    try:
+        asg = bs.get_volume_backup_policy_asset_assignment(vol_id).data
+        out["backup_policy_ids"] = [x.policy_id for x in asg]
+    except Exception as exc:  # noqa: BLE001
+        out["backup_policy_error"] = str(exc)
+    return out
+
+
 def measure(cfg: dict, imds: dict, strict: bool) -> dict:
     import oci  # noqa: PLC0415
 
@@ -135,7 +171,10 @@ def measure(cfg: dict, imds: dict, strict: bool) -> dict:
             if v.lifecycle_state in LIVE_STATES:
                 rows.append({"kind": "block", "name": v.display_name, "id": v.id,
                              "size_gb": _size(v), "state": v.lifecycle_state,
-                             "vpus_per_gb": v.vpus_per_gb})
+                             "vpus_per_gb": v.vpus_per_gb,
+                             "time_created": str(v.time_created),
+                             "volume_group_id": v.volume_group_id,
+                             "detail": _block_detail(compute, bs, comp, v.id)})
 
     # Backups are reported (not summed): Always Free counts them separately
     # (5 backups), but an operator reading the total should see them.
@@ -234,6 +273,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {r['kind']:5} {r['size_gb']:>4} GB  {r['state']:<11} vpus={r['vpus_per_gb']}  {r['name']}")
     print(f"TENANCY BLOCK TOTAL: {m['total_gb']} GB of {FREE_CEILING_GB} GB free "
           f"({len(m['volumes'])} volumes)")
+    for r in m["volumes"]:
+        if r["kind"] != "block":
+            continue
+        d = r["detail"]
+        print(f"  block detail: {r['name']} created={r['time_created']} "
+              f"volume_group={r['volume_group_id']}")
+        if "attachments_error" in d:
+            print(f"    attachments: COULD NOT READ ({d['attachments_error']})")
+        elif not d["attachments"]:
+            print("    attachments: NONE (no attachment record of any state)")
+        for at in d.get("attachments", []):
+            print(f"    attachment: {at['state']} -> {at['instance']} ({at['type']}, "
+                  f"device={at['device']}, read_only={at['read_only']}, since {at['time_created']})")
+        if "backup_policy_error" in d:
+            print(f"    backup policy: COULD NOT READ ({d['backup_policy_error']})")
+        else:
+            print(f"    backup policy: {d['backup_policy_ids'] or 'none'}")
     for b in m["backups"]:
         print(f"  {b['kind']:13} {b['size_gb']} GB  {b['state']:<9} {b['name']}  (not summed)")
     print(f"backups: {len(m['backups'])} (Always Free allows 5; not part of the 200 GB total)")
