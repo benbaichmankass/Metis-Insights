@@ -170,8 +170,11 @@ grading:
     (analyze_exit_head.py) pools 5 folds with a 12-bar embargo and emits no
     per-fold n. With ~20 trades per fold on average, a final fold at n>=64 is
     not plausible (INFERRED). Under the n-floor branch (never lower the floor)
-    the unit reads indeterminate. Read on the pooled population it is the FAIL
-    branch (0 of 3 legs > 0): exit head donchian-specific, exit line exhausted
-    for ict_scalp unless the donchian pass replicates. Which reading binds is
-    the manager's call; no rule was rewritten here. No consequence applied
-    beyond recording (the FAIL consequence is narrative, not a queue kill).
+    the unit reads indeterminate, and that verdict STANDS (manager decision
+    2026-09-29: substituting the pooled CV after seeing the data would defeat
+    pre-registration). The pooled figures (0 of 3 legs positive; recovered R
+    -10.40 / -13.69 / -3.42) are DESCRIPTIVE and non-deciding. Follow-up:
+    analyze_exit_head.py now emits per-fold n_oos and recovered R
+    (exit_policy.by_fold / final_fold); the three legs are re-run with
+    days=2200 to test whether the registered final fold can reach
+    n_oos >= 64. If not: power-limited, one pipeline row, stop.
