@@ -2205,12 +2205,18 @@ class DXtradeAdapter(PropPlatformAdapter):
             form = self._scroll_until_submit(page)
             if "submit" not in (form.get("buttons") or {}):
                 return refuse("no unique submit control in the form (panel scrolled to the end)")
+        # Each step is NAMED so a timeout says which one (dry run #13942:
+        # "typing into the form failed (TimeoutError)" could not), and carries
+        # Playwright's own reason (e.g. "element is not enabled"), capped.
+        step = "start"
         try:
+            step = "side click"
             side_btn = "side_buy" if spec.side == "long" else "side_sell"
             if side_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={side_btn}]", timeout=5_000)
             elif form.get("buttons", {}).get("side_buy") is None and form.get("buttons", {}).get("side_sell") is None:
                 return refuse("no side selector in the form")
+            step = "order-type click"
             type_btn = "type_limit" if spec.order_type == "limit" else "type_market"
             if type_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
@@ -2219,6 +2225,7 @@ class DXtradeAdapter(PropPlatformAdapter):
             # toggles read "false" by default): the operator's flow sets the
             # brackets BEFORE execution. Never switched off; read back below.
             for leg in ("stop_loss", "take_profit"):
+                step = f"{leg} toggle click"
                 fld = (form.get("fields") or {}).get(leg) or {}
                 tog = [c for c in form.get("checkboxes") or [] if c.get("field") == leg]
                 if len(tog) > 1:
@@ -2231,12 +2238,18 @@ class DXtradeAdapter(PropPlatformAdapter):
             want = {"quantity": spec.quantity, "stop_loss": spec.stop_loss, "take_profit": spec.take_profit}
             if spec.order_type == "limit":
                 want["price"] = float(spec.limit_price)
+            step = "re-read after toggles"
             form = self._find_form(page)
+            still = [k for k in ("stop_loss", "take_profit") if ((form.get("fields") or {}).get(k) or {}).get("disabled")]
+            if still:
+                return refuse(f"the enabling toggle did not enable {still} (inputs still disabled after the click)", form)
             for k, v in want.items():
+                step = f"{k} fill"
                 page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
             form = self._find_form(page)
         except Exception as exc:
-            return refuse(f"typing into the form failed ({type(exc).__name__})")
+            why = re.sub(r"\s+", " ", str(exc))[:400]
+            return refuse(f"typing into the form failed at {step} ({type(exc).__name__}: {why})")
         # Read-back of all six fields (ORDER ENTRY rule 4): symbol, side,
         # order type, quantity, stop loss, take profit (+ price for a limit).
         mism = self._read_back(form, spec, want)
