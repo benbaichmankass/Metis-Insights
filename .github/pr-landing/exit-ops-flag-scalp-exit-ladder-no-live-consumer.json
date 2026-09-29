@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "pipeline finding record only; no config, runtime, or order path touched"
+}

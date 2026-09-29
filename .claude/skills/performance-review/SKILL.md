@@ -251,6 +251,19 @@ the window:
 - `n_rejected` (status ∈ `failed_*`)
 - `win_rate` (closed_filled rows where `pnl > 0` ÷ closed_filled rows)
 - `pnl_total`, `pnl_avg_per_trade`
+- `pnl_measured_n` and `pnl_coverage` — **required beside every `pnl_total`**
+  (SA-AUD-3, FIX-SA-05). `pnl_measured_n` is the number of closed rows whose
+  `provenance.classify_pnl` bucket is MEASURED, `pnl_coverage` is
+  `pnl_measured_n ÷ closed rows`, and `pnl_estimated_n` counts the ESTIMATED
+  rows. Take them from `/api/bot/performance` `perStrategy[].pnlMeasuredCount`,
+  `.pnlCoverage`, `.pnlEstimatedCount`; never recompute over a different
+  population. `pnl_total` sums fabricated marks too, so a sum quoted without
+  its coverage is a number of unknown provenance.
+  ⚠️ **`totalPnlMeasured` is MEASURED+ESTIMATED despite its name.** Quote
+  `totalPnlMeasuredOnly` (the MEASURED rows, the same population as
+  `pnlMeasuredCount`) beside it and say so when the two disagree in sign: a
+  paper window read `totalPnlMeasured` +94,618 over 367 MEASURED rows against
+  699 ESTIMATED.
 - `avg_hold_seconds` (closed_at − opened_at)
 - `rejection_cluster` — most common rejection reason if rejections >
   filled

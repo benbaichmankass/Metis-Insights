@@ -219,3 +219,19 @@ def test_cli_dry_run_exit_zero_and_bad_payload_exit_two(tmp_path, capsys):
     assert g.main(["--perf-json", str(p)]) == 0
     p.write_text("{}")
     assert g.main(["--perf-json", str(p)]) == 2
+
+
+def test_mirror_window_record_carries_both_pnl_bases_without_moving_the_verdict():
+    """FIX-SA-05 / JC-SA-03: the gate keeps MEASURED+ESTIMATED as its input and
+    the evidence record adds the MEASURED-only half and the ESTIMATED count."""
+    from scripts.ops.r4_demotion_gate import mirror_window_record
+    chosen = {"trades": 30, "totalPnlMeasured": 900.0, "totalPnlMeasuredOnly": -50.0,
+              "pnlMeasuredCount": 12, "pnlEstimatedCount": 18, "pnlCoverage": 0.4,
+              "coverageFloor": 0.3, "minTrades": 20}
+    dec = {"leg": "L", "account": "bybit_2", "totalR": -1.0, "rTradeCount": 30,
+           "r4": {"chosenSource": "real_money", "real": chosen, "mirror": {},
+                  "status": "PASS", "detail": "d"}}
+    rec = mirror_window_record(dec, "run", "30d", None, "2026-09-29T00:00:00Z")
+    assert rec["net_usd_measured"] == 900.0
+    assert rec["net_usd_measured_only"] == -50.0
+    assert rec["n_estimated"] == 18

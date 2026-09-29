@@ -1755,6 +1755,201 @@ CONTRACTS: List[Dict[str, object]] = [
             "exactly when nothing had been looked at."
         ),
     },
+    # ------------------------------------------------------------------
+    # FIX-SA-06, 2026-09-29 (SA-AUD-3-collapsed-state-fields-unregistered-
+    # money-adjacent + SA-AUD-3-fix-ca-12-venue-read-states-unregistered).
+    # Each row below was checked against the field's REAL producer code, not
+    # its docstring: `producer_field` is chosen so a state literal that appears
+    # only in prose cannot stand in as evidence of emission.
+    # ------------------------------------------------------------------
+    {
+        "name": "broker_truth.read_state",
+        "producer": "src/runtime/broker_truth.py",
+        # `return` -- NOT `read_state`. The docstring at journal_trust_map
+        # quotes all three literals on one line that names `read_state`, so a
+        # `read_state` field filter is satisfied by PROSE and the contract could
+        # not notice `_ledger_read_state` losing a branch. Only the code lines
+        # that `return "<state>"` (or return the envelope) carry `return`.
+        "producer_field": "return",
+        "consumer_token": r"\bjournal_trust_map\b",
+        "states": ["read", "absent", "unreadable"],
+        "why": (
+            "The ledger behind `journalTrust` on every /trades/closed and "
+            "/performance read. THE PAIR THAT MUST NOT COLLAPSE is `unreadable` "
+            "vs `read` with an empty account map: a corrupt ledger answered as "
+            "`read` grades EVERY account `no_record`, which reads as fine. "
+            "`absent` is a DEPLOY failure (the committed ledger did not reach "
+            "the VM), not a data state. Consumers today: "
+            "`journal_trust_for` (same file) folds absent and unreadable into "
+            "TRUST_UNREADABLE by design, while /performance publishes the raw "
+            "value as `journalTrust.readState`."
+        ),
+    },
+    {
+        "name": "prop_reconcile.open_risk_state",
+        "producer": "src/prop/prop_reconcile.py",
+        # `state` matches the `state = "<x>"` / `"state": "<x>"` emission lines
+        # of compute_open_risk. It does NOT match `day_pnl_state` (a word
+        # boundary never falls inside an identifier), which shares the literal
+        # `measured` and would otherwise satisfy this contract for it.
+        "producer_field": "state",
+        # Emission lines only: `state = "<x>"` and `"state": "<x>"`. Not the
+        # branch lines `open_risk["state"] == "<x>"` in the same file.
+        "producer_line_pattern": r'''^\s*state\s*=|"state"\s*:\s*"''',
+        "consumer_token": r"\bopen_risk_state\b|\bOPEN_RISK_STATES\b",
+        "states": ["no_open_positions", "measured", "stop_unknown", "unreadable"],
+        "why": (
+            "E66. A position with no journaled stop is `stop_unknown`, NEVER "
+            "zero risk; `unreadable` = we could not read the open positions. "
+            "Either summed in as 0.0 reports MORE daily/DD cushion than exists "
+            "on an account-killer limit. The gate refuses new risk on both "
+            "(prop_risk_gate `open_risk_ok`), so a consumer that folds them into "
+            "`no_open_positions` would size into an unbounded open loss."
+        ),
+    },
+    {
+        "name": "prop_reconcile.day_pnl_state",
+        "producer": "src/prop/prop_reconcile.py",
+        "producer_field": "day_pnl_state",
+        # Read patterns only. The bare identifier also appears in
+        # prop_risk_gate's docstring, whose literals belong to a DIFFERENT field
+        # (`after_open_risk_state`), and would credit this contract falsely.
+        "consumer_token": (r"""\[["']day_pnl_state["']\]|"""
+                           r"""\.get\(["']day_pnl_state["']"""),
+        "states": ["unreported", "realized_unreported", "unrealized_unreported",
+                   "measured"],
+        "why": (
+            "MEASURED 2026-08-23 on breakout_1: realized_today None with "
+            "unrealized 0.0 let one non-None term through, day_pnl came out 0.0 "
+            "and the panel published a FULL $142.92 daily cushion on a day whose "
+            "own fills held -$218.79 (1.53x the limit). The sum of an unknown "
+            "and a known is UNKNOWN; `day_pnl_state` says WHY day_pnl is None "
+            "so 'the operator reported no loss' is never confused with 'the loss "
+            "was never reported'."
+        ),
+    },
+    {
+        "name": "ib_client.verify_state",
+        "producer": "src/units/accounts/ib_client.py",
+        # Emitted as a `"verify_state": "<x>"` dict value by
+        # `_verify_cancel_effect` (verified / unverified / not_attempted) and by
+        # the not-attempted early return of the trade-scoped cancel helper.
+        # Prose mentions do not put a quoted literal on a line naming the field.
+        "producer_field": "verify_state",
+        # Emission lines only (`"verify_state": "<x>"`), not `precancel.get(
+        # "verify_state") == "verified"` in the same file.
+        "producer_line_pattern": r'''"verify_state"\s*:\s*"''',
+        # Sites that touch the envelope's producer helpers. NOT bare
+        # `verify_state` (an unrelated vocabulary in scripts/ops/{cancel,attach}
+        # _ib_*) and NOT `cancel_resting_protection`: order_monitor calls that
+        # and only LOGS the field, but its 12k lines contain the word
+        # "unverified" for unrelated reasons, so that token credited a consumer
+        # that does not branch on this field at all. Production consumers today
+        # are the in-file gates (place_protective, _log_cancel_verdict), which
+        # the guard cannot credit -- it excludes the producer file -- so the
+        # evidence it sees is the tests.
+        "consumer_token": (r"\bprecancel\b|\b_verify_cancel_effect\b|"
+                           r"\b_log_cancel_verdict\b"),
+        "states": ["verified", "unverified", "not_attempted"],
+        "why": (
+            "BL-20260825-PLACE-PROTECTIVE-COUNTS-THE-CANCEL-CALL-NOT-ITS-EFFECT. "
+            "`unverified` = the post-cancel re-read FAILED, which is 'we did not "
+            "look', not 'the cancel worked'; `not_attempted` = no cancel was "
+            "issued, so collapsing it into `verified` would say 'we looked and "
+            "nothing survived' about a call that never looked. NOTE: the "
+            "scripts/ops cancel/attach tools reuse the field NAME with a "
+            "different vocabulary (gone / still_present / could_not_look ...); "
+            "their literals are not credited here."
+        ),
+    },
+    {
+        "name": "prop_fills_staleness.balance_state",
+        "producer": "src/prop/prop_fills_staleness.py",
+        "producer_field": "balance_state",
+        # Emission lines only (`out["balance_state"] = ...`, `{"balance_state":
+        # ...}`), not `balance.get("balance_state") == "unreported"`.
+        "producer_line_pattern": r'''"balance_state"\]?\s*[:=]''',
+        "consumer_token": r"\bbalance_state\b|\bbalance_moved_unreported\b",
+        # SIX, not the five the module docstring lists: the run loop also
+        # writes `read_failed` (a journal read that raised) -- line 631. The
+        # docstring predates it.
+        "states": ["insufficient_snapshots", "balance_unreadable", "within_noise",
+                   "explained", "unreported", "read_failed"],
+        "why": (
+            "Detector B of the prop fills-staleness alert. `insufficient_"
+            "snapshots` (no delta EXISTS) and `read_failed` (the journal read "
+            "raised) are 'we could not look' and must never read as "
+            "`within_noise` ('we looked; the move is under the threshold') -- "
+            "that would tell the operator no account is missing fills while the "
+            "detector saw nothing. `unreported` is the finding."
+        ),
+    },
+    {
+        "name": "clients.query_state",
+        "producer": "src/units/accounts/clients.py",
+        "producer_field": "query_state",
+        # Emission lines only (`"query_state": "<x>"`), not the in-file branches
+        # `q.get("query_state") == "could_not_look"`.
+        "producer_line_pattern": r'''"query_state"\s*:\s*"''',
+        "consumer_token": r"""["']query_state["']""",
+        "states": ["rows_returned", "no_rows", "could_not_look"],
+        "why": (
+            "FIX-CA-12 (CA-A08). THE PAIR THAT MUST NOT COLLAPSE is `no_rows` "
+            "(the venue answered EMPTY: a real positive measurement) vs "
+            "`could_not_look` (the call raised: says nothing about the world). "
+            "Before FIX-CA-12 both were an empty list, so a failed venue read "
+            "looked exactly like 'the venue holds nothing' on the routes an "
+            "operator uses to decide whether a position is real."
+        ),
+    },
+    {
+        "name": "diag_venue.read_state",
+        "producer": "src/web/api/routers/diag.py",
+        # Every per-account row on the token-gated venue routes writes
+        # `"read_state": (<not_X> if not is_X else <read> if ok else
+        # "could_not_look")`, so the literals sit on lines naming `read_state`
+        # or on the adjacent ternary arms; file-wide evidence is used because
+        # the arms are on their own lines.
+        "producer_field": "",
+        # The ternary ARMS (`"not_bybit" if not is_bybit` / `else "orders_read"
+        # if ok` / `else "could_not_look"`) and `"read_state": "<x>"` literals.
+        # Not `r["read_state"] == "read"` branches elsewhere in diag.py. NOTE the
+        # arms are shared by every route, so removing ONE route's
+        # `could_not_look` arm is still not detected -- only removing them all.
+        "producer_line_pattern": (
+            r'''^\s*(?:else\s+)?"[a-z_]+"(?:\s+if\b.*)?$|"read_state"\s*:\s*"'''),
+        # COMPARISON sites only -- `<x>["read_state"] == ...`, `.get("read_state")
+        # in ...`. A bare endpoint name also matched the producers' own clients
+        # (clients.py, ib_client.py) and every script that merely mentions a
+        # route in a comment.
+        # ...compared against a venue-route READ literal (`== "orders_read"`).
+        # Matching every `read_state ==` also matched tests of unrelated
+        # `read_state` fields (identity, timers), whose single-state branches
+        # are correct for THEIR vocabulary and cannot carry two overrides.
+        "consumer_token": (
+            r"""["']read_state["']\]?\)?\s*(?:==|!=)\s*["']"""
+            r"""(?:orders_read|not_bybit|not_alpaca|not_ib|raw_read|"""
+            r"""order_history_read|closed_pnl_read)["']"""),
+        # Declared: the states an in-repo consumer actually compares against.
+        # Also emitted by diag.py but read by NO in-repo consumer (only by a
+        # session reading the JSON): `order_history_read`, `raw_read`,
+        # `session_read` (registered separately as ib_venue_session.state) and
+        # `unknown_account`. Declaring them would make this guard fail on a
+        # consumer that does not exist; they are named here so their absence is
+        # a stated fact rather than an omission.
+        "states": ["not_bybit", "not_alpaca", "not_ib", "orders_read",
+                   "closed_pnl_read", "could_not_look"],
+        "why": (
+            "FIX-CA-12 (CA-A08). These routes used to swallow a failed account "
+            "read to `accounts = []` and answer 200, so 'could not look' and "
+            "'wrong account id' read exactly like 'looked, the venue holds "
+            "nothing'. Per-account `read_state` now names WHICH of not-this-venue"
+            " / read / could_not_look a row is, and `result` is null -- never "
+            "empty -- when we could not look. The per-route READ state literal "
+            "(`orders_read`, `session_read`, `raw_read`, ...) differs by route; "
+            "`orders_read` + `could_not_look` are the two every route shares."
+        ),
+    },
 ]
 
 # `# collapsed-state: <state> — <reason>`
@@ -1827,7 +2022,8 @@ def _state_constants(prod_text: str, states: List[str]) -> Dict[str, List[str]]:
 
 
 def _states_in(text: str, states: List[str], field: str = "",
-               const_names: Optional[Dict[str, List[str]]] = None) -> set:
+               const_names: Optional[Dict[str, List[str]]] = None,
+               line_pattern: str = "") -> set:
     """Which declared states this text references, ignoring override lines.
 
     The annotation is excluded from its own evidence — otherwise writing the
@@ -1858,6 +2054,16 @@ def _states_in(text: str, states: List[str], field: str = "",
             if not _OVERRIDE.search(ln) and i not in skip]
     if field:
         keep = [ln for ln in keep if re.search(rf"\b{re.escape(field)}\b", ln)]
+    # `line_pattern` (optional, FIX-SA-06) narrows the evidence to lines that
+    # match a REGEX -- for a producer whose own file also CONSUMES the field.
+    # `field` cannot tell `out["balance_state"] = "unreported"` (emission) from
+    # `if balance.get("balance_state") == "unreported"` (a branch), so removing
+    # the emission left the contract satisfied by the branch line: measured by
+    # mutation, 4 of 10 planted collapses went undetected. Opt-in per contract,
+    # so no existing contract changes meaning.
+    if line_pattern:
+        pat = re.compile(line_pattern)
+        keep = [ln for ln in keep if pat.search(ln)]
     body = "\n".join(keep)
 
     found = set()
@@ -1903,7 +2109,8 @@ def main(argv: List[str]) -> int:
         # (measured false negative, 2026-08-14; see `_states_in`).
         prod_field = str(c.get("producer_field") or "")
         prod_text = prod_path.read_text(encoding="utf-8", errors="replace")
-        emitted = _states_in(prod_text, states, prod_field)
+        emitted = _states_in(prod_text, states, prod_field,
+                             line_pattern=str(c.get("producer_line_pattern") or ""))
         missing = [s for s in states if s not in emitted]
         if missing:
             scope = (f"on any line naming `{prod_field}`" if prod_field

@@ -1,0 +1,13 @@
+# Trainer disk alarm (FIX-SA-12): pings when the trainer root is >= 90% used, read
+# from the mirror the trainer publishes. Live VM; oneshot behind
+# ict-trainer-disk-alarm.timer. Always exits 0 — scripts/ops/trainer_disk_alarm.py
+# records ok/alarm/unknown in runtime_logs/trainer_disk_alarm_state.json.
+[Unit]
+Description=ICT — trainer disk headroom alarm
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+EnvironmentFile=/home/ubuntu/ict-trading-bot/.env
+ExecStart=/home/ubuntu/ict-trading-bot/.venv/bin/python -u scripts/ops/trainer_disk_alarm.py
