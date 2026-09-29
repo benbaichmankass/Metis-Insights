@@ -520,12 +520,21 @@ class IntentLedger:
     is NOT an unresolved submit — go-live 2026-09-29 18:44Z: two such rows,
     written ``unconfirmed`` by the day's test round trips whose positions
     the venue had long since closed, were read as unconfirmed SUBMITS, hit
-    three misses and latched AUTO-REVERT on nothing (PI-20260929-2PNSPDNU-0005)."""
+    three misses and latched AUTO-REVERT on nothing (PI-20260929-AQRK6CL1-0009)."""
 
     UNRESOLVED = ("intended", "submitted", "unconfirmed")
     #: A close that did not confirm: linkable by a later close-out, never
     #: reconciled as a submit.
     CLOSE_UNRESOLVED = ("close_unconfirmed",)
+    #: The purposes under which the pre-fix code wrote such a close as
+    #: "unconfirmed" (ledgers on disk keep those rows forever): read as a
+    #: close, not a submit, so a legacy row can never trip the reconcile again.
+    CLOSE_PURPOSES = ("round_trip_close", "close_position")
+
+    @classmethod
+    def is_close_row(cls, row: Mapping[str, Any]) -> bool:
+        return row.get("state") in cls.CLOSE_UNRESOLVED or (
+            row.get("state") == "unconfirmed" and row.get("purpose") in cls.CLOSE_PURPOSES)
 
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
@@ -553,11 +562,15 @@ class IntentLedger:
         return (self.latest().get(ticket_id) or {}).get("state")
 
     def unresolved(self) -> Dict[str, Dict[str, Any]]:
-        return {k: v for k, v in self.latest().items() if v.get("state") in self.UNRESOLVED}
+        return {k: v for k, v in self.latest().items()
+                if v.get("state") in self.UNRESOLVED and not self.is_close_row(v)}
 
     def watched(self) -> Dict[str, Dict[str, Any]]:
-        """Unresolved submits plus resting ``placed`` orders (waiting to fill)."""
-        return {k: v for k, v in self.latest().items() if v.get("state") in self.UNRESOLVED + ("placed",)}
+        """Unresolved submits plus resting ``placed`` orders (waiting to fill).
+        A close that did not confirm (new state, or a legacy "unconfirmed"
+        row with a close purpose) is never a submit and is never watched."""
+        return {k: v for k, v in self.latest().items()
+                if v.get("state") in self.UNRESOLVED + ("placed",) and not self.is_close_row(v)}
 
     def record(self, ticket_id: str, state: str, **extra: Any) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

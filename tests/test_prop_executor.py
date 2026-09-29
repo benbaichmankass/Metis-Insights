@@ -2753,16 +2753,22 @@ def test_a_close_that_did_not_confirm_never_trips_the_reconcile(env):
             "quantity": 0.01, "stop_loss": 119.36, "take_profit": 121.78, "order_type": "market"}
     ledger.record("roundtrip-solusd-stale", "intended", spec=spec, purpose="round_trip_test")
     ledger.record("roundtrip-solusd-stale", "close_unconfirmed", purpose="round_trip_close")
+    # a LEGACY row, exactly as the pre-fix code left it on the VM (state
+    # "unconfirmed" with a close purpose): read as a close, never watched
+    ledger.record("roundtrip-solusd-legacy", "intended", spec={**spec, "ticket_id": "roundtrip-solusd-legacy"})
+    ledger.record("roundtrip-solusd-legacy", "unconfirmed", purpose="round_trip_close")
     # the negative control: a real unconfirmed SUBMIT is still watched
     ledger.record("t-real-submit", "submitted", spec={**spec, "ticket_id": "t-real-submit"})
     ledger.record("t-real-submit", "unconfirmed", misses=2)
-    assert "t-real-submit" in ledger.watched() and "roundtrip-solusd-stale" not in ledger.watched()
+    assert "t-real-submit" in ledger.watched() and "t-real-submit" in ledger.unresolved()
+    for stale in ("roundtrip-solusd-stale", "roundtrip-solusd-legacy"):
+        assert stale not in ledger.watched() and stale not in ledger.unresolved(), stale
     for _ in range(4):
         res = run(FakeAdapter(), FakeApi([]), env)
-        assert not any(a.get("ticket_id") == "roundtrip-solusd-stale" for a in res.actions), res.actions
-    # the stale close never tripped anything; the real submit did, on its own
+        assert not any(str(a.get("ticket_id", "")).startswith("roundtrip-solusd-") for a in res.actions), res.actions
+    # the stale closes never tripped anything; the real submit did, on its own
     assert state.halted() and "t-real-submit" in state.halted()
-    assert not any("roundtrip-solusd-stale" in a for a in res.alerts)
+    assert not any("roundtrip-solusd-" in a for a in res.alerts)
 
 
 def test_round_trip_refused_close_is_ledgered_as_a_close_not_a_submit(tmp_path):
