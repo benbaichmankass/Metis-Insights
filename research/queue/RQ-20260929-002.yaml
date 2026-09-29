@@ -1,0 +1,117 @@
+id: RQ-20260929-002
+title: >-
+  M21 entry vol-skip gate reads a FORMING bar live — which trades does that
+  change on the real-money declarers (ada_pullback_2h, trend_donchian_xrp_4h)
+  versus the closed-bar gate their Stage-0 backtest cleared, and which
+  live-implementable gate is closer to that backtest? (PI-20260929-EXITOPS-0005)
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  Manager dispatch 2026-09-29 (lane VOLSKIP-FORMING). The live pullback and
+  donchian variant builders fetch 200 bars whose last row is the still-forming
+  bar and pass the whole frame to order_package; the vol gate ranks the ATR of
+  that partial bar (trailing 200-bar percentile). The Stage-0 harnesses
+  (scripts/backtest_pullback.py, scripts/backtest_trend.py) rank the CLOSED
+  trigger bar. How many entries differ, and what is their net R (full cost
+  stack) each way?
+
+why_this_matters: >-
+  Two of the four legs that declare vol_skip_* trade real money on bybit_2
+  (ada_pullback_2h vol_skip_below_pctl 0.1; trend_donchian_xrp_4h
+  vol_skip_above_pctl 0.9). A gate that decides on a different quantity from
+  the one Stage 0 measured means the live leg is not the leg that cleared the
+  gate.
+
+power:
+  kind_note: deterministic replay
+  why_not_inferential: >-
+    Deterministic counterfactual replay over the full available history. The
+    output is an exact count of differing entries and their per-trade net R,
+    not an estimate of a population parameter. The rule below keys on the
+    decision-agreement rate, which is a census over every signal bar in the
+    history, not a sample.
+
+design:
+  data: >-
+    Binance USD-M perp 1m klines (data.binance.vision), ADAUSDT and XRPUSDT,
+    2020-01 → 2026-09-28, resampled to [open, open+tf) bars stamped at open
+    time (Bybit convention). Proxy venue: api.bybit.com is geo-blocked from
+    the research container. Stated as a limitation; the question is about
+    which bar the gate reads, and bar geometry matches Bybit's to within tick
+    noise.
+  harness: >-
+    run_backtest() of scripts/backtest_pullback.py / scripts/backtest_trend.py
+    in-process, config-exact to config/strategies.yaml for each leg, costs from
+    execution_costs (fee default, venue slippage_bps_roundtrip_for(symbol),
+    funding_bps_per_window_for(symbol)) — the full cost stack. The only
+    difference between arms is the per-bar percentile series the gate reads,
+    injected through the new vol_pctl_override hook (None = byte-identical).
+  arms:
+    A_closed: harness as-is — the closed trigger bar's percentile (Stage 0).
+    F_k: >-
+      FORMING — for each bar i, rebuild the LIVE frame (199 closed bars plus
+      bar i truncated to its first k minutes from 1m data) and call the live
+      _atr + _trailing_atr_pctl on it; k in {2, 8, 30, 60} minutes. k=8 is
+      PRIMARY: median live decision offset measured from 38
+      ada_pullback_2h pipeline_result rows 2026-07-14..2026-09-29 (7.6 min).
+    L_lag1: >-
+      what drop_forming_bar() inside the gate yields live — the percentile of
+      the LAST CLOSED bar (i-1), live-frame reconstruction, window 200.
+    N_off: gate undefined (NaN) — what drop_forming_bar() inside the gate
+      yields if the fetch stays at limit=200 (199 closed bars < window 200).
+
+decision_rule:
+  id: RULE-RQ0929-002-VOLSKIP-FORMING
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    Over every bar where the leg's signal fires in the no-gate harness run
+    (the gate's population), the gate-decision agreement rate of each
+    live-implementable arm (F_8 status quo, L_lag1 fix) with A_closed; plus
+    n and summed net R of the entries that differ between A_closed and each
+    arm (trade sets compared by entry timestamp).
+  rule: >-
+    SHIP_LAG1 IF L_lag1's agreement with A_closed exceeds F_8's on BOTH
+    real-money legs AND the fix fetches enough closed bars that the gate
+    cannot go undefined (N_off must not be what ships). This is the fix that
+    moves the leg toward its Stage-0 behaviour, shipped under the data-backed
+    Tier-3 authorization; the net-R comparison is REPORTED alongside, not
+    used as the gate (a single-history net-R delta on a handful of differing
+    trades is not powered, and choosing the arm by its P&L would be fitting).
+    KEEP_AND_REPORT IF F_8 agrees with A_closed at least as well as L_lag1 on
+    either leg — then the skew is not fixed by a gate-local change and the
+    finding goes to the manager as research. RESEARCH_FLAG IF, whichever
+    ships, the forming arm's differing entries are net-R BETTER than
+    A_closed's: stated plainly as a finding, never a reason to keep a skew
+    silently.
+  what_it_does_not_do: >-
+    Does not address the WHOLE-SIGNAL forming-bar skew (close/confirmation,
+    pullback position, ADX, skip_hours are all read on the forming bar live;
+    the harness reads them on the closed bar). That is a larger Tier-3 change
+    affecting every pullback/donchian variant and is filed separately. Does
+    not change any threshold.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: >-
+    ~40k 2h bars and ~20k 4h bars, one 200-row pandas rank per bar per arm;
+    run in the lane's own container.
+
+run:
+  commands:
+  - - python3
+    - scripts/research/vol_skip_forming_bar_replay.py
+    - --klines-dir
+    - '{klines_dir}'
+    - --out
+    - docs/research/evidence/vol-skip-forming-bar-2026-09-29.json
+
+related:
+  - PI-20260929-EXITOPS-0005
+  - PR #14101 (exit-side trail_vol forming-bar fix)
+  - src/runtime/closed_bars.py (CA-B01)
