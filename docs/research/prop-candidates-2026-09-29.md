@@ -1,6 +1,6 @@
 # P2 — Breakout prop candidates, 2026-09-29: the `ict_scalp` gap closed, still zero passes
 
-> **Doc status:** `live` · category `evidence` · last verified `2026-09-29` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md)
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
 >
 > Checklist row **P2** (operator priority "Prop first", 2026-09-28). Tier-1 offline
 > research: no `config/`, `src/` or execution change. Continues

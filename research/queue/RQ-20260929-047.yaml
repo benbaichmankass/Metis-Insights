@@ -68,7 +68,7 @@ run:
   - --jobs
   - '4'
   inputs:
-    research_unit: RQ-20260929-005
+    research_unit: RQ-20260929-047
 lands:
   store: research/results/
   assert_field: read_state
