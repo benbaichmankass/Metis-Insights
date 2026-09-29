@@ -1665,6 +1665,24 @@ def test_measured_sidebar_label_with_a_clamped_qty_refuses(tpage):
     assert p.evaluate("window.__submits") is None
 
 
+def test_stuck_toggle_is_named_before_any_fill(tpage):
+    p = tpage(html=_measured().replace('id="tpt" data-value="false"', 'id="tpt" data-value="false" data-stuck="1"'))
+    spec = BracketSpec("t10", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and "did not enable ['take_profit']" in att.detail, att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_a_fill_timeout_names_the_step_and_the_reason(tpage):
+    # A quantity input that never becomes editable: the refusal says WHICH
+    # step timed out and Playwright's reason, never a bare "TimeoutError".
+    p = tpage(html=_measured().replace('<input id="q" inputmode="numeric"', '<input id="q" readonly inputmode="numeric"'))
+    spec = BracketSpec("t11", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.stage == "refused" and "at quantity fill (TimeoutError:" in att.detail, att.detail
+    assert p.evaluate("window.__submits") is None
+
+
 def test_colour_selection_needs_a_unique_unselected_colour(tpage):
     # Every toggle a different colour: no majority "unselected" colour → not readable.
     html = _measured().replace('class="tb tp" onclick="pickType(this)"><span>Limit', 'class="tp" style="background:rgb(1,1,1)" onclick="pickType(this)"><span>Limit') \
