@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "a grade-closed-trades.yml run (schedule or workflow_dispatch) has completed green AND a chore(grading) commit authored by that run is on origin/main, with max(reviewed_at) later than the backfill's 2026-09-29T11:58Z",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-EA899ZCS-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "branch claude/grade-closed-trades-schedule (lane GRADE, session_01E8qLr49iNrYHdkeA899zcS)",
+    "rerun": "python3 scripts/ci/check_grading_freshness.py && git log -3 --format='%h %ad %s' origin/main -- comms/claude_strategy_scores.jsonl  # expect a 'chore(grading)' auto commit after the merge date; also mcp__github__actions_list(list_workflow_runs, grade-closed-trades.yml)"
+  },
+  "state": "queued",
+  "what": "[landed_unproven] JC-SA-01 grading schedule: .github/workflows/grade-closed-trades.yml (daily 03:10Z, by-trade grading keyed on linked_trade_id) plus the grading-freshness CI guard and a 491-row backfill, on branch claude/grade-closed-trades-schedule (Tier 2, landing hold; the manager merges). NOT merged, NOT observed. The backfill was graded from the 2026-09-29 ~11:55Z diag journal pull, not on the VM. The first scheduled/dispatched run is the observation: it must (a) reach the VM, (b) get a _delta_summary with keyed_on=linked_trade_id (it refuses a VM whose ict-git-sync has not pulled the new grader), and (c) land an automation/grade-closed-trades PR that merges. After (c), max(reviewed_at) on main advances past the backfill."
+}

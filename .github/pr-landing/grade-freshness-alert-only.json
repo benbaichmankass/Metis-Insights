@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "CI and tooling only, operator decision 2026-09-29 (\"let's do b\"): the grading-freshness guard becomes alert-only (warns, exit 0) and a new daily workflow sends one send-ping when grading is stale or unreadable. No order path, strategy, risk, config or live-VM change."
+}

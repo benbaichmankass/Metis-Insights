@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01LF8rTDXMxEGKv4hJYtaQym",
+  "branch": "claude/sa-sec-fix-sa-07-diag-relay-hardening",
+  "claimed_at": "2026-09-29T11:58:03Z",
+  "purpose": "FIX-SA-07 diag relay traversal + redaction (landing hold)"
+}

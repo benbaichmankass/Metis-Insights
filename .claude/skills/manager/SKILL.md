@@ -210,7 +210,7 @@ above rather than override it: **spend the daily budget; spend it on results.**
   never asked to approve inside a lane.
 - **Check-in cadence follows activity.** Hourly while lanes run, 3-hourly when
   none do, and silent when nothing changed.
-- **Archive on merge; dispatch in parallel** (one message, many lanes).
+- **Archive on merge (§ "Archive protocol"); dispatch in parallel** (one message, many lanes).
 - **Git hygiene on the register branch:** never chain a commit after a merge
   whose exit status was not checked; validate the checklist JSON and grep for
   conflict markers before every commit (a conflicted checklist was pushed once
@@ -348,24 +348,55 @@ commit describing the first. Record it with the read time and the word `running`
 beside it, or read it after archiving. `lane_reconcile` will not print a bare
 figure; do not write one either.
 
-### Archive a lane when its work lands. Do NOT subscribe it to its own PR.
+### Archive protocol: closing finished lanes is the manager's job
 
-**This is the cheapest control here and it is free.** A lane whose work has
-merged has nothing left to contribute to the PR, and watching one is not free:
-A9 went $37.13 → $50.78 and E16 $25.38 → $56.14 **after** their work merged,
-sitting subscribed to PRs the manager was going to merge anyway.
+**Operator directive, 2026-09-29, verbatim:** *"In general, part of your job is
+closing finished sessions, that falls under the management mandate."* The same
+day the manager told the operator a finished lane could be closed "whenever
+suits you" — the failure this protocol removes.
 
-MEASURED 2026-09-22 across the 60 most recent sessions: **22 sessions whose work
-was finished were not archived, holding $2,088.73 of running spend** — the
-largest single line in the account, bigger than any lane's actual work.
+**Why it matters.** A finished lane that stays open keeps costing, and watching
+one is not free: A9 went $37.13 → $50.78 and E16 $25.38 → $56.14 **after**
+their work merged. MEASURED 2026-09-22 across the 60 most recent sessions: 22
+finished sessions were not archived, holding **$2,088.73** of running spend.
+Do not duplicate those figures elsewhere; cite this section.
 
-So, at dispatch and at landing:
+1. **Ownership.** `archive_session` on a finished lane is the **manager's** job.
+   The operator is never asked to close a lane, and the manager never tells the
+   operator to ("you can close it whenever suits you" is a violation).
+   Do **not** tell a lane to subscribe to its own PR or idle on CI: the manager
+   merges; the lane stops.
+2. **When to archive — any one of these:**
+   - (a) the lane's PR(s) are merged and nothing remains that only the lane can do;
+   - (b) a review lane's verdict has been **received** by the manager;
+   - (c) a research or analysis lane's report is received and its results are
+     committed;
+   - (d) the lane is superseded or re-dispatched;
+   - (e) the row is `done`, `dropped` or `landed_unproven`, with the owed
+     observation filed in the pipeline (`due_when` plus `origin.rerun`).
+   An observation that only needs time or a data read is **not** a reason to
+   keep a lane open — the pipeline row carries it, not the session.
+3. **When NOT to archive:**
+   - it still owns an unmerged PR that needs pushes;
+   - its verdict or report has not been received (ask it to re-send first);
+   - it is `BLOCKED` on an operator permission prompt (**surface it**; see below);
+   - it is mid-run on a live action.
+4. **Cadence.** Sweep at **every check-in and every merge**: `list_sessions(mine=true)`
+   plus `scripts/ops/lane_reconcile.py`, then archive the finished set in **one
+   batch**.
+5. **Record.** After archiving, read the final spend (`session_status ==
+   SESSION_STATUS_ARCHIVED` is what makes it final) and note it on the row at the
+   next register batch. Archiving is reversible: `unarchive_session`.
+6. `close-out` check 7 and the closing gate's item 7 below point here.
 
-- **Do not tell a lane to subscribe to its own PR**, and do not leave it idling
-  on CI. The manager merges; the lane stops.
-- **`archive_session` the lane once its PR is merged or its row is closed.** It
-  is reversible (`unarchive_session`), and archiving is also what makes the
-  lane's spend readable as **final**.
+### When session tools or the GitHub proxy fail: check status first
+
+When `create_session` / `fire_trigger` / `create_trigger` or the GitHub
+credential proxy fail, **FIRST check `https://status.claude.com/api/v2/summary.json`
+and `githubstatus.com` before diagnosing locally.** On 2026-09-29 the manager
+guessed "stale credentials" for ~30 minutes while an Anthropic major incident
+was already posted. During an incident, `create_trigger` (with `run_once_at` 1–2
+minutes ahead) can succeed where `fire_trigger` fails; retry with backoff.
 
 ⚠️ **A BLOCKED LANE IS THE EXPENSIVE ONE, AND IT LOOKS ALIVE.** `status_bucket`
 `BLOCKED` means the lane is sitting on a permission prompt only a **human** can
@@ -482,6 +513,54 @@ mandates.** A decision that arrives twice in the same shape is raised as
 *"should this become a mandate, and at what bounds?"* A mandate that has NEVER
 fired is either mis-specified or its condition does not occur — say which.
 
+### Before any operator popup: classify the decision (operator directive, 2026-09-29)
+
+PR #13698 asked the operator whether to promote `slv_trend_1h` — a leg that
+turned out to be `execution: shadow` with zero real fills and an
+`insufficient_n` cost-fidelity verdict. That should never have reached a
+popup. The operator's ruling is the standing rule, not a one-off fix:
+
+> "In general, we need clearer, more automated processes for these kinds of
+> decisions — either we have enough data to decide, or we don't and then
+> getting that data becomes a task which needs to happen so that a decision
+> can be made."
+
+So **before drafting any operator popup**, classify it into exactly one of
+three buckets — never skip straight to drafting the question:
+
+1. **Data-settled.** A committed evidence record decisively answers it —
+   either under a granted mandate (act, ping, and record the evidence per
+   the mandate table above) or under a tier the manager already holds
+   (Tier-1/Tier-2 with the operator's standing "decide, ship, verify, then
+   tell me" authorization — see `docs/CLAUDE-RULES-CANONICAL.md` §
+   "Data-backed Tier-2/3 decisions"). **No popup.** Act, then report what
+   happened in section 1 or 3 of the brief.
+2. **Data-missing.** The evidence needed to decide does not exist yet, or
+   exists but is below a stated floor (an absent Stage-0 record, `n` below a
+   mandate's floor, an R3 cost-fidelity verdict of `inconclusive` /
+   `insufficient_n` / `no_record` / stale, a leg that is `execution: shadow`
+   or has never soaked at Stage 1). **No popup either.** File the data task
+   in `docs/claude/work/PIPELINE.jsonl` via `scripts/ops/pipeline.py`, with a
+   `clears_when` that states exactly what would settle it and an
+   `origin.rerun` that re-asks the same question — a research-queue unit, a
+   Stage-1 soak placement proposal, or a longer accrual window. `#13698`'s
+   own case: `scripts/ops/mandate_resolver.py` now returns a THIRD verdict,
+   `NEEDS_DATA` (never `FIRE`, never a decisive `REFUSE`), names the exact
+   clause that lacks data, and `needs_data_pipeline_item()` /
+   `file_needs_data()` turn that straight into a pipeline row — read that
+   module's docstring before hand-rolling an equivalent for a non-ladder
+   decision.
+3. **Genuinely a preference.** Two courses are both evidence-supportable and
+   the choice is a values call the operator has not already made standing
+   policy on (a sizing tradeoff, which of two valid designs to ship, whether
+   to spend budget on X vs Y). **Only this bucket earns a popup**, and it
+   goes in section 2 of the brief with no cap on count.
+
+A popup that turns out, on inspection, to be bucket 1 or 2 wearing bucket 3's
+clothes is the `#13698` failure repeating. If a lane hands the manager a
+question, the manager re-runs this classification itself before relaying it
+— it does not trust the lane's own framing of "this needs the operator".
+
 ## The daily brief
 
 Rendered and **pushed before** the sync. Six sections, fixed order.
@@ -552,8 +631,8 @@ reported as a close is the drop this whole contract exists to prevent.
 5. **Doc sweep** — any doc this session's work made stale is corrected, not
    left for the next reader to trip over.
 6. **`close-out` skill run**, all seven checks, including when stopping early.
-7. **Every finished lane archived**, and no lane archived while it still owns an
-   open PR.
+7. **Every finished lane archived** per § "Archive protocol" above, and no lane
+   archived while it still owns an open PR.
 
 ### Then, in this order
 

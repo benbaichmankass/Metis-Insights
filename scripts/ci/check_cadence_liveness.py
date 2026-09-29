@@ -185,6 +185,15 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    by the detector itself on every run and landed through commit-to-main,
     #    so a detector that stops firing goes STALE here and reds CI rather
     #    than leaving "no alert" to be read as "nothing lost".
+    # ── JC-SA-01 (2026-09-29): the daily grader appends to the score file
+    #    and lands it through commit-to-main, so the last commit touching it
+    #    IS the receipt. (Its reviewed_at age is ALSO graded, more tightly,
+    #    by check_grading_freshness.py.)
+    "grade-closed-trades.yml": {
+        "receipt": "comms/claude_strategy_scores.jsonl",
+        "why": "the workflow appends and commits the score file itself via "
+               "commit-to-main; the last commit touching it IS the receipt",
+    },
     "research-loss-detector.yml": {
         "receipt": "docs/claude/work/RESEARCH-LOSS-RECEIPT.json",
         "why": "the detector writes the receipt on every run and commits it "
@@ -195,6 +204,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     #    just has not been declared yet. Measured 2026-09-22: 9 of the 18
     #    scheduled workflows contain a commit-to-main / git push step. Naming
     #    the output path for each is the obvious next shrink of this file.
+    "grading-freshness-alert.yml": {"receipt": None, "why": "quiet by design when grading is fresh: it commits nothing and its only output is a Telegram ping on stale/unreadable; a dead run is caught by claude-run-failure-alert (GRADE-ALERT 2026-09-29)"},
     "schedule-keeper.yml": {"receipt": None, "why": "no in-repo trace by design: it reads the Actions API and dispatches; it also fires on every push to main, so its own cron is only the night-time floor (W6-OPS-R 2026-09-27)"},
     "r4-demotion-gate.yml": {"receipt": None, "why": "writes to git ONLY on a FIRE (a held PR on an automation/ branch); a quiet run commits nothing by design, so no receipt path exists -- a dead run is caught by claude-run-failure-alert"},
     # RQ-RUN (2026-09-28): the queue's own replenisher and grader. Both commit
@@ -203,6 +213,11 @@ CADENCE_REGISTRY: dict[str, dict] = {
     # run is caught by claude-run-failure-alert (both are on its list) and a
     # queue that is not being refilled pages through research-queue-dispatch's
     # queue-health alarm (scripts/ci/check_research_queue_health.py).
+    # FIX-SA-13 (2026-09-29): weekly full-history gitleaks. A scan that finds nothing
+    # writes nothing on purpose -- its report is deleted so no artifact can carry a
+    # matched value on this PUBLIC repo -- so there is no receipt path to name. A dead
+    # run is caught by claude-run-failure-alert (it is on that list).
+    "gitleaks-history-weekly.yml": {"receipt": None, "why": "writes nothing by design (report deleted; public repo); outcome is the run's pass/fail + job summary, and a dead run is caught by claude-run-failure-alert"},
     "research-queue-replenish.yml": {"receipt": None, "why": "commits only when it generated units; a full queue is a no-op by design -- a dead run is caught by claude-run-failure-alert, a dry queue by the dispatcher's queue-health alarm"},
     "research-queue-grade.yml": {"receipt": None, "why": "commits only when a unit's grade changed; nothing-to-grade is a no-op by design -- a dead run is caught by claude-run-failure-alert"},
     # ── PI-20260922-ONLY-1-OF-38 triage (2026-09-28): the 6 below were
@@ -293,6 +308,9 @@ CADENCE_REGISTRY: dict[str, dict] = {
     # ── workflows that leave NO in-repo trace. Their run history lives in the
     #    Actions API, which this guard does not call (a guard that needs the
     #    network is a guard that reds on an outage). Declared, not graded.
+    "account-broker-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only "
+                                     "-- same record-every-run/comment-on-change tracking-issue "
+                                     "design as broker-bracket-reconcile.yml below"},
     "alpaca-settlement-soak-watch.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "broker-bracket-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "dashboard-edge-watch.yml": {
@@ -322,6 +340,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
     "ict-heartbeat.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-hourly-snapshot.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-ib-executions-pull.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
+    "ict-trainer-disk-alarm.timer": {"receipt": None, "why": "VM-side (FIX-SA-12); it writes runtime_logs/trainer_disk_alarm_state.json on the live VM, which is not in the repo; the surface is the diag relay (unit state + journal)"},
     "ict-prop-feed.timer": {"receipt": None, "why": "VM-side; its receipt is prop_account_status rows (source=breakout_login_check) read via GET /api/bot/prop/status"},
     "ict-ib-gateway-reset.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
     "ict-ib-gateway-watchdog.timer": {"receipt": None, "why": "VM-side; diag relay is the surface"},
@@ -350,6 +369,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
 #: that "may only shrink" grew with every addition. Name every later entry here.
 REGISTERED_AFTER_BASELINE: frozenset[str] = frozenset({
     "research-loss-detector.yml",   # E57, 2026-09-24
+    "account-broker-reconcile.yml",  # RECON, 2026-09-29
 })
 
 BASELINE_2026_09_22: dict[str, str] = {

@@ -117,3 +117,24 @@ def test_an_unparseable_pnl_does_not_lose_the_whole_block():
     ])
     assert b["pnlMeasuredCount"] == 2, "both rows still GRADE as measured"
     assert b["totalPnLMeasured"] == pytest.approx(10.0), "only the sum skips it"
+
+
+def test_measured_only_key_sums_only_the_measured_rows():
+    """FIX-SA-05: `totalPnLMeasuredOnly` is the pnlMeasuredCount population."""
+    b = block_for_rows([
+        _row(10.0, "bybit_closed_pnl"),   # MEASURED
+        _row(100.0, "candle_at_close"),   # ESTIMATED
+        _row(500.0, "local_markprice"),   # FABRICATED
+        _row(7.0, None),                  # UNVERIFIED
+    ])
+    assert b["totalPnLMeasuredOnly"] == pytest.approx(10.0)
+    assert b["totalPnLEstimated"] == pytest.approx(100.0)
+    assert b["totalPnLMeasured"] == pytest.approx(
+        b["totalPnLMeasuredOnly"] + b["totalPnLEstimated"])
+
+
+def test_the_new_keys_are_in_every_state_shape():
+    for shape in (could_not_look(), looked_and_found_nothing()):
+        assert {"totalPnLMeasuredOnly", "totalPnLEstimated"} <= set(shape)
+    assert could_not_look()["totalPnLMeasuredOnly"] is None
+    assert looked_and_found_nothing()["totalPnLMeasuredOnly"] == 0.0

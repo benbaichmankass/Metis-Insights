@@ -32,7 +32,7 @@ import logging
 import os
 import re
 import time
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 import requests
@@ -425,6 +425,73 @@ class MissingCredentialsError(RuntimeError):
 
     Message carries env-var *names* only, never values (no-secrets rule).
     """
+
+
+
+#: Alpaca order statuses in which a bracket child leg is still RESTING at the
+#: venue. ``held`` is the OCO sibling waiting on its partner (a bracket's stop);
+#: ``new``/``accepted``/``partially_filled``/``pending_new``/``pending_replace``
+#: are working. ``pending_cancel`` is deliberately absent: a leg on its way out
+#: is not protection to count on.
+_RESTING_LEG_STATUSES = frozenset({
+    "new", "accepted", "held", "partially_filled", "pending_new",
+    "pending_replace", "accepted_for_bidding", "calculated",
+})
+
+#: The filled-parent scan is TIME-BOUNDED, not count-bounded (REVIEW-14123,
+#: second pass). A bracket child can only still rest if its parent was
+#: submitted within Alpaca's GTC lifetime (90 days; +1 day slack), and — when
+#: the caller knows it — no earlier than the oldest open journal row on the
+#: symbol (minus a day): an older bracket cannot be protecting today's shares.
+#: Inside that window the scan pages to exhaustion; the page cap below is a
+#: runaway guard only (10,000 orders on ONE symbol in the window), and hitting
+#: it is reported as "could not look" (``None``), never "no stop". MEASURED
+#: 2026-09-29 via /api/diag/alpaca_order_history, 2026-01-01..now: the largest
+#: symbol is 50 top-level orders (alpaca_portfolio QQQ), so every scan today is
+#: ONE page.
+_FILLED_PARENT_SCAN_PAGE = 500
+_FILLED_PARENT_SCAN_MAX_PAGES = 20
+_FILLED_PARENT_LOOKBACK = timedelta(days=91)
+_FILLED_PARENT_SINCE_SLACK = timedelta(days=1)
+
+
+def _scan_after(since: Any) -> str:
+    """The ``after`` bound for the filled-parent scan (ISO-8601, UTC)."""
+    floor = datetime.now(timezone.utc) - _FILLED_PARENT_LOOKBACK
+    start = floor
+    if since:
+        try:
+            s = since if isinstance(since, datetime) else datetime.fromisoformat(
+                str(since).replace("Z", "+00:00"))
+            if s.tzinfo is None:
+                s = s.replace(tzinfo=timezone.utc)
+            start = max(floor, s - _FILLED_PARENT_SINCE_SLACK)
+        except ValueError:
+            start = floor  # unparseable hint: fall back to the GTC bound
+    return start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _oldest_submitted_at(orders: List[Dict[str, Any]]) -> Optional[str]:
+    """The next page's ``until`` for a newest-first page of orders.
+
+    Alpaca's ``until`` is exclusive, so the oldest ``submitted_at`` is nudged
+    one microsecond LATER — an order sharing that exact instant is then
+    re-read (and deduplicated by id) rather than skipped. ``None`` if no order
+    carries a parseable ``submitted_at``.
+    """
+    stamps = []
+    for o in orders:
+        raw = o.get("submitted_at") or o.get("created_at")
+        if not raw:
+            continue
+        try:
+            stamps.append(datetime.fromisoformat(str(raw).replace("Z", "+00:00")))
+        except ValueError:
+            continue
+    if not stamps:
+        return None
+    nxt = min(stamps) + timedelta(microseconds=1)
+    return nxt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 class AlpacaClient:
@@ -1592,16 +1659,26 @@ class AlpacaClient:
         result = env.get("result") or {}
         return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}
 
-    def _open_orders_for_symbol(self, symbol: str) -> Optional[list]:
+    def _open_orders_for_symbol(
+        self, symbol: str, since: Any = None,
+    ) -> Optional[list]:
         """Open (working) orders on *symbol*, including bracket child legs.
 
         Returns the flattened order list (parents + nested ``legs``) filtered
         to *symbol*, or ``None`` on a read failure (so the caller can refuse
         to act rather than assume "no legs"). ``nested=true`` so an
-        un-triggered bracket's children come back attached to the parent;
-        once the entry fills the legs surface as top-level open orders too.
+        un-triggered bracket's children come back attached to the parent.
+        A ``held`` leg is NEVER returned at top level, so the held stop of a
+        bracket whose entry has FILLED is read from that filled parent's
+        ``legs`` via a second, ``status=closed`` read (FIX-SA-03); either read
+        failing is ``None``.
         """
         sym = str(symbol).upper()
+        # Which symbol's filled-bracket CHILD legs were last read definitively.
+        # Cleared first, set only after the status=closed read below succeeds,
+        # so a consumer that must not act without seeing held stops (the
+        # re-arm's target release) can require it rather than assume it.
+        self._child_legs_read_symbol = None
         env = self._request(
             "GET", f"/v2/orders?status=open&nested=true&symbols={sym}"
         )
@@ -1611,6 +1688,88 @@ class AlpacaClient:
         for o in env.get("result") or []:
             out.append(o)
             for leg in o.get("legs") or []:
+                out.append(leg)
+
+        # ── FILLED-BRACKET CHILDREN (FIX-SA-03, E75 audit) ──────────────────
+        # `status=open&nested=true` returns a HELD leg ONLY nested under its
+        # parent — never at top level. MEASURED 2026-09-29T10:38Z via
+        # /api/diag/alpaca_open_orders: 9 of 9 resting `held` stop legs
+        # (alpaca_paper 7, alpaca_portfolio 2; every one an OCO) appear only
+        # under `legs`, none at top level. An OCO's parent is its own working limit leg, so the stop is
+        # reached through it. A BRACKET's parent is the market ENTRY, which is
+        # `filled` — not open — so it is not returned and its held stop child
+        # was never seen. The docstring's "once the entry fills the legs
+        # surface as top-level open orders too" holds for the `new` target leg
+        # only. Result: every post-grace sweep graded a freshly bracketed
+        # position stop-naked and re-armed it (17 of 20 Alpaca entries since
+        # 09-15, all 3 alpaca_live), and the re-arm's cancel pass tore down a
+        # resting bracket to replace it with an OCO.
+        #
+        # So the children of recently CLOSED (filled) parents are read too, and
+        # a child counts only while ITS OWN status is a resting one. A failed
+        # read is "could not look" (None), never "no legs" — the caller then
+        # refuses to act, exactly as for the open read above.
+        #
+        # PAGED, NOT CAPPED (REVIEW-14123): the closed history is read newest
+        # first in pages of `_FILLED_PARENT_SCAN_PAGE`, each page ending just
+        # past the oldest `submitted_at` of the one before. A short page means
+        # history is exhausted. If the page budget runs out first the scan is
+        # TRUNCATED and the whole read is `None` — an older bracket's held stop
+        # may rest unseen, so "no stop" would be a guess.
+        parents: list = []
+        seen_parent: set = set()
+        after = _scan_after(since)
+        until: Optional[str] = None
+        exhausted = False
+        for _page in range(_FILLED_PARENT_SCAN_MAX_PAGES):
+            path = (
+                f"/v2/orders?status=closed&nested=true&direction=desc"
+                f"&limit={_FILLED_PARENT_SCAN_PAGE}&symbols={sym}"
+                f"&after={after}"
+            )
+            if until:
+                path += f"&until={until}"
+            env2 = self._request("GET", path)
+            if env2.get("retCode") != 0:
+                return None
+            page = [o for o in (env2.get("result") or []) if isinstance(o, dict)]
+            fresh = [o for o in page if o.get("id") not in seen_parent]
+            for o in fresh:
+                seen_parent.add(o.get("id"))
+            parents.extend(fresh)
+            if len(page) < _FILLED_PARENT_SCAN_PAGE:
+                exhausted = True
+                break
+            oldest = _oldest_submitted_at(page)
+            if oldest is None or not fresh:
+                break  # cannot advance the window: treat as truncated
+            until = oldest
+        if not exhausted:
+            logger.warning(
+                "alpaca _open_orders_for_symbol(%s): more than %d closed "
+                "orders since %s — child legs NOT fully read (could not "
+                "look)", sym, _FILLED_PARENT_SCAN_PAGE * _FILLED_PARENT_SCAN_MAX_PAGES,
+                after,
+            )
+            return None
+        self._child_legs_read_symbol = sym
+        seen = {o.get("id") for o in out if o.get("id")}
+        for parent in parents:
+            if not isinstance(parent, dict):
+                continue
+            if str(parent.get("status") or "").lower() not in (
+                "filled", "partially_filled",
+            ):
+                continue
+            for leg in parent.get("legs") or []:
+                if not isinstance(leg, dict):
+                    continue
+                if str(leg.get("status") or "").lower() not in _RESTING_LEG_STATUSES:
+                    continue
+                lid = leg.get("id")
+                if lid and lid in seen:
+                    continue
+                seen.add(lid)
                 out.append(leg)
         return [o for o in out if str(o.get("symbol") or "").upper() == sym]
 
@@ -1780,7 +1939,7 @@ class AlpacaClient:
                 "result": {"orderId": patched[-1], "patched": patched}}
 
     # --------------------------------------------------- naked re-arm (GTC OCO)
-    def protection_state(self, symbol: str) -> Optional[dict]:
+    def protection_state(self, symbol: str, since: Any = None) -> Optional[dict]:
         """Which SIDES of the bracket actually rest on *symbol*, graded apart.
 
         ``{"stop": bool, "target": bool, "legs": int}``, or ``None`` on a read
@@ -1803,7 +1962,8 @@ class AlpacaClient:
         take-profit — *manufacturing* target coverage that does not exist,
         which is strictly worse than the bug being fixed.
         """
-        legs = self._open_orders_for_symbol(symbol)
+        legs = (self._open_orders_for_symbol(symbol, since=since)
+                if since is not None else self._open_orders_for_symbol(symbol))
         if legs is None:
             return None
         stop = target = False
@@ -1871,7 +2031,8 @@ class AlpacaClient:
         return ""
 
     def protection_coverage(
-        self, symbol: str, *, position: Optional[dict] = None
+        self, symbol: str, *, position: Optional[dict] = None,
+        since: Any = None,
     ) -> Optional[Dict[str, Any]]:
         """How MUCH of *symbol*'s Alpaca position is covered, graded per SIDE.
 
@@ -1963,7 +2124,8 @@ class AlpacaClient:
             }
 
         # (2) The NUMERATOR: resting protective legs, summed BY QTY.
-        legs = self._open_orders_for_symbol(sym)
+        legs = (self._open_orders_for_symbol(sym, since=since)
+                if since is not None else self._open_orders_for_symbol(sym))
         if legs is None:
             return None
         reducing = self._reducing_side_for(pos_side)
@@ -2168,7 +2330,9 @@ class AlpacaClient:
         a take-profit limit + a stop, ``time_in_force: gtc``) on the
         closing side so protection persists across closes/weekends/restarts.
 
-        Cancels any resting orders on the symbol first (no OCO stacking). Needs
+        Cancels THIS position's own resting protective legs first (no OCO
+        stacking) — never a sibling row's legs or an opening-side order; see
+        :meth:`_scoped_rearm_cancel`. Needs
         BOTH ``sl`` and ``tp`` (an OCO is a limit+stop pair). ``order`` keys:
         ``symbol``, ``direction`` (the POSITION side, ``long``/``short`` or
         ``buy``/``sell`` — the OCO takes the reverse, closing side), ``qty``
@@ -2200,8 +2364,22 @@ class AlpacaClient:
             return {"retCode": -2, "retMsg": f"invalid qty: {exc}"}
         sym = str(order["symbol"]).upper()
         close_side = "sell" if pos_long else "buy"
-        # Idempotency: clear any resting legs first so re-arms don't stack OCOs.
-        self._cancel_open_orders_for_symbol(sym)
+        # Idempotency, SCOPED TO THIS POSITION'S OWN LEGS (FIX-SA-03 step 3,
+        # PI-20260929-PR6YRTQY-0001). This used to be
+        # `_cancel_open_orders_for_symbol(sym)`: every order on the symbol was
+        # DELETEd before an OCO sized to ONE journal row was placed. Alpaca nets
+        # per symbol, so on a symbol more than one row holds (alpaca_paper SPY,
+        # 8 + 11 shares, 2026-09-29) that stripped the sibling's legs and put
+        # back only this row's — and, before #14123, a sibling BRACKET's held
+        # stop went with its cancelled take-profit leg (the venue cascades an
+        # OCO/bracket cancel). It also cancelled opening-side ENTRY orders a
+        # strategy had resting. Now only reducing-side protective legs sized to
+        # THIS row's qty are cleared; see `_scoped_rearm_cancel`.
+        refusal, kept_targets = self._scoped_rearm_cancel(
+            sym, close_side, qty, order.get("sibling_qtys"),
+        )
+        if refusal:
+            return {"retCode": -3, "retMsg": refusal}
         body: Dict[str, Any] = {
             "symbol": sym,
             "qty": str(qty),
@@ -2218,7 +2396,138 @@ class AlpacaClient:
             "stop_loss": {"stop_price": f"{float(sl):.2f}"},
         }
         env = self._request("POST", "/v2/orders", body)
+        if env.get("retCode") != 0 and kept_targets:
+            # The venue refused, and sibling TAKE-PROFIT legs were left resting
+            # on the reducing side — they may be reserving the shares this OCO
+            # needs ("insufficient qty available"). Arming a STOP on a naked
+            # position outranks a sibling's target geometry, so those target
+            # legs are released and the OCO retried ONCE. A sibling STOP is
+            # never released here: if one rests, the position is not stop-naked
+            # and the refusal stands. Named in the log, never silent.
+            logger.warning(
+                "alpaca place_protective(%s): OCO refused (%s) with %d sibling "
+                "take-profit leg(s) resting — releasing %s and retrying once so "
+                "the STOP can be armed; the sibling target(s) must be re-placed "
+                "by their owner", sym, env.get("retMsg"), len(kept_targets),
+                ",".join(kept_targets),
+            )
+            for oid in kept_targets:
+                self._request("DELETE", f"/v2/orders/{oid}")
+            env = self._request("POST", "/v2/orders", body)
         if env.get("retCode") != 0:
             return env
         result = env.get("result") or {}
         return {"retCode": 0, "result": {"orderId": str(result.get("id") or "")}}
+
+    def _scoped_rearm_cancel(
+        self, sym: str, close_side: str, qty: int, sibling_qtys: Any = None,
+    ) -> Tuple[Optional[str], List[str]]:
+        """Cancel THIS position's own resting protective legs; keep the rest.
+
+        Returns ``(refusal, releasable_targets)``. A non-``None`` *refusal*
+        means NOTHING was cancelled and :meth:`place_protective` must not POST.
+
+        A leg is this position's own when it is a protective type (stop family
+        or limit, via :meth:`_leg_protective_side`), on the REDUCING side
+        (*close_side*), and sized to *qty* (:meth:`_leg_qty`). Everything else
+        is left alone: opening-side orders (a strategy's resting entry),
+        reducing-side legs of another size (a sibling row's protection on the
+        same netted symbol), and legs whose side/qty cannot be read.
+
+        ⚠️ **Size identifies ownership only when it is unique.** *sibling_qtys*
+        are the other open journal rows' sizes on this account+symbol (the
+        caller reads them). If one equals *qty*, a leg of that size may be the
+        sibling's, so this cancels nothing and refuses (REVIEW-14127 blocker 2).
+        ``None`` means the caller could not say: nothing is cancelled and no
+        target is releasable, but the POST still goes ahead (the read-failure
+        contract — a naked position is not left un-armed on an unknown).
+
+        *releasable_targets* are kept reducing-side TARGET legs of
+        ``order_class: simple`` (standalone — never a bracket/OCO/OTO leg, whose
+        group may hold an unseen stop) that :meth:`place_protective` may
+        release if, and only if, the venue refuses the stop. It is ``[]``
+        unless ALL of: sibling sizes are known; no other
+        reducing-side STOP rests (a target may share its OCO/bracket group, and
+        Alpaca cancels a group together); and the filled-bracket CHILD legs were
+        read definitively for this symbol (``_child_legs_read_symbol``). Without
+        that read a bracket's held stop is invisible, and releasing its target
+        would cascade into cancelling that unseen stop (REVIEW-14127
+        blocker 1). A failed open-orders read cancels nothing and releases
+        nothing.
+        """
+        legs = self._open_orders_for_symbol(sym)
+        if legs is None:
+            logger.warning(
+                "alpaca place_protective(%s): open-orders read FAILED — "
+                "cancelled nothing before the re-arm (could not look)", sym,
+            )
+            return None, []
+        children_seen = getattr(self, "_child_legs_read_symbol", None) == sym
+
+        if sibling_qtys is None:
+            logger.warning(
+                "alpaca place_protective(%s): sibling row sizes not supplied — "
+                "cancelling nothing (ownership by size cannot be established)",
+                sym,
+            )
+            return None, []
+        try:
+            sibs = [abs(float(q)) for q in sibling_qtys]
+        except (TypeError, ValueError):
+            logger.warning(
+                "alpaca place_protective(%s): unreadable sibling sizes %r — "
+                "cancelling nothing", sym, sibling_qtys,
+            )
+            return None, []
+        clash = [q for q in sibs if abs(q - qty) <= 0.5]  # whole shares
+        if clash:
+            msg = (
+                f"refusing re-arm on {sym}: another open row on this symbol is "
+                f"also {qty} share(s), so its resting legs cannot be told apart "
+                "from this position's by size — cancelled nothing, placed "
+                "nothing (REVIEW-14127)"
+            )
+            logger.warning("alpaca place_protective: %s", msg)
+            return msg, []
+
+        own: List[str] = []
+        kept_targets: List[str] = []
+        other_stop = False
+        seen: set = set()
+        for o in legs:
+            oid = o.get("id")
+            if not oid or oid in seen:
+                continue
+            seen.add(oid)
+            kind = self._leg_protective_side(o.get("type") or o.get("order_type"))
+            if not kind:
+                continue
+            if str(o.get("side") or "").lower() != close_side:
+                continue
+            lq = self._leg_qty(o)
+            if lq is not None and abs(lq - qty) <= _QTY_EPS:
+                own.append(str(oid))
+            elif kind == "target":
+                # Only a STANDALONE target may ever be released. A target in a
+                # bracket/OCO/OTO group shares it with a stop that may rest
+                # unseen, and Alpaca cancels the group together — releasing it
+                # would strip that stop (REVIEW-14127 danger (i)).
+                if str(o.get("order_class") or "").lower() == "simple":
+                    kept_targets.append(str(oid))
+            else:
+                other_stop = True
+        for oid in own:
+            env = self._request("DELETE", f"/v2/orders/{oid}")
+            if env.get("retCode") not in (0, 404):
+                logger.warning(
+                    "alpaca place_protective(%s): cancel of own leg %s refused: "
+                    "rc=%s %s", sym, oid, env.get("retCode"), env.get("retMsg"),
+                )
+        if other_stop or not children_seen:
+            if kept_targets and not children_seen:
+                logger.warning(
+                    "alpaca place_protective(%s): filled-bracket child legs "
+                    "were not read — sibling targets are NOT releasable", sym,
+                )
+            return None, []
+        return None, kept_targets

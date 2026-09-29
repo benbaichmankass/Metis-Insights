@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "the operator decides JC-SA-07; if (a), a lane lands plant rows (control exit, planted exit) for every remaining guard",
+    "kind": "event"
+  },
+  "id": "PI-20260929-TWEW1FZJ-0006",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-07",
+    "rerun": "python3 scripts/ci/run_guards.py --list | wc -l  # vs guards with a plant row in docs/audits/system-audit-2026-09-29.md s9"
+  },
+  "routed_to": "GUARD-PROOF-2",
+  "state": "routed",
+  "what": "JC-SA-07 (medium, AUD-6/6b): Haiku failed the plant-a-defect guard proof twice (AUD-6 planted nothing, 0/90 jsonl lines parse; AUD-6b reported 14/14 caught with docstring-only evidence). The lead proved 10 guards by plant (report s9); ~80 guards remain unproven. Operator: (a) re-task the remainder on Sonnet (~$15) with the s9 protocol (recommended), or (b) accept current coverage. Also: revisit D9 for measurement tasks. || 2026-09-29 ~13:50Z operator, verbatim: \"Let's do a, if you can kick off the session then give me the link so I can take it off of auto mode\". Dispatched GUARD-PROOF-2 (session_01Q7TGqYqH4YebXv5vmBTZPh, Sonnet, operator-supervised non-auto): 10 classifier-denied + 48 self-test-only guards."
+}

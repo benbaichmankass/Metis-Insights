@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a pooled forming-bar re-measurement across the live pullback/donchian variant legs is committed and graded against a rule registered before it runs",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-VOLSKIP-SIGNAL-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane VOLSKIP-SIGNAL (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, RQ-20260929-301",
+    "rerun": "python3 scripts/research/whole_signal_forming_bar_replay.py --fetch --klines-dir /tmp/klines --out /tmp/wsfb.json  # finding holds while A_closed_vs_B_forming.jaccard < 0.80 on either leg"
+  },
+  "state": "done",
+  "terminal_reason": "Graded on data (RQ-20260929-302, RULE-RQ0929-302 registered 9c133baa before the run; evidence docs/research/evidence/forming-bar-pooled-2026-09-29.json): harness mode decision_bar=forming landed (default closed, byte-identical; reproduces RQ-301 arm B exactly). Pooled over 15 variant-builder legs (Binance 1m proxy 2020-01..2026-09-28, full cost stack): closed n=6229 +682.13R vs forming n=8796 +637.25R, dR -44.88R, 90% CI [-224.2, +138.0], MDE 272.5R -> INCONCLUSIVE, no live change. Evidence restatement: xrp_pullback_2h STANDING_AT_RISK (record +12.79R n=57 -> forming -7.56R n=77), carried as PI-20260929-VOLSKIP-SIGNAL-0003; the post-hoc donchian-vs-pullback split carried as PI-20260929-VOLSKIP-SIGNAL-0004.",
+  "what": "[research][harness][live-vs-stage0] RQ-20260929-301 graded HARNESS_MODELS_FORMING on both real-money bybit_2 legs (population: every entry on bars with a 200-bar live frame, 2020-01..2026-09-28, Binance USD-M 1m proxy for Bybit, full cost stack; ada_pullback_2h closed n=399 vs forming n=567, 149 shared of 817 union; trend_donchian_xrp_4h closed n=73 vs forming n=135, 62 shared of 146 union): the live forming-bar trade set shares only 18% (ada_pullback_2h) / 42% (trend_donchian_xrp_4h) of entries with the Stage-0 closed-bar set, and the point estimate is worse for forming on both (-25.7R / -5.75R, each ex-max-year negative) but not robust at this power (90% CIs cross 0; MDE 62R / 31R). NEEDED: (1) a first-class forming-bar entry mode in scripts/backtest_pullback.py and scripts/backtest_trend.py (the entry_override hook + scripts/research/whole_signal_forming_bar_replay.py are the prototype), (2) re-measure the Stage-0 evidence of every live pullback/donchian variant leg under it, (3) POOL those legs to get the power a single leg lacks, and re-grade MOVE_LIVE_TO_CLOSED on the pooled dR. Decomposition (ungraded): entering on the closed decision 2 min into the next bar (A_impl) was +17.1R vs A_closed on ada (CI [3.0,32.9]) and -0.14R on xrp."
+}

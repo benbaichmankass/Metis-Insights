@@ -1,0 +1,101 @@
+id: RQ-20260929-101
+title: 'Stage-0 backtest: pullback harness on BNBUSDT 2h (uncovered symbol)'
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  config/instruments.yaml declares BNBUSDT (line 125), and config/pairs.yaml
+  trades it as the B leg of two M22 market-neutral pairs (sol_bnb, bnb_btc)
+  -- but no single-symbol strategy leg in config/strategies.yaml references
+  it anywhere (verified this session: `grep -cE "^\s*-\s*BNBUSDT\b"
+  config/strategies.yaml` returns 0, the only bybit-instrument symbol with
+  zero single-leg hits; every one of BTCUSDT/ETHUSDT/SOLUSDT/XRPUSDT/
+  ADAUSDT/AVAXUSDT has >=2). The `pullback` harness (scripts/backtest_pullback.py)
+  already runs live on six other bybit symbols at this same 2h cadence
+  (sol/xrp/ada/avax/eth_pullback_2h). Does BNBUSDT clear the same net-of-cost
+  bar on the same harness and timeframe?
+
+why_this_matters: >-
+  BNBUSDT already has live capital exposure through the pairs sleeve (its
+  price feed is pulled and its balance sits on bybit_1/bybit_2), so a
+  single-symbol edge check is a cheap incremental question, not a new-data
+  cold start. If it clears, it is a genuinely new instrument-diversification
+  candidate for the pullback family (currently only altcoins vs BTC/ETH/SOL);
+  if it fails, that is worth knowing before anyone proposes wiring it.
+
+power:
+  expected_n: 40
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Matches this repo's own standing E35/roster-walkforward floor: d=0.45
+    needs 38.76 -> 39 trades at alpha 0.05 / power 0.8. expected_n=40 is a
+    round-number guess just above that floor, not a measurement -- BNBUSDT
+    has never been backtested on this harness, so there is no observed trade
+    count to cite (see feasibility below).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      BNBUSDT has no prior pullback-harness backtest anywhere in this repo's
+      history (research/queue/, research/results/, docs/research/*.jsonl all
+      checked this session, zero hits) -- there is nothing to accrue against.
+      This run itself is the first observation; a second run after it lands
+      would have real feasibility data to cite.
+
+decision_rule:
+  id: RULE-RQ0929-101-BNBUSDT-PULLBACK-STAGE0
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    net_total_r (net of the full cost stack via execution_costs.resolve_cost_policy)
+    and n_trades from the pullback harness's own JSON summary
+    (harness_dispatch_result.py's mapping), config-exact against the sibling
+    2h pullback legs' shared params (trend_lookback 40, pullback_lookback 10,
+    pullback_frac 0.5, atr_period 14, atr_stop_mult 2.5, adx_min 25) except
+    where the harness's own defaults differ.
+  rule: >-
+    PASS IF net_total_r > 0 AND n_trades >= 39 -- a Stage-0 backtest evidence
+    record, NOT a live-roster proposal (that is a separate Tier-3 step
+    requiring config/strategies.yaml + config/accounts.yaml changes, out of
+    scope here). FAIL IF net_total_r <= 0 with n_trades >= 39 -- re-queue for
+    a confirmatory run per this repo's convention (never kill on one pass);
+    two consecutive FAILs are a candidate to retire the idea, not decided by
+    this unit. indeterminate IF n_trades < 39.
+  what_it_does_not_do: >-
+    Does not touch config/strategies.yaml, config/pairs.yaml, or
+    config/accounts.yaml. Does not propose adding bnb_pullback_2h to any
+    live roster -- a PASS is Stage-0 evidence only, and Gate-1 soak
+    placement is a separate human-reviewed step per the promotion ladder.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: >-
+    Single-symbol GitHub-runner harness dispatch, same shape as every other
+    research-harness-dispatch.yml pullback unit (m20-exit-lever template
+    est_minutes: 40 covers a full lever sweep; a single config-exact backtest
+    is materially cheaper).
+
+run:
+  workflow: research-harness-dispatch.yml
+  inputs:
+    harness: pullback
+    symbol: BNBUSDT
+    timeframe: "2h"
+    research_unit: RQ-20260929-101
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - 'sol_pullback_2h / xrp_pullback_2h / ada_pullback_2h / avax_pullback_2h / eth_pullback_2h (config/strategies.yaml) -- the sibling legs this mirrors'
+  - 'config/pairs.yaml sol_bnb / bnb_btc -- BNBUSDT''s existing (pairs-only) live exposure'
+last_dispatched_at: null

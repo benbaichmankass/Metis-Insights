@@ -6619,8 +6619,35 @@ _EXIT_LABEL_SOURCE_BY_BASIS: Dict[str, str] = {
 }
 
 
+#: The position-snapshot reconciler's close reason. It says HOW the close was
+#: noticed (the venue reported the symbol flat), never WHY the position ended.
+_SNAPSHOT_FLAT_REASON = "exchange_flat_reconciled"
+
+#: Tolerance (bps of the level) for classifying an ``exchange_flat_reconciled``
+#: close against its package bracket. It applies ONLY to that reason and only
+#: to a MEASURED exit price. The reconciler_filled path keeps the strict
+#: inequality (tolerance 0).
+#:
+#: Why a tolerance exists at all: Alpaca brackets are sent with the level
+#: rounded to the cent (``alpaca_client.py`` ``f"{float(sl):.2f}"``), and a
+#: stop-market fill may print a few cents better than its trigger. So a genuine
+#: stop fill can sit just INSIDE the unrounded package level, and the strict
+#: inequality returns "between".
+#:
+#: Why 10: MEASURED 2026-09-29 (EXIT-CLUSTER) over the 77 closed non-backtest
+#: ``exchange_flat_reconciled`` rows with ``closed_at`` >= 2026-07-31, each
+#: matched to its venue exit fill in ``/api/bot/pnl/exchange/fills`` (74
+#: matched). 48 are at or through a level. 26 are strictly between, and they
+#: split with a gap: 16 lie within 0.0-8.3 bps of a level, and the next one is
+#: 42.4 bps away. 10 bps sits inside that gap. Re-run:
+#: ``scripts/research/realized_slippage.py pull`` then compare exit to
+#: ``order_packages.sl``/``tp`` per row.
+_SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS = 10.0
+
+
 def _classify_broker_exit(
     db, row: Dict[str, Any], exit_price: Any, *, is_reduce_leg: bool = False,
+    tolerance_bps: float = 0.0,
 ) -> Optional[str]:
     """Classify a reconciler-finalised broker close as 'sl' or 'tp'.
 
@@ -6647,6 +6674,13 @@ def _classify_broker_exit(
     Anything strictly between the bracket levels returns ``None`` → the caller
     keeps ``reconciler_filled`` (a genuine non-bracket close — the real
     "flag it" residue). Best-effort; never raises.
+
+    ``tolerance_bps`` (default 0, the strict rule above) widens each level
+    toward the inside of the bracket by that many bps of the level. Only the
+    ``exchange_flat_reconciled`` path passes a non-zero value; see
+    ``_SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS``. The tolerance is dropped when the
+    bracket is too narrow for both widened levels to stay apart, so one price
+    can never match both.
     """
     if is_reduce_leg:
         return None
@@ -6685,15 +6719,20 @@ def _classify_broker_exit(
         sl = None
     if not (tp and tp > 0):
         tp = None
+    tol = max(0.0, _safe_float(tolerance_bps) or 0.0) / 10_000.0
+    if tol and sl is not None and tp is not None:
+        # Keep the widened levels apart: a price must never match both.
+        if abs(tp - sl) <= tol * (sl + tp):
+            tol = 0.0
     if direction == "long":
-        if sl is not None and px <= sl:
+        if sl is not None and px <= sl * (1.0 + tol):
             return "sl"
-        if tp is not None and px >= tp:
+        if tp is not None and px >= tp * (1.0 - tol):
             return "tp"
     else:  # short
-        if sl is not None and px >= sl:
+        if sl is not None and px >= sl * (1.0 - tol):
             return "sl"
-        if tp is not None and px <= tp:
+        if tp is not None and px <= tp * (1.0 + tol):
             return "tp"
     return None
 
@@ -8339,6 +8378,32 @@ def _stamp_repair(db, row, kind: str, verified: str = "unverified") -> None:
         )
 
 
+def _open_sibling_qtys(db, row, account_id: str, symbol: str) -> Optional[List[float]]:
+    """Sizes of the OTHER open, non-backtest rows on *account_id*/*symbol*.
+
+    ``None`` when they cannot be read (no db handle, or the query failed) —
+    never ``[]``, which would claim there are no siblings.
+    """
+    if db is None:
+        return None
+    try:
+        conn = db.connect()
+        try:
+            got = conn.execute(
+                "SELECT position_size FROM trades WHERE status='open' "
+                "AND COALESCE(is_backtest,0)=0 AND account_id=? AND symbol=? "
+                "AND id != ?",
+                (account_id, symbol, row["id"]),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [float(r[0]) for r in got if r[0] is not None]
+    except Exception as exc:  # noqa: BLE001 — unknown, not "no siblings"
+        logger.warning("_open_sibling_qtys(%s/%s): read failed: %s",
+                       account_id, symbol, exc)
+        return None
+
+
 def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
                                bybit_position_idx: Optional[int] = None) -> bool:
     """Re-arm a broker-side GTC protective bracket on a naked position.
@@ -8463,8 +8528,16 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
             return False  # not a re-armable broker (oanda atomic at entry)
         if client is None:
             return False
+        extra: Dict[str, Any] = {}
+        if exchange == "alpaca":
+            # The OTHER open rows' sizes on this account+symbol, so the Alpaca
+            # re-arm can tell whether a resting leg's size identifies it as THIS
+            # position's (REVIEW-14127). `None` = could not read them; the
+            # client then cancels nothing rather than guess.
+            extra["sibling_qtys"] = _open_sibling_qtys(db, row, account_id, symbol)
         resp = client.place_protective(
             {
+                **extra,
                 "symbol": protect_symbol,
                 "direction": direction,
                 "qty": qty,
@@ -8499,6 +8572,76 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
             row["id"], exc,
         )
         return False
+
+
+def _oldest_open_created_at(rows, account_id: str, symbol: str) -> Optional[str]:
+    """Earliest ``created_at`` among open rows on *account_id*/*symbol*, or None."""
+    stamps = []
+    for r in rows:
+        try:
+            if (str(r["account_id"] or "") == account_id
+                    and str(r["symbol"] or "").upper() == symbol.upper()):
+                ts = _parse_created_at(r["created_at"])
+                if ts is not None:
+                    stamps.append(ts)
+        except Exception:  # noqa: BLE001 — a malformed row only loosens the bound
+            continue
+    return min(stamps).isoformat() if stamps else None
+
+
+#: Consecutive sweeps on which an Alpaca position's protection could not be
+#: read, per (account, SYMBOL). Per-process; a restart re-arms the count.
+_PROTECTION_UNREADABLE_STREAK: Dict[Tuple[str, str], int] = {}
+_PROTECTION_UNREADABLE_PAGE_AFTER = 3
+_PROTECTION_UNREADABLE_COOLDOWN_S = 3600.0
+
+
+def _clear_protection_unreadable(account_id: str, symbol: str) -> None:
+    _PROTECTION_UNREADABLE_STREAK.pop((account_id, symbol.upper()), None)
+
+
+def _note_protection_unreadable(account_id: str, symbol: str, trade_id: Any) -> None:
+    """Log every unreadable protection read; page when it PERSISTS.
+
+    One failed read is usually a network blip, so it is logged, not paged. From
+    the ``_PROTECTION_UNREADABLE_PAGE_AFTER``-th consecutive sweep it is paged
+    CRITICAL (Telegram + banner), under a durable per-symbol cooldown: a live
+    position whose stop we cannot see for minutes is one we cannot claim is
+    protected. Never raises into the sweep.
+    """
+    key = (account_id, symbol.upper())
+    n = _PROTECTION_UNREADABLE_STREAK.get(key, 0) + 1
+    _PROTECTION_UNREADABLE_STREAK[key] = n
+    logger.warning(
+        "_check_broker_naked_equity_positions: %s/%s protection UNREADABLE "
+        "(consecutive=%d, trade_id=%s) — not re-armed, not graded; this is "
+        "'we could not look', not 'protected'", account_id, symbol, n, trade_id,
+    )
+    if n < _PROTECTION_UNREADABLE_PAGE_AFTER:
+        return
+    if not _cooldown_admits("alpaca_protection_unreadable", f"{account_id}|{symbol}",
+                            _PROTECTION_UNREADABLE_COOLDOWN_S):
+        return
+    try:
+        from src.runtime.outcomes import Level, report
+
+        report(
+            "alpaca_protection_unreadable",
+            "detected",
+            level=Level.CRITICAL,
+            reason=(
+                f"{account_id}/{symbol}: resting-order state unreadable for {n} "
+                "consecutive sweeps — the naked sweep cannot tell whether this "
+                "position has a stop, so it is neither re-armed nor graded."
+            ),
+            account_id=account_id,
+            symbol=symbol,
+            consecutive=n,
+            trade_id=trade_id,
+        )
+    except Exception:  # noqa: BLE001 — an alert failure must never abort the sweep
+        logger.exception("_note_protection_unreadable: alert failed for %s/%s",
+                         account_id, symbol)
 
 
 def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
@@ -8543,6 +8686,10 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "partially_naked": 0,
         "coverage_ungradeable": 0,
         "coverage_read_failed": 0,
+        # protection_state() could not be read for a past-grace position:
+        # "we did not look", counted and (on persistence) paged — never a
+        # silent skip (REVIEW-14123).
+        "protection_read_failed": 0,
     }
     try:
         from src.bot import data_loaders
@@ -8622,9 +8769,20 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             # a stop-only book, so consuming it here read "protected" over a
             # position that can only stop out or run — the Alpaca half of
             # BL-20260816-COVERAGE-IS-ONE-SIDED, over 13 live positions.
-            state = client.protection_state(symbol)
+            # The oldest OPEN journal row on this account+symbol bounds how far
+            # back a still-resting bracket child can have been placed (#14123
+            # second review): the client scans filled parents only from there.
+            _since = _oldest_open_created_at(rows, account_id, symbol)
+            state = client.protection_state(symbol, since=_since)
             if state is None:
-                continue  # read failure — never act on an unconfirmed read
+                # Never act on an unconfirmed read — and never skip it
+                # SILENTLY either (REVIEW-14123): a position whose protection
+                # cannot be read may be naked, so it is counted and, when it
+                # persists, paged.
+                summary["protection_read_failed"] += 1
+                _note_protection_unreadable(account_id, symbol, row["id"])
+                continue
+            _clear_protection_unreadable(account_id, symbol)
 
             # ── QUANTITY COVERAGE — DETECTION ONLY.
             # `protection_state` above grades which SIDES rest and returns a
@@ -8665,7 +8823,9 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                          "target_qty": 0.0, "legs": 0, "unknown_qty_legs": 0,
                          "source": "flat"}
                         if _p is None else
-                        client.protection_coverage(symbol, position=_p)
+                        client.protection_coverage(
+                            symbol, position=_p,
+                            since=_oldest_open_created_at(rows, account_id, symbol))
                     )
             _cov = coverage_memo[_cov_key]
             if _cov_key not in graded_keys:
@@ -11536,6 +11696,42 @@ def _sweep_pending_pnl_from_bybit(db) -> Dict[str, int]:
                     )
                     if _resolved:
                         _reclassified = _resolved
+                elif _current_reason == _SNAPSHOT_FLAT_REASON:
+                    # EXIT-CLUSTER (2026-09-29, PI-20260924-BOFCWBO7-0001).
+                    # The position-snapshot reconciler (Alpaca / IB / OANDA)
+                    # writes this reason when the venue reports the symbol
+                    # flat. On Alpaca and IB the bracket rests AT THE BROKER, so
+                    # a stop or target that fires there is only noticed by this
+                    # reconciler, and the close was recorded as "went flat"
+                    # rather than as the stop or target it was. MEASURED over the
+                    # 77 such closes since 2026-07-31: 64 exit at a package level
+                    # or within 10 bps of one (see
+                    # _SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS).
+                    #
+                    # MEASURED prices only. This path is broker truth by
+                    # construction, but the check is explicit so a future record
+                    # source that is not a fill can never mint a label.
+                    from src.runtime import provenance as _prov
+                    _basis = _prov.classify(
+                        notes.get("exit_price_source"), "exit_price_source",
+                    )
+                    if _basis == _prov.MEASURED:
+                        _resolved = _classify_broker_exit(
+                            db, row, avg_exit_price, is_reduce_leg=_is_reduce,
+                            tolerance_bps=_SNAPSHOT_FLAT_LABEL_TOLERANCE_BPS,
+                        )
+                        notes["exit_reason_source"] = (
+                            "price_vs_pkg_bracket" if _resolved else "unresolved"
+                        )
+                        if _resolved:
+                            _reclassified = _resolved
+                            # Keep how the close was DETECTED; the label now
+                            # says why the position ended.
+                            notes["pre_label_exit_reason"] = _SNAPSHOT_FLAT_REASON
+                    else:
+                        notes["exit_reason_source"] = (
+                            _prov.EXIT_LABEL_REFUSED_UNMEASURED
+                        )
             except Exception as exc:  # noqa: BLE001 — never lose the price write
                 logger.warning(
                     "_sweep_pending_pnl_from_bybit: exit re-classification "
@@ -12087,6 +12283,249 @@ def _sweep_local_pnl_for_unpriced(db) -> Dict[str, int]:
     return summary
 
 
+#: Close reasons that say HOW a close was noticed rather than WHY the position
+#: ended, and so may be replaced by the bracket leg the venue says filled.
+#: A real reason (sl, tp, sl_cross, pairs_*, intent_reduce_*, operator_*, ...)
+#: is never in this set and is never overwritten.
+_BRACKET_ORDER_RELABEL_REASONS = (
+    "", "reconciler_filled", "netting_attributed", _SNAPSHOT_FLAT_REASON,
+)
+
+#: `exit_reason_source` for a label taken from venue ORDER IDENTITY: a fill in
+#: the exchange-fills store carries the trade's own `sl_order_id` or
+#: `tp_order_id`. Registered MEASURED in `src/runtime/provenance.py`, because
+#: the venue itself attributes that fill to the stop or target order.
+BRACKET_ORDER_LABEL_SOURCE = "venue_bracket_order"
+
+
+#: Relative qty tolerance for "this bracket order closed the whole position".
+#: Same value as `fills_pnl.QTY_TOLERANCE`, so the two fill readers agree.
+_BRACKET_ORDER_QTY_TOLERANCE = 0.05
+
+
+def bracket_leg_from_exit_fills(
+    sl_order_id: Any, tp_order_id: Any, exit_fills: Any, position_size: Any,
+) -> Optional[str]:
+    """``'sl'`` / ``'tp'`` when the venue fills show that bracket leg ENDED the
+    position, else ``None`` (leave the label alone).
+
+    *exit_fills* is the trade's exit-side fills on its account and symbol
+    between the open and the close, oldest first, each ``{"order_id", "qty"}``.
+
+    A leg ended the position when EITHER
+      1. the LAST exit fill is on that leg's order, or
+      2. that leg's order filled at least the whole position (within
+         `_BRACKET_ORDER_QTY_TOLERANCE`), and the other leg's did not.
+
+    Why not "any fill on the order" (REVIEW-14106 (b)): a partial take-profit
+    followed by a close through a different order would read as ``tp``. Rule 1
+    is the evidence the measurement used (the last exit fill); rule 2 covers a
+    netting sibling's fill landing after this trade's own bracket had already
+    closed it. Anything else, including no bracket order ids, returns ``None``.
+    Pure, so the rule is testable without a store.
+    """
+    sl = str(sl_order_id) if sl_order_id else None
+    tp = str(tp_order_id) if tp_order_id else None
+    if not (sl or tp):
+        return None
+    fills = [f for f in (exit_fills or ()) if isinstance(f, dict)]
+    if not fills:
+        return None
+    last = str(fills[-1].get("order_id") or "")
+    if sl and last == sl:
+        return "sl"
+    if tp and last == tp:
+        return "tp"
+    size = _safe_float(position_size)
+    if not size or size <= 0:
+        return None
+
+    def _qty(oid: Optional[str]) -> float:
+        if not oid:
+            return 0.0
+        return sum(_safe_float(f.get("qty")) or 0.0
+                   for f in fills if str(f.get("order_id") or "") == oid)
+
+    floor = size * (1.0 - _BRACKET_ORDER_QTY_TOLERANCE)
+    sl_full = _qty(sl) >= floor
+    tp_full = _qty(tp) >= floor
+    if sl_full and not tp_full:
+        return "sl"
+    if tp_full and not sl_full:
+        return "tp"
+    return None
+
+
+def _bracket_exit_fills(fconn, row: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The trade's exit-side fills (account, symbol, window) from the fills
+    store, oldest first. The window runs from 60 s before the open to 2 min
+    after the recorded close (the reconciler notices a close after the fill).
+    """
+    from src.runtime.broker_cost_attribution import normalize_symbol
+
+    side = {"long": "sell", "short": "buy"}.get(
+        str(row.get("direction") or "").lower())
+    want = normalize_symbol(str(row.get("symbol") or ""))
+    opened = _isoformat_to_ms(row.get("created_at"))
+    if not side or not want or opened is None:
+        return []
+    closed = _isoformat_to_ms(row.get("closed_at"))
+    start = datetime.fromtimestamp((opened - 60_000) / 1000.0, tz=timezone.utc)
+    end = (
+        datetime.fromtimestamp((closed + 120_000) / 1000.0, tz=timezone.utc)
+        if closed is not None else datetime.now(timezone.utc)
+    )
+    out = []
+    for oid, qty, sym in fconn.execute(
+        "SELECT order_id, qty, symbol FROM exchange_fills "
+        " WHERE account_id = ? AND side = ? "
+        "   AND datetime(exec_time) >= datetime(?) "
+        "   AND datetime(exec_time) <= datetime(?) "
+        " ORDER BY datetime(exec_time) ASC",
+        (str(row.get("account_id") or ""), side,
+         start.isoformat(), end.isoformat()),
+    ).fetchall():
+        if normalize_symbol(sym) == want:
+            out.append({"order_id": oid, "qty": qty})
+    return out
+
+
+def _sweep_exit_label_from_bracket_order(
+    db, *, fills_conn_factory=None,
+) -> Dict[str, int]:
+    """Relabel a generically-closed trade ``sl``/``tp`` when the venue fills
+    show that trade's OWN stop or target order ended the position.
+
+    EXIT-CLUSTER (2026-09-29; manager-folded audit finding FIX-SA-02).
+    MEASURED over bybit_2 (real money), closed non-backtest, closed_at >=
+    2026-07-31 (realized_slippage.py pull incl. /api/bot/pnl/exchange/fills):
+    26 closes carry `reconciler_filled` (18) or `netting_attributed` (8). For
+    20 of them the last exit-side fill before the close has `order_id` equal
+    to the trade's own `sl_order_id` (17) or `tp_order_id` (3). The
+    price-vs-bracket classifier missed them: Bybit rounds the level to the
+    tick, often INSIDE the unrounded package level, and 8 of the 26 were
+    priced off a candle (ESTIMATED), which that classifier may not label.
+
+    The decision is `bracket_leg_from_exit_fills` (last exit fill on the
+    leg's order, or that order filled the whole position). It needs neither a
+    price nor a tolerance. It is a LOCAL read of the exchange-fills store, like
+    `fills_pnl.exit_from_fills`, never a broker call on the monitor tick. The
+    pullers fill that store hourly, so a row is rechecked each tick for 14 days
+    after its close.
+
+    Guards: only `_BRACKET_ORDER_RELABEL_REASONS`, re-checked IN the UPDATE so
+    a concurrent writer (an operator mark, another sweep) that changed the
+    reason in between is never overwritten; intent_reduce legs excluded; the
+    prior reason kept in `pre_label_exit_reason`; `pnl` and `exit_price` are
+    never touched. Best-effort, never raises.
+    """
+    summary: Dict[str, int] = {
+        "scanned": 0, "relabelled": 0, "no_bracket_fill": 0,
+        "store_unreadable": 0, "lost_race": 0, "errors": 0,
+    }
+    placeholders = ",".join("?" for _ in _BRACKET_ORDER_RELABEL_REASONS)
+    try:
+        conn = db.connect()
+        try:
+            conn.row_factory = __import__("sqlite3").Row
+            rows = [dict(r) for r in conn.execute(
+                "SELECT id, account_id, symbol, direction, position_size, "
+                "       created_at, closed_at, exit_reason, notes, "
+                "       sl_order_id, tp_order_id "
+                "  FROM trades "
+                " WHERE status = 'closed' "
+                "   AND COALESCE(is_backtest, 0) = 0 "
+                f"  AND COALESCE(exit_reason, '') IN ({placeholders}) "
+                "   AND (COALESCE(sl_order_id, '') != '' "
+                "        OR COALESCE(tp_order_id, '') != '') "
+                "   AND COALESCE(setup_type, '') != 'intent_reduce' "
+                "   AND COALESCE(notes, '') NOT LIKE '%\"intent_reduce\": true%' "
+                "   AND datetime(COALESCE(closed_at, created_at)) "
+                "       >= datetime('now', '-14 days') "
+                " ORDER BY datetime(COALESCE(closed_at, created_at)) DESC "
+                " LIMIT 100",
+                _BRACKET_ORDER_RELABEL_REASONS,
+            ).fetchall()]
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_exit_label_from_bracket_order: scan failed: %s", exc)
+        summary["errors"] += 1
+        return summary
+    if not rows:
+        return summary
+    summary["scanned"] = len(rows)
+
+    try:
+        if fills_conn_factory is not None:
+            fconn = fills_conn_factory()
+        else:
+            import sqlite3 as _sq
+            from src.runtime.exchange_fills_store import get_fills_db_path
+            path = get_fills_db_path()
+            fconn = (
+                _sq.connect(f"file:{path}?mode=ro", uri=True)
+                if path.exists() else None
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_exit_label_from_bracket_order: fills store open failed: %s",
+            exc)
+        fconn = None
+    if fconn is None:
+        # We could not look. Not "no bracket fill".
+        summary["store_unreadable"] = len(rows)
+        return summary
+
+    try:
+        for row in rows:
+            try:
+                leg = bracket_leg_from_exit_fills(
+                    row.get("sl_order_id"), row.get("tp_order_id"),
+                    _bracket_exit_fills(fconn, row), row.get("position_size"))
+                if leg is None:
+                    summary["no_bracket_fill"] += 1
+                    continue
+                notes = _decode_notes(row.get("notes"))
+                notes["pre_label_exit_reason"] = str(row.get("exit_reason") or "")
+                notes["exit_reason_source"] = BRACKET_ORDER_LABEL_SOURCE
+                # Conditional write (REVIEW-14106 (a)): the reason must still
+                # be one this sweep may replace at the moment of the UPDATE.
+                # Only exit_reason and notes change, so update_trade's
+                # close/SL-TP notification hook has nothing to fire for.
+                wconn = db.connect()
+                try:
+                    cur = wconn.execute(
+                        "UPDATE trades SET exit_reason = ?, notes = ? "  # writer-conformance: allow conditional relabel; update_trade cannot guard its WHERE (REVIEW-14106 a) and does no normalisation for exit_reason/notes
+                        " WHERE id = ? "
+                        f"  AND COALESCE(exit_reason, '') IN ({placeholders})",
+                        (leg, dump_capped(notes, 500), int(row["id"]),
+                         *_BRACKET_ORDER_RELABEL_REASONS),
+                    )
+                    wconn.commit()
+                    changed = cur.rowcount
+                finally:
+                    wconn.close()
+                if changed:
+                    summary["relabelled"] += 1
+                else:
+                    summary["lost_race"] += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "_sweep_exit_label_from_bracket_order: row %s: %s",
+                    row.get("id"), exc)
+                summary["errors"] += 1
+    finally:
+        try:
+            fconn.close()
+        except Exception:  # noqa: BLE001
+            pass
+    if summary["relabelled"] or summary["errors"] or summary["lost_race"]:
+        logger.info("_sweep_exit_label_from_bracket_order: %s", summary)
+    return summary
+
+
 def _options_executor_for(account_cfg: Dict[str, Any]):
     """Build an :class:`AlpacaOptionsExecutor` for an options-expressing account.
 
@@ -12634,6 +13073,19 @@ def run_reconciliation_tick(
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "run_monitor_tick: local-pnl sweep raised: %s", exc,
+        )
+
+    # EXIT-CLUSTER: a close whose own stop/target ORDER has a venue fill is an
+    # sl/tp, whatever path noticed it. Runs after both PnL sweeps so it only
+    # ever relabels a row the price-based classifier left generic.
+    try:
+        with _phase("sweep_exit_label_from_bracket_order"):
+            bracket_lbl = _sweep_exit_label_from_bracket_order(db)
+        if bracket_lbl.get("relabelled") or bracket_lbl.get("errors"):
+            summaries["__bracket_order_label__"] = bracket_lbl
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "run_monitor_tick: bracket-order label sweep raised: %s", exc,
         )
 
     # Slice-4 options-lifecycle reconciler: close options-expression rows the

@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager (with the operator's authority), 2026-09-29 09:40Z, verbatim: \"Serialize the same-workflow fires in the dispatcher.\" and \"Hold landing-machinery changes for me.\" The dispatcher now fires at most one unit per workflow file per cycle (research-script-run.yml exempt) and defers the rest unstamped; PI-20260929-RQRUN-E35CORPUS-0001 measured the cancel + corpus collision this prevents. The manager merges.",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH). Tier-1 by path: scripts/research/dispatch_queue.py, tests, one pipeline record. No src/, config/, workflow, order path, deploy or live-VM file."
+}

@@ -1,0 +1,804 @@
+{
+ "unit": "RQ-20260929-302",
+ "rule": "RULE-RQ0929-302-POOLED-FORMING",
+ "generated_at": "2026-09-29T13:32:13.052432+00:00",
+ "data_source": "Binance USD-M perp 1m klines (data.binance.vision); a LABELLED PROXY for Bybit",
+ "pooled": {
+  "legs": 15,
+  "months": 81,
+  "A_closed": {
+   "n": 6229,
+   "net_r": 682.127
+  },
+  "B_forming": {
+   "n": 8796,
+   "net_r": 637.2456
+  },
+  "jaccard": 0.3282,
+  "delta_net_r": -44.8814,
+  "ci90": [
+   -224.1829,
+   138.0451
+  ],
+  "boot_se": 109.5832,
+  "mde_80pct_power": 272.5333,
+  "per_year_delta": {
+   "2020": -22.0095,
+   "2021": 9.3344,
+   "2022": -9.6831,
+   "2023": -23.7844,
+   "2024": -3.845,
+   "2025": 26.3824,
+   "2026": -21.2762
+  },
+  "max_year": 2025,
+  "ex_max_year_delta": -71.2638,
+  "max_leg": "eth_pullback_2h",
+  "ex_max_leg_delta": -103.2893,
+  "legs_forming_worse": 10,
+  "legs_forming_better": 5
+ },
+ "grade": {
+  "verdict": "INCONCLUSIVE",
+  "underpowered": true
+ },
+ "evidence_restatement": {
+  "ada_pullback_2h": {
+   "record": "comms/strategy_evidence/ada_pullback_2h.json",
+   "window": [
+    "2025-09-25 00:00:00+00:00",
+    "2026-09-24 22:00:00+00:00"
+   ],
+   "record_net_r_oos": 19.2473,
+   "record_n": 57,
+   "record_verdict": "pass",
+   "proxy_closed": {
+    "n": 57,
+    "net_r": 18.3833
+   },
+   "proxy_forming": {
+    "n": 82,
+    "net_r": 6.4273
+   },
+   "rule_d1_under_forming": "pass",
+   "STANDING_AT_RISK": false
+  },
+  "trend_donchian_eth_4h": {
+   "record": "comms/strategy_evidence/trend_donchian_eth_4h.json",
+   "window": [
+    "2025-09-25 00:00:00+00:00",
+    "2026-09-24 20:00:00+00:00"
+   ],
+   "record_net_r_oos": 10.167,
+   "record_n": 44,
+   "record_verdict": "pass",
+   "proxy_closed": {
+    "n": 45,
+    "net_r": 10.3164
+   },
+   "proxy_forming": {
+    "n": 53,
+    "net_r": 15.5834
+   },
+   "rule_d1_under_forming": "pass",
+   "STANDING_AT_RISK": false
+  },
+  "xrp_pullback_2h": {
+   "record": "comms/strategy_evidence/xrp_pullback_2h.json",
+   "window": [
+    "2025-09-25 00:00:00+00:00",
+    "2026-09-24 22:00:00+00:00"
+   ],
+   "record_net_r_oos": 12.7923,
+   "record_n": 57,
+   "record_verdict": "pass",
+   "proxy_closed": {
+    "n": 58,
+    "net_r": 11.752
+   },
+   "proxy_forming": {
+    "n": 77,
+    "net_r": -7.5618
+   },
+   "rule_d1_under_forming": "fail",
+   "STANDING_AT_RISK": true
+  },
+  "trend_donchian_xrp_4h": {
+   "record": "comms/strategy_evidence/trend_donchian_xrp_4h.json",
+   "window": [
+    "2025-09-25 00:00:00+00:00",
+    "2026-09-24 20:00:00+00:00"
+   ],
+   "record_net_r_oos": 8.9428,
+   "record_n": 16,
+   "record_verdict": "pass",
+   "proxy_closed": {
+    "n": 16,
+    "net_r": 8.9428
+   },
+   "proxy_forming": {
+    "n": 23,
+    "net_r": 4.8294
+   },
+   "rule_d1_under_forming": "pass",
+   "STANDING_AT_RISK": false
+  }
+ },
+ "legs": {
+  "ada_pullback_2h": {
+   "leg": "ada_pullback_2h",
+   "family": "pullback",
+   "symbol": "ADAUSDT",
+   "timeframe": "2h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.5,
+    "atr_period": 14,
+    "atr_stop_mult": 1.5,
+    "trail_mult": 5.0,
+    "tp_r": 4,
+    "min_confidence": 0.0,
+    "vol_skip_below_pctl": 0.1,
+    "adx_min": 28.0,
+    "side_filter": "both"
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 29192,
+   "first_decision_bar": "2020-02-16 22:00:00+00:00",
+   "last_bar": "2026-09-28 22:00:00+00:00",
+   "A_closed": {
+    "n": 399,
+    "net_r": 73.8021
+   },
+   "B_forming": {
+    "n": 567,
+    "net_r": 48.1012
+   },
+   "shared_n": 149,
+   "union_n": 817,
+   "jaccard": 0.1824,
+   "delta_net_r": -25.7009,
+   "real_money_bybit_2": true
+  },
+  "trend_donchian_ada_4h": {
+   "leg": "trend_donchian_ada_4h",
+   "family": "trend",
+   "symbol": "ADAUSDT",
+   "timeframe": "4h",
+   "execution": "shadow",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 2,
+    "trail_mult": 5.0,
+    "tp_r": 50.0,
+    "min_confidence": 0.6,
+    "side_filter": "both",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 14596,
+   "first_decision_bar": "2020-03-04 12:00:00+00:00",
+   "last_bar": "2026-09-28 20:00:00+00:00",
+   "A_closed": {
+    "n": 278,
+    "net_r": 60.1336
+   },
+   "B_forming": {
+    "n": 430,
+    "net_r": 33.7793
+   },
+   "shared_n": 174,
+   "union_n": 534,
+   "jaccard": 0.3258,
+   "delta_net_r": -26.3543,
+   "real_money_bybit_2": false
+  },
+  "avax_pullback_2h": {
+   "leg": "avax_pullback_2h",
+   "family": "pullback",
+   "symbol": "AVAXUSDT",
+   "timeframe": "2h",
+   "execution": "shadow",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.5,
+    "atr_period": 14,
+    "atr_stop_mult": 2,
+    "trail_mult": 5.0,
+    "trail_decay_arm_r": 4.86,
+    "trail_decay_tight_mult": 2.5,
+    "trail_decay_stall_bars": 6,
+    "tp_r": 50.0,
+    "min_confidence": 0.0,
+    "vol_skip_below_pctl": 0.1,
+    "adx_min": 25.0,
+    "side_filter": "both"
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 26360,
+   "first_decision_bar": "2020-10-09 22:00:00+00:00",
+   "last_bar": "2026-09-28 22:00:00+00:00",
+   "A_closed": {
+    "n": 460,
+    "net_r": 12.7196
+   },
+   "B_forming": {
+    "n": 661,
+    "net_r": 49.0332
+   },
+   "shared_n": 178,
+   "union_n": 943,
+   "jaccard": 0.1888,
+   "delta_net_r": 36.3136,
+   "real_money_bybit_2": false
+  },
+  "trend_donchian_avax_4h": {
+   "leg": "trend_donchian_avax_4h",
+   "family": "trend",
+   "symbol": "AVAXUSDT",
+   "timeframe": "4h",
+   "execution": "shadow",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 1.5,
+    "trail_mult": 5.0,
+    "trail_decay_stall_bars": 6,
+    "trail_decay_tight_mult": 2.5,
+    "tp_r": 50.0,
+    "min_confidence": 0.7,
+    "side_filter": "both",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 13180,
+   "first_decision_bar": "2020-10-26 12:00:00+00:00",
+   "last_bar": "2026-09-28 20:00:00+00:00",
+   "A_closed": {
+    "n": 258,
+    "net_r": 38.0848
+   },
+   "B_forming": {
+    "n": 384,
+    "net_r": 42.7102
+   },
+   "shared_n": 209,
+   "union_n": 433,
+   "jaccard": 0.4827,
+   "delta_net_r": 4.6254,
+   "real_money_bybit_2": false
+  },
+  "eth_pullback_2h": {
+   "leg": "eth_pullback_2h",
+   "family": "pullback",
+   "symbol": "ETHUSDT",
+   "timeframe": "2h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.5,
+    "atr_period": 14,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 5.0,
+    "trail_decay_stall_bars": 10,
+    "trail_decay_tight_mult": 2.5,
+    "tp_r": 50.0,
+    "min_confidence": 0.0,
+    "adx_min": 25.0,
+    "side_filter": "both"
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 29556,
+   "first_decision_bar": "2020-01-17 14:00:00+00:00",
+   "last_bar": "2026-09-28 22:00:00+00:00",
+   "A_closed": {
+    "n": 463,
+    "net_r": 26.4218
+   },
+   "B_forming": {
+    "n": 608,
+    "net_r": 84.8297
+   },
+   "shared_n": 168,
+   "union_n": 903,
+   "jaccard": 0.186,
+   "delta_net_r": 58.4079,
+   "real_money_bybit_2": false
+  },
+  "eth_pullback_prop_2h": {
+   "leg": "eth_pullback_prop_2h",
+   "family": "pullback",
+   "symbol": "ETHUSDT",
+   "timeframe": "2h",
+   "execution": "shadow",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.5,
+    "atr_period": 14,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 3.5,
+    "tp_r": 6.0,
+    "min_confidence": 0.0,
+    "adx_min": 25.0,
+    "side_filter": "both"
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 29556,
+   "first_decision_bar": "2020-01-17 14:00:00+00:00",
+   "last_bar": "2026-09-28 22:00:00+00:00",
+   "A_closed": {
+    "n": 444,
+    "net_r": 5.9949
+   },
+   "B_forming": {
+    "n": 574,
+    "net_r": 14.7636
+   },
+   "shared_n": 148,
+   "union_n": 870,
+   "jaccard": 0.1701,
+   "delta_net_r": 8.7687,
+   "real_money_bybit_2": false
+  },
+  "trend_donchian_eth": {
+   "leg": "trend_donchian_eth",
+   "family": "trend",
+   "symbol": "ETHUSDT",
+   "timeframe": "1h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 5.0,
+    "tp_r": 50.0,
+    "min_confidence": 0.6,
+    "vol_skip_below_pctl": 0.1,
+    "side_filter": "both",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [
+    "exit_head_action",
+    "exit_head_model",
+    "exit_head_threshold"
+   ],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 59112,
+   "first_decision_bar": "2020-01-09 07:00:00+00:00",
+   "last_bar": "2026-09-28 23:00:00+00:00",
+   "A_closed": {
+    "n": 796,
+    "net_r": 63.9775
+   },
+   "B_forming": {
+    "n": 1082,
+    "net_r": 34.4546
+   },
+   "shared_n": 524,
+   "union_n": 1354,
+   "jaccard": 0.387,
+   "delta_net_r": -29.5229,
+   "real_money_bybit_2": false
+  },
+  "trend_donchian_eth_prop": {
+   "leg": "trend_donchian_eth_prop",
+   "family": "trend",
+   "symbol": "ETHUSDT",
+   "timeframe": "1h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 3.5,
+    "tp_r": 6.0,
+    "min_confidence": 0.6,
+    "stale_exit_bars": 12,
+    "stale_exit_below_r": 0.0,
+    "trail_decay_stall_bars": 10,
+    "trail_decay_tight_mult": 1.8,
+    "trail_decay_arm_r": 2.99,
+    "side_filter": "both",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 59112,
+   "first_decision_bar": "2020-01-09 07:00:00+00:00",
+   "last_bar": "2026-09-28 23:00:00+00:00",
+   "A_closed": {
+    "n": 1202,
+    "net_r": 80.0924
+   },
+   "B_forming": {
+    "n": 1734,
+    "net_r": 66.9562
+   },
+   "shared_n": 948,
+   "union_n": 1988,
+   "jaccard": 0.4769,
+   "delta_net_r": -13.1362,
+   "real_money_bybit_2": false
+  },
+  "trend_donchian_eth_4h": {
+   "leg": "trend_donchian_eth_4h",
+   "family": "trend",
+   "symbol": "ETHUSDT",
+   "timeframe": "4h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 2,
+    "trail_mult": 5.0,
+    "tp_r": 50.0,
+    "min_confidence": 0.6,
+    "side_filter": "both",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 14778,
+   "first_decision_bar": "2020-02-03 04:00:00+00:00",
+   "last_bar": "2026-09-28 20:00:00+00:00",
+   "A_closed": {
+    "n": 260,
+    "net_r": 63.0045
+   },
+   "B_forming": {
+    "n": 383,
+    "net_r": 57.7446
+   },
+   "shared_n": 173,
+   "union_n": 470,
+   "jaccard": 0.3681,
+   "delta_net_r": -5.2599,
+   "real_money_bybit_2": true
+  },
+  "sol_pullback_2h": {
+   "leg": "sol_pullback_2h",
+   "family": "pullback",
+   "symbol": "SOLUSDT",
+   "timeframe": "2h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.5,
+    "atr_period": 14,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 5.0,
+    "tp_r": 50.0,
+    "min_confidence": 0.0,
+    "adx_min": 30.0,
+    "side_filter": "short"
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 26408,
+   "first_decision_bar": "2020-09-30 22:00:00+00:00",
+   "last_bar": "2026-09-28 22:00:00+00:00",
+   "A_closed": {
+    "n": 146,
+    "net_r": 7.0916
+   },
+   "B_forming": {
+    "n": 206,
+    "net_r": 16.9477
+   },
+   "shared_n": 51,
+   "union_n": 301,
+   "jaccard": 0.1694,
+   "delta_net_r": 9.8561,
+   "real_money_bybit_2": false
+  },
+  "trend_donchian_sol": {
+   "leg": "trend_donchian_sol",
+   "family": "trend",
+   "symbol": "SOLUSDT",
+   "timeframe": "1h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 5.0,
+    "tp_r": 50.0,
+    "min_confidence": 0.8,
+    "side_filter": "long",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [
+    "exit_head_action",
+    "exit_head_model",
+    "exit_head_threshold"
+   ],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 52817,
+   "first_decision_bar": "2020-09-22 14:00:00+00:00",
+   "last_bar": "2026-09-28 23:00:00+00:00",
+   "A_closed": {
+    "n": 376,
+    "net_r": 69.375
+   },
+   "B_forming": {
+    "n": 534,
+    "net_r": 48.0915
+   },
+   "shared_n": 282,
+   "union_n": 628,
+   "jaccard": 0.449,
+   "delta_net_r": -21.2835,
+   "real_money_bybit_2": false
+  },
+  "trend_donchian_sol_prop": {
+   "leg": "trend_donchian_sol_prop",
+   "family": "trend",
+   "symbol": "SOLUSDT",
+   "timeframe": "1h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 3.5,
+    "tp_r": 6.0,
+    "min_confidence": 0.8,
+    "side_filter": "long",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 52817,
+   "first_decision_bar": "2020-09-22 14:00:00+00:00",
+   "last_bar": "2026-09-28 23:00:00+00:00",
+   "A_closed": {
+    "n": 399,
+    "net_r": 57.0645
+   },
+   "B_forming": {
+    "n": 584,
+    "net_r": 39.501
+   },
+   "shared_n": 308,
+   "union_n": 675,
+   "jaccard": 0.4563,
+   "delta_net_r": -17.5635,
+   "real_money_bybit_2": false
+  },
+  "trend_donchian_sol_4h": {
+   "leg": "trend_donchian_sol_4h",
+   "family": "trend",
+   "symbol": "SOLUSDT",
+   "timeframe": "4h",
+   "execution": "shadow",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 1.5,
+    "trail_mult": 5.0,
+    "trail_decay_arm_r": 5.57,
+    "trail_decay_tight_mult": 2.5,
+    "tp_r": 50.0,
+    "min_confidence": 0.6,
+    "side_filter": "both",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 13204,
+   "first_decision_bar": "2020-10-17 12:00:00+00:00",
+   "last_bar": "2026-09-28 20:00:00+00:00",
+   "A_closed": {
+    "n": 262,
+    "net_r": 65.6634
+   },
+   "B_forming": {
+    "n": 417,
+    "net_r": 65.5085
+   },
+   "shared_n": 187,
+   "union_n": 492,
+   "jaccard": 0.3801,
+   "delta_net_r": -0.1549,
+   "real_money_bybit_2": false
+  },
+  "xrp_pullback_2h": {
+   "leg": "xrp_pullback_2h",
+   "family": "pullback",
+   "symbol": "XRPUSDT",
+   "timeframe": "2h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "trend_lookback": 40,
+    "pullback_lookback": 10,
+    "pullback_frac": 0.5,
+    "atr_period": 14,
+    "atr_stop_mult": 2.5,
+    "trail_mult": 6.0,
+    "trail_decay_arm_r": 4.49,
+    "trail_decay_tight_mult": 2.5,
+    "tp_r": 3.0,
+    "min_confidence": 0.0,
+    "adx_min": 25.0,
+    "side_filter": "both"
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 29431,
+   "first_decision_bar": "2020-01-23 00:00:00+00:00",
+   "last_bar": "2026-09-28 22:00:00+00:00",
+   "A_closed": {
+    "n": 413,
+    "net_r": 43.4216
+   },
+   "B_forming": {
+    "n": 497,
+    "net_r": 25.2988
+   },
+   "shared_n": 152,
+   "union_n": 758,
+   "jaccard": 0.2005,
+   "delta_net_r": -18.1228,
+   "real_money_bybit_2": true
+  },
+  "trend_donchian_xrp_4h": {
+   "leg": "trend_donchian_xrp_4h",
+   "family": "trend",
+   "symbol": "XRPUSDT",
+   "timeframe": "4h",
+   "execution": "live",
+   "harness_kwargs": {
+    "tp_cap_pct": 0.099,
+    "timeout_bars": 200,
+    "cooldown_bars": 1,
+    "donchian": 20,
+    "atr_period": 14,
+    "atr_stop_mult": 2,
+    "trail_mult": 5.0,
+    "stale_exit_bars": 8,
+    "stale_exit_below_r": 0.0,
+    "tp_r": 3,
+    "min_confidence": 0.8,
+    "skip_hours": "0",
+    "vol_skip_above_pctl": 0.9,
+    "trail_decay_arm_r": 2.0,
+    "trail_decay_tight_mult": 2.5,
+    "side_filter": "short",
+    "long_only": false
+   },
+   "unmodelled_yaml_levers": [],
+   "costs": {
+    "fee_bps_roundtrip": 7.5,
+    "slippage_bps_roundtrip": 3.0,
+    "funding_bps_per_window": 1.0
+   },
+   "bars": 14715,
+   "first_decision_bar": "2020-02-08 16:00:00+00:00",
+   "last_bar": "2026-09-28 20:00:00+00:00",
+   "A_closed": {
+    "n": 73,
+    "net_r": 15.2797
+   },
+   "B_forming": {
+    "n": 135,
+    "net_r": 9.5255
+   },
+   "shared_n": 62,
+   "union_n": 146,
+   "jaccard": 0.4247,
+   "delta_net_r": -5.7542,
+   "real_money_bybit_2": true
+  }
+ }
+}

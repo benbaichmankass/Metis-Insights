@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Read-only diag route, but it touches diag.py/clients.py, which pr-landing-guard cannot certify for self-landing. Held for the manager to merge: it is the read that establishes whether alpaca_* positions were naked between entry and naked_rearm (FIX-SA-03 step 1).",
+  "why": "FIX-SA-03 step 1: token-gated, read-only diag route for Alpaca order history (status=all, nested legs, lifecycle timestamps). Places, patches and cancels nothing."
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three follow-up rows appended to the pipeline store via scripts/ops/pipeline.py (routing lane for the growing unrouted backlog, residual review-skill gate text, archived-register-refs re-measure). Data files only; no runtime or live-VM change."
+}

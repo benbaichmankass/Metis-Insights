@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01113oMBNikT5uJanU16K3yq",
+  "branch": "claude/flag-scalp-exit-ladder-no-live-consumer",
+  "claimed_at": "2026-09-29T13:51:44Z",
+  "purpose": "PR: file PI-20260929-EXITOPS-0003, ict_scalp_sol_15m exit_ladder has no live consumer"
+}

@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01DZkP4Jj9JNSsxhGFZEyjmM",
+  "branch": "claude/fix-sa-01-replay-archives",
+  "claimed_at": "2026-09-29T11:57:10Z",
+  "purpose": "FIX-SA-01 replay_pregate_live reads rotated archives (PR A)"
+}

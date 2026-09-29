@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Three pipeline records (docs/claude/work/pipeline/*.json) filed by lane SA-PROV: the IB realizedPNL zero-default root cause (mapper fix owed, Tier-2), the FIX-SA-06 collapsed-state guard leftovers, and two audit data-hygiene rows. Register content only: no config, no src/, no order path."
+}

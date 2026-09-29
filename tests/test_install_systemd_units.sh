@@ -124,11 +124,46 @@ run_test_git_sync_loads_env() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# 6. FIX-SA-08: every oneshot behind a timer gets OnFailure=, the template is
+#    installed, the trader (long-running) does not, and a re-run is a no-op.
+# ---------------------------------------------------------------------------
+run_test_onfailure_dropins() {
+    local tmp; tmp=$(setup_temp_systemd)
+    mkdir -p "$tmp/deploy/dropins"
+    cp "$REPO_ROOT/deploy/dropins/"*.conf "$tmp/deploy/dropins/"
+    cp "$REPO_ROOT/deploy/ict-notify-failure@.service" "$tmp/deploy/"
+    REPO_DIR="$tmp" SYSTEMD_DIR="$tmp/systemd" bash "$tmp/install.sh" >/dev/null 2>&1
+    assert_eq "notify template installed" \
+        "$([ -f "$tmp/systemd/ict-notify-failure@.service" ] && echo yes || echo no)" yes
+    local want=0 got=0 base
+    for t in "$tmp"/deploy/*.timer; do
+        base=$(basename "$t" .timer)
+        case " ict-trainer-git-sync ict-heartbeat ict-ib-gateway-reset ict-ib-gateway-watchdog " in *" $base "*) continue;; esac
+        [ -f "$tmp/deploy/$base.service" ] && grep -q '^Type=oneshot' "$tmp/deploy/$base.service" || continue
+        want=$((want + 1))
+        grep -q '^OnFailure=ict-notify-failure@%n.service' \
+            "$tmp/systemd/$base.service.d/onfailure.conf" 2>/dev/null && got=$((got + 1))
+    done
+    assert_eq "every timer-driven oneshot has OnFailure= ($want expected, >0)" \
+        "$([ "$want" -gt 0 ] && echo "$got" || echo none)" "$want"
+    assert_eq "trader unit gets no OnFailure drop-in" \
+        "$([ -e "$tmp/systemd/ict-trader-live.service.d/onfailure.conf" ] && echo yes || echo no)" no
+    local out; out=$(REPO_DIR="$tmp" SYSTEMD_DIR="$tmp/systemd" bash "$tmp/install.sh" 2>&1)
+    if echo "$out" | grep -q "nothing to refresh"; then
+        PASS=$((PASS + 1)); echo "ok  onfailure re-run is no-op"
+    else
+        FAIL=$((FAIL + 1)); echo "FAIL onfailure re-run is no-op  output=$out"
+    fi
+    rm -rf "$tmp"
+}
+
 run_test_fresh
 run_test_idempotent
 run_test_refresh_on_change
 run_test_template_skipped
 run_test_git_sync_loads_env
+run_test_onfailure_dropins
 
 echo
 echo "=== install_systemd_units summary: $PASS passed, $FAIL failed ==="
