@@ -85,6 +85,7 @@ def test_tick_modes():
     assert resolve_mode(ns(watched_click=True), {}) == "not_armed"          # must be armed explicitly
     assert resolve_mode(ns(watched_click=True), {pe.MODE_ENV: "live"}) == "live"
     assert resolve_mode(ns(probe_ticket="SOLUSD"), {}) == "probe"
+    assert resolve_mode(ns(instrument_probe="BTCUSD,ADAUSD"), {}) == "instrument_probe"
 
 
 def test_real_config_loads_and_keeps_flat_75_and_unmeasured_lots_refuse():
