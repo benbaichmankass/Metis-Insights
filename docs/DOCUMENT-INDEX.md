@@ -378,6 +378,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/system-audit-2026-09-29/AUD-5.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/AUD-7.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/AUD-8.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/GUARD-PROOF.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-1.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-2.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-3.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
