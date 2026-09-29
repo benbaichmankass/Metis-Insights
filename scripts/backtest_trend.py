@@ -609,19 +609,32 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         # entry_override only: a stop/target touched in the entry bar's range
         # AFTER the entry tick exits on the entry bar (SL-first, no ratchet on
         # that remainder — conservative). None on every harness-decided entry.
+        # The ONE stop/target test (SL-first), shared by the bar loop and the
+        # entry_override remainder check -- tests/test_backtest_trend_live_tp.py
+        # pins that each direction has exactly one site. Reads the CURRENT
+        # `trail` at call time.
+        def _stop_or_target(h: float, lo: float):
+            if direction == "long":
+                if lo <= trail:                       # SL-first (conservative)
+                    return trail, ("trail_stop" if trail > sl else "stop")
+                if tp_price is not None and h >= tp_price:
+                    # Checked AFTER the stop so the conservative SL-first
+                    # intrabar convention is unchanged: a bar that trades
+                    # through both still takes the stop.
+                    return tp_price, "take_profit"
+            else:
+                if h >= trail:
+                    return trail, ("trail_stop" if trail < sl else "stop")
+                if tp_price is not None and lo <= tp_price:
+                    return tp_price, "take_profit"
+            return None
+
         _rest_hit = None
         if _ov is not None and _ov.get("rest_high") is not None:
-            _rh, _rl = float(_ov["rest_high"]), float(_ov["rest_low"])
-            if direction == "long":
-                if _rl <= sl:
-                    _rest_hit = (sl, "stop")
-                elif tp_price is not None and _rh >= tp_price:
-                    _rest_hit = (tp_price, "take_profit")
-            else:
-                if _rh >= sl:
-                    _rest_hit = (sl, "stop")
-                elif tp_price is not None and _rl <= tp_price:
-                    _rest_hit = (tp_price, "take_profit")
+            # The harness's ONE stop/target test (trail == sl here, so a hit
+            # reads "stop"); tests/test_backtest_trend_live_tp.py pins that it
+            # is the only SL-first site.
+            _rest_hit = _stop_or_target(float(_ov["rest_high"]), float(_ov["rest_low"]))
         for j in range(entry_i + 1, min(entry_i + timeout_bars + 1, n)) if _rest_hit is None else ():
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0 = off, byte-identical): bank
@@ -634,18 +647,12 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                         else entry - bank_at_r * risk)
                 if (bh >= rung) if direction == "long" else (bl <= rung):
                     banked = True
+            _hit = _stop_or_target(bh, bl)
+            if _hit is not None:
+                exit_price, exit_reason = _hit
+                exit_idx = j
+                break
             if direction == "long":
-                if bl <= trail:                       # SL-first (conservative)
-                    exit_price, exit_idx = trail, j
-                    exit_reason = "trail_stop" if trail > sl else "stop"
-                    break
-                if tp_price is not None and bh >= tp_price:
-                    # Checked AFTER the stop so the conservative SL-first
-                    # intrabar convention is unchanged: a bar that trades
-                    # through both still takes the stop.
-                    exit_price, exit_idx = tp_price, j
-                    exit_reason = "take_profit"
-                    break
                 if bh > ext:
                     peak_j = j
                 ext = max(ext, bh)
@@ -669,14 +676,6 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 if be_floor_r > 0.0 and mfe >= be_floor_r:
                     trail = max(trail, entry)
             else:
-                if bh >= trail:
-                    exit_price, exit_idx = trail, j
-                    exit_reason = "trail_stop" if trail < sl else "stop"
-                    break
-                if tp_price is not None and bl <= tp_price:
-                    exit_price, exit_idx = tp_price, j
-                    exit_reason = "take_profit"
-                    break
                 if bl < ext:
                     peak_j = j
                 ext = min(ext, bl)
