@@ -12,7 +12,7 @@ The audit's shape was set on 2026-09-27 (row E75, decisions D7–D10):
 - a $270 budget.
 
 Spec: [`docs/plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md`](../plans/SYSTEM-AUDIT-PROPOSAL-2026-09-27.md).
-Lane files: `docs/audits/system-audit-2026-09-29/AUD-n.{md,findings.jsonl}`.
+Lane files: `docs/audits/system-audit-2026-09-29/AUD-n.{md,findings.jsonl}`. They landed in this report's PR (#14108), together with AUD-2's (#14067, merged separately). The seven lane PRs listed in §1 each added rows at neighbouring lines of `docs/DOCUMENT-INDEX.md` and conflicted with one another, so they were closed as superseded.
 Briefs: `docs/audits/system-audit-2026-09-29/briefs/`.
 
 This audit does **not** redo the 2026-09-27 CODE audit (row CA,

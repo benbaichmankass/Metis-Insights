@@ -372,6 +372,12 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/squeeze-breakout-complement-2026-05-24.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/strategy-loss-drivers-2026-05-23.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-1.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-3.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-4.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-5.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-7.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-8.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-1.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-2.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-3.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
@@ -381,6 +387,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-6b.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-7.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-8.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-2.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-portfolio-backtest-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/walkforward-flip-policy-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/automation/oci-storage-setup.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
@@ -758,6 +765,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/exit-management-ml-experiment-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/exit-reason-frozen-at-close-2026-08-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-refinement/RQ-20260927-003-prop-exit-head-feasibility.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/exit-refinement/exit-head-donchian-1h-v1-gate-check-2026-09-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-sweep-positive-control-2026-09-06.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-trailing-and-banking-measurement-2026-09-08.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-trailing-banking-broker-truth-2026-09-09.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |

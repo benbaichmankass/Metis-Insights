@@ -293,6 +293,9 @@ CADENCE_REGISTRY: dict[str, dict] = {
     # ── workflows that leave NO in-repo trace. Their run history lives in the
     #    Actions API, which this guard does not call (a guard that needs the
     #    network is a guard that reds on an outage). Declared, not graded.
+    "account-broker-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only "
+                                     "-- same record-every-run/comment-on-change tracking-issue "
+                                     "design as broker-bracket-reconcile.yml below"},
     "alpaca-settlement-soak-watch.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "broker-bracket-reconcile.yml": {"receipt": None, "why": "no in-repo trace; Actions API only"},
     "dashboard-edge-watch.yml": {
@@ -350,6 +353,7 @@ CADENCE_REGISTRY: dict[str, dict] = {
 #: that "may only shrink" grew with every addition. Name every later entry here.
 REGISTERED_AFTER_BASELINE: frozenset[str] = frozenset({
     "research-loss-detector.yml",   # E57, 2026-09-24
+    "account-broker-reconcile.yml",  # RECON, 2026-09-29
 })
 
 BASELINE_2026_09_22: dict[str, str] = {
