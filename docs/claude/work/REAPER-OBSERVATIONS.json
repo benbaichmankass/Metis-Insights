@@ -14,6 +14,38 @@
   "schema_version": 1,
   "runs": [
     {
+      "generated_at": "2026-09-29T15:56:44Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
+      "generated_at": "2026-09-29T15:51:19Z",
+      "rows_graded": 0,
+      "by_state": {
+        "active": 0,
+        "stalled_with_work": 0,
+        "landed": 0,
+        "no_landing_evidence": 0,
+        "unreadable": 0
+      },
+      "by_branch_source": {
+        "registry_declared": 0,
+        "recovered_from_commit_trailer": 0,
+        "none_found": 0
+      }
+    },
+    {
       "generated_at": "2026-09-29T15:46:26Z",
       "rows_graded": 0,
       "by_state": {
@@ -940,43 +972,11 @@
         "recovered_from_commit_trailer": 0,
         "none_found": 0
       }
-    },
-    {
-      "generated_at": "2026-09-29T08:13:59Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
-    },
-    {
-      "generated_at": "2026-09-29T08:08:00Z",
-      "rows_graded": 0,
-      "by_state": {
-        "active": 0,
-        "stalled_with_work": 0,
-        "landed": 0,
-        "no_landing_evidence": 0,
-        "unreadable": 0
-      },
-      "by_branch_source": {
-        "registry_declared": 0,
-        "recovered_from_commit_trailer": 0,
-        "none_found": 0
-      }
     }
   ],
-  "updated_at": "2026-09-29T15:46:26Z",
+  "updated_at": "2026-09-29T15:56:44Z",
   "latest": {
-    "generated_at": "2026-09-29T15:46:26Z",
+    "generated_at": "2026-09-29T15:56:44Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,7 +991,7 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1160,
+      "unregistered_claude_branches": 1162,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
         "claude/admin-triage-2026-09-28-pipeline-close",
@@ -1425,7 +1425,7 @@
           "claude/session-doc-freshness"
         ],
         "session_01BuzwdjYBjCo5bQCmxYTHSp": [
-          "claude/trainer-boot-volume-resize"
+          "claude/trainer-disk-followup"
         ],
         "session_01CFHeaBLPVuLw2V2LvHWuCE": [
           "claude/ca-a07-audit",
@@ -1505,7 +1505,8 @@
           "claude/mi318-scalp-control-design"
         ],
         "session_01F2Hr7f6xuDQeUtqSurYUHK": [
-          "claude/demote-t3-pr1-recent-route"
+          "claude/demote-t3-pr1-recent-route",
+          "claude/demote-t3-pr2-t3-gate"
         ],
         "session_01FAJhh5Q47LA1zhpPyXQ27c": [
           "claude/android-overview-page-Ghkyw"
@@ -1591,6 +1592,7 @@
           "claude/w5n-exit-head-reconcile"
         ],
         "session_01GvZxxxgFK3JVaBFhfzZx6N": [
+          "claude/volskip-r4-last20",
           "claude/volskip-signal-pooled"
         ],
         "session_01GxXaAMqxdL3p1XTuRC5mjc": [
@@ -1613,6 +1615,7 @@
           "claude/mi125-mi122-mi123-residues"
         ],
         "session_01HYq6XtfesZ57VyaQrK6CL1": [
+          "claude/demote-t3-pr2-t3-gate",
           "claude/e44-lane-supervisor-build",
           "claude/mgr-register-20260929-1350"
         ],
@@ -2205,7 +2208,7 @@
       },
       "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
       "registry_declared_branches": 0,
-      "origin_head_count": 1499,
+      "origin_head_count": 1501,
       "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
       "unpushed_work": "invisible_by_construction",
       "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",
