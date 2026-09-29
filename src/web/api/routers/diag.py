@@ -2199,7 +2199,8 @@ def _restart_pending(running: str, on_disk: str) -> bool | None:
             cwd=str(repo_root()),
             capture_output=True, text=True, timeout=5, check=False,
         )
-    except Exception:  # noqa: BLE001
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug("restart_pending: git diff could not run: %s", exc)
         return None
     if out.returncode != 0:
         return None

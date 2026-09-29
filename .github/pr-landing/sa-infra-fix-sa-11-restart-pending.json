@@ -1,5 +1,7 @@
 {
   "tier": 1,
-  "landing": "self",
-  "why": "FIX-SA-11 (audit docs/audits/system-audit-2026-09-29.md, SA-AUD-5-restart-pending-false-positive + SA-AUD-5-status-git-sha-is-disk-not-process), dispatched by the manager. Read-only observability: /api/diag/version restart_pending is now computed from the runtime-path diff (same non-runtime filter as deploy_pull_restart.sh; None when the diff cannot be read) and runtime_status.json gains git_sha_running/git_sha_on_disk beside the unchanged git_sha. No order path, no strategy config, no risk cap, no account mode. NOTE FOR THE MERGER: any src/ change on main makes ict-git-sync run deploy_pull_restart.sh, which restarts ict-trader-live and ict-web-api as it does for every runtime PR; this PR issues no restart of its own."
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Tier 1 (read-only observability, per the FIX-SA-11 brief) but the diff touches src/web/api/routers/diag.py and src/web/runtime_status.py, which pr-landing-guard names Tier-2 and cannot certify for self-landing (R5/R14). The manager reviews and merges. Merging any src/ change triggers the standard git-sync deploy, which restarts ict-trader-live and ict-web-api; pick the moment. This PR issues no restart itself.",
+  "why": "FIX-SA-11 (docs/audits/system-audit-2026-09-29.md, SA-AUD-5-restart-pending-false-positive + SA-AUD-5-status-git-sha-is-disk-not-process). /api/diag/version restart_pending is now computed from the runtime-path diff, using the same non-runtime filter as deploy_pull_restart.sh (docs/, tests/, .claude/, .github/, top-level *.md), and is None when the diff cannot be read. runtime_status.json gains git_sha_running (captured at process start) and git_sha_on_disk beside the unchanged git_sha. No order path, no strategy config, no risk cap, no account mode."
 }

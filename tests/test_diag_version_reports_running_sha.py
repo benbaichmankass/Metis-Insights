@@ -66,7 +66,9 @@ def test_disk_and_running_are_both_published_and_not_collapsed():
 def test_restart_pending_is_none_when_either_sha_is_unknown():
     """'We could not look' must never be reported as 'they agree'.
 
-    The three-way now lives in `_restart_pending` (FIX-SA-11); the handler must
+    The three-way now lives in `_restart_pending` (FIX-SA-11)
+
+    the handler must
     delegate to it, and the helper must return None for an unknown sha.
     """
     src = DIAG.read_text(encoding="utf-8")
@@ -104,7 +106,8 @@ def _repo(tmp_path, monkeypatch):
     git("config", "user.name", "t")
     (tmp_path / "src").mkdir()
     (tmp_path / "src/a.py").write_text("1")
-    git("add", "."); git("commit", "-qm", "base")
+    git("add", ".")
+    git("commit", "-qm", "base")
     base = git("rev-parse", "--short", "HEAD")
     from src.web.api.routers import diag
     monkeypatch.setattr(diag, "repo_root", lambda: tmp_path)
@@ -113,16 +116,19 @@ def _repo(tmp_path, monkeypatch):
 
 def test_docs_only_diff_is_not_restart_pending(_repo):
     tmp, git, base, diag = _repo
-    (tmp / "docs").mkdir(); (tmp / "docs/x.md").write_text("x")
+    (tmp / "docs").mkdir()
+    (tmp / "docs/x.md").write_text("x")
     (tmp / "README.md").write_text("x")
-    git("add", "."); git("commit", "-qm", "docs")
+    git("add", ".")
+    git("commit", "-qm", "docs")
     assert diag._restart_pending(base, git("rev-parse", "--short", "HEAD")) is False
 
 
 def test_runtime_diff_is_restart_pending(_repo):
     tmp, git, base, diag = _repo
     (tmp / "src/a.py").write_text("2")
-    git("add", "."); git("commit", "-qm", "code")
+    git("add", ".")
+    git("commit", "-qm", "code")
     assert diag._restart_pending(base, git("rev-parse", "--short", "HEAD")) is True
 
 
