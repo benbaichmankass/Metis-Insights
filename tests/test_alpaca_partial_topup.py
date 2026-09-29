@@ -55,8 +55,13 @@ def _row(id_, sym, qty, sl, tp, created="2026-09-21T14:25:28+00:00"):
 @pytest.fixture(autouse=True)
 def _fresh_cooldown():
     om._ALPACA_TOPUP_ATTEMPTS.clear()
+    om._ALPACA_BREACH_DEFERRALS.clear()
     yield
     om._ALPACA_TOPUP_ATTEMPTS.clear()
+    om._ALPACA_BREACH_DEFERRALS.clear()
+
+
+_PX = {"QQQ": "740.00", "SPY": "770.00", "TLT": "80.00"}
 
 
 class _Venue(AlpacaClient):
@@ -80,7 +85,12 @@ class _Venue(AlpacaClient):
         if method == "GET" and path.startswith("/v2/positions/"):
             if self.position is None:
                 return {"retCode": 404, "retMsg": "position does not exist"}
-            return {"retCode": 0, "result": self.position}
+            pos = dict(self.position)
+            # Alpaca's position carries `current_price`; default to a price on
+            # the protected side of every stop in this file (QQQ entries were
+            # ~734.6 on 09-21, SPY ~759.9 on 09-24, the TLT short ~81).
+            pos.setdefault("current_price", _PX.get(pos.get("symbol"), None))
+            return {"retCode": 0, "result": pos}
         if method == "POST":
             if self.post_rc:
                 return {"retCode": self.post_rc, "retMsg": "refused"}
@@ -93,6 +103,14 @@ class _Venue(AlpacaClient):
                 self.open_rows[-1]["legs"][0]["side"] = "buy"
             return {"retCode": 0, "result": {"id": "topup-oco"}}
         return {"retCode": 0, "result": {}}
+
+    def latest_quote(self, symbol):
+        return None                   # no bid/ask: the last-trade test stands
+
+    def latest_trade(self, symbol):
+        # A fresh print at the position's current price (REVIEW-14241 round 2).
+        px = (self.position or {}).get("current_price")
+        return None if px is None else {"price": float(px), "age_s": 5.0}
 
     def posts(self):
         return [b for m, _p, b in self.calls if m == "POST"]
@@ -331,3 +349,104 @@ def test_side_mismatch_refuses():
             dict(_row(6023, "QQQ", 22, 716.8, 787.86), direction="short")]
     _cov, out = _run(v, "QQQ", 32, rows)
     assert out == "refused_side_mismatch" and v.posts() == []
+
+
+
+def test_top_up_with_a_breached_stop_exits_the_row_labelled_sl(monkeypatch):
+    """PR6YRTQY-0005 / REVIEW-14241 item 2, top-up form: QQQ at 710 is below
+    6023's stop 716.80 — a top-up stop there would fill on arrival. The row is
+    confirmed present, so it is EXITED via the trade-scoped close labelled sl;
+    no OCO is placed and no sibling leg is touched."""
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
+    closes = []
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda m: closes.append(m) or {"ok": True, "exchange_order_id": None})
+    monkeypatch.setattr(om, "_capture_fill_details", lambda *a, **k: None)
+    v = _Venue(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
+                                    "current_price": "710.00"})
+
+    class _Db:
+        updates = []
+
+        def update_trade(self, tid, upd):
+            self.updates.append((tid, upd))
+
+    db = _Db()
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    out = om._alpaca_top_up_uncovered(db, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
+    assert out == "exited_breached_stop"
+    assert v.posts() == [] and v.deletes() == []
+    assert [c["id"] for c in closes] == [6023] and closes[0]["position_size"] == 22.0
+    assert db.updates[0][0] == 6023 and db.updates[0][1]["exit_reason"] == "sl"
+
+
+def test_top_up_breach_exit_deferred_when_the_market_is_closed(monkeypatch):
+    """REVIEW-14241 round 2: the venue's own 'market closed — exit deferred'
+    on a confirmed top-up breach is reported as exit_deferred (the sweep
+    counts it so), never as exited or as a refusal; the row stays open."""
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
+    monkeypatch.setattr(om, "_send_close_to_exchange",
+                        lambda m: {"ok": False, "error": "market closed — exit deferred"})
+    v = _Venue(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
+                                    "current_price": "710.00"})
+
+    class _Db:
+        updates = []
+
+        def update_trade(self, tid, upd):
+            self.updates.append((tid, upd))
+
+    db = _Db()
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    out = om._alpaca_top_up_uncovered(db, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
+    assert out == "exit_deferred"
+    assert v.posts() == [] and db.updates == []
+
+
+def test_unconfirmed_top_up_breach_sets_no_cooldown_and_escalates(monkeypatch):
+    """REVIEW-14241 round 3, B1+B2: QQQ's position price 710 is through 6023's
+    stop 716.80 but no last trade can be read. Nothing is sent, so NO cooldown
+    is set — every sweep looks again (never refused_cooldown) — and after
+    _BREACH_DEFER_MAX deferrals the top-up stop is posted anyway."""
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
+
+    class _NoTrade(_Venue):
+        def latest_trade(self, symbol):
+            return None
+
+    v = _NoTrade(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
+                                      "current_price": "710.00"})
+
+    class _Db:
+        def update_trade(self, tid, upd):
+            raise AssertionError("an unconfirmed breach must never close the row")
+
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    outs = [om._alpaca_top_up_uncovered(_Db(), v, "alpaca_paper", "QQQ", cov,
+                                        _qqq_rows(), NOW)
+            for _ in range(om._BREACH_DEFER_MAX)]
+    assert outs == ["deferred_unconfirmed_breach"] * om._BREACH_DEFER_MAX
+    assert v.posts() == []
+    assert om._ALPACA_TOPUP_ATTEMPTS == {}          # nothing sent -> no cooldown
+    out = om._alpaca_top_up_uncovered(_Db(), v, "alpaca_paper", "QQQ", cov,
+                                      _qqq_rows(), NOW)
+    assert out == "topped_up"
+    (p,) = v.posts()
+    assert p["qty"] == "22" and p["stop_loss"]["stop_price"] == "716.80"
+
+
+def test_top_up_clears_the_breach_strike_once_the_stop_is_clear(monkeypatch):
+    monkeypatch.setattr(om, "_cooldown_admits", lambda *a, **k: False)
+    monkeypatch.setattr("src.runtime.market_hours.us_equity_session", lambda *a, **k: "rth")
+    om._ALPACA_BREACH_DEFERRALS[("alpaca_paper", "QQQ", 6023)] = 2
+    om._PROTECTION_UNREADABLE_STREAK[("alpaca_paper", "QQQ", "breach")] = 2
+    v = _Venue(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long",
+                                    "current_price": "740.00"})
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    assert om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ", cov,
+                                       _qqq_rows(), NOW) == "topped_up"
+    assert ("alpaca_paper", "QQQ", 6023) not in om._ALPACA_BREACH_DEFERRALS
+    assert ("alpaca_paper", "QQQ", "breach") not in om._PROTECTION_UNREADABLE_STREAK
