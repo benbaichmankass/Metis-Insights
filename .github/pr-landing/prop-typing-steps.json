@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): every PR in this lane is held; the manager merges. Do not arm auto-merge.",
+  "why": "PROP-EXEC fix-forward #5. Dry run #13942 (04:01Z, code_sha 37da6d6e7 includes #13935) FOUND the footer submit ('Buy 49 SOLUSD at 117.77', in the column, below the visible form), which closes the locator problem. It then refused 'typing into the form failed (TimeoutError)' without naming the step. Nothing was submitted. This PR names every typing step (side click, order-type click, each SL/TP toggle click, each fill), carries Playwright's own reason (e.g. 'element is not editable', capped at 400 chars), and refuses cleanly if a leg's input is still disabled after its toggle click. No behaviour change on the success path. Tier 2: order-entry diagnostics on a funded prop account."
+}
