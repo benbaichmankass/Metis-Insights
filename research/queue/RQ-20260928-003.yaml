@@ -1,6 +1,6 @@
 id: RQ-20260928-003
 title: M19 S1 — does decision-time MARKET STATE add within-cell veto information beyond what is already on the trade row?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -137,9 +137,34 @@ lands:
 related:
   - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S1)
   - RQ-20260928-002 (S1-v0, the arm-(1) reference and the first half of the exhaustion condition)
-  - blocked/RQ-20260928-004 (S2-sizing, consumes arm (2)'s score)
+  - blocked/RQ-20260928-004 (S2-sizing — KILLED by this unit's result; see its own note)
   - PI-20260928-VNMMNBJH-0001 (the build item that unblocked this unit; landed as PRs #14085, #14227)
-last_dispatched_at: null
+  - PI-20260928-VNMMNBJH-0003 (follow-through: promote or kill the two blocked units when this lands)
+last_dispatched_at: '2026-09-29T17:33:24+00:00'
+result: >-
+  GRADED 2026-09-29 by lane session_01TR74tvLR2AjCzrJMeBs47A (manager
+  session_01HYq6XtfesZ57VyaQrK6CL1), dispatched via trainer-vm-diag issue
+  #14321 (run 36605776035), against the pre-registered rule
+  RULE-RQ0928-003-WITHIN-CELL-VETO-MARKET-STATE.
+  DISPOSITION: verdict fail (the third rule branch, "neither veto significant
+  AND RQ-20260928-002 was also null" -- the two-null exhaustion condition).
+  n_oos=1857 (comfortably above the 392.4/393 floor). Market-state coverage
+  was 100% (rows_with_market_state=3094/3094, cells_skipped=[]) per issue
+  #14286's pandas-backed census -- this is NOT a coverage-limited null, the
+  join worked on every resolvable cell. Arm (2) row_plus_market:
+  veto_delta_r=-0.05627, perm_p=0.998 (not significant, wrong sign). Arm (1)
+  row_only (re-fit on this run): veto_delta_r=-0.05020, perm_p=0.996,
+  matching -002's own -0.0502 within floating-point tolerance. Arm (3)
+  confidence_only: veto_delta_r=-0.01013, perm_p=0.701. paired_gain
+  (arm2 - arm1) = -0.00606, negative, positive in only 3/5 folds.
+  Landed: research/results/RQ-20260928-003/36605776035.jsonl.
+  PI-20260928-VNMMNBJH-0003's follow-through now applies: the S1 veto line
+  (RQ-20260928-002 fail + RQ-20260928-003 fail) is EXHAUSTED per the
+  post-mortem's own exhaustion condition. blocked/RQ-20260928-004 (S2-sizing)
+  is KILLED with terminal_reason "S1 line exhausted 2026-09-29" -- see its
+  own note. The AI-trader path proceeds on S2-exit (RQ-20260928-005) and S3
+  only; per the original dispatch, since S1 did NOT clear its bar, no S2
+  (sizing) plan is written -- there is nothing to propose.
 note: >-
   2026-09-29 (lane session_01TR74tvLR2AjCzrJMeBs47A, manager
   session_01KAQRJxRbRwpYTkPgBjNVyQ): clause (b) of blocked_on ("RQ-20260928-002
