@@ -90,14 +90,6 @@ def _resolve_git_sha() -> str:
     return os.environ.get("GIT_SHA", "unknown")
 
 
-# The sha this PROCESS was loaded from, captured ONCE at import (FIX-SA-11,
-# SA-AUD-5-status-git-sha-is-disk-not-process). ``build_status`` runs inside
-# the trading process, so import time here is trader start. ``git_sha`` below is
-# resolved per write and so names the CHECKOUT, which a ``git pull`` advances
-# without restarting anything; it cannot say what code the trader loaded.
-_RUNNING_GIT_SHA: str = _resolve_git_sha()
-
-
 def _read_strategy_names(strategies_yaml: Path) -> List[str]:
     """Enabled strategy names AS THE FILE DECLARES THEM.
 
@@ -220,12 +212,7 @@ def build_status(
         "bot_uptime_s": int(time.monotonic() - start),
         "live": _read_live_per_account(accounts_yaml),
         "strategies": _read_strategy_names(strategies_yaml),
-        # `git_sha` is kept for existing readers and means the CHECKOUT at
-        # write time (== git_sha_on_disk). Read `git_sha_running` for the code
-        # the process loaded.
         "git_sha": git_sha if git_sha is not None else _resolve_git_sha(),
-        "git_sha_on_disk": git_sha if git_sha is not None else _resolve_git_sha(),
-        "git_sha_running": _RUNNING_GIT_SHA,
         # E31, layer 4: what THIS PROCESS holds, from the loaders' own stamps.
         # Best-effort by construction (`_process_snapshot` never raises), but
         # an absent block is a distinct, NAMED state on the reader side
