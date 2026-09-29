@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "depends_on_unmerged_pr",
+  "hold_text": "Stacked on #14257 (the /api/bot/performance/recent route this gate reads); must land after it AND after that route is deployed. Tier-3: rewrites MD-DEMOTE-S2-S1's fires_when (an auto-landing real-money mandate) to the operator's 2026-09-29 decision, verbatim 'Last 20 + strict test (Recommended)' (manager session session_01HYq6XtfesZ57VyaQrK6CL1). Lane DEMOTE-T3 dispatch: 'BUILD IT AS TWO HELD PRs ... The manager sends both PRs to independent review, then merges.'",
+  "why": "Changes the demotion rule of the r4-demotion-gate producer, the resolver clause that authorizes it, the autoland replay tree and the mandate text. Derisk-only: the rule can only NARROW when MD-DEMOTE-S2-S1 fires (every prior never-clause is checked first, unchanged)."
+}
