@@ -159,7 +159,7 @@ def test_three_e35_units_due_in_one_cycle_fire_one_and_defer_two(tmp_path, monke
     assert out.count("already fired 1 unit(s) this cycle") == 2, out
 
 
-def test_the_token_free_runner_is_exempt_from_serialization(tmp_path, monkeypatch):
+def test_the_token_free_runner_is_not_serialized(tmp_path, monkeypatch):
     units = [(f"RQ-20300101-00{i}", "research-script-run.yml") for i in range(1, 4)]
     fired, stamped = _fired_cycle(tmp_path, monkeypatch, units)
     assert len(fired) == 3 and len(stamped) == 3
@@ -169,3 +169,12 @@ def test_the_per_workflow_cap_is_a_flag(tmp_path, monkeypatch):
     units = [("RQ-20300101-001", "e35-bracket-sweep.yml"), ("RQ-20300101-002", "e35-bracket-sweep.yml")]
     fired, stamped = _fired_cycle(tmp_path, monkeypatch, units, extra_args=("--max-fires-per-workflow", "2"))
     assert len(fired) == 2 and len(stamped) == 2
+
+
+def test_only_colliding_workflows_are_serialized():
+    assert dq.serialized_workflow("e35-bracket-sweep.yml")            # constant concurrency group + corpus
+    assert dq.serialized_workflow("m20-exit-lever-sweep.yml")         # no group, but a whole-file corpus rewrite
+    assert dq.serialized_workflow("macro-valuation-backfill.yml")
+    assert not dq.serialized_workflow("research-script-run.yml")      # per-unit group, batch-landed
+    assert not dq.serialized_workflow("research-harness-dispatch.yml")  # per-run group
+    assert not dq.serialized_workflow("no-such-workflow.yml")

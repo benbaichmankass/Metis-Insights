@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -245,9 +246,34 @@ DEFERRED = "deferred"
 # their landing PRs (#13910, #13801) stranded CONFLICTING. m20-exit-lever-
 # sweep has no group but the same whole-file corpus rewrite. So a cycle fires
 # at most `--max-fires-per-workflow` unit(s) per workflow FILE; the rest are
-# DEFERRED to the next cycle, unstamped. research-script-run.yml is exempt:
-# its concurrency group is per unit and its results land in ONE batch PR.
-SERIALIZED_EXEMPT = frozenset({"research-script-run.yml"})
+# DEFERRED to the next cycle, unstamped. Only workflows that can collide are
+# serialized (see serialized_workflow()): a per-run or per-unit concurrency
+# group -- the harness dispatcher, the exit-head build, the token-free runner
+# whose results land in ONE batch PR -- fans out as before.
+#: Workflows whose runs collide even without a constant concurrency group:
+#: they rewrite a whole corpus file and land it via commit-to-main.
+SERIALIZED_WORKFLOWS = frozenset({"e35-bracket-sweep.yml", "m20-exit-lever-sweep.yml",
+                                  "macro-valuation-backfill.yml"})
+_CONCURRENCY_GROUP_RE = re.compile(r"^concurrency:\s*\n(?:[ \t]+.*\n)*?[ \t]+group:[ \t]*(.+?)[ \t]*$", re.M)
+
+
+def serialized_workflow(wf_file: str, repo: Path = _REPO) -> bool:
+    """Should the dispatcher fire at most one unit of this workflow per cycle?
+    Yes when it is a known corpus rewriter (SERIALIZED_WORKFLOWS) or its file
+    declares a CONSTANT `concurrency.group` (no `${{ ... }}`), because GitHub
+    keeps one pending run per group and cancels the rest. A per-run group
+    (`${{ github.run_id }}`, a per-unit input) never cancels, so those
+    workflows -- the harness dispatcher, the exit-head build, the token-free
+    runner -- fan out as before."""
+    name = wf_file.split("/")[-1]
+    if name in SERIALIZED_WORKFLOWS:
+        return True
+    try:
+        text = (repo / ".github" / "workflows" / name).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    m = _CONCURRENCY_GROUP_RE.search(text)
+    return bool(m) and "${{" not in m.group(1)
 
 
 def research_workflow_names(jobs: List[Any], repo: Path = _REPO) -> Dict[str, str]:
@@ -489,7 +515,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             decisions.append(row)
             continue
         wf_file = str((entry.get("run") or {}).get("workflow") or "").split("/")[-1]
-        if wf_file not in SERIALIZED_EXEMPT and fired_by_workflow.get(wf_file, 0) >= args.max_fires_per_workflow:
+        if serialized_workflow(wf_file) and fired_by_workflow.get(wf_file, 0) >= args.max_fires_per_workflow:
             row.update(outcome=DEFERRED,
                        reason=f"{wf_file} already fired {fired_by_workflow[wf_file]} unit(s) this cycle "
                               f"(cap {args.max_fires_per_workflow}): same-workflow runs cancel each other "
