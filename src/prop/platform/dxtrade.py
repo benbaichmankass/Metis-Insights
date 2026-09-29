@@ -1428,38 +1428,140 @@ TICKET_PANEL_DUMP_JS = r"""
 }
 """
 
-# Discovery for a symbol SEARCH/FILTER input (PROP-ETH, 2026-09-29) -- NOT
-# MEASURED, no run has confirmed any candidate yet. Tries, in document order,
-# an input whose placeholder/aria-label/data-test-id/title contains one of
-# INSTRUMENT_SEARCH_CANDIDATES (case-insensitive), else a bare
-# ``input[type=search]``. NEVER the order ticket's own ``symbol_input`` and
-# NEVER anything inside the BUY/SELL order panel (same containment check
-# TICKET_PANEL_DUMP_JS uses to find that panel) -- this probe must not be
-# able to reach the order form even by accident. Tags the one match with
+# Discovery for a symbol SEARCH/FILTER input (PROP-ETH, 2026-09-29; revised
+# 2026-09-29 after live run issue #14437 -- see below). The CANDIDATE TEXT
+# LIST is still NOT MEASURED, no run has confirmed any candidate yet. Tries,
+# in document order, an input whose placeholder/aria-label/data-test-id/title
+# contains one of INSTRUMENT_SEARCH_CANDIDATES (case-insensitive), else a
+# bare ``input[type=search]``. Tags the one match with
 # ``data-metis-search-hit`` for the Python side to locate; reads nothing,
 # types nothing, clicks nothing.
+#
+# ⚠️ THE ANCHOR IS NOW POSITIVE, NOT NEGATIVE, and IS MEASURED. The original
+# version admitted every input EXCEPT what it could prove was inside the
+# order ticket (a BUY/SELL panel) -- which meant with 0 BUY buttons (no
+# ticket open, the terminal's actual landing state) it had nothing to exclude
+# from, so it refused outright. Live run #14437 (2026-09-29, issue #14437,
+# code_sha 4ef6b3340) hit exactly this: all four symbols (BTC/ADA/AVAX/XRP)
+# refused with "0 BUY buttons", correctly (refuse-not-guess held), but the
+# probe can then only ever work while an order ticket happens to be open,
+# which this probe never opens -- so it could never actually run.
+#
+# The fix anchors POSITIVELY on the watchlist panel instead: the same header
+# table (Symbol/Bid/Ask columns) and row selector (``tr.instrument,
+# tr[data-row-id]``) that :data:`WATCHLIST_ROWS_JS` already reads -- MEASURED
+# 2026-09-29, dry run #13898, run 36507086110, and reused verbatim by
+# :meth:`DXtradeAdapter.open_order_ticket`'s watchlist double-click. The
+# watchlist needs no order ticket at all, so this anchor exists on exactly
+# the landing state #14437 measured. A candidate input must be CONTAINED
+# WITHIN that watchlist panel; if no watchlist table+row can be found at
+# all, refuse (the same honest "could not look" this file uses everywhere).
+# The order-ticket exclusion is KEPT as defense in depth (never admit an
+# input inside a BUY+SELL-holding container, whatever the count -- the
+# ORDER TICKET's own presence, not its count, is what matters), but it is no
+# longer a PRECONDITION for the whole probe to run.
+#
+# ⚠️ HARDENED again 2026-09-29 (manager review of #14442, before merge): the
+# first version's ``rows[0]`` was the first ``tr.instrument``/``[data-row-id]``
+# ANYWHERE IN THE DOCUMENT, not necessarily a row of the watchlist's own
+# header table. Whether the Positions/Orders grids ALSO use this same row
+# selector is UNMEASURED -- the one recorded dump-tables run that shows a
+# live Positions row (issue #14198, run 36572236094) prints each row's
+# PARSED CELLS and its hover-control markup (button/title/aria-label
+# elements only), never the ``<tr>`` element's own class or attributes, so
+# it neither confirms nor rules this out. If it turned out true and a
+# Positions/Orders row happened to precede the watchlist in document order,
+# ``rows[0]`` could anchor on a container far wider than the watchlist --
+# possibly the app root -- and containment would then admit almost anything.
+# Three layers now guard against exactly that, refusing rather than trusting
+# an unmeasured assumption:
+#   1. The anchor row must ALIGN with the watchlist's OWN header: the same
+#      cell count, and its cell under the header's own Symbol column index
+#      reads a symbol-shaped token (never just "whatever tr matches first").
+#   2. The resolved panel must hold exactly one Symbol-headed table (itself);
+#      more than one, or any OTHER table in the panel whose headers look
+#      like a positions/orders grid (side/quantity/p&l/profit/order type/
+#      status), refuses -- a watchlist panel holds one quote table.
+#   3. The upward walk excludes ``document.body`` by construction (the loop
+#      never assigns it to ``e``), so the panel can never resolve to it.
 FIND_INSTRUMENT_SEARCH_JS = r"""
 ([candidates]) => {
-  const buys = document.querySelectorAll('[data-test-id=BUY]');
-  if (buys.length !== 1) {
-    // Containment can only be trusted when there is exactly one BUY button
-    // to anchor it from -- with 0 or 2+, which panel (if any) is "the"
-    // order ticket is undecidable, so every input (order-ticket fields
-    // included) would otherwise become eligible. Refuse instead of guessing.
-    return {found: false, why: `${buys.length} BUY buttons (need exactly 1 to locate the order panel)`};
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const symLike = /^[A-Z0-9]{2,15}$/i;
+  const posOrdHeaderRe = /\b(side|quantity|p&l|profit|order type|status)\b/;
+
+  // The watchlist's own header table (Symbol/Bid/Ask). Refuse if more than
+  // one table on the page shares a Symbol header -- which one is "the"
+  // watchlist is then undecidable, never guessed.
+  const symbolTables = [];
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+    if (hs.includes('symbol')) symbolTables.push({t, hs});
   }
-  let orderPanel = null;
-  for (let e = buys[0].parentElement; e && e !== document.body; e = e.parentElement) {
-    if (e.querySelector('[data-test-id=SELL]')) { orderPanel = e; break; }
+  const watchlistTables = symbolTables.filter(x => x.hs.includes('bid') && x.hs.includes('ask'));
+  if (watchlistTables.length !== 1) {
+    return {found: false, why: `${watchlistTables.length} tables with Symbol/Bid/Ask headers (need exactly 1)`};
   }
-  const inOrderPanel = el => orderPanel ? orderPanel.contains(el) : false;
+  const headerTable = watchlistTables[0].t;
+  const headers = watchlistTables[0].hs;
+  const symbolIdx = headers.indexOf('symbol');
+
+  // The anchor row must ALIGN with that header -- same cell count, symbol-
+  // shaped Symbol cell -- never just the first tr.instrument/[data-row-id]
+  // found anywhere in the document (see the block comment above).
+  let anchorRow = null;
+  for (const r of document.querySelectorAll('tr.instrument, tr[data-row-id]')) {
+    const cells = [...r.querySelectorAll('td')].map(txt);
+    if (cells.length !== headers.length) continue;
+    if (symLike.test((cells[symbolIdx] || '').trim())) { anchorRow = r; break; }
+  }
+  if (!anchorRow) {
+    return {found: false, why: 'no measured watchlist row aligned with the header'};
+  }
+
+  let watchlistPanel = null;
+  for (let e = headerTable.parentElement; e && e !== document.body; e = e.parentElement) {
+    if (e.contains(anchorRow)) { watchlistPanel = e; break; }
+  }
+  if (!watchlistPanel) {
+    return {found: false, why: 'no common ancestor of the watchlist header and its row'};
+  }
+
+  // The panel must hold exactly one Symbol-headed table (itself), and no
+  // OTHER table inside it may look like a positions/orders grid.
+  const tablesInPanel = [...watchlistPanel.querySelectorAll('table')];
+  const symbolTablesInPanel = tablesInPanel.filter(t =>
+    [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h))).includes('symbol'));
+  if (symbolTablesInPanel.length !== 1) {
+    return {found: false, why: `panel holds ${symbolTablesInPanel.length} Symbol-headed tables (need exactly 1)`};
+  }
+  for (const t of tablesInPanel) {
+    if (t === headerTable) continue;
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h))).join(' ');
+    if (posOrdHeaderRe.test(hs)) {
+      return {found: false, why: 'panel also contains a positions/orders-shaped table'};
+    }
+  }
+
+  // Defense in depth: never admit an input inside ANY BUY+SELL-holding
+  // container, whatever the count -- an order ticket, open or not, is never
+  // where this probe searches.
+  const orderPanels = [];
+  for (const b of document.querySelectorAll('[data-test-id=BUY]')) {
+    for (let e = b.parentElement; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=SELL]')) { orderPanels.push(e); break; }
+    }
+  }
+  const inAnyOrderPanel = el => orderPanels.some(p => p.contains(el));
+
   const attrText = el => [el.getAttribute('placeholder'), el.getAttribute('aria-label'),
                           el.getAttribute('data-test-id'), el.getAttribute('title')]
       .filter(Boolean).join(' ').toLowerCase();
-  const inputs = [...document.querySelectorAll('input')].filter(el => {
+  const inputs = [...watchlistPanel.querySelectorAll('input')].filter(el => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0 && el.getAttribute('data-test-id') !== 'symbol_input'
-      && !inOrderPanel(el);
+      && !inAnyOrderPanel(el);
   });
   for (const cand of candidates) {
     const hit = inputs.filter(el => attrText(el).includes(cand));
@@ -2797,9 +2899,11 @@ class DXtradeAdapter(PropPlatformAdapter):
     #
     # Never touches BUY/SELL, a watchlist row double-click, a submit control,
     # the chart, or TICKET_OPENER_NAMES -- this method never calls
-    # open_order_ticket or anything that reaches the order form; the search
-    # field it types into is explicitly excluded from ever being inside the
-    # BUY/SELL panel (FIND_INSTRUMENT_SEARCH_JS's own containment check).
+    # open_order_ticket or anything that reaches the order form. The search
+    # field it types into must lie INSIDE the MEASURED watchlist panel
+    # (FIND_INSTRUMENT_SEARCH_JS's positive containment anchor) and, as
+    # defense in depth, is also excluded from ever being inside a BUY/SELL
+    # order panel, whatever the panel count.
     def _find_instrument_search(self, page: Any) -> Dict[str, Any]:
         """Locate a symbol SEARCH/FILTER input. Discovery only: clicks and
         types nothing. See FIND_INSTRUMENT_SEARCH_JS."""
@@ -2817,11 +2921,12 @@ class DXtradeAdapter(PropPlatformAdapter):
             return {"found": False, "error": type(exc).__name__}
 
     def probe_instrument_details(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
-        """READ-ONLY: search for ``venue_symbol`` in the watchlist/instrument
-        search field (never the order ticket's ``symbol_input``, never
-        anything inside the BUY/SELL panel), dump whatever the search
-        surfaces, then RESET the field so the next symbol probes cleanly.
-        Never opens the order ticket; never clicks BUY/SELL/submit/chart.
+        """READ-ONLY: search for ``venue_symbol`` in a search field found
+        INSIDE the measured watchlist panel (never the order ticket's
+        ``symbol_input``, never anything inside a BUY/SELL panel), dump
+        whatever the search surfaces, then RESET the field so the next
+        symbol probes cleanly. Never opens the order ticket; never clicks
+        BUY/SELL/submit/chart. Needs no order ticket to be open.
         """
         loc = self._find_instrument_search(page)
         if not loc.get("found"):
