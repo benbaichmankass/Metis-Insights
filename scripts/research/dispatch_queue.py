@@ -88,6 +88,17 @@ def _is_due(entry: Dict[str, Any], now: datetime) -> tuple:
     return False, f"last ran {when.isoformat()}, cadence {cadence} not yet elapsed"
 
 
+def due_within(entry: Dict[str, Any], now: datetime, hours: float = 0.0) -> bool:
+    """Would the dispatcher fire this unit at ``now + hours``? The ONE due rule
+    (`_is_due`), exposed so the refill (`queue_replenish.runnable`) and the alarm
+    (`queue_grade.health`) count exactly what this dispatcher would fire and
+    never a looser notion of "runnable". A `once` unit that already ran and a
+    monthly unit that ran yesterday both carry `status: queued` and are NOT due;
+    measured 2026-09-29 04:35Z on main they were 18 of the 21 "runnable" units,
+    so the refill never fired and the alarm stayed quiet while the runners idled."""
+    return bool(_is_due(entry, now + timedelta(hours=hours))[0])
+
+
 def _stamp(path: Path, when: datetime) -> Optional[str]:
     """Record ``last_dispatched_at`` on the job file. Returns an error or None.
 
