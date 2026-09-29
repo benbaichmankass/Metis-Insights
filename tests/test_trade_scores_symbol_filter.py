@@ -246,3 +246,20 @@ def test_backfill_record_with_wrong_trade_id_is_excluded(client):
     r = tc.get("/api/bot/trades/scores?limit=10")
     trade = r.json()["trades"][0]
     assert trade["scores"] == []
+
+
+def test_shadow_records_include_rotated_archive(tmp_path, monkeypatch):
+    """SA-AUD-4: the real-time log rotates to gzipped archives; the endpoint's
+    reader must include them, not just the active log."""
+    import gzip
+    from datetime import datetime, timedelta, timezone
+
+    active = tmp_path / "shadow_predictions.jsonl"
+    active.write_text("", encoding="utf-8")
+    when = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+    with gzip.open(tmp_path / "shadow_predictions.2026-09-01.jsonl.gz", "wt") as fh:
+        fh.write(json.dumps(_record(ts=when, model_id="m-arch", score=0.6)) + "\n")
+    monkeypatch.setattr(trade_scores_router, "_SHADOW_LOG", active)
+    monkeypatch.setattr(trade_scores_router, "_SHADOW_BACKFILL_LOG",
+                        tmp_path / "absent.jsonl")
+    assert [r.model_id for r in trade_scores_router._shadow_records_safe()] == ["m-arch"]
