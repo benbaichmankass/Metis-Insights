@@ -27,8 +27,10 @@ It answers, in order, and prints every answer (redacted):
 3. **Terminal** (after a login that reached it): account metrics as parsed,
    the positions / orders tables as parsed (``None`` = no such table found),
    the redacted structure dump (labels with their ancestor chains, every
-   table's header row), and — passively — whether an order form is already
-   open and whether a one-click-trading control exists.
+   table's header row), ``dump_tables`` (per VIEW tab: every table, how the
+   readers classify it, the first row hovered and its controls' markup with
+   ids masked), and — passively — whether an order form is already open and
+   whether a one-click-trading control exists.
 4. **Ticket** (``--probe-ticket`` only, after 3): ``probe_order_ticket`` —
    opens the order form only if one-click trading reads OFF, records its
    field labels / buttons / canvas counts, types NOTHING, closes it.
@@ -143,6 +145,10 @@ def terminal_dump(adapter: Any, page: Any, secrets: Sequence[str]) -> bool:
          f"fields={sorted((form.get('fields') or {}).keys())} buttons={form.get('buttons') or {}} "
          f"canvases_in_page={form.get('canvases_in_page')} inputs_in_page={form.get('inputs_in_page')}", secrets)
     for line in adapter.structure(page, secrets):
+        _say(line, secrets)
+    # Every table per VIEW tab, with the first row hovered and its controls'
+    # markup (ids masked): what the close / cancel selection will key on.
+    for line in adapter.dump_tables(page, secrets):
         _say(line, secrets)
     return ok
 

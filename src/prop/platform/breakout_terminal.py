@@ -37,15 +37,35 @@ login this adapter is infeasible), ``2fa``, ``login_rejected``,
 ``canvas_ticket`` (order ticket with no DOM inputs), ``no_credentials``,
 ``unknown_page``, ``timeout``.
 
-**Order-control safety** (same six rules as the dxtrade adapter, plus two
-that exist because this layout is unmeasured):
+**Order-control safety** (the dxtrade adapter's rules, plus three that
+exist because this layout is unmeasured):
 
 7. A form whose side buttons ARE the submit (a single "Buy / Long" that
    places the order) is refused: a separate, uniquely-named submit control
    is required, so choosing a side can never be the click that trades.
 8. No "one-click trading" control found reads as ``unknown`` and refuses.
    Until the probe shows how this terminal arms instant orders, nothing in
-   its order area is touched.
+   its order area is touched. (On dxtrade the toggle is diagnostic only,
+   operator 2026-09-28, because the sidebar ticket was MEASURED; here it
+   is not.)
+9. **Armed calls walk the full disarmed path, then REFUSE instead of
+   pressing the final control** (PROP-TERM, 2026-09-29). The submit, its
+   confirmation, the row close control's confirmation and the cancel
+   confirmation are all unmeasured; dxtrade's armed clicks were each built
+   only after a probe and a dry run measured them (#13855, #14013, #14216).
+   So ``place_bracket`` / ``cancel_order`` / ``flatten`` with ``arm=True``
+   return a refusal with ``clicked=False`` and ``modify_bracket`` stays a
+   refusal. Wiring an armed click is a held Tier-2 change made against the
+   probe's captured DOM (pipeline PI-20260928-DRBVUUDJ-0001), never a guess.
+
+The close-control SELECTION is dxtrade's hardened watched close
+(``CLOSE_ROW_JS``, #14216) with this terminal's header vocabulary: exactly
+one row for the symbol whose side / size / entry match the position meant,
+the row's LAST control the only close-type one, no reverse / modify /
+"close all" word on it or any ancestor, a pressable not nested in another,
+boxed inside its row and away from any canvas. Every refusal string that can
+quote the page passes ``_mask_public_text`` (position ids never reach a
+public log).
 
 No anti-detection of any kind: default headless Chromium, real typing via
 ``fill``, no stealth plugin, no fingerprint change, no fake jitter.
@@ -69,20 +89,33 @@ from src.prop.platform.base import (
 # and read-only page JS that takes its vocabulary as an argument. Nothing
 # DXtrade-specific (SELECTORS, labels, opener names) is imported.
 from src.prop.platform.dxtrade import (
+    CLOSE_ROW_JS as _DX_CLOSE_ROW_JS,
+    CONTROLS_DUMP_JS,
     EXTRACT_TABLES_JS as _DX_EXTRACT_TABLES_JS,
+    ONE_CLICK_DUMP_JS,
     ONE_CLICK_JS,
     ORDER_FORM_JS,
     PAGE_SHAPE_JS,
     ROW_ACTION_JS as _DX_ROW_ACTION_JS,
     STRUCTURE_JS,
+    _cap,
     _fmt_num,
     _label_value_pairs,
+    _mask_controls,
+    _mask_public_text,
+    _row_facts_mismatch,
     _strip_url,
     check_bracket_spec,
     classify_ticket_surface,
+    form_names_symbol,
     parse_number,
+    price_tolerances,
+    redact_text,
     render_page_shape,
     render_structure,
+    verify_bracket_legs,
+    verify_buttons_in_panel,
+    verify_form_selection,
     verify_form_values,
 )
 
@@ -157,20 +190,53 @@ ORDER_PRICE_COLS = ("Limit Price", "Order Price", "Price", "Trigger Price")
 _ORDER_ONLY = {"order id", "order type", "type", "limit price", "order price", "trigger price",
                "filled", "filled size", "status", "time in force", "reduce only"}
 
+
+def _replace_once(src: str, old: str, new: str) -> str:
+    """Replace ``old`` in dxtrade's page JS exactly once, or fail at IMPORT.
+    A snippet dxtrade has since reworded would otherwise be a silent no-op
+    and leave DXtrade's vocabulary in place (it happened once: 00f01164)."""
+    n = src.count(old)
+    if n != 1:
+        raise RuntimeError(f"breakout_terminal: dxtrade JS snippet found {n} times (need 1): {old[:60]!r}")
+    return src.replace(old, new)
+
+
 # The dxtrade JS finds DIV grids from a header leaf reading "Symbol" or
 # "Instrument"; this terminal may say "Market" / "Contract" / "Pair".
 _DX_HEADER_LEAF_RE = "/^(symbol|instrument)$/i"
-EXTRACT_TABLES_JS = _DX_EXTRACT_TABLES_JS.replace(
-    _DX_HEADER_LEAF_RE, "/^(symbol|instrument|market|contract|pair|asset)$/i")
+EXTRACT_TABLES_JS = _replace_once(_DX_EXTRACT_TABLES_JS,
+                                  _DX_HEADER_LEAF_RE, "/^(symbol|instrument|market|contract|pair|asset)$/i")
 
 # The dxtrade row-action JS keys tables on DXtrade headers; widen them to this
 # vocabulary. Still exactly-one-row / exactly-one-control, and never clicks.
 _DX_ROW_WANT = ("const want = kind === 'orders' ? /^(order id|sts)$/ : "
                 "/^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;")
-ROW_ACTION_JS = _DX_ROW_ACTION_JS.replace(
-    _DX_ROW_WANT,
+_POS_WORDS_JS = "/^(entry price|avg\\. entry price|avg entry price|avg\\. entry|open price|average price|avg price)$/"
+ROW_ACTION_JS = _replace_once(
+    _DX_ROW_ACTION_JS, _DX_ROW_WANT,
     "const want = kind === 'orders' ? /^(order id|order type|limit price|trigger price|filled)$/ : "
-    "/^(entry price|avg\\. entry price|avg entry price|avg\\. entry|open price|average price|avg price)$/;")
+    + _POS_WORDS_JS + ";")
+
+# dxtrade's hardened watched close (#14216), re-keyed to this vocabulary:
+# the positions table is the one carrying an entry-price header, the key
+# column is the first symbol-like header, and the row facts read this
+# terminal's size / entry names. The "controls" op (the refusal rules) is
+# used unchanged. Its "modal" op is DXtrade's measured "Close Position"
+# modal and is never reached here: an armed close refuses (rule 9).
+CLOSE_ROW_JS = _replace_once(
+    _DX_CLOSE_ROW_JS,
+    "const posWords = /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;",
+    "const posWords = " + _POS_WORDS_JS + ";")
+CLOSE_ROW_JS = _replace_once(
+    CLOSE_ROW_JS, "const ci = hs.indexOf('symbol'); if (ci < 0) continue;",
+    "const ci = hs.findIndex(h => /^(symbol|instrument|market|contract|pair|asset)$/.test(h)); if (ci < 0) continue;")
+CLOSE_ROW_JS = _replace_once(
+    CLOSE_ROW_JS, "size: get(['size', 'position volume', 'position qty', 'qty', 'quantity', 'volume']),",
+    "size: get(['size', 'quantity', 'qty', 'amount', 'position size', 'position', 'volume']),")
+CLOSE_ROW_JS = _replace_once(
+    CLOSE_ROW_JS, "fill: get(['fill price', 'open price', 'avg fill price', 'entry price', 'average price']),",
+    "fill: get(['entry price', 'avg. entry price', 'avg entry price', 'avg. entry', 'avg entry', "
+    "'open price', 'average price', 'avg price']),")
 
 STRUCTURE_LABELS: List[str] = sorted({
     *(lb for lbs in ACCOUNT_LABELS.values() for lb in lbs),
@@ -181,8 +247,12 @@ STRUCTURE_LABELS: List[str] = sorted({
 
 # ── order ticket (NOT MEASURED) ───────────────────────────────────────────
 
-TICKET_OPENER_NAMES: Sequence[str] = ("New Order", "New order", "Place Order", "Place order",
-                                      "Order Entry", "Trade")
+# Only names that cannot also be a SUBMIT: "Place Order" was here and is the
+# submit pattern's own first name (a click meant to open a ticket could place
+# one on a layout where the ticket is already open but not recognised), and
+# "Trade" may be a quick-trade control. A test asserts no opener matches the
+# submit pattern.
+TICKET_OPENER_NAMES: Sequence[str] = ("New Order", "New order", "Order Entry", "Open Order Form")
 FORM_FIELD_PATTERNS: Dict[str, str] = {
     "quantity": r"^(quantity|qty|size|amount|order size|lots?)\b",
     "price": r"^(price|limit price|order price|entry price)\b",
@@ -416,8 +486,8 @@ def check_form_shape(form: Mapping[str, Any], spec: BracketSpec) -> Optional[str
     Returns the refusal reason, or None when the form may be typed into."""
     if form.get("ambiguous"):
         return f"ambiguous form controls: {form['ambiguous']}"
-    if not re.search(r"(?<![A-Z0-9])" + re.escape(spec.venue_symbol.upper()) + r"(?![A-Z0-9])",
-                     str(form.get("form_text") or "").upper()):
+    # dxtrade's check: a symbol input's value decides when the form has one.
+    if not form_names_symbol(form, spec.venue_symbol):
         return f"the open form does not name {spec.venue_symbol}"
     need = ["quantity", "stop_loss", "take_profit"] + (["price"] if spec.order_type == "limit" else [])
     missing = [k for k in need if k not in (form.get("fields") or {})]
@@ -430,7 +500,40 @@ def check_form_shape(form: Mapping[str, Any], spec: BracketSpec) -> Optional[str
     side_btn = "side_buy" if spec.side == "long" else "side_sell"
     if side_btn not in buttons:
         return f"no {side_btn} selector in the form"
+    # Never a control outside the ticket column (a chart's own price buttons).
+    outside = verify_buttons_in_panel(form)
+    if outside:
+        return "control outside the ticket panel: " + "; ".join(outside)
     return None
+
+
+def read_back(form: Mapping[str, Any], spec: BracketSpec, want: Mapping[str, float]) -> List[str]:
+    """dxtrade's full pre-submit read-back (ORDER ENTRY rule 4): symbol, side,
+    order type, every typed value (a price within one declared tick), both
+    bracket legs armed, every clickable control inside the ticket column."""
+    mism = [] if form_names_symbol(form, spec.venue_symbol) else [f"symbol: form no longer names {spec.venue_symbol}"]
+    mism += verify_form_selection(form, spec.side, spec.order_type)
+    mism += verify_form_values(form.get("fields") or {}, want, abs_tol=price_tolerances(spec, want))
+    mism += verify_bracket_legs(form)
+    mism += verify_buttons_in_panel(form)
+    return mism
+
+
+def normalise_row_facts(facts: Mapping[str, Any]) -> Dict[str, Any]:
+    """A row with no side cell and a SIGNED size (the positions reader's own
+    rule) reads its side from the sign and its size unsigned; anything else
+    is passed through for ``_row_facts_mismatch`` to judge."""
+    out = dict(facts or {})
+    size = parse_number(out.get("size"))
+    if _side(out.get("side")) is None and size is not None and size != 0:
+        out["side"] = "short" if size < 0 else "long"
+        out["size"] = _fmt_num(abs(size))
+    return out
+
+
+#: Rule 9's refusal, one wording for every armed call.
+ARMED_REFUSAL = ("armed {what} refused on breakout_terminal: {flow} is unmeasured, nothing was clicked "
+                 "(wire it against the probe's captured DOM: PI-20260928-DRBVUUDJ-0001)")
 
 
 # ── the adapter ──────────────────────────────────────────────────────────
@@ -762,9 +865,26 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
         except Exception:
             return False
 
+    def one_click_dump(self, page: Any) -> Dict[str, Any]:
+        """Read-only structure around the one-click label (dxtrade's ONE_CLICK_DUMP_JS)."""
+        try:
+            return self._t(page).evaluate(ONE_CLICK_DUMP_JS) or {"found": False}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
+    def controls_dump(self, page: Any) -> Dict[str, Any]:
+        """Read-only, digit-masked map of the page's controls (dxtrade's CONTROLS_DUMP_JS)."""
+        try:
+            return self._t(page).evaluate(CONTROLS_DUMP_JS) or {"found": False}
+        except Exception as exc:
+            return {"found": False, "error": type(exc).__name__}
+
     def probe_order_ticket(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
         """READ-ONLY: open the form (only with one-click OFF), record its
-        shape, classify it, close it. Types nothing; no side/type/submit."""
+        shape, classify it, close it. Types nothing; no side/type/submit.
+        When the ticket did not open, or the one-click state is unreadable,
+        the digit-masked control map / one-click structure is attached so the
+        FIRST probe run measures what to build against."""
         opened = self.open_order_ticket(page, venue_symbol)
         form = opened.get("form") or {}
         surface = classify_ticket_surface(form) if opened.get("opened") else (
@@ -775,18 +895,31 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
             "fields": {k: {"label": v.get("label"), "disabled": v.get("disabled")}
                        for k, v in (form.get("fields") or {}).items()},
             "buttons": form.get("buttons") or {}, "checkboxes": form.get("checkboxes") or [],
+            "selected": form.get("selected"), "symbol_value": form.get("symbol_value"),
+            "names_symbol": form_names_symbol(form, venue_symbol) if form.get("found") else None,
+            "submit_outside_form": bool(form.get("submit_outside_form")),
             "ambiguous": form.get("ambiguous") or [],
             "canvases_in_form": form.get("canvases_in_form"),
             "canvases_in_page": form.get("canvases_in_page"),
-            "inputs_in_page": form.get("inputs_in_page"), "form_text": form.get("form_text", ""),
+            "inputs_in_page": form.get("inputs_in_page"),
+            # Length only (as dxtrade, #13855): the raw form text can carry
+            # the account number and this result goes to a PUBLIC run log.
+            "form_text_len": len(form.get("form_text") or ""),
         }
-        if opened.get("opened"):
+        if (opened.get("one_click") or {}).get("state") not in ("on", "off"):
+            result["one_click_dump"] = self.one_click_dump(page)
+        if not opened.get("opened"):
+            result["controls_dump"] = self.controls_dump(page)
+        else:
             result["closed"] = self.close_order_ticket(page)
         return result
 
     def place_bracket(self, page: Any, spec: BracketSpec, *, arm: bool = False) -> PlaceAttempt:
-        """One order with SL AND TP attached at entry; ``arm=False`` stops at
-        ``form_verified``. ``submitted`` means only that submit was clicked."""
+        """One order with SL AND TP attached at entry. Walks dxtrade's path up
+        to the submit (side / type only when not already shown selected, SL /
+        TP toggles on, quantity first, every field read back) and stops at
+        ``form_verified``. ``arm=True`` walks the same path and then REFUSES
+        (rule 9): the submit and its confirmation are unmeasured here."""
         bad = check_bracket_spec(spec)
         if bad:
             return PlaceAttempt(stage="refused", detail="; ".join(bad))
@@ -807,60 +940,58 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
         want = {"quantity": spec.quantity, "stop_loss": spec.stop_loss, "take_profit": spec.take_profit}
         if spec.order_type == "limit":
             want["price"] = float(spec.limit_price)
+        step = "start"
         try:
-            tp.click(f"[data-metis-btn={'side_buy' if spec.side == 'long' else 'side_sell'}]", timeout=5_000)
+            shown = form.get("selected") or {}
+            step = "side click"
+            if shown.get("side") != ("buy" if spec.side == "long" else "sell"):
+                tp.click(f"[data-metis-btn={'side_buy' if spec.side == 'long' else 'side_sell'}]", timeout=5_000)
+            step = "order-type click"
             type_btn = "type_limit" if spec.order_type == "limit" else "type_market"
-            if type_btn in (form.get("buttons") or {}):
+            if shown.get("order_type") != spec.order_type and type_btn in (form.get("buttons") or {}):
                 tp.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
             form = self._find_form(page)
             # Choosing a side must not have consumed the form (rule 7).
             if check_form_shape(form, spec):
                 return refuse("form changed after choosing side/type: " + str(check_form_shape(form, spec)), form)
             for leg in ("stop_loss", "take_profit"):
+                step = f"{leg} toggle click"
                 fld = (form.get("fields") or {}).get(leg) or {}
-                if fld.get("disabled"):
-                    tog = [c for c in form.get("checkboxes") or [] if c.get("field") == leg]
-                    if len(tog) != 1 or tog[0].get("checked"):
-                        return refuse(f"{leg} field is disabled and has no single enabling toggle")
+                tog = [c for c in form.get("checkboxes") or [] if c.get("field") == leg]
+                if len(tog) > 1:
+                    return refuse(f"{leg}: {len(tog)} enabling toggles (ambiguous)", form)
+                if len(tog) == 1 and not tog[0].get("checked"):
                     tp.click(f"[data-metis-field={leg}_toggle]", timeout=5_000)
+                elif not tog and fld.get("disabled"):
+                    return refuse(f"{leg} field is disabled and has no enabling toggle", form)
             form = self._find_form(page)
-            for k, v in want.items():
-                tp.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
+            # Quantity first, then settle (dxtrade #13965: a size change made
+            # the terminal recompute its own SL / TP over the typed ones).
+            for k in ["quantity"] + [k for k in want if k != "quantity"]:
+                step = f"{k} fill"
+                tp.fill(f"[data-metis-field={k}]", _fmt_num(want[k]), timeout=5_000)
+                if k == "quantity":
+                    tp.wait_for_timeout(600)
+            tp.wait_for_timeout(300)
             form = self._find_form(page)
         except Exception as exc:
-            return refuse(f"typing into the form failed ({type(exc).__name__})")
-        mism = verify_form_values(form.get("fields") or {}, want)
+            return refuse(f"typing into the form failed at {step} ({type(exc).__name__})")
+        mism = read_back(form, spec, want)
         if mism:
             return refuse("form read-back mismatch: " + "; ".join(mism), form)
-        if not arm:
-            self.close_order_ticket(page)
-            return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
-        oc = self.read_one_click(page)
-        if oc.get("state") != "off":
-            return refuse(f"one-click trading changed to {oc.get('state')} before submit")
-        try:
-            tp.click("[data-metis-btn=submit]", timeout=5_000)
-        except Exception as exc:
-            return PlaceAttempt(stage="submitted", submitted=True,
-                                detail=f"submit click raised {type(exc).__name__}; outcome unknown", form=form)
-        self._confirm_dialog(tp)
-        return PlaceAttempt(stage="submitted", submitted=True, detail="submit clicked", form=form)
-
-    @staticmethod
-    def _confirm_dialog(tp: Any) -> bool:
-        try:
-            tp.wait_for_timeout(1_000)
-            loc = tp.locator("[role=dialog], [role=alertdialog]").get_by_role(
-                "button", name=re.compile(r"^(confirm|ok|yes|place order)$", re.IGNORECASE))
-            if loc.count() == 1:
-                loc.first.click(timeout=5_000)
-                return True
-        except Exception:
-            pass
-        return False
+        form = {**form, "one_click": self.read_one_click(page)}
+        if arm:
+            oc = form["one_click"]
+            if oc.get("state") != "off":
+                return refuse(f"one-click trading changed to {oc.get('state')} before submit", form)
+            return refuse(ARMED_REFUSAL.format(what="submit", flow="the submit and its confirmation"), form)
+        self.close_order_ticket(page)
+        return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
 
     def _row_action(self, page: Any, kind: str, key_col: str, key: str,
                     action_re: str, arm: bool) -> Dict[str, Any]:
+        """Locate exactly one row and one control in it; never clicks (an
+        armed call refuses at the click, rule 9)."""
         tp = self._t(page)
         try:
             got = tp.evaluate(ROW_ACTION_JS, [kind, key_col, key, action_re]) or {}
@@ -868,15 +999,12 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
             return {"ok": False, "clicked": False, "why": f"probe failed ({type(exc).__name__})"}
         if got.get("rows") != 1 or got.get("controls") != 1:
             return {"ok": False, "clicked": False,
-                    "why": f"need exactly 1 row and 1 control (rows={got.get('rows')}, controls={got.get('controls')})"}
-        if not arm:
-            return {"ok": True, "clicked": False, "why": "disarmed: stopped before the click"}
-        try:
-            tp.click("[data-metis-row-action]", timeout=5_000)
-        except Exception as exc:
-            return {"ok": True, "clicked": True, "why": f"click raised {type(exc).__name__}; outcome unknown"}
-        self._confirm_dialog(tp)
-        return {"ok": True, "clicked": True, "why": "clicked"}
+                    "why": _mask_public_text(f"need exactly 1 row and 1 control (rows={got.get('rows')}, "
+                                             f"controls={got.get('controls')}, {got.get('why')})")}
+        if arm:
+            return {"ok": False, "clicked": False,
+                    "why": ARMED_REFUSAL.format(what=f"{kind} row action", flow="its confirmation")}
+        return {"ok": True, "clicked": False, "why": "disarmed: stopped before the click"}
 
     def cancel_order(self, page: Any, order: WorkingOrder, *, arm: bool = False) -> Dict[str, Any]:
         if not order or not order.order_id:
@@ -885,20 +1013,91 @@ class BreakoutTerminalAdapter(PropPlatformAdapter):
         return self._row_action(page, "orders", "Order ID", str(order.order_id),
                                 r"^(cancel|cancel order|×|✕|x)$", arm)
 
-    def flatten(self, page: Any, symbol: Optional[str] = None, *, arm: bool = False) -> Dict[str, Any]:
-        """Close ONE symbol's position (never close-all). Matches the row by
-        the symbol cell under the first symbol-like header the table uses."""
+    def flatten(self, page: Any, symbol: Optional[str] = None, *, arm: bool = False,
+                side: Optional[str] = None, quantity: Optional[float] = None,
+                entry_price: Optional[float] = None, rel_tol: float = 0.02) -> Dict[str, Any]:
+        """Locate the close control of ONE symbol's position with dxtrade's
+        hardened watched-close selection (#14216; module docstring): the one
+        positions row for ``symbol`` whose side / size / entry match what the
+        caller means to close (when given) -> hover -> the row's LAST control,
+        the only close-type one. Disarmed it stops there. Armed it REFUSES
+        before the click (rule 9: the close confirmation is unmeasured).
+        Never "close all": a symbol is required. Same signature as dxtrade's,
+        which the executor's watched close calls with the row facts."""
         if not symbol:
             return {"ok": False, "clicked": False, "why": "symbol required (no close-all)"}
         tp = self._t(page)
         self._show_tab(tp, ("Positions",))
-        key_col = next((c for c in SYMBOL_COLS
-                        if any(_find_col(t.get("headers") or [], (c,)) is not None
-                               for t in self._tables(tp) if _is_positions_table(t.get("headers") or []))), None)
-        if key_col is None:
-            return {"ok": False, "clicked": False, "why": "no positions table found"}
-        return self._row_action(page, "positions", key_col, symbol,
-                                r"^(close|close position|market close|×|✕|x)$", arm)
+        try:
+            loc = tp.evaluate(CLOSE_ROW_JS, ["locate", symbol]) or {}
+        except Exception as exc:
+            return {"ok": False, "clicked": False, "why": f"locate failed ({type(exc).__name__})"}
+        if not loc.get("ok"):
+            return {"ok": False, "clicked": False, "why": _mask_public_text(loc.get("why") or "row not located"),
+                    "rows": loc.get("rows")}
+        facts = normalise_row_facts(loc.get("facts") or {})
+        bad = _row_facts_mismatch(facts, side, quantity, entry_price, rel_tol)
+        if bad:
+            return {"ok": False, "clicked": False,
+                    "why": _mask_public_text("row does not match the position to close: " + "; ".join(bad)),
+                    "row": facts}
+        try:
+            tp.hover("[data-metis-close-row]", timeout=5_000)
+            tp.wait_for_timeout(400)
+            ctl = tp.evaluate(CLOSE_ROW_JS, ["controls", symbol]) or {}
+        except Exception as exc:
+            return {"ok": False, "clicked": False, "why": f"hover / controls failed ({type(exc).__name__})", "row": facts}
+        controls = _mask_controls(ctl.get("controls"))
+        if not ctl.get("ok"):
+            return {"ok": False, "clicked": False, "why": _mask_public_text(f"close control: {ctl.get('why')}"),
+                    "row": facts, "controls": controls}
+        if arm:
+            return {"ok": False, "clicked": False,
+                    "why": ARMED_REFUSAL.format(what="close", flow="the close confirmation"),
+                    "row": facts, "controls": controls, "chosen": ctl.get("chosen")}
+        return {"ok": True, "clicked": False, "why": "disarmed: stopped before the row's close control",
+                "row": facts, "controls": controls, "chosen": ctl.get("chosen")}
+
+    def dump_tables(self, page: Any, secrets: Sequence[str] = ()) -> List[str]:
+        """READ-ONLY diagnostic of the read path (dxtrade's ``dump_tables``,
+        this terminal's view tabs): per tab, whether the click landed, then
+        every table found, how the readers classify it, its first rows and
+        the first row's controls as markup (hovered first, since row controls
+        may appear only on hover). Clicks only VIEW tabs (role=tab); a hover
+        is not a click. Every string is redacted and 5+-digit runs masked."""
+        tp = self._t(page)
+
+        def r(t: Any, n: int = 40) -> str:
+            return _cap(_mask_public_text(redact_text(str(t or ""), *secrets)), n)
+
+        lines: List[str] = ["dump_tables: BEGIN (read-only; ids masked)"]
+        for names in (("Positions",), ("Open Orders", "Orders"), ("Order History",), ("Trade History",)):
+            shown = self._show_tab(tp, names)
+            try:
+                tp.evaluate("() => { document.querySelectorAll('[data-metis-hover]').forEach(e => e.removeAttribute('data-metis-hover'));"
+                            " const r = [...document.querySelectorAll('table tr')].find(r => r.querySelector('td'));"
+                            " if (r) r.setAttribute('data-metis-hover', '1'); }")
+                if tp.locator("[data-metis-hover]").count() == 1:
+                    tp.hover("[data-metis-hover]", timeout=3_000)
+                    tp.wait_for_timeout(300)
+            except Exception:
+                pass
+            tables = self._tables(tp)
+            lines.append(f"dump_tables[{names[0]}]: tab_click={shown} tables={len(tables)}")
+            for i, t in enumerate(tables):
+                headers = list(t.get("headers") or [])
+                reads_as = ("positions" if _is_positions_table(headers)
+                            else "orders" if _is_orders_table(headers) else "neither")
+                rows = t.get("rows") or []
+                lines.append(f"dump_tables.table[{i}] kind={t.get('kind')} reads_as={reads_as} rows={len(rows)} "
+                             f"headers={[r(h) for h in headers]}")
+                if reads_as != "neither" and t.get("first_row_control_html"):
+                    lines.append(f"dump_tables.table[{i}].first_row_control_html: "
+                                 f"{[r(h, 240) for h in t.get('first_row_control_html')]}")
+                for row in rows[:3]:
+                    lines.append(f"dump_tables.row[{i}]: {[r(c) for c in row]}")
+        lines.append("dump_tables: END")
+        return lines
 
     def modify_bracket(self, page: Any, position: Position,
                        stop_loss: Optional[float], take_profit: Optional[float],
