@@ -372,6 +372,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/squeeze-breakout-complement-2026-05-24.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/strategy-loss-drivers-2026-05-23.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-portfolio-backtest-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/AUD-6.md` | evidence | unknown | — | 2026-09-29 | `dir:audits-are-measurement / read:dispatch-audit-E75` | CI guard health audit; findings filed in docs/claude/work/pipeline/ |
 | `docs/audits/walkforward-flip-policy-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/automation/oci-storage-setup.md` | unknown | unknown | — | never | `not-assessed / not-assessed` | — |
 | `docs/backtests/sprint-015/harness-validation.md` | evidence | unknown | — | never | `dir:backtests-are-measurement / not-assessed` | — |
