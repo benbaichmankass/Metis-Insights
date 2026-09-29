@@ -58,6 +58,13 @@
 #                        `open`, CLOSE it at market, confirm flat by re-read,
 #                        report `closed`. Refused unless PROP_EXECUTOR_MODE=live.
 #                        Tell the operator before dispatching.
+#     close-position   — locate the ONE existing position for the symbol (add
+#                        `sol` for SOLUSD) and its row close control through
+#                        the terminal's own flow, read back, click nothing.
+#     close-position-live — CLOSE that position (row x -> "Close Position"
+#                        modal, every step read back) and journal open +
+#                        closed via POST /api/bot/prop/report. Refused
+#                        unless PROP_EXECUTOR_MODE=live.
 #   Executor timer (the go-live switch's second half; not a terminal run):
 #     executor-enable-timer  — install deploy/opt-in/ict-prop-executor.timer
 #                              and `systemctl enable --now` it. Go-live is
@@ -95,6 +102,7 @@ case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
 case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
 EXEC_MODE=""
 for m in probe-ticket executor-dry-run watched-click round-trip-dry round-trip-live \
+         close-position close-position-live \
          executor-enable-timer executor-disable-timer executor-clear-halt; do
     case ",${APPLY}," in *",${m},"*)
         if [ -n "${EXEC_MODE}" ]; then
@@ -282,6 +290,8 @@ if [ -n "${EXEC_MODE}" ]; then
         watched-click)    EARGS+=(--watched-click) ;;
         round-trip-dry)   EARGS+=(--round-trip "${RT_SYMBOL}") ;;
         round-trip-live)  EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
+        close-position)      EARGS+=(--close-position "${RT_SYMBOL}") ;;
+        close-position-live) EARGS+=(--close-position "${RT_SYMBOL}" --live) ;;
     esac
     log "Running prop executor (${EXEC_MODE}, account=${ACCOUNT}, PROP_EXECUTOR_MODE=${PROP_EXECUTOR_MODE:-unset→read_only})"
     set +e
