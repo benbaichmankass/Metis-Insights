@@ -56,6 +56,12 @@ def sh(cmd, cwd, timeout=900):
 
 
 def run_guard(wt, guard):
+    # run_guards.py treats an explicit --pr-diff as caller-supplied and does not
+    # generate it, so write the diff here, fresh, before EVERY run (controls get
+    # an empty one). Without this, `{pr_diff}` guards die on a missing file.
+    d = subprocess.run(["git", "diff", "origin/main...HEAD"], cwd=wt, text=True,
+                       capture_output=True).stdout
+    (Path(wt) / ".plant-pr.diff").write_text(d)
     argv = ["python3", "scripts/ci/run_guards.py", "--only", guard, "--all",
             "--base-ref", "main", "--pr-diff", str(Path(wt) / ".plant-pr.diff")]
     p = subprocess.run(argv, cwd=wt, text=True, capture_output=True, timeout=1500)
