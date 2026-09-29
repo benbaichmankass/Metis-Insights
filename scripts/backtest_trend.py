@@ -257,7 +257,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  trail_vol_tight_mult: float = 0.0,
                  be_floor_r: float = 0.0,
                  trades_out: Optional[List["Trade"]] = None,
-                 vol_pctl_override: Optional[Sequence[float]] = None) -> Dict[str, Any]:
+                 vol_pctl_override: Optional[Sequence[float]] = None,
+                 entry_override: Optional[Dict[int, Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Run the Donchian trend backtest and return its summary dict.
 
     ``trades_out`` — when a list is passed, the engine's ``Trade`` objects are
@@ -404,6 +405,20 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         elif c < lo:
             direction = "short"
             breakout_depth = (lo - c) / atr
+        # Research-only hook (None = byte-identical) — same contract as the
+        # pullback harness's entry_override: the ENTRY decision per bar comes
+        # from outside ({bar_index: {"direction", "entry", "atr", optional
+        # "rest_high"/"rest_low"}}), a bar not in it is skipped, and exits,
+        # costs and bookkeeping stay this harness's own. Used by
+        # scripts/research/whole_signal_forming_bar_replay.py
+        # (PI-20260929-VOLSKIP-0001), which disables the gates it applied.
+        _ov = None
+        if entry_override is not None:
+            _ov = entry_override.get(i)
+            direction = None if _ov is None else str(_ov["direction"])
+            if _ov is not None:
+                c, atr = float(_ov["entry"]), float(_ov["atr"])
+                breakout_depth = ((c - hi) if direction == "long" else (lo - c)) / atr
         if direction is None:
             i += 1
             continue
@@ -548,7 +563,23 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         peak_j = entry_i          # bar of the last NEW favourable extreme
         banked = False            # M20 partial-TP rung filled?
         rr_min: Optional[float] = None   # lowest rr_from_here seen while open
-        for j in range(entry_i + 1, min(entry_i + timeout_bars + 1, n)):
+        # entry_override only: a stop/target touched in the entry bar's range
+        # AFTER the entry tick exits on the entry bar (SL-first, no ratchet on
+        # that remainder — conservative). None on every harness-decided entry.
+        _rest_hit = None
+        if _ov is not None and _ov.get("rest_high") is not None:
+            _rh, _rl = float(_ov["rest_high"]), float(_ov["rest_low"])
+            if direction == "long":
+                if _rl <= sl:
+                    _rest_hit = (sl, "stop")
+                elif tp_price is not None and _rh >= tp_price:
+                    _rest_hit = (tp_price, "take_profit")
+            else:
+                if _rh >= sl:
+                    _rest_hit = (sl, "stop")
+                elif tp_price is not None and _rl <= tp_price:
+                    _rest_hit = (tp_price, "take_profit")
+        for j in range(entry_i + 1, min(entry_i + timeout_bars + 1, n)) if _rest_hit is None else ():
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0 = off, byte-identical): bank
             # `bank_frac` of the position when price touches entry ± bank_at_r ×
@@ -679,6 +710,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                         exit_price, exit_idx = _bc, j
                         exit_reason = "rr_floor_exit"
                         break
+        if _rest_hit is not None:
+            exit_price, exit_reason = _rest_hit
+            exit_idx = entry_i
         if rr_min is not None:
             _rr_min_per_trade.append(rr_min)
         if exit_price is None:
