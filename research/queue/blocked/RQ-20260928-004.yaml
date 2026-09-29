@@ -1,6 +1,6 @@
 id: RQ-20260928-004
 title: M19 S2-sizing — does budget-neutral fractional sizing by the S1 veto score beat flat sizing and conviction sizing on net R per unit drawdown?
-status: blocked
+status: retired
 cadence: once
 kind: experiment
 
@@ -133,8 +133,33 @@ lands:
 
 related:
   - docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md (§ 4 S2-sizing)
-  - RQ-20260928-002 / blocked/RQ-20260928-003 (the S1 verdicts this waits on)
-  - RQ-20260928-005 (S2-exit, the other half of S2)
+  - RQ-20260928-002 / RQ-20260928-003 (the S1 verdicts this waited on -- both fail)
+  - RQ-20260928-005 (S2-exit, the other half of S2 -- NOT killed by this; independent)
   - docs/research/C1-conviction-sizing-evidence-2026-08-04.md (the sizing comparator)
   - PI-20260928-VNMMNBJH-0001 (build item), PI-20260928-VNMMNBJH-0003 (follow-through)
 last_dispatched_at: null
+terminal_reason: S1 line exhausted 2026-09-29
+note: >-
+  KILLED 2026-09-29 by lane session_01TR74tvLR2AjCzrJMeBs47A (manager
+  session_01HYq6XtfesZ57VyaQrK6CL1), per PI-20260928-VNMMNBJH-0003's
+  follow-through and this unit's own blocked_on(a): "a sizing layer on a
+  score with no veto information is noise on noise."
+  RQ-20260928-002 (S1-v0) landed verdict fail 2026-09-29
+  (veto_delta_r=-0.0502, perm_p=0.996) --
+  research/results/RQ-20260928-002/session_01TR74tvLR2AjCzrJMeBs47A-rq20260928-002-20260929.jsonl.
+  RQ-20260928-003 (S1, market-state) landed verdict fail 2026-09-29, its own
+  rule's two-null-exhaustion branch (arm row_plus_market veto_delta_r=-0.0563,
+  perm_p=0.998; both -002 and -003 null at declared power; 100 %
+  market-state coverage, so not a coverage-limited null) --
+  research/results/RQ-20260928-003/36605776035.jsonl. Neither S1 candidate
+  ever passed, so blocked_on(a) can never clear on the current corpus: this
+  is never dispatched. Never wired to any order path, config, roster or
+  registry -- what_it_does_not_do was already true and stays true. A later
+  S1 refinement (new features, a different label, more data) would need its
+  OWN pre-registered unit, not a re-opening of this one.
+  This is Tier-1 research-queue bookkeeping (a `status` and `note` edit on an
+  already-blocked, never-dispatched unit) -- no config/roster/gate/order-path
+  touched -- and is the mechanical application of RULE-RQ0928-003's own
+  pre-registered rule, not a new Tier-3 decision; reported to the manager
+  rather than held for approval, per the data-backed-decision standing
+  authorization.
