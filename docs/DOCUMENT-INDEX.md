@@ -377,6 +377,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-4.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-5.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-6.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/briefs/AUD-6b.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-7.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-8.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-portfolio-backtest-2026-05-30.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
