@@ -232,3 +232,82 @@ def test_the_landing_machinery_self_tests_still_pass(script):
     p = subprocess.run([sys.executable, script, "--self-test"],
                        cwd=REPO, capture_output=True, text=True)
     assert p.returncode == 0, p.stdout + p.stderr
+
+
+# ── the two network reads A7 now depends on (review of #13609) ─────────────
+# Mocked urlopen only: these prove the READERS fail closed and parse what the
+# real API returns. They never touch the network.
+import io as _io  # noqa: E402
+import urllib.error as _ue  # noqa: E402
+import zipfile as _zf  # noqa: E402
+
+
+class _Resp:
+    def __init__(self, body: bytes):
+        self._b = body
+
+    def read(self):
+        return self._b
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_fetch_run_without_a_repository_could_not_look(monkeypatch):
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    run, how = autoland.fetch_run("1")
+    assert run is None and "GITHUB_REPOSITORY" in how
+
+
+def test_fetch_run_http_error_is_could_not_look_never_a_run(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+
+    def boom(req, timeout=0):
+        raise _ue.HTTPError(req.full_url, 404, "nope", {}, None)
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    run, how = autoland.fetch_run("1")
+    assert run is None and "404" in how
+
+
+def test_fetch_run_returns_the_parsed_run(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    payload = {"path": autoland.WORKFLOW_REL, "head_branch": "main"}
+    monkeypatch.setattr("urllib.request.urlopen",
+                        lambda req, timeout=0: _Resp(json.dumps(payload).encode()))
+    run, _ = autoland.fetch_run("1")
+    assert run == payload
+
+
+def test_fetch_provenance_with_no_artifact_refuses(monkeypatch):
+    """A dry (apply=false) dispatch uploads nothing: its genuine id buys nothing."""
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setattr("urllib.request.urlopen",
+                        lambda req, timeout=0: _Resp(b'{"artifacts": []}'))
+    rec, how = autoland.fetch_provenance("1")
+    assert rec is None and "uploaded no" in how
+
+
+def test_fetch_provenance_reads_the_record_and_never_forwards_the_token(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.setenv("GITHUB_TOKEN", "t0ken")
+    buf = _io.BytesIO()
+    with _zf.ZipFile(buf, "w") as z:
+        z.writestr(autoland.PROVENANCE_FILE, json.dumps({"run_id": "1", "head_sha": "abc"}))
+    seen = []
+
+    def fake(req, timeout=0):
+        seen.append(req)
+        if "/artifacts?" in req.full_url:
+            return _Resp(json.dumps({"artifacts": [
+                {"id": 9, "name": autoland.PROVENANCE_ARTIFACT, "expired": False,
+                 "created_at": "2026-09-28T00:00:00Z"}]}).encode())
+        return _Resp(buf.getvalue())
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    rec, _ = autoland.fetch_provenance("1")
+    assert rec == {"run_id": "1", "head_sha": "abc"}
+    # The Authorization header is UNREDIRECTED, so the 302 to blob storage never carries it.
+    assert all("Authorization" not in r.headers and "Authorization" in r.unredirected_hdrs
+               for r in seen)

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH): a new workflow_dispatch-only workflow (research-script-run.yml) that runs a queue unit's committed research script on a GitHub runner with no secret beyond GITHUB_TOKEN, its runner brain (scripts/research/script_run.py), a grid+grader for prop_ev_sim (scripts/research/prop_ev_grid.py), a CI guard + tests, a dispatcher preflight, the dispatcher cron moved to every 6h with the keeper-actor FIRE clause, docs, and the run: blocks of four queue units retargeted to it (their pre-registered decision rules untouched). CI/tooling/research surface only: no src/, no config/, no order path, no deploy, no live-VM runtime file. Tier-1 by the canonical doc's own list, self-landed via automerge + the per-branch merge-slot claim."
+}

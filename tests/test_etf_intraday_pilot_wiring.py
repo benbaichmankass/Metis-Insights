@@ -88,7 +88,13 @@ def test_yaml_entries_pin_validated_params():
     assert gld["symbols"] == ["GLD"]
     assert gld["signal_prefixes"] == ["gld_pullback_1h"]
     assert (gld["trend_lookback"], gld["pullback_lookback"], gld["pullback_frac"]) == (60, 12, 0.5)
-    assert (gld["atr_period"], gld["atr_stop_mult"], gld["trail_mult"]) == (14, 2.5, 4.0)
+    # Geometry cell tp6_sm1.5_to24 (2026-09-28, operator "Ship the 3-part change";
+    # docs/research/gld-1h-stop-confirm/2026-09-28-confirming-walkforward.md).
+    # Supersedes the (14, 2.5, 4.0) pin and tp_r 4.0; the 24-bar time exit is the
+    # stale_stop pair (this unit has no timeout_bars reader).
+    assert (gld["atr_period"], gld["atr_stop_mult"], gld["trail_mult"]) == (14, 1.5, 4.0)
+    assert gld["tp_r"] == 6.0
+    assert (gld["stale_exit_bars"], gld["stale_exit_below_r"]) == (24, 1000000000.0)
     assert gld["timeframe"] == "1h"
     assert gld["min_confidence"] == 0.0 and gld["shadow_model_ids"] == []
     assert gld["model"] is None

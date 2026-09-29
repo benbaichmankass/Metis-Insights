@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "operator-directed (2026-09-28 ~13:40Z/13:45Z via manager session_01KAQRJxRbRwpYTkPgBjNVyQ, confirmed by the operator in lane PROP-EXEC's popup 'Build all three'); manager merges after independent Opus review; land BEFORE the executor PR #13647",
+  "why": "Per-account breach_guards: enforce|report in config/accounts.yaml risk blocks, default enforce (and enforce for any typo). breakout_1 = report: RiskManager DAILY_LOSS_CAP / INTRADAY_DRAWDOWN log a BREACH GUARD REPORT-ONLY warning and let the trade through instead of refusing; the breakout ticket's 'DO NOT PLACE' cushion caveat becomes one informational line. Unchanged: dry-run, GROSS_EXPOSURE_CAP, the 'cushion unknown' (could not look) caveat, the stale-snapshot refusal, the flat $75 sizing and its enforce cap, and every structural check. Every other account stays enforce (test pins that only breakout_1 is report). Rollback: delete the one breach_guards line in accounts.yaml."
+}

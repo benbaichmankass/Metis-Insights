@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): 'watched_click_max_lots PR (held; the manager merges)'. Every PR in this lane is held. Do not arm auto-merge.",
+  "why": "PROP-EXEC go-live step. (1) config/prop_platforms.yaml watched_click_max_lots {SOLUSD: 0.01}: the DOM states no minimum (probe #13855: qty_constraints empty), so the cap is the measured lot step (#13500); no valid size is smaller. (2) dxtrade.submit_label_mismatch: the terminal's submit label ('Buy <qty> SOLUSD at <price>', measured #13855) must state the typed qty and the venue symbol, so a venue clamp to a higher minimum refuses. This is what makes the D1-D7 dry run at 0.01 a measurement of the minimum. (3) get_env ALLOWED_KEYS += PROP_EXECUTOR_MODE so L8 ('mode back to read_only, confirmed') has a reader (manager decision 23:35Z). Tier 2: an order-path check and the executor's size cap on a funded prop account; no sizing rule, strategy or risk-cap change."
+}

@@ -177,7 +177,7 @@ def test_off_mode_short_circuits_the_gate_entirely(monkeypatch):
     sig, cfg = _ticket()
     t = build_ticket(sig, cfg)
     monkeypatch.setattr(prop_risk_gate, "caveat_lines",
-                        lambda v: ["  SENTINEL-GATE-RAN"])
+                        lambda v, **k: ["  SENTINEL-GATE-RAN"])
     monkeypatch.setenv("PROP_TICKET_RISK_GATE_MODE", "off")
     assert "SENTINEL-GATE-RAN" not in render_ticket(t, account_id="breakout_1")
     # ...and the same plant IS visible at the default, so the probe can fail.
@@ -187,12 +187,15 @@ def test_off_mode_short_circuits_the_gate_entirely(monkeypatch):
 
 def test_the_caveat_appears_ABOVE_the_size_it_contradicts(monkeypatch):
     """A "do not place" warning below the size is a warning the executor
-    scrolls past on a phone."""
+    scrolls past on a phone. Pinned to an ``enforce`` account: breakout_1 is
+    ``breach_guards: report`` since 2026-09-28 and gets an informational line
+    instead (tests/test_prop_breach_guards_report.py)."""
     from src.prop import prop_risk_gate
     from src.prop.breakout_ticket import build_ticket, render_ticket
     sig, cfg = _ticket()
     t = build_ticket(sig, cfg)
     monkeypatch.setenv("PROP_TICKET_RISK_GATE_MODE", "annotate")
+    monkeypatch.setattr(prop_risk_gate, "breach_guards_for", lambda a: "enforce")
     monkeypatch.setattr(
         prop_risk_gate, "grade_account_ticket_risk",
         lambda *a, **k: prop_risk_gate.grade_ticket_risk(

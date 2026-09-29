@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "changes_landing_machinery",
+  "hold_text": "Edits scripts/ci/check_pr_landing.py (TIER1_SURFACE + unvouched_paths), which is itself listed in LANDING_MACHINERY -- R12 bars this PR from self-landing by the very route it changes. Widening TIER1_SURFACE is also, by this repo's own MI-242 precedent, an operator decision, not a session's to land unattended.",
+  "why": "landing-machinery widening for PI-20260922-E5-... and PI-20260927-QBHR1EYJ-0001, operator-approved 2026-09-28 (ADMIN lane triage popup, verbatim answer \"Apply my recommendations (Recommended)\"); tier 3, must hold for manager/operator merge"
+}

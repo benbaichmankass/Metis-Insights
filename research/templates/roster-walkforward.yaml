@@ -1,0 +1,66 @@
+family: roster-walkforward
+weight: 15
+kind: experiment
+cadence: weekly
+title: "Walk-forward re-run of {leg}'s harness on fresh data (generated, weekly)"
+question: >-
+  Does {leg} ({symbol} {timeframe}, {harness} harness) still show net-of-cost
+  OOS edge when its harness is re-run on freshly fetched candles this week?
+why_this_matters: >-
+  A live leg's evidence record is a photograph; the roster trades the film.
+  A weekly harness re-run per leg is the cheapest standing check that the
+  offline edge the record claims is still there on data the record never saw.
+power:
+  expected_n: 50
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.45 -> 39 trades at alpha 0.05 / power 0.8 (the E35 floor). n is the
+    harness's own OOS trade count; below 39 the unit grades indeterminate.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Free-lane candle fetch through scripts/ops/fetch_backtest_corpus.py;
+      Bybit-hosted symbols may land producer_failed on a GitHub runner (known
+      geoblock), which is recorded honestly rather than retried.
+decision_rule:
+  id: "RULE-TPL-ROSTER-WALKFORWARD-NET-OF-COST"
+  statistic: >-
+    The harness's summary net-of-cost OOS R (fee + slippage + funding via
+    execution_costs.resolve_cost_policy) and OOS trade count, as mapped by
+    scripts/research/harness_dispatch_result.py.
+  rule: >-
+    PASS IF net-of-cost OOS R > 0 with n >= 39. FAIL IF net-of-cost OOS R <= 0
+    with n >= 39 -- one pass; a FAIL re-queues for a confirmatory run and
+    two consecutive FAILs are a Gate-2 demotion INPUT (never a demotion by
+    this unit). indeterminate IF n < 39 or the producer failed.
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 20
+  basis: one harness invocation per unit on a GitHub runner.
+run:
+  workflow: research-harness-dispatch.yml
+  inputs:
+    harness: "{harness}"
+    symbol: "{symbol}"
+    timeframe: "{timeframe}"
+    research_unit: "{unit_id}"
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+grid:
+  legs: live_roster_legs_with_e7_harness
+harness_by_leg_pattern:
+  # leg-name pattern -> E7 harness name (research-harness-dispatch.yml choices)
+  "_pullback_": pullback
+  "squeeze_": squeeze
+  "fade_": fade
+  "fvg_range": fvg_range
+  "chop_scalp": chop_scalp
+  "orb_": orb

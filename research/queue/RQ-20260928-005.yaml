@@ -154,3 +154,6 @@ related:
   - docs/research/M20-exit-refinement-2026-07-12.md § 8-9 (the walk-forward recipe and the below_half_r policy)
   - blocked/RQ-20260928-004 (S2-sizing, the other half of S2)
 last_dispatched_at: '2026-09-28T11:06:10+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  DISPOSITION: stays queued -- 1 of 3 legs landed; the other two were dispatched token-free on 2026-09-28 ~18:18Z. Landed: research/results/RQ-20260928-005/36413623634.jsonl, ict_scalp/SOLUSDT 15m, n_oos=108: FAIL on RULE-EXIT-HEAD-CLEARS-BAR (OOS AUC 0.5348, mean net-R improvement -0.0963/trade, cost_basis net_venue_bps 10.5). Under this unit's own rule that is recovered_R_oos <= 0 on one leg with n >= 64. XRPUSDT (research-exit-head-build run 36464183831) and ETHUSDT (run 36464257723) were dispatched by lane RQ-RUN with research_unit=RQ-20260928-005; their records land under research/results/RQ-20260928-005/ and the rule (2 of 3 / 1 of 3 / 0 of 3) is graded once all three rows exist.

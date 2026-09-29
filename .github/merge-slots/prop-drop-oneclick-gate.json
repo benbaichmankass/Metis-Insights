@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01MgLuRXL2LL1DXgrPnNxZGe",
+  "branch": "claude/prop-drop-oneclick-gate",
+  "claimed_at": "2026-09-28T18:08:59Z",
+  "purpose": "one-click toggle: diagnostic not gate; six-field read-back before submit"
+}

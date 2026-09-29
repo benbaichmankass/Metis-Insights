@@ -1,0 +1,193 @@
+id: RQ-20260928-013
+title: >-
+  Scoping pass — do this repo's existing ETF/futures proxies for Breakout's
+  4 Terminal-only instruments (S&P500, XYZ100, SILVER, CL) clear RULE-B6 V2
+  under a hypothetical Breakout Terminal account, if a re-bought account
+  lands there instead of DXTrade?
+status: done
+cadence: once
+kind: experiment
+
+question: >-
+  Operator direction 2026-09-28: prop is top priority, breach-and-rebuy is
+  accepted, and item (c) asks to "scope what we'd trade" on "the non-crypto
+  symbols that exist only on Breakout's own terminal, where any re-bought
+  account will land." docs/integrations/breakout-instruments-2026-09-27.md
+  confirms (first-party, `[CONFIRMED -- FAQ]`) FOUR such instruments -- CL
+  (crude oil), S&P500 (index CFD), SILVER, XYZ100 (Nasdaq-100 CFD) -- are
+  UNREACHABLE on breakout_1 as it exists today (a DXTrade account); reaching
+  them needs a NEW `breakout_terminal`-adapter account
+  (docs/research/prop-automation-options-2026-09-27.md § 2.4, "scoped only;
+  no login" -- not yet built). This repo already maps each Terminal
+  instrument to an existing ETF/futures leg with committed trade evidence
+  (S&P500->spy_trend_long_1d/spy_pullback_1h/mes_trend_long_1d, XYZ100->
+  qqq_trend_long_1d/tqqq_trend_long_1d, SILVER->slv_pullback_1d, CL->
+  uso_trend_1h -- flagged as a poor CL/WTI proxy). Question: re-pricing
+  those EXISTING trade sequences under Breakout's cost stack and Terminal
+  swap model (prorated, not dxtrade -- per the instruments doc), do any
+  clear E[profit before the account dies] > 0, i.e. is a `breakout_terminal`
+  adapter build (real engineering, not scoped here) worth prioritizing?
+
+why_this_matters: >-
+  This is explicitly a SCOPING pass, not a wiring decision -- the
+  `breakout_terminal` adapter does not exist (§ 2.4 is "scoped only"), so
+  nothing here can route real orders regardless of the result. The value is
+  answering, cheaply (re-pricing already-committed evidence, no new
+  backtest), whether building that adapter is worth the real engineering
+  cost BEFORE committing to it. A NULL/FAIL here does not kill the idea
+  (per the operator's standing rule) -- it says "don't build the adapter
+  FOR THIS REASON yet," leaving room for a later pass once the roster
+  changes or a real breach-and-rebuy actually happens.
+
+power:
+  expected_n: 250
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same d=0.3 / ~87-90 floor as RQ-20260928-011/-012. Per-leg n is each
+    evidence file's own trade count; report per leg, UNDERPOWERED below 88.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Re-grading of already-committed trade evidence (2026-09-24-e55 run,
+      confirmed present this session for all 5 candidate legs) under a
+      different cost stack -- no new candles, no new backtest, one-shot.
+
+design:
+  legs_and_data: >-
+    spy_trend_long_1d, spy_pullback_1h, mes_trend_long_1d (S&P500 proxies);
+    qqq_trend_long_1d, tqqq_trend_long_1d (XYZ100 proxies); slv_pullback_1d
+    (SILVER); uso_trend_1h (CL, flagged poor-basis proxy -- report but do
+    not weight equally with the others in the writeup). All from
+    comms/strategy_evidence/runs/2026-09-24-e55/ (verify latest committed run
+    per leg at dispatch time).
+  method: >-
+    scripts/research/prop_ev_sim.py --trades LEG=PATH --ruleset breakout
+    --costs breakout --sizing balance --risk-pct 0.015 --funded-start fresh
+    --swap-model prorated (Terminal, per docs/integrations/
+    breakout-instruments-2026-09-27.md -- NOT dxtrade, unlike RQ-20260928-011/
+    -012's crypto legs), default MC size, 5 seeds.
+  account_size_caveat: >-
+    These legs were built for alpaca_paper/ib_paper position sizing, not a
+    $5,000-class Breakout eval account -- position sizes and instrument
+    contract specs (MES micro futures vs S&P500 CFD, SLV ETF shares vs
+    SILVER CFD) do not map one-to-one. This unit re-prices the R-multiple
+    TRADE SEQUENCE (entries/exits/holding periods), which prop_ev_sim already
+    treats as venue-agnostic via its own risk-pct sizing -- but the
+    CONTRACT/LEVERAGE mismatch is a real caveat to carry into the writeup,
+    not resolved here.
+
+decision_rule:
+  id: RULE-RQ0928-013-BREAKOUT-TERMINAL-SCOPING
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per seed: ev_net_usd_per_life and P(net>0) from prop_ev_sim.
+  rule: >-
+    WORTH_BUILDING IF at least ONE leg clears ev_net_usd_per_life > 0 on ALL
+    5 seeds AND P(net>0) >= 0.70 on all 5 seeds (same 0.70 floor
+    RQ-20260928-012 uses, from the two live legs' own committed P(net>0))
+    -- a proposal to prioritize the `breakout_terminal` adapter build,
+    Tier-3/engineering, not decided here.
+    NOT_YET IF no leg clears both bars -- does not kill the Terminal-account
+    idea (operator's standing rule); records the read and the reason
+    (contract-mismatch caveat above may be why) so a later pass with
+    Terminal-native backtests, not ETF proxies, can re-open it.
+    The CL/uso_trend_1h result is reported separately from the S&P500/XYZ100/
+    SILVER results in the writeup regardless of verdict, given its
+    already-flagged poor-basis status.
+  what_it_does_not_do: >-
+    Does not build, scope the interface for, or estimate the engineering
+    cost of the `breakout_terminal` adapter -- that is
+    docs/research/prop-automation-options-2026-09-27.md's own job (already
+    partially done, § 2.4). This unit only answers whether the EV case exists
+    at all, using proxies this repo already has evidence for.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 25
+  basis: >-
+    6 legs x 1 arm x 5 seeds, prop_ev_sim's default MC size, same per-run cost
+    as RQ-20260928-011/-012.
+
+run:
+  workflow: research-script-run.yml
+  commands:
+  - - python3
+    - scripts/research/prop_ev_grid.py
+    - --leg
+    - spy_trend_long_1d
+    - --leg
+    - spy_pullback_1h
+    - --leg
+    - mes_trend_long_1d
+    - --leg
+    - qqq_trend_long_1d
+    - --leg
+    - tqqq_trend_long_1d
+    - --leg
+    - slv_pullback_1d
+    - --leg
+    - uso_trend_1h
+    - --arm
+    - A=--sizing balance --risk-pct 0.015
+    - --common
+    - --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model
+      prorated
+    - --seeds
+    - 1,2,3,4,5
+    - --grade
+    - pass_all_seeds
+    - --p-floor
+    - '0.70'
+    - --n-floor
+    - '88'
+    - --overall
+    - any
+    - --note
+    - 'uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally'
+    - --out
+    - '{out_dir}'
+    - --jobs
+    - '4'
+  timeout_minutes: 180
+  inputs:
+    research_unit: RQ-20260928-013
+  note: 'Retargeted 2026-09-28 (lane RQ-RUN) to the token-free runner: prop_ev_grid.py runs 7 legs x 1
+    arm x 5 seeds with --swap-model prorated (Terminal) and grades pass_all_seeds per leg; overall=any
+    mirrors WORTH_BUILDING ''at least ONE leg''. NOTE, stated up front rather than discovered on the runner:
+    the committed evidence files hold 5-61 trades per leg (all below the unit''s own 88 floor), so every
+    leg is expected to grade UNDERPOWERED (indeterminate) and the numbers are a report, not a decision
+    — the design''s ''verify latest at dispatch time'' is what grid.json records. The rule text is untouched.'
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 7
+  note: research/results/RQ-20260928-013/<run_id>.jsonl (E5 contract via .github/actions/research-result,
+    one row per leg); the raw grid + per-cell sim JSON land under comms/research/RQ-20260928-013/<run_id>/
+    in the same run.
+
+related:
+  - 'docs/integrations/breakout-instruments-2026-09-27.md (the 4-instrument Terminal-only table)'
+  - 'docs/research/prop-automation-options-2026-09-27.md § 2.4 (the breakout_terminal adapter, scoped only)'
+  - 'RQ-20260928-011 / RQ-20260928-012 (the sizing and short-TF-crypto sibling units)'
+last_dispatched_at: '2026-09-28T21:20:36+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against
+  the pre-registered rule, from committed results only; the run was token-free (research-script-run on main a5533f9,
+  fired by research-queue-dispatch run 36485344972 at 21:20Z). VERDICT: overall indeterminate (RULE-RQ0928-013, grade
+  pass_all_seeds, floors P>=0.70 and n>=88, overall any; run 36485459243; outputs PR #13829, E5 rows
+  research/results/RQ-20260928-013/36485459243.jsonl via PR #13840). ALL SEVEN LEGS UNDERPOWERED against the
+  pre-registered n>=88 floor: spy_trend_long_1d n=11, spy_pullback_1h n=61, mes_trend_long_1d n=5, qqq_trend_long_1d
+  n=8, tqqq_trend_long_1d n=12, slv_pullback_1d n=11, uso_trend_1h n=56 (164 committed trades in total, 35 cells, arm A,
+  seeds 1-5, --swap-model prorated). Point estimates, stated as underpowered and not weighted: six legs negative ev
+  (-1.5..-45 per life); uso_trend_1h +372..+403 with the unit's own flag that it is the poor-basis CL proxy and is
+  reported separately. WORTH_BUILDING requires at least one PASS leg: none. Disposition: not worth building on current
+  evidence; re-ask when any non-crypto leg's committed population reaches 88 (the roster-walkforward template's weekly
+  re-runs are what grows it).

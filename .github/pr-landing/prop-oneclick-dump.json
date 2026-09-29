@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; read-only probe extension, operator chose 'Build a toggle reader' 2026-09-28",
+  "why": "The probe-ticket run (issue #13711) found the 'One-click trading' label but no checkbox/switch/aria state near it, so the one-click state reads 'unknown' and the executor (correctly) refuses to touch any order control. This adds a READ-ONLY structural dump (ONE_CLICK_DUMP_JS: nearby elements' tag/class/role, short safe state-attribute values, short text, a few computed styles; never input values, cookies or storage) to the probe result when the state is unknown, so a reader can be written from the live page. Clicks nothing. Tier-2 by path (runs on the live VM via breakout-login-check)."
+}

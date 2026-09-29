@@ -1,0 +1,181 @@
+id: RQ-20260928-012
+title: >-
+  Shorter-timeframe crypto candidates for Breakout (ict_scalp_eth_15m,
+  ict_scalp_sol_15m, ict_scalp_sol_5m) graded under RULE-B6 V2 — viable now
+  that the executor places within one tick cycle (automation plan § 6)
+status: done
+cadence: once
+kind: experiment
+
+question: >-
+  Operator direction 2026-09-28: "we definitely need to keep on ... refining
+  strategies to fit them to the breakout account," with prop as the top
+  priority. docs/research/prop-automation-options-2026-09-27.md § 6 ("Roster
+  interplay"): "An executor places within one cycle, so shorter-timeframe
+  crypto legs become routable to breakout_1 if they clear the prop EV bar;
+  each needs its own prop-EV row." This repo's wire-ready Breakout crypto
+  subset is exactly three symbols (BTCUSD/ETHUSD/SOLUSD -- confirmed DXTrade
+  mapping in config/prop_rulesets/breakout_routing.yaml, per
+  docs/integrations/breakout-instruments-2026-09-27.md). BTC is excluded here:
+  MEASURED (this repo's own record) both BTC legs ever graded under the
+  Bybit cost stack FAILED and bybit_2 carries zero BTC exposure today -- no
+  reason to re-grade it first under a DIFFERENT venue's costs before a
+  cheaper ETH/SOL read exists. Question: do the shorter-timeframe ETH/SOL
+  legs with committed trade evidence (ict_scalp_eth_15m, ict_scalp_sol_15m,
+  ict_scalp_sol_5m) clear E[profit before the account dies] > account cost
+  under Breakout's cost stack and sizing (RULE-B6 V2), the same bar the two
+  live trend legs cleared?
+
+why_this_matters: >-
+  These three legs already have committed Bybit-cost-stack trade evidence
+  (comms/strategy_evidence/runs/2026-09-25/ict_scalp_{eth_15m,sol_15m,
+  sol_5m}__trades.jsonl) -- the population this unit grades is EXISTING,
+  already-graded-for-Bybit trades re-priced under Breakout's cost stack
+  (commission 8bps rt, dxtrade swap 3.3bps/day, breakout.yaml's drawdown
+  rules), the same "re-grade under a different venue" move
+  RQ-20260928-011 does for sizing. No new backtest needed for this first
+  pass. A PASS on any leg is a genuinely NEW roster candidate for breakout_1
+  (none of these three route there today); a FAIL is not a kill of the
+  underlying strategy (it still trades live on bybit_2) -- only a
+  Breakout-routing question.
+
+power:
+  expected_n: 250
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same d=0.3 floor (~87-90 obs) as RQ-20260928-011. Per-leg n is the
+    committed trade count in each evidence file -- report per leg; a leg
+    below 88 trades grades UNDERPOWERED, not FAIL, consistent with this
+    repo's established power-gate vocabulary.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      Re-grading of already-committed trade evidence under a different cost
+      stack and account ruleset -- no new candles, no new backtest run.
+      One-shot given the existing files; nothing accrues.
+
+design:
+  legs_and_data: >-
+    ict_scalp_eth_15m, ict_scalp_sol_15m, ict_scalp_sol_5m -- most recent
+    committed trades.jsonl per leg under comms/strategy_evidence/runs/
+    (verify latest at dispatch time; 2026-09-25 confirmed present this
+    session).
+  method: >-
+    scripts/research/prop_ev_sim.py --trades LEG=PATH --ruleset breakout
+    --costs breakout --sizing balance --risk-pct 0.015 --funded-start fresh
+    --swap-model dxtrade, default MC size, 5 seeds (matching RQ-20260928-011's
+    convention). Sizing fixed to `balance` (flat) here deliberately -- this
+    unit answers "is the STRATEGY viable on Breakout at all", not the sizing
+    question RQ-20260928-011 already owns; conflating the two axes in one run
+    would leave neither answer clean.
+  caveat_stated_not_hidden: >-
+    These trades were GENERATED against Bybit-fee/funding assumptions (the
+    strategy_evidence harness default), not re-simulated on Breakout-specific
+    fills. This unit re-PRICES the same trade sequence under Breakout's cost
+    stack -- it does not re-run entry/exit logic against Breakout's own
+    (currently unmodeled) execution characteristics. A PASS here is a
+    screening result, not a final wiring decision.
+
+decision_rule:
+  id: RULE-RQ0928-012-SHORT-TF-CRYPTO-BREAKOUT-B6
+  registered_at: '2026-09-28'
+  registered_before_run: true
+  statistic: >-
+    Per leg, per seed: ev_net_usd_per_life and P(net>0) from prop_ev_sim,
+    same fields RULE-B6 V2 already uses for the two live legs' own
+    graduation record (ETH +$883/0.8477, SOL +$483/0.7427 -- cited here as
+    the bar to beat, not a pass/fail threshold in themselves, since those
+    numbers are leg-specific).
+  rule: >-
+    PASS IF ev_net_usd_per_life > 0 on ALL 5 seeds AND P(net>0) >= 0.70 on
+    ALL 5 seeds (0.70 is the lower of the two live legs' own committed
+    P(net>0), used as the established floor rather than an arbitrary new
+    number). UNDERPOWERED IF the leg's trade n < 88 (the power floor above).
+    NULL IF ev_net_usd_per_life > 0 but P(net>0) < 0.70 on any seed, or the
+    reverse -- a real but marginal read, not a clean pass.
+    FAIL IF ev_net_usd_per_life <= 0 on any seed.
+    A PASS is a proposal to route the leg to breakout_1 (new strategies.yaml
+    entry + breakout_routing.yaml symbol mapping if not already wire-ready) --
+    Tier-3, not applied here. Per the operator's standing rule, a FAIL or
+    NULL here does not close the leg's Breakout candidacy permanently; it is
+    the FIRST pass, re-run on new evidence (e.g. once real Breakout fills
+    exist to re-price against, per the caveat above).
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 1.0
+  est_minutes: 20
+  basis: >-
+    Same order as RQ-20260928-011: 3 legs x 1 arm x 5 seeds, prop_ev_sim's
+    default MC size, each run well under a minute per prior sessions' use.
+
+run:
+  workflow: research-script-run.yml
+  commands:
+  - - python3
+    - scripts/research/prop_ev_grid.py
+    - --leg
+    - ict_scalp_eth_15m
+    - --leg
+    - ict_scalp_sol_15m
+    - --leg
+    - ict_scalp_sol_5m
+    - --arm
+    - A=--sizing balance --risk-pct 0.015
+    - --common
+    - --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model
+      dxtrade
+    - --seeds
+    - 1,2,3,4,5
+    - --grade
+    - pass_all_seeds
+    - --p-floor
+    - '0.70'
+    - --n-floor
+    - '88'
+    - --overall
+    - any
+    - --out
+    - '{out_dir}'
+    - --jobs
+    - '4'
+  timeout_minutes: 120
+  inputs:
+    research_unit: RQ-20260928-012
+  note: 'Retargeted 2026-09-28 (lane RQ-RUN) to the token-free runner: prop_ev_grid.py runs 3 legs x 1
+    arm x 5 seeds and grades pass_all_seeds per leg exactly as decision_rule.rule states (PASS / UNDERPOWERED->indeterminate
+    / NULL->indeterminate / FAIL, floors 0.70 and 88). The E5 record fans out one row per leg; the unit-level
+    verdict is ''any'' (at least one leg proposal-eligible) and is not the decision. The rule text is
+    untouched.'
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 3
+  note: research/results/RQ-20260928-012/<run_id>.jsonl (E5 contract via .github/actions/research-result,
+    one row per leg); the raw grid + per-cell sim JSON land under comms/research/RQ-20260928-012/<run_id>/
+    in the same run.
+
+related:
+  - 'docs/research/prop-automation-options-2026-09-27.md § 6 (the order-within-one-cycle premise)'
+  - 'docs/integrations/breakout-instruments-2026-09-27.md (wire-ready symbol subset: BTC/ETH/SOL only)'
+  - 'docs/research/b6-prop-ev/w6-crypto-candidates-2026-09-27.md (the prior 8-candidate crypto screen this extends)'
+  - 'RQ-20260928-011 (the sizing-axis sibling unit)'
+last_dispatched_at: '2026-09-28T21:20:36+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against
+  the pre-registered rule, from committed results only; the run was token-free (research-script-run on main a5533f9,
+  fired by research-queue-dispatch run 36485344972 at 21:20Z). VERDICT: overall indeterminate (RULE-RQ0928-012, grade
+  pass_all_seeds, floors P>=0.70 and n>=88, overall any; run 36485455793; E5 rows
+  research/results/RQ-20260928-012/36485455793.jsonl via PR #13831). PER LEG, --book resolution of each evidence
+  record's cost_stack.source, arm A (balance 1.5%), seeds 1-5, path mode: ict_scalp_eth_15m n=117 -> NULL/indeterminate
+  (ev > 0 on all 5 seeds but P(net>0) 0.44-0.46 < 0.70); ict_scalp_sol_15m n=132 -> NULL/indeterminate (ev > 0 all
+  seeds, P 0.36-0.37 < 0.70); ict_scalp_sol_5m n=259 -> FAIL (ev_net_usd_per_life negative, -24..-29, on every seed). No
+  leg passes, so the ict_scalp prop fit is not worth building on the committed evidence; the two 15m legs are
+  positive-EV but far from the survival floor. No follow-up unit filed: a re-run only changes the answer when the
+  evidence populations change (monthly re-fit is the prop-fit-breakout template's job once #13748/#13770 land).

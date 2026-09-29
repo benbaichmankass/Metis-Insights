@@ -1,6 +1,6 @@
 id: RQ-20260928-006
 title: M20 hard-lever sweep for the seven worst-covered price-only open legs (BL-20260818 re-measure)
-status: queued
+status: done
 cadence: once
 kind: deterministic
 
@@ -103,4 +103,7 @@ lands:
 related:
   - BL-20260818-MOST-OPEN-TRADES-HAVE-NO-DECISION-DRIVEN-EXIT
   - .claude/skills/exit-refinement/SKILL.md
-last_dispatched_at: null
+last_dispatched_at: '2026-09-28T14:11:42+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against the pre-registered rule, from committed results only.
+  VERDICT per leg (RULE-EXIT-REFINEMENT-P2-GATE, m20-exit-lever-sweep run 36434140504, 2026-09-28; per-leg E5 rows in research/results/_unattributed/36434140504.jsonl, landing via PR #13653 -- unattributed because this unit's run.inputs never carried research_unit; split_mode oos-trades, tp_cap_pct 0.099): PASS gdx_pullback_1d (n_OOS=42, base +12.1294, 1 of 16 cells: vt_hot90_t2); PASS spy_pullback_1h (n_OOS=54, base +15.1456, 2 of 17: rrfloor1, vt_hot80_t2.5); no_action_warranted trend_donchian_eth_4h (49, +10.1061, 0/17), tlt_pullback_1d (48, +7.7486, 0/16), qld_trend_long_1d (28, +10.11, 0/16; 28 >= the 25-trade OOS floor, so graded), qqq_pullback_1h (48, +26.7453, 0/17), trend_donchian_ada_4h (48, -6.0401, 0/17). No cell is shipped here. DELIVERABLE: the two passing legs are evidence for a Tier-3 declare proposal each (pipeline item, ask_operator, in this PR). docs/research/exit-refinement-coverage.json updated in this PR for every swept lever column (passed_unshipped on the passing cells; honest_negative refs refreshed elsewhere; shipped/n/a cells untouched). Net of the m20 harness's own fee default only -- no slippage/funding term in this sweep, stated.

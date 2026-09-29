@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 1,
+    "clears_when": "PR #13658 is merged AND a `breakout-terminal-probe` run (landing, then `apply: login`) has recorded what app.breakoutprop.com serves to the VM and where login stops \u2014 terminal reached (then replace the synthetic fixtures with captured redacted ones and fix selectors), OR a feasibility stop is recorded (challenge/captcha/email_code/login_rejected/no_account); `login_rejected` or `no_account` leaves the remaining terminal DOM measurement waiting on the re-bought account and the operator's dashboard credentials \u2014 OR the operator cancels PROP-TERM",
+    "kind": "observation"
+  },
+  "id": "PI-20260928-DRBVUUDJ-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane PROP-TERM session_01SV1yBAgdryVBNEdrbVUUdJ 2026-09-28, for manager session_01KAQRJxRbRwpYTkPgBjNVyQ; PR #13658",
+    "rerun": "open a system-action issue: action: breakout-terminal-probe / reason: <why> (landing only), then again with apply: login \u2014 read the run log's probe.landing.* / feasibility: / probe.terminal.* lines"
+  },
+  "state": "queued",
+  "what": "MEASURE BREAKOUT'S PROPRIETARY TERMINAL (checklist PROP-TERM). The breakout_terminal adapter (PR #13658, stacked on PROP-EXEC #13647) is built to UNMEASURED DOM against synthetic fixtures. Nothing past curl's Cloudflare 403 is measured: run 36337076971 (issue #13279) showed the VM's headless Chromium gets a page at app.breakoutprop.com that is neither a challenge nor the DXtrade form, shape not captured. The sandbox cannot measure it (proxy CA not trusted by Chromium there; installing NSS tools was refused by the session's permission layer). Known risks: BREAKOUT_DX_* are the DXtrade login (config/prop_platforms.yaml header), so the dashboard may reject them; spec S27 suggests an emailed code at sign-in, which would make the adapter infeasible; no proprietary-terminal account exists until the re-buy, so the terminal DOM, ticket kind and venue symbol names (breakout_terminal_symbol rows) stay unmeasured until then."
+}

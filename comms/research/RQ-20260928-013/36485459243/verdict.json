@@ -1,0 +1,373 @@
+{
+  "verdict": "indeterminate",
+  "read_state": "measured",
+  "population": "7 leg(s) [spy_trend_long_1d, spy_pullback_1h, mes_trend_long_1d, qqq_trend_long_1d, tqqq_trend_long_1d, slv_pullback_1d, uso_trend_1h], 164 committed trades in total; grade=pass_all_seeds, overall=any",
+  "n": 164,
+  "measurement": {
+    "leg_verdicts": {
+      "spy_trend_long_1d": "indeterminate",
+      "spy_pullback_1h": "indeterminate",
+      "mes_trend_long_1d": "indeterminate",
+      "qqq_trend_long_1d": "indeterminate",
+      "tqqq_trend_long_1d": "indeterminate",
+      "slv_pullback_1d": "indeterminate",
+      "uso_trend_1h": "indeterminate"
+    },
+    "grade": "pass_all_seeds",
+    "overall": "any",
+    "cells": 35
+  },
+  "note": "spy_trend_long_1d: UNDERPOWERED: n=11 < floor 88; spy_pullback_1h: UNDERPOWERED: n=61 < floor 88; mes_trend_long_1d: UNDERPOWERED: n=5 < floor 88; qqq_trend_long_1d: UNDERPOWERED: n=8 < floor 88; tqqq_trend_long_1d: UNDERPOWERED: n=12 < floor 88; slv_pullback_1d: UNDERPOWERED: n=11 < floor 88; uso_trend_1h: UNDERPOWERED: n=56 < floor 88 | uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally",
+  "records": [
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "spy_trend_long_1d: 11 committed trades from comms/strategy_evidence/runs/2026-09-24-e55/spy_trend_long_1d__trades.jsonl (evidence record comms/strategy_evidence/spy_trend_long_1d.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model prorated",
+      "n": 11,
+      "measurement": {
+        "leg": "spy_trend_long_1d",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/spy_trend_long_1d__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -40.84,
+              "ev_se": 0.45,
+              "p_net_positive": 0.027,
+              "p_alive_at_horizon": 0.2933,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": -40.41,
+              "ev_se": 0.48,
+              "p_net_positive": 0.0295,
+              "p_alive_at_horizon": 0.2883,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -41.04,
+              "ev_se": 0.44,
+              "p_net_positive": 0.0272,
+              "p_alive_at_horizon": 0.2923,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": -40.59,
+              "ev_se": 0.46,
+              "p_net_positive": 0.0288,
+              "p_alive_at_horizon": 0.2915,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": -40.57,
+              "ev_se": 0.46,
+              "p_net_positive": 0.0297,
+              "p_alive_at_horizon": 0.2893,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=11 < floor 88 | uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally"
+    },
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "spy_pullback_1h: 61 committed trades from comms/strategy_evidence/runs/2026-09-24-e55/spy_pullback_1h__trades.jsonl (evidence record comms/strategy_evidence/spy_pullback_1h.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model prorated",
+      "n": 61,
+      "measurement": {
+        "leg": "spy_pullback_1h",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/spy_pullback_1h__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -37.46,
+              "ev_se": 0.93,
+              "p_net_positive": 0.0288,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": -37.76,
+              "ev_se": 0.96,
+              "p_net_positive": 0.024,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -34.77,
+              "ev_se": 1.16,
+              "p_net_positive": 0.0318,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "fail"
+            },
+            "4": {
+              "ev": -36.34,
+              "ev_se": 1.08,
+              "p_net_positive": 0.0305,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "fail"
+            },
+            "5": {
+              "ev": -37.53,
+              "ev_se": 0.9,
+              "p_net_positive": 0.0265,
+              "p_alive_at_horizon": 0.0,
+              "rule_v2_verdict": "fail"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=61 < floor 88 | uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally"
+    },
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "mes_trend_long_1d: 5 committed trades from comms/strategy_evidence/runs/2026-09-24-e55/mes_trend_long_1d__trades.jsonl (evidence record comms/strategy_evidence/mes_trend_long_1d.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model prorated",
+      "n": 5,
+      "measurement": {
+        "leg": "mes_trend_long_1d",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/mes_trend_long_1d__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -44.98,
+              "ev_se": 0.02,
+              "p_net_positive": 0.0003,
+              "p_alive_at_horizon": 0.329,
+              "rule_v2_verdict": "fail"
+            },
+            "2": {
+              "ev": -44.88,
+              "ev_se": 0.07,
+              "p_net_positive": 0.0008,
+              "p_alive_at_horizon": 0.339,
+              "rule_v2_verdict": "fail"
+            },
+            "3": {
+              "ev": -44.95,
+              "ev_se": 0.04,
+              "p_net_positive": 0.0005,
+              "p_alive_at_horizon": 0.3197,
+              "rule_v2_verdict": "fail"
+            },
+            "4": {
+              "ev": -44.92,
+              "ev_se": 0.05,
+              "p_net_positive": 0.0008,
+              "p_alive_at_horizon": 0.3322,
+              "rule_v2_verdict": "fail"
+            },
+            "5": {
+              "ev": -44.91,
+              "ev_se": 0.06,
+              "p_net_positive": 0.0008,
+              "p_alive_at_horizon": 0.3367,
+              "rule_v2_verdict": "fail"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=5 < floor 88 | uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally"
+    },
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "qqq_trend_long_1d: 8 committed trades from comms/strategy_evidence/runs/2026-09-24-e55/qqq_trend_long_1d__trades.jsonl (evidence record comms/strategy_evidence/qqq_trend_long_1d.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model prorated",
+      "n": 8,
+      "measurement": {
+        "leg": "qqq_trend_long_1d",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/qqq_trend_long_1d__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -5.84,
+              "ev_se": 1.56,
+              "p_net_positive": 0.187,
+              "p_alive_at_horizon": 0.8047,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": -3.82,
+              "ev_se": 1.58,
+              "p_net_positive": 0.1963,
+              "p_alive_at_horizon": 0.8187,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -1.49,
+              "ev_se": 1.67,
+              "p_net_positive": 0.2013,
+              "p_alive_at_horizon": 0.8065,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": -4.91,
+              "ev_se": 1.58,
+              "p_net_positive": 0.1885,
+              "p_alive_at_horizon": 0.797,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": -6.31,
+              "ev_se": 1.49,
+              "p_net_positive": 0.193,
+              "p_alive_at_horizon": 0.798,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=8 < floor 88 | uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally"
+    },
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "tqqq_trend_long_1d: 12 committed trades from comms/strategy_evidence/runs/2026-09-24-e55/tqqq_trend_long_1d__trades.jsonl (evidence record comms/strategy_evidence/tqqq_trend_long_1d.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model prorated",
+      "n": 12,
+      "measurement": {
+        "leg": "tqqq_trend_long_1d",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/tqqq_trend_long_1d__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -40.04,
+              "ev_se": 0.45,
+              "p_net_positive": 0.0413,
+              "p_alive_at_horizon": 0.6198,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": -39.8,
+              "ev_se": 0.49,
+              "p_net_positive": 0.0405,
+              "p_alive_at_horizon": 0.587,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -40.0,
+              "ev_se": 0.47,
+              "p_net_positive": 0.0387,
+              "p_alive_at_horizon": 0.6162,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": -39.39,
+              "ev_se": 0.49,
+              "p_net_positive": 0.0423,
+              "p_alive_at_horizon": 0.611,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": -39.28,
+              "ev_se": 0.5,
+              "p_net_positive": 0.0447,
+              "p_alive_at_horizon": 0.5952,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=12 < floor 88 | uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally"
+    },
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "slv_pullback_1d: 11 committed trades from comms/strategy_evidence/runs/2026-09-24-e55/slv_pullback_1d__trades.jsonl (evidence record comms/strategy_evidence/slv_pullback_1d.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model prorated",
+      "n": 11,
+      "measurement": {
+        "leg": "slv_pullback_1d",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/slv_pullback_1d__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": -15.13,
+              "ev_se": 1.3,
+              "p_net_positive": 0.1535,
+              "p_alive_at_horizon": 0.712,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "2": {
+              "ev": -16.13,
+              "ev_se": 1.27,
+              "p_net_positive": 0.1525,
+              "p_alive_at_horizon": 0.7023,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "3": {
+              "ev": -15.21,
+              "ev_se": 1.28,
+              "p_net_positive": 0.1562,
+              "p_alive_at_horizon": 0.7145,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "4": {
+              "ev": -15.87,
+              "ev_se": 1.28,
+              "p_net_positive": 0.1565,
+              "p_alive_at_horizon": 0.7127,
+              "rule_v2_verdict": "indeterminate"
+            },
+            "5": {
+              "ev": -15.94,
+              "ev_se": 1.27,
+              "p_net_positive": 0.1568,
+              "p_alive_at_horizon": 0.7103,
+              "rule_v2_verdict": "indeterminate"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=11 < floor 88 | uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally"
+    },
+    {
+      "verdict": "indeterminate",
+      "read_state": "measured",
+      "population": "uso_trend_1h: 56 committed trades from comms/strategy_evidence/runs/2026-09-24-e55/uso_trend_1h__trades.jsonl (evidence record comms/strategy_evidence/uso_trend_1h.json -> cost_stack.source); prop_ev_sim path-mode over 1 arm(s) x 5 seed(s), --ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model prorated",
+      "n": 56,
+      "measurement": {
+        "leg": "uso_trend_1h",
+        "trades_file": "comms/strategy_evidence/runs/2026-09-24-e55/uso_trend_1h__trades.jsonl",
+        "arms": {
+          "A": {
+            "1": {
+              "ev": 402.82,
+              "ev_se": 10.49,
+              "p_net_positive": 0.5363,
+              "p_alive_at_horizon": 0.016,
+              "rule_v2_verdict": "pass"
+            },
+            "2": {
+              "ev": 387.41,
+              "ev_se": 10.14,
+              "p_net_positive": 0.5268,
+              "p_alive_at_horizon": 0.0163,
+              "rule_v2_verdict": "pass"
+            },
+            "3": {
+              "ev": 385.64,
+              "ev_se": 10.14,
+              "p_net_positive": 0.529,
+              "p_alive_at_horizon": 0.0165,
+              "rule_v2_verdict": "pass"
+            },
+            "4": {
+              "ev": 372.26,
+              "ev_se": 9.93,
+              "p_net_positive": 0.5225,
+              "p_alive_at_horizon": 0.015,
+              "rule_v2_verdict": "pass"
+            },
+            "5": {
+              "ev": 387.96,
+              "ev_se": 10.03,
+              "p_net_positive": 0.5312,
+              "p_alive_at_horizon": 0.0132,
+              "rule_v2_verdict": "pass"
+            }
+          }
+        }
+      },
+      "note": "UNDERPOWERED: n=56 < floor 88 | uso_trend_1h is the flagged poor-basis CL proxy: report separately, do not weight equally"
+    }
+  ]
+}

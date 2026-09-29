@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "Content is Tier-1 (a stale comment corrected, no behavior change) but the diff touches config/strategies.yaml, which is outside TIER1_SURFACE by path regardless of content -- self-land is refused by R5 rather than granted by default.",
+  "why": "One-line comment correction on trend_donchian_eth_4h (no execution/mode/param change) plus a pipeline record; held because config/strategies.yaml is not on the Tier-1 allowlist."
+}

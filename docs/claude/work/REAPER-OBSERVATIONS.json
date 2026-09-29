@@ -14,7 +14,7 @@
   "schema_version": 1,
   "runs": [
     {
-      "generated_at": "2026-09-28T14:08:06Z",
+      "generated_at": "2026-09-29T09:28:16Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -30,7 +30,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T14:02:38Z",
+      "generated_at": "2026-09-29T09:21:13Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -46,7 +46,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T13:52:56Z",
+      "generated_at": "2026-09-29T09:14:45Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -62,7 +62,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T13:47:32Z",
+      "generated_at": "2026-09-29T09:09:37Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -78,7 +78,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T13:42:18Z",
+      "generated_at": "2026-09-29T09:04:03Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -94,7 +94,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T13:28:04Z",
+      "generated_at": "2026-09-29T08:57:51Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -110,7 +110,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T13:09:49Z",
+      "generated_at": "2026-09-29T08:50:12Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -126,7 +126,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T13:04:46Z",
+      "generated_at": "2026-09-29T08:44:41Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -142,7 +142,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T13:00:30Z",
+      "generated_at": "2026-09-29T08:39:05Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -158,7 +158,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:54:15Z",
+      "generated_at": "2026-09-29T08:34:05Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -174,7 +174,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:49:23Z",
+      "generated_at": "2026-09-29T08:29:09Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -190,7 +190,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:41:48Z",
+      "generated_at": "2026-09-29T08:24:45Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -206,7 +206,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:37:45Z",
+      "generated_at": "2026-09-29T08:18:52Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -222,7 +222,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:33:16Z",
+      "generated_at": "2026-09-29T08:13:59Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -238,7 +238,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:28:47Z",
+      "generated_at": "2026-09-29T08:08:00Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -254,7 +254,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:22:44Z",
+      "generated_at": "2026-09-29T07:56:53Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -270,7 +270,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:17:48Z",
+      "generated_at": "2026-09-29T07:52:52Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -286,7 +286,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:13:20Z",
+      "generated_at": "2026-09-29T07:48:48Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -302,7 +302,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:08:22Z",
+      "generated_at": "2026-09-29T07:43:46Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -318,7 +318,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T12:04:23Z",
+      "generated_at": "2026-09-29T07:38:46Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -334,7 +334,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:59:29Z",
+      "generated_at": "2026-09-29T07:34:13Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -350,7 +350,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:55:10Z",
+      "generated_at": "2026-09-29T07:29:47Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -366,7 +366,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:49:19Z",
+      "generated_at": "2026-09-29T07:23:22Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -382,7 +382,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:43:31Z",
+      "generated_at": "2026-09-29T07:17:45Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -398,7 +398,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:38:13Z",
+      "generated_at": "2026-09-29T07:12:40Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -414,7 +414,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:33:20Z",
+      "generated_at": "2026-09-29T07:07:07Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -430,7 +430,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:27:21Z",
+      "generated_at": "2026-09-29T07:02:06Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -446,7 +446,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:21:45Z",
+      "generated_at": "2026-09-29T06:56:30Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -462,7 +462,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:17:28Z",
+      "generated_at": "2026-09-29T06:50:29Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -478,7 +478,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:12:11Z",
+      "generated_at": "2026-09-29T06:45:58Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -494,7 +494,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:07:13Z",
+      "generated_at": "2026-09-29T06:41:07Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -510,7 +510,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T11:02:29Z",
+      "generated_at": "2026-09-29T06:36:16Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -526,7 +526,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:57:50Z",
+      "generated_at": "2026-09-29T06:31:47Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -542,7 +542,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:53:36Z",
+      "generated_at": "2026-09-29T06:26:51Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -558,7 +558,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:49:13Z",
+      "generated_at": "2026-09-29T06:21:18Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -574,7 +574,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:44:48Z",
+      "generated_at": "2026-09-29T06:16:47Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -590,7 +590,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:39:57Z",
+      "generated_at": "2026-09-29T06:11:46Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -606,7 +606,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:33:34Z",
+      "generated_at": "2026-09-29T06:07:10Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -622,7 +622,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:29:14Z",
+      "generated_at": "2026-09-29T06:02:03Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -638,7 +638,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:23:46Z",
+      "generated_at": "2026-09-29T05:57:00Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -654,7 +654,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T10:19:16Z",
+      "generated_at": "2026-09-29T05:52:32Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -670,7 +670,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:43:10Z",
+      "generated_at": "2026-09-29T05:47:39Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -686,7 +686,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:38:24Z",
+      "generated_at": "2026-09-29T05:43:13Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -702,7 +702,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:34:06Z",
+      "generated_at": "2026-09-29T05:38:42Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -718,7 +718,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:29:44Z",
+      "generated_at": "2026-09-29T05:33:40Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -734,7 +734,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:24:39Z",
+      "generated_at": "2026-09-29T05:28:14Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -750,7 +750,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:20:14Z",
+      "generated_at": "2026-09-29T05:23:17Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -766,7 +766,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:15:15Z",
+      "generated_at": "2026-09-29T05:18:47Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -782,7 +782,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:10:46Z",
+      "generated_at": "2026-09-29T05:13:49Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -798,7 +798,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:05:29Z",
+      "generated_at": "2026-09-29T05:09:19Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -814,7 +814,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T09:00:35Z",
+      "generated_at": "2026-09-29T05:03:52Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -830,7 +830,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:56:16Z",
+      "generated_at": "2026-09-29T04:58:52Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -846,7 +846,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:51:00Z",
+      "generated_at": "2026-09-29T04:53:17Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -862,7 +862,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:46:32Z",
+      "generated_at": "2026-09-29T04:16:57Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -878,7 +878,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:41:35Z",
+      "generated_at": "2026-09-29T04:11:21Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -894,7 +894,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:37:43Z",
+      "generated_at": "2026-09-29T04:07:19Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -910,7 +910,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:32:49Z",
+      "generated_at": "2026-09-29T03:51:45Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -926,7 +926,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:27:53Z",
+      "generated_at": "2026-09-29T03:46:29Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -942,7 +942,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:22:59Z",
+      "generated_at": "2026-09-29T03:41:41Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -958,7 +958,7 @@
       }
     },
     {
-      "generated_at": "2026-09-28T08:18:51Z",
+      "generated_at": "2026-09-29T03:37:09Z",
       "rows_graded": 0,
       "by_state": {
         "active": 0,
@@ -974,9 +974,9 @@
       }
     }
   ],
-  "updated_at": "2026-09-28T14:08:06Z",
+  "updated_at": "2026-09-29T09:28:16Z",
   "latest": {
-    "generated_at": "2026-09-28T14:08:06Z",
+    "generated_at": "2026-09-29T09:28:16Z",
     "rows_graded": 0,
     "by_state": {
       "active": 0,
@@ -991,15 +991,12 @@
       "none_found": 0
     },
     "coverage": {
-      "unregistered_claude_branches": 1130,
+      "unregistered_claude_branches": 1135,
       "unregistered_sample": [
         "claude/admin-triage-2026-09-28-capture-watch",
-        "claude/admin-triage-2026-09-28-ib-close-clamp",
-        "claude/admin-triage-2026-09-28-mandates-comment",
         "claude/admin-triage-2026-09-28-pipeline-close",
         "claude/admin-triage-2026-09-28-records",
         "claude/admin-triage-2026-09-28-review-packets",
-        "claude/admin-triage-2026-09-28-tier1-surface",
         "claude/admin-triage-2026-09-28-visibility",
         "claude/admin-triage-2026-09-28-workflow-receipts",
         "claude/adoring-pasteur-P60hd",
@@ -1007,14 +1004,17 @@
         "claude/analyst-read-cache-check-yv0nyh",
         "claude/android-overview-page-Ghkyw",
         "claude/audit-B-salvage-stale-backlog",
-        "claude/audit-B-vestigial-route-order"
+        "claude/audit-B-vestigial-route-order",
+        "claude/audit-B-zombie-bot",
+        "claude/automation-landing-orphans",
+        "claude/backlog-drain-20260909"
       ],
-      "unregistered_but_attributable_sessions": 304,
+      "unregistered_but_attributable_sessions": 306,
       "unregistered_owner_map": {
         "session_0116oibqE8zMM9FZC4kXtcUs": [
           "claude/admin-triage-2026-09-28-capture-watch",
-          "claude/admin-triage-2026-09-28-ib-close-clamp",
-          "claude/admin-triage-2026-09-28-mandates-comment"
+          "claude/admin-triage-2026-09-28-pipeline-close",
+          "claude/admin-triage-2026-09-28-records"
         ],
         "session_011Gqsv3NxLmm5yp9gfNh6ar": [
           "claude/board-done-drain-perf-pass2"
@@ -1033,8 +1033,8 @@
           "claude/mi199-reset-decision"
         ],
         "session_011h6MApXzTAY91VE8y3bgbs": [
-          "claude/gld-1h-geometry-tp6-sm15-to24",
-          "claude/manager-register-2026-09-28c"
+          "claude/manager-register-2026-09-28c",
+          "claude/promote-slv-trend-1h-alpaca-live"
         ],
         "session_011xpvJ2MQgd4jmKkdfg6gzV": [
           "claude/e20-lane-cost-supervision",
@@ -1148,6 +1148,9 @@
           "claude/code-audit-ca-a01",
           "claude/code-audit-ca-a01-critical"
         ],
+        "session_015JePcaHfBSBVrcGyu2QtAo": [
+          "claude/e44-lane-supervisor-build"
+        ],
         "session_015K3oTDNwh2X6C33P6jh6CR": [
           "claude/mi286-open-item-fanout-unexercised"
         ],
@@ -1214,6 +1217,11 @@
           "claude/mgr-audit-dispositions-20260909",
           "claude/mgr-lease-hb-20260909T2226",
           "claude/mgr-lease-hb-20260909T2326"
+        ],
+        "session_0179hCBVrY5PJMaHhK3BKcKe": [
+          "claude/rq-run-backpressure-stale-runs",
+          "claude/rq-run-dispatch-inputs",
+          "claude/rq-run-pevrecon-escalation"
         ],
         "session_017CSW7fZsqsbgGSDN6Atijj": [
           "claude/board-daily-brief"
@@ -1402,9 +1410,6 @@
         "session_01BszfYWtJAeemBNhAywRuv5": [
           "claude/session-doc-freshness"
         ],
-        "session_01C7mgVNtBDmoVSQSvBNzoVh": [
-          "claude/exec-fix-short-gate"
-        ],
         "session_01CFHeaBLPVuLw2V2LvHWuCE": [
           "claude/ca-a07-audit",
           "claude/ca-wave-a-landing"
@@ -1560,9 +1565,9 @@
           "claude/w5n-exit-head-reconcile"
         ],
         "session_01GxXaAMqxdL3p1XTuRC5mjc": [
-          "claude/jc-ca-03-a7-run-provenance",
           "claude/jc-git-pipeline-items",
-          "claude/jc-git-pipeline-items-2"
+          "claude/jc-git-pipeline-items-2",
+          "claude/jc-git-pipeline-items-3"
         ],
         "session_01GyB7Zej9GgVoodnfKz4Re5": [
           "claude/e20-lane-cost-supervision"
@@ -1751,9 +1756,6 @@
           "claude/mi315-close-bybit2-eth-phantom-close",
           "claude/mi315-pr-queue-noise-measurement"
         ],
-        "session_01MVZR1A4pGGRerkk3Gzxiav": [
-          "claude/prop-exec-step3"
-        ],
         "session_01MbqAr49twiFKMwkfjiJJA6": [
           "claude/mgr-lease-hb-20260909T2128"
         ],
@@ -1940,6 +1942,9 @@
         "session_01SKvbp9rm3fiyD9uHxpeFKM": [
           "claude/sweep-positive-control-20260906"
         ],
+        "session_01SV1yBAgdryVBNEdrbVUUdJ": [
+          "claude/prop-term-checklist"
+        ],
         "session_01SVUv3HZiqBsriCcc2RqQo7": [
           "claude/mi123-board-start",
           "claude/mi123-manager-durable-wake"
@@ -2047,6 +2052,10 @@
           "claude/mi194-phase-abcd-observations",
           "claude/mi194-strategy-decision-record"
         ],
+        "session_01WDQADTgoiLiDKc2PNSPdNU": [
+          "claude/prop-paired-tables",
+          "claude/prop-watched-close"
+        ],
         "session_01WKwvhBuaYYCKbdkk7fHrpf": [
           "claude/mi275-close-out",
           "claude/mi275-observation-repair",
@@ -2129,7 +2138,7 @@
       },
       "unregistered_attribution_caveat": "A session id recovered here says WHOSE the work is, never WHAT it was for: `owns_object` lives only in the registry, so an unregistered session's work is locatable and still unattached to any work object. Recovery is not a substitute for registering.",
       "registry_declared_branches": 0,
-      "origin_head_count": 1440,
+      "origin_head_count": 1451,
       "unregistered_caveat": "COUNT ONLY, no ratio: `claude/**` includes board-post and relay branches that were never sub-sessions, and the registry began 2026-09-01 while branches predate it. This is an upper bound on unregistered sessions, not a measurement of them.",
       "unpushed_work": "invisible_by_construction",
       "unpushed_caveat": "Work never pushed lives in a container nothing outside it can reach. The reaper has ZERO visibility of it and no reaper can have any. The only remedy is pushing early.",

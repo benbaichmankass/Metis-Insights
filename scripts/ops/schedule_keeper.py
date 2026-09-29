@@ -72,6 +72,11 @@ TARGETS: dict[str, dict] = {
     # not a repo-wide GitHub incident). It predates this fix by definition:
     # the keeper was built 2026-09-27 and this workflow was never added.
     "research-queue-dispatch.yml": {"stale_hours": 26},
+    # RQ-RUN (2026-09-28): the queue's own replenisher (daily) and mechanical
+    # grader (every 6 h) are what make it run without a session; a dropped
+    # slot on either is exactly the silence this keeper exists to cover.
+    "research-queue-replenish.yml": {"stale_hours": 26},
+    "research-queue-grade.yml": {"stale_hours": 26},
 }
 
 #: A slot younger than this is left to GitHub's own scheduler.

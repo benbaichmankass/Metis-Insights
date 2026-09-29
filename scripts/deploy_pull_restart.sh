@@ -401,6 +401,10 @@ fi
 # W6-PROP-FEED). Each fire LOGS IN to a live prop account, so a deploy restart
 # would be an unscheduled extra login outside the lock/backoff cadence. Let
 # the timer own it.
+# ict-prop-executor.service (PROP-EXEC 2026-09-28) is a oneshot owned by its
+# OPT-IN timer. A cycle can PLACE ORDERS on a live prop account when
+# PROP_EXECUTOR_MODE=live, so a deploy must never fire one: only its timer or
+# an explicit system-action runs it.
 # ict-ib-executions-pull.service is a oneshot owned by
 # ict-ib-executions-pull.timer (hourly) — restarting it on every deploy would
 # open an unscheduled IB GATEWAY connection each time. That is the costliest
@@ -408,7 +412,7 @@ fi
 # wedge history (BL-20260609 / BL-20260709), and a deploy can land inside
 # IBKR's ~03:45-05:45 UTC reset window. Let the timer own it.
 # ---------------------------------------------------------------------------
-DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service ict-exchange-fills-pull.service ict-alpaca-fills-pull.service ict-ib-executions-pull.service ict-prop-feed.service"
+DEFAULT_SKIP="ict-smoke-once.service ict-env-check.service ict-hourly-snapshot.service ict-heartbeat.service ict-git-sync.service ict-mes-ibkr-pull.service ict-exchange-fills-pull.service ict-alpaca-fills-pull.service ict-ib-executions-pull.service ict-prop-feed.service ict-prop-executor.service"
 SKIP_LIST="${DEPLOY_RESTART_SKIP:-${DEFAULT_SKIP}}"
 
 # list-units --all surfaces inactive units too; --type=service excludes

@@ -23,11 +23,54 @@
 #                    run ends with "environment: chromium failed to launch".
 #     emit-status  — post ONE account_status through POST /api/bot/prop/report.
 #                    Default OFF.
+#     dump-tables  — READ-ONLY diagnostic of the positions / orders read path:
+#                    print every extracted table (kind, headers, row count,
+#                    first rows with ids masked) and how the readers classify
+#                    it (live test #13987: a filled position read back as 0).
 #     reset-feed   — re-arm the scheduled feed (deploy/ict-prop-feed.timer,
 #                    scripts/ops/prop_feed_tick.sh) after it TRIPPED: clears
 #                    its trip marker and failure count AFTER this check exits
 #                    0, still under the shared lock. A failed check leaves it
 #                    tripped.
+#   Step-3 executor modes (PROP-EXEC 2026-09-28). Each REPLACES the login
+#   check with ONE run of scripts/prop/prop_executor_tick.py --login reuse
+#   (the feed's saved session; no credential login), under the same lock;
+#   at most one of them per dispatch:
+#     probe-ticket     — READ-ONLY: open the order ticket for SOLUSD (only if
+#                        one-click trading reads OFF), record its shape,
+#                        close it. Prints `feasibility: canvas_ticket` (exit
+#                        4) if it is canvas-only. Types nothing.
+#     executor-dry-run — walk the newest emitted ticket through intake →
+#                        guards → (if it fits) fill + read back the form, then
+#                        close it. No submit, no API write.
+#     watched-click    — THE WATCHED STEP-3 TEST: one live cycle, at most one
+#                        ticket, at executor.watched_click_max_lots (minimum
+#                        size), confirmed by re-read, reported through
+#                        POST /api/bot/prop/report. Refused unless
+#                        PROP_EXECUTOR_MODE=live. Dispatch only with the
+#                        operator watching.
+#     round-trip-dry   — the END-TO-END test walked dry: read the quote, build
+#                        a minimum-size ETHUSD market bracket (add `sol` for
+#                        SOLUSD), fill + read back the form, locate the close
+#                        control. Clicks nothing.
+#     round-trip-live  — THE END-TO-END TEST (operator 2026-09-28): place that
+#                        bracket, confirm entry + SL + TP by re-read, report
+#                        `open`, CLOSE it at market, confirm flat by re-read,
+#                        report `closed`. Refused unless PROP_EXECUTOR_MODE=live.
+#                        Tell the operator before dispatching.
+#   Executor timer (the go-live switch's second half; not a terminal run):
+#     executor-enable-timer  — install deploy/opt-in/ict-prop-executor.timer
+#                              and `systemctl enable --now` it. Go-live is
+#                              THIS plus `set-env PROP_EXECUTOR_MODE=live`
+#                              (service: none; the tick re-reads .env).
+#     executor-clear-halt    — clear the executor's AUTO-REVERT latch
+#                              (executor/halted). Manager/operator only; the
+#                              issue's `reason:` is required and recorded with
+#                              the prior latch reason; the file is moved aside.
+#     executor-disable-timer — `systemctl disable --now` the timer. The instant
+#                              revert is `set-env PROP_EXECUTOR_MODE=off`
+#                              (which also stops reconciling in-flight
+#                              `submitted` rows: containment is manual after).
 #
 # Takes the same flock as the scheduled feed (${BASE}/login.lock), waiting up
 # to 200 s, so a manual check never logs in while a scheduled tick is.
@@ -49,10 +92,77 @@ APPLY="${ACTION_APPLY:-}"
 case ",${APPLY}," in *",install-deps,"*) WANT_DEPS=1 ;; *) WANT_DEPS=0 ;; esac
 case ",${APPLY}," in *",emit-status,"*) WANT_EMIT=1 ;; *) WANT_EMIT=0 ;; esac
 case ",${APPLY}," in *",reset-feed,"*) WANT_RESET=1 ;; *) WANT_RESET=0 ;; esac
+case ",${APPLY}," in *",dump-tables,"*) WANT_TABLES=1 ;; *) WANT_TABLES=0 ;; esac
+EXEC_MODE=""
+for m in probe-ticket executor-dry-run watched-click round-trip-dry round-trip-live \
+         executor-enable-timer executor-disable-timer executor-clear-halt; do
+    case ",${APPLY}," in *",${m},"*)
+        if [ -n "${EXEC_MODE}" ]; then
+            log "apply: at most one executor mode per dispatch (got ${EXEC_MODE} and ${m})"
+            exit 1
+        fi
+        EXEC_MODE="${m}" ;;
+    esac
+done
+case ",${APPLY}," in *",sol,"*) RT_SYMBOL="SOLUSD" ;; *) RT_SYMBOL="ETHUSD" ;; esac
+if [ "${EXEC_MODE}" = "executor-clear-halt" ]; then
+    # Clear the executor's AUTO-REVERT latch (manager / operator decision,
+    # 2026-09-28). Never cleared from inside the executor. Refuses without a
+    # reason, without a latch, or on a latch with no recorded reason (that
+    # needs a person to look first). The prior reason is logged and the
+    # latch file is moved aside, never deleted.
+    X_STATE_DIR="${HOME}/.cache/metis-prop-browser/executor"
+    X_HALT="${X_STATE_DIR}/halted"
+    if [ -z "${ACTION_REASON// }" ]; then
+        log "executor-clear-halt: refused — a reason is required (who clears it and why)"
+        exit 1
+    fi
+    if [ ! -f "${X_HALT}" ]; then
+        log "executor-clear-halt: no latch set at ${X_HALT}; nothing to clear"
+        exit 1
+    fi
+    prior="$(head -c 500 "${X_HALT}" | tr -d '\r')"
+    if [ -z "${prior// }" ]; then
+        log "executor-clear-halt: refused — the latch carries no recorded reason; inspect ${X_HALT} first"
+        exit 1
+    fi
+    log "executor-clear-halt: prior latch: ${prior}"
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    mv "${X_HALT}" "${X_HALT}.cleared-${stamp}"
+    PRIOR="${prior}" ACTOR="${ACTION_ACTOR:-unknown}" ISSUE="${ACTION_ISSUE:-}" WHY="${ACTION_REASON}" \
+        python3 -c 'import json,os,datetime;print(json.dumps({"ts":datetime.datetime.now(datetime.timezone.utc).isoformat(),"actor":os.environ["ACTOR"],"issue":os.environ["ISSUE"],"reason":os.environ["WHY"],"prior":os.environ["PRIOR"]}))' \
+        >> "${X_STATE_DIR}/halt_clears.jsonl"
+    log "executor-clear-halt: cleared by ${ACTION_ACTOR:-unknown} (issue #${ACTION_ISSUE:-?}); reason: ${ACTION_REASON}"
+    record_audit "breakout-login-check" "executor-clear-halt" \
+        "{\"account\": \"${ACCOUNT}\", \"moved_to\": \"halted.cleared-${stamp}\"}" >/dev/null || true
+    exit 0
+fi
+
+TIMER_SRC="${REPO_DIR}/deploy/opt-in/ict-prop-executor.timer"
+if [ "${EXEC_MODE}" = "executor-enable-timer" ] || [ "${EXEC_MODE}" = "executor-disable-timer" ]; then
+    if ! sudo -n true >/dev/null 2>&1; then
+        log "environment: ${EXEC_MODE} needs passwordless sudo"
+        exit 5
+    fi
+    if [ "${EXEC_MODE}" = "executor-enable-timer" ]; then
+        [ -f "${TIMER_SRC}" ] || { log "missing ${TIMER_SRC}"; exit 1; }
+        sudo -n install -m 0644 "${REPO_DIR}/deploy/ict-prop-executor.service" /etc/systemd/system/ict-prop-executor.service
+        sudo -n install -m 0644 "${TIMER_SRC}" /etc/systemd/system/ict-prop-executor.timer
+        sudo -n systemctl daemon-reload
+        sudo -n systemctl enable --now ict-prop-executor.timer
+    else
+        sudo -n systemctl disable --now ict-prop-executor.timer 2>/dev/null || true
+    fi
+    state="$(systemctl is-active ict-prop-executor.timer 2>/dev/null || true)"
+    log "${EXEC_MODE}: ict-prop-executor.timer is now '${state}' (the mode itself is PROP_EXECUTOR_MODE in .env; read it with get-env)"
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"timer\": \"${state}\"}" >/dev/null || true
+    exit 0
+fi
 
 # Export exactly the keys the check needs from the VM .env. Values are never
 # echoed (no `set -x`, no print); the python side prints set/MISSING only.
-CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN"
+CHECK_KEYS="BREAKOUT_DX_USERNAME BREAKOUT_DX_PASSWORD DASHBOARD_API_TOKEN PROP_EXECUTOR_MODE"
 if [ -f "${REPO_DIR}/.env" ]; then
     for ckey in ${CHECK_KEYS}; do
         cval="$(grep -E "^${ckey}=" "${REPO_DIR}/.env" | tail -n1 | cut -d= -f2-)" || true
@@ -158,8 +268,35 @@ if [ "${WANT_DEPS}" = "1" ]; then
         "${VENV}/bin/python" -m playwright install-deps chromium
 fi
 
+if [ -n "${EXEC_MODE}" ]; then
+    # Reuse the FEED's saved session, never a second credential login: the
+    # served client carries force_logout "You have logged in somewhere else"
+    # (MEASURED 2026-09-28, PI-20260927-D9R6QTDB-0002), so a fresh login here
+    # could log out the feed or the operator. Exit 6 = no reusable session:
+    # re-dispatch after the feed's next tick (<= 5 min).
+    EARGS=(--account "${ACCOUNT}" --login reuse --storage-state "${BASE}/feed/session_state.json"
+           --state-dir "${BASE}/executor")
+    case "${EXEC_MODE}" in
+        probe-ticket)     EARGS+=(--probe-ticket "${PROBE_SYMBOL:-SOLUSD}") ;;
+        executor-dry-run) EARGS+=(--dry-run) ;;
+        watched-click)    EARGS+=(--watched-click) ;;
+        round-trip-dry)   EARGS+=(--round-trip "${RT_SYMBOL}") ;;
+        round-trip-live)  EARGS+=(--round-trip "${RT_SYMBOL}" --live) ;;
+    esac
+    log "Running prop executor (${EXEC_MODE}, account=${ACCOUNT}, PROP_EXECUTOR_MODE=${PROP_EXECUTOR_MODE:-unset→read_only})"
+    set +e
+    ( cd "${REPO_DIR}" && "${VENV}/bin/python" scripts/prop/prop_executor_tick.py "${EARGS[@]}" )
+    rc=$?
+    set -e
+    record_audit "breakout-login-check" "${EXEC_MODE}" \
+        "{\"account\": \"${ACCOUNT}\", \"exit\": ${rc}, \"mode\": \"${EXEC_MODE}\"}" >/dev/null || true
+    log "breakout-login-check ${EXEC_MODE}: exit ${rc}"
+    exit "${rc}"
+fi
+
 ARGS=(--account "${ACCOUNT}" --dump-dir "${BASE}/last-run")
 [ "${WANT_EMIT}" = "1" ] && ARGS+=(--emit-status)
+[ "${WANT_TABLES}" = "1" ] && ARGS+=(--dump-tables)
 
 log "Running read-only login check (account=${ACCOUNT} emit_status=${WANT_EMIT})"
 set +e

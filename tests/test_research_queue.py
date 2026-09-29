@@ -74,6 +74,16 @@ def _observing(mapping):
         _rq.observed_n_by_leg = original
 
 
+@pytest.fixture(autouse=True)
+def _quiet_runner_pool(monkeypatch):
+    """Backpressure (2026-09-29) counts queued/in-progress runs via gh before a
+    --fire; this module's fire tests are about stamping and power labels, so
+    they run against an EMPTY pool. tests/test_research_backpressure.py owns
+    the cap's own behaviour, including 'could not count' -> defer."""
+    from scripts.research import dispatch_queue as _dq
+    monkeypatch.setattr(_dq, "gh_runs", lambda status, limit=200: [])
+
+
 # --------------------------------------------------------------------------
 # 1. The sample-size floor — arithmetic, against textbook values
 # --------------------------------------------------------------------------

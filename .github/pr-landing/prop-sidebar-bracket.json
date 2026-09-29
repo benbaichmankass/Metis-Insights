@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; order-path change (place_bracket on the live DXtrade sidebar) — the ONE held PR before round-trip-dry",
+  "why": "Maps place_bracket onto the order-ticket sidebar MEASURED in probe #13816 (labels in previous siblings, selection by background colour, symbol in symbol_input's value, SL/TP inputs behind data-value toggles, submit outside the fields' panel below the fold) and adds the operator/manager safety rules: switch both SL/TP toggles ON and refuse unless both read back ON with mode Price; locate submit (scrolling the form's own container), centre it, and right before the click point prove it is the same element, visible, enabled and names the intended side; re-run the full read-back (symbol, side, type, qty, SL, TP, toggles, mode) after scrolling. The probe also reports submit candidates, the panel's scroll parents and the quantity input's numeric constraints (to measure the venue minimum lot)."
+}
