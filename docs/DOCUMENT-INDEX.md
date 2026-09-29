@@ -162,7 +162,6 @@ markers that were cheaper to lie to than to satisfy — `new-table-wiring-guard`
 |---|---|---|
 | `docs/claude/DUE.md` | `scripts/ops/render_due_list.py` | verified: generator exists and names the file |
 | `docs/claude/READOUT.md` | `scripts/ops/constraint_readout.py` | verified: generator exists and names the file |
-| `docs/research/evidence/jc-sa-08-alpaca-mirror-exit-divergence-2026-09-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/strategy-coverage-matrix.md` | `scripts/check_strategy_coverage.py` | verified: generator exists and names the file |
 | `docs/training-population-matrix.md` | `scripts/check_training_population.py` | verified: generator exists and names the file |
 
@@ -756,6 +755,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/eth-pullback-prop-swap-aware-2026-06-25.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/eth-regime-classweight-recalibration-2026-08-02.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/evidence-workflow-landing-triage-2026-08-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/evidence/jc-sa-08-alpaca-mirror-exit-divergence-2026-09-29.md` | evidence | live | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-attribution-broker-truth-2026-08-22.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-banking-tailcap-and-reachability-2026-09-09.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/exit-capture-deepdive-2026-07-30.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
