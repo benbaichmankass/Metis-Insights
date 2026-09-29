@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "Manager (with the operator's authority), 2026-09-29 01:27Z and 06:45Z: the dispatcher backpressure (#13907) is reviewed and merged by the manager, and this changes what it counts. MEASURED on the first fired cycle after #13907 (run 36533710626, 06:56Z): `backpressure: research compute in flight 3 (cap 3); repo runs queued 36 (cap 10)` deferred every fire -- and all 36 queued runs were created on 2026-05-15 (issue-triggered vm-* jobs no runner ever served), the 3 research runs were three trainer-vm-diag zombies from the same morning. Without this fix research never fires again. The manager merges.",
+  "why": "Lane RQ-RUN (manager session_01KAQRJxRbRwpYTkPgBjNVyQ, checklist row RESEARCH). Tier-1 by path: scripts/research/dispatch_queue.py, tests, one catalog row. No src/, config/, workflow, order path, deploy or live-VM file."
+}

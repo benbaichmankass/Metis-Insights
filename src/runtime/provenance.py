@@ -227,6 +227,13 @@ MEASURED_SOURCES = frozenset({
     "exchange_fill",
     # A real fill the operator reported when flattening by hand.
     "operator_flatten_fill",
+    # `exit_reason_source`: the exit REASON read from venue ORDER IDENTITY. A
+    # fill in the exchange-fills store carries the trade's own `sl_order_id` or
+    # `tp_order_id`, so the venue itself says the stop (or target) order
+    # filled. Unlike `price_vs_pkg_bracket` (ESTIMATED: a price compared to a
+    # level) this is not a derivation. Written by
+    # order_monitor._sweep_exit_label_from_bracket_order (EXIT-CLUSTER).
+    "venue_bracket_order",
 })
 
 ESTIMATED_SOURCES = frozenset({

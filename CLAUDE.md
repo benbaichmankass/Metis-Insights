@@ -126,14 +126,15 @@ the condition says so, whether or not anyone chose to look. `killed` is a
 first-class outcome: closing a dead row *with a stated reason* is worth more
 than carrying it.
 
-⚠️ **THE PULL IS BUILT BUT NOT YET CONNECTED, AND THAT DISTINCTION IS THE
-WHOLE POINT.** `render_section_0()` and `unrouted_count()` exist, are tested,
-and are what the brief consumes. **Nothing runs them on a schedule yet, because
-the brief that displays them is `A3` and is not built.** So today the pipeline
-will hold what you put in it and correctly tell you what is due *when asked* —
-and asking is still voluntary, which is reason (5), the one that killed
-`DUE.md`. **A7 is not finished until A3 renders section 0 on the operator's own
-page.** Do not read "the pipeline exists" as "things no longer get dropped".
+⚠️ **THE PULL IS CONNECTED** (corrected 2026-09-29, FIX-SA-09; this paragraph
+read "built but not yet connected … `A3` … is not built" after both were
+`done`). `GET /api/bot/work/brief` (`src/web/api/routers/work.py`) calls
+`render_daily_brief.py`, which renders `pipeline.render_section_0()` and
+`unrouted_count()` on the operator's own Workflow page **on every request** —
+there is no file to go stale. Checklist rows `A3` and `A7` are `done`. What
+that establishes: a due item *reaches the page*. What it does **not**: that
+anyone routes it — the unrouted count is a number the page shows, and
+JC-SA-06 tracks it growing. *Field beats comment.*
 
 ⚠️ **The 1,065 archived backlog rows and 91 monitoring rows are NOT imported.**
 The store is seeded empty on purpose; importing them is `A8`, and most of them
@@ -359,6 +360,21 @@ have happened."* The rules are:
 - **Ask first only** when the data leaves the question open or the action
   cannot be reverted.
 - **A real-money promotion on the fee-only corpus stays blocked until D1.**
+
+⚠️ **"The data leaves the question open" is not itself a reason to ask**
+(operator directive, 2026-09-29, on PR #13698 — a promotion popup for a leg
+that was `execution: shadow` with an `insufficient_n` cost-fidelity verdict,
+which should never have reached the operator): *"either we have enough data
+to decide, or we don't and then getting that data becomes a task which needs
+to happen so that a decision can be made."* So before asking: is getting the
+missing data itself a well-defined task (a research-queue unit, a Stage-1
+soak placement, a longer accrual window)? If yes, **file it** — no popup —
+and only ask when the choice is genuinely a preference no data would settle.
+`scripts/ops/mandate_resolver.py` returns a third verdict, `NEEDS_DATA` (never
+`FIRE`, never a decisive `REFUSE`), naming the exact clause lacking evidence
+and auto-filing the pipeline row that gets it. Full classification:
+[`.claude/skills/manager/SKILL.md`](.claude/skills/manager/SKILL.md) §
+"Before any operator popup: classify the decision".
 
 Full terms: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
 § "Data-backed Tier-2/3 decisions".

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "docs/claude/work/pipeline/ only -- a pipeline record correction, no runtime/order-path/config touched. PROP-ETH lane (dispatched by manager session_01KAQRJxRbRwpYTkPgBjNVyQ) re-verified PI-20260924-MQ3CDMU6-0002 against origin/main: enforce_ticket_cap is merged and wired (src/prop/breakout_executor.py:288, src/prop/prop_executor.py:408), correcting the prior record's stale 'not merged'. State stays routed (soak-observed reduction still unconfirmed, and may be structurally unreachable under the current flat-$75=cap sizing)."
+}

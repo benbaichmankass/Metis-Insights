@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-13",
+    "kind": "date"
+  },
+  "id": "PI-20260929-WL2HIWVS-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "research",
+    "ref": "lane EXIT-CLUSTER session_01XpKxKGrnBP9u4xwL2hiWVs, PR #14106",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/ec  # then compare trades.exit_price to order_packages.sl/tp for exit_reason=reconciler_filled"
+  },
+  "state": "queued",
+  "what": "[exit-label] Bybit reconciler_filled: of 248 closes since 2026-07-31 with an exit price and package levels (bybit_1/2/portfolio, closed non-backtest), 85 are stamped exit_reason_source=unresolved yet sit within 10 bps of a package sl/tp, 35 within 10-40 bps, 128 beyond 40 (MEASURED 2026-09-29, realized_slippage.py pull). PR #14106 deliberately kept the strict rule here: on Bybit netting accounts the position-level bracket is the NEWEST trade's and trailing amends can lag the package row, so a near-level exit may be a sibling's bracket. Question: which of the 85 are bracket fills (match the fill's order id to the stop/tp order ids), and should the tolerance extend to this path."
+}

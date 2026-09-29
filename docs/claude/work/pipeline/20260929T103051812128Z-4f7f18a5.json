@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "the operator decides JC-SA-07; if (a), a lane lands plant rows (control exit, planted exit) for every remaining guard",
+    "kind": "event"
+  },
+  "id": "PI-20260929-TWEW1FZJ-0006",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-07",
+    "rerun": "python3 scripts/ci/run_guards.py --list | wc -l  # vs guards with a plant row in docs/audits/system-audit-2026-09-29.md s9"
+  },
+  "state": "queued",
+  "what": "JC-SA-07 (medium, AUD-6/6b): Haiku failed the plant-a-defect guard proof twice (AUD-6 planted nothing, 0/90 jsonl lines parse; AUD-6b reported 14/14 caught with docstring-only evidence). The lead proved 10 guards by plant (report s9); ~80 guards remain unproven. Operator: (a) re-task the remainder on Sonnet (~$15) with the s9 protocol (recommended), or (b) accept current coverage. Also: revisit D9 for measurement tasks."
+}
