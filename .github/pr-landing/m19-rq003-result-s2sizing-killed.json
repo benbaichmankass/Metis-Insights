@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260928-003.yaml (verdict/status/result) and research/queue/blocked/RQ-20260928-004.yaml (killed, terminal_reason) carry a landed research verdict and a kill decision, well beyond STAMP_ONLY_SURFACE per check_pr_landing.py's R13/E57 rule -- same precedent as PR #14042 for RQ-20260928-002.",
+  "why": "Lands the RQ-20260928-003 evidence record (verdict fail, the pre-registered two-null-exhaustion branch), kills blocked/RQ-20260928-004 per that same rule, closes the PI-20260928-VNMMNBJH-0003 follow-through item, and closes the M19-S1 checklist row. No config/, src/, deploy/ or order-path file touched -- pure research-queue bookkeeping mechanically applying a pre-registered rule."
+}
