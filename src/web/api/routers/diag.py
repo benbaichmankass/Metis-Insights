@@ -266,6 +266,10 @@ _CANONICAL_UNITS: tuple[str, ...] = (
     # rationale as the watchdog / bridge / insights pairs above.
     "ict-hourly-snapshot.service",
     "ict-hourly-snapshot.timer",
+    # FIX-SA-12 (2026-09-29): pushes when the TRAINER root is >= 90% used, read
+    # from the published mirror. Queryable so a session can confirm it is firing.
+    "ict-trainer-disk-alarm.service",
+    "ict-trainer-disk-alarm.timer",
     # MI-83 (2026-09-02). The hourly work digest, moved off GitHub Actions
     # cron onto the VM's own clock: work-digest.yml declares `20 * * * *` and
     # fired 5 times in a day at :19/:10/:33/:47 over its complete run history.

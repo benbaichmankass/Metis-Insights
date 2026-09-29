@@ -157,6 +157,17 @@ EXPECTED_SERVICES = {
     # gate flip is Tier-3. Live-trader-box only via install_systemd_units.sh
     # auto-enable; ships the data-dir drop-in (DATA_DIR-aware journal read + write).
     "ict-research-results-gate.service",
+    # 2026-09-29 (FIX-SA-08, audit SA-AUD-5-onfailure-still-absent): systemd
+    # TEMPLATE fired only via OnFailure=ict-notify-failure@%n.service, a drop-in
+    # install_systemd_units.sh puts on every timer-driven oneshot. Logs each
+    # failure and pings once per unit per 6 h, so a failed oneshot behind a live
+    # timer is no longer silent. Never restarted by a deploy (`@` skip).
+    "ict-notify-failure@.service",
+    # 2026-09-29 (FIX-SA-12, audit SA-AUD-5-trainer-disk-93pct): hourly oneshot
+    # (ict-trainer-disk-alarm.timer) that pings when the trainer root is >= 90%
+    # used, read from the published trainer_status.json mirror. Live-trader-box
+    # only; in deploy_pull_restart.sh DEFAULT_SKIP.
+    "ict-trainer-disk-alarm.service",
 }
 
 # Trader-side units (i.e. units that run trading-strategy code). Used to
