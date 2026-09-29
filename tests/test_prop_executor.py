@@ -2737,7 +2737,41 @@ def test_close_position_refuses_without_exactly_one_position_and_when_the_close_
     assert "close NOT confirmed flat" in res.halted
     assert [p["status"] for p in api.posts] == ["open"]                     # the fill is journaled, the close is not
     tid = next(a for a in res.actions if a["what"] == "close_position_spec")["ticket_id"]
-    assert tid.startswith("closeout-solusd-") and ledger.state(tid) == "unconfirmed"
+    assert tid.startswith("closeout-solusd-") and ledger.state(tid) == "close_unconfirmed"
+    # ...and a close that did not confirm is never an unresolved SUBMIT
+    assert tid not in ledger.watched() and tid not in ledger.unresolved()
+
+
+def test_a_close_that_did_not_confirm_never_trips_the_reconcile(env):
+    # REGRESSION (go-live 2026-09-29 18:44Z): the day's two test round trips
+    # had left their refused / hand-closed CLOSES ledgered "unconfirmed"; the
+    # venue closed both positions hours earlier; three live ticks later the
+    # reconcile read them as unconfirmed submits, counted three misses and
+    # latched AUTO-REVERT on nothing.
+    ledger, state = env
+    spec = {"ticket_id": "roundtrip-solusd-stale", "venue_symbol": "SOLUSD", "side": "long",
+            "quantity": 0.01, "stop_loss": 119.36, "take_profit": 121.78, "order_type": "market"}
+    ledger.record("roundtrip-solusd-stale", "intended", spec=spec, purpose="round_trip_test")
+    ledger.record("roundtrip-solusd-stale", "close_unconfirmed", purpose="round_trip_close")
+    # the negative control: a real unconfirmed SUBMIT is still watched
+    ledger.record("t-real-submit", "submitted", spec={**spec, "ticket_id": "t-real-submit"})
+    ledger.record("t-real-submit", "unconfirmed", misses=2)
+    assert "t-real-submit" in ledger.watched() and "roundtrip-solusd-stale" not in ledger.watched()
+    for _ in range(4):
+        res = run(FakeAdapter(), FakeApi([]), env)
+        assert not any(a.get("ticket_id") == "roundtrip-solusd-stale" for a in res.actions), res.actions
+    # the stale close never tripped anything; the real submit did, on its own
+    assert state.halted() and "t-real-submit" in state.halted()
+    assert not any("roundtrip-solusd-stale" in a for a in res.alerts)
+
+
+def test_round_trip_refused_close_is_ledgered_as_a_close_not_a_submit(tmp_path):
+    ad, api = RTAdapter(close_works=False), FakeApi()
+    res = rt(ad, api, tmp_path, reads=2)
+    assert res.halted == "round trip: close not confirmed"
+    ledger = pe.IntentLedger(tmp_path / "l.jsonl")                          # rt()'s ledger path
+    tid = next(a["spec"]["ticket_id"] for a in res.actions if a["what"] == "round_trip_spec")
+    assert ledger.state(tid) == "close_unconfirmed" and tid not in ledger.watched()
 
 
 def test_tick_close_position_modes_and_apply_tokens():

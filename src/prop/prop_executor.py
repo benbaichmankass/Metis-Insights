@@ -512,9 +512,20 @@ class IntentLedger:
     States: ``intended`` (written BEFORE the click) → ``submitted`` →
     ``placed`` / ``open`` (confirmed by re-read) | ``unconfirmed`` →
     ``skipped`` / ``contained``. ``refused`` / ``expired`` record tickets the
-    executor decided not to place, so it never re-decides them."""
+    executor decided not to place, so it never re-decides them.
+
+    ``close_unconfirmed`` is a watched close that did not confirm flat
+    (round trip or close-out): the position may still be open under its
+    bracket, and the JOURNAL row for it is what the reconcile consults. It
+    is NOT an unresolved submit — go-live 2026-09-29 18:44Z: two such rows,
+    written ``unconfirmed`` by the day's test round trips whose positions
+    the venue had long since closed, were read as unconfirmed SUBMITS, hit
+    three misses and latched AUTO-REVERT on nothing (PI-20260929-2PNSPDNU-0005)."""
 
     UNRESOLVED = ("intended", "submitted", "unconfirmed")
+    #: A close that did not confirm: linkable by a later close-out, never
+    #: reconciled as a submit.
+    CLOSE_UNRESOLVED = ("close_unconfirmed",)
 
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
@@ -996,7 +1007,7 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
     if not closed:
         res.alerts.append(f"{tid}: {why}")
         res.halted = "round trip: close not confirmed"
-        ledger.record(tid, "unconfirmed", purpose="round_trip_close")
+        ledger.record(tid, "close_unconfirmed", purpose="round_trip_close")
         return res
     ledger.record(tid, "closed")
     _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec.as_dict(), "closed", entry=pos.entry_price),
@@ -1096,7 +1107,8 @@ def run_close_position(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig
     # The ledger's own unresolved round-trip ticket for this symbol keeps the
     # journal linked to the click that placed it; else a fresh close-out id.
     tid = next((k for k, v in sorted(ledger.latest().items(), key=lambda kv: str(kv[1].get("ts") or ""))
-                if k.startswith(f"roundtrip-{venue.lower()}-") and v.get("state") in IntentLedger.UNRESOLVED), None)
+                if k.startswith(f"roundtrip-{venue.lower()}-")
+                and v.get("state") in IntentLedger.UNRESOLVED + IntentLedger.CLOSE_UNRESOLVED), None)
     if tid is None:
         tid = f"closeout-{venue.lower()}-{now.strftime('%Y%m%dT%H%M%SZ')}"
     spec = {"ticket_id": tid, "venue_symbol": venue, "side": pos.side, "quantity": pos.quantity,
@@ -1115,7 +1127,7 @@ def run_close_position(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig
     if not closed:
         res.alerts.append(f"{tid}: {why}")
         res.halted = f"close_position: {why}"
-        ledger.record(tid, "unconfirmed", purpose="close_position")
+        ledger.record(tid, "close_unconfirmed", purpose="close_position")
         return res
     ledger.record(tid, "closed", purpose="close_position")
     _report(res, post, {**_fill_body(cfg, {"ticket_id": tid}, spec, "closed", entry=pos.entry_price),
