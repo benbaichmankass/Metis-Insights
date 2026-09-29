@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the HELD PR either merges (coverage matrix status stays shipped, config carries the three fields on main) or the operator declines it with a reason recorded on the coverage matrix cell.",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-EXITOPS-0002",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-OPS (manager session_01KAQRJxRbRwpYTkPgBjNVyQ), 2026-09-29, exit-refinement sweep; continuation of PI-20260928-HK3BKCKE-0003",
+    "rerun": "python3 -c \"import yaml; s=yaml.safe_load(open('config/strategies.yaml'))['strategies']['ada_pullback_2h']; print(s.get('trail_vol_above_pctl'), s.get('trail_vol_tight_mult'), s.get('vol_pctl_window'))\"  # all three present means the PR merged; all None means still held/declined."
+  },
+  "state": "queued",
+  "what": "[strategy] ada_pullback_2h (bybit_2 REAL MONEY) vol_trail cell vt_hot90_t2.5 cleared the exit-refinement Path A gate at live parity: RE-MEASURED 2026-09-28 (RQ-20260928-007, run 36434144288, corpus row on branch claude/m20-sweep-corpus, sweep_generated_at 2026-09-29T00:56:49Z), base n IS=235 OOS=49, d_net_r IS +2.2949 / OOS +1.7239, d_max_dd IS -2.6062 / OOS -0.6524 (drawdown improves both windows), yearly walk-forward 4/6 with NO inert folds (all six years carry a real effect -- checked the folds, not just the summary, per the exit-refinement skill caution). HELD PR declares trail_vol_above_pctl: 0.9 / trail_vol_tight_mult: 2.5 / vol_pctl_window: 200, wired via the same htf_pullback_trend_2h.monitor -> src.runtime.trail_vol.resolve_vol_trail_mult path already live on qqq_pullback_1h."
+}
