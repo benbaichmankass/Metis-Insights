@@ -225,6 +225,18 @@ GUARDS: List[Dict[str, Any]] = [
                    "--self-test"],
                   ["python3", "scripts/ci/check_workflow_actor_guard.py"]],
     },
+    {
+        # FIX-SA-10, 2026-09-29: re-armed (removed in the 2026-09-21 reset, which
+        # is why four in_flight rows naming archived lanes went unflagged). CI
+        # cannot read session state, so the archived-lane check prints COULD NOT
+        # LOOK unless given `--lane-states FILE`; the census still runs.
+        "name": "stale-in-flight",
+        "when": {"globs": ["docs/claude/work/MANAGER-CHECKLIST.json",
+                            "scripts/ci/check_stale_in_flight.py",
+                            "scripts/ops/owner_liveness.py"]},
+        "steps": [["python3", "scripts/ci/check_stale_in_flight.py", "--self-test"],
+                  ["python3", "scripts/ci/check_stale_in_flight.py"]],
+    },
     # ─────────────────────────────────────────────────────────────────────
     # ⚠️ 2026-09-21 OPERATING RESET — 40 GOVERNANCE GUARDS REMOVED FROM HERE.
     #
