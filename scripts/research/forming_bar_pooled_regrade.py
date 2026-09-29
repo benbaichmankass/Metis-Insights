@@ -222,7 +222,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     import yaml
     cfg = yaml.safe_load((ROOT / "config/strategies.yaml").read_text())
     cfg = cfg.get("strategies", cfg)
-    pop = [(l, f) for l, f in POPULATION if not args.leg or l in args.leg]
+    pop = [(lg, f) for lg, f in POPULATION if not args.leg or lg in args.leg]
     pop.sort(key=lambda lf: str(cfg[lf[0]]["symbols"][0]))  # one 1m load per symbol
     rm = real_money_legs()
     tmp = Path(args.out).with_suffix(".tmp.d")

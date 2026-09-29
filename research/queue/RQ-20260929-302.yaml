@@ -5,7 +5,7 @@ title: >-
   cost money robustly enough to move the family's live decision to the closed
   bar? And what does each real-money leg's CURRENT Stage-0 evidence record
   read under forming-bar mode? (PI-20260929-VOLSKIP-SIGNAL-0002)
-status: queued
+status: done
 cadence: once
 kind: deterministic
 
@@ -134,3 +134,25 @@ related:
   - PI-20260929-VOLSKIP-SIGNAL-0002
   - RQ-20260929-301 (two legs; HARNESS_MODELS_FORMING)
   - PR #14195
+last_dispatched_at: '2026-09-29T13:15:00+00:00'
+verdict: INCONCLUSIVE
+result: >-
+  docs/research/evidence/forming-bar-pooled-2026-09-29.json. Rule committed at
+  9c133baa before the run. 15 legs, Binance USD-M 1m proxy 2020-01 →
+  2026-09-28, full cost stack, entries on bars with a 200-bar live frame.
+  Pooled: A_closed n=6229 +682.13R, B_forming n=8796 +637.25R, J 0.33;
+  dR -44.88R, 90% CI [-224.18, +138.05], ex-max-year (2025) -71.26R,
+  ex-max-leg (eth_pullback_2h) -103.29R, MDE 272.5R — underpowered: pooling
+  added variance as fast as signal. 10 of 15 legs forming-worse. Not
+  MOVE_LIVE_TO_CLOSED (CI crosses 0); not FORMING_ROBUSTLY_BETTER →
+  INCONCLUSIVE, no live change. Descriptive, NOT graded (split chosen after
+  seeing the data): donchian legs 8 of 9 forming-worse (sum -114.4R),
+  pullback legs 4 of 6 forming-better (sum +69.5R).
+  Evidence restatement (record window 2025-09-25 → 2026-09-24; the proxy
+  closed arm reproduces each record within 1.1R): ada_pullback_2h record
+  +19.25R (n=57) → proxy closed +18.38R (n=57) → forming +6.43R (n=82), D1
+  pass; xrp_pullback_2h record +12.79R (n=57) → closed +11.75R (n=58) →
+  forming -7.56R (n=77), D1 FAIL → STANDING_AT_RISK; trend_donchian_xrp_4h
+  +8.94R (n=16) → +8.94R (n=16) → +4.83R (n=23), pass; trend_donchian_eth_4h
+  +10.17R (n=44) → +10.32R (n=45) → +15.58R (n=53), pass. Not modelled,
+  stated: the ML exit head on trend_donchian_sol/eth (identical both arms).
