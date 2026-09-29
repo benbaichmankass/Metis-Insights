@@ -2355,20 +2355,22 @@ def test_watched_close_refuses_an_actions_cell_that_does_not_name_one_close(tpag
     assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
 
 
+_ICON_TRIO = ('<button class="btn-icon" onclick="window.__reverse=1"><svg class="icon icon-arrows"/></button>'
+              '<button class="btn-icon" onclick="window.__modify=1"><svg class="icon icon-pen"/></button>'
+              '<button class="btn-icon" onclick="document.getElementById(\'cm\').style.display=\'block\'"><svg class="icon icon-close"/></button>')
+
+
 @pytest.mark.parametrize("wrap", [
     '<div class="row-icons">%s</div>',          # matches [class*=icon] itself
     '<div title="Actions">%s</div>',            # a [title] wrapper
-    '<div role="button">%s</div>',              # a role=button wrapper
     '<span class="acts"><div class="row-icons"><div title="Row actions">%s</div></div></span>',   # nested wrappers
 ])
 def test_watched_close_never_presses_a_wrapper_around_the_trio(tpage, wrap):
     # REGRESSION (review of #14216, F1): a wrapper that itself looks
-    # interactive (icon class, title, role=button) used to survive as the
-    # outermost control, read "close" from its descendants, and its CENTRE
-    # was the modify button. Any element holding a pressable is a container.
-    trio = ('<button class="btn-icon" onclick="window.__reverse=1"><svg class="icon icon-arrows"/></button>'
-            '<button class="btn-icon" onclick="window.__modify=1"><svg class="icon icon-pen"/></button>'
-            '<button class="btn-icon" onclick="document.getElementById(\'cm\').style.display=\'block\'"><svg class="icon icon-close"/></button>')
+    # interactive (icon class, title) used to survive as the outermost
+    # control, read "close" from its descendants, and its CENTRE was the
+    # modify button. Any element holding a pressable is a container.
+    trio = _ICON_TRIO
     ad = DXtradeAdapter(timeout_ms=3_000)
     p = tpage(html=_close_page(icons=wrap % trio, cell=True))
     got = ad.flatten(p, "SOLUSD", arm=False, side="long", quantity=0.01, entry_price=118.94)
@@ -2379,6 +2381,45 @@ def test_watched_close_never_presses_a_wrapper_around_the_trio(tpage, wrap):
     assert got["ok"] is True and got["why"] == "Close Position confirmed", got
     assert p.evaluate("window.__closed") == 1
     assert p.evaluate("window.__modify") is None and p.evaluate("window.__reverse") is None
+
+
+@pytest.mark.parametrize("icons,expect", [
+    # F3 (a): the close-named pressable nested in a reverse button — the click would bubble to reverse
+    ('<button class="btn-reverse" onclick="window.__reverse=1">'
+     '<span role="button" class="icon-close" style="display:inline-block;width:14px;height:14px"></span></button>',
+     "nested in another pressable (button)"),
+    # F3 (b): a close-named link inside a modify role=button — both handlers would fire
+    ('<div role="button" class="btn-modify" onclick="window.__modify=1" style="display:inline-block">'
+     '<a class="icon-close" style="display:inline-block;width:14px;height:14px" '
+     'onclick="document.getElementById(\'cm\').style.display=\'block\'"></a></div>',
+     "nested in another pressable (div)"),
+    # a role=button wrapper around the whole trio: the chosen button has a pressable ancestor
+    ('<div role="button">' + _ICON_TRIO + '</div>', "nested in another pressable (div)"),
+    # a reverse-named (non-pressable) ancestor disqualifies by its own attributes
+    ('<div class="reverse-group"><button class="b" onclick="window.__closed=1"><svg class="icon icon-close"/></button></div>',
+     "reverse / modify / qualified ancestor"),
+    # a qualified ("close all") ancestor likewise
+    ('<div title="Close all"><button class="b" onclick="window.__closed=1"><svg class="icon icon-close"/></button></div>',
+     "reverse / modify / qualified ancestor"),
+])
+def test_watched_close_refuses_a_close_nested_in_or_under_another_control(tpage, icons, expect):
+    # REGRESSION (review of #14216, F3), ARMED: nothing is pressed, no handler fires
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False and expect in got["why"], got
+    assert _nothing_pressed(p) and p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+    assert p.evaluate("document.getElementById('cm').style.display") == "none"     # the modal never opened
+
+
+def test_watched_close_hint_is_masked_for_the_log(tpage):
+    icons = ('<button data-test-id="reverse-1234567890" onclick="window.__reverse=1"></button>'
+             '<button name="modify-deadbeefcafe" onclick="window.__modify=1"></button>'
+             '<button data-test-id="close-9876543210" onclick="window.__closed=1"></button>')
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=False, side="long", quantity=0.01, entry_price=118.94)
+    blob = " ".join(c["hint"] + " " + c["html"] for c in got["controls"])
+    assert "1234567890" not in blob and "9876543210" not in blob and "deadbeefcafe" not in blob
+    assert "#####" in blob and _nothing_pressed(p)
 
 
 def test_watched_close_refuses_a_close_named_wrapper_with_no_pressable_inside(tpage):

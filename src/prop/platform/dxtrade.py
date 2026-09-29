@@ -1666,7 +1666,22 @@ CLOSE_ROW_JS = r"""
       const inRow = c.closest('tr') === row && cb.width > 0 && cb.height > 0
         && cb.left >= rb.left - 4 && cb.right <= rb.right + 4 && cb.top >= rb.top - 4 && cb.bottom <= rb.bottom + 4;
       const nearCanvas = !!(c.closest('canvas') || [...(c.parentElement ? c.parentElement.children : [])].some(e => e.tagName === 'CANVAS'));
-      if (!inRow) why = 'the close control is not boxed inside its row';
+      // A close-named pressable NESTED in another pressable (review of
+      // #14216, F3: <button class="btn-reverse"><span role=button
+      // class="icon-close"/></button>): the click bubbles to the outer
+      // control, so it is never pressed. And every ancestor up to the row
+      // is read by its own attributes: a reverse / modify / qualified name
+      // on the way up disqualifies, whatever the chosen element says.
+      const outer = c.parentElement ? c.parentElement.closest(PRESS) : null;
+      const ancestors = []; for (let a = c.parentElement; a && a !== row.parentElement; a = a.parentElement) ancestors.push(a);
+      const ancestorParts = ancestors.flatMap(a => [
+        norm([attr(a, 'title'), attr(a, 'aria-label')].filter(Boolean).join(' ')),
+        norm(tokens([attr(a, 'class'), attr(a, 'href'), attr(a, 'xlink:href'), attr(a, 'data-icon'), attr(a, 'data-test-id'), attr(a, 'name')]
+          .filter(Boolean).join(' ')))].filter(Boolean));
+      const badAncestor = ancestorParts.find(s => BAD_RE.test(s) || QUAL_RE.test(s));
+      if (outer && row.contains(outer)) why = 'close control nested in another pressable (' + outer.tagName.toLowerCase() + ')';
+      else if (badAncestor) why = 'close control sits under a reverse / modify / qualified ancestor ("' + badAncestor.slice(0, 40) + '")';
+      else if (!inRow) why = 'the close control is not boxed inside its row';
       else if (nearCanvas) why = 'the close control sits beside a canvas';
       else { c.setAttribute('data-metis-row-action', '1'); chosen = closeIdx[0]; }
     }
@@ -1717,14 +1732,19 @@ def _mask_controls(controls: Any) -> List[Dict[str, Any]]:
     hex / uuid runs of 8+ and data-*id values masked — a position id may be
     any of those (review of #14216: a hex or UUID id survives ``\\d{5,}``).
     The JS already masks; this is the belt on top of it."""
+    def mask(s: str) -> str:
+        s = redact_text(s)
+        s = re.sub(r'(data-[\w-]*id[\w-]*=")[^"]*(")', r"\1#####\2", s, flags=re.I)
+        return re.sub(r"[0-9a-f]{8,}", "########", re.sub(r"\d{5,}", "#####", s), flags=re.I)
+
     out: List[Dict[str, Any]] = []
     for c in controls or []:
         c = dict(c) if isinstance(c, Mapping) else {"hint": str(c)}
-        if c.get("html") is not None:
-            h = redact_text(str(c["html"]))
-            h = re.sub(r'(data-[\w-]*id[\w-]*=")[^"]*(")', r"\1#####\2", h, flags=re.I)
-            h = re.sub(r"[0-9a-f]{8,}", "########", re.sub(r"\d{5,}", "#####", h), flags=re.I)
-            c["html"] = h
+        # The hint carries data-test-id / name / href values too (review of
+        # #14216: a data-test-id "close-<positionid>" would reach the log).
+        for key in ("html", "hint"):
+            if c.get(key) is not None:
+                c[key] = mask(str(c[key]))
         out.append(c)
     return out
 
