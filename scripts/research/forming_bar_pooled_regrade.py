@@ -109,9 +109,12 @@ def _window(ts: List[dict], lo: str, hi: str) -> List[dict]:
 
 
 def real_money_legs() -> set:
-    import yaml
-    acc = yaml.safe_load((ROOT / "config/accounts.yaml").read_text())
-    acc = acc.get("accounts", acc)
+    from src.config.accounts_loader import load_accounts_dict
+    acc = load_accounts_dict()
+    if REAL_MONEY_ACCOUNT not in acc:
+        # The loader returns {} on a read failure; "no real-money legs" must not
+        # be what that reads as.
+        raise SystemExit(f"accounts.yaml unreadable or has no {REAL_MONEY_ACCOUNT}")
     a = acc[REAL_MONEY_ACCOUNT]
     return {s if isinstance(s, str) else s.get("name") for s in (a.get("strategies") or [])}
 
