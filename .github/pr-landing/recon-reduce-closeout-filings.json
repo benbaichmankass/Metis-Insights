@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only: two new docs/claude/work/pipeline/ rows filed at RECON-REDUCE close-out (breakout_1 SOLUSD/SOLUSDT false position divergence in account_broker_reconcile; flaky tempdir cleanup in test_mandate_autoland). No code, config or runtime change."
+}
