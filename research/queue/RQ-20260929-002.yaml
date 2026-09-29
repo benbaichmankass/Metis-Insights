@@ -6,7 +6,7 @@ title: >-
   live-implementable gate is closer to that backtest? (PI-20260929-EXITOPS-0005)
 status: queued
 cadence: once
-kind: experiment
+kind: deterministic
 
 question: >-
   Manager dispatch 2026-09-29 (lane VOLSKIP-FORMING). The live pullback and
@@ -24,14 +24,12 @@ why_this_matters: >-
   the one Stage 0 measured means the live leg is not the leg that cleared the
   gate.
 
-power:
-  kind_note: deterministic replay
-  why_not_inferential: >-
-    Deterministic counterfactual replay over the full available history. The
-    output is an exact count of differing entries and their per-trade net R,
-    not an estimate of a population parameter. The rule below keys on the
-    decision-agreement rate, which is a census over every signal bar in the
-    history, not a sample.
+why_not_inferential: >-
+  Deterministic counterfactual replay over the full available history. The
+  output is an exact count of differing entries and their per-trade net R,
+  not an estimate of a population parameter. The rule keys on the
+  gate-decision agreement rate, a census over every signal bar in the
+  history, not a sample.
 
 design:
   data: >-
@@ -103,6 +101,7 @@ routing:
     run in the lane's own container.
 
 run:
+  workflow: research-script-run.yml
   commands:
   - - python3
     - scripts/research/vol_skip_forming_bar_replay.py
@@ -110,6 +109,10 @@ run:
     - '{klines_dir}'
     - --out
     - docs/research/evidence/vol-skip-forming-bar-2026-09-29.json
+
+lands:
+  store: docs/research/evidence/vol-skip-forming-bar-2026-09-29.json
+  assert_field: legs
 
 related:
   - PI-20260929-EXITOPS-0005
