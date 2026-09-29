@@ -3044,6 +3044,21 @@
       "blocked_on": [],
       "note": "2026-09-28 ~13:45Z (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): OPERATOR, verbatim: \"we don't need to start building the new terminal just yet if, uh, if we don't have capacity at the moment, but that's definitely a high priority because that is where the next account will be and we want to be ready for that in any case.\" Context: breach-and-re-buy is accepted, and Breakout sells no new DXtrade accounts, so the next account lands on the proprietary terminal (docs/research/prop-automation-options-2026-09-27.md \u00a7 0.3, \u00a7 2.4, scoped only). Dispatch order: first free lane slot, ahead of RECON. || 2026-09-28 (lane session_01SV1yBAgdryVBNEdrbVUUdJ): PR #13658 open, draft, HELD (tier_2_3_needs_approval), stacked on PROP-EXEC #13647 (merge that first, then rebase). Built: breakout_terminal adapter behind the same interface (login -> dashboard -> Open Terminal; label-based reads; disarmed place_bracket/cancel/flatten; modify_bracket refuses), one-line platform switch (per-platform default login_url), executor venue key <platform>_symbol (fail closed), read-only system-action breakout-terminal-probe. Everything past the landing page is FIXTURE-ONLY (synthetic). Measurement = pipeline PI-20260928-DRBVUUDJ-0001 after merge.",
       "id": "PROP-TERM"
+    },
+    {
+      "title": "M19 staged AI-trader path: run S1-v0, build harness extension for S1 (market-state veto), land S1 evidence",
+      "phase": "W6",
+      "state": "in_flight",
+      "owner": "research lane",
+      "lane": "session_01TR74tvLR2AjCzrJMeBs47A",
+      "model": "claude-sonnet-5",
+      "ceiling_usd": 40,
+      "spend_usd": null,
+      "tier": 1,
+      "prs": [],
+      "blocked_on": [],
+      "note": "2026-09-29 (manager session_01KAQRJxRbRwpYTkPgBjNVyQ dispatch, priority 3 / M19): picking up R-M19's staged path (docs/research/M19-ai-trader-postmortem-and-staged-path-2026-09-28.md). Step 1 done: ran RQ-20260928-002 (S1-v0) directly over committed data -- verdict fail (neither model veto nor confidence-only veto beats the permutation null; research/results/RQ-20260928-002/session_01TR74tvLR2AjCzrJMeBs47A-rq20260928-002-20260929.jsonl). This is the first of two nulls the S1 line's exhaustion condition needs -- not a kill; S1 (blocked/RQ-20260928-003) still runs once per its own rule. Next: build PI-20260928-VNMMNBJH-0001 (meta_veto_walkforward.py candle-join / --arms / --size-by-score extension), then dispatch RQ-20260928-003 (S1, market-state veto) once that lands. Offline only throughout: no order path, no live wiring, nothing under config/ that reaches a roster. If S1 clears its bar, S2 plan goes to the manager as a proposal, not wired.",
+      "id": "M19-S1"
     }
   ]
 }
