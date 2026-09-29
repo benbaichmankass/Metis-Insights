@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260928-003.yaml's promotion from blocked/ touches status, blocked_on, run.workflow/inputs, note and related -- well beyond STAMP_ONLY_SURFACE's bare last_dispatched_at, per check_pr_landing.py's R13/E57 rule (a queue unit's promotion out of blocked/ is a judgement call on whether its blockers actually cleared, not a mechanical stamp).",
+  "why": "Promotes a research-queue unit (no statistic run yet -- that dispatch cmd is prepared but not executed) and updates the M19-S1 checklist row's prs list and note. No config/, src/, deploy/ or order-path file touched."
+}

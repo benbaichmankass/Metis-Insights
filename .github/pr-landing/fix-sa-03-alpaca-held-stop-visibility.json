@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path read change (AlpacaClient._open_orders_for_symbol, consumed by the naked sweep, the re-arm pre-cancel, modify_protective and protection_coverage). Places no new order type; it makes a resting held stop leg visible so the sweep stops re-arming protected positions. Held for the manager per FIX-SA-03 dispatch.",
+  "why": "FIX-SA-03 step 2: a filled bracket's held stop leg is only returned nested under its filled parent, which status=open excludes, so every post-grace sweep graded fresh Alpaca brackets stop-naked (17/20 entries since 09-15, all 3 alpaca_live) and re-armed them."
+}

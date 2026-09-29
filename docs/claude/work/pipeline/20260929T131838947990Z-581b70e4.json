@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "every classify_pnl consumer that reads full trade rows sets reduce_leg_absorbed from reduce_parent_ids, or the manager decides to accept the 1-row over-demotion with a stated reason",
+    "kind": "event"
+  },
+  "id": "PI-20260929-HXO9WPVH-0004",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "review",
+    "ref": "PR #14172 manager review 2026-09-29",
+    "rerun": "pull /api/diag/journal?table=trades (offset paging, 1000/page); python3: rows moved MEASURED->UNVERIFIED by src.runtime.provenance.classify_pnl with and without reduce_leg_absorbed set from reduce_parent_ids(rows); expect 32 vs 31 before wiring, equal after"
+  },
+  "state": "queued",
+  "what": "Wire provenance.reduce_parent_ids into the classify_pnl consumers (performance.py query rows, _pnl_provenance.fetch_rows, trades_closed) so a reduce PARENT row is marked reduce_leg_absorbed and FIX-SA-04's sign test skips it. A parent leaves no trace on its own row (real 5682: no marker; link only on child 5702's intent_reduce_allocations), so today 1 of 32 rows the demotion moves (bybit_1 #3637) is a known reduce parent that is over-demoted (112 parents exist in the 6,286-row journal). Tier-2 read-path change; awaiting manager decision on #14172 (merge as is vs wire first)."
+}

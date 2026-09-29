@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: files PI-20260929-AQRK6CL1-0009 (stale close-purpose ledger rows trip the Breakout executor's AUTO-REVERT latch)."
+}

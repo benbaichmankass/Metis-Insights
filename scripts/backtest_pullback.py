@@ -29,7 +29,7 @@ import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import pandas as pd
 
@@ -175,6 +175,21 @@ def _adx(df: pd.DataFrame, period: int) -> pd.Series:
     return dx.ewm(alpha=alpha, adjust=False, min_periods=period).mean()
 
 
+def _forming_bar_entries():
+    """scripts/research/forming_bar_entries.py, loaded by FILE (the decision
+    mode's one implementation; see run_backtest(decision_bar=...))."""
+    mod = sys.modules.get("forming_bar_entries")
+    if mod is None:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "forming_bar_entries",
+            Path(__file__).resolve().parent / "research" / "forming_bar_entries.py")
+        mod = _ilu.module_from_spec(_spec)
+        sys.modules["forming_bar_entries"] = mod
+        _spec.loader.exec_module(mod)
+    return mod
+
+
 def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: int,
                  pullback_frac: float, atr_period: int, atr_stop_mult: float,
                  trail_mult: float, timeout_bars: int, cooldown_bars: int,
@@ -213,7 +228,36 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                  trail_vol_tight_mult: float = 0.0,
                  side_filter: str = "both",
                  subbar_df: Optional[pd.DataFrame] = None,
-                 exit_grain: str = "leg") -> Dict[str, Any]:
+                 exit_grain: str = "leg",
+                 vol_pctl_override: Optional[Sequence[float]] = None,
+                 entry_override: Optional[Dict[int, Dict[str, Any]]] = None,
+                 decision_bar: str = "closed",
+                 decision_1m: Optional[pd.DataFrame] = None,
+                 decision_cfg: Optional[Dict[str, Any]] = None,
+                 decision_workers: int = 4) -> Dict[str, Any]:
+    # FORMING-BAR DECISION MODE (PI-20260929-VOLSKIP-SIGNAL-0002; default
+    # "closed" = byte-identical). Live evaluates the WHOLE entry signal on the
+    # still-forming bar every ~2 min; "forming" replays that decision with the
+    # live unit's own order_package from 1m data (`decision_1m`) and the leg's
+    # config/strategies.yaml block (`decision_cfg`) via
+    # scripts/research/forming_bar_entries.py — the ONE implementation, shared
+    # with the RQ-20260929-301/-302 replays — and feeds it through
+    # `entry_override`. The unit already applied every entry gate, so the
+    # harness's own copies are switched off; exits and costs are unchanged.
+    decision_bar = str(decision_bar or "closed").lower()
+    if decision_bar == "forming":
+        if decision_1m is None or decision_cfg is None:
+            raise ValueError("decision_bar='forming' needs decision_1m and decision_cfg")
+        entry_override = _forming_bar_entries().forming_entry_override(
+            df, decision_1m, decision_cfg, family="pullback", label=strategy_name,
+            workers=decision_workers)
+        adx_min = adx_max = None
+        min_confidence = 0.0
+        vol_skip_above_pctl = vol_skip_below_pctl = 0.0
+        skip_hours = ""
+        side_filter = "both"
+    elif decision_bar != "closed":
+        raise ValueError(f"unknown decision_bar {decision_bar!r} (expected closed|forming)")
     # M21 E-2 time-of-day entry lever (empty = off, byte-identical): skip any
     # NEW entry whose TRIGGER bar's UTC hour is in the CSV set. Exits are
     # never touched — an open trade rides through skipped hours unchanged.
@@ -284,6 +328,15 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
             or vol_trail_on):
         atr_pctl = df["atr"].rolling(vol_pctl_window,
                                      min_periods=vol_pctl_window).rank(pct=True)
+    # Research-only hook (None = byte-identical): replace the percentile the
+    # vol gate reads with an externally computed per-bar series (positional,
+    # len(df)). scripts/research/vol_skip_forming_bar_replay.py uses it to
+    # replay the gate on the percentile the LIVE frame sees when its last row
+    # is a still-forming bar (PI-20260929-EXITOPS-0005). NaN = never skip.
+    if vol_pctl_override is not None and atr_pctl is not None:
+        if len(vol_pctl_override) != len(df):
+            raise ValueError("vol_pctl_override must have one value per bar")
+        atr_pctl = pd.Series([float(v) for v in vol_pctl_override], dtype=float)
     # Trend filter: Donchian midline of the prior trend_lb bars (shift(1) — no
     # lookahead). Matches htf_pullback_trend_2h.order_package exactly.
     dc_hi = df["high"].rolling(trend_lookback).max().shift(1)
@@ -389,6 +442,22 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         elif downtrend and pos >= (1 - pullback_frac) and c < prev_c:
             direction = "short"
             depth = (mid - c) / atr
+        # Research-only hook (None = byte-identical): the ENTRY decision per
+        # bar comes from outside — {bar_index: {"direction", "entry", "atr",
+        # optional "rest_high"/"rest_low"}} — and a bar not in it is skipped.
+        # Exits, costs and the position/cooldown bookkeeping stay this
+        # harness's own. scripts/research/whole_signal_forming_bar_replay.py
+        # enters where the LIVE unit fires on a FORMING bar at the 2-min tick
+        # cadence (PI-20260929-VOLSKIP-0001) and disables the entry gates it
+        # already applied. rest_high/rest_low = the entry bar's range AFTER the
+        # entry tick; a stop/target touched there exits on the entry bar.
+        _ov = None
+        if entry_override is not None:
+            _ov = entry_override.get(i)
+            direction = None if _ov is None else str(_ov["direction"])
+            if _ov is not None:
+                c, atr = float(_ov["entry"]), float(_ov["atr"])
+                depth = ((c - mid) if direction == "long" else (mid - c)) / atr
         if direction is None:
             i += 1
             continue
@@ -636,7 +705,16 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                         return px, "rr_floor_exit"
             return None
 
-        for j in range(i + 1, min(i + timeout_bars + 1, n)):
+        # entry_override only: a stop/target touched in the entry bar's range
+        # AFTER the entry tick exits on the entry bar (SL-first, no ratchet on
+        # that remainder — conservative). None on every harness-decided entry.
+        _rest_hit = None
+        if _ov is not None and _ov.get("rest_high") is not None:
+            # The harness's ONE stop/target test (trail == sl here, so a hit
+            # reads "stop"); tests/test_backtest_trend_live_tp.py pins that it
+            # is the only SL-first site.
+            _rest_hit = _stop_or_target(float(_ov["rest_high"]), float(_ov["rest_low"]))
+        for j in range(i + 1, min(i + timeout_bars + 1, n)) if _rest_hit is None else ():
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0=off, byte-identical): bank
             # `bank_frac` at entry ± bank_at_r × risk; remainder keeps the
@@ -694,6 +772,9 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
                 exit_price, exit_reason = hit[0], hit[1]
                 exit_idx = j
                 break
+        if _rest_hit is not None:
+            exit_price, exit_reason = _rest_hit
+            exit_idx = i
         if rr_min is not None:
             _rr_min_per_trade.append(rr_min)
         if exit_price is None:
@@ -1151,6 +1232,12 @@ def main(argv: List[str]) -> int:
                         "side_filter: skip shorts (long) / skip longs (short) / no gate "
                         "(both, default). Used for the crypto short-only fine-tunes.")
     p.add_argument("--json", dest="json_out", default=None)
+    p.add_argument("--decision-bar", choices=["closed", "forming"], default="closed",
+                   help="closed (default, Stage 0) or forming: replay the LIVE unit's "
+                        "decision on the still-forming bar at the 2-min tick cadence "
+                        "(needs --klines-1m-dir and --strategy-name <leg>)")
+    p.add_argument("--klines-1m-dir", default=None, metavar="DIR",
+                   help="Binance USD-M <SYMBOL>-1m-*.zip archives for --decision-bar forming")
     p.add_argument("--strategy-name", default="htf_pullback_trend_2h", metavar="NAME",
                    help="Leg name stamped on every emitted row's `strategy` "
                         "field. Defaults to the historical literal so an "
@@ -1229,7 +1316,14 @@ def main(argv: List[str]) -> int:
         print("ERROR: --exit-grain levers|full requires --subbar-data",
               file=sys.stderr)
         return 1
-    out = run_backtest(df,
+    decision_kw: Dict[str, Any] = {}
+    if args.decision_bar == "forming":
+        if not args.klines_1m_dir:
+            print("ERROR: --decision-bar forming requires --klines-1m-dir", file=sys.stderr)
+            return 1
+        _m1, _block = _forming_bar_entries().cli_inputs(args.klines_1m_dir, args.strategy_name)
+        decision_kw = dict(decision_bar="forming", decision_1m=_m1, decision_cfg=_block)
+    out = run_backtest(df, **decision_kw,
                        trend_lookback=args.trend_lookback,
                        pullback_lookback=args.pullback_lookback,
                        pullback_frac=args.pullback_frac,

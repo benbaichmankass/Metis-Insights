@@ -89,4 +89,15 @@ generated:
     symbol: ADAUSDT
     timeframe: 2h
     trades_file: comms/strategy_evidence/runs/2026-09-25/ada_pullback_2h__trades.jsonl
-last_dispatched_at: null
+last_dispatched_at: '2026-09-29T12:55:48+00:00'
+grading:
+  auto: true
+  decision_rule_id: RULE-TPL-PROP-FIT-B6V2-ada_pullback_2h-bal010
+  evidence:
+  - research/results/RQ-20260928-024/36571465371.jsonl
+  graded_at: '2026-09-29'
+  grader: scripts/research/queue_grade.py
+  needs_review: true
+  reason: 'verdicts not unanimous-mechanical: [''indeterminate'']'
+  rows: 1
+  verdict: null

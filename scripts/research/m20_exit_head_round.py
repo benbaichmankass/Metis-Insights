@@ -220,6 +220,14 @@ def main(argv: list[str]) -> int:
                          "fall can be measured. Recorded in _round_meta, "
                          "because N rounds at N offsets that do not say which "
                          "offset they used are not a dispersion measurement.")
+    ap.add_argument("--fold-mode", default=None, choices=["trades", "years"],
+                    help="pass through to train_exit_head: how walk-forward TEST "
+                         "folds are cut. Omitted = the trainer's own default "
+                         "(`trades`). `years` is the per-calendar-year cut with "
+                         "the 7-day embargo that RQ-20260928-005's registration "
+                         "names. Recorded in _round_meta and on every evidence "
+                         "row, with None meaning 'trainer default', never 'not "
+                         "recorded'.")
     a = ap.parse_args(argv[1:])
 
     # ---------------------------------------------------------------------
@@ -248,7 +256,8 @@ def main(argv: list[str]) -> int:
     # asymmetry is real and load-bearing -- it is why the off0 arm of the dead
     # 5m round produced rows while off4 produced none.
     trainer = REPO / "scripts/ml/train_exit_head.py"
-    forwarded = ["--fold-offset"] if a.fold_offset else []
+    forwarded = (["--fold-offset"] if a.fold_offset else []) + (
+        ["--fold-mode"] if a.fold_mode else [])
     if forwarded:
         probe = sh([sys.executable, str(trainer), "--help"], timeout=120)
         if probe.returncode != 0:
@@ -520,6 +529,8 @@ def main(argv: list[str]) -> int:
             train_cmd += ["--features", a.features]
         if a.fold_offset:
             train_cmd += ["--fold-offset", str(a.fold_offset)]
+        if a.fold_mode:
+            train_cmd += ["--fold-mode", a.fold_mode]
         if a.total_sort:
             train_cmd += ["--total-sort"]
         p = sh(train_cmd, timeout=21600)
@@ -613,6 +624,8 @@ def main(argv: list[str]) -> int:
         # and a dispersion series is only readable if every arm states its own
         # offset — `0` is one of the arms, not the absence of one.
         "fold_offset": a.fold_offset,
+        # None = the trainer's default fold cut; a string = forwarded explicitly.
+        "fold_mode": a.fold_mode,
         # ALWAYS stamped, including False. Same reasoning as fold_offset above:
         # a round that does not state its tie-break convention cannot be told
         # apart from one measured under the other, and the whole migration
@@ -765,6 +778,7 @@ def main(argv: list[str]) -> int:
                 # it either way. Consumers distinguish "control arm" from "we
                 # did not record it" by the presence of the key, never by 0.
                 "fold_offset": a.fold_offset,
+                "fold_mode": a.fold_mode,
                 # HOW WE KNOW THAT OFFSET — three states, never collapsed, the
                 # same shape as the consolidator's `offset_source`:
                 #   argv                      — read from this run's argument

@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "the ib_paper path that attached trades 5830/5852/5853/5856 to pkg-64953937c0234d44 is root-caused and either fixed or shown intended; re-run shows no ib_paper package whose created_at precedes its trades by more than one bar",
+    "kind": "event"
+  },
+  "id": "PI-20260929-EA899ZCS-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29/AUD-2.findings.jsonl (SA-AUD-2-grading-hop-stalled: 'package-id reuse'); lane GRADE branch claude/grade-closed-trades-schedule",
+    "rerun": "bash scripts/ops/diag_fetch.sh 'journal?table=trades&limit=1000' | python3 -c \"import sys,json,collections as C;t=json.load(sys.stdin);c=C.Counter(r['order_package_id'] for r in t if r['account_id']=='ib_paper');print([(k,v) for k,v in c.items() if v>1])\"  # then compare each repeated package's created_at (journal?table=order_packages) against its trades' created_at"
+  },
+  "state": "queued",
+  "what": "[bug] ib_paper trades attach to a months-old order package. MEASURED 2026-09-29 (diag journal pull, lane GRADE): 4 ib_paper squeeze_breakout_4h MES trades carry order_package_id pkg-64953937c0234d44. They are 5830 (opened 09-16T19:11Z) and 5852/5853/5856 (09-17). That package was created 2026-06-02T12:10Z with entry 7596.75 and sl 7647.1964; trade 5830 entry 7602.38 carries the IDENTICAL stop_loss 7647.19642857. The package row now reads status=closed, linked_trade_id=5856. So an ib_paper open/re-adopt path reuses an old package id and its bracket instead of minting a new one. Consequences: the package's signal_logic/entry do not describe these trades, so their grades (by-trade rows, JC-SA-01) and any per-package attribution are computed against June's setup. The 4 trades opened 31 min apart, each closing via sl_cross within ~30s, which also suggests a re-entry loop. Root-cause the ib_paper entry/adopt path."
+}

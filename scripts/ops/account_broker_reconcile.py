@@ -88,6 +88,9 @@ DATA SOURCES (read-only; no order, cancel, or DB write)
               prop manual-bridge journal, not ``trades``).
   alpaca    — ``GET /api/diag/alpaca_open_orders?account_id=alpaca_live``
               (token-gated).
+  reduce    — ``GET /api/diag/journal?table=trades&limit=1000`` (raw rows,
+              token-gated; classifies intent_reduce legs by id, since the
+              /trades/closed wire carries no setup_type/notes).
   bybit_2   — ``GET /api/diag/bybit_open_orders?account_id=bybit_2`` +
               ``GET /api/diag/bybit_wallet_truth?account_id=bybit_2&days=N``
               (token-gated).
@@ -125,9 +128,24 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+# The ONE reduce-leg definition: the row-level mirror of
+# ``src.web.api._clean_trades.exclude_reduce_leg_predicate`` (setup_type
+# ``intent_reduce`` OR the ``notes.intent_reduce`` flag). Imported, never
+# re-spelled here.
+from src.runtime.bracket_outcome import is_reduce_leg  # noqa: E402
+# The ONE prop venue<->bot symbol map (config/prop_rulesets/breakout_routing.yaml
+# ``symbols[<bot>].dxtrade_symbol``): DXtrade names SOL ``SOLUSD`` while the
+# journal keys it ``SOLUSDT``. Imported, never re-spelled here.
+from src.prop.symbol_map import to_bot_symbol  # noqa: E402
 
 QTY_TOLERANCE = 1e-6
 PNL_TOLERANCE_USD = 1.0  # a $1 disagreement is float/fee noise, not a finding
@@ -337,6 +355,41 @@ def reconcile_alpaca(
             "pnl_state": "not_exposed", "pnl": None}
 
 
+def reduce_leg_ids(raw_trades: Optional[List[Dict[str, Any]]]) -> Optional[set]:
+    """Ids of the raw ``trades`` rows (``/api/diag/journal?table=trades`` —
+    every column, incl. ``setup_type`` and ``notes``) that
+    ``bracket_outcome.is_reduce_leg`` classifies as reduce legs.
+
+    ``/api/bot/trades/closed`` carries neither ``setup_type`` nor ``notes``,
+    so a wire row alone cannot be classified; its id is looked up here.
+    ``None`` = the raw read was not supplied or unreadable (we could not
+    look), distinct from an empty set (we looked; no reduce legs)."""
+    if isinstance(raw_trades, dict):
+        raw_trades = raw_trades.get("rows")
+    if not isinstance(raw_trades, list):
+        return None
+    return {str(r.get("id")) for r in raw_trades
+            if isinstance(r, dict) and is_reduce_leg(r)}
+
+
+def _is_reduce_row(row: Dict[str, Any], reduce_ids: Optional[set]) -> bool:
+    """A closed-trade row is a reduce leg when it carries ``setup_type`` /
+    ``notes`` that ``is_reduce_leg`` flags (a raw journal row), or when its id
+    is in ``reduce_ids`` (a wire row, classified from the raw read)."""
+    if is_reduce_leg(row):
+        return True
+    return reduce_ids is not None and str(row.get("id")) in reduce_ids
+
+
+def _row_pnl(row: Dict[str, Any]) -> Optional[float]:
+    """``/api/bot/trades/closed`` names the field ``realizedPnl``; a raw
+    journal row names it ``pnl``. Reading only ``pnl`` off the wire made
+    EVERY row None (first live run, #14113 — n_closes 20, sum None)."""
+    if "realizedPnl" in row:
+        return _num(row.get("realizedPnl"))
+    return _num(row.get("pnl"))
+
+
 def reconcile_bybit(
     journal_positions: List[Dict[str, Any]],
     journal_closed: List[Dict[str, Any]],
@@ -344,7 +397,9 @@ def reconcile_bybit(
     wallet_truth_payload: Optional[Dict[str, Any]],
     account_id: str = "bybit_2",
     pnl_trade_count: int = 20,
+    raw_trades: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
+    reduce_ids = reduce_leg_ids(raw_trades)
     row = _diag_account_row(bybit_payload, account_id)
     if row is None:
         return {"account_id": account_id, "positions_state": "could_not_look",
@@ -390,19 +445,35 @@ def reconcile_bybit(
     protection_state = "divergent" if (prot["naked"] or prot["partial"]) else "agree"
 
     # Realized P&L: journal sum over the last `pnl_trade_count` bybit_2
-    # closes vs the wallet-truth measured_api figure over the SAME window
-    # (oldest of those closes -> now). See module docstring for why this is
-    # the wallet-truth read, not the stale hand ledger.
+    # closes vs the wallet-truth measured_api figure. ⚠️ The wallet-truth
+    # read is a fixed `days=N` window set by the caller, NOT the span of
+    # these closes — both spans are emitted below so the render states the
+    # two populations instead of implying they match. See module docstring
+    # for why this is the wallet-truth read, not the stale hand ledger.
+    #
+    # Reduce legs are dropped BEFORE the NULL check: an intent_reduce leg's
+    # pnl is NULL BY DESIGN (BL-20260711 — deferred, never fabricated), so
+    # counting it as "we could not look" made the whole comparison refuse
+    # (first live run, issue #14113: trade 5702, an eth_pullback_2h reduce
+    # leg). Any OTHER NULL-pnl row still yields could_not_look.
+    acct_closes = [c for c in journal_closed
+                   if c.get("account") == account_id or c.get("account_id") == account_id]
+    excluded_reduce = [str(c.get("id")) for c in acct_closes if _is_reduce_row(c, reduce_ids)]
     closes = sorted(
-        (c for c in journal_closed if c.get("account") == account_id or c.get("account_id") == account_id),
+        (c for c in acct_closes if not _is_reduce_row(c, reduce_ids)),
         key=lambda c: c.get("closedAt") or c.get("closed_at") or "",
         reverse=True,
     )[:pnl_trade_count]
     journal_pnl_sum = None
+    null_pnl_ids: List[str] = []
     if closes:
-        vals = [_num(c.get("pnl")) for c in closes]
-        if all(v is not None for v in vals):
+        vals = [_row_pnl(c) for c in closes]
+        null_pnl_ids = [str(c.get("id")) for c, v in zip(closes, vals) if v is None]
+        if not null_pnl_ids:
             journal_pnl_sum = round(sum(vals), 8)
+    journal_window = ([closes[-1].get("closedAt") or closes[-1].get("closed_at"),
+                       closes[0].get("closedAt") or closes[0].get("closed_at")]
+                      if closes else None)
 
     wt = None
     if isinstance(wallet_truth_payload, dict):
@@ -421,7 +492,10 @@ def reconcile_bybit(
     elif journal_pnl_sum is None or not isinstance(wt, dict) or wt.get("state") != "measured_api":
         pnl_state = "could_not_look"
         pnl = {"journal_pnl_sum": journal_pnl_sum, "wallet_truth": wt,
-               "n_closes": len(closes)}
+               "n_closes": len(closes), "null_pnl_trade_ids": null_pnl_ids,
+               "reduce_legs_excluded": excluded_reduce,
+               "reduce_leg_read": "unavailable" if reduce_ids is None else "read",
+               "journal_closed_at_window": journal_window}
     else:
         broker_realized = _num(wt.get("realized_usd"))
         diverges = (broker_realized is None or
@@ -431,6 +505,8 @@ def reconcile_bybit(
         # (REVIEW-14054 finding #3).
         pnl = {"journal_pnl_sum": journal_pnl_sum, "broker_realized_usd": broker_realized,
                "n_closes": len(closes),
+               "reduce_legs_excluded": excluded_reduce,
+               "journal_closed_at_window": journal_window,
                "wallet_truth_window_ms": [wt.get("window_start_ms"), wt.get("window_end_ms")]}
 
     return {"account_id": account_id, "positions_state": positions_state,
@@ -458,7 +534,11 @@ def reconcile_breakout(
     open_risk = rule_distance.get("open_risk") or {}
     j_positions_raw = open_risk.get("positions") or []
     # find_open_prop_positions rows: symbol / direction / qty / entry_price / sl
-    j_rows = [{"symbol": p.get("symbol"), "side": p.get("direction"),
+    # Both sides are canonicalised to the bot symbol before matching: the
+    # journal carries ``SOLUSDT`` and the DXtrade terminal ``SOLUSD`` for the
+    # SAME position, and an exact-string match split one 0.01 SOL long into a
+    # broker_only + journal_only pair (run 36579673814, issue #14113).
+    j_rows = [{"symbol": to_bot_symbol(p.get("symbol")), "side": p.get("direction"),
                "qty": p.get("qty")} for p in j_positions_raw]
 
     raw = status.get("raw")
@@ -499,7 +579,7 @@ def reconcile_breakout(
                        "rows) — an empty read is reported cannot-read, never "
                        "trusted as flat.")
     else:
-        broker_rows = [{"symbol": p.get("symbol"), "side": p.get("side"),
+        broker_rows = [{"symbol": to_bot_symbol(p.get("symbol")), "side": p.get("side"),
                         "qty": p.get("quantity")} for p in broker_positions_field]
         matched = match_positions(j_rows, broker_rows)
         for r in matched:
@@ -507,7 +587,7 @@ def reconcile_breakout(
                 continue
             sym = r["symbol"]
             b = next((p for p in broker_positions_field
-                      if str(p.get("symbol") or "").upper() == sym), {})
+                      if str(to_bot_symbol(p.get("symbol")) or "").upper() == sym), {})
             r["has_stop"] = _num(b.get("stop_loss")) is not None
             r["has_target"] = _num(b.get("take_profit")) is not None
 
@@ -561,6 +641,7 @@ def run(
     prop_status_payload: Optional[Dict[str, Any]],
     prop_fills: List[Dict[str, Any]],
     now: Optional[datetime] = None,
+    raw_trades: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     return {
         "captured_at": (now or datetime.now(timezone.utc)).isoformat(),
@@ -568,7 +649,8 @@ def run(
             "alpaca_live": reconcile_alpaca(journal_positions, alpaca_payload),
             "breakout_1": reconcile_breakout(prop_status_payload, prop_fills, now=now),
             "bybit_2": reconcile_bybit(journal_positions, journal_closed,
-                                       bybit_payload, wallet_truth_payload),
+                                       bybit_payload, wallet_truth_payload,
+                                       raw_trades=raw_trades),
         },
     }
 
@@ -812,6 +894,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--journal-positions-json", help="GET /api/bot/positions?include_paper=true")
     ap.add_argument("--journal-closed-json", help="GET /api/bot/trades/closed?account_id=bybit_2&...")
+    ap.add_argument("--journal-trades-raw-json",
+                    help="GET /api/diag/journal?table=trades&limit=1000 (raw rows; "
+                         "used only to classify reduce legs by id)")
     ap.add_argument("--alpaca-broker-json", help="GET /api/diag/alpaca_open_orders?account_id=alpaca_live")
     ap.add_argument("--bybit-broker-json", help="GET /api/diag/bybit_open_orders?account_id=bybit_2")
     ap.add_argument("--bybit-wallet-truth-json", help="GET /api/diag/bybit_wallet_truth?account_id=bybit_2&...")
@@ -837,6 +922,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         wallet_truth_payload = _load_json(args.bybit_wallet_truth_json)
         prop_status_payload = _load_json(args.prop_status_json)
         prop_fills = _load_json(args.prop_fills_json) or []
+        raw_trades = _load_json(args.journal_trades_raw_json)
         if isinstance(prop_fills, dict):
             prop_fills = prop_fills.get("fills") or []
     except (OSError, ValueError) as exc:
@@ -844,7 +930,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     result = run(journal_positions, journal_closed, alpaca_payload, bybit_payload,
-                 wallet_truth_payload, prop_status_payload, prop_fills)
+                 wallet_truth_payload, prop_status_payload, prop_fills,
+                 raw_trades=raw_trades)
 
     if args.fingerprint:
         print(fingerprint(result))

@@ -33,7 +33,7 @@ import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import pandas as pd
 
@@ -220,6 +220,21 @@ def _adx(df: pd.DataFrame, period: int) -> pd.Series:
 _effective_trail_mult = effective_trail_mult
 
 
+def _forming_bar_entries():
+    """scripts/research/forming_bar_entries.py, loaded by FILE (the decision
+    mode's one implementation; see run_backtest(decision_bar=...))."""
+    mod = sys.modules.get("forming_bar_entries")
+    if mod is None:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "forming_bar_entries",
+            Path(__file__).resolve().parent / "research" / "forming_bar_entries.py")
+        mod = _ilu.module_from_spec(_spec)
+        sys.modules["forming_bar_entries"] = mod
+        _spec.loader.exec_module(mod)
+    return mod
+
+
 def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  atr_stop_mult: float, trail_mult: float, timeout_bars: int,
                  cooldown_bars: int, timeframe: str, symbol: str,
@@ -256,7 +271,37 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  trail_vol_below_pctl: float = 0.0,
                  trail_vol_tight_mult: float = 0.0,
                  be_floor_r: float = 0.0,
-                 trades_out: Optional[List["Trade"]] = None) -> Dict[str, Any]:
+                 trades_out: Optional[List["Trade"]] = None,
+                 vol_pctl_override: Optional[Sequence[float]] = None,
+                 entry_override: Optional[Dict[int, Dict[str, Any]]] = None,
+                 decision_bar: str = "closed",
+                 decision_1m: Optional[pd.DataFrame] = None,
+                 decision_cfg: Optional[Dict[str, Any]] = None,
+                 decision_workers: int = 4) -> Dict[str, Any]:
+    # FORMING-BAR DECISION MODE (PI-20260929-VOLSKIP-SIGNAL-0002; default
+    # "closed" = byte-identical). Live evaluates the WHOLE entry signal on the
+    # still-forming bar every ~2 min; "forming" replays that decision with the
+    # live unit's own order_package from 1m data (`decision_1m`) and the leg's
+    # config/strategies.yaml block (`decision_cfg`) via
+    # scripts/research/forming_bar_entries.py — the ONE implementation, shared
+    # with the RQ-20260929-301/-302 replays — and feeds it through
+    # `entry_override`. The unit already applied every entry gate, so the
+    # harness's own copies are switched off; exits and costs are unchanged.
+    decision_bar = str(decision_bar or "closed").lower()
+    if decision_bar == "forming":
+        if decision_1m is None or decision_cfg is None:
+            raise ValueError("decision_bar='forming' needs decision_1m and decision_cfg")
+        entry_override = _forming_bar_entries().forming_entry_override(
+            df, decision_1m, decision_cfg, family="trend", label=strategy_name,
+            workers=decision_workers)
+        adx_min = adx_max = None
+        min_confidence = 0.0
+        vol_skip_above_pctl = vol_skip_below_pctl = 0.0
+        skip_hours = ""
+        side_filter = "both"
+        long_only = False
+    elif decision_bar != "closed":
+        raise ValueError(f"unknown decision_bar {decision_bar!r} (expected closed|forming)")
     """Run the Donchian trend backtest and return its summary dict.
 
     ``trades_out`` — when a list is passed, the engine's ``Trade`` objects are
@@ -323,6 +368,15 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0 or vol_trail_on:
         atr_pctl = df["atr"].rolling(vol_pctl_window,
                                      min_periods=vol_pctl_window).rank(pct=True)
+    # Research-only hook (None = byte-identical): replace the percentile the
+    # vol gate reads with an externally computed per-bar series (positional,
+    # len(df)). scripts/research/vol_skip_forming_bar_replay.py uses it to
+    # replay the gate on the percentile the LIVE frame sees when its last row
+    # is a still-forming bar (PI-20260929-EXITOPS-0005). NaN = never skip.
+    if vol_pctl_override is not None and atr_pctl is not None:
+        if len(vol_pctl_override) != len(df):
+            raise ValueError("vol_pctl_override must have one value per bar")
+        atr_pctl = pd.Series([float(v) for v in vol_pctl_override], dtype=float)
     # M20 P4.1 trail-decay is armed by R or by a stall in new favourable extremes;
     # `tight_mult <= 0` disables the whole lever (the effective mult stays
     # `trail_mult`, so the trail arithmetic below is unchanged).
@@ -394,6 +448,20 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         elif c < lo:
             direction = "short"
             breakout_depth = (lo - c) / atr
+        # Research-only hook (None = byte-identical) — same contract as the
+        # pullback harness's entry_override: the ENTRY decision per bar comes
+        # from outside ({bar_index: {"direction", "entry", "atr", optional
+        # "rest_high"/"rest_low"}}), a bar not in it is skipped, and exits,
+        # costs and bookkeeping stay this harness's own. Used by
+        # scripts/research/whole_signal_forming_bar_replay.py
+        # (PI-20260929-VOLSKIP-0001), which disables the gates it applied.
+        _ov = None
+        if entry_override is not None:
+            _ov = entry_override.get(i)
+            direction = None if _ov is None else str(_ov["direction"])
+            if _ov is not None:
+                c, atr = float(_ov["entry"]), float(_ov["atr"])
+                breakout_depth = ((c - hi) if direction == "long" else (lo - c)) / atr
         if direction is None:
             i += 1
             continue
@@ -538,7 +606,36 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
         peak_j = entry_i          # bar of the last NEW favourable extreme
         banked = False            # M20 partial-TP rung filled?
         rr_min: Optional[float] = None   # lowest rr_from_here seen while open
-        for j in range(entry_i + 1, min(entry_i + timeout_bars + 1, n)):
+        # entry_override only: a stop/target touched in the entry bar's range
+        # AFTER the entry tick exits on the entry bar (SL-first, no ratchet on
+        # that remainder — conservative). None on every harness-decided entry.
+        # The ONE stop/target test (SL-first), shared by the bar loop and the
+        # entry_override remainder check -- tests/test_backtest_trend_live_tp.py
+        # pins that each direction has exactly one site. Reads the CURRENT
+        # `trail` at call time.
+        def _stop_or_target(h: float, lo: float):
+            if direction == "long":
+                if lo <= trail:                       # SL-first (conservative)
+                    return trail, ("trail_stop" if trail > sl else "stop")
+                if tp_price is not None and h >= tp_price:
+                    # Checked AFTER the stop so the conservative SL-first
+                    # intrabar convention is unchanged: a bar that trades
+                    # through both still takes the stop.
+                    return tp_price, "take_profit"
+            else:
+                if h >= trail:
+                    return trail, ("trail_stop" if trail < sl else "stop")
+                if tp_price is not None and lo <= tp_price:
+                    return tp_price, "take_profit"
+            return None
+
+        _rest_hit = None
+        if _ov is not None and _ov.get("rest_high") is not None:
+            # The harness's ONE stop/target test (trail == sl here, so a hit
+            # reads "stop"); tests/test_backtest_trend_live_tp.py pins that it
+            # is the only SL-first site.
+            _rest_hit = _stop_or_target(float(_ov["rest_high"]), float(_ov["rest_low"]))
+        for j in range(entry_i + 1, min(entry_i + timeout_bars + 1, n)) if _rest_hit is None else ():
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0 = off, byte-identical): bank
             # `bank_frac` of the position when price touches entry ± bank_at_r ×
@@ -550,18 +647,12 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                         else entry - bank_at_r * risk)
                 if (bh >= rung) if direction == "long" else (bl <= rung):
                     banked = True
+            _hit = _stop_or_target(bh, bl)
+            if _hit is not None:
+                exit_price, exit_reason = _hit
+                exit_idx = j
+                break
             if direction == "long":
-                if bl <= trail:                       # SL-first (conservative)
-                    exit_price, exit_idx = trail, j
-                    exit_reason = "trail_stop" if trail > sl else "stop"
-                    break
-                if tp_price is not None and bh >= tp_price:
-                    # Checked AFTER the stop so the conservative SL-first
-                    # intrabar convention is unchanged: a bar that trades
-                    # through both still takes the stop.
-                    exit_price, exit_idx = tp_price, j
-                    exit_reason = "take_profit"
-                    break
                 if bh > ext:
                     peak_j = j
                 ext = max(ext, bh)
@@ -585,14 +676,6 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                 if be_floor_r > 0.0 and mfe >= be_floor_r:
                     trail = max(trail, entry)
             else:
-                if bh >= trail:
-                    exit_price, exit_idx = trail, j
-                    exit_reason = "trail_stop" if trail < sl else "stop"
-                    break
-                if tp_price is not None and bl <= tp_price:
-                    exit_price, exit_idx = tp_price, j
-                    exit_reason = "take_profit"
-                    break
                 if bl < ext:
                     peak_j = j
                 ext = min(ext, bl)
@@ -669,6 +752,9 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                         exit_price, exit_idx = _bc, j
                         exit_reason = "rr_floor_exit"
                         break
+        if _rest_hit is not None:
+            exit_price, exit_reason = _rest_hit
+            exit_idx = entry_i
         if rr_min is not None:
             _rr_min_per_trade.append(rr_min)
         if exit_price is None:
@@ -1210,6 +1296,12 @@ def main(argv: List[str]) -> int:
     p.add_argument("--confidence-sweep", default=None, metavar="GRID",
                    help="Sweep min_confidence over GRID ('0:0.5:0.05' or '0,0.1,0.2') and tabulate.")
     p.add_argument("--json", dest="json_out", default=None)
+    p.add_argument("--decision-bar", choices=["closed", "forming"], default="closed",
+                   help="closed (default, Stage 0) or forming: replay the LIVE unit's "
+                        "decision on the still-forming bar at the 2-min tick cadence "
+                        "(needs --klines-1m-dir and --strategy-name <leg>)")
+    p.add_argument("--klines-1m-dir", default=None, metavar="DIR",
+                   help="Binance USD-M <SYMBOL>-1m-*.zip archives for --decision-bar forming")
     p.add_argument("--strategy-name", default="trend_donchian", metavar="NAME",
                    help="Leg name stamped on every emitted row's `strategy` "
                         "field. Defaults to the historical literal so an "
@@ -1306,11 +1398,19 @@ def main(argv: List[str]) -> int:
                      trail_vol_above_pctl=args.trail_vol_above_pctl,
                      trail_vol_below_pctl=args.trail_vol_below_pctl,
                      trail_vol_tight_mult=args.trail_vol_tight_mult)
+    decision_kw: Dict[str, Any] = {}
+    if args.decision_bar == "forming":
+        if not args.klines_1m_dir:
+            print("ERROR: --decision-bar forming requires --klines-1m-dir", file=sys.stderr)
+            return 1
+        _m1, _block = _forming_bar_entries().cli_inputs(args.klines_1m_dir, args.strategy_name)
+        decision_kw = dict(decision_bar="forming", decision_1m=_m1, decision_cfg=_block)
     if args.confidence_sweep:
         out = _confidence_sweep(df, _parse_grid(args.confidence_sweep), bt_kwargs)
         print(_fmt_sweep(out))
     else:
         out = run_backtest(df, emit_path=args.emit_trades, strategy_name=args.strategy_name,
+                           **decision_kw,
                            min_confidence=args.min_confidence, **bt_kwargs)
         print(_fmt(out))
     if args.json_out:

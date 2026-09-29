@@ -1,13 +1,22 @@
 # R4 as the DEMOTION gate (checklist row B3) — the enforcing runner.
 #
 # Once a day, after the VM's observe-only R4 reporter (ict-research-results-gate,
-# 07:12Z), read the SAME per-leg rollup R4 reads — GET /api/bot/performance
-# (real money = perStrategy, mirror = paperPortfolio) — and run
-# scripts/ops/r4_demotion_gate.py --apply. It can only REMOVE a leg from a
-# Stage-2 roster (bybit_2 / alpaca_live and their mirrors), only on R4
-# `would_block` with negative R, and only when scripts/ops/mandate_resolver.py
-# says the granted mandate MD-DEMOTE-S2-S1 FIRES. See the script's docstring for
-# the mechanism (a roster cut, never `execution: shadow`) and why.
+# 07:12Z), read each Stage-2 leg's LAST 40 closed trades as two 20-trade windows
+# — GET /api/bot/performance/recent?n=40 (real money + the paper_role:portfolio
+# mirror) — and run scripts/ops/r4_demotion_gate.py --apply. It can only REMOVE
+# a leg from a Stage-2 roster (bybit_2 / alpaca_live and their mirrors), only on
+# R4 `would_block` over the 40 with negative R AND the T3 rule (both windows
+# below the leg's Stage-0 p10 and below 0 — operator, 2026-09-29, "Last 20 +
+# strict test (Recommended)", PI-20260929-VOLSKIP-SIGNAL-0007), and only when
+# scripts/ops/mandate_resolver.py says the granted mandate MD-DEMOTE-S2-S1
+# FIRES. See the script's docstring for the mechanism (a roster cut, never
+# `execution: shadow`) and why.
+#
+# ⚠️ THE `window` INPUT IS DEPRECATED AND FIXED to `last40` (2026-09-29). The
+# old 30d calendar window is no longer read. The input is KEPT only because
+# scripts/ci/check_mandate_autoland.py A7 binds a run's provenance to this
+# input's declared default; the gate itself refuses any other value (exit 2),
+# so a dispatch cannot choose its own evidence window either way.
 #
 # WHAT IT DOES ON A FIRE: pushes a branch carrying the roster cut plus its
 # evidence (comms/mandate_evidence/mirror_window/, comms/mandate_firings/),
@@ -50,8 +59,8 @@ on:
   workflow_dispatch:
     inputs:
       window:
-        description: "performance window (the declared demotion window)"
-        default: "30d"
+        description: "DEPRECATED — fixed to last40 (the T3 rule's last-40-closed-trades window); any other value is refused"
+        default: "last40"
       apply:
         description: "true = enforce (open the PR on a FIRE); false = dry run"
         default: "true"
@@ -98,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      WINDOW: ${{ github.event.inputs.window || '30d' }}
+      WINDOW: ${{ github.event.inputs.window || 'last40' }}
       APPLY: ${{ github.event.inputs.apply || 'true' }}
     steps:
       - uses: actions/checkout@v4
@@ -123,19 +132,19 @@ jobs:
       - name: Install deps
         run: pip install -q pyyaml
 
-      - name: Fetch the R4 input (GET /api/bot/performance)
+      - name: Fetch the T3 input (GET /api/bot/performance/recent?n=40)
         run: |
           set -euo pipefail
           curl -fsS -m 60 --retry 3 --retry-delay 5 \
-            "https://ict-bot.duckdns.org/api/bot/performance?window=${WINDOW}" -o perf.json
-          python3 -c "import json;d=json.load(open('perf.json'));assert 'perStrategy' in d and 'paperPortfolio' in d, 'not a performance payload'"
+            "https://ict-bot.duckdns.org/api/bot/performance/recent?n=40" -o recent.json
+          python3 -c "import json;d=json.load(open('recent.json'));assert 'realMoney' in d and 'mirror' in d and d.get('n')==40, 'not a /performance/recent?n=40 payload'"
 
       - name: Run the gate
         id: gate
         run: |
           set -euo pipefail
           flag=""; [ "$APPLY" = "true" ] && flag="--apply"
-          PYTHONPATH=. python3 scripts/ops/r4_demotion_gate.py --perf-json perf.json \
+          PYTHONPATH=. python3 scripts/ops/r4_demotion_gate.py --recent-json recent.json \
             --window "$WINDOW" $flag --json > gate.json
           python3 -c "import json,sys;sys.path.insert(0,'scripts/ops');import r4_demotion_gate as g;print(g.render(json.load(open('gate.json'))))" \
             | tee -a "$GITHUB_STEP_SUMMARY"

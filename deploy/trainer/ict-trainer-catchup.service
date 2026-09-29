@@ -1,0 +1,25 @@
+# ICT trainer catch-up run (BL-20260702-TRAINER-OOM). Re-invokes the SAME
+# run_training_cycle.sh after the primary daily cycle; checkpoint/resume makes
+# it a near-no-op on a clean day and a recovery on an interrupted one.
+# Installed on-box 2026-07-19 (ml-infra audit F7; box predates the cloud-init
+# that defines it — content mirrors deploy/training-vm-cloud-init.yaml).
+[Unit]
+Description=ICT model training center — same-day catch-up run (S-AI-WS9)
+After=network-online.target ict-trainer.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ict-trading-bot
+MemoryHigh=infinity
+MemoryMax=5G
+MemorySwapMax=0
+OOMPolicy=continue
+Environment=ICT_BUILD_FUNDING_OI=1
+ExecStart=/bin/bash scripts/ops/run_training_cycle.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

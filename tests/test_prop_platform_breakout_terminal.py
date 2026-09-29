@@ -27,13 +27,25 @@ FIX = REPO / "tests" / "fixtures" / "prop_breakout_terminal"
 # ── interface parity ──────────────────────────────────────────────────
 
 
+def test_flatten_takes_the_executors_row_facts():
+    """The executor's watched close calls ``flatten(page, venue, arm=...,
+    side=..., quantity=..., entry_price=...)`` (prop_executor
+    _close_and_confirm / close_position). Before 2026-09-29 this adapter's
+    flatten took only ``symbol`` and ``arm``: a TypeError on switch."""
+    import inspect
+    for cls in (bt.BreakoutTerminalAdapter, DXtradeAdapter):
+        params = inspect.signature(cls.flatten).parameters
+        for kw in ("arm", "side", "quantity", "entry_price", "rel_tol"):
+            assert kw in params and params[kw].kind is inspect.Parameter.KEYWORD_ONLY, (cls.__name__, kw)
+
+
 def test_same_public_surface_as_dxtrade():
     """Everything the tick scripts call on an adapter exists here too, so
     switching platform needs no caller change."""
     used_by_callers = {"login", "resume_session", "wait_ready", "read_account", "read_positions",
                        "read_orders", "read_quote", "page_shape", "structure", "start_response_capture",
                        "probe_order_ticket", "place_bracket", "modify_bracket", "cancel_order",
-                       "flatten", "timeout_ms"}
+                       "flatten", "timeout_ms", "dump_tables", "read_one_click", "page_state"}
     a = adapter_for_platform("breakout_terminal")
     assert isinstance(a, PropPlatformAdapter) and a.platform == "breakout_terminal"
     for name in used_by_callers:
@@ -118,6 +130,35 @@ def test_unread_metrics_are_none_never_zero():
 ])
 def test_classify_page(visible, text, title, want):
     assert bt.classify_page(visible, text, title) == want
+
+
+# The live VM's landing at app.breakoutprop.com, 2026-09-29 (issue #14402,
+# run 36623749022), as the redacted page shape printed it.
+_ASN_TITLE = "Access denied | app.breakoutprop.com used Cloudflare to restrict access | app.breakoutprop.com | Cloudflare"
+_ASN_TEXT = ("Error 1005 Ray ID: a42d997bebc96f34 • 2026-09-29 20:04:53 UTC\nAccess denied\nWhat happened?\n"
+             "The owner of this website (app.breakoutprop.com) has banned the autonomous system number (ASN) "
+             "your IP address is in (31…\nWas this page helpful? Yes No")
+
+
+def test_cloudflare_asn_ban_is_a_stop_not_unknown():
+    assert bt.classify_page({}, _ASN_TEXT, _ASN_TITLE) == "asn_blocked"
+    assert bt.classify_page({}, "", _ASN_TITLE) == "access_denied"   # another Cloudflare ban page
+    assert bt.classify_page({}, "Error 1005", "") == "asn_blocked"
+    assert "asn_blocked" in bt.BreakoutTerminalAdapter._STOPS
+    assert "access_denied" in bt.BreakoutTerminalAdapter._STOPS
+
+
+def test_probe_ends_the_landing_on_a_block():
+    sys.path.insert(0, str(REPO / "scripts" / "prop"))
+    import breakout_terminal_probe as probe
+    for state in ("asn_blocked", "access_denied", "challenge", "captcha"):
+        assert probe.landing_exit(state) == probe.EXIT_FEASIBILITY == 4, state
+    for state in ("login_form", "dashboard", "unknown", "terminal"):
+        assert probe.landing_exit(state) is None, state
+    # The status label survives redaction (#14402 printed "<token>: 403").
+    from src.prop.platform.dxtrade import redact_text
+    assert redact_text("probe.landing.http: 403") == "probe.landing.http: 403"
+    assert "probe.landing.http_status" not in (REPO / "scripts" / "prop" / "breakout_terminal_probe.py").read_text()
 
 
 def test_tpsl_split():
@@ -295,6 +336,18 @@ def test_email_code_is_a_feasibility_stop(browser):
     ctx.close()
 
 
+def test_asn_block_page_is_a_feasibility_stop_in_a_browser(browser):
+    ctx = _site(browser, {"/": "asn_blocked.html.txt"})
+    page = ctx.new_page()
+    a = bt.BreakoutTerminalAdapter(timeout_ms=4_000)
+    page.goto("https://app.breakoutprop.com/")
+    assert a.page_state(page) == "asn_blocked"
+    with pytest.raises(FeasibilityError) as ei:
+        a.login(page, "https://app.breakoutprop.com/", "u", "p")
+    assert ei.value.reason == "asn_blocked"
+    ctx.close()
+
+
 def test_no_account_is_a_feasibility_stop(browser):
     ctx = _site(browser, {"/": "no_account.html.txt"})
     page = ctx.new_page()
@@ -365,6 +418,154 @@ def test_cancel_disarmed_finds_one_row_and_does_not_click(browser):
     got = a.cancel_order(page, WorkingOrder(symbol="ETHUSD", order_id="A77"))
     assert got == {"ok": True, "clicked": False, "why": "disarmed: stopped before the click"}
     assert a.cancel_order(page, WorkingOrder(symbol="ETHUSD", order_id=None))["ok"] is False
+    ctx.close()
+
+
+def test_ticket_opener_can_never_be_a_submit():
+    import re
+    sub = re.compile(bt.FORM_BUTTON_PATTERNS["submit"], re.I)
+    for name in bt.TICKET_OPENER_NAMES:
+        assert not sub.match(name), name
+
+
+def test_replace_once_fails_loudly_on_a_reworded_snippet():
+    with pytest.raises(RuntimeError, match="found 0 times"):
+        bt._replace_once("abc", "xyz", "q")
+    with pytest.raises(RuntimeError, match="found 2 times"):
+        bt._replace_once("xyzxyz", "xyz", "q")
+    assert "entry price" in bt.CLOSE_ROW_JS and "market|contract" in bt.CLOSE_ROW_JS
+
+
+def test_normalise_row_facts_reads_side_from_a_signed_size():
+    assert bt.normalise_row_facts({"side": "", "size": "-0.5"}) == {"side": "short", "size": "0.5"}
+    assert bt.normalise_row_facts({"side": "Long", "size": "0.01"}) == {"side": "Long", "size": "0.01"}
+    assert bt.normalise_row_facts({"side": None, "size": None}) == {"side": None, "size": None}
+
+
+def test_place_bracket_armed_walks_the_path_then_refuses(browser):
+    ctx, page = _terminal_page(browser)
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).place_bracket(page, _spec(), arm=True)
+    assert got.stage == "refused" and got.submitted is False
+    assert "armed submit refused" in got.detail and "DRBVUUDJ-0001" in got.detail
+    clicks = page.evaluate("window.__clicks")
+    assert "submit" not in clicks and clicks[:2] == ["b", "l"]   # the whole dry walk ran first
+    ctx.close()
+
+
+def test_place_bracket_refuses_when_the_selection_is_not_readable_back(browser):
+    ctx, page = _terminal_page(browser)
+    page.evaluate("window.__noPress = true")
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).place_bracket(page, _spec())
+    assert got.stage == "refused" and "side: not readable back" in got.detail
+    assert "submit" not in page.evaluate("window.__clicks")
+    ctx.close()
+
+
+def test_place_bracket_skips_a_side_already_shown_selected(browser):
+    ctx, page = _terminal_page(browser)
+    page.evaluate("document.getElementById('open-ticket').click();"
+                  "document.getElementById('b').setAttribute('aria-pressed','true');"
+                  "document.getElementById('s').setAttribute('aria-pressed','false')")
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).place_bracket(page, _spec())
+    assert got.stage == "form_verified", got.detail
+    assert page.evaluate("window.__clicks")[:1] == ["l"]           # BUY not re-clicked
+    ctx.close()
+
+
+def test_probe_ticket_never_returns_the_raw_form_text(browser):
+    ctx, page = _terminal_page(browser)
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).probe_order_ticket(page, "BTCUSD")
+    assert "form_text" not in got and got["form_text_len"] > 0 and got["names_symbol"] is True
+    ctx.close()
+
+
+def test_probe_ticket_refused_still_measures_the_controls(browser):
+    ctx, page = _terminal_page(browser, one_click_off=False)
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).probe_order_ticket(page, "BTCUSD")
+    assert got["surface"] == "not_opened" and "one-click" in got["refused"]
+    assert got["controls_dump"]["found"] is True
+    assert page.evaluate("window.__clicks") == []
+    ctx.close()
+
+
+def test_cancel_armed_refuses_without_clicking(browser):
+    from src.prop.platform.base import WorkingOrder
+    ctx, page = _terminal_page(browser)
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).cancel_order(page, WorkingOrder(symbol="ETHUSD", order_id="A77"),
+                                                                    arm=True)
+    assert got["ok"] is False and got["clicked"] is False and "armed orders row action refused" in got["why"]
+    assert page.evaluate("window.__clicks") == []
+    ctx.close()
+
+
+def _positions_page(browser):
+    ctx = _site(browser, {"/terminal": "positions_table.html.txt"})
+    page = ctx.new_page()
+    page.goto("https://app.breakoutprop.com/terminal")
+    return ctx, page
+
+
+def test_flatten_disarmed_picks_the_rows_last_close_control(browser):
+    ctx, page = _positions_page(browser)
+    a = bt.BreakoutTerminalAdapter(timeout_ms=5_000)
+    got = a.flatten(page, "BTCUSD", side="long", quantity=0.01, entry_price=65100.0)
+    assert got["ok"] is True and got["clicked"] is False and got["chosen"] == 2, got
+    assert page.evaluate("document.querySelector('[data-metis-row-action]').id") == "close"
+    # The close button's data-test-id carries an 8-digit id: masked in both
+    # the markup and the hint that reach a public log.
+    assert "99887766" not in str(got["controls"]) and "#####" in str(got["controls"])
+    # A signed-size row with no side cell reads short.
+    got = a.flatten(page, "ETHUSD", side="short", quantity=0.5, entry_price=3000.0)
+    assert got["ok"] is True, got
+    assert page.evaluate("window.__clicks") == []
+    ctx.close()
+
+
+def test_flatten_armed_refuses_before_the_click(browser):
+    ctx, page = _positions_page(browser)
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).flatten(page, "BTCUSD", arm=True, side="long",
+                                                              quantity=0.01, entry_price=65100.0)
+    assert got["ok"] is False and got["clicked"] is False and "armed close refused" in got["why"]
+    assert page.evaluate("window.__clicks") == []
+    ctx.close()
+
+
+@pytest.mark.parametrize("mutate,why", [
+    # A close-ALL icon is a qualified close: refused (it could flatten everything).
+    ("document.getElementById('close').className = 'icon-close-all'", "0 close-type controls"),
+    # The close is not the row's LAST control.
+    ("document.getElementById('close').after(document.getElementById('edit'))", "not the LAST control"),
+    # A close nested inside a reverse button: the click would bubble to it.
+    ("const s = document.createElement('span'); s.setAttribute('role','button'); s.className='icon-close';"
+     "document.getElementById('close').remove(); document.getElementById('edit').after(document.getElementById('rev'));"
+     "document.getElementById('rev').appendChild(s)", "nested in another pressable"),
+    # A reverse-named row: refused, and its id is masked in the PUBLIC refusal.
+    ("document.querySelector('tr[data-test-id]').setAttribute('data-test-id', 'reverse-99887766')",
+     'qualified ancestor ("reverse #####")'),
+])
+def test_flatten_hardened_refusals(browser, mutate, why):
+    ctx, page = _positions_page(browser)
+    page.evaluate(mutate)
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).flatten(page, "BTCUSD", side="long", quantity=0.01)
+    assert got["ok"] is False and got["clicked"] is False and why in got["why"], got
+    assert "99887766" not in got["why"]
+    ctx.close()
+
+
+def test_flatten_refuses_a_row_that_is_not_the_position_meant(browser):
+    ctx, page = _positions_page(browser)
+    got = bt.BreakoutTerminalAdapter(timeout_ms=5_000).flatten(page, "BTCUSD", side="short", quantity=0.01)
+    assert got["ok"] is False and "does not match the position" in got["why"]
+    ctx.close()
+
+
+def test_dump_tables_is_read_only_and_masks_ids(browser):
+    ctx, page = _positions_page(browser)
+    lines = bt.BreakoutTerminalAdapter(timeout_ms=5_000).dump_tables(page, ("user@example.com",))
+    blob = "\n".join(lines)
+    assert lines[0].startswith("dump_tables: BEGIN") and "reads_as=positions" in blob
+    assert "first_row_control_html" in blob and "99887766" not in blob
+    assert page.evaluate("window.__clicks") == []
     ctx.close()
 
 

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "trainer root used_pct < 85 (published as disk.used_pct in trainer_status.json), or the operator names which of the listed trees to prune/resize",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-BTG1YDOI-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "trainer-vm-diag #14157",
+    "rerun": "trainer-vm-diag: df -h /; sudo du -xh --max-depth=1 /home/ubuntu/ict-trading-bot | sort -rh | head; sudo journalctl --disk-usage"
+  },
+  "routed_to": "TRAINER-DISK",
+  "state": "routed",
+  "what": "SA-INFRA FIX-SA-12 DECISION: trainer root disk is 92% used (44.26 GB of 48.3 GB, 4.0 GB free, read 2026-09-29 12:04Z, trainer-diag #14157) after the only provably-rebuildable prune (0.23 GB: 4 unpinned datasets-out probe dirs 0.09 GB + apt cache 0.14 GB). NOT deleted, needs a decision, sizes MEASURED on the trainer 2026-09-29 (#14140/#14145/#14153): datasets-out 12 GB (111 of 115 version dirs pinned by 41 manifest pins; frozen 15m versions v513-v530/v901 ~0.4 GB each) | ml/experiments-runs 6.8 GB (96 registry entries, ALL status=candidate, 96 of 96 artifact paths exist under it; the registry has no 'retired' status so nothing qualifies as retired-and-superseded) | runtime_logs/m20_exit_head 2.5 GB (Aug-15 research outputs, largest is unanimity2 537 MB; readers not established) | data/trade_journal.db 1.7 GB + data/signal_audit.jsonl 1.1 GB (synced copies, rebuildability not proven) | .venv 2.6 GB | journald 1.2 GB (log data) | /var/lib/snapd 0.93 GB. Options: journalctl --vacuum + SystemMaxUse (~1 GB), old snap revisions (~0.5 GB), unpin+GC frozen dataset versions, archive m20_exit_head after a reader check, or resize the volume in OCI. 90% alarm ships in #14174 and will fire (92% > 90%). || 2026-09-29 ~13:57Z operator, verbatim popup answer in manager session session_01HYq6XtfesZ57VyaQrK6CL1: \"All three (Recommended)\" = (1) journald cap 300M + disabled snap revisions, (2) compress runtime_logs/m20_exit_head in place after a reader check, (3) grow trainer boot volume to 100 GB online, stopping to report cost if beyond the Always Free 200 GB block total. NOT approved: unpinning datasets or deleting candidate models. Dispatched TRAINER-DISK session_01BuzwdjYBjCo5bQCmxYTHSp."
+}

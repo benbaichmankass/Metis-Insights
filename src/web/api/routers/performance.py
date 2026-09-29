@@ -16,6 +16,11 @@ Window (``?window=``):
   - ``7d``  — last 7 days.
   - ``30d`` — last 30 days.
   - ``all`` — all closed trades (default).
+  - anything else — HTTP 400 (it silently meant ``all`` until 2026-09-29).
+
+``GET /api/bot/performance/recent?n=40`` serves each leg's LAST n closed
+trades as non-overlapping 20-trade blocks (MD-DEMOTE-S2-S1's T3 rule) --
+see ``get_performance_recent``.
 
 The close-time basis is the canonical ``trades.closed_at`` column (P1-B),
 falling back to ``COALESCE(t.closed_at, op.updated_at, t.timestamp)`` for rows predating
@@ -41,7 +46,8 @@ Wire shape (camelCase):
       ],
       "perExitPath": [                  # worst coverage FIRST, not best PnL
         {"exitPath": "pairs_stop", "trades": 40, "wins": 12, "winRate": 30.0,
-         "totalPnl": -80.1, "totalPnlMeasured": 0.0,
+         "totalPnl": -80.1, "totalPnlMeasured": 0.0,        # MEASURED+ESTIMATED
+         "totalPnlMeasuredOnly": 0.0, "totalPnlEstimated": 0.0,
          "pnlMeasuredCount": 0, "pnlEstimatedCount": 0, "pnlCoverage": 0.0,
          # Is the bucket KEY itself evidence? Counts, never a ratio — an
          # AUTHORED path (pairs_*, sl_cross, ...) never reaches the exit
@@ -64,7 +70,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from src.utils.paths import trade_journal_db_path
 from src.web.api._asset_class import CLASS_ORDER, asset_class_for_symbol
@@ -213,6 +219,8 @@ def _empty(window: str, since: Optional[str], error: bool = False) -> Dict[str, 
         # keep "no rows" distinguishable from "rows, none measured". The R4 gate
         # keys its abstain on pnlCoverage, never on this sum alone.
         "totalPnlMeasured": 0.0,
+        "totalPnlMeasuredOnly": 0.0,
+        "totalPnlEstimated": 0.0,
         "pnlMeasuredCount": 0,
         "pnlEstimatedCount": 0,
         "pnlFabricatedCount": 0,
@@ -427,7 +435,8 @@ def _query(
         # does not exist, and the next reader would trust it.
         exit_select = "\n                   t.exit_reason AS exit_reason,"
         sql = f"""
-            SELECT t.strategy_name,
+            SELECT t.id AS trade_id,
+                   t.strategy_name,
                    t.symbol AS symbol,
                    t.account_id AS account_id,
                    t.pnl AS pnl,{r_select}{notes_select}{exit_select}{meta_select}
@@ -454,7 +463,11 @@ def _query(
         if since:
             sql += f" AND {_CLOSE_TIME_SQL} >= datetime(?)"
             params.append(since)
-        sql += f" ORDER BY {_CLOSE_TIME_SQL} ASC"
+        # `t.id` breaks ties: the close-time basis is second-precision, so two
+        # trades closing in the same second had no defined order, and a
+        # consumer slicing the last N (/performance/recent) could move a trade
+        # across a block boundary between two reads of the same journal.
+        sql += f" ORDER BY {_CLOSE_TIME_SQL} ASC, t.id ASC"
         return conn.execute(sql, params).fetchall()
     finally:
         conn.close()
@@ -488,6 +501,9 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     gross_loss = 0.0     # abs sum of losing-trade pnl
     total_pnl = 0.0
     total_pnl_measured = 0.0   # sum of pnl over MEASURED+ESTIMATED rows only
+    # The two halves of the sum above, so a reader can see what it is made of.
+    total_pnl_measured_only = 0.0   # MEASURED rows only == the pnlMeasuredCount population
+    total_pnl_estimated = 0.0       # ESTIMATED rows only == the pnlEstimatedCount population
     total_r = 0.0          # sum of per-trade R over R-measurable trades only
     r_count = 0            # # trades with a computable R (entry+stop+size known)
     pnl_prov: Dict[str, int] = {}   # pnl-provenance split (measured/…/unverified)
@@ -629,11 +645,16 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         pnl_is_measured = pnl_bucket in (MEASURED, ESTIMATED)
         if pnl_is_measured:
             total_pnl_measured += pnl
+        if pnl_bucket == MEASURED:
+            total_pnl_measured_only += pnl
+        elif pnl_bucket == ESTIMATED:
+            total_pnl_estimated += pnl
 
         name = r["strategy_name"] or "(unknown)"
         bucket = per.setdefault(
             name,
-            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
+            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0, "pnl_measured_only_sum": 0.0,
+             "pnl_estimated_sum": 0.0,
              "r": 0.0, "rc": 0.0, "pnl_measured": 0.0, "pnl_estimated": 0.0,
              "r_prov": r_empty_counts(), "r_basis": r_empty_basis_counts()},
         )
@@ -651,6 +672,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             bucket["pnl_estimated"] += 1
         if pnl_is_measured:
             bucket["pnl_measured_sum"] += pnl
+        if pnl_bucket == MEASURED:
+            bucket["pnl_measured_only_sum"] += pnl
+        elif pnl_bucket == ESTIMATED:
+            bucket["pnl_estimated_sum"] += pnl
         if rr is not None:
             bucket["r"] += rr
             bucket["rc"] += 1
@@ -667,7 +692,8 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         exit_path = str(_rget(r, "exit_reason") or "(unrecorded)")
         ebucket = per_exit.setdefault(
             exit_path,
-            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0,
+            {"trades": 0.0, "wins": 0.0, "pnl": 0.0, "pnl_measured_sum": 0.0, "pnl_measured_only_sum": 0.0,
+             "pnl_estimated_sum": 0.0,
              "pnl_measured": 0.0, "pnl_estimated": 0.0,
              "label_attested": 0.0, "label_refused": 0.0,
              "label_unresolved": 0.0, "label_unattested": 0.0},
@@ -718,6 +744,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             ebucket["pnl_estimated"] += 1
         if pnl_is_measured:
             ebucket["pnl_measured_sum"] += pnl
+        if pnl_bucket == MEASURED:
+            ebucket["pnl_measured_only_sum"] += pnl
+        elif pnl_bucket == ESTIMATED:
+            ebucket["pnl_estimated_sum"] += pnl
         # asset-class breakdown (crypto / index / commodity / equity / fx)
         cls = asset_class_for_symbol(r["symbol"])
         cbucket = per_class.setdefault(
@@ -769,7 +799,14 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             # rows only. The R4 promotion gate reads THIS, not totalPnl: a leg is
             # judged on measured money, never manufactured. Pair with pnlCoverage
             # below — a low-coverage strategy's measured sum is a thin sample.
+            # ⚠️ MEASURED+ESTIMATED, despite the name (JC-SA-03: kept, and both
+            # halves recorded). The two fields below split it.
             "totalPnlMeasured": round(b["pnl_measured_sum"], 4),
+            # MEASURED rows ONLY -- the SAME population as `pnlMeasuredCount`
+            # (FIX-SA-05). `totalPnlMeasured` == totalPnlMeasuredOnly +
+            # totalPnlEstimated, to rounding.
+            "totalPnlMeasuredOnly": round(b["pnl_measured_only_sum"], 4),
+            "totalPnlEstimated": round(b["pnl_estimated_sum"], 4),
             "expectancy": round(b["pnl"] / b["trades"], 4) if b["trades"] else 0.0,
             # R-normalised (cross-instrument-comparable). None when no trade in
             # the bucket had a measurable risk; rTradeCount says how many did.
@@ -858,7 +895,9 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
             "wins": int(b["wins"]),
             "winRate": round(b["wins"] / b["trades"] * 100.0, 1) if b["trades"] else 0.0,
             "totalPnl": round(b["pnl"], 4),
-            "totalPnlMeasured": round(b["pnl_measured_sum"], 4),
+            "totalPnlMeasured": round(b["pnl_measured_sum"], 4),   # MEASURED+ESTIMATED
+            "totalPnlMeasuredOnly": round(b["pnl_measured_only_sum"], 4),
+            "totalPnlEstimated": round(b["pnl_estimated_sum"], 4),
             # MEASURED-only, like every other pnlCoverage in this file — ESTIMATED
             # is deliberately NOT "covered", and `totalPnlMeasured` above sums
             # MEASURED+ESTIMATED. The asymmetry is load-bearing (see the long note
@@ -955,6 +994,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     # export, so an unrecorded account means nobody has reconciled it — never
     # that it reconciles. `readState: "unreadable"` means we could not look,
     # which is a third thing again.
+    # collapsed-state: unreadable — publishes the map's read_state VERBATIM as
+    # journalTrust.readState (all three values reach the response) and groups
+    # accounts by journal_trust_for's per-account verdict; it branches on no
+    # read_state value itself.
     _trust_map = journal_trust_map()
     _by_state: Dict[str, List[str]] = {}
     for _aid in sorted({str(_rget(r, "account_id") or "") for r in rows} - {""}):
@@ -1125,7 +1168,14 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
         # gate on totalPnl: it sums fabricated marks too. Read this beside
         # pnlCoverage — below the coverage floor the measured sum is too thin a
         # sample to gate on and the gate ABSTAINS (R4 design §3). Added 2026-08-01.
+        #
+        # ⚠️ The NAME understates it: this is MEASURED **+ ESTIMATED**
+        # (SA-AUD-3: a paper window read `totalPnlMeasured` +94,618 with 367
+        # MEASURED rows against 699 ESTIMATED). The next two fields are its
+        # halves, over the same populations as the two counts below.
         "totalPnlMeasured": round(total_pnl_measured, 4),
+        "totalPnlMeasuredOnly": round(total_pnl_measured_only, 4),
+        "totalPnlEstimated": round(total_pnl_estimated, 4),
         "pnlMeasuredCount": int(pnl_prov.get(MEASURED, 0)),
         "pnlEstimatedCount": int(pnl_prov.get(ESTIMATED, 0)),
         "pnlFabricatedCount": int(pnl_prov.get(FABRICATED, 0)),
@@ -1196,10 +1246,24 @@ def get_performance(
     Trades with ``pnl IS NULL`` are excluded from both — see ``_query`` for
     why ("0-pnl closed trade" complaint, reconciler fallback path).
 
-    Returns a zeroed envelope (HTTP 200) on an unknown window token or a
-    DB read error so the consumer's tab stays usable instead of erroring.
+    Returns a zeroed envelope (HTTP 200) on a DB read error so the consumer's
+    tab stays usable instead of erroring.
+
+    ⚠️ AN UNKNOWN ``window`` TOKEN IS HTTP 400, NOT ALL-TIME (2026-09-29,
+    PI-20260929-VOLSKIP-SIGNAL-0006). Until then an unknown token silently
+    became ``all``, so a caller asking for ``window=90d`` got the all-time
+    figures back labelled ``"window": "all"`` -- a DIFFERENT population from the
+    one requested, answered with HTTP 200. A reader that did not re-check the
+    echoed label (the R4 demotion gate is one) would act on the wrong window.
+    Every valid token's response is unchanged byte-for-byte
+    (``tests/test_performance_recent_blocks.py`` pins it against a golden
+    captured from the pre-change code).
     """
-    window = window if window in _WINDOWS else "all"
+    if window not in _WINDOWS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown window {window!r}; valid: {sorted(_WINDOWS)}",
+        )
     since = _window_since(window)
     if not _DB_PATH.exists():
         env = _empty(window, since)
@@ -1243,4 +1307,188 @@ def get_performance(
         env["demo"] = empty_sub
         env["paper"] = empty_sub
         env["paperPortfolio"] = empty_sub
+        return env
+
+
+# --------------------------------------------------------------------------
+# GET /api/bot/performance/recent — the last N closed trades per leg, in
+# non-overlapping blocks (MD-DEMOTE-S2-S1's T3 rule, operator 2026-09-29).
+# --------------------------------------------------------------------------
+#: Block size of the T3 rule: "the LAST 40 closed trades as two non-overlapping
+#: 20-trade windows" (operator decision "Last 20 + strict test (Recommended)",
+#: 2026-09-29, pipeline row PI-20260929-VOLSKIP-SIGNAL-0007). Fixed here, not a
+#: query parameter, so no caller can re-price the rule by asking differently.
+RECENT_BLOCK = 20
+RECENT_N_DEFAULT = 40
+RECENT_N_MAX = 200
+
+
+#: Block names, NEWEST first: ``blocks[0]`` is always the most recent
+#: ``RECENT_BLOCK`` closed trades, whatever else the leg has.
+_BLOCK_LABELS = ("recent", "prior", "prior_2", "prior_3", "prior_4", "prior_5",
+                 "prior_6", "prior_7", "prior_8", "prior_9")
+
+
+def _leg_blocks(rows: List[sqlite3.Row], n: int, block: int) -> Dict[str, Any]:
+    """One leg's last ``n`` closed rows (``_query`` returns them oldest→newest,
+    ties broken by trade id) as ``_aggregate`` outputs: ``last`` over all of
+    them, and ``blocks`` over each COMPLETE ``block``-trade chunk, NEWEST
+    FIRST and named (``recent``, ``prior``, ...), each carrying the trade ids
+    it covers so non-overlap is checkable on ids, not timestamps. A leg with
+    fewer than ``n`` rows reports ``complete: false`` and only the complete
+    blocks it has -- never a short block presented as a full one."""
+    tail = rows[-n:]
+    blocks = []
+    for i in range(len(tail) // block):
+        hi = len(tail) - i * block
+        chunk = tail[hi - block:hi]
+        agg = _strip_envelope(_aggregate(chunk, "recent", None))
+        ids = [_rget(r, "trade_id") for r in chunk]
+        agg.update({
+            "label": _BLOCK_LABELS[i],
+            "closedFrom": _rget(chunk[0], "closed_at"),
+            "closedTo": _rget(chunk[-1], "closed_at"),
+            "firstTradeId": ids[0],
+            "lastTradeId": ids[-1],
+            "tradeIds": ids,
+        })
+        blocks.append(agg)
+    return {
+        "closedAvailable": len(rows),
+        "nUsed": len(tail),
+        "complete": len(tail) == n,
+        "last": _strip_envelope(_aggregate(tail, "recent", None)),
+        "blocks": blocks,
+    }
+
+
+def _book_blocks(rows: List[sqlite3.Row], n: int, block: int,
+                 roster: List[str]) -> Dict[str, Any]:
+    by: Dict[str, List[sqlite3.Row]] = {leg: [] for leg in roster}
+    for r in rows:
+        # The SAME name key `_aggregate` buckets `perStrategy` on, so a leg here
+        # and a leg in /performance's perStrategy are one population.
+        by.setdefault(r["strategy_name"] or "(unknown)", []).append(r)
+    # A ROSTERED leg with no closed trade is emitted with closedAvailable 0, so
+    # "on the roster, never closed" is distinguishable from "not on the roster".
+    return {name: _leg_blocks(legrows, n, block) for name, legrows in sorted(by.items())}
+
+
+def _newest_close(rows: List[sqlite3.Row]) -> Optional[str]:
+    return _rget(rows[-1], "closed_at") if rows else None
+
+
+def _book_rosters() -> Dict[str, Any]:
+    """The rosters the two books serve, read from ``config/accounts.yaml``:
+    ``{"readState", "realMoneyLegs", "portfolioAccounts", "portfolioLegs"}``.
+
+    ``readState`` is ``ok`` or ``unreadable``. Unlike
+    ``_portfolio_paper_account_ids`` (which /performance keeps, and which folds
+    a load error into "none declared"), "we could not read the config" stays
+    its own state here."""
+    try:
+        from src.config.accounts_loader import load_accounts_dict
+        accounts_yaml = Path(__file__).resolve().parents[4] / "config" / "accounts.yaml"
+        accounts = load_accounts_dict(accounts_yaml)
+        if not isinstance(accounts, dict):
+            raise ValueError(f"accounts is {type(accounts).__name__}, not a mapping")
+    except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + returned as readState "unreadable", which the route publishes on the mirror book and the R4 gate refuses to run on
+        logger.exception("performance/recent: accounts.yaml unreadable")
+        return {"readState": "unreadable", "realMoneyLegs": [], "portfolioAccounts": [],
+                "portfolioLegs": []}
+    real_legs: List[str] = []
+    pids: List[str] = []
+    pp_legs: List[str] = []
+    for aid, cfg in accounts.items():
+        if not isinstance(cfg, dict):
+            continue
+        cls = str(cfg.get("account_class") or "").lower()
+        legs = [str(x) for x in (cfg.get("strategies") or [])]
+        if cls == "real_money":
+            real_legs.extend(legs)
+        elif cls == "paper" and str(cfg.get("paper_role") or "").lower() == "portfolio":
+            pids.append(str(aid))
+            pp_legs.extend(legs)
+    return {"readState": "ok", "realMoneyLegs": sorted(set(real_legs)),
+            "portfolioAccounts": pids, "portfolioLegs": sorted(set(pp_legs))}
+
+
+@router.get("/performance/recent")
+def get_performance_recent(
+    n: int = Query(RECENT_N_DEFAULT, ge=RECENT_BLOCK, le=RECENT_N_MAX),
+) -> Dict[str, Any]:
+    """Each leg's LAST ``n`` closed trades, split into non-overlapping
+    ``RECENT_BLOCK``-trade blocks, on the real-money book and on the
+    live-portfolio mirror (``paper_role: portfolio``) -- the input to
+    MD-DEMOTE-S2-S1's T3 rule (``scripts/ops/r4_demotion_gate.py``).
+
+    Every figure is an ``_aggregate()`` output over rows from ``_query()`` --
+    the same population filter, R basis and provenance rules as
+    ``/api/bot/performance``; there is no second R implementation here. Each
+    block's ``perStrategy[0]`` is exactly the row R4 reads from
+    ``/performance``'s ``perStrategy``, computed over that block only.
+
+    ⚠️ The mirror does NOT fall back to the all-paper book when no portfolio
+    account is declared (``/performance`` does): the Stage-1 soak book is not
+    the Stage-2 mirror, and a demotion signal read off the wrong book is worse
+    than none. ``mirror.readState`` says which happened: ``ok``,
+    ``no_portfolio_accounts_declared``, ``accounts_unreadable`` (the config
+    could not be read -- never folded into "none declared"), ``absent`` (no
+    journal) or ``error``. Every leg on a book's roster is present, with
+    ``closedAvailable: 0`` if it never closed. ``newestClosedAt`` per book lets
+    a consumer refuse a stale read (a stalled trader re-serves the same 40).
+
+    ``n`` must be a multiple of ``RECENT_BLOCK`` (400 otherwise). A DB read
+    failure returns ``error: true`` with both books ``readState: "error"`` --
+    "we could not look" is never an empty ``perStrategy`` that reads as "no
+    legs traded".
+    """
+    if n % RECENT_BLOCK:
+        raise HTTPException(
+            status_code=400,
+            detail=f"n={n} is not a multiple of the {RECENT_BLOCK}-trade block",
+        )
+    env: Dict[str, Any] = {
+        "n": n,
+        "block": RECENT_BLOCK,
+        "error": False,
+        "basis": ("last n closed non-backtest trades per strategy_name, ordered by close "
+                  "time then trade id; blocks are complete, non-overlapping, NEWEST FIRST "
+                  "(labels recent, prior, ...) and carry the trade ids they cover"),
+        "realMoney": {"readState": "absent", "newestClosedAt": None, "perStrategy": {}},
+        "mirror": {"readState": "absent", "accountIds": [], "newestClosedAt": None,
+                   "perStrategy": {}},
+    }
+    if not _DB_PATH.exists():
+        return env
+    try:
+        rosters = _book_rosters()
+        real_rows = _query(_DB_PATH, None, demo=False)
+        env["realMoney"] = {
+            "readState": "ok",
+            "rosterReadState": rosters["readState"],
+            "newestClosedAt": _newest_close(real_rows),
+            "perStrategy": _book_blocks(real_rows, n, RECENT_BLOCK, rosters["realMoneyLegs"]),
+        }
+        portfolio_ids = rosters["portfolioAccounts"]
+        if rosters["readState"] != "ok":
+            # "We could not read the config" -- never "none declared".
+            env["mirror"]["readState"] = "accounts_unreadable"
+        elif portfolio_ids:
+            pp_rows = _query(_DB_PATH, None, demo=True, account_ids=portfolio_ids)
+            env["mirror"] = {
+                "readState": "ok",
+                "accountIds": portfolio_ids,
+                "newestClosedAt": _newest_close(pp_rows),
+                "perStrategy": _book_blocks(pp_rows, n, RECENT_BLOCK, rosters["portfolioLegs"]),
+            }
+        else:
+            env["mirror"]["readState"] = "no_portfolio_accounts_declared"
+        return env
+    except Exception:  # noqa: BLE001  # allow-silent: logged (logger.exception) + an explicit error envelope (error: true, readState "error" on both books) so "could not look" never reads as "no trades"
+        logger.exception("performance/recent: read failed")
+        env["error"] = True
+        env["realMoney"] = {"readState": "error", "newestClosedAt": None, "perStrategy": {}}
+        env["mirror"] = {"readState": "error", "accountIds": [], "newestClosedAt": None,
+                         "perStrategy": {}}
         return env

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "PR gitleaks-history-weekly is merged AND a workflow_dispatch run on main has completed AND every finding is classified false-positive or real (Telegram pair handled under JC-SA-04 / PI-20260929-TWEW1FZJ-0005) AND .gitleaks-baseline.json is committed so the next scheduled run is green or names only NEW findings.",
+    "kind": "event"
+  },
+  "id": "PI-20260929-SASEC-0001",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#fix-sa-13 (SA-AUD-7-secret-scan-head-only)",
+    "rerun": "gitleaks detect --source . --redact=100 --no-banner --log-level error --exit-code 0 --report-format json --report-path $TMP/r.json (v8.24.3, sha256 9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c) then python3 scripts/ops/gitleaks_summarize.py $TMP/r.json  (prints rule|file|commit|line only)"
+  },
+  "state": "done",
+  "terminal_reason": "Baselined and observed. #14277 merged as 4bc2b66 (348 false-positive-class findings + 4 NAMED known-revoked entries, operator 'Revoked' 2026-09-29 13:50Z; docs/security/gitleaks-baseline.md). gitleaks-history-weekly dispatched on main after the merge: run 36603441932, head c6194b5, conclusion success, summarizer output 'gitleaks full-history scan: 0 finding(s)'. Before the baseline the same workflow read 352 (run 36584026733). A planted synthetic key still fails the scan (scratch-clone proof, 2 new findings, exit 1). Caveat: the classification was by value shape, not by rotation, and the weekly cron will now fail only on NEW findings.",
+  "what": "[FIX-SA-13 follow-up] gitleaks-history-weekly lands RED BY DESIGN: default rules over full history found 356 rows on 2026-09-29 (350 generic-api-key, of which 296 in docs/claude/work/ = entropy matches on ids; 2 telegram-bot-api-token = .env @2c7818524 and bybit_config.py @9ea895023, the JC-SA-04 pair; 4 were synthetic test fixtures in PR #14167, since removed). Values were never printed (rule/file/commit only). Until triaged and baselined the weekly run fails every Monday. Baselining before triage would hide the 2 Telegram hits and any real secret among the 350."
+}

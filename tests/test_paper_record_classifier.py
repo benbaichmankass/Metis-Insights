@@ -272,3 +272,36 @@ def test_review_window_25_pairs_legs_reclassify_out_of_generic_buckets_into_P():
     # re-running this exact assertion, which failed (see PR body for the
     # before/after counts and the "verified failing without the fix" note).
     assert s["by_bucket"] == {"A": 12, "B": 1, "C": 14, "P": 25}
+
+
+# --- FIX-SA-03 / REVIEW-14241 round 2: the Alpaca re-arm preflight's own exits.
+def test_protection_rearm_exhausted_is_truncating_bucket_C():
+    notes = json.dumps({"exit_reason_source": "rearm_preflight"})
+    c = classify_record(_rec(exit_reason="protection_rearm_exhausted", notes=notes,
+                             exit_price=735.0))
+    assert c.bucket == "C" and c.reconstructable and not c.gradeable
+    assert c.category == "truncated:protection_rearm_exhausted"
+
+
+def test_rearm_preflight_sl_exit_without_a_fill_price_is_never_clean():
+    notes = json.dumps({"exit_reason_source": "rearm_preflight"})
+    c = classify_record(_rec(exit_reason="sl", notes=notes, exit_price=None, pnl=None))
+    assert c.bucket == "C" and not c.gradeable
+    assert c.category == "truncated:rearm_preflight_unpriced"
+    c2 = classify_record(_rec(exit_reason="sl", notes=notes, exit_price=None,
+                              entry_price=None, stop_loss=None, take_profit_1=None))
+    assert c2.bucket == "B" and not c2.gradeable
+
+
+def test_rearm_preflight_sl_exit_with_a_venue_fill_is_bucket_A_positive_control():
+    notes = json.dumps({"exit_reason_source": "rearm_preflight",
+                        "exit_price_source": "exchange_fill"})
+    c = classify_record(_rec(exit_reason="sl", notes=notes, exit_price=709.8, pnl=-7.0))
+    assert c.bucket == "A" and c.gradeable
+
+
+def test_ordinary_sl_without_exit_price_is_unchanged_positive_control():
+    """Only the monitor-initiated source is gated — a bracket sl row that
+    simply lacks an exit_price column keeps its pre-existing bucket A."""
+    c = classify_record(_rec(exit_reason="sl", pnl=-5.0))
+    assert c.bucket == "A"

@@ -63,9 +63,20 @@ _CLEAN_EXIT_REASONS = frozenset({"sl", "tp", "sl_cross", "tp_cross", "exit_head"
 
 # Reconciler / watchdog closes that are NOT a classified bracket hit. A FULL
 # position closed here (and not a reduce/orphan) is broker-truncated → bucket C.
+#
+# `protection_rearm_exhausted` (FIX-SA-03 / #14241): the naked sweep's re-arm
+# budget ran out and it closed the row at market — a protection-plumbing
+# close, not the strategy's exit decision, so it is reconstructed, never graded.
 _TRUNCATING_EXIT_REASONS = frozenset({
     "reconciler_filled", "reconciler", "stuck_strategy_watchdog",
+    "protection_rearm_exhausted",
 })
+
+# `exit_reason_source` values whose `sl` label came from a MONITOR-initiated
+# market exit rather than the venue's own bracket fill. Such a row is gradeable
+# only when the exit price is a recorded venue fill; unpriced, it is
+# reconstructed (bucket C), never a clean exit on a null price (REVIEW-14241).
+_MONITOR_EXIT_REASON_SOURCES = frozenset({"rearm_preflight"})
 
 # Closes that are themselves a technical artifact regardless of bracket levels.
 _ARTIFACT_EXIT_REASONS = frozenset({
@@ -249,6 +260,22 @@ def classify_record(rec: Dict[str, Any]) -> ClassifiedRecord:
                    "— a deliberate strategy-level close, not a technical artifact; "
                    "excluded from the single-leg scorecard because the true P&L "
                    "is the sum of both legs of the spread, not either leg alone")
+
+    # 4a. A monitor-initiated stop exit with no recorded fill price — never
+    #     grade a null exit price as a clean exit.
+    if (
+        status == "closed"
+        and exit_reason in _CLEAN_EXIT_REASONS
+        and _str(notes.get("exit_reason_source")) in _MONITOR_EXIT_REASON_SOURCES
+        and rec.get("exit_price") in (None, "", 0, 0.0)
+    ):
+        src = _str(notes.get("exit_reason_source"))
+        if _has_bracket(rec):
+            return out("C", f"truncated:{src}_unpriced", False, True,
+                       f"{src} {exit_reason} exit with no recorded fill price — "
+                       "reconstruct, do not grade")
+        return out("B", f"truncated_no_bracket:{src}_unpriced", False, False,
+                   f"{src} {exit_reason} exit with no fill price and no usable bracket")
 
     # 4. GRADEABLE — opened and reached a genuine SL/TP exit.
     if status == "closed" and exit_reason in _CLEAN_EXIT_REASONS:

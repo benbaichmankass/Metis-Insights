@@ -126,14 +126,15 @@ the condition says so, whether or not anyone chose to look. `killed` is a
 first-class outcome: closing a dead row *with a stated reason* is worth more
 than carrying it.
 
-⚠️ **THE PULL IS BUILT BUT NOT YET CONNECTED, AND THAT DISTINCTION IS THE
-WHOLE POINT.** `render_section_0()` and `unrouted_count()` exist, are tested,
-and are what the brief consumes. **Nothing runs them on a schedule yet, because
-the brief that displays them is `A3` and is not built.** So today the pipeline
-will hold what you put in it and correctly tell you what is due *when asked* —
-and asking is still voluntary, which is reason (5), the one that killed
-`DUE.md`. **A7 is not finished until A3 renders section 0 on the operator's own
-page.** Do not read "the pipeline exists" as "things no longer get dropped".
+⚠️ **THE PULL IS CONNECTED** (corrected 2026-09-29, FIX-SA-09; this paragraph
+read "built but not yet connected … `A3` … is not built" after both were
+`done`). `GET /api/bot/work/brief` (`src/web/api/routers/work.py`) calls
+`render_daily_brief.py`, which renders `pipeline.render_section_0()` and
+`unrouted_count()` on the operator's own Workflow page **on every request** —
+there is no file to go stale. Checklist rows `A3` and `A7` are `done`. What
+that establishes: a due item *reaches the page*. What it does **not**: that
+anyone routes it — the unrouted count is a number the page shows, and
+JC-SA-06 tracks it growing. *Field beats comment.*
 
 ⚠️ **The 1,065 archived backlog rows and 91 monitoring rows are NOT imported.**
 The store is seeded empty on purpose; importing them is `A8`, and most of them
@@ -400,22 +401,11 @@ no third gate**: never hide a capability behind a default-off `*_ENABLED` flag
 (the pattern that stranded MES). What `accounts.yaml` / `strategies.yaml`
 declare, runs.
 
-⚠️ **A third, DRY-ONLY input exists and this section previously omitted it
-(FIX-CA-32, 2026-09-27, `CA-B09-third-execution-gate-undocumented`).**
-`config/account_state.yaml` is folded into `effective_dry` in
-`Coordinator.multi_account_execute` (`src/core/coordinator.py`, via
-`account_state_dry_run()` in `src/runtime/orders.py`): when it declares
-`dry_run: true` for an account, that account trades dry regardless of what
-`accounts.yaml::mode` / `strategies.yaml::execution` say. It can only ever
-**force dry, never force live**, and a missing file or a missing account
-entry is a no-op (fail-open) — the opposite shape from the MES pattern above
-(a default-off flag **stranding** a required capability), so it does not
-violate "no third gate" as that rule is scoped. It is a belt-and-suspenders
-safety input, not a capability gate, and it is now surfaced per-account on
-`/api/bot/config` (`account_state_dry_run`). Today `bybit_1` / `bybit_2` both
-read `dry_run: false` there, so it changes nothing in practice. **Whether to
-keep it or retire it is `JC-CA-06`, undecided as of 2026-09-27** — do not
-remove the fold before that lands.
+⚠️ **The `config/account_state.yaml` dry-only fold was retired on 2026-09-29 by operator decision JC-CA-06** ("Retire it").
+- **What it was:** a third, dry-only input to `effective_dry` in `Coordinator.multi_account_execute`, read through `account_state_dry_run()`. FIX-CA-32 had documented it and surfaced it on `/api/bot/config`.
+- **What was removed:** the fold, its reader, the file and the API field.
+- **Why no account changed mode:** every entry read `dry_run: false` on main and on the VM at retirement.
+- **Guard:** `canonical-doc-coherence` requires both gate sections to name any such fold if it returns. Do not re-add one; a dry switch is `set-account-mode`, which is visible in git.
 
 ⚠️ **`accounts.yaml::symbols` IS NOT A GATE, and it was one until 2026-09-22.**
 The `strategies:` roster is the single source of truth for what an account

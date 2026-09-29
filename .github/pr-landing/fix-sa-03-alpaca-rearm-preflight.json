@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Order-path change: the Alpaca naked re-arm gains a pre-flight (fresh position + price read, deficit attribution, marketable-stop refusal, durable per-row attempt cap). Stacked after #14177 (itself after #14127 and #14123); merge in that order. Held for the manager's review per the PR6YRTQY-0005 dispatch.",
+  "why": "PI-20260929-PR6YRTQY-0005: on 2026-09-24 alpaca_portfolio QQQ the sweep re-armed row 5928 28 times with a stop already through the market, liquidating sibling 6024's 56 shares above 6024's own stop."
+}

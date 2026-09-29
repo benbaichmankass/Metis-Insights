@@ -1,0 +1,105 @@
+id: RQ-20260929-110
+title: 'Does a serveable funding-augmented regime head lift f1_volatile for SOLUSDT the way it does for BTCUSDT?'
+status: blocked
+cadence: once
+kind: experiment
+
+question: >-
+  The SOL analog of RQ-20260929-109. ml/configs/ carries
+  sol-regime-15m-lgbm-base-pcv-v530.yaml, sol-regime-15m-lgbm-fc-pcv-v1.yaml,
+  sol-regime-15m-lgbm-fc-pcv-v2.yaml, sol-regime-15m-lgbm-v1.yaml and
+  sol-regime-5m-lgbm-v1.yaml -- five SOL regime manifests, all 5m/15m, none
+  referencing funding_rate (checked this session) and none at the 1h
+  cadence the BTC funding head uses. SOL also has an active live trading
+  presence (sol_pullback_2h on bybit_1/bybit_2, trend_donchian_sol_prop on
+  breakout_1) that ETH does not have to the same degree, so a positive
+  result here is closer to something the roster could eventually use.
+
+why_this_matters: >-
+  Same reasoning as RQ-20260929-109. Filed as a SEPARATE unit rather than
+  folded into -009 because the two symbols' existing regime-model coverage
+  differs (SOL already has multiple 15m/5m manifests; ETH has 1h/15m/5m) --
+  a single combined unit would obscure which symbol's dataset gap actually
+  blocks first, and the two may unblock on different timelines.
+
+power:
+  expected_n: 2000
+  min_detectable_effect: 0.3
+  effect_units: sd
+  design: two_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same construction as RQ-20260929-109: two_sample d=0.3 -> ~175/group at
+    alpha 0.05/power 0.8; expected_n=2000 is a round-number placeholder
+    reflecting the parent BTCUSDT dataset's own scale, not a measurement of
+    a SOL-1h-scoped equivalent, which does not exist yet (see blocked_on).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      No SOLUSDT-scoped, 1h-cadence, funding/OI-joined market_features
+      dataset has been built (checked ml/configs/ this session -- every SOL
+      regime manifest is 5m/15m, none reference funding_rate). Nothing
+      accrues until that dataset is built; see blocked_on.
+
+decision_rule:
+  id: RULE-RQ0929-110-SOL-FUNDING-REGIME-HEAD
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    f1_volatile and macro_f1 for a sol-regime-1h-lgbm-funding-svble-v1
+    candidate manifest (same construction as RQ-20260929-109's ETH
+    candidate) compared against the strongest existing SOL regime champion
+    on the same time-aware holdout split -- across whichever cadence
+    (5m/15m/1h) the eventually-built dataset supports, since no SOL 1h
+    regime manifest exists today to compare against directly; if only
+    5m/15m data is built, the comparison is against the corresponding
+    sol-regime-{5m,15m}-lgbm champion instead, and the run's own record
+    states which cadence was actually compared.
+  rule: >-
+    PASS IF f1_volatile improves over the matching-cadence SOL champion by a
+    margin comparable to the BTC funding-svble variant's own margin over its
+    champion. FAIL IF it does not improve, or improves by materially less --
+    HONEST_NEGATIVE for SOL funding features at that cadence. indeterminate
+    IF the holdout population is too small (< 200 rows) for the comparison
+    to be read.
+  what_it_does_not_do: >-
+    Does not promote anything past research_only. Does not wire any
+    model_id onto sol_pullback_2h, trend_donchian_sol, or
+    trend_donchian_sol_prop. Does not touch config/strategies.yaml.
+
+routing:
+  needs_trainer_resident_data: true
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 60
+  basis: Same order of cost as RQ-20260929-109's ETH build.
+
+blocked_on:
+  - what: >-
+      NO SOLUSDT funding/OI-joined market_features dataset exists at any
+      cadence (checked ml/configs/ this session -- every sol-regime-*.yaml
+      manifest omits funding_rate/funding_rate_zscore/funding_rate_abs_z).
+      scripts/ml/fetch_funding_oi.py's `--symbol` flag accepts SOLUSDT
+      (parameterized, default BTCUSDT only), but nothing confirms the fetch
+      + market_features join step has ever been run against it.
+    ref: 'scripts/ml/fetch_funding_oi.py + ml/configs/sol-regime-*.yaml (no SOLUSDT funding-augmented variant filed as a checklist row or PI yet -- this unit is the first record of the gap)'
+    clears_when: >-
+      A SOLUSDT market_features (any cadence) funding/OI-joined dataset is
+      built on the trainer (`scripts/ml/fetch_funding_oi.py --symbol SOLUSDT
+      ...` plus the matching join step) and the candidate manifest above can
+      be authored against it and trained with `python -m ml train`.
+
+run:
+  workflow: null
+  note: >-
+    Deliberately null -- see RQ-20260929-109's identical note. No workflow
+    builds a SOLUSDT funding/OI-joined dataset today.
+
+lands:
+  store: comms/reviews/ or a new ml/configs/sol-regime-*-funding-svble-v1.yaml, once trained
+
+related:
+  - RQ-20260929-109 (the ETH analog of this same question)
+  - 'ml/configs/btc-regime-1h-lgbm-funding-svble-v1.yaml (MB-20260613-001) -- the BTC head this asks whether SOL replicates'
+last_dispatched_at: null

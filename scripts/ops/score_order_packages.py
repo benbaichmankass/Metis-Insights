@@ -27,6 +27,8 @@ Usage:
         [--append] [--force-rewrite]
     python scripts/ops/score_order_packages.py <trade_journal.db> \
         --emit-delta-only [--since ISO_TS] [--limit N] [--include-open]
+    python scripts/ops/score_order_packages.py <trade_journal.db> [scores.jsonl] \
+        --emit-delta-only --by-trade [--since ISO_TS] [--limit N]
 
 Write modes (BL-20260703-GRADING-COVERAGE-GAP hardening, 2026-07-04):
 
@@ -65,6 +67,25 @@ Write modes (BL-20260703-GRADING-COVERAGE-GAP hardening, 2026-07-04):
   ``(truncated, N more bytes)`` convention). ``--include-open`` widens
   the scope to every ungraded package (matching ``--append``'s scope)
   instead of closed-only.
+* ``--emit-delta-only --by-trade`` — JC-SA-01 (2026-09-29): the same rubric,
+  but ONE ROW PER CLOSED TRADE, keyed on ``linked_trade_id`` (= the trade's
+  own ``trades.id``) instead of on ``order_package_id``. Why the package key
+  was wrong, measured over the diag journal pull of 2026-09-29 (closed,
+  non-backtest trades with ``closed_at`` >= 2026-09-08T10:50Z, n=486, 7
+  accounts, 436 distinct packages):
+    - **50 of 486** closes are the 2nd+ trade of a package that fans out to
+      several accounts; ``order_packages.linked_trade_id`` names only one of
+      them, so the package-keyed pass can never grade the rest.
+    - **4 of 486** (ib_paper trades 5830/5852/5853/5856) sit on a package
+      created 2026-06-02 and graded ``orphaned`` on 2026-06-23 before any of
+      them existed; the package-keyed skip-set treats that stale row as the
+      grade forever.
+  Keying on the trade grades both populations and leaves every existing row
+  untouched (append-only). Scope is ``trades.status='closed'`` and
+  ``is_backtest`` falsy; ``--since`` filters on ``trades.closed_at``. A closed
+  trade whose package row is missing is COUNTED (``no_package`` in the summary)
+  and never graded — the rubric reads the package's ``signal_logic``, so a
+  grade without it would be fabricated.
 
 The DB path is taken from argv only (no CWD-relative default) so the
 canonical-db-resolver guard is satisfied. Read-only on the DB in every
@@ -383,6 +404,146 @@ def _emit_delta_only(db_path: str, scores_path: str, *, since: Optional[str],
     return 0
 
 
+def _existing_trade_ids(out_path: str) -> set:
+    """``linked_trade_id`` values already graded in ``out_path`` (as ints).
+
+    Every row the package-keyed passes wrote for an EXECUTED package carries
+    that package's ``linked_trade_id``, so those trades count as graded here
+    too — the by-trade pass never re-grades them.
+    """
+    ids: set = set()
+    try:
+        with open(out_path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    tid = json.loads(line).get("linked_trade_id")
+                except (ValueError, TypeError, AttributeError):
+                    continue
+                if tid is None:
+                    continue
+                try:
+                    ids.add(int(tid))
+                except (TypeError, ValueError):
+                    continue
+    except OSError:
+        pass
+    return ids
+
+
+def _iter_trade_delta_records(con: sqlite3.Connection, *, skip_trade_ids: set,
+                              since: Optional[str], counters: dict):
+    """Yield one graded record per ungraded CLOSED trade, oldest close first.
+
+    ``counters`` is filled with ``no_package`` (closed trades whose package
+    row is absent — counted, never graded).
+    """
+    where = ["t.status = 'closed'", "COALESCE(t.is_backtest, 0) = 0"]
+    params: list = []
+    if since:
+        where.append("datetime(t.closed_at) >= datetime(?)")
+        params.append(since)
+    rows = con.execute(
+        f"""
+        SELECT t.id AS trade_id, t.account_id AS account_id,
+               t.closed_at AS closed_at, t.order_package_id AS trade_pkg_id,
+               t.pnl AS pnl, t.exit_price AS exit_price,
+               t.exit_reason AS exit_reason, t.position_size AS position_size,
+               op.order_package_id, op.strategy_name, op.symbol, op.direction,
+               op.status, op.close_reason, op.signal_logic,
+               op.entry, op.sl, op.tp, op.created_at
+        FROM trades t
+        LEFT JOIN order_packages op ON op.order_package_id = t.order_package_id
+        WHERE {' AND '.join(where)}
+        ORDER BY t.closed_at, t.id
+        """,
+        params,
+    ).fetchall()
+    reviewed_at = datetime.now(timezone.utc).isoformat()
+    counters.setdefault("no_package", 0)
+    for r in rows:
+        tid = r["trade_id"]
+        if tid in skip_trade_ids:
+            continue
+        if r["order_package_id"] is None:
+            counters["no_package"] += 1
+            continue
+        d = dict(r)
+        # The rubric reads `linked_trade_id` to decide "executed"; here the
+        # trade IS the key, so it is this trade, whatever the package row says.
+        d["linked_trade_id"] = tid
+        g = _grade_package(d)
+        yield {
+            "order_package_id": d.get("order_package_id"),
+            "linked_trade_id": tid,
+            "reviewed_at": reviewed_at,
+            "reviewer": "claude",
+            "source": "grade-closed-trades-by-trade",
+            "keyed_on": "linked_trade_id",
+            "account_id": d.get("account_id"),
+            "closed_at": d.get("closed_at"),
+            "strategy_name": d.get("strategy_name"),
+            "symbol": d.get("symbol"),
+            "direction": d.get("direction"),
+            "status": d.get("status"),
+            "executed": True,
+            "created_at": d.get("created_at"),
+            "entry": _f(d.get("entry")),
+            "sl": _f(d.get("sl")),
+            "tp": _f(d.get("tp")),
+            "pnl": _f(d.get("pnl")),
+            "exit_reason": (d.get("exit_reason") or d.get("close_reason")),
+            **g,
+        }
+
+
+def _emit_trade_delta_only(db_path: str, scores_path: str, *,
+                           since: Optional[str], limit: int) -> int:
+    """By-trade twin of ``_emit_delta_only``. Never writes. Read-only DB."""
+    skip = _existing_trade_ids(scores_path)
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    con.row_factory = sqlite3.Row
+    counters: dict = {}
+    emitted = 0
+    truncated_count = 0
+    grade_hist: dict[str, int] = {}
+    by_account: dict[str, int] = {}
+    try:
+        for rec in _iter_trade_delta_records(con, skip_trade_ids=skip,
+                                             since=since, counters=counters):
+            if emitted >= limit:
+                truncated_count += 1
+                continue
+            print(json.dumps(rec))
+            grade_hist[rec["decision_grade"]] = grade_hist.get(rec["decision_grade"], 0) + 1
+            acct = rec.get("account_id") or "?"
+            by_account[acct] = by_account.get(acct, 0) + 1
+            emitted += 1
+    finally:
+        con.close()
+    print(json.dumps({
+        "_delta_summary": True,
+        "keyed_on": "linked_trade_id",
+        "emitted": emitted,
+        "truncated": truncated_count > 0,
+        "more_available": truncated_count,
+        "limit": limit,
+        "since": since,
+        "already_graded_trade_ids": len(skip),
+        "no_package": counters.get("no_package", 0),
+        "grade_histogram": dict(sorted(grade_hist.items())),
+        "by_account": dict(sorted(by_account.items())),
+    }))
+    print(f"emitted {emitted} new by-trade delta rows (limit={limit})"
+          + (f" — TRUNCATED, {truncated_count} more rows available" if truncated_count else "")
+          + (f"; {counters.get('no_package', 0)} closed trades have no package row"
+             if counters.get("no_package") else ""),
+          file=sys.stderr)
+    return 0
+
+
 def _existing_ids(out_path: str) -> set:
     """order_package_ids already present in ``out_path`` (empty set if absent)."""
     ids: set = set()
@@ -423,8 +584,10 @@ def main() -> int:
     force_rewrite = "--force-rewrite" in argv
     emit_delta_only = "--emit-delta-only" in argv
     include_open = "--include-open" in argv
+    by_trade = "--by-trade" in argv
     argv = [a for a in argv if a not in
-            ("--append", "--force-rewrite", "--emit-delta-only", "--include-open")]
+            ("--append", "--force-rewrite", "--emit-delta-only", "--include-open",
+             "--by-trade")]
     since = _pop_valued_flag(argv, "--since")
     limit_str = _pop_valued_flag(argv, "--limit")
 
@@ -436,6 +599,10 @@ def main() -> int:
         return 2
     db_path = argv[0]
 
+    if by_trade and not emit_delta_only:
+        print("--by-trade is only supported with --emit-delta-only", file=sys.stderr)
+        return 2
+
     if emit_delta_only:
         try:
             limit = int(limit_str) if limit_str else DEFAULT_DELTA_LIMIT
@@ -443,6 +610,9 @@ def main() -> int:
             print(f"invalid --limit value: {limit_str!r}", file=sys.stderr)
             return 2
         scores_path = argv[1] if len(argv) > 1 else "comms/claude_strategy_scores.jsonl"
+        if by_trade:
+            return _emit_trade_delta_only(db_path, scores_path, since=since,
+                                          limit=limit)
         return _emit_delta_only(db_path, scores_path, since=since, limit=limit,
                                  closed_only=not include_open)
 

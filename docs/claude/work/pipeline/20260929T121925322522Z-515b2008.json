@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20260929-BTG1YDOI-0003",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "https://github.com/benbaichmankass/Metis-Insights/pull/14174",
+    "rerun": "trainer-vm-diag: grep -l OnFailure /etc/systemd/system/ict-* ; systemctl --failed"
+  },
+  "state": "queued",
+  "what": "SA-INFRA: OnFailure= in #14174 covers the LIVE VM only. The trainer's timer-driven oneshots (ict-trainer, -catchup, -publish, -forecast, promotion-readiness, drift-retrain, offload-drain, trainer-git-sync) still fail silently behind an active timer, because the trainer has no telegram drain to receive a send_ping. Needs a route, e.g. the notify unit writes runtime_logs/unit_failures.jsonl, publish_trainer_mirror.sh adds it to trainer_status.json, and a live-side check (like trainer_disk_alarm.py) pings. MEASURED 2026-09-29: `grep -l OnFailure /etc/systemd/system/ict-*` on the trainer returned nothing (trainer-diag #14150)."
+}
