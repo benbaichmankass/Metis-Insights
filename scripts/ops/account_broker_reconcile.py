@@ -125,9 +125,20 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+# The ONE reduce-leg definition: the row-level mirror of
+# ``src.web.api._clean_trades.exclude_reduce_leg_predicate`` (setup_type
+# ``intent_reduce`` OR the ``notes.intent_reduce`` flag). Imported, never
+# re-spelled here.
+from src.runtime.bracket_outcome import is_reduce_leg  # noqa: E402
 
 QTY_TOLERANCE = 1e-6
 PNL_TOLERANCE_USD = 1.0  # a $1 disagreement is float/fee noise, not a finding
@@ -337,6 +348,25 @@ def reconcile_alpaca(
             "pnl_state": "not_exposed", "pnl": None}
 
 
+def _is_reduce_row(row: Dict[str, Any]) -> bool:
+    """A closed-trade row is a reduce leg when the ``/api/bot/trades/closed``
+    wire says so (``isReduceLeg``, computed server-side by
+    ``bracket_outcome.is_reduce_leg``) or, for a raw journal row carrying
+    ``setup_type``/``notes``, when that same function says so."""
+    if row.get("isReduceLeg") is True:
+        return True
+    return is_reduce_leg(row)
+
+
+def _row_pnl(row: Dict[str, Any]) -> Optional[float]:
+    """``/api/bot/trades/closed`` names the field ``realizedPnl``; a raw
+    journal row names it ``pnl``. Reading only ``pnl`` off the wire made
+    EVERY row None (first live run, #14113 — n_closes 20, sum None)."""
+    if "realizedPnl" in row:
+        return _num(row.get("realizedPnl"))
+    return _num(row.get("pnl"))
+
+
 def reconcile_bybit(
     journal_positions: List[Dict[str, Any]],
     journal_closed: List[Dict[str, Any]],
@@ -390,19 +420,35 @@ def reconcile_bybit(
     protection_state = "divergent" if (prot["naked"] or prot["partial"]) else "agree"
 
     # Realized P&L: journal sum over the last `pnl_trade_count` bybit_2
-    # closes vs the wallet-truth measured_api figure over the SAME window
-    # (oldest of those closes -> now). See module docstring for why this is
-    # the wallet-truth read, not the stale hand ledger.
+    # closes vs the wallet-truth measured_api figure. ⚠️ The wallet-truth
+    # read is a fixed `days=N` window set by the caller, NOT the span of
+    # these closes — both spans are emitted below so the render states the
+    # two populations instead of implying they match. See module docstring
+    # for why this is the wallet-truth read, not the stale hand ledger.
+    #
+    # Reduce legs are dropped BEFORE the NULL check: an intent_reduce leg's
+    # pnl is NULL BY DESIGN (BL-20260711 — deferred, never fabricated), so
+    # counting it as "we could not look" made the whole comparison refuse
+    # (first live run, issue #14113: trade 5702, an eth_pullback_2h reduce
+    # leg). Any OTHER NULL-pnl row still yields could_not_look.
+    acct_closes = [c for c in journal_closed
+                   if c.get("account") == account_id or c.get("account_id") == account_id]
+    reduce_leg_ids = [str(c.get("id")) for c in acct_closes if _is_reduce_row(c)]
     closes = sorted(
-        (c for c in journal_closed if c.get("account") == account_id or c.get("account_id") == account_id),
+        (c for c in acct_closes if not _is_reduce_row(c)),
         key=lambda c: c.get("closedAt") or c.get("closed_at") or "",
         reverse=True,
     )[:pnl_trade_count]
     journal_pnl_sum = None
+    null_pnl_ids: List[str] = []
     if closes:
-        vals = [_num(c.get("pnl")) for c in closes]
-        if all(v is not None for v in vals):
+        vals = [_row_pnl(c) for c in closes]
+        null_pnl_ids = [str(c.get("id")) for c, v in zip(closes, vals) if v is None]
+        if not null_pnl_ids:
             journal_pnl_sum = round(sum(vals), 8)
+    journal_window = ([closes[-1].get("closedAt") or closes[-1].get("closed_at"),
+                       closes[0].get("closedAt") or closes[0].get("closed_at")]
+                      if closes else None)
 
     wt = None
     if isinstance(wallet_truth_payload, dict):
@@ -421,7 +467,9 @@ def reconcile_bybit(
     elif journal_pnl_sum is None or not isinstance(wt, dict) or wt.get("state") != "measured_api":
         pnl_state = "could_not_look"
         pnl = {"journal_pnl_sum": journal_pnl_sum, "wallet_truth": wt,
-               "n_closes": len(closes)}
+               "n_closes": len(closes), "null_pnl_trade_ids": null_pnl_ids,
+               "reduce_legs_excluded": reduce_leg_ids,
+               "journal_closed_at_window": journal_window}
     else:
         broker_realized = _num(wt.get("realized_usd"))
         diverges = (broker_realized is None or
@@ -431,6 +479,8 @@ def reconcile_bybit(
         # (REVIEW-14054 finding #3).
         pnl = {"journal_pnl_sum": journal_pnl_sum, "broker_realized_usd": broker_realized,
                "n_closes": len(closes),
+               "reduce_legs_excluded": reduce_leg_ids,
+               "journal_closed_at_window": journal_window,
                "wallet_truth_window_ms": [wt.get("window_start_ms"), wt.get("window_end_ms")]}
 
     return {"account_id": account_id, "positions_state": positions_state,

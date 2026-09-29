@@ -316,3 +316,73 @@ def test_bybit_wallet_truth_state_field_is_read_not_read_state():
     assert "read_state" not in wt["accounts"][0]  # prove the shape
     r = m.reconcile_bybit(j_pos, j_closed, broker, wt)
     assert r["pnl_state"] == "agree"
+
+
+# ------------------------------------------- reduce legs (issue #14113, 5702)
+# The REAL /api/bot/trades/closed wire shape (fetched live 2026-09-29): the
+# P&L field is "realizedPnl" — never "pnl" — and a reduce leg is flagged by
+# "isReduceLeg" (server-side bracket_outcome.is_reduce_leg). Trade 5702 is an
+# eth_pullback_2h intent_reduce leg whose pnl is NULL BY DESIGN (BL-20260711).
+
+def _wire_close(tid, pnl, closed_at, pattern="trend_donchian_eth_4h", reduce=False):
+    return {"id": str(tid), "account": "bybit_2", "accountClass": "real_money",
+            "isDemo": False, "symbol": "ETHUSDT", "assetClass": "crypto",
+            "side": "sell", "pattern": pattern, "qty": 0.01, "entryPrice": 2500.0,
+            "exitPrice": 2502.42, "realizedPnl": pnl,
+            "pnlProvenance": None if pnl is None else "measured",
+            "journalTrust": "known_divergent", "realizedPnlPct": None,
+            "openedAt": closed_at, "closedAt": closed_at,
+            "closeReason": "other" if reduce else "sl", "isReduceLeg": reduce}
+
+
+def _wt(realized):
+    return {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
+            "realized_usd": realized, "window_start_ms": 1782902876782,
+            "window_end_ms": 1790678876782}]}
+
+
+def test_bybit_reduce_leg_null_pnl_is_excluded_not_could_not_look():
+    j_pos, _, broker, _ = _bybit_fixture()
+    closes = [_wire_close(5682, -2.8395, "2026-09-13T08:31:31Z"),
+              _wire_close(5702, None, "2026-09-11T20:02:01Z",
+                          pattern="eth_pullback_2h", reduce=True),
+              _wire_close(5644, -3.4241, "2026-09-11T08:30:35Z")]
+    r = m.reconcile_bybit(j_pos, closes, broker, _wt(-6.2636))
+    assert r["pnl_state"] == "agree"
+    assert r["pnl"]["journal_pnl_sum"] == -6.2636
+    assert r["pnl"]["n_closes"] == 2
+    assert r["pnl"]["reduce_legs_excluded"] == ["5702"]
+
+
+def test_bybit_raw_journal_reduce_row_is_excluded_by_setup_type():
+    """A raw trades row (no isReduceLeg) is classified by the same
+    bracket_outcome.is_reduce_leg — setup_type='intent_reduce'."""
+    j_pos, _, broker, _ = _bybit_fixture()
+    closes = [{"id": 5682, "account_id": "bybit_2", "pnl": -2.8395,
+               "closed_at": "2026-09-13T08:31:31Z", "setup_type": "trend"},
+              {"id": 5702, "account_id": "bybit_2", "pnl": None,
+               "closed_at": "2026-09-11T20:02:01Z", "setup_type": "intent_reduce",
+               "exit_reason": "intent_reduce_executed",
+               "notes": json.dumps({"pnl_source": "deferred_intent_reduce"})}]
+    r = m.reconcile_bybit(j_pos, closes, broker, _wt(-2.8395))
+    assert r["pnl_state"] == "agree"
+    assert r["pnl"]["reduce_legs_excluded"] == ["5702"]
+
+
+def test_bybit_non_reduce_null_pnl_still_could_not_look():
+    j_pos, _, broker, _ = _bybit_fixture()
+    closes = [_wire_close(5682, -2.8395, "2026-09-13T08:31:31Z"),
+              _wire_close(5703, None, "2026-09-12T00:00:00Z")]  # NOT a reduce leg
+    r = m.reconcile_bybit(j_pos, closes, broker, _wt(-2.8395))
+    assert r["pnl_state"] == "could_not_look"
+    assert r["pnl"]["null_pnl_trade_ids"] == ["5703"]
+
+
+def test_bybit_wire_realizedPnl_field_is_read_not_pnl():
+    """First live run (#14113): reading "pnl" off the wire made all 20 rows
+    None -> journal_pnl_sum None -> could_not_look, whatever the rows held."""
+    j_pos, _, broker, _ = _bybit_fixture()
+    closes = [_wire_close(5682, -2.8395, "2026-09-13T08:31:31Z")]
+    assert "pnl" not in closes[0]  # prove the shape
+    r = m.reconcile_bybit(j_pos, closes, broker, _wt(-2.8395))
+    assert r["pnl_state"] == "agree"

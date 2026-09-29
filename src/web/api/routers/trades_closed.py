@@ -44,6 +44,7 @@ from src.web.api._closed_at import (
     normalize_closed_at_value,
 )
 from src.runtime.provenance import classify_pnl
+from src.runtime.bracket_outcome import is_reduce_leg
 from src.runtime.broker_truth import journal_trust_for, journal_trust_map
 
 logger = logging.getLogger(__name__)
@@ -211,6 +212,15 @@ def _row_to_wire(row: sqlite3.Row,
         "openedAt": row["timestamp"],
         "closedAt": closed_at,
         "closeReason": _normalise_close_reason(row["exit_reason"]),
+        # ``isReduceLeg`` — is this row an ``intent_reduce`` partial-close leg?
+        # Its ``realizedPnl`` is NULL BY DESIGN (BL-20260711: a reduce leg's
+        # pnl is deferred, never fabricated), so a consumer that treats a NULL
+        # pnl as "we could not look" must first drop these. Decided by
+        # ``bracket_outcome.is_reduce_leg`` — the row-level mirror of
+        # ``_clean_trades.exclude_reduce_leg_predicate`` (setup_type OR the
+        # ``notes.intent_reduce`` flag), never a second definition.
+        "isReduceLeg": is_reduce_leg(
+            {"setup_type": row["setup_type"], "notes": row["notes"]}),
     }
 
 
@@ -249,6 +259,7 @@ def _query_closed_trades(
                    t.position_size, t.entry_price, t.exit_price,
                    t.pnl, t.pnl_percent,
                    t.timestamp, t.closed_at, t.exit_reason, t.notes,
+                   t.setup_type,
                    op.updated_at AS op_updated_at
             FROM trades t
             LEFT JOIN (
