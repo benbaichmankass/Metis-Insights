@@ -1,11 +1,11 @@
 {
   "scorecard": {
-    "n": 1104,
-    "win_rate": 0.5081521739130435,
-    "mean_net_return": 0.0028246286074839486,
-    "avg_win": 0.040847407076399195,
-    "avg_loss": -0.03645857345708592,
-    "expectancy": 0.0028246286074839486,
+    "n": 1109,
+    "win_rate": 0.5058611361587015,
+    "mean_net_return": 0.0025948639039999207,
+    "avg_win": 0.040743942516105906,
+    "avg_loss": -0.036459211098539224,
+    "expectancy": 0.0025948639039999207,
     "calibration_bins": [
       {
         "lo": 0.0,
@@ -19,33 +19,33 @@
         "hi": 0.5,
         "n": 84,
         "hit_rate": 0.5833333333333334,
-        "mean_net_return": 0.007729217436257172
+        "mean_net_return": 0.0077292170956859375
       },
       {
         "lo": 0.5,
         "hi": 0.75,
         "n": 308,
         "hit_rate": 0.512987012987013,
-        "mean_net_return": -0.0010117561955890245
+        "mean_net_return": -0.0010117682905231508
       },
       {
         "lo": 0.75,
         "hi": 1.0,
-        "n": 712,
-        "hit_rate": 0.49719101123595505,
-        "mean_net_return": 0.0039055570593512588
+        "n": 717,
+        "hit_rate": 0.49372384937238495,
+        "mean_net_return": 0.0035426422133604226
       }
     ],
-    "calibration_rank": -0.003723470409909561,
-    "baseline_mean_net_return": 0.00750252211644632,
-    "edge_vs_baseline": -0.004677893508962371
+    "calibration_rank": -0.005014040200756464,
+    "baseline_mean_net_return": 0.0076857233386516885,
+    "edge_vs_baseline": -0.005090859434651767
   },
   "meta": {
-    "rebalances": 263,
+    "rebalances": 265,
     "horizon_days": 30.0,
     "fee_frac": 0.0,
     "carry_frac_per_day": 0.0,
-    "snapshot_records": 10125,
+    "snapshot_records": 10215,
     "symbols_with_candles": [
       "GLD",
       "IEF",
@@ -53,7 +53,7 @@
       "SPY",
       "TLT"
     ],
-    "entries_scored": 1104
+    "entries_scored": 1109
   },
   "rebalance_dates": [
     "2005-01-01",
@@ -318,6 +318,8 @@
     "2026-04-11",
     "2026-05-11",
     "2026-06-10",
-    "2026-07-10"
+    "2026-07-10",
+    "2026-08-09",
+    "2026-09-08"
   ]
 }
