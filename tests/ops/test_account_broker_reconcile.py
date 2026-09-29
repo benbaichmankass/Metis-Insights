@@ -78,15 +78,29 @@ def test_alpaca_could_not_look():
 # ------------------------------------------------------------------ bybit_2
 
 def _bybit_fixture(*, position_side="long", stop=50000, target=70000, realized_usd=10.0):
+    """Broker position row: the REAL `_bybit_position_row` shape
+    (src/units/accounts/clients.py) — "size", never "qty"; the raw venue
+    side string ("Buy"/"Sell"), never "long"/"short". Wallet-truth row: the
+    REAL `WalletTruth.as_dict()` shape (src/runtime/bybit_wallet_truth.py) —
+    "state" + window_start_ms/window_end_ms, never "read_state"/"window".
+    REVIEW-14054: the invented shapes this replaced matched neither the
+    route nor the underlying dataclass, and hid two real bugs (#1 bybit_2's
+    pnl check permanently could_not_look; #2 a constant false divergence
+    on every open bybit_2 position) behind a passing test suite.
+    """
+    venue_side = "Buy" if position_side == "long" else "Sell"
     j_pos = [{"account": "bybit_2", "symbol": "BTCUSDT", "side": "long", "qty": 1}]
     j_closed = [{"account": "bybit_2", "symbol": "BTCUSDT", "pnl": 10.0,
                 "closedAt": "2026-09-28T00:00:00Z"}]
     broker = {"accounts": [{"account_id": "bybit_2",
-              "result": {"positions": [{"symbol": "BTCUSDT", "side": position_side, "qty": 1,
-                                        "stop_loss": stop, "take_profit": target}],
+              "result": {"positions": [{"symbol": "BTCUSDT", "side": venue_side, "size": 1.0,
+                                        "entry_price": 60000.0, "stop_loss": stop,
+                                        "take_profit": target, "tpsl_mode": "Full",
+                                        "position_idx": 0}],
                          "orders": []}}]}
-    wt = {"accounts": [{"account_id": "bybit_2", "read_state": "measured_api",
-          "realized_usd": realized_usd, "window": "90d"}]}
+    wt = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
+          "realized_usd": realized_usd, "window_start_ms": 1758000000000,
+          "window_end_ms": 1759000000000}]}
     return j_pos, j_closed, broker, wt
 
 
@@ -129,7 +143,7 @@ def test_bybit_pnl_could_not_look_when_wallet_truth_unreadable():
     j_pos, j_closed, broker, _ = _bybit_fixture()
     # a wallet-truth read that could not look (unreadable) must not silently
     # grade the pnl check as `agree` just because journal_pnl_sum exists.
-    wt_unreadable = {"accounts": [{"account_id": "bybit_2", "read_state": "unreadable",
+    wt_unreadable = {"accounts": [{"account_id": "bybit_2", "state": "unreadable",
                      "realized_usd": None}]}
     r = m.reconcile_bybit(j_pos, j_closed, broker, wt_unreadable)
     assert r["pnl_state"] == "could_not_look"
@@ -229,16 +243,19 @@ def test_grade_and_fingerprint_are_stable_across_captured_at_and_pnl_noise():
                                             {"symbol": "AAPL", "order_type": "limit",
                                              "order_class": "bracket"}]}}]}
     bybit_payload = {"accounts": [{"account_id": "bybit_2",
-                     "result": {"positions": [{"symbol": "BTCUSDT", "side": "long", "qty": 1,
-                                               "stop_loss": 50000, "take_profit": 70000}],
+                     "result": {"positions": [{"symbol": "BTCUSDT", "side": "Buy", "size": 1.0,
+                                               "entry_price": 60000.0, "stop_loss": 50000.0,
+                                               "take_profit": 70000.0, "tpsl_mode": "Full",
+                                               "position_idx": 0}],
                                 "orders": []}}]}
     prop_status = _breakout_status()
     fills = [{"status": "closed", "closed_at": "2026-09-28T01:00:00Z", "pnl": 5.0}]
     fixed_now = datetime(2026, 9, 28, tzinfo=timezone.utc)
 
     def _run(realized_usd):
-        wt = {"accounts": [{"account_id": "bybit_2", "read_state": "measured_api",
-              "realized_usd": realized_usd, "window": "90d"}]}
+        wt = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
+              "realized_usd": realized_usd, "window_start_ms": 1758000000000,
+              "window_end_ms": 1759000000000}]}
         return m.run(j_pos, j_closed, alpaca_payload, bybit_payload, wt, prop_status,
                      fills, now=fixed_now)
 
@@ -265,3 +282,37 @@ def test_grade_prefers_divergent_over_could_not_look():
 
 def test_self_test_exits_clean():
     assert m._self_test() == 0
+
+
+# --------------------------------------------------- REVIEW-14054 regression
+
+def test_bybit_position_size_field_is_read_not_qty():
+    """REVIEW-14054 finding #2: _bybit_position_row (src/units/accounts/
+    clients.py) names the field "size", never "qty". A broker row that ONLY
+    carries "size" (no "qty" at all — the real shape) must still match the
+    journal's declared quantity, not read as an unmeasured qty and fall
+    into a permanent qty_mismatch on every account that actually holds the
+    position it declares."""
+    j_pos = [{"account": "bybit_2", "symbol": "BTCUSDT", "side": "long", "qty": 1}]
+    broker = {"accounts": [{"account_id": "bybit_2",
+              "result": {"positions": [{"symbol": "BTCUSDT", "side": "Buy", "size": 1.0,
+                                        "stop_loss": 50000.0, "take_profit": 70000.0}],
+                         "orders": []}}]}
+    assert "qty" not in broker["accounts"][0]["result"]["positions"][0]  # prove the shape
+    r = m.reconcile_bybit(j_pos, [], broker, None)
+    assert r["positions_state"] == "agree"
+    assert r["positions"][0]["broker_qty"] == 1.0
+
+
+def test_bybit_wallet_truth_state_field_is_read_not_read_state():
+    """REVIEW-14054 finding #1: WalletTruth.as_dict() (src/runtime/
+    bybit_wallet_truth.py) names the field "state", never "read_state". A
+    wallet-truth row with ONLY "state" (the real shape) must be usable as
+    measured_api evidence, not permanently fall back to could_not_look."""
+    j_pos, j_closed, broker, _ = _bybit_fixture()
+    wt = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
+          "realized_usd": 10.0, "window_start_ms": 1758000000000,
+          "window_end_ms": 1759000000000}]}
+    assert "read_state" not in wt["accounts"][0]  # prove the shape
+    r = m.reconcile_bybit(j_pos, j_closed, broker, wt)
+    assert r["pnl_state"] == "agree"

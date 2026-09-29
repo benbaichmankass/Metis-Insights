@@ -209,7 +209,12 @@ def match_positions(
                 continue
             idx[sym] = {
                 "side": _side_key(r.get(side_key)),
-                "qty": _num(r.get(qty_key)) or _num(r.get("qty")) or _num(r.get("quantity")),
+                # "size" is bybit's own field name (_bybit_position_row,
+                # src/units/accounts/clients.py) -- without it every bybit_2
+                # broker row read qty=None and matched as qty_mismatch on
+                # EVERY run with an open position (REVIEW-14054 finding #2).
+                "qty": _num(r.get(qty_key)) or _num(r.get("qty"))
+                       or _num(r.get("quantity")) or _num(r.get("size")),
                 "raw": r,
             }
         return idx
@@ -409,7 +414,11 @@ def reconcile_bybit(
 
     if not closes:
         pnl_state, pnl = "agree", {"note": "no closed bybit_2 trades in the journal"}
-    elif journal_pnl_sum is None or not isinstance(wt, dict) or wt.get("read_state") != "measured_api":
+    # WalletTruth.as_dict() (src/runtime/bybit_wallet_truth.py) names its
+    # field "state", never "read_state" -- confirmed against the live route
+    # (REVIEW-14054 finding #1); reading the wrong key made this permanently
+    # could_not_look regardless of what the venue actually reported.
+    elif journal_pnl_sum is None or not isinstance(wt, dict) or wt.get("state") != "measured_api":
         pnl_state = "could_not_look"
         pnl = {"journal_pnl_sum": journal_pnl_sum, "wallet_truth": wt,
                "n_closes": len(closes)}
@@ -418,8 +427,11 @@ def reconcile_bybit(
         diverges = (broker_realized is None or
                     abs(journal_pnl_sum - broker_realized) > PNL_TOLERANCE_USD)
         pnl_state = "divergent" if diverges else "agree"
+        # WalletTruth carries window_start_ms/window_end_ms, never "window"
+        # (REVIEW-14054 finding #3).
         pnl = {"journal_pnl_sum": journal_pnl_sum, "broker_realized_usd": broker_realized,
-               "n_closes": len(closes), "wallet_truth_window": wt.get("window")}
+               "n_closes": len(closes),
+               "wallet_truth_window_ms": [wt.get("window_start_ms"), wt.get("window_end_ms")]}
 
     return {"account_id": account_id, "positions_state": positions_state,
             "positions": matched, "protection_state": protection_state,
@@ -679,12 +691,23 @@ def _self_test() -> int:
     j_pos_b = [{"account": "bybit_2", "symbol": "BTCUSDT", "side": "long", "qty": 1}]
     j_closed = [{"account": "bybit_2", "symbol": "BTCUSDT", "pnl": 10.0,
                 "closedAt": "2026-09-28T00:00:00Z"}]
+    # Broker position rows use the REAL _bybit_position_row shape
+    # (src/units/accounts/clients.py) -- "size", not "qty", and the raw
+    # venue side string ("Buy"/"Sell") -- and wallet-truth rows use the
+    # REAL WalletTruth.as_dict() shape (src/runtime/bybit_wallet_truth.py)
+    # -- "state" + window_start_ms/window_end_ms, not "read_state"/"window".
+    # REVIEW-14054: the OLD invented fixture shapes matched neither and hid
+    # both bugs (#1 permanently could_not_look, #2 a constant false
+    # qty_mismatch on every open bybit_2 position).
     bybit_ok = {"accounts": [{"account_id": "bybit_2",
-                "result": {"positions": [{"symbol": "BTCUSDT", "side": "long", "qty": 1,
-                                          "stop_loss": 50000, "take_profit": 70000}],
+                "result": {"positions": [{"symbol": "BTCUSDT", "side": "Buy", "size": 1.0,
+                                          "entry_price": 60000.0, "stop_loss": 50000.0,
+                                          "take_profit": 70000.0, "tpsl_mode": "Full",
+                                          "position_idx": 0}],
                            "orders": []}}]}
-    wt_ok = {"accounts": [{"account_id": "bybit_2", "read_state": "measured_api",
-             "realized_usd": 10.0, "window": "90d"}]}
+    wt_ok = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
+             "realized_usd": 10.0, "window_start_ms": 1758000000000,
+             "window_end_ms": 1759000000000}]}
     r = reconcile_bybit(j_pos_b, j_closed, bybit_ok, wt_ok)
     check("bybit agree: positions", r["positions_state"] == "agree")
     check("bybit agree: protection", r["protection_state"] == "agree")
@@ -692,11 +715,14 @@ def _self_test() -> int:
 
     # bybit_2: divergent (side mismatch + naked + pnl)
     bybit_div = {"accounts": [{"account_id": "bybit_2",
-                 "result": {"positions": [{"symbol": "BTCUSDT", "side": "short", "qty": 1,
-                                           "stop_loss": None, "take_profit": None}],
+                 "result": {"positions": [{"symbol": "BTCUSDT", "side": "Sell", "size": 1.0,
+                                           "entry_price": 60000.0, "stop_loss": None,
+                                           "take_profit": None, "tpsl_mode": None,
+                                           "position_idx": 0}],
                             "orders": []}}]}
-    wt_div = {"accounts": [{"account_id": "bybit_2", "read_state": "measured_api",
-              "realized_usd": -500.0, "window": "90d"}]}
+    wt_div = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
+              "realized_usd": -500.0, "window_start_ms": 1758000000000,
+              "window_end_ms": 1759000000000}]}
     r = reconcile_bybit(j_pos_b, j_closed, bybit_div, wt_div)
     check("bybit divergent: side mismatch", r["positions_state"] == "divergent")
     check("bybit divergent: pnl", r["pnl_state"] == "divergent")
@@ -755,8 +781,9 @@ def _self_test() -> int:
     # `captured_at` differs.
     fixed_now = datetime(2026, 9, 28, tzinfo=timezone.utc)
     fills_fixed = [{"status": "closed", "closed_at": "2026-09-28T01:00:00Z", "pnl": 5.0}]
-    wt_ok_2 = {"accounts": [{"account_id": "bybit_2", "read_state": "measured_api",
-               "realized_usd": 10.4, "window": "90d"}]}  # still within $1 tolerance of journal 10.0
+    wt_ok_2 = {"accounts": [{"account_id": "bybit_2", "state": "measured_api",
+               "realized_usd": 10.4, "window_start_ms": 1758000000000,
+               "window_end_ms": 1759000000000}]}  # still within $1 tolerance of journal 10.0
     all_journal_positions = j_pos + j_pos_b
     res_a = run(all_journal_positions, j_closed, alpaca_ok, bybit_ok, wt_ok, prop_ok,
                 fills_fixed, now=fixed_now)
