@@ -2,5 +2,6 @@
   "tier": 3,
   "landing": "hold",
   "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "declares atr_stop_mult 1.5 on spy_pullback_1h (config/strategies.yaml), a Path B bracket-geometry cell (sm1.5) that clears the exit-refinement gate net of full cost, wf 5/6, but worsens max drawdown on both windows -- an honest tradeoff, not a clean Path A pass. Paper leg (alpaca_paper), not real money, but still a Tier-3 strategy/order-path change per docs/claude/work/pipeline/ item PI-20260929-EXITOPS-0007. Needs operator/manager approval before merge.",
   "why": "declares atr_stop_mult 1.5 on spy_pullback_1h in config/strategies.yaml -- Tier-3 strategy/order-path change, operator/manager merge only"
 }
