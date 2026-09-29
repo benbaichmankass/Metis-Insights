@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260929-001.yaml is a new queue-unit registration carrying a pre-registered decision_rule (RULE-RQ0929-001-CONVICTION-BAND-RESHAPE-SCOPING) AND its own already-graded result in the same file (status: done). pr-landing-guard's stamp-only-surface logic (same reasoning as PR #13568's hold on RQ-20260928-006/-007) treats a new queue unit as a registration, not a stamp, even when the unit only reads an already-committed JSON file and touches no run/config/live path. Asking for one human read on the decision rule AND on the arithmetic behind the graded result (all four numbers -- baseline_mean_net_return and each bin's mean_net_return/delta -- were cross-checked this session against comms/macro/thesis_p4_scorecard.json directly, shown in the commit body) rather than arguing the guard down. Passes the R4 power gate and the decision-rule guard mechanically.",
+  "why": "research/queue/** only, Tier-1 surface, no src/config/scripts/workflow change, no run dispatched (this unit is a read of an already-committed file, graded in the same PR that registers it). Per checklist row MACRO-RESHAPE (owner: this lane, ceiling $30): the cheapest candidate 'reshaped-thesis unit' -- does a conviction-band restriction on the current event-blind P4 score already beat naive all-long in committed data. Verdict NOT_YET (no bin clears both the n>=88 power floor and the +/-0.02 edge floor); does not touch config/macro_theses.yaml or any live/paper account."
+}

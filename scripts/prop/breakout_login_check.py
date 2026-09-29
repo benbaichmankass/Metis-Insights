@@ -95,9 +95,44 @@ EXIT_OK, EXIT_ERROR, EXIT_UNPARSED, EXIT_FEASIBILITY, EXIT_ENV = 0, 1, 3, 4, 5
 DEFAULT_INSTRUMENT_SYMBOLS = ("BTCUSD", "ETHUSD", "SOLUSD", "ADAUSD", "XRPUSD", "AVAXUSD")
 
 
-def build_status_report(account_id: str, snapshot: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _strip_raw(items: list) -> list:
+    """Drop each row's vendor ``raw`` blob before it leaves this process —
+    same redaction the stdout print already applies (main(), the ``positions``/
+    ``orders`` loop); a report posted to a Tier-1 API is not the place to
+    forward whatever the terminal's DOM happened to carry."""
+    out = []
+    for it in items:
+        d = dict(it)
+        d.pop("raw", None)
+        out.append(d)
+    return out
+
+
+def build_status_report(
+    account_id: str, snapshot: Dict[str, Any],
+    positions: Optional[list] = None, orders: Optional[list] = None,
+) -> Optional[Dict[str, Any]]:
     """The ``account_status`` body for ``ingest_report``; None if balance AND
-    equity are both unread (never post a snapshot of nothing)."""
+    equity are both unread (never post a snapshot of nothing).
+
+    ``positions`` / ``orders`` are three-state, matching the read loop in
+    ``main()`` that produces them: ``None`` — the terminal read raised
+    (``LookupError``, e.g. an unparsed table), so this is "we did not look",
+    never "flat"; ``[]`` — a confirmed clean read of nothing resting; a
+    non-empty list — the rows themselves (``Position``/``WorkingOrder``
+    ``as_dict()``, ``raw`` stripped).
+
+    Before this, ``main()`` already read positions/orders off the terminal
+    every ``ict-prop-feed`` tick (5 min) and printed them to the unit's own
+    journal, but never forwarded them here — so ``prop_account_status`` (and
+    therefore ``GET /api/bot/prop/status``) carried balance/equity only, with
+    no durable broker-side record of open positions or their protective
+    levels at that same read. ``ingest_report`` (``src/prop/prop_report.py``)
+    already stores the WHOLE posted report verbatim in the ``raw`` column, so
+    adding these keys here is what it takes for that already-scheduled,
+    already-read-only tick to actually carry them forward — no schema change,
+    no new login, no new read.
+    """
     if snapshot.get("balance") is None and snapshot.get("equity") is None:
         return None
     return {
@@ -108,6 +143,8 @@ def build_status_report(account_id: str, snapshot: Dict[str, Any]) -> Optional[D
         "unrealized": snapshot.get("unrealized"),
         "realized_today": snapshot.get("realized_today"),
         "source": "breakout_login_check",
+        "open_positions": None if positions is None else _strip_raw(positions),
+        "open_orders": None if orders is None else _strip_raw(orders),
     }
 
 
@@ -342,10 +379,15 @@ def main(argv: Optional[list] = None) -> int:
             if snap.get("balance") is None or snap.get("equity") is None:
                 rc = EXIT_UNPARSED
 
+            # None = the read raised (UNPARSED below) = "we did not look";
+            # kept distinct from `[]` all the way into the posted report
+            # (build_status_report / --emit-status), not just this printout.
+            read_rows: Dict[str, Optional[list]] = {"positions": None, "orders": None}
             for label, reader in (("positions", adapter.read_positions),
                                   ("orders", adapter.read_orders)):
                 try:
                     items = [i.as_dict() for i in reader(page)]
+                    read_rows[label] = items
                     print(f"{label}: {len(items)}")
                     for it in items:
                         it.pop("raw", None)
@@ -403,7 +445,9 @@ def main(argv: Optional[list] = None) -> int:
                     print("instruments: SKIPPED (adapter has no start_response_capture)")
 
             if args.emit_status:
-                report = build_status_report(args.account, snap)
+                report = build_status_report(
+                    args.account, snap,
+                    positions=read_rows["positions"], orders=read_rows["orders"])
                 if report is None:
                     print("emit_status: SKIPPED (balance and equity both unread)")
                 else:

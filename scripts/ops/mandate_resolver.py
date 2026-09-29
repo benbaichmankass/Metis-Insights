@@ -1,14 +1,73 @@
 #!/usr/bin/env python3
 """The mandate resolver (plan item B5): may this ladder transition fire WITHOUT
-asking the operator, and if not, which clause refuses it?
+asking the operator, and if not, why -- does the data settle it AGAINST, or is
+the data simply not there yet?
 
     python3 scripts/ops/mandate_resolver.py --leg ada_pullback_2h \\
-        --from S1 --to S2 --account bybit_2 [--json]
+        --from S1 --to S2 --account bybit_2 [--json] [--file-needs-data SESSION_REF]
 
-Given ``(leg, from_stage, to_stage, account)`` it returns ``FIRE`` or ``REFUSE``
+Given ``(leg, from_stage, to_stage, account)`` it returns one of THREE verdicts
 plus the ONE deciding clause, the evidence it read, and -- on FIRE -- the roster
 edit it PROPOSES. It never writes a roster, a config or a PR. Whatever acts on a
 FIRE opens a PR carrying the proposal; nothing does yet (see "NOT LIVE" below).
+
+THREE OUTCOMES, NOT TWO (operator directive, 2026-09-29, on PR #13698)
+-----------------------------------------------------------------------
+Until this change the resolver only knew FIRE and REFUSE, and that binary
+collapsed two facts that must not share one value: *"the evidence says no"* and
+*"there is no decisive evidence yet."* #13698 asked whether to promote
+``slv_trend_1h`` to ``alpaca_live`` and the resolver, run for real against the
+committed tree, answered **FIRE** -- on a leg that is ``execution: shadow``
+(zero real exits ever) and whose Stage-1 cost-fidelity verdict is
+``insufficient_n``. Neither fact is "the evidence is bad"; both are "there is no
+evidence yet". The operator's ruling is the fix:
+
+    "either we have enough data to decide, or we don't and then getting that
+    data becomes a task which needs to happen so that a decision can be made"
+
+So there are three verdicts, never two:
+
+  ``FIRE``        every clause read a DECISIVE measurement, and all of them
+                  passed. Act -- open the PR the proposal names.
+  ``REFUSE``      a clause read a DECISIVE measurement and it FAILED (a
+                  negative expectancy, a divergent cost verdict, a mandate
+                  that is not granted, config drift, a positive mirror
+                  window on a demotion). Never fires; re-running it against
+                  the same evidence answers the same way.
+  ``NEEDS_DATA``  (string value ``"NEEDS-DATA"``) a clause could not find a
+                  decisive measurement at all -- the record is missing, the
+                  sample is below the stated floor, or R3 grades the leg
+                  ``inconclusive`` / ``insufficient_n`` / ``no_record`` / a
+                  stale verdict. This is the state a shadow-executed or
+                  never-soaked leg is actually in, and it is the state
+                  ``slv_trend_1h`` was in. Never fires; carries a
+                  ``data_task`` describing exactly what would clear it, and
+                  the CLI (``--file-needs-data``) or ``file_needs_data()``
+                  auto-files that task into ``scripts/ops/pipeline.py`` --
+                  the mechanism that pulls it back to a decision instead of
+                  letting it sit as a silent, indefinitely-repeatable FIRE
+                  risk. **A caller must never treat NEEDS_DATA as a pass**:
+                  both downstream consumers (``r4_demotion_gate.py``,
+                  ``check_mandate_autoland.py``) already gate on
+                  ``verdict != FIRE``, so this is safe by construction, but a
+                  NEW consumer must not "helpfully" treat NEEDS_DATA as FIRE
+                  because a caveat-only reading of "provisional" is exactly
+                  the #13698 defect.
+
+**Where the line is drawn, clause by clause**, stated so it can be audited
+rather than inferred: a leg not on its Stage-1 soak roster, or on it at
+``execution: shadow`` (``R-NOT-SOAKED`` / ``R-EXECUTION-SHADOW``); a Stage-0
+evidence record that is simply absent (``R-RECORD-MISSING``); a closed-trade
+count below the mandate's own floor (``R-N``); and every R3 cost-fidelity
+verdict except ``consistent`` (pass) and ``divergent`` (REFUSE) --
+``inconclusive`` / ``insufficient_n`` / ``no_record`` / a stale verdict / no
+committed R3 record at all -- are all ``NEEDS_DATA``. Everything else that
+was a REFUSE before this change (mandate not granted or blocked, wrong
+account or account-class drift, an unknown transition, a config-fingerprint
+mismatch, B1's own four clauses, a computed expectancy or fold count that is
+negative or not a majority, the cap exceeded, a source_run not committed)
+stays REFUSE: each of those is a DECISIVE fact, not an absence of one, and
+"give it more time" would not change the answer.
 
 WHAT IT READS -- AND NOTHING ELSE
 ---------------------------------
@@ -131,8 +190,10 @@ a function that answers when asked.
 # wiring: manual-only - B5 PR A ships the decision function alone; no schedule,
 # workflow or consumer calls it yet, by design (merged != deployed != observed).
 # The consumer (act on FIRE: open the roster PR + realtime ping) is B5's next step.
+# NEEDS_DATA is filed on request (--file-needs-data / file_needs_data()), not on
+# a schedule either -- see that function's docstring.
 
-Exit codes: 0 FIRE · 1 REFUSE · 2 could not run (bad arguments).
+Exit codes: 0 FIRE · 1 REFUSE · 2 bad arguments (argparse) · 3 NEEDS_DATA.
 """
 from __future__ import annotations
 
@@ -147,6 +208,8 @@ from typing import Any, Dict, List, Optional, Tuple
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts" / "ci"))
 import check_roster_promotion_evidence as b1  # noqa: E402  (B1's bar, reused)
+sys.path.insert(0, str(REPO / "scripts" / "ops"))
+import pipeline  # noqa: E402  (the follow-through store; see file_needs_data())
 
 import yaml  # noqa: E402
 
@@ -158,7 +221,7 @@ R3_DIR_REL = "comms/research/r3_cost_fidelity"
 MIRROR_DIR_REL = "comms/mandate_evidence/mirror_window"
 FIRINGS_DIR_REL = "comms/mandate_firings"
 
-FIRE, REFUSE = "FIRE", "REFUSE"
+FIRE, REFUSE, NEEDS_DATA = "FIRE", "REFUSE", "NEEDS-DATA"
 STAGES = ("S0", "S1", "S2", "OFF")
 
 #: RULE-R3-GATE1-COST-FIDELITY-v1's five verdicts. Mirrored from
@@ -351,6 +414,88 @@ def r3_leg_verdict(leg: str, root: Path) -> Dict[str, Any]:
     return out
 
 
+def _leg_execution(root: Path, leg: str) -> str:
+    """`config/strategies.yaml::<leg>.execution`, normalized, default-permissive
+    ("live") to match every other reader of this field in the repo -- omitting
+    `execution` means live, per CLAUDE.md § "The two execution gates"."""
+    strategies = (_yaml(root, STRATEGIES_REL) or {}).get("strategies") or {}
+    cfg = strategies.get(leg) if isinstance(strategies, dict) else None
+    return str((cfg or {}).get("execution", "live")).strip().lower()
+
+
+def _soak_data_task(leg: str, soak: Optional[str], mid: str, account: str) -> Dict[str, Any]:
+    """The data task for `R-NOT-SOAKED` / `R-EXECUTION-SHADOW` -- #13698's case.
+
+    A leg can sit on a Stage-1 paper roster's `strategies:` list while carrying
+    `execution: shadow`: it logs order packages and is never actually filled,
+    so its presence on the list is not evidence of a soak. This is the ONE data
+    task both clauses point at -- soaking is a single fact, whichever way it is
+    missing.
+    """
+    return {
+        "what": (f"{leg} needs a genuine Stage-1 soak on {soak!r} before {mid} can decide "
+                 f"{leg} -> {account}: it must be `execution: live` (not `shadow`) on that "
+                 f"roster, then accrue real fills there -- 'Never a leg that has not soaked "
+                 f"at Stage 1' (the mandate's own `never:`)."),
+        "clears_when": (f"config/strategies.yaml::{leg}.execution is not 'shadow' AND {leg} "
+                        f"is on {soak!r}'s roster, with enough real fills there to clear "
+                        f"RULE-R3-GATE1-COST-FIDELITY-v1's floor (>=10 measured entries and "
+                        f">=10 exits per side)"),
+        "check_every_days": 7,
+        "next_action": "dispatch_lane",
+    }
+
+
+def _record_missing_data_task(leg: str, frm: str, to: str) -> Dict[str, Any]:
+    return {
+        "what": (f"{leg} has no committed Stage-0 evidence record at "
+                 f"{EVIDENCE_DIR_REL}/{leg}.json -- nothing has backtested it net of the full "
+                 f"cost stack, so {frm} -> {to} cannot be decided either way."),
+        "clears_when": (f"{EVIDENCE_DIR_REL}/{leg}.json exists, is committed, and passes B1's "
+                        f"four clauses ({b1.__name__}.clause_verdicts)"),
+        "check_every_days": 14,
+        "next_action": "dispatch_lane",
+    }
+
+
+def _n_floor_data_task(leg: str, n: Any, min_n: int) -> Dict[str, Any]:
+    return {
+        "what": (f"{leg}'s Stage-0 record states n_trades_oos={n!r}, below the mandate's floor "
+                 f"of {min_n} closed trades -- accrue more history or re-run the harness over a "
+                 f"longer window."),
+        "clears_when": f"{EVIDENCE_DIR_REL}/{leg}.json states n_trades_oos >= {min_n}",
+        "check_every_days": 14,
+        "next_action": "dispatch_lane",
+    }
+
+
+def _cost_fidelity_data_task(leg: str, r3: Dict[str, Any], tol: Any, provisional: bool) -> Dict[str, Any]:
+    verdict_or_why = r3.get("verdict") or r3.get("why")
+    basis = ("the operator-accepted PROVISIONAL 5.0 bps placeholder (no measured baseline exists "
+            "on this venue yet)" if provisional else "a measured venue baseline")
+    return {
+        "what": (f"{leg}'s Stage-1 cost fidelity ({R3_RULE_ID}) reads {verdict_or_why!r} against "
+                 f"{basis} -- not enough measured fills to grade it `consistent` or `divergent`."),
+        "clears_when": (f"the newest {R3_DIR_REL}/<date>.json grades {leg} `consistent` or "
+                        f"`divergent` (not inconclusive/insufficient_n/no_record, and not stale "
+                        f"against the record's current modelled slippage) at "
+                        f"bar.cost_tolerance_bps={tol}"),
+        "check_every_days": 7,
+        "next_action": "check_observation",
+    }
+
+
+def _mirror_window_data_task(leg: str, rel: str) -> Dict[str, Any]:
+    return {
+        "what": (f"{leg} has no usable Stage-2 mirror-window record at {rel} -- MD-DEMOTE-S2-S1 "
+                 f"needs a stated net_r_net_of_full_cost from a live mirror window before it can "
+                 f"decide a demotion."),
+        "clears_when": f"{rel} exists, is committed, and states a numeric net_r_net_of_full_cost",
+        "check_every_days": 7,
+        "next_action": "check_observation",
+    }
+
+
 def auto_promoted(root: Path, account: str, roster: List[str]) -> List[str]:
     """Legs a mandate ADDED to `account` that are still on its roster."""
     d = root / FIRINGS_DIR_REL
@@ -368,13 +513,34 @@ def auto_promoted(root: Path, account: str, roster: List[str]) -> List[str]:
 # the decision
 # --------------------------------------------------------------------------
 class _Refuse(Exception):
+    """A clause read a DECISIVE measurement and it failed. Re-running against
+    the same evidence answers REFUSE again -- see the module docstring's
+    "THREE OUTCOMES" section for the line between this and `_NeedsData`."""
+
     def __init__(self, clause: str, detail: str):
         super().__init__(f"{clause}: {detail}")
         self.clause, self.detail = clause, detail
 
 
-def _result(verdict: str, clause: str, detail: str, ctx: Dict[str, Any]) -> Dict[str, Any]:
-    return {"verdict": verdict, "clause": clause, "detail": detail, **ctx}
+class _NeedsData(Exception):
+    """A clause could not find a decisive measurement at all -- missing,
+    below a stated floor, or a non-decisive R3 verdict. Carries `data_task`,
+    a dict `needs_data_pipeline_item()` turns directly into a pipeline.py
+    item: {"what", "clears_when", "check_every_days", "next_action"}."""
+
+    def __init__(self, clause: str, detail: str, data_task: Dict[str, Any]):
+        super().__init__(f"{clause}: {detail}")
+        self.clause, self.detail, self.data_task = clause, detail, data_task
+
+
+def _result(verdict: str, clause: str, detail: str, ctx: Dict[str, Any],
+           data_task: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    # `data_task` is ALWAYS a key, never omitted -- present and `None` on FIRE
+    # and REFUSE, present and a dict only on NEEDS_DATA. A key that only shows
+    # up on one branch is the same collapsed-state defect this repo already
+    # names (docs/CLAUDE-RULES-CANONICAL.md § "Collapsed states").
+    return {"verdict": verdict, "clause": clause, "detail": detail,
+           "data_task": data_task, **ctx}
 
 
 def resolve(leg: str, from_stage: str, to_stage: str, account: str, *,
@@ -384,6 +550,9 @@ def resolve(leg: str, from_stage: str, to_stage: str, account: str, *,
                            "caveats": [], "proposal": None}
     try:
         _decide(leg, from_stage, to_stage, account, root, mandate_id, ctx)
+    except _NeedsData as nd:
+        ctx["proposal"] = None
+        return _result(NEEDS_DATA, nd.clause, nd.detail, ctx, data_task=nd.data_task)
     except _Refuse as r:
         ctx["proposal"] = None
         return _result(REFUSE, r.clause, r.detail, ctx)
@@ -493,14 +662,27 @@ def _add_risk(leg: str, frm: str, to: str, account: str, exchange: str,
     if (frm, to) == ("S1", "S2"):
         soak = SOAK_ACCOUNT.get(exchange)
         if not soak or leg not in rosters.get(soak, {}).get("legs", []):
-            raise _Refuse("R-NOT-SOAKED", f"{leg} is not on the Stage-1 soak roster {soak!r}; "
-                                          "Stage 2 is reached only through Stage 1")
+            raise _NeedsData("R-NOT-SOAKED", f"{leg} is not on the Stage-1 soak roster {soak!r}; "
+                                             "Stage 2 is reached only through Stage 1",
+                             _soak_data_task(leg, soak, m["id"], account))
+        # ⚠️ #13698: roster MEMBERSHIP is not the same fact as having SOAKED.
+        # `execution: shadow` logs order packages and places no real order, so
+        # a shadow leg can sit on the soak roster's `strategies:` list forever
+        # while accruing zero real fills. The mandate's own `never:` reads
+        # "Never a leg that has not soaked at Stage 1" -- a shadow leg has not.
+        if _leg_execution(root, leg) == "shadow":
+            raise _NeedsData("R-EXECUTION-SHADOW",
+                             f"{leg} is `execution: shadow` in {STRATEGIES_REL} -- it logs order "
+                             f"packages on {soak!r} but places no real order, so roster membership "
+                             f"there is not a Stage-1 soak",
+                             _soak_data_task(leg, soak, m["id"], account))
 
     # ── the committed record ────────────────────────────────────────────────
     rec_rel = f"{EVIDENCE_DIR_REL}/{leg}.json"
     record = b1.load_record(leg, root / EVIDENCE_DIR_REL)
     if record is None:
-        raise _Refuse("R-RECORD-MISSING", f"no readable committed record at {rec_rel}")
+        raise _NeedsData("R-RECORD-MISSING", f"no readable committed record at {rec_rel}",
+                         _record_missing_data_task(leg, frm, to))
     ev = ctx["evidence"]
     ev.update({"record": rec_rel, "harness": record.get("harness"),
                "n_trades_oos": record.get("n_trades_oos"),
@@ -529,7 +711,8 @@ def _add_risk(leg: str, frm: str, to: str, account: str, exchange: str,
     if not isinstance(min_n, int) or isinstance(min_n, bool):
         raise _Refuse("R-MANDATE-NOT-GRANTED", f"bar.min_n_closed={min_n!r} is not an integer")
     if n < min_n:
-        raise _Refuse("R-N", f"n_trades_oos={n} < {min_n} closed")
+        raise _NeedsData("R-N", f"n_trades_oos={n} < {min_n} closed",
+                         _n_floor_data_task(leg, n, min_n))
     exp = record.get("expectancy_r_oos")
     net = record.get("net_r_oos")
     if not isinstance(exp, (int, float)) or isinstance(exp, bool) or exp <= 0 \
@@ -608,10 +791,11 @@ def _cost_fidelity(leg: str, venue: Optional[str], record: Dict[str, Any],
                    m: Dict[str, Any], root: Path, ctx: Dict[str, Any]) -> None:
     """Clause 3 of the bar: is the realized cost the one the record assumed?
 
-    Reads the R3 PER-LEG verdict (see the module docstring). `consistent` is the
-    only pass. `divergent` refuses, and so do the two states a venue point
-    estimate could not express -- `inconclusive` and `insufficient_n` -- because
-    "we cannot yet tell" is not evidence, and this mandate routes real money.
+    Reads the R3 PER-LEG verdict (see the module docstring). `consistent` is
+    the only pass and `divergent` is the only REFUSE -- both are DECISIVE. Every
+    other outcome -- `inconclusive`, `insufficient_n`, `no_record`, a stale
+    verdict, or no R3 record committed at all -- is NEEDS_DATA: "we cannot yet
+    tell" is not evidence either way, and this mandate routes real money.
     """
     tol = (m.get("bar") or {}).get("cost_tolerance_bps")
     if not isinstance(tol, (int, float)) or isinstance(tol, bool) or tol < 0:
@@ -622,7 +806,9 @@ def _cost_fidelity(leg: str, venue: Optional[str], record: Dict[str, Any],
 
     provisional = venue in PROVISIONAL_VENUES
     # The placeholder floor is the mandate's own `never:` and is checked FIRST.
-    # A measurement never buys a way around it -- see the docstring.
+    # A measurement never buys a way around it -- see the docstring. This is a
+    # DECISIVE fact about the record itself (it assumed less cost than the
+    # operator-accepted floor), not an absence of data, so it stays REFUSE.
     if provisional and (not isinstance(modelled, (int, float)) or isinstance(modelled, bool)
                         or modelled < PROVISIONAL_SLIPPAGE_BPS):
         ctx["evidence"]["cost_fidelity"] = {"venue": venue, "basis": "PROVISIONAL",
@@ -637,37 +823,38 @@ def _cost_fidelity(leg: str, venue: Optional[str], record: Dict[str, Any],
     ctx["evidence"]["cost_fidelity"] = cf
 
     verdict = r3.get("verdict")
-    note = verdict or r3.get("why")
     if verdict is not None:
         stale = _stale_against_record(r3, modelled)
         if stale:
-            # A STALE VERDICT IS NOT A VERDICT -- it is folded back into the
-            # same "no decisive measurement" state as a record that never
-            # graded this leg, so the two leave by the same exit and neither
-            # can slip through silently.
+            # A STALE VERDICT IS NOT A VERDICT -- it answered a question about a
+            # record that no longer exists, which is exactly "no decisive
+            # measurement", never a pass and never a refusal.
             cf["stale"] = stale
-            verdict, note = None, stale
-        elif verdict == R3_CONSISTENT:
+            raise _NeedsData("R-COST-FIDELITY", stale,
+                             _cost_fidelity_data_task(leg, r3, tol, provisional))
+        if verdict == R3_CONSISTENT:
             return  # the Gate-1 pass, on any venue
-        elif verdict == R3_DIVERGENT:
+        if verdict == R3_DIVERGENT:
             raise _Refuse("R-COST-FIDELITY",
                           f"{R3_RULE_ID} grades {leg} `divergent` on "
                           f"{r3.get('from_account')} ({r3.get('basis')}): realized cost exceeds "
                           f"the modelled {modelled} bps + tolerance {tol} with 95% confidence "
                           f"({r3.get('record')})")
-    if provisional:
-        # No decisive measurement on this venue: the operator-accepted 5.0 bps
-        # placeholder is the stated basis, and its floor held above. The caveat
-        # is NOT optional -- a reader told "provisional" must also be told that
-        # no verdict backs it, or the two collapse into one reassuring word.
-        ctx["caveats"].append(
-            f"NO DECISIVE COST-FIDELITY VERDICT: {R3_RULE_ID} reads "
-            f"{note} for {leg}, so this promotion rests on the "
-            f"{PROVISIONAL_SLIPPAGE_BPS} bps placeholder, not on a measurement.")
-        return
-    raise _Refuse("R-COST-FIDELITY",
-                  f"{R3_RULE_ID} does not pass {leg}: {note} -- only `consistent` "
-                  f"is the Gate-1 pass ({r3.get('record') or 'no record'})")
+        # `inconclusive` / `insufficient_n` / `no_record`: a real per-leg
+        # measurement exists and does not yet decide -- NEEDS_DATA, never a pass
+        # (2026-09-29 correction: this used to fall through to a FIRE-with-
+        # caveat on a provisional venue -- see the module docstring's #13698
+        # account of why that was wrong).
+        raise _NeedsData("R-COST-FIDELITY",
+                         f"{R3_RULE_ID} grades {leg} `{verdict}` ({r3.get('record')}) -- not "
+                         f"decisive either way",
+                         _cost_fidelity_data_task(leg, r3, tol, provisional))
+    # verdict is None: no R3 record committed at all, the leg is absent from
+    # the newest one, the record is unreadable, or its verdict string is
+    # outside the rule's vocabulary -- every one of those is "we could not
+    # look", never a pass.
+    raise _NeedsData("R-COST-FIDELITY", r3.get("why") or "no per-leg cost-fidelity verdict",
+                     _cost_fidelity_data_task(leg, r3, tol, provisional))
 
 
 def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
@@ -675,15 +862,17 @@ def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
     rel = f"{MIRROR_DIR_REL}/{leg}.json"
     rec = _json(root / rel)
     if rec is None:
-        raise _Refuse("R-RECORD-MISSING", f"no committed mirror-window record at {rel} -- "
-                                          "the demotion signal cannot be read")
+        raise _NeedsData("R-RECORD-MISSING", f"no committed mirror-window record at {rel} -- "
+                                             "the demotion signal has not accrued yet",
+                         _mirror_window_data_task(leg, rel))
     net = rec.get("net_r_net_of_full_cost")
     ctx["evidence"].update({"record": rel, "n_closed": rec.get("n_closed"),
                             "net_r_net_of_full_cost": net, "source_run": rec.get("source_run")})
     if not in_repo(root, rec.get("source_run")):
         raise _Refuse("R-SOURCE-RUN-ABSENT", f"source_run {rec.get('source_run')!r} is not in the repo")
     if not isinstance(net, (int, float)) or isinstance(net, bool):
-        raise _Refuse("R-EXPECTANCY", f"net_r_net_of_full_cost={net!r} is not stated")
+        raise _NeedsData("R-EXPECTANCY", f"net_r_net_of_full_cost={net!r} is not stated",
+                         _mirror_window_data_task(leg, rel))
     if net >= 0:
         raise _Refuse("R-EXPECTANCY", f"mirror window net {net} R is not negative -- the evidence "
                                       "does not support a demotion")
@@ -693,17 +882,20 @@ def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path
                    ctx: Dict[str, Any]) -> None:
     """MD-DEMOTE-S1-OFF: the LEG's realized cost diverges from what it modelled.
 
-    `divergent` is the only firing verdict, and every other outcome REFUSES.
-    That asymmetry is the mandate's own `never:` clause -- *"an unmeasurable
+    `divergent` is the only firing verdict and `consistent` is the only REFUSE
+    -- both DECISIVE. Everything else (`inconclusive`, `insufficient_n`,
+    `no_record`, a stale verdict, or no verdict to read at all) is NEEDS_DATA:
+    that asymmetry is the mandate's own `never:` clause -- *"an unmeasurable
     venue shows no divergence, and 'could not measure' must not read as
-    'diverged'"* -- which under a per-leg rule is exactly `insufficient_n` and
-    `inconclusive`. Reading either as a demotion would take a leg off its soak
-    book on the strength of a measurement that said it could not decide.
+    'diverged'"* -- and, symmetrically, must not read as "does not diverge"
+    either. Reading either as a demotion (or a refusal to demote) would decide
+    on the strength of a measurement that said it could not decide.
     """
     rec_rel = f"{EVIDENCE_DIR_REL}/{leg}.json"
     record = b1.load_record(leg, root / EVIDENCE_DIR_REL)
     if record is None:
-        raise _Refuse("R-RECORD-MISSING", f"no readable committed record at {rec_rel}")
+        raise _NeedsData("R-RECORD-MISSING", f"no readable committed record at {rec_rel}",
+                         _record_missing_data_task(leg, "S1", "OFF"))
     ctx["evidence"]["record"] = rec_rel
     tol = (m.get("bar") or {}).get("cost_tolerance_bps")
     if not isinstance(tol, (int, float)) or isinstance(tol, bool):
@@ -713,18 +905,74 @@ def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path
     cf = dict(r3, venue=venue, modelled_bps=modelled, tolerance_bps=tol,
               rule_doc=R3_RULE_DOC)
     ctx["evidence"]["cost_fidelity"] = cf
+    provisional = venue in PROVISIONAL_VENUES
     verdict = r3.get("verdict")
     if verdict is None:
-        raise _Refuse("R-RECORD-MISSING", f"{r3.get('why')} -- no per-leg cost-fidelity verdict "
-                                          "to demote on, and 'could not measure' is not 'diverged'")
+        raise _NeedsData("R-RECORD-MISSING",
+                         f"{r3.get('why')} -- no per-leg cost-fidelity verdict to demote on, "
+                         f"and 'could not measure' is not 'diverged'",
+                         _cost_fidelity_data_task(leg, r3, tol, provisional))
     stale = _stale_against_record(r3, modelled)
     if stale:
         cf["stale"] = stale
-        raise _Refuse("R-COST-FIDELITY", stale)
-    if verdict != R3_DIVERGENT:
+        raise _NeedsData("R-COST-FIDELITY", stale, _cost_fidelity_data_task(leg, r3, tol, provisional))
+    if verdict == R3_DIVERGENT:
+        return  # the demotion FIRE path
+    if verdict == R3_CONSISTENT:
         raise _Refuse("R-COST-FIDELITY",
-                      f"{R3_RULE_ID} grades {leg} `{verdict}`, not `divergent` "
-                      f"({r3.get('record')}) -- the evidence does not support a demotion")
+                      f"{R3_RULE_ID} grades {leg} `consistent` ({r3.get('record')}) -- realized "
+                      f"cost matches what the record modelled; the evidence does not support a "
+                      f"demotion")
+    raise _NeedsData("R-COST-FIDELITY",
+                     f"{R3_RULE_ID} grades {leg} `{verdict}`, not `divergent` ({r3.get('record')}) "
+                     f"-- not decisive either way",
+                     _cost_fidelity_data_task(leg, r3, tol, provisional))
+
+
+# --------------------------------------------------------------------------
+# NEEDS_DATA -> the pipeline (operator directive, 2026-09-29): "getting that
+# data becomes a task which needs to happen so that a decision can be made".
+# --------------------------------------------------------------------------
+def needs_data_pipeline_item(result: Dict[str, Any], session_ref: str) -> Dict[str, Any]:
+    """Build (never write) a `scripts/ops/pipeline.py` item for a NEEDS_DATA
+    result. Kept separate from `file_needs_data()` so every caller that only
+    wants to INSPECT the item this would file -- every test in this suite
+    included -- never touches the filesystem.
+
+    The item's `due_when` is an `observation` whose `clears_when` is
+    `result["data_task"]["clears_when"]` -- the exact condition named by the
+    clause that could not decide, never a generic "check on this leg". Its
+    `origin.rerun` is the exact resolver invocation that produced this
+    result, so a later session (or A3, once it exists) can re-ask the same
+    question rather than trusting this sentence.
+    """
+    if result.get("verdict") != NEEDS_DATA:
+        raise ValueError(f"needs_data_pipeline_item: not a NEEDS_DATA result "
+                         f"(verdict={result.get('verdict')!r})")
+    task = result.get("data_task") or {}
+    leg, mid = result["leg"], result["mandate"]
+    frm, to, account = result["from_stage"], result["to_stage"], result["account"]
+    rerun = (f"python3 scripts/ops/mandate_resolver.py --leg {leg} --from {frm} "
+            f"--to {to} --account {account} --json")
+    return {
+        "id": pipeline.mint_id(session_ref),
+        "what": (f"{mid}: {leg} ({frm} -> {to}, {account}) is NEEDS-DATA at "
+                f"{result['clause']} -- {task.get('what') or result['detail']}"),
+        "origin": {"kind": "session", "ref": session_ref, "rerun": rerun},
+        "due_when": {"kind": "observation",
+                    "clears_when": task.get("clears_when") or
+                                   f"{rerun} no longer returns NEEDS-DATA at {result['clause']}",
+                    "check_every_days": task.get("check_every_days", 7)},
+        "next_action": task.get("next_action", "check_observation"),
+        "state": "queued",
+    }
+
+
+def file_needs_data(result: Dict[str, Any], session_ref: str, *,
+                    store: Path = pipeline.STORE) -> Dict[str, Any]:
+    """Side-effecting: append the NEEDS_DATA item this result implies."""
+    item = needs_data_pipeline_item(result, session_ref)
+    return pipeline.append(item, store, intent="new")
 
 
 # --------------------------------------------------------------------------
@@ -738,10 +986,19 @@ def main(argv: Optional[List[str]] = None) -> int:
                                                      "the one the transition implies")
     ap.add_argument("--root", default=str(REPO))
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--file-needs-data", metavar="SESSION_REF", default=None,
+                    help="on a NEEDS-DATA verdict, file the data task into "
+                         "scripts/ops/pipeline.py under this session ref")
     a = ap.parse_args(argv)
     res = resolve(a.leg, a.frm, a.to, a.account, root=Path(a.root), mandate_id=a.mandate)
+    filed = None
+    if res["verdict"] == NEEDS_DATA and a.file_needs_data:
+        filed = file_needs_data(res, a.file_needs_data)
     if a.json:
-        print(json.dumps(res, indent=2, sort_keys=True, default=str))
+        out = dict(res)
+        if filed is not None:
+            out["filed_pipeline_id"] = filed["id"]
+        print(json.dumps(out, indent=2, sort_keys=True, default=str))
     else:
         print(f"{res['verdict']} [{res['clause']}] {res['mandate']}: {res['detail']}")
         for key in ("record", "source_run"):
@@ -754,7 +1011,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                   + (f" -- {cf['record']}" if cf.get("record") else ""))
         for c in res["caveats"]:
             print(f"  ⚠️ {c}")
-    return 0 if res["verdict"] == FIRE else 1
+        if res.get("data_task"):
+            print(f"  data task: {res['data_task'].get('what')}")
+            print(f"  clears when: {res['data_task'].get('clears_when')}")
+        if filed is not None:
+            print(f"  filed: {filed['id']}")
+    return {FIRE: 0, REFUSE: 1, NEEDS_DATA: 3}[res["verdict"]]
 
 
 if __name__ == "__main__":
