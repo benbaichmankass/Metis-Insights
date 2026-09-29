@@ -40,8 +40,17 @@ def test_every_template_generates_valid_units_deterministically():
     p2 = queue_replenish.plan(REPO, day="2031-01-01", target=200)
     assert [u["text"] for u in p1["new_units"]] == [u["text"] for u in p2["new_units"]]
     families = {u["family"] for u in p1["new_units"]}
-    templates = {t[2]["family"] for t in queue_replenish.load_templates(REPO)}
-    assert families == templates, f"a family generates nothing: {templates - families}"
+    # a family may legitimately generate nothing when EVERY point it expands to
+    # is already keyed in the committed queue (macro-valuation has one point and
+    # #13770 landed it); a family with unclaimed points that generates nothing
+    # is the broken template this test exists to catch
+    units, _ = queue_replenish.existing_units(REPO)
+    seen = {str((u.get("generated") or {}).get("key")) for u in units.values() if isinstance(u.get("generated"), dict)}
+    facts = queue_replenish.repo_facts(REPO)
+    for _, _, tpl in queue_replenish.load_templates(REPO):
+        fam = tpl["family"]
+        unclaimed = [pt for pt in queue_replenish.expand(tpl, facts) if queue_replenish.point_key(fam, pt) not in seen]
+        assert (fam in families) == bool(unclaimed), (fam, len(unclaimed), fam in families)
     keys = [u["key"] for u in p1["new_units"]]
     assert len(keys) == len(set(keys))
     from scripts.research.research_queue import validate
