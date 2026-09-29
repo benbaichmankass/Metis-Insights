@@ -192,6 +192,30 @@ def test_breakout_could_not_look_when_status_absent():
     assert r["positions_state"] == "could_not_look"
 
 
+def test_breakout_empty_read_is_could_not_look_not_flat():
+    """PR #14005 (open, held for the manager as of 2026-09-29) fixes a
+    measured blind-reader bug: the terminal returned 0 positions/orders
+    rows even with a real filled position on the account. Until that
+    lands, an EMPTY open_positions read must never be trusted as "flat" —
+    manager instruction: state cannot-read explicitly, never 0."""
+    status = _breakout_status()
+    status["status"]["raw"] = json.dumps({"open_positions": []})
+    r = m.reconcile_breakout(status, [])
+    assert r["positions_state"] == "could_not_look"
+    assert r["protection_state"] == "could_not_look"
+    assert "#14005" in r["note"]
+
+
+def test_breakout_nonempty_read_is_trusted_even_before_14005():
+    # The blind-reader bug is a false NEGATIVE (0 rows). A non-empty read is
+    # real data and must still be reconciled normally.
+    status = _breakout_status()
+    fills = [{"status": "closed", "closed_at": "2026-09-28T01:00:00Z", "pnl": 5.0}]
+    r = m.reconcile_breakout(status, fills, now=datetime(2026, 9, 28, tzinfo=timezone.utc))
+    assert r["positions_state"] == "agree"
+    assert "note" not in r
+
+
 # ------------------------------------------------------------- run/grade/fp
 
 def test_grade_and_fingerprint_are_stable_across_captured_at_and_pnl_noise():

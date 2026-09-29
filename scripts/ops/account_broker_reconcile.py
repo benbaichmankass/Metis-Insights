@@ -66,6 +66,18 @@ SCOPE LIMITS, STATED RATHER THAN HIDDEN
     feed has posted at least once since the extension deployed, this check
     reads ``could_not_look`` (the field is absent from the stored row), which
     is the honest state, not a bug in the comparator.
+  * **breakout_1 positions/orders are a KNOWN BLIND READER for an empty
+    result as of 2026-09-29** (PR #14005, open, held for the manager): the
+    terminal's grids are header-less body tables paired to a separate,
+    always-empty header table, so ``read_positions``/``read_orders``
+    returned 0 rows even with a real filled position on the account
+    (measured live, #13987/#13992). Until that PR merges AND deploys AND a
+    live read confirms non-zero rows, an EMPTY ``open_positions`` read is
+    reported ``could_not_look`` (manager instruction 2026-09-29: "state
+    'cannot read' explicitly, never 0"), never as agreement/flat — flip
+    ``BREAKOUT_POSITIONS_READER_FIXED`` once that is confirmed. A
+    NON-EMPTY read is unaffected by this bug and is still reconciled
+    normally.
 
 DATA SOURCES (read-only; no order, cancel, or DB write)
 =========================================================
@@ -121,6 +133,26 @@ QTY_TOLERANCE = 1e-6
 PNL_TOLERANCE_USD = 1.0  # a $1 disagreement is float/fee noise, not a finding
 
 STATES = ("agree", "divergent", "could_not_look", "not_exposed")
+
+# PR #14005 (open, held for the manager as of 2026-09-29) fixes a measured
+# blind-reader bug: the Breakout DXtrade terminal's Positions/Orders grids
+# are HEADER-LESS body tables paired to a separate, always-empty header
+# table, and `EXTRACT_TABLES_JS` only ever read the headed one — so
+# `read_positions()`/`read_orders()` return 0 rows EVEN WHEN THE TERMINAL
+# HOLDS REAL POSITIONS (measured live, #13987/#13992: a filled 0.01 SOLUSD
+# position read as 0 positions from a fresh login). An EMPTY
+# `open_positions` read from breakout_1 is therefore NOT currently
+# trustworthy evidence of "flat" — manager instruction 2026-09-29: keep
+# breakout_1's positions/protection check read-only and state "cannot read"
+# explicitly rather than a false, confident 0. A NON-EMPTY read is not
+# subject to this bug (the defect is a false negative, never a false row),
+# so it is still trusted and reconciled normally.
+#
+# Flip this to True (and drop the special case below) once #14005 merges
+# AND deploys AND a live read confirms non-zero rows on an account known to
+# hold a position — not merely on the PR merging, per this repo's own
+# "merged != deployed != observed" rule.
+BREAKOUT_POSITIONS_READER_FIXED = False
 
 
 # --------------------------------------------------------------------------
@@ -440,22 +472,38 @@ def reconcile_breakout(
                         "(feed not yet posted since the extension, or the "
                         "terminal read failed this tick)"}
 
-    broker_rows = [{"symbol": p.get("symbol"), "side": p.get("side"),
-                    "qty": p.get("quantity")} for p in broker_positions_field]
-    matched = match_positions(j_rows, broker_rows)
-    for r in matched:
-        if r["state"] != "position_match":
-            continue
-        sym = r["symbol"]
-        b = next((p for p in broker_positions_field
-                  if str(p.get("symbol") or "").upper() == sym), {})
-        r["has_stop"] = _num(b.get("stop_loss")) is not None
-        r["has_target"] = _num(b.get("take_profit")) is not None
+    if not broker_positions_field and not BREAKOUT_POSITIONS_READER_FIXED:
+        # An EMPTY read is exactly the shape the known blind-reader bug
+        # produces (PR #14005) — do not read it as "flat". Report
+        # could_not_look rather than a false, confident 0, per the
+        # manager's 2026-09-29 instruction. Realized-P&L is unaffected (it
+        # comes from the account snapshot, not the positions/orders grids)
+        # and is still checked below.
+        matched, prot = [], None
+        positions_state = protection_state = "could_not_look"
+        reader_note = ("breakout_1 positions/orders read is a KNOWN BLIND "
+                       "READER for an empty result until PR #14005 merges + "
+                       "deploys (measured live: a filled position read as 0 "
+                       "rows) — an empty read is reported cannot-read, never "
+                       "trusted as flat.")
+    else:
+        broker_rows = [{"symbol": p.get("symbol"), "side": p.get("side"),
+                        "qty": p.get("quantity")} for p in broker_positions_field]
+        matched = match_positions(j_rows, broker_rows)
+        for r in matched:
+            if r["state"] != "position_match":
+                continue
+            sym = r["symbol"]
+            b = next((p for p in broker_positions_field
+                      if str(p.get("symbol") or "").upper() == sym), {})
+            r["has_stop"] = _num(b.get("stop_loss")) is not None
+            r["has_target"] = _num(b.get("take_profit")) is not None
 
-    positions_state = "divergent" if any(
-        r["state"] != "position_match" for r in matched) else "agree"
-    prot = protection_summary(matched)
-    protection_state = "divergent" if (prot["naked"] or prot["partial"]) else "agree"
+        positions_state = "divergent" if any(
+            r["state"] != "position_match" for r in matched) else "agree"
+        prot = protection_summary(matched)
+        protection_state = "divergent" if (prot["naked"] or prot["partial"]) else "agree"
+        reader_note = None
 
     # Daily realized P&L: broker's realized_today vs journal sum of
     # prop_fills.pnl closed today (UTC). NOT a last-N-trade comparison —
@@ -480,9 +528,12 @@ def reconcile_breakout(
                "broker_realized_today": broker_realized_today,
                "n_closed_today": len(todays_closed), "scope": "daily, not last-N"}
 
-    return {"account_id": account_id, "positions_state": positions_state,
-            "positions": matched, "protection_state": protection_state,
-            "protection": prot, "pnl_state": pnl_state, "pnl": pnl}
+    result = {"account_id": account_id, "positions_state": positions_state,
+              "positions": matched, "protection_state": protection_state,
+              "protection": prot, "pnl_state": pnl_state, "pnl": pnl}
+    if reader_note:
+        result["note"] = reader_note
+    return result
 
 
 # --------------------------------------------------------------------------
@@ -686,6 +737,18 @@ def _self_test() -> int:
                     "rule_distance": {"open_risk": {"positions": []}}}
     r = reconcile_breakout(prop_missing, [])
     check("breakout could_not_look", r["positions_state"] == "could_not_look")
+
+    # breakout_1: an EMPTY open_positions read is the known blind-reader
+    # shape (PR #14005) — must be could_not_look, never a confident "flat".
+    prop_empty_read = {"present": True,
+                       "status": {"realized_today": 0.0,
+                                  "raw": json.dumps({"open_positions": []})},
+                       "rule_distance": {"open_risk": {"positions": []}}}
+    r = reconcile_breakout(prop_empty_read, [])
+    check("breakout empty-read is could_not_look, not agree",
+          r["positions_state"] == "could_not_look"
+          and r["protection_state"] == "could_not_look")
+    check("breakout empty-read carries the #14005 note", "#14005" in (r.get("note") or ""))
 
     # fingerprint stability: same graded shape -> same digest even when the
     # exact P&L figures differ (still `agree`, just a different amount) and
