@@ -118,6 +118,7 @@ on:
       # JC-SA-01 (2026-09-29): the daily grader. A dead run here is what
       # left the graded hop silent 21 days.
       - grade-closed-trades
+      - grading-freshness-alert
       - strategy-review-packets
       - sunset-pass
       - trainer-vm-diag
