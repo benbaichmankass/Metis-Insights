@@ -1,5 +1,5 @@
 {
- "unit": "RQ-20260929-019",
+ "unit": "RQ-20260929-201",
  "rule": "RULE-RQ0929-002-VOLSKIP-FORMING",
  "generated_at": "2026-09-29T11:20:14.956971+00:00",
  "data_source": "Binance USD-M perp 1m klines (data.binance.vision); proxy for Bybit (api.bybit.com geo-blocked from the research container)",

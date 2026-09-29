@@ -1,4 +1,4 @@
-id: RQ-20260929-019
+id: RQ-20260929-201
 title: >-
   M21 entry vol-skip gate reads a FORMING bar live — which trades does that
   change on the real-money declarers (ada_pullback_2h, trend_donchian_xrp_4h)
@@ -121,8 +121,10 @@ related:
 
 id_note: >-
   Registered as RQ-20260929-002 in commits adefe4d3 / 23a0ef8e (both before
-  the run); renumbered to -019 at merge because the replenish workflow landed
-  a generated RQ-20260929-002 on main (#14103) meanwhile. Rule text unchanged.
+  the run). Renumbered to -019 when the replenish workflow landed a generated
+  RQ-20260929-002 on main (#14103), then to -201 (manager, 2026-09-29) because
+  P2's #14049 occupies RQ-20260929-019..060 and NEW-STRAT holds 101..110. Rule
+  text unchanged throughout.
 last_dispatched_at: '2026-09-29T12:40:00+00:00'
 verdict: KEEP_AND_REPORT
 result: >-

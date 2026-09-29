@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Replay the M21 entry vol-skip gate on a FORMING bar vs a CLOSED bar.
 
-RQ-20260929-019 / RULE-RQ0929-002-VOLSKIP-FORMING / PI-20260929-EXITOPS-0005.
+RQ-20260929-201 / RULE-RQ0929-002-VOLSKIP-FORMING / PI-20260929-EXITOPS-0005.
 
 Live, the pullback and donchian variant builders fetch 200 bars whose last row
 is the still-forming bar, and the vol gate ranks THAT bar's ATR within the
@@ -300,7 +300,7 @@ def main(argv: List[str] | None = None) -> int:
     tmp.mkdir(parents=True, exist_ok=True)
     legs = args.leg or list(LEGS)
     rec = {
-        "unit": "RQ-20260929-019", "rule": "RULE-RQ0929-002-VOLSKIP-FORMING",
+        "unit": "RQ-20260929-201", "rule": "RULE-RQ0929-002-VOLSKIP-FORMING",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "data_source": "Binance USD-M perp 1m klines (data.binance.vision); "
                        "proxy for Bybit (api.bybit.com geo-blocked from the "
