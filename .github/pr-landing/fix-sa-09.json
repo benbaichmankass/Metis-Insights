@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "touches .claude/settings.json (SessionStart hook text), outside TIER1_SURFACE; manager reviews and merges",
+  "why": "Docs, .claude instruction text and one new static CI guard (retired-backlog-paths) only. No runtime, order path, strategy config, risk caps or live-VM mutation. FIX-SA-09 of docs/audits/system-audit-2026-09-29.md: CLAUDE.md said the follow-through pipeline's pull was 'built but not connected'; verified false (GET /api/bot/work/brief renders pipeline.render_section_0 per request, checklist A3 and A7 are done). The SessionStart hook, three /commands and four skills still told sessions to drain the archived review backlogs; repointed to docs/claude/work/PIPELINE.jsonl and guarded."
+}

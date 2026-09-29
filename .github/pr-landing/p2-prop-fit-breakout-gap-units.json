@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "adds new research/queue/RQ-20260929-001..042.yaml units, which research/queue/** is deliberately outside TIER1_SURFACE for (see check_pr_landing.py's STAMP_ONLY_SURFACE note) -- only stamp-only dispatch edits to existing units self-land under E57/E58; a NEW queue unit is refused by R5 by design.",
+  "why": "Tier-1 research content (pre-registered decision rules for the P2 prop-candidate-search lane), but new queue units are not on the self-landable surface -- manager review requested per checklist row P2's lane authority."
+}

@@ -126,14 +126,15 @@ the condition says so, whether or not anyone chose to look. `killed` is a
 first-class outcome: closing a dead row *with a stated reason* is worth more
 than carrying it.
 
-⚠️ **THE PULL IS BUILT BUT NOT YET CONNECTED, AND THAT DISTINCTION IS THE
-WHOLE POINT.** `render_section_0()` and `unrouted_count()` exist, are tested,
-and are what the brief consumes. **Nothing runs them on a schedule yet, because
-the brief that displays them is `A3` and is not built.** So today the pipeline
-will hold what you put in it and correctly tell you what is due *when asked* —
-and asking is still voluntary, which is reason (5), the one that killed
-`DUE.md`. **A7 is not finished until A3 renders section 0 on the operator's own
-page.** Do not read "the pipeline exists" as "things no longer get dropped".
+⚠️ **THE PULL IS CONNECTED** (corrected 2026-09-29, FIX-SA-09; this paragraph
+read "built but not yet connected … `A3` … is not built" after both were
+`done`). `GET /api/bot/work/brief` (`src/web/api/routers/work.py`) calls
+`render_daily_brief.py`, which renders `pipeline.render_section_0()` and
+`unrouted_count()` on the operator's own Workflow page **on every request** —
+there is no file to go stale. Checklist rows `A3` and `A7` are `done`. What
+that establishes: a due item *reaches the page*. What it does **not**: that
+anyone routes it — the unrouted count is a number the page shows, and
+JC-SA-06 tracks it growing. *Field beats comment.*
 
 ⚠️ **The 1,065 archived backlog rows and 91 monitoring rows are NOT imported.**
 The store is seeded empty on purpose; importing them is `A8`, and most of them
