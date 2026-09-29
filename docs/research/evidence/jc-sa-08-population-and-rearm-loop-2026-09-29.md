@@ -39,16 +39,16 @@ What this shows:
 Venue record for alpaca_portfolio QQQ on 2026-09-24: a **2-share** sell stop at **736.35** filled **29 times** between 13:32:10 and 15:29:42, for 58 shares in total. That is exactly the netted position: 5928 (2 sh) plus 6024 (56 sh).
 
 - **13:32:10.** 5928's own GTC OCO stop fills, genuinely. The position is now 56 sh, all of it 6024's.
-- **Why 6024 read as naked.** 6024's entry-bracket stop (716.80) rests as a `held` child of a filled parent. That is exactly what FIX-SA-03 found invisible, so the symbol read stop-naked.
+- **Why 6024 read as naked: it WAS naked.** 6024's entry-bracket legs lapsed at the 2026-09-21 close (day TIF): take-profit 1989e18b… `expired`, stop 1445d7ee… `canceled` at 20:01:43Z. From then on 6024 had no resting stop of its own, and 5928's OCO was the only protection on the symbol.
 - **The loop.** Journal row 5928 was still `open`, so the naked sweep re-armed **5928** each time: a 2-share OCO at 736.35, with QQQ already below 736.35. Every re-arm stop was marketable on arrival and filled at once. That happened **28 more times**, about every 2 minutes, and each re-arm's pre-cancel removed whatever had been placed.
 - **Result.** 6024's 56 shares were sold at **734.96–736.42**, far above 6024's own stop at 716.80, with no strategy exit. Both rows then closed `exchange_flat_reconciled` at 15:33:36. The journal's `protection_repairs = 29` on 5928 is this loop.
 
 ### What #14123/#14127/#14177 change, and what they do not
-- **#14123 would have prevented this instance.** 6024's held stop becomes visible, the symbol reads `stop: True`, and there is no re-arm.
-- **The two guards are still missing.** Nothing checks, before re-arming a row, that:
+- **#14123 would NOT have prevented this instance.** (An earlier draft of this file claimed it would; that was wrong.) 6024 had no resting stop to make visible, so the symbol still reads stop-naked and 5928 is still re-armed.
+- **The missing guards, now built in #14241.** Nothing checked, before re-arming a row, that:
   1. the venue position still holds the row's quantity on the row's side. A row whose own stop has filled is gone at the venue, even though the journal still says open; or
   2. the re-arm stop is not already through the market. A marketable stop is an immediate exit, not protection.
 - **Still reachable on alpaca_live.** The live account holds one row per symbol, so the multi-row path above cannot happen there. But a live row whose stop fills while the journal still shows it open would be re-armed as a **sell OCO on a flat position**. That risks an unintended short, if the venue accepts it, or a refused order every tick.
 - **Why it has not happened on live yet.** The 09-28 live stop fills were followed by the rows closing within about 3.5 min, and the venue history shows no re-arm order after them. Why the sweep did not fire in that window is **not established** in this file.
 
-Filed as `PI-20260929-PR6YRTQY-0005` (Tier 2, high).
+Filed as `PI-20260929-PR6YRTQY-0005` (Tier 2, high). Fix: #14241 (held), which replays this sequence in `tests/test_alpaca_rearm_preflight.py`.
