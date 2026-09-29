@@ -81,6 +81,9 @@ WHAT IT READS -- AND NOTHING ELSE
                                         verdict, PER LEG (RULE-R3-GATE1-COST-
                                         FIDELITY-v1)
   * ``comms/mandate_evidence/mirror_window/<leg>.json``  Stage-2 mirror window
+                                        (for S2->S1: its two T3 windows; the
+                                        threshold is RE-DERIVED from the leg's
+                                        Stage-0 record above -- ``stage0_block_p10``)
   * ``comms/mandate_firings/*.json``    what earlier firings added (the cap)
 
 It does not read the PR body, a commit message, a checklist note, the VM or the
@@ -280,6 +283,34 @@ TRANSITION_MANDATE = {
 }
 #: The one cap basis this resolver knows how to measure (see docstring).
 CAP_BASIS = "uniform_account_risk_pct_share_of_roster"
+
+#: MD-DEMOTE-S2-S1's firing rule, T3 AND net<0 -- OPERATOR DECISION 2026-09-29
+#: ~14:17Z, popup in manager session session_01HYq6XtfesZ57VyaQrK6CL1, verbatim
+#: "Last 20 + strict test (Recommended)" (pipeline row
+#: PI-20260929-VOLSKIP-SIGNAL-0007; priced in
+#: scripts/research/r4_trigger_pricing_sim.py / SIGNAL-0005). A leg's LAST 40
+#: closed trades are read as two non-overlapping 20-trade windows; it demotes
+#: only when BOTH windows' net R is below that leg's own p10 of the 20-trade
+#: bootstrap from its Stage-0 evidence record AND below 0, and the 40-trade net
+#: is < 0 (the mandate's never-on-a-non-negative-window clause, kept).
+#:
+#: The seed and draw count are FIXED so the threshold is a pure function of the
+#: committed Stage-0 record: the gate that writes a mirror-window record and
+#: every replay of this resolver (check_mandate_autoland A5) compute the same
+#: number, and a record whose stated threshold disagrees is refused.
+T3_RULE_ID = "MD-DEMOTE-S2-S1/T3-AND-NET-NEG-v1"
+T3_BLOCK = 20
+T3_WINDOWS = 2
+T3_N = T3_BLOCK * T3_WINDOWS
+T3_PERCENTILE = 10.0
+T3_BOOTSTRAP_SEED = 20260929
+T3_BOOTSTRAP_DRAWS = 20000
+#: Fewer Stage-0 trades than this and there is nothing to resample -- a single
+#: value's "bootstrap" is a constant, not a distribution.
+T3_MIN_SOURCE_TRADES = 2
+#: Rounding slack between a record's 40-trade net and the sum of its two
+#: windows (the API rounds each totalR to 4 dp).
+T3_SUM_TOLERANCE = 1e-3
 
 
 # --------------------------------------------------------------------------
@@ -485,12 +516,71 @@ def _cost_fidelity_data_task(leg: str, r3: Dict[str, Any], tol: Any, provisional
     }
 
 
+def _percentile(sorted_vals: List[float], q: float) -> float:
+    """numpy's default (linear) percentile over an already-sorted list, so the
+    threshold matches scripts/research/r4_trigger_pricing_sim.py's definition
+    without importing numpy into the gate's runner."""
+    pos = (len(sorted_vals) - 1) * q / 100.0
+    lo = int(pos)
+    hi = min(lo + 1, len(sorted_vals) - 1)
+    return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (pos - lo)
+
+
+def stage0_block_p10(leg: str, root: Path = REPO, *, seed: int = T3_BOOTSTRAP_SEED,
+                     draws: int = T3_BOOTSTRAP_DRAWS, block: int = T3_BLOCK,
+                     pct: float = T3_PERCENTILE) -> Dict[str, Any]:
+    """The leg's own p10 of ``block``-trade net-R sums, bootstrapped from the
+    per-trade ``net_r`` of its Stage-0 evidence record's COMMITTED source_run.
+
+    Returns ``{"p10", "evidence_record", "source_run", "source_n", "seed",
+    "draws", "block", "why"}``; ``p10`` is None (and ``why`` says what was
+    missing) when the record, its source_run, or enough numeric ``net_r``
+    rows are absent. A None is "we could not look" -- never a guessed
+    threshold."""
+    rel = f"{EVIDENCE_DIR_REL}/{leg}.json"
+    out: Dict[str, Any] = {"p10": None, "evidence_record": rel, "source_run": None,
+                           "source_n": 0, "seed": seed, "draws": draws, "block": block,
+                           "percentile": pct, "why": None}
+    rec = _json(root / rel)
+    if rec is None or not in_repo(root, rel):
+        out["why"] = f"no committed Stage-0 evidence record at {rel}"
+        return out
+    src = rec.get("source_run")
+    out["source_run"] = src
+    if not in_repo(root, src):
+        out["why"] = f"{rel} cites source_run {src!r}, which is not a committed file"
+        return out
+    xs: List[float] = []
+    try:
+        for line in (root / src).read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            v = json.loads(line).get("net_r")
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                xs.append(float(v))
+    except (OSError, ValueError, AttributeError) as e:
+        out["why"] = f"{src} is not a readable per-trade JSONL: {e}"
+        return out
+    out["source_n"] = len(xs)
+    if len(xs) < T3_MIN_SOURCE_TRADES:
+        out["why"] = (f"{src} carries {len(xs)} numeric net_r row(s); at least "
+                      f"{T3_MIN_SOURCE_TRADES} are needed to resample")
+        return out
+    import random  # local: only this function draws
+    rng = random.Random(seed)
+    n = len(xs)
+    sums = sorted(sum(xs[rng.randrange(n)] for _ in range(block)) for _ in range(draws))
+    out["p10"] = round(_percentile(sums, pct), 6)
+    return out
+
+
 def _mirror_window_data_task(leg: str, rel: str) -> Dict[str, Any]:
     return {
         "what": (f"{leg} has no usable Stage-2 mirror-window record at {rel} -- MD-DEMOTE-S2-S1 "
                  f"needs a stated net_r_net_of_full_cost from a live mirror window before it can "
                  f"decide a demotion."),
-        "clears_when": f"{rel} exists, is committed, and states a numeric net_r_net_of_full_cost",
+        "clears_when": (f"{rel} exists, is committed, and states a numeric net_r_net_of_full_cost "
+                        f"plus {T3_WINDOWS} full {T3_BLOCK}-trade T3 windows ({T3_RULE_ID})"),
         "check_every_days": 7,
         "next_action": "check_observation",
     }
@@ -857,8 +947,16 @@ def _cost_fidelity(leg: str, venue: Optional[str], record: Dict[str, Any],
                      _cost_fidelity_data_task(leg, r3, tol, provisional))
 
 
+def _num(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
 def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
-    """MD-DEMOTE-S2-S1: the mirror's net-of-cost window is the demotion signal."""
+    """MD-DEMOTE-S2-S1, rule T3 AND net<0 (operator 2026-09-29; see T3_RULE_ID).
+
+    Order matters and is stated: the never-clauses (record absent/unreadable,
+    source_run absent, a non-negative 40-trade net) are checked FIRST and
+    exactly as before, so the T3 rule can only ever NARROW when this fires."""
     rel = f"{MIRROR_DIR_REL}/{leg}.json"
     rec = _json(root / rel)
     if rec is None:
@@ -867,15 +965,66 @@ def _demote_s2(leg: str, root: Path, ctx: Dict[str, Any]) -> None:
                          _mirror_window_data_task(leg, rel))
     net = rec.get("net_r_net_of_full_cost")
     ctx["evidence"].update({"record": rel, "n_closed": rec.get("n_closed"),
-                            "net_r_net_of_full_cost": net, "source_run": rec.get("source_run")})
+                            "net_r_net_of_full_cost": net, "source_run": rec.get("source_run"),
+                            "rule": rec.get("rule")})
     if not in_repo(root, rec.get("source_run")):
         raise _Refuse("R-SOURCE-RUN-ABSENT", f"source_run {rec.get('source_run')!r} is not in the repo")
-    if not isinstance(net, (int, float)) or isinstance(net, bool):
+    if not _num(net):
         raise _NeedsData("R-EXPECTANCY", f"net_r_net_of_full_cost={net!r} is not stated",
                          _mirror_window_data_task(leg, rel))
     if net >= 0:
         raise _Refuse("R-EXPECTANCY", f"mirror window net {net} R is not negative -- the evidence "
                                       "does not support a demotion")
+
+    # ── T3: two non-overlapping 20-trade windows, each below the leg's p10 ──
+    if rec.get("rule") != T3_RULE_ID:
+        raise _NeedsData("R-T3-WINDOWS", f"{rel} does not declare rule {T3_RULE_ID!r} (got "
+                                         f"{rec.get('rule')!r}) -- it carries no T3 windows to judge",
+                         _mirror_window_data_task(leg, rel))
+    wins = rec.get("windows")
+    if (not isinstance(wins, list) or len(wins) != T3_WINDOWS
+            or not all(isinstance(w, dict) for w in wins)):
+        raise _NeedsData("R-T3-WINDOWS", f"{rel} does not carry exactly {T3_WINDOWS} windows",
+                         _mirror_window_data_task(leg, rel))
+    short = [w.get("n_closed") for w in wins if w.get("n_closed") != T3_BLOCK]
+    if short or rec.get("n_closed") != T3_N:
+        raise _NeedsData("R-N", f"T3 needs {T3_WINDOWS} full {T3_BLOCK}-trade windows ({T3_N} "
+                                f"closed); record states n_closed={rec.get('n_closed')!r}, "
+                                f"window n_closed={[w.get('n_closed') for w in wins]}",
+                         _mirror_window_data_task(leg, rel))
+    nets = [w.get("net_r") for w in wins]
+    if not all(_num(x) for x in nets):
+        raise _NeedsData("R-T3-WINDOWS", f"window net_r not stated: {nets!r}",
+                         _mirror_window_data_task(leg, rel))
+    if abs(sum(nets) - net) > T3_SUM_TOLERANCE:
+        raise _Refuse("R-T3-WINDOWS", f"windows sum to {sum(nets):+.4f} R but the record's "
+                                      f"40-trade net is {net:+.4f} R -- the record contradicts itself")
+
+    p = stage0_block_p10(leg, root)
+    ctx["evidence"].update({"t3_p10": p["p10"], "t3_evidence_record": p["evidence_record"],
+                            "t3_evidence_source_run": p["source_run"],
+                            "t3_evidence_n": p["source_n"], "t3_seed": p["seed"],
+                            "t3_window_net_r": nets})
+    if p["p10"] is None:
+        raise _NeedsData("R-T3-NO-EVIDENCE", f"no usable Stage-0 threshold for {leg}: {p['why']}",
+                         {"what": (f"{leg} has no usable Stage-0 evidence to price its T3 "
+                                   f"threshold: {p['why']}"),
+                          "clears_when": (f"{p['evidence_record']} and its source_run are committed "
+                                          f"with >= {T3_MIN_SOURCE_TRADES} numeric net_r rows"),
+                          "check_every_days": 7, "next_action": "check_observation"})
+    stated = rec.get("p10_threshold")
+    if not _num(stated) or abs(float(stated) - p["p10"]) > 1e-6 \
+            or rec.get("bootstrap_seed") != T3_BOOTSTRAP_SEED \
+            or rec.get("evidence_record") != p["evidence_record"]:
+        raise _Refuse("R-T3-THRESHOLD", f"record states p10_threshold={stated!r} seed="
+                                        f"{rec.get('bootstrap_seed')!r} from "
+                                        f"{rec.get('evidence_record')!r}; recomputed {p['p10']} "
+                                        f"(seed {T3_BOOTSTRAP_SEED}) from {p['evidence_record']}")
+    bar = min(p["p10"], 0.0)
+    above = [x for x in nets if not x < bar]
+    if above:
+        raise _Refuse("R-T3", f"window net R {nets} not both below min(p10 {p['p10']:+.4f}, 0) "
+                              f"-- T3 is not met, the evidence does not support a demotion")
 
 
 def _demote_s1_off(leg: str, venue: Optional[str], m: Dict[str, Any], root: Path,

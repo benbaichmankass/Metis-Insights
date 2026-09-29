@@ -81,10 +81,12 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 #: R4's own declared demotion window (``.github/workflows/r4-demotion-gate.yml``
-#: default ``window: "30d"``) — read as a value at call sites, never re-typed
-#: as a guess, so the two can never quietly disagree about what "the Stage-2
-#: window" is.
-STAGE2_WINDOW_DEFAULT = "30d"
+#: default ``window: "last40"``, ``r4_demotion_gate.WINDOW_LABEL``). Since
+#: 2026-09-29 (operator, "Last 20 + strict test (Recommended)") the Stage-2
+#: verdict is the T3 rule over each leg's LAST 40 closed trades, not a calendar
+#: window, so there is nothing to choose: ``--stage2-window`` is accepted for
+#: the caller script's sake and IGNORED.
+STAGE2_WINDOW_DEFAULT = "last40"
 
 #: R5's own default (``scripts/ops/soak_book_grade.py --window-hours``,
 #: default 168 = weekly, matching its scheduled cadence).
@@ -93,58 +95,58 @@ STAGE1_WINDOW_HOURS_DEFAULT = 168
 SCHEMA = "stage_aware_v1"
 
 
-def _stage2_perf_payload(db_path: str, window: str) -> Dict[str, Any]:
-    """Build the exact ``GET /api/bot/performance`` shape
+def _stage2_recent_payload(db_path: str) -> Dict[str, Any]:
+    """Build the exact ``GET /api/bot/performance/recent?n=40`` shape
     ``scripts/ops/r4_demotion_gate.py`` expects, computed directly off the
-    journal — the same computation the live endpoint (and
-    ``scripts/research/research_results_gate_report.py``) uses, reused rather
-    than curled since this run already has the journal on disk.
+    journal with the route's own helpers (``_book_blocks`` over ``_query``) --
+    reused rather than curled since this run already has the journal on disk.
     """
     from src.web.api.routers.performance import (  # noqa: PLC0415
-        _aggregate,
+        RECENT_BLOCK,
+        _book_blocks,
         _portfolio_paper_account_ids,
         _query,
-        _window_since,
     )
+    import scripts.ops.r4_demotion_gate as _r4  # noqa: PLC0415
 
-    since = _window_since(window)
+    n = _r4.mr.T3_N
     path = Path(db_path)
-    real_agg = _aggregate(_query(path, since, demo=False), window, since)
     portfolio_ids = _portfolio_paper_account_ids()
-    if portfolio_ids:
-        mirror_agg = _aggregate(
-            _query(path, since, demo=True, account_ids=portfolio_ids), window, since
-        )
-    else:
-        # No portfolio-mirror books declared: the mirror read is empty BY
-        # DESIGN (not the full soak roster) — every leg's mirror then abstains
-        # thin rather than silently substituting the whole paper fleet.
-        mirror_agg = _aggregate([], window, since)
     return {
-        "since": since,
-        "window": window,
-        "perStrategy": real_agg.get("perStrategy", []),
-        "paperPortfolio": {"perStrategy": mirror_agg.get("perStrategy", [])},
+        "n": n,
+        "block": RECENT_BLOCK,
+        "error": False,
+        "realMoney": {"readState": "ok",
+                      "perStrategy": _book_blocks(_query(path, None, demo=False), n, RECENT_BLOCK)},
+        # No portfolio-mirror books declared: the mirror read is empty BY
+        # DESIGN (not the full soak roster) -- every leg's mirror then abstains
+        # thin rather than silently substituting the whole paper fleet.
+        "mirror": {"readState": "ok" if portfolio_ids else "no_portfolio_accounts_declared",
+                   "accountIds": portfolio_ids,
+                   "perStrategy": (_book_blocks(_query(path, None, demo=True,
+                                                       account_ids=portfolio_ids),
+                                                n, RECENT_BLOCK) if portfolio_ids else {})},
     }
 
 
-def build_stage2_rows(db_path: str, window: str = STAGE2_WINDOW_DEFAULT) -> Dict[str, Any]:
-    """Stage-2 legs, graded on MONEY by R4 — read-only.
+def build_stage2_rows(db_path: str) -> Dict[str, Any]:
+    """Stage-2 legs, graded on MONEY by R4 + the T3 rule -- read-only.
 
-    Returns ``{"rows": [...], "window": window, "since": ..., "n_legs": int}``.
+    There is no window to choose (see ``STAGE2_WINDOW_DEFAULT``); the returned
+    ``window`` is always R4's own label.
+
+    Returns ``{"rows": [...], "window": ..., "since": None, "n_legs": int}``.
     """
     import scripts.ops.r4_demotion_gate as _r4  # noqa: PLC0415
     from src.runtime.research_results_gate import ABSTAIN_STATES  # noqa: PLC0415
 
-    perf = _stage2_perf_payload(db_path, window)
-    decisions = _r4.evaluate(
-        perf, _REPO_ROOT, coverage_floor=_r4.COVERAGE_FLOOR, min_trades=_r4.MIN_TRADES
-    )
+    recent = _stage2_recent_payload(db_path)
+    decisions = _r4.evaluate(recent, _REPO_ROOT, coverage_floor=_r4.COVERAGE_FLOOR)
     rows: List[Dict[str, Any]] = []
     for d in decisions:
         v = d["r4"]
         chosen = v["real"] if v["chosenSource"] == "real_money" else v["mirror"]
-        verdict_reached = v["status"] not in ABSTAIN_STATES
+        verdict_reached = v["status"] not in ABSTAIN_STATES and d["action"] != _r4.ABSTAIN
         rows.append({
             "stage": "S2",
             "account": d["account"],
@@ -165,9 +167,12 @@ def build_stage2_rows(db_path: str, window: str = STAGE2_WINDOW_DEFAULT) -> Dict
             "net_usd_measured": chosen.get("totalPnlMeasured"),
             "net_r_net_of_full_cost": d.get("totalR"),
             "r_population": d.get("rTradeCount"),
+            "t3_windows_r": d.get("windowsR"),
+            "t3_p10": (d.get("threshold") or {}).get("p10"),
+            "abstain": d.get("abstain"),
             "reason": d["why"],
         })
-    return {"rows": rows, "window": window, "since": perf.get("since"), "n_legs": len(rows)}
+    return {"rows": rows, "window": _r4.WINDOW_LABEL, "since": None, "n_legs": len(rows)}
 
 
 def build_stage1_rows(
@@ -254,7 +259,7 @@ def build_and_write_index(
     *,
     db_path: str,
     out_dir: Path,
-    stage2_window: str = STAGE2_WINDOW_DEFAULT,
+    stage2_window: str = STAGE2_WINDOW_DEFAULT,  # inert: stage2_window — kept so the CLI/caller script keep working; R4 reads the last 40 closed trades (T3, 2026-09-29)
     stage1_window_hours: int = STAGE1_WINDOW_HOURS_DEFAULT,
     skip_stage1_cost_pull: bool = False,
 ) -> Tuple[Path, Dict[str, Any]]:
@@ -271,7 +276,7 @@ def build_and_write_index(
     """
     import scripts.ops.r4_demotion_gate as _r4  # noqa: PLC0415
 
-    s2 = build_stage2_rows(db_path, window=stage2_window)
+    s2 = build_stage2_rows(db_path)
     s1 = build_stage1_rows(window_hours=stage1_window_hours, skip_cost_pull=skip_stage1_cost_pull)
     rows = s2["rows"] + s1["rows"]
 
@@ -327,7 +332,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--out-dir", type=Path, default=None,
                     help="root for per-day output (default runtime_logs/strategy_reviews).")
     ap.add_argument("--stage2-window", default=STAGE2_WINDOW_DEFAULT,
-                    help=f"R4 performance window (default {STAGE2_WINDOW_DEFAULT!r}).")
+                    help="DEPRECATED and IGNORED -- R4 reads each Stage-2 leg's last 40 "
+                         "closed trades (T3 rule, 2026-09-29).")
     ap.add_argument("--stage1-window-hours", type=int, default=STAGE1_WINDOW_HOURS_DEFAULT,
                     help=f"R5 mechanics window in hours (default {STAGE1_WINDOW_HOURS_DEFAULT}).")
     ap.add_argument("--skip-stage1-cost-pull", action="store_true",

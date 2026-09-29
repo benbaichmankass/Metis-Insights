@@ -3,12 +3,37 @@
 an enforced Stage-2 -> Stage-1 roster cut, under the granted mandate
 MD-DEMOTE-S2-S1, and nothing else.
 
-    # dry run (the default): read a /api/bot/performance payload, print what
-    # it WOULD do, write nothing
-    python3 scripts/ops/r4_demotion_gate.py --perf-json perf-30d.json
+    # dry run (the default): read a /api/bot/performance/recent?n=40 payload,
+    # print what it WOULD do, write nothing
+    python3 scripts/ops/r4_demotion_gate.py --recent-json recent.json
 
     # enforcing: write the evidence records and apply the roster cut
-    python3 scripts/ops/r4_demotion_gate.py --perf-json perf-30d.json --apply
+    python3 scripts/ops/r4_demotion_gate.py --recent-json recent.json --apply
+
+THE RULE: T3 AND net<0 (OPERATOR, 2026-09-29)
+---------------------------------------------
+Operator popup, manager session session_01HYq6XtfesZ57VyaQrK6CL1, ~14:17Z,
+verbatim **"Last 20 + strict test (Recommended)"** (pipeline row
+PI-20260929-VOLSKIP-SIGNAL-0007; priced by
+``scripts/research/r4_trigger_pricing_sim.py``, SIGNAL-0005: a healthy
+frequent leg is falsely demoted within a year ~5-12% of the time; a zero-edge
+leg is caught with P 0.79-0.97 within 5 years). Each Stage-2 leg is read on its
+LAST 40 closed trades as two non-overlapping 20-trade windows, and is a
+candidate only when BOTH windows' net R is below that leg's own p10 of the
+20-trade bootstrap from its Stage-0 evidence record AND below 0. The mandate's
+never-clause "Never on a non-negative window" stays -- it is what keeps the
+legs whose p10 is POSITIVE (trend_donchian_xrp_4h, ief_pullback_1d,
+iaum_pullback_1d) from ever being cut while they make money.
+
+The threshold is ``mandate_resolver.stage0_block_p10`` -- ONE implementation,
+fixed seed, imported here and re-run by the resolver on every replay, so the
+gate and the resolver cannot disagree about it.
+
+  * fewer than 40 closed trades on the chosen book -> ABSTAIN (counted);
+  * no usable Stage-0 evidence -> ABSTAIN, LOUDLY (a ``::warning::`` line and
+    its own count) -- a threshold is never guessed;
+  * the window/30d rollup of ``/api/bot/performance`` is no longer read, and
+    the workflow's ``window`` input is fixed to the label ``last40``.
 
 WHY DEMOTION AND NOT PROMOTION
 ------------------------------
@@ -25,18 +50,21 @@ R4 is ``src/runtime/research_results_gate.py::combined_leg_verdict``, IMPORTED
 here, never re-derived -- the observe-only reporter
 (``scripts/research/research_results_gate_report.py``) and this gate read the
 same verdict over the same ``performance._aggregate`` rollup
-(``perStrategy`` = real money, ``paperPortfolio.perStrategy`` = the mirror).
+(real money and the ``paper_role: portfolio`` mirror; since 2026-09-29 the
+per-leg rows come from ``GET /api/bot/performance/recent``, each an
+``_aggregate`` output over that leg's last 40 / each 20-trade window).
 
-A leg is a DEMOTION CANDIDATE only when BOTH hold on the source R4 chose:
+A leg is a DEMOTION CANDIDATE only when ALL hold on the source R4 chose,
+over the leg's last 40 closed trades (``last`` in the route's payload):
 
-  1. R4 says ``would_block``: n >= min_trades (20), MEASURED coverage >= the
-     floor (0.6), and the {measured, estimated} USD net < 0. Every abstain
-     (``abstain_thin`` / ``abstain_unverified``) is a HOLD -- "we could not
+  1. R4 says ``would_block``: n >= 40, MEASURED coverage >= the floor (0.6),
+     and the {measured, estimated} USD net < 0. Every abstain
+     (``abstain_thin`` / ``abstain_unverified``) is an ABSTAIN -- "we could not
      look" is not a demotion signal (the mandate's own ``never:`` clause).
-  2. That source's ``totalR`` is stated and < 0. MD-DEMOTE-S2-S1 fires on
-     ``net_r_net_of_full_cost < 0``; R4 speaks USD. Requiring the SIGN TO AGREE
-     in both units is the conservative join: a leg is cut only when the dollar
-     read and the R read both say it lost.
+  2. That source's 40-trade ``totalR`` is stated and < 0. Requiring the SIGN TO
+     AGREE in both units is the conservative join: a leg is cut only when the
+     dollar read and the R read both say it lost.
+  3. T3: both 20-trade windows' ``totalR`` < min(the leg's Stage-0 p10, 0).
 
 ⚠️ What "net of the full cost stack" means for a LIVE read, stated rather than
 implied: the journal ``pnl`` of a MEASURED row is the broker's realized fill
@@ -104,15 +132,20 @@ import yaml  # noqa: E402
 
 import mandate_resolver as mr  # noqa: E402
 from src.runtime.research_results_gate import (  # noqa: E402
+    ABSTAIN_THIN,
+    ABSTAIN_UNVERIFIED,
     COVERAGE_FLOOR,
-    MIN_TRADES,
     WOULD_BLOCK,
     combined_leg_verdict,
 )
 
 MANDATE_ID = "MD-DEMOTE-S2-S1"
 RUNS_DIR_REL = f"{mr.MIRROR_DIR_REL}/runs"
-DEMOTE, HOLD = "demote", "hold"
+DEMOTE, HOLD, ABSTAIN = "demote", "hold", "abstain"
+#: The only window label this gate accepts. It is what the workflow's (now
+#: fixed) `window` input declares and what check_mandate_autoland A7 binds the
+#: run's provenance to; any other label is a caller choosing its own evidence.
+WINDOW_LABEL = f"last{mr.T3_N}"
 
 #: The Stage-2 real-money accounts, taken from the resolver so the two can
 #: never disagree about what Stage 2 is.
@@ -132,81 +165,143 @@ def stage2_legs(root: Path) -> List[Tuple[str, str]]:
     return out
 
 
-def _by_name(block: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    return {s["name"]: s for s in (block or {}).get("perStrategy") or [] if "name" in s}
+def _leg_row(entry: Optional[Dict[str, Any]], leg: str) -> Optional[Dict[str, Any]]:
+    """The route's per-leg aggregate -> the ``perStrategy`` row R4 reads."""
+    for s in (entry or {}).get("perStrategy") or []:
+        if s.get("name") == leg:
+            return s
+    return None
 
 
-# --------------------------------------------------------------------------
-# the per-leg verdict
-# --------------------------------------------------------------------------
-def leg_decision(leg: str, account: str, real: Optional[Dict[str, Any]],
-                 mirror: Optional[Dict[str, Any]], *, coverage_floor: float,
-                 min_trades: int) -> Dict[str, Any]:
-    """R4's verdict for one Stage-2 leg, plus whether it is a demotion candidate."""
-    v = combined_leg_verdict(real, mirror, coverage_floor=coverage_floor,
+def _book(recent: Dict[str, Any], key: str, leg: str) -> Dict[str, Any]:
+    """``{"last": row|None, "blocks": [row|None, ...], "complete": bool, ...}``
+    for one leg on one book of a /performance/recent payload."""
+    ent = ((recent.get(key) or {}).get("perStrategy") or {}).get(leg) or {}
+    blocks = ent.get("blocks") or []
+    return {"closedAvailable": ent.get("closedAvailable", 0),
+            "complete": bool(ent.get("complete")),
+            "last": _leg_row(ent.get("last"), leg),
+            "blocks": [_leg_row(b, leg) for b in blocks],
+            "blockSpans": [(b.get("closedFrom"), b.get("closedTo")) for b in blocks]}
+
+
+def _r(row: Optional[Dict[str, Any]]) -> Optional[float]:
+    v = (row or {}).get("totalR")
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def leg_decision(leg: str, account: str, real: Dict[str, Any], mirror: Dict[str, Any],
+                 threshold: Dict[str, Any], *, coverage_floor: float,
+                 min_trades: int = mr.T3_N) -> Dict[str, Any]:
+    """R4 over the last 40, then T3 AND net<0 over the two 20-trade windows."""
+    v = combined_leg_verdict(real["last"], mirror["last"], coverage_floor=coverage_floor,
                              min_trades=min_trades)
-    chosen_stats = real if v["chosenSource"] == "real_money" else mirror
-    total_r = (chosen_stats or {}).get("totalR")
-    r_ok = isinstance(total_r, (int, float)) and not isinstance(total_r, bool)
+    book = real if v["chosenSource"] == "real_money" else mirror
+    total_r = _r(book["last"])
+    win_r = [_r(b) for b in book["blocks"]]
+    p10 = threshold.get("p10")
+    base = {"leg": leg, "account": account, "r4": v, "totalR": total_r,
+            "rTradeCount": (book["last"] or {}).get("rTradeCount"),
+            "windowsR": win_r, "book": book, "threshold": threshold, "abstain": None}
+
+    def out(action: str, why: str, abstain: Optional[str] = None) -> Dict[str, Any]:
+        return {**base, "action": action, "why": why, "abstain": abstain}
+
+    if p10 is None:
+        return out(ABSTAIN, f"NO USABLE STAGE-0 EVIDENCE -- {threshold.get('why')}; the T3 "
+                            "threshold is never guessed", "no_evidence")
+    if v["status"] == ABSTAIN_THIN:
+        return out(ABSTAIN, f"fewer than {min_trades} closed trades on either book: {v['detail']}",
+                   "thin")
+    if v["status"] == ABSTAIN_UNVERIFIED:
+        return out(ABSTAIN, f"R4 {v['status']}: {v['detail']}", "unverified")
     if v["status"] != WOULD_BLOCK:
-        action, why = HOLD, f"R4 {v['status']}: {v['detail']}"
-    elif not r_ok:
-        action, why = HOLD, "R4 would_block but totalR is not stated -- R unmeasured, no demotion"
-    elif total_r >= 0:
-        action, why = HOLD, (f"R4 would_block (USD) but totalR {total_r:+.4f} is not negative -- "
-                             "the two units disagree, so the evidence does not support a cut")
-    else:
-        action, why = DEMOTE, (f"R4 would_block on {v['chosenSource']} and totalR "
-                               f"{total_r:+.4f} < 0")
-    return {"leg": leg, "account": account, "action": action, "why": why,
-            "r4": v, "totalR": total_r if r_ok else None,
-            "rTradeCount": (chosen_stats or {}).get("rTradeCount")}
+        return out(HOLD, f"R4 {v['status']}: {v['detail']}")
+    if total_r is None:
+        return out(ABSTAIN, "R4 would_block but the 40-trade totalR is not stated -- R "
+                            "unmeasured, no demotion", "r_unmeasured")
+    if total_r >= 0:
+        return out(HOLD, f"R4 would_block (USD) but 40-trade totalR {total_r:+.4f} is not negative "
+                         "-- never on a non-negative window")
+    if len(win_r) != mr.T3_WINDOWS or not book["complete"] or any(x is None for x in win_r):
+        return out(ABSTAIN, f"the chosen book does not carry {mr.T3_WINDOWS} full "
+                            f"{mr.T3_BLOCK}-trade windows with stated R ({win_r})", "thin")
+    bar = min(p10, 0.0)
+    if not all(x < bar for x in win_r):
+        return out(HOLD, f"T3 not met: window R {win_r} not both below min(p10 {p10:+.4f}, 0)")
+    return out(DEMOTE, f"R4 would_block on {v['chosenSource']}; 40-trade R {total_r:+.4f} < 0; "
+                       f"both windows {win_r} < min(p10 {p10:+.4f}, 0)")
 
 
-def evaluate(perf: Dict[str, Any], root: Path, *, coverage_floor: float = COVERAGE_FLOOR,
-             min_trades: int = MIN_TRADES) -> List[Dict[str, Any]]:
-    real_by = _by_name(perf)
-    mirror_by = _by_name(perf.get("paperPortfolio"))
-    return [leg_decision(leg, acct, real_by.get(leg), mirror_by.get(leg),
-                         coverage_floor=coverage_floor, min_trades=min_trades)
-            for acct, leg in stage2_legs(root)]
+def evaluate(recent: Dict[str, Any], root: Path, *, coverage_floor: float = COVERAGE_FLOOR,
+             min_trades: int = mr.T3_N) -> List[Dict[str, Any]]:
+    out = []
+    for acct, leg in stage2_legs(root):
+        out.append(leg_decision(leg, acct, _book(recent, "realMoney", leg),
+                                _book(recent, "mirror", leg), mr.stage0_block_p10(leg, root),
+                                coverage_floor=coverage_floor, min_trades=min_trades))
+    return out
 
 
 # --------------------------------------------------------------------------
 # the evidence records
 # --------------------------------------------------------------------------
-def source_run_payload(perf: Dict[str, Any], legs: List[str], window: str) -> Dict[str, Any]:
+def source_run_payload(recent: Dict[str, Any], legs: List[str], window: str) -> Dict[str, Any]:
     """The committed snapshot a mirror-window record cites: the exact per-leg
-    rows R4 read, from both books, trimmed to the Stage-2 legs."""
+    entries the gate read from both books, trimmed to the Stage-2 legs."""
     keep = set(legs)
+
+    def trim(key: str) -> Dict[str, Any]:
+        per = (recent.get(key) or {}).get("perStrategy") or {}
+        return {k: v for k, v in per.items() if k in keep}
     return {
         "kind": "r4_demotion_gate_source_run",
-        "source": "GET /api/bot/performance",
+        "source": f"GET /api/bot/performance/recent?n={recent.get('n')}",
         "window": window,
-        "since": perf.get("since"),
-        "real_money_perStrategy": [s for s in perf.get("perStrategy") or [] if s.get("name") in keep],
-        "mirror_perStrategy": [s for s in (perf.get("paperPortfolio") or {}).get("perStrategy") or []
-                               if s.get("name") in keep],
+        "rule": mr.T3_RULE_ID,
+        "n": recent.get("n"),
+        "block": recent.get("block"),
+        "real_money_perStrategy": trim("realMoney"),
+        "mirror_perStrategy": trim("mirror"),
+        "mirror_account_ids": (recent.get("mirror") or {}).get("accountIds"),
     }
 
 
 def mirror_window_record(dec: Dict[str, Any], source_run_rel: str, window: str,
-                         since: Optional[str], generated_at: str) -> Dict[str, Any]:
+                         generated_at: str) -> Dict[str, Any]:
     v = dec["r4"]
     chosen = v["real"] if v["chosenSource"] == "real_money" else v["mirror"]
+    book, th = dec["book"], dec["threshold"]
+    last = book["last"] or {}
     return {
         "leg": dec["leg"],
         "account": dec["account"],
         "mandate": MANDATE_ID,
+        "rule": mr.T3_RULE_ID,
         "generated_at": generated_at,
         "generated_by": "scripts/ops/r4_demotion_gate.py",
         "window": window,
-        "window_since": since,
         "source_run": source_run_rel,
         "chosen_source": v["chosenSource"],
-        "n_closed": chosen.get("trades"),
+        "n_closed": last.get("trades"),
         "net_r_net_of_full_cost": dec["totalR"],
         "r_population": dec["rTradeCount"],
+        "windows": [
+            {"n_closed": (b or {}).get("trades"), "net_r": _r(b),
+             "r_population": (b or {}).get("rTradeCount"),
+             "net_usd_measured": (b or {}).get("totalPnlMeasured"),
+             "closed_from": span[0], "closed_to": span[1]}
+            for b, span in zip(book["blocks"], book["blockSpans"])
+        ],
+        # The threshold, its seed and its source -- re-derived by the resolver
+        # on every replay (R-T3-THRESHOLD refuses a mismatch).
+        "p10_threshold": th.get("p10"),
+        "bootstrap_seed": th.get("seed"),
+        "bootstrap_draws": th.get("draws"),
+        "bootstrap_block": th.get("block"),
+        "evidence_record": th.get("evidence_record"),
+        "evidence_source_run": th.get("source_run"),
+        "evidence_n": th.get("source_n"),
         # MEASURED+ESTIMATED (the name understates it -- JC-SA-03 keeps it and
         # records both). `net_usd_measured_only` is the MEASURED half, over the
         # same population as pnl_coverage_measured; `n_estimated` is how many
@@ -306,11 +401,20 @@ def _git_add(root: Path, rels: List[str]) -> None:
         subprocess.run(["git", "-C", str(root), "add", "--", *rels], check=True)
 
 
-def _scratch_root(root: Path) -> Path:
-    """A plain (non-git) copy of the three files the resolver reads for S2->S1,
-    so a dry run exercises the real resolver without writing the repo."""
+def _scratch_root(root: Path, legs: List[str]) -> Path:
+    """A plain (non-git) copy of what the resolver reads for S2->S1 -- the
+    three configs plus each leg's Stage-0 evidence record and its source_run
+    (the T3 threshold) -- so a dry run exercises the real resolver without
+    writing the repo."""
     tmp = Path(tempfile.mkdtemp(prefix="r4-demotion-dry-"))
-    for rel in (mr.MANDATES_REL, mr.ACCOUNTS_REL, mr.STRATEGIES_REL):
+    rels = [mr.MANDATES_REL, mr.ACCOUNTS_REL, mr.STRATEGIES_REL]
+    for leg in legs:
+        ev = f"{mr.EVIDENCE_DIR_REL}/{leg}.json"
+        rels.append(ev)
+        src = (mr._json(root / ev) or {}).get("source_run")
+        if isinstance(src, str) and mr.in_repo(root, src):
+            rels.append(src)
+    for rel in rels:
         src = root / rel
         if src.is_file():
             (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -318,30 +422,40 @@ def _scratch_root(root: Path) -> Path:
     return tmp
 
 
-def run(perf: Dict[str, Any], *, root: Path = REPO, window: str, apply: bool,
-        coverage_floor: float = COVERAGE_FLOOR, min_trades: int = MIN_TRADES,
-        now: Optional[_dt.datetime] = None) -> Dict[str, Any]:
+def _counts(decisions: List[Dict[str, Any]]) -> Dict[str, int]:
+    c: Dict[str, int] = {DEMOTE: 0, HOLD: 0, ABSTAIN: 0}
+    for d in decisions:
+        c[d["action"]] += 1
+        if d["abstain"]:
+            c[f"abstain_{d['abstain']}"] = c.get(f"abstain_{d['abstain']}", 0) + 1
+    return c
+
+
+def run(recent: Dict[str, Any], *, root: Path = REPO, window: str = WINDOW_LABEL, apply: bool,
+        coverage_floor: float = COVERAGE_FLOOR, now: Optional[_dt.datetime] = None) -> Dict[str, Any]:
     now = now or _dt.datetime.now(_dt.timezone.utc)
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
-    decisions = evaluate(perf, root, coverage_floor=coverage_floor, min_trades=min_trades)
+    decisions = evaluate(recent, root, coverage_floor=coverage_floor)
     candidates = [d for d in decisions if d["action"] == DEMOTE]
-    work = root if apply else _scratch_root(root)
     out: Dict[str, Any] = {
-        "mode": "apply" if apply else "dry_run", "window": window, "since": perf.get("since"),
+        "mode": "apply" if apply else "dry_run", "window": window, "rule": mr.T3_RULE_ID,
+        "n": recent.get("n"), "block": recent.get("block"),
         "generated_at": now.isoformat(), "coverage_floor": coverage_floor,
-        "min_trades": min_trades, "stage2_accounts": list(STAGE2_ACCOUNTS),
-        "legs": decisions, "demoted": [], "refused": [], "written": [],
+        "min_trades": mr.T3_N, "stage2_accounts": list(STAGE2_ACCOUNTS),
+        "legs": decisions, "counts": _counts(decisions),
+        "no_evidence": [d["leg"] for d in decisions if d["abstain"] == "no_evidence"],
+        "demoted": [], "refused": [], "written": [],
     }
     if not candidates:
         return out
+    work = root if apply else _scratch_root(root, [d["leg"] for d in candidates])
 
     run_rel = f"{RUNS_DIR_REL}/{stamp}-{window}.json"
-    _write_json(work / run_rel, source_run_payload(perf, [d["leg"] for d in decisions], window))
+    _write_json(work / run_rel, source_run_payload(recent, [d["leg"] for d in decisions], window))
     written = [run_rel]
     for d in candidates:
         rec_rel = f"{mr.MIRROR_DIR_REL}/{d['leg']}.json"
-        _write_json(work / rec_rel, mirror_window_record(d, run_rel, window, perf.get("since"),
-                                                         now.isoformat()))
+        _write_json(work / rec_rel, mirror_window_record(d, run_rel, window, now.isoformat()))
         written.append(rec_rel)
     if apply:
         _git_add(work, written)
@@ -350,14 +464,15 @@ def run(perf: Dict[str, Any], *, root: Path = REPO, window: str, apply: bool,
         res = mr.resolve(d["leg"], "S2", "S1", d["account"], root=work, mandate_id=MANDATE_ID)
         d["resolver"] = {k: res.get(k) for k in ("verdict", "clause", "detail", "proposal")}
         if res["verdict"] != mr.FIRE:
-            out["refused"].append({"leg": d["leg"], "clause": res["clause"], "detail": res["detail"]})
+            out["refused"].append({"leg": d["leg"], "verdict": res["verdict"],
+                                   "clause": res["clause"], "detail": res["detail"]})
             continue
         removed = apply_proposal(work, res["proposal"], d["leg"])
         firing_rel = f"{mr.FIRINGS_DIR_REL}/{stamp}-{d['leg']}-demote.json"
         _write_json(work / firing_rel, {
             "mandate": MANDATE_ID, "action": "remove", "leg": d["leg"], "accounts": removed,
             "fired_at": now.isoformat(), "evidence": f"{mr.MIRROR_DIR_REL}/{d['leg']}.json",
-            "source_run": run_rel, "then": res["proposal"].get("then"),
+            "source_run": run_rel, "rule": mr.T3_RULE_ID, "then": res["proposal"].get("then"),
         })
         written.append(firing_rel)
         out["demoted"].append({"leg": d["leg"], "accounts": removed})
@@ -370,15 +485,20 @@ def run(perf: Dict[str, Any], *, root: Path = REPO, window: str, apply: bool,
 
 
 def render(out: Dict[str, Any]) -> str:
-    lines = [f"R4 demotion gate [{out['mode']}] window={out['window']} since={out['since']} "
-             f"floor={out['coverage_floor']} min_trades={out['min_trades']}"]
+    lines = [f"R4 demotion gate [{out['mode']}] rule={out['rule']} window={out['window']} "
+             f"n={out['n']} block={out['block']} floor={out['coverage_floor']}"]
     for d in out["legs"]:
         v = d["r4"]
         c = v["real"] if v["chosenSource"] == "real_money" else v["mirror"]
-        lines.append(f"  {d['action'].upper():6s} {d['account']:12s} {d['leg']:24s} "
+        p10 = d["threshold"].get("p10")
+        lines.append(f"  {d['action'].upper():7s} {d['account']:12s} {d['leg']:24s} "
                      f"r4={v['status']:18s} src={v['chosenSource']:10s} n={c.get('trades')} "
                      f"usd_meas={c.get('totalPnlMeasured')} cov={c.get('pnlCoverage')} "
-                     f"R={d['totalR']} | {d['why']}")
+                     f"R40={d['totalR']} windowsR={d['windowsR']} p10={p10} | {d['why']}")
+    lines.append(f"  counts: {out['counts']}")
+    for leg in out.get("no_evidence") or []:
+        lines.append(f"  ⚠️ NO USABLE STAGE-0 EVIDENCE for {leg} -- it ABSTAINS and cannot be "
+                     f"demoted by this gate until its evidence record is fixed")
     lines.append(f"  demoted: {out['demoted'] or 'none'}")
     lines.append(f"  refused by resolver: {out['refused'] or 'none'}")
     return "\n".join(lines)
@@ -386,26 +506,42 @@ def render(out: Dict[str, Any]) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--perf-json", required=True, type=Path,
-                    help="a GET /api/bot/performance?window=<w> payload")
-    ap.add_argument("--window", default=None, help="label for the window (default: payload's)")
+    ap.add_argument("--recent-json", required=True, type=Path,
+                    help=f"a GET /api/bot/performance/recent?n={mr.T3_N} payload")
+    ap.add_argument("--window", default=WINDOW_LABEL,
+                    help=f"DEPRECATED label; only {WINDOW_LABEL!r} is accepted")
     ap.add_argument("--apply", action="store_true", help="write records + apply the roster cut")
     ap.add_argument("--coverage-floor", type=float, default=COVERAGE_FLOOR)
-    ap.add_argument("--min-trades", type=int, default=MIN_TRADES)
     ap.add_argument("--root", type=Path, default=REPO)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
+    if a.window != WINDOW_LABEL:
+        print(f"error: window {a.window!r} refused -- the T3 rule's window is fixed at "
+              f"{WINDOW_LABEL!r}; a caller may not choose its own evidence window", file=sys.stderr)
+        return 2
     try:
-        perf = json.loads(a.perf_json.read_text(encoding="utf-8"))
+        recent = json.loads(a.recent_json.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
-        print(f"error: cannot read {a.perf_json}: {e}", file=sys.stderr)
+        print(f"error: cannot read {a.recent_json}: {e}", file=sys.stderr)
         return 2
-    if not isinstance(perf, dict) or "perStrategy" not in perf:
-        print("error: payload has no perStrategy -- not a /api/bot/performance body", file=sys.stderr)
+    if (not isinstance(recent, dict) or "realMoney" not in recent or "mirror" not in recent
+            or recent.get("n") != mr.T3_N or recent.get("block") != mr.T3_BLOCK):
+        print(f"error: not a /api/bot/performance/recent?n={mr.T3_N} body (needs realMoney, "
+              f"mirror, n={mr.T3_N}, block={mr.T3_BLOCK})", file=sys.stderr)
         return 2
-    window = a.window or str(perf.get("window") or "unknown")
-    out = run(perf, root=a.root, window=window, apply=a.apply,
-              coverage_floor=a.coverage_floor, min_trades=a.min_trades)
+    if recent.get("error") or any((recent.get(k) or {}).get("readState") != "ok"
+                                  for k in ("realMoney", "mirror")):
+        print(f"error: the route could not read both books (error={recent.get('error')!r}, "
+              f"realMoney={(recent.get('realMoney') or {}).get('readState')!r}, "
+              f"mirror={(recent.get('mirror') or {}).get('readState')!r}) -- we could not look",
+              file=sys.stderr)
+        return 2
+    out = run(recent, root=a.root, window=a.window, apply=a.apply,
+              coverage_floor=a.coverage_floor)
+    for leg in out["no_evidence"]:
+        print(f"::warning::r4-demotion-gate: {leg} has NO USABLE STAGE-0 EVIDENCE -- abstaining; "
+              f"it cannot be demoted until comms/strategy_evidence/{leg}.json is fixed",
+              file=sys.stderr)
     print(json.dumps(out, indent=2, sort_keys=True, default=str) if a.json else render(out))
     return 0
 

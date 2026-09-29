@@ -450,7 +450,7 @@ evidence without a human in the path.
 |---|---|---|
 | `MD-PROMOTE-S0-S1` | add a leg to the soak book (`bybit_1`, `alpaca_paper`) on a passing Stage-0 record | `add_risk` (paper) |
 | `MD-PROMOTE-S1-S2` | **add a leg to a REAL-MONEY roster** on a passing Stage-0 record plus Stage-1 cost fidelity | `add_risk` (real) |
-| `MD-DEMOTE-S2-S1` | demote a Stage-2 leg when the mirror goes net-negative net-of-cost over the declared window | `derisk_only` |
+| `MD-DEMOTE-S2-S1` | demote a Stage-2 leg when the mirror goes net-negative net-of-cost over the declared window — **since 2026-09-29 (operator, "Last 20 + strict test (Recommended)") the T3 ∧ net<0 rule: both of the last two 20-trade windows below the leg's Stage-0 p10 and below 0; `config/mandates.yaml` is the source** | `derisk_only` |
 | `MD-DEMOTE-S1-OFF` | drop a Stage-1 leg whose realized cost diverges from its harness assumption | `derisk_only` |
 | `MD-KILL-QUESTION` | close a research question that failed its own pre-registered rule | `derisk_only` |
 

@@ -497,14 +497,32 @@ mandates:
       "Grant all 10 as written"; recorded on checklist row B5. The underlying
       grant is the operator's 2026-09-21 ladder mandate, quoted in
       docs/plans/OPERATING-PLAN-2026-09-21.md § 5.3.
+    # fires_when REWRITTEN 2026-09-29 to the T3 AND net<0 rule. OPERATOR (Ben),
+    # 2026-09-29 ~14:17Z, popup in manager session
+    # session_01HYq6XtfesZ57VyaQrK6CL1, answered verbatim "Last 20 + strict
+    # test (Recommended)" (pipeline row PI-20260929-VOLSKIP-SIGNAL-0007; priced
+    # in scripts/research/r4_trigger_pricing_sim.py / SIGNAL-0005: false
+    # demotion of a healthy frequent leg within a year ~5-12%; a zero-edge leg
+    # caught with P 0.79-0.97 within 5 years). The previous wording fired on
+    # any negative net over a declared calendar window (30d). id, direction,
+    # autoland, granted_by and the never-on-a-non-negative-window clause are
+    # unchanged. Evaluated by scripts/ops/mandate_resolver.py (_demote_s2,
+    # stage0_block_p10, T3_*) and produced by scripts/ops/r4_demotion_gate.py.
     fires_when: >-
       A committed mirror-window record at
       comms/mandate_evidence/mirror_window/<leg>.json, whose source_run is a
-      committed file in the repo, states net_r_net_of_full_cost < 0 over the
-      window the record declares. The edit REMOVES the leg from the Stage-2
-      account and its mirror and returns it to the Stage-1 soak book. This
-      mandate carries no block: it reads live measurement, not the backtest
-      corpus, and its worst case removes exposure.
+      committed file in the repo, reads the leg's LAST 40 closed trades as two
+      non-overlapping 20-trade windows and shows BOTH windows' net R below
+      that leg's own p10 of the 20-trade bootstrap from its Stage-0 evidence
+      record (comms/strategy_evidence/<leg>.json source_run, fixed seed; the
+      threshold, the seed and the record path are stated in the mirror-window
+      record and re-derived on every evaluation) AND below 0, with
+      net_r_net_of_full_cost over the 40 < 0. A leg with fewer than 40 closed
+      trades, or with no usable Stage-0 evidence, abstains. The edit REMOVES
+      the leg from the Stage-2 account and its mirror and returns it to the
+      Stage-1 soak book. This mandate carries no block: it reads live
+      measurement, not the backtest corpus, and its worst case removes
+      exposure.
     never: >-
       Never on a missing or unreadable record, and never on one citing a
       source_run absent from the repo -- "we could not look" is not a demotion
@@ -512,9 +530,10 @@ mandates:
       demotion, not merely fail to forbid it. Never an addition to a real-money
       roster under this id.
     evidence_required: >-
-      The mirror-window record with its n_closed, its stated window and its
-      net-of-full-cost result, plus the realtime ping and the section-1 evidence
-      review in the next daily brief.
+      The mirror-window record with its n_closed, its stated window, its two
+      20-trade windows, the p10 threshold with its seed and source record, and
+      its net-of-full-cost result, plus the realtime ping and the section-1
+      evidence review in the next daily brief.
 
   - id: MD-DEMOTE-S1-OFF
     grants: drop a Stage-1 leg whose realized cost diverges from its harness assumption

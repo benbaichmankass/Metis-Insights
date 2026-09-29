@@ -28,11 +28,11 @@ def _r4_decision(leg, account, action, status, **over):
             "chosenSource": "real_money",
             "real": {
                 "trades": 25, "totalPnlMeasured": -100.0, "pnlCoverage": 0.9,
-                "coverageFloor": r4.COVERAGE_FLOOR, "minTrades": r4.MIN_TRADES,
+                "coverageFloor": r4.COVERAGE_FLOOR, "minTrades": r4.mr.T3_N,
             },
             "mirror": {
                 "trades": 25, "totalPnlMeasured": -100.0, "pnlCoverage": 0.9,
-                "coverageFloor": r4.COVERAGE_FLOOR, "minTrades": r4.MIN_TRADES,
+                "coverageFloor": r4.COVERAGE_FLOOR, "minTrades": r4.mr.T3_N,
             },
         },
         "totalR": -1.5,
@@ -47,11 +47,10 @@ def test_build_stage2_rows_translates_r4_verdicts(monkeypatch):
 
     monkeypatch.setattr(
         srp,
-        "_stage2_perf_payload",
-        lambda db_path, window: {
-            "since": "2026-09-01T00:00:00+00:00", "window": window,
-            "perStrategy": [], "paperPortfolio": {"perStrategy": []},
-        },
+        "_stage2_recent_payload",
+        lambda db_path: {"n": 40, "block": 20, "error": False,
+                         "realMoney": {"readState": "ok", "perStrategy": {}},
+                         "mirror": {"readState": "ok", "perStrategy": {}}},
     )
     monkeypatch.setattr(
         r4,
@@ -63,7 +62,7 @@ def test_build_stage2_rows_translates_r4_verdicts(monkeypatch):
             _r4_decision("leg_d", "alpaca_live", r4.HOLD, "abstain_unverified"),
         ],
     )
-    out = srp.build_stage2_rows("db.sqlite", window="30d")
+    out = srp.build_stage2_rows("db.sqlite")
     by_leg = {r["strategy"]: r for r in out["rows"]}
 
     # would_block + demote -> a verdict was reached, and it is ACTIONABLE.
@@ -158,7 +157,7 @@ def test_build_and_write_index_states_population_never_fabricated(tmp_path, monk
     monkeypatch.setattr(
         srp,
         "build_stage2_rows",
-        lambda db_path, window: {
+        lambda db_path: {
             "rows": [
                 {"stage": "S2", "account": "bybit_2", "strategy": "leg_a",
                  "proposed_action": "S2:demote", "verdict_reached": True, "actionable": True,
@@ -167,7 +166,7 @@ def test_build_and_write_index_states_population_never_fabricated(tmp_path, monk
                  "proposed_action": "S2:hold", "verdict_reached": False, "actionable": False,
                  "verdict_source": "scripts/ops/r4_demotion_gate.py (R4)", "reason": "abstain_thin"},
             ],
-            "window": "30d", "since": "2026-09-01T00:00:00+00:00", "n_legs": 2,
+            "window": "last40", "since": "2026-09-01T00:00:00+00:00", "n_legs": 2,
         },
     )
     monkeypatch.setattr(
@@ -198,7 +197,7 @@ def test_build_and_write_index_states_population_never_fabricated(tmp_path, monk
     assert payload["graded"] == 3
     assert payload["actionable"] == 1
     assert {r["strategy"] for r in payload["rows"]} == {"leg_a", "leg_b", "leg_c"}
-    assert payload["stage2"]["window"] == "30d"
+    assert payload["stage2"]["window"] == "last40"
     assert payload["stage2"]["actionable"] == 1
     assert payload["stage2"]["verdict_reached"] == 1
     assert payload["stage1"]["window_hours"] == 168
@@ -234,3 +233,23 @@ def test_main_refuses_on_missing_journal(tmp_path):
     rc = mod.main(["--db-path", str(tmp_path / "does-not-exist.sqlite"),
                    "--out-dir", str(tmp_path)])
     assert rc == 2
+
+
+def test_stage2_payload_off_a_real_journal_is_the_routes_shape(tmp_path, monkeypatch):
+    """The payload is built with the route's own helpers, so the gate reads
+    the same last-40 / two-20-trade-window population the workflow fetches."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import _perf_window_golden_seed as S
+    from src.web.api.routers import performance as P
+
+    db = tmp_path / "tj.db"
+    S.seed(db, n_per=45)
+    monkeypatch.setattr(P, "journal_trust_map", lambda: S.TRUST_MAP)
+    monkeypatch.setattr(P, "_portfolio_paper_account_ids", lambda: ["bybit_portfolio"])
+    recent = srp._stage2_recent_payload(str(db))
+    assert recent["n"] == 40 and recent["block"] == 20
+    leg = recent["realMoney"]["perStrategy"]["leg_a"]
+    assert leg["complete"] and [b["totalTrades"] for b in leg["blocks"]] == [20, 20]
+    assert list(recent["mirror"]["perStrategy"]) == ["leg_a"]

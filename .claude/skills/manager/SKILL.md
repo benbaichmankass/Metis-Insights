@@ -446,7 +446,7 @@ briefing."*
 |---|---|---|
 | `MD-PROMOTE-S0-S1` | add a leg to the soak book on a passing Stage-0 record | `add_risk` (paper) |
 | `MD-PROMOTE-S1-S2` | **add a leg to a REAL-MONEY roster** on Stage-0 + Stage-1 cost fidelity | `add_risk` (real) |
-| `MD-DEMOTE-S2-S1` | demote when the mirror goes net-negative net-of-cost | `derisk_only` |
+| `MD-DEMOTE-S2-S1` | demote when the mirror goes net-negative net-of-cost — since 2026-09-29 the T3 ∧ net<0 rule over the last 40 closed trades (read `config/mandates.yaml`) | `derisk_only` |
 | `MD-DEMOTE-S1-OFF` | drop a Stage-1 leg whose realized cost diverges | `derisk_only` |
 | `MD-KILL-QUESTION` | close a question that failed its own pre-registered rule | `derisk_only` |
 
