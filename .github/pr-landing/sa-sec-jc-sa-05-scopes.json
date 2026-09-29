@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Docs only: corrects docs/github-actions-workflows.md so BRANCH_PROTECTION_TOKEN reads 'classic PAT, repo scope (operator-stated 2026-09-29)' at both places that said fine-grained administration:write. No workflow, runtime, order path, config or secret is touched."
+}
