@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Read-path only. scripts/ops/account_broker_reconcile.py is a read-only detector (no order, cancel or DB write); /api/bot/trades/closed gains one additive boolean field (isReduceLeg) computed by the existing bracket_outcome.is_reduce_leg, and one extra column in its SELECT. No order path, strategy, risk, sizing or account-mode change. Fixes the bybit_2 realized-P&L could_not_look from the first live run (#14113): the tool read 'pnl' where the wire says 'realizedPnl' (all 20 rows read None), and could not tell the by-design NULL-pnl reduce leg 5702 from a real unknown. Manager lane RECON-REDUCE."
+}
