@@ -64,15 +64,20 @@ def test_disk_and_running_are_both_published_and_not_collapsed():
 
 
 def test_restart_pending_is_none_when_either_sha_is_unknown():
-    """'We could not look' must never be reported as 'they agree'."""
+    """'We could not look' must never be reported as 'they agree'.
+
+    The three-way now lives in `_restart_pending` (FIX-SA-11); the handler must
+    delegate to it, and the helper must return None for an unknown sha.
+    """
     src = DIAG.read_text(encoding="utf-8")
-    body = src[src.index("def get_version("):]
-    assert 'restart_pending = None' in body, (
-        "an unresolvable sha on either side must yield None, not False -- False "
-        "asserts the process matches the tree, which is exactly the claim we "
-        "cannot make when we could not read one of them"
+    handler = src[src.index("def get_version("):]
+    assert "_restart_pending(_RUNNING_GIT_SHA, on_disk)" in handler
+    helper = src[src.index("def _restart_pending("):src.index('@router.get("/version")')]
+    assert 'running == "unknown" or on_disk == "unknown"' in helper
+    assert "return None" in helper, (
+        "an unresolvable sha or failed diff must yield None, not False -- False "
+        "asserts the process matches the tree, which we cannot claim unread"
     )
-    assert '"unknown"' in body, "the unknown check must be present in the handler"
 
 
 def test_the_deploy_script_records_why_its_assertion_used_to_be_vacuous():
@@ -82,3 +87,55 @@ def test_the_deploy_script_records_why_its_assertion_used_to_be_vacuous():
         "deploy_pull_restart.sh must record that its comparison was disk-vs-disk, "
         "or a later reader sees two `git rev-parse` calls and 'tidies' one away"
     )
+
+
+# --- FIX-SA-11: restart_pending is computed from the runtime-path diff --------
+import subprocess
+import pytest
+
+
+@pytest.fixture()
+def _repo(tmp_path, monkeypatch):
+    def git(*a):
+        return subprocess.run(["git", *a], cwd=tmp_path, check=True,
+                              capture_output=True, text=True).stdout.strip()
+    git("init", "-q")
+    git("config", "user.email", "t@t")
+    git("config", "user.name", "t")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src/a.py").write_text("1")
+    git("add", "."); git("commit", "-qm", "base")
+    base = git("rev-parse", "--short", "HEAD")
+    from src.web.api.routers import diag
+    monkeypatch.setattr(diag, "repo_root", lambda: tmp_path)
+    return tmp_path, git, base, diag
+
+
+def test_docs_only_diff_is_not_restart_pending(_repo):
+    tmp, git, base, diag = _repo
+    (tmp / "docs").mkdir(); (tmp / "docs/x.md").write_text("x")
+    (tmp / "README.md").write_text("x")
+    git("add", "."); git("commit", "-qm", "docs")
+    assert diag._restart_pending(base, git("rev-parse", "--short", "HEAD")) is False
+
+
+def test_runtime_diff_is_restart_pending(_repo):
+    tmp, git, base, diag = _repo
+    (tmp / "src/a.py").write_text("2")
+    git("add", "."); git("commit", "-qm", "code")
+    assert diag._restart_pending(base, git("rev-parse", "--short", "HEAD")) is True
+
+
+def test_unresolvable_side_is_none_not_false(_repo):
+    tmp, git, base, diag = _repo
+    head = git("rev-parse", "--short", "HEAD")
+    assert diag._restart_pending("unknown", head) is None
+    assert diag._restart_pending("deadbee", head) is None  # not in the repo: could not look
+    assert diag._restart_pending(base, base) is False
+
+
+def test_status_carries_running_and_on_disk_shas_distinctly():
+    from src.web import runtime_status as rs
+    st = rs.build_status(git_sha="disk123")
+    assert st["git_sha_running"] == rs._RUNNING_GIT_SHA
+    assert st["git_sha_on_disk"] == "disk123" and st["git_sha"] == "disk123"
