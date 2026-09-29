@@ -1,0 +1,154 @@
+id: RQ-20260929-301
+title: >-
+  The WHOLE entry signal is evaluated on the FORMING bar live and on the
+  CLOSED bar in Stage 0 — how much does that change the trade set and the net
+  R (full cost stack) of the two real-money bybit_2 legs, ada_pullback_2h and
+  trend_donchian_xrp_4h? (PI-20260929-VOLSKIP-0001)
+status: queued
+cadence: once
+kind: deterministic
+
+question: >-
+  Manager dispatch 2026-09-29 (lane VOLSKIP-SIGNAL). The live pullback and
+  donchian variant builders (src/runtime/strategy_signal_builders.py
+  _htf_pullback_variant_builder / _trend_donchian_variant_builder) fetch 200
+  bars whose last row is the still-forming bar and call order_package on the
+  whole frame every ~2 min tick, so close, confirmation (close vs prev_close),
+  pullback position / Donchian breakout, ADX, skip_hours and the vol gate are
+  all read on a partial bar, and the entry is the partial bar's last price.
+  Stage 0 (scripts/backtest_pullback.py, scripts/backtest_trend.py) decides
+  on the CLOSED bar and enters at its close. Replayed over the full history at
+  the live tick cadence, how many entries differ, and what do the two arms
+  earn net of the full cost stack?
+
+why_this_matters: >-
+  Both legs trade real money on bybit_2 and cleared Stage 0 on the closed-bar
+  behaviour. If the live leg is materially a different leg, either the live
+  signal must move to the closed bar (Tier-3) or the Stage-0 evidence must be
+  re-measured under the forming-bar model (Tier-1 harness work). RQ-20260929-201
+  showed a gate-local fix cannot close the skew.
+
+why_not_inferential: >-
+  The trade-set comparison is a deterministic census over the full available
+  history. The net-R difference IS inferential (one history, a finite number
+  of differing trades), so the rule carries a block-bootstrap interval and an
+  ex-max-year sign check, and the power is reported.
+
+design:
+  data: >-
+    Binance USD-M perp 1m klines (data.binance.vision), ADAUSDT and XRPUSDT,
+    2020-01 → latest available, resampled to [open, open+tf) bars stamped at
+    open time (Bybit convention). A LABELLED PROXY for Bybit — api.bybit.com is
+    geo-blocked from the research container (same as RQ-20260929-201).
+  frame_builder: >-
+    scripts/research/vol_skip_forming_bar_replay.py load_1m / build_bars
+    (reused, not copied).
+  harness: >-
+    run_backtest() of scripts/backtest_pullback.py / scripts/backtest_trend.py
+    in-process, config-exact to config/strategies.yaml for each leg (every
+    entry AND exit key the leg declares, including trend_donchian_xrp_4h's
+    trail_decay_arm_r / trail_decay_tight_mult, which the RQ-201 replay
+    omitted), costs from execution_costs (fee default, venue
+    slippage_bps_roundtrip_for(symbol), funding_bps_per_window_for(symbol)).
+    Exits, costs and the one-position/cooldown bookkeeping are the harness's
+    own in every arm; only the ENTRY decision differs, injected through a new
+    research-only entry_override hook (None = byte-identical).
+  arms:
+    A_closed: >-
+      Stage 0 today — the harness as-is (closed trigger bar, full-history
+      indicators, entry at the bar's close).
+    B_forming: >-
+      Mirrors live. Ticks every 2 min at k = 2, 4, …, tf−2 minutes into bar i.
+      At each tick the LIVE frame is rebuilt (199 closed bars + bar i truncated
+      to its first k minutes from 1m data: open, running high/low, last close)
+      and the LIVE unit's own order_package (plus the builder's side_filter) is
+      called on it. The first tick that returns a package enters at that tick's
+      price with the package's ATR/stop; later ticks of the same bar are
+      ignored (one entry per bar — the harness's own position/cooldown
+      bookkeeping decides whether a bar is available). A stop or capped TP
+      touched in the remainder of the entry bar (1m data after the tick) exits
+      there; the trail is not ratcheted on that remainder (conservative).
+    A_liveframe: >-
+      Decomposition only (not in the rule): the live unit's order_package on
+      the 200-bar frame of CLOSED bars ending at i, entry at close[i]. Isolates
+      the frame/warm-up difference from the forming-bar difference.
+    A_impl: >-
+      Decomposition only (not in the rule): what the closed-bar Tier-3 change
+      would actually trade — A_liveframe's decision, entry at the price 2 min
+      into bar i+1 (first live tick after the close).
+  live_cross_check: >-
+    diag audit_query event=pipeline_result for both legs since
+    2026-07-14T00:00:00Z. For each live dispatch: its bar (floor to tf), its
+    minute offset into the bar, side and price; then whether B_forming enters
+    that bar on the same side, at which tick, and whether A_closed enters it.
+    Reported as counts: live dispatches matched by B (same bar, same side),
+    matched by A, and B's tick offset vs the live offset.
+
+decision_rule:
+  id: RULE-RQ0929-301-WHOLE-SIGNAL-FORMING
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    Per leg, over the full history: (1) trade-set agreement J = |A∩B| / |A∪B|,
+    entries matched on (entry bar, direction); (2) ΔR = net R(B_forming) −
+    net R(A_closed), full cost stack, with a 90% interval from a calendar-month
+    block bootstrap of the per-month ΔR (10,000 resamples, seed 301); (3) ΔR
+    with the single calendar year of largest |ΔR| contribution removed
+    (ex-max-year sign).
+  rule: >-
+    Graded per leg, in this order.
+    MOVE_LIVE_TO_CLOSED IF the 90% interval of ΔR lies entirely below 0 AND the
+    ex-max-year ΔR is also < 0 AND |ΔR| >= 5R: the forming-bar behaviour costs
+    money robustly, so the live signal must move to the closed bar
+    (whole-frame drop_forming_bar at the builder, entry at the first tick after
+    the close) — a Tier-3 change proposed with this record as its evidence.
+    ELSE HARNESS_MODELS_FORMING IF J < 0.80: the Stage-0 trade set is not the
+    live trade set, but the forming behaviour is not shown to cost money, so
+    no live change; the harness gains a forming-bar entry mode and the leg's
+    Stage-0 evidence is re-measured under it (Tier-1, filed as a pipeline row).
+    ELSE NO_ACTION (J >= 0.80 and ΔR not robustly negative): the skew is real
+    but immaterial at this power; the pipeline item closes with this record.
+    RESEARCH_FLAG, reported alongside whichever verdict: if the 90% interval
+    lies entirely ABOVE 0 with the ex-max-year sign holding (forming robustly
+    better), stated plainly — never a reason to change a live leg by itself.
+  power: >-
+    Reported, not a gate: the minimum detectable |ΔR| at 80% power for the
+    one-sided 5% test is (1.645 + 0.842) × the bootstrap SE of ΔR. A leg whose
+    |ΔR| is below that is stated as underpowered, not as "no effect".
+  what_it_does_not_do: >-
+    Does not change any threshold or parameter. Does not use live-book P&L as
+    evidence of edge (the live cross-check tests TIMING fidelity of arm B, not
+    returns). Does not grade A_liveframe / A_impl (decomposition only).
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 4.0
+  est_minutes: 60
+  basis: >-
+    ~29k 2h and ~15k 4h bars; order_package is called only on ticks where the
+    cheap, exact direction pre-filter (close vs prior-bar midline/range or
+    Donchian channel, all shift(1) so independent of the forming row) passes.
+
+run:
+  workflow: research-script-run.yml
+  timeout_minutes: 240
+  inputs:
+    research_unit: RQ-20260929-301
+  commands:
+  - - python3
+    - scripts/research/whole_signal_forming_bar_replay.py
+    - --fetch
+    - --klines-dir
+    - '{out_dir}/klines'
+    - --out
+    - '{out_dir}/whole-signal-forming-bar.json'
+
+lands:
+  store: docs/research/evidence/whole-signal-forming-bar-2026-09-29.json
+  assert_field: legs
+
+related:
+  - PI-20260929-VOLSKIP-0001
+  - RQ-20260929-201 (vol gate alone; KEEP_AND_REPORT)
+  - PR #14131
