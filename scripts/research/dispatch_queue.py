@@ -164,12 +164,58 @@ def _stamp(path: Path, when: datetime) -> Optional[str]:
         return f"{type(exc).__name__}: {exc}"
 
 
+
+def declared_inputs(workflow: str, *, repo: Path = _REPO) -> Optional[List[str]]:
+    """The ``workflow_dispatch.inputs`` keys ``<repo>/.github/workflows/<workflow>``
+    declares, or ``None`` when the file cannot be read (not "no inputs" — the
+    two are different claims, and only the second is a reason to filter)."""
+    path = repo / ".github" / "workflows" / workflow
+    try:
+        import yaml  # noqa: PLC0415 — optional at import time, required here
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, UnicodeDecodeError, ValueError, ImportError):
+        return None
+    # PyYAML parses the bare `on:` key as boolean True.
+    on = doc.get("on") if isinstance(doc.get("on"), dict) else doc.get(True)
+    if not isinstance(on, dict):
+        return None
+    wd = on.get("workflow_dispatch")
+    inputs = wd.get("inputs") if isinstance(wd, dict) else None
+    return sorted(inputs.keys()) if isinstance(inputs, dict) else []
+
+
+def dispatch_inputs(entry: Dict[str, Any], *, power_state: str = "",
+                    repo: Path = _REPO) -> tuple:
+    """``(inputs, dropped)`` — what ``gh workflow run -f`` will carry.
+
+    RQ-RUN (2026-09-28), MEASURED on research-queue-dispatch run 36476810004:
+    GitHub refuses the whole dispatch with ``HTTP 422: Unexpected inputs
+    provided: ["script"]`` when a unit's ``run.inputs`` names a key the
+    workflow does not declare — four token-free-runner units carried a
+    leftover ``script:`` key from their retarget and none of them fired, while
+    the dry run (which never builds the command) said ``would_dispatch``. The
+    runner reads the command from the unit FILE, so for it every key beyond
+    ``research_unit``/``power_state`` is provably noise: drop it, and NAME it.
+    Any other workflow keeps its inputs verbatim — an undeclared key there is
+    a unit bug, refused by ``_fire`` before gh is called, in those words.
+    """
+    run = entry.get("run") or {}
+    inputs = dict(run.get("inputs") or {})
+    if inputs.get("research_unit") and power_state:
+        inputs["power_state"] = power_state
+    workflow = str(run.get("workflow"))
+    declared = declared_inputs(workflow, repo=repo)
+    if declared is None or workflow != "research-script-run.yml":
+        return inputs, []
+    dropped = sorted(k for k in inputs if k not in declared)
+    return {k: v for k, v in inputs.items() if k in declared}, dropped
+
+
 def _fire(entry: Dict[str, Any], *, route: str, ref: str,
           power_state: str = "") -> tuple:
     """Dispatch via `gh workflow run`. Returns (ok, detail)."""
     run = entry.get("run") or {}
     workflow = str(run.get("workflow"))
-    inputs = dict(run.get("inputs") or {})
     # ⚠️ A `run.workflow` that is not a workflow FILE is a note to a human, not
     # a dispatch target (research/queue/README.md § "DECLARED vs. actually
     # dispatchable"). Until 2026-09-28 this ran `gh workflow run "none — ..."`
@@ -198,8 +244,18 @@ def _fire(entry: Dict[str, Any], *, route: str, ref: str,
     # Injected only when the unit already declares `research_unit`, because
     # `gh workflow run -f <input-the-workflow-never-declared>` ERRORS. Opting in
     # by declaring the identity is the unit asserting its workflow accepts both.
-    if inputs.get("research_unit") and power_state:
-        inputs["power_state"] = power_state
+    inputs, dropped = dispatch_inputs(entry, power_state=power_state)
+    if dropped:
+        print(f"::notice::{entry.get('id')}: run.inputs {dropped} are not declared by "
+              f"{workflow} and were not sent — the runner reads the command from the "
+              "unit file; drop them from the unit on its next edit", file=sys.stderr)
+    declared = declared_inputs(workflow)
+    if declared is not None:
+        unknown = sorted(k for k in inputs if k not in declared)
+        if unknown:
+            return False, (f"run.inputs {unknown} are not declared by {workflow} "
+                           f"(declared: {declared}) — GitHub would refuse the dispatch "
+                           "with HTTP 422; fix the unit's run.inputs")
     cmd = ["gh", "workflow", "run", workflow, "--ref", ref]
     for key, value in inputs.items():
         cmd += ["-f", f"{key}={value}"]

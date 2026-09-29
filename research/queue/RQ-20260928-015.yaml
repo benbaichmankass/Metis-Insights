@@ -3,7 +3,7 @@ title: >-
   Reconcile prop_ev_sim.py's P(net>0) discrepancy (PI-20260928-PEVRECON-0001)
   — does the 2026-08-13 graduation grade for trend_donchian_eth_prop/sol_prop
   reproduce, and if not, why?
-status: queued
+status: done
 cadence: once
 kind: experiment
 
@@ -172,7 +172,6 @@ run:
   timeout_minutes: 90
   inputs:
     research_unit: RQ-20260928-015
-    script: scripts/research/prop_ev_grid.py
   note: 'Retargeted 2026-09-28 (lane RQ-RUN) to the token-free runner. Step 1 of the design, mechanised:
     command 1 scores each leg ALONE on the population --book breakout_1 resolves (each evidence record''s
     cost_stack.source trades file, recorded in grid.json), seed 1, and grades reproduce against +$883/0.8477
@@ -192,4 +191,17 @@ related:
   - 'PI-20260928-PEVRECON-0001 (the pipeline finding this unit formalizes)'
   - 'RQ-20260928-011 (blocked on this unit''s REPRODUCED verdict for its control arm)'
   - 'trainer relay #8975, 2026-08-13 graduation run'
-last_dispatched_at: null
+last_dispatched_at: '2026-09-28T21:20:36+00:00'
+result: >-
+  GRADED 2026-09-28 by lane RQ-RUN (session_0179hCBVrY5PJMaHhK3BKcKe, manager session_01KAQRJxRbRwpYTkPgBjNVyQ) against
+  the pre-registered rule, from committed results only; the run was token-free (research-script-run on main a5533f9,
+  fired by research-queue-dispatch run 36485344972 at 21:20Z). VERDICT: NOT_REPRODUCED on BOTH legs = FAIL / measured
+  (RULE-RQ0928-015-PROP-EV-RECONCILIATION; run 36485462344; E5 rows research/results/RQ-20260928-015/36485462344.jsonl
+  via PR #13824). --book breakout_1 (prop_ev_sim.resolve_book verified this session to resolve exactly the two committed
+  evidence records' cost_stack.source files; config fingerprints match the current config), arm A, seed 1, path mode:
+  trend_donchian_eth_prop n=169 -> ev +128.04 (se 5.92) vs graduation +883 (-85%), P(net>0) 0.3115 vs 0.8477;
+  trend_donchian_sol_prop n=65 -> +121.77 (se 5.25) vs +483 (-75%), P 0.3508 vs 0.7427; both far outside the registered
+  +/-10% band. Per the rule: ESCALATED TO THE OPERATOR (PI-20260928-PEVRECON-0001 updated, ask_operator, merged in
+  #13837), no auto-demotion (Tier-3), and RQ-20260928-011 does not proceed to a sizing proposal on this baseline. The
+  only explanation with data behind it is population: the 2026-08-13 graduation figures (trainer relay #8975, n=1110)
+  were computed on trades that are not the committed evidence, and nothing in the repo reproduces them.

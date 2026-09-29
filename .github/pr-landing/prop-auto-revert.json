@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "manager merges; order-path safety latch (PROP-EXEC go-live criteria), must land BEFORE executor-enable-timer",
+  "why": "Operator go-live criteria (2026-09-28, checklist row PROP-EXEC): the auto-revert triggers must be armed permanently before the executor timer is enabled. Every trigger now writes the existing 'halted' latch (HARD refusal of every new entry until cleared; reconcile and containment keep running) and raises an alert the tick pings: partial_no_sl_tp or duplicate (now also on the immediate post-submit re-read), unconfirmed placement after unconfirmed_reads, 2 consecutive read-back refusals, executor errors on 2 consecutive ticks (terminal read failure or a raised tick). Reconcile gaps already halted. read_only never writes the latch. Tier-2 by path."
+}

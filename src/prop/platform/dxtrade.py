@@ -74,7 +74,7 @@ import json
 import math
 import re
 import time
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
 from src.prop.platform.base import (
@@ -944,10 +944,31 @@ ORDER_FORM_JS = r"""
     }
     return (inp.getAttribute('placeholder') || '').trim();
   };
+  // An INPUT's label on the live sidebar (probe #13816) is the nearest
+  // earlier sibling with text of the input or one of its ancestors ("Lots x 1
+  // SOL", "Stop Loss:"); the parent-text walk would find the SL/TP "Price"
+  // mode select first. A sibling that holds another input ends the search at
+  // that level (never borrow the previous field's label).
+  const prevLabel = inp => {
+    let e = inp;
+    for (let i = 0; i < 6 && e && e !== document.body; i++, e = e.parentElement) {
+      for (let s = e.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.matches('input, select, textarea') || s.querySelector('input, select, textarea')) break;
+        const t = txt(s); if (t) return t.split(/\n/)[0].trim();
+      }
+    }
+    return '';
+  };
+  const labelOfInput = inp => {
+    const a = inp.getAttribute('aria-label'); if (a) return a.trim();
+    if (inp.id) { const l = document.querySelector(`label[for="${CSS.escape(inp.id)}"]`); if (l) return txt(l); }
+    const wrap = inp.closest('label'); if (wrap) { const t = txt(wrap); if (t) return t; }
+    return prevLabel(inp) || labelOf(inp);
+  };
   const inputs = [...document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), [role=spinbutton]')].filter(vis);
   const hits = {};
   for (const inp of inputs) {
-    const lab = labelOf(inp);
+    const lab = labelOfInput(inp);
     for (const [k, r] of Object.entries(FP)) if (r.test(lab)) (hits[k] = hits[k] || []).push({el: inp, label: lab});
   }
   // The form container: the smallest ancestor of the quantity input that also
@@ -958,6 +979,18 @@ ORDER_FORM_JS = r"""
     for (let e = q.el.parentElement; e && e !== document.body; e = e.parentElement) {
       const has = k => (hits[k] || []).some(h => e.contains(h.el));
       if (has('stop_loss') && has('take_profit')) { form = e; break; }
+    }
+  }
+  // On the live sidebar the fields' smallest common container can stop short
+  // of the ticket's own symbol input and order-type row (probe #13816: three
+  // sibling sections). Widen it to the smallest ancestor that also holds the
+  // ticket's BUY, SELL and symbol_input: the same anchor the probe's panel
+  // dump uses. Terminals without those test ids keep the fields' container.
+  if (form) {
+    for (let e = form; e && e !== document.body; e = e.parentElement) {
+      if (e.querySelector('[data-test-id=BUY]') && e.querySelector('[data-test-id=SELL]')
+          && e.querySelector('[data-test-id=symbol_input]')) { form = e; break; }
+      if (!document.querySelector('[data-test-id=BUY]')) break;
     }
   }
   const out = {found: !!form, fields: {}, buttons: {}, ambiguous: [], checkboxes: [],
@@ -975,18 +1008,60 @@ ORDER_FORM_JS = r"""
                      value: (el.value !== undefined ? String(el.value) : txt(el))};
   }
   const btns = [...form.querySelectorAll('button, [role=button], input[type=submit]')].filter(vis);
+  const bname = b => txt(b) || b.getAttribute('aria-label') || b.value || '';
   for (const [k, r] of Object.entries(BP)) {
-    const m = btns.filter(b => r.test(txt(b) || b.getAttribute('aria-label') || b.value || ''));
+    let m = btns.filter(b => r.test(bname(b)));
+    if (k === 'submit' && m.length === 0) {
+      // The live sidebar's submit sits OUTSIDE the fields' container (probe
+      // #13816: not in the panel, below y 735). Look in the form's ancestors,
+      // only within the form's own column, and require exactly one.
+      const fr = form.getBoundingClientRect();
+      let anc = form.parentElement;
+      for (let i = 0; i < 4 && anc && anc !== document.body && m.length === 0; i++, anc = anc.parentElement) {
+        m = [...anc.querySelectorAll('button, [role=button], input[type=submit]')].filter(b => {
+          if (form.contains(b) || !r.test(bname(b)) || b.closest('table, tr')) return false;
+          const br = b.getBoundingClientRect();
+          // In the form's column AND below it (measured: the submit sits
+          // under the fields' panel) — never a price/quick-trade control
+          // stacked above or beside it.
+          return br.width > 0 && br.left >= fr.left - 10 && br.right <= fr.right + 10
+            && br.top >= fr.bottom - 10;
+        });
+      }
+      if (m.length) out.submit_outside_form = true;
+    }
     if (m.length === 1) { m[0].setAttribute('data-metis-btn', k); out.buttons[k] = txt(m[0]) || m[0].getAttribute('aria-label') || ''; }
     else if (m.length > 1) out.ambiguous.push('btn:' + k);
   }
-  for (const cb of form.querySelectorAll('input[type=checkbox], [role=checkbox], [role=switch]')) {
+  // The venue symbol the ticket is set to: the sidebar's own symbol_input
+  // value (an instrument name, never account data; letters/digits only).
+  const symIn = form.querySelector('[data-test-id=symbol_input]');
+  if (symIn && /^[A-Za-z0-9._\/-]{1,20}$/.test(String(symIn.value || ''))) out.symbol_value = String(symIn.value);
+  // SL / TP enabling switches: a checkbox / switch role, or (MEASURED on the
+  // live sidebar, probe #13760) a div whose data-value reads "true"/"false".
+  const toggleSel = 'input[type=checkbox], [role=checkbox], [role=switch], [data-value="true"], [data-value="false"]';
+  out.toggle_candidates = form.querySelectorAll(toggleSel).length;
+  out.data_value_toggles = form.querySelectorAll('[data-value="true"], [data-value="false"]').length;
+  for (const cb of form.querySelectorAll(toggleSel)) {
     const lab = labelOf(cb);
     for (const k of ['stop_loss', 'take_profit']) {
       if (FP[k].test(lab)) {
         cb.setAttribute('data-metis-field', k + '_toggle');
-        out.checkboxes.push({field: k, checked: !!(cb.checked || cb.getAttribute('aria-checked') === 'true')});
+        out.checkboxes.push({field: k, checked: !!(cb.checked || cb.getAttribute('aria-checked') === 'true'
+                                                  || cb.getAttribute('data-value') === 'true')});
       }
+    }
+  }
+  // Each bracket leg's entry MODE (the live sidebar shows a "Price" dropdown
+  // beside each SL / TP input): the one mode-like button near the input.
+  for (const k of ['stop_loss', 'take_profit']) {
+    const inp = form.querySelector('[data-metis-field=' + k + ']');
+    if (!inp || !out.fields[k]) continue;
+    for (let e = inp.parentElement, i = 0; e && e !== form && i < 3; e = e.parentElement, i++) {
+      const m = [...e.querySelectorAll('button, [role=button]')].filter(b =>
+        /^(price|pips?|points?|ticks?|%|percent|amount|usd|\$)$/i.test(txt(b)));
+      if (m.length === 1) { out.fields[k].mode = txt(m[0]); break; }
+      if (m.length > 1) { out.fields[k].mode = 'ambiguous'; break; }
     }
   }
   // Which side / order-type control the form shows as SELECTED, read back
@@ -1006,6 +1081,18 @@ ORDER_FORM_JS = r"""
     if (el.tagName === 'INPUT' && el.type === 'radio') return !!el.checked;
     return [...el.querySelectorAll('input[type=radio], input[type=checkbox]')].some(i => i.checked);
   };
+  // The live sidebar marks the chosen side / order type ONLY by background
+  // (probe #13816: Market rgb(80,87,179), BUY rgb(26,143,109), every other
+  // toggle rgb(64,66,94)). The "unselected" colour is the one most of the
+  // form's side/type toggles share (unique, held by 2+); a tagged button in
+  // any other colour is the selected one.
+  const toggles = [...form.querySelectorAll('button, [role=button]')].filter(b =>
+    vis(b) && /^(buy|sell|market|limit|stop|oco)$/i.test(txt(b)));
+  const bgOf = b => getComputedStyle(b).backgroundColor;
+  const counts = {};
+  toggles.forEach(b => { counts[bgOf(b)] = (counts[bgOf(b)] || 0) + 1; });
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const unsel = (ranked.length && ranked[0][1] >= 2 && (ranked.length === 1 || ranked[0][1] > ranked[1][1])) ? ranked[0][0] : null;
   const pick = (keys) => {
     const on = keys.filter(k => out.buttons[k] !== undefined && isOn(form.querySelector('[data-metis-btn=' + k + ']')));
     if (on.length === 1) return on[0];
@@ -1014,6 +1101,12 @@ ORDER_FORM_JS = r"""
       const o = sel.options[sel.selectedIndex]; const t = o ? txt(o) : '';
       const hit = keys.filter(k => BP[k].test(t));
       if (hit.length === 1) return hit[0];
+    }
+    if (unsel) {
+      const styled = keys.filter(k => out.buttons[k] !== undefined
+        && bgOf(form.querySelector('[data-metis-btn=' + k + ']')) !== unsel);
+      if (styled.length === 1) return styled[0];
+      if (styled.length > 1) return 'ambiguous';
     }
     return null;
   };
@@ -1164,14 +1257,18 @@ TICKET_PANEL_DUMP_JS = r"""
   const mask = v => (typeof v === 'string')
     ? v.trim().replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d/g, '#').slice(0, 40) : null;
   const personal = /user|profile|account|login|email/i;
-  const sym = document.querySelector('[data-test-id=symbol_input]');
-  if (!sym) return {found: false, why: 'no [data-test-id=symbol_input]'};
+  // Anchor on the ticket's own BUY button: the chart widget carries a
+  // symbol_input too (probe #13797: at x 328, first in DOM order), so
+  // climbing from symbol_input reached the whole layout. The SMALLEST
+  // ancestor of the one BUY that also holds SELL and a symbol_input is the
+  // sidebar (probe #13775: no input-count condition).
+  const buys = document.querySelectorAll('[data-test-id=BUY]');
+  if (buys.length !== 1) return {found: false, why: buys.length + ' [data-test-id=BUY] elements (need exactly 1)'};
   let panel = null;
-  for (let e = sym.parentElement; e && e !== document.body; e = e.parentElement) {
-    if (e.querySelector('[data-test-id=BUY]') && e.querySelector('[data-test-id=SELL]')
-        && e.querySelectorAll('input').length >= 3) { panel = e; break; }
+  for (let e = buys[0].parentElement; e && e !== document.body; e = e.parentElement) {
+    if (e.querySelector('[data-test-id=SELL]') && e.querySelector('[data-test-id=symbol_input]')) { panel = e; break; }
   }
-  if (!panel) return {found: false, why: 'no ancestor of symbol_input holds BUY, SELL and 3 inputs'};
+  if (!panel) return {found: false, why: 'no ancestor of BUY holds SELL and symbol_input'};
   const depthOf = el => { let d = 0; for (let e = el; e && e !== panel; e = e.parentElement) d++; return d; };
   const own = el => mask([...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) || '';
   const ctl = el => /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.hasAttribute('data-value')
@@ -1179,7 +1276,9 @@ TICKET_PANEL_DUMP_JS = r"""
   const rows = [];
   for (const el of panel.querySelectorAll('*')) {
     if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') continue;
+    if (el.closest('table')) continue;                       // tables are not the ticket
     const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0 && !ctl(el) && !el.hasAttribute('data-test-id')) continue;
     const tid = el.getAttribute('data-test-id');
     const cls = typeof el.className === 'string' ? el.className.trim() : '';
     const d = {d: depthOf(el), tag: el.tagName.toLowerCase(), tid: mask(tid),
@@ -1204,8 +1303,86 @@ TICKET_PANEL_DUMP_JS = r"""
     rows.push(d);
     if (rows.length >= 300) break;
   }
+  // Where the submit lives (probe #13816: not in the panel) and what scrolls:
+  // every button in the panel's column OUTSIDE the panel, and the panel's
+  // parent chain with its scroll sizes.
+  const pr = panel.getBoundingClientRect();
+  const submit_candidates = [...document.querySelectorAll('button, [role=button], input[type=submit]')].filter(b => {
+    if (panel.contains(b)) return false;
+    const r = b.getBoundingClientRect();
+    return r.left >= pr.left - 10 && r.right <= pr.right + 10 && !(r.width === 0 && r.height === 0 && !b.textContent.trim());
+  }).slice(0, 30).map(b => {
+    const r = b.getBoundingClientRect();
+    return {tag: b.tagName.toLowerCase(), tid: mask(b.getAttribute('data-test-id')), text: mask(b.innerText || b.textContent || ''),
+            aria: mask(b.getAttribute('aria-label')), disabled: !!(b.disabled || b.getAttribute('aria-disabled') === 'true'),
+            box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]};
+  });
+  const panel_parents = [];
+  for (let e = panel, i = 0; e && e !== document.body && i < 6; e = e.parentElement, i++) {
+    const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+    panel_parents.push({level: i, tag: e.tagName.toLowerCase(), cls: mask(typeof e.className === 'string' ? e.className : ''),
+                        box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+                        scroll: [e.scrollHeight, e.clientHeight], overflow_y: cs.overflowY, children: e.children.length});
+  }
+  // The quantity input's own numeric constraints (UI limits, not account
+  // data): the only digits this dump lets through.
+  const num = /^-?[0-9]*[.]?[0-9]+(e-?[0-9]+)?$/i;
+  const qty_constraints = [...panel.querySelectorAll('input')].map(i => {
+    const c = {};
+    for (const a of ['min', 'max', 'step', 'aria-valuemin', 'aria-valuemax', 'data-min', 'data-step', 'data-precision']) {
+      const v = i.getAttribute(a); if (v !== null && num.test(v.trim())) c[a] = v.trim();
+    }
+    return Object.keys(c).length ? {tid: mask(i.getAttribute('data-test-id')), ...c} : null;
+  }).filter(Boolean);
   return {found: true, n: rows.length, truncated: rows.length >= 300,
-          scroll: [panel.scrollHeight, panel.clientHeight], rows};
+          scroll: [panel.scrollHeight, panel.clientHeight], rows, submit_candidates, panel_parents, qty_constraints};
+}
+"""
+
+# The ticket's submit control, which on the live sidebar can sit BELOW THE FOLD
+# once the SL / TP rows are switched on (operator 2026-09-28 ~19:55Z). Ops:
+#  "scroll_step": scroll the form's own scroll container (never the page or
+#                 the chart) down by ~80% of its height; returns whether it moved.
+#  "mark":        tag the current [data-metis-btn=submit] with a one-time token
+#                 and bring it to the centre of its scroll container.
+#  "check":       is the element carrying the submit tag the SAME (token) one,
+#                 visible at its centre point, enabled; and its text.
+# Clicks nothing.
+SUBMIT_JS = r"""
+(args) => {
+  const [op, token] = args;
+  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim().replace(/\s+/g, ' ');
+  const form = document.querySelector('[data-metis-form]');
+  if (!form) return {ok: false, why: 'no tagged form'};
+  if (op === 'scroll_step') {
+    let sc = null;
+    for (let e = form; e && e !== document.body; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (e.scrollHeight > e.clientHeight + 1 && /(auto|scroll)/.test(cs.overflowY)) { sc = e; break; }
+    }
+    if (!sc) return {ok: true, moved: false, why: 'no scrollable container'};
+    const before = sc.scrollTop;
+    sc.scrollTop = before + Math.max(40, Math.floor(sc.clientHeight * 0.8));
+    return {ok: true, moved: sc.scrollTop !== before, top: sc.scrollTop, max: sc.scrollHeight - sc.clientHeight};
+  }
+  const btn = document.querySelector('[data-metis-btn=submit]');
+  if (!btn) return {ok: false, why: 'no tagged submit'};
+  if (op === 'mark') {
+    document.querySelectorAll('[data-metis-submit-token]').forEach(e => e.removeAttribute('data-metis-submit-token'));
+    btn.setAttribute('data-metis-submit-token', token);
+    const r0 = btn.getBoundingClientRect();
+    btn.scrollIntoView({block: 'center', inline: 'nearest'});
+    const r1 = btn.getBoundingClientRect();
+    return {ok: true, scrolled: Math.round(r0.top) !== Math.round(r1.top), text: txt(btn)};
+  }
+  const r = btn.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const inView = r.width > 0 && r.height > 0 && cx >= 0 && cy >= 0 && cx <= window.innerWidth && cy <= window.innerHeight;
+  const hit = inView ? document.elementFromPoint(cx, cy) : null;
+  return {ok: true, same: btn.getAttribute('data-metis-submit-token') === token,
+          visible: !!(hit && (hit === btn || btn.contains(hit))),
+          enabled: !(btn.disabled || btn.getAttribute('aria-disabled') === 'true'),
+          text: txt(btn)};
 }
 """
 
@@ -1241,6 +1418,91 @@ ROW_ACTION_JS = r"""
 """
 
 
+def parse_price(text: Optional[str]) -> Optional[float]:
+    """A watchlist price. DXtrade renders one price as several spans (the
+    sidebar's ask measured as ``"###."`` + a raised ``"##"``, #13855), so
+    innerText can carry a line break INSIDE the number (``"184.\n25"``,
+    pipette ``"184.25\n3"``). Whitespace is dropped only when the text holds
+    exactly one decimal point with digits around it; ``"184\n25"`` (no point)
+    stays None rather than being read as 18425."""
+    v = parse_number(text)
+    if v is not None or text is None:
+        return v
+    t = str(text)
+    if t.count(".") != 1:
+        return None
+    joined = re.sub(r"\s+", "", t)
+    return float(joined) if re.fullmatch(r"\d+\.\d+", joined) else None
+
+
+#: The watchlist's ROWS, read directly. MEASURED 2026-09-29 (dry run #13898,
+#: run 36507086110): the table carrying the Symbol/Bid/Ask/Change/Chg%/
+#: Description headers has ZERO body rows. The rows live in a separate
+#: header-less table (a virtualised grid), which EXTRACT_TABLES_JS skips, so
+#: every quote read returned None. The rows are the same
+#: ``tr.instrument, tr[data-row-id]`` the ticket opener double-clicks.
+WATCHLIST_ROWS_JS = r"""
+([venue]) => {
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  let headers = null;
+  for (const t of document.querySelectorAll('table')) {
+    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(txt);
+    const n = hs.map(norm);
+    if (n.includes('symbol') && n.includes('bid') && n.includes('ask')) { headers = hs; break; }
+  }
+  const want = String(venue || '').toUpperCase();
+  const rows = [...document.querySelectorAll('tr.instrument, tr[data-row-id]')]
+    .map(r => [...r.querySelectorAll('td')].map(txt))
+    .filter(cells => cells.some(c => c.toUpperCase() === want));
+  return {headers, rows: rows.slice(0, 5)};
+}
+"""
+
+#: A quote whose spread is wider than this is not believed (a mis-aligned
+#: column would pair two unrelated numbers).
+MAX_QUOTE_SPREAD_FRAC = 0.02
+
+
+def quote_from_watchlist_rows(got: Mapping[str, Any], venue_symbol: str) -> Optional[Dict[str, float]]:
+    """``{"bid", "ask"}`` from :data:`WATCHLIST_ROWS_JS`'s result, or None.
+
+    The header table and the row table are separate elements, so their
+    alignment is PROVEN per row rather than assumed: the row must have exactly
+    as many cells as there are headers, the cell under "Symbol" must be the
+    venue symbol, 0 < bid <= ask, and the spread must be under
+    :data:`MAX_QUOTE_SPREAD_FRAC`. Anything else is None (could not look)."""
+    headers = list(got.get("headers") or [])
+    if not headers:
+        return None
+    rows = [r for r in (got.get("rows") or []) if len(r) == len(headers)]
+    q = quote_from_tables([{"headers": headers, "rows": rows}], venue_symbol)
+    if q is None or (q["ask"] - q["bid"]) / q["ask"] > MAX_QUOTE_SPREAD_FRAC:
+        return None
+    return q
+
+
+def quote_diagnostics(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Dict[str, Any]:
+    """Why :func:`quote_from_tables` found nothing, for the run log. Market
+    data only: the headers of every table with a Symbol column, and the raw
+    cells (``repr``, so a line break shows) of rows naming the symbol in a
+    table that also has Bid and Ask columns."""
+    out: Dict[str, Any] = {"symbol_tables": [], "rows": []}
+    for t in tables:
+        norm = [_norm(h) for h in (t.get("headers") or [])]
+        if "symbol" not in norm:
+            continue
+        out["symbol_tables"].append({"kind": t.get("kind"), "headers": [str(h)[:30] for h in t.get("headers") or []],
+                                     "rows": len(t.get("rows") or [])})
+        if "bid" not in norm or "ask" not in norm:
+            continue
+        c_sym = norm.index("symbol")
+        for row in t.get("rows") or []:
+            if venue_symbol.upper() in (_cell(row, c_sym) or "").upper():
+                out["rows"].append([repr(str(c))[:40] for c in row][:12])
+    return out
+
+
 def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
     """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from the watchlist table
     (headers Symbol/Bid/Ask, MEASURED run 36358563148). ``None`` when no
@@ -1253,7 +1515,7 @@ def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
         c_sym, c_bid, c_ask = norm.index("symbol"), norm.index("bid"), norm.index("ask")
         for row in t.get("rows") or []:
             if (_cell(row, c_sym) or "").strip().upper() == venue_symbol.upper():
-                bid, ask = parse_number(_cell(row, c_bid)), parse_number(_cell(row, c_ask))
+                bid, ask = parse_price(_cell(row, c_bid)), parse_price(_cell(row, c_ask))
                 if bid is not None and ask is not None and 0 < bid <= ask:
                     return {"bid": bid, "ask": ask}
     return None
@@ -1294,7 +1556,17 @@ def verify_form_values(fields: Mapping[str, Mapping[str, Any]], want: Mapping[st
 def form_names_symbol(form: Mapping[str, Any], venue_symbol: str) -> bool:
     """Pure: the form's visible text names ``venue_symbol`` as a whole word.
     An order typed into a ticket for the wrong symbol is the worst silent
-    failure here, so this is checked at open AND again at read-back."""
+    failure here, so this is checked at open AND again at read-back.
+
+    When the form carries its own symbol input (the live sidebar's
+    ``symbol_input``, probe #13816: its visible text says only "SOL"), THAT
+    value decides: it must equal ``venue_symbol`` (letters/digits compared),
+    and a mismatch refuses even if the text happens to name the symbol."""
+    def norm(v: Any) -> str:
+        return re.sub(r"[^A-Z0-9]", "", str(v or "").upper())
+
+    if form.get("symbol_value"):
+        return norm(form["symbol_value"]) == norm(venue_symbol)
     return bool(re.search(r"(?<![A-Z0-9])" + re.escape(str(venue_symbol).upper()) + r"(?![A-Z0-9])",
                           str(form.get("form_text") or "").upper()))
 
@@ -1313,6 +1585,64 @@ def verify_form_selection(form: Mapping[str, Any], side: str, order_type: str) -
             bad.append(f"{k}: not readable back")
         elif got != v:
             bad.append(f"{k}: chose {v}, form shows {got}")
+    return bad
+
+
+#: The measured DXtrade submit label (probe #13855, 2026-09-28):
+#: "Buy <qty> SOLUSD at <price>" -- the TERMINAL's own statement of what it is
+#: about to send.
+_SUBMIT_LABEL = re.compile(r"\b(buy|sell)\s+([0-9]+(?:[.,][0-9]+)?)\s+([A-Za-z0-9._/-]+)", re.IGNORECASE)
+
+
+def submit_label_mismatch(text: str, spec: "BracketSpec") -> str:
+    """'' when the submit label agrees with the spec, else why not.
+
+    When the label states a quantity, it must equal ``spec.quantity`` and the
+    symbol after it must be ``spec.venue_symbol``. This is the only place the
+    terminal says what quantity it ACCEPTED: a venue that clamps a
+    below-minimum size up (or rounds it) changes this number, and the dry run
+    at the lot step is only a measurement of the venue minimum if that change
+    would be caught. A label with no quantity passes (the check is then the
+    input read-back alone).
+    """
+    m = _SUBMIT_LABEL.search(text or "")
+    if not m:
+        return ""
+    try:
+        qty = float(m.group(2).replace(",", "."))
+    except ValueError:
+        return f"its text {text!r} states an unparseable quantity"
+    if abs(qty - float(spec.quantity)) > 1e-9:
+        return f"its text {text!r} states quantity {qty}, not the typed {spec.quantity}"
+    if m.group(3).upper() != str(spec.venue_symbol).upper():
+        return f"its text {text!r} names {m.group(3)!r}, not {spec.venue_symbol}"
+    return ""
+
+
+def verify_bracket_legs(form: Mapping[str, Any]) -> List[str]:
+    """Pure: both bracket legs are ARMED in the form. A leg whose enabling
+    toggle is off would submit a NAKED order, the worst outcome here, so:
+    when the form has any toggle-like control, each of SL and TP must have
+    exactly one toggle and it must read on; when a leg shows an entry mode
+    (the live sidebar's "Price" dropdown), both legs must read "Price"."""
+    bad: List[str] = []
+    toggles = form.get("checkboxes") or []
+    fields = form.get("fields") or {}
+    for leg in ("stop_loss", "take_profit"):
+        mine = [t for t in toggles if t.get("field") == leg]
+        if (form.get("toggle_candidates") or 0) > 0 or mine:
+            if len(mine) != 1:
+                bad.append(f"{leg}: {len(mine)} enabling toggles found (need exactly 1)")
+            elif not mine[0].get("checked"):
+                bad.append(f"{leg}: enabling toggle is OFF (would submit without the {leg})")
+    modes = {leg: (fields.get(leg) or {}).get("mode") for leg in ("stop_loss", "take_profit")}
+    # The live sidebar's shape (data-value toggles) always shows a mode
+    # select: there it must be READABLE, so a changed label can never make
+    # the Price check silently disappear (review of #13822).
+    if (form.get("data_value_toggles") or 0) > 0 or any(m is not None for m in modes.values()):
+        for leg, m in modes.items():
+            if str(m or "").strip().lower() != "price":
+                bad.append(f"{leg}: entry mode is {m!r}, need 'Price'")
     return bad
 
 
@@ -1655,9 +1985,28 @@ class DXtradeAdapter(PropPlatformAdapter):
         return captured
 
     # ---- step 3: order entry (see the ORDER ENTRY block above) ----------
+    def _watchlist_rows(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        try:
+            return page.evaluate(WATCHLIST_ROWS_JS, [venue_symbol]) or {}
+        except Exception as exc:
+            return {"error": type(exc).__name__}
+
     def read_quote(self, page: Any, venue_symbol: str) -> Optional[Dict[str, float]]:
-        """Bid/ask off the watchlist table. Read-only."""
-        return quote_from_tables(self._tables(page), venue_symbol)
+        """Bid/ask off the watchlist. Read-only. A table carrying its own rows
+        first; else the virtualised grid's rows (#13898)."""
+        return (quote_from_tables(self._tables(page), venue_symbol)
+                or quote_from_watchlist_rows(self._watchlist_rows(page, venue_symbol), venue_symbol))
+
+    def quote_diagnostics(self, page: Any, venue_symbol: str) -> Dict[str, Any]:
+        """Read-only: what the watchlist looked like when no quote parsed."""
+        try:
+            out = quote_diagnostics(self._tables(page), venue_symbol)
+        except Exception as exc:
+            out = {"error": type(exc).__name__}
+        got = self._watchlist_rows(page, venue_symbol)
+        out["watchlist_rows"] = {"headers": got.get("headers"), "error": got.get("error"),
+                                 "rows": [[repr(str(c))[:40] for c in r][:12] for r in got.get("rows") or []]}
+        return out
 
     def read_one_click(self, page: Any) -> Dict[str, Any]:
         """``{"state": "on"|"off"|"unknown", ...}``. Read-only DIAGNOSTIC:
@@ -1791,18 +2140,17 @@ class DXtradeAdapter(PropPlatformAdapter):
         # When the ticket did not open, or it opened but side / order type is
         # not readable (place_bracket would refuse), include the digit-masked
         # control map so the opener and the side/type reader can be built.
-        sel = form.get("selected") or {}
-        unreadable = not sel or any(v in (None, "ambiguous") for v in sel.values())
-        if not opened.get("opened") or unreadable:
-            # The sidebar's own structure when it is on the page (compact);
-            # the whole-page control map only when it is not (the run log
-            # keeps just its last ~50k characters).
-            panel = self.ticket_panel_dump(page)
-            if panel.get("found"):
-                result["ticket_panel"] = panel
-            else:
-                result["ticket_panel_why"] = panel.get("why") or panel.get("error")
-                result["controls_dump"] = self.controls_dump(page)
+        result["symbol_value"] = form.get("symbol_value")
+        result["submit_outside_form"] = bool(form.get("submit_outside_form"))
+        # A probe is a measurement: always attach the sidebar's own structure
+        # (compact) when it is on the page, and the whole-page control map
+        # only when it is not (the run log keeps its last ~50k characters).
+        panel = self.ticket_panel_dump(page)
+        if panel.get("found"):
+            result["ticket_panel"] = panel
+        else:
+            result["ticket_panel_why"] = panel.get("why") or panel.get("error")
+            result["controls_dump"] = self.controls_dump(page)
         if opened.get("opened"):
             result["closed"] = self.close_order_ticket(page)
         return result
@@ -1841,7 +2189,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         if missing:
             return refuse(f"form fields not found: {missing}")
         if "submit" not in (form.get("buttons") or {}):
-            return refuse("no unique submit control in the form")
+            form = self._scroll_until_submit(page)
+            if "submit" not in (form.get("buttons") or {}):
+                return refuse("no unique submit control in the form (panel scrolled to the end)")
         try:
             side_btn = "side_buy" if spec.side == "long" else "side_sell"
             if side_btn in form.get("buttons", {}):
@@ -1852,13 +2202,19 @@ class DXtradeAdapter(PropPlatformAdapter):
             if type_btn in form.get("buttons", {}):
                 page.click(f"[data-metis-btn={type_btn}]", timeout=5_000)
             form = self._find_form(page)
+            # Switch each leg's enabling toggle ON (the live sidebar's SL / TP
+            # toggles read "false" by default): the operator's flow sets the
+            # brackets BEFORE execution. Never switched off; read back below.
             for leg in ("stop_loss", "take_profit"):
                 fld = (form.get("fields") or {}).get(leg) or {}
-                if fld.get("disabled"):
-                    tog = [c for c in form.get("checkboxes") or [] if c.get("field") == leg]
-                    if len(tog) != 1 or tog[0].get("checked"):
-                        return refuse(f"{leg} field is disabled and has no single enabling toggle")
+                tog = [c for c in form.get("checkboxes") or [] if c.get("field") == leg]
+                if len(tog) > 1:
+                    return refuse(f"{leg}: {len(tog)} enabling toggles (ambiguous)")
+                if len(tog) == 1 and not tog[0].get("checked"):
                     page.click(f"[data-metis-field={leg}_toggle]", timeout=5_000)
+                    page.wait_for_timeout(300)
+                elif not tog and fld.get("disabled"):
+                    return refuse(f"{leg} field is disabled and has no enabling toggle")
             want = {"quantity": spec.quantity, "stop_loss": spec.stop_loss, "take_profit": spec.take_profit}
             if spec.order_type == "limit":
                 want["price"] = float(spec.limit_price)
@@ -1870,20 +2226,29 @@ class DXtradeAdapter(PropPlatformAdapter):
             return refuse(f"typing into the form failed ({type(exc).__name__})")
         # Read-back of all six fields (ORDER ENTRY rule 4): symbol, side,
         # order type, quantity, stop loss, take profit (+ price for a limit).
-        mism = [] if form_names_symbol(form, spec.venue_symbol) else [f"symbol: form no longer names {spec.venue_symbol}"]
-        mism += verify_form_selection(form, spec.side, spec.order_type)
-        mism += verify_form_values(form.get("fields") or {}, want)
+        mism = self._read_back(form, spec, want)
         if mism:
             return refuse("form read-back mismatch: " + "; ".join(mism), form)
+        # Bring the submit control into view (it can sit below the fold once
+        # the brackets are on), then re-run the FULL read-back: scrolling must
+        # not have changed any field. Done disarmed too, so a dry run measures
+        # exactly what an armed run would click.
+        ready, why, form, submit_info = self._ready_submit(page, spec, want)
+        if not ready:
+            return refuse(why, form)
         # Diagnostic only: the toggle's reading right before submit travels
         # with the attempt so the run log shows it. Nothing is gated on it.
-        form = {**form, "one_click": self.read_one_click(page)}
+        form = {**form, "one_click": self.read_one_click(page), "submit": submit_info}
         if not arm:
             self.close_order_ticket(page)
             return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
         # ── the one click that changes the account: the ticket's own submit ──
+        # Click the element PROVEN a moment ago (its one-time token): a node
+        # re-rendered since then lacks it, the click times out, and the
+        # attempt is reported unconfirmed (review of #13822).
+        submit_sel = f"[data-metis-btn=submit][data-metis-submit-token={submit_info['token']}]"
         try:
-            page.click("[data-metis-btn=submit]", timeout=5_000)
+            page.click(submit_sel, timeout=5_000)
         except Exception as exc:
             # The click may or may not have landed: report submitted so the
             # caller treats it as UNCONFIRMED and re-reads; never resubmit.
@@ -1891,6 +2256,69 @@ class DXtradeAdapter(PropPlatformAdapter):
                                 detail=f"submit click raised {type(exc).__name__}; outcome unknown", form=form)
         self._confirm_dialog(page)
         return PlaceAttempt(stage="submitted", submitted=True, detail="submit clicked", form=form)
+
+    @staticmethod
+    def _read_back(form: Mapping[str, Any], spec: BracketSpec, want: Mapping[str, float]) -> List[str]:
+        """The full pre-submit read-back: symbol, side, order type, every typed
+        value, and both bracket legs armed (toggle ON, mode Price)."""
+        mism = [] if form_names_symbol(form, spec.venue_symbol) else [f"symbol: form no longer names {spec.venue_symbol}"]
+        mism += verify_form_selection(form, spec.side, spec.order_type)
+        mism += verify_form_values(form.get("fields") or {}, want)
+        mism += verify_bracket_legs(form)
+        return mism
+
+    def _scroll_until_submit(self, page: Any, max_steps: int = 8) -> Dict[str, Any]:
+        """Scroll the form's own container step by step until the submit
+        control is in the DOM (a virtualised panel renders it only then)."""
+        form: Dict[str, Any] = {}
+        for _ in range(max_steps):
+            try:
+                step = page.evaluate(SUBMIT_JS, ["scroll_step", ""]) or {}
+            except Exception:
+                break
+            page.wait_for_timeout(200)
+            form = self._find_form(page)
+            if "submit" in (form.get("buttons") or {}) or not step.get("moved"):
+                break
+        return form
+
+    def _ready_submit(self, page: Any, spec: BracketSpec, want: Mapping[str, float]
+                      ) -> Tuple[bool, str, Dict[str, Any], Dict[str, Any]]:
+        """Centre the submit control, then prove, right before the click
+        point: it is the SAME element (a one-time token), visible at its
+        centre, enabled, its text names the intended side, and the full
+        read-back still holds after the scroll."""
+        token = f"t{time.time_ns()}"
+        try:
+            marked = page.evaluate(SUBMIT_JS, ["mark", token]) or {}
+        except Exception as exc:
+            return False, f"submit: could not mark ({type(exc).__name__})", {}, {}
+        if not marked.get("ok"):
+            return False, f"submit: {marked.get('why')}", {}, {}
+        page.wait_for_timeout(300)
+        form = self._find_form(page)          # re-tags; the token stays on the element
+        try:
+            chk = page.evaluate(SUBMIT_JS, ["check", token]) or {}
+        except Exception as exc:
+            return False, f"submit: could not check ({type(exc).__name__})", form, {}
+        info = {"scrolled": bool(marked.get("scrolled")), "text": chk.get("text"), "token": token}
+        if not chk.get("same"):
+            return False, "submit: the control changed after scrolling", form, info
+        if not chk.get("visible"):
+            return False, "submit: not visible at its centre after scrolling", form, info
+        if not chk.get("enabled"):
+            return False, "submit: disabled", form, info
+        text = str(chk.get("text") or "").lower()
+        mine, other = ("buy", "sell") if spec.side == "long" else ("sell", "buy")
+        if not re.search(rf"\b{mine}\b", text) or re.search(rf"\b{other}\b", text):
+            return False, f"submit: its text {chk.get('text')!r} does not name the intended side ({mine})", form, info
+        why = submit_label_mismatch(str(chk.get("text") or ""), spec)
+        if why:
+            return False, f"submit: {why}", form, info
+        mism = self._read_back(form, spec, want)
+        if mism:
+            return False, "read-back after scrolling to submit: " + "; ".join(mism), form, info
+        return True, "", form, info
 
     @staticmethod
     def _confirm_dialog(page: Any) -> bool:
@@ -1971,10 +2399,18 @@ class DXtradeAdapter(PropPlatformAdapter):
         if missing or "submit" not in (form.get("buttons") or {}):
             self.close_order_ticket(page)
             return {"ok": False, "clicked": False, "one_click": oc, "why": f"edit form incomplete (missing {missing})"}
+        if form.get("submit_outside_form"):
+            # An edit dialog's submit must be its OWN: one found outside it
+            # could be the sidebar's order button (review of #13822).
+            self.close_order_ticket(page)
+            return {"ok": False, "clicked": False, "one_click": oc,
+                    "why": "edit form's submit is outside the form: refusing (could place a new order)"}
         for k, v in want.items():
             page.fill(f"[data-metis-field={k}]", _fmt_num(v), timeout=5_000)
         form = self._find_form(page)
         mism = verify_form_values(form.get("fields") or {}, want)
+        if form.get("submit_outside_form"):
+            mism = mism + ["submit is outside the form"]
         if mism or not arm:
             self.close_order_ticket(page)
             return {"ok": not mism, "clicked": False, "one_click": oc,

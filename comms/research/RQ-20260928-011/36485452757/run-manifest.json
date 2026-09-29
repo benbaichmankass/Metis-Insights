@@ -1,0 +1,46 @@
+{
+  "unit": "RQ-20260928-011",
+  "run_id": "36485452757",
+  "commit_sha": "a5533f9241cd79a708124e0b203a6b115c6653f4",
+  "run_url": "https://github.com/benbaichmankass/Metis-Insights/actions/runs/36485452757",
+  "timeout_minutes": 300,
+  "commands": [
+    {
+      "index": 0,
+      "argv": [
+        "python3",
+        "scripts/research/prop_ev_grid.py",
+        "--leg",
+        "trend_donchian_eth_prop",
+        "--leg",
+        "trend_donchian_sol_prop",
+        "--arm",
+        "A=--sizing balance --risk-pct 0.015",
+        "--arm",
+        "B=--sizing start --risk-pct 0.015",
+        "--arm",
+        "C-0.25=--sizing room --risk-pct 0.015 --room-frac 0.25",
+        "--arm",
+        "C-0.33=--sizing room --risk-pct 0.015 --room-frac 0.33",
+        "--arm",
+        "C-0.5=--sizing room --risk-pct 0.015 --room-frac 0.5",
+        "--common",
+        "--ruleset config/prop_rulesets/breakout.yaml --costs breakout --funded-start fresh --swap-model dxtrade",
+        "--seeds",
+        "1,2,3,4,5",
+        "--grade",
+        "cushion_vs_flat",
+        "--overall",
+        "all",
+        "--out",
+        "comms/research/RQ-20260928-011/36485452757",
+        "--jobs",
+        "4"
+      ],
+      "log": "comms/research/RQ-20260928-011/36485452757/logs/cmd-0.log",
+      "exit_code": 0,
+      "seconds": 5430.9
+    }
+  ],
+  "all_ok": true
+}
