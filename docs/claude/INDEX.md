@@ -65,7 +65,7 @@ Their job is now one page: `.claude/skills/manager/SKILL.md`.
 
 **The manager**
 
-- `manager` — THE MANAGER CONTRACT. Read it at the start of any session that spawns or supervises another. One job (keep research questions moving through the ladder and hand the operator at most three decisions a day), one register (`docs/claude/work/MANAGER-CHECKLIST.json`), the spawn rules, the model-by-task-class table, the per-lane budget, and the four-section daily brief.
+- `manager` — THE MANAGER CONTRACT. Read it at the start of any session that spawns or supervises another. One job (keep research questions moving through the ladder and hand the operator at most three decisions a day), one register (`docs/claude/work/MANAGER-CHECKLIST.json`), the spawn rules, the model-by-task-class table, the per-lane budget, and the four-section daily brief, and the archive protocol (closing finished lanes is the manager's job).
 
 **Review cadence**
 
