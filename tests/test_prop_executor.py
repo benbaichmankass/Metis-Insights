@@ -2287,6 +2287,56 @@ def test_watched_close_discards_a_modal_that_does_not_read_back(tpage, modal_kw,
     assert p.evaluate("document.querySelectorAll('tr[data-row-id]:not(.instrument)').length") == 1     # the row stays
 
 
+def _close_modal_without_discard(lots="0.005", aria='aria-label="Close position"'):
+    """The modal with NO Discard / Cancel and no x: the only button is
+    "Close Position", carrying an aria-label that also reads /close/ (the
+    shape the independent review of #14013 reproduced: the dismiss fallback
+    tagged THAT button as discard and a read-back mismatch pressed it)."""
+    return f"""
+<div id="cm" style="display:none;position:fixed;left:400px;top:200px;background:#fff;padding:10px">
+  <h3>Close SOLUSD Buy Position</h3>
+  <label>Lots to Close <input id="lots" value="{lots}"></label>
+  <div>0.01 out of 0.01</div>
+  <button {aria} onclick="window.__closed=(window.__closed||0)+1;document.getElementById('cm').style.display='none';
+                   document.querySelector('tr[data-row-id]:not(.instrument)').remove()">Close Position</button>
+</div>"""
+
+
+@pytest.mark.parametrize("aria", ['aria-label="Close position"', 'aria-label="close"', 'aria-label="Dismiss and close"', ""])
+def test_watched_close_mismatch_without_discard_presses_nothing_and_falls_back_to_escape(tpage, aria):
+    # REGRESSION (review of #14013): with no Discard / Cancel, the "Close
+    # Position" button must never be the dismiss fallback, whatever its
+    # aria-label says. A mismatch presses nothing, Escape is the fallback
+    # (the replica ignores it, so the modal stays open), and the close is refused.
+    p = tpage(html=_close_page(modal=_close_modal_without_discard(aria=aria)))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is True and "lots-to-close 0.005 != the full size 0.01" in got["why"], got
+    assert "no Discard control found" in got["why"] and "Discard pressed" not in got["why"]
+    assert got["modal"]["discard"] == 0 and got["modal"]["confirm"] == 1
+    assert p.evaluate("window.__closed") is None, "Close Position was pressed on a mismatch"
+    assert p.evaluate("document.querySelector('[data-metis-modal-btn=discard]')") is None
+    assert p.evaluate("document.querySelectorAll('tr[data-row-id]:not(.instrument)').length") == 1     # the row stays
+    assert p.evaluate("document.getElementById('lots').value") == "0.005"                              # never edited
+
+
+def test_watched_close_matching_modal_without_discard_still_confirms(tpage):
+    # the same Discard-less modal reading back correctly is confirmed exactly once
+    p = tpage(html=_close_page(modal=_close_modal_without_discard(lots="0.01")))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["why"] == "Close Position confirmed" and got["modal"]["discard"] == 0, got
+    assert p.evaluate("window.__closed") == 1
+
+
+def test_discard_modal_refuses_a_discard_tag_that_reads_close_position(tpage):
+    # belt and braces on the Python side: even a mis-tagged discard control is
+    # not pressed when it reads "Close Position"
+    p = tpage(html=_close_page(modal=_close_modal_without_discard(lots="0.005")))
+    p.evaluate("document.getElementById('cm').style.display='block';"
+               "document.querySelector('#cm button').setAttribute('data-metis-modal-btn', 'discard')")
+    assert DXtradeAdapter._discard_modal(p) is False
+    assert p.evaluate("window.__closed") is None
+
+
 def test_watched_close_never_touches_the_chart_overlay_or_a_close_all(tpage):
     # the row's own control is missing; the chart's overlay x and a panel-level x are the only x's
     html = _close_page(icons="").replace('<div data-active="true">Positions</div>',

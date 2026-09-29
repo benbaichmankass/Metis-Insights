@@ -1631,7 +1631,15 @@ CLOSE_ROW_JS = r"""
     const btns = [...modal.querySelectorAll('button, [role=button]')].filter(vis);
     const confirm = btns.filter(b => /^close position$/i.test(txt(b)));
     const discard = btns.filter(b => /^(discard|cancel)$/i.test(txt(b)));
-    const dismiss = btns.filter(b => /^(×|✕|✖|x)$/i.test(txt(b)) || /close|dismiss/i.test(b.getAttribute('aria-label') || ''));
+    // The dismiss fallback (the modal's own x) is NEVER the confirm button and
+    // never anything that reads "position": an aria-label of "Close position"
+    // on the "Close Position" button also matches /close/ (review of #14013:
+    // with no Discard present, that button was tagged discard and a read-back
+    // mismatch pressed it — a partial close).
+    const aria = b => b.getAttribute('aria-label') || '';
+    const dismiss = btns.filter(b => !confirm.includes(b) && !discard.includes(b)
+      && !/position/i.test(txt(b) + ' ' + aria(b))
+      && (/^(×|✕|✖|x)$/i.test(txt(b)) || /close|dismiss/i.test(aria(b))));
     const heading = [...modal.querySelectorAll('h1, h2, h3, h4, [class*=title], [class*=heading]')].map(txt).find(t => /position/i.test(t))
       || (modal.innerText || '').split('\n').map(x => x.trim()).find(t => /^close\s+\S+\s+(buy|sell)\s+position/i.test(t)) || null;
     const inputs = [...modal.querySelectorAll('input:not([type=hidden]):not([type=checkbox]), [role=spinbutton]')].filter(vis);
@@ -2962,10 +2970,17 @@ class DXtradeAdapter(PropPlatformAdapter):
 
     @staticmethod
     def _discard_modal(page: Any) -> bool:
+        """Press the modal's Discard (or its x) — never the confirm button.
+        Belt and braces on top of CLOSE_ROW_JS's tagging: whatever carries the
+        discard tag is read back first, and anything that reads "Close
+        Position" is left alone (Escape is the only fallback)."""
         try:
-            if page.locator("[data-metis-modal-btn=discard]").count() == 1:
-                page.click("[data-metis-modal-btn=discard]", timeout=5_000)
-                return True
+            loc = page.locator("[data-metis-modal-btn=discard]")
+            if loc.count() == 1:
+                label = " ".join(str(x or "") for x in (loc.inner_text(timeout=2_000), loc.get_attribute("aria-label")))
+                if not re.search(r"close\s+position|position", label, re.I):
+                    page.click("[data-metis-modal-btn=discard]", timeout=5_000)
+                    return True
         except Exception:
             pass
         try:
