@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "operator_asked_to_hold",
+  "hold_text": "PROP-EXEC lane brief (manager session_01KAQRJxRbRwpYTkPgBjNVyQ): every PR in this lane is held; the manager merges. Do not arm auto-merge.",
+  "why": "PROP-EXEC fix-forward #3 for the D1-D7 dry run. #13917 (run 36513049259) read the quote (116.50/116.51, #13908 confirmed live) and refused at D4 with 'no unique submit control in the form (panel scrolled to the end)'. Nothing was submitted. Cause, from probe #13855's geometry: the fields are scroll content (y 105-735) inside a viewport ending at y 640; the submit is a fixed footer at y 659. The out-of-form submit search required submit.top >= form.bottom - 10 on the UNCLIPPED content box (735), so it rejected the real submit. Fix: clip the form bottom to its scrolling ancestors' visible bottom. Column, below-the-form, not-in-table and exactly-one constraints unchanged. Tier 2: the order-entry locator on a funded prop account; no sizing, guard or risk change."
+}

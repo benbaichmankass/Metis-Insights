@@ -1517,6 +1517,37 @@ def _measured(sym="SOLUSD", symval="SOLUSD", slmode="Price"):
     return MEASURED_SIDEBAR.replace("%SYMVAL%", symval).replace("%SYM%", sym).replace("%SLMODE%", slmode)
 
 
+def _live_layout():
+    """The LIVE geometry (probe #13855): the fields are scroll content
+    (630px) inside a shorter scroll viewport, and the submit is a footer
+    OUTSIDE the viewport, below it but above the content box's own bottom."""
+    html = _measured().replace(
+        '<div id="col" style="position:absolute;left:903px;top:0;width:330px;height:300px;overflow-y:auto">\n <div id="panel">',
+        '<div id="side" style="position:absolute;left:903px;top:105px;width:330px">'
+        '<div id="col" style="height:300px;overflow-y:scroll">\n <div id="panel" style="min-height:630px">')
+    html = html.replace('\n <div id="footer" style="padding-top:200px">', '</div>\n <div id="footer">')
+    assert 'id="side"' in html and '<div id="footer">' in html
+    return html
+
+
+def test_live_layout_finds_the_footer_submit_below_the_scroll_viewport(tpage):
+    p = tpage(html=_live_layout())
+    form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)
+    assert form["buttons"].get("submit") == "Buy SOLUSD" and form["submit_outside_form"] is True
+    spec = BracketSpec("t7", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec)
+    assert att.stage == "form_verified", att.detail
+    assert p.evaluate("window.__submits") is None
+
+
+def test_live_layout_armed_clicks_the_footer_submit_once(tpage):
+    p = tpage(html=_live_layout())
+    spec = BracketSpec("t8", "SOLUSD", "long", 0.01, 118.0, 126.0, "market", None)
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, spec, arm=True)
+    assert att.submitted, att.detail
+    assert p.evaluate("window.__submits") == 1
+
+
 def test_measured_sidebar_is_recognised_labels_selection_symbol_submit(tpage):
     p = tpage(html=_measured())
     form = DXtradeAdapter(timeout_ms=3_000)._find_form(p)
