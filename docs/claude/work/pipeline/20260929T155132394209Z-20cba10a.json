@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "ict-bot-data-vol attachment state and usage are established and it is either deleted (tenancy total <= 200 GB) or explicitly kept by operator decision with its monthly cost stated",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-CMXYTHSP-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane TRAINER-DISK, trainer-boot-volume measure #14268",
+    "rerun": "open an issue labelled trainer-boot-volume with body 'mode: measure' and read the TENANCY BLOCK TOTAL line"
+  },
+  "state": "queued",
+  "what": "OCI block storage is ALREADY over the Always Free 200 GB: MEASURED 241 GB in trainer-boot-volume #14268 (2026-09-29 15:49Z, 1 compartment, AD-1). The total is boot volumes ict-bot-arm 47 + ict-ib-gateway 47 + ict-trainer-vm 47 plus block volume ict-bot-data-vol 100 GB (AVAILABLE, vpus=10), with 0 backups. That is 41 GB over (~$1.74/month at the INFERRED list price of $0.0425/GB-month, if the tenancy is PAYG). docs/reference/vm-topology.md and oci-storage.yml both say the live /data/bot-data is a DIRECTORY on the live boot volume, not this block volume, so ict-bot-data-vol may be unattached and unused. The same volume blocks the trainer resize: 47 -> 100 GB would project 294 GB. NEXT (read-only first): establish its attachment state (compute list_volume_attachments) and, if attached, what is mounted on it and what reads it. Only then decide delete/keep with the operator; deletion is irreversible. If it is unused and deleted, the total drops to 141 GB and the trainer can grow to 100 GB inside the free tier (projected 194)."
+}
