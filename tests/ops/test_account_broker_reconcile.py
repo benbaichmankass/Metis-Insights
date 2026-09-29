@@ -183,6 +183,8 @@ def test_breakout_divergent_broker_only_position_and_pnl():
                               realized_today=500.0)
     # broker shows a position at a different symbol than the journal declares
     # -> the journal's BTCUSD becomes journal_only, ETHUSD (broker) is broker_only.
+    # Findings are keyed on the canonical BOT symbol (src/prop/symbol_map), the
+    # journal's own key, so the venue spellings read back as BTCUSDT / ETHUSDT.
     status["status"]["raw"] = json.dumps({"open_positions": [
         {"symbol": "ETHUSD", "side": "short", "quantity": 1,
          "stop_loss": None, "take_profit": None}]})
@@ -190,7 +192,7 @@ def test_breakout_divergent_broker_only_position_and_pnl():
     r = m.reconcile_breakout(status, fills, now=datetime(2026, 9, 28, tzinfo=timezone.utc))
     assert r["positions_state"] == "divergent"
     symbols_by_state = {p["symbol"]: p["state"] for p in r["positions"]}
-    assert symbols_by_state == {"BTCUSD": "journal_only", "ETHUSD": "broker_only"}
+    assert symbols_by_state == {"BTCUSDT": "journal_only", "ETHUSDT": "broker_only"}
     assert r["pnl_state"] == "divergent"
 
 
@@ -422,3 +424,39 @@ def test_bybit_wire_realizedPnl_field_is_read_not_pnl():
     assert "pnl" not in closes[0]  # prove the shape
     r = m.reconcile_bybit(j_pos, closes, broker, _wt(-2.8395))
     assert r["pnl_state"] == "agree"
+
+
+# ----------------------------------- breakout_1 venue symbol alias (#14113)
+# The REAL /api/bot/prop/status shape read live 2026-09-29: the journal side
+# (rule_distance.open_risk.positions) keys the position SOLUSDT, the DXtrade
+# terminal (status.raw.open_positions) names the SAME position SOLUSD — same
+# side, qty, entry and stop. Exact-string matching split it into
+# broker_only + journal_only (run 36579673814).
+
+def _prop_status(journal_sym, broker_sym):
+    return {"present": True,
+            "status": {"realized_today": 0.0,
+                       "raw": json.dumps({"open_positions": [
+                           {"symbol": broker_sym, "side": "long", "quantity": 0.01,
+                            "entry_price": 120.62, "stop_loss": 119.36,
+                            "take_profit": 121.78, "unrealized_pnl": None}]})},
+            "rule_distance": {"open_risk": {"positions": [
+                {"fill_id": 47, "ticket_id": "roundtrip-solusd-20260929T125601Z",
+                 "symbol": journal_sym, "direction": "long", "qty": 0.01,
+                 "entry_price": 120.62, "sl": 119.36}]}}}
+
+
+def test_breakout_venue_symbol_matches_journal_bot_symbol():
+    r = m.reconcile_breakout(_prop_status("SOLUSDT", "SOLUSD"), [])
+    assert r["positions_state"] == "agree"
+    assert [p["state"] for p in r["positions"]] == ["position_match"]
+    assert r["positions"][0]["symbol"] == "SOLUSDT"
+    # the protection lookup must find the broker row through the alias too
+    assert r["protection_state"] == "agree"
+    assert r["positions"][0]["has_stop"] is True
+
+
+def test_breakout_genuinely_different_symbol_still_divergent():
+    r = m.reconcile_breakout(_prop_status("SOLUSDT", "ETHUSD"), [])
+    assert r["positions_state"] == "divergent"
+    assert sorted(p["state"] for p in r["positions"]) == ["broker_only", "journal_only"]
