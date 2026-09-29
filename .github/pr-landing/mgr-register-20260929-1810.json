@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager pipeline: close PI-20260929-AQRK6CL1-0004 (operator kept the 2-trade Stage-0 floor) and file the stale queued-workflow-runs cleanup. Management surface only."
+}

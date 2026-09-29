@@ -1270,6 +1270,7 @@ header before triggering a mutating one).
 | `reserve-live-ip.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Make the live trader's public IP a reserved (static) IP. |
 | `terminate-instance.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Terminate an OCI instance by display name (frees Always-Free budget). |
 | `trainer-boot-volume.yml` | Infra | OPERATOR-APPROVAL | label `trainer-boot-volume` / dispatch | Measure tenancy block storage (boot + block volumes vs Always Free 200 GB); grow the TRAINER boot volume online + growpart/resize2fs. Resize needs `confirm: yes` and is refused past 200 GB. |
+| `oci-retire-orphan-volume.yml` | Infra | OPERATOR-APPROVAL | label `oci-retire-orphan-volume` / dispatch | Back up (FULL, must reach AVAILABLE) then delete the ONE pinned orphan block volume `ict-bot-data-vol`. `plan` is read-only and prints the OCID; `execute` needs `volume_id` + `confirm: yes`; refuses on any attachment record or listing error. |
 | `vm-resize-live.yml` | Infra | OPERATOR-APPROVAL | label / dispatch | Resize the live trader VM within the OCI Always-Free pool. |
 | `vm-devnull-deploy-bootstrap.yml` | One-shot repair | OPERATOR-APPROVAL | label / dispatch | One-shot bootstrap to break the /dev/null auto-deploy chicken-and-egg. |
 | `vm-fix-devnull.yml` | One-shot repair | OPERATOR-APPROVAL | label / dispatch | One-shot repair of a broken /dev/null on the live trader VM. |

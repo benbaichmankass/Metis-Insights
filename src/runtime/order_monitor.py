@@ -49,6 +49,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import math
 import os
 import threading
 import time
@@ -8378,6 +8379,215 @@ def _stamp_repair(db, row, kind: str, verified: str = "unverified") -> None:
         )
 
 
+#: Per-PROCESS attempt memo for Alpaca quantity top-ups, keyed
+#: ``(account_id, SYMBOL, trade_id)`` -> monotonic seconds of the last attempt.
+#: A restart forgets it, which costs at most one extra correctly-sized attempt.
+_ALPACA_TOPUP_ATTEMPTS: Dict[Tuple[str, str, Any], float] = {}
+_ALPACA_TOPUP_COOLDOWN_S = 900.0
+
+
+def _alpaca_top_up_uncovered(db, client, account_id: str, symbol: str,
+                             cov: Dict[str, Any], sym_rows: List[Any],
+                             now: datetime) -> str:
+    """Protect the UNCOVERED shares of a partially-covered Alpaca position.
+
+    PI-20260929-PR6YRTQY-0003. MEASURED 2026-09-29 via
+    /api/diag/alpaca_order_history: paper rows 6023 (QQQ 22), 6024 (QQQ 56)
+    and 6131 (SPY 8) lost their entry-bracket legs at the 20:00Z close while a
+    sibling row's OCO on the same symbol kept `protection_state` reading
+    `stop: True` — so the sweep graded them `partially_naked`, alerted, and
+    re-armed nothing, overnight.
+
+    Returns the outcome as a string: ``topped_up`` or ``refused_<why>``.
+
+    The rules, each a refusal rather than a guess (they extend #14127's):
+
+    * the shortfall must be ATTRIBUTABLE: match every open row on the symbol
+      against the resting stop legs by size; exactly ONE row may be left
+      unmatched, and its size must equal ``size - stop_qty``;
+    * no OTHER open row may share that row's size (size is ownership only when
+      unique);
+    * the unmatched row must be past the entry grace (its legs may still be
+      attaching);
+    * the uncovered quantity must be a whole number of shares;
+    * the row's direction must match the venue position's side;
+    * one attempt per row per ``_ALPACA_TOPUP_COOLDOWN_S`` (success or not);
+    * a FRESH coverage read taken just before placing must reproduce the
+      graded size, side and stop legs, and caps the placed qty (REVIEW-14177:
+      the sweep's positions snapshot can go stale mid-sweep; a truncated order
+      history reads ``None`` and refuses).
+
+    The OCO is placed with ``additive: True`` — :meth:`place_protective` then
+    cancels NOTHING and releases nothing, so a covered sibling's legs are never
+    touched. Its levels are the attributed row's own sl/tp (falling back to the
+    originating package, as the naked re-arm does). Never raises.
+    """
+    try:
+        size = float(cov.get("size") or 0.0)
+        stop_q = float(cov.get("stop_qty") or 0.0)
+        uncovered = size - stop_q
+        if stop_q <= 0 or uncovered <= 1e-9:
+            return "refused_not_partial"
+        if abs(uncovered - round(uncovered)) > 1e-9:
+            return "refused_fractional_shortfall"
+        legs = [float(q) for q in (cov.get("stop_leg_qtys") or [])]
+        unmatched = []
+        for r in sorted(sym_rows, key=lambda r: r["id"]):
+            q = _safe_float(r["position_size"])
+            if q is None or q <= 0:
+                return "refused_unreadable_row_size"
+            hit = next((i for i, lq in enumerate(legs) if abs(lq - q) <= 1e-9), None)
+            if hit is None:
+                unmatched.append(r)
+            else:
+                legs.pop(hit)
+        if len(unmatched) != 1:
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s shortfall %s not attributable "
+                "(%d unmatched rows) — refusing, alert stands",
+                account_id, symbol, uncovered, len(unmatched),
+            )
+            return "refused_ambiguous_attribution"
+        row = unmatched[0]
+        rq = float(row["position_size"])
+        if abs(rq - uncovered) > 1e-9:
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s unmatched row %s is %s sh but "
+                "the shortfall is %s — refusing, alert stands",
+                account_id, symbol, row["id"], rq, uncovered,
+            )
+            return "refused_qty_mismatch"
+        if any(r["id"] != row["id"] and abs(float(r["position_size"] or 0) - rq) <= 1e-9
+               for r in sym_rows):
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s another open row is also %s sh "
+                "— ownership by size not unique, refusing", account_id, symbol, rq,
+            )
+            return "refused_same_size_sibling"
+        created = _parse_created_at(row["created_at"])
+        if created is not None and (now - created).total_seconds() < _NAKED_POSITION_GRACE_SECONDS:
+            return "refused_within_grace"
+        # The row must be on the side the venue says the position is on; a
+        # top-up on the wrong side would OPEN exposure, not protect it.
+        want_side = {"long": "buy", "buy": "buy", "short": "sell",
+                     "sell": "sell"}.get(str(row["direction"] or "").lower())
+        if not want_side or want_side != str(cov.get("side") or ""):
+            return "refused_side_mismatch"
+        # One attempt per row per cooldown window, success OR refusal: a
+        # refused POST must not repeat every tick, and an accepted one must not
+        # be doubled by a sweep whose read has not yet caught up.
+        cd_key = (account_id, symbol.upper(), row["id"])
+        last = _ALPACA_TOPUP_ATTEMPTS.get(cd_key)
+        if last is not None and time.monotonic() - last < _ALPACA_TOPUP_COOLDOWN_S:
+            return "refused_cooldown"
+        sl, tp = row["stop_loss"], row["take_profit_1"]
+        a_sl = sl if (sl not in (None, 0) and sl > 0) else None
+        a_tp = tp if (tp not in (None, 0) and tp > 0) else None
+        if a_sl is None or a_tp is None:
+            r_sl, r_tp = _resolve_protective_levels(db, symbol, str(row["direction"] or ""))
+            a_sl = a_sl if a_sl is not None else r_sl
+            a_tp = a_tp if a_tp is not None else r_tp
+        if a_sl is None or a_tp is None:
+            return "refused_no_levels"
+        # `oca_key` is inert on Alpaca (its client scopes by size, not OCA
+        # group) and passed so every re-arm call site in this module carries
+        # it, as tests/test_ib_rearm_scopes_precancel.py requires.
+        # FRESH re-read immediately before placing (REVIEW-14177 blocker a).
+        # `cov` came from a positions snapshot taken once per sweep; a sibling's
+        # stop can fill in between, leaving the shares this would protect
+        # already flat. The fresh read (its own /v2/positions/{sym}, and the
+        # paged order read — None when truncated, blocker b) must reproduce the
+        # graded size and stop legs exactly, and the placed qty is capped at
+        # what is still uncovered NOW.
+        fresh = client.protection_coverage(
+            symbol, since=_oldest_open_created_at(sym_rows, account_id, symbol))
+        if (not isinstance(fresh, dict) or fresh.get("unknown_qty_legs")
+                or fresh.get("source") != "orders"):
+            # Streaked + paged on persistence, never only logged (REVIEW-14241 item 1).
+            _note_protection_unreadable(account_id, symbol, row["id"], channel="topup")
+            return "refused_fresh_read_unavailable"
+        if (abs(float(fresh.get("size") or 0.0) - size) > 1e-9
+                or sorted(float(q) for q in (fresh.get("stop_leg_qtys") or []))
+                != sorted(float(q) for q in (cov.get("stop_leg_qtys") or []))
+                or str(fresh.get("side") or "") != str(cov.get("side") or "")):
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s changed since the sweep's "
+                "snapshot (size %s -> %s) — refusing; next sweep re-grades",
+                account_id, symbol, size, fresh.get("size"),
+            )
+            return "refused_state_changed"
+        # A top-up stop already through the market would fill on arrival —
+        # the PR6YRTQY-0005 failure in top-up form. Price from a fresh read.
+        _q = client.position_quote(symbol)
+        _px = _q.get("current_price") if isinstance(_q, dict) else None
+        _bid = _ask = None
+        try:
+            _lq = client.latest_quote(symbol) or {}
+            _bid, _ask = _lq.get("bid"), _lq.get("ask")
+        except Exception:  # noqa: BLE001
+            pass
+        if _px is None and _bid is None and _ask is None:
+            _note_protection_unreadable(account_id, symbol, row["id"], channel="topup")
+            return "refused_fresh_read_unavailable"
+        _clear_protection_unreadable(account_id, symbol, "topup")
+        _side = "long" if want_side == "buy" else "short"
+        _bst, _binfo = _breach_state(client, symbol, _side, float(a_sl), _px, _bid, _ask)
+        if _bst == "unconfirmed":
+            # NO cooldown here (REVIEW-14241 round 3, B1): nothing was sent, so
+            # the next sweep must look again rather than sit out 15 minutes
+            # with the shares uncovered. Bounded: after _BREACH_DEFER_MAX
+            # consecutive deferrals the top-up is placed anyway (B2).
+            _esc, _n = _breach_deferral(account_id, symbol, row["id"])
+            if not _esc:
+                return "deferred_unconfirmed_breach"
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s trade_id=%s unconfirmed breach "
+                "deferred %d sweeps — posting the top-up stop anyway (an Alpaca "
+                "stop triggers on trades, not on the quote)",
+                account_id, symbol, row["id"], _n)
+        else:
+            _clear_breach_deferral(account_id, symbol, row["id"])
+        if _bst == "confirmed":
+            # The attributed row is CONFIRMED present (the fresh read matched
+            # the grade) and a FRESH last trade is through its stop: exit it via
+            # the trade-scoped close, labelled sl (REVIEW-14241 item 2).
+            _ALPACA_TOPUP_ATTEMPTS[cd_key] = time.monotonic()
+            _res = _exit_alpaca_row(
+                db, row, account_id, symbol, reason="sl",
+                why=(f"top-up stop {a_sl} breached by a fresh last trade "
+                     f"({(_binfo.get('trade') or {}).get('price')})"))
+            return {"exited": "exited_breached_stop", "deferred": "exit_deferred",
+                    "failed": "exit_failed"}[_res]
+        place_qty = min(uncovered, float(fresh["size"]) - float(fresh.get("stop_qty") or 0.0))
+        if place_qty < 1 or abs(place_qty - round(place_qty)) > 1e-9:
+            return "refused_state_changed"
+        _ALPACA_TOPUP_ATTEMPTS[cd_key] = time.monotonic()
+        topup_resp = client.place_protective({
+            "symbol": symbol, "direction": str(row["direction"] or ""),
+            "qty": int(round(place_qty)), "sl": a_sl, "tp": a_tp,
+            "additive": True, "oca_key": str(row["id"]),
+            "account_id": account_id,
+        })
+        if not topup_resp or topup_resp.get("retCode") != 0:
+            logger.warning(
+                "_alpaca_top_up_uncovered: %s/%s top-up refused by venue for "
+                "trade_id=%s: %r", account_id, symbol, row["id"],
+                (topup_resp or {}).get("retMsg"),
+            )
+            return "refused_by_venue"
+        _stamp_repair(db, row, "partial_topup")
+        logger.warning(
+            "_alpaca_top_up_uncovered: topped up %s/%s — GTC OCO for the "
+            "uncovered %s sh (sl=%s tp=%s) on trade_id=%s; no leg cancelled",
+            account_id, symbol, int(round(place_qty)), a_sl, a_tp, row["id"],
+        )
+        return "topped_up"
+    except Exception as exc:  # noqa: BLE001 — never break the sweep
+        logger.warning("_alpaca_top_up_uncovered: %s/%s failed: %s",
+                       account_id, symbol, exc)
+        return "refused_error"
+
+
 def _open_sibling_qtys(db, row, account_id: str, symbol: str) -> Optional[List[float]]:
     """Sizes of the OTHER open, non-backtest rows on *account_id*/*symbol*.
 
@@ -8574,6 +8784,384 @@ def _attempt_naked_autoprotect(row, sl, tp, *, db=None,
         return False
 
 
+#: Re-arm budget per journal row (PI-20260929-PR6YRTQY-0005). A healthy row
+#: needs one re-arm per lapse; 5928 needed 29 in two hours because each one was
+#: consumed on arrival. Durable (runtime_logs), so a restart does not refill it.
+_ALPACA_REARM_CAP = 3
+_ALPACA_REARM_WINDOW_S = 24 * 3600.0
+_ALPACA_REARM_REFUSAL_PAGE_COOLDOWN_S = 3600.0
+
+
+def _rearm_attempts(account_id: str, trade_id: Any) -> int:
+    state, _ok = _load_alert_state("alpaca_rearm_attempts")
+    now = time.time()
+    rec = (state or {}).get(f"{account_id}|{trade_id}") or {}
+    return sum(1 for t in rec.get("at", []) if now - float(t) < _ALPACA_REARM_WINDOW_S)
+
+
+def _record_rearm_attempt(account_id: str, trade_id: Any) -> None:
+    try:
+        state, _ok = _load_alert_state("alpaca_rearm_attempts")
+        state = dict(state or {})
+        now = time.time()
+        key = f"{account_id}|{trade_id}"
+        at = [float(t) for t in (state.get(key) or {}).get("at", [])
+              if now - float(t) < _ALPACA_REARM_WINDOW_S]
+        at.append(now)
+        state[key] = {"at": at}
+        _save_alert_state("alpaca_rearm_attempts", state)
+    except Exception:  # noqa: BLE001 — bookkeeping must never abort the sweep
+        logger.exception("_record_rearm_attempt: %s/%s", account_id, trade_id)
+
+
+def _page_rearm_refusal(kind: str, account_id: str, symbol: str,
+                        trade_id: Any, reason: str) -> None:
+    """Log every refusal; page CRITICAL (per symbol+kind cooldown)."""
+    logger.warning("_alpaca_rearm_preflight: %s/%s trade_id=%s REFUSED (%s): %s",
+                   account_id, symbol, trade_id, kind, reason)
+    if not _cooldown_admits("alpaca_rearm_refused", f"{account_id}|{symbol}|{kind}",
+                            _ALPACA_REARM_REFUSAL_PAGE_COOLDOWN_S):
+        return
+    try:
+        from src.runtime.outcomes import Level, report
+
+        report("alpaca_rearm_refused", "detected", level=Level.CRITICAL,
+               reason=f"{account_id}/{symbol} trade {trade_id}: re-arm refused "
+                      f"({kind}) — {reason}",
+               account_id=account_id, symbol=symbol, trade_id=trade_id, kind=kind)
+    except Exception:  # noqa: BLE001
+        logger.exception("_page_rearm_refusal: alert failed for %s/%s", account_id, symbol)
+
+
+def _reset_rearm_attempts(account_id: str, trade_id: Any) -> None:
+    """Clear a row's re-arm budget — it has a confirmed resting stop again."""
+    try:
+        state, _ok = _load_alert_state("alpaca_rearm_attempts")
+        key = f"{account_id}|{trade_id}"
+        if state and key in state:
+            state = dict(state)
+            state.pop(key, None)
+            _save_alert_state("alpaca_rearm_attempts", state)
+    except Exception:  # noqa: BLE001
+        logger.exception("_reset_rearm_attempts: %s/%s", account_id, trade_id)
+
+
+def _prune_rearm_attempts(open_keys: set) -> None:
+    """Drop budget entries for rows that are no longer open (closed rows)."""
+    try:
+        state, _ok = _load_alert_state("alpaca_rearm_attempts")
+        if not state:
+            return
+        kept = {k: v for k, v in state.items() if k in open_keys}
+        if len(kept) != len(state):
+            _save_alert_state("alpaca_rearm_attempts", kept)
+    except Exception:  # noqa: BLE001
+        logger.exception("_prune_rearm_attempts failed")
+
+
+def _dir_side(direction: Any) -> Optional[str]:
+    d = str(direction or "").lower()
+    return "long" if d in ("long", "buy") else ("short" if d in ("short", "sell") else None)
+
+
+def _stop_is_marketable(side: str, stop: float, last: Optional[float],
+                        bid: Optional[float], ask: Optional[float]) -> bool:
+    """Would a stop at *stop* trigger on arrival? (REVIEW-14241 item 5)
+
+    Long (sell stop): triggers when stop >= min(last, bid).
+    Short (buy stop): triggers when stop <= max(last, ask).
+    A missing bid/ask leaves the last-trade test alone standing.
+    """
+    if side == "long":
+        refs = [p for p in (last, bid) if p is not None]
+        return bool(refs) and float(stop) >= min(refs)
+    refs = [p for p in (last, ask) if p is not None]
+    return bool(refs) and float(stop) <= max(refs)
+
+
+#: A last trade older than this cannot CONFIRM a stop breach (REVIEW-14241
+#: round 2, blocker 1): a stale print must never fire a market exit.
+_BREACH_TRADE_MAX_AGE_S = 120.0
+
+#: Consecutive UNCONFIRMED-breach deferrals after which the row's own stop is
+#: posted anyway (REVIEW-14241 round 3, B2). A deferred row has NOTHING resting
+#: at the venue, so the deferral must be bounded. Posting is then safe: an
+#: Alpaca stop triggers on TRADES, so a stop placed against a stale or thin
+#: IEX quote is inert until a real print reaches it, and a real breach exits
+#: through the stop itself. Still bounded by the per-row re-arm cap.
+_BREACH_DEFER_MAX = 3
+#: (account, SYMBOL, trade_id) -> consecutive unconfirmed-breach deferrals.
+#: Per-process: a restart re-counts from zero (it can only delay, by at most
+#: _BREACH_DEFER_MAX sweeps, a stop that is then posted).
+_ALPACA_BREACH_DEFERRALS: Dict[Tuple[str, str, Any], int] = {}
+
+
+def _breach_deferral(account_id: str, symbol: str, trade_id: Any) -> Tuple[bool, int]:
+    """Count one unconfirmed-breach deferral; ``(escalate, n)``.
+
+    ``escalate`` is True once *n* exceeds ``_BREACH_DEFER_MAX`` — the caller
+    then posts the stop instead of deferring again. Every deferral is streaked
+    on the ``breach`` channel, whose page says what it is (an unconfirmed
+    breach, not an unreadable read).
+    """
+    key = (account_id, symbol.upper(), trade_id)
+    n = _ALPACA_BREACH_DEFERRALS.get(key, 0) + 1
+    _ALPACA_BREACH_DEFERRALS[key] = n
+    _note_protection_unreadable(account_id, symbol, trade_id, channel="breach")
+    return n > _BREACH_DEFER_MAX, n
+
+
+def _clear_breach_deferral(account_id: str, symbol: str, trade_id: Any) -> None:
+    _ALPACA_BREACH_DEFERRALS.pop((account_id, symbol.upper(), trade_id), None)
+    _clear_protection_unreadable(account_id, symbol, "breach")
+
+
+def _breach_state(client, symbol: str, side: str, stop: float,
+                  last_pos: Optional[float], bid: Optional[float],
+                  ask: Optional[float]) -> Tuple[str, Dict[str, Any]]:
+    """``confirmed`` / ``unconfirmed`` / ``clear`` / ``session_closed``.
+
+    * ``session_closed`` — outside the regular (``rth``) US-equity session no stop can
+      trigger and no market exit can fill: a stop may simply REST (it fires at
+      the open, which is exactly the stop's meaning) — never an exit attempt.
+    * ``confirmed`` — a FRESH last trade (≤ ``_BREACH_TRADE_MAX_AGE_S``) is at
+      or through the stop. Only this may drive the trade-scoped exit, labelled
+      ``sl``: it preserves the stop's own semantics — Alpaca's trade-triggered
+      stop would have fired on that print.
+    * ``unconfirmed`` — no fresh trade confirms it, but the IEX bid/ask or the
+      position's last price says the stop would trigger on arrival: do NOT
+      exit (a thin or stale IEX book must not sell at market), do NOT post a
+      stop that fills on arrival — DEFER the re-arm and look again next tick.
+    * ``clear`` — nothing says the stop is through the market.
+    """
+    try:
+        from src.runtime.market_hours import us_equity_session
+        if us_equity_session() != "rth":
+            return "session_closed", {}
+    except Exception:  # noqa: BLE001 — unknown session: fall through to the price tests
+        pass
+    trade = None
+    try:
+        trade = client.latest_trade(symbol)
+    except Exception:  # noqa: BLE001
+        trade = None
+    info = {"trade": trade, "last": last_pos, "bid": bid, "ask": ask}
+    if trade and trade.get("age_s") is not None and trade["age_s"] <= _BREACH_TRADE_MAX_AGE_S:
+        tp = float(trade["price"])
+        if (side == "long" and float(stop) >= tp) or (side == "short" and float(stop) <= tp):
+            return "confirmed", info
+    if _stop_is_marketable(side, float(stop), last_pos, bid, ask):
+        return "unconfirmed", info
+    return "clear", info
+
+
+def _alpaca_rearm_preflight(client, account_id: str, symbol: str, row,
+                            sym_rows: List[Any], sl: float) -> Tuple[str, Dict[str, Any]]:
+    """Decide what the naked sweep may do for *row*: ``(verdict, info)``.
+
+    PI-20260929-PR6YRTQY-0005 (+ REVIEW-14241). Measured 2026-09-24,
+    alpaca_portfolio QQQ: after row 5928's own 2-sh stop filled, the sweep
+    re-armed 5928 28 more times with a stop the market was already below; each
+    filled on arrival and together they sold sibling 6024's 56 shares above
+    6024's own stop. Everything here comes from ONE fresh ``position_quote``
+    plus the latest bid/ask — never the sweep snapshot.
+
+    Verdicts:
+
+    * ``ok`` — re-arm the row's own OCO.
+    * ``could_not_look`` — position or price unreadable; counted, streaked on
+      the ``preflight`` channel and paged when it persists.
+    * ``flat`` / ``side_mismatch`` / ``row_shares_gone`` — this row's shares
+      are not at the venue (gone, or the book is on the other side). Refused
+      and paged: a re-arm would open exposure or sell a sibling's shares.
+    * ``exit_breached`` — the row is CONFIRMED present and a FRESH last trade
+      is through its stop (:func:`_breach_state`). That print would have fired
+      Alpaca's own stop, so the row is EXITED via the trade-scoped close,
+      labelled ``sl`` — preserving the stop's semantics, not left naked, not
+      re-armed into an instant fill.
+    * ``deferred_unconfirmed_breach`` — only the IEX quote / position price
+      says the stop is through: no exit, no instant-fill stop; deferred and
+      streaked (paged on persistence).
+    * ``protect_venue_holding`` — the venue holds fewer shares than the open
+      rows claim and no single row explains it (or rows on this symbol point
+      both ways). *info* names ONE additive OCO for what the venue actually
+      holds, at the tightest non-marketable same-side row stop, never
+      cancelling anything. Paged.
+    * ``all_stops_breached`` — as above but every candidate stop is already
+      through the market: refused and paged (no attributable exit exists).
+    * ``cap`` — the row has had ``_ALPACA_REARM_CAP`` re-arms in 24 h without
+      holding a stop; the sweep escalates it to the trade-scoped close.
+    """
+    want = _dir_side(row["direction"])
+    q = client.position_quote(symbol)
+    if q.get("state") == "could_not_look" or want is None:
+        _note_protection_unreadable(account_id, symbol, row["id"], channel="preflight")
+        return "could_not_look", {}
+    last = q.get("current_price")
+    bid = ask = None
+    try:
+        quote = client.latest_quote(symbol) or {}
+        bid, ask = quote.get("bid"), quote.get("ask")
+    except Exception:  # noqa: BLE001 — bid/ask narrows the test; last still stands
+        pass
+    if q.get("state") == "flat":
+        _clear_protection_unreadable(account_id, symbol, "preflight")
+        _page_rearm_refusal("flat", account_id, symbol, row["id"],
+                            "no venue position — the row's shares are gone; a "
+                            "re-arm would open exposure, not protect it")
+        return "flat", {}
+    if last is None and bid is None and ask is None:
+        _note_protection_unreadable(account_id, symbol, row["id"], channel="preflight")
+        return "could_not_look", {}
+    _clear_protection_unreadable(account_id, symbol, "preflight")
+    venue_side, venue_qty = q.get("side"), float(q.get("qty") or 0.0)
+    if venue_side != want:
+        _page_rearm_refusal("side_mismatch", account_id, symbol, row["id"],
+                            f"venue side {venue_side} vs row {want}")
+        return "side_mismatch", {}
+
+    same = [r for r in sym_rows if _dir_side(r["direction"]) == want]
+    mixed = any(_dir_side(r["direction"]) != want for r in sym_rows)
+    journal_qty = sum(float(_safe_float(r["position_size"]) or 0.0) for r in same)
+    row_qty = float(_safe_float(row["position_size"]) or 0.0)
+    deficit = journal_qty - venue_qty
+    if deficit > 1e-9 or mixed:
+        gone = [r for r in same
+                if abs(float(_safe_float(r["position_size"]) or 0.0) - deficit) <= 1e-9]
+        if not mixed and len(gone) == 1:
+            if gone[0]["id"] == row["id"]:
+                _page_rearm_refusal(
+                    "row_shares_gone", account_id, symbol, row["id"],
+                    f"venue holds {venue_qty} vs {journal_qty} journaled — this "
+                    f"row's {row_qty} shares are the ones already gone")
+                return "row_shares_gone", {}
+            # this row survives; its shares are within what the venue holds
+        else:
+            # UNATTRIBUTABLE (REVIEW-14241 item 3): protect what the venue
+            # actually holds, at the tightest same-side stop that is not
+            # already through the market. Never leave the whole book naked.
+            cands = []
+            for r in same:
+                s_ = _safe_float(r["stop_loss"])
+                if s_ and s_ > 0 and not _stop_is_marketable(want, s_, last, bid, ask):
+                    cands.append(r)
+            if not cands:
+                _page_rearm_refusal(
+                    "all_stops_breached", account_id, symbol, row["id"],
+                    f"venue {venue_qty} vs journal {journal_qty} (mixed={mixed}) and "
+                    "every row stop is already through the market")
+                return "all_stops_breached", {}
+            pick = (max if want == "long" else min)(
+                cands, key=lambda r: float(_safe_float(r["stop_loss"]) or 0.0))
+            _page_rearm_refusal(
+                "venue_holding_protected", account_id, symbol, row["id"],
+                f"venue {venue_qty} vs journal {journal_qty} (mixed={mixed}) — "
+                f"one OCO for the {venue_qty} held, at row {pick['id']}'s stop "
+                f"{pick['stop_loss']} (tightest non-marketable)")
+            return "protect_venue_holding", {"row": pick, "qty": venue_qty, "side": want}
+    if row_qty > venue_qty + 1e-9:
+        _page_rearm_refusal("row_shares_gone", account_id, symbol, row["id"],
+                            f"row {row_qty} exceeds venue {venue_qty}")
+        return "row_shares_gone", {}
+    bstate, binfo = _breach_state(client, symbol, want, float(sl), last, bid, ask)
+    if bstate == "confirmed":
+        return "exit_breached", binfo
+    if bstate == "unconfirmed":
+        # Refuse to post a stop the quote says would trigger, and do not sell at
+        # market on a quote alone. BOUNDED (REVIEW-14241 round 3, B2): a
+        # deferred row has nothing resting at the venue, so after
+        # _BREACH_DEFER_MAX consecutive deferrals the stop is posted anyway —
+        # through the cap check below, like any re-arm.
+        esc, _n = _breach_deferral(account_id, symbol, row["id"])
+        if not esc:
+            return "deferred_unconfirmed_breach", binfo
+        _page_rearm_refusal(
+            "breach_deferral_escalated", account_id, symbol, row["id"],
+            f"stop {sl} looked breached on the quote/position price for {_n} "
+            "sweeps with no fresh last trade to confirm it — posting the stop "
+            "(an Alpaca stop triggers on trades, so a stale quote leaves it "
+            "resting and a real breach exits through it)")
+    else:
+        _clear_breach_deferral(account_id, symbol, row["id"])
+    if bstate == "session_closed":
+        # Market closed: a GTC stop just RESTS and triggers at the open, and a
+        # stop cannot fill on arrival outside RTH, so a re-arm now cannot loop.
+        # The cap is therefore NOT checked here — it would escalate to a
+        # market exit that cannot fill — and is enforced at the first RTH
+        # sweep, where the attempts made overnight still count.
+        return "ok", binfo
+    n = _rearm_attempts(account_id, row["id"])
+    if n >= _ALPACA_REARM_CAP:
+        return "cap", {"attempts": n}
+    return "ok", {}
+
+
+def _exit_alpaca_row(db, row, account_id: str, symbol: str, *, reason: str,
+                     why: str) -> str:
+    """Exit ONE row via the trade-scoped close path; journal it as *reason*.
+
+    Exchange first (``_send_close_to_exchange`` → ``AlpacaClient.close`` with
+    the row's own qty, which never flattens a sibling), then the journal row.
+    The fill price is read back when the venue returns an order id; otherwise
+    the exit price is left for the reconciler rather than invented.
+
+    Returns ``exited`` / ``deferred`` / ``failed``. ``deferred`` is the venue's
+    own "market closed — exit deferred" (AlpacaClient.close retCode 2): NOT a
+    refusal, not paged as one; the caller keeps a stop resting instead
+    (REVIEW-14241 round 2, blocker 3). ``failed`` is paged CRITICAL.
+    """
+    matched = {
+        "id": row["id"], "account_id": account_id, "symbol": symbol,
+        "direction": row["direction"], "position_size": row["position_size"],
+    }
+    resp = _send_close_to_exchange(matched) or {}
+    if not resp.get("ok"):
+        err = str(resp.get("error") or "")
+        low = err.lower()
+        # Every AlpacaClient.close retCode-2 message says "deferred" (market
+        # closed; extended-hours "DEFERRED to the regular session"; limit
+        # close still working; position unreadable) — match the word, not one
+        # phrasing (REVIEW-14241 round 3).
+        if "deferred" in low or "deferring" in low or "market closed" in low:
+            logger.info("_exit_alpaca_row: %s/%s trade_id=%s %s exit DEFERRED "
+                        "(market session): %s", account_id, symbol, row["id"],
+                        reason, err)
+            return "deferred"
+        _page_rearm_refusal("exit_failed", account_id, symbol, row["id"],
+                            f"{reason} exit REFUSED by the venue: {err}")
+        return "failed"
+    fill = None
+    try:
+        fill = _capture_fill_details(matched, resp.get("exchange_order_id"))
+    except Exception:  # noqa: BLE001
+        fill = None
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        notes = _decode_notes(row["notes"]) if _row_has(row, "notes") else {}
+    except Exception:  # noqa: BLE001
+        notes = {}
+    notes.update({
+        "closed_at": now_iso,
+        "closed_by": "alpaca_rearm_preflight",
+        "closed_reason": why,
+        "exit_reason_source": "rearm_preflight",
+    })
+    upd: Dict[str, Any] = {"status": "closed", "exit_reason": reason,
+                           "closed_at": now_iso, "notes": dump_capped(notes, 2000)}
+    if fill and fill.get("avg_price"):
+        upd["exit_price"] = float(fill["avg_price"])
+        notes["exit_price_source"] = "exchange_fill"
+        upd["notes"] = dump_capped(notes, 2000)
+    try:
+        db.update_trade(int(row["id"]), upd)
+        _cascade_close_linked_package(db, row["id"], close_reason=reason,
+                                      caller="alpaca_rearm_preflight")
+    except Exception:  # noqa: BLE001
+        logger.exception("_exit_alpaca_row: journal close failed for %s", row["id"])
+    _page_rearm_refusal(f"exited_{reason}", account_id, symbol, row["id"], why)
+    return "exited"
+
+
 def _oldest_open_created_at(rows, account_id: str, symbol: str) -> Optional[str]:
     """Earliest ``created_at`` among open rows on *account_id*/*symbol*, or None."""
     stamps = []
@@ -8591,16 +9179,22 @@ def _oldest_open_created_at(rows, account_id: str, symbol: str) -> Optional[str]
 
 #: Consecutive sweeps on which an Alpaca position's protection could not be
 #: read, per (account, SYMBOL). Per-process; a restart re-arms the count.
-_PROTECTION_UNREADABLE_STREAK: Dict[Tuple[str, str], int] = {}
+#: Keyed ``(account, SYMBOL, channel)``: ``state`` = the sweep's
+#: protection_state read, ``preflight`` = the re-arm pre-flight's position
+#: read, ``topup`` = the top-up's fresh read. Separate channels, so a read that
+#: succeeds on one path cannot reset the streak of one failing on another.
+_PROTECTION_UNREADABLE_STREAK: Dict[Tuple[str, str, str], int] = {}
 _PROTECTION_UNREADABLE_PAGE_AFTER = 3
 _PROTECTION_UNREADABLE_COOLDOWN_S = 3600.0
 
 
-def _clear_protection_unreadable(account_id: str, symbol: str) -> None:
-    _PROTECTION_UNREADABLE_STREAK.pop((account_id, symbol.upper()), None)
+def _clear_protection_unreadable(account_id: str, symbol: str,
+                                 channel: str = "state") -> None:
+    _PROTECTION_UNREADABLE_STREAK.pop((account_id, symbol.upper(), channel), None)
 
 
-def _note_protection_unreadable(account_id: str, symbol: str, trade_id: Any) -> None:
+def _note_protection_unreadable(account_id: str, symbol: str, trade_id: Any,
+                                channel: str = "state") -> None:
     """Log every unreadable protection read; page when it PERSISTS.
 
     One failed read is usually a network blip, so it is logged, not paged. From
@@ -8609,17 +9203,19 @@ def _note_protection_unreadable(account_id: str, symbol: str, trade_id: Any) -> 
     position whose stop we cannot see for minutes is one we cannot claim is
     protected. Never raises into the sweep.
     """
-    key = (account_id, symbol.upper())
+    key = (account_id, symbol.upper(), channel)
     n = _PROTECTION_UNREADABLE_STREAK.get(key, 0) + 1
     _PROTECTION_UNREADABLE_STREAK[key] = n
     logger.warning(
         "_check_broker_naked_equity_positions: %s/%s protection UNREADABLE "
-        "(consecutive=%d, trade_id=%s) — not re-armed, not graded; this is "
-        "'we could not look', not 'protected'", account_id, symbol, n, trade_id,
+        "[%s] (consecutive=%d, trade_id=%s) — not re-armed, not graded; this "
+        "is 'we could not look', not 'protected'", account_id, symbol, channel,
+        n, trade_id,
     )
     if n < _PROTECTION_UNREADABLE_PAGE_AFTER:
         return
-    if not _cooldown_admits("alpaca_protection_unreadable", f"{account_id}|{symbol}",
+    if not _cooldown_admits("alpaca_protection_unreadable",
+                            f"{account_id}|{symbol}|{channel}",
                             _PROTECTION_UNREADABLE_COOLDOWN_S):
         return
     try:
@@ -8630,12 +9226,19 @@ def _note_protection_unreadable(account_id: str, symbol: str, trade_id: Any) -> 
             "detected",
             level=Level.CRITICAL,
             reason=(
-                f"{account_id}/{symbol}: resting-order state unreadable for {n} "
+                f"{account_id}/{symbol}: stop breach UNCONFIRMED for {n} "
+                "consecutive sweeps — the quote/position price is through the "
+                "stop but no fresh last trade confirms it, so the re-arm is "
+                "deferred and NOTHING is resting at the venue (the stop is "
+                f"posted after {_BREACH_DEFER_MAX} deferrals)."
+                if channel == "breach" else
+                f"{account_id}/{symbol}: {channel} read unreadable for {n} "
                 "consecutive sweeps — the naked sweep cannot tell whether this "
                 "position has a stop, so it is neither re-armed nor graded."
             ),
             account_id=account_id,
             symbol=symbol,
+            channel=channel,
             consecutive=n,
             trade_id=trade_id,
         )
@@ -8686,10 +9289,29 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         "partially_naked": 0,
         "coverage_ungradeable": 0,
         "coverage_read_failed": 0,
+        # Quantity top-ups (PI-20260929-PR6YRTQY-0003): a partially_naked
+        # symbol is either topped up for its uncovered shares or refused with a
+        # logged reason — declared at 0 so "none needed" is not "not looked".
+        "topped_up": 0,
+        "topup_refused": 0,
         # protection_state() could not be read for a past-grace position:
         # "we did not look", counted and (on persistence) paged — never a
         # silent skip (REVIEW-14123).
         "protection_read_failed": 0,
+        # Re-arm pre-flight outcomes (PI-20260929-PR6YRTQY-0005 / REVIEW-14241
+        # item 6): declared at 0 so "none happened" reads as 0, not absent.
+        "rearm_refused_could_not_look": 0,
+        "rearm_refused_flat": 0,
+        "rearm_refused_side_mismatch": 0,
+        "rearm_refused_row_shares_gone": 0,
+        "rearm_refused_all_stops_breached": 0,
+        "breach_exits": 0,
+        "cap_exits": 0,
+        "venue_holding_protected": 0,
+        "venue_holding_cooldown": 0,
+        "rearm_refused_deferred_unconfirmed_breach": 0,
+        "exit_deferred": 0,
+        "exit_failed": 0,
     }
     try:
         from src.bot import data_loaders
@@ -8720,6 +9342,12 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
         summary["errors"] += 1
         return summary
 
+    # Budget hygiene (REVIEW-14241 item 4): drop entries of rows no longer open.
+    _prune_rearm_attempts({
+        f"{r['account_id']}|{r['id']}" for r in rows
+        if str(r["account_id"] or "") in alpaca_ids
+    })
+    _venue_protected: set = set()
     now = datetime.now(timezone.utc)
     clients: Dict[str, object] = {}
     # ONE account-wide positions read per account per sweep, memoized, so the
@@ -8795,11 +9423,14 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
             # invisible to every accessor. This is the quantity half of
             # BL-20260816-COVERAGE-IS-ONE-SIDED, ported from the Bybit
             # (`covered_qty`) and IB (`protection_coverage`) implementations.
-            # ⚠️ NOTHING IS RE-ARMED OFF THIS GRADE. Binding it to the repair
-            # path is a Tier-2 order-path change and needs an operator OK;
+            # A SHORTFALL IS NOW TOPPED UP (PI-20260929-PR6YRTQY-0003, manager
+            # dispatch under operator authority, Tier-2 PR held for review):
+            # `_alpaca_top_up_uncovered` ADDS an OCO for the uncovered shares
+            # only and cancels nothing — the failure
             # BL-20260820-OVERCOVER-REMEDIATION-CANCELLED-THE-JOURNAL-MATCHING-LEG
-            # is what automatic remediation of this class did last time. The
-            # re-arm below still reads `protection_state`, byte-identically.
+            # recorded was a remediation that CANCELLED; this one cannot.
+            # Over-coverage is still alert-only. The naked re-arm below still
+            # reads `protection_state`, byte-identically.
             _cov_key = (account_id, symbol)
             if _cov_key not in coverage_memo:
                 if account_id not in pos_snapshots:
@@ -8860,6 +9491,32 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                             trade_ids=row["id"],
                             venue="alpaca",
                         )
+                        # REPAIR, not only alert (PI-20260929-PR6YRTQY-0003):
+                        # top up the UNCOVERED shares when the shortfall can
+                        # be attributed to exactly one row; never cancels.
+                        # A fully stop-naked symbol (stop_q == 0) is left to
+                        # the naked re-arm below.
+                        if _stop_q > 0:
+                            _topup = _alpaca_top_up_uncovered(
+                                db, client, account_id, symbol, _cov,
+                                [r for r in rows
+                                 if str(r["account_id"] or "") == account_id
+                                 and str(r["symbol"] or "").upper()
+                                 == symbol.upper()],
+                                now,
+                            )
+                            if _topup == "topped_up":
+                                summary["topped_up"] += 1
+                            elif _topup == "exited_breached_stop":
+                                summary["breach_exits"] += 1
+                            elif _topup == "exit_failed":
+                                summary["exit_failed"] += 1
+                            elif _topup == "exit_deferred":
+                                # market closed: the uncovered shares still get
+                                # a resting stop via the next sweep's top-up
+                                summary["exit_deferred"] += 1
+                            else:
+                                summary["topup_refused"] += 1
                     elif _size > 0:
                         summary["covered"] += 1
 
@@ -8892,6 +9549,9 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                     venue="alpaca",
                 )
             if state.get("stop"):
+                # A confirmed resting stop refills this row's re-arm budget
+                # (REVIEW-14241 item 4).
+                _reset_rearm_attempts(account_id, row["id"])
                 continue  # stop side is armed — nothing for THIS pass to do
             summary["broker_naked"] += 1
             sl = row["stop_loss"]
@@ -8911,7 +9571,103 @@ def _check_broker_naked_equity_positions(db) -> Dict[str, int]:
                     row["id"], symbol,
                 )
                 continue
+            # PRE-FLIGHT (PI-20260929-PR6YRTQY-0005): a FRESH position read
+            # and price, never the sweep snapshot. Refuses a row whose shares
+            # are gone, a stop already through the market, and a row past its
+            # re-arm budget — the three things that let 5928 re-arm 28 times on
+            # 2026-09-24 and liquidate 6024's 56 shares above 6024's own stop.
+            _pf = _alpaca_rearm_preflight(
+                client, account_id, symbol, row,
+                [r for r in rows
+                 if str(r["account_id"] or "") == account_id
+                 and str(r["symbol"] or "").upper() == symbol.upper()],
+                a_sl,
+            )
+            _pf, _pf_info = _pf
+            if _pf in ("exit_breached", "cap"):
+                if _pf == "exit_breached":
+                    # A FRESH last trade is through the stop with the row
+                    # CONFIRMED present: exit via the trade-scoped close,
+                    # labelled sl — what the stop itself would have done.
+                    _res = _exit_alpaca_row(
+                        db, row, account_id, symbol, reason="sl",
+                        why=(f"stop {a_sl} breached by a fresh last trade "
+                             f"({(_pf_info.get('trade') or {}).get('price')})"))
+                    _ok_key = "breach_exits"
+                else:
+                    # Re-armed _ALPACA_REARM_CAP times in 24 h without a stop
+                    # holding: escalate to the trade-scoped close (item 4).
+                    _res = _exit_alpaca_row(
+                        db, row, account_id, symbol,
+                        reason="protection_rearm_exhausted",
+                        why=(f"{_pf_info.get('attempts')} re-arms in 24 h did not "
+                             "leave a resting stop — position exited rather "
+                             "than left naked"))
+                    _ok_key = "cap_exits"
+                if _res == "exited":
+                    summary[_ok_key] += 1
+                elif _res == "deferred":
+                    # Market closed: keep a stop RESTING instead (it triggers
+                    # at the open), never leave the row naked overnight.
+                    summary["exit_deferred"] += 1
+                    if _attempt_naked_autoprotect(row, a_sl, a_tp, db=db):
+                        summary["rearmed"] += 1
+                else:
+                    summary["exit_failed"] += 1
+                continue
+            if _pf == "protect_venue_holding":
+                _key = (account_id, symbol.upper())
+                if _key in _venue_protected:
+                    continue
+                _venue_protected.add(_key)
+                # One attempt per symbol per cooldown: a refused additive OCO
+                # (e.g. a target-only leg holding the shares) must not be
+                # re-POSTed every tick (REVIEW-14241 round 2).
+                _vk = ("venue", account_id, symbol.upper())
+                _vlast = _ALPACA_TOPUP_ATTEMPTS.get(_vk)
+                if _vlast is not None and time.monotonic() - _vlast < _ALPACA_TOPUP_COOLDOWN_S:
+                    summary["venue_holding_cooldown"] += 1
+                    continue
+                _ALPACA_TOPUP_ATTEMPTS[_vk] = time.monotonic()
+                # FLOOR, never round: a fractional holding must not be rounded
+                # UP past what the venue holds.
+                _vqty = int(math.floor(float(_pf_info["qty"]) + 1e-9))
+                if _vqty < 1:
+                    summary["exit_failed"] += 1
+                    _page_rearm_refusal(
+                        "venue_holding_unprotected", account_id, symbol, row["id"],
+                        f"venue holding {_pf_info['qty']} is below one whole share")
+                    continue
+                _pick = _pf_info["row"]
+                _p_sl = _safe_float(_pick["stop_loss"])
+                _p_tp = _safe_float(_pick["take_profit_1"])
+                if not _p_tp or _p_tp <= 0:
+                    _r_sl, _r_tp = _resolve_protective_levels(
+                        db, symbol, str(_pick["direction"] or ""))
+                    _p_tp = _r_tp
+                _resp = None
+                if _p_sl and _p_tp:
+                    _resp = client.place_protective({
+                        "symbol": symbol, "direction": _pf_info["side"],
+                        "qty": _vqty,
+                        "sl": _p_sl, "tp": _p_tp, "additive": True,
+                        "oca_key": str(_pick["id"]), "account_id": account_id,
+                    })
+                if _resp and _resp.get("retCode") == 0:
+                    summary["venue_holding_protected"] += 1
+                    _record_rearm_attempt(account_id, _pick["id"])
+                else:
+                    summary["exit_failed"] += 1
+                    _page_rearm_refusal(
+                        "venue_holding_unprotected", account_id, symbol, row["id"],
+                        f"additive OCO for the venue holding refused: "
+                        f"{(_resp or {}).get('retMsg')}")
+                continue
+            if _pf != "ok":
+                summary[f"rearm_refused_{_pf}"] = summary.get(f"rearm_refused_{_pf}", 0) + 1
+                continue
             if _attempt_naked_autoprotect(row, a_sl, a_tp, db=db):
+                _record_rearm_attempt(account_id, row["id"])
                 summary["rearmed"] += 1
                 logger.info(
                     "_check_broker_naked_equity_positions: re-armed GTC OCO "
@@ -13165,9 +13921,11 @@ def run_reconciliation_tick(
     try:
         with _phase("check_broker_naked_equity_positions"):
             broker_naked_summary = _check_broker_naked_equity_positions(db)
-        if broker_naked_summary.get("broker_naked") or broker_naked_summary.get(
-            "errors"
-        ):
+        # Surfaced whenever ANY outcome counter is non-zero — not only
+        # broker_naked/errors: a failed read, a top-up, a refusal or an exit is
+        # invisible otherwise (REVIEW round 2, non-blocking; taken in #14241).
+        if any(v for k, v in broker_naked_summary.items()
+               if k not in ("checked", "covered") and isinstance(v, (int, float))):
             summaries["__broker_naked_equity__"] = broker_naked_summary
     except Exception as exc:  # noqa: BLE001
         logger.warning(

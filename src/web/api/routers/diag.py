@@ -982,6 +982,14 @@ _LOG_FILES: dict[str, Path] = {
     # the same commit as its writer, like every sibling above.
     "alpaca_protection_unreadable_alert_state":
         runtime_logs_dir() / "alpaca_protection_unreadable_alert_state.json",
+    # PI-20260929-PR6YRTQY-0005: the durable per-row re-arm attempt budget
+    # (`_record_rearm_attempt`) and the refusal-page cooldown
+    # (`_cooldown_admits("alpaca_rearm_refused", ...)`) — both suppress or
+    # gate a money-path action, so both must be readable from outside.
+    "alpaca_rearm_attempts_alert_state":
+        runtime_logs_dir() / "alpaca_rearm_attempts_alert_state.json",
+    "alpaca_rearm_refused_alert_state":
+        runtime_logs_dir() / "alpaca_rearm_refused_alert_state.json",
     # MI-276. ⚠️ THE FIRST PUSH REGISTERED ONLY THE TWO COOLDOWN FILES WHILE
     # THIS COMMENT ALREADY CLAIMED ALL FOUR, AND THE TWO IT OMITTED WERE THE
     # ONES THAT MATTER: `OI-20260911-THE-TWO-DETECTORS-...`'s clears_when

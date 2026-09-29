@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Files two pipeline rows: PI-20260929-K1XNYYAQ-0001 (us_equity_session misreads the March/November DST weeks and US holidays) and PI-20260929-K1XNYYAQ-0002 (#14241's non-blocking follow-ups). Both were requested by the manager in the REVIEW-14241 rounds. Pipeline records only."
+}
