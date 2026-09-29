@@ -416,21 +416,64 @@ def orders_from_tables(tables: Sequence[Mapping[str, Any]]) -> Optional[List[Wor
 # "Symbol"/"Instrument", walked up to the first ancestor with >= 3 short-text
 # children (the header row); its data rows are later elements with the same
 # tag and child count under the nearest ancestor that holds more than one.
+# The terminal renders EVERY grid as TWO <table> elements: a header table
+# whose own body carries ZERO rows, followed by a header-less table holding
+# the (virtualised) rows. MEASURED for the watchlist (dry run #13898, run
+# 36507086110: "Symbol/Bid/Ask… rows: 0" beside the tr.instrument rows PR
+# #13908 then read directly), and the cause of the blind positions reader
+# (live test #13987 filled 0.01 SOLUSD, the operator saw the row under
+# Symbol | Side | Size | Open P&L | Take profit | Stop loss | Position ID |
+# Fill Price | Current Price | Date and Time, and every read returned 0
+# positions). This helper PAIRS a header table that has no rows of its own
+# with the first header-less table that follows it in document order,
+# before the next headed table, and only when that table is empty or its
+# first row has exactly as many cells as there are headers (alignment is
+# proven, never assumed, as in #13908). A headed table with its own rows is
+# self-contained. Shared by EXTRACT_TABLES_JS and ROW_ACTION_JS so the
+# reader and the row controls see the same rows.
+_PAIRED_TABLES_HELPER_JS = r"""
+  const txt = el => (el.innerText || el.textContent || '').trim();
+  const allTables = [...document.querySelectorAll('table')];
+  const tinfo = allTables.map(t => ({
+    t,
+    headers: [...t.querySelectorAll('thead th, tr:first-child th')].filter(h => h.closest('table') === t).map(txt),
+    trs: [...t.querySelectorAll('tr')].filter(r => r.closest('table') === t && r.querySelector('td')),
+  }));
+  const paired = [];
+  tinfo.forEach((h, i) => {
+    if (!h.headers.length) return;
+    let trs = h.trs, body = null, unpaired = 0;
+    if (!trs.length) {
+      for (let j = i + 1; j < tinfo.length; j++) {
+        const b = tinfo[j];
+        if (b.headers.length) break;
+        if (!b.trs.length || b.trs[0].querySelectorAll('td').length === h.headers.length) { body = b.t; trs = b.trs; break; }
+        unpaired += b.trs.length;
+      }
+    }
+    paired.push({t: h.t, headers: h.headers, trs, body, own_rows: h.trs.length, unpaired_body_rows: unpaired});
+  });
+  const headerless = tinfo.filter(x => !x.headers.length).map(x => x.trs.length);
+"""
+
 EXTRACT_TABLES_JS = r"""
 () => {
-  const txt = el => (el.innerText || el.textContent || '').trim();
+""" + _PAIRED_TABLES_HELPER_JS + r"""
   const out = [];
   const seen = new Set();
-  const push = (kind, headers, rows) => {
+  const push = (kind, headers, rows, extra) => {
     const sig = kind === 'divgrid' ? headers.join('|') : null;
     if (sig && seen.has(sig)) return;
     if (sig) seen.add(sig);
-    out.push({kind, headers, rows});
+    out.push(Object.assign({kind, headers, rows}, extra || {}));
   };
-  for (const t of document.querySelectorAll('table')) {
-    const headers = [...t.querySelectorAll('thead th, tr:first-child th')].map(txt);
-    const rows = [...t.querySelectorAll('tbody tr')].map(r => [...r.querySelectorAll('td')].map(txt));
-    if (headers.length) push('table', headers, rows);
+  const ctlDesc = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
+    (txt(c) || c.getAttribute('title') || c.getAttribute('aria-label') || c.tagName.toLowerCase()).slice(0, 30));
+  for (const p of paired) {
+    const rows = p.trs.map(r => [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt));
+    push('table', p.headers, rows, {paired: !!p.body, own_rows: p.own_rows, unpaired_body_rows: p.unpaired_body_rows,
+                                    headerless_tables: headerless,
+                                    first_row_controls: p.trs.length ? ctlDesc(p.trs[0]) : []});
   }
   for (const g of document.querySelectorAll('[role=grid], [role=treegrid], [role=table]')) {
     const headers = [...g.querySelectorAll('[role=columnheader]')].map(txt);
@@ -1459,28 +1502,40 @@ POST_SUBMIT_JS = r"""
 ROW_ACTION_JS = r"""
 (args) => {
   const [kind, keyCol, key, actionPat] = args;
-  const txt = el => (el ? (el.innerText || el.textContent || '') : '').trim();
+""" + _PAIRED_TABLES_HELPER_JS + r"""
   const norm = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
   document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
-  const want = kind === 'orders' ? /^(order id|sts)$/ : /^(position volume|position id|open price|avg fill price|open p&l)$/;
+  const want = kind === 'orders' ? /^(order id|sts)$/ : /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
   const act = new RegExp(actionPat, 'i');
-  let rows = [], ctl = [];
-  for (const t of document.querySelectorAll('table')) {
-    const hs = [...t.querySelectorAll('thead th, tr:first-child th')].map(h => norm(txt(h)));
+  let rows = [], ctl = [], why = null;
+  for (const p of paired) {
+    const hs = p.headers.map(norm);
     if (!hs.some(h => want.test(h))) continue;
     const ci = hs.indexOf(norm(keyCol));
     if (ci < 0) continue;
-    for (const r of t.querySelectorAll('tbody tr')) {
-      const cells = [...r.querySelectorAll('td')];
+    for (const r of p.trs) {
+      const cells = [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table'));
       if (cells[ci] && txt(cells[ci]) === key) rows.push(r);
     }
   }
   if (rows.length === 1) {
-    ctl = [...rows[0].querySelectorAll('button, [role=button], [title], [aria-label]')].filter(b =>
+    const row = rows[0];
+    ctl = [...row.querySelectorAll('button, [role=button], [title], [aria-label]')].filter(b =>
       act.test(txt(b)) || act.test(b.getAttribute('aria-label') || '') || act.test(b.getAttribute('title') || ''));
-    if (ctl.length === 1) ctl[0].setAttribute('data-metis-row-action', '1');
+    // The chart draws the position and its legs as overlays with their own
+    // x controls (close / cancel a leg): a row control must be INSIDE this
+    // row of the positions table, boxed within it, and nowhere near a
+    // canvas (operator 2026-09-29). Anything else is refused, never clicked.
+    if (ctl.length === 1) {
+      const c = ctl[0], rb = row.getBoundingClientRect(), cb = c.getBoundingClientRect();
+      const inRow = c.closest('tr') === row && cb.width > 0 && cb.height > 0
+        && cb.left >= rb.left - 4 && cb.right <= rb.right + 4 && cb.top >= rb.top - 4 && cb.bottom <= rb.bottom + 4;
+      const nearCanvas = !!(c.closest('canvas') || [...c.parentElement ? c.parentElement.children : []].some(e => e.tagName === 'CANVAS'));
+      if (!inRow || nearCanvas) { why = inRow ? 'control sits beside a canvas' : 'control is not boxed inside its row'; ctl = []; }
+      else c.setAttribute('data-metis-row-action', '1');
+    }
   }
-  return {rows: rows.length, controls: ctl.length};
+  return {rows: rows.length, controls: ctl.length, why};
 }
 """
 
@@ -1543,10 +1598,7 @@ def quote_from_watchlist_rows(got: Mapping[str, Any], venue_symbol: str) -> Opti
     if not headers:
         return None
     rows = [r for r in (got.get("rows") or []) if len(r) == len(headers)]
-    q = quote_from_tables([{"headers": headers, "rows": rows}], venue_symbol)
-    if q is None or (q["ask"] - q["bid"]) / q["ask"] > MAX_QUOTE_SPREAD_FRAC:
-        return None
-    return q
+    return quote_from_tables([{"headers": headers, "rows": rows}], venue_symbol)
 
 
 def quote_diagnostics(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Dict[str, Any]:
@@ -1573,7 +1625,13 @@ def quote_diagnostics(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
 def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) -> Optional[Dict[str, float]]:
     """``{"bid": .., "ask": ..}`` for ``venue_symbol`` from the watchlist table
     (headers Symbol/Bid/Ask, MEASURED run 36358563148). ``None`` when no
-    table carries both, the symbol has no row, or the numbers do not parse."""
+    table carries both, the symbol has no row, or the numbers do not parse.
+
+    The plausibility rules of #13908 apply on EVERY path, because the rows
+    of a headed table can now come from a paired header-less body table
+    (EXTRACT_TABLES_JS): a row must have exactly as many cells as there are
+    headers, 0 < bid <= ask, and the spread must be under
+    :data:`MAX_QUOTE_SPREAD_FRAC`; otherwise the row is not a quote."""
     for t in tables:
         headers = list(t.get("headers") or [])
         norm = [_norm(h) for h in headers]
@@ -1581,9 +1639,12 @@ def quote_from_tables(tables: Sequence[Mapping[str, Any]], venue_symbol: str) ->
             continue
         c_sym, c_bid, c_ask = norm.index("symbol"), norm.index("bid"), norm.index("ask")
         for row in t.get("rows") or []:
+            if len(row) != len(headers):
+                continue
             if (_cell(row, c_sym) or "").strip().upper() == venue_symbol.upper():
                 bid, ask = parse_price(_cell(row, c_bid)), parse_price(_cell(row, c_ask))
-                if bid is not None and ask is not None and 0 < bid <= ask:
+                if (bid is not None and ask is not None and 0 < bid <= ask
+                        and (ask - bid) / ask <= MAX_QUOTE_SPREAD_FRAC):
                     return {"bid": bid, "ask": ask}
     return None
 
@@ -2498,6 +2559,11 @@ class DXtradeAdapter(PropPlatformAdapter):
                 rows = t.get("rows") or []
                 lines.append(f"dump_tables.table[{i}] kind={t.get('kind')} reads_as={reads_as} rows={len(rows)} "
                              f"headers={[r(h) for h in headers]}")
+                if t.get("kind") == "table":
+                    lines.append(f"dump_tables.table[{i}].pairing: paired_body={t.get('paired')} own_rows={t.get('own_rows')} "
+                                 f"unpaired_body_rows={t.get('unpaired_body_rows')} "
+                                 f"headerless_tables_rows={t.get('headerless_tables')} "
+                                 f"first_row_controls={[r(c, 30) for c in (t.get('first_row_controls') or [])]}")
                 for row in rows[:3]:
                     lines.append(f"dump_tables.row[{i}]: {[r(c) for c in row]}")
         lines.append("dump_tables: END")
