@@ -2041,6 +2041,7 @@ class AlpacaClient:
         reducing = self._reducing_side_for(pos_side)
         stop_qty = 0.0
         target_qty = 0.0
+        stop_leg_qtys: List[float] = []
         unknown = 0
         for o in legs:
             kind = self._leg_protective_side(
@@ -2069,12 +2070,17 @@ class AlpacaClient:
                 continue
             if kind == "stop":
                 stop_qty += q
+                stop_leg_qtys.append(q)
             else:
                 target_qty += q
         return {
             "size": size,
             "side": pos_side,
             "stop_qty": stop_qty,
+            # Each resting reducing-side stop leg's own size — what lets the
+            # sweep attribute a shortfall to the ONE row no leg accounts for
+            # (PI-20260929-PR6YRTQY-0003). Additive; `stop_qty` is their sum.
+            "stop_leg_qtys": sorted(stop_leg_qtys),
             "target_qty": target_qty,
             "legs": len(legs),
             "unknown_qty_legs": unknown,
@@ -2285,9 +2291,16 @@ class AlpacaClient:
         # OCO/bracket cancel). It also cancelled opening-side ENTRY orders a
         # strategy had resting. Now only reducing-side protective legs sized to
         # THIS row's qty are cleared; see `_scoped_rearm_cancel`.
-        refusal, kept_targets = self._scoped_rearm_cancel(
-            sym, close_side, qty, order.get("sibling_qtys"),
-        )
+        if order.get("additive"):
+            # QUANTITY TOP-UP (PI-20260929-PR6YRTQY-0003): protection for the
+            # UNCOVERED shares only, placed BESIDE the legs that already rest.
+            # Nothing is cancelled and nothing is released — every resting leg
+            # belongs to a sibling row that is still covered.
+            refusal, kept_targets = None, []
+        else:
+            refusal, kept_targets = self._scoped_rearm_cancel(
+                sym, close_side, qty, order.get("sibling_qtys"),
+            )
         if refusal:
             return {"retCode": -3, "retMsg": refusal}
         body: Dict[str, Any] = {
