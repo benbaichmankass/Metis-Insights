@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 7,
+    "clears_when": "a named refresh job exists (timer or scheduled workflow) whose output ends within 7 days of today for SOL/XRP/ETH 15m, fetch_backtest_corpus.py refuses to replace a longer file with a shorter one (test), and the chosen canonical feed is recorded with its measured comparison",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-FCJRWVAK-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "lane M19-S2EXIT stale-candle root cause, manager session_01HYq6XtfesZ57VyaQrK6CL1, trainer diag #14405/#14411, 2026-09-29",
+    "rerun": "trainer-vm-diag: `systemctl list-timers --all --no-pager` (look for any candle/corpus fetch timer) and `ls -la --time-style=long-iso data/*_15m.csv data/*_5m.csv` then `tail -1` each file for its last bar; repo side: `grep -n 'PAIRS\\|--output' scripts/ops/fetch_backtest_corpus.py` shows the 90-day 15m window and the overwrite"
+  },
+  "state": "queued",
+  "what": "The trainer's 15m candle CSVs have NO refresh owner: none of its 24 systemd timers fetches candles, and data/*_15m.csv and *_5m.csv for SOL/XRP/ETH/BNB/ADA/LINK/AVAX were written in ONE manual batch on 2026-06-18 (BTC 15m 2026-07-12), so every study that reads them ends 2026-06-18 (MEASURED, trainer diag #14405). Separately, scripts/ops/fetch_backtest_corpus.py - the repo's canonical corpus fetcher - pulls only the trailing 90 days for 15m crypto and writes to data/<SYM>_15m.csv, so running it on the trainer would OVERWRITE the multi-year files with 90 days (read from code: PAIRS table + fetch_one --output); docs/reference/corpus-manifest.json describes that 90-day corpus under the same filenames the trainer holds as multi-year files (two populations, one name). Manager decision 2026-09-29: do NOT overwrite data/; the Binance USD-M refresh differs from the older SOL/ETH files (median close diff 1.6 / 1.2 bps, max 1649 / 693 bps on isolated bars - trainer diag #14411), so an in-place swap would silently change the population of every study reading data/; refreshed files are staged at /home/ubuntu/refresh_15m_20260929 and RQ-20260929-401 names that path. THE TASK: (1) choose the canonical candle feed per (symbol, timeframe) with a MEASURED comparison of the older files vs the Binance USD-M feed (which one the live bar builder and Bybit perp fills match, not just close differences); (2) declare a refresh job with an owner (a timer or a scheduled workflow) that writes dated or versioned output rather than overwriting; (3) make fetch_backtest_corpus.py refuse to shrink a longer existing file (a guard plus a test). Consumers that read data/<SYM>_15m.csv and go stale silently: m20_exit_head_round.py (default --data-dir), exit_head_walkforward_multifold.py, research_sweep.py, regime_performance_map.py, recombination_sweep.py, m15_phase0_sweep.sh, m15_ws_c_sweep.sh, m15_ws_c_kfold.sh, m15_ws_c_soft_weight_kfold.sh, pairs_universe_scan.py."
+}
