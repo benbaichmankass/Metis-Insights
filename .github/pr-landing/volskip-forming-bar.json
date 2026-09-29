@@ -1,0 +1,7 @@
+{
+  "tier": 3,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Strategy logic on real-money legs (ada_pullback_2h, trend_donchian_xrp_4h on bybit_2): the M21 entry vol-skip gate ranks the last CLOSED bar instead of the forming one, and the declarers' builders fetch window+1 bars. Ships under the data-backed Tier-3 authorization on the manager's OK, against the committed evidence record docs/research/evidence/vol-skip-forming-bar-2026-09-29.json (RULE-RQ0929-002-VOLSKIP-FORMING, registered before the run); the operator is notified after.",
+  "why": "src/units/strategies/* entry-gate change on live legs; Tier-3 per docs/CLAUDE-RULES-CANONICAL.md § Permission Tiers"
+}

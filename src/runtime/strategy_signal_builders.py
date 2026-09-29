@@ -1726,7 +1726,8 @@ def _trend_donchian_variant_builder(name: str, settings: dict) -> Dict[str, Any]
 
     timeframe = str(vcfg.get("timeframe") or "1h")
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange,
+                               limit=_entry_fetch_limit(vcfg))
     if candles_df is None:
         raise RuntimeError(
             f"{name}: no candle data for symbol={symbol} timeframe={timeframe}.")
@@ -5351,6 +5352,27 @@ def uso_trend_1h_signal_builder(settings: dict) -> Dict[str, Any]:
     return _with_signal_package("uso_trend_1h", sig)
 
 
+def _entry_fetch_limit(cfg: dict, default: int = 200) -> int:
+    """Bars to fetch for a leg's entry frame.
+
+    ``default`` unless the leg declares an M21 ``vol_skip_*`` gate. That gate
+    ranks the last CLOSED bar's ATR within ``vol_pctl_window`` bars, and the
+    live fetch ends on the still-forming bar — so it needs ``window + 1``
+    rows (plus ``confirm_bars``), or the percentile is undefined and the
+    fail-permissive gate silently never fires (RQ-20260929-002).
+    """
+    def _num(key: str) -> float:
+        try:
+            return float(cfg.get(key) or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    if _num("vol_skip_above_pctl") <= 0.0 and _num("vol_skip_below_pctl") <= 0.0:
+        return default
+    window = int(_num("vol_pctl_window") or 200)
+    return max(default, window + 1 + max(int(_num("confirm_bars")), 0))
+
+
 def _htf_pullback_variant_builder(
     name: str, settings: dict, *, default_symbol: str = "",
 ) -> Dict[str, Any]:
@@ -5396,7 +5418,8 @@ def _htf_pullback_variant_builder(
     timeframe = str(cfg_yaml.get("timeframe") or "2h")
 
     exchange = _build_killzone_exchange(settings)
-    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange, limit=200)
+    candles_df = fetch_candles(symbol, timeframe, exchange_client=exchange,
+                               limit=_entry_fetch_limit(cfg_yaml))
     if candles_df is None:
         raise RuntimeError(
             f"{name}: no candle data returned for symbol={symbol} "
