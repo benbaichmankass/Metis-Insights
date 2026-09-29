@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# wiring: manual-only - operator/lane-invoked evidence tool; it is run by hand to prove a guard, never on a schedule or by CI
 """Plant-a-defect proof for ONE CI guard. Machine-records the evidence.
 
 WHY. A guard's self-test, or its docstring, is a claim about the guard. It is
@@ -69,8 +70,8 @@ def run_guard(wt, guard):
     m = COUNTS.search(out)
     counts = dict(zip(("pass", "fail", "could_not_run", "skip"),
                       map(int, m.groups()))) if m else None
-    lines = [l for l in out.splitlines() if "::error::" in l or "FAIL" in l
-             or "COULD NOT RUN" in l]
+    lines = [ln for ln in out.splitlines() if "::error::" in ln or "FAIL" in ln
+             or "COULD NOT RUN" in ln]
     return {"exit": p.returncode, "counts": counts,
             "excerpt": "\n".join(lines[-12:])[:1800]}
 
@@ -91,7 +92,8 @@ def main():
                "verdict": "unplantable", "reason": a.unplantable}
         with open(a.out, "a") as f:
             f.write(json.dumps(row) + "\n")
-        print(json.dumps(row)); return 0
+        print(json.dumps(row))
+        return 0
     if not a.plant_sh:
         ap.error("--plant-sh required unless --unplantable")
 
