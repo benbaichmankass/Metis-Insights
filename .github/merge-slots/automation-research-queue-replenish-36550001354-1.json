@@ -1,0 +1,6 @@
+{
+  "held_by": "github-actions[bot] · research-queue-replenish run 36550001354",
+  "branch": "automation/research-queue-replenish-36550001354-1",
+  "claimed_at": "2026-09-29T09:34:48Z",
+  "purpose": "Automated data commit opened by .github/actions/commit-to-main; arming auto-merge IS the merge, so R13 takes the slot here."
+}
