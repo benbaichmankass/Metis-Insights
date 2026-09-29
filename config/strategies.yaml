@@ -2293,7 +2293,7 @@ strategies:
     pullback_lookback: 12
     pullback_frac: 0.618
     atr_period: 14
-    atr_stop_mult: 2.5
+    atr_stop_mult: 1.5  # M20 e35 re-check 2026-08-31: cell sm1.5 (path_b_wf_pass, wf 5/6, d_net_r +28.1569); was 2.5
     trail_mult: 5.0
     # Was absent, therefore inherited htf_pullback_trend_2h._DEFAULTS["tp_r"] = 50.0.
     # Written out so the sentinel is visible to `grep tp_r`. RUNTIME-IDENTICAL.
