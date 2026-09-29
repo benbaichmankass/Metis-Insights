@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "FIX-SA-05 (docs/audits/system-audit-2026-09-29.md § 5, SA-AUD-3). Additive read-path fields: /api/bot/performance gains totalPnlMeasuredOnly + totalPnlEstimated (headline, per-strategy, per-exit-path); /api/bot/stats (via _pnl_provenance) gains totalPnLMeasuredOnly + totalPnLEstimated; the R4 evidence record gains net_usd_measured_only + n_estimated. totalPnlMeasured is unchanged in value and annotated MEASURED+ESTIMATED. NO gate logic changed (JC-SA-03: keep MEASURED+ESTIMATED, record both). Also: /stats fetch_rows now selects entry/exit/size/direction so FIX-SA-04's demotion is not dead on that route. Docs: bot-api-reference, performance-review skill + template (pnl_measured_n / coverage)."
+}
