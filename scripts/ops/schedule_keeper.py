@@ -64,6 +64,8 @@ TARGETS: dict[str, dict] = {
     "r4-demotion-gate.yml": {"stale_hours": 26},
     "replay-pregate-nightly.yml": {"stale_hours": 26},
     "strategy-review-packets.yml": {"stale_hours": 26},
+    # JC-SA-01 (2026-09-29): the graded hop of the trade pipeline, daily.
+    "grade-closed-trades.yml": {"stale_hours": 26},
     "soak-book-grade-weekly.yml": {"stale_hours": 170},
     # RQ-OPS-2 (2026-09-28): added after the SAME lag/drop this module exists
     # for stranded a full day of research-queue-dispatch's own cron — its

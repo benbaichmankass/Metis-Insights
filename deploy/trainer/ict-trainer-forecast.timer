@@ -1,0 +1,14 @@
+# Live TSFM forecast producer, BAR-ALIGNED: 30 s after each 15m bar closes
+# (FIX-CA-25). Was OnUnitActiveSec=15min, which drifts from the bar grid.
+# Keep in sync with deploy/training-vm-cloud-init.yaml.
+[Unit]
+Description=Periodic live TSFM forecast production
+
+[Timer]
+OnBootSec=90sec
+OnCalendar=*:0/15:30
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

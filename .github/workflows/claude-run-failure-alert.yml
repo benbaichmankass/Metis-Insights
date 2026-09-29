@@ -41,6 +41,9 @@ on:
       # a question could not be read, and its death is otherwise silent until
       # its receipt goes stale in CI 36h later.
       - "research-loss-detector"
+      # FIX-SA-13 (2026-09-29): weekly full-history secret scan. Red = findings or
+      # a scan that did not run; either must reach the operator.
+      - "gitleaks-history-weekly"
       # B3 (2026-09-25): the R4 demotion gate. A scheduled run that dies
       # silently means the Stage-2 demotion signal is not being read at all,
       # which looks exactly like "nothing needed demoting".
@@ -115,6 +118,10 @@ on:
       # own date attached, so a stalled cron looks exactly like a quiet work
       # store to every session that reads it.
       - constraint-readout
+      # JC-SA-01 (2026-09-29): the daily grader. A dead run here is what
+      # left the graded hop silent 21 days.
+      - grade-closed-trades
+      - grading-freshness-alert
       - strategy-review-packets
       - sunset-pass
       - trainer-vm-diag

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "GUARD-PROOF lane (JC-SA-07 option a). Tier-1: the diff is docs/audits/system-audit-2026-09-29/GUARD-PROOF.{md,findings.jsonl}, scripts/ops/guard_plant.py (new tooling, not imported by any runtime or guard), a DOCUMENT-INDEX row, two pipeline records, and this branch's landing/merge-slot paperwork. No src/, config/, workflow YAML, order path or guard change. Evidence rows are tool-generated; 10 guards remain unrun and are filed."
+}

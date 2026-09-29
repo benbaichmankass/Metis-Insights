@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01PKaAcoDPsdP7brPxGmJyTX",
+  "branch": "claude/recon-reduce-leg-null-pnl",
+  "claimed_at": "2026-09-29T12:38:30Z",
+  "purpose": "RECON-REDUCE: reduce-leg exclusion in account_broker_reconcile"
+}

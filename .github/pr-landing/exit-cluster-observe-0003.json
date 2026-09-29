@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "EXIT-CLUSTER: records the measured backfill result (issue #14211, 166 relabels, 0 money-field changes) on pipeline item PI-20260929-WL2HIWVS-0003. Pipeline only."
+}

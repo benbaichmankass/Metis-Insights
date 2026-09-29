@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "JC-SA-08 evidence (docs only) plus three pipeline rows from the FIX-SA-03 lane: Alpaca stop-fill mislabel, the unrepaired quantity-coverage gap, and the population extension that the (a)/(b) mirror-exit decision waits on."
+}

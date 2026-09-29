@@ -1,0 +1,15 @@
+{
+  "due_when": {
+    "due_date": "2026-10-06",
+    "kind": "date"
+  },
+  "id": "PI-20260929-WJUTENGU-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "audit",
+    "ref": "SA-DOCS lane 2026-09-29",
+    "rerun": "python3 scripts/ci/check_stale_in_flight.py --base origin/main | grep ratchet"
+  },
+  "state": "queued",
+  "what": "check_stale_in_flight's ratchet is dead: _materialise_base does `git archive` on docs/claude/work/objects (retired), so ratchet=base_unreadable on every base and the diff's own contribution is never graded. Fix: archive only the checklist path, or drop the objects register. Found by FIX-SA-10 (#14162)."
+}

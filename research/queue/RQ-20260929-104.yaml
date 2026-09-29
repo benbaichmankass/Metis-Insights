@@ -1,0 +1,91 @@
+id: RQ-20260929-104
+title: 'Stage-0 backtest: funding_carry harness on BNBUSDT perp (uncovered harness family)'
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  scripts/backtest_funding_carry.py is one of the ten harnesses
+  research-harness-dispatch.yml can dispatch (E7), but it has ZERO history
+  anywhere in this repo: no live strategy leg in config/strategies.yaml
+  names it, and no research/queue/ or research/results/ unit has ever
+  dispatched `harness: funding_carry` (checked this session, zero hits both
+  ways). BNBUSDT is a Bybit USDT-margined perp (config/instruments.yaml:125)
+  with a live funding-rate history. Does a funding-carry approach (collect
+  the funding-rate spread, hedge the directional leg) show net-of-cost edge
+  on BNBUSDT?
+
+why_this_matters: >-
+  Funding carry is a structurally different return source (mean-reverting
+  basis/funding, not price direction) from every live strategy in the
+  roster, so a PASS would be a genuinely new diversification family, not
+  another correlated directional leg. This is the harness's FIRST-EVER
+  dispatch in this repo, so it also answers the more basic wiring question:
+  does the harness run cleanly against a real symbol at all.
+
+power:
+  expected_n: 40
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    Same E35/roster-walkforward floor: d=0.45 -> 39 trades at alpha 0.05 /
+    power 0.8. expected_n=40 is a round-number placeholder; the harness has
+    never been dispatched against any symbol, so there is no history to cite
+    (see feasibility).
+  feasibility:
+    source: none
+    accrual_basis: >-
+      The funding_carry harness has NEVER been dispatched in this repo
+      against any symbol (research/queue/, research/results/,
+      config/strategies.yaml all checked this session, zero references).
+      This run is the family's first observation.
+
+decision_rule:
+  id: RULE-RQ0929-104-BNBUSDT-FUNDING-CARRY-STAGE0
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    net_total_r (net of the full cost stack, including the funding leg
+    itself) and n_trades from the funding_carry harness's own JSON summary.
+  rule: >-
+    PASS IF net_total_r > 0 AND n_trades >= 39 -- Stage-0 evidence only. FAIL
+    IF net_total_r <= 0 with n_trades >= 39 -- re-queues for a confirmatory
+    run (never killed on one pass). indeterminate IF n_trades < 39.
+    producer_failed IS AN EXPECTED, HONEST OUTCOME on this unit, not a
+    wiring bug: the workflow's own docstring notes Bybit funding-rate
+    history is geoblocked from GitHub-hosted runners the same way candles
+    are -- if that happens, this unit re-queues rather than being read as a
+    negative result.
+  what_it_does_not_do: >-
+    Does not touch config/strategies.yaml and does not propose a new live
+    leg -- Stage-0 evidence only. A PASS is a candidate for a Gate-1 soak
+    placement proposal, which is a separate human-reviewed step.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: >-
+    Single-symbol GitHub-runner harness dispatch. May legitimately land
+    producer_failed if the funding-rate fetch is geoblocked (see decision_rule).
+
+run:
+  workflow: research-harness-dispatch.yml
+  inputs:
+    harness: funding_carry
+    symbol: BNBUSDT
+    timeframe: "1h"
+    research_unit: RQ-20260929-104
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - 'research-harness-dispatch.yml -- the funding_carry harness''s first-ever dispatch'
+last_dispatched_at: null

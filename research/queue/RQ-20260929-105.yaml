@@ -1,0 +1,103 @@
+id: RQ-20260929-105
+title: 'Stage-0 backtest: pairs harness on GLD/GDX 1d (pairs family has bybit-crypto history, zero alpaca-ETF history)'
+status: queued
+cadence: once
+kind: experiment
+
+question: >-
+  The M22 market-neutral pairs sleeve (config/pairs.yaml, executed by
+  src.units.strategies.pairs_executor.run_pairs_tick) trades exactly four
+  bybit crypto pairs today (sol_btc, bnb_btc, eth_btc, sol_eth) -- all four
+  legs on both sides are USDT perps. The `pairs` E7 harness
+  (scripts/backtest_pairs.py) is symbol-agnostic (generic --symbol-a/
+  --symbol-b/--data-a/--data-b args, no crypto-specific assumption in its
+  CLI). GLD (gold ETF) and GDX (gold-miners ETF) are both already live
+  alpaca instruments in this repo (gld_pullback_1d / gld_pullback_1h /
+  gdx_pullback_1d) with a real economic co-movement relationship (miners are
+  a levered play on the metal). No pairs-harness run against any alpaca/ETF
+  symbol exists anywhere in this repo (checked research/queue/,
+  research/results/, config/pairs.yaml this session -- zero hits). Does a
+  mean-reversion pairs spread between GLD and GDX clear the same net-of-cost
+  bar the crypto pairs use?
+
+why_this_matters: >-
+  The pairs family's entire live history is one venue (bybit) and one asset
+  class (crypto perps). A cross-asset-class read on the SAME harness/rule
+  tells us whether the mean-reversion mechanism the M22 sleeve relies on is
+  crypto-perp-specific or generalizes -- useful context regardless of
+  whether alpaca ever gets its own pairs executor (a separate, larger
+  Tier-3 build this unit does not propose).
+
+power:
+  expected_n: 30
+  min_detectable_effect: 0.45
+  effect_units: sd
+  design: one_sample
+  alpha: 0.05
+  power: 0.8
+  basis: >-
+    d=0.45 -> 39 trades at alpha 0.05/power 0.8 is this repo's standing E35
+    floor for a 2h/4h-cadence sample; GLD/GDX are 1d bars, so this unit
+    expects materially fewer round-trips over the same history window than a
+    2h leg would produce. expected_n=30 is a conservative guess for a daily
+    mean-reversion pairs strategy over a multi-year backtest window, not a
+    measurement -- no history exists to cite (see feasibility). n<39 grades
+    indeterminate per the decision_rule below, consistent with the repo-wide
+    floor rather than a lowered bar for this unit specifically.
+  feasibility:
+    source: none
+    accrual_basis: >-
+      No pairs-harness run against GLD/GDX (or any non-crypto pair) exists
+      anywhere in this repo's queue, results, or config history. This run is
+      the first observation.
+
+decision_rule:
+  id: RULE-RQ0929-105-GLD-GDX-PAIRS-STAGE0
+  registered_at: '2026-09-29'
+  registered_before_run: true
+  statistic: >-
+    net_total_r (net of the full cost stack, alpaca-equity fee/slippage
+    assumptions via execution_costs.resolve_cost_policy) and n_trades from
+    the pairs harness's own JSON summary, symbol_a=GLD symbol_b=GDX,
+    timeframe=1d, harness defaults for lookback/entry-z/exit-z/stop-z/
+    max-hold-bars (20/2.0/0.5/2.0/20) unless a documented reason changes
+    them.
+  rule: >-
+    PASS IF net_total_r > 0 AND n_trades >= 20 (see power.basis for why this
+    unit's own floor differs from the repo-wide 39: a daily pairs strategy
+    trades far less often than a 2h/4h single-symbol leg over the same
+    window) -- Stage-0 evidence only. FAIL IF net_total_r <= 0 with
+    n_trades >= 20 -- re-queues for a confirmatory run, never killed on one
+    pass. indeterminate IF n_trades < 20.
+  what_it_does_not_do: >-
+    Does not touch config/pairs.yaml or config/strategies.yaml, does not
+    propose an alpaca pairs executor (pairs_executor.py today is bybit-only
+    by construction, a separate and much larger build), and does not
+    propose any live leg. Stage-0 evidence only.
+
+routing:
+  needs_trainer_resident_data: false
+  needs_gpu: false
+  peak_memory_gb: 2.0
+  est_minutes: 15
+  basis: Single-pair GitHub-runner harness dispatch, alpaca/yfinance daily candles (already fetched for other alpaca legs).
+
+run:
+  workflow: research-harness-dispatch.yml
+  inputs:
+    harness: pairs
+    symbol: GLD
+    symbol_b: GDX
+    timeframe: "1d"
+    research_unit: RQ-20260929-105
+
+lands:
+  store: research/results/
+  assert_field: read_state
+  min_rows: 1
+
+related:
+  - 'config/pairs.yaml -- the bybit-only M22 pairs sleeve this checks a second asset class against'
+  - 'gld_pullback_1d / gdx_pullback_1d (config/strategies.yaml) -- the two legs already live on these symbols individually'
+  - RQ-20260929-106 (the SPY/QQQ equity-index analog of this same question)
+last_dispatched_at: null

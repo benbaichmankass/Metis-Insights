@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline records only: this closes PI-20260929-EA899ZCS-0002 on observed runs 36569023025 (dry) and 36569374411 (real), and files successor -0003 for the not-yet-exercised commit-to-main leg. Docs only, no runtime change."
+}
