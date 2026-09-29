@@ -1,5 +1,7 @@
 # AUD-8 — operating-model audit (E75, 2026-09-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## 1. The question and the answer
 
 **Question:** is the 2026-09-21 reset's promise true today, measured — that an item comes due on the operator's own page and stays there until routed?
