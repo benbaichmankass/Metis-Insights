@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "PR #14106 deployed and a post-deploy Bybit close initially written reconciler_filled/netting_attributed reads sl|tp with notes.exit_reason_source='venue_bracket_order'; backfill-exit-labels --apply audit shows the order-id relabel count (dry run 235).",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-WL2HIWVS-0002",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "research",
+    "ref": "lane EXIT-CLUSTER session_01XpKxKGrnBP9u4xwL2hiWVs, PR #14106",
+    "rerun": "python3 scripts/research/realized_slippage.py pull --out-dir /tmp/ec  # then compare trades.exit_price to order_packages.sl/tp for exit_reason=reconciler_filled"
+  },
+  "routed_to": "PR #14106 (manager merges), then system-action backfill-exit-labels.",
+  "state": "routed",
+  "what": "[exit-label] Bybit reconciler_filled: of 248 closes since 2026-07-31 with an exit price and package levels (bybit_1/2/portfolio, closed non-backtest), 85 are stamped exit_reason_source=unresolved yet sit within 10 bps of a package sl/tp, 35 within 10-40 bps, 128 beyond 40 (MEASURED 2026-09-29, realized_slippage.py pull). PR #14106 deliberately kept the strict rule here: on Bybit netting accounts the position-level bracket is the NEWEST trade's and trailing amends can lag the package row, so a near-level exit may be a sibling's bracket. Question: which of the 85 are bracket fills (match the fill's order id to the stop/tp order ids), and should the tolerance extend to this path. | 2026-09-29 11:0xZ same lane: ANSWERED by venue ORDER IDENTITY rather than a tolerance. Matching exit fills' order_id to the trade's own sl_order_id/tp_order_id (exchange-fills store, 90d pull): bybit_2 20 of its 26 reconciler_filled/netting_attributed closes since 2026-07-31; backfill dry run relabels 235 Bybit rows all-time (bybit_1 175, bybit_portfolio 34, bybit_2 26). 224 of 233 agree with the nearer package level; the 9 that do not all carry a candle/mark exit price. Shipped in PR #14106 (_sweep_exit_label_from_bracket_order + backfill rule 0). MERGED no, DEPLOYED no, OBSERVED no."
+}

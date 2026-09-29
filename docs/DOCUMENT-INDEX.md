@@ -378,6 +378,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/audits/system-audit-2026-09-29/AUD-5.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/AUD-7.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/AUD-8.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
+| `docs/audits/system-audit-2026-09-29/GUARD-PROOF.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-1.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-2.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
 | `docs/audits/system-audit-2026-09-29/briefs/AUD-3.md` | evidence | unknown | — | never | `dir:audits-are-measurement / not-assessed` | — |
@@ -876,6 +877,7 @@ real top-level `docs/*.md` and fails if the population builder cannot see it.
 | `docs/research/prop-account-silence-2026-09-11.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-apex-vs-breakout-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-automation-options-2026-09-27.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
+| `docs/research/prop-candidates-2026-09-29.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-dynamic-exits-faster-banking-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |
 | `docs/research/prop-exit-evidence-2026-09-24.md` | evidence | unknown | — | never | `dir:research-is-measurement / not-assessed` | — |
 | `docs/research/prop-firm-testing-tool-DESIGN.md` | architecture | unknown | — | never | `name:design-declares-a-contract / not-assessed` | — |

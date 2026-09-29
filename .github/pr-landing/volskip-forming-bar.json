@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "hold_text": "research/queue/RQ-20260929-201.yaml is a new queue unit (a registration), outside TIER1_SURFACE; the manager merges after reading it.",
+  "why": "research tooling + evidence only: a default-off vol_pctl_override hook in two backtest harnesses, the RQ-20260929-201 replay script and its evidence record, the queue unit, pipeline records. The Tier-3 gate change was REVERTED on this branch after the pre-registered rule returned KEEP_AND_REPORT; no runtime, order path, strategy or config touched."
+}

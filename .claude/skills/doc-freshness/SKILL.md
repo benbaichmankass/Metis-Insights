@@ -1,6 +1,6 @@
 ---
 name: doc-freshness
-description: Session-end (and on-demand) check that the canonical instruction docs do not contradict each other, the code/config on disk, or the changes this session made — AND that this session's material decisions actually landed in every durable surface they belong in (roadmap + sprint log + the right review backlog), so nothing flows through the cracks. Use at the end of every session per docs/CLAUDE-RULES-CANONICAL.md, when the operator says "/doc-freshness" or "check the docs are up to date", or whenever you suspect documentation drift. Fixes Tier-1 doc contradictions + missing roadmap/sprint-log records in place; logs minor leftovers to the health-review backlog; flags anything needing a code/config change for the operator.
+description: Session-end (and on-demand) check that the canonical instruction docs do not contradict each other, the code/config on disk, or the changes this session made — AND that this session's material decisions actually landed in every durable surface they belong in (roadmap + sprint log + a `docs/claude/work/PIPELINE.jsonl` row), so nothing flows through the cracks. Use at the end of every session per docs/CLAUDE-RULES-CANONICAL.md, when the operator says "/doc-freshness" or "check the docs are up to date", or whenever you suspect documentation drift. Fixes Tier-1 doc contradictions + missing roadmap/sprint-log records in place; files minor leftovers to PIPELINE.jsonl; flags anything needing a code/config change for the operator.
 ---
 
 > **Doc status:** `live` · category `instruction` · last verified `2026-09-07` · registered in [`docs/DOCUMENT-INDEX.md`](../../../docs/DOCUMENT-INDEX.md)
@@ -129,14 +129,14 @@ Then, scoped to what changed this session:
    in every required surface below — and if a surface is missing it, add it now
    (docs are Tier-1):
 
-   | Decision/outcome type | ROADMAP.md (milestone record) | `docs/sprint-logs/<ID>.md` (execution record) | review backlog (follow-ups) | other |
+   | Decision/outcome type | ROADMAP.md (milestone record) | `docs/sprint-logs/<ID>.md` (execution record) | PIPELINE.jsonl (follow-ups) | other |
    |---|---|---|---|---|
    | Milestone/sprint completed or status-changed | **required** (row or status update) | **required** | follow-ups only | — |
    | Research initiative concluded (incl. honest negatives) | **required** (incl. ON-HOLD/abandoned + why) | **required** | open follow-ups | results doc under `docs/research/` |
    | Strategy/account/risk Tier-3 change (proposed or shipped) | **required** | **required** | — | the PR + `config/*` |
    | Live-VM action (deploy/mode-flip/restart) | if it changes a milestone's state | **required** | — | the system-action issue/audit |
-   | Per-trade / strategy-perf finding | — | if part of a sprint | `performance-review-backlog.json` | `claude_strategy_scores.jsonl` |
-   | ML experiment outcome | M14 row if it moves a sprint | if part of a sprint | `ml-review-backlog.json` | manifest/registry |
+   | Per-trade / strategy-perf finding | — | if part of a sprint | `PIPELINE.jsonl` | `claude_strategy_scores.jsonl` |
+   | ML experiment outcome | M14 row if it moves a sprint | if part of a sprint | `PIPELINE.jsonl` | manifest/registry |
    | Flipped an env knob / armed a gate this session | if it changes a milestone's state | — | — | **required**: record the LIVE VALUE + how it was verified (e.g. `get-env` against `/proc/<MainPID>/environ`, never the `.env` file) in CLAUDE.md's env-var table row for that knob |
 
    The last row exists because a doc row that states NO live value for an
@@ -166,17 +166,12 @@ Then, scoped to what changed this session:
    landing decision tree.)
 
 6. **Triage minor leftovers.** Anything real but too small to fix now goes
-   into the appropriate review backlog as a new `open` item so a future
-   review drains it. Don't silently walk past it. Pick the right bin
-   (three-way split 2026-05-26):
-   - System / pipeline / doc-drift → `docs/claude/health-review-backlog.json`
-     (drained by `/health-review`).
-   - Strategy / trading follow-ups → `docs/claude/performance-review-backlog.json`
-     (drained by `/performance-review`).
-   - AI / ML experiment follow-ups → `docs/claude/ml-review-backlog.json`
-     (drained by `/ml-review`).
-   When in doubt for a doc-drift leftover (the common case for this skill),
-   use the health backlog.
+   into `docs/claude/work/PIPELINE.jsonl` via `scripts/ops/pipeline.py` (it
+   refuses a row without `due_when` and `origin.rerun`) so a future review
+   picks it up. Don't silently walk past it. The three review backlogs are
+   archived; tag the row's origin with the review that should drain it
+   (`/health-review` system / pipeline / doc-drift, `/performance-review`
+   strategy / trading, `/ml-review` AI / ML experiments).
 
 ## Output
 

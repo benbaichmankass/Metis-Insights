@@ -305,6 +305,21 @@ append packages decided since the last review.
 The retroactive backfiller for historical windows is
 `scripts/ops/score_order_packages.py` — re-use it, do not reinvent.
 
+**Closed trades are graded per TRADE, on a schedule (JC-SA-01, 2026-09-29).**
+`.github/workflows/grade-closed-trades.yml` runs daily and appends one row per
+closed, non-backtest trade, keyed on `linked_trade_id` (= that trade's
+`trades.id`), via `score_order_packages.py --emit-delta-only --by-trade` — the
+same `_grade_package` rubric, no new one. The skip-set for closed trades is
+therefore the set of `linked_trade_id`s already present, not the
+`order_package_id`s: a package that fans out to several accounts names only one
+trade in `order_packages.linked_trade_id`, and a package graded `orphaned`
+before its trades existed would otherwise keep that stale row forever
+(measured 2026-09-29: 54 of 486 recent closes fell in those two shapes). The
+stale package-level rows stay (append-only); the trade rows sit beside them.
+`scripts/ci/check_grading_freshness.py` fails CI when `max(reviewed_at)` is
+older than 3 days. A review session no longer needs to run the grading pass
+for closed trades — it checks that the guard is green and reads the rows.
+
 **Web / PM session (no DB file):** dispatch the **`grade-closed-trades`**
 system-action (Tier-1, `docs/claude/system-actions.md`) instead of pulling the
 whole `trades` table through the diag relay. It runs
