@@ -2765,10 +2765,108 @@ def test_a_close_that_did_not_confirm_never_trips_the_reconcile(env):
         assert stale not in ledger.watched() and stale not in ledger.unresolved(), stale
     for _ in range(4):
         res = run(FakeAdapter(), FakeApi([]), env)
-        assert not any(str(a.get("ticket_id", "")).startswith("roundtrip-solusd-") for a in res.actions), res.actions
+        # never re-read as a submit: no confirm / skip action for a close row
+        assert not any(str(a.get("ticket_id", "")).startswith("roundtrip-solusd-") and a["what"] != "close_resolved"
+                       for a in res.actions), res.actions
     # the stale closes never tripped anything; the real submit did, on its own
     assert state.halted() and "t-real-submit" in state.halted()
     assert not any("roundtrip-solusd-" in a for a in res.alerts)
+    # and, the terminal being flat, both closes resolved on the first clean read
+    assert ledger.state("roundtrip-solusd-stale") == "close_confirmed"
+    assert ledger.state("roundtrip-solusd-legacy") == "close_confirmed"
+
+
+_STALE_SPEC = {"ticket_id": "roundtrip-solusd-stale", "venue_symbol": "SOLUSD", "side": "long",
+               "quantity": 0.01, "stop_loss": 119.36, "take_profit": 121.78, "order_type": "market"}
+
+
+def _stale_close(ledger, tid="roundtrip-solusd-stale", **extra):
+    ledger.record(tid, "intended", spec={**_STALE_SPEC, "ticket_id": tid}, purpose="round_trip_test")
+    ledger.record(tid, "close_unconfirmed", purpose="round_trip_close", **extra)
+
+
+def _placing_env(tmp_path):
+    ledger, state = pe.IntentLedger(tmp_path / "l.jsonl"), pe.ExecutorState(tmp_path)
+    state.save({"day": pe.trading_day(NOW), "day_start_captured": 4724.0})
+    return ledger, state
+
+
+def _cycle(ad, api, env):
+    ledger, state = env
+    return pe.run_cycle(adapter=ad, page=None, api=api, cfg=cfg(breach_guards="report"), mode="live",
+                        ledger=ledger, state=state, now=NOW)
+
+
+def test_a_stale_close_with_the_terminal_flat_resolves_and_releases_entries(tmp_path):
+    # (i) review of #14388: resolves to close_confirmed on a clean flat read,
+    # never trips, and the SAME tick goes on to place the waiting ticket
+    env = _placing_env(tmp_path)
+    ledger, state = env
+    _stale_close(ledger)
+    ad = FakeAdapter(account=acct(4724.0, 4724.0), after_submit=([], [_o(quantity=37.5)]))
+    res = _cycle(ad, FakeApi([ticket(qty=37.5)]), env)
+    assert ledger.state("roundtrip-solusd-stale") == "close_confirmed"
+    assert [a for a in res.actions if a["what"] == "close_resolved"][0]["reason"] == "flat_on_terminal"
+    assert not any(a["what"] == "hold" for a in res.actions) and state.halted() is None and res.halted is None
+    assert ("place_bracket", "prop-manual-aaa", True) in ad.calls
+    assert not ledger.close_unresolved()
+
+
+def test_a_stale_close_with_the_position_still_found_holds_entries_and_does_not_trip(tmp_path):
+    # (ii) the position may be live under its bracket: hold, name it every
+    # tick, place nothing, latch nothing
+    env = _placing_env(tmp_path)
+    ledger, state = env
+    _stale_close(ledger)
+    ad = FakeAdapter(account=acct(4724.0, 4724.0), positions=[_p(quantity=0.01, entry_price=120.62)])
+    for _ in range(2):
+        res = _cycle(ad, FakeApi([ticket(qty=37.5)]), env)
+        pend = [a for a in res.actions if a["what"] == "close_pending"]
+        assert len(pend) == 1 and pend[0]["ticket_id"] == "roundtrip-solusd-stale", res.actions
+        hold = [a for a in res.actions if a["what"] == "hold"]
+        assert len(hold) == 1 and "roundtrip-solusd-stale" in hold[0]["why"] and "close" in hold[0]["why"]
+    assert ledger.state("roundtrip-solusd-stale") == "close_unconfirmed"
+    assert not any(c[0] == "place_bracket" for c in ad.calls)
+    assert state.halted() is None and res.halted is None and res.alerts == []
+
+
+def test_a_genuinely_unconfirmed_entry_submit_still_trips(tmp_path):
+    # (iii) the negative control, beside a stale close: only the submit trips
+    env = _placing_env(tmp_path)
+    ledger, state = env
+    _stale_close(ledger)
+    ledger.record("t-real-submit", "submitted", spec={**_STALE_SPEC, "ticket_id": "t-real-submit"})
+    ledger.record("t-real-submit", "unconfirmed", misses=2)
+    res = _cycle(FakeAdapter(account=acct(4724.0, 4724.0)), FakeApi([]), env)
+    assert state.halted() and "t-real-submit" in state.halted() and "t-real-submit" in res.halted
+    assert ledger.state("t-real-submit") == "skipped"
+    assert ledger.state("roundtrip-solusd-stale") == "close_confirmed"      # resolved, flat; not the trip
+
+
+def test_a_failed_terminal_read_never_resolves_a_close(tmp_path):
+    # (iv) "could not look" is not "flat": the row stays, entries stay held
+    env = _placing_env(tmp_path)
+    ledger, state = env
+    _stale_close(ledger)
+    ad = FakeAdapter(account=acct(4724.0, 4724.0), read_error="selector drift")
+    res = _cycle(ad, FakeApi([ticket(qty=37.5)]), env)
+    assert res.halted and "terminal read failed" in res.halted
+    assert ledger.state("roundtrip-solusd-stale") == "close_unconfirmed" and ledger.close_unresolved()
+    assert not any(c[0] == "place_bracket" for c in ad.calls)
+    assert not any(a["what"] in ("close_resolved", "close_pending") for a in res.actions)
+
+
+def test_a_legacy_closeout_row_without_a_spec_resolves_from_its_id(tmp_path):
+    env = _placing_env(tmp_path)
+    ledger, state = env
+    ledger.record("closeout-solusd-20260929T125601Z", "open", purpose="close_position", entry=120.62)
+    ledger.record("closeout-solusd-20260929T125601Z", "unconfirmed", purpose="close_position")
+    ad = FakeAdapter(account=acct(4724.0, 4724.0), positions=[_p(quantity=0.01)])
+    res = _cycle(ad, FakeApi([]), env)
+    assert [a["ticket_id"] for a in res.actions if a["what"] == "close_pending"] == ["closeout-solusd-20260929T125601Z"]
+    ad.positions = []
+    _cycle(ad, FakeApi([]), env)
+    assert ledger.state("closeout-solusd-20260929T125601Z") == "close_confirmed" and state.halted() is None
 
 
 def test_round_trip_refused_close_is_ledgered_as_a_close_not_a_submit(tmp_path):
