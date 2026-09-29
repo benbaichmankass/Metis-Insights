@@ -1,0 +1,7 @@
+{
+  "tier": 2,
+  "landing": "hold",
+  "hold_reason": "tier_2_3_needs_approval",
+  "hold_text": "Tier 2: this adds an OCI boot-volume resize route. The operator OK was the popup answer 'All three (Recommended)' on 2026-09-29, relayed by the manager session_01HYq6XtfesZ57VyaQrK6CL1, and the manager merges under it.",
+  "why": "Lane TRAINER-DISK, PI-20260929-BTG1YDOI-0002. Adds an issue-triggered workflow (owner/bot actor guard) that measures tenancy block storage and grows the TRAINER boot volume online, refusing any resize past the Always Free 200 GB total. It never contacts the live VM or the IB gateway. Tier 2 because it mutates OCI infrastructure. The operator's OK ('All three (Recommended)', 2026-09-29 ~13:57Z) was relayed by the manager, who merges it."
+}
