@@ -1,5 +1,7 @@
 # AUD-2 — trading correctness, signal → order → fill → exit → grade (E75 audit, 2026-09-29)
 
+> **Doc status:** `unknown` · category `evidence` · last verified `never` · registered in [`docs/DOCUMENT-INDEX.md`](../../DOCUMENT-INDEX.md) · **nobody has verified this document's status — do not act on it as current**
+
 ## 1. Question and answer
 
 **Question.** For closed trades from the last 14 days, does each hop (signal → `order_packages` → fill → monitor decisions → exit with a correct close reason → graded in `comms/claude_strategy_scores.jsonl`) meet its declared contract on live data? Does any exit stamped sl/tp sit outside every recorded bracket level?
