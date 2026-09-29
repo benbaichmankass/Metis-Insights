@@ -48,6 +48,8 @@ name: research-script-run
 # means "do not read this run's output as a test result". It is a label, not
 # a command, and the runner never branches on it.
 #
+# landed-by: scripts/research/collect_runner_results.py
+#
 # Tier-1: runs on the GitHub-hosted runner, reads the repo, writes only
 # comms/research/** and research/results/**. No live path, no order path,
 # no VM.

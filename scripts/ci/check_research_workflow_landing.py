@@ -24,6 +24,9 @@ must be exactly one of:
 
   1. WIRED   — calls `uses: ./.github/actions/research-result` somewhere in
                the file. The durable path.
+  1b. DELEGATED — carries `# landed-by: <script>`: an existing script that itself
+               calls `research_result.py` lands its records (batched; the
+               token-free runner since 2026-09-29). Counted as wired.
   2. ANNOTATED — carries `# no-durable-result: <reason>`, a non-empty reason,
                for an ops/deploy/relay/training workflow that does not compute
                a research verdict at all (a diag relay, a VM mutation, an ML
@@ -78,6 +81,12 @@ WORKFLOWS_DIR = REPO / ".github" / "workflows"
 _UPLOAD_ARTIFACT_RE = re.compile(r"actions/upload-artifact")
 _RESEARCH_RESULT_RE = re.compile(r"\./\.github/actions/research-result")
 _NO_DURABLE_RESULT_RE = re.compile(r"#\s*no-durable-result:(.*)")
+#: `# landed-by: <repo-relative script>` — the workflow computes a verdict but a
+#: NAMED collector lands it (batched, one PR per cycle: manager review
+#: 2026-09-29). Verified, not presence-only: the script must exist and must
+#: itself call the one schema owner, `research_result.py`.
+_LANDED_BY_RE = re.compile(r"#\s*landed-by:(.*)")
+_EMITTER_RE = re.compile(r"research_result\.py")
 
 #: ── THE DEBT LIST — MEASURED 2026-09-27, AND IT MAY ONLY SHRINK ───────────
 #:
@@ -137,6 +146,23 @@ def scan(root: Path) -> Tuple[List[str], int, int, int, int]:
         stem = path.stem
 
         if _RESEARCH_RESULT_RE.search(text):
+            wired += 1
+            continue
+
+        lb = _LANDED_BY_RE.search(text)
+        if lb:
+            script = lb.group(1).strip()
+            target = REPO / script if script else None
+            if not script or target is None or not target.is_file():
+                problems.append(
+                    f"{path.name}: `# landed-by:` names {script!r}, which is not a file in this "
+                    f"repo — a collector that does not exist lands nothing.")
+                continue
+            if not _EMITTER_RE.search(target.read_text(encoding="utf-8", errors="replace")):
+                problems.append(
+                    f"{path.name}: `# landed-by: {script}` names a script that never calls "
+                    f"research_result.py — it cannot be landing E5 records.")
+                continue
             wired += 1
             continue
 
@@ -211,6 +237,19 @@ def _self_test() -> int:
     )
     run_case("positive: a workflow wired to research-result is CLEAN",
              {"x.yml": wired_yml}, {}, must_fail=False)
+
+    landed_by_yml = (
+        "name: x\n# landed-by: scripts/research/collect_runner_results.py\n"
+        "jobs:\n  a:\n    steps:\n      - uses: actions/upload-artifact@v4\n"
+    )
+    run_case("positive: a workflow whose landing is delegated to an existing collector is CLEAN",
+             {"x.yml": landed_by_yml}, {}, must_fail=False)
+    run_case("negative: `landed-by` naming a script that does not exist is CAUGHT",
+             {"x.yml": landed_by_yml.replace("collect_runner_results.py", "no_such_collector.py")},
+             {}, must_fail=True, expect="not a file")
+    run_case("negative: `landed-by` naming a script that never calls research_result.py is CAUGHT",
+             {"x.yml": landed_by_yml.replace("scripts/research/collect_runner_results.py", "scripts/ops/pipeline.py")},
+             {}, must_fail=True, expect="never calls research_result.py")
 
     annotated_yml = (
         "name: x\n# no-durable-result: ops relay, computes no verdict\n"

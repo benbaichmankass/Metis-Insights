@@ -223,6 +223,8 @@ def _self_test() -> int:
             if run_id == 3:
                 rec.update(verdict="pass", read_state="measured", population="7 committed trades", n="7")
             else:
+                # collapsed-state: not_applicable — E5 VERDICT vocabulary (with read_state
+                # producer_failed), not research_queue.power_state; fixture data only
                 rec.update(verdict="not_applicable", read_state="producer_failed", population="script failed", n="null")
             (dest / RECORD_INPUTS).write_text(json.dumps(rec))
             return True
