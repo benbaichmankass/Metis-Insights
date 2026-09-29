@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 3,
+    "clears_when": "close_naked's flatten call passes side, quantity and entry_price from the naked leg AND a test in tests/test_prop_executor.py asserts flatten_facts carries all three",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-2PNSPDNU-0001",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "review",
+    "ref": "REVIEW-14216 (session_01Pa6DRmSDW5ikYNWDFU6FYe) relayed by manager session_01HYq6XtfesZ57VyaQrK6CL1 2026-09-29 13:59Z; PR #14216",
+    "rerun": "grep -n 'adapter.flatten(page, leg.symbol' src/prop/prop_executor.py  # finding stands while the call carries no side= / quantity= / entry_price="
+  },
+  "state": "queued",
+  "what": "[pre-existing, out of scope for #14216 — review REVIEW-14216] src/prop/prop_executor.py close_naked (~line 1258) calls adapter.flatten(page, leg.symbol, arm=live) with no side / quantity / entry_price, so on that LIVE containment path the watched close's row-facts check (side, size, fill vs the position meant to be closed) is skipped and the modal's lots check falls back to the row's own size. Fix: pass the naked leg's side / quantity / entry_price from the terminal read into flatten, and add a test that close_naked's flatten call carries all three (the RTAdapter fakes record flatten_facts)."
+}

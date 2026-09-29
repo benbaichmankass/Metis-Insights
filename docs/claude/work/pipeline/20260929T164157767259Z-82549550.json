@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "no breakout_1 ticket is suppressed by an expiry_prompted ticket past its valid_until: the two 09-25 tickets are journaled skipped AND breakout_executor._reticket_suppress_reason ignores expiry_prompted/emitted tickets past valid_until + grace (test present)",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-2PNSPDNU-0002",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "manager session_01HYq6XtfesZ57VyaQrK6CL1 16:37Z question; PI-20260929-AQRK6CL1-0006; diag #14291",
+    "rerun": "open a vm-diag-request issue titled '[diag-request] api/bot/prop/tickets?account_id=breakout_1&limit=40' and count rows with status suppressed whose message names an outstanding_ticket:expiry_prompted ticket older than its valid_until"
+  },
+  "state": "queued",
+  "what": "[bug] breakout_executor._reticket_suppress_reason treats a ticket left at status 'expiry_prompted' (or 'awaiting_report' / 'placed') as an outstanding ticket FOREVER, with no look at valid_until (src/prop/breakout_executor.py:112-113), although its docstring says an EXPIRED unacted ticket does not block. Measured 2026-09-29 (api/bot/prop/tickets, #14291): the two 09-25T11:11Z tickets prop-manual-2209e50e9bfc (SOL long) and prop-manual-693bb30f7638 (ETH long), valid_until 09-25T12:11Z, expiry prompt never answered, still 'expiry_prompted', suppressed the 09-27 07:58Z / 08:01Z SOL longs and the 09-28 17:15Z ETH long. Same failure class as 2026-09-11 (fills #42/#43 cleared 37 suppressed tickets by hand). Fix: (a) journal the two stuck tickets as skipped (the sanctioned clear; Tier-2 prop-report writes with ticket_id) and (b) code: an 'expiry_prompted' / 'emitted' ticket whose valid_until + a grace window has passed no longer blocks (it is a stale prompt, not a live ticket); 'placed' / 'awaiting_report' keep blocking because a working order or an unanswered fill report is real exposure. Add a test with an expiry_prompted ticket 3 days past valid_until that no longer suppresses."
+}

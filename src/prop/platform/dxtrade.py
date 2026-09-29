@@ -474,11 +474,18 @@ EXTRACT_TABLES_JS = r"""
   };
   const ctlDesc = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
     (txt(c) || c.getAttribute('title') || c.getAttribute('aria-label') || c.tagName.toLowerCase()).slice(0, 30));
+  // The same controls' markup (whitespace folded, digit runs of 5+ masked):
+  // live test #14191 read the position row's trio as three text-less
+  // buttons, so what they are CALLED is the only way to tell them apart.
+  const ctlHtml = r => [...r.querySelectorAll('button, [role=button], [title], [aria-label]')].slice(0, 8).map(c =>
+    (c.outerHTML || '').replace(/\s+/g, ' ').replace(/(data-[\w-]*id[\w-]*=")[^"]*(")/gi, '$1#####$2')
+      .replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 220));
   for (const p of paired) {
     const rows = p.trs.map(r => [...r.querySelectorAll('td')].filter(c => c.closest('table') === r.closest('table')).map(txt));
     push('table', p.headers, rows, {paired: !!p.body, own_rows: p.own_rows, unpaired_body_rows: p.unpaired_body_rows,
                                     headerless_tables: headerless,
-                                    first_row_controls: p.trs.length ? ctlDesc(p.trs[0]) : []});
+                                    first_row_controls: p.trs.length ? ctlDesc(p.trs[0]) : [],
+                                    first_row_control_html: p.trs.length ? ctlHtml(p.trs[0]) : []});
   }
   for (const g of document.querySelectorAll('[role=grid], [role=treegrid], [role=table]')) {
     const headers = [...g.querySelectorAll('[role=columnheader]')].map(txt);
@@ -1569,9 +1576,49 @@ CLOSE_ROW_JS = r"""
   const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
   const box = el => { const r = el.getBoundingClientRect();
     return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
-  const hint = el => norm([txt(el), el.getAttribute('title'), el.getAttribute('aria-label'),
-    typeof el.className === 'string' ? el.className : '', el.getAttribute('data-test-id')].filter(Boolean).join(' '));
-  const CLOSE_RE = /(^|\s)(×|✕|✖|⨯|x|close)(\s|$)/i, BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i;
+  // What a control SAYS (its own and its descendants' text / title /
+  // aria-label) and what it is CALLED (class, href, data-icon, data-test-id,
+  // name — its own and its descendants', split on - _ . / # : so that
+  // "icon-close" reads as the word close). Live test #14191: the row's icon
+  // trio is three text-less <button>s (no title, no aria-label), so the
+  // name of the icon inside is the only thing that says which one closes.
+  const attr = (d, a) => d.getAttribute ? (d.getAttribute(a) || '') : '';
+  // Split on - _ . / # : AND on camelCase (review of #14216, round 5: the
+  // ancestor rule reads by word, so "reverseBtn", "btnReverse",
+  // "Row_reverseButton__a1b2c", "modifyOrder" and "closeAll" hid their
+  // word from it): "reverseBtn" reads as "reverse Btn", "XMLHttp" as "XML Http".
+  const tokens = s => (s || '').replace(/[-_./#:]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  // The attributes an element is CALLED by. data-testid / data-action / id
+  // added in round 5: <div data-action="reverse"> behind a framework
+  // listener names itself in no other attribute.
+  const NAME_ATTRS = ['class', 'href', 'xlink:href', 'data-icon', 'data-test-id', 'data-testid', 'data-action', 'name', 'id'];
+  const names = d => NAME_ATTRS.map(a => attr(d, a)).filter(Boolean);
+  // Kept as PARTS (one per attribute of each element) as well as joined: the
+  // qualified-close rule below reads each part on its own, so a class
+  // "icon-close" followed by an href "#i-close" is not "close i".
+  const labelParts = el => [el, ...el.querySelectorAll('*')].flatMap(d =>
+    [d === el ? txt(el) : '', attr(d, 'title'), attr(d, 'aria-label')].filter(Boolean).map(norm));
+  const calledParts = el => [el, ...el.querySelectorAll('*')].flatMap(d => names(d).map(v => norm(tokens(v))));
+  const label = el => labelParts(el).join(' ');
+  const called = el => calledParts(el).join(' ');
+  const hint = el => norm(label(el) + ' ' + called(el));
+  // Markup for the log: whitespace folded; digit runs of 5+, hex / uuid runs
+  // of 8+ and any data-*id value masked (a position id may be any of those).
+  const snippet = el => (el.outerHTML || '').replace(/\s+/g, ' ')
+    .replace(/(data-[\w-]*id[\w-]*=")[^"]*(")/gi, '$1#####$2').replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########').slice(0, 200);
+  // The glyph / x spellings count from the LABEL only: a class token such
+  // as "x-small" is not a close. A name says close only as the word close
+  // (or cross); reverse / modify words anywhere disqualify, and so does a
+  // QUALIFIED close (review of #14216: "icon-close-all" tokenised to "icon
+  // close all" and read as a close — a close-all could flatten every
+  // position): the token "all" anywhere, or any word right after "close"
+  // other than icon / btn / button / svg / position / x, disqualifies.
+  const CLOSE_RE = /(^|\s)(×|✕|✖|⨯|x|close)(\s|$)/i, CLOSE_NAME_RE = /(^|\s)(close|cross)(\s|$)/i,
+        BAD_RE = /(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)/i,
+        QUAL_RE = /(^|\s)all(\s|$)|(^|\s)close\s+(?!(icon|btn|button|svg|position|x|×|✕)(\s|$))\S/i;
+  const isQualified = el => [...labelParts(el), ...calledParts(el)].some(s => QUAL_RE.test(s));
+  const isClose = el => (CLOSE_RE.test(label(el)) || CLOSE_NAME_RE.test(called(el))) && !BAD_RE.test(hint(el)) && !isQualified(el);
   if (op === 'locate') {
     document.querySelectorAll('[data-metis-close-row]').forEach(e => e.removeAttribute('data-metis-close-row'));
     const posWords = /^(position volume|position id|open price|avg fill price|open p&l|fill price)$/;
@@ -1598,22 +1645,74 @@ CLOSE_ROW_JS = r"""
     const row = document.querySelector('[data-metis-close-row]');
     if (!row) return {ok: false, why: 'no located row'};
     document.querySelectorAll('[data-metis-row-action]').forEach(e => e.removeAttribute('data-metis-row-action'));
-    // Clickable-looking things in the row, outermost only (an icon inside its button counts once).
-    const all = [...row.querySelectorAll('button, [role=button], a, [title], [aria-label], svg, [class*=icon], [class*=close], [class*=action]')]
-      .filter(vis);
-    const ctls = all.filter(el => !all.some(o => o !== el && o.contains(el)));
-    const desc = ctls.map(el => ({hint: hint(el).slice(0, 60), box: box(el)}));
-    const closeIdx = ctls.map((el, i) => (CLOSE_RE.test(hint(el)) && !BAD_RE.test(hint(el))) ? i : -1).filter(i => i >= 0);
+    // Clickable-looking things in the row. A CONTAINER — ANY element that
+    // holds a pressable (button / role=button / a), whatever it matches
+    // itself: the "sticky--actions-cell" of live test #14191 (class only),
+    // and equally a <div class="row-icons">, a [title] or a role=button
+    // wrapper around the trio (review of #14216: a wrapper that survived as
+    // the outermost control read "close" from its descendants and its
+    // CENTRE was the modify button) — is descended into and never counted.
+    // Among the rest, outermost only (an icon inside its button counts
+    // once). The control that gets pressed must itself be a pressable.
+    const PRESS = 'button, [role=button], a';
+    const INTERACTIVE = PRESS + ', [title], [aria-label], svg, [class*=icon], [class*=close]';
+    const all = [...row.querySelectorAll(INTERACTIVE + ', [class*=action]')].filter(vis);
+    const presses = all.filter(el => el.matches(PRESS));
+    const isContainer = el => presses.some(p => p !== el && el.contains(p));
+    const cands = all.filter(el => !isContainer(el));
+    const ctls = cands.filter(el => !cands.some(o => o !== el && o.contains(el)));
+    const desc = ctls.map(el => ({hint: hint(el).slice(0, 80), tag: el.tagName.toLowerCase(), pressable: el.matches(PRESS),
+                                  box: box(el), html: snippet(el)}));
+    const closeIdx = ctls.map((el, i) => isClose(el) ? i : -1).filter(i => i >= 0);
     let why = null, chosen = null;
     if (!ctls.length) why = 'the row shows no control';
     else if (closeIdx.length !== 1) why = closeIdx.length + ' close-type controls in the row (need exactly 1)';
     else if (closeIdx[0] !== ctls.length - 1) why = 'the close-type control is not the LAST control of the row';
+    else if (!ctls[closeIdx[0]].matches(PRESS)) why = 'the close-type control is not a button (' + ctls[closeIdx[0]].tagName.toLowerCase() + ')';
     else {
       const c = ctls[closeIdx[0]], rb = row.getBoundingClientRect(), cb = c.getBoundingClientRect();
       const inRow = c.closest('tr') === row && cb.width > 0 && cb.height > 0
         && cb.left >= rb.left - 4 && cb.right <= rb.right + 4 && cb.top >= rb.top - 4 && cb.bottom <= rb.bottom + 4;
       const nearCanvas = !!(c.closest('canvas') || [...(c.parentElement ? c.parentElement.children : [])].some(e => e.tagName === 'CANVAS'));
-      if (!inRow) why = 'the close control is not boxed inside its row';
+      // A close-named pressable NESTED in another pressable (review of
+      // #14216, F3: <button class="btn-reverse"><span role=button
+      // class="icon-close"/></button>): the click bubbles to the outer
+      // control, so it is never pressed. And every ancestor up to the row
+      // is read by its own attributes: a reverse / modify / qualified name
+      // on the way up disqualifies, whatever the chosen element says.
+      // Anything CLICKABLE above the chosen control counts as an outer control
+      // (review of #14216, round 4: a <div onclick>, a role=menuitem with a
+      // tabindex, a role=link span all received the bubbled click): the
+      // pressables plus every attribute-visible way an element takes a
+      // click. A React / framework handler leaves NO attribute, so this
+      // cannot see every clickable ancestor — the ancestor-NAME check below
+      // (a reverse / modify / qualified name anywhere up to the row) stays
+      // the main defence, and the modal read-back the last one.
+      const CLICKY = PRESS + ', [onclick], [tabindex]:not([tabindex="-1"]), [role=link], [role=menuitem], [role=option], '
+        + 'input[type=button], input[type=submit], summary, label';
+      const outer = c.parentElement ? c.parentElement.closest(CLICKY) : null;
+      const ancestors = []; for (let a = c.parentElement; a && a !== row.parentElement; a = a.parentElement) ancestors.push(a);
+      const ownParts = a => [
+        norm([attr(a, 'title'), attr(a, 'aria-label')].filter(Boolean).join(' ')),
+        norm(tokens(names(a).join(' ')))].filter(Boolean);
+      // The ROW itself is read by WORD (a row class such as "editable" or
+      // "swappable" must not refuse every row). Every ancestor BETWEEN the
+      // control and the row is read by SUBSTRING, like the chosen control
+      // (review of #14216, round 5: at the word rule a wrapper "reverseBtn"
+      // or "modifyOrder" behind a framework listener — no onclick, tabindex
+      // or role to see — hid its word and the close under it was pressed).
+      // tokens() now splits camelCase too, so the word rule on the row sees
+      // "reverseButton" as well. A qualified close ("close all", "closeAll")
+      // anywhere on the way up disqualifies.
+      const ANCESTOR_BAD_RE = /(^|\s)(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)(\s|$)/i;
+      const badAncestor = ancestors.flatMap(a => ownParts(a).filter(s =>
+        (a === row ? ANCESTOR_BAD_RE : BAD_RE).test(s) || QUAL_RE.test(s)))[0];
+      // Bound for a public log (round 4: a data-test-id "pos-<id>" on the row
+      // reached `why`): digit runs of 5+ and hex runs of 8+ masked here too.
+      const maskText = s => (s || '').replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########');
+      if (outer && row.contains(outer)) why = 'close control nested in another pressable (' + outer.tagName.toLowerCase() + ')';
+      else if (badAncestor) why = 'close control sits under a reverse / modify / qualified ancestor ("' + maskText(badAncestor).slice(0, 40) + '")';
+      else if (!inRow) why = 'the close control is not boxed inside its row';
       else if (nearCanvas) why = 'the close control sits beside a canvas';
       else { c.setAttribute('data-metis-row-action', '1'); chosen = closeIdx[0]; }
     }
@@ -1656,6 +1755,35 @@ CLOSE_ROW_JS = r"""
   return {ok: false, why: 'unknown op'};
 }
 """
+
+
+def _mask_controls(controls: Any) -> List[Dict[str, Any]]:
+    """The row controls' markup, bound for a PUBLIC log: through
+    ``redact_text`` (credential-shaped runs, e-mails), then digit runs of 5+,
+    hex / uuid runs of 8+ and data-*id values masked — a position id may be
+    any of those (review of #14216: a hex or UUID id survives ``\\d{5,}``).
+    The JS already masks; this is the belt on top of it."""
+    out: List[Dict[str, Any]] = []
+    for c in controls or []:
+        c = dict(c) if isinstance(c, Mapping) else {"hint": str(c)}
+        # The hint carries data-test-id / name / href values too (review of
+        # #14216: a data-test-id "close-<positionid>" would reach the log).
+        for key in ("html", "hint"):
+            if c.get(key) is not None:
+                c[key] = _mask_public_text(str(c[key]))
+        out.append(c)
+    return out
+
+
+def _mask_public_text(s: Any) -> str:
+    """Text bound for a PUBLIC log (a refusal reason that quotes a row's
+    attributes, a control's markup or hint): ``redact_text`` first, then
+    ``data-*id`` values, digit runs of 5+ and hex / uuid runs of 8+ masked
+    (review of #14216, round 4: a data-test-id "pos-<id>" on the row reached
+    the ``why`` string unmasked)."""
+    t = redact_text(str(s if s is not None else ""))
+    t = re.sub(r'(data-[\w-]*id[\w-]*=")[^"]*(")', r"\1#####\2", t, flags=re.I)
+    return re.sub(r"[0-9a-f]{8,}", "########", re.sub(r"\d{5,}", "#####", t), flags=re.I)
 
 
 def parse_price(text: Optional[str]) -> Optional[float]:
@@ -2757,6 +2885,13 @@ class DXtradeAdapter(PropPlatformAdapter):
                                  f"unpaired_body_rows={t.get('unpaired_body_rows')} "
                                  f"headerless_tables_rows={t.get('headerless_tables')} "
                                  f"first_row_controls={[r(c, 30) for c in (t.get('first_row_controls') or [])]}")
+                    # The controls' own markup, for a positions / orders row
+                    # only (a watchlist row's Buy / Sell buttons are not the
+                    # question): text-less icon buttons are told apart by
+                    # what they are called, and that is only visible here.
+                    if reads_as in ("positions", "orders") and t.get("first_row_control_html"):
+                        lines.append(f"dump_tables.table[{i}].first_row_control_html: "
+                                     f"{[r(h, 240) for h in t.get('first_row_control_html')]}")
                 # First 3 rows, and the last 3 when there are more (a history
                 # tab may list the newest fill at either end).
                 shown_rows = rows[:3] + (rows[-3:] if len(rows) > 6 else rows[3:6])
@@ -2927,7 +3062,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"ok": False, "clicked": False, "why": f"locate failed ({type(exc).__name__})"}
         if not loc.get("ok"):
-            return {"ok": False, "clicked": False, "why": loc.get("why") or "row not located", "rows": loc.get("rows")}
+            return {"ok": False, "clicked": False, "why": _mask_public_text(loc.get("why") or "row not located"), "rows": loc.get("rows")}
         facts = loc.get("facts") or {}
         bad = _row_facts_mismatch(facts, side, quantity, entry_price, rel_tol)
         if bad:
@@ -2940,11 +3075,11 @@ class DXtradeAdapter(PropPlatformAdapter):
         except Exception as exc:
             return {"ok": False, "clicked": False, "why": f"hover / controls failed ({type(exc).__name__})", "row": facts}
         if not ctl.get("ok"):
-            return {"ok": False, "clicked": False, "why": f"close control: {ctl.get('why')}", "row": facts,
-                    "controls": ctl.get("controls")}
+            return {"ok": False, "clicked": False, "why": _mask_public_text(f"close control: {ctl.get('why')}"), "row": facts,
+                    "controls": _mask_controls(ctl.get("controls"))}
         if not arm:
             return {"ok": True, "clicked": False, "why": "disarmed: stopped before the row's close control",
-                    "row": facts, "controls": ctl.get("controls"), "chosen": ctl.get("chosen")}
+                    "row": facts, "controls": _mask_controls(ctl.get("controls")), "chosen": ctl.get("chosen")}
         try:
             page.click("[data-metis-row-action]", timeout=5_000)
         except Exception as exc:
@@ -2958,7 +3093,7 @@ class DXtradeAdapter(PropPlatformAdapter):
         bad = _close_modal_mismatch(modal, symbol, side, quantity if quantity is not None else _f_or_none(facts.get("size")))
         if bad:
             discarded = self._discard_modal(page)
-            return {"ok": False, "clicked": True, "why": "close modal refused: " + "; ".join(bad) + (
+            return {"ok": False, "clicked": True, "why": _mask_public_text("close modal refused: " + "; ".join(bad)) + (
                 "; Discard pressed" if discarded else "; no Discard control found (modal may still be open)"),
                     "row": facts, "modal": modal}
         try:
