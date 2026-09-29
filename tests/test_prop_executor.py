@@ -2435,6 +2435,57 @@ def test_watched_close_refuses_a_close_under_any_clickable_ancestor(tpage, wrap)
     assert p.evaluate("document.getElementById('cm').style.display") == "none"
 
 
+@pytest.mark.parametrize("wrap,flag", [
+    ('<div class="reverseBtn" data-w>%s</div>', "__reverse"),                  # camelCase, word first
+    ('<div class="btnReverse" data-w>%s</div>', "__reverse"),                  # camelCase, word last
+    ('<div class="Row_reverseButton__a1b2c" data-w>%s</div>', "__reverse"),    # CSS-module hash
+    ('<div class="modifyOrder" data-w>%s</div>', "__modify"),
+    ('<span class="editPosition" data-w>%s</span>', "__modify"),
+    ('<div class="closeAll" data-w>%s</div>', "__closeall"),                   # a qualified close, camelCase
+    ('<div data-action="reverse" data-w>%s</div>', "__reverse"),               # named by data-action only
+    ('<div data-testid="reverse-position" data-w>%s</div>', "__reverse"),      # named by data-testid only
+    ('<div id="reversePosition" data-w>%s</div>', "__reverse"),                # named by id only
+])
+def test_watched_close_refuses_a_close_under_a_listener_ancestor_named_in_camelcase(tpage, wrap, flag):
+    # REGRESSION (review of #14216, round 5), ARMED: the wrapper has no
+    # onclick, tabindex or role — its handler is attached by addEventListener,
+    # so only its NAME can give it away, and at the word rule a camelCase name
+    # hid the word. The listener is proven live at the end: a direct click on
+    # the wrapper fires it, so the replica would have fired had it been pressed.
+    html = _close_page(icons=wrap % _CLOSE_BTN, cell=True).replace(
+        "</body>", "<script>document.querySelector('[data-w]').addEventListener('click', () => { window.%s = 1; });</script></body>" % flag)
+    p = tpage(html=html)
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False and "reverse / modify / qualified ancestor" in got["why"], got
+    assert _nothing_pressed(p) and p.evaluate("window.__closeall") is None
+    assert p.evaluate("document.querySelector('[data-metis-row-action]')") is None
+    assert p.evaluate("document.getElementById('cm').style.display") == "none"
+    p.evaluate("document.querySelector('[data-w]').click()")
+    assert p.evaluate(f"window.{flag}") == 1                                     # the probe was live
+
+
+def test_watched_close_refuses_a_close_icon_inside_a_control_named_by_data_action(tpage):
+    # the same three attributes are read on the control itself: a button whose
+    # only name is data-action="reverse" holding a close icon is not a close
+    icons = '<button data-action="reverse" onclick="window.__reverse=1"><svg class="icon icon-close"/></button>'
+    p = tpage(html=_close_page(icons=icons, cell=True))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and got["clicked"] is False and "0 close-type controls" in got["why"], got
+    assert _nothing_pressed(p)
+
+
+def test_watched_close_row_named_in_camelcase_keeps_the_word_rule(tpage):
+    # the row itself stays on the word rule, now camelCase-aware: "editableRow"
+    # is not the word edit (armed: Close Position confirmed), "reverseRow" is
+    p = tpage(html=_close_page(icons=_CLOSE_BTN, cell=True, tr_attrs='class="editableRow swappableRow"'))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is True and got["clicked"] is True and got["why"] == "Close Position confirmed", got
+    assert p.evaluate("window.__closed") == 1
+    p = tpage(html=_close_page(icons=_CLOSE_BTN, cell=True, tr_attrs='class="reverseRow"'))
+    got = DXtradeAdapter(timeout_ms=3_000).flatten(p, "SOLUSD", arm=True, side="long", quantity=0.01, entry_price=118.94)
+    assert got["ok"] is False and "qualified ancestor" in got["why"] and _nothing_pressed(p), got
+
+
 def test_watched_close_refuses_an_input_button_as_the_close_control(tpage):
     # an <input type=button|submit> can hold no children, so it can never be an
     # ancestor; as the close-named control itself it is not a pressable we press

@@ -1583,15 +1583,23 @@ CLOSE_ROW_JS = r"""
   // trio is three text-less <button>s (no title, no aria-label), so the
   // name of the icon inside is the only thing that says which one closes.
   const attr = (d, a) => d.getAttribute ? (d.getAttribute(a) || '') : '';
-  const tokens = s => (s || '').replace(/[-_./#:]+/g, ' ');
+  // Split on - _ . / # : AND on camelCase (review of #14216, round 5: the
+  // ancestor rule reads by word, so "reverseBtn", "btnReverse",
+  // "Row_reverseButton__a1b2c", "modifyOrder" and "closeAll" hid their
+  // word from it): "reverseBtn" reads as "reverse Btn", "XMLHttp" as "XML Http".
+  const tokens = s => (s || '').replace(/[-_./#:]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  // The attributes an element is CALLED by. data-testid / data-action / id
+  // added in round 5: <div data-action="reverse"> behind a framework
+  // listener names itself in no other attribute.
+  const NAME_ATTRS = ['class', 'href', 'xlink:href', 'data-icon', 'data-test-id', 'data-testid', 'data-action', 'name', 'id'];
+  const names = d => NAME_ATTRS.map(a => attr(d, a)).filter(Boolean);
   // Kept as PARTS (one per attribute of each element) as well as joined: the
   // qualified-close rule below reads each part on its own, so a class
   // "icon-close" followed by an href "#i-close" is not "close i".
   const labelParts = el => [el, ...el.querySelectorAll('*')].flatMap(d =>
     [d === el ? txt(el) : '', attr(d, 'title'), attr(d, 'aria-label')].filter(Boolean).map(norm));
-  const calledParts = el => [el, ...el.querySelectorAll('*')].flatMap(d =>
-    [attr(d, 'class'), attr(d, 'href'), attr(d, 'xlink:href'), attr(d, 'data-icon'), attr(d, 'data-test-id'), attr(d, 'name')]
-      .filter(Boolean).map(v => norm(tokens(v))));
+  const calledParts = el => [el, ...el.querySelectorAll('*')].flatMap(d => names(d).map(v => norm(tokens(v))));
   const label = el => labelParts(el).join(' ');
   const called = el => calledParts(el).join(' ');
   const hint = el => norm(label(el) + ' ' + called(el));
@@ -1684,15 +1692,21 @@ CLOSE_ROW_JS = r"""
         + 'input[type=button], input[type=submit], summary, label';
       const outer = c.parentElement ? c.parentElement.closest(CLICKY) : null;
       const ancestors = []; for (let a = c.parentElement; a && a !== row.parentElement; a = a.parentElement) ancestors.push(a);
-      const ancestorParts = ancestors.flatMap(a => [
+      const ownParts = a => [
         norm([attr(a, 'title'), attr(a, 'aria-label')].filter(Boolean).join(' ')),
-        norm(tokens([attr(a, 'class'), attr(a, 'href'), attr(a, 'xlink:href'), attr(a, 'data-icon'), attr(a, 'data-test-id'), attr(a, 'name')]
-          .filter(Boolean).join(' ')))].filter(Boolean));
-      // Ancestors are read by WORD (the row itself is one of them, and a row
-      // class such as "editable" or "swappable" must not refuse every row);
-      // the chosen control keeps the substring rule.
+        norm(tokens(names(a).join(' ')))].filter(Boolean);
+      // The ROW itself is read by WORD (a row class such as "editable" or
+      // "swappable" must not refuse every row). Every ancestor BETWEEN the
+      // control and the row is read by SUBSTRING, like the chosen control
+      // (review of #14216, round 5: at the word rule a wrapper "reverseBtn"
+      // or "modifyOrder" behind a framework listener — no onclick, tabindex
+      // or role to see — hid its word and the close under it was pressed).
+      // tokens() now splits camelCase too, so the word rule on the row sees
+      // "reverseButton" as well. A qualified close ("close all", "closeAll")
+      // anywhere on the way up disqualifies.
       const ANCESTOR_BAD_RE = /(^|\s)(reverse|flip|swap|⇄|⇆|↔|edit|modify|pencil|✎|✏)(\s|$)/i;
-      const badAncestor = ancestorParts.find(s => ANCESTOR_BAD_RE.test(s) || QUAL_RE.test(s));
+      const badAncestor = ancestors.flatMap(a => ownParts(a).filter(s =>
+        (a === row ? ANCESTOR_BAD_RE : BAD_RE).test(s) || QUAL_RE.test(s)))[0];
       // Bound for a public log (round 4: a data-test-id "pos-<id>" on the row
       // reached `why`): digit runs of 5+ and hex runs of 8+ masked here too.
       const maskText = s => (s || '').replace(/\d{5,}/g, '#####').replace(/[0-9a-f]{8,}/gi, '########');
