@@ -1,0 +1,18 @@
+<html><head><title>Breakout Terminal</title></head><body>
+<!-- SYNTHETIC (see README): a positions TABLE whose row shows a text-less
+     reverse / edit / close icon trio on hover, dxtrade's measured shape
+     (live test #14191) spelled in this terminal's header vocabulary. -->
+<div class="metrics"><div><span>Balance</span><span>5,012.40 USD</span></div></div>
+<div role="tablist"><div role="tab">Positions (2)</div></div>
+<table id="pos"><thead><tr><th>Market</th><th>Side</th><th>Size</th><th>Entry Price</th><th>TP/SL</th><th></th></tr></thead>
+<tbody>
+<tr data-test-id="pos-99887766"><td>BTCUSD</td><td>Long</td><td>0.01</td><td>65,100.0</td><td>67,000.0 / 64,000.0</td>
+  <td class="actions"><button class="icon-reverse" id="rev"><svg></svg></button><button class="icon-edit" id="edit"><svg></svg></button><button class="icon-close" id="close" data-test-id="pos-99887766-close"><svg></svg></button></td></tr>
+<tr><td>ETHUSD</td><td></td><td>-0.5</td><td>3,000</td><td>-- / --</td>
+  <td class="actions"><button class="icon-close" id="close2"><svg></svg></button></td></tr>
+</tbody></table>
+<script>
+window.__clicks = [];
+for (const b of document.querySelectorAll('button')) b.addEventListener('click', () => window.__clicks.push(b.id));
+</script>
+</body></html>
