@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01113oMBNikT5uJanU16K3yq",
+  "branch": "exit-ops/flag-shadow-fleet-queue-gap",
+  "claimed_at": "2026-09-29T10:03:02Z",
+  "purpose": "PR: file PI-20260929-EXITOPS-0004, shadow-fleet exit coverage has no automated path"
+}

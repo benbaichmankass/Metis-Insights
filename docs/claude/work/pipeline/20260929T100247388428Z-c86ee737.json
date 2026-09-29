@@ -1,0 +1,16 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "either the bundled row is exploded into per-leg rows with the 6 pending levers swept (dispatched manually, since automation cannot reach shadow legs), or the operator explicitly deprioritizes shadow-fleet exit coverage as a standing decision.",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-EXITOPS-0004",
+  "next_action": "dispatch_lane",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-OPS (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, exit-refinement sweep",
+    "rerun": "python3 scripts/research/queue_replenish.py --json | python3 -c \"import json,sys; d=json.load(sys.stdin); print('e35-bracket candidates', d['candidates'].get('e35-bracket'))\"  # candidates count is over live_roster_legs only; a shadow leg never appears there, reproducing the gap."
+  },
+  "state": "queued",
+  "what": "[research-tooling] The shadow-fleet bundled coverage-matrix row (\"shadow fleet (turtle_soup, fade_breakout_4h, vwap, trend_donchian_1h, *_prop)\") carries 6 of 9 lever cells at pending (trail_geometry, giveback_stop, exit_ladder, exit_head_ml, vol_trail, bracket_geometry) with no automated path to close them: scripts/research/queue_replenish.py's live_roster_legs source (which auto-generates e35-bracket and m20-exit-lever queue units every cycle) filters to execution==\"live\" only, so shadow legs are structurally excluded from the automated research-queue rotation that closed the equivalent gap for live legs (confirmed this session: ict_scalp_eth_15m, gld_pullback_1h etc. get auto-generated units; no shadow leg does or can under the current source). The row's own text already flags this as lower priority (\"no live orders; process before any promotion to live\") -- NOT urgent, no money at risk -- but nothing will ever close it without a manual dispatch, since the automation cannot reach it. Scope if picked up: dispatch m20-exit-lever-sweep.yml / e35-bracket-sweep.yml with --only for each of turtle_soup, fade_breakout_4h, vwap, trend_donchian_1h, and the *_prop legs, across the 6 pending levers -- a multi-hour, multi-dispatch campaign, not a quick check. Filed rather than hand-run this session: the real-money and soak legs this lane was dispatched to prioritize came first, and this is explicitly pre-promotion-gate work on legs carrying no live orders today."
+}
