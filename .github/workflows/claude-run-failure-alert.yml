@@ -118,6 +118,9 @@ on:
       # own date attached, so a stalled cron looks exactly like a quiet work
       # store to every session that reads it.
       - constraint-readout
+      # JC-SA-01 (2026-09-29): the daily grader. A dead run here is what
+      # left the graded hop silent 21 days.
+      - grade-closed-trades
       - strategy-review-packets
       - sunset-pass
       - trainer-vm-diag
