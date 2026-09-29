@@ -668,17 +668,10 @@ def run_backtest(df: pd.DataFrame, *, trend_lookback: int, pullback_lookback: in
         # that remainder — conservative). None on every harness-decided entry.
         _rest_hit = None
         if _ov is not None and _ov.get("rest_high") is not None:
-            _rh, _rl = float(_ov["rest_high"]), float(_ov["rest_low"])
-            if direction == "long":
-                if _rl <= sl:
-                    _rest_hit = (sl, "stop")
-                elif tp_price is not None and _rh >= tp_price:
-                    _rest_hit = (tp_price, "take_profit")
-            else:
-                if _rh >= sl:
-                    _rest_hit = (sl, "stop")
-                elif tp_price is not None and _rl <= tp_price:
-                    _rest_hit = (tp_price, "take_profit")
+            # The harness's ONE stop/target test (trail == sl here, so a hit
+            # reads "stop"); tests/test_backtest_trend_live_tp.py pins that it
+            # is the only SL-first site.
+            _rest_hit = _stop_or_target(float(_ov["rest_high"]), float(_ov["rest_low"]))
         for j in range(i + 1, min(i + timeout_bars + 1, n)) if _rest_hit is None else ():
             bh, bl = float(df["high"].iloc[j]), float(df["low"].iloc[j])
             # M20 partial-TP bank lever (0=off, byte-identical): bank
