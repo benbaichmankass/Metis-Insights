@@ -182,3 +182,9 @@ grading:
     re-registering is a post-hoc substitution, so it does not stand as this
     unit's verdict. No consequence is drawn for the ict_scalp exit line.
     The sample-size fix is registered as a NEW unit before any run.
+  follow_up: >-
+    PI-20260929-FCJRWVAK-0001. The per-year re-registration is power-limited
+    today: final fold (2026 YTD) holds 60 / 62 / 55 harness trades (SOL / XRP /
+    ETH) vs the 64 floor because the trainer's 15m candles end 2026-06-18
+    (MEASURED, trainer census #14398). Floor not lowered. Reachable after a
+    candle refresh plus a --fold-mode passthrough in m20_exit_head_round.py.
