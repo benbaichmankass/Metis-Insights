@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01WDQADTgoiLiDKc2PNSPdNU",
+  "branch": "claude/prop-paired-tables",
+  "claimed_at": "2026-09-29T07:21:09Z",
+  "purpose": "PROP-EXEC fix-forward #9: paired header/body tables (blind positions reader)"
+}
