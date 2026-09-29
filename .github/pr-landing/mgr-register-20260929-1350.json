@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register batch: MANAGER-CHECKLIST.json row states/notes plus four pipeline records (JC-SA-04 closed on the operator's verbatim 'Revoked'; JC-SA-07 routed to GUARD-PROOF-2; two new session-filed rows). Management surface only: no src/, scripts/, config, workflows or deploy."
+}

@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 2,
+    "clears_when": "the operator states both credentials are revoked (recorded verbatim on this item)",
+    "kind": "event"
+  },
+  "id": "PI-20260929-TWEW1FZJ-0005",
+  "next_action": "ask_operator",
+  "origin": {
+    "kind": "audit",
+    "ref": "docs/audits/system-audit-2026-09-29.md#jc-sa-04",
+    "rerun": "git fetch --unshallow origin; git log --all --oneline -- .env bybit_config.py test_bybit_keys.py | head"
+  },
+  "state": "done",
+  "terminal_reason": "Operator, verbatim, 2026-09-29 ~13:50Z in manager session session_01HYq6XtfesZ57VyaQrK6CL1, answering item 1 of the manager's list (\"JC-SA-04: revoke the leaked Telegram token and delete the Bybit testnet key\"): \"Revoked\". Recorded as both credentials revoked; per the audit no history rewrite is needed once revoked.",
+  "what": "JC-SA-04 (medium, AUD-7, operator-only credential act): a Telegram-bot-token-shaped string (.env @2c7818524, bybit_config.py @9ea895023) and a Bybit TESTNET key pair (test_bybit_keys.py @67f307e0) are in the public repo's git history; nothing in the repo establishes they were revoked. Operator: confirm the bot token was regenerated in @BotFather after the leak and the testnet key deleted. No history rewrite needed if revoked."
+}
