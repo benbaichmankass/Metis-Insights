@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01Pr6YRTQYauPEEkK1xNyyAQ",
+  "branch": "fix/sa-03-alpaca-rearm-scoped-cancel",
+  "claimed_at": "2026-09-29T11:16:34Z",
+  "purpose": "FIX-SA-03 step 3 scoped re-arm cancel"
+}

@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Manager register: lands the operator's MD-DEMOTE-S2-S1 decision record (PI-20260929-VOLSKIP-SIGNAL-0007, copied verbatim from #14218's branch) on main because #14272 cites it; operator token-type decision; new rows DEMOTE-T3, CI-TRAINING-TRIGGER, SKILL-ARCHIVE; one review-filed pipeline row. Management surface only."
+}
