@@ -762,6 +762,24 @@ def test_place_bracket_disarmed_fills_verifies_and_never_submits(tpage):
     assert p.evaluate("document.getElementById('sl').value") == "118"
     assert p.evaluate("window.__side") == "buy" and p.evaluate("window.__type") == "limit"
     assert p.evaluate("document.getElementById('ticket').style.display") == "none"  # closed
+    # Criterion D7 is read back: the dismiss clicked Cancel and the form is gone.
+    assert att.form["ticket_after"] == {"dismissed": True, "found": False, "values": {}, "toggles": {}, "selected": None}
+    assert pe._attempt_public(att)["ticket_after"]["found"] is False
+
+
+def test_disarmed_walk_reports_a_sidebar_that_stays_open_after_dismiss(tpage):
+    # A sidebar ticket with no Cancel control that ignores Escape: the walk
+    # reports what is left (our values, toggles still ON), it does not assume.
+    html = (TICKET_PAGE % "").replace(
+        '<button onclick="document.getElementById(\'ticket\').style.display=\'none\'">Cancel</button>', '')
+    assert "Cancel" not in html
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(tpage(html=html), SOL)
+    assert att.stage == "form_verified", att.detail
+    after = att.form["ticket_after"]
+    assert after["found"] is True and after["dismissed"] is True          # Escape was pressed, nothing closed
+    assert after["values"] == {"quantity": "0.5", "price": "120", "stop_loss": "118", "take_profit": "126"}
+    assert after["toggles"] == {"stop_loss": True, "take_profit": True}
+    assert after["selected"] == {"side": "buy", "order_type": "limit"}
 
 
 def test_place_bracket_armed_clicks_submit_exactly_once(tpage):
@@ -1953,3 +1971,112 @@ def test_place_bracket_refuses_a_side_button_outside_the_ticket_panel(tpage):
     att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
     assert att.stage == "refused" and att.detail.startswith("control outside the ticket panel: side_buy: at ["), att.detail
     assert p.evaluate("window.__submits") is None and p.evaluate("window.__side") is None
+
+
+# ── after the ARMED submit click: what appeared is RECORDED, never pressed
+# (live test #13987: the submit alone filled the order; the log said nothing
+# about the page after the click) ────────────────────────────────────────
+
+_MODAL = """
+<div id="modal" style="display:none;position:fixed;left:300px;top:300px;background:#fff">
+  <div>Order placed: Buy 0.01 SOLUSD at 118.94 (position 12345678)</div>
+  <button id="mc" onclick="window.__pressed=(window.__pressed||0)+1;document.getElementById('modal').style.display='none'">%s</button>
+  <button onclick="document.getElementById('modal').style.display='none'">Cancel</button>
+</div>
+"""
+
+
+def _modal_page(label="OK", submit_opens_modal=True):
+    html = TICKET_PAGE % ""
+    sub = '<button id="sub" onclick="window.__submits=(window.__submits||0)+1">Place Order</button>'
+    assert sub in html
+    if submit_opens_modal:
+        html = html.replace(sub, '<button id="sub" onclick="window.__submits=(window.__submits||0)+1;'
+                                 'document.getElementById(\'modal\').style.display=\'block\'">Place Order</button>')
+    return html.replace("</body>", (_MODAL % label) + "</body>")
+
+
+@pytest.mark.parametrize("label", ["OK", "Confirm", "Buy 0.5 SOLUSD at 120.0", "Sell"])
+def test_armed_submit_records_what_appeared_and_presses_nothing(tpage, label):
+    p = tpage(html=_modal_page(label))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    assert att.submitted is True and p.evaluate("window.__submits") == 1
+    assert p.evaluate("window.__pressed") is None                      # never a second click
+    after = att.form["after_submit"]
+    assert after["dialog_confirmed"] is False and after["why"] == "recorded only; nothing pressed"
+    assert [b["text"] for b in after["new_buttons"]] == [label, "Cancel"]
+    assert "Buy 0.01 SOLUSD at 118.94" in after["overlay_text"] and "12345678" not in after["overlay_text"]
+    pub = pe._attempt_public(att)
+    assert pub["after_submit"] == after and "12345678" not in json.dumps(pub)
+
+
+def test_armed_submit_with_nothing_new_records_an_empty_diff(tpage):
+    p = tpage(html=_modal_page(submit_opens_modal=False))
+    att = DXtradeAdapter(timeout_ms=3_000).place_bracket(p, SOL, arm=True)
+    after = att.form["after_submit"]
+    assert after["new_buttons"] == [] and after["overlay_text"] is None and after["dialogs"] == 0
+
+
+# ── the positions reader must be MEASURABLE against a live position ──────
+
+
+def test_dump_tables_lists_every_table_its_classification_and_masks_ids(tpage):
+    html = (TICKET_PAGE % "").replace("</body>", """
+<div class="tabs"><div data-active="true">Positions</div><div data-active="false">Orders</div></div>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Position Volume</th><th>Open Price</th><th>Position ID</th></tr></thead>
+<tbody><tr><td>SOLUSD</td><td>Buy</td><td>0.01</td><td>118.94</td><td>987654321</td></tr></tbody></table>
+<table><thead><tr><th>Symbol</th><th>Side</th><th>Size</th><th>Price</th><th>Order ID</th></tr></thead><tbody></tbody></table>
+</body>""")
+    lines = DXtradeAdapter(timeout_ms=3_000).dump_tables(tpage(html=html), ("secret-user",))
+    assert lines[0].startswith("dump_tables: BEGIN") and lines[-1] == "dump_tables: END"
+    assert "dump_tables.tab_like: ['Positions', 'Orders']" in lines
+    assert "dump_tables[Positions]: tab_click=True tables=3" in lines
+    assert any("reads_as=neither" in ln and "'Bid'" in ln for ln in lines)          # the watchlist
+    assert any("reads_as=positions rows=1" in ln and "'Position Volume'" in ln for ln in lines)
+    assert any("reads_as=orders rows=0" in ln and "'Order ID'" in ln for ln in lines)
+    row = next(ln for ln in lines if ln.startswith("dump_tables.row[") and "'Buy'" in ln)
+    assert "'SOLUSD', 'Buy', '0.01', '118.94', '#####'" in row and "987654321" not in "\n".join(lines)
+
+
+def test_login_check_passes_dump_tables_through():
+    src = (Path(__file__).resolve().parents[1] / "scripts" / "prop" / "breakout_login_check.py").read_text()
+    assert '"--dump-tables"' in src and "adapter.dump_tables(page, (username, password))" in src
+    sh = (Path(__file__).resolve().parents[1] / "scripts" / "ops" / "breakout_login_check_action.sh").read_text()
+    assert '*",dump-tables,"*) WANT_TABLES=1' in sh and 'ARGS+=(--dump-tables)' in sh
+
+
+# ── the round trip waits the 60 s criterion L2 registers, not 15 s ───────
+
+
+class LateFillAdapter(RTAdapter):
+    """The terminal shows the position only from the N-th read after submit."""
+
+    def __init__(self, late, **kw):
+        super().__init__(**kw)
+        self.late, self.reads_after_submit, self.submitted = late, 0, False
+
+    def place_bracket(self, page, spec, *, arm=False):
+        att = super().place_bracket(page, spec, arm=arm)
+        self.submitted = arm
+        return att
+
+    def read_positions(self, page):
+        if self.submitted and self.positions:
+            self.reads_after_submit += 1
+            if self.reads_after_submit < self.late:
+                return []
+        return list(self.positions)
+
+
+def test_round_trip_confirms_a_fill_that_lands_within_60s(tmp_path):
+    ad = LateFillAdapter(late=18)                     # 18 x 3 s = 54 s after submit
+    res = rt(ad, FakeApi(), tmp_path)
+    assert res.halted is None, res.actions
+    assert next(a for a in res.actions if a["what"] == "confirm_entry")["verdict"] == "open"
+
+
+def test_round_trip_still_stops_when_nothing_lands_within_60s(tmp_path):
+    ad = LateFillAdapter(late=30)                     # would land at 90 s
+    res = rt(ad, FakeApi(), tmp_path)
+    assert res.halted == "round trip stopped at entry (not_found)"
+    assert ad.reads_after_submit == 20

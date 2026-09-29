@@ -1412,6 +1412,47 @@ SUBMIT_JS = r"""
 }
 """
 
+# What the submit click PRODUCED (live test #13987, 2026-09-29: submit was
+# clicked, then no position and no order appeared, and the run log could not
+# say what the terminal showed). "tag": mark every visible button present
+# BEFORE the click. "diff": every visible button that was NOT there before
+# (a confirmation modal's Confirm / Cancel, a rejection notice's OK), each
+# with its text and box, plus the text of the smallest element holding all
+# of them. Digit runs of 5+ are masked so an account number can never reach
+# the run log (our own price / quantity are shorter); emails are masked.
+# Clicks nothing.
+POST_SUBMIT_JS = r"""
+(args) => {
+  const [op] = args;
+  const vis = el => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+  const btnSel = 'button, [role=button], input[type=submit]';
+  if (op === 'tag') {
+    document.querySelectorAll('[data-metis-pre]').forEach(e => e.removeAttribute('data-metis-pre'));
+    let n = 0;
+    for (const b of document.querySelectorAll(btnSel)) if (vis(b)) { b.setAttribute('data-metis-pre', '1'); n++; }
+    return {ok: true, tagged: n};
+  }
+  const red = s => String(s || '').replace(/\s+/g, ' ').replace(/\S+@\S+/g, '<email>').replace(/\d{5,}/g, '#####').trim();
+  const txt = el => red(el ? (el.innerText || el.textContent || '') : '');
+  const box = el => { const r = el.getBoundingClientRect();
+    return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]; };
+  const fresh = [...document.querySelectorAll(btnSel)].filter(b => vis(b) && !b.hasAttribute('data-metis-pre'));
+  document.querySelectorAll('[data-metis-new]').forEach(e => e.removeAttribute('data-metis-new'));
+  const out = {ok: true, new_buttons: [], overlay_text: null, dialogs: document.querySelectorAll('[role=dialog], [role=alertdialog]').length};
+  fresh.forEach((b, i) => {
+    b.setAttribute('data-metis-new', String(i));
+    out.new_buttons.push({i, text: (txt(b) || red(b.getAttribute('aria-label'))).slice(0, 80), box: box(b),
+                          disabled: !!(b.disabled || b.getAttribute('aria-disabled') === 'true')});
+  });
+  if (fresh.length) {
+    let e = fresh[0];
+    while (e && e !== document.body && !fresh.every(b => e.contains(b))) e = e.parentElement;
+    if (e && e !== document.body) out.overlay_text = txt(e).slice(0, 600);
+  }
+  return out;
+}
+"""
+
 # Finds ONE row of the orders or positions table by an exact key cell and ONE
 # control in it by an anchored pattern (text, aria-label or title), and tags
 # that control data-metis-row-action. Never clicks.
@@ -2378,7 +2419,9 @@ class DXtradeAdapter(PropPlatformAdapter):
         # with the attempt so the run log shows it. Nothing is gated on it.
         form = {**form, "one_click": self.read_one_click(page), "submit": submit_info, "fill_trace": trace}
         if not arm:
-            self.close_order_ticket(page)
+            # Criterion D7 (ticket reset / closed afterwards) is READ BACK, not
+            # assumed: what the dismiss did and what the form shows after it.
+            form["ticket_after"] = self._ticket_after(page)
             return PlaceAttempt(stage="form_verified", detail="disarmed: stopped before submit", form=form)
         # ── the one click that changes the account: the ticket's own submit ──
         # Click the element PROVEN a moment ago (its one-time token): a node
@@ -2386,14 +2429,100 @@ class DXtradeAdapter(PropPlatformAdapter):
         # attempt is reported unconfirmed (review of #13822).
         submit_sel = f"[data-metis-btn=submit][data-metis-submit-token={submit_info['token']}]"
         try:
+            page.evaluate(POST_SUBMIT_JS, ["tag"])
+        except Exception:
+            pass
+        try:
             page.click(submit_sel, timeout=5_000)
         except Exception as exc:
             # The click may or may not have landed: report submitted so the
             # caller treats it as UNCONFIRMED and re-reads; never resubmit.
             return PlaceAttempt(stage="submitted", submitted=True,
                                 detail=f"submit click raised {type(exc).__name__}; outcome unknown", form=form)
-        self._confirm_dialog(page)
+        confirmed = self._confirm_dialog(page)
+        # What the click produced, RECORDED on the attempt (live test #13987:
+        # the click filled 0.01 SOLUSD with both legs attached, the terminal
+        # asked for no confirmation, and the run log said nothing about the
+        # page after the click). Nothing here is pressed: this terminal places
+        # on the submit alone, so a second click could only ever be a second
+        # order.
+        form = {**form, "after_submit": self._after_submit(page, dialog_confirmed=confirmed)}
         return PlaceAttempt(stage="submitted", submitted=True, detail="submit clicked", form=form)
+
+    def _after_submit(self, page: Any, *, dialog_confirmed: bool) -> Dict[str, Any]:
+        """Read-only: every visible control that appeared after the submit
+        click (text, box, disabled) and the redacted text of the element
+        holding them (POST_SUBMIT_JS). Never clicks."""
+        out: Dict[str, Any] = {"dialog_confirmed": dialog_confirmed, "new_buttons": [], "overlay_text": None,
+                               "dialogs": None, "why": None}
+        try:
+            page.wait_for_timeout(300)
+            got = page.evaluate(POST_SUBMIT_JS, ["diff"]) or {}
+        except Exception as exc:
+            out["why"] = f"post-submit read failed ({type(exc).__name__})"
+            return out
+        out.update({k: got.get(k) for k in ("new_buttons", "overlay_text", "dialogs")})
+        out["why"] = "recorded only; nothing pressed"
+        return out
+
+    def dump_tables(self, page: Any, secrets: Sequence[str] = ()) -> List[str]:
+        """READ-ONLY diagnostic of the positions / orders read path (live test
+        #13987: a position the operator could see, 0.01 SOLUSD with both
+        legs, read back as 0 positions for 7 minutes, so the reader is blind
+        somewhere between the tab click, the table extraction and the
+        classification). For each view tab: the tab-like controls the page
+        shows, whether the tab click landed, then every table
+        EXTRACT_TABLES_JS finds (kind, headers, row count, first 3 rows) and
+        how the readers classify it. Every string is redacted; digit runs of
+        5+ are masked so a position id never reaches a public log. Clicks
+        only the view tabs, never a row control."""
+        def r(t: Any, n: int = 40) -> str:
+            return _cap(re.sub(r"\d{5,}", "#####", redact_text(str(t or ""), *secrets)), n)
+
+        lines: List[str] = ["dump_tables: BEGIN (read-only; ids masked)"]
+        try:
+            tabs = page.evaluate(
+                "() => [...document.querySelectorAll('[role=tab], [data-active]:not(button):not([role=button])')]"
+                ".map(e => (e.innerText || '').trim().replace(/\\s+/g, ' ').slice(0, 30)).filter(Boolean).slice(0, 20)")
+            lines.append(f"dump_tables.tab_like: {[r(t, 30) for t in (tabs or [])]}")
+        except Exception as exc:
+            lines.append(f"dump_tables.tab_like: FAILED ({type(exc).__name__})")
+        for key in ("tab_positions", "tab_orders"):
+            shown = self._show_tab(page, key)
+            tables = self._tables(page)
+            lines.append(f"dump_tables[{SELECTORS[key]}]: tab_click={shown} tables={len(tables)}")
+            for i, t in enumerate(tables):
+                headers = list(t.get("headers") or [])
+                reads_as = ("positions" if _is_positions_table(headers)
+                            else "orders" if _is_orders_table(headers) else "neither")
+                rows = t.get("rows") or []
+                lines.append(f"dump_tables.table[{i}] kind={t.get('kind')} reads_as={reads_as} rows={len(rows)} "
+                             f"headers={[r(h) for h in headers]}")
+                for row in rows[:3]:
+                    lines.append(f"dump_tables.row[{i}]: {[r(c) for c in row]}")
+        lines.append("dump_tables: END")
+        return lines
+
+    def _ticket_after(self, page: Any) -> Dict[str, Any]:
+        """Dismiss the ticket, then MEASURE what is left: whether a dismiss
+        control was clicked (else Escape), whether the form is still found,
+        and, if so, its typed fields' values and the SL / TP toggle states.
+        Our own numbers only, never account data. Nothing is judged here: a
+        sidebar that stays open with our values is reported, so the next
+        dry run's log shows what "reset" means on this terminal."""
+        closed = self.close_order_ticket(page)
+        try:
+            page.wait_for_timeout(300)
+        except Exception:
+            pass
+        after = self._find_form(page)
+        fields = after.get("fields") or {}
+        return {"dismissed": closed, "found": bool(after.get("found")),
+                "values": {k: (fields.get(k) or {}).get("value") for k in ("quantity", "stop_loss", "take_profit", "price")
+                           if k in fields},
+                "toggles": {t.get("field"): t.get("checked") for t in (after.get("checkboxes") or [])
+                            if t.get("field")},
+                "selected": after.get("selected")}
 
     @staticmethod
     def _fill_field(page: Any, key: str, value: float) -> None:

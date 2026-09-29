@@ -872,7 +872,7 @@ def run_cycle(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, mode: s
 
 def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, ledger: IntentLedger,
                    venue_symbol: str, side: str = "long", lots: Optional[float] = None,
-                   bracket_pct: float = 0.01, arm: bool = False, reads: int = 5,
+                   bracket_pct: float = 0.01, arm: bool = False, reads: int = 20,
                    sleep: Callable[[float], None] = lambda s: None,
                    now: Optional[datetime] = None) -> CycleResult:
     """The end-to-end test (operator 2026-09-28 ~13:40Z, relayed by the
@@ -961,7 +961,9 @@ def run_round_trip(*, adapter: Any, page: Any, api: Any, cfg: ExecutorConfig, le
         return stop(f"not submitted: {att.detail}")
     ledger.record(tid, "submitted", detail=att.detail)
 
-    # 1. confirm entry + both legs by re-read (a market fill's price is not ours: match symbol/side/qty)
+    # 1. confirm entry + both legs by re-read (a market fill's price is not ours: match symbol/side/qty).
+    #    ``reads`` x 3 s: 20 reads = the 60 s window criterion L2 registers
+    #    (live test #13987 stopped after 5 reads = 15 s).
     confirm_spec = {**spec.as_dict(), "limit_price": None}
     verdict, found = "not_found", {"orders": [], "positions": []}
     for _ in range(max(1, reads)):
@@ -1039,6 +1041,12 @@ def _attempt_public(att: PlaceAttempt) -> Dict[str, Any]:
             # after (our own numbers, never account data), so a run log says
             # which field the terminal reset and whether the re-fill stuck.
             "fill_trace": form.get("fill_trace"),
+            # After a DISARMED walk: what the dismiss did and what the form
+            # still shows (criterion D7, read back rather than assumed).
+            "ticket_after": form.get("ticket_after"),
+            # After an ARMED submit click: what appeared (new controls, the
+            # overlay's redacted text) and whether one confirmation was pressed.
+            "after_submit": form.get("after_submit"),
             # Where the ticket panel and its tagged controls sit (boxes only).
             "panel": {k: form.get(k) for k in ("panel_box", "fields_box", "button_boxes") if form.get(k)} or None,
             "ambiguous": form.get("ambiguous") or None}
