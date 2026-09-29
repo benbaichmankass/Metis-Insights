@@ -129,3 +129,34 @@ def test_closed_last_bar_is_not_dropped():
            "vol_pctl_window": WIN, "atr_period": 14, "timeframe": "2h"}
     out = resolve_vol_trail_mult({}, cfg, df, 5.0, "long")
     assert out == 2.5
+
+
+def test_real_shaped_monitor_frame_can_still_fire_after_the_drop():
+    # PI-20260929-VOLSKIP-0002: dropping the forming bar (the fix above)
+    # shrinks the frame by one -- a caller whose fetch is sized EXACTLY to
+    # the window (200) would leave only 199 closed bars, permanently under
+    # `win`, so the lever silently could never fire again. This is the
+    # regression guard: build a frame shaped exactly like what the live
+    # monitor now supplies (src.main._MONITOR_CANDLE_FETCH_LIMIT bars, last
+    # one forming) and prove the window is STILL satisfied after the drop.
+    import src.main as main_module
+
+    limit = main_module._MONITOR_CANDLE_FETCH_LIMIT
+    assert limit > WIN, (
+        "the monitor's fetch limit must exceed the default vol_pctl_window "
+        "or this guard (and the live lever) is meaningless"
+    )
+    # The TRUE last-closed bar (index -2, right before the forming one) is
+    # the hot one; the forming bar (index -1) is calm. If the window were
+    # starved by the drop, resolve_vol_trail_mult would return base_mult
+    # (5.0) UNCONDITIONALLY, regardless of any bar's content -- so a fired
+    # 2.5 here is only possible when (a) the forming bar was correctly
+    # dropped (else the calm forming bar would be scored, not the hot
+    # closed one) AND (b) the window was still satisfied after the drop.
+    ranges = [5.0] * (limit - 2) + [50.0] + [5.0]
+    df = _df_with_timestamps(ranges, tf="2h", forming_last=True)
+    cfg = {"trail_vol_above_pctl": 0.90, "trail_vol_tight_mult": 2.5,
+           "vol_pctl_window": WIN, "atr_period": 14, "timeframe": "2h"}
+    assert len(df) - 1 >= WIN  # sanity: the drop really does leave a full window
+    out = resolve_vol_trail_mult({}, cfg, df, 5.0, "long")
+    assert out == 2.5

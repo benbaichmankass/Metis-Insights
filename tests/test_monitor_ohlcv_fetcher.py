@@ -9,8 +9,8 @@ silently — see PR #566 RCA for the field evidence.
 These tests pin:
 
 1. The closure delegates to ``fetch_candles`` with the right kwargs
-   (the captured exchange client + ``limit=200`` + the call's
-   symbol/timeframe).
+   (the captured exchange client + ``limit=main_module._MONITOR_CANDLE_FETCH_LIMIT``
+   + the call's symbol/timeframe).
 2. Init-failure short-circuits to ``None`` rather than raising, so
    ``run_monitor_tick(ohlcv_fetcher=None)`` falls back to its prior
    no-change behaviour.
@@ -41,8 +41,8 @@ def fake_exchange():
 
 def test_fetcher_passes_captured_exchange_and_args(monkeypatch, fake_exchange):
     """The returned closure invokes ``fetch_candles`` with the
-    exchange built at construction time + ``limit=200`` + the
-    caller's ``(symbol, timeframe)`` pair.
+    exchange built at construction time + ``limit=_MONITOR_CANDLE_FETCH_LIMIT``
+    + the caller's ``(symbol, timeframe)`` pair.
 
     Pinning this contract keeps the monitor's market-data path in
     sync with ``pipeline._build_vwap_signal`` /
@@ -87,7 +87,7 @@ def test_fetcher_passes_captured_exchange_and_args(monkeypatch, fake_exchange):
     assert seen["symbol"] == "BTCUSDT"
     assert seen["timeframe"] == "5m"
     assert seen["exchange_client"] is fake_exchange
-    assert seen["limit"] == 200
+    assert seen["limit"] == main_module._MONITOR_CANDLE_FETCH_LIMIT
     # settings is forwarded so fetch_candles' fallback connector path
     # has the env it needs if the captured client is later evicted.
     assert seen["settings"] is settings

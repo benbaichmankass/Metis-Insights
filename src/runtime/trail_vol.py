@@ -114,7 +114,23 @@ def resolve_vol_trail_mult(
         if win <= 0:
             return base_mult
         if candles_df is None or len(candles_df) < win:
-            return base_mult  # window unfilled — fail-permissive (harness NaN)
+            # Fail-permissive (matches the harness's min_periods=window NaN),
+            # but LOGGED rather than a silent no-op (PI-20260929-VOLSKIP-0002):
+            # a declared-but-permanently-inert lever is indistinguishable from
+            # a shipped-and-working one to anyone not reading the logs, and
+            # that gap is exactly what let this go unnoticed once already
+            # (the caller's fetch limit was sized to the window with zero
+            # margin for the forming-bar drop above). A single, genuinely
+            # transient short fetch is expected and not alarming; a lever
+            # that logs this on every tick is the signal something is wrong
+            # with the caller's candle supply, not with this function.
+            n = 0 if candles_df is None else len(candles_df)
+            logger.info(
+                "trail_vol: window unfilled (have %d closed bars, need %d) "
+                "-- lever declared but cannot score this tick, base mult kept",
+                n, win,
+            )
+            return base_mult
 
         try:
             period = int(_pick("atr_period") or _DEFAULT_ATR_PERIOD)

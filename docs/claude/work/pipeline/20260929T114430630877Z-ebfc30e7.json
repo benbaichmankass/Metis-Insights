@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 14,
+    "clears_when": "already cleared -- kept for schema completeness on a terminal row.",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-VOLSKIP-0003",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-OPS (manager session_01HYq6XtfesZ57VyaQrK6CL1) fixing a finding from lane VOLSKIP-FORMING, PI-20260929-VOLSKIP-0002, 2026-09-29",
+    "rerun": "python3 -c \"import src.main as m; print('limit', m._MONITOR_CANDLE_FETCH_LIMIT, '> window 200:', m._MONITOR_CANDLE_FETCH_LIMIT > 200)\"  # and: python3 -m pytest tests/test_trail_vol_live.py::test_real_shaped_monitor_frame_can_still_fire_after_the_drop -q"
+  },
+  "state": "done",
+  "terminal_reason": "Fixed and tested on the #14101 branch before merge: named constant _MONITOR_CANDLE_FETCH_LIMIT=220 replaces the shared monitor fetch limit=200, window-unfilled path now logs instead of silently no-opping, and a new test (test_real_shaped_monitor_frame_can_still_fire_after_the_drop) proves the lever can still fire post-drop rather than just not crashing. 90+ existing tests re-verified green.",
+  "what": "[strategy][bug-fix] Confirmed and fixed PI-20260929-VOLSKIP-0002 (lane VOLSKIP-FORMING's finding, relayed via manager session_01HYq6XtfesZ57VyaQrK6CL1): #14101's drop_forming_bar fix in src/runtime/trail_vol.py, correct on its own, made the vol_trail lever PERMANENTLY, SILENTLY inert once live -- the monitor fetches candles via src.main._build_monitor_ohlcv_fetcher at exactly limit=200, the same as the default vol_pctl_window, so dropping one forming bar leaves 199 closed bars, always < 200, on every single tick. FIX (same #14101 branch, before merge): (1) src/main.py -- named constant _MONITOR_CANDLE_FETCH_LIMIT=220 (20-bar margin above the 200-bar default window), replacing the hardcoded limit=200 in the one shared _fetch closure every strategy monitor tick uses. (2) src/runtime/trail_vol.py -- the window-unfilled path now logs (logger.info, \"trail_vol: window unfilled...\") instead of a silent no-op, so a future insufficient-margin case is discoverable rather than invisible. (3) tests/test_monitor_ohlcv_fetcher.py updated to assert against the named constant rather than a hardcoded 200. (4) tests/test_trail_vol_live.py gained test_real_shaped_monitor_frame_can_still_fire_after_the_drop, which builds a frame shaped exactly like the live monitor's real fetch (imports src.main._MONITOR_CANDLE_FETCH_LIMIT directly, asserts limit > WIN as a guard against the same regression) and proves the lever can still fire after the drop, not just that it does not crash. 90+ existing tests across the trend/pullback/vol-trail suites re-verified green (no behavior change for any other lever or strategy from the fetch-limit bump)."
+}

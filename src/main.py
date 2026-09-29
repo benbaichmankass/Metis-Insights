@@ -465,6 +465,19 @@ def _start_exit_loop(settings: dict) -> None:
         logger.exception("exit_loop: FAILED TO START — exits ride nothing now")
 
 
+# The exit-monitor's own candle fetch limit — margin ABOVE the standard
+# window-based lever size (src.runtime.trail_vol._DEFAULT_WINDOW == 200),
+# not equal to it. PI-20260929-VOLSKIP-0002: a window-based lever (vol_trail)
+# must drop a still-forming last bar before scoring (CA-B01, train/live
+# parity — see trail_vol.py), so a fetch sized EXACTLY to the window leaves
+# one bar too few, EVERY tick, the instant a leg declares that lever — a
+# permanently, silently inert lever, not a transient shortfall. 20 bars of
+# margin covers the default 200-bar window with room to spare; a future
+# lever declaring a larger vol_pctl_window needs its own check against this
+# constant before shipping.
+_MONITOR_CANDLE_FETCH_LIMIT = 220
+
+
 def _build_monitor_ohlcv_fetcher(settings: dict):
     """Build the ``(symbol, timeframe) -> DataFrame | None`` fetcher
     that ``run_monitor_tick`` needs to feed strategy ``monitor()``
@@ -620,7 +633,7 @@ def _build_monitor_ohlcv_fetcher(settings: dict):
             symbol, timeframe,
             settings=settings,
             exchange_client=client,
-            limit=200,
+            limit=_MONITOR_CANDLE_FETCH_LIMIT,
         )
 
         if ib_routed:
