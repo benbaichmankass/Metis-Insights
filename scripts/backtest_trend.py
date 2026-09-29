@@ -33,7 +33,7 @@ import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import pandas as pd
 
@@ -256,7 +256,8 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
                  trail_vol_below_pctl: float = 0.0,
                  trail_vol_tight_mult: float = 0.0,
                  be_floor_r: float = 0.0,
-                 trades_out: Optional[List["Trade"]] = None) -> Dict[str, Any]:
+                 trades_out: Optional[List["Trade"]] = None,
+                 vol_pctl_override: Optional[Sequence[float]] = None) -> Dict[str, Any]:
     """Run the Donchian trend backtest and return its summary dict.
 
     ``trades_out`` — when a list is passed, the engine's ``Trade`` objects are
@@ -323,6 +324,15 @@ def run_backtest(df: pd.DataFrame, *, donchian: int, atr_period: int,
     if vol_skip_above_pctl > 0.0 or vol_skip_below_pctl > 0.0 or vol_trail_on:
         atr_pctl = df["atr"].rolling(vol_pctl_window,
                                      min_periods=vol_pctl_window).rank(pct=True)
+    # Research-only hook (None = byte-identical): replace the percentile the
+    # vol gate reads with an externally computed per-bar series (positional,
+    # len(df)). scripts/research/vol_skip_forming_bar_replay.py uses it to
+    # replay the gate on the percentile the LIVE frame sees when its last row
+    # is a still-forming bar (PI-20260929-EXITOPS-0005). NaN = never skip.
+    if vol_pctl_override is not None and atr_pctl is not None:
+        if len(vol_pctl_override) != len(df):
+            raise ValueError("vol_pctl_override must have one value per bar")
+        atr_pctl = pd.Series([float(v) for v in vol_pctl_override], dtype=float)
     # M20 P4.1 trail-decay is armed by R or by a stall in new favourable extremes;
     # `tight_mult <= 0` disables the whole lever (the effective mult stays
     # `trail_mult`, so the trail arithmetic below is unchanged).
