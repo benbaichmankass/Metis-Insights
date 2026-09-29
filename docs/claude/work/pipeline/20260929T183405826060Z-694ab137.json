@@ -1,0 +1,17 @@
+{
+  "due_when": {
+    "check_every_days": 30,
+    "clears_when": "already cleared by this record's own state=done; check_every_days is a floor in case a future sweep finds a genuinely non-inert fold",
+    "kind": "observation"
+  },
+  "id": "PI-20260929-EXITOPS-0009",
+  "next_action": "check_observation",
+  "origin": {
+    "kind": "session",
+    "ref": "lane EXIT-OPS (manager session_01HYq6XtfesZ57VyaQrK6CL1), 2026-09-29, continuing the coverage-matrix Stage-1 soak-tier survey",
+    "rerun": "python3 -c \"import json; r=[json.loads(l) for l in open('docs/research/m20-sweep-corpus.jsonl') if json.loads(l).get('leg')=='qqq_trend_long_1d' and json.loads(l).get('lever')=='vol_trail' and json.loads(l).get('cell')=='vt_hot90_t2' and json.loads(l).get('run_id','').startswith('2026-08-29')]; print([f['ok'] for f in r[0]['wf_folds']], [f.get('inert') for f in r[0]['wf_folds']])\"  # all-True inert list reproduces the finding"
+  },
+  "state": "done",
+  "terminal_reason": "Fixed in the same commit: coverage-matrix ref corrected inline (caveat added, status intentionally left passed_unshipped matching the gdx_pullback_1d precedent), base_is/base_oos filled in, corpus row committed to main, pinned test count corrected. Not proposed for Tier-3 -- nothing further needed unless a future measurement finds a genuinely non-inert fold.",
+  "what": "[research-infra][matrix-accuracy] qqq_trend_long_1d/vol_trail read passed_unshipped citing 'walk-forward 6/6' and 'Awaiting Tier-3 apply' -- both misleading. THIRD instance this session of the same underlying pattern (a leg-level or naive-count summary read as a genuine pass without checking fold-level detail; see also spy_pullback_1h/vol_trail corrected in #14322, and the pre-existing gdx_pullback_1d/vol_trail precedent this correction matches the convention of). VERIFIED: the two 2026-08-13 re-sweeps this ref cites both actually returned verdict=insufficient_base (base_oos 4, then 15 -- moving the split earlier shifted trades from IS to OOS without adding to the ~80-trade lifetime total, so no split choice clears the MIN_OOS_TRADES=25 floor via this leg's daily-timeframe trade cadence); the earlier 2026-08-10 base_oos=4 PASS they superseded was itself underpowered. The one run that DOES clear the floor (run_id 2026-08-29T10:47:02.683729+00:00, split 2017-07-19, lifetime 81, base_oos=40 -- previously lived only on the unmerged claude/m20-sweep-corpus branch, now committed to docs/research/m20-sweep-corpus.jsonl on main) shows ALL 6 of 6 walk-forward folds `inert` (d_net_r=0.0, d_max_dd=0.0 every year 2021-2026) -- wf_wins_effective reads '0/6', not the '6/6' the matrix ref claimed. The lever never fires once across the measured history; declaring it would be a live config change with zero behavioral effect. NOT proposed for Tier-3. Status intentionally left passed_unshipped (the gate formula did mechanically clear at n=40; the cell is silently misleading without the caveat, not factually wrong on its own field), matching this file's own gdx_pullback_1d/vol_trail precedent (5/6 inert, same treatment)."
+}

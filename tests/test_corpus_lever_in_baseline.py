@@ -74,12 +74,31 @@ CORPUS = REPO / "docs" / "research" / "m20-sweep-corpus.jsonl"
 # written) both grow the SAME baseline independently -- whichever merges
 # second needs a rebase and a re-measured total, not a naive sum of the two
 # deltas, since a merge can itself deduplicate or reorder rows.
+#
+# RE-MEASURED 2026-09-29 (same day, a later lane pass) when the corpus grew
+# 1379 -> 1382: three `qqq_trend_long_1d`/`vol_trail` rows (vt_hot90_t2,
+# vt_hot80_t2, vt_cold10_t2; run_id 2026-08-29T10:47:02.683729Z) landed via
+# `scripts/research/m20_corpus_union.py`, resolving a SECOND coverage-matrix
+# misclassification: the cell read `passed_unshipped` citing "walk-forward
+# 6/6" and "awaiting Tier-3 apply", but the fold-level detail on the one run
+# that actually clears MIN_OOS_TRADES=25 (base_oos=40) shows all 6 of 6 folds
+# `inert` (d_net_r=0.0 every year) -- wf_wins_effective reads "0/6", the
+# opposite of what the summary implied. Status intentionally left
+# `passed_unshipped` (matching the existing `gdx_pullback_1d`/`vol_trail`
+# precedent in the same file: a cell that mechanically clears the gate at an
+# inert cadence stays `passed_unshipped` with the caveat inline, not
+# `honest_negative`, since the gate formula genuinely passed). These three
+# rows' `declared_levers_present` is `["trail_decay"]` (qqq_trend_long_1d
+# does declare trail_decay) but never `"vol_trail"`, so `vol_trail` -- the
+# row's own lever -- is still absent from what's declared and all three
+# grade `lever_absent_from_baseline` (477 -> 480); `lever_in_baseline` (61),
+# `unknown` (841) and `EXPECTED_OWN_LEVER_DROPPED` (41) are all unmoved.
 EXPECTED_PARTITION = {
     "lever_in_baseline": 61,
-    "lever_absent_from_baseline": 477,
+    "lever_absent_from_baseline": 480,
     "unknown": 841,
 }
-EXPECTED_TOTAL = 1379
+EXPECTED_TOTAL = 1382
 # Rows where the row's own lever was DROPPED — the population the naive
 # predicate gets wrong, and the reason `dropped` is consulted first.
 EXPECTED_OWN_LEVER_DROPPED = 41
