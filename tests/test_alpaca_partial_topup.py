@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
 from src.runtime import order_monitor as om
 from src.units.accounts.alpaca_client import AlpacaClient
 
@@ -50,10 +52,23 @@ def _row(id_, sym, qty, sl, tp, created="2026-09-21T14:25:28+00:00"):
             "take_profit_1": tp, "created_at": created, "notes": None}
 
 
+@pytest.fixture(autouse=True)
+def _fresh_cooldown():
+    om._ALPACA_TOPUP_ATTEMPTS.clear()
+    yield
+    om._ALPACA_TOPUP_ATTEMPTS.clear()
+
+
 class _Venue(AlpacaClient):
-    def __init__(self, open_rows):
+    """Real grading code; only the HTTP hop is faked. `position` is what
+    GET /v2/positions/{sym} returns (the FRESH read); a POST that succeeds
+    makes the new OCO rest, as the venue would."""
+
+    def __init__(self, open_rows, position=None, post_rc=0):
         self.api_key, self.api_secret = "k", "s"
-        self.open_rows = open_rows
+        self.open_rows = list(open_rows)
+        self.position = position
+        self.post_rc = post_rc
         self.calls: list = []
 
     def _request(self, method, path, json_body=None):  # type: ignore[override]
@@ -62,7 +77,20 @@ class _Venue(AlpacaClient):
             return {"retCode": 0, "result": self.open_rows}
         if method == "GET" and "status=closed" in path:
             return {"retCode": 0, "result": []}
+        if method == "GET" and path.startswith("/v2/positions/"):
+            if self.position is None:
+                return {"retCode": 404, "retMsg": "position does not exist"}
+            return {"retCode": 0, "result": self.position}
         if method == "POST":
+            if self.post_rc:
+                return {"retCode": self.post_rc, "retMsg": "refused"}
+            b = json_body
+            self.open_rows.append(_oco(f"new-{len(self.calls)}", f"newstop-{len(self.calls)}",
+                                       int(b["qty"]), float(b["take_profit"]["limit_price"]),
+                                       float(b["stop_loss"]["stop_price"]), b["symbol"]))
+            if b["side"] == "buy":   # short book: legs buy back
+                self.open_rows[-1]["side"] = "buy"
+                self.open_rows[-1]["legs"][0]["side"] = "buy"
             return {"retCode": 0, "result": {"id": "topup-oco"}}
         return {"retCode": 0, "result": {}}
 
@@ -73,8 +101,11 @@ class _Venue(AlpacaClient):
         return [p for m, p, _ in self.calls if m == "DELETE"]
 
 
-def _run(venue, sym, size, rows):
-    cov = venue.protection_coverage(sym, position={"qty": str(size), "side": "long"})
+def _run(venue, sym, size, rows, side="long"):
+    pos = {"symbol": sym, "qty": str(size), "side": side}
+    if venue.position is None:
+        venue.position = pos
+    cov = venue.protection_coverage(sym, position=pos)
     return cov, om._alpaca_top_up_uncovered(None, venue, "alpaca_paper", sym, cov, rows, NOW)
 
 
@@ -102,7 +133,7 @@ def test_6024_portfolio_qqq_topped_up_for_56():
 
 
 def test_6131_paper_spy_topped_up_for_8():
-    v = _Venue(PAPER_SPY)
+    v = _Venue(PAPER_SPY, position={"symbol": "SPY", "qty": "19", "side": "long"})
     rows = [_row(5555, "SPY", 11, 744.48, 830.43, "2026-08-04T08:00:00+00:00"),
             _row(6131, "SPY", 8, 763.69357143, 840.652575, "2026-09-24T13:37:54+00:00")]
     cov = v.protection_coverage("SPY", position={"qty": "19", "side": "long"})
@@ -180,7 +211,7 @@ def test_sweep_tops_up_6023_and_leaves_the_sibling_oco(tmp_path, monkeypatch):
         def positions(self):
             return [{"symbol": "QQQ", "qty": "32", "side": "long"}]
 
-    v = _SweepVenue(PAPER_QQQ)
+    v = _SweepVenue(PAPER_QQQ, position={"symbol": "QQQ", "qty": "32", "side": "long"})
     monkeypatch.setattr("src.bot.data_loaders.list_accounts",
                         lambda: [{"account_id": "alpaca_paper", "exchange": "alpaca"}])
     monkeypatch.setattr("src.units.accounts.clients.alpaca_client_for", lambda acc: v)
@@ -195,3 +226,108 @@ def test_sweep_tops_up_6023_and_leaves_the_sibling_oco(tmp_path, monkeypatch):
     (body,) = v.posts()
     assert body["qty"] == "22" and body["stop_loss"]["stop_price"] == "716.80"
     assert v.deletes() == []
+
+
+
+# ---------------------------------------------------------------------------
+# REVIEW-14177: stale snapshot, short side, repeat sweep, truncated history,
+# side mismatch, refused-POST cooldown.
+# ---------------------------------------------------------------------------
+def _qqq_rows():
+    return [_row(5927, "QQQ", 10, 736.35, 787.33, "2026-09-18T16:09:37+00:00"),
+            _row(6023, "QQQ", 22, 716.79928571, 787.86214286)]
+
+
+def test_stale_snapshot_sibling_stop_filled_mid_sweep_refuses():
+    """Graded on the 32-share snapshot; by placement time 5927's 10-sh stop
+    has FILLED (position 22, its OCO gone). Placing 22 now would be right by
+    accident only if the grade still held — it does not, so refuse and let
+    the next sweep re-grade (which will see a fully naked 22 → naked re-arm)."""
+    v = _Venue(PAPER_QQQ)
+    pos = {"symbol": "QQQ", "qty": "32", "side": "long"}
+    cov = v.protection_coverage("QQQ", position=pos)
+    v.open_rows = []                                     # stop filled
+    v.position = {"symbol": "QQQ", "qty": "22", "side": "long"}
+    out = om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
+    assert out == "refused_state_changed"
+    assert v.posts() == [] and v.deletes() == []
+
+
+def test_position_gone_flat_before_placement_refuses():
+    v = _Venue(PAPER_QQQ)
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    v.position = None                                    # 404: flat now
+    out = om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
+    assert out.startswith("refused_") and v.posts() == []
+
+
+def test_short_side_top_up_buys_back():
+    """A short 22+10 TLT-style book: legs are BUY; the top-up is a BUY OCO."""
+    oco = _oco("11111111-0000-4000-8000-00000000000a", "11111111-0000-4000-8000-00000000000b",
+               10, 70.00, 90.00, "TLT")
+    oco["side"] = "buy"
+    oco["legs"][0]["side"] = "buy"
+    v = _Venue([oco])
+    rows = [dict(_row(5912, "TLT", 10, 90.0, 70.0, "2026-09-18T13:31:28+00:00"), direction="short"),
+            dict(_row(5913, "TLT", 22, 84.62, 74.67), direction="short")]
+    _cov, out = _run(v, "TLT", 32, rows, side="short")
+    assert out == "topped_up"
+    (body,) = v.posts()
+    assert body["side"] == "buy" and body["qty"] == "22"
+    assert body["stop_loss"]["stop_price"] == "84.62"
+
+
+def test_repeat_sweep_places_no_second_oco():
+    v = _Venue(PAPER_QQQ)
+    _cov, first = _run(v, "QQQ", 32, _qqq_rows())
+    assert first == "topped_up"
+    # Next sweep: the venue now shows the new OCO resting -> fully covered.
+    cov2 = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    assert cov2["stop_qty"] == 32
+    out2 = om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ", cov2, _qqq_rows(), NOW)
+    assert out2 == "refused_not_partial"
+    # And even if a read lagged and re-graded the old 10/32, the cooldown holds.
+    out3 = om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ",
+                                       {**cov2, "stop_qty": 10.0, "stop_leg_qtys": [10.0]},
+                                       _qqq_rows(), NOW)
+    assert out3 == "refused_cooldown"
+    assert len(v.posts()) == 1
+
+
+def test_refused_post_is_not_retried_every_tick():
+    v = _Venue(PAPER_QQQ, post_rc=403)
+    _cov, first = _run(v, "QQQ", 32, _qqq_rows())
+    assert first == "refused_by_venue"
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    second = om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
+    assert second == "refused_cooldown" and len(v.posts()) == 1
+
+
+def test_truncated_history_refuses(monkeypatch):
+    """REVIEW-14177 blocker b: a truncated closed-order scan may hide an old
+    bracket stop; the fresh read is None and the top-up refuses."""
+    from src.units.accounts import alpaca_client as ac
+    v = _Venue(PAPER_QQQ)
+    cov = v.protection_coverage("QQQ", position={"qty": "32", "side": "long"})
+    v.position = {"symbol": "QQQ", "qty": "32", "side": "long"}
+    monkeypatch.setattr(ac, "_FILLED_PARENT_SCAN_PAGE", 1)
+    monkeypatch.setattr(ac, "_FILLED_PARENT_SCAN_MAX_PAGES", 1)
+    real = v._request
+
+    def full_pages(method, path, json_body=None):
+        if "status=closed" in path:
+            v.calls.append((method, path, json_body))
+            return {"retCode": 0, "result": [{"id": "x", "symbol": "QQQ", "status": "filled",
+                                              "submitted_at": "2026-09-01T00:00:00Z", "legs": None}]}
+        return real(method, path, json_body)
+    v._request = full_pages
+    out = om._alpaca_top_up_uncovered(None, v, "alpaca_paper", "QQQ", cov, _qqq_rows(), NOW)
+    assert out == "refused_fresh_read_unavailable" and v.posts() == []
+
+
+def test_side_mismatch_refuses():
+    v = _Venue(PAPER_QQQ)
+    rows = [_row(5927, "QQQ", 10, 736.35, 787.33, "2026-09-18T16:09:37+00:00"),
+            dict(_row(6023, "QQQ", 22, 716.8, 787.86), direction="short")]
+    _cov, out = _run(v, "QQQ", 32, rows)
+    assert out == "refused_side_mismatch" and v.posts() == []
