@@ -495,7 +495,7 @@ def _pnl_contradicts_price_move(row: Any, evidence: str) -> Optional[str]:
       :data:`_SIGN_MOVE_FRAC` -- the FIX-CA-19 sanity guard from
       ``backfill_orphan_pnl._plan_row`` (a mismatched closed-pnl record).
 
-    Needs ``pnl``, ``entry_price``, ``exit_price``, ``position_size`` (+
+    Needs ``pnl``, ``entry_price``, ``exit_price``, ``position_size``/``qty`` (+
     ``direction`` for the sign test) as row keys; any missing => no demotion
     (we cannot check, so the source label stands). Returns ``None`` then.
     """
@@ -504,7 +504,11 @@ def _pnl_contradicts_price_move(row: Any, evidence: str) -> Optional[str]:
     exit_ = _row_float(row, "exit_price")
     if pnl is None or entry is None or exit_ is None or entry <= 0:
         return None
+    # `/performance` selects the size column AS `qty`; the journal calls it
+    # `position_size`. Read either, or the check is dead on that route.
     size = _row_float(row, "position_size")
+    if size is None:
+        size = _row_float(row, "qty")
     if (
         pnl == 0.0
         and "ib_execution" in evidence

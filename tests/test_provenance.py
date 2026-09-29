@@ -493,3 +493,10 @@ def test_demotion_only_touches_measured():
     # ESTIMATED with a contradicting sign keeps its (weaker) bucket
     row = _trade(source="candle_at_close", exit_price=4900.0, pnl=50.0)
     assert P.classify_pnl(row)[0] == P.ESTIMATED
+
+
+def test_zero_pnl_demotion_reads_the_performance_route_alias_qty():
+    # /api/bot/performance selects position_size AS qty
+    row = _trade(pnl=0.0)
+    row["qty"] = row.pop("position_size")
+    assert P.classify_pnl(row)[0] == P.UNVERIFIED
