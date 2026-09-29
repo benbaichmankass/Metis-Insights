@@ -1,0 +1,7 @@
+{
+  "tier": 1,
+  "landing": "hold",
+  "hold_reason": "unvouchable_paths",
+  "why": "FIX-SA-06 (docs/audits/system-audit-2026-09-29.md § 5). Adds 7 CONTRACTS rows to scripts/ci/check_collapsed_states.py (broker_truth.read_state, prop_reconcile.open_risk_state / day_pnl_state, ib_client.verify_state, prop_fills_staleness.balance_state, clients.query_state, diag_venue.read_state) and an opt-in producer_line_pattern key so a producer file that also consumes its own field cannot satisfy the contract from a branch line. Non-code edits to runtime files are comments only: five `# collapsed-state:` overrides on legitimate single-state consumers and one docstring correction in ib_client.py. No runtime behaviour changes.",
+  "hold_text": "The diff touches Tier-2 paths by name (diag.py, performance.py, trades_closed.py, ib_client.py) for comment/docstring edits only. Manager reviews and merges."
+}

@@ -955,6 +955,10 @@ def _aggregate(rows: List[sqlite3.Row], window: str, since: Optional[str]) -> Di
     # export, so an unrecorded account means nobody has reconciled it — never
     # that it reconciles. `readState: "unreadable"` means we could not look,
     # which is a third thing again.
+    # collapsed-state: unreadable — publishes the map's read_state VERBATIM as
+    # journalTrust.readState (all three values reach the response) and groups
+    # accounts by journal_trust_for's per-account verdict; it branches on no
+    # read_state value itself.
     _trust_map = journal_trust_map()
     _by_state: Dict[str, List[str]] = {}
     for _aid in sorted({str(_rget(r, "account_id") or "") for r in rows} - {""}):

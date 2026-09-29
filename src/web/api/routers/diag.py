@@ -2401,6 +2401,10 @@ async def get_exchange_positions(
                     logger.warning(
                         "get_exchange_positions: %s symbol read %s raised %s",
                         aid, want_symbol, exc)
+            # collapsed-state: could_not_look — forwards the venue helper's
+            # `query_state` VERBATIM into `symbol_read` (rows_returned / no_rows
+            # reach the response unchanged); the one branch of its own is the
+            # raised-read `could_not_look`.
             row["symbol_read"] = (
                 "not_bybit" if not is_bybit
                 else (books or {}).get("query_state") if isinstance(books, dict)
