@@ -1,0 +1,5 @@
+{
+  "tier": 1,
+  "landing": "self",
+  "why": "Pipeline record only: closes PI-20260929-SASEC-0001 with the observed result (gitleaks-history-weekly run 36603441932 green on main, 0 findings, after the baseline merged). One data file under docs/claude/work/pipeline/; no workflow, runtime or config."
+}
