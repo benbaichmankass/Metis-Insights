@@ -27,7 +27,10 @@ returned HTTP 400 -- a name present in `_LOG_FILES` as of `fced7279`. Control:
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 DIAG = ROOT / "src/web/api/routers/diag.py"
@@ -92,8 +95,6 @@ def test_the_deploy_script_records_why_its_assertion_used_to_be_vacuous():
 
 
 # --- FIX-SA-11: restart_pending is computed from the runtime-path diff --------
-import subprocess
-import pytest
 
 
 @pytest.fixture()
