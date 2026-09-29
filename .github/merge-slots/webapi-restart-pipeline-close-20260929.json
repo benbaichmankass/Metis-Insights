@@ -1,0 +1,6 @@
+{
+  "held_by": "lane-webapi-restart",
+  "branch": "claude/webapi-restart-pipeline-close-20260929",
+  "claimed_at": "2026-09-29T10:49:30Z",
+  "purpose": "Close PI-20260929-TARTLANE-0001 (vm-web-api-recover starvation) as done -- PR #14094 merged and observed working"
+}

@@ -360,6 +360,21 @@ have happened."* The rules are:
   cannot be reverted.
 - **A real-money promotion on the fee-only corpus stays blocked until D1.**
 
+⚠️ **"The data leaves the question open" is not itself a reason to ask**
+(operator directive, 2026-09-29, on PR #13698 — a promotion popup for a leg
+that was `execution: shadow` with an `insufficient_n` cost-fidelity verdict,
+which should never have reached the operator): *"either we have enough data
+to decide, or we don't and then getting that data becomes a task which needs
+to happen so that a decision can be made."* So before asking: is getting the
+missing data itself a well-defined task (a research-queue unit, a Stage-1
+soak placement, a longer accrual window)? If yes, **file it** — no popup —
+and only ask when the choice is genuinely a preference no data would settle.
+`scripts/ops/mandate_resolver.py` returns a third verdict, `NEEDS_DATA` (never
+`FIRE`, never a decisive `REFUSE`), naming the exact clause lacking evidence
+and auto-filing the pipeline row that gets it. Full classification:
+[`.claude/skills/manager/SKILL.md`](.claude/skills/manager/SKILL.md) §
+"Before any operator popup: classify the decision".
+
 Full terms: [`docs/CLAUDE-RULES-CANONICAL.md`](docs/CLAUDE-RULES-CANONICAL.md)
 § "Data-backed Tier-2/3 decisions".
 

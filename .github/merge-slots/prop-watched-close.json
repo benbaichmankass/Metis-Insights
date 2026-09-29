@@ -1,0 +1,6 @@
+{
+  "held_by": "session_01WDQADTgoiLiDKc2PNSPdNU",
+  "branch": "claude/prop-watched-close",
+  "claimed_at": "2026-09-29T07:42:23Z",
+  "purpose": "PROP-EXEC fix-forward #10: the watched close to the operator's flow"
+}

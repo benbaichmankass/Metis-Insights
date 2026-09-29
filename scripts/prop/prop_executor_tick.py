@@ -95,6 +95,10 @@ def resolve_mode(args: argparse.Namespace, env: Optional[Dict[str, str]] = None)
         if not getattr(args, "live", False):
             return "round_trip_dry"
         return "round_trip_live" if base == "live" else "not_armed"
+    if getattr(args, "close_position", ""):
+        if not getattr(args, "live", False):
+            return "close_position_dry"
+        return "close_position_live" if base == "live" else "not_armed"
     return base
 
 
@@ -124,6 +128,9 @@ def main(argv: Optional[list] = None) -> int:
     g.add_argument("--watched-click", action="store_true")
     g.add_argument("--round-trip", default="", metavar="VENUE_SYMBOL",
                    help="end-to-end test: min-size market bracket, confirm, close at market, confirm flat")
+    g.add_argument("--close-position", default="", metavar="VENUE_SYMBOL",
+                   help="close the ONE existing position for this symbol through the terminal's Close Position "
+                        "flow and journal it (refused unless PROP_EXECUTOR_MODE=live with --live; else a dry locate)")
     ap.add_argument("--lots", type=float, default=None,
                     help="round trip size (default and maximum: executor.watched_click_max_lots)")
     ap.add_argument("--side", choices=("long", "short"), default="long")
@@ -221,13 +228,20 @@ def main(argv: Optional[list] = None) -> int:
 
             api = pe.LocalApi(args.api_base, os.environ.get("DASHBOARD_API_TOKEN", "").strip())
             state_dir = Path(args.state_dir)
-            if mode.startswith("round_trip"):
-                res = pe.run_round_trip(
-                    adapter=adapter, page=page, api=api, cfg=cfg,
-                    ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
-                    venue_symbol=args.round_trip, side=args.side, lots=args.lots,
-                    arm=(mode == "round_trip_live"),
-                    sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
+            if mode.startswith("round_trip") or mode.startswith("close_position"):
+                if mode.startswith("close_position"):
+                    res = pe.run_close_position(
+                        adapter=adapter, page=page, api=api, cfg=cfg,
+                        ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
+                        venue_symbol=args.close_position, arm=(mode == "close_position_live"),
+                        sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
+                else:
+                    res = pe.run_round_trip(
+                        adapter=adapter, page=page, api=api, cfg=cfg,
+                        ledger=pe.IntentLedger(state_dir / "intent_ledger.jsonl"),
+                        venue_symbol=args.round_trip, side=args.side, lots=args.lots,
+                        arm=(mode == "round_trip_live"),
+                        sleep=lambda s: page.wait_for_timeout(int(s * 1000)))
                 emit({"reads": res.reads}, *secrets)
                 for key, items in (("action", res.actions), ("report", res.reports), ("alert", res.alerts)):
                     for it in items:

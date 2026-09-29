@@ -227,3 +227,23 @@ def test_live_queue_runnable_matches_dispatcher_decisions():
     from scripts.research.queue_grade import health
     h = health(REPO, now=now)
     assert h["runnable"] == len(runnable(units, now=now)) and h["queued"] == sum(dispatchable(u) for u in units.values())
+
+
+# ── the alarm refills before it pages (manager 2026-09-29 10:07Z) ────────────
+def test_the_dispatcher_alarm_refills_a_fillable_gap_and_pages_the_rest():
+    """Exit 3 from check_research_queue_health.py (fillable H1) must dispatch
+    research-queue-replenish.yml; any other non-zero exit must still page."""
+    import yaml
+    wf = yaml.safe_load((REPO / ".github/workflows/research-queue-dispatch.yml").read_text())
+    steps = wf["jobs"]["dispatch"]["steps"]
+    alarm = next(s for s in steps if s.get("name", "").startswith("Alarm if the dispatcher"))
+    run = alarm["run"]
+    assert 'HEALTH="$(python3 scripts/ci/check_research_queue_health.py' in run
+    assert '-eq 3 ]' in run and "gh workflow run research-queue-replenish.yml" in run
+    assert "-ne 0 ]" in run and "action=send-ping" in run
+    # the two branches are exclusive: the refill branch must not page and vice versa
+    refill_branch = run.split("-eq 3 ]")[1].split("elif")[0]
+    assert "send-ping" not in refill_branch
+    from scripts.ci import check_research_queue_health as hc
+    assert hc.EXIT_REFILL == 3
+    assert hc._exit_code(["H1-REFILL x"]) == 3 and hc._exit_code(["H1 x"]) == 1 and hc._exit_code(["H1-REFILL x", "H2 y"]) == 1

@@ -3643,6 +3643,89 @@ async def get_bybit_raw_positions(
     }
 
 
+@router.get("/alpaca_order_history")
+async def get_alpaca_order_history(
+    request: Request,
+    account_id: str,
+    order_ids: str | None = None,
+    after: str | None = None,
+    until: str | None = None,
+    symbols: str | None = None,
+    limit: int = 100,
+) -> dict[str, Any]:
+    """Read-only **Alpaca order history**: every status, bracket legs nested.
+
+    FIX-SA-03 step 1 (E75 audit). ``/alpaca_open_orders`` says what rests NOW;
+    this says what rested THEN -- each order's ``status`` and lifecycle
+    timestamps (``canceled_at``, ``replaced_at``, ``filled_at`` ...) with its
+    bracket/OCO legs under ``legs``. It is the read that decides whether a
+    position the naked sweep re-armed was actually naked at the broker.
+
+    Params: ``account_id`` (required, one Alpaca account), ``order_ids``
+    (comma-separated Alpaca order ids, looked up one by one), ``after`` /
+    ``until`` (ISO-8601), ``symbols`` (comma-separated), ``limit`` (1-500).
+    A malformed argument is a **400**, never forwarded to the broker.
+
+    ``read_state``: ``not_alpaca`` / ``could_not_look`` (``result: null``) /
+    ``orders_read``. Per-id lookups carry their own read_state in
+    ``result.by_id``. Places, patches and cancels NOTHING. Tier 2.5.
+    """
+    _require_diag_token(request)
+    try:
+        from src.units.accounts.clients import account_alpaca_order_history
+        from src.units.ui.data_loaders import list_accounts
+    except Exception as exc:  # noqa: BLE001  # allow-silent: logged + re-raised as 503 (not swallowed)
+        logger.warning("get_alpaca_order_history: import failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "data_loaders_unavailable", "detail": str(exc)},
+        ) from exc
+
+    accounts = _diag_accounts("get_alpaca_order_history", list_accounts, account_id)
+    acc = next((a for a in accounts if (a or {}).get("account_id") == account_id), None)
+    if acc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "unknown_account", "account_id": account_id},
+        )
+    is_alpaca = ((acc or {}).get("exchange") or "unknown").lower() == "alpaca"
+    ids = [i for i in (order_ids or "").split(",") if i.strip()]
+    syms = [s for s in (symbols or "").split(",") if s.strip()]
+    result: Any = None
+    err: str | None = None
+    if is_alpaca:
+        try:
+            result = await run_account_read(
+                functools.partial(
+                    account_alpaca_order_history, order_ids=ids, after=after,
+                    until=until, symbols=syms, limit=limit,
+                ),
+                acc,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "bad_argument", "detail": str(exc)},
+            ) from exc
+        except Exception as exc:  # noqa: BLE001  # allow-silent: surfaced in the payload (error + result=null), logged
+            err = f"{type(exc).__name__}: {exc}"
+            logger.warning("get_alpaca_order_history: %s raised %s", account_id, exc)
+    return {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "account_id": account_id,
+        "exchange": (acc or {}).get("exchange"),
+        "mode": (acc or {}).get("mode"),
+        "account_class": (acc or {}).get("account_class"),
+        "read_state": (
+            "not_alpaca" if not is_alpaca
+            else "orders_read" if isinstance(result, dict)
+            else "could_not_look"
+        ),
+        "result": result,
+        "error": err,
+    }
+
+
 @router.get("/alpaca_open_orders")
 async def get_alpaca_open_orders(
     request: Request,
